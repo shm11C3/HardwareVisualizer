@@ -24,7 +24,7 @@
 | Temperature Monitoring        | ⏳                 |
 | Fan Monitoring                | ⏳                 |
 | Customizable Chart Themes     | ✅                 |
-| Customizable Dashboard        | ✅                 |
+| Customizable Dashboard        | ⏳                 |
 | CustomizableBackground Image  | ⏳                 |
 
 ### Dashboard
