@@ -1,13 +1,13 @@
 # hardware-monitor
 
 <p align="left">
-  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/hardware-monitor?include_prereleases&display_name=release">
+  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/hardware-monitor?&display_name=release">
   <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/hardware-monitor/publish.yaml">
   <img alt="Windows Support Only" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/hardware-monitor/total">
 </p>
 
-<div align="center">
+<div align="center" style="padding-top: 6px;">
   <img alt="logo" src="https://github.com/user-attachments/assets/58f4837a-7059-412c-8440-88f4f1c3e09c">
 </div>
 
