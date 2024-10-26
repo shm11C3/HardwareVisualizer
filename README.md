@@ -1,21 +1,31 @@
 # hardware-monitor
 
 <p align="left">
-  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/hardware-monitor?include_prereleases&display_name=release">
+  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/hardware-monitor?&display_name=release">
   <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/hardware-monitor/publish.yaml">
   <img alt="Windows Support Only" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/hardware-monitor/total">
 </p>
 
+<div align="center" style="padding-top: 6px;">
+  <img alt="logo" src="https://github.com/user-attachments/assets/58f4837a-7059-412c-8440-88f4f1c3e09c">
+</div>
+
+
 ## Features
 
-| Feature                     | Status             | 
-|-----------------------------|--------------------|
-| CPU Usage Monitoring        | ✅                |
-| RAM Usage Monitoring        | ✅                |
-| GPU Usage Monitoring        | ✅ Nvidia only    |
-| Temperature Monitoring      | ⏳                |
-| Customizable Themes       　| ⏳            |
+| Feature                       | Status              | 
+|-------------------------------|-------------------- |
+| CPU Usage Monitoring          | ✅                 |
+| RAM Usage Monitoring          | ✅                 |
+| GPU Usage Monitoring (Nvidia) | ✅                 |
+| GPU Usage Monitoring (AMD)    | ⏳                 |
+| GPU Usage Monitoring (Intel)  | ⏳                 |
+| Temperature Monitoring        | ⏳                 |
+| Fan Monitoring                | ⏳                 |
+| Customizable Chart Themes     | ✅                 |
+| Customizable Dashboard        | ⏳                 |
+| CustomizableBackground Image  | ⏳                 |
 
 ### Dashboard
 
@@ -24,6 +34,11 @@
 ### Usage Graph
 
 ![image](https://github.com/user-attachments/assets/b8fa7d67-a015-487f-aeb4-f43306d28f54)
+
+### Custom Themes
+
+![image](https://github.com/user-attachments/assets/acb5a432-1339-4b29-a81c-590e87bd8b77)
+
 
 
 ## Development
