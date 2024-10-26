@@ -8,7 +8,7 @@
   },
   "bundle": {
     "active": true,
-    "category": "DeveloperTool",
+    "category": "Utility",
     "copyright": "",
     "targets": "all",
     "externalBin": [],
@@ -45,7 +45,7 @@
   },
   "productName": "hardware-monitor",
   "mainBinaryName": "hardware-monitor",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "identifier": "shm11C3.HardwareMonitor",
   "plugins": {},
   "app": {

@@ -13,8 +13,8 @@ lto = true
 [package]
 name = "hardware_monitor"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A real-time hardware monitoring tool for Windows"
+authors = ["@shm11C3"]
 license = ""
 repository = ""
 edition = "2021"
