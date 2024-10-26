@@ -215,12 +215,12 @@ const SettingColorReset = () => {
 const Settings = () => {
   return (
     <>
-      <div className="my-8 p-4">
+      <div className="mt-8 p-4">
         <h3 className="text-2xl font-bold py-3">General</h3>
         <SettingColorMode />
         <SettingGraphType />
       </div>
-      <div className="my-8 p-4">
+      <div className="mt-8 p-4">
         <h3 className="text-2xl font-bold py-3 px-2">Custom Theme</h3>
         <div className="xl:grid xl:grid-cols-6 gap-12 p-4">
           <div className="col-span-2 py-2">
