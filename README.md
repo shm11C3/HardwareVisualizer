@@ -7,9 +7,8 @@
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total">
 </p>
 
-<div align="center" style="padding-top: 6px;">
-  <img alt="logo" src="https://github.com/user-attachments/assets/2067cc20-d886-4480-91d0-5c801186e2b2">
-</div>
+![名称未設定-2](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
+
 
 ## Features
 
