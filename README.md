@@ -8,7 +8,7 @@
 </p>
 
 <div align="center" style="padding-top: 6px;">
-  <img alt="logo" src="https://github.com/user-attachments/assets/58f4837a-7059-412c-8440-88f4f1c3e09c">
+  <img alt="logo" src="https://github.com/user-attachments/assets/2067cc20-d886-4480-91d0-5c801186e2b2">
 </div>
 
 ## Features
