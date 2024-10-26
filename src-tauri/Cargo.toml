@@ -23,22 +23,22 @@ rust-version = "1.60"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-rc", features = [] }
+tauri-build = { version = "2.0.2", features = [] }
 
 [dependencies]
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.0.0-rc", features = [] }
+serde_json = "1.0.132"
+serde = { version = "1.0.213", features = ["derive"] }
+tauri = { version = "2.0.6", features = [] }
 sysinfo = "0.32.0"
 tauri-plugin-window-state = { version = "2.0.0-rc" }
 nvapi = "=0.1.4"
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.41.0", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = true, features = ["env-filter"]  }
 chrono = "0.4"
 wmi = "0.14"
 rust_decimal = "1.23.0"
-tauri-plugin-dialog = "2.0.0-rc"
+tauri-plugin-dialog = "2.0.3"
 tauri-plugin-store = "2.1.0"
 
 [features]
