@@ -1,3 +1,4 @@
+import { defaultColorRGB } from "@/consts/chart";
 import {
   getSettings,
   setDisplayTargets,
@@ -16,6 +17,7 @@ import type { ChartDataType } from "@/types/hardwareDataType";
 import type { Settings } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useEffect } from "react";
+
 const settingsAtom = atom<Settings>({
   language: "en",
   theme: "light",
@@ -24,9 +26,9 @@ const settingsAtom = atom<Settings>({
   lineGraphBorder: true,
   lineGraphFill: true,
   lineGraphColor: {
-    cpu: "rgb(75, 192, 192)",
-    memory: "rgb(255, 99, 132)",
-    gpu: "rgb(255, 206, 86)",
+    cpu: `rgb(${defaultColorRGB.cpu})`,
+    memory: `rgb(${defaultColorRGB.memory})`,
+    gpu: `rgb(${defaultColorRGB.gpu})`,
   },
   lineGraphMix: false,
   lineGraphShowLegend: true,

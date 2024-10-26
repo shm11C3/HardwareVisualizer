@@ -1,4 +1,5 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -9,9 +10,12 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { sizeOptions } from "@/consts/chart";
+import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
-import type { ChartDataType } from "@/types/hardwareDataType";
+import {
+  type ChartDataType,
+  chartHardwareTypes,
+} from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 
 const SettingGraphType = () => {
@@ -179,6 +183,29 @@ const SettingColorInput = ({
   );
 };
 
+const SettingColorReset = () => {
+  const { updateLineGraphColorAtom } = useSettingsAtom();
+
+  const updateGraphColor = async () => {
+    await Promise.all(
+      chartHardwareTypes.map((type) =>
+        updateLineGraphColorAtom(type, RGB2HEX(defaultColorRGB[type])),
+      ),
+    );
+  };
+
+  return (
+    <Button
+      onClick={() => updateGraphColor()}
+      className="mt-4"
+      variant="secondary"
+      size="lg"
+    >
+      Reset
+    </Button>
+  );
+};
+
 const Settings = () => {
   return (
     <>
@@ -213,6 +240,7 @@ const Settings = () => {
             <SettingColorInput label="CPU" hardwareType="cpu" />
             <SettingColorInput label="RAM" hardwareType="memory" />
             <SettingColorInput label="GPU" hardwareType="gpu" />
+            <SettingColorReset />
           </div>
         </div>
       </div>
