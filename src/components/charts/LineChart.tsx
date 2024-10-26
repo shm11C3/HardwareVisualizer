@@ -161,10 +161,18 @@ const LineChart = ({
     },
   });
 
+  const chartAreaVariants = tv({
+    variants: {
+      border: {
+        true: "border-2 rounded-xl border-slate-400 dark:border-zinc-600",
+      },
+    },
+  });
+
   return (
     <div className={graphVariants({ size: settings.graphSize })}>
       <Line
-        className="border-2 rounded-xl border-slate-400 dark:border-zinc-600 border-ra "
+        className={chartAreaVariants({ border: settings.lineGraphBorder })}
         ref={chartRef}
         data={data[dataType]}
         options={options}
