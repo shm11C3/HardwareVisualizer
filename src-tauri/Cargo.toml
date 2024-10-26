@@ -11,7 +11,7 @@ overflow-checks = true
 lto = true
 
 [package]
-name = "hardware_monitor"
+name = "hardware_visualizer"
 version = "0.1.0"
 description = "A real-time hardware monitoring tool for Windows"
 authors = ["@shm11C3"]

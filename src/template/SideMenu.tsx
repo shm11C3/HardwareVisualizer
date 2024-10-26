@@ -88,7 +88,7 @@ const SideMenu = () => {
         <div className={sideMenuClasses({ open: isOpen })}>
           <ul className="p-4">
             <li className="mb-4">
-              <h2 className="text-xl font-bold">Hardware Monitor</h2>
+              <h2 className="text-xl font-bold">HardwareVisualizer</h2>
             </li>
             <MenuItem type="dashboard" />
             <MenuItem type="usage" />

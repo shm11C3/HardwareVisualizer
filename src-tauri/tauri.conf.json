@@ -43,16 +43,16 @@
       }
     }
   },
-  "productName": "hardware-monitor",
-  "mainBinaryName": "hardware-monitor",
+  "productName": "HardwareVisualizer",
+  "mainBinaryName": "hardware-visualizer",
   "version": "0.1.0",
-  "identifier": "shm11C3.HardwareMonitor",
+  "identifier": "HardwareVisualizer",
   "plugins": {},
   "app": {
     "windows": [
       {
         "resizable": true,
-        "title": "hardware-monitor",
+        "title": "HardwareVisualizer",
         "decorations": true
       }
     ],
