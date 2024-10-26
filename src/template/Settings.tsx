@@ -10,6 +10,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { sizeOptions } from "@/consts/chart";
+import { RGB2HEX } from "@/lib/color";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 
@@ -160,10 +161,7 @@ const SettingColorInput = ({
   };
 
   // カンマ区切りのRGB値を16進数に変換
-  const hexValue = `#${settings.lineGraphColor[hardwareType]
-    .split(",")
-    .map((value) => Number(value).toString(16))
-    .join("")}`;
+  const hexValue = RGB2HEX(settings.lineGraphColor[hardwareType]);
 
   return (
     <div className="grid grid-cols-5 gap-4 py-6">
