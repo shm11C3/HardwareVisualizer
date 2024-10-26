@@ -123,34 +123,20 @@ const SingleLineChart = ({
   const legendItems: Record<ChartDataType, LegendItem> = {
     cpu: {
       label: "CPU",
-      icon: (
-        <Cpu
-          size={20}
-          color={`rgb(${settings.lineGraphColor.cpu})`}
-          className="text-teal-400"
-        />
-      ),
+      icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
       datasetIndex: 0,
     },
     memory: {
       label: "Memory",
       icon: (
-        <Memory
-          size={20}
-          color={`rgb(${settings.lineGraphColor.memory})`}
-          className="text-pink-400"
-        />
+        <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
       ),
       datasetIndex: 1,
     },
     gpu: {
       label: "GPU",
       icon: (
-        <GraphicsCard
-          size={20}
-          color={`rgb(${settings.lineGraphColor.gpu})`}
-          className="text-yellow-400"
-        />
+        <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
       ),
       datasetIndex: 2,
     },
@@ -164,9 +150,11 @@ const SingleLineChart = ({
         data={data[dataType]}
         options={options}
       />
-      <div className="flex justify-center mt-4 mb-2">
-        <CustomLegend item={legendItems[dataType]} />
-      </div>
+      {settings.lineGraphShowLegend && (
+        <div className="flex justify-center mt-4 mb-2">
+          <CustomLegend item={legendItems[dataType]} />
+        </div>
+      )}
     </div>
   );
 };
@@ -209,41 +197,35 @@ const MixLineChart = ({
     ],
   };
 
-  const legendItems: LegendItem[] = [
-    {
+  const legendItems: LegendItem[] = [];
+
+  if (settings.displayTargets.includes("cpu")) {
+    legendItems.push({
       label: "CPU",
-      icon: (
-        <Cpu
-          size={20}
-          color={`rgb(${settings.lineGraphColor.cpu})`}
-          className="text-teal-400"
-        />
-      ),
+      icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
       datasetIndex: 0,
-    },
-    {
+    });
+  }
+
+  if (settings.displayTargets.includes("memory")) {
+    legendItems.push({
       label: "Memory",
       icon: (
-        <Memory
-          size={20}
-          color={`rgb(${settings.lineGraphColor.memory})`}
-          className="text-pink-400"
-        />
+        <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
       ),
       datasetIndex: 1,
-    },
-    {
+    });
+  }
+
+  if (settings.displayTargets.includes("gpu")) {
+    legendItems.push({
       label: "GPU",
       icon: (
-        <GraphicsCard
-          size={20}
-          color={`rgb(${settings.lineGraphColor.gpu})`}
-          className="text-yellow-400"
-        />
+        <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
       ),
       datasetIndex: 2,
-    },
-  ];
+    });
+  }
 
   return (
     <div className={graphVariants({ size: settings.graphSize })}>
@@ -253,11 +235,13 @@ const MixLineChart = ({
         data={data}
         options={options}
       />
-      <div className="flex justify-center mt-4 mb-2">
-        {legendItems.map((item) => (
-          <CustomLegend key={item.datasetIndex} item={item} />
-        ))}
-      </div>
+      {settings.lineGraphShowLegend && (
+        <div className="flex justify-center mt-4 mb-2">
+          {legendItems.map((item) => (
+            <CustomLegend key={item.datasetIndex} item={item} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
