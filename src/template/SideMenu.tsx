@@ -6,7 +6,7 @@ import { memo, useCallback } from "react";
 import { tv } from "tailwind-variants";
 
 const buttonClasses = tv({
-  base: "fixed top-0 rounded-xl hover:bg-gray-700 p-2 transition-all",
+  base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all",
   variants: {
     open: {
       true: "left-64",
@@ -16,7 +16,7 @@ const buttonClasses = tv({
 });
 
 const sideMenuClasses = tv({
-  base: "fixed top-0 left-0 h-full bg-gray-800 text-white w-64 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full bg-zinc-300 dark:bg-gray-800 dark:text-white w-64 transform transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "translate-x-0",
@@ -29,8 +29,9 @@ const menuItemClasses = tv({
   base: "mb-2 rounded-lg transition-colors",
   variants: {
     selected: {
-      true: "text-white font-bold",
-      false: "text-slate-400 hover:text-slate-100",
+      true: "dark:text-white font-bold",
+      false:
+        "text-neutral-700 dark:text-slate-400 hover:text-slate-400 dark:hover:text-neutral-200",
     },
   },
 });

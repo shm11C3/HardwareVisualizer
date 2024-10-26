@@ -37,7 +37,7 @@ const Page = () => {
     if (settings.theme) {
       toggle(settings.theme === "dark");
     }
-  }, [settings?.theme, toggle]);
+  }, [settings.theme, toggle]);
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
@@ -55,7 +55,7 @@ const Page = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="bg-slate-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
+      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
         <SideMenu />
         {displayTargets[settings.state.display]}
       </div>

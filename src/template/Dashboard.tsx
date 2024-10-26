@@ -11,21 +11,14 @@ import ProcessesTable from "@/components/charts/ProcessTable";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
 
-const InfoTable = ({
-  title,
-  data,
-}: {
-  title?: string;
-  data: { [key: string]: string | number };
-}) => {
+const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   return (
-    <div className="p-4 border rounded-md shadow-md bg-gray-800 text-white">
-      {title && <h4 className="text-xl font-bold mb-2">{title}</h4>}
+    <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
       <table className="w-full text-left">
         <tbody>
           {Object.keys(data).map((key) => (
             <tr key={key} className="border-b border-gray-700">
-              <th className="pr-4 py-2 text-gray-400">{key}</th>
+              <th className="pr-4 py-2 dark:text-gray-400">{key}</th>
               <td className="py-2">{data[key]}</td>
             </tr>
           ))}
@@ -38,7 +31,7 @@ const InfoTable = ({
 const DataArea = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="p-4">
-      <div className="border rounded-2xl border-zinc-600">
+      <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600">
         <div className="p-4">{children}</div>
       </div>
     </div>

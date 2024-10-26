@@ -111,7 +111,11 @@ const SettingLineChartSize = () => {
       />
       <div className="flex justify-between items-center text-sm mt-2">
         {sizeOptions.map((size) => (
-          <DotOutline key={size} className="text-gray-400" size={32} />
+          <DotOutline
+            key={size}
+            className="text-slate-600 dark:text-gray-400"
+            size={32}
+          />
         ))}
       </div>
     </div>
@@ -139,7 +143,7 @@ const SettingGraphSwitch = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4 py-3">
-        <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4">
+        <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
           <div className="space-y-0.5">
             <Label htmlFor={type} className="text-lg">
               {label}

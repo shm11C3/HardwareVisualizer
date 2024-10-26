@@ -264,8 +264,13 @@ export const LineChart = (props: SingleChartProps | MultiChartProps) => {
         display: settings.lineGraphShowScale,
         suggestedMin: 0,
         suggestedMax: 100,
-        grid: { color: "rgba(255, 255, 255, 0.2)" },
-        ticks: { color: "#fff" },
+        grid: {
+          color: {
+            light: "rgba(96, 96, 96, 0.8)",
+            dark: "rgba(255, 255, 255, 0.2)",
+          }[settings.theme],
+        },
+        ticks: { color: { light: "#77777", dark: "#fff" }[settings.theme] },
       },
     },
     elements: {
