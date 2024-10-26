@@ -13,12 +13,14 @@ const labels = Array(chartConfig.historyLengthSec).fill("");
 
 const CpuUsageChart = () => {
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
+  const { settings } = useSettingsAtom();
 
   return (
     <LineChart
       labels={labels}
       chartData={cpuUsageHistory}
       dataType="cpu"
+      size={settings.graphSize}
       lineGraphMix={false}
     />
   );
@@ -26,12 +28,14 @@ const CpuUsageChart = () => {
 
 const MemoryUsageChart = () => {
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
+  const { settings } = useSettingsAtom();
 
   return (
     <LineChart
       labels={labels}
       chartData={memoryUsageHistory}
       dataType="memory"
+      size={settings.graphSize}
       lineGraphMix={false}
     />
   );
@@ -39,12 +43,14 @@ const MemoryUsageChart = () => {
 
 const GpuUsageChart = () => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
+  const { settings } = useSettingsAtom();
 
   return (
     <LineChart
       labels={labels}
       chartData={graphicUsageHistory}
       dataType="gpu"
+      size={settings.graphSize}
       lineGraphMix={false}
     />
   );
@@ -66,6 +72,7 @@ const MixUsageChart = () => {
       gpuData={
         settings.displayTargets.includes("gpu") ? graphicUsageHistory : []
       }
+      size={settings.graphSize}
       lineGraphMix={true}
     />
   );

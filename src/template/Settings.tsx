@@ -1,4 +1,5 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { PreviewChart } from "@/components/charts/Preview";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -168,7 +169,7 @@ const SettingColorInput = ({
   const hexValue = RGB2HEX(settings.lineGraphColor[hardwareType]);
 
   return (
-    <div className="grid grid-cols-5 gap-4 py-6">
+    <div className="grid grid-cols-2 gap-4 py-6">
       <Label htmlFor={hardwareType} className="text-lg">
         {label}
       </Label>
@@ -215,10 +216,10 @@ const Settings = () => {
         <SettingGraphType />
       </div>
       <div className="my-8 p-4">
-        <h3 className="text-2xl font-bold py-3">Custom Theme</h3>
-        <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">
-          {/** TODO 横にグラフのプレビューを出したい */}
-          <div className="w-4/5">
+        <h3 className="text-2xl font-bold py-3 px-2">Custom Theme</h3>
+        <div className="xl:grid xl:grid-cols-6 gap-12 p-4">
+          <div className="col-span-2 py-2">
+            <h4 className="text-xl font-bold">Graph Style</h4>
             <SettingGraphSwitch
               label="Line Chart Border"
               type="lineGraphBorder"
@@ -235,12 +236,19 @@ const Settings = () => {
             />
             <SettingLineChartSize />
           </div>
-          <div className="w-4/5">
+          <div className="col-span-1 py-2">
             <h4 className="text-xl font-bold">Line Color</h4>
-            <SettingColorInput label="CPU" hardwareType="cpu" />
-            <SettingColorInput label="RAM" hardwareType="memory" />
-            <SettingColorInput label="GPU" hardwareType="gpu" />
+            <div className="md:flex lg:block">
+              <SettingColorInput label="CPU" hardwareType="cpu" />
+              <SettingColorInput label="RAM" hardwareType="memory" />
+              <SettingColorInput label="GPU" hardwareType="gpu" />
+            </div>
+
             <SettingColorReset />
+          </div>
+          <div className="col-span-3 py-2 ml-10">
+            <h4 className="text-xl font-bold">Preview</h4>
+            <PreviewChart />
           </div>
         </div>
       </div>

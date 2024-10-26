@@ -1,4 +1,5 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import type { sizeOptions } from "@/consts/chart";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import {
@@ -23,6 +24,7 @@ type SingleChartProps = {
   labels: string[];
   chartData: number[];
   dataType: ChartDataType;
+  size: (typeof sizeOptions)[number];
   lineGraphMix: false;
 };
 
@@ -31,6 +33,7 @@ type MultiChartProps = {
   cpuData: number[];
   memoryData: number[];
   gpuData: number[];
+  size: (typeof sizeOptions)[number];
   lineGraphMix: true;
 };
 
@@ -73,6 +76,7 @@ const SingleLineChart = ({
   labels,
   chartData,
   dataType,
+  size,
   options,
 }: SingleChartProps & {
   options: ChartOptions<"line">;
@@ -143,7 +147,7 @@ const SingleLineChart = ({
   };
 
   return (
-    <div className={graphVariants({ size: settings.graphSize })}>
+    <div className={graphVariants({ size })}>
       <Line
         className={chartAreaVariants({ border: settings.lineGraphBorder })}
         ref={chartRef}
@@ -164,6 +168,7 @@ const MixLineChart = ({
   cpuData,
   memoryData,
   gpuData,
+  size,
   options,
 }: MultiChartProps & { options: ChartOptions<"line"> }) => {
   const { settings } = useSettingsAtom();
@@ -228,7 +233,7 @@ const MixLineChart = ({
   }
 
   return (
-    <div className={graphVariants({ size: settings.graphSize })}>
+    <div className={graphVariants({ size })}>
       <Line
         className={chartAreaVariants({ border: settings.lineGraphBorder })}
         ref={chartRef}
