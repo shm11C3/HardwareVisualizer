@@ -245,7 +245,7 @@ const Settings = () => {
             <h4 className="text-xl font-bold">Line Color</h4>
             <div className="md:flex lg:block">
               <SettingColorInput label="CPU" hardwareType="cpu" />
-              <SettingColorInput label="RAM" hardwareType="memory" />
+              <SettingColorInput label="Memory" hardwareType="memory" />
               <SettingColorInput label="GPU" hardwareType="gpu" />
             </div>
 

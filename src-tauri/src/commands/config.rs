@@ -249,7 +249,7 @@ impl Settings {
       }
     }
 
-    self.write_file();
+    let _ = self.write_file();
 
     match key {
       hardware::HardwareType::CPU => Ok(
@@ -324,8 +324,7 @@ pub mod commands {
   use serde_json::json;
   use tauri::{Emitter, EventTarget, Window};
 
-  const ERROR_TITLE: &str = "設定の更新に失敗しました";
-  const ERROR_MESSAGE: &str = "何度も発生する場合は settings.json を削除してください";
+  const ERROR_TITLE: &str = "Failed to update settings file";
 
   ///
   /// ## エラーイベントを発生させフロントエンドに通知する
@@ -333,13 +332,15 @@ pub mod commands {
   /// [TODO] dialog を使ってエラーメッセージを表示する
   ///
   fn emit_error(window: &Window) -> Result<(), String> {
+    let settings_json_path = get_app_data_dir(SETTINGS_FILENAME);
+
     window
       .emit_to(
         EventTarget::window(window.label().to_string()),
         "error_event",
         json!({
             "title": ERROR_TITLE,
-            "message": ERROR_MESSAGE
+            "message": format!("If this happens repeatedly, delete {} and restart the app.", settings_json_path.display())
         }),
       )
       .map_err(|e| format!("Failed to emit event: {}", e))?;
