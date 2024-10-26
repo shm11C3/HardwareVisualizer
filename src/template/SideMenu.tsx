@@ -1,7 +1,7 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { useTauriStore } from "@/hooks/useTauriStore";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
-import { useState } from "react";
 import { memo, useCallback } from "react";
 import { tv } from "tailwind-variants";
 
@@ -43,12 +43,10 @@ const menuTitles: Record<SelectedDisplayType, string> = {
 };
 
 const SideMenu = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
   const { settings, updateStateAtom } = useSettingsAtom();
 
-  const toggleMenu = useCallback(() => {
-    setIsOpen((prev) => !prev);
-  }, []);
+  const toggleMenu = () => setMenuOpen(!isOpen);
 
   const handleMenuClick = useCallback(
     (type: SelectedDisplayType) => {
