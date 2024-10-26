@@ -19,6 +19,45 @@ import { Line } from "react-chartjs-2";
 import { tv } from "tailwind-variants";
 import CustomLegend, { type LegendItem } from "./CustomLegend";
 
+type SingleChartProps = {
+  labels: string[];
+  chartData: number[];
+  dataType: ChartDataType;
+  lineGraphMix: false;
+};
+
+type MultiChartProps = {
+  labels: string[];
+  cpuData: number[];
+  memoryData: number[];
+  gpuData: number[];
+  lineGraphMix: true;
+};
+
+const graphVariants = tv({
+  base: "mt-5 mx-auto",
+  variants: {
+    size: {
+      sm: "max-w-screen-sm",
+      md: "max-w-screen-md",
+      lg: "max-w-screen-lg",
+      xl: "max-w-screen-xl",
+      "2xl": "max-w-screen-2xl",
+    },
+  },
+  defaultVariants: {
+    size: "xl",
+  },
+});
+
+const chartAreaVariants = tv({
+  variants: {
+    border: {
+      true: "border-2 rounded-xl border-slate-400 dark:border-zinc-600",
+    },
+  },
+});
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -30,45 +69,17 @@ ChartJS.register(
   Filler,
 );
 
-const LineChart = ({
+const SingleLineChart = ({
   labels,
   chartData,
   dataType,
-}: {
-  labels: string[];
-  chartData: number[];
-  dataType: ChartDataType;
+  options,
+}: SingleChartProps & {
+  options: ChartOptions<"line">;
 }) => {
   const { settings } = useSettingsAtom();
 
   const chartRef = useRef<Chart<"line">>(null);
-
-  const options: ChartOptions<"line"> = {
-    responsive: true,
-    animation: false,
-    scales: {
-      x: { display: false },
-      y: {
-        display: settings.lineGraphShowScale,
-        suggestedMin: 0,
-        suggestedMax: 100,
-        grid: { color: "rgba(255, 255, 255, 0.2)" },
-        ticks: { color: "#fff" },
-      },
-    },
-    elements: {
-      point: { radius: 0, hoverRadius: 0 },
-      line: { tension: 0.4 },
-    },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        titleColor: "#fff",
-        bodyColor: "#fff",
-      },
-    },
-  };
 
   const data: Record<ChartDataType, ChartData<"line", number[], string>> = {
     cpu: {
@@ -145,30 +156,6 @@ const LineChart = ({
     },
   };
 
-  const graphVariants = tv({
-    base: "mt-5 mx-auto",
-    variants: {
-      size: {
-        sm: "max-w-screen-sm",
-        md: "max-w-screen-md",
-        lg: "max-w-screen-lg",
-        xl: "max-w-screen-xl",
-        "2xl": "max-w-screen-2xl",
-      },
-    },
-    defaultVariants: {
-      size: "xl",
-    },
-  });
-
-  const chartAreaVariants = tv({
-    variants: {
-      border: {
-        true: "border-2 rounded-xl border-slate-400 dark:border-zinc-600",
-      },
-    },
-  });
-
   return (
     <div className={graphVariants({ size: settings.graphSize })}>
       <Line
@@ -184,4 +171,131 @@ const LineChart = ({
   );
 };
 
-export default LineChart;
+const MixLineChart = ({
+  labels,
+  cpuData,
+  memoryData,
+  gpuData,
+  options,
+}: MultiChartProps & { options: ChartOptions<"line"> }) => {
+  const { settings } = useSettingsAtom();
+
+  const chartRef = useRef<Chart<"line">>(null);
+
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: "CPU Usage (%)",
+        data: cpuData,
+        borderColor: `rgb(${settings.lineGraphColor.cpu})`,
+        backgroundColor: `rgba(${settings.lineGraphColor.cpu},0.3)`,
+        fill: settings.lineGraphFill,
+      },
+      {
+        label: "Memory Usage (%)",
+        data: memoryData,
+        borderColor: `rgb(${settings.lineGraphColor.memory})`,
+        backgroundColor: `rgba(${settings.lineGraphColor.memory},0.3)`,
+        fill: settings.lineGraphFill,
+      },
+      {
+        label: "GPU Usage (%)",
+        data: gpuData,
+        borderColor: `rgb(${settings.lineGraphColor.gpu})`,
+        backgroundColor: `rgba(${settings.lineGraphColor.gpu},0.3)`,
+        fill: settings.lineGraphFill,
+      },
+    ],
+  };
+
+  const legendItems: LegendItem[] = [
+    {
+      label: "CPU",
+      icon: (
+        <Cpu
+          size={20}
+          color={`rgb(${settings.lineGraphColor.cpu})`}
+          className="text-teal-400"
+        />
+      ),
+      datasetIndex: 0,
+    },
+    {
+      label: "Memory",
+      icon: (
+        <Memory
+          size={20}
+          color={`rgb(${settings.lineGraphColor.memory})`}
+          className="text-pink-400"
+        />
+      ),
+      datasetIndex: 1,
+    },
+    {
+      label: "GPU",
+      icon: (
+        <GraphicsCard
+          size={20}
+          color={`rgb(${settings.lineGraphColor.gpu})`}
+          className="text-yellow-400"
+        />
+      ),
+      datasetIndex: 2,
+    },
+  ];
+
+  return (
+    <div className={graphVariants({ size: settings.graphSize })}>
+      <Line
+        className={chartAreaVariants({ border: settings.lineGraphBorder })}
+        ref={chartRef}
+        data={data}
+        options={options}
+      />
+      <div className="flex justify-center mt-4 mb-2">
+        {legendItems.map((item) => (
+          <CustomLegend key={item.datasetIndex} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const LineChart = (props: SingleChartProps | MultiChartProps) => {
+  const { settings } = useSettingsAtom();
+  const { lineGraphMix } = props;
+
+  const options: ChartOptions<"line"> = {
+    responsive: true,
+    animation: false,
+    scales: {
+      x: { display: false },
+      y: {
+        display: settings.lineGraphShowScale,
+        suggestedMin: 0,
+        suggestedMax: 100,
+        grid: { color: "rgba(255, 255, 255, 0.2)" },
+        ticks: { color: "#fff" },
+      },
+    },
+    elements: {
+      point: { radius: 0, hoverRadius: 0 },
+      line: { tension: 0.4 },
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.7)",
+        titleColor: "#fff",
+        bodyColor: "#fff",
+      },
+    },
+  };
+
+  return lineGraphMix ? (
+    <MixLineChart {...props} options={options} />
+  ) : (
+    <SingleLineChart {...props} options={options} />
+  );
+};
