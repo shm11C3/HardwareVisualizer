@@ -18,6 +18,7 @@ import {
   chartHardwareTypes,
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
+import { DotOutline } from "@phosphor-icons/react";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
@@ -108,9 +109,9 @@ const SettingLineChartSize = () => {
         onValueChange={changeGraphSize}
         className="w-full mt-4"
       />
-      <div className="flex justify-between text-sm mt-2">
+      <div className="flex justify-between items-center text-sm mt-2">
         {sizeOptions.map((size) => (
-          <span key={size}>{size.toUpperCase()}</span>
+          <DotOutline key={size} className="text-gray-400" size={32} />
         ))}
       </div>
     </div>
