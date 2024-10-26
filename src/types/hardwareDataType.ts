@@ -1,4 +1,6 @@
-export type ChartDataType = "cpu" | "memory" | "gpu";
+export const chartHardwareTypes = ["cpu", "memory", "gpu"] as const;
+
+export type ChartDataType = (typeof chartHardwareTypes)[number];
 
 export type HardwareDataType = "temp" | "usage" | "clock";
 

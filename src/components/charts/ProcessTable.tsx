@@ -21,7 +21,6 @@ const ProcessesTable = ({
     const fetchProcesses = async () => {
       try {
         const processesData = await getProcesses();
-        console.log(processesData);
         setAtom(processesData);
       } catch (error) {
         console.error("Failed to fetch processes:", error);
@@ -61,35 +60,35 @@ const ProcessesTable = ({
   };
 
   return (
-    <div className="p-4 border rounded-md shadow-md bg-gray-800 text-white">
+    <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit">
       <h4 className="text-xl font-bold mb-2">Process</h4>
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-gray-700">
               <th
-                className="pr-4 py-2 text-gray-400 cursor-pointer"
+                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
                 onClick={() => requestSort("pid")}
                 onKeyDown={() => requestSort("pid")}
               >
                 PID
               </th>
               <th
-                className="pr-4 py-2 text-gray-400 cursor-pointer"
+                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
                 onClick={() => requestSort("name")}
                 onKeyDown={() => requestSort("name")}
               >
                 Name
               </th>
               <th
-                className="pr-4 py-2 text-gray-400 cursor-pointer"
+                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
                 onClick={() => requestSort("cpuUsage")}
                 onKeyDown={() => requestSort("cpuUsage")}
               >
                 CPU Usage
               </th>
               <th
-                className="pr-4 py-2 text-gray-400 cursor-pointer"
+                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
                 onClick={() => requestSort("memoryUsage")}
                 onKeyDown={() => requestSort("memoryUsage")}
               >
@@ -114,7 +113,7 @@ const ProcessesTable = ({
           <button
             type="button"
             onClick={() => setShowAllItem(true)}
-            className="w-full flex justify-center items-center py-2 text-gray-400 hover:text-white focus:outline-none mt--4"
+            className="w-full flex justify-center items-center py-2 dark:text-gray-400 hover:text-zinc-600 dark:hover:text-white focus:outline-none mt--4"
           >
             <CaretDown size={32} />
           </button>

@@ -1,3 +1,4 @@
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { displayDataType, displayHardType } from "@/consts/chart";
 import type { ChartDataType, HardwareDataType } from "@/types/hardwareDataType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
@@ -23,11 +24,16 @@ const DoughnutChart = ({
   dataType: HardwareDataType;
   showTitle: boolean;
 }) => {
+  const { settings } = useSettingsAtom();
+
   const data = {
     datasets: [
       {
         data: [chartData, 100 - chartData],
-        backgroundColor: ["#888", "#222"],
+        backgroundColor: {
+          light: ["#374151", "#f3f4f6"],
+          dark: ["#888", "#222"],
+        }[settings.theme],
         borderWidth: 0,
       },
     ],
@@ -63,12 +69,12 @@ const DoughnutChart = ({
       </h3>
       <Doughnut data={data} options={options} />
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-white text-xl font-semibold">
+        <span className="text-slate-800 dark:text-white text-xl font-semibold">
           {chartData}
           {dataTypeUnits[dataType]}
         </span>
       </div>
-      <span className="flex justify-center mt-4 text-gray-400">
+      <span className="flex justify-center mt-4 text-gray-800 dark:text-gray-400">
         {dataTypeIcons[dataType]}
         {displayDataType[dataType]}
       </span>

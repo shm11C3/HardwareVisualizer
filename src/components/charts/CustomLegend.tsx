@@ -10,7 +10,7 @@ const CustomLegend = ({
   item: LegendItem;
 }) => {
   return (
-    <div className="custom-legend">
+    <div className="mx-6">
       <div className="cursor-default flex items-center">
         {item.icon}
         <span className="ml-2">{item.label}</span>
