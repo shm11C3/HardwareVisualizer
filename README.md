@@ -9,6 +9,13 @@
 
 ![名称未設定-2](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
+## Support OS
+| OS                       | Status |
+| ----------------------------- | ------ |
+| Windows          | ✅     |
+| MacOS          |  ⏳    |
+| linux |   ⏳   |
+
 
 ## Features
 
