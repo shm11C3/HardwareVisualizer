@@ -1551,6 +1551,7 @@ dependencies = [
 name = "hardware_visualizer"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "nvapi",
  "rust_decimal",
