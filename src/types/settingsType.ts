@@ -17,6 +17,7 @@ export type Settings = {
   lineGraphMix: boolean;
   lineGraphShowLegend: boolean;
   lineGraphShowScale: boolean;
+  backgroundImgOpacity: number;
   state: {
     display: SelectedDisplayType;
   };

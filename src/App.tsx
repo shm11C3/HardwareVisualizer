@@ -57,15 +57,20 @@ const Page = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div
-        className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen"
-        style={{
-          backgroundImage: backgroundImage ? `url(${backgroundImage})` : "none",
-          backgroundSize: "cover",
-        }}
-      >
-        <SideMenu />
-        {displayTargets[settings.state.display]}
+      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover">
+        {backgroundImage && (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              opacity: settings.backgroundImgOpacity / 100,
+            }}
+          />
+        )}
+        <div className="relative z-10">
+          <SideMenu />
+          {displayTargets[settings.state.display]}
+        </div>
       </div>
     </ErrorBoundary>
   );

@@ -1,6 +1,7 @@
 import { defaultColorRGB } from "@/consts/chart";
 import {
   getSettings,
+  setBackgroundImgOpacity,
   setDisplayTargets,
   setGraphSize,
   setLanguage,
@@ -33,6 +34,7 @@ const settingsAtom = atom<Settings>({
   lineGraphMix: false,
   lineGraphShowLegend: true,
   lineGraphShowScale: false,
+  backgroundImgOpacity: 50,
   state: {
     display: "dashboard",
   },
@@ -53,6 +55,7 @@ export const useSettingsAtom = () => {
     lineGraphMix: setLineGraphMix,
     lineGraphShowLegend: setLineGraphShowLegend,
     lineGraphShowScale: setLineGraphShowScale,
+    backgroundImgOpacity: setBackgroundImgOpacity,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);
