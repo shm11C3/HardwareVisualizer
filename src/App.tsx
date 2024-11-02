@@ -60,9 +60,11 @@ const Page = () => {
       <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover">
         {backgroundImage && (
           <div
-            className="absolute inset-0 bg-cover bg-center"
+            className="fixed inset-0 bg-cover bg-center"
             style={{
               backgroundImage: `url(${backgroundImage})`,
+              backgroundAttachment: "fixed",
+              backgroundSize: "cover",
               opacity: settings.backgroundImgOpacity / 100,
             }}
           />
