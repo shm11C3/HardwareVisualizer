@@ -9,8 +9,8 @@ export const saveBgImage = async (image: string): Promise<string> => {
   return await invoke("save_background_image", { imageData: image });
 };
 
-export const deleteBgImage = async (): Promise<void> => {
-  return await invoke("delete_background_image");
+export const deleteBgImage = async (fileId: string): Promise<void> => {
+  return await invoke("delete_background_image", { fileId });
 };
 
 export const fetchBackgroundImages = async (): Promise<

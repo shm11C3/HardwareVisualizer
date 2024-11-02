@@ -90,6 +90,7 @@ pub fn run() {
       background_image::get_background_image,
       background_image::get_background_images,
       background_image::save_background_image,
+      background_image::delete_background_image,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

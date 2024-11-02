@@ -125,3 +125,19 @@ pub fn save_background_image(image_data: String) -> Result<String, String> {
     Err(e) => Err(format!("Failed to decode image: {}", e)),
   }
 }
+
+///
+/// 背景画像を削除
+/// - `file_id`: 画像ファイルのインデックス
+///
+#[tauri::command]
+pub fn delete_background_image(file_id: String) -> Result<(), String> {
+  let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+  let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
+  let file_path = dir_path.join(file_name);
+
+  match fs::remove_file(&file_path) {
+    Ok(_) => Ok(()),
+    Err(e) => Err(format!("Failed to delete image: {}", e)),
+  }
+}

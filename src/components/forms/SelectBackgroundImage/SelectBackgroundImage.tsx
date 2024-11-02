@@ -1,12 +1,14 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { Button } from "@/components/ui/button";
-import { useBackgroundImageList } from "@/hooks/useBgImage";
+import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";
+import { X } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { tv } from "tailwind-variants";
 
 export const BackgroundImageList = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { backgroundImageList } = useBackgroundImageList();
+  const { deleteBackgroundImage } = useBackgroundImage();
 
   const selectImageVariants = tv({
     base: "relative w-20 h-20 mx-2 rounded-2xl",
@@ -40,25 +42,33 @@ export const BackgroundImageList = () => {
         .slice()
         .reverse()
         .map((image) => (
-          <button
-            key={image.fileId}
-            type="button"
-            className={twMerge(
-              selectImageVariants({
-                selected: settings.selectedBackgroundImg === image.fileId,
-              }),
-              "overflow-hidden",
-            )}
-            onClick={() =>
-              updateSettingAtom("selectedBackgroundImg", image.fileId)
-            }
-          >
-            <img
-              src={image.imageData}
-              alt={`background image: ${image.fileId}`}
-              className="object-cover w-full h-full"
-            />
-          </button>
+          <div key={image.fileId} className="relative">
+            <button
+              className="absolute top-0 right-0 p-1 text-white bg-gray-500 bg-opacity-50 rounded-full z-20"
+              type="button"
+              onClick={() => deleteBackgroundImage(image.fileId)}
+            >
+              <X />
+            </button>
+            <button
+              type="button"
+              className={twMerge(
+                selectImageVariants({
+                  selected: settings.selectedBackgroundImg === image.fileId,
+                }),
+                "overflow-hidden",
+              )}
+              onClick={() =>
+                updateSettingAtom("selectedBackgroundImg", image.fileId)
+              }
+            >
+              <img
+                src={image.imageData}
+                alt={`background image: ${image.fileId}`}
+                className="object-cover w-full h-full"
+              />
+            </button>
+          </div>
         ))}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
 import {
+  deleteBgImage,
   fetchBackgroundImages,
   getBgImage,
   saveBgImage,
@@ -14,7 +15,8 @@ const uploadedBackgroundImagesAtom = atom<Array<BackgroundImage>>([]);
 
 export const useBackgroundImage = () => {
   const [backgroundImage, setBackgroundImage] = useAtom(backgroundImageAtom);
-  const { initBackgroundImages } = useBackgroundImageList();
+  const { initBackgroundImages, backgroundImageList, setBackgroundImageList } =
+    useBackgroundImageList();
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
@@ -48,7 +50,24 @@ export const useBackgroundImage = () => {
     initBackgroundImages();
   };
 
-  return { backgroundImage, saveBackgroundImage };
+  const deleteBackgroundImage = async (fileId: string) => {
+    // 選択中のファイルを削除する場合は選択を解除
+    if (fileId === settings.selectedBackgroundImg) {
+      updateSettingAtom("selectedBackgroundImg", null);
+    }
+
+    try {
+      await deleteBgImage(fileId);
+      const newBackgroundImages = backgroundImageList.filter(
+        (v) => v.fileId !== fileId,
+      );
+      setBackgroundImageList(newBackgroundImages);
+    } catch (error) {
+      console.error("Failed to delete background image:", error);
+    }
+  };
+
+  return { backgroundImage, saveBackgroundImage, deleteBackgroundImage };
 };
 
 export const useBackgroundImageList = () => {
@@ -76,5 +95,5 @@ export const useBackgroundImageList = () => {
     initBackgroundImages();
   }, []);
 
-  return { backgroundImageList, initBackgroundImages };
+  return { backgroundImageList, initBackgroundImages, setBackgroundImageList };
 };
