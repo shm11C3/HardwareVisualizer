@@ -45,7 +45,11 @@ export const UploadImage = () => {
                           type="button"
                           variant="secondary"
                         >
-                          {picture ? fileName : "Please select a file"}
+                          {picture ? (
+                            <span className="truncate">{fileName}</span>
+                          ) : (
+                            "Please select a file"
+                          )}
                           {displayUrl ? (
                             <img
                               src={displayUrl}
