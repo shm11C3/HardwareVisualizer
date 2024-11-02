@@ -1,16 +1,8 @@
+import { useBackgroundImage } from "@/hooks/useBgImage";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
-const convertFileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-  });
-};
 
 const formSchema = z.object({
   picture: z
@@ -24,6 +16,7 @@ const formSchema = z.object({
 export const useUploadImage = () => {
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [fileName, setFilename] = useState<string>("");
+  const { saveBackgroundImage } = useBackgroundImage();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,12 +27,10 @@ export const useUploadImage = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const base64String = await convertFileToBase64(values.picture);
-      console.log(base64String);
-
+      await saveBackgroundImage(values.picture);
       form.reset();
     } catch (error) {
-      console.error("Error converting file to base64:", error);
+      console.error("Error saveBackgroundImage:", error);
     }
   };
 

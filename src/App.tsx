@@ -26,7 +26,7 @@ const onError = (error: Error, info: ErrorInfo) => {
 const Page = () => {
   const { settings } = useSettingsAtom();
   const { toggle } = useDarkMode();
-  const backgroundImage = useBackgroundImage();
+  const { backgroundImage } = useBackgroundImage();
 
   useErrorModalListener();
   useUsageUpdater("cpu");

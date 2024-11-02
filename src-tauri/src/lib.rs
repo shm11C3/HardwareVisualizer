@@ -87,6 +87,7 @@ pub fn run() {
       config::commands::set_background_img_opacity,
       config::commands::set_state,
       background_image::get_background_image,
+      background_image::save_background_image,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

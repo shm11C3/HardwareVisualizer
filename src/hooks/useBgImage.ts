@@ -1,8 +1,12 @@
-import { getBgImage } from "@/services/fileSystemService";
+import { convertFileToBase64 } from "@/lib/file";
+import { getBgImage, saveBgImage } from "@/services/fileSystemService";
 import { useEffect, useState } from "react";
 
-export const useBackgroundImage = (/** filePath: string */) => {
+export const useBackgroundImage = (/** fileId: string */) => {
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [uploadedBackgroundImages, setUploadedBackgroundImages] = useState<
+    string[]
+  >([]);
 
   useEffect(() => {
     const fetchBackgroundImage = async () => {
@@ -17,5 +21,17 @@ export const useBackgroundImage = (/** filePath: string */) => {
     fetchBackgroundImage();
   }, []);
 
-  return backgroundImage;
+  /**
+   * 背景画像を保存する
+   *
+   * @param filePath
+   */
+  const saveBackgroundImage = async (imageFile: File) => {
+    const base64Image = await convertFileToBase64(imageFile);
+
+    const fileId = await saveBgImage(base64Image);
+    console.log(fileId);
+  };
+
+  return { backgroundImage, saveBackgroundImage };
 };
