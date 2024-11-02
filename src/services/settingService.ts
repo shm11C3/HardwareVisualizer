@@ -61,6 +61,12 @@ export const setBackgroundImgOpacity = async (value: number): Promise<void> => {
   return await invoke("set_background_img_opacity", { newValue: value });
 };
 
+export const setSelectedBackgroundImg = async (
+  fileId: string | null,
+): Promise<void> => {
+  return await invoke("set_selected_background_img", { fileId });
+};
+
 export const setState = async <K extends keyof Settings["state"]>(
   key: K,
   value: Settings["state"][K],

@@ -1,25 +1,36 @@
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
-import { getBgImage, saveBgImage } from "@/services/fileSystemService";
-import { useEffect, useState } from "react";
+import {
+  fetchBackgroundImages,
+  getBgImage,
+  saveBgImage,
+} from "@/services/fileSystemService";
+import type { BackgroundImage } from "@/types/settingsType";
+import { atom, useAtom } from "jotai";
+import { useEffect } from "react";
 
-export const useBackgroundImage = (/** fileId: string */) => {
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-  const [uploadedBackgroundImages, setUploadedBackgroundImages] = useState<
-    string[]
-  >([]);
+const backgroundImageAtom = atom<string | null>(null);
+const uploadedBackgroundImagesAtom = atom<Array<BackgroundImage>>([]);
+
+export const useBackgroundImage = () => {
+  const [backgroundImage, setBackgroundImage] = useAtom(backgroundImageAtom);
+
+  const { settings, updateSettingAtom } = useSettingsAtom();
 
   useEffect(() => {
-    const fetchBackgroundImage = async () => {
+    const fetchBackgroundImage = async (fileId: string) => {
       try {
-        const base64Image = await getBgImage();
+        const base64Image = await getBgImage(fileId);
         setBackgroundImage(`data:image/png;base64,${base64Image}`);
       } catch (error) {
         console.error("Failed to load background image:", error);
       }
     };
 
-    fetchBackgroundImage();
-  }, []);
+    if (settings.selectedBackgroundImg) {
+      fetchBackgroundImage(settings.selectedBackgroundImg);
+    }
+  }, [setBackgroundImage, settings.selectedBackgroundImg]);
 
   /**
    * 背景画像を保存する
@@ -30,8 +41,37 @@ export const useBackgroundImage = (/** fileId: string */) => {
     const base64Image = await convertFileToBase64(imageFile);
 
     const fileId = await saveBgImage(base64Image);
-    console.log(fileId);
+    updateSettingAtom("selectedBackgroundImg", fileId);
   };
 
   return { backgroundImage, saveBackgroundImage };
+};
+
+export const useBackgroundImageList = () => {
+  const [backgroundImageList, setBackgroundImageList] = useAtom(
+    uploadedBackgroundImagesAtom,
+  );
+
+  useEffect(() => {
+    const initBackgroundImages = async () => {
+      try {
+        const uploadedBackgroundImages = await fetchBackgroundImages();
+
+        const backgroundImagesWithUrl = uploadedBackgroundImages.map(
+          (image) => ({
+            fileId: image.fileId,
+            imageData: `data:image/png;base64,${image.imageData}`,
+          }),
+        );
+
+        setBackgroundImageList(backgroundImagesWithUrl);
+      } catch (error) {
+        console.error("Failed to load background images:", error);
+      }
+    };
+
+    initBackgroundImages();
+  }, [setBackgroundImageList]);
+
+  return { backgroundImageList };
 };

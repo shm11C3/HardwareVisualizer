@@ -11,6 +11,7 @@ import {
   setLineGraphMix,
   setLineGraphShowLegend,
   setLineGraphShowScale,
+  setSelectedBackgroundImg,
   setState,
   setTheme,
 } from "@/services/settingService";
@@ -35,6 +36,7 @@ const settingsAtom = atom<Settings>({
   lineGraphShowLegend: true,
   lineGraphShowScale: false,
   backgroundImgOpacity: 50,
+  selectedBackgroundImg: null,
   state: {
     display: "dashboard",
   },
@@ -56,6 +58,7 @@ export const useSettingsAtom = () => {
     lineGraphShowLegend: setLineGraphShowLegend,
     lineGraphShowScale: setLineGraphShowScale,
     backgroundImgOpacity: setBackgroundImgOpacity,
+    selectedBackgroundImg: setSelectedBackgroundImg,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);

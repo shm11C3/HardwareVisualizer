@@ -18,7 +18,13 @@ export type Settings = {
   lineGraphShowLegend: boolean;
   lineGraphShowScale: boolean;
   backgroundImgOpacity: number;
+  selectedBackgroundImg: string | null;
   state: {
     display: SelectedDisplayType;
   };
+};
+
+export type BackgroundImage = {
+  fileId: string;
+  imageData: string;
 };
