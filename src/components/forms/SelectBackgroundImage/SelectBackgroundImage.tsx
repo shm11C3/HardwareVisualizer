@@ -44,7 +44,7 @@ export const BackgroundImageList = () => {
         .map((image) => (
           <div key={image.fileId} className="relative">
             <button
-              className="absolute top-0 right-0 p-1 text-white bg-gray-500 bg-opacity-50 rounded-full z-20"
+              className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20"
               type="button"
               onClick={() => deleteBackgroundImage(image.fileId)}
             >
@@ -65,7 +65,7 @@ export const BackgroundImageList = () => {
               <img
                 src={image.imageData}
                 alt={`background image: ${image.fileId}`}
-                className="object-cover w-full h-full"
+                className="object-cover w-full h-full opacity-50"
               />
             </button>
           </div>
