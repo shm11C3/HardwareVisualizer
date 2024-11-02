@@ -45,6 +45,8 @@ pub struct Settings {
   line_graph_mix: bool,
   line_graph_show_legend: bool,
   line_graph_show_scale: bool,
+  background_img_opacity: u8,
+  selected_background_img: Option<String>,
   state: StateSettings,
 }
 
@@ -72,6 +74,8 @@ pub struct ClientSettings {
   line_graph_mix: bool,
   line_graph_show_legend: bool,
   line_graph_show_scale: bool,
+  background_img_opacity: u8,
+  selected_background_img: Option<String>,
   state: StateSettings,
 }
 
@@ -97,6 +101,8 @@ impl Default for Settings {
       line_graph_mix: false,
       line_graph_show_legend: true,
       line_graph_show_scale: false,
+      background_img_opacity: 50,
+      selected_background_img: None,
       state: StateSettings {
         display: "dashboard".to_string(),
       },
@@ -297,6 +303,19 @@ impl Settings {
     self.write_file()
   }
 
+  pub fn set_background_img_opacity(&mut self, new_value: u8) -> Result<(), String> {
+    self.background_img_opacity = new_value;
+    self.write_file()
+  }
+
+  pub fn set_selected_background_img(
+    &mut self,
+    new_value: Option<String>,
+  ) -> Result<(), String> {
+    self.selected_background_img = new_value;
+    self.write_file()
+  }
+
   pub fn set_state(&mut self, key: &str, new_value: String) -> Result<(), String> {
     match key {
       "display" => self.state.display = new_value,
@@ -390,6 +409,8 @@ pub mod commands {
       line_graph_mix: settings.line_graph_mix,
       line_graph_show_legend: settings.line_graph_show_legend,
       line_graph_show_scale: settings.line_graph_show_scale,
+      background_img_opacity: settings.background_img_opacity,
+      selected_background_img: settings.selected_background_img,
       state: settings.state,
     };
 
@@ -545,6 +566,36 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_line_graph_show_scale(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  pub async fn set_background_img_opacity(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: u8,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_background_img_opacity(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  pub async fn set_selected_background_img(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    file_id: Option<String>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_selected_background_img(file_id) {
       emit_error(&window)?;
       return Err(e);
     }

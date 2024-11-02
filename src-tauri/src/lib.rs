@@ -7,6 +7,7 @@ mod enums;
 mod services;
 mod utils;
 
+use commands::background_image;
 use commands::config;
 use commands::hardware;
 use tauri::Manager;
@@ -83,7 +84,13 @@ pub fn run() {
       config::commands::set_line_graph_mix,
       config::commands::set_line_graph_show_legend,
       config::commands::set_line_graph_show_scale,
+      config::commands::set_background_img_opacity,
       config::commands::set_state,
+      config::commands::set_selected_background_img,
+      background_image::get_background_image,
+      background_image::get_background_images,
+      background_image::save_background_image,
+      background_image::delete_background_image,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

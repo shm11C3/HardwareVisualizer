@@ -8,6 +8,7 @@ import type { ErrorInfo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useSettingsAtom } from "./atom/useSettingsAtom";
 import ErrorFallback from "./components/ErrorFallback";
+import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import ScreenTemplate from "./template/ScreenTemplate";
 import Settings from "./template/Settings";
@@ -25,6 +26,7 @@ const onError = (error: Error, info: ErrorInfo) => {
 const Page = () => {
   const { settings } = useSettingsAtom();
   const { toggle } = useDarkMode();
+  const { backgroundImage } = useBackgroundImage();
 
   useErrorModalListener();
   useUsageUpdater("cpu");
@@ -55,9 +57,22 @@ const Page = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
-        <SideMenu />
-        {displayTargets[settings.state.display]}
+      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover">
+        {backgroundImage && (
+          <div
+            className="fixed inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundAttachment: "fixed",
+              backgroundSize: "cover",
+              opacity: settings.backgroundImgOpacity / 100,
+            }}
+          />
+        )}
+        <div className="relative z-10">
+          <SideMenu />
+          {displayTargets[settings.state.display]}
+        </div>
       </div>
     </ErrorBoundary>
   );
