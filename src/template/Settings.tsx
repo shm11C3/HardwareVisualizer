@@ -1,5 +1,6 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
+import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -130,7 +131,7 @@ const SettingBackGroundOpacity = () => {
   };
 
   return (
-    <div className="py-6 w-full">
+    <>
       <Label className="block text-lg mb-2">Opacity</Label>
       <Slider
         min={0}
@@ -140,7 +141,7 @@ const SettingBackGroundOpacity = () => {
         onValueChange={changeBackGroundOpacity}
         className="w-full mt-4"
       />
-    </div>
+    </>
   );
 };
 
@@ -279,9 +280,16 @@ const Settings = () => {
           </div>
         </div>
       </div>
-      <div className="mt-8 p-4">
+      <div className="py-6">
         <h3 className="text-2xl font-bold py-3">Background Image</h3>
-        <SettingBackGroundOpacity />
+        <div className="xl:grid xl:grid-cols-6 gap-12 p-4">
+          <div className="col-span-2">
+            <SettingBackGroundOpacity />
+          </div>
+          <div className="col-span-2">
+            <UploadImage />
+          </div>
+        </div>
       </div>
     </>
   );
