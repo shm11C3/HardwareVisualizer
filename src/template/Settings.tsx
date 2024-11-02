@@ -132,17 +132,19 @@ const SettingBackGroundOpacity = () => {
   };
 
   return (
-    <>
-      <Label className="block text-lg mb-2">Opacity</Label>
-      <Slider
-        min={0}
-        max={100}
-        step={1}
-        value={[settings.backgroundImgOpacity]}
-        onValueChange={changeBackGroundOpacity}
-        className="w-full mt-4"
-      />
-    </>
+    settings.selectedBackgroundImg && (
+      <>
+        <Label className="block text-lg mb-2">Opacity</Label>
+        <Slider
+          min={0}
+          max={100}
+          step={1}
+          value={[settings.backgroundImgOpacity]}
+          onValueChange={changeBackGroundOpacity}
+          className="w-full mt-4"
+        />
+      </>
+    )
   );
 };
 
@@ -264,6 +266,18 @@ const Settings = () => {
               type="lineGraphShowScale"
             />
             <SettingLineChartSize />
+            <div className="py-6">
+              <h3 className="text-2xl font-bold py-3">Background Image</h3>
+              <div className="p-4">
+                <div className="py-3">
+                  <UploadImage />
+                  <BackgroundImageList />
+                </div>
+                <div className="py-3 max-w-96">
+                  <SettingBackGroundOpacity />
+                </div>
+              </div>
+            </div>
           </div>
           <div className="col-span-1 py-2">
             <h4 className="text-xl font-bold">Line Color</h4>
@@ -278,18 +292,6 @@ const Settings = () => {
           <div className="col-span-3 py-2 ml-10">
             <h4 className="text-xl font-bold">Preview</h4>
             <PreviewChart />
-          </div>
-        </div>
-      </div>
-      <div className="py-6">
-        <h3 className="text-2xl font-bold py-3">Background Image</h3>
-        <div className="p-4">
-          <div className="py-3">
-            <UploadImage />
-            <BackgroundImageList />
-          </div>
-          <div className="py-3 max-w-96">
-            <SettingBackGroundOpacity />
           </div>
         </div>
       </div>
