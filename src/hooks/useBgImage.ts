@@ -14,6 +14,7 @@ const uploadedBackgroundImagesAtom = atom<Array<BackgroundImage>>([]);
 
 export const useBackgroundImage = () => {
   const [backgroundImage, setBackgroundImage] = useAtom(backgroundImageAtom);
+  const { initBackgroundImages } = useBackgroundImageList();
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
@@ -29,6 +30,8 @@ export const useBackgroundImage = () => {
 
     if (settings.selectedBackgroundImg) {
       fetchBackgroundImage(settings.selectedBackgroundImg);
+    } else {
+      setBackgroundImage(null);
     }
   }, [setBackgroundImage, settings.selectedBackgroundImg]);
 
@@ -42,6 +45,7 @@ export const useBackgroundImage = () => {
 
     const fileId = await saveBgImage(base64Image);
     updateSettingAtom("selectedBackgroundImg", fileId);
+    initBackgroundImages();
   };
 
   return { backgroundImage, saveBackgroundImage };
@@ -52,26 +56,25 @@ export const useBackgroundImageList = () => {
     uploadedBackgroundImagesAtom,
   );
 
+  const initBackgroundImages = async () => {
+    try {
+      const uploadedBackgroundImages = await fetchBackgroundImages();
+
+      const backgroundImagesWithUrl = uploadedBackgroundImages.map((image) => ({
+        fileId: image.fileId,
+        imageData: `data:image/png;base64,${image.imageData}`,
+      }));
+
+      setBackgroundImageList(backgroundImagesWithUrl);
+    } catch (error) {
+      console.error("Failed to load background images:", error);
+    }
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
-    const initBackgroundImages = async () => {
-      try {
-        const uploadedBackgroundImages = await fetchBackgroundImages();
-
-        const backgroundImagesWithUrl = uploadedBackgroundImages.map(
-          (image) => ({
-            fileId: image.fileId,
-            imageData: `data:image/png;base64,${image.imageData}`,
-          }),
-        );
-
-        setBackgroundImageList(backgroundImagesWithUrl);
-      } catch (error) {
-        console.error("Failed to load background images:", error);
-      }
-    };
-
     initBackgroundImages();
-  }, [setBackgroundImageList]);
+  }, []);
 
-  return { backgroundImageList };
+  return { backgroundImageList, initBackgroundImages };
 };

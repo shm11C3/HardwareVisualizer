@@ -1,5 +1,6 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
+import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -282,14 +283,13 @@ const Settings = () => {
       </div>
       <div className="py-6">
         <h3 className="text-2xl font-bold py-3">Background Image</h3>
-        <div className="xl:grid xl:grid-cols-6 gap-12 p-4">
-          <div className="col-span-2">
-            <div className="py-3">
-              <UploadImage />
-            </div>
-            <div className="py-3">
-              <SettingBackGroundOpacity />
-            </div>
+        <div className="p-4">
+          <div className="py-3">
+            <UploadImage />
+            <BackgroundImageList />
+          </div>
+          <div className="py-3 max-w-96">
+            <SettingBackGroundOpacity />
           </div>
         </div>
       </div>

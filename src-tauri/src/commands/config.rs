@@ -308,8 +308,11 @@ impl Settings {
     self.write_file()
   }
 
-  pub fn set_selected_background_img(&mut self, new_value: String) -> Result<(), String> {
-    self.selected_background_img = Some(new_value);
+  pub fn set_selected_background_img(
+    &mut self,
+    new_value: Option<String>,
+  ) -> Result<(), String> {
+    self.selected_background_img = new_value;
     self.write_file()
   }
 
@@ -588,7 +591,7 @@ pub mod commands {
   pub async fn set_selected_background_img(
     window: Window,
     state: tauri::State<'_, AppState>,
-    file_id: String,
+    file_id: Option<String>,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 

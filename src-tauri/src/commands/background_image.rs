@@ -29,6 +29,10 @@ pub fn get_background_image(file_id: String) -> Result<String, String> {
   }
 }
 
+///
+/// - `file_id` : 画像ファイルID
+/// - `image_data` : 画像データのBase64文字列
+///
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundImage {
