@@ -284,10 +284,12 @@ const Settings = () => {
         <h3 className="text-2xl font-bold py-3">Background Image</h3>
         <div className="xl:grid xl:grid-cols-6 gap-12 p-4">
           <div className="col-span-2">
-            <SettingBackGroundOpacity />
-          </div>
-          <div className="col-span-2">
-            <UploadImage />
+            <div className="py-3">
+              <UploadImage />
+            </div>
+            <div className="py-3">
+              <SettingBackGroundOpacity />
+            </div>
           </div>
         </div>
       </div>
