@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
 use tauri::command;
+use uuid::Uuid;
 
 use crate::utils::file::get_app_data_dir;
 
@@ -14,7 +15,7 @@ const BG_IMG_DIR_NAME: &str = "BgImages";
 ///
 /// 背景画像を取得
 ///
-/// - `file_id`: 画像ファイルのインデックス
+/// - `file_id`: 画像ファイルID
 ///
 #[command]
 pub fn get_background_image(file_id: String) -> Result<String, String> {
@@ -61,8 +62,8 @@ pub fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   }
 
   let file_count: usize = match fs::read_dir(&dir_path) {
-    Ok(entries) => entries.count(), // 現在のファイル数をインデックスとして利用
-    Err(_) => 0,                    // 読み込み失敗の場合は最初のファイルとして 0
+    Ok(entries) => entries.count(),
+    Err(_) => 0, // 読み込み失敗の場合は最初のファイルとして 0
   };
 
   if file_count == 0 {
@@ -119,13 +120,7 @@ pub fn save_background_image(image_data: String) -> Result<String, String> {
   // 改行や余分な空白を除去
   let cleaned_data = image_data.replace("\n", "").replace("\r", "");
 
-  // ディレクトリ内のファイル数を取得し、それをインデックスとして利用
-  let file_id: String = match fs::read_dir(&dir_path) {
-    Ok(entries) => entries.count(), // 現在のファイル数をインデックスとして利用
-    Err(_) => 0,                    // 読み込み失敗の場合は最初のファイルとして 0
-  }
-  .to_string();
-
+  let file_id = Uuid::new_v4().to_string();
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
   let file_path = dir_path.join(file_name);
 
@@ -151,7 +146,7 @@ pub fn save_background_image(image_data: String) -> Result<String, String> {
 
 ///
 /// 背景画像を削除
-/// - `file_id`: 画像ファイルのインデックス
+/// - `file_id`: 画像ファイルID
 ///
 #[tauri::command]
 pub fn delete_background_image(file_id: String) -> Result<(), String> {
