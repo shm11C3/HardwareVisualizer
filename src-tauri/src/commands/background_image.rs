@@ -65,7 +65,7 @@ pub fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   // ディレクトリ内のファイル一覧を取得
   match fs::read_dir(&dir_path) {
     Ok(entries) => {
-      let images: Vec<BackgroundImage> = entries
+      let mut images: Vec<BackgroundImage> = entries
         .filter_map(|entry| {
           let entry = entry.ok()?;
           let file_name = entry.file_name().into_string().ok()?;
@@ -82,6 +82,8 @@ pub fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
           })
         })
         .collect();
+
+      images.sort_by(|a, b| b.file_id.cmp(&a.file_id));
       Ok(images)
     }
     Err(e) => Err(format!("Failed to read directory: {}", e)),
@@ -114,7 +116,7 @@ pub fn save_background_image(image_data: String) -> Result<String, String> {
   // 改行や余分な空白を除去
   let cleaned_data = image_data.replace("\n", "").replace("\r", "");
 
-  let file_id = Uuid::new_v4().to_string();
+  let file_id = Uuid::now_v7().to_string();
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
   let file_path = dir_path.join(file_name);
 

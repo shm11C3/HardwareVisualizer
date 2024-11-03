@@ -38,38 +38,35 @@ export const BackgroundImageList = () => {
         </Button>
       )}
 
-      {backgroundImageList
-        .slice()
-        .reverse()
-        .map((image) => (
-          <div key={image.fileId} className="relative">
-            <button
-              className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20"
-              type="button"
-              onClick={() => deleteBackgroundImage(image.fileId)}
-            >
-              <X />
-            </button>
-            <button
-              type="button"
-              className={twMerge(
-                selectImageVariants({
-                  selected: settings.selectedBackgroundImg === image.fileId,
-                }),
-                "overflow-hidden",
-              )}
-              onClick={() =>
-                updateSettingAtom("selectedBackgroundImg", image.fileId)
-              }
-            >
-              <img
-                src={image.imageData}
-                alt={`background image: ${image.fileId}`}
-                className="object-cover w-full h-full opacity-50"
-              />
-            </button>
-          </div>
-        ))}
+      {backgroundImageList.map((image) => (
+        <div key={image.fileId} className="relative">
+          <button
+            className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20"
+            type="button"
+            onClick={() => deleteBackgroundImage(image.fileId)}
+          >
+            <X />
+          </button>
+          <button
+            type="button"
+            className={twMerge(
+              selectImageVariants({
+                selected: settings.selectedBackgroundImg === image.fileId,
+              }),
+              "overflow-hidden",
+            )}
+            onClick={() =>
+              updateSettingAtom("selectedBackgroundImg", image.fileId)
+            }
+          >
+            <img
+              src={image.imageData}
+              alt={`background image: ${image.fileId}`}
+              className="object-cover w-full h-full opacity-50"
+            />
+          </button>
+        </div>
+      ))}
     </div>
   );
 };
