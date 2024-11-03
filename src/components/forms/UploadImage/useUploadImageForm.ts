@@ -16,6 +16,7 @@ const formSchema = z.object({
 export const useUploadImage = () => {
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [fileName, setFilename] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { saveBackgroundImage } = useBackgroundImage();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -26,12 +27,17 @@ export const useUploadImage = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     try {
       await saveBackgroundImage(values.picture);
       form.reset();
     } catch (error) {
       console.error("Error saveBackgroundImage:", error);
     }
+
+    setIsSubmitting(false);
   };
 
   const picture = form.watch("picture");
