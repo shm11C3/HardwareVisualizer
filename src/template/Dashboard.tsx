@@ -147,26 +147,24 @@ const MemoryInfo = () => {
 };
 
 const Dashboard = () => {
-  return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ">
-        <DataArea>
-          <CPUInfo />
-        </DataArea>
-        <DataArea>
-          <GPUInfo />
-        </DataArea>
-      </div>
+  const { hardwareInfo } = useHardwareInfoAtom();
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ">
-        <DataArea>
-          <MemoryInfo />
-        </DataArea>
-        <DataArea>
-          <ProcessesTable defaultItemLength={6} />
-        </DataArea>
-      </div>
-    </>
+  const hardwareInfoList: { key: string; component: JSX.Element }[] = [
+    hardwareInfo.cpu && { key: "cpuInfo", component: <CPUInfo /> },
+    hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
+    hardwareInfo.memory && { key: "memoryInfo", component: <MemoryInfo /> },
+    {
+      key: "processesTable",
+      component: <ProcessesTable defaultItemLength={6} />,
+    },
+  ].filter((x) => x != null);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {hardwareInfoList.map(({ key, component }) => (
+        <DataArea key={key}>{component}</DataArea>
+      ))}
+    </div>
   );
 };
 
