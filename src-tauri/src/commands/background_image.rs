@@ -19,6 +19,13 @@ const BG_IMG_DIR_NAME: &str = "BgImages";
 #[command]
 pub fn get_background_image(file_id: String) -> Result<String, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+
+  // App/BgImages ディレクトリが存在しない場合新規作成
+  if !dir_path.exists() {
+    fs::create_dir_all(&dir_path)
+      .map_err(|e| format!("Failed to create directory: {}", e))?;
+  }
+
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
   let file_path = dir_path.join(file_name);
 
@@ -46,6 +53,21 @@ pub struct BackgroundImage {
 #[command]
 pub fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+
+  // App/BgImages ディレクトリが存在しない場合新規作成
+  if !dir_path.exists() {
+    fs::create_dir_all(&dir_path)
+      .map_err(|e| format!("Failed to create directory: {}", e))?;
+  }
+
+  let file_count: usize = match fs::read_dir(&dir_path) {
+    Ok(entries) => entries.count(), // 現在のファイル数をインデックスとして利用
+    Err(_) => 0,                    // 読み込み失敗の場合は最初のファイルとして 0
+  };
+
+  if file_count == 0 {
+    return Ok(vec![]);
+  }
 
   // ディレクトリ内のファイル一覧を取得
   match fs::read_dir(&dir_path) {
@@ -82,8 +104,9 @@ pub fn save_background_image(image_data: String) -> Result<String, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
   // App/BgImages ディレクトリが存在しない場合新規作成
-  if !dir_path.parent().unwrap().exists() {
-    fs::create_dir_all(dir_path.parent().unwrap()).unwrap();
+  if !dir_path.exists() {
+    fs::create_dir_all(&dir_path)
+      .map_err(|e| format!("Failed to create directory: {}", e))?;
   }
 
   // Base64データのプレフィックスを除去
