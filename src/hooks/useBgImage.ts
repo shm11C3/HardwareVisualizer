@@ -8,7 +8,7 @@ import {
 } from "@/services/fileSystemService";
 import type { BackgroundImage } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 const backgroundImageAtom = atom<string | null>(null);
 const uploadedBackgroundImagesAtom = atom<Array<BackgroundImage>>([]);
@@ -20,18 +20,14 @@ export const useBackgroundImage = () => {
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
-  useEffect(() => {
-    const fetchBackgroundImage = async (fileId: string) => {
+  const initBackgroundImage = useCallback(async () => {
+    if (settings.selectedBackgroundImg) {
       try {
-        const base64Image = await getBgImage(fileId);
+        const base64Image = await getBgImage(settings.selectedBackgroundImg);
         setBackgroundImage(`data:image/png;base64,${base64Image}`);
       } catch (error) {
         console.error("Failed to load background image:", error);
       }
-    };
-
-    if (settings.selectedBackgroundImg) {
-      fetchBackgroundImage(settings.selectedBackgroundImg);
     } else {
       setBackgroundImage(null);
     }
@@ -67,7 +63,12 @@ export const useBackgroundImage = () => {
     }
   };
 
-  return { backgroundImage, saveBackgroundImage, deleteBackgroundImage };
+  return {
+    backgroundImage,
+    saveBackgroundImage,
+    initBackgroundImage,
+    deleteBackgroundImage,
+  };
 };
 
 export const useBackgroundImageList = () => {

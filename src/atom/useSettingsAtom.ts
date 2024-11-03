@@ -18,7 +18,7 @@ import {
 import type { ChartDataType } from "@/types/hardwareDataType";
 import type { Settings } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
-import { useEffect } from "react";
+import { useCallback } from "react";
 
 const settingsAtom = atom<Settings>({
   language: "en",
@@ -63,12 +63,9 @@ export const useSettingsAtom = () => {
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      const setting = await getSettings();
-      setSettings(setting);
-    };
-    loadSettings();
+  const loadSettings = useCallback(async () => {
+    const setting = await getSettings();
+    setSettings(setting);
   }, [setSettings]);
 
   const updateSettingAtom = async <
@@ -138,6 +135,7 @@ export const useSettingsAtom = () => {
 
   return {
     settings,
+    loadSettings,
     toggleDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,

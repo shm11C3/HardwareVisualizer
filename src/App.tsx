@@ -24,9 +24,10 @@ const onError = (error: Error, info: ErrorInfo) => {
 };
 
 const Page = () => {
-  const { settings } = useSettingsAtom();
+  const { settings, loadSettings } = useSettingsAtom();
   const { toggle } = useDarkMode();
-  const { backgroundImage: nextImage } = useBackgroundImage();
+  const { backgroundImage: nextImage, initBackgroundImage } =
+    useBackgroundImage();
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
@@ -53,6 +54,11 @@ const Page = () => {
 
     return () => clearTimeout(fadeOutTimeout);
   }, [nextImage]);
+
+  useEffect(() => {
+    loadSettings();
+    initBackgroundImage();
+  }, [loadSettings, initBackgroundImage]);
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
