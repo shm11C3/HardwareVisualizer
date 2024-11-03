@@ -62,15 +62,6 @@ pub fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
       .map_err(|e| format!("Failed to create directory: {}", e))?;
   }
 
-  let file_count: usize = match fs::read_dir(&dir_path) {
-    Ok(entries) => entries.count(),
-    Err(_) => 0, // 読み込み失敗の場合は最初のファイルとして 0
-  };
-
-  if file_count == 0 {
-    return Ok(vec![]);
-  }
-
   // ディレクトリ内のファイル一覧を取得
   match fs::read_dir(&dir_path) {
     Ok(entries) => {
