@@ -56,6 +56,7 @@ export const useUploadImage = () => {
     form,
     picture,
     onSubmit,
+    isSubmitting,
     fileName,
     displayUrl,
   };

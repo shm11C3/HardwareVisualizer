@@ -21,14 +21,14 @@ export const BackgroundImageList = () => {
   });
 
   return (
-    <div className="flex py-3">
+    <div className="flex py-3 max-w-full overflow-x-auto">
       {backgroundImageList.length > 0 && (
         <Button
           className={twMerge(
             selectImageVariants({
               selected: !settings.selectedBackgroundImg,
             }),
-            "flex items-center justify-center bg-zinc-300 dark:bg-gray-800 hover:bg-zinc-200 dark:hover:bg-gray-900",
+            "flex items-center justify-center min-w-20 bg-zinc-300 dark:bg-gray-800 hover:bg-zinc-200 dark:hover:bg-gray-900",
           )}
           onClick={() => {
             updateSettingAtom("selectedBackgroundImg", null);
