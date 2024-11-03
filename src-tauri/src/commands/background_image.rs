@@ -1,4 +1,5 @@
-use base64::encode;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use image::load_from_memory;
 use image::ImageFormat;
 use serde::{Deserialize, Serialize};
@@ -32,7 +33,7 @@ pub fn get_background_image(file_id: String) -> Result<String, String> {
 
   // 画像を読み込んでBase64にエンコード
   match fs::read(&file_path) {
-    Ok(image_data) => Ok(encode(image_data)),
+    Ok(image_data) => Ok(STANDARD.encode(image_data)),
     Err(e) => Err(format!("Failed to load image: {}", e)),
   }
 }
@@ -81,7 +82,9 @@ pub fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
             .strip_prefix("bg-img-")
             .and_then(|s| s.strip_suffix(".png"))?;
           let file_path = entry.path();
-          let image_data = fs::read(&file_path).ok().map(|data| encode(data))?;
+          let image_data = fs::read(&file_path)
+            .ok()
+            .map(|data| STANDARD.encode(data))?;
           Some(BackgroundImage {
             file_id: file_id.to_string(),
             image_data,
@@ -125,7 +128,7 @@ pub fn save_background_image(image_data: String) -> Result<String, String> {
   let file_path = dir_path.join(file_name);
 
   // Base64データをデコード
-  match base64::decode(&cleaned_data) {
+  match STANDARD.decode(&cleaned_data) {
     Ok(decoded_data) => {
       // 画像データをPNGとして保存
       match load_from_memory(&decoded_data) {
