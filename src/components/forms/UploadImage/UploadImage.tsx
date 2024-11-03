@@ -1,4 +1,4 @@
-import { ImageSquare, UploadSimple } from "@phosphor-icons/react";
+import { ImageSquare, Spinner, UploadSimple } from "@phosphor-icons/react";
 import { Button } from "../../ui/button";
 import {
   Form,
@@ -13,7 +13,8 @@ import { Input } from "../../ui/input";
 import { useUploadImage } from "./useUploadImageForm";
 
 export const UploadImage = () => {
-  const { form, picture, onSubmit, fileName, displayUrl } = useUploadImage();
+  const { form, picture, onSubmit, isSubmitting, fileName, displayUrl } =
+    useUploadImage();
 
   return (
     <Form {...form}>
@@ -68,9 +69,13 @@ export const UploadImage = () => {
                     <FormMessage />
                   </div>
                   <div className="h-28 flex items-center">
-                    <Button type="submit" disabled={!picture}>
+                    <Button type="submit" disabled={!picture || isSubmitting}>
                       Confirm
-                      <UploadSimple className="ml-1" />
+                      {isSubmitting ? (
+                        <Spinner className="ml-1 animate-spin" />
+                      ) : (
+                        <UploadSimple className="ml-1" />
+                      )}
                     </Button>
                   </div>
                 </div>

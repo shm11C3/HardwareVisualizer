@@ -21,14 +21,14 @@ export const BackgroundImageList = () => {
   });
 
   return (
-    <div className="flex py-3">
+    <div className="flex py-3 max-w-full overflow-x-auto">
       {backgroundImageList.length > 0 && (
         <Button
           className={twMerge(
             selectImageVariants({
               selected: !settings.selectedBackgroundImg,
             }),
-            "flex items-center justify-center bg-zinc-300 dark:bg-gray-800 hover:bg-zinc-200 dark:hover:bg-gray-900",
+            "flex items-center justify-center min-w-20 bg-zinc-300 dark:bg-gray-800 hover:bg-zinc-200 dark:hover:bg-gray-900",
           )}
           onClick={() => {
             updateSettingAtom("selectedBackgroundImg", null);
@@ -38,38 +38,35 @@ export const BackgroundImageList = () => {
         </Button>
       )}
 
-      {backgroundImageList
-        .slice()
-        .reverse()
-        .map((image) => (
-          <div key={image.fileId} className="relative">
-            <button
-              className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20"
-              type="button"
-              onClick={() => deleteBackgroundImage(image.fileId)}
-            >
-              <X />
-            </button>
-            <button
-              type="button"
-              className={twMerge(
-                selectImageVariants({
-                  selected: settings.selectedBackgroundImg === image.fileId,
-                }),
-                "overflow-hidden",
-              )}
-              onClick={() =>
-                updateSettingAtom("selectedBackgroundImg", image.fileId)
-              }
-            >
-              <img
-                src={image.imageData}
-                alt={`background image: ${image.fileId}`}
-                className="object-cover w-full h-full opacity-50"
-              />
-            </button>
-          </div>
-        ))}
+      {backgroundImageList.map((image) => (
+        <div key={image.fileId} className="relative">
+          <button
+            className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20"
+            type="button"
+            onClick={() => deleteBackgroundImage(image.fileId)}
+          >
+            <X />
+          </button>
+          <button
+            type="button"
+            className={twMerge(
+              selectImageVariants({
+                selected: settings.selectedBackgroundImg === image.fileId,
+              }),
+              "overflow-hidden",
+            )}
+            onClick={() =>
+              updateSettingAtom("selectedBackgroundImg", image.fileId)
+            }
+          >
+            <img
+              src={image.imageData}
+              alt={`background image: ${image.fileId}`}
+              className="object-cover w-full h-full opacity-50"
+            />
+          </button>
+        </div>
+      ))}
     </div>
   );
 };

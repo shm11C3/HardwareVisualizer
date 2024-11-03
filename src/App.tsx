@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Dashboard from "./template/Dashboard";
 import ChartTemplate from "./template/Usage";
 import "./index.css";
@@ -26,7 +26,10 @@ const onError = (error: Error, info: ErrorInfo) => {
 const Page = () => {
   const { settings } = useSettingsAtom();
   const { toggle } = useDarkMode();
-  const { backgroundImage } = useBackgroundImage();
+  const { backgroundImage: nextImage } = useBackgroundImage();
+
+  const [currentImage, setCurrentImage] = useState(nextImage);
+  const [opacity, setOpacity] = useState(1);
 
   useErrorModalListener();
   useUsageUpdater("cpu");
@@ -40,6 +43,16 @@ const Page = () => {
       toggle(settings.theme === "dark");
     }
   }, [settings.theme, toggle]);
+
+  useEffect(() => {
+    setOpacity(0);
+    const fadeOutTimeout = setTimeout(() => {
+      setCurrentImage(nextImage);
+      setOpacity(1);
+    }, 500);
+
+    return () => clearTimeout(fadeOutTimeout);
+  }, [nextImage]);
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
@@ -57,18 +70,18 @@ const Page = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover">
-        {backgroundImage && (
-          <div
-            className="fixed inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundAttachment: "fixed",
-              backgroundSize: "cover",
-              opacity: settings.backgroundImgOpacity / 100,
-            }}
-          />
-        )}
+      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover ease-in-out">
+        <div
+          className="fixed inset-0 bg-cover bg-center transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${currentImage})`,
+            backgroundAttachment: "fixed",
+            backgroundSize: "cover",
+            opacity: currentImage
+              ? opacity * (settings.backgroundImgOpacity / 100)
+              : 0,
+          }}
+        />
         <div className="relative z-10">
           <SideMenu />
           {displayTargets[settings.state.display]}
