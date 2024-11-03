@@ -1,8 +1,8 @@
+use crate::structs::hardware::GraphicInfo;
 use crate::utils::{self, formatter};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
-use serde::Serialize;
 use tokio::task::spawn_blocking;
 use tokio::task::JoinError;
 
@@ -181,16 +181,6 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
     );
     nvapi::Status::Error
   })?
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GraphicInfo {
-  name: String,
-  vendor_name: String,
-  clock: u64,
-  memory_size: String,
-  memory_size_dedicated: String,
 }
 
 ///

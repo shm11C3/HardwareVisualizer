@@ -42,6 +42,8 @@ tauri-plugin-dialog = "2.0.3"
 tauri-plugin-store = "2.1.0"
 base64 = "0.22"
 image = "0.25.4"
+dxgi = "0.1.7"
+winapi = { version = "0.3", features = ["dxgi"] }
 
 [dependencies.uuid]
 version = "1.11.0"

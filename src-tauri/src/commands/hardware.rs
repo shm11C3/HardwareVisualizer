@@ -1,5 +1,7 @@
-use crate::services::graphic_service;
+use crate::services::directx_gpu_service;
+use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
+use crate::structs::hardware::GraphicInfo;
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
@@ -122,7 +124,7 @@ pub fn get_cpu_usage(state: tauri::State<'_, AppState>) -> i32 {
 pub struct SysInfo {
   pub cpu: Option<system_info_service::CpuInfo>,
   pub memory: Option<system_info_service::MemoryInfo>,
-  pub gpus: Option<Vec<graphic_service::GraphicInfo>>,
+  pub gpus: Option<Vec<GraphicInfo>>,
 }
 
 ///
@@ -134,12 +136,31 @@ pub async fn get_hardware_info(
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
   let memory_result = system_info_service::get_memory_info();
-  let gpus_result = graphic_service::get_nvidia_gpu_info().await;
+  let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
+  let amd_gpus_result = directx_gpu_service::get_amd_gpu_info().await;
+
+  let mut gpus_result = Vec::new();
+
+  // NVIDIA の結果を確認して結合
+  match nvidia_gpus_result {
+    Ok(nvidia_gpus) => gpus_result.extend(nvidia_gpus),
+    Err(e) => log_error!("nvidia_error", "get_all_gpu_info", Some(e)),
+  }
+
+  // AMD の結果を確認して結合
+  match amd_gpus_result {
+    Ok(amd_gpus) => gpus_result.extend(amd_gpus),
+    Err(e) => log_error!("amd_error", "get_all_gpu_info", Some(e)),
+  }
 
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
     memory: memory_result.ok(),
-    gpus: gpus_result.ok(),
+    gpus: if gpus_result.is_empty() {
+      None
+    } else {
+      Some(gpus_result)
+    },
   };
 
   // すべての情報が失敗した場合にのみエラーメッセージを返す
@@ -173,7 +194,7 @@ pub fn get_memory_usage(state: tauri::State<'_, AppState>) -> i32 {
 ///
 #[command]
 pub async fn get_gpu_usage() -> Result<i32, String> {
-  match graphic_service::get_nvidia_gpu_usage().await {
+  match nvidia_gpu_service::get_nvidia_gpu_usage().await {
     Ok(usage) => Ok((usage * 100.0).round() as i32),
     Err(e) => Err(format!("Failed to get GPU usage: {:?}", e)),
   }
@@ -183,8 +204,8 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 /// ## GPU温度を取得
 ///
 #[command]
-pub async fn get_gpu_temperature() -> Result<Vec<graphic_service::NameValue>, String> {
-  match graphic_service::get_nvidia_gpu_temperature().await {
+pub async fn get_gpu_temperature() -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+  match nvidia_gpu_service::get_nvidia_gpu_temperature().await {
     Ok(temps) => Ok(temps),
     Err(e) => Err(format!("Failed to get GPU temperature: {:?}", e)),
   }
@@ -194,8 +215,9 @@ pub async fn get_gpu_temperature() -> Result<Vec<graphic_service::NameValue>, St
 /// ## GPUのファン回転数を取得
 ///
 #[command]
-pub async fn get_nvidia_gpu_cooler() -> Result<Vec<graphic_service::NameValue>, String> {
-  match graphic_service::get_nvidia_gpu_cooler_stat().await {
+pub async fn get_nvidia_gpu_cooler() -> Result<Vec<nvidia_gpu_service::NameValue>, String>
+{
+  match nvidia_gpu_service::get_nvidia_gpu_cooler_stat().await {
     Ok(temps) => Ok(temps),
     Err(e) => Err(format!("Failed to get GPU cooler status: {:?}", e)),
   }
