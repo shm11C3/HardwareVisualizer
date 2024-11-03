@@ -70,7 +70,7 @@ const Page = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover ease-in-out">
+      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover ease-in-out duration-300">
         <div
           className="fixed inset-0 bg-cover bg-center transition-opacity duration-500"
           style={{
