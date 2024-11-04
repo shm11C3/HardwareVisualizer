@@ -84,6 +84,7 @@ pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
         let memory_size_shared = desc.shared_system_memory() / 1024 / 1024;
 
         let gpu_info = GraphicInfo {
+          id: desc.device_id().to_string(),
           name: gpu_name.trim_end_matches('\0').to_string(),
           vendor_name: "AMD".to_string(),
           clock: 0, // クロック取得が難しいため 0 に設定

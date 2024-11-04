@@ -30,8 +30,9 @@ export type MemoryInfo = {
 };
 
 export type GraphicInfo = {
-  clock: number;
+  id: string;
   name: string;
+  clock: number;
   vendorName: string;
   memorySize: string;
   memorySizeDedicated: string;

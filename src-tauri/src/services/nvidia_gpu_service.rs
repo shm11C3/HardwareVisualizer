@@ -186,8 +186,6 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
 ///
 /// GPU情報を取得する
 ///
-/// - [TODO] AMD GPU の情報も取得する
-///
 pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_nvidia_gpu_info", None::<&str>);
@@ -249,7 +247,16 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
         }
       };
 
+      let gpu_id = match gpu.gpu_id() {
+        Ok(id) => id.to_string(),
+        Err(e) => {
+          log_error!("gpu_id_failed", "get_nvidia_gpu_info", Some(e.to_string()));
+          continue;
+        }
+      };
+
       let gpu_info = GraphicInfo {
+        id: gpu_id,
         name,
         vendor_name: "NVIDIA".to_string(),
         clock: frequency,
