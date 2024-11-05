@@ -2,7 +2,7 @@ use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
-use crate::structs::hardware::GraphicInfo;
+use crate::structs::hardware::{GraphicInfo, MemoryInfo};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
@@ -124,7 +124,7 @@ pub fn get_cpu_usage(state: tauri::State<'_, AppState>) -> i32 {
 #[serde(rename_all = "camelCase")]
 pub struct SysInfo {
   pub cpu: Option<system_info_service::CpuInfo>,
-  pub memory: Option<system_info_service::MemoryInfo>,
+  pub memory: Option<MemoryInfo>,
   pub gpus: Option<Vec<GraphicInfo>>,
 }
 
@@ -136,7 +136,7 @@ pub async fn get_hardware_info(
   state: tauri::State<'_, AppState>,
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
-  let memory_result = system_info_service::get_memory_info();
+  let memory_result = wmi_service::get_memory_info();
   let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
   let amd_gpus_result = directx_gpu_service::get_amd_gpu_info().await;
 
