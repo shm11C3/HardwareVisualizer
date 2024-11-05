@@ -1,6 +1,7 @@
 use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
+use crate::services::wmi_service;
 use crate::structs::hardware::GraphicInfo;
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use serde::{Serialize, Serializer};
@@ -194,9 +195,17 @@ pub fn get_memory_usage(state: tauri::State<'_, AppState>) -> i32 {
 ///
 #[command]
 pub async fn get_gpu_usage() -> Result<i32, String> {
-  match nvidia_gpu_service::get_nvidia_gpu_usage().await {
+  if let Ok(usage) = nvidia_gpu_service::get_nvidia_gpu_usage().await {
+    return Ok((usage * 100.0).round() as i32);
+  }
+
+  // NVIDIA APIが失敗した場合、WMIから取得を試みる
+  match wmi_service::get_gpu_usage_by_device_and_engine("3D").await {
     Ok(usage) => Ok((usage * 100.0).round() as i32),
-    Err(e) => Err(format!("Failed to get GPU usage: {:?}", e)),
+    Err(e) => Err(format!(
+      "Failed to get GPU usage from both NVIDIA API and WMI: {:?}",
+      e
+    )),
   }
 }
 
