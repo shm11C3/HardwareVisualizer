@@ -139,6 +139,7 @@ pub async fn get_hardware_info(
   let memory_result = wmi_service::get_memory_info();
   let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
   let amd_gpus_result = directx_gpu_service::get_amd_gpu_info().await;
+  let intel_gpus_result = directx_gpu_service::get_intel_gpu_info().await;
 
   let mut gpus_result = Vec::new();
 
@@ -152,6 +153,12 @@ pub async fn get_hardware_info(
   match amd_gpus_result {
     Ok(amd_gpus) => gpus_result.extend(amd_gpus),
     Err(e) => log_error!("amd_error", "get_all_gpu_info", Some(e)),
+  }
+
+  // Intel の結果を確認して結合
+  match intel_gpus_result {
+    Ok(intel_gpus) => gpus_result.extend(intel_gpus),
+    Err(e) => log_error!("intel_error", "get_all_gpu_info", Some(e)),
   }
 
   let sys_info = SysInfo {
