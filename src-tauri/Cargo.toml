@@ -45,6 +45,7 @@ image = "0.25.4"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
 regex = "1.11.1"
+tempfile = "3.14.0"
 
 [dependencies.uuid]
 version = "1.11.0"

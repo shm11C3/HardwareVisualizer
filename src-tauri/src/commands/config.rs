@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::sync::Mutex;
+use tempfile::NamedTempFile;
 
 const SETTINGS_FILENAME: &str = "settings.json";
 
@@ -113,24 +114,31 @@ impl Default for Settings {
 impl Config for Settings {
   fn write_file(&self) -> Result<(), String> {
     let config_file = get_app_data_dir(SETTINGS_FILENAME);
-    if !config_file.parent().unwrap().exists() {
-      fs::create_dir_all(config_file.parent().unwrap()).unwrap();
+    let config_dir = match config_file.parent() {
+      Some(dir) => dir,
+      None => {
+        log_error!(
+          "Failed to get parent directory for settings file",
+          "write_file",
+          None::<&str>
+        );
+        return Err("Failed to get parent directory for settings file".to_string());
+      }
+    };
+
+    if !config_dir.exists() {
+      if let Err(e) = fs::create_dir_all(config_dir) {
+        log_error!(
+          "Failed to create configuration directory",
+          "write_file",
+          Some(e.to_string())
+        );
+        return Err(format!("Failed to create configuration directory: {}", e));
+      }
     }
 
-    match serde_json::to_string(self) {
-      Ok(serialized) => {
-        if let Err(e) = fs::File::create(config_file)
-          .and_then(|mut file| file.write_all(&serialized.as_bytes()))
-        {
-          // [TODO] ログの定数化
-          log_error!(
-            "Failed to serialize settings",
-            "write_file",
-            Some(e.to_string())
-          );
-          return Err(format!("Failed to write to settings file: {}", e));
-        }
-      }
+    let serialized = match serde_json::to_string(self) {
+      Ok(s) => s,
       Err(e) => {
         log_error!(
           "Failed to serialize settings",
@@ -139,6 +147,41 @@ impl Config for Settings {
         );
         return Err(format!("Failed to serialize settings: {}", e));
       }
+    };
+
+    // 一時ファイルに書き込む
+    let mut temp_file = match NamedTempFile::new_in(config_dir) {
+      Ok(file) => file,
+      Err(e) => {
+        log_error!(
+          "Failed to create temporary file for settings",
+          "write_file",
+          Some(e.to_string())
+        );
+        return Err(format!(
+          "Failed to create temporary file for settings: {}",
+          e
+        ));
+      }
+    };
+
+    if let Err(e) = temp_file.write_all(serialized.as_bytes()) {
+      log_error!(
+        "Failed to write to temporary settings file",
+        "write_file",
+        Some(e.to_string())
+      );
+      return Err(format!("Failed to write to temporary settings file: {}", e));
+    }
+
+    // 一時ファイルを本来の設定ファイルに置き換える
+    if let Err(e) = temp_file.persist(&config_file) {
+      log_error!(
+        "Failed to persist temporary settings file",
+        "write_file",
+        Some(e.to_string())
+      );
+      return Err(format!("Failed to persist temporary settings file: {}", e));
     }
 
     Ok(())
