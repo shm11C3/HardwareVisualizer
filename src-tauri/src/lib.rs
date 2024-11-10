@@ -5,6 +5,7 @@
 mod commands;
 mod enums;
 mod services;
+mod structs;
 mod utils;
 
 use commands::background_image;

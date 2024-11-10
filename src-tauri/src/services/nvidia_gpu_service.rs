@@ -1,8 +1,8 @@
+use crate::structs::hardware::GraphicInfo;
 use crate::utils::{self, formatter};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
-use serde::Serialize;
 use tokio::task::spawn_blocking;
 use tokio::task::JoinError;
 
@@ -183,20 +183,8 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
   })?
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GraphicInfo {
-  name: String,
-  vendor_name: String,
-  clock: u64,
-  memory_size: String,
-  memory_size_dedicated: String,
-}
-
 ///
 /// GPU情報を取得する
-///
-/// - [TODO] AMD GPU の情報も取得する
 ///
 pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
@@ -259,7 +247,16 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
         }
       };
 
+      let gpu_id = match gpu.gpu_id() {
+        Ok(id) => id.to_string(),
+        Err(e) => {
+          log_error!("gpu_id_failed", "get_nvidia_gpu_info", Some(e.to_string()));
+          continue;
+        }
+      };
+
       let gpu_info = GraphicInfo {
+        id: gpu_id,
         name,
         vendor_name: "NVIDIA".to_string(),
         clock: frequency,

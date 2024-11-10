@@ -22,7 +22,7 @@
     "editor.formatOnSave": true,
     "editor.inlayHints.enabled": "off"
   },
-  "cSpell.words": ["consts", "nvapi", "tauri"],
+  "cSpell.words": ["consts", "directx", "nvapi", "tauri"],
   "tailwindCSS.experimental.classRegex": [
     "tv\\(([^)(]*(?:\\([^)(]*(?:\\([^)(]*(?:\\([^)(]*\\)[^)(]*)*\\)[^)(]*)*\\)[^)(]*)*)\\)"
   ]

@@ -1,2 +1,4 @@
-pub mod graphic_service;
+pub mod directx_gpu_service;
+pub mod nvidia_gpu_service;
 pub mod system_info_service;
+pub mod wmi_service;

@@ -107,14 +107,18 @@ const GPUInfo = () => {
           )}
         </div>
 
-        <InfoTable
-          data={{
-            Name: hardwareInfo.gpus[0].name,
-            Vendor: hardwareInfo.gpus[0].vendorName,
-            "Memory Size": hardwareInfo.gpus[0].memorySize,
-            "Memory Size Dedicated": hardwareInfo.gpus[0].memorySizeDedicated,
-          }}
-        />
+        {hardwareInfo.gpus.map((gpu, index) => (
+          <div className="py-2" key={`${gpu.name}${index}`}>
+            <InfoTable
+              data={{
+                Name: gpu.name,
+                Vendor: gpu.vendorName,
+                "Memory Size": gpu.memorySize,
+                "Memory Size Dedicated": gpu.memorySizeDedicated,
+              }}
+            />
+          </div>
+        ))}
       </>
     )
   );
