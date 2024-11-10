@@ -248,7 +248,7 @@ const Settings = () => {
       </div>
       <div className="mt-8 p-4">
         <h3 className="text-2xl font-bold py-3 px-2">Custom Theme</h3>
-        <div className="xl:grid xl:grid-cols-6 gap-12 p-4">
+        <div className="xl:grid xl:grid-cols-6 gap-12 p-4 items-start">
           <div className="col-span-2 py-2">
             <h4 className="text-xl font-bold">Graph Style</h4>
             <SettingGraphSwitch
@@ -266,18 +266,6 @@ const Settings = () => {
               type="lineGraphShowScale"
             />
             <SettingLineChartSize />
-            <div className="py-6">
-              <h3 className="text-2xl font-bold py-3">Background Image</h3>
-              <div className="p-4">
-                <div className="py-3">
-                  <UploadImage />
-                  <BackgroundImageList />
-                </div>
-                <div className="py-3 max-w-96">
-                  <SettingBackGroundOpacity />
-                </div>
-              </div>
-            </div>
           </div>
           <div className="col-span-1 py-2">
             <h4 className="text-xl font-bold">Line Color</h4>
@@ -286,12 +274,23 @@ const Settings = () => {
               <SettingColorInput label="Memory" hardwareType="memory" />
               <SettingColorInput label="GPU" hardwareType="gpu" />
             </div>
-
             <SettingColorReset />
           </div>
           <div className="col-span-3 py-2 ml-10">
             <h4 className="text-xl font-bold">Preview</h4>
             <PreviewChart />
+          </div>
+          <div className="col-span-3 py-6  order-2 xl:order-none">
+            <h3 className="text-2xl font-bold py-3">Background Image</h3>
+            <div className="p-4">
+              <div className="py-3">
+                <UploadImage />
+                <BackgroundImageList />
+              </div>
+              <div className="py-3 max-w-96">
+                <SettingBackGroundOpacity />
+              </div>
+            </div>
           </div>
         </div>
       </div>
