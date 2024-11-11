@@ -1,0 +1,46 @@
+{
+  "shared": {
+    "usage": "Usage",
+    "temperature": "Temperature",
+    "name": "Name",
+    "vendor": "Vendor",
+    "coreCount": "Core Count",
+    "defaultClockSpeed": "Default Clock Speed",
+    "memory": "Memory",
+    "memorySize": "Memory Size",
+    "memorySizeShared": "Memory Size (Shared)",
+    "memorySizeDedicated": "Memory Size (Dedicated)",
+    "memoryType": "Memory Type",
+    "totalMemory": "Total Memory",
+    "memoryCount": "Memory Count",
+    "memoryClockSpeed": "Memory Clock",
+    "clock": "Clock"
+  },
+
+  "pages": {
+    "dashboard": {
+      "name": "Dashboard"
+    },
+    "usage": {
+      "name": "Usage"
+    },
+    "settings": {
+      "name": "Settings",
+      "general": {
+        "name": "General",
+        "language": "Language",
+        "theme": "Theme",
+        "hardwareType": "Hardware Type"
+      },
+      "customTheme": {
+        "name": "Custom Theme",
+        "preview": "Preview",
+        "lineColor": "line Color",
+        "graphStyle": "Graph Style"
+      },
+      "backgroundImage": {
+        "name": "Background Image"
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "shared": {
+    "usage": "使用率",
+    "temperature": "温度",
+    "name": "名前",
+    "vendor": "ベンダー",
+    "coreCount": "コア数",
+    "defaultClockSpeed": "標準クロック数",
+    "memory": "メモリ",
+    "memorySize": "メモリ容量",
+    "memorySizeShared": "メモリ容量（共有）",
+    "memorySizeDedicated": "メモリ容量（専用）",
+    "memoryType": "メモリタイプ",
+    "totalMemory": "合計メモリ",
+    "memoryCount": "メモリ枚数",
+    "memoryClockSpeed": "メモリクロック数",
+    "clock": "クロック数"
+  },
+
+  "pages": {
+    "dashboard": {
+      "name": "ダッシュボード"
+    },
+    "usage": {
+      "name": "ハードウェア使用率"
+    },
+    "settings": {
+      "name": "設定",
+      "general": {
+        "name": "一般",
+        "language": "言語",
+        "theme": "カラーモード",
+        "hardwareType": "ハードウェア種別"
+      },
+      "customTheme": {
+        "name": "カスタマイズ",
+        "preview": "プレビュー",
+        "lineColor": "グラフの色",
+        "graphStyle": "カスタムグラフ"
+      },
+      "backgroundImage": {
+        "name": "壁紙"
+      }
+    }
+  }
+}

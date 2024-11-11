@@ -14,6 +14,8 @@ import ScreenTemplate from "./template/ScreenTemplate";
 import Settings from "./template/Settings";
 import SideMenu from "./template/SideMenu";
 import type { SelectedDisplayType } from "./types/ui";
+import "@/lib/i18n";
+import { useTranslation } from "react-i18next";
 
 const onError = (error: Error, info: ErrorInfo) => {
   console.error("error.message", error.message);
@@ -28,6 +30,7 @@ const Page = () => {
   const { toggle } = useDarkMode();
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
+  const { t } = useTranslation();
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
@@ -68,7 +71,7 @@ const Page = () => {
     ),
     usage: <ChartTemplate />,
     settings: (
-      <ScreenTemplate title="Settings">
+      <ScreenTemplate title={t("pages.settings.name")}>
         <Settings />
       </ScreenTemplate>
     ),

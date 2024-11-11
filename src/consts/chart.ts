@@ -13,12 +13,6 @@ export const displayHardType: Record<ChartDataType, string> = {
   gpu: "GPU",
 } as const;
 
-export const displayDataType: Record<HardwareDataType, string> = {
-  temp: "Temperature",
-  usage: "Usage",
-  clock: "Clock",
-} as const;
-
 export const sizeOptions = ["sm", "md", "lg", "xl", "2xl"] as const;
 
 export const defaultColorRGB: Record<ChartDataType, string> = {

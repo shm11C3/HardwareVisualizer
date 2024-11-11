@@ -21,6 +21,7 @@ import {
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { DotOutline } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
@@ -239,18 +240,26 @@ const SettingColorReset = () => {
 };
 
 const Settings = () => {
+  const { t } = useTranslation();
+
   return (
     <>
       <div className="mt-8 p-4">
-        <h3 className="text-2xl font-bold py-3">General</h3>
+        <h3 className="text-2xl font-bold py-3">
+          {t("pages.settings.general.name")}
+        </h3>
         <SettingColorMode />
         <SettingGraphType />
       </div>
       <div className="mt-8 p-4">
-        <h3 className="text-2xl font-bold py-3 px-2">Custom Theme</h3>
+        <h3 className="text-2xl font-bold py-3 px-2">
+          {t("pages.settings.customTheme.name")}
+        </h3>
         <div className="xl:grid xl:grid-cols-6 gap-12 p-4 items-start">
           <div className="col-span-2 py-2">
-            <h4 className="text-xl font-bold">Graph Style</h4>
+            <h4 className="text-xl font-bold">
+              {t("pages.settings.customTheme.graphStyle")}
+            </h4>
             <SettingGraphSwitch
               label="Line Chart Border"
               type="lineGraphBorder"
@@ -268,7 +277,9 @@ const Settings = () => {
             <SettingLineChartSize />
           </div>
           <div className="col-span-1 py-2">
-            <h4 className="text-xl font-bold">Line Color</h4>
+            <h4 className="text-xl font-bold">
+              {t("pages.settings.customTheme.lineColor")}
+            </h4>
             <div className="md:flex lg:block">
               <SettingColorInput label="CPU" hardwareType="cpu" />
               <SettingColorInput label="Memory" hardwareType="memory" />
@@ -277,11 +288,15 @@ const Settings = () => {
             <SettingColorReset />
           </div>
           <div className="col-span-3 py-2 ml-10">
-            <h4 className="text-xl font-bold">Preview</h4>
+            <h4 className="text-xl font-bold">
+              {t("pages.settings.customTheme.preview")}
+            </h4>
             <PreviewChart />
           </div>
           <div className="col-span-3 py-6  order-2 xl:order-none">
-            <h3 className="text-2xl font-bold py-3">Background Image</h3>
+            <h3 className="text-2xl font-bold py-3">
+              {t("pages.settings.backgroundImage.name")}
+            </h3>
             <div className="p-4">
               <div className="py-3">
                 <UploadImage />
