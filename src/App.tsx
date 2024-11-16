@@ -16,6 +16,7 @@ import SideMenu from "./template/SideMenu";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
 import { useTranslation } from "react-i18next";
+import { useKeydown } from "./hooks/useInputListener";
 
 const onError = (error: Error, info: ErrorInfo) => {
   console.error("error.message", error.message);
@@ -66,6 +67,8 @@ const Page = () => {
     loadSettings();
     initBackgroundImage();
   }, [loadSettings, initBackgroundImage]);
+
+  useKeydown();
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (

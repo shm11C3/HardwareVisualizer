@@ -11,6 +11,7 @@ mod utils;
 use commands::background_image;
 use commands::config;
 use commands::hardware;
+use commands::ui;
 use tauri::Manager;
 use tauri::Wry;
 
@@ -56,6 +57,9 @@ pub fn run() {
       // ロガーの初期化
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
+      // UIの初期化
+      commands::ui::init(app);
+
       Ok(())
     })
     .plugin(tauri_plugin_store::Builder::new().build())
@@ -92,6 +96,7 @@ pub fn run() {
       background_image::get_background_images,
       background_image::save_background_image,
       background_image::delete_background_image,
+      ui::set_decoration,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
