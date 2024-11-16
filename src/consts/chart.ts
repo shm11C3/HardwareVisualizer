@@ -1,4 +1,4 @@
-import type { ChartDataType, HardwareDataType } from "@/types/hardwareDataType";
+import type { ChartDataType } from "@/types/hardwareDataType";
 
 export const chartConfig = {
   /**

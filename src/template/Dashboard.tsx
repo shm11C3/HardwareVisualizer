@@ -10,7 +10,6 @@ import DoughnutChart from "@/components/charts/DoughnutChart";
 import ProcessesTable from "@/components/charts/ProcessTable";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
-import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   return (
@@ -42,7 +41,6 @@ const DataArea = ({ children }: { children: React.ReactNode }) => {
 const CPUInfo = () => {
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { t } = useTranslation();
 
   return (
     hardwareInfo.cpu && (
