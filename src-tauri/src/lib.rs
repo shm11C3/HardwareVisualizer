@@ -58,8 +58,7 @@ pub fn run() {
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
       // UIの初期化
-      let window = app.get_webview_window("main").unwrap();
-      commands::ui::init(app, window);
+      commands::ui::init(app);
 
       Ok(())
     })
