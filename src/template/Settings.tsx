@@ -67,6 +67,41 @@ const SettingGraphType = () => {
   );
 };
 
+const SettingLanguage = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t, i18n } = useTranslation();
+
+  const supported = Object.keys(i18n.services.resourceStore.data);
+  const displaySupported: Record<string, string> = {
+    en: "English",
+    ja: "日本語",
+  };
+
+  const changeLanguage = async (value: string) => {
+    await updateSettingAtom("language", value);
+  };
+
+  return (
+    <div className="flex items-center space-x-4 py-6">
+      <Label htmlFor="language" className="text-lg">
+        {t("pages.settings.general.language")}
+      </Label>
+      <Select value={settings.language} onValueChange={changeLanguage}>
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Language" />
+        </SelectTrigger>
+        <SelectContent>
+          {supported.map((lang) => (
+            <SelectItem key={lang} value={lang}>
+              {displaySupported[lang]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 const SettingColorMode = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
@@ -261,6 +296,7 @@ const Settings = () => {
         <h3 className="text-2xl font-bold py-3">
           {t("pages.settings.general.name")}
         </h3>
+        <SettingLanguage />
         <SettingColorMode />
         <SettingGraphType />
       </div>

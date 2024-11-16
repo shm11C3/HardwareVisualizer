@@ -30,7 +30,7 @@ const Page = () => {
   const { toggle } = useDarkMode();
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
@@ -41,6 +41,10 @@ const Page = () => {
   useUsageUpdater("gpu");
   useHardwareUpdater("gpu", "temp");
   useHardwareUpdater("gpu", "fan");
+
+  useEffect(() => {
+    i18n.changeLanguage(settings.language);
+  }, [settings.language, i18n]);
 
   useEffect(() => {
     if (settings.theme) {
