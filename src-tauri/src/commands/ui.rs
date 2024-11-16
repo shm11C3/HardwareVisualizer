@@ -16,5 +16,4 @@ pub fn init(app: &mut App) {
 #[tauri::command]
 pub fn set_decoration(window: tauri::WebviewWindow, is_decorated: bool) {
   let _ = window.set_fullscreen(!is_decorated);
-  let _ = window.set_decorations(is_decorated);
 }
