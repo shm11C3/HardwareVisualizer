@@ -7,9 +7,9 @@
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total">
 </p>
 
-![名称未設定-2](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
+![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
-## Support OS
+## Supported OS
 | OS                       | Status |
 | ----------------------------- | ------ |
 | Windows          | ✅     |
@@ -24,13 +24,13 @@
 | CPU Usage Monitoring          | ✅     |
 | RAM Usage Monitoring          | ✅     |
 | GPU Usage Monitoring (Nvidia) | ✅     |
-| GPU Usage Monitoring (AMD)    | ⏳     |
-| GPU Usage Monitoring (Intel)  | ⏳     |
+| GPU Usage Monitoring (AMD)    | ✅     |
+| GPU Usage Monitoring (Intel)  | ✅     |
 | Temperature Monitoring        | ⏳     |
 | Fan Monitoring                | ⏳     |
 | Customizable Chart Themes     | ✅     |
 | Customizable Dashboard        | ⏳     |
-| CustomizableBackground Image  | ⏳     |
+| Custom Background Image  | ✅     |
 
 ### Dashboard
 
@@ -38,11 +38,17 @@
 
 ### Usage Graph
 
-![image](https://github.com/user-attachments/assets/b8fa7d67-a015-487f-aeb4-f43306d28f54)
+![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
 
-### Custom Themes
 
-![image](https://github.com/user-attachments/assets/acb5a432-1339-4b29-a81c-590e87bd8b77)
+### Custom Graph
+
+![image](https://github.com/user-attachments/assets/814eff68-9190-4c39-a67d-a7458778ec95)
+
+### Background Image
+
+![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
+
 
 ## Development
 
@@ -68,7 +74,7 @@
    npm ci
    ```
 
-3. Run the app in development mode:
+3. Launch in development mode:
 
    ```bash
    npm run tauri dev
