@@ -32,7 +32,7 @@ const settingsAtom = atom<Settings>({
     memory: `rgb(${defaultColorRGB.memory})`,
     gpu: `rgb(${defaultColorRGB.gpu})`,
   },
-  lineGraphMix: false,
+  lineGraphMix: true,
   lineGraphShowLegend: true,
   lineGraphShowScale: false,
   backgroundImgOpacity: 50,

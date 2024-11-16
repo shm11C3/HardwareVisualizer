@@ -100,7 +100,7 @@ impl Default for Settings {
         memory: [255, 99, 132],
         gpu: [255, 206, 86],
       },
-      line_graph_mix: false,
+      line_graph_mix: true,
       line_graph_show_legend: true,
       line_graph_show_scale: false,
       background_img_opacity: 50,
