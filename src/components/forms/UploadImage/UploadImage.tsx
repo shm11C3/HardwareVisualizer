@@ -1,4 +1,5 @@
 import { ImageSquare, Spinner, UploadSimple } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../ui/button";
 import {
   Form,
@@ -15,6 +16,7 @@ import { useUploadImage } from "./useUploadImageForm";
 export const UploadImage = () => {
   const { form, picture, onSubmit, isSubmitting, fileName, displayUrl } =
     useUploadImage();
+  const { t } = useTranslation();
 
   return (
     <Form {...form}>
@@ -28,7 +30,7 @@ export const UploadImage = () => {
                 <div className="flex items-center gap-4">
                   <div className="h-28">
                     <FormLabel className="block text-lg mb-2 mr-2">
-                      Upload Image
+                      {t("pages.settings.backgroundImage.upload.name")}
                     </FormLabel>
                     <FormControl>
                       <div className="relative w-80 h-10">
@@ -49,7 +51,9 @@ export const UploadImage = () => {
                           {picture ? (
                             <span className="truncate">{fileName}</span>
                           ) : (
-                            "Please select a file"
+                            t(
+                              "pages.settings.backgroundImage.upload.pleaseSelectAFile",
+                            )
                           )}
                           {displayUrl ? (
                             <img
@@ -63,14 +67,14 @@ export const UploadImage = () => {
                         </Button>
                       </div>
                     </FormControl>
-                    <FormDescription className="mt-2">
-                      The file will only be saved on your device
-                    </FormDescription>
                     <FormMessage />
+                    <FormDescription className="my-2">
+                      {t("pages.settings.backgroundImage.upload.description")}
+                    </FormDescription>
                   </div>
                   <div className="h-28 flex items-center">
                     <Button type="submit" disabled={!picture || isSubmitting}>
-                      Confirm
+                      {t("pages.settings.backgroundImage.upload.confirm")}
                       {isSubmitting ? (
                         <Spinner className="ml-1 animate-spin" />
                       ) : (

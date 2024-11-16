@@ -14,7 +14,8 @@
     "totalMemory": "合計メモリ",
     "memoryCount": "メモリ枚数",
     "memoryClockSpeed": "メモリクロック数",
-    "clock": "クロック数"
+    "clock": "クロック数",
+    "reset": "リセット"
   },
 
   "pages": {
@@ -29,17 +30,40 @@
       "general": {
         "name": "一般",
         "language": "言語",
-        "theme": "カラーモード",
+        "colorMode": {
+          "name": "カラーモード",
+          "light": "ライト",
+          "dark": "ダーク"
+        },
         "hardwareType": "ハードウェア種別"
       },
       "customTheme": {
         "name": "カスタマイズ",
         "preview": "プレビュー",
         "lineColor": "グラフの色",
-        "graphStyle": "カスタムグラフ"
+        "graphStyle": {
+          "name": "グラフスタイル",
+          "lineGraphBorder": "グラフの枠線",
+          "lineGraphFill": "グラフ下部の塗りつぶし",
+          "lineGraphMix": "グラフの混合",
+          "lineGraphShowLegend": "凡例の表示",
+          "lineGraphShowScale": "スケールの表示",
+          "size": "グラフのサイズ"
+        }
       },
       "backgroundImage": {
-        "name": "壁紙"
+        "name": "壁紙",
+        "upload": {
+          "name": "画像をアップロード",
+          "pleaseSelectAFile": "ファイルを選択してください",
+          "errors": {
+            "format": "JPEGまたはPNG形式の画像を選択してください",
+            "notSelected": "ファイルを選択してください"
+          },
+          "confirm": "確認",
+          "description": "アップロードしたファイルはこのデバイスにのみ保存されます"
+        },
+        "opacity": "透過率"
       }
     }
   }

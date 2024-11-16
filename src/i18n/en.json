@@ -14,7 +14,8 @@
     "totalMemory": "Total Memory",
     "memoryCount": "Memory Count",
     "memoryClockSpeed": "Memory Clock",
-    "clock": "Clock"
+    "clock": "Clock",
+    "reset": "Reset"
   },
 
   "pages": {
@@ -29,17 +30,40 @@
       "general": {
         "name": "General",
         "language": "Language",
-        "theme": "Theme",
+        "colorMode": {
+          "name": "Color Mode",
+          "light": "Light",
+          "dark": "Dark"
+        },
         "hardwareType": "Hardware Type"
       },
       "customTheme": {
         "name": "Custom Theme",
         "preview": "Preview",
         "lineColor": "line Color",
-        "graphStyle": "Graph Style"
+        "graphStyle": {
+          "name": "Graph Style",
+          "lineGraphBorder": "Graph Border",
+          "lineGraphFill": "Graph Fill",
+          "lineGraphMix": "Graph Mix",
+          "lineGraphShowLegend": "Legend",
+          "lineGraphShowScale": "Scale",
+          "size": "Graph Size"
+        }
       },
       "backgroundImage": {
-        "name": "Background Image"
+        "name": "Background Image",
+        "upload": {
+          "name": "Upload",
+          "pleaseSelectAFile": "Please select a file",
+          "errors": {
+            "format": "Please select an image in JPEG or PNG format",
+            "notSelected": "Please select a file"
+          },
+          "confirm": "Confirm",
+          "description": "The file will only be saved on your device"
+        },
+        "opacity": "Opacity"
       }
     }
   }
