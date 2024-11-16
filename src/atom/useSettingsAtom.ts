@@ -74,11 +74,14 @@ export const useSettingsAtom = () => {
     key: K,
     value: Settings[K],
   ) => {
+    const previousValue = settings[key];
+
     try {
-      await mapSettingUpdater[key](value);
       setSettings((prev) => ({ ...prev, [key]: value }));
+      await mapSettingUpdater[key](value);
     } catch (e) {
       console.error(e);
+      setSettings((prev) => ({ ...prev, [key]: previousValue }));
     }
   };
 
