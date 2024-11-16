@@ -1,6 +1,8 @@
 {
   "shared": {
     "usage": "Usage",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
     "temperature": "Temperature",
     "name": "Name",
     "vendor": "Vendor",
@@ -15,6 +17,7 @@
     "memoryCount": "Memory Count",
     "memoryClockSpeed": "Memory Clock",
     "clock": "Clock",
+    "process": "Process",
     "reset": "Reset"
   },
 

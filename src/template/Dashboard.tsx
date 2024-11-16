@@ -10,6 +10,7 @@ import DoughnutChart from "@/components/charts/DoughnutChart";
 import ProcessesTable from "@/components/charts/ProcessTable";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   return (
@@ -39,6 +40,7 @@ const DataArea = ({ children }: { children: React.ReactNode }) => {
 };
 
 const CPUInfo = () => {
+  const { t } = useTranslation();
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
 
@@ -53,10 +55,11 @@ const CPUInfo = () => {
         />
         <InfoTable
           data={{
-            name: hardwareInfo.cpu.name,
-            vendor: hardwareInfo.cpu.vendor,
-            "Core Count": hardwareInfo.cpu.coreCount,
-            "Default Clock Speed": `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
+            [t("shared.name")]: hardwareInfo.cpu.name,
+            [t("shared.vendor")]: hardwareInfo.cpu.vendor,
+            [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
+            [t("shared.defaultClockSpeed")]:
+              `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
           }}
         />
       </>
@@ -65,6 +68,7 @@ const CPUInfo = () => {
 };
 
 const GPUInfo = () => {
+  const { t } = useTranslation();
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
   const [gpuFan] = useAtom(gpuFanSpeedAtom);
@@ -111,10 +115,10 @@ const GPUInfo = () => {
           <div className="py-2" key={`${gpu.name}${index}`}>
             <InfoTable
               data={{
-                Name: gpu.name,
-                Vendor: gpu.vendorName,
-                "Memory Size": gpu.memorySize,
-                "Memory Size Dedicated": gpu.memorySizeDedicated,
+                [t("shared.name")]: gpu.name,
+                [t("shared.vendor")]: gpu.vendorName,
+                [t("shared.memorySize")]: gpu.memorySize,
+                [t("shared.memorySizeDedicated")]: gpu.memorySizeDedicated,
               }}
             />
           </div>
@@ -125,6 +129,7 @@ const GPUInfo = () => {
 };
 
 const MemoryInfo = () => {
+  const { t } = useTranslation();
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
 
@@ -139,10 +144,12 @@ const MemoryInfo = () => {
         />
         <InfoTable
           data={{
-            "Memory Type": hardwareInfo.memory.memoryType,
-            "Total Memory": hardwareInfo.memory.size,
-            "Memory Count": `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
-            "Memory Clock": `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
+            [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+            [t("shared.totalMemory")]: hardwareInfo.memory.size,
+            [t("shared.memoryCount")]:
+              `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
+            [t("shared.memoryClockSpeed")]:
+              `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
           }}
         />
       </>

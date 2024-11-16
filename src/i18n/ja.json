@@ -1,6 +1,8 @@
 {
   "shared": {
     "usage": "使用率",
+    "cpuUsage": "CPU使用率",
+    "memoryUsage": "メモリ使用率",
     "temperature": "温度",
     "name": "名前",
     "vendor": "ベンダー",
@@ -15,6 +17,7 @@
     "memoryCount": "メモリ枚数",
     "memoryClockSpeed": "メモリクロック数",
     "clock": "クロック数",
+    "process": "プロセス",
     "reset": "リセット"
   },
 

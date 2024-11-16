@@ -3,12 +3,14 @@ import type { ProcessInfo } from "@/types/hardwareDataType";
 import { CaretDown } from "@phosphor-icons/react";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const processesAtom = atom<ProcessInfo[]>([]);
 
 const ProcessesTable = ({
   defaultItemLength,
 }: { defaultItemLength: number }) => {
+  const { t } = useTranslation();
   const [processes] = useAtom(processesAtom);
   const setAtom = useSetAtom(processesAtom);
   const [showAllItem, setShowAllItem] = useState<boolean>(false);
@@ -61,7 +63,7 @@ const ProcessesTable = ({
 
   return (
     <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit">
-      <h4 className="text-xl font-bold mb-2">Process</h4>
+      <h4 className="text-xl font-bold mb-2">{t("shared.process")}</h4>
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
@@ -78,21 +80,21 @@ const ProcessesTable = ({
                 onClick={() => requestSort("name")}
                 onKeyDown={() => requestSort("name")}
               >
-                Name
+                {t("shared.name")}
               </th>
               <th
                 className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
                 onClick={() => requestSort("cpuUsage")}
                 onKeyDown={() => requestSort("cpuUsage")}
               >
-                CPU Usage
+                {t("shared.cpuUsage")}
               </th>
               <th
                 className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
                 onClick={() => requestSort("memoryUsage")}
                 onKeyDown={() => requestSort("memoryUsage")}
               >
-                Memory Usage
+                {t("shared.memoryUsage")}
               </th>
             </tr>
           </thead>
