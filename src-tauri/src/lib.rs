@@ -5,10 +5,13 @@
 mod commands;
 mod enums;
 mod services;
+mod structs;
 mod utils;
 
+use commands::background_image;
 use commands::config;
 use commands::hardware;
+use commands::ui;
 use tauri::Manager;
 use tauri::Wry;
 
@@ -54,6 +57,9 @@ pub fn run() {
       // ロガーの初期化
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
+      // UIの初期化
+      commands::ui::init(app);
+
       Ok(())
     })
     .plugin(tauri_plugin_store::Builder::new().build())
@@ -83,7 +89,14 @@ pub fn run() {
       config::commands::set_line_graph_mix,
       config::commands::set_line_graph_show_legend,
       config::commands::set_line_graph_show_scale,
+      config::commands::set_background_img_opacity,
       config::commands::set_state,
+      config::commands::set_selected_background_img,
+      background_image::get_background_image,
+      background_image::get_background_images,
+      background_image::save_background_image,
+      background_image::delete_background_image,
+      ui::set_decoration,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

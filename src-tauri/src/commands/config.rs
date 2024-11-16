@@ -1,4 +1,5 @@
 use crate::enums::hardware;
+use crate::services::language;
 use crate::utils::color;
 use crate::utils::file::get_app_data_dir;
 use crate::{log_debug, log_error, log_info, log_internal, log_warn, utils};
@@ -6,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::sync::Mutex;
+use tempfile::NamedTempFile;
 
 const SETTINGS_FILENAME: &str = "settings.json";
 
@@ -45,6 +47,8 @@ pub struct Settings {
   line_graph_mix: bool,
   line_graph_show_legend: bool,
   line_graph_show_scale: bool,
+  background_img_opacity: u8,
+  selected_background_img: Option<String>,
   state: StateSettings,
 }
 
@@ -72,6 +76,8 @@ pub struct ClientSettings {
   line_graph_mix: bool,
   line_graph_show_legend: bool,
   line_graph_show_scale: bool,
+  background_img_opacity: u8,
+  selected_background_img: Option<String>,
   state: StateSettings,
 }
 
@@ -79,7 +85,7 @@ impl Default for Settings {
   fn default() -> Self {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
-      language: "en".to_string(),
+      language: language::get_default_language().to_string(),
       theme: "dark".to_string(),
       display_targets: vec![
         hardware::HardwareType::CPU,
@@ -94,9 +100,11 @@ impl Default for Settings {
         memory: [255, 99, 132],
         gpu: [255, 206, 86],
       },
-      line_graph_mix: false,
+      line_graph_mix: true,
       line_graph_show_legend: true,
       line_graph_show_scale: false,
+      background_img_opacity: 50,
+      selected_background_img: None,
       state: StateSettings {
         display: "dashboard".to_string(),
       },
@@ -107,24 +115,31 @@ impl Default for Settings {
 impl Config for Settings {
   fn write_file(&self) -> Result<(), String> {
     let config_file = get_app_data_dir(SETTINGS_FILENAME);
-    if !config_file.parent().unwrap().exists() {
-      fs::create_dir_all(config_file.parent().unwrap()).unwrap();
+    let config_dir = match config_file.parent() {
+      Some(dir) => dir,
+      None => {
+        log_error!(
+          "Failed to get parent directory for settings file",
+          "write_file",
+          None::<&str>
+        );
+        return Err("Failed to get parent directory for settings file".to_string());
+      }
+    };
+
+    if !config_dir.exists() {
+      if let Err(e) = fs::create_dir_all(config_dir) {
+        log_error!(
+          "Failed to create configuration directory",
+          "write_file",
+          Some(e.to_string())
+        );
+        return Err(format!("Failed to create configuration directory: {}", e));
+      }
     }
 
-    match serde_json::to_string(self) {
-      Ok(serialized) => {
-        if let Err(e) = fs::File::create(config_file)
-          .and_then(|mut file| file.write_all(&serialized.as_bytes()))
-        {
-          // [TODO] ログの定数化
-          log_error!(
-            "Failed to serialize settings",
-            "write_file",
-            Some(e.to_string())
-          );
-          return Err(format!("Failed to write to settings file: {}", e));
-        }
-      }
+    let serialized = match serde_json::to_string(self) {
+      Ok(s) => s,
       Err(e) => {
         log_error!(
           "Failed to serialize settings",
@@ -133,6 +148,41 @@ impl Config for Settings {
         );
         return Err(format!("Failed to serialize settings: {}", e));
       }
+    };
+
+    // 一時ファイルに書き込む
+    let mut temp_file = match NamedTempFile::new_in(config_dir) {
+      Ok(file) => file,
+      Err(e) => {
+        log_error!(
+          "Failed to create temporary file for settings",
+          "write_file",
+          Some(e.to_string())
+        );
+        return Err(format!(
+          "Failed to create temporary file for settings: {}",
+          e
+        ));
+      }
+    };
+
+    if let Err(e) = temp_file.write_all(serialized.as_bytes()) {
+      log_error!(
+        "Failed to write to temporary settings file",
+        "write_file",
+        Some(e.to_string())
+      );
+      return Err(format!("Failed to write to temporary settings file: {}", e));
+    }
+
+    // 一時ファイルを本来の設定ファイルに置き換える
+    if let Err(e) = temp_file.persist(&config_file) {
+      log_error!(
+        "Failed to persist temporary settings file",
+        "write_file",
+        Some(e.to_string())
+      );
+      return Err(format!("Failed to persist temporary settings file: {}", e));
     }
 
     Ok(())
@@ -297,6 +347,19 @@ impl Settings {
     self.write_file()
   }
 
+  pub fn set_background_img_opacity(&mut self, new_value: u8) -> Result<(), String> {
+    self.background_img_opacity = new_value;
+    self.write_file()
+  }
+
+  pub fn set_selected_background_img(
+    &mut self,
+    new_value: Option<String>,
+  ) -> Result<(), String> {
+    self.selected_background_img = new_value;
+    self.write_file()
+  }
+
   pub fn set_state(&mut self, key: &str, new_value: String) -> Result<(), String> {
     match key {
       "display" => self.state.display = new_value,
@@ -390,6 +453,8 @@ pub mod commands {
       line_graph_mix: settings.line_graph_mix,
       line_graph_show_legend: settings.line_graph_show_legend,
       line_graph_show_scale: settings.line_graph_show_scale,
+      background_img_opacity: settings.background_img_opacity,
+      selected_background_img: settings.selected_background_img,
       state: settings.state,
     };
 
@@ -545,6 +610,36 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_line_graph_show_scale(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  pub async fn set_background_img_opacity(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: u8,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_background_img_opacity(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  pub async fn set_selected_background_img(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    file_id: Option<String>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_selected_background_img(file_id) {
       emit_error(&window)?;
       return Err(e);
     }

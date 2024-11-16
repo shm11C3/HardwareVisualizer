@@ -3,6 +3,7 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
 import { memo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 
 const buttonClasses = tv({
@@ -36,12 +37,6 @@ const menuItemClasses = tv({
   },
 });
 
-const menuTitles: Record<SelectedDisplayType, string> = {
-  dashboard: "Dashboard",
-  usage: "Usage",
-  settings: "Settings",
-};
-
 const SideMenu = () => {
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
   const { settings, updateStateAtom } = useSettingsAtom();
@@ -56,6 +51,14 @@ const SideMenu = () => {
   );
 
   const MenuItem = memo(({ type }: { type: SelectedDisplayType }) => {
+    const { t } = useTranslation();
+
+    const menuTitles: Record<SelectedDisplayType, string> = {
+      dashboard: t("pages.dashboard.name"),
+      usage: t("pages.usage.name"),
+      settings: t("pages.settings.name"),
+    };
+
     return (
       <li
         className={menuItemClasses({

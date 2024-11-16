@@ -1,6 +1,7 @@
 import { defaultColorRGB } from "@/consts/chart";
 import {
   getSettings,
+  setBackgroundImgOpacity,
   setDisplayTargets,
   setGraphSize,
   setLanguage,
@@ -10,13 +11,14 @@ import {
   setLineGraphMix,
   setLineGraphShowLegend,
   setLineGraphShowScale,
+  setSelectedBackgroundImg,
   setState,
   setTheme,
 } from "@/services/settingService";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import type { Settings } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
-import { useEffect } from "react";
+import { useCallback } from "react";
 
 const settingsAtom = atom<Settings>({
   language: "en",
@@ -30,9 +32,11 @@ const settingsAtom = atom<Settings>({
     memory: `rgb(${defaultColorRGB.memory})`,
     gpu: `rgb(${defaultColorRGB.gpu})`,
   },
-  lineGraphMix: false,
+  lineGraphMix: true,
   lineGraphShowLegend: true,
   lineGraphShowScale: false,
+  backgroundImgOpacity: 50,
+  selectedBackgroundImg: null,
   state: {
     display: "dashboard",
   },
@@ -53,16 +57,15 @@ export const useSettingsAtom = () => {
     lineGraphMix: setLineGraphMix,
     lineGraphShowLegend: setLineGraphShowLegend,
     lineGraphShowScale: setLineGraphShowScale,
+    backgroundImgOpacity: setBackgroundImgOpacity,
+    selectedBackgroundImg: setSelectedBackgroundImg,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      const setting = await getSettings();
-      setSettings(setting);
-    };
-    loadSettings();
+  const loadSettings = useCallback(async () => {
+    const setting = await getSettings();
+    setSettings(setting);
   }, [setSettings]);
 
   const updateSettingAtom = async <
@@ -71,11 +74,14 @@ export const useSettingsAtom = () => {
     key: K,
     value: Settings[K],
   ) => {
+    const previousValue = settings[key];
+
     try {
-      await mapSettingUpdater[key](value);
       setSettings((prev) => ({ ...prev, [key]: value }));
+      await mapSettingUpdater[key](value);
     } catch (e) {
       console.error(e);
+      setSettings((prev) => ({ ...prev, [key]: previousValue }));
     }
   };
 
@@ -132,6 +138,7 @@ export const useSettingsAtom = () => {
 
   return {
     settings,
+    loadSettings,
     toggleDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,

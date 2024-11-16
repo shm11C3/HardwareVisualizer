@@ -1,5 +1,5 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
-import { displayDataType, displayHardType } from "@/consts/chart";
+import { displayHardType } from "@/consts/chart";
 import type { ChartDataType, HardwareDataType } from "@/types/hardwareDataType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
 import {
@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
+import { useTranslation } from "react-i18next";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -25,6 +26,14 @@ const DoughnutChart = ({
   showTitle: boolean;
 }) => {
   const { settings } = useSettingsAtom();
+
+  const { t } = useTranslation();
+
+  const displayDataType: Record<HardwareDataType, string> = {
+    usage: t("shared.usage"),
+    temp: t("shared.temperature"),
+    clock: t("shared.clock"),
+  };
 
   const data = {
     datasets: [
