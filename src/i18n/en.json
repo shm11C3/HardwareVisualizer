@@ -1,0 +1,73 @@
+{
+  "shared": {
+    "usage": "Usage",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "temperature": "Temperature",
+    "name": "Name",
+    "vendor": "Vendor",
+    "coreCount": "Core Count",
+    "defaultClockSpeed": "Default Clock Speed",
+    "memory": "Memory",
+    "memorySize": "Memory Size",
+    "memorySizeShared": "Memory Size (Shared)",
+    "memorySizeDedicated": "Memory Size (Dedicated)",
+    "memoryType": "Memory Type",
+    "totalMemory": "Total Memory",
+    "memoryCount": "Memory Count",
+    "memoryClockSpeed": "Memory Clock",
+    "clock": "Clock",
+    "process": "Process",
+    "reset": "Reset"
+  },
+
+  "pages": {
+    "dashboard": {
+      "name": "Dashboard"
+    },
+    "usage": {
+      "name": "Usage"
+    },
+    "settings": {
+      "name": "Settings",
+      "general": {
+        "name": "General",
+        "language": "Language",
+        "colorMode": {
+          "name": "Color Mode",
+          "light": "Light",
+          "dark": "Dark"
+        },
+        "hardwareType": "Hardware Type"
+      },
+      "customTheme": {
+        "name": "Custom Theme",
+        "preview": "Preview",
+        "lineColor": "line Color",
+        "graphStyle": {
+          "name": "Graph Style",
+          "lineGraphBorder": "Graph Border",
+          "lineGraphFill": "Graph Fill",
+          "lineGraphMix": "Graph Mix",
+          "lineGraphShowLegend": "Legend",
+          "lineGraphShowScale": "Scale",
+          "size": "Graph Size"
+        }
+      },
+      "backgroundImage": {
+        "name": "Background Image",
+        "upload": {
+          "name": "Upload",
+          "pleaseSelectAFile": "Please select a file",
+          "errors": {
+            "format": "Please select an image in JPEG or PNG format",
+            "notSelected": "Please select a file"
+          },
+          "confirm": "Confirm",
+          "description": "The file will only be saved on your device"
+        },
+        "opacity": "Opacity"
+      }
+    }
+  }
+}

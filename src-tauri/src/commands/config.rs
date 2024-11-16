@@ -1,4 +1,5 @@
 use crate::enums::hardware;
+use crate::services::language;
 use crate::utils::color;
 use crate::utils::file::get_app_data_dir;
 use crate::{log_debug, log_error, log_info, log_internal, log_warn, utils};
@@ -84,7 +85,7 @@ impl Default for Settings {
   fn default() -> Self {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
-      language: "en".to_string(),
+      language: language::get_default_language().to_string(),
       theme: "dark".to_string(),
       display_targets: vec![
         hardware::HardwareType::CPU,
