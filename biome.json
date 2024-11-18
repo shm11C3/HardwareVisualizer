@@ -15,5 +15,8 @@
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2
+  },
+  "files": {
+    "ignore": ["src/rspc/**"]
   }
 }

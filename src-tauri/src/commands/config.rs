@@ -4,9 +4,12 @@ use crate::utils::color;
 use crate::utils::file::get_app_data_dir;
 use crate::{log_debug, log_error, log_info, log_internal, log_warn, utils};
 use serde::{Deserialize, Serialize};
+use specta::Type;
+use specta_typescript::Typescript;
 use std::fs;
 use std::io::Write;
 use std::sync::Mutex;
+use tauri_specta::{collect_commands, Builder};
 use tempfile::NamedTempFile;
 
 const SETTINGS_FILENAME: &str = "settings.json";
@@ -16,7 +19,7 @@ trait Config {
   fn read_file(&mut self) -> Result<(), String>;
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StateSettings {
   pub display: String,
@@ -55,7 +58,7 @@ pub struct Settings {
 ///
 /// クライアントに送信する設定の構造体
 ///
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LineGraphColorStringSettings {
   pub cpu: String,
@@ -63,7 +66,7 @@ pub struct LineGraphColorStringSettings {
   pub gpu: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientSettings {
   language: String,
@@ -412,6 +415,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn get_settings(
     state: tauri::State<'_, AppState>,
   ) -> Result<ClientSettings, String> {
@@ -462,6 +466,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_language(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -478,6 +483,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_theme(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -494,6 +500,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_display_targets(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -509,6 +516,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_graph_size(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -524,6 +532,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_line_graph_border(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -539,6 +548,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_line_graph_fill(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -554,6 +564,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_line_graph_color(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -572,6 +583,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_line_graph_mix(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -587,6 +599,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_line_graph_show_legend(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -602,6 +615,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_line_graph_show_scale(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -617,6 +631,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_background_img_opacity(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -632,6 +647,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_selected_background_img(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -647,6 +663,7 @@ pub mod commands {
   }
 
   #[tauri::command]
+  #[specta::specta]
   pub async fn set_state(
     window: Window,
     state: tauri::State<'_, AppState>,

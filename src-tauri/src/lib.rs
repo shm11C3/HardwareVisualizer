@@ -12,8 +12,11 @@ use commands::background_image;
 use commands::config;
 use commands::hardware;
 use commands::ui;
+use serde::{Deserialize, Serialize};
+use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri::Wry;
+use tauri_specta::{collect_commands, Builder};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -50,24 +53,9 @@ pub fn run() {
     process_memory_histories,
   );
 
-  tauri::Builder::<Wry>::default()
-    .setup(|app| {
-      let path_resolver = app.path();
-
-      // ロガーの初期化
-      utils::logger::init(path_resolver.app_log_dir().unwrap());
-
-      // UIの初期化
-      commands::ui::init(app);
-
-      Ok(())
-    })
-    .plugin(tauri_plugin_store::Builder::new().build())
-    .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_window_state::Builder::default().build())
-    .manage(state)
-    .manage(app_state)
-    .invoke_handler(tauri::generate_handler![
+  let mut builder = Builder::<tauri::Wry>::new()
+    // Then register them (separated by a comma)
+    .commands(collect_commands![
       hardware::get_process_list,
       hardware::get_cpu_usage,
       hardware::get_hardware_info,
@@ -97,7 +85,33 @@ pub fn run() {
       background_image::save_background_image,
       background_image::delete_background_image,
       ui::set_decoration,
-    ])
+    ]);
+
+  #[cfg(debug_assertions)]
+  builder
+    .export(Typescript::default(), "../src/rspc/bindings.ts")
+    .expect("Failed to export typescript bindings");
+
+  tauri::Builder::<Wry>::default()
+    .invoke_handler(builder.invoke_handler())
+    .setup(move |app| {
+      let path_resolver = app.path();
+
+      // ロガーの初期化
+      utils::logger::init(path_resolver.app_log_dir().unwrap());
+
+      // UIの初期化
+      commands::ui::init(app);
+
+      builder.mount_events(app);
+
+      Ok(())
+    })
+    .plugin(tauri_plugin_store::Builder::new().build())
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_window_state::Builder::default().build())
+    .manage(state)
+    .manage(app_state)
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

@@ -6,7 +6,7 @@ use std::fmt;
 
 pub struct RoundedKibibytes {
   pub kibibytes: Kibibytes,
-  pub precision: usize,
+  pub precision: u32,
 }
 
 ///
@@ -23,7 +23,7 @@ impl fmt::Display for RoundedKibibytes {
         f,
         "{:.precision$} MB",
         value_in_mib,
-        precision = self.precision
+        precision = self.precision as usize
       ) // 指定された桁数でフォーマット
     } else {
       let value_in_gib = value as f32 / 1048576.0;
@@ -31,7 +31,7 @@ impl fmt::Display for RoundedKibibytes {
         f,
         "{:.precision$} GB",
         value_in_gib,
-        precision = self.precision
+        precision = self.precision as usize
       ) // 指定された桁数でフォーマット
     }
   }
@@ -40,16 +40,16 @@ impl fmt::Display for RoundedKibibytes {
 ///
 /// ## 小数を指定桁数で丸める（四捨五入）
 ///
-pub fn round(num: f64, precision: usize) -> f64 {
+pub fn round(num: f64, precision: u32) -> f64 {
   Decimal::from_f64(num)
-    .map(|d| d.round_dp(precision as u32).to_f64().unwrap_or(0.0))
+    .map(|d| d.round_dp(precision).to_f64().unwrap_or(0.0))
     .unwrap_or(0.0)
 }
 
 ///
 /// ## バイト数を単位付きの文字列に変換
 ///
-pub fn format_size(bytes: u64, precision: usize) -> String {
+pub fn format_size(bytes: u64, precision: u32) -> String {
   const KILOBYTE: u64 = 1024;
   const MEGABYTE: u64 = KILOBYTE * 1024;
   const GIGABYTE: u64 = MEGABYTE * 1024;
@@ -57,12 +57,14 @@ pub fn format_size(bytes: u64, precision: usize) -> String {
   if bytes >= GIGABYTE {
     format!(
       "{:.precision$} GB",
-      round(bytes as f64 / GIGABYTE as f64, precision)
+      round(bytes as f64 / GIGABYTE as f64, precision),
+      precision = precision as usize
     )
   } else if bytes >= MEGABYTE {
     format!(
       "{:.precision$} MB",
-      round(bytes as f64 / MEGABYTE as f64, precision)
+      round(bytes as f64 / MEGABYTE as f64, precision),
+      precision = precision as usize
     )
   } else {
     format!("{} bytes", bytes)
