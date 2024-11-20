@@ -8,12 +8,11 @@ import {
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { chartConfig } from "@/consts/chart";
+import { commands } from "@/rspc/bindings";
 import {
-  getCpuUsage,
   getGpuFanSpeed,
   getGpuTemperature,
   getGpuUsage,
-  getMemoryUsage,
 } from "@/services/hardwareService";
 import type { ChartDataType, NameValues } from "@/types/hardwareDataType";
 import { type PrimitiveAtom, useSetAtom } from "jotai";
@@ -31,11 +30,11 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
   const mapping: Record<ChartDataType, AtomActionMapping> = {
     cpu: {
       atom: cpuUsageHistoryAtom,
-      action: getCpuUsage,
+      action: commands.getCpuUsage,
     },
     memory: {
       atom: memoryUsageHistoryAtom,
-      action: getMemoryUsage,
+      action: commands.getMemoryUsage,
     },
     gpu: {
       atom: graphicUsageHistoryAtom,

@@ -10,6 +10,7 @@ import DoughnutChart from "@/components/charts/DoughnutChart";
 import ProcessesTable from "@/components/charts/ProcessTable";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
@@ -159,6 +160,12 @@ const MemoryInfo = () => {
 
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
+  const { init } = useHardwareInfoAtom();
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  useEffect(() => {
+    init();
+  }, []);
 
   const hardwareInfoList: { key: string; component: JSX.Element }[] = [
     hardwareInfo.cpu && { key: "cpuInfo", component: <CPUInfo /> },
