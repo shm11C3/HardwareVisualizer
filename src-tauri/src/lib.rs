@@ -53,40 +53,39 @@ pub fn run() {
     process_memory_histories,
   );
 
-  let mut builder = Builder::<tauri::Wry>::new()
-    // Then register them (separated by a comma)
-    .commands(collect_commands![
-      hardware::get_process_list,
-      hardware::get_cpu_usage,
-      hardware::get_hardware_info,
-      hardware::get_memory_usage,
-      hardware::get_gpu_usage,
-      hardware::get_gpu_temperature,
-      hardware::get_nvidia_gpu_cooler,
-      hardware::get_cpu_usage_history,
-      hardware::get_memory_usage_history,
-      hardware::get_gpu_usage_history,
-      config::commands::get_settings,
-      config::commands::set_language,
-      config::commands::set_theme,
-      config::commands::set_display_targets,
-      config::commands::set_graph_size,
-      config::commands::set_line_graph_border,
-      config::commands::set_line_graph_fill,
-      config::commands::set_line_graph_color,
-      config::commands::set_line_graph_mix,
-      config::commands::set_line_graph_show_legend,
-      config::commands::set_line_graph_show_scale,
-      config::commands::set_background_img_opacity,
-      config::commands::set_state,
-      config::commands::set_selected_background_img,
-      background_image::get_background_image,
-      background_image::get_background_images,
-      background_image::save_background_image,
-      background_image::delete_background_image,
-      ui::set_decoration,
-    ]);
+  let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+    hardware::get_process_list,
+    hardware::get_cpu_usage,
+    hardware::get_hardware_info,
+    hardware::get_memory_usage,
+    hardware::get_gpu_usage,
+    hardware::get_gpu_temperature,
+    hardware::get_nvidia_gpu_cooler,
+    hardware::get_cpu_usage_history,
+    hardware::get_memory_usage_history,
+    hardware::get_gpu_usage_history,
+    config::commands::get_settings,
+    config::commands::set_language,
+    config::commands::set_theme,
+    config::commands::set_display_targets,
+    config::commands::set_graph_size,
+    config::commands::set_line_graph_border,
+    config::commands::set_line_graph_fill,
+    config::commands::set_line_graph_color,
+    config::commands::set_line_graph_mix,
+    config::commands::set_line_graph_show_legend,
+    config::commands::set_line_graph_show_scale,
+    config::commands::set_background_img_opacity,
+    config::commands::set_state,
+    config::commands::set_selected_background_img,
+    background_image::get_background_image,
+    background_image::get_background_images,
+    background_image::save_background_image,
+    background_image::delete_background_image,
+    ui::set_decoration,
+  ]);
 
+  // TS bindings
   #[cfg(debug_assertions)]
   builder
     .export(
