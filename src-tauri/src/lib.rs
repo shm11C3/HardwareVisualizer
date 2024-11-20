@@ -89,7 +89,12 @@ pub fn run() {
 
   #[cfg(debug_assertions)]
   builder
-    .export(Typescript::default(), "../src/rspc/bindings.ts")
+    .export(
+      Typescript::default()
+        .header("// @ts-nocheck\n") // TODO 未使用なimportを削除して型エラーをなくす
+        .formatter(specta_typescript::formatter::biome),
+      "../src/rspc/bindings.ts",
+    )
     .expect("Failed to export typescript bindings");
 
   tauri::Builder::<Wry>::default()
