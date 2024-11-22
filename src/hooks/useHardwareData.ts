@@ -8,13 +8,9 @@ import {
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { chartConfig } from "@/consts/chart";
-import { commands } from "@/rspc/bindings";
-import {
-  getGpuFanSpeed,
-  getGpuTemperature,
-  getGpuUsage,
-} from "@/services/hardwareService";
-import type { ChartDataType, NameValues } from "@/types/hardwareDataType";
+import { type NameValue, type Result, commands } from "@/rspc/bindings";
+import type { ChartDataType } from "@/types/hardwareDataType";
+import { isError, isOk, isResult } from "@/types/result";
 import { type PrimitiveAtom, useSetAtom } from "jotai";
 import { useEffect } from "react";
 
@@ -24,7 +20,7 @@ import { useEffect } from "react";
 export const useUsageUpdater = (dataType: ChartDataType) => {
   type AtomActionMapping = {
     atom: PrimitiveAtom<number[]>;
-    action: () => Promise<number>;
+    action: () => Promise<number> | Promise<Result<number, string>>;
   };
 
   const mapping: Record<ChartDataType, AtomActionMapping> = {
@@ -38,7 +34,7 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
     },
     gpu: {
       atom: graphicUsageHistoryAtom,
-      action: getGpuUsage,
+      action: commands.getGpuUsage,
     },
   };
 
@@ -47,7 +43,11 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
 
   useEffect(() => {
     const intervalId = setInterval(async () => {
-      const usage = await getUsage();
+      const result = await getUsage();
+
+      if (isResult(result) && isError(result)) return;
+      const usage = isResult(result) ? result.data : result;
+
       setHistory((prev) => {
         const newHistory = [...prev, usage];
 
@@ -70,8 +70,8 @@ export const useHardwareUpdater = (
   dataType: "temp" | "fan",
 ) => {
   type AtomActionMapping = {
-    atom: PrimitiveAtom<NameValues>;
-    action: () => Promise<NameValues>;
+    atom: PrimitiveAtom<NameValue[]>;
+    action: () => Promise<Result<NameValue[], string>>;
   };
 
   const mapping: Record<
@@ -83,25 +83,25 @@ export const useHardwareUpdater = (
         atom: cpuTempAtom,
         action: () => {
           console.error("Not implemented");
-          return Promise.resolve([]);
+          return Promise.resolve({ status: "error", error: "Not implemented" });
         },
       },
       fan: {
         atom: cpuFanSpeedAtom,
         action: () => {
           console.error("Not implemented");
-          return Promise.resolve([]);
+          return Promise.resolve({ status: "error", error: "Not implemented" });
         },
       },
     },
     gpu: {
       fan: {
         atom: gpuFanSpeedAtom,
-        action: getGpuFanSpeed,
+        action: commands.getNvidiaGpuCooler,
       },
       temp: {
         atom: gpuTempAtom,
-        action: getGpuTemperature,
+        action: commands.getGpuTemperature,
       },
     },
   };
@@ -111,8 +111,11 @@ export const useHardwareUpdater = (
 
   useEffect(() => {
     const fetchData = async () => {
-      const temp = await getData();
-      setData(temp);
+      const result = await getData();
+
+      if (isOk(result)) {
+        setData(result.data);
+      }
     };
 
     fetchData();

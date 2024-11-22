@@ -1,4 +1,5 @@
 import { type SysInfo, commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 import { atom, useAtom } from "jotai";
 
 const hardInfoAtom = atom<SysInfo>({
@@ -13,7 +14,7 @@ export const useHardwareInfoAtom = () => {
   const init = async () => {
     const fetchedHardwareInfo = await commands.getHardwareInfo();
 
-    if (fetchedHardwareInfo.status === "error") {
+    if (isError(fetchedHardwareInfo)) {
       console.error("Failed to fetch hardware info:", fetchedHardwareInfo);
       return;
     }
