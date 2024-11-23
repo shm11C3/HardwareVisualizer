@@ -90,11 +90,11 @@ pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
       let memory_usage = if let Some(history) = process_memory_histories.get(&pid) {
         let len = history.len().min(5); // 最大5秒分のデータ
         let sum: f32 = history.iter().rev().take(len).sum();
-        let avg = sum / len as f32;
+        let avg = (sum as f32 / 1024.0) / len as f32;
 
-        (avg * 10.0).round() / 10.0
+        (avg * 10.0).round() / 10.0 // 小数点1桁で丸める
       } else {
-        process.memory() as f32 / 1024.0 // 履歴がなければ現在のメモリ使用量を返す
+        process.memory() as f32 / 1024.0 // KB → MBに変換
       };
 
       ProcessInfo {
