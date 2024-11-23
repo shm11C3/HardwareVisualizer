@@ -1,7 +1,7 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
-import { isError } from "@/types/result";
+import { isError, isOk } from "@/types/result";
 import type { BackgroundImage } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
@@ -18,13 +18,14 @@ export const useBackgroundImage = () => {
 
   const initBackgroundImage = useCallback(async () => {
     if (settings.selectedBackgroundImg) {
-      try {
-        const base64Image = await commands.getBackgroundImage(
-          settings.selectedBackgroundImg,
-        );
-        setBackgroundImage(`data:image/png;base64,${base64Image}`);
-      } catch (error) {
-        console.error("Failed to load background image:", error);
+      const base64Image = await commands.getBackgroundImage(
+        settings.selectedBackgroundImg,
+      );
+
+      if (isOk(base64Image)) {
+        setBackgroundImage(`data:image/png;base64,${base64Image.data}`);
+      } else {
+        console.error("Failed to load background image:", base64Image.error);
       }
     } else {
       setBackgroundImage(null);
