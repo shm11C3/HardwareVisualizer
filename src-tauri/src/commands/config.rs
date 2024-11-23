@@ -1,15 +1,13 @@
-use crate::enums::hardware;
+use crate::enums::{self, hardware};
 use crate::services::language;
 use crate::utils::color;
 use crate::utils::file::get_app_data_dir;
 use crate::{log_debug, log_error, log_info, log_internal, log_warn, utils};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use specta_typescript::Typescript;
 use std::fs;
 use std::io::Write;
 use std::sync::Mutex;
-use tauri_specta::{collect_commands, Builder};
 use tempfile::NamedTempFile;
 
 const SETTINGS_FILENAME: &str = "settings.json";
@@ -17,12 +15,6 @@ const SETTINGS_FILENAME: &str = "settings.json";
 trait Config {
   fn write_file(&self) -> Result<(), String>;
   fn read_file(&mut self) -> Result<(), String>;
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct StateSettings {
-  pub display: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -41,9 +33,9 @@ pub struct LineGraphColorSettings {
 pub struct Settings {
   version: String,
   language: String,
-  theme: String,
+  theme: enums::config::Theme,
   display_targets: Vec<hardware::HardwareType>,
-  graph_size: String,
+  graph_size: enums::config::GraphSize,
   line_graph_border: bool,
   line_graph_fill: bool,
   line_graph_color: LineGraphColorSettings,
@@ -52,7 +44,6 @@ pub struct Settings {
   line_graph_show_scale: bool,
   background_img_opacity: u8,
   selected_background_img: Option<String>,
-  state: StateSettings,
 }
 
 ///
@@ -70,9 +61,9 @@ pub struct LineGraphColorStringSettings {
 #[serde(rename_all = "camelCase")]
 pub struct ClientSettings {
   language: String,
-  theme: String,
+  theme: enums::config::Theme,
   display_targets: Vec<hardware::HardwareType>,
-  graph_size: String,
+  graph_size: enums::config::GraphSize,
   line_graph_border: bool,
   line_graph_fill: bool,
   line_graph_color: LineGraphColorStringSettings,
@@ -81,7 +72,6 @@ pub struct ClientSettings {
   line_graph_show_scale: bool,
   background_img_opacity: u8,
   selected_background_img: Option<String>,
-  state: StateSettings,
 }
 
 impl Default for Settings {
@@ -89,13 +79,13 @@ impl Default for Settings {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
       language: language::get_default_language().to_string(),
-      theme: "dark".to_string(),
+      theme: enums::config::Theme::Dark,
       display_targets: vec![
         hardware::HardwareType::CPU,
         hardware::HardwareType::Memory,
         hardware::HardwareType::GPU,
       ],
-      graph_size: "xl".to_string(),
+      graph_size: enums::config::GraphSize::XL,
       line_graph_border: true,
       line_graph_fill: true,
       line_graph_color: LineGraphColorSettings {
@@ -108,9 +98,6 @@ impl Default for Settings {
       line_graph_show_scale: false,
       background_img_opacity: 50,
       selected_background_img: None,
-      state: StateSettings {
-        display: "dashboard".to_string(),
-      },
     }
   }
 }
@@ -243,7 +230,7 @@ impl Settings {
     self.write_file()
   }
 
-  pub fn set_theme(&mut self, new_theme: String) -> Result<(), String> {
+  pub fn set_theme(&mut self, new_theme: enums::config::Theme) -> Result<(), String> {
     self.theme = new_theme;
     self.write_file()
   }
@@ -256,7 +243,10 @@ impl Settings {
     self.write_file()
   }
 
-  pub fn set_graph_size(&mut self, new_size: String) -> Result<(), String> {
+  pub fn set_graph_size(
+    &mut self,
+    new_size: enums::config::GraphSize,
+  ) -> Result<(), String> {
     self.graph_size = new_size;
     self.write_file()
   }
@@ -362,14 +352,6 @@ impl Settings {
     self.selected_background_img = new_value;
     self.write_file()
   }
-
-  pub fn set_state(&mut self, key: &str, new_value: String) -> Result<(), String> {
-    match key {
-      "display" => self.state.display = new_value,
-      _ => return Err(format!("Invalid key: {}", key)),
-    }
-    self.write_file()
-  }
 }
 
 #[derive(Debug)]
@@ -459,7 +441,6 @@ pub mod commands {
       line_graph_show_scale: settings.line_graph_show_scale,
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
-      state: settings.state,
     };
 
     Ok(client_settings)
@@ -487,7 +468,7 @@ pub mod commands {
   pub async fn set_theme(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_theme: String,
+    new_theme: enums::config::Theme,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -520,7 +501,7 @@ pub mod commands {
   pub async fn set_graph_size(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_size: String,
+    new_size: enums::config::GraphSize,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -659,30 +640,6 @@ pub mod commands {
       emit_error(&window)?;
       return Err(e);
     }
-    Ok(())
-  }
-
-  #[tauri::command]
-  #[specta::specta]
-  pub async fn set_state(
-    window: Window,
-    state: tauri::State<'_, AppState>,
-    key: String,
-    new_value: String,
-  ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_state(&key, new_value) {
-      emit_error(&window)?;
-      log_error!(
-        "Failed to update settings",
-        "set_state",
-        Some(e.to_string())
-      );
-
-      return Err(e);
-    }
-
     Ok(())
   }
 }

@@ -76,7 +76,6 @@ pub fn run() {
     config::commands::set_line_graph_show_legend,
     config::commands::set_line_graph_show_scale,
     config::commands::set_background_img_opacity,
-    config::commands::set_state,
     config::commands::set_selected_background_img,
     background_image::get_background_image,
     background_image::get_background_images,

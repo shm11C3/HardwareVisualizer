@@ -1,6 +1,5 @@
 import type { sizeOptions } from "@/consts/chart";
 import type { ChartDataType } from "./hardwareDataType";
-import type { SelectedDisplayType } from "./ui";
 
 export type Settings = {
   language: string;
@@ -19,9 +18,6 @@ export type Settings = {
   lineGraphShowScale: boolean;
   backgroundImgOpacity: number;
   selectedBackgroundImg: string | null;
-  state: {
-    display: SelectedDisplayType;
-  };
 };
 
 export type BackgroundImage = {

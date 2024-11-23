@@ -130,7 +130,7 @@ async setLanguage(newLanguage: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setTheme(newTheme: string) : Promise<Result<null, string>> {
+async setTheme(newTheme: Theme) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_theme", { newTheme }) };
 } catch (e) {
@@ -146,7 +146,7 @@ async setDisplayTargets(newTargets: HardwareType[]) : Promise<Result<null, strin
     else return { status: "error", error: e  as any };
 }
 },
-async setGraphSize(newSize: string) : Promise<Result<null, string>> {
+async setGraphSize(newSize: GraphSize) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_graph_size", { newSize }) };
 } catch (e) {
@@ -205,14 +205,6 @@ async setLineGraphShowScale(newValue: boolean) : Promise<Result<null, string>> {
 async setBackgroundImgOpacity(newValue: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_background_img_opacity", { newValue }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setState(key: string, newValue: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_state", { key, newValue }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -301,10 +293,11 @@ async setDecoration(isDecorated: boolean) : Promise<void> {
  * 
  */
 export type BackgroundImage = { fileId: string; imageData: string }
-export type ClientSettings = { language: string; theme: string; displayTargets: HardwareType[]; graphSize: string; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; state: StateSettings }
+export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
+export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
-export type HardwareType = "CPU" | "Memory" | "GPU"
+export type HardwareType = "cpu" | "memory" | "gpu"
 /**
  * クライアントに送信する設定の構造体
  * 
@@ -313,8 +306,8 @@ export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: s
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
 export type NameValue = { name: string; value: number }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }
-export type StateSettings = { display: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null }
+export type Theme = "light" | "dark"
 
 /** tauri-specta globals **/
 

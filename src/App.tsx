@@ -12,9 +12,10 @@ import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import ScreenTemplate from "./template/ScreenTemplate";
 import Settings from "./template/Settings";
-import SideMenu from "./template/SideMenu";
+import { SideMenu, displayTargetAtom } from "./template/SideMenu";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
+import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useKeydown } from "./hooks/useInputListener";
 
@@ -68,6 +69,8 @@ const Page = () => {
     initBackgroundImage();
   }, [loadSettings, initBackgroundImage]);
 
+  const [displayTarget] = useAtom(displayTargetAtom);
+
   useKeydown();
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
@@ -83,6 +86,8 @@ const Page = () => {
       </ScreenTemplate>
     ),
   };
+
+  console.log("displayTarget", displayTarget);
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
@@ -100,7 +105,7 @@ const Page = () => {
         />
         <div className="relative z-10">
           <SideMenu />
-          {displayTargets[settings.state.display]}
+          {displayTarget && displayTargets[displayTarget]}
         </div>
       </div>
     </ErrorBoundary>
