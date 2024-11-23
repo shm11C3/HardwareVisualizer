@@ -8,7 +8,7 @@ export const useKeydown = () => {
   useEffect(() => {
     const handleDecoration = async () => {
       try {
-        await toggleDecoration(!isDecorated);
+        await commands.setDecoration(!isDecorated);
         await setDecorated(!isDecorated);
       } catch (e) {
         console.error("Failed to toggle window decoration:", e);
