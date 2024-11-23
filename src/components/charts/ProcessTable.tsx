@@ -39,12 +39,35 @@ const ProcessesTable = ({
   const sortedProcesses = [...processes];
   if (sortConfig !== null) {
     sortedProcesses.sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === "ascending" ? -1 : 1;
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+
+      // 数値の場合はそのまま比較
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.direction === "ascending"
+          ? aValue - bValue
+          : bValue - aValue;
       }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === "ascending" ? 1 : -1;
+
+      // 数値を文字列として保持している場合は数値に変換
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        const aNumber = Number.parseFloat(aValue);
+        const bNumber = Number.parseFloat(bValue);
+
+        // 小数が文字列として比較されてしまうため、NaNでない場合は数値として比較
+        if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+          return sortConfig.direction === "ascending"
+            ? aNumber - bNumber
+            : bNumber - aNumber;
+        }
+
+        // 数値でない場合は文字列として比較
+        return sortConfig.direction === "ascending"
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
       }
+
+      // 型が異なる場合は順序を変更しない
       return 0;
     });
   }
