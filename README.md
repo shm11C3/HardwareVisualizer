@@ -10,12 +10,12 @@
 ![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
 ## Supported OS
-| OS                       | Status |
-| ----------------------------- | ------ |
-| Windows          | ✅     |
-| MacOS          |  ⏳    |
-| linux |   ⏳   |
 
+| OS      | Status                                                                       |
+| ------- | ---------------------------------------------------------------------------- |
+| Windows | ✅ [Download](https://github.com/shm11C3/HardwareVisualizer/releases/latest) |
+| MacOS   | ⏳                                                                           |
+| linux   | ⏳                                                                           |
 
 ## Features
 
@@ -30,7 +30,7 @@
 | Fan Monitoring                | ⏳     |
 | Customizable Chart Themes     | ✅     |
 | Customizable Dashboard        | ⏳     |
-| Custom Background Image  | ✅     |
+| Custom Background Image       | ✅     |
 
 ### Dashboard
 
@@ -40,7 +40,6 @@
 
 ![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
 
-
 ### Custom Graph
 
 ![image](https://github.com/user-attachments/assets/814eff68-9190-4c39-a67d-a7458778ec95)
@@ -48,7 +47,6 @@
 ### Background Image
 
 ![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
-
 
 ## Development
 
