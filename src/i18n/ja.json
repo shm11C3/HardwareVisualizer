@@ -69,5 +69,16 @@
         "opacity": "透過率"
       }
     }
+  },
+
+  "error": {
+    "title": {
+      "info": "情報",
+      "confirm": "確認",
+      "warning": "警告",
+      "error": "エラー",
+      "success": "成功しました",
+      "unexpected": "予期せぬエラーが発生しました"
+    }
   }
 }

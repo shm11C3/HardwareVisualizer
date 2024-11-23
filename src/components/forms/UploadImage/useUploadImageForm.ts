@@ -1,4 +1,5 @@
 import { useBackgroundImage } from "@/hooks/useBgImage";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -8,6 +9,7 @@ import { z } from "zod";
 //　画像アップロードカスタムフック
 export const useUploadImage = () => {
   const { t } = useTranslation();
+  const { error } = useTauriDialog();
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [fileName, setFilename] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,8 +39,9 @@ export const useUploadImage = () => {
     try {
       await saveBackgroundImage(values.picture);
       form.reset();
-    } catch (error) {
-      console.error("Error saveBackgroundImage:", error);
+    } catch (err) {
+      error(err as string);
+      console.error("Error saveBackgroundImage:", err);
     }
 
     setIsSubmitting(false);
