@@ -1,4 +1,4 @@
-import { toggleDecoration } from "@/services/uiService";
+import { commands } from "@/rspc/bindings";
 import { useEffect } from "react";
 import { useTauriStore } from "./useTauriStore";
 
