@@ -55,7 +55,7 @@ impl Serialize for GraphSize {
       GraphSize::SM => "sm",
       GraphSize::MD => "md",
       GraphSize::LG => "lg",
-      GraphSize::XL => "sl",
+      GraphSize::XL => "xl",
       GraphSize::_2XL => "2xl",
     };
     serializer.serialize_str(s)
@@ -72,7 +72,7 @@ impl<'de> Deserialize<'de> for GraphSize {
       "sm" => Ok(GraphSize::SM),
       "md" => Ok(GraphSize::MD),
       "lg" => Ok(GraphSize::LG),
-      "sl" => Ok(GraphSize::XL),
+      "xl" => Ok(GraphSize::XL),
       "2xl" => Ok(GraphSize::_2XL),
       _ => Err(serde::de::Error::unknown_variant(
         &s,
