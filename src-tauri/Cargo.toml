@@ -47,6 +47,9 @@ winapi = { version = "0.3", features = ["dxgi"] }
 regex = "1.11.1"
 tempfile = "3.14.0"
 sys-locale = "0.3.2"
+tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
+specta-typescript = "0.0.7"
+specta="=2.0.0-rc.20"
 
 [dependencies.uuid]
 version = "1.11.0"

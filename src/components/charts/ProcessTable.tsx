@@ -1,5 +1,4 @@
-import { getProcesses } from "@/services/hardwareService";
-import type { ProcessInfo } from "@/types/hardwareDataType";
+import { type ProcessInfo, commands } from "@/rspc/bindings";
 import { CaretDown } from "@phosphor-icons/react";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
@@ -22,7 +21,7 @@ const ProcessesTable = ({
   useEffect(() => {
     const fetchProcesses = async () => {
       try {
-        const processesData = await getProcesses();
+        const processesData = await commands.getProcessList();
         setAtom(processesData);
       } catch (error) {
         console.error("Failed to fetch processes:", error);

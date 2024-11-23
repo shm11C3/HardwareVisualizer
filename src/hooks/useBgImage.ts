@@ -1,11 +1,7 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
-import {
-  deleteBgImage,
-  fetchBackgroundImages,
-  getBgImage,
-  saveBgImage,
-} from "@/services/fileSystemService";
+import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 import type { BackgroundImage } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
@@ -23,7 +19,9 @@ export const useBackgroundImage = () => {
   const initBackgroundImage = useCallback(async () => {
     if (settings.selectedBackgroundImg) {
       try {
-        const base64Image = await getBgImage(settings.selectedBackgroundImg);
+        const base64Image = await commands.getBackgroundImage(
+          settings.selectedBackgroundImg,
+        );
         setBackgroundImage(`data:image/png;base64,${base64Image}`);
       } catch (error) {
         console.error("Failed to load background image:", error);
@@ -41,8 +39,14 @@ export const useBackgroundImage = () => {
   const saveBackgroundImage = async (imageFile: File) => {
     const base64Image = await convertFileToBase64(imageFile);
 
-    const fileId = await saveBgImage(base64Image);
-    updateSettingAtom("selectedBackgroundImg", fileId);
+    const fileId = await commands.saveBackgroundImage(base64Image);
+
+    if (isError(fileId)) {
+      console.error("Failed to save background image:", fileId.error);
+      return;
+    }
+
+    updateSettingAtom("selectedBackgroundImg", fileId.data);
     initBackgroundImages();
   };
 
@@ -53,7 +57,7 @@ export const useBackgroundImage = () => {
     }
 
     try {
-      await deleteBgImage(fileId);
+      await commands.deleteBackgroundImage(fileId);
       const newBackgroundImages = backgroundImageList.filter(
         (v) => v.fileId !== fileId,
       );
@@ -77,18 +81,24 @@ export const useBackgroundImageList = () => {
   );
 
   const initBackgroundImages = async () => {
-    try {
-      const uploadedBackgroundImages = await fetchBackgroundImages();
+    const uploadedBackgroundImages = await commands.getBackgroundImages();
 
-      const backgroundImagesWithUrl = uploadedBackgroundImages.map((image) => ({
+    if (isError(uploadedBackgroundImages)) {
+      console.error(
+        "Failed to load background images:",
+        uploadedBackgroundImages.error,
+      );
+      return;
+    }
+
+    const backgroundImagesWithUrl = uploadedBackgroundImages.data.map(
+      (image) => ({
         fileId: image.fileId,
         imageData: `data:image/png;base64,${image.imageData}`,
-      }));
+      }),
+    );
 
-      setBackgroundImageList(backgroundImagesWithUrl);
-    } catch (error) {
-      console.error("Failed to load background images:", error);
-    }
+    setBackgroundImageList(backgroundImagesWithUrl);
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>

@@ -1,21 +1,7 @@
 import { defaultColorRGB } from "@/consts/chart";
-import {
-  getSettings,
-  setBackgroundImgOpacity,
-  setDisplayTargets,
-  setGraphSize,
-  setLanguage,
-  setLineGraphBorder,
-  setLineGraphColor,
-  setLineGraphFill,
-  setLineGraphMix,
-  setLineGraphShowLegend,
-  setLineGraphShowScale,
-  setSelectedBackgroundImg,
-  setState,
-  setTheme,
-} from "@/services/settingService";
+import { type Result, commands } from "@/rspc/bindings";
 import type { ChartDataType } from "@/types/hardwareDataType";
+import { isError } from "@/types/result";
 import type { Settings } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useCallback } from "react";
@@ -37,35 +23,38 @@ const settingsAtom = atom<Settings>({
   lineGraphShowScale: false,
   backgroundImgOpacity: 50,
   selectedBackgroundImg: null,
-  state: {
-    display: "dashboard",
-  },
 });
 
 export const useSettingsAtom = () => {
   const mapSettingUpdater: {
     [K in keyof Omit<Settings, "state" | "lineGraphColor">]: (
       value: Settings[K],
-    ) => Promise<void>;
+    ) => Promise<Result<null, string>>;
   } = {
-    theme: setTheme,
-    displayTargets: setDisplayTargets,
-    graphSize: setGraphSize,
-    language: setLanguage,
-    lineGraphBorder: setLineGraphBorder,
-    lineGraphFill: setLineGraphFill,
-    lineGraphMix: setLineGraphMix,
-    lineGraphShowLegend: setLineGraphShowLegend,
-    lineGraphShowScale: setLineGraphShowScale,
-    backgroundImgOpacity: setBackgroundImgOpacity,
-    selectedBackgroundImg: setSelectedBackgroundImg,
+    theme: commands.setTheme,
+    displayTargets: commands.setDisplayTargets,
+    graphSize: commands.setGraphSize,
+    language: commands.setLanguage,
+    lineGraphBorder: commands.setLineGraphBorder,
+    lineGraphFill: commands.setLineGraphFill,
+    lineGraphMix: commands.setLineGraphMix,
+    lineGraphShowLegend: commands.setLineGraphShowLegend,
+    lineGraphShowScale: commands.setLineGraphShowScale,
+    backgroundImgOpacity: commands.setBackgroundImgOpacity,
+    selectedBackgroundImg: commands.setSelectedBackgroundImg,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
   const loadSettings = useCallback(async () => {
-    const setting = await getSettings();
-    setSettings(setting);
+    const setting = await commands.getSettings();
+
+    if (isError(setting)) {
+      console.error("Failed to fetch settings:", setting.error);
+      return;
+    }
+
+    setSettings(setting.data);
   }, [setSettings]);
 
   const updateSettingAtom = async <
@@ -76,11 +65,11 @@ export const useSettingsAtom = () => {
   ) => {
     const previousValue = settings[key];
 
-    try {
-      setSettings((prev) => ({ ...prev, [key]: value }));
-      await mapSettingUpdater[key](value);
-    } catch (e) {
-      console.error(e);
+    setSettings((prev) => ({ ...prev, [key]: value }));
+    const result = await mapSettingUpdater[key](value);
+
+    if (isError(result)) {
+      console.error(result.error);
       setSettings((prev) => ({ ...prev, [key]: previousValue }));
     }
   };
@@ -90,13 +79,14 @@ export const useSettingsAtom = () => {
       ? settings.displayTargets.filter((t) => t !== target)
       : [...settings.displayTargets, target];
 
-    try {
-      // [TODO] Result型を作りたい
-      await setDisplayTargets(newTargets);
-      setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
-    } catch (e) {
-      console.error(e);
+    const result = await commands.setDisplayTargets(newTargets);
+
+    if (isError(result)) {
+      console.error(result.error);
+      return;
     }
+
+    setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
   };
 
   /**
@@ -109,30 +99,16 @@ export const useSettingsAtom = () => {
     key: keyof Settings["lineGraphColor"],
     value: string,
   ) => {
-    try {
-      const result = await setLineGraphColor(key, value);
-      setSettings((prev) => ({
-        ...prev,
-        lineGraphColor: { ...prev.lineGraphColor, [key]: result },
-      }));
-    } catch (e) {
-      console.error(e);
-    }
-  };
+    const result = await commands.setLineGraphColor(key, value);
 
-  const updateStateAtom = async <K extends keyof Settings["state"]>(
-    key: K,
-    value: Settings["state"][K],
-  ) => {
-    try {
-      await setState(key, value);
-    } catch (e) {
-      console.error(e);
+    if (isError(result)) {
+      console.error(result.error);
+      return;
     }
 
     setSettings((prev) => ({
       ...prev,
-      state: { ...prev.state, [key]: value },
+      lineGraphColor: { ...prev.lineGraphColor, [key]: result },
     }));
   };
 
@@ -142,6 +118,5 @@ export const useSettingsAtom = () => {
     toggleDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,
-    updateStateAtom,
   };
 };

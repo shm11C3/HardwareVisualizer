@@ -46,10 +46,10 @@ pub fn get_memory_info() -> Result<MemoryInfo, String> {
 
   let memory_info = MemoryInfo {
     size: formatter::format_size(physical_memory.iter().map(|mem| mem.capacity).sum(), 1),
-    clock: physical_memory[0].speed as u64,
+    clock: physical_memory[0].speed as u32,
     clock_unit: "MHz".to_string(),
-    memory_count: physical_memory.len(),
-    total_slots: physical_memory_array[0].memory_devices.unwrap_or(0) as usize,
+    memory_count: physical_memory.len() as u32,
+    total_slots: physical_memory_array[0].memory_devices.unwrap_or(0),
     memory_type: get_memory_type_with_fallback(
       physical_memory[0].memory_type,
       physical_memory[0].smbios_memory_type,

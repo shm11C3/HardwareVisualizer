@@ -1,4 +1,4 @@
-import { toggleDecoration } from "@/services/uiService";
+import { commands } from "@/rspc/bindings";
 import { useEffect } from "react";
 import { useTauriStore } from "./useTauriStore";
 
@@ -8,7 +8,7 @@ export const useKeydown = () => {
   useEffect(() => {
     const handleDecoration = async () => {
       try {
-        await toggleDecoration(!isDecorated);
+        await commands.setDecoration(!isDecorated);
         await setDecorated(!isDecorated);
       } catch (e) {
         console.error("Failed to toggle window decoration:", e);

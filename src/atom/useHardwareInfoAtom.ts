@@ -1,33 +1,26 @@
-import { getHardwareInfo } from "@/services/hardwareService";
-import type { HardwareInfo } from "@/types/hardwareDataType";
+import { type SysInfo, commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 import { atom, useAtom } from "jotai";
-import { useEffect } from "react";
 
-const hardInfoAtom = atom<HardwareInfo>({
-  isFetched: false,
+const hardInfoAtom = atom<SysInfo>({
+  cpu: null,
+  memory: null,
+  gpus: null,
 });
 
 export const useHardwareInfoAtom = () => {
   const [hardwareInfo, setHardInfo] = useAtom(hardInfoAtom);
 
-  useEffect(() => {
-    if (!hardwareInfo.isFetched) {
-      const init = async () => {
-        try {
-          const fetchedHardwareInfo = await getHardwareInfo();
+  const init = async () => {
+    const fetchedHardwareInfo = await commands.getHardwareInfo();
 
-          setHardInfo({
-            ...fetchedHardwareInfo,
-            isFetched: true,
-          });
-        } catch (e) {
-          console.error(e);
-        }
-      };
-
-      init();
+    if (isError(fetchedHardwareInfo)) {
+      console.error("Failed to fetch hardware info:", fetchedHardwareInfo);
+      return;
     }
-  }, [hardwareInfo.isFetched, setHardInfo]);
 
-  return { hardwareInfo };
+    setHardInfo(fetchedHardwareInfo.data);
+  };
+
+  return { hardwareInfo, init };
 };
