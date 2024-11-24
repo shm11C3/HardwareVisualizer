@@ -69,5 +69,16 @@
         "opacity": "Opacity"
       }
     }
+  },
+
+  "error": {
+    "title": {
+      "info": "Info",
+      "confirm": "Confirm",
+      "warning": "Warning",
+      "error": "Error",
+      "success": "Success",
+      "unexpected": "Unexpected Error"
+    }
   }
 }

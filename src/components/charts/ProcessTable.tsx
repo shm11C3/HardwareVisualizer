@@ -1,3 +1,4 @@
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
 import { CaretDown } from "@phosphor-icons/react";
 import { atom, useAtom, useSetAtom } from "jotai";
@@ -10,6 +11,7 @@ const ProcessesTable = ({
   defaultItemLength,
 }: { defaultItemLength: number }) => {
   const { t } = useTranslation();
+  const { error } = useTauriDialog();
   const [processes] = useAtom(processesAtom);
   const setAtom = useSetAtom(processesAtom);
   const [showAllItem, setShowAllItem] = useState<boolean>(false);
@@ -23,8 +25,9 @@ const ProcessesTable = ({
       try {
         const processesData = await commands.getProcessList();
         setAtom(processesData);
-      } catch (error) {
-        console.error("Failed to fetch processes:", error);
+      } catch (err) {
+        error(err as string);
+        console.error("Failed to fetch processes:", err);
       }
     };
 
@@ -33,7 +36,7 @@ const ProcessesTable = ({
     const interval = setInterval(fetchProcesses, 3000);
 
     return () => clearInterval(interval);
-  }, [setAtom]);
+  }, [setAtom, error]);
 
   const sortedProcesses = [...processes];
   if (sortConfig !== null) {

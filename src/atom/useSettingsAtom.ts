@@ -1,4 +1,5 @@
 import { defaultColorRGB } from "@/consts/chart";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type Result, commands } from "@/rspc/bindings";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { isError } from "@/types/result";
@@ -26,6 +27,7 @@ const settingsAtom = atom<Settings>({
 });
 
 export const useSettingsAtom = () => {
+  const { error } = useTauriDialog();
   const mapSettingUpdater: {
     [K in keyof Omit<Settings, "state" | "lineGraphColor">]: (
       value: Settings[K],
@@ -46,10 +48,12 @@ export const useSettingsAtom = () => {
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const loadSettings = useCallback(async () => {
     const setting = await commands.getSettings();
 
     if (isError(setting)) {
+      error(setting.error);
       console.error("Failed to fetch settings:", setting.error);
       return;
     }
@@ -69,6 +73,7 @@ export const useSettingsAtom = () => {
     const result = await mapSettingUpdater[key](value);
 
     if (isError(result)) {
+      error(result.error);
       console.error(result.error);
       setSettings((prev) => ({ ...prev, [key]: previousValue }));
     }
@@ -82,6 +87,7 @@ export const useSettingsAtom = () => {
     const result = await commands.setDisplayTargets(newTargets);
 
     if (isError(result)) {
+      error(result.error);
       console.error(result.error);
       return;
     }
@@ -102,6 +108,7 @@ export const useSettingsAtom = () => {
     const result = await commands.setLineGraphColor(key, value);
 
     if (isError(result)) {
+      error(result.error);
       console.error(result.error);
       return;
     }
