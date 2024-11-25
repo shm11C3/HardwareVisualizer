@@ -102,6 +102,11 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
 /// - `image_data`: 画像データのBase64文字列
 /// - returns: `file_id`
 ///
+/// ### TODO
+/// - JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html を使用する
+///   - specta での型定義が難しかったため一旦 Base64 で実装
+///
+///
 #[command]
 #[specta::specta]
 pub async fn save_background_image(image_data: String) -> Result<String, String> {

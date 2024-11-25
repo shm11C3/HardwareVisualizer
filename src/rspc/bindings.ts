@@ -250,6 +250,11 @@ async getBackgroundImages() : Promise<Result<BackgroundImage[], string>> {
  * - `image_data`: 画像データのBase64文字列
  * - returns: `file_id`
  * 
+ * ### TODO
+ * - JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html を使用する
+ * -
+ * 
+ * 
  */
 async saveBackgroundImage(imageData: string) : Promise<Result<string, string>> {
     try {
