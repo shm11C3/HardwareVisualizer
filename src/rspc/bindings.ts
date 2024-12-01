@@ -252,7 +252,7 @@ async getBackgroundImages() : Promise<Result<BackgroundImage[], string>> {
  * 
  * ### TODO
  * - JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html を使用する
- * -
+ * - specta での型定義が難しかったため一旦 Base64 で実装
  * 
  * 
  */
