@@ -158,6 +158,26 @@ const MemoryInfo = () => {
   );
 };
 
+const StorageInfo = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+
+  return hardwareInfo.storage
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((storage, index) => (
+      <div key={`${storage.name}${index}`}>
+        <InfoTable
+          data={{
+            name: storage.name,
+            size: storage.size,
+            type: storage.storageType,
+            fileSystem: storage.fileSystem,
+          }}
+        />
+      </div>
+    ));
+};
+
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
@@ -175,6 +195,12 @@ const Dashboard = () => {
       key: "processesTable",
       component: <ProcessesTable defaultItemLength={6} />,
     },
+    hardwareInfo.storage && hardwareInfo.storage.length > 0
+      ? {
+          key: "storageInfo",
+          component: <StorageInfo />,
+        }
+      : undefined,
   ].filter((x) => x != null);
 
   return (

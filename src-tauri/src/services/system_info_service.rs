@@ -1,9 +1,10 @@
+use crate::structs;
 use crate::utils;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::MutexGuard;
-use sysinfo::System;
+use sysinfo::{Disks, System};
 
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -37,4 +38,24 @@ pub fn get_cpu_info(system: MutexGuard<'_, System>) -> Result<CpuInfo, String> {
   };
 
   Ok(cpu_info)
+}
+
+pub fn get_storage_info() -> Result<Vec<structs::hardware::StorageInfo>, String> {
+  let mut storage_info: Vec<structs::hardware::StorageInfo> = Vec::new();
+
+  let disks = Disks::new_with_refreshed_list();
+
+  for disk in &disks {
+    let size = utils::formatter::format_size(disk.total_space(), 2);
+    let storage = structs::hardware::StorageInfo {
+      name: disk.mount_point().to_string_lossy().into_owned(),
+      size: size,
+      storage_type: disk.kind().to_string(),
+      file_system: disk.file_system().to_string_lossy().into_owned(),
+    };
+
+    storage_info.push(storage);
+  }
+
+  Ok(storage_info)
 }

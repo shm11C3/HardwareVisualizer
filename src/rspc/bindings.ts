@@ -311,7 +311,8 @@ export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: s
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
 export type NameValue = { name: string; value: number }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }
-export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null }
+export type StorageInfo = { name: string; size: string; storageType: string; fileSystem: string }
+export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
 export type Theme = "light" | "dark"
 
 /** tauri-specta globals **/

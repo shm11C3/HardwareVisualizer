@@ -2,7 +2,7 @@ use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
-use crate::structs::hardware::{GraphicInfo, MemoryInfo};
+use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use serde::{Deserialize, Serialize, Serializer};
 use specta::Type;
@@ -130,6 +130,7 @@ pub struct SysInfo {
   pub cpu: Option<system_info_service::CpuInfo>,
   pub memory: Option<MemoryInfo>,
   pub gpus: Option<Vec<GraphicInfo>>,
+  pub storage: Vec<StorageInfo>,
 }
 
 ///
@@ -166,6 +167,8 @@ pub async fn get_hardware_info(
     Err(e) => log_error!("intel_error", "get_all_gpu_info", Some(e)),
   }
 
+  let storage_info = system_info_service::get_storage_info()?;
+
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
     memory: memory_result.ok(),
@@ -174,6 +177,7 @@ pub async fn get_hardware_info(
     } else {
       Some(gpus_result)
     },
+    storage: storage_info,
   };
 
   // すべての情報が失敗した場合にのみエラーメッセージを返す
