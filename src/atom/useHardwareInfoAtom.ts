@@ -7,6 +7,7 @@ const hardInfoAtom = atom<SysInfo>({
   cpu: null,
   memory: null,
   gpus: null,
+  storage: [],
 });
 
 export const useHardwareInfoAtom = () => {

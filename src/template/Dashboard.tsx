@@ -164,7 +164,7 @@ const MemoryInfo = () => {
 };
 
 const StorageDataInfo = () => {
-  const { t } = useTranslation();
+  //const { t } = useTranslation();
   const { hardwareInfo } = useHardwareInfoAtom();
 
   // TODO ストレージの総量・総使用量をグラフ化する
