@@ -115,7 +115,7 @@ export const useSettingsAtom = () => {
 
     setSettings((prev) => ({
       ...prev,
-      lineGraphColor: { ...prev.lineGraphColor, [key]: result },
+      lineGraphColor: { ...prev.lineGraphColor, [key]: result.data },
     }));
   };
 
