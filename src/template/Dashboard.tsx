@@ -189,7 +189,7 @@ const StorageDataInfo = () => {
   );
 
   return (
-    <div className="p-2">
+    <div className="pt-2">
       <h3 className="text-lg font-bold">{t("shared.storage")}</h3>
       <div className="flex">
         <div className="w-1/2">
@@ -231,14 +231,9 @@ const Dashboard = () => {
     init();
   }, []);
 
-  const hardwareInfoList: { key: string; component: JSX.Element }[] = [
+  const hardwareInfoListLeft: { key: string; component: JSX.Element }[] = [
     hardwareInfo.cpu && { key: "cpuInfo", component: <CPUInfo /> },
-    hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
     hardwareInfo.memory && { key: "memoryInfo", component: <MemoryInfo /> },
-    {
-      key: "processesTable",
-      component: <ProcessesTable defaultItemLength={6} />,
-    },
     hardwareInfo.storage && hardwareInfo.storage.length > 0
       ? {
           key: "storageInfo",
@@ -247,11 +242,26 @@ const Dashboard = () => {
       : undefined,
   ].filter((x) => x != null);
 
+  const hardwareInfoListRight: { key: string; component: JSX.Element }[] = [
+    hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
+    {
+      key: "processesTable",
+      component: <ProcessesTable defaultItemLength={6} />,
+    },
+  ].filter((x) => x != null);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {hardwareInfoList.map(({ key, component }) => (
-        <DataArea key={key}>{component}</DataArea>
-      ))}
+    <div className="flex flex-wrap gap-4">
+      <div className="flex-1 flex flex-col gap-4">
+        {hardwareInfoListLeft.map(({ key, component }) => (
+          <DataArea key={key}>{component}</DataArea>
+        ))}
+      </div>
+      <div className="flex-1 flex flex-col gap-4">
+        {hardwareInfoListRight.map(({ key, component }) => (
+          <DataArea key={key}>{component}</DataArea>
+        ))}
+      </div>
     </div>
   );
 };
