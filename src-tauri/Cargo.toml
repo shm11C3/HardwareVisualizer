@@ -26,19 +26,19 @@ rust-version = "1.60"
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-serde_json = "1.0.132"
+serde_json = "1.0.133"
 serde = { version = "1.0.215", features = ["derive"] }
 tauri = { version = "2.1.1", features = [] }
-sysinfo = "0.32.0"
+sysinfo = "0.33.0"
 tauri-plugin-window-state = { version = "2.0.2" }
 nvapi = "=0.1.4"
-tokio = { version = "1.41.1", features = ["full"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = true, features = ["env-filter"]  }
+tokio = { version = "1.42.0", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", default-features = true, features = ["env-filter"]  }
 chrono = "0.4"
-wmi = "0.14"
+wmi = "0.14.1"
 rust_decimal = "1.23.0"
-tauri-plugin-dialog = "2.0.3"
+tauri-plugin-dialog = "2.0.4"
 tauri-plugin-store = "2.1.0"
 base64 = "0.22"
 image = "0.25.5"
