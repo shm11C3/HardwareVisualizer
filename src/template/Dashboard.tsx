@@ -6,8 +6,13 @@ import {
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
+import {
+  StorageBarChart,
+  type StorageBarChartData,
+} from "@/components/charts/Bar";
 import DoughnutChart from "@/components/charts/DoughnutChart";
 import ProcessesTable from "@/components/charts/ProcessTable";
+import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
@@ -158,24 +163,36 @@ const MemoryInfo = () => {
   );
 };
 
-const StorageInfo = () => {
+const StorageDataInfo = () => {
   const { t } = useTranslation();
   const { hardwareInfo } = useHardwareInfoAtom();
 
-  return hardwareInfo.storage
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((storage, index) => (
-      <div key={`${storage.name}${index}`}>
-        <InfoTable
-          data={{
-            name: storage.name,
-            size: storage.size,
-            type: storage.storageType,
-            fileSystem: storage.fileSystem,
-          }}
-        />
-      </div>
-    ));
+  // TODO ストレージの総量・総使用量をグラフ化する
+
+  // ドライブ名でソート
+  const sortedStorage = hardwareInfo.storage.sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+
+  const chartData: StorageBarChartData[] = sortedStorage.reduce(
+    (acc: StorageBarChartData[], storage: StorageInfo) => {
+      const used = storage.size - storage.free;
+      const free = storage.free;
+      acc.push({
+        label: storage.name,
+        used,
+        free,
+      });
+      return acc;
+    },
+    [],
+  );
+
+  return (
+    <div>
+      <StorageBarChart chartData={chartData} unit={sortedStorage[0].sizeUnit} />
+    </div>
+  );
 };
 
 const Dashboard = () => {
@@ -198,7 +215,7 @@ const Dashboard = () => {
     hardwareInfo.storage && hardwareInfo.storage.length > 0
       ? {
           key: "storageInfo",
-          component: <StorageInfo />,
+          component: <StorageDataInfo />,
         }
       : undefined,
   ].filter((x) => x != null);

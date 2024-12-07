@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
+use std::fmt;
 
 #[derive(Debug, PartialEq, Eq, Clone, Type)]
 #[serde(rename_all = "camelCase")]
@@ -38,5 +39,37 @@ impl<'de> Deserialize<'de> for HardwareType {
         &["cpu", "memory", "gpu"],
       )),
     }
+  }
+}
+
+impl From<sysinfo::DiskKind> for DiskKind {
+  fn from(kind: sysinfo::DiskKind) -> Self {
+    match kind {
+      sysinfo::DiskKind::HDD => DiskKind::HDD,
+
+      sysinfo::DiskKind::SSD => DiskKind::SSD,
+
+      _ => DiskKind::Unknown,
+    }
+  }
+}
+
+#[derive(Serialize, Deserialize, Type, Debug, PartialEq, Eq, Clone)]
+pub enum DiskKind {
+  #[serde(rename = "hdd")]
+  HDD,
+  #[serde(rename = "ssd")]
+  SSD,
+  #[serde(rename = "other")]
+  Unknown,
+}
+
+impl fmt::Display for DiskKind {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    f.write_str(match *self {
+      DiskKind::HDD => "HDD",
+      DiskKind::SSD => "SSD",
+      _ => "Other",
+    })
   }
 }

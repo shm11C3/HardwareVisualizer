@@ -1,5 +1,7 @@
+use crate::enums;
 use crate::structs;
 use crate::utils;
+use crate::utils::formatter::SizeUnit;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -46,11 +48,23 @@ pub fn get_storage_info() -> Result<Vec<structs::hardware::StorageInfo>, String>
   let disks = Disks::new_with_refreshed_list();
 
   for disk in &disks {
-    let size = utils::formatter::format_size(disk.total_space(), 2);
+    let size = utils::formatter::format_size_with_unit(
+      disk.total_space(),
+      2,
+      Some(SizeUnit::GBytes),
+    );
+    let free = utils::formatter::format_size_with_unit(
+      disk.available_space(),
+      2,
+      Some(SizeUnit::GBytes),
+    );
     let storage = structs::hardware::StorageInfo {
       name: disk.mount_point().to_string_lossy().into_owned(),
-      size: size,
-      storage_type: disk.kind().to_string(),
+      size: size.value,
+      size_unit: size.unit,
+      free: free.value,
+      free_unit: free.unit,
+      storage_type: enums::hardware::DiskKind::from(disk.kind()),
       file_system: disk.file_system().to_string_lossy().into_owned(),
     };
 

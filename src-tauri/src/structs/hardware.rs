@@ -1,4 +1,7 @@
-use crate::enums;
+use crate::{
+  enums::{self, hardware::DiskKind},
+  utils::formatter::SizeUnit,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -28,7 +31,10 @@ pub struct GraphicInfo {
 #[serde(rename_all = "camelCase")]
 pub struct StorageInfo {
   pub name: String,
-  pub size: String,
-  pub storage_type: String,
+  pub size: f32,
+  pub size_unit: SizeUnit,
+  pub free: f32,
+  pub free_unit: SizeUnit,
+  pub storage_type: DiskKind,
   pub file_system: String,
 }
