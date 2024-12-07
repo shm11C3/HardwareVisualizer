@@ -18,7 +18,14 @@
     "memoryClockSpeed": "Memory Clock",
     "clock": "Clock",
     "process": "Process",
-    "reset": "Reset"
+    "reset": "Reset",
+    "driveName": "Drive Name",
+    "driveType": "Drive Type",
+    "driveTotalSpace": "Drive Total Space",
+    "driveUsedSpace": "Drive Used Space",
+    "driveFreeSpace": "Drive Free Space",
+    "driveFileSystem": "Drive File System",
+    "other": "Other"
   },
 
   "pages": {

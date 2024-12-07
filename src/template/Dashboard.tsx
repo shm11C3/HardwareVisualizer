@@ -164,7 +164,7 @@ const MemoryInfo = () => {
 };
 
 const StorageDataInfo = () => {
-  //const { t } = useTranslation();
+  const { t } = useTranslation();
   const { hardwareInfo } = useHardwareInfoAtom();
 
   // TODO ストレージの総量・総使用量をグラフ化する
@@ -189,8 +189,35 @@ const StorageDataInfo = () => {
   );
 
   return (
-    <div>
-      <StorageBarChart chartData={chartData} unit={sortedStorage[0].sizeUnit} />
+    <div className="p-2">
+      <h3 className="text-lg font-bold">Storage</h3>
+      <div className="flex">
+        <div className="w-1/2">
+          {sortedStorage.map((storage) => {
+            return (
+              <div key={storage.name} className="mt-4">
+                <InfoTable
+                  data={{
+                    [t("shared.driveName")]: storage.name,
+                    [t("shared.driveFileSystem")]: storage.fileSystem,
+                    [t("shared.driveType")]: {
+                      hdd: "HDD",
+                      ssd: "SSD",
+                      other: t("shared.other"),
+                    }[storage.storageType],
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="w-1/2 mt-4">
+          <StorageBarChart
+            chartData={chartData}
+            unit={sortedStorage[0].sizeUnit}
+          />
+        </div>
+      </div>
     </div>
   );
 };
