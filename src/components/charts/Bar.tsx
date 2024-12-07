@@ -7,6 +7,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { SizeUnit } from "@/rspc/bindings";
+import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 const chartKey = ["used", "free"] as const;
@@ -24,16 +25,18 @@ export const StorageBarChart = ({
   chartData: StorageBarChartData[];
   unit: SizeUnit;
 }) => {
+  const { t } = useTranslation();
+
   const StorageChartConfig: Record<
     (typeof chartKey)[number],
     { label: string; color: string }
   > = {
     used: {
-      label: `Used (${unit})`,
+      label: `${t("shared.used")} (${unit})`,
       color: "hsl(var(--chart-1))",
     },
     free: {
-      label: `Free (${unit})`,
+      label: `${t("shared.free")} (${unit})`,
       color: "hsl(var(--chart-2))",
     },
   } satisfies ChartConfig;

@@ -190,7 +190,7 @@ const StorageDataInfo = () => {
 
   return (
     <div className="p-2">
-      <h3 className="text-lg font-bold">Storage</h3>
+      <h3 className="text-lg font-bold">{t("shared.storage")}</h3>
       <div className="flex">
         <div className="w-1/2">
           {sortedStorage.map((storage) => {
