@@ -300,6 +300,7 @@ async setDecoration(isDecorated: boolean) : Promise<void> {
 export type BackgroundImage = { fileId: string; imageData: string }
 export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
+export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
 export type HardwareType = "cpu" | "memory" | "gpu"
@@ -311,7 +312,9 @@ export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: s
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
 export type NameValue = { name: string; value: number }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }
-export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null }
+export type SizeUnit = "B" | "KB" | "MB" | "GB"
+export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
+export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
 export type Theme = "light" | "dark"
 
 /** tauri-specta globals **/

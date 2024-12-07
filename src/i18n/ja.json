@@ -18,7 +18,17 @@
     "memoryClockSpeed": "メモリクロック数",
     "clock": "クロック数",
     "process": "プロセス",
-    "reset": "リセット"
+    "reset": "リセット",
+    "storage": "ストレージ",
+    "driveName": "ドライブ名",
+    "driveType": "ドライブタイプ",
+    "driveTotalSpace": "ドライブ容量",
+    "driveUsedSpace": "ドライブ使用量",
+    "driveFreeSpace": "ドライブ空き容量",
+    "driveFileSystem": "ファイルシステム",
+    "used": "使用中",
+    "free": "空き",
+    "other": "その他"
   },
 
   "pages": {

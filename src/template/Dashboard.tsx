@@ -6,8 +6,13 @@ import {
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
+import {
+  StorageBarChart,
+  type StorageBarChartData,
+} from "@/components/charts/Bar";
 import DoughnutChart from "@/components/charts/DoughnutChart";
 import ProcessesTable from "@/components/charts/ProcessTable";
+import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
@@ -158,6 +163,65 @@ const MemoryInfo = () => {
   );
 };
 
+const StorageDataInfo = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+
+  // TODO ストレージの総量・総使用量をグラフ化する
+
+  // ドライブ名でソート
+  const sortedStorage = hardwareInfo.storage.sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+
+  const chartData: StorageBarChartData[] = sortedStorage.reduce(
+    (acc: StorageBarChartData[], storage: StorageInfo) => {
+      const used = storage.size - storage.free;
+      const free = storage.free;
+      acc.push({
+        label: storage.name,
+        used,
+        free,
+      });
+      return acc;
+    },
+    [],
+  );
+
+  return (
+    <div className="p-2">
+      <h3 className="text-lg font-bold">{t("shared.storage")}</h3>
+      <div className="flex">
+        <div className="w-1/2">
+          {sortedStorage.map((storage) => {
+            return (
+              <div key={storage.name} className="mt-4">
+                <InfoTable
+                  data={{
+                    [t("shared.driveName")]: storage.name,
+                    [t("shared.driveFileSystem")]: storage.fileSystem,
+                    [t("shared.driveType")]: {
+                      hdd: "HDD",
+                      ssd: "SSD",
+                      other: t("shared.other"),
+                    }[storage.storageType],
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="w-1/2 mt-4">
+          <StorageBarChart
+            chartData={chartData}
+            unit={sortedStorage[0].sizeUnit}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
@@ -175,6 +239,12 @@ const Dashboard = () => {
       key: "processesTable",
       component: <ProcessesTable defaultItemLength={6} />,
     },
+    hardwareInfo.storage && hardwareInfo.storage.length > 0
+      ? {
+          key: "storageInfo",
+          component: <StorageDataInfo />,
+        }
+      : undefined,
   ].filter((x) => x != null);
 
   return (
