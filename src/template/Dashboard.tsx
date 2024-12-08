@@ -11,7 +11,7 @@ import {
   type StorageBarChartData,
 } from "@/components/charts/Bar";
 import DoughnutChart from "@/components/charts/DoughnutChart";
-import ProcessesTable from "@/components/charts/ProcessTable";
+import { ProcessesTable } from "@/components/charts/ProcessTable";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
