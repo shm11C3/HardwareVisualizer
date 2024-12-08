@@ -1,20 +1,28 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
-import { CaretDown } from "@phosphor-icons/react";
+import { ArrowsOut } from "@phosphor-icons/react";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { twMerge } from "tailwind-merge";
+import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
 const processesAtom = atom<ProcessInfo[]>([]);
 
-const ProcessesTable = ({
+export const ProcessesTable = ({
   defaultItemLength,
 }: { defaultItemLength: number }) => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const [processes] = useAtom(processesAtom);
   const setAtom = useSetAtom(processesAtom);
-  const [showAllItem, setShowAllItem] = useState<boolean>(false);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ProcessInfo;
     direction: "ascending" | "descending";
@@ -88,66 +96,107 @@ const ProcessesTable = ({
 
   return (
     <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit">
-      <h4 className="text-xl font-bold mb-2">{t("shared.process")}</h4>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-gray-700">
-              <th
-                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
-                onClick={() => requestSort("pid")}
-                onKeyDown={() => requestSort("pid")}
-              >
-                PID
-              </th>
-              <th
-                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
-                onClick={() => requestSort("name")}
-                onKeyDown={() => requestSort("name")}
-              >
-                {t("shared.name")}
-              </th>
-              <th
-                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
-                onClick={() => requestSort("cpuUsage")}
-                onKeyDown={() => requestSort("cpuUsage")}
-              >
-                {t("shared.cpuUsage")}
-              </th>
-              <th
-                className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
-                onClick={() => requestSort("memoryUsage")}
-                onKeyDown={() => requestSort("memoryUsage")}
-              >
-                {t("shared.memoryUsage")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedProcesses
-              .slice(0, showAllItem ? processes.length : defaultItemLength)
-              .map((process) => (
-                <tr key={process.pid} className="border-b border-gray-700">
-                  <td className="py-2">{process.pid}</td>
-                  <td className="py-2">{process.name}</td>
-                  <td className="py-2">{process.cpuUsage}%</td>
-                  <td className="py-2">{process.memoryUsage} MB</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-        {!showAllItem && (
-          <button
-            type="button"
-            onClick={() => setShowAllItem(true)}
-            className="w-full flex justify-center items-center py-2 dark:text-gray-400 hover:text-zinc-600 dark:hover:text-white focus:outline-none mt--4"
-          >
-            <CaretDown size={32} />
-          </button>
-        )}
-      </div>
+      <Dialog>
+        <div className="flex">
+          <h4 className="text-xl font-bold mb-2">{t("shared.process")}</h4>
+          <div className="ml-auto">
+            <DialogTrigger
+              type="button"
+              className="w-full flex justify-center items-center  dark:text-gray-400 hover:text-zinc-600 dark:hover:text-white focus:outline-none"
+            >
+              <ArrowsOut size={28} />
+            </DialogTrigger>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <InfoTable
+            className="h-64"
+            processes={sortedProcesses}
+            sortConfig={sortConfig}
+            requestSort={requestSort}
+          />
+        </div>
+
+        <DialogContent className="p-4 2xl:max-w-[800px] m-8 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
+          <DialogHeader>
+            <DialogTitle>{t("shared.process")}</DialogTitle>
+          </DialogHeader>
+          <InfoTable
+            className="max-h-[400px] xl:max-h-[600px] 2xl:max-h-[800px]"
+            processes={sortedProcesses}
+            sortConfig={sortConfig}
+            requestSort={requestSort}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default ProcessesTable;
+const InfoTable = ({
+  processes,
+  sortConfig,
+  requestSort,
+  className,
+}: {
+  processes: ProcessInfo[];
+  requestSort: (key: keyof ProcessInfo) => void;
+  sortConfig: {
+    key: keyof ProcessInfo;
+    direction: "ascending" | "descending";
+  } | null;
+  className: string;
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <ScrollArea className={twMerge("w-full overflow-auto", className)}>
+      <table className="w-full text-left">
+        <thead className="sticky h-14 top-[-1px] bg-zinc-300 dark:bg-gray-800">
+          <tr className="border-b border-gray-700">
+            <th
+              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              onClick={() => requestSort("pid")}
+              onKeyDown={() => requestSort("pid")}
+            >
+              PID
+            </th>
+            <th
+              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              onClick={() => requestSort("name")}
+              onKeyDown={() => requestSort("name")}
+            >
+              {t("shared.name")}
+            </th>
+            <th
+              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              onClick={() => requestSort("cpuUsage")}
+              onKeyDown={() => requestSort("cpuUsage")}
+            >
+              {t("shared.cpuUsage")}
+            </th>
+            <th
+              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              onClick={() => requestSort("memoryUsage")}
+              onKeyDown={() => requestSort("memoryUsage")}
+            >
+              {t("shared.memoryUsage")}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {processes.map((process) => (
+            <tr key={process.pid} className="border-b border-gray-700">
+              <td className="py-2">{process.pid}</td>
+              <td className="py-2">{process.name}</td>
+              <td className="py-2">{process.cpuUsage}%</td>
+              <td className="py-2">{process.memoryUsage} MB</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ScrollBar className="ml-2" orientation="horizontal" />
+    </ScrollArea>
+  );
+};
