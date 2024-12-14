@@ -7,7 +7,9 @@ import {
 } from "@/components/ui/dialog";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
-import { ArrowsOut } from "@phosphor-icons/react";
+import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { DialogDescription } from "@radix-ui/react-dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,9 +18,7 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
 const processesAtom = atom<ProcessInfo[]>([]);
 
-export const ProcessesTable = ({
-  defaultItemLength,
-}: { defaultItemLength: number }) => {
+export const ProcessesTable = () => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const [processes] = useAtom(processesAtom);
@@ -28,6 +28,7 @@ export const ProcessesTable = ({
     direction: "ascending" | "descending";
   } | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     const fetchProcesses = async () => {
       try {
@@ -44,7 +45,7 @@ export const ProcessesTable = ({
     const interval = setInterval(fetchProcesses, 3000);
 
     return () => clearInterval(interval);
-  }, [setAtom, error]);
+  }, []);
 
   const sortedProcesses = [...processes];
   if (sortConfig !== null) {
@@ -121,6 +122,9 @@ export const ProcessesTable = ({
         <DialogContent className="p-4 2xl:max-w-[800px] m-8 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
           <DialogHeader>
             <DialogTitle>{t("shared.process")}</DialogTitle>
+            <DialogDescription>
+              <VisuallyHidden>Expand the process as a list</VisuallyHidden>
+            </DialogDescription>
           </DialogHeader>
           <InfoTable
             className="max-h-[400px] xl:max-h-[600px] 2xl:max-h-[800px]"
@@ -150,6 +154,11 @@ const InfoTable = ({
 }) => {
   const { t } = useTranslation();
 
+  const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
+    ascending: <CaretUp size={20} />,
+    descending: <CaretDown size={20} />,
+  };
+
   return (
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
@@ -160,28 +169,48 @@ const InfoTable = ({
               onClick={() => requestSort("pid")}
               onKeyDown={() => requestSort("pid")}
             >
-              PID
+              <div className="flex items-center">
+                <span>PID</span>
+                {sortConfig &&
+                  sortConfig.key === "pid" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
             </th>
             <th
               className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
               onClick={() => requestSort("name")}
               onKeyDown={() => requestSort("name")}
             >
-              {t("shared.name")}
+              <div className="flex items-center">
+                <span>{t("shared.name")}</span>
+                {sortConfig &&
+                  sortConfig.key === "name" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
             </th>
             <th
               className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
               onClick={() => requestSort("cpuUsage")}
               onKeyDown={() => requestSort("cpuUsage")}
             >
-              {t("shared.cpuUsage")}
+              <div className="flex items-center">
+                <span>{t("shared.cpuUsage")}</span>
+                {sortConfig &&
+                  sortConfig.key === "cpuUsage" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
             </th>
             <th
               className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
               onClick={() => requestSort("memoryUsage")}
               onKeyDown={() => requestSort("memoryUsage")}
             >
-              {t("shared.memoryUsage")}
+              <div className="flex items-center">
+                <span>{t("shared.memoryUsage")}</span>
+                {sortConfig &&
+                  sortConfig.key === "memoryUsage" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
             </th>
           </tr>
         </thead>
