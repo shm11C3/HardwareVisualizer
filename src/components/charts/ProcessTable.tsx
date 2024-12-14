@@ -155,8 +155,8 @@ const InfoTable = ({
   const { t } = useTranslation();
 
   const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
-    ascending: <CaretUp size={20} />,
-    descending: <CaretDown size={20} />,
+    ascending: <CaretUp className="ml-1" size={18} />,
+    descending: <CaretDown className="ml-1" size={18} />,
   };
 
   return (

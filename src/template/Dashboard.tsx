@@ -246,7 +246,7 @@ const Dashboard = () => {
     hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
     {
       key: "processesTable",
-      component: <ProcessesTable defaultItemLength={6} />,
+      component: <ProcessesTable />,
     },
   ].filter((x) => x != null);
 
