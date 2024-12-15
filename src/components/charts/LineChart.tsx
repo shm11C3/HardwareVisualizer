@@ -1,34 +1,34 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import type { sizeOptions } from "@/consts/chart";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
-import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { tv } from "tailwind-variants";
 import CustomLegend, { type LegendItem } from "./CustomLegend";
 
-type SingleChartProps = {
+type ChartProps = {
   labels: string[];
-  chartData: number[];
-  dataType: ChartDataType;
   size: (typeof sizeOptions)[number];
-  lineGraphMix: false;
 };
 
+type SingleChartProps = {
+  chartData: number[];
+  dataType: ChartDataType;
+  lineGraphMix: false;
+} & ChartProps;
+
 type MultiChartProps = {
-  labels: string[];
   cpuData: number[];
   memoryData: number[];
   gpuData: number[];
-  size: (typeof sizeOptions)[number];
   lineGraphMix: true;
-};
+} & ChartProps;
 
 const graphVariants = tv({
   base: "mt-5 mx-auto",
@@ -54,20 +54,13 @@ const chartAreaVariants = tv({
   },
 });
 
-const graphAreaHeight: Record<(typeof sizeOptions)[number], number> = {
-  sm: 200,
-  md: 300,
-  lg: 400,
-  xl: 500,
-  "2xl": 600,
-};
-
 const SingleLineChart = ({
   labels,
   chartData,
   dataType,
+  chartConfig,
   size,
-}: SingleChartProps) => {
+}: SingleChartProps & { chartConfig: ChartConfig }) => {
   const { settings } = useSettingsAtom();
 
   const data = labels.map((label, index) => ({
@@ -81,7 +74,7 @@ const SingleLineChart = ({
       icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
     },
     memory: {
-      label: "Memory",
+      label: "RAM",
       icon: (
         <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
       ),
@@ -96,12 +89,15 @@ const SingleLineChart = ({
 
   return (
     <div className={graphVariants({ size })}>
-      <ResponsiveContainer
+      <ChartContainer
         className={chartAreaVariants({ border: settings.lineGraphBorder })}
-        width="100%"
-        height={graphAreaHeight[settings.graphSize]}
+        config={chartConfig}
       >
         <AreaChart data={data}>
+          <CartesianGrid
+            horizontal={settings.lineGraphShowScale}
+            vertical={false}
+          />
           <XAxis dataKey="name" hide={!settings.lineGraphShowScale} />
           <YAxis
             domain={[0, 100]}
@@ -116,13 +112,7 @@ const SingleLineChart = ({
             }
             tickCount={12}
           />
-          <Tooltip
-            isAnimationActive={false}
-            contentStyle={{
-              backgroundColor: "rgba(0, 0, 0, 0.7)",
-              color: "#fff",
-            }}
-          />
+          <ChartTooltip content={<ChartTooltipContent />} />
           <Area
             type="monotone"
             dataKey="usage"
@@ -136,7 +126,7 @@ const SingleLineChart = ({
             isAnimationActive={false}
           />
         </AreaChart>
-      </ResponsiveContainer>
+      </ChartContainer>
       {settings.lineGraphShowLegend && (
         <div className="flex justify-center mt-4 mb-2">
           <CustomLegend item={legendItems[dataType]} />
@@ -151,9 +141,16 @@ const MixLineChart = ({
   cpuData,
   memoryData,
   gpuData,
+  chartConfig,
   size,
-}: MultiChartProps) => {
+}: MultiChartProps & { chartConfig: ChartConfig }) => {
   const { settings } = useSettingsAtom();
+
+  const displayOrder = ["cpu", "memory", "gpu"];
+
+  const sortedDisplayTargets = settings.displayTargets
+    .slice()
+    .sort((a, b) => displayOrder.indexOf(a) - displayOrder.indexOf(b));
 
   const data = labels.map((label, index) => ({
     name: label,
@@ -162,39 +159,32 @@ const MixLineChart = ({
     gpu: gpuData[index],
   }));
 
-  const legendItems: LegendItem[] = [];
+  const iconMap: Record<string, JSX.Element> = {
+    cpu: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
+    memory: (
+      <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
+    ),
+    gpu: (
+      <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
+    ),
+  };
 
-  if (settings.displayTargets.includes("cpu")) {
-    legendItems.push({
-      label: "CPU",
-      icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
-    });
-  }
-  if (settings.displayTargets.includes("memory")) {
-    legendItems.push({
-      label: "Memory",
-      icon: (
-        <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
-      ),
-    });
-  }
-  if (settings.displayTargets.includes("gpu")) {
-    legendItems.push({
-      label: "GPU",
-      icon: (
-        <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
-      ),
-    });
-  }
+  const legendItems: LegendItem[] = sortedDisplayTargets.map((target) => ({
+    label: { cpu: "CPU", memory: "RAM", gpu: "GPU" }[target],
+    icon: iconMap[target],
+  }));
 
   return (
     <div className={graphVariants({ size })}>
-      <ResponsiveContainer
+      <ChartContainer
         className={chartAreaVariants({ border: settings.lineGraphBorder })}
-        width="100%"
-        height={graphAreaHeight[settings.graphSize]}
+        config={chartConfig}
       >
-        <AreaChart data={data} className="">
+        <AreaChart data={data}>
+          <CartesianGrid
+            horizontal={settings.lineGraphShowScale}
+            vertical={false}
+          />
           <XAxis dataKey="name" hide={!settings.lineGraphShowScale} />
           <YAxis
             domain={[0, 100]}
@@ -209,57 +199,24 @@ const MixLineChart = ({
             }
             tickCount={12}
           />
-          <Tooltip
-            isAnimationActive={false}
-            contentStyle={{
-              backgroundColor: "rgba(0, 0, 0, 0.7)",
-              color: "#fff",
-            }}
-          />
-          {settings.displayTargets.includes("cpu") && (
+          <ChartTooltip content={<ChartTooltipContent />} />
+          {sortedDisplayTargets.map((areaData) => (
             <Area
+              key={areaData}
               type="monotone"
-              dataKey="cpu"
-              stroke={`rgb(${settings.lineGraphColor.cpu})`}
+              dataKey={areaData}
+              stroke={`rgb(${settings.lineGraphColor[areaData]})`}
               strokeWidth={2}
               fill={
                 settings.lineGraphFill
-                  ? `rgba(${settings.lineGraphColor.cpu},0.3)`
+                  ? `rgba(${settings.lineGraphColor[areaData]},0.3)`
                   : "none"
               }
               isAnimationActive={false}
             />
-          )}
-          {settings.displayTargets.includes("memory") && (
-            <Area
-              type="monotone"
-              dataKey="memory"
-              stroke={`rgb(${settings.lineGraphColor.memory})`}
-              strokeWidth={2}
-              fill={
-                settings.lineGraphFill
-                  ? `rgba(${settings.lineGraphColor.memory},0.3)`
-                  : "none"
-              }
-              isAnimationActive={false}
-            />
-          )}
-          {settings.displayTargets.includes("gpu") && (
-            <Area
-              type="monotone"
-              dataKey="gpu"
-              stroke={`rgb(${settings.lineGraphColor.gpu})`}
-              strokeWidth={2}
-              fill={
-                settings.lineGraphFill
-                  ? `rgba(${settings.lineGraphColor.gpu},0.3)`
-                  : "none"
-              }
-              isAnimationActive={false}
-            />
-          )}
+          ))}
         </AreaChart>
-      </ResponsiveContainer>
+      </ChartContainer>
       {settings.lineGraphShowLegend && (
         <div className="flex justify-center mt-4 mb-2">
           {legendItems.map((item) => (
@@ -273,16 +230,32 @@ const MixLineChart = ({
 
 /**
  * @todo `type="monotone"` を変更できるようにする
- * @todo tooltip の表示を変更できるようにする
+ * @todo tooltip の表示/非表示を変更できるようにする
  */
 export const LineChartComponent = (
   props: SingleChartProps | MultiChartProps,
 ) => {
+  const { settings } = useSettingsAtom();
   const { lineGraphMix } = props;
 
+  const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
+    cpu: {
+      label: "CPU",
+      color: `rgb(${settings.lineGraphColor.cpu})`,
+    },
+    memory: {
+      label: "RAM",
+      color: `rgb(${settings.lineGraphColor.memory})`,
+    },
+    gpu: {
+      label: "GPU",
+      color: `rgb(${settings.lineGraphColor.gpu})`,
+    },
+  } satisfies ChartConfig;
+
   return lineGraphMix ? (
-    <MixLineChart {...props} />
+    <MixLineChart {...props} chartConfig={chartConfig} />
   ) : (
-    <SingleLineChart {...props} />
+    <SingleLineChart {...props} chartConfig={chartConfig} />
   );
 };
