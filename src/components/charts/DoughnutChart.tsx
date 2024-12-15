@@ -1,82 +1,120 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { HardwareDataType } from "@/types/hardwareDataType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
-import {
-  ArcElement,
-  Chart as ChartJS,
-  type ChartOptions,
-  Legend,
-  Tooltip,
-} from "chart.js";
-import { Doughnut } from "react-chartjs-2";
 import { useTranslation } from "react-i18next";
+import {
+  Label,
+  PolarGrid,
+  PolarRadiusAxis,
+  RadialBar,
+  RadialBarChart,
+} from "recharts";
 
-ChartJS.register(ArcElement, Tooltip, Legend);
-
-const DoughnutChart = ({
-  chartData,
+export const DoughnutChart = ({
+  chartValue,
   dataType,
 }: {
-  chartData: number;
+  chartValue: number;
   dataType: HardwareDataType;
 }) => {
-  const { settings } = useSettingsAtom();
-
   const { t } = useTranslation();
 
-  const displayDataType: Record<HardwareDataType, string> = {
-    usage: t("shared.usage"),
-    temp: t("shared.temperature"),
-    clock: t("shared.clock"),
-  };
-
-  const data = {
-    datasets: [
-      {
-        data: [chartData, 100 - chartData],
-        backgroundColor: {
-          light: ["#374151", "#f3f4f6"],
-          dark: ["#888", "#222"],
-        }[settings.theme],
-        borderWidth: 0,
-      },
-    ],
-  };
-
-  const options: ChartOptions<"doughnut"> = {
-    cutout: "85%",
-    plugins: {
-      tooltip: { enabled: false },
+  const chartConfig: Record<
+    HardwareDataType,
+    { label: string; color: string }
+  > = {
+    usage: {
+      label: t("shared.usage"),
+      color: "hsl(var(--chart-2))",
     },
-  };
+    temp: {
+      label: t("shared.temperature"),
+      color: "hsl(var(--chart-3))",
+    },
+    clock: {
+      label: t("shared.clock"),
+      color: "hsl(var(--chart-4))",
+    },
+  } satisfies ChartConfig;
+
+  const chartData = [
+    { type: dataType, value: chartValue, fill: `var(--color-${dataType})` },
+  ];
 
   const dataTypeIcons: Record<HardwareDataType, JSX.Element> = {
-    usage: <Lightning className="mr-1" size={18} weight="duotone" />,
-    temp: <Thermometer className="mr-1" size={18} weight="duotone" />,
-    clock: <Speedometer className="mr-1" size={18} weight="duotone" />,
+    usage: <Lightning className="mr-1" size={12} weight="duotone" />,
+    temp: <Thermometer className="mr-1" size={12} weight="duotone" />,
+    clock: <Speedometer className="mr-1" size={12} weight="duotone" />,
   };
 
   const dataTypeUnits: Record<HardwareDataType, string> = {
     usage: "%",
-    temp: "℃",
+    temp: "°C",
     clock: "MHz",
   };
 
   return (
-    <div className="p-2 w-36 relative">
-      <Doughnut data={data} options={options} />
-      <div className="absolute inset-x-0 flex flex-col items-center justify-center top-16">
-        <span className="text-slate-800 dark:text-white text-xl font-semibold">
-          {chartData}
-          {dataTypeUnits[dataType]}
-        </span>
-      </div>
-      <span className="flex justify-center my-4 text-gray-800 dark:text-gray-400">
-        {dataTypeIcons[dataType]}
-        {displayDataType[dataType]}
-      </span>
-    </div>
+    <ChartContainer
+      config={chartConfig}
+      className="aspect-square max-h-[200px]"
+    >
+      {chartData[0].value != null ? (
+        <RadialBarChart
+          data={chartData}
+          startAngle={0}
+          endAngle={chartValue * 3.6}
+          innerRadius={50}
+          outerRadius={70}
+        >
+          <PolarGrid
+            gridType="circle"
+            radialLines={false}
+            stroke="none"
+            className="first:fill-zinc-300 dark:first:fill-muted last:fill-zinc-200 last:dark:fill-gray-900"
+            polarRadius={[70, 60]}
+          />
+          <RadialBar dataKey="value" background cornerRadius={10} />
+          <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+            <Label
+              content={({ viewBox }) => {
+                if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                  return (
+                    <g>
+                      {/* メインの値表示 */}
+                      <text
+                        x={viewBox.cx}
+                        y={viewBox.cy}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        className="fill-foreground text-2xl font-bold"
+                      >
+                        {`${chartValue}${dataTypeUnits[dataType]}`}
+                      </text>
+                      {/* ラベルとアイコンの表示 */}
+                      <foreignObject
+                        x={(viewBox.cx || 0) - 42}
+                        y={(viewBox.cy || 0) + 20}
+                        width="80"
+                        height="40"
+                      >
+                        <div className="flex items-center justify-center dark:text-muted-foreground ">
+                          {dataTypeIcons[dataType]}
+                          <span>{chartConfig[dataType].label}</span>
+                        </div>
+                      </foreignObject>
+                    </g>
+                  );
+                }
+              }}
+            />
+          </PolarRadiusAxis>
+        </RadialBarChart>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <Skeleton className="w-32 h-32 rounded-full" />
+        </div>
+      )}
+    </ChartContainer>
   );
 };
-
-export { DoughnutChart };

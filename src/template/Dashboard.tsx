@@ -1,6 +1,5 @@
 import {
   cpuUsageHistoryAtom,
-  gpuFanSpeedAtom,
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
@@ -20,7 +19,7 @@ import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   return (
-    <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
+    <div className="px-4 pt-2 pb-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
       <table className="w-full text-left">
         <tbody>
           {Object.keys(data).map((key) => (
@@ -65,7 +64,7 @@ const CPUInfo = () => {
     hardwareInfo.cpu && (
       <>
         <DoughnutChart
-          chartData={cpuUsageHistory[cpuUsageHistory.length - 1]}
+          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
         />
         <InfoTable
@@ -86,7 +85,6 @@ const GPUInfo = () => {
   const { t } = useTranslation();
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
-  const [gpuFan] = useAtom(gpuFanSpeedAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
 
   const getTargetInfo = (data: NameValues) => {
@@ -96,21 +94,17 @@ const GPUInfo = () => {
   };
 
   const targetTemperature = getTargetInfo(gpuTemp);
-  const targetFanSpeed = getTargetInfo(gpuFan);
 
   return (
     hardwareInfo.gpus && (
       <>
-        <div className="flex justify-around">
+        <div className="flex justify-around h-[200px]">
           <DoughnutChart
-            chartData={graphicUsageHistory[graphicUsageHistory.length - 1]}
+            chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
             dataType={"usage"}
           />
           {targetTemperature && (
-            <DoughnutChart chartData={targetTemperature} dataType={"temp"} />
-          )}
-          {targetFanSpeed && (
-            <DoughnutChart chartData={targetFanSpeed} dataType={"clock"} />
+            <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
           )}
         </div>
 
@@ -140,7 +134,7 @@ const MemoryInfo = () => {
     hardwareInfo.memory && (
       <>
         <DoughnutChart
-          chartData={memoryUsageHistory[memoryUsageHistory.length - 1]}
+          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
           dataType={"usage"}
         />
         <InfoTable
