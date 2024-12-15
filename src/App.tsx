@@ -4,7 +4,7 @@ import ChartTemplate from "./template/Usage";
 import "./index.css";
 import { useHardwareUpdater, useUsageUpdater } from "@/hooks/useHardwareData";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
-import type { ErrorInfo } from "react";
+import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useSettingsAtom } from "./atom/useSettingsAtom";
 import ErrorFallback from "./components/ErrorFallback";

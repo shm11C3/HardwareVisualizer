@@ -8,6 +8,7 @@ import {
 import type { sizeOptions } from "@/consts/chart";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
+import type { JSX } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { tv } from "tailwind-variants";
 import CustomLegend, { type LegendItem } from "./CustomLegend";

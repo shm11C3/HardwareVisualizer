@@ -3,6 +3,7 @@ import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HardwareDataType } from "@/types/hardwareDataType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Label,

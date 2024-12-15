@@ -12,7 +12,7 @@ import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { atom, useAtom, useSetAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { ScrollArea, ScrollBar } from "../ui/scroll-area";
