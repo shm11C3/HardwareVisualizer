@@ -10,7 +10,7 @@ import {
   StorageBarChart,
   type StorageBarChartData,
 } from "@/components/charts/Bar";
-import DoughnutChart from "@/components/charts/DoughnutChart";
+import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { ProcessesTable } from "@/components/charts/ProcessTable";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
@@ -35,12 +35,23 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   );
 };
 
-const DataArea = ({ children }: { children: React.ReactNode }) => {
+const DataArea = ({
+  children,
+  title,
+  border = true,
+}: { children: React.ReactNode; title?: string; border?: boolean }) => {
   return (
     <div className="p-4">
-      <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600">
-        <div className="p-4">{children}</div>
-      </div>
+      {border ? (
+        <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600">
+          {title && (
+            <h3 className="pt-4 pl-4 pb-2 text-xl font-bold">{title}</h3>
+          )}
+          <div className="px-4 pb-4">{children}</div>
+        </div>
+      ) : (
+        <>{children}</>
+      )}
     </div>
   );
 };
@@ -56,8 +67,6 @@ const CPUInfo = () => {
         <DoughnutChart
           chartData={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
-          hardType="cpu"
-          showTitle={true}
         />
         <InfoTable
           data={{
@@ -96,24 +105,12 @@ const GPUInfo = () => {
           <DoughnutChart
             chartData={graphicUsageHistory[graphicUsageHistory.length - 1]}
             dataType={"usage"}
-            hardType="gpu"
-            showTitle={true}
           />
           {targetTemperature && (
-            <DoughnutChart
-              chartData={targetTemperature}
-              dataType={"temp"}
-              hardType="gpu"
-              showTitle={false}
-            />
+            <DoughnutChart chartData={targetTemperature} dataType={"temp"} />
           )}
           {targetFanSpeed && (
-            <DoughnutChart
-              chartData={targetFanSpeed}
-              dataType={"clock"}
-              hardType="gpu"
-              showTitle={false}
-            />
+            <DoughnutChart chartData={targetFanSpeed} dataType={"clock"} />
           )}
         </div>
 
@@ -145,8 +142,6 @@ const MemoryInfo = () => {
         <DoughnutChart
           chartData={memoryUsageHistory[memoryUsageHistory.length - 1]}
           dataType={"usage"}
-          hardType="memory"
-          showTitle={true}
         />
         <InfoTable
           data={{
@@ -190,7 +185,6 @@ const StorageDataInfo = () => {
 
   return (
     <div className="pt-2">
-      <h3 className="text-lg font-bold">{t("shared.storage")}</h3>
       <div className="flex">
         <div className="w-1/2">
           {sortedStorage.map((storage) => {
@@ -225,6 +219,7 @@ const StorageDataInfo = () => {
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
+  const { t } = useTranslation();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
@@ -250,16 +245,31 @@ const Dashboard = () => {
     },
   ].filter((x) => x != null);
 
+  const dataAreaKey2Title: Record<string, string> = {
+    cpuInfo: "CPU",
+    memoryInfo: "RAM",
+    storageInfo: t("shared.storage"),
+    gpuInfo: "GPU",
+  };
+
   return (
     <div className="flex flex-wrap gap-4">
       <div className="flex-1 flex flex-col gap-4">
         {hardwareInfoListLeft.map(({ key, component }) => (
-          <DataArea key={key}>{component}</DataArea>
+          <DataArea key={key} title={dataAreaKey2Title[key]}>
+            {component}
+          </DataArea>
         ))}
       </div>
       <div className="flex-1 flex flex-col gap-4">
         {hardwareInfoListRight.map(({ key, component }) => (
-          <DataArea key={key}>{component}</DataArea>
+          <DataArea
+            key={key}
+            title={dataAreaKey2Title[key]}
+            border={key !== "processesTable"}
+          >
+            {component}
+          </DataArea>
         ))}
       </div>
     </div>
