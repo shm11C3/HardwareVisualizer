@@ -57,14 +57,14 @@
  [Node.js v22](https://nodejs.org/)
 
 ```bash
-node -v
+$ node -v
 v22.12.0
 ```
 
 [Rust 1.82](https://www.rust-lang.org/)
 
 ```bash
-rustc -V
+$ rustc -V
 rustc 1.82.0 (f6e511eec 2024-10-15)
 ```
 
