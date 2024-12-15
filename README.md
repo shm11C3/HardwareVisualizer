@@ -23,18 +23,18 @@
 | ----------------------------- | ------ |
 | CPU Usage Monitoring          | ✅     |
 | RAM Usage Monitoring          | ✅     |
-| GPU Usage Monitoring (Nvidia) | ✅     |
-| GPU Usage Monitoring (AMD)    | ✅     |
-| GPU Usage Monitoring (Intel)  | ✅     |
+| GPU Usage Monitoring          | ✅     |
 | Temperature Monitoring        | ⏳     |
 | Fan Monitoring                | ⏳     |
+| Storage Monitoring            | ✅     |
+| Network Monitoring            | ⏳     |
 | Customizable Chart Themes     | ✅     |
 | Customizable Dashboard        | ⏳     |
 | Custom Background Image       | ✅     |
 
 ### Dashboard
 
-![image](https://github.com/user-attachments/assets/9a2bf54f-d6e5-4c20-b0e4-f249fd5b8433)
+![image](https://github.com/user-attachments/assets/e56a701d-a2e0-417a-9bf1-edca8be014a5)
 
 ### Usage Graph
 
