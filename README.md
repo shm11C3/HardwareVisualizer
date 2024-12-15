@@ -54,8 +54,19 @@
 
 ### Requirements
 
-- [Node.js 20+](https://nodejs.org/)
-- [Rust](https://www.rust-lang.org/)
+ [Node.js v22](https://nodejs.org/)
+
+```bash
+node -v
+v22.12.0
+```
+
+[Rust 1.82](https://www.rust-lang.org/)
+
+```bash
+rustc -V
+rustc 1.82.0 (f6e511eec 2024-10-15)
+```
 
 ### Setup
 
