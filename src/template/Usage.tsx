@@ -4,7 +4,7 @@ import {
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
-import { LineChart } from "@/components/charts/LineChart";
+import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { chartConfig } from "@/consts/chart";
 import { useAtom } from "jotai";
 import { useMemo } from "react";
