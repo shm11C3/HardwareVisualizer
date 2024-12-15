@@ -1,3 +1,4 @@
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ const processesAtom = atom<ProcessInfo[]>([]);
 
 export const ProcessesTable = () => {
   const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
   const { error } = useTauriDialog();
   const [processes] = useAtom(processesAtom);
   const setAtom = useSetAtom(processesAtom);
@@ -96,7 +98,12 @@ export const ProcessesTable = () => {
   };
 
   return (
-    <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit">
+    <div
+      className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit"
+      style={{
+        opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+      }}
+    >
       <Dialog>
         <div className="flex">
           <h4 className="text-xl font-bold mb-2">{t("shared.process")}</h4>

@@ -1,3 +1,4 @@
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HardwareDataType } from "@/types/hardwareDataType";
@@ -19,6 +20,7 @@ export const DoughnutChart = ({
   dataType: HardwareDataType;
 }) => {
   const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
 
   const chartConfig: Record<
     HardwareDataType,
@@ -71,7 +73,10 @@ export const DoughnutChart = ({
             gridType="circle"
             radialLines={false}
             stroke="none"
-            className="first:fill-zinc-300 dark:first:fill-muted last:fill-zinc-200 last:dark:fill-gray-900"
+            className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 last:dark:fill-gray-900"
+            style={{
+              opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+            }}
             polarRadius={[70, 60]}
           />
           <RadialBar dataKey="value" background cornerRadius={10} />

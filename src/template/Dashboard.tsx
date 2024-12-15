@@ -5,6 +5,7 @@ import {
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   StorageBarChart,
   type StorageBarChartData,
@@ -18,8 +19,15 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
+  const { settings } = useSettingsAtom();
+
   return (
-    <div className="px-4 pt-2 pb-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
+    <div
+      className="px-4 pt-2 pb-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+      style={{
+        opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+      }}
+    >
       <table className="w-full text-left">
         <tbody>
           {Object.keys(data).map((key) => (
