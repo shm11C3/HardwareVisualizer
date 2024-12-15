@@ -10,12 +10,12 @@
 ![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
 ## Supported OS
-| OS                       | Status |
-| ----------------------------- | ------ |
-| Windows          | ✅     |
-| MacOS          |  ⏳    |
-| linux |   ⏳   |
 
+| OS      | Status                                                                       |
+| ------- | ---------------------------------------------------------------------------- |
+| Windows | ✅ [Download](https://github.com/shm11C3/HardwareVisualizer/releases/latest) |
+| MacOS   | ⏳                                                                           |
+| linux   | ⏳                                                                           |
 
 ## Features
 
@@ -23,23 +23,22 @@
 | ----------------------------- | ------ |
 | CPU Usage Monitoring          | ✅     |
 | RAM Usage Monitoring          | ✅     |
-| GPU Usage Monitoring (Nvidia) | ✅     |
-| GPU Usage Monitoring (AMD)    | ✅     |
-| GPU Usage Monitoring (Intel)  | ✅     |
+| GPU Usage Monitoring          | ✅     |
 | Temperature Monitoring        | ⏳     |
 | Fan Monitoring                | ⏳     |
+| Storage Monitoring            | ✅     |
+| Network Monitoring            | ⏳     |
 | Customizable Chart Themes     | ✅     |
 | Customizable Dashboard        | ⏳     |
-| Custom Background Image  | ✅     |
+| Custom Background Image       | ✅     |
 
 ### Dashboard
 
-![image](https://github.com/user-attachments/assets/9a2bf54f-d6e5-4c20-b0e4-f249fd5b8433)
+![image](https://github.com/user-attachments/assets/e56a701d-a2e0-417a-9bf1-edca8be014a5)
 
 ### Usage Graph
 
 ![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
-
 
 ### Custom Graph
 
@@ -49,15 +48,25 @@
 
 ![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
 
-
 ## Development
 
 [![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat&logo=biome)](https://biomejs.dev)
 
 ### Requirements
 
-- [Node.js 20+](https://nodejs.org/)
-- [Rust](https://www.rust-lang.org/)
+ [Node.js v22](https://nodejs.org/)
+
+```bash
+$ node -v
+v22.12.0
+```
+
+[Rust 1.82](https://www.rust-lang.org/)
+
+```bash
+$ rustc -V
+rustc 1.82.0 (f6e511eec 2024-10-15)
+```
 
 ### Setup
 

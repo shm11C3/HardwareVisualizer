@@ -18,7 +18,17 @@
     "memoryClockSpeed": "Memory Clock",
     "clock": "Clock",
     "process": "Process",
-    "reset": "Reset"
+    "reset": "Reset",
+    "storage": "Storage",
+    "driveName": "Drive Name",
+    "driveType": "Drive Type",
+    "driveTotalSpace": "Drive Total Space",
+    "driveUsedSpace": "Drive Used Space",
+    "driveFreeSpace": "Drive Free Space",
+    "driveFileSystem": "Drive File System",
+    "used": "Used",
+    "free": "Free",
+    "other": "Other"
   },
 
   "pages": {
@@ -68,6 +78,17 @@
         },
         "opacity": "Opacity"
       }
+    }
+  },
+
+  "error": {
+    "title": {
+      "info": "Info",
+      "confirm": "Confirm",
+      "warning": "Warning",
+      "error": "Error",
+      "success": "Success",
+      "unexpected": "Unexpected Error"
     }
   }
 }

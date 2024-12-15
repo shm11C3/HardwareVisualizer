@@ -46,10 +46,10 @@ pub fn get_memory_info() -> Result<MemoryInfo, String> {
 
   let memory_info = MemoryInfo {
     size: formatter::format_size(physical_memory.iter().map(|mem| mem.capacity).sum(), 1),
-    clock: physical_memory[0].speed as u64,
+    clock: physical_memory[0].speed as u32,
     clock_unit: "MHz".to_string(),
-    memory_count: physical_memory.len(),
-    total_slots: physical_memory_array[0].memory_devices.unwrap_or(0) as usize,
+    memory_count: physical_memory.len() as u32,
+    total_slots: physical_memory_array[0].memory_devices.unwrap_or(0),
     memory_type: get_memory_type_with_fallback(
       physical_memory[0].memory_type,
       physical_memory[0].smbios_memory_type,
@@ -86,27 +86,23 @@ pub async fn get_gpu_usage_by_device_and_engine(
   // 正規表現で `engtype_xxx` の部分を抽出
   let re = Regex::new(r"engtype_(\w+)").unwrap();
 
-  for engine in results.iter() {
-    if let Some(captures) = re.captures(&engine.name) {
-      if let Some(engine_name) = captures.get(1) {
-        if engine_name.as_str() == engine_type {
-          if let Some(load) = engine.utilization_percentage {
-            return Ok(load as f32 / 100.0);
-          } else {
-            return Err(Box::new(std::io::Error::new(
-              std::io::ErrorKind::NotFound,
-              format!("No usage data available for engine type: {}", engine_type),
-            )));
-          }
-        }
-      }
-    }
-  }
-
-  Err(Box::new(std::io::Error::new(
-    std::io::ErrorKind::NotFound,
-    format!("No GPU engine found: engine_type: {}", engine_type,),
-  )))
+  results
+    .iter()
+    .find_map(|engine| {
+      re.captures(&engine.name)
+        .and_then(|captures| captures.get(1))
+        .filter(|engine_name| engine_name.as_str() == engine_type)
+        .and_then(|_| {
+          engine
+            .utilization_percentage
+            .map(|load| load as f32 / 100.0)
+        })
+    })
+    .ok_or_else(|| {
+      let message = format!("No usage data available for engine type: {}", engine_type);
+      Box::new(std::io::Error::new(std::io::ErrorKind::NotFound, message))
+        as Box<dyn Error>
+    })
 }
 
 ///

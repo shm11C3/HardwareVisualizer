@@ -1,7 +1,8 @@
+import type { JSX } from "react";
+
 export type LegendItem = {
   label: string;
   icon: JSX.Element;
-  datasetIndex: number;
 };
 
 const CustomLegend = ({

@@ -1,8 +1,8 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
-import { memo, useCallback } from "react";
+import { atom, useAtom } from "jotai";
+import { memo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 
@@ -37,17 +37,29 @@ const menuItemClasses = tv({
   },
 });
 
-const SideMenu = () => {
+export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
+export const SideMenu = () => {
+  const [_displayTargetAtom, setDisplayTargetAtom] = useAtom(displayTargetAtom);
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
-  const { settings, updateStateAtom } = useSettingsAtom();
+  const [displayTarget, setDisplayTarget] = useTauriStore<SelectedDisplayType>(
+    "display",
+    "dashboard",
+  );
+
+  useEffect(() => {
+    if (displayTarget) {
+      setDisplayTargetAtom(displayTarget);
+    }
+  }, [displayTarget, setDisplayTargetAtom]);
 
   const toggleMenu = () => setMenuOpen(!isOpen);
 
   const handleMenuClick = useCallback(
     (type: SelectedDisplayType) => {
-      updateStateAtom("display", type);
+      setDisplayTarget(type);
+      setDisplayTargetAtom(type);
     },
-    [updateStateAtom],
+    [setDisplayTarget, setDisplayTargetAtom],
   );
 
   const MenuItem = memo(({ type }: { type: SelectedDisplayType }) => {
@@ -60,47 +72,50 @@ const SideMenu = () => {
     };
 
     return (
-      <li
-        className={menuItemClasses({
-          selected: settings.state.display === type,
-        })}
-      >
-        <button
-          type="button"
-          className="p-2 w-full h-full text-left"
-          onClick={() => handleMenuClick(type)}
-          aria-expanded={isOpen}
-          aria-label={isOpen ? "Close menu" : "Open menu"}
+      displayTarget &&
+      isOpen && (
+        <li
+          className={menuItemClasses({
+            selected: displayTarget === type,
+          })}
         >
-          {menuTitles[type]}
-        </button>
-      </li>
+          <button
+            type="button"
+            className="p-2 w-full h-full text-left"
+            onClick={() => handleMenuClick(type)}
+            aria-expanded={isOpen}
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+          >
+            {menuTitles[type]}
+          </button>
+        </li>
+      )
     );
   });
 
   return (
-    <div className="inset-0">
-      <div className="fixed z-50">
-        <button
-          type="button"
-          className={buttonClasses({ open: isOpen })}
-          onClick={toggleMenu}
-        >
-          {isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />}
-        </button>
-        <div className={sideMenuClasses({ open: isOpen })}>
-          <ul className="p-4">
-            <li className="mb-4">
-              <h2 className="text-xl font-bold">HardwareVisualizer</h2>
-            </li>
-            <MenuItem type="dashboard" />
-            <MenuItem type="usage" />
-            <MenuItem type="settings" />
-          </ul>
+    isOpen != null && (
+      <div className="inset-0">
+        <div className="fixed z-50">
+          <button
+            type="button"
+            className={buttonClasses({ open: isOpen })}
+            onClick={toggleMenu}
+          >
+            {isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />}
+          </button>
+          <div className={sideMenuClasses({ open: isOpen })}>
+            <ul className="p-4">
+              <li className="mb-4">
+                <h2 className="text-xl font-bold">HardwareVisualizer</h2>
+              </li>
+              <MenuItem type="dashboard" />
+              <MenuItem type="usage" />
+              <MenuItem type="settings" />
+            </ul>
+          </div>
         </div>
       </div>
-    </div>
+    )
   );
 };
-
-export default SideMenu;

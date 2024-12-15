@@ -6,8 +6,8 @@ const storePromise = load("store.json", { autoSave: true });
 export const useTauriStore = <T>(
   key: string,
   defaultValue: T,
-): [T, (newValue: T) => Promise<void>] => {
-  const [stateValue, setStateValue] = useState<T>(defaultValue);
+): [T | null, (newValue: T) => Promise<void>] => {
+  const [stateValue, setStateValue] = useState<T | null>(null);
 
   useEffect(() => {
     const fetchToggleState = async () => {

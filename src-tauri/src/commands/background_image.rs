@@ -3,6 +3,7 @@ use base64::Engine;
 use image::load_from_memory;
 use image::ImageFormat;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use tauri::command;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -19,6 +20,7 @@ const BG_IMG_DIR_NAME: &str = "BgImages";
 /// - `file_id`: 画像ファイルID
 ///
 #[command]
+#[specta::specta]
 pub async fn get_background_image(file_id: String) -> Result<String, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
@@ -43,7 +45,7 @@ pub async fn get_background_image(file_id: String) -> Result<String, String> {
 /// - `file_id` : 画像ファイルID
 /// - `image_data` : 画像データのBase64文字列
 ///
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundImage {
   pub file_id: String,
@@ -54,6 +56,7 @@ pub struct BackgroundImage {
 /// BG_IMG_DIR_NAME ディレクトリ内の背景画像一覧を取得
 ///
 #[command]
+#[specta::specta]
 pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
@@ -99,7 +102,13 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
 /// - `image_data`: 画像データのBase64文字列
 /// - returns: `file_id`
 ///
+/// ### TODO
+/// - JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html を使用する
+///   - specta での型定義が難しかったため一旦 Base64 で実装
+///
+///
 #[command]
+#[specta::specta]
 pub async fn save_background_image(image_data: String) -> Result<String, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
@@ -159,6 +168,7 @@ pub async fn save_background_image(image_data: String) -> Result<String, String>
 /// - `file_id`: 画像ファイルID
 ///
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_background_image(file_id: String) -> Result<(), String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);

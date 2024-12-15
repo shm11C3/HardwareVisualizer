@@ -3,6 +3,7 @@ use crate::utils::{self, formatter};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
+use specta::Type;
 use tokio::task::spawn_blocking;
 use tokio::task::JoinError;
 
@@ -72,7 +73,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
   })?
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NameValue {
   name: String,
@@ -259,7 +260,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
         id: gpu_id,
         name,
         vendor_name: "NVIDIA".to_string(),
-        clock: frequency,
+        clock: frequency as u32,
         memory_size: utils::formatter::RoundedKibibytes {
           kibibytes: memory_info.shared,
           precision: 1,

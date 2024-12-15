@@ -1,16 +1,19 @@
-import { toggleDecoration } from "@/services/uiService";
+import { commands } from "@/rspc/bindings";
 import { useEffect } from "react";
+import { useTauriDialog } from "./useTauriDialog";
 import { useTauriStore } from "./useTauriStore";
 
 export const useKeydown = () => {
+  const { error } = useTauriDialog();
   const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   useEffect(() => {
     const handleDecoration = async () => {
       try {
-        await toggleDecoration(!isDecorated);
+        await commands.setDecoration(!isDecorated);
         await setDecorated(!isDecorated);
       } catch (e) {
+        error(e as string);
         console.error("Failed to toggle window decoration:", e);
       }
     };
@@ -23,5 +26,5 @@ export const useKeydown = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDecorated, setDecorated]);
+  }, [isDecorated, setDecorated, error]);
 };
