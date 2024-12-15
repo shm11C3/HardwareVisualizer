@@ -1,5 +1,5 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
-import { LineChart } from "@/components/charts/LineChart";
+import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { chartConfig } from "@/consts/chart";
 
 export const PreviewChart = () => {

@@ -3,20 +3,13 @@ import type { sizeOptions } from "@/consts/chart";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import {
-  CategoryScale,
-  Chart as ChartJS,
-  type ChartOptions,
-  Filler,
-  Legend,
-  LineElement,
-  LinearScale,
-  PointElement,
-  Title,
+  Area,
+  AreaChart,
+  ResponsiveContainer,
   Tooltip,
-} from "chart.js";
-import type { Chart, ChartData } from "chart.js";
-import { useRef } from "react";
-import { Line } from "react-chartjs-2";
+  XAxis,
+  YAxis,
+} from "recharts";
 import { tv } from "tailwind-variants";
 import CustomLegend, { type LegendItem } from "./CustomLegend";
 
@@ -56,104 +49,94 @@ const graphVariants = tv({
 const chartAreaVariants = tv({
   variants: {
     border: {
-      true: "border-2 rounded-xl border-slate-400 dark:border-zinc-600",
+      true: "border-2 rounded-xl border-slate-400 dark:border-zinc-600 py-6",
     },
   },
 });
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-);
+const graphAreaHeight: Record<(typeof sizeOptions)[number], number> = {
+  sm: 200,
+  md: 300,
+  lg: 400,
+  xl: 500,
+  "2xl": 600,
+};
 
 const SingleLineChart = ({
   labels,
   chartData,
   dataType,
   size,
-  options,
-}: SingleChartProps & {
-  options: ChartOptions<"line">;
-}) => {
+}: SingleChartProps) => {
   const { settings } = useSettingsAtom();
 
-  const chartRef = useRef<Chart<"line">>(null);
-
-  const data: Record<ChartDataType, ChartData<"line", number[], string>> = {
-    cpu: {
-      labels,
-      datasets: [
-        {
-          label: "CPU Usage (%)",
-          data: chartData,
-          borderColor: `rgb(${settings.lineGraphColor.cpu})`,
-          backgroundColor: `rgba(${settings.lineGraphColor.cpu},0.3)`,
-          fill: settings.lineGraphFill,
-        },
-      ],
-    },
-    memory: {
-      labels,
-      datasets: [
-        {
-          label: "Memory Usage (%)",
-          data: chartData,
-          borderColor: `rgb(${settings.lineGraphColor.memory})`,
-          backgroundColor: `rgba(${settings.lineGraphColor.memory},0.3)`,
-          fill: settings.lineGraphFill,
-        },
-      ],
-    },
-    gpu: {
-      labels,
-      datasets: [
-        {
-          label: "GPU Usage (%)",
-          data: chartData,
-          borderColor: `rgb(${settings.lineGraphColor.gpu})`,
-          backgroundColor: `rgba(${settings.lineGraphColor.gpu},0.3)`,
-          fill: settings.lineGraphFill,
-        },
-      ],
-    },
-  };
+  const data = labels.map((label, index) => ({
+    name: label,
+    usage: chartData[index],
+  }));
 
   const legendItems: Record<ChartDataType, LegendItem> = {
     cpu: {
       label: "CPU",
       icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
-      datasetIndex: 0,
     },
     memory: {
       label: "Memory",
       icon: (
         <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
       ),
-      datasetIndex: 1,
     },
     gpu: {
       label: "GPU",
       icon: (
         <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
       ),
-      datasetIndex: 2,
     },
   };
 
   return (
     <div className={graphVariants({ size })}>
-      <Line
+      <ResponsiveContainer
         className={chartAreaVariants({ border: settings.lineGraphBorder })}
-        ref={chartRef}
-        data={data[dataType]}
-        options={options}
-      />
+        width="100%"
+        height={graphAreaHeight[settings.graphSize]}
+      >
+        <AreaChart data={data}>
+          <XAxis dataKey="name" hide={!settings.lineGraphShowScale} />
+          <YAxis
+            domain={[0, 100]}
+            hide={!settings.lineGraphShowScale}
+            tick={{
+              fill: { light: "#77777", dark: "#fff" }[settings.theme],
+            }}
+            stroke={
+              { light: "#77777", dark: "rgba(255, 255, 255, 0.2)" }[
+                settings.theme
+              ]
+            }
+            tickCount={12}
+          />
+          <Tooltip
+            isAnimationActive={false}
+            contentStyle={{
+              backgroundColor: "rgba(0, 0, 0, 0.7)",
+              color: "#fff",
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="usage"
+            stroke={`rgb(${settings.lineGraphColor[dataType]})`}
+            strokeWidth={2}
+            fill={
+              settings.lineGraphFill
+                ? `rgba(${settings.lineGraphColor[dataType]},0.3)`
+                : "none"
+            }
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
       {settings.lineGraphShowLegend && (
         <div className="flex justify-center mt-4 mb-2">
           <CustomLegend item={legendItems[dataType]} />
@@ -169,38 +152,15 @@ const MixLineChart = ({
   memoryData,
   gpuData,
   size,
-  options,
-}: MultiChartProps & { options: ChartOptions<"line"> }) => {
+}: MultiChartProps) => {
   const { settings } = useSettingsAtom();
 
-  const chartRef = useRef<Chart<"line">>(null);
-
-  const data = {
-    labels,
-    datasets: [
-      {
-        label: "CPU Usage (%)",
-        data: cpuData,
-        borderColor: `rgb(${settings.lineGraphColor.cpu})`,
-        backgroundColor: `rgba(${settings.lineGraphColor.cpu},0.3)`,
-        fill: settings.lineGraphFill,
-      },
-      {
-        label: "Memory Usage (%)",
-        data: memoryData,
-        borderColor: `rgb(${settings.lineGraphColor.memory})`,
-        backgroundColor: `rgba(${settings.lineGraphColor.memory},0.3)`,
-        fill: settings.lineGraphFill,
-      },
-      {
-        label: "GPU Usage (%)",
-        data: gpuData,
-        borderColor: `rgb(${settings.lineGraphColor.gpu})`,
-        backgroundColor: `rgba(${settings.lineGraphColor.gpu},0.3)`,
-        fill: settings.lineGraphFill,
-      },
-    ],
-  };
+  const data = labels.map((label, index) => ({
+    name: label,
+    cpu: cpuData[index],
+    memory: memoryData[index],
+    gpu: gpuData[index],
+  }));
 
   const legendItems: LegendItem[] = [];
 
@@ -208,42 +168,102 @@ const MixLineChart = ({
     legendItems.push({
       label: "CPU",
       icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
-      datasetIndex: 0,
     });
   }
-
   if (settings.displayTargets.includes("memory")) {
     legendItems.push({
       label: "Memory",
       icon: (
         <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
       ),
-      datasetIndex: 1,
     });
   }
-
   if (settings.displayTargets.includes("gpu")) {
     legendItems.push({
       label: "GPU",
       icon: (
         <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
       ),
-      datasetIndex: 2,
     });
   }
 
   return (
     <div className={graphVariants({ size })}>
-      <Line
+      <ResponsiveContainer
         className={chartAreaVariants({ border: settings.lineGraphBorder })}
-        ref={chartRef}
-        data={data}
-        options={options}
-      />
+        width="100%"
+        height={graphAreaHeight[settings.graphSize]}
+      >
+        <AreaChart data={data} className="">
+          <XAxis dataKey="name" hide={!settings.lineGraphShowScale} />
+          <YAxis
+            domain={[0, 100]}
+            hide={!settings.lineGraphShowScale}
+            tick={{
+              fill: { light: "#77777", dark: "#fff" }[settings.theme],
+            }}
+            stroke={
+              { light: "#77777", dark: "rgba(255, 255, 255, 0.2)" }[
+                settings.theme
+              ]
+            }
+            tickCount={12}
+          />
+          <Tooltip
+            isAnimationActive={false}
+            contentStyle={{
+              backgroundColor: "rgba(0, 0, 0, 0.7)",
+              color: "#fff",
+            }}
+          />
+          {settings.displayTargets.includes("cpu") && (
+            <Area
+              type="monotone"
+              dataKey="cpu"
+              stroke={`rgb(${settings.lineGraphColor.cpu})`}
+              strokeWidth={2}
+              fill={
+                settings.lineGraphFill
+                  ? `rgba(${settings.lineGraphColor.cpu},0.3)`
+                  : "none"
+              }
+              isAnimationActive={false}
+            />
+          )}
+          {settings.displayTargets.includes("memory") && (
+            <Area
+              type="monotone"
+              dataKey="memory"
+              stroke={`rgb(${settings.lineGraphColor.memory})`}
+              strokeWidth={2}
+              fill={
+                settings.lineGraphFill
+                  ? `rgba(${settings.lineGraphColor.memory},0.3)`
+                  : "none"
+              }
+              isAnimationActive={false}
+            />
+          )}
+          {settings.displayTargets.includes("gpu") && (
+            <Area
+              type="monotone"
+              dataKey="gpu"
+              stroke={`rgb(${settings.lineGraphColor.gpu})`}
+              strokeWidth={2}
+              fill={
+                settings.lineGraphFill
+                  ? `rgba(${settings.lineGraphColor.gpu},0.3)`
+                  : "none"
+              }
+              isAnimationActive={false}
+            />
+          )}
+        </AreaChart>
+      </ResponsiveContainer>
       {settings.lineGraphShowLegend && (
         <div className="flex justify-center mt-4 mb-2">
           {legendItems.map((item) => (
-            <CustomLegend key={item.datasetIndex} item={item} />
+            <CustomLegend key={item.label} item={item} />
           ))}
         </div>
       )}
@@ -251,45 +271,18 @@ const MixLineChart = ({
   );
 };
 
-export const LineChart = (props: SingleChartProps | MultiChartProps) => {
-  const { settings } = useSettingsAtom();
+/**
+ * @todo `type="monotone"` を変更できるようにする
+ * @todo tooltip の表示を変更できるようにする
+ */
+export const LineChartComponent = (
+  props: SingleChartProps | MultiChartProps,
+) => {
   const { lineGraphMix } = props;
 
-  const options: ChartOptions<"line"> = {
-    responsive: true,
-    animation: false,
-    scales: {
-      x: { display: false },
-      y: {
-        display: settings.lineGraphShowScale,
-        suggestedMin: 0,
-        suggestedMax: 100,
-        grid: {
-          color: {
-            light: "rgba(96, 96, 96, 0.8)",
-            dark: "rgba(255, 255, 255, 0.2)",
-          }[settings.theme],
-        },
-        ticks: { color: { light: "#77777", dark: "#fff" }[settings.theme] },
-      },
-    },
-    elements: {
-      point: { radius: 0, hoverRadius: 0 },
-      line: { tension: 0.4 },
-    },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        titleColor: "#fff",
-        bodyColor: "#fff",
-      },
-    },
-  };
-
   return lineGraphMix ? (
-    <MixLineChart {...props} options={options} />
+    <MixLineChart {...props} />
   ) : (
-    <SingleLineChart {...props} options={options} />
+    <SingleLineChart {...props} />
   );
 };
