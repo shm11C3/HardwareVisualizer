@@ -1,17 +1,17 @@
 import {
   cpuUsageHistoryAtom,
-  gpuFanSpeedAtom,
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
 import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   StorageBarChart,
   type StorageBarChartData,
 } from "@/components/charts/Bar";
-import DoughnutChart from "@/components/charts/DoughnutChart";
-import ProcessesTable from "@/components/charts/ProcessTable";
+import { DoughnutChart } from "@/components/charts/DoughnutChart";
+import { ProcessesTable } from "@/components/charts/ProcessTable";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
@@ -19,8 +19,15 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
+  const { settings } = useSettingsAtom();
+
   return (
-    <div className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
+    <div
+      className="px-4 pt-2 pb-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+      style={{
+        opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+      }}
+    >
       <table className="w-full text-left">
         <tbody>
           {Object.keys(data).map((key) => (
@@ -35,12 +42,23 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   );
 };
 
-const DataArea = ({ children }: { children: React.ReactNode }) => {
+const DataArea = ({
+  children,
+  title,
+  border = true,
+}: { children: React.ReactNode; title?: string; border?: boolean }) => {
   return (
     <div className="p-4">
-      <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600">
-        <div className="p-4">{children}</div>
-      </div>
+      {border ? (
+        <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600">
+          {title && (
+            <h3 className="pt-4 pl-4 pb-2 text-xl font-bold">{title}</h3>
+          )}
+          <div className="px-4 pb-4">{children}</div>
+        </div>
+      ) : (
+        <>{children}</>
+      )}
     </div>
   );
 };
@@ -54,10 +72,8 @@ const CPUInfo = () => {
     hardwareInfo.cpu && (
       <>
         <DoughnutChart
-          chartData={cpuUsageHistory[cpuUsageHistory.length - 1]}
+          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
-          hardType="cpu"
-          showTitle={true}
         />
         <InfoTable
           data={{
@@ -77,7 +93,6 @@ const GPUInfo = () => {
   const { t } = useTranslation();
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
-  const [gpuFan] = useAtom(gpuFanSpeedAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
 
   const getTargetInfo = (data: NameValues) => {
@@ -87,33 +102,17 @@ const GPUInfo = () => {
   };
 
   const targetTemperature = getTargetInfo(gpuTemp);
-  const targetFanSpeed = getTargetInfo(gpuFan);
 
   return (
     hardwareInfo.gpus && (
       <>
-        <div className="flex justify-around">
+        <div className="flex justify-around h-[200px]">
           <DoughnutChart
-            chartData={graphicUsageHistory[graphicUsageHistory.length - 1]}
+            chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
             dataType={"usage"}
-            hardType="gpu"
-            showTitle={true}
           />
           {targetTemperature && (
-            <DoughnutChart
-              chartData={targetTemperature}
-              dataType={"temp"}
-              hardType="gpu"
-              showTitle={false}
-            />
-          )}
-          {targetFanSpeed && (
-            <DoughnutChart
-              chartData={targetFanSpeed}
-              dataType={"clock"}
-              hardType="gpu"
-              showTitle={false}
-            />
+            <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
           )}
         </div>
 
@@ -143,10 +142,8 @@ const MemoryInfo = () => {
     hardwareInfo.memory && (
       <>
         <DoughnutChart
-          chartData={memoryUsageHistory[memoryUsageHistory.length - 1]}
+          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
           dataType={"usage"}
-          hardType="memory"
-          showTitle={true}
         />
         <InfoTable
           data={{
@@ -189,8 +186,7 @@ const StorageDataInfo = () => {
   );
 
   return (
-    <div className="p-2">
-      <h3 className="text-lg font-bold">{t("shared.storage")}</h3>
+    <div className="pt-2">
       <div className="flex">
         <div className="w-1/2">
           {sortedStorage.map((storage) => {
@@ -225,20 +221,16 @@ const StorageDataInfo = () => {
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
+  const { t } = useTranslation();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     init();
   }, []);
 
-  const hardwareInfoList: { key: string; component: JSX.Element }[] = [
+  const hardwareInfoListLeft: { key: string; component: JSX.Element }[] = [
     hardwareInfo.cpu && { key: "cpuInfo", component: <CPUInfo /> },
-    hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
     hardwareInfo.memory && { key: "memoryInfo", component: <MemoryInfo /> },
-    {
-      key: "processesTable",
-      component: <ProcessesTable defaultItemLength={6} />,
-    },
     hardwareInfo.storage && hardwareInfo.storage.length > 0
       ? {
           key: "storageInfo",
@@ -247,11 +239,41 @@ const Dashboard = () => {
       : undefined,
   ].filter((x) => x != null);
 
+  const hardwareInfoListRight: { key: string; component: JSX.Element }[] = [
+    hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
+    {
+      key: "processesTable",
+      component: <ProcessesTable />,
+    },
+  ].filter((x) => x != null);
+
+  const dataAreaKey2Title: Record<string, string> = {
+    cpuInfo: "CPU",
+    memoryInfo: "RAM",
+    storageInfo: t("shared.storage"),
+    gpuInfo: "GPU",
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {hardwareInfoList.map(({ key, component }) => (
-        <DataArea key={key}>{component}</DataArea>
-      ))}
+    <div className="flex flex-wrap gap-4">
+      <div className="flex-1 flex flex-col gap-4">
+        {hardwareInfoListLeft.map(({ key, component }) => (
+          <DataArea key={key} title={dataAreaKey2Title[key]}>
+            {component}
+          </DataArea>
+        ))}
+      </div>
+      <div className="flex-1 flex flex-col gap-4">
+        {hardwareInfoListRight.map(({ key, component }) => (
+          <DataArea
+            key={key}
+            title={dataAreaKey2Title[key]}
+            border={key !== "processesTable"}
+          >
+            {component}
+          </DataArea>
+        ))}
+      </div>
     </div>
   );
 };
