@@ -1,6 +1,6 @@
 use crate::structs::hardware::GraphicInfo;
 
-use crate::{log_debug, log_error, log_info, log_internal, log_warn};
+use crate::{log_debug, log_error, log_internal};
 use dxgi::adapter::AdapterDesc;
 use dxgi::Factory;
 use tokio::task::spawn_blocking;

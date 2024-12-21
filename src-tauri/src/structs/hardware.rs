@@ -1,5 +1,5 @@
 use crate::{
-  enums::{self, hardware::DiskKind},
+  enums::{hardware::DiskKind},
   utils::formatter::SizeUnit,
 };
 use serde::{Deserialize, Serialize};

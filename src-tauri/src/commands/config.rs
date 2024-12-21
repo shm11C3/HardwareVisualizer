@@ -2,7 +2,7 @@ use crate::enums::{self, hardware};
 use crate::services::language;
 use crate::utils::color;
 use crate::utils::file::get_app_data_dir;
-use crate::{log_debug, log_error, log_info, log_internal, log_warn, utils};
+use crate::{log_error, log_internal, utils};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fs;
