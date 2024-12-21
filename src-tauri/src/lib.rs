@@ -8,6 +8,9 @@ mod services;
 mod structs;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 use commands::background_image;
 use commands::config;
 use commands::hardware;
