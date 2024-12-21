@@ -58,7 +58,7 @@ mod tests {
     assert_eq!(settings.display_targets, targets);
   }
 
-  //#[test]
+  #[test]
   fn test_set_graph_size() {
     let mut settings = Settings::default();
     assert!(settings
