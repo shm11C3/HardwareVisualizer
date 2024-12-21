@@ -3,7 +3,7 @@ use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
 use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
-use crate::{log_debug, log_error, log_info, log_internal, log_warn};
+use crate::{log_error, log_internal};
 use serde::{Deserialize, Serialize, Serializer};
 use specta::Type;
 use std::collections::HashMap;
@@ -13,7 +13,6 @@ use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tauri::command;
-use tauri_specta;
 
 pub struct AppState {
   pub system: Arc<Mutex<System>>,

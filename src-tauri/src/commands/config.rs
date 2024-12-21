@@ -2,7 +2,7 @@ use crate::enums::{self, hardware};
 use crate::services::language;
 use crate::utils::color;
 use crate::utils::file::get_app_data_dir;
-use crate::{log_debug, log_error, log_info, log_internal, log_warn, utils};
+use crate::{log_error, log_internal, utils};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fs;
@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 
 const SETTINGS_FILENAME: &str = "settings.json";
 
-trait Config {
+pub trait Config {
   fn write_file(&self) -> Result<(), String>;
   fn read_file(&mut self) -> Result<(), String>;
 }
@@ -31,19 +31,19 @@ pub struct LineGraphColorSettings {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-  version: String,
-  language: String,
-  theme: enums::config::Theme,
-  display_targets: Vec<hardware::HardwareType>,
-  graph_size: enums::config::GraphSize,
-  line_graph_border: bool,
-  line_graph_fill: bool,
-  line_graph_color: LineGraphColorSettings,
-  line_graph_mix: bool,
-  line_graph_show_legend: bool,
-  line_graph_show_scale: bool,
-  background_img_opacity: u8,
-  selected_background_img: Option<String>,
+  pub version: String,
+  pub language: String,
+  pub theme: enums::config::Theme,
+  pub display_targets: Vec<hardware::HardwareType>,
+  pub graph_size: enums::config::GraphSize,
+  pub line_graph_border: bool,
+  pub line_graph_fill: bool,
+  pub line_graph_color: LineGraphColorSettings,
+  pub line_graph_mix: bool,
+  pub line_graph_show_legend: bool,
+  pub line_graph_show_scale: bool,
+  pub background_img_opacity: u8,
+  pub selected_background_img: Option<String>,
 }
 
 ///

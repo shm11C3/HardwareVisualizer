@@ -8,11 +8,13 @@ mod services;
 mod structs;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 use commands::background_image;
 use commands::config;
 use commands::hardware;
 use commands::ui;
-use serde::{Deserialize, Serialize};
 use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri::Wry;

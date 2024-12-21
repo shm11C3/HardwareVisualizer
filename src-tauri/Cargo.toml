@@ -81,3 +81,6 @@ features = [
 [lib]
 name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dev-dependencies]
+tauri = { version = "2.1.1", features = ["test"] }

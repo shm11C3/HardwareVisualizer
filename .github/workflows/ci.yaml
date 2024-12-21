@@ -57,6 +57,15 @@ jobs:
       - name: check front end Lint
         run: npm run lint:ci
 
+      - name: check Rust Lint
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      #- name: check Rust Clippy
+      #  run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: Test Rust
+        run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

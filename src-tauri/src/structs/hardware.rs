@@ -1,7 +1,4 @@
-use crate::{
-  enums::{self, hardware::DiskKind},
-  utils::formatter::SizeUnit,
-};
+use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
