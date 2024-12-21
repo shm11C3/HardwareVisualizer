@@ -7,6 +7,7 @@
     "dev": "vite dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test:tauri": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test": "vitest",
     "tauri": "tauri",
     "lint": "biome lint ./src && biome check ./src && biome format --write ./src",

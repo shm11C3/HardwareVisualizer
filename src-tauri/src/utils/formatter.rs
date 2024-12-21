@@ -90,11 +90,18 @@ pub fn format_size(bytes: u64, precision: u32) -> String {
       round(bytes as f64 / MEGABYTE as f64, precision),
       precision = precision as usize
     )
+  } else if bytes >= KILOBYTE {
+    format!(
+      "{:.precision$} KB",
+      round(bytes as f64 / KILOBYTE as f64, precision),
+      precision = precision as usize
+    )
   } else {
     format!("{} bytes", bytes)
   }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SizeWithUnit {
   pub value: f32,
   pub unit: SizeUnit,

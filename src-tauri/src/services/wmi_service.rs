@@ -1,10 +1,10 @@
 use crate::structs::hardware::MemoryInfo;
 use crate::utils::formatter;
-use crate::{log_debug, log_error, log_info, log_internal};
+use crate::{log_error, log_info, log_internal};
 
 use regex::Regex;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::error::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;

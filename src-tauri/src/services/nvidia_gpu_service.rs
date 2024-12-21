@@ -1,5 +1,5 @@
 use crate::structs::hardware::GraphicInfo;
-use crate::utils::{self, formatter};
+use crate::utils::{self};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
