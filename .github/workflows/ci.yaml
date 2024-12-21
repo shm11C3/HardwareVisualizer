@@ -6,7 +6,7 @@ on:
       - master
       - develop
   push:
-      branches:
+    branches:
       - develop
 
 jobs:
@@ -26,6 +26,22 @@ jobs:
           git config --global core.eol lf
 
       - uses: actions/checkout@v4
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: setup node
         uses: actions/setup-node@v4
