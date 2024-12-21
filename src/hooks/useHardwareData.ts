@@ -42,7 +42,7 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
   const getUsage = mapping[dataType].action;
 
   useEffect(() => {
-    const intervalId = setInterval(async () => {
+    const fetchAndUpdate = async () => {
       const result = await getUsage();
 
       if (isResult(result) && isError(result)) return;
@@ -59,7 +59,10 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
           .concat(newHistory);
         return paddedHistory.slice(-chartConfig.historyLengthSec);
       });
-    }, 1000);
+    };
+
+    fetchAndUpdate();
+    const intervalId = setInterval(fetchAndUpdate, 1000);
 
     return () => clearInterval(intervalId);
   }, [setHistory, getUsage]);
