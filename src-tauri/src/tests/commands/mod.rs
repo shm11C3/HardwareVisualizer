@@ -1,4 +1,4 @@
 #[cfg(test)]
-pub mod config_test;
+pub mod config;
 //#[cfg(test)]
-//pub mod hardware_tests;
+//pub mod hardware;
