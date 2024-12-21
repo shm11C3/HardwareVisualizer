@@ -1,6 +1,7 @@
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { minOpacity } from "@/consts";
 import type { HardwareDataType } from "@/types/hardwareDataType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
 import type { JSX } from "react";
@@ -76,7 +77,13 @@ export const DoughnutChart = ({
             stroke="none"
             className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 last:dark:fill-gray-900"
             style={{
-              opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+              opacity:
+                settings.selectedBackgroundImg != null
+                  ? Math.max(
+                      (1 - settings.backgroundImgOpacity / 100) ** 2,
+                      minOpacity,
+                    )
+                  : 1,
             }}
             polarRadius={[70, 60]}
           />

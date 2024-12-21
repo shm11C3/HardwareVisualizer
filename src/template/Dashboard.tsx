@@ -12,6 +12,7 @@ import {
 } from "@/components/charts/Bar";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { ProcessesTable } from "@/components/charts/ProcessTable";
+import { minOpacity } from "@/consts";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
@@ -25,7 +26,13 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
     <div
       className="px-4 pt-2 pb-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
       style={{
-        opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+        opacity:
+          settings.selectedBackgroundImg != null
+            ? Math.max(
+                (1 - settings.backgroundImgOpacity / 100) ** 2,
+                minOpacity,
+              )
+            : 1,
       }}
     >
       <table className="w-full text-left">
