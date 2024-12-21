@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { minOpacity } from "@/consts";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
 import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
@@ -101,7 +102,13 @@ export const ProcessesTable = () => {
     <div
       className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit"
       style={{
-        opacity: (1 - settings.backgroundImgOpacity / 100) ** 2,
+        opacity:
+          settings.selectedBackgroundImg != null
+            ? Math.max(
+                (1 - settings.backgroundImgOpacity / 100) ** 2,
+                minOpacity,
+              )
+            : 1,
       }}
     >
       <Dialog>
