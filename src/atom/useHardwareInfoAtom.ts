@@ -1,5 +1,5 @@
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type SysInfo, commands } from "@/rspc/bindings";
+import { type NetworkInfo, type SysInfo, commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import { atom, useAtom } from "jotai";
 
@@ -10,8 +10,11 @@ const hardInfoAtom = atom<SysInfo>({
   storage: [],
 });
 
+const networkInfoAtom = atom<NetworkInfo[]>([]);
+
 export const useHardwareInfoAtom = () => {
   const [hardwareInfo, setHardInfo] = useAtom(hardInfoAtom);
+  const [networkInfo, setNetworkInfo] = useAtom(networkInfoAtom);
   const { error } = useTauriDialog();
 
   const init = async () => {
@@ -25,5 +28,16 @@ export const useHardwareInfoAtom = () => {
     setHardInfo(fetchedHardwareInfo.data);
   };
 
-  return { hardwareInfo, init };
+  const initNetwork = async () => {
+    const fetchedNetworkInfo = await commands.getNetworkInfo();
+    if (isError(fetchedNetworkInfo)) {
+      error(fetchedNetworkInfo.error);
+      console.error("Failed to fetch network info:", fetchedNetworkInfo);
+      return;
+    }
+
+    setNetworkInfo(fetchedNetworkInfo.data);
+  };
+
+  return { hardwareInfo, networkInfo, init, initNetwork };
 };

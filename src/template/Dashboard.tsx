@@ -225,6 +225,34 @@ const StorageDataInfo = () => {
   );
 };
 
+const NetworkInfo = () => {
+  const { t } = useTranslation();
+  const { networkInfo, initNetwork } = useHardwareInfoAtom();
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  useEffect(() => {
+    initNetwork();
+  }, []);
+
+  return (
+    <>
+      {networkInfo.map((network) => {
+        return (
+          <div key={network.mac} className="mt-4">
+            <InfoTable
+              data={{
+                ipv4: network.ipv4.join(", "),
+                ipv6: network.ipv6.join(", "),
+                mac: network.mac,
+              }}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+};
+
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
@@ -251,6 +279,10 @@ const Dashboard = () => {
     {
       key: "processesTable",
       component: <ProcessesTable />,
+    },
+    {
+      key: "networkInfo",
+      component: <NetworkInfo />,
     },
   ].filter((x) => x != null);
 

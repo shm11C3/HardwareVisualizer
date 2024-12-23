@@ -114,6 +114,18 @@ async getMemoryUsageHistory(seconds: number) : Promise<number[]> {
 async getGpuUsageHistory(seconds: number) : Promise<number[]> {
     return await TAURI_INVOKE("get_gpu_usage_history", { seconds });
 },
+/**
+ * ## ネットワーク情報を取得
+ * 
+ */
+async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_network_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSettings() : Promise<Result<ClientSettings, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_settings") };
@@ -292,6 +304,7 @@ async setDecoration(isDecorated: boolean) : Promise<void> {
 
 /** user-defined types **/
 
+export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "memoryInfoNotAvailable" | "graphicInfoNotAvailable" | "networkInfoNotAvailable" | "networkUsageNotAvailable"
 /**
  * - `file_id` : 画像ファイルID
  * - `image_data` : 画像データのBase64文字列
@@ -311,6 +324,7 @@ export type HardwareType = "cpu" | "memory" | "gpu"
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
 export type NameValue = { name: string; value: number }
+export type NetworkInfo = { ipv4: string[]; ipv6: string[]; mac: string }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }

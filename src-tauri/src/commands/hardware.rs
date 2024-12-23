@@ -1,7 +1,9 @@
+use crate::enums::error::BackendError;
 use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
+use crate::structs::hardware::NetworkInfo;
 use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
 use crate::{log_error, log_internal};
 use serde::{Deserialize, Serialize, Serializer};
@@ -312,6 +314,15 @@ pub fn get_gpu_usage_history(
     .take(seconds as usize)
     .cloned()
     .collect()
+}
+
+///
+/// ## ネットワーク情報を取得
+///
+#[command]
+#[specta::specta]
+pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+  system_info_service::get_network_info()
 }
 
 ///
