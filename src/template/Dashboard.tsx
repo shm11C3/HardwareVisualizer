@@ -194,8 +194,8 @@ const StorageDataInfo = () => {
 
   return (
     <div className="pt-2">
-      <div className="flex">
-        <div className="w-1/2">
+      <div className="flex flex-col 2xl:flex-row">
+        <div className="w-full 2xl:w-1/2">
           {sortedStorage.map((storage) => {
             return (
               <div key={storage.name} className="mt-4">
@@ -214,7 +214,7 @@ const StorageDataInfo = () => {
             );
           })}
         </div>
-        <div className="w-1/2 mt-4">
+        <div className="w-full 2xl:w-1/2 mt-8 2xl:mt-0">
           <StorageBarChart
             chartData={chartData}
             unit={sortedStorage[0].sizeUnit}
