@@ -12,6 +12,12 @@ import {
 } from "@/components/charts/Bar";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { ProcessesTable } from "@/components/charts/ProcessTable";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { minOpacity } from "@/consts";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
@@ -226,7 +232,8 @@ const StorageDataInfo = () => {
 };
 
 const NetworkInfo = () => {
-  const { t } = useTranslation();
+  //const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
   const { networkInfo, initNetwork } = useHardwareInfoAtom();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -238,25 +245,111 @@ const NetworkInfo = () => {
     <>
       {networkInfo.map((network) => {
         return (
-          <div key={network.description} className="mt-4">
-            <InfoTable
-              data={{
-                description: network.description ?? "",
-                mac_address: network.macAddress ?? "",
-                ipv4: network.ipV4.join(", "),
-                ipv6: network.ipV6.join(", "),
-                linkLocalIpV6: network.linkLocalIpV6.join(", "),
-                ip_subnet: network.ipSubnet.join(", "),
-                gatewayV4: network.defaultIpv4Gateway.join(", "),
-                gatewayV6: network.defaultIpv6Gateway.join(", "),
+          <>
+            <div
+              key={network.description}
+              className="mt-4 mb-2 px-4 pt-2 pb-2 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+              style={{
+                opacity:
+                  settings.selectedBackgroundImg != null
+                    ? Math.max(
+                        (1 - settings.backgroundImgOpacity / 100) ** 2,
+                        minOpacity,
+                      )
+                    : 1,
               }}
-            />
-          </div>
+            >
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="item-1" className="border-none">
+                  <AccordionTrigger>
+                    <div className="w-full flex items-center justify-between">
+                      <p>{network.description ?? "No description"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
+                        {network.ipV4[0] ?? "No IP Address"}
+                      </p>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <table className="w-full text-left text-base">
+                      <tbody>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            MAC Address
+                          </th>
+                          <td className="py-2">
+                            {network.macAddress ?? "No MAC Address"}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">IPv4</th>
+                          <td className="py-2">
+                            {network.ipV4.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            IPv4 Subnet Mask
+                          </th>
+                          <td className="py-2">
+                            {network.ipSubnet.map((subnet) => (
+                              <p key={subnet}>{subnet}</p>
+                            ))}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            IPv4 Gateway
+                          </th>
+                          <td className="py-2">
+                            {network.defaultIpv4Gateway.map((gateway) => (
+                              <p key={gateway}>{gateway}</p>
+                            ))}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">IPv6</th>
+                          <td className="py-2">
+                            {network.ipV6.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            Link Local IPv6
+                          </th>
+                          <td className="py-2">
+                            {network.linkLocalIpV6.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-gray-700">
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            IPv6 Gateway
+                          </th>
+                          <td className="py-2">
+                            {network.defaultIpv6Gateway.map((gateway) => (
+                              <p key={gateway}>{gateway}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </>
         );
       })}
     </>
   );
 };
+
+type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
@@ -268,34 +361,36 @@ const Dashboard = () => {
     init();
   }, []);
 
-  const hardwareInfoListLeft: { key: string; component: JSX.Element }[] = [
-    hardwareInfo.cpu && { key: "cpuInfo", component: <CPUInfo /> },
-    hardwareInfo.memory && { key: "memoryInfo", component: <MemoryInfo /> },
-    hardwareInfo.storage && hardwareInfo.storage.length > 0
-      ? {
-          key: "storageInfo",
-          component: <StorageDataInfo />,
-        }
-      : undefined,
-  ].filter((x) => x != null);
-
-  const hardwareInfoListRight: { key: string; component: JSX.Element }[] = [
-    hardwareInfo.gpus && { key: "gpuInfo", component: <GPUInfo /> },
-    {
-      key: "processesTable",
-      component: <ProcessesTable />,
+  const hardwareInfoListLeft: { key: DataTypeKey; component: JSX.Element }[] = [
+    hardwareInfo.cpu && { key: "cpu", component: <CPUInfo /> },
+    hardwareInfo.memory && { key: "memory", component: <MemoryInfo /> },
+    hardwareInfo.storage.length > 0 && {
+      key: "storage",
+      component: <StorageDataInfo />,
     },
-    {
-      key: "networkInfo",
-      component: <NetworkInfo />,
-    },
-  ].filter((x) => x != null);
+  ].filter((x): x is { key: DataTypeKey; component: JSX.Element } => x != null);
 
-  const dataAreaKey2Title: Record<string, string> = {
-    cpuInfo: "CPU",
-    memoryInfo: "RAM",
-    storageInfo: t("shared.storage"),
-    gpuInfo: "GPU",
+  const hardwareInfoListRight: { key: DataTypeKey; component: JSX.Element }[] =
+    [
+      hardwareInfo.gpus && { key: "gpu", component: <GPUInfo /> },
+      {
+        key: "process",
+        component: <ProcessesTable />,
+      },
+      {
+        key: "network",
+        component: <NetworkInfo />,
+      },
+    ].filter(
+      (x): x is { key: DataTypeKey; component: JSX.Element } => x != null,
+    );
+
+  const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
+    cpu: "CPU",
+    memory: "RAM",
+    storage: t("shared.storage"),
+    gpu: "GPU",
+    network: t("shared.network"),
   };
 
   return (
@@ -312,7 +407,7 @@ const Dashboard = () => {
           <DataArea
             key={key}
             title={dataAreaKey2Title[key]}
-            border={key !== "processesTable"}
+            border={key !== "process"}
           >
             {component}
           </DataArea>

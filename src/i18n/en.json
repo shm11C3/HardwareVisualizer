@@ -20,6 +20,7 @@
     "process": "Process",
     "reset": "Reset",
     "storage": "Storage",
+    "network": "Network",
     "driveName": "Drive Name",
     "driveType": "Drive Type",
     "driveTotalSpace": "Drive Total Space",
