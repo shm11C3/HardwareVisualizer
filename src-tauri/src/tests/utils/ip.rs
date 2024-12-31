@@ -11,7 +11,7 @@ mod tests {
 
     // グローバルIPv6アドレス
     let ip = IpAddr::V6("2400:4051::1".parse::<Ipv6Addr>().unwrap());
-    assert_eq!(is_unicast_link_local(&ip), true);
+    assert_eq!(is_unicast_link_local(&ip), false);
 
     // IPv6マルチキャスト
     let ip = IpAddr::V6("ff02::1".parse::<Ipv6Addr>().unwrap());
