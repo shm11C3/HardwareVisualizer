@@ -322,7 +322,7 @@ pub fn get_gpu_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  system_info_service::get_network_info()
+  wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError)
 }
 
 ///

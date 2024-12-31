@@ -10,6 +10,7 @@ pub enum BackendError {
   GraphicInfoNotAvailable,
   NetworkInfoNotAvailable,
   NetworkUsageNotAvailable,
+  UnexpectedError,
   // SystemError(String),
 }
 
@@ -25,6 +26,7 @@ impl Serialize for BackendError {
       BackendError::GraphicInfoNotAvailable => "graphicInfoNotAvailable",
       BackendError::NetworkInfoNotAvailable => "networkInfoNotAvailable",
       BackendError::NetworkUsageNotAvailable => "networkUsageNotAvailable",
+      BackendError::UnexpectedError => "unexpectedError",
       //   BackendError::SystemError(ref e) => e,
     };
     serializer.serialize_str(s)

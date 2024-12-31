@@ -1,14 +1,12 @@
 use crate::enums;
-use crate::enums::error::BackendError;
 use crate::structs;
-use crate::structs::hardware::NetworkInfo;
 use crate::utils;
 use crate::utils::formatter::SizeUnit;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::MutexGuard;
-use sysinfo::{Disks, IpNetwork, NetworkData, Networks, System};
+use sysinfo::{Disks, System};
 
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -74,36 +72,4 @@ pub fn get_storage_info() -> Result<Vec<structs::hardware::StorageInfo>, String>
   }
 
   Ok(storage_info)
-}
-
-pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  let interfaces = Networks::new_with_refreshed_list();
-
-  if interfaces.is_empty() {
-    return Err(BackendError::NetworkInfoNotAvailable);
-  }
-
-  let network_info = interfaces
-    .values()
-    .map(|interface| {
-      let ip_networks = interface.ip_networks();
-      let mac = interface.mac_address();
-
-      // IPv4とIPv6を分ける
-      let (ipv4, ipv6): (Vec<_>, Vec<_>) = ip_networks
-        .iter()
-        .partition(|ip_network| ip_network.addr.is_ipv4());
-
-      Ok(NetworkInfo {
-        ipv4: ipv4
-          .into_iter()
-          .map(|ip: &IpNetwork| ip.addr.to_string())
-          .collect(),
-        ipv6: ipv6.into_iter().map(|ip| ip.addr.to_string()).collect(),
-        mac: mac.to_string(),
-      })
-    })
-    .collect::<Result<Vec<_>, _>>()?;
-
-  Ok(network_info)
 }

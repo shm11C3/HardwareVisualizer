@@ -238,12 +238,17 @@ const NetworkInfo = () => {
     <>
       {networkInfo.map((network) => {
         return (
-          <div key={network.mac} className="mt-4">
+          <div key={network.description} className="mt-4">
             <InfoTable
               data={{
-                ipv4: network.ipv4.join(", "),
-                ipv6: network.ipv6.join(", "),
-                mac: network.mac,
+                description: network.description ?? "",
+                mac_address: network.macAddress ?? "",
+                ipv4: network.ipV4.join(", "),
+                ipv6: network.ipV6.join(", "),
+                linkLocalIpV6: network.linkLocalIpV6.join(", "),
+                ip_subnet: network.ipSubnet.join(", "),
+                gatewayV4: network.defaultIpv4Gateway.join(", "),
+                gatewayV6: network.defaultIpv6Gateway.join(", "),
               }}
             />
           </div>

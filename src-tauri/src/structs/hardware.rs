@@ -39,9 +39,14 @@ pub struct StorageInfo {
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkInfo {
-  pub ipv4: Vec<String>,
-  pub ipv6: Vec<String>,
-  pub mac: String,
+  pub description: Option<String>,
+  pub mac_address: Option<String>,
+  pub ip_v4: Vec<String>,
+  pub ip_v6: Vec<String>,
+  pub link_local_ip_v6: Vec<String>,
+  pub ip_subnet: Vec<String>,
+  pub default_ipv4_gateway: Vec<String>,
+  pub default_ipv6_gateway: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Type)]
