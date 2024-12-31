@@ -65,7 +65,7 @@ jobs:
       #- name: check Rust Clippy
       #  run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
-      - name: Test Rust
+      - name: Testing Tauri Backend
         run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
 
       - uses: tauri-apps/tauri-action@v0
