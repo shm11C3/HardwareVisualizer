@@ -169,9 +169,9 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
       Ok(NetworkInfo {
         description: Some(adapter.description.unwrap_or_default()),
         mac_address: Some(adapter.mac_address.unwrap_or_default()),
-        ip_v4: ipv4.into_iter().map(|ip| ip.to_string()).collect(),
-        ip_v6: normal_ipv6.into_iter().map(|ip| ip.to_string()).collect(),
-        link_local_ip_v6: link_local_ipv6
+        ipv4: ipv4.into_iter().map(|ip| ip.to_string()).collect(),
+        ipv6: normal_ipv6.into_iter().map(|ip| ip.to_string()).collect(),
+        link_local_ipv6: link_local_ipv6
           .into_iter()
           .map(|ip| ip.to_string())
           .collect(),

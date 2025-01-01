@@ -264,8 +264,9 @@ const NetworkInfo = () => {
                   <AccordionTrigger>
                     <div className="w-full flex items-center justify-between">
                       <p>{network.description ?? "No description"}</p>
+                      {/**  この部分にネットワーク使用量を表示 */}
                       <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
-                        {network.ipV4[0] ?? "No IP Address"}
+                        {network.ipv4[0] ?? "No IP Address"}
                       </p>
                     </div>
                   </AccordionTrigger>
@@ -283,7 +284,7 @@ const NetworkInfo = () => {
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">IPv4</th>
                           <td className="py-2">
-                            {network.ipV4.map((ip) => (
+                            {network.ipv4.map((ip) => (
                               <p key={ip}>{ip}</p>
                             ))}
                           </td>
@@ -311,7 +312,7 @@ const NetworkInfo = () => {
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">IPv6</th>
                           <td className="py-2">
-                            {network.ipV6.map((ip) => (
+                            {network.ipv6.map((ip) => (
                               <p key={ip}>{ip}</p>
                             ))}
                           </td>
@@ -321,7 +322,7 @@ const NetworkInfo = () => {
                             Link Local IPv6
                           </th>
                           <td className="py-2">
-                            {network.linkLocalIpV6.map((ip) => (
+                            {network.linkLocalIpv6.map((ip) => (
                               <p key={ip}>{ip}</p>
                             ))}
                           </td>
