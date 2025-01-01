@@ -35,3 +35,26 @@ pub struct StorageInfo {
   pub storage_type: DiskKind,
   pub file_system: String,
 }
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkInfo {
+  pub description: Option<String>,
+  pub mac_address: Option<String>,
+  pub ipv4: Vec<String>,
+  pub ipv6: Vec<String>,
+  pub link_local_ipv6: Vec<String>,
+  pub ip_subnet: Vec<String>,
+  pub default_ipv4_gateway: Vec<String>,
+  pub default_ipv6_gateway: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkUsage {
+  pub ip: String,
+  pub sent: f32,
+  pub sent_unit: SizeUnit,
+  pub received: f32,
+  pub received_unit: SizeUnit,
+}

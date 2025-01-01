@@ -66,6 +66,7 @@ pub fn run() {
     hardware::get_cpu_usage_history,
     hardware::get_memory_usage_history,
     hardware::get_gpu_usage_history,
+    hardware::get_network_info,
     config::commands::get_settings,
     config::commands::set_language,
     config::commands::set_theme,
