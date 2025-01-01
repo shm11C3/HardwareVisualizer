@@ -232,7 +232,7 @@ const StorageDataInfo = () => {
 };
 
 const NetworkInfo = () => {
-  //const { t } = useTranslation();
+  const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { networkInfo, initNetwork } = useHardwareInfoAtom();
 
@@ -275,14 +275,16 @@ const NetworkInfo = () => {
                       <tbody>
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">
-                            MAC Address
+                            {t("shared.macAddress")}
                           </th>
                           <td className="py-2">
                             {network.macAddress ?? "No MAC Address"}
                           </td>
                         </tr>
                         <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">IPv4</th>
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            {t("shared.ipv4")}
+                          </th>
                           <td className="py-2">
                             {network.ipv4.map((ip) => (
                               <p key={ip}>{ip}</p>
@@ -291,7 +293,7 @@ const NetworkInfo = () => {
                         </tr>
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">
-                            IPv4 Subnet Mask
+                            {t("shared.ipv4")} {t("shared.subnetMask")}
                           </th>
                           <td className="py-2">
                             {network.ipSubnet.map((subnet) => (
@@ -301,7 +303,7 @@ const NetworkInfo = () => {
                         </tr>
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">
-                            IPv4 Gateway
+                            {t("shared.ipv4")} {t("shared.gateway")}
                           </th>
                           <td className="py-2">
                             {network.defaultIpv4Gateway.map((gateway) => (
@@ -310,7 +312,9 @@ const NetworkInfo = () => {
                           </td>
                         </tr>
                         <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">IPv6</th>
+                          <th className="pr-4 py-2 dark:text-gray-400">
+                            {t("shared.ipv6")}
+                          </th>
                           <td className="py-2">
                             {network.ipv6.map((ip) => (
                               <p key={ip}>{ip}</p>
@@ -319,7 +323,8 @@ const NetworkInfo = () => {
                         </tr>
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">
-                            Link Local IPv6
+                            {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
+                            {t("shared.address")}
                           </th>
                           <td className="py-2">
                             {network.linkLocalIpv6.map((ip) => (
@@ -329,7 +334,7 @@ const NetworkInfo = () => {
                         </tr>
                         <tr className="border-b border-gray-700">
                           <th className="pr-4 py-2 dark:text-gray-400">
-                            IPv6 Gateway
+                            {t("shared.ipv6")} {t("shared.gateway")}
                           </th>
                           <td className="py-2">
                             {network.defaultIpv6Gateway.map((gateway) => (

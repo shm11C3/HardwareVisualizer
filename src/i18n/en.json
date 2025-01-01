@@ -27,6 +27,13 @@
     "driveUsedSpace": "Drive Used Space",
     "driveFreeSpace": "Drive Free Space",
     "driveFileSystem": "Drive File System",
+    "macAddress": "MAC Address",
+    "subnetMask": "Subnet Mask",
+    "gateway": "Gateway",
+    "linkLocal": "Link Local",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "address": "Address",
     "used": "Used",
     "free": "Free",
     "other": "Other"

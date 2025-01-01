@@ -27,6 +27,13 @@
     "driveUsedSpace": "ドライブ使用量",
     "driveFreeSpace": "ドライブ空き容量",
     "driveFileSystem": "ファイルシステム",
+    "macAddress": "MAC アドレス",
+    "subnetMask": "サブネットマスク",
+    "gateway": "ゲートウェイ",
+    "linkLocal": "リンクローカル",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "address": "アドレス",
     "used": "使用中",
     "free": "空き",
     "other": "その他"
