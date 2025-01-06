@@ -1,3 +1,4 @@
+import { gpuTempAtom } from "@/atom/chart";
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
@@ -21,6 +22,7 @@ import {
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { DotOutline } from "@phosphor-icons/react";
+import { useAtom, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
@@ -290,12 +292,13 @@ const SettingColorReset = () => {
 const SettingTemperatureUnit = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
+  const setData = useSetAtom(gpuTempAtom);
 
   const changeTemperatureUnit = async (
     value: SettingTypes["temperatureUnit"],
   ) => {
-    console.log(value);
     await updateSettingAtom("temperatureUnit", value);
+    setData([]);
   };
 
   return (
