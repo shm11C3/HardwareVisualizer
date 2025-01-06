@@ -22,7 +22,7 @@ import {
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { DotOutline } from "@phosphor-icons/react";
-import { useAtom, useSetAtom } from "jotai";
+import { useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
