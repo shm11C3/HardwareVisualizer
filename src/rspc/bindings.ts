@@ -230,6 +230,14 @@ async setSelectedBackgroundImg(fileId: string | null) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+async setTemperatureUnit(newUnit: TemperatureUnit) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_temperature_unit", { newUnit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * 背景画像を取得
  * 
@@ -311,7 +319,7 @@ export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "
  * 
  */
 export type BackgroundImage = { fileId: string; imageData: string }
-export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null }
+export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
@@ -329,6 +337,7 @@ export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryU
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
+export type TemperatureUnit = "C" | "F"
 export type Theme = "light" | "dark"
 
 /** tauri-specta globals **/

@@ -287,6 +287,42 @@ const SettingColorReset = () => {
   );
 };
 
+const SettingTemperatureUnit = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const changeTemperatureUnit = async (
+    value: SettingTypes["temperatureUnit"],
+  ) => {
+    console.log(value);
+    await updateSettingAtom("temperatureUnit", value);
+  };
+
+  return (
+    <div className="flex items-center space-x-4 py-6">
+      <Label htmlFor="temperatureUnit" className="text-lg">
+        {t("pages.settings.general.temperatureUnit.name")}
+      </Label>
+      <Select
+        value={settings.temperatureUnit}
+        onValueChange={changeTemperatureUnit}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Temperature Unit" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="C">
+            {t("pages.settings.general.temperatureUnit.celsius")}
+          </SelectItem>
+          <SelectItem value="F">
+            {t("pages.settings.general.temperatureUnit.fahrenheit")}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 const Settings = () => {
   const { t } = useTranslation();
 
@@ -298,6 +334,7 @@ const Settings = () => {
         </h3>
         <SettingLanguage />
         <SettingColorMode />
+        <SettingTemperatureUnit />
         <SettingGraphType />
       </div>
       <div className="mt-8 p-4">
