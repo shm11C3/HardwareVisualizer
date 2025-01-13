@@ -1,4 +1,6 @@
 use crate::enums;
+use crate::services;
+use crate::utils;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -59,4 +61,33 @@ pub struct ClientSettings {
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
   pub temperature_unit: enums::config::TemperatureUnit,
+}
+
+impl Default for Settings {
+  fn default() -> Self {
+    Self {
+      version: utils::tauri::get_app_version(&utils::tauri::get_config()),
+      language: services::language::get_default_language().to_string(),
+      theme: enums::config::Theme::Dark,
+      display_targets: vec![
+        enums::hardware::HardwareType::CPU,
+        enums::hardware::HardwareType::Memory,
+        enums::hardware::HardwareType::GPU,
+      ],
+      graph_size: enums::config::GraphSize::XL,
+      line_graph_border: true,
+      line_graph_fill: true,
+      line_graph_color: LineGraphColorSettings {
+        cpu: [75, 192, 192],
+        memory: [255, 99, 132],
+        gpu: [255, 206, 86],
+      },
+      line_graph_mix: true,
+      line_graph_show_legend: true,
+      line_graph_show_scale: false,
+      background_img_opacity: 50,
+      selected_background_img: None,
+      temperature_unit: enums::config::TemperatureUnit::Celsius,
+    }
+  }
 }
