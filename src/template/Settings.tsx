@@ -18,7 +18,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
-import type { ClientSettings } from "@/rspc/bindings";
+import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -185,6 +185,20 @@ const SettingLineChartType = () => {
     await updateSettingAtom("lineGraphType", value);
   };
 
+  const lineGraphTypes: LineGraphType[] = [
+    "default",
+    "step",
+    "linear",
+    "basis",
+  ] as const;
+
+  const lineGraphLabels: Record<LineGraphType, string> = {
+    default: "Default",
+    step: "Step",
+    linear: "Linear",
+    basis: "Basis",
+  };
+
   return (
     <div className="py-6">
       <Label htmlFor="lineGraphType" className="text-lg mb-2">
@@ -195,34 +209,22 @@ const SettingLineChartType = () => {
         defaultValue={settings.lineGraphType}
         onValueChange={changeLineGraphType}
       >
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="default" id="r1" />
-          <Label className="text-lg flex items-center space-x-1" htmlFor="r1">
-            <LineChartIcon type="default" />
-            <span>Default</span>
-          </Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="step" id="r2" />
-          <Label className="text-lg flex items-center space-x-1" htmlFor="r2">
-            <LineChartIcon type="step" />
-            <span>Step</span>
-          </Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="linear" id="r3" />
-          <Label className="text-lg flex items-center space-x-1" htmlFor="r3">
-            <LineChartIcon type="linear" />
-            <span>Linear</span>
-          </Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="basis" id="r4" />
-          <Label className="text-lg flex items-center space-x-1" htmlFor="r4">
-            <LineChartIcon type="basis" className="text-white" />
-            <span>Basis</span>
-          </Label>
-        </div>
+        {lineGraphTypes.map((type) => {
+          const id = `radio-line-chart-type-${type}`;
+
+          return (
+            <div key={type} className="flex items-center space-x-2">
+              <RadioGroupItem value={type} id={id} />
+              <Label
+                className="text-lg flex items-center space-x-1 py-2"
+                htmlFor={id}
+              >
+                <LineChartIcon type={type} />
+                <span>{lineGraphLabels[type]}</span>
+              </Label>
+            </div>
+          );
+        })}
       </RadioGroup>
     </div>
   );
