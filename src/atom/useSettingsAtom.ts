@@ -24,6 +24,7 @@ const settingsAtom = atom<Settings>({
   lineGraphShowScale: false,
   backgroundImgOpacity: 50,
   selectedBackgroundImg: null,
+  temperatureUnit: "C",
 });
 
 export const useSettingsAtom = () => {
@@ -44,6 +45,7 @@ export const useSettingsAtom = () => {
     lineGraphShowScale: commands.setLineGraphShowScale,
     backgroundImgOpacity: commands.setBackgroundImgOpacity,
     selectedBackgroundImg: commands.setSelectedBackgroundImg,
+    temperatureUnit: commands.setTemperatureUnit,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);

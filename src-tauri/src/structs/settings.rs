@@ -29,6 +29,7 @@ pub struct Settings {
   pub line_graph_show_scale: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
+  pub temperature_unit: enums::config::TemperatureUnit,
 }
 
 ///
@@ -57,4 +58,5 @@ pub struct ClientSettings {
   pub line_graph_show_scale: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
+  pub temperature_unit: enums::config::TemperatureUnit,
 }

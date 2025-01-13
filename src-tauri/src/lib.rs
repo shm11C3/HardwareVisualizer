@@ -80,6 +80,7 @@ pub fn run() {
     config::commands::set_line_graph_show_scale,
     config::commands::set_background_img_opacity,
     config::commands::set_selected_background_img,
+    config::commands::set_temperature_unit,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,

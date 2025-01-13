@@ -144,4 +144,12 @@ mod tests {
       .is_ok());
     assert_eq!(settings.selected_background_img, img_path);
   }
+
+  #[test]
+  fn test_set_temperature_unit() {
+    let mut settings = structs::settings::Settings::default();
+    let unit = enums::config::TemperatureUnit::Fahrenheit;
+    assert!(settings.set_temperature_unit(unit.clone()).is_ok());
+    assert_eq!(settings.temperature_unit, unit);
+  }
 }

@@ -56,7 +56,12 @@
           "light": "ライト",
           "dark": "ダーク"
         },
-        "hardwareType": "ハードウェア種別"
+        "hardwareType": "ハードウェア種別",
+        "temperatureUnit": {
+          "name": "温度の単位",
+          "celsius": "摂氏（℃）",
+          "fahrenheit": "華氏（℉）"
+        }
       },
       "customTheme": {
         "name": "カスタマイズ",

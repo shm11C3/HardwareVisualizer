@@ -1,3 +1,4 @@
+import { gpuTempAtom } from "@/atom/chart";
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
@@ -21,6 +22,7 @@ import {
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { DotOutline } from "@phosphor-icons/react";
+import { useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
@@ -287,6 +289,43 @@ const SettingColorReset = () => {
   );
 };
 
+const SettingTemperatureUnit = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t } = useTranslation();
+  const setData = useSetAtom(gpuTempAtom);
+
+  const changeTemperatureUnit = async (
+    value: SettingTypes["temperatureUnit"],
+  ) => {
+    await updateSettingAtom("temperatureUnit", value);
+    setData([]);
+  };
+
+  return (
+    <div className="flex items-center space-x-4 py-6">
+      <Label htmlFor="temperatureUnit" className="text-lg">
+        {t("pages.settings.general.temperatureUnit.name")}
+      </Label>
+      <Select
+        value={settings.temperatureUnit}
+        onValueChange={changeTemperatureUnit}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Temperature Unit" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="C">
+            {t("pages.settings.general.temperatureUnit.celsius")}
+          </SelectItem>
+          <SelectItem value="F">
+            {t("pages.settings.general.temperatureUnit.fahrenheit")}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 const Settings = () => {
   const { t } = useTranslation();
 
@@ -298,6 +337,7 @@ const Settings = () => {
         </h3>
         <SettingLanguage />
         <SettingColorMode />
+        <SettingTemperatureUnit />
         <SettingGraphType />
       </div>
       <div className="mt-8 p-4">
@@ -322,7 +362,7 @@ const Settings = () => {
             </h4>
             <div className="md:flex lg:block">
               <SettingColorInput label="CPU" hardwareType="cpu" />
-              <SettingColorInput label="Memory" hardwareType="memory" />
+              <SettingColorInput label="RAM" hardwareType="memory" />
               <SettingColorInput label="GPU" hardwareType="gpu" />
             </div>
             <SettingColorReset />

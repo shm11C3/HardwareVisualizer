@@ -18,6 +18,7 @@ export type Settings = {
   lineGraphShowScale: boolean;
   backgroundImgOpacity: number;
   selectedBackgroundImg: string | null;
+  temperatureUnit: "C" | "F";
 };
 
 export type BackgroundImage = {
