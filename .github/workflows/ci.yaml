@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: ./.github/workflows/ci-setup.yml
+      - uses: ./.github/workflows/ci-setup.yaml
         with:
           platform: ${{ matrix.platform }}
 
@@ -41,7 +41,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: ./.github/workflows/ci-setup.yml
+      - uses: ./.github/workflows/ci-setup.yaml
         with:
           platform: ${{ matrix.platform }}
 
@@ -65,7 +65,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: ./.github/workflows/ci-setup.yml
+      - uses: ./.github/workflows/ci-setup.yaml
         with:
           platform: ${{ matrix.platform }}
 
