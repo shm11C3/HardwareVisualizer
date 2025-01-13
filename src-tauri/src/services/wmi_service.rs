@@ -138,7 +138,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
       // IPv4とIPv6を分ける
       let (ipv4, ipv6): (Vec<_>, Vec<_>) = adapter
         .ip_address
-        .unwrap_or_else(|| vec![])
+        .unwrap_or_default()
         .into_iter()
         .filter_map(|ip| ip.parse::<IpAddr>().ok())
         .partition(|ip| matches!(ip, IpAddr::V4(_))); // IPv4とIPv6に分ける
@@ -153,7 +153,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
       // IPv4サブネットを取得
       let ipv4_subnet: Vec<String> = adapter
         .ip_subnet
-        .unwrap_or_else(|| vec![])
+        .unwrap_or_default()
         .into_iter()
         .filter(|subnet| subnet.contains('.')) // IPv4形式を確認
         .collect();
@@ -161,7 +161,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
       // IPv4とIPv6のデフォルトゲートウェイを分割する
       let (default_ipv4_gateway, default_ipv6_gateway): (Vec<_>, Vec<_>) = adapter
         .default_ip_gateway
-        .unwrap_or_else(|| vec![])
+        .unwrap_or_default()
         .into_iter()
         .filter_map(|ip| ip.parse::<IpAddr>().ok())
         .partition(|ip| matches!(ip, IpAddr::V4(_)));
