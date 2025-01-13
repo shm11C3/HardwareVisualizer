@@ -396,6 +396,7 @@ const SettingTemperatureUnit = () => {
  * - できればやる
  *   - [ ] 縦画面でのプレビューを見やすく（画面外の時はミニプレビューを追従して表示）
  *   - [ ] CPUコアごと分割表示設定の追加
+ *   - [ ] アイコンをグラフスタイル欄にも追加する
  */
 const Settings = () => {
   const { t } = useTranslation();
