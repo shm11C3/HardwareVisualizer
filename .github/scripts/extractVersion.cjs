@@ -34,4 +34,5 @@ if (!version) {
 console.log(`Version: ${version}`);
 
 // GitHub Actionsの出力として設定
-console.log(`::set-output name=version::${version}`);
+const outputFilePath = process.env.GITHUB_OUTPUT;
+fs.appendFileSync(outputFilePath, `version=${version}\n`);

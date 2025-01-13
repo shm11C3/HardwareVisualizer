@@ -26,7 +26,10 @@ jobs:
           node-version: lts/*
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          npm install --no-save toml
+          npm install --no-save @octokit/rest
 
       - name: Extract Tauri version
         id: tauri-version
@@ -35,4 +38,5 @@ jobs:
       - name: Verify version on GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.tauri-version.outputs.version }}
         run: node .github/scripts/checkVersion.cjs
