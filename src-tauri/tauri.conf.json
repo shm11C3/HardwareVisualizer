@@ -45,7 +45,7 @@
   },
   "productName": "HardwareVisualizer",
   "mainBinaryName": "hardware-visualizer",
-  "version": "0.2.2",
+  "version": "0.2.1",
   "identifier": "HardwareVisualizer",
   "plugins": {},
   "app": {
