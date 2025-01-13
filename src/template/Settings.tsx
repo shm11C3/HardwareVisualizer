@@ -5,6 +5,7 @@ import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/Se
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -169,6 +170,55 @@ const SettingLineChartSize = () => {
           />
         ))}
       </div>
+    </div>
+  );
+};
+
+const SettingLineChartType = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const changeLineGraphType = async (
+    value: ClientSettings["lineGraphType"],
+  ) => {
+    await updateSettingAtom("lineGraphType", value);
+  };
+
+  return (
+    <div className="py-6">
+      <Label htmlFor="lineGraphType" className="text-lg mb-2">
+        {t("pages.settings.customTheme.graphStyle.lineType")}
+      </Label>
+      <RadioGroup
+        className="flex items-center space-x-4 mt-4"
+        defaultValue={settings.lineGraphType}
+        onValueChange={changeLineGraphType}
+      >
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="default" id="r1" />
+          <Label className="text-lg" htmlFor="r1">
+            Default
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="step" id="r2" />
+          <Label className="text-lg" htmlFor="r2">
+            Step
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="linear" id="r3" />
+          <Label className="text-lg" htmlFor="r3">
+            Linear
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="basis" id="r4" />
+          <Label className="text-lg" htmlFor="r4">
+            Basis
+          </Label>
+        </div>
+      </RadioGroup>
     </div>
   );
 };
@@ -360,6 +410,7 @@ const Settings = () => {
             <SettingGraphSwitch type="lineGraphShowScale" />
             <SettingGraphSwitch type="lineGraphShowTooltip" />
             <SettingLineChartSize />
+            <SettingLineChartType />
           </div>
           <div className="col-span-1 py-2">
             <h4 className="text-xl font-bold">
