@@ -1,4 +1,4 @@
-use crate::commands::config;
+use crate::commands::settings;
 use crate::enums;
 use crate::enums::error::BackendError;
 use crate::services::directx_gpu_service;
@@ -237,7 +237,7 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 #[command]
 #[specta::specta]
 pub async fn get_gpu_temperature(
-  state: tauri::State<'_, config::AppState>,
+  state: tauri::State<'_, settings::AppState>,
 ) -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
   let temperature_unit = {
     let config = state.settings.lock().unwrap();

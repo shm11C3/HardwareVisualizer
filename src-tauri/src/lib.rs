@@ -12,8 +12,8 @@ mod utils;
 mod tests;
 
 use commands::background_image;
-use commands::config;
 use commands::hardware;
+use commands::settings;
 use commands::ui;
 use specta_typescript::Typescript;
 use tauri::Manager;
@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 
 pub fn run() {
-  let app_state = config::AppState::new();
+  let app_state = settings::AppState::new();
 
   let system = Arc::new(Mutex::new(System::new_all()));
   let cpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
@@ -67,20 +67,20 @@ pub fn run() {
     hardware::get_memory_usage_history,
     hardware::get_gpu_usage_history,
     hardware::get_network_info,
-    config::commands::get_settings,
-    config::commands::set_language,
-    config::commands::set_theme,
-    config::commands::set_display_targets,
-    config::commands::set_graph_size,
-    config::commands::set_line_graph_border,
-    config::commands::set_line_graph_fill,
-    config::commands::set_line_graph_color,
-    config::commands::set_line_graph_mix,
-    config::commands::set_line_graph_show_legend,
-    config::commands::set_line_graph_show_scale,
-    config::commands::set_background_img_opacity,
-    config::commands::set_selected_background_img,
-    config::commands::set_temperature_unit,
+    settings::commands::get_settings,
+    settings::commands::set_language,
+    settings::commands::set_theme,
+    settings::commands::set_display_targets,
+    settings::commands::set_graph_size,
+    settings::commands::set_line_graph_border,
+    settings::commands::set_line_graph_fill,
+    settings::commands::set_line_graph_color,
+    settings::commands::set_line_graph_mix,
+    settings::commands::set_line_graph_show_legend,
+    settings::commands::set_line_graph_show_scale,
+    settings::commands::set_background_img_opacity,
+    settings::commands::set_selected_background_img,
+    settings::commands::set_temperature_unit,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,
