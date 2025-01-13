@@ -19,9 +19,9 @@ mod tests {
     assert_eq!(
       settings.display_targets,
       vec![
-        hardware::HardwareType::CPU,
+        hardware::HardwareType::Cpu,
         hardware::HardwareType::Memory,
-        hardware::HardwareType::GPU
+        hardware::HardwareType::Gpu
       ]
     );
     assert!(settings.line_graph_border);
@@ -49,7 +49,7 @@ mod tests {
   #[test]
   fn test_set_display_targets() {
     let mut settings = structs::settings::Settings::default();
-    let targets = vec![hardware::HardwareType::GPU, hardware::HardwareType::Memory];
+    let targets = vec![hardware::HardwareType::Gpu, hardware::HardwareType::Memory];
     assert!(settings.set_display_targets(targets.clone()).is_ok());
     assert_eq!(settings.display_targets, targets);
   }
@@ -83,7 +83,7 @@ mod tests {
     let new_color = "#ff0000".to_string();
 
     assert!(settings
-      .set_line_graph_color(hardware::HardwareType::CPU, new_color.clone())
+      .set_line_graph_color(hardware::HardwareType::Cpu, new_color.clone())
       .is_ok());
     assert_eq!(settings.line_graph_color.cpu, [255, 0, 0]);
   }
@@ -94,7 +94,7 @@ mod tests {
     let invalid_color = "invalid_color".to_string();
 
     assert!(settings
-      .set_line_graph_color(hardware::HardwareType::CPU, invalid_color)
+      .set_line_graph_color(hardware::HardwareType::Cpu, invalid_color)
       .is_err());
   }
 
@@ -103,7 +103,7 @@ mod tests {
     let mut settings = structs::settings::Settings::default();
     let new_color = "invalid_color".to_string();
     assert!(settings
-      .set_line_graph_color(hardware::HardwareType::CPU, new_color)
+      .set_line_graph_color(hardware::HardwareType::Cpu, new_color)
       .is_err());
   }
 

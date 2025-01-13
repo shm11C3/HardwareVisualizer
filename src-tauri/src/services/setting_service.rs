@@ -190,13 +190,13 @@ impl structs::settings::Settings {
     };
 
     match key {
-      enums::hardware::HardwareType::CPU => {
+      enums::hardware::HardwareType::Cpu => {
         self.line_graph_color.cpu = new_color;
       }
       enums::hardware::HardwareType::Memory => {
         self.line_graph_color.memory = new_color;
       }
-      enums::hardware::HardwareType::GPU => {
+      enums::hardware::HardwareType::Gpu => {
         self.line_graph_color.gpu = new_color;
       }
     }
@@ -204,7 +204,7 @@ impl structs::settings::Settings {
     let _ = self.write_file();
 
     match key {
-      enums::hardware::HardwareType::CPU => Ok(
+      enums::hardware::HardwareType::Cpu => Ok(
         self
           .line_graph_color
           .cpu
@@ -222,7 +222,7 @@ impl structs::settings::Settings {
           .collect::<Vec<String>>()
           .join(","),
       ),
-      enums::hardware::HardwareType::GPU => Ok(
+      enums::hardware::HardwareType::Gpu => Ok(
         self
           .line_graph_color
           .gpu
@@ -268,9 +268,5 @@ impl structs::settings::Settings {
   ) -> Result<(), String> {
     self.temperature_unit = new_unit;
     self.write_file()
-  }
-
-  pub async fn get_temperature_unit(&self) -> &enums::config::TemperatureUnit {
-    &self.temperature_unit
   }
 }

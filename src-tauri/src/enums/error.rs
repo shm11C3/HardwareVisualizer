@@ -1,6 +1,7 @@
 use serde::{Serialize, Serializer};
 use specta::Type;
 
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendError {

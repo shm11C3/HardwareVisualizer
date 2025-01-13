@@ -79,6 +79,6 @@ macro_rules! log_warn {
 #[macro_export]
 macro_rules! log_error {
   ($action:expr, $function_name:expr, $custom_message:expr) => {
-    log_internal!(error, $action, $function_name, $custom_message);
+    log_internal!(error, $action, $function_name, $custom_message)
   };
 }

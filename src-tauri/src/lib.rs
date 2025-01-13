@@ -1,6 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#[macro_use]
+#![macro_use]
 
 mod commands;
 mod enums;
@@ -30,7 +30,6 @@ pub fn run() {
   let system = Arc::new(Mutex::new(System::new_all()));
   let cpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
   let memory_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
-  let gpu_usage = Arc::new(Mutex::new(0.0));
   let gpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
   let process_cpu_histories = Arc::new(Mutex::new(HashMap::new()));
   let process_memory_histories = Arc::new(Mutex::new(HashMap::new()));
@@ -39,7 +38,6 @@ pub fn run() {
     system: Arc::clone(&system),
     cpu_history: Arc::clone(&cpu_history),
     memory_history: Arc::clone(&memory_history),
-    gpu_usage: Arc::clone(&gpu_usage),
     gpu_history: Arc::clone(&gpu_history),
     process_cpu_histories: Arc::clone(&process_cpu_histories),
     process_memory_histories: Arc::clone(&process_memory_histories),
@@ -49,8 +47,6 @@ pub fn run() {
     system,
     cpu_history,
     memory_history,
-    gpu_usage,
-    gpu_history,
     process_cpu_histories,
     process_memory_histories,
   );
