@@ -1,10 +1,8 @@
-use crate::enums::{self, hardware};
+use crate::enums;
 use crate::services::language;
-use crate::utils::color;
-use crate::utils::file::get_app_data_dir;
-use crate::{log_error, log_internal, utils};
-use serde::{Deserialize, Serialize};
-use specta::Type;
+use crate::structs;
+use crate::utils;
+use crate::{log_error, log_internal};
 use std::fs;
 use std::io::Write;
 use std::sync::Mutex;
@@ -17,78 +15,21 @@ pub trait Config {
   fn read_file(&mut self) -> Result<(), String>;
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct LineGraphColorSettings {
-  pub cpu: [u8; 3],
-  pub memory: [u8; 3],
-  pub gpu: [u8; 3],
-}
-
-///
-/// ## settings.json に格納するJSONの構造体
-///
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Settings {
-  pub version: String,
-  pub language: String,
-  pub theme: enums::config::Theme,
-  pub display_targets: Vec<hardware::HardwareType>,
-  pub graph_size: enums::config::GraphSize,
-  pub line_graph_border: bool,
-  pub line_graph_fill: bool,
-  pub line_graph_color: LineGraphColorSettings,
-  pub line_graph_mix: bool,
-  pub line_graph_show_legend: bool,
-  pub line_graph_show_scale: bool,
-  pub background_img_opacity: u8,
-  pub selected_background_img: Option<String>,
-}
-
-///
-/// クライアントに送信する設定の構造体
-///
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LineGraphColorStringSettings {
-  pub cpu: String,
-  pub memory: String,
-  pub gpu: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ClientSettings {
-  language: String,
-  theme: enums::config::Theme,
-  display_targets: Vec<hardware::HardwareType>,
-  graph_size: enums::config::GraphSize,
-  line_graph_border: bool,
-  line_graph_fill: bool,
-  line_graph_color: LineGraphColorStringSettings,
-  line_graph_mix: bool,
-  line_graph_show_legend: bool,
-  line_graph_show_scale: bool,
-  background_img_opacity: u8,
-  selected_background_img: Option<String>,
-}
-
-impl Default for Settings {
+impl Default for structs::settings::Settings {
   fn default() -> Self {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
       language: language::get_default_language().to_string(),
       theme: enums::config::Theme::Dark,
       display_targets: vec![
-        hardware::HardwareType::CPU,
-        hardware::HardwareType::Memory,
-        hardware::HardwareType::GPU,
+        enums::hardware::HardwareType::CPU,
+        enums::hardware::HardwareType::Memory,
+        enums::hardware::HardwareType::GPU,
       ],
       graph_size: enums::config::GraphSize::XL,
       line_graph_border: true,
       line_graph_fill: true,
-      line_graph_color: LineGraphColorSettings {
+      line_graph_color: structs::settings::LineGraphColorSettings {
         cpu: [75, 192, 192],
         memory: [255, 99, 132],
         gpu: [255, 206, 86],
@@ -102,9 +43,9 @@ impl Default for Settings {
   }
 }
 
-impl Config for Settings {
+impl Config for structs::settings::Settings {
   fn write_file(&self) -> Result<(), String> {
-    let config_file = get_app_data_dir(SETTINGS_FILENAME);
+    let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
     let config_dir = match config_file.parent() {
       Some(dir) => dir,
       None => {
@@ -179,7 +120,7 @@ impl Config for Settings {
   }
 
   fn read_file(&mut self) -> Result<(), String> {
-    let config_file = get_app_data_dir(SETTINGS_FILENAME);
+    let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
 
     match fs::read_to_string(config_file) {
       Ok(input) => match serde_json::from_str::<Self>(&input) {
@@ -208,9 +149,9 @@ impl Config for Settings {
   }
 }
 
-impl Settings {
+impl structs::settings::Settings {
   pub fn new() -> Self {
-    let config_file = get_app_data_dir(SETTINGS_FILENAME);
+    let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
 
     let mut settings = Self::default();
 
@@ -237,7 +178,7 @@ impl Settings {
 
   pub fn set_display_targets(
     &mut self,
-    new_targets: Vec<hardware::HardwareType>,
+    new_targets: Vec<enums::hardware::HardwareType>,
   ) -> Result<(), String> {
     self.display_targets = new_targets;
     self.write_file()
@@ -269,10 +210,10 @@ impl Settings {
   ///
   pub fn set_line_graph_color(
     &mut self,
-    key: hardware::HardwareType,
+    key: enums::hardware::HardwareType,
     new_color: String,
   ) -> Result<String, String> {
-    let new_color = match color::hex_to_rgb(&new_color) {
+    let new_color = match utils::color::hex_to_rgb(&new_color) {
       Ok(rgb) => rgb,
       Err(e) => {
         log_error!("Invalid color format", "set_line_graph_color", Some(e));
@@ -281,13 +222,13 @@ impl Settings {
     };
 
     match key {
-      hardware::HardwareType::CPU => {
+      enums::hardware::HardwareType::CPU => {
         self.line_graph_color.cpu = new_color;
       }
-      hardware::HardwareType::Memory => {
+      enums::hardware::HardwareType::Memory => {
         self.line_graph_color.memory = new_color;
       }
-      hardware::HardwareType::GPU => {
+      enums::hardware::HardwareType::GPU => {
         self.line_graph_color.gpu = new_color;
       }
     }
@@ -295,7 +236,7 @@ impl Settings {
     let _ = self.write_file();
 
     match key {
-      hardware::HardwareType::CPU => Ok(
+      enums::hardware::HardwareType::CPU => Ok(
         self
           .line_graph_color
           .cpu
@@ -304,7 +245,7 @@ impl Settings {
           .collect::<Vec<String>>()
           .join(","),
       ),
-      hardware::HardwareType::Memory => Ok(
+      enums::hardware::HardwareType::Memory => Ok(
         self
           .line_graph_color
           .memory
@@ -313,7 +254,7 @@ impl Settings {
           .collect::<Vec<String>>()
           .join(","),
       ),
-      hardware::HardwareType::GPU => Ok(
+      enums::hardware::HardwareType::GPU => Ok(
         self
           .line_graph_color
           .gpu
@@ -356,13 +297,13 @@ impl Settings {
 
 #[derive(Debug)]
 pub struct AppState {
-  settings: Mutex<Settings>,
+  settings: Mutex<structs::settings::Settings>,
 }
 
 impl AppState {
   pub fn new() -> Self {
     Self {
-      settings: Mutex::from(Settings::new()),
+      settings: Mutex::from(structs::settings::Settings::new()),
     }
   }
 }
@@ -380,7 +321,7 @@ pub mod commands {
   /// [TODO] dialog を使ってエラーメッセージを表示する
   ///
   fn emit_error(window: &Window) -> Result<(), String> {
-    let settings_json_path = get_app_data_dir(SETTINGS_FILENAME);
+    let settings_json_path = utils::file::get_app_data_dir(SETTINGS_FILENAME);
 
     window
       .emit_to(
@@ -400,11 +341,11 @@ pub mod commands {
   #[specta::specta]
   pub async fn get_settings(
     state: tauri::State<'_, AppState>,
-  ) -> Result<ClientSettings, String> {
+  ) -> Result<structs::settings::ClientSettings, String> {
     let settings = state.settings.lock().unwrap().clone();
 
     // フロントで扱いやすいようにカンマ区切りの文字列に変換する
-    let color_strings = LineGraphColorStringSettings {
+    let color_strings = structs::settings::LineGraphColorStringSettings {
       cpu: settings
         .line_graph_color
         .cpu
@@ -428,7 +369,7 @@ pub mod commands {
         .join(","),
     };
 
-    let client_settings = ClientSettings {
+    let client_settings = structs::settings::ClientSettings {
       language: settings.language,
       theme: settings.theme,
       display_targets: settings.display_targets,
@@ -485,7 +426,7 @@ pub mod commands {
   pub async fn set_display_targets(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_targets: Vec<hardware::HardwareType>,
+    new_targets: Vec<enums::hardware::HardwareType>,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -549,7 +490,7 @@ pub mod commands {
   pub async fn set_line_graph_color(
     window: Window,
     state: tauri::State<'_, AppState>,
-    target: hardware::HardwareType,
+    target: enums::hardware::HardwareType,
     new_color: String,
   ) -> Result<String, String> {
     let mut settings = state.settings.lock().unwrap();
