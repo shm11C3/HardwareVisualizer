@@ -74,6 +74,7 @@
           "lineGraphMix": "Graph Mix",
           "lineGraphShowLegend": "Legend",
           "lineGraphShowScale": "Scale",
+          "lineGraphShowTooltip": "Tooltip",
           "size": "Graph Size"
         }
       },

@@ -113,7 +113,9 @@ const SingleLineChart = ({
             }
             tickCount={12}
           />
-          <ChartTooltip content={<ChartTooltipContent />} />
+          {settings.lineGraphShowTooltip && (
+            <ChartTooltip content={<ChartTooltipContent />} />
+          )}
           <Area
             type="monotone"
             dataKey="usage"
@@ -200,7 +202,9 @@ const MixLineChart = ({
             }
             tickCount={12}
           />
-          <ChartTooltip content={<ChartTooltipContent />} />
+          {settings.lineGraphShowTooltip && (
+            <ChartTooltip content={<ChartTooltipContent />} />
+          )}
           {sortedDisplayTargets.map((areaData) => (
             <Area
               key={areaData}

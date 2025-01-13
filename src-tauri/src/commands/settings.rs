@@ -89,6 +89,7 @@ pub mod commands {
       line_graph_mix: settings.line_graph_mix,
       line_graph_show_legend: settings.line_graph_show_legend,
       line_graph_show_scale: settings.line_graph_show_scale,
+      line_graph_show_tooltip: settings.line_graph_show_tooltip,
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
       temperature_unit: settings.temperature_unit,
@@ -256,6 +257,22 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_line_graph_show_scale(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_line_graph_show_tooltip(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_line_graph_show_tooltip(new_value) {
       emit_error(&window)?;
       return Err(e);
     }

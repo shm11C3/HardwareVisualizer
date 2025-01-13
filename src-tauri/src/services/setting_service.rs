@@ -249,6 +249,11 @@ impl structs::settings::Settings {
     self.write_file()
   }
 
+  pub fn set_line_graph_show_tooltip(&mut self, new_value: bool) -> Result<(), String> {
+    self.line_graph_show_tooltip = new_value;
+    self.write_file()
+  }
+
   pub fn set_background_img_opacity(&mut self, new_value: u8) -> Result<(), String> {
     self.background_img_opacity = new_value;
     self.write_file()

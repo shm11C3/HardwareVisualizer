@@ -74,6 +74,7 @@
           "lineGraphMix": "グラフの混合",
           "lineGraphShowLegend": "凡例の表示",
           "lineGraphShowScale": "スケールの表示",
+          "lineGraphShowTooltip": "ツールチップの表示",
           "size": "グラフのサイズ"
         }
       },

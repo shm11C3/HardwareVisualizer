@@ -16,6 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
+import type { ClientSettings } from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -202,12 +203,15 @@ const SettingBackGroundOpacity = () => {
 const SettingGraphSwitch = ({
   type,
 }: {
-  type:
+  type: Extract<
+    keyof ClientSettings,
     | "lineGraphBorder"
     | "lineGraphFill"
     | "lineGraphMix"
     | "lineGraphShowLegend"
-    | "lineGraphShowScale";
+    | "lineGraphShowScale"
+    | "lineGraphShowTooltip"
+  >;
 }) => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
@@ -354,6 +358,7 @@ const Settings = () => {
             <SettingGraphSwitch type="lineGraphMix" />
             <SettingGraphSwitch type="lineGraphShowLegend" />
             <SettingGraphSwitch type="lineGraphShowScale" />
+            <SettingGraphSwitch type="lineGraphShowTooltip" />
             <SettingLineChartSize />
           </div>
           <div className="col-span-1 py-2">
