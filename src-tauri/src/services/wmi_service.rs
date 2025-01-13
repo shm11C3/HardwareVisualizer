@@ -198,10 +198,11 @@ fn wmi_query_in_thread<T>(query: String) -> Result<Vec<T>, String>
 where
   T: DeserializeOwned + std::fmt::Debug + Send + 'static,
 {
-  let (tx, rx): (
-    Sender<Result<Vec<T>, String>>,
-    Receiver<Result<Vec<T>, String>>,
-  ) = channel();
+  type ResultChannel<T> = Result<Vec<T>, String>;
+  type SenderChannel<T> = Sender<ResultChannel<T>>;
+  type ReceiverChannel<T> = Receiver<ResultChannel<T>>;
+
+  let (tx, rx): (SenderChannel<T>, ReceiverChannel<T>) = channel();
 
   // 別スレッドを起動してWMIクエリを実行
   thread::spawn(move || {
