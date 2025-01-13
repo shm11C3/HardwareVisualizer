@@ -91,8 +91,8 @@ jobs:
       - name: check Rust Lint
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 
-      #- name: check Rust Clippy
-      #  run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+      - name: check Rust Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
   #
   # Testing Backend
