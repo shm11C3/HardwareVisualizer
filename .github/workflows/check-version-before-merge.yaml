@@ -8,18 +8,9 @@ on:
 
   pull_request:
     branches:
-      - develop # [TODO] 後で削除
       - release/**
       - master
 
 jobs:
   check-version:
     uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@feature/check-app-version
-
-  # [TODO] 後で削除
-  test:
-    needs: check-version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Test Action
-        run: echo "Test Action"
