@@ -413,7 +413,7 @@ pub fn initialize_system(
         for (pid, process) in sys.processes() {
           // CPU使用率の履歴を更新
           let cpu_usage = process.cpu_usage() as f32;
-          let cpu_history = process_cpu_histories.entry(*pid).or_insert(VecDeque::new());
+          let cpu_history = process_cpu_histories.entry(*pid).or_default();
 
           if cpu_history.len() >= HISTORY_CAPACITY {
             cpu_history.pop_front();
@@ -422,9 +422,7 @@ pub fn initialize_system(
 
           // メモリ使用率の履歴を更新
           let memory_usage = process.memory() as f32 / 1024.0; // KB単位からMB単位に変換
-          let memory_history = process_memory_histories
-            .entry(*pid)
-            .or_insert(VecDeque::new());
+          let memory_history = process_memory_histories.entry(*pid).or_default();
 
           if memory_history.len() >= HISTORY_CAPACITY {
             memory_history.pop_front();
