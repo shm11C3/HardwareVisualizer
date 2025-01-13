@@ -160,6 +160,14 @@ impl structs::settings::Settings {
     self.write_file()
   }
 
+  pub fn set_line_graph_type(
+    &mut self,
+    new_type: enums::settings::LineGraphType,
+  ) -> Result<(), String> {
+    self.line_graph_type = new_type;
+    self.write_file()
+  }
+
   pub fn set_line_graph_border(&mut self, new_value: bool) -> Result<(), String> {
     self.line_graph_border = new_value;
     self.write_file()

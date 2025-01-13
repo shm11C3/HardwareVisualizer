@@ -6,10 +6,12 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { sizeOptions } from "@/consts/chart";
+import type { LineGraphType } from "@/rspc/bindings";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import type { CurveType } from "recharts/types/shape/Curve";
 import { tv } from "tailwind-variants";
 import CustomLegend, { type LegendItem } from "./CustomLegend";
 
@@ -30,6 +32,13 @@ type MultiChartProps = {
   gpuData: number[];
   lineGraphMix: true;
 } & ChartProps;
+
+const lineGraphType2RechartsCurveType: Record<LineGraphType, CurveType> = {
+  default: "monotone",
+  step: "step",
+  linear: "linear",
+  basis: "basis",
+};
 
 const graphVariants = tv({
   base: "mt-5 mx-auto",
@@ -117,7 +126,7 @@ const SingleLineChart = ({
             <ChartTooltip content={<ChartTooltipContent />} />
           )}
           <Area
-            type="monotone"
+            type={lineGraphType2RechartsCurveType[settings.lineGraphType]}
             dataKey="usage"
             stroke={`rgb(${settings.lineGraphColor[dataType]})`}
             strokeWidth={2}
@@ -208,7 +217,7 @@ const MixLineChart = ({
           {sortedDisplayTargets.map((areaData) => (
             <Area
               key={areaData}
-              type="monotone"
+              type={lineGraphType2RechartsCurveType[settings.lineGraphType]}
               dataKey={areaData}
               stroke={`rgb(${settings.lineGraphColor[areaData]})`}
               strokeWidth={2}

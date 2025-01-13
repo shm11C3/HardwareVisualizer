@@ -12,6 +12,7 @@ const settingsAtom = atom<ClientSettings>({
   theme: "light",
   displayTargets: [],
   graphSize: "xl",
+  lineGraphType: "default",
   lineGraphBorder: true,
   lineGraphFill: true,
   lineGraphColor: {
@@ -38,6 +39,7 @@ export const useSettingsAtom = () => {
     theme: commands.setTheme,
     displayTargets: commands.setDisplayTargets,
     graphSize: commands.setGraphSize,
+    lineGraphType: commands.setLineGraphType,
     language: commands.setLanguage,
     lineGraphBorder: commands.setLineGraphBorder,
     lineGraphFill: commands.setLineGraphFill,

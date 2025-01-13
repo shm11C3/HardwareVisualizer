@@ -83,6 +83,7 @@ pub mod commands {
       theme: settings.theme,
       display_targets: settings.display_targets,
       graph_size: settings.graph_size,
+      line_graph_type: settings.line_graph_type,
       line_graph_border: settings.line_graph_border,
       line_graph_fill: settings.line_graph_fill,
       line_graph_color: color_strings,
@@ -158,6 +159,22 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_graph_size(new_size) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_line_graph_type(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_type: enums::settings::LineGraphType,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_line_graph_type(new_type) {
       emit_error(&window)?;
       return Err(e);
     }

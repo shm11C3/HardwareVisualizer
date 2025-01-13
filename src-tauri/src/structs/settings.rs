@@ -23,6 +23,7 @@ pub struct Settings {
   pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
+  pub line_graph_type: enums::settings::LineGraphType,
   pub line_graph_border: bool,
   pub line_graph_fill: bool,
   pub line_graph_color: LineGraphColorSettings,
@@ -53,6 +54,7 @@ pub struct ClientSettings {
   pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
+  pub line_graph_type: enums::settings::LineGraphType,
   pub line_graph_border: bool,
   pub line_graph_fill: bool,
   pub line_graph_color: LineGraphColorStringSettings,
@@ -77,6 +79,7 @@ impl Default for Settings {
         enums::hardware::HardwareType::Gpu,
       ],
       graph_size: enums::settings::GraphSize::XL,
+      line_graph_type: enums::settings::LineGraphType::Default,
       line_graph_border: true,
       line_graph_fill: true,
       line_graph_color: LineGraphColorSettings {

@@ -68,6 +68,7 @@ pub fn run() {
     settings::commands::set_theme,
     settings::commands::set_display_targets,
     settings::commands::set_graph_size,
+    settings::commands::set_line_graph_type,
     settings::commands::set_line_graph_border,
     settings::commands::set_line_graph_fill,
     settings::commands::set_line_graph_color,
