@@ -97,7 +97,7 @@ jobs:
   #
   # Testing Backend
   #
-  test-tauri:
+  unit-test-backend:
     strategy:
       fail-fast: false
       matrix:
