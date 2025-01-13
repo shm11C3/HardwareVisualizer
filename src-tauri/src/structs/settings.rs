@@ -20,18 +20,20 @@ pub struct LineGraphColorSettings {
 pub struct Settings {
   pub version: String,
   pub language: String,
-  pub theme: enums::config::Theme,
+  pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
-  pub graph_size: enums::config::GraphSize,
+  pub graph_size: enums::settings::GraphSize,
+  pub line_graph_type: enums::settings::LineGraphType,
   pub line_graph_border: bool,
   pub line_graph_fill: bool,
   pub line_graph_color: LineGraphColorSettings,
   pub line_graph_mix: bool,
   pub line_graph_show_legend: bool,
   pub line_graph_show_scale: bool,
+  pub line_graph_show_tooltip: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
-  pub temperature_unit: enums::config::TemperatureUnit,
+  pub temperature_unit: enums::settings::TemperatureUnit,
 }
 
 ///
@@ -49,18 +51,20 @@ pub struct LineGraphColorStringSettings {
 #[serde(rename_all = "camelCase")]
 pub struct ClientSettings {
   pub language: String,
-  pub theme: enums::config::Theme,
+  pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
-  pub graph_size: enums::config::GraphSize,
+  pub graph_size: enums::settings::GraphSize,
+  pub line_graph_type: enums::settings::LineGraphType,
   pub line_graph_border: bool,
   pub line_graph_fill: bool,
   pub line_graph_color: LineGraphColorStringSettings,
   pub line_graph_mix: bool,
   pub line_graph_show_legend: bool,
   pub line_graph_show_scale: bool,
+  pub line_graph_show_tooltip: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
-  pub temperature_unit: enums::config::TemperatureUnit,
+  pub temperature_unit: enums::settings::TemperatureUnit,
 }
 
 impl Default for Settings {
@@ -68,13 +72,14 @@ impl Default for Settings {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
       language: services::language::get_default_language().to_string(),
-      theme: enums::config::Theme::Dark,
+      theme: enums::settings::Theme::Dark,
       display_targets: vec![
         enums::hardware::HardwareType::Cpu,
         enums::hardware::HardwareType::Memory,
         enums::hardware::HardwareType::Gpu,
       ],
-      graph_size: enums::config::GraphSize::XL,
+      graph_size: enums::settings::GraphSize::XL,
+      line_graph_type: enums::settings::LineGraphType::Default,
       line_graph_border: true,
       line_graph_fill: true,
       line_graph_color: LineGraphColorSettings {
@@ -85,9 +90,10 @@ impl Default for Settings {
       line_graph_mix: true,
       line_graph_show_legend: true,
       line_graph_show_scale: false,
+      line_graph_show_tooltip: true,
       background_img_opacity: 50,
       selected_background_img: None,
-      temperature_unit: enums::config::TemperatureUnit::Celsius,
+      temperature_unit: enums::settings::TemperatureUnit::Celsius,
     }
   }
 }

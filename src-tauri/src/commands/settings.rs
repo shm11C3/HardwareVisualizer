@@ -83,12 +83,14 @@ pub mod commands {
       theme: settings.theme,
       display_targets: settings.display_targets,
       graph_size: settings.graph_size,
+      line_graph_type: settings.line_graph_type,
       line_graph_border: settings.line_graph_border,
       line_graph_fill: settings.line_graph_fill,
       line_graph_color: color_strings,
       line_graph_mix: settings.line_graph_mix,
       line_graph_show_legend: settings.line_graph_show_legend,
       line_graph_show_scale: settings.line_graph_show_scale,
+      line_graph_show_tooltip: settings.line_graph_show_tooltip,
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
       temperature_unit: settings.temperature_unit,
@@ -119,7 +121,7 @@ pub mod commands {
   pub async fn set_theme(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_theme: enums::config::Theme,
+    new_theme: enums::settings::Theme,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -152,11 +154,27 @@ pub mod commands {
   pub async fn set_graph_size(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_size: enums::config::GraphSize,
+    new_size: enums::settings::GraphSize,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_graph_size(new_size) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_line_graph_type(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_type: enums::settings::LineGraphType,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_line_graph_type(new_type) {
       emit_error(&window)?;
       return Err(e);
     }
@@ -264,6 +282,22 @@ pub mod commands {
 
   #[tauri::command]
   #[specta::specta]
+  pub async fn set_line_graph_show_tooltip(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_line_graph_show_tooltip(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
   pub async fn set_background_img_opacity(
     window: Window,
     state: tauri::State<'_, AppState>,
@@ -299,7 +333,7 @@ pub mod commands {
   pub async fn set_temperature_unit(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_unit: enums::config::TemperatureUnit,
+    new_unit: enums::settings::TemperatureUnit,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 

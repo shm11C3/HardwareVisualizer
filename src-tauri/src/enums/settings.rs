@@ -118,3 +118,13 @@ impl<'de> Deserialize<'de> for TemperatureUnit {
     }
   }
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Type, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LineGraphType {
+  // monotone
+  Default,
+  Step,
+  Linear,
+  Basis,
+}

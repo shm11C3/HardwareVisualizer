@@ -1,17 +1,18 @@
 import { defaultColorRGB } from "@/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type Result, commands } from "@/rspc/bindings";
+import { type ClientSettings, type Result, commands } from "@/rspc/bindings";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { isError } from "@/types/result";
 import type { Settings } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useCallback } from "react";
 
-const settingsAtom = atom<Settings>({
+const settingsAtom = atom<ClientSettings>({
   language: "en",
   theme: "light",
   displayTargets: [],
   graphSize: "xl",
+  lineGraphType: "default",
   lineGraphBorder: true,
   lineGraphFill: true,
   lineGraphColor: {
@@ -22,6 +23,7 @@ const settingsAtom = atom<Settings>({
   lineGraphMix: true,
   lineGraphShowLegend: true,
   lineGraphShowScale: false,
+  lineGraphShowTooltip: true,
   backgroundImgOpacity: 50,
   selectedBackgroundImg: null,
   temperatureUnit: "C",
@@ -30,19 +32,21 @@ const settingsAtom = atom<Settings>({
 export const useSettingsAtom = () => {
   const { error } = useTauriDialog();
   const mapSettingUpdater: {
-    [K in keyof Omit<Settings, "state" | "lineGraphColor">]: (
-      value: Settings[K],
+    [K in keyof Omit<ClientSettings, "state" | "lineGraphColor">]: (
+      value: ClientSettings[K],
     ) => Promise<Result<null, string>>;
   } = {
     theme: commands.setTheme,
     displayTargets: commands.setDisplayTargets,
     graphSize: commands.setGraphSize,
+    lineGraphType: commands.setLineGraphType,
     language: commands.setLanguage,
     lineGraphBorder: commands.setLineGraphBorder,
     lineGraphFill: commands.setLineGraphFill,
     lineGraphMix: commands.setLineGraphMix,
     lineGraphShowLegend: commands.setLineGraphShowLegend,
     lineGraphShowScale: commands.setLineGraphShowScale,
+    lineGraphShowTooltip: commands.setLineGraphShowTooltip,
     backgroundImgOpacity: commands.setBackgroundImgOpacity,
     selectedBackgroundImg: commands.setSelectedBackgroundImg,
     temperatureUnit: commands.setTemperatureUnit,
@@ -64,10 +68,10 @@ export const useSettingsAtom = () => {
   }, [setSettings]);
 
   const updateSettingAtom = async <
-    K extends keyof Omit<Settings, "state" | "lineGraphColor">,
+    K extends keyof Omit<ClientSettings, "state" | "lineGraphColor">,
   >(
     key: K,
-    value: Settings[K],
+    value: ClientSettings[K],
   ) => {
     const previousValue = settings[key];
 

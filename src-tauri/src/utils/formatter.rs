@@ -160,18 +160,18 @@ pub fn format_vendor_name(vendor_id: &str) -> String {
 }
 
 pub fn format_temperature(
-  current_unit: enums::config::TemperatureUnit,
-  unit: enums::config::TemperatureUnit,
+  current_unit: enums::settings::TemperatureUnit,
+  unit: enums::settings::TemperatureUnit,
   value: i32,
 ) -> i32 {
   match (current_unit, unit) {
     (
-      enums::config::TemperatureUnit::Celsius,
-      enums::config::TemperatureUnit::Fahrenheit,
+      enums::settings::TemperatureUnit::Celsius,
+      enums::settings::TemperatureUnit::Fahrenheit,
     ) => (value * 9 / 5) + 32,
     (
-      enums::config::TemperatureUnit::Fahrenheit,
-      enums::config::TemperatureUnit::Celsius,
+      enums::settings::TemperatureUnit::Fahrenheit,
+      enums::settings::TemperatureUnit::Celsius,
     ) => (value - 32) * 5 / 9,
     _ => value,
   }

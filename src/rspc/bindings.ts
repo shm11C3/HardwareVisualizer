@@ -166,6 +166,14 @@ async setGraphSize(newSize: GraphSize) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async setLineGraphType(newType: LineGraphType) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_line_graph_type", { newType }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async setLineGraphBorder(newValue: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_line_graph_border", { newValue }) };
@@ -209,6 +217,14 @@ async setLineGraphShowLegend(newValue: boolean) : Promise<Result<null, string>> 
 async setLineGraphShowScale(newValue: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_line_graph_show_scale", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setLineGraphShowTooltip(newValue: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_line_graph_show_tooltip", { newValue }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -319,7 +335,7 @@ export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "
  * 
  */
 export type BackgroundImage = { fileId: string; imageData: string }
-export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit }
+export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
@@ -330,6 +346,7 @@ export type HardwareType = "cpu" | "memory" | "gpu"
  * 
  */
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
+export type LineGraphType = "default" | "step" | "linear" | "basis"
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
 export type NameValue = { name: string; value: number }
 export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }

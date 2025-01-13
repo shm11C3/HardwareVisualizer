@@ -249,7 +249,7 @@ pub async fn get_gpu_temperature(
         .iter()
         .map(|temp| {
           let value = utils::formatter::format_temperature(
-            enums::config::TemperatureUnit::Celsius,
+            enums::settings::TemperatureUnit::Celsius,
             temperature_unit.clone(),
             temp.value,
           );

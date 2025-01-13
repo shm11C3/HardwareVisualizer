@@ -3,8 +3,10 @@ import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
+import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -16,6 +18,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
+import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -172,6 +175,61 @@ const SettingLineChartSize = () => {
   );
 };
 
+const SettingLineChartType = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const changeLineGraphType = async (
+    value: ClientSettings["lineGraphType"],
+  ) => {
+    await updateSettingAtom("lineGraphType", value);
+  };
+
+  const lineGraphTypes: LineGraphType[] = [
+    "default",
+    "step",
+    "linear",
+    "basis",
+  ] as const;
+
+  const lineGraphLabels: Record<LineGraphType, string> = {
+    default: "Default",
+    step: "Step",
+    linear: "Linear",
+    basis: "Soft",
+  };
+
+  return (
+    <div className="py-6">
+      <Label htmlFor="lineGraphType" className="text-lg mb-2">
+        {t("pages.settings.customTheme.graphStyle.lineType")}
+      </Label>
+      <RadioGroup
+        className="flex items-center space-x-4 mt-4"
+        defaultValue={settings.lineGraphType}
+        onValueChange={changeLineGraphType}
+      >
+        {lineGraphTypes.map((type) => {
+          const id = `radio-line-chart-type-${type}`;
+
+          return (
+            <div key={type} className="flex items-center space-x-2">
+              <RadioGroupItem value={type} id={id} />
+              <Label
+                className="text-lg flex items-center space-x-1 py-2"
+                htmlFor={id}
+              >
+                <LineChartIcon type={type} />
+                <span>{lineGraphLabels[type]}</span>
+              </Label>
+            </div>
+          );
+        })}
+      </RadioGroup>
+    </div>
+  );
+};
+
 const SettingBackGroundOpacity = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
@@ -202,12 +260,15 @@ const SettingBackGroundOpacity = () => {
 const SettingGraphSwitch = ({
   type,
 }: {
-  type:
+  type: Extract<
+    keyof ClientSettings,
     | "lineGraphBorder"
     | "lineGraphFill"
     | "lineGraphMix"
     | "lineGraphShowLegend"
-    | "lineGraphShowScale";
+    | "lineGraphShowScale"
+    | "lineGraphShowTooltip"
+  >;
 }) => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
@@ -326,6 +387,17 @@ const SettingTemperatureUnit = () => {
   );
 };
 
+/**
+ * @todo
+ * - [ ] 設定リセットボタンの実装
+ * - [ ] Issue のリンクを追加
+ * - [ ] About 欄の実装
+ * - [ ] ハードウェア種別をカスタマイズに移動
+ * - できればやる
+ *   - [ ] 縦画面でのプレビューを見やすく（画面外の時はミニプレビューを追従して表示）
+ *   - [ ] CPUコアごと分割表示設定の追加
+ *   - [ ] アイコンをグラフスタイル欄にも追加する
+ */
 const Settings = () => {
   const { t } = useTranslation();
 
@@ -354,7 +426,9 @@ const Settings = () => {
             <SettingGraphSwitch type="lineGraphMix" />
             <SettingGraphSwitch type="lineGraphShowLegend" />
             <SettingGraphSwitch type="lineGraphShowScale" />
+            <SettingGraphSwitch type="lineGraphShowTooltip" />
             <SettingLineChartSize />
+            <SettingLineChartType />
           </div>
           <div className="col-span-1 py-2">
             <h4 className="text-xl font-bold">
