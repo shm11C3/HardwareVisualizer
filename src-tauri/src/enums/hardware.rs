@@ -5,10 +5,10 @@ use std::fmt;
 #[derive(Debug, PartialEq, Eq, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum HardwareType {
-  #[serde(rename = "CPU")]
+  #[serde(rename = "cpu")]
   Cpu,
   Memory,
-  #[serde(rename = "GPU")]
+  #[serde(rename = "gpu")]
   Gpu,
 }
 
