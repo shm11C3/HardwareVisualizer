@@ -3,6 +3,7 @@ import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
+import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -196,26 +197,30 @@ const SettingLineChartType = () => {
       >
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="default" id="r1" />
-          <Label className="text-lg" htmlFor="r1">
-            Default
+          <Label className="text-lg flex items-center space-x-1" htmlFor="r1">
+            <LineChartIcon type="default" />
+            <span>Default</span>
           </Label>
         </div>
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="step" id="r2" />
-          <Label className="text-lg" htmlFor="r2">
-            Step
+          <Label className="text-lg flex items-center space-x-1" htmlFor="r2">
+            <LineChartIcon type="step" />
+            <span>Step</span>
           </Label>
         </div>
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="linear" id="r3" />
-          <Label className="text-lg" htmlFor="r3">
-            Linear
+          <Label className="text-lg flex items-center space-x-1" htmlFor="r3">
+            <LineChartIcon type="linear" />
+            <span>Linear</span>
           </Label>
         </div>
         <div className="flex items-center space-x-2">
           <RadioGroupItem value="basis" id="r4" />
-          <Label className="text-lg" htmlFor="r4">
-            Basis
+          <Label className="text-lg flex items-center space-x-1" htmlFor="r4">
+            <LineChartIcon type="basis" className="text-white" />
+            <span>Basis</span>
           </Label>
         </div>
       </RadioGroup>
