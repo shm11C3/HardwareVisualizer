@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: ./.github/workflows/ci-setup.yaml
+      - uses: shm11C3/HardwareVisualizer/.github/workflows/ci-setup.yaml@feature/separate-ci-workflow
         with:
           platform: ${{ matrix.platform }}
 
@@ -41,7 +41,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: ./.github/workflows/ci-setup.yaml
+      - uses: shm11C3/HardwareVisualizer/.github/workflows/ci-setup.yaml@feature/separate-ci-workflow
         with:
           platform: ${{ matrix.platform }}
 
@@ -65,7 +65,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: ./.github/workflows/ci-setup.yaml
+      - uses: shm11C3/HardwareVisualizer/.github/workflows/ci-setup.yaml@feature/separate-ci-workflow
         with:
           platform: ${{ matrix.platform }}
 
