@@ -120,7 +120,7 @@ pub mod commands {
   pub async fn set_theme(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_theme: enums::config::Theme,
+    new_theme: enums::settings::Theme,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -153,7 +153,7 @@ pub mod commands {
   pub async fn set_graph_size(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_size: enums::config::GraphSize,
+    new_size: enums::settings::GraphSize,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
@@ -316,7 +316,7 @@ pub mod commands {
   pub async fn set_temperature_unit(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_unit: enums::config::TemperatureUnit,
+    new_unit: enums::settings::TemperatureUnit,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 

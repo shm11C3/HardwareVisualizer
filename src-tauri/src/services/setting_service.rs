@@ -139,7 +139,7 @@ impl structs::settings::Settings {
     self.write_file()
   }
 
-  pub fn set_theme(&mut self, new_theme: enums::config::Theme) -> Result<(), String> {
+  pub fn set_theme(&mut self, new_theme: enums::settings::Theme) -> Result<(), String> {
     self.theme = new_theme;
     self.write_file()
   }
@@ -154,7 +154,7 @@ impl structs::settings::Settings {
 
   pub fn set_graph_size(
     &mut self,
-    new_size: enums::config::GraphSize,
+    new_size: enums::settings::GraphSize,
   ) -> Result<(), String> {
     self.graph_size = new_size;
     self.write_file()
@@ -269,7 +269,7 @@ impl structs::settings::Settings {
 
   pub fn set_temperature_unit(
     &mut self,
-    new_unit: enums::config::TemperatureUnit,
+    new_unit: enums::settings::TemperatureUnit,
   ) -> Result<(), String> {
     self.temperature_unit = new_unit;
     self.write_file()

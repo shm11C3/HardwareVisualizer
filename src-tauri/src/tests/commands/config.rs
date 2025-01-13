@@ -15,7 +15,7 @@ mod tests {
       utils::tauri::get_app_version(&utils::tauri::get_config())
     );
     assert_eq!(settings.language, language::get_default_language());
-    assert_eq!(settings.theme, enums::config::Theme::Dark);
+    assert_eq!(settings.theme, enums::settings::Theme::Dark);
     assert_eq!(
       settings.display_targets,
       vec![
@@ -40,7 +40,7 @@ mod tests {
   #[test]
   fn test_set_theme() {
     let mut settings = structs::settings::Settings::default();
-    let new_theme = enums::config::Theme::Light;
+    let new_theme = enums::settings::Theme::Light;
 
     assert!(settings.set_theme(new_theme.clone()).is_ok());
     assert_eq!(settings.theme, new_theme);
@@ -58,9 +58,9 @@ mod tests {
   fn test_set_graph_size() {
     let mut settings = structs::settings::Settings::default();
     assert!(settings
-      .set_graph_size(enums::config::GraphSize::SM)
+      .set_graph_size(enums::settings::GraphSize::SM)
       .is_ok());
-    assert_eq!(settings.graph_size, enums::config::GraphSize::SM);
+    assert_eq!(settings.graph_size, enums::settings::GraphSize::SM);
   }
 
   #[test]
@@ -148,7 +148,7 @@ mod tests {
   #[test]
   fn test_set_temperature_unit() {
     let mut settings = structs::settings::Settings::default();
-    let unit = enums::config::TemperatureUnit::Fahrenheit;
+    let unit = enums::settings::TemperatureUnit::Fahrenheit;
     assert!(settings.set_temperature_unit(unit.clone()).is_ok());
     assert_eq!(settings.temperature_unit, unit);
   }
