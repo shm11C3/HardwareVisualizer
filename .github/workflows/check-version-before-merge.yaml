@@ -1,0 +1,16 @@
+name: Check Version Before Merge
+
+on:
+  push:
+    branches:
+      - master
+      - release/**
+
+  pull_request:
+    branches:
+      - release/**
+      - master
+
+jobs:
+  check-version:
+    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@develop
