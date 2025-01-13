@@ -269,8 +269,4 @@ impl structs::settings::Settings {
     self.temperature_unit = new_unit;
     self.write_file()
   }
-
-  pub async fn get_temperature_unit(&self) -> &enums::config::TemperatureUnit {
-    &self.temperature_unit
-  }
 }

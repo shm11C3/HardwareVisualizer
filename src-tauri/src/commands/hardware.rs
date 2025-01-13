@@ -24,7 +24,6 @@ pub struct AppState {
   pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
   pub memory_history: Arc<Mutex<VecDeque<f32>>>,
   pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub gpu_usage: Arc<Mutex<f32>>,
   pub process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
   pub process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
 }
@@ -363,8 +362,6 @@ pub fn initialize_system(
   system: Arc<Mutex<System>>,
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
   memory_history: Arc<Mutex<VecDeque<f32>>>,
-  gpu_usage: Arc<Mutex<f32>>,
-  gpu_history: Arc<Mutex<VecDeque<f32>>>,
   process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
   process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
 ) {
