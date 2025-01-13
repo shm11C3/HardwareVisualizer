@@ -13,4 +13,4 @@ on:
 
 jobs:
   check-version:
-    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@feature/check-app-version
+    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@develop
