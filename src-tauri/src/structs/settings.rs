@@ -70,9 +70,9 @@ impl Default for Settings {
       language: services::language::get_default_language().to_string(),
       theme: enums::config::Theme::Dark,
       display_targets: vec![
-        enums::hardware::HardwareType::CPU,
+        enums::hardware::HardwareType::Cpu,
         enums::hardware::HardwareType::Memory,
-        enums::hardware::HardwareType::GPU,
+        enums::hardware::HardwareType::Gpu,
       ],
       graph_size: enums::config::GraphSize::XL,
       line_graph_border: true,
