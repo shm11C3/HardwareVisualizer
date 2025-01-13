@@ -1,16 +1,7 @@
 name: Check Version
 
 on:
-  push:
-    branches:
-      - master
-      - release/**
-
-  pull_request:
-    branches:
-      - develop # [TODO] 後で削除
-      - release/**
-      - master
+  workflow_call:
 
 jobs:
   check-version:
