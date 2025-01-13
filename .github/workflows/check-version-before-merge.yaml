@@ -1,4 +1,4 @@
-name: Check Version On PR
+name: Check Version Before Merge
 
 on:
   push:
