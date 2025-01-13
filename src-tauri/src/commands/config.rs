@@ -44,6 +44,7 @@ pub struct Settings {
   pub line_graph_show_scale: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
+  pub temperature_unit: enums::config::TemperatureUnit,
 }
 
 ///
@@ -72,6 +73,7 @@ pub struct ClientSettings {
   line_graph_show_scale: bool,
   background_img_opacity: u8,
   selected_background_img: Option<String>,
+  temperature_unit: enums::config::TemperatureUnit,
 }
 
 impl Default for Settings {
@@ -98,6 +100,7 @@ impl Default for Settings {
       line_graph_show_scale: false,
       background_img_opacity: 50,
       selected_background_img: None,
+      temperature_unit: enums::config::TemperatureUnit::Celsius,
     }
   }
 }
@@ -352,11 +355,23 @@ impl Settings {
     self.selected_background_img = new_value;
     self.write_file()
   }
+
+  pub fn set_temperature_unit(
+    &mut self,
+    new_unit: enums::config::TemperatureUnit,
+  ) -> Result<(), String> {
+    self.temperature_unit = new_unit;
+    self.write_file()
+  }
+
+  pub async fn get_temperature_unit(&self) -> &enums::config::TemperatureUnit {
+    &self.temperature_unit
+  }
 }
 
 #[derive(Debug)]
 pub struct AppState {
-  settings: Mutex<Settings>,
+  pub settings: Mutex<Settings>,
 }
 
 impl AppState {
@@ -441,6 +456,7 @@ pub mod commands {
       line_graph_show_scale: settings.line_graph_show_scale,
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
+      temperature_unit: settings.temperature_unit,
     };
 
     Ok(client_settings)
@@ -637,6 +653,22 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_selected_background_img(file_id) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_temperature_unit(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_unit: enums::config::TemperatureUnit,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_temperature_unit(new_unit) {
       emit_error(&window)?;
       return Err(e);
     }

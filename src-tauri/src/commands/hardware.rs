@@ -1,3 +1,5 @@
+use crate::commands::config;
+use crate::enums;
 use crate::enums::error::BackendError;
 use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
@@ -5,6 +7,7 @@ use crate::services::system_info_service;
 use crate::services::wmi_service;
 use crate::structs::hardware::NetworkInfo;
 use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
+use crate::utils;
 use crate::{log_error, log_internal};
 use serde::{Deserialize, Serialize, Serializer};
 use specta::Type;
@@ -233,9 +236,33 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_temperature() -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+pub async fn get_gpu_temperature(
+  state: tauri::State<'_, config::AppState>,
+) -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+  let temperature_unit = {
+    let config = state.settings.lock().unwrap();
+    config.temperature_unit.clone()
+  };
+
   match nvidia_gpu_service::get_nvidia_gpu_temperature().await {
-    Ok(temps) => Ok(temps),
+    Ok(temps) => {
+      let temps = temps
+        .iter()
+        .map(|temp| {
+          let value = utils::formatter::format_temperature(
+            enums::config::TemperatureUnit::Celsius,
+            temperature_unit.clone(),
+            temp.value,
+          );
+
+          nvidia_gpu_service::NameValue {
+            name: temp.name.clone(),
+            value,
+          }
+        })
+        .collect();
+      Ok(temps)
+    }
     Err(e) => Err(format!("Failed to get GPU temperature: {:?}", e)),
   }
 }

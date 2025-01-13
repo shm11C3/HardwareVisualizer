@@ -81,3 +81,40 @@ impl<'de> Deserialize<'de> for GraphSize {
     }
   }
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Type)]
+pub enum TemperatureUnit {
+  #[serde(rename = "C")]
+  Celsius,
+  #[serde(rename = "F")]
+  Fahrenheit,
+}
+
+impl Serialize for TemperatureUnit {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    let s = match *self {
+      TemperatureUnit::Celsius => "C",
+      TemperatureUnit::Fahrenheit => "F",
+    };
+    serializer.serialize_str(s)
+  }
+}
+
+impl<'de> Deserialize<'de> for TemperatureUnit {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let s = String::deserialize(deserializer)?.to_lowercase();
+    match s.as_str() {
+      "C" => Ok(TemperatureUnit::Celsius),
+      "c" => Ok(TemperatureUnit::Celsius),
+      "F" => Ok(TemperatureUnit::Fahrenheit),
+      "f" => Ok(TemperatureUnit::Fahrenheit),
+      _ => Err(serde::de::Error::unknown_variant(&s, &["C", "F"])),
+    }
+  }
+}

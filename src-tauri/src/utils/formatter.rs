@@ -1,3 +1,4 @@
+use crate::enums;
 use nvapi::Kibibytes;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
@@ -155,5 +156,23 @@ pub fn format_vendor_name(vendor_id: &str) -> String {
     "GenuineIntel" => "Intel".to_string(),
     "AuthenticAMD" => "AMD".to_string(),
     _ => vendor_id.to_string(),
+  }
+}
+
+pub fn format_temperature(
+  current_unit: enums::config::TemperatureUnit,
+  unit: enums::config::TemperatureUnit,
+  value: i32,
+) -> i32 {
+  match (current_unit, unit) {
+    (
+      enums::config::TemperatureUnit::Celsius,
+      enums::config::TemperatureUnit::Fahrenheit,
+    ) => (value * 9 / 5) + 32,
+    (
+      enums::config::TemperatureUnit::Fahrenheit,
+      enums::config::TemperatureUnit::Celsius,
+    ) => (value - 32) * 5 / 9,
+    _ => value,
   }
 }

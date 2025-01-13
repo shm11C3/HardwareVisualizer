@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+  use crate::enums;
   use crate::utils::formatter::*;
   use nvapi::Kibibytes;
 
@@ -84,5 +85,60 @@ mod tests {
       precision: 2,
     };
     assert_eq!(kibibytes.to_string(), "2.00 GB");
+  }
+
+  #[test]
+  fn test_celsius_to_fahrenheit() {
+    let value = 100; // 100°C
+    let result = format_temperature(
+      enums::config::TemperatureUnit::Celsius,
+      enums::config::TemperatureUnit::Fahrenheit,
+      value,
+    );
+    assert_eq!(result, 212); // 100°C = 212°F
+  }
+
+  #[test]
+  fn test_fahrenheit_to_celsius() {
+    let value = 212; // 212°F
+    let result = format_temperature(
+      enums::config::TemperatureUnit::Fahrenheit,
+      enums::config::TemperatureUnit::Celsius,
+      value,
+    );
+    assert_eq!(result, 100); // 212°F = 100°C
+  }
+
+  #[test]
+  fn test_celsius_to_fahrenheit_negative() {
+    let value = -40; // -40°C
+    let result = format_temperature(
+      enums::config::TemperatureUnit::Celsius,
+      enums::config::TemperatureUnit::Fahrenheit,
+      value,
+    );
+    assert_eq!(result, -40); // -40°C = -40°F (特殊なケース)
+  }
+
+  #[test]
+  fn test_fahrenheit_to_celsius_negative() {
+    let value = -40; // -40°F
+    let result = format_temperature(
+      enums::config::TemperatureUnit::Fahrenheit,
+      enums::config::TemperatureUnit::Celsius,
+      value,
+    );
+    assert_eq!(result, -40); // -40°F = -40°C (特殊なケース)
+  }
+
+  #[test]
+  fn test_no_conversion() {
+    let value = 25; // 25°C
+    let result = format_temperature(
+      enums::config::TemperatureUnit::Celsius,
+      enums::config::TemperatureUnit::Celsius,
+      value,
+    );
+    assert_eq!(result, 25); // 単位が同じ場合、変換しない
   }
 }

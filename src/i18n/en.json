@@ -56,7 +56,12 @@
           "light": "Light",
           "dark": "Dark"
         },
-        "hardwareType": "Hardware Type"
+        "hardwareType": "Hardware Type",
+        "temperatureUnit": {
+          "name": "Temperature Unit",
+          "celsius": "Celsius (°C)",
+          "fahrenheit": "Fahrenheit (°F)"
+        }
       },
       "customTheme": {
         "name": "Custom Theme",

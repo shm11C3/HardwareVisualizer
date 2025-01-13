@@ -3,6 +3,7 @@ import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts";
 import type { HardwareDataType } from "@/types/hardwareDataType";
+import type { Settings } from "@/types/settingsType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +14,16 @@ import {
   RadialBar,
   RadialBarChart,
 } from "recharts";
+
+const dataType2Units = (dataType: HardwareDataType, settings: Settings) => {
+  const units = {
+    usage: "%",
+    temp: settings.temperatureUnit === "C" ? "°C" : "°F",
+    clock: "MHz",
+  } as const;
+
+  return units[dataType];
+};
 
 export const DoughnutChart = ({
   chartValue,
@@ -52,12 +63,6 @@ export const DoughnutChart = ({
     clock: <Speedometer className="mr-1" size={12} weight="duotone" />,
   };
 
-  const dataTypeUnits: Record<HardwareDataType, string> = {
-    usage: "%",
-    temp: "°C",
-    clock: "MHz",
-  };
-
   return (
     <ChartContainer
       config={chartConfig}
@@ -67,7 +72,11 @@ export const DoughnutChart = ({
         <RadialBarChart
           data={chartData}
           startAngle={0}
-          endAngle={chartValue * 3.6}
+          endAngle={
+            dataType === "temp" && settings.temperatureUnit === "F"
+              ? ((chartValue - 32) / 1.8) * 3.6 // 華氏から摂氏に換算し、100を最大値としてスケール
+              : chartValue * 3.6
+          }
           innerRadius={50}
           outerRadius={70}
         >
@@ -102,7 +111,7 @@ export const DoughnutChart = ({
                         dominantBaseline="middle"
                         className="fill-foreground text-2xl font-bold"
                       >
-                        {`${chartValue}${dataTypeUnits[dataType]}`}
+                        {`${chartValue}${dataType2Units(dataType, settings)}`}
                       </text>
                       {/* ラベルとアイコンの表示 */}
                       <foreignObject
