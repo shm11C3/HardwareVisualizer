@@ -16,17 +16,26 @@ if (!githubToken) {
 
 const octokit = new Octokit({ auth: githubToken });
 
+/**
+ * タグ名のフォーマット（`publish.yaml` で設定されている値）
+ */
+const TAG_NAME_FORMAT = "release-v{VERSION}";
+const OWNER = "shm11C3";
+const REPO = "HardwareVisualizer";
+
 (async () => {
   try {
-    const owner = "shm11C3";
-    const repo = "HardwareVisualizer";
-
-    const releases = await octokit.repos.listReleases({ owner, repo });
+    const releases = await octokit.repos.listReleases({
+      owner: OWNER,
+      repo: REPO,
+    });
     const existingVersions = releases.data.map((release) => release.tag_name);
 
-    console.log(existingVersions);
+    console.log("existingVersions: ", existingVersions.join(", "));
 
-    if (existingVersions.includes(version)) {
+    if (
+      existingVersions.includes(TAG_NAME_FORMAT.replace("{VERSION}", version))
+    ) {
       console.error(`Version ${version} already exists.`);
       process.exit(1);
     }
