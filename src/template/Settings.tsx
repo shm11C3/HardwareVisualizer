@@ -362,7 +362,7 @@ const Settings = () => {
             </h4>
             <div className="md:flex lg:block">
               <SettingColorInput label="CPU" hardwareType="cpu" />
-              <SettingColorInput label="Memory" hardwareType="memory" />
+              <SettingColorInput label="RAM" hardwareType="memory" />
               <SettingColorInput label="GPU" hardwareType="gpu" />
             </div>
             <SettingColorReset />
