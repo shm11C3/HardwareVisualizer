@@ -24,6 +24,8 @@ const octokit = new Octokit({ auth: githubToken });
     const releases = await octokit.repos.listReleases({ owner, repo });
     const existingVersions = releases.data.map((release) => release.tag_name);
 
+    console.log(existingVersions);
+
     if (existingVersions.includes(version)) {
       console.error(`Version ${version} already exists.`);
       process.exit(1);
