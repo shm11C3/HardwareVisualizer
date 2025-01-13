@@ -196,7 +196,7 @@ const SettingLineChartType = () => {
     default: "Default",
     step: "Step",
     linear: "Linear",
-    basis: "Basis",
+    basis: "Soft",
   };
 
   return (
