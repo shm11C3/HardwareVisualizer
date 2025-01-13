@@ -123,7 +123,7 @@ pub fn format_size_with_unit(
         bytes as f64 / 1024.0_f64.powi(unit.clone() as i32),
         precision,
       ) as f32,
-      unit: unit,
+      unit,
     }
   } else if bytes >= GIGABYTE {
     SizeWithUnit {
