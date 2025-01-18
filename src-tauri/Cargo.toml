@@ -26,13 +26,13 @@ rust-version = "1.60"
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-serde_json = "1.0.134"
-serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.135"
+serde = { version = "1.0.217", features = ["derive"] }
 tauri = { version = "2.2.2", features = [] }
 sysinfo = "0.33.1"
 tauri-plugin-window-state = { version = "2.2.0" }
 nvapi = "=0.1.4"
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", default-features = true, features = ["env-filter"]  }
 chrono = "0.4.39"
@@ -52,7 +52,7 @@ specta-typescript = "0.0.9"
 specta="=2.0.0-rc.22"
 
 [dependencies.uuid]
-version = "1.11.0"
+version = "1.12.0"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
@@ -66,7 +66,7 @@ features = [
 custom-protocol = [ "tauri/custom-protocol" ]
 
 [dependencies.windows]
-version = "0.58.0"
+version = "0.59.0"
 features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
