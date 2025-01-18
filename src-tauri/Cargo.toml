@@ -28,7 +28,7 @@ tauri-build = { version = "2.0.3", features = [] }
 [dependencies]
 serde_json = "1.0.134"
 serde = { version = "1.0.216", features = ["derive"] }
-tauri = { version = "2.1.1", features = [] }
+tauri = { version = "2.2.2", features = [] }
 sysinfo = "0.33.1"
 tauri-plugin-window-state = { version = "2.2.0" }
 nvapi = "=0.1.4"
@@ -47,9 +47,9 @@ winapi = { version = "0.3", features = ["dxgi"] }
 regex = "1.11.1"
 tempfile = "3.15.0"
 sys-locale = "0.3.2"
-tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
-specta-typescript = "0.0.7"
-specta="=2.0.0-rc.20"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
+specta-typescript = "0.0.9"
+specta="=2.0.0-rc.22"
 
 [dependencies.uuid]
 version = "1.11.0"
