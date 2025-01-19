@@ -8,6 +8,7 @@ import { atom, useAtom } from "jotai";
 import { useCallback } from "react";
 
 const settingsAtom = atom<ClientSettings>({
+  version: "0.0.0",
   language: "en",
   theme: "light",
   displayTargets: [],
@@ -32,7 +33,7 @@ const settingsAtom = atom<ClientSettings>({
 export const useSettingsAtom = () => {
   const { error } = useTauriDialog();
   const mapSettingUpdater: {
-    [K in keyof Omit<ClientSettings, "state" | "lineGraphColor">]: (
+    [K in keyof Omit<ClientSettings, "state" | "lineGraphColor" | "version">]: (
       value: ClientSettings[K],
     ) => Promise<Result<null, string>>;
   } = {
@@ -68,7 +69,10 @@ export const useSettingsAtom = () => {
   }, [setSettings]);
 
   const updateSettingAtom = async <
-    K extends keyof Omit<ClientSettings, "state" | "lineGraphColor">,
+    K extends keyof Omit<
+      ClientSettings,
+      "state" | "lineGraphColor" | "version"
+    >,
   >(
     key: K,
     value: ClientSettings[K],

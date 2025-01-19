@@ -50,6 +50,7 @@ pub struct LineGraphColorStringSettings {
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientSettings {
+  pub version: String,
   pub language: String,
   pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
