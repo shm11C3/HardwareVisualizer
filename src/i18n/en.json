@@ -92,6 +92,14 @@
           "description": "The file will only be saved on your device"
         },
         "opacity": "Opacity"
+      },
+      "about": {
+        "name": "About",
+        "version": "Version: {{version}}",
+        "license": "License",
+        "checkGitHub": "Check GitHub",
+        "checkLatestVersion": "Check Latest Version",
+        "author": "Author: {{author}}"
       }
     }
   },

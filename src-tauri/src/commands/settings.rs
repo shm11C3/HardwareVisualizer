@@ -79,6 +79,7 @@ pub mod commands {
     };
 
     let client_settings = structs::settings::ClientSettings {
+      version: settings.version,
       language: settings.language,
       theme: settings.theme,
       display_targets: settings.display_targets,

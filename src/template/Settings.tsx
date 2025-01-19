@@ -18,13 +18,14 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
+import { openURL } from "@/lib/openUrl";
 import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
-import { DotOutline } from "@phosphor-icons/react";
+import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 
@@ -387,10 +388,68 @@ const SettingTemperatureUnit = () => {
   );
 };
 
+const About = () => {
+  const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
+
+  return (
+    <div className="p-4">
+      <h3 className="text-2xl font-bold py-3">
+        {t("pages.settings.about.name")}
+      </h3>
+      <div className="py-2">
+        <p className="text-sm text-gray-500">
+          {t("pages.settings.about.version", { version: settings.version })}
+        </p>
+        <p className="text-sm text-gray-500">
+          {t("pages.settings.about.author", { author: "shm11C3" })}
+        </p>
+        <div className="py-4 flex items-center space-x-4">
+          <Button
+            onClick={() =>
+              openURL("https://github.com/shm11C3/HardwareVisualizer")
+            }
+            className="text-sm  rounded-full"
+          >
+            <GithubLogo size={32} />
+            <span className="px-1">
+              {t("pages.settings.about.checkGitHub")}
+            </span>
+            <ArrowSquareOut size={16} />
+          </Button>
+          <Button
+            onClick={() =>
+              openURL(
+                "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
+              )
+            }
+            className="text-sm  rounded-full"
+          >
+            <span className="px-1">
+              {t("pages.settings.about.checkLatestVersion")}
+            </span>
+            <ArrowSquareOut size={16} />
+          </Button>
+          <Button
+            onClick={() =>
+              openURL(
+                "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
+              )
+            }
+            className="text-sm rounded-full"
+          >
+            <span className="px-1">{t("pages.settings.about.license")}</span>
+            <ArrowSquareOut size={16} />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /**
  * @todo
- * - [ ] Issue のリンクを追加
- * - [ ] About 欄の実装
+ * - [x] About 欄の実装
  * - [ ] ハードウェア種別をカスタマイズに移動
  * - [ ] ログを見るボタンの追加
  * - できればやる
@@ -400,6 +459,7 @@ const SettingTemperatureUnit = () => {
  *   - [ ] スケールを縦横で分割して数字の表示非表示を選択可能にする
  *   - [ ] 設定リセットボタンの実装
  *   - [ ] 自動スタートの設定
+ *   - [x] バージョンの表記
  */
 const Settings = () => {
   const { t } = useTranslation();
@@ -465,6 +525,9 @@ const Settings = () => {
             </div>
           </div>
         </div>
+      </div>
+      <div>
+        <About />
       </div>
     </>
   );

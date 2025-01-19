@@ -92,6 +92,14 @@
           "description": "アップロードしたファイルはこのデバイスにのみ保存されます"
         },
         "opacity": "透過率"
+      },
+      "about": {
+        "name": "本ソフトウェアについて",
+        "version": "バージョン：{{version}}",
+        "license": "ライセンス",
+        "checkGitHub": "GitHub",
+        "checkLatestVersion": "最新バージョンを確認する",
+        "author": "作者：{{author}}"
       }
     }
   },
