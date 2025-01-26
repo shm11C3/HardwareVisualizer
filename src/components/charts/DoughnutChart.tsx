@@ -109,6 +109,7 @@ export const DoughnutChart = ({
                         y={viewBox.cy}
                         textAnchor="middle"
                         dominantBaseline="middle"
+                        fill="currentColor"
                         className="fill-foreground text-2xl font-bold"
                       >
                         {`${chartValue}${dataType2Units(dataType, settings)}`}
