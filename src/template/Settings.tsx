@@ -5,6 +5,7 @@ import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/Se
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -31,7 +32,6 @@ import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
-  const { t } = useTranslation();
   const selectedGraphTypes = settings.displayTargets;
 
   const toggleGraphType = async (type: ChartDataType) => {
@@ -39,35 +39,45 @@ const SettingGraphType = () => {
   };
 
   return (
-    <div className="flex items-center space-x-4 py-6">
-      <Label htmlFor="graphType" className="text-lg self-start">
-        {t("pages.settings.general.hardwareType")}
-      </Label>
-      <div>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={selectedGraphTypes.includes("cpu")}
-            onChange={() => toggleGraphType("cpu")}
-          />
-          <span>CPU</span>
-        </label>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={selectedGraphTypes.includes("memory")}
-            onChange={() => toggleGraphType("memory")}
-          />
-          <span>Memory</span>
-        </label>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={selectedGraphTypes.includes("gpu")}
-            onChange={() => toggleGraphType("gpu")}
-          />
-          <span>GPU</span>
-        </label>
+    <div className="py-6">
+      <div className="flex items-center space-x-2 py-3">
+        <Checkbox
+          id="graphType-cpu"
+          checked={selectedGraphTypes.includes("cpu")}
+          onCheckedChange={() => toggleGraphType("cpu")}
+        />
+        <Label
+          htmlFor="graphType-cpu"
+          className="flex items-center space-x-2 text-lg"
+        >
+          CPU
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2 py-3">
+        <Checkbox
+          id="graphType-ram"
+          checked={selectedGraphTypes.includes("memory")}
+          onCheckedChange={() => toggleGraphType("memory")}
+        />
+        <Label
+          htmlFor="graphType-ram"
+          className="flex items-center space-x-2 text-lg"
+        >
+          RAM
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2 py-3">
+        <Checkbox
+          id="graphType-gpu"
+          checked={selectedGraphTypes.includes("gpu")}
+          onCheckedChange={() => toggleGraphType("gpu")}
+        />
+        <Label
+          htmlFor="graphType-gpu"
+          className="flex items-center space-x-2 text-lg"
+        >
+          GPU
+        </Label>
       </div>
     </div>
   );
@@ -450,7 +460,7 @@ const About = () => {
 /**
  * @todo
  * - [x] About 欄の実装
- * - [ ] ハードウェア種別をカスタマイズに移動
+ * - [x] ハードウェア種別をカスタマイズに移動
  * - [ ] ログを見るボタンの追加
  * - できればやる
  *   - [ ] 縦画面でのプレビューを見やすく（画面外の時はミニプレビューを追従して表示）
@@ -473,7 +483,6 @@ const Settings = () => {
         <SettingLanguage />
         <SettingColorMode />
         <SettingTemperatureUnit />
-        <SettingGraphType />
       </div>
       <div className="mt-8 p-4">
         <h3 className="text-2xl font-bold py-3 px-2">
@@ -494,15 +503,23 @@ const Settings = () => {
             <SettingLineChartType />
           </div>
           <div className="col-span-1 py-2">
-            <h4 className="text-xl font-bold">
-              {t("pages.settings.customTheme.lineColor")}
-            </h4>
-            <div className="md:flex lg:block">
-              <SettingColorInput label="CPU" hardwareType="cpu" />
-              <SettingColorInput label="RAM" hardwareType="memory" />
-              <SettingColorInput label="GPU" hardwareType="gpu" />
+            <div className="py-6">
+              <h4 className="text-xl font-bold">
+                {t("pages.settings.customTheme.lineColor")}
+              </h4>
+              <div className="md:flex lg:block">
+                <SettingColorInput label="CPU" hardwareType="cpu" />
+                <SettingColorInput label="RAM" hardwareType="memory" />
+                <SettingColorInput label="GPU" hardwareType="gpu" />
+              </div>
+              <SettingColorReset />
             </div>
-            <SettingColorReset />
+            <div className="py-6">
+              <h4 className="text-xl font-bold">
+                {t("pages.settings.general.hardwareType")}
+              </h4>
+              <SettingGraphType />
+            </div>
           </div>
           <div className="col-span-3 py-2 ml-10">
             <h4 className="text-xl font-bold">
