@@ -84,7 +84,7 @@ export const DoughnutChart = ({
             gridType="circle"
             radialLines={false}
             stroke="none"
-            className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 last:dark:fill-gray-900"
+            className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 dark:last:fill-gray-900"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null

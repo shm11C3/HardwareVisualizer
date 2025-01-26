@@ -44,11 +44,11 @@ const graphVariants = tv({
   base: "mt-5 mx-auto",
   variants: {
     size: {
-      sm: "max-w-screen-sm",
-      md: "max-w-screen-md",
-      lg: "max-w-screen-lg",
-      xl: "max-w-screen-xl",
-      "2xl": "max-w-screen-2xl",
+      sm: "max-w-(--breakpoint-sm)",
+      md: "max-w-(--breakpoint-md)",
+      lg: "max-w-(--breakpoint-lg)",
+      xl: "max-w-(--breakpoint-xl)",
+      "2xl": "max-w-(--breakpoint-2xl)",
     },
   },
   defaultVariants: {

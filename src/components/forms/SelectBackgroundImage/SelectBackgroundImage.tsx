@@ -41,7 +41,7 @@ export const BackgroundImageList = () => {
       {backgroundImageList.map((image) => (
         <div key={image.fileId} className="relative">
           <button
-            className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20"
+            className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20 cursor-pointer"
             type="button"
             onClick={() => deleteBackgroundImage(image.fileId)}
           >
@@ -54,6 +54,7 @@ export const BackgroundImageList = () => {
                 selected: settings.selectedBackgroundImg === image.fileId,
               }),
               "overflow-hidden",
+              "cursor-pointer",
             )}
             onClick={() =>
               updateSettingAtom("selectedBackgroundImg", image.fileId)
