@@ -84,7 +84,7 @@ export const DoughnutChart = ({
             gridType="circle"
             radialLines={false}
             stroke="none"
-            className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 last:dark:fill-gray-900"
+            className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 dark:last:fill-gray-900"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
@@ -109,7 +109,6 @@ export const DoughnutChart = ({
                         y={viewBox.cy}
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        fill="currentColor"
                         className="fill-foreground text-2xl font-bold"
                       >
                         {`${chartValue}${dataType2Units(dataType, settings)}`}
