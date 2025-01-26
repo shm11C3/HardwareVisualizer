@@ -124,7 +124,7 @@ export const useHardwareUpdater = (
     fetchData();
 
     const intervalId = setInterval(async () => {
-      fetchData;
+      fetchData();
     }, 10000);
 
     return () => clearInterval(intervalId);

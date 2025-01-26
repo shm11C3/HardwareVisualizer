@@ -1,4 +1,4 @@
-name: "publish"
+name: "Publish"
 
 on:
   push:
@@ -8,7 +8,11 @@ on:
 # This workflow will trigger on each push to the `release` branch to create or update a GitHub release, build your app, and upload the artifacts to the release.
 
 jobs:
+  check-version:
+    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@develop
+
   publish-tauri:
+    needs: check-version
     permissions:
       contents: write
     strategy:

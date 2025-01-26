@@ -114,6 +114,18 @@ async getMemoryUsageHistory(seconds: number) : Promise<number[]> {
 async getGpuUsageHistory(seconds: number) : Promise<number[]> {
     return await TAURI_INVOKE("get_gpu_usage_history", { seconds });
 },
+/**
+ * ## ネットワーク情報を取得
+ * 
+ */
+async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_network_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSettings() : Promise<Result<ClientSettings, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_settings") };
@@ -149,6 +161,14 @@ async setDisplayTargets(newTargets: HardwareType[]) : Promise<Result<null, strin
 async setGraphSize(newSize: GraphSize) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_graph_size", { newSize }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setLineGraphType(newType: LineGraphType) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_line_graph_type", { newType }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -202,6 +222,14 @@ async setLineGraphShowScale(newValue: boolean) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async setLineGraphShowTooltip(newValue: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_line_graph_show_tooltip", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async setBackgroundImgOpacity(newValue: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_background_img_opacity", { newValue }) };
@@ -213,6 +241,14 @@ async setBackgroundImgOpacity(newValue: number) : Promise<Result<null, string>> 
 async setSelectedBackgroundImg(fileId: string | null) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_selected_background_img", { fileId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setTemperatureUnit(newUnit: TemperatureUnit) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_temperature_unit", { newUnit }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -292,13 +328,14 @@ async setDecoration(isDecorated: boolean) : Promise<void> {
 
 /** user-defined types **/
 
+export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "memoryInfoNotAvailable" | "graphicInfoNotAvailable" | "networkInfoNotAvailable" | "networkUsageNotAvailable" | "unexpectedError"
 /**
  * - `file_id` : 画像ファイルID
  * - `image_data` : 画像データのBase64文字列
  * 
  */
 export type BackgroundImage = { fileId: string; imageData: string }
-export type ClientSettings = { language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null }
+export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
@@ -309,12 +346,15 @@ export type HardwareType = "cpu" | "memory" | "gpu"
  * 
  */
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
+export type LineGraphType = "default" | "step" | "linear" | "basis"
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
 export type NameValue = { name: string; value: number }
+export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
+export type TemperatureUnit = "C" | "F"
 export type Theme = "light" | "dark"
 
 /** tauri-specta globals **/

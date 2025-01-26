@@ -1,0 +1,33 @@
+name: Check Version
+
+on:
+  workflow_call:
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npm install toml
+          npm install @octokit/rest
+
+      - name: Extract Tauri version
+        id: tauri-version
+        run: node .github/scripts/extractVersion.cjs
+
+      - name: Verify version on GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.tauri-version.outputs.version }}
+        run: node .github/scripts/checkVersion.cjs

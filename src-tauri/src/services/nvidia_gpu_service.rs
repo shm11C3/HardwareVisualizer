@@ -1,5 +1,5 @@
 use crate::structs::hardware::GraphicInfo;
-use crate::utils::{self, formatter};
+use crate::utils::{self};
 use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
@@ -76,8 +76,8 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
 #[derive(Debug, Clone, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NameValue {
-  name: String,
-  value: f64, // 摂氏温度
+  pub name: String,
+  pub value: i32, // 摂氏温度
 }
 
 ///
@@ -114,7 +114,7 @@ pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Statu
 
       temperatures.push(NameValue {
         name: gpu.full_name().unwrap_or("Unknown".to_string()),
-        value: thermal_settings[0].current_temperature.0 as f64, // thermal_settings の0番目の温度を f64 に変換
+        value: thermal_settings[0].current_temperature.0,
       });
     }
 
@@ -167,7 +167,7 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
 
       cooler_infos.push(NameValue {
         name: gpu.full_name().unwrap_or("Unknown".to_string()),
-        value: cooler_settings[0].current_level.0 as f64,
+        value: cooler_settings[0].current_level.0 as i32,
       });
     }
 

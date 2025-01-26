@@ -1,9 +1,14 @@
+use crate::commands::settings;
+use crate::enums;
+use crate::enums::error::BackendError;
 use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
+use crate::structs::hardware::NetworkInfo;
 use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
-use crate::{log_debug, log_error, log_info, log_internal, log_warn};
+use crate::utils;
+use crate::{log_error, log_internal};
 use serde::{Deserialize, Serialize, Serializer};
 use specta::Type;
 use std::collections::HashMap;
@@ -13,14 +18,12 @@ use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tauri::command;
-use tauri_specta;
 
 pub struct AppState {
   pub system: Arc<Mutex<System>>,
   pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
   pub memory_history: Arc<Mutex<VecDeque<f32>>>,
   pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub gpu_usage: Arc<Mutex<f32>>,
   pub process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
   pub process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
 }
@@ -90,7 +93,7 @@ pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
       let memory_usage = if let Some(history) = process_memory_histories.get(&pid) {
         let len = history.len().min(5); // 最大5秒分のデータ
         let sum: f32 = history.iter().rev().take(len).sum();
-        let avg = (sum as f32 / 1024.0) / len as f32;
+        let avg = (sum / 1024.0) / len as f32;
 
         (avg * 10.0).round() / 10.0 // 小数点1桁で丸める
       } else {
@@ -201,7 +204,7 @@ pub fn get_memory_usage(state: tauri::State<'_, AppState>) -> i32 {
   let used_memory = system.used_memory() as f64;
   let total_memory = system.total_memory() as f64;
 
-  ((used_memory / total_memory) * 100.0 as f64).round() as i32
+  ((used_memory / total_memory) * 100.0).round() as i32
 }
 
 ///
@@ -232,9 +235,33 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_temperature() -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+pub async fn get_gpu_temperature(
+  state: tauri::State<'_, settings::AppState>,
+) -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+  let temperature_unit = {
+    let config = state.settings.lock().unwrap();
+    config.temperature_unit.clone()
+  };
+
   match nvidia_gpu_service::get_nvidia_gpu_temperature().await {
-    Ok(temps) => Ok(temps),
+    Ok(temps) => {
+      let temps = temps
+        .iter()
+        .map(|temp| {
+          let value = utils::formatter::format_temperature(
+            enums::settings::TemperatureUnit::Celsius,
+            temperature_unit.clone(),
+            temp.value,
+          );
+
+          nvidia_gpu_service::NameValue {
+            name: temp.name.clone(),
+            value,
+          }
+        })
+        .collect();
+      Ok(temps)
+    }
     Err(e) => Err(format!("Failed to get GPU temperature: {:?}", e)),
   }
 }
@@ -316,6 +343,15 @@ pub fn get_gpu_usage_history(
 }
 
 ///
+/// ## ネットワーク情報を取得
+///
+#[command]
+#[specta::specta]
+pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+  wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError)
+}
+
+///
 /// ## システム情報の初期化
 ///
 /// - param system: `Arc<Mutex<System>>` システム情報
@@ -326,8 +362,6 @@ pub fn initialize_system(
   system: Arc<Mutex<System>>,
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
   memory_history: Arc<Mutex<VecDeque<f32>>>,
-  gpu_usage: Arc<Mutex<f32>>,
-  gpu_history: Arc<Mutex<VecDeque<f32>>>,
   process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
   process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
 ) {
@@ -343,7 +377,7 @@ pub fn initialize_system(
       let cpu_usage = {
         let cpus = sys.cpus();
         let total_usage: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
-        (total_usage / cpus.len() as f32).round() as f32
+        (total_usage / cpus.len() as f32).round()
       };
 
       let memory_usage = {
@@ -375,8 +409,8 @@ pub fn initialize_system(
 
         for (pid, process) in sys.processes() {
           // CPU使用率の履歴を更新
-          let cpu_usage = process.cpu_usage() as f32;
-          let cpu_history = process_cpu_histories.entry(*pid).or_insert(VecDeque::new());
+          let cpu_usage = process.cpu_usage();
+          let cpu_history = process_cpu_histories.entry(*pid).or_default();
 
           if cpu_history.len() >= HISTORY_CAPACITY {
             cpu_history.pop_front();
@@ -385,9 +419,7 @@ pub fn initialize_system(
 
           // メモリ使用率の履歴を更新
           let memory_usage = process.memory() as f32 / 1024.0; // KB単位からMB単位に変換
-          let memory_history = process_memory_histories
-            .entry(*pid)
-            .or_insert(VecDeque::new());
+          let memory_history = process_memory_histories.entry(*pid).or_default();
 
           if memory_history.len() >= HISTORY_CAPACITY {
             memory_history.pop_front();

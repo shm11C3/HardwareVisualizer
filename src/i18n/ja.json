@@ -20,12 +20,20 @@
     "process": "プロセス",
     "reset": "リセット",
     "storage": "ストレージ",
+    "network": "ネットワーク",
     "driveName": "ドライブ名",
     "driveType": "ドライブタイプ",
     "driveTotalSpace": "ドライブ容量",
     "driveUsedSpace": "ドライブ使用量",
     "driveFreeSpace": "ドライブ空き容量",
     "driveFileSystem": "ファイルシステム",
+    "macAddress": "MAC アドレス",
+    "subnetMask": "サブネットマスク",
+    "gateway": "ゲートウェイ",
+    "linkLocal": "リンクローカル",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "address": "アドレス",
     "used": "使用中",
     "free": "空き",
     "other": "その他"
@@ -48,7 +56,12 @@
           "light": "ライト",
           "dark": "ダーク"
         },
-        "hardwareType": "ハードウェア種別"
+        "hardwareType": "ハードウェア種別",
+        "temperatureUnit": {
+          "name": "温度の単位",
+          "celsius": "摂氏（℃）",
+          "fahrenheit": "華氏（℉）"
+        }
       },
       "customTheme": {
         "name": "カスタマイズ",
@@ -61,7 +74,9 @@
           "lineGraphMix": "グラフの混合",
           "lineGraphShowLegend": "凡例の表示",
           "lineGraphShowScale": "スケールの表示",
-          "size": "グラフのサイズ"
+          "lineGraphShowTooltip": "ツールチップの表示",
+          "size": "グラフのサイズ",
+          "lineType": "線グラフのスタイル"
         }
       },
       "backgroundImage": {
@@ -77,6 +92,14 @@
           "description": "アップロードしたファイルはこのデバイスにのみ保存されます"
         },
         "opacity": "透過率"
+      },
+      "about": {
+        "name": "本ソフトウェアについて",
+        "version": "バージョン：{{version}}",
+        "license": "ライセンス",
+        "checkGitHub": "GitHub",
+        "checkLatestVersion": "最新バージョンを確認する",
+        "author": "作者：{{author}}"
       }
     }
   },

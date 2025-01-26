@@ -5,9 +5,11 @@ use std::fmt;
 #[derive(Debug, PartialEq, Eq, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum HardwareType {
-  CPU,
+  #[serde(rename = "cpu")]
+  Cpu,
   Memory,
-  GPU,
+  #[serde(rename = "gpu")]
+  Gpu,
 }
 
 impl Serialize for HardwareType {
@@ -16,9 +18,9 @@ impl Serialize for HardwareType {
     S: Serializer,
   {
     let s = match *self {
-      HardwareType::CPU => "cpu",
+      HardwareType::Cpu => "cpu",
       HardwareType::Memory => "memory",
-      HardwareType::GPU => "gpu",
+      HardwareType::Gpu => "gpu",
     };
     serializer.serialize_str(s)
   }
@@ -31,9 +33,9 @@ impl<'de> Deserialize<'de> for HardwareType {
   {
     let s = String::deserialize(deserializer)?.to_lowercase();
     match s.as_str() {
-      "cpu" => Ok(HardwareType::CPU),
+      "cpu" => Ok(HardwareType::Cpu),
       "memory" => Ok(HardwareType::Memory),
-      "gpu" => Ok(HardwareType::GPU),
+      "gpu" => Ok(HardwareType::Gpu),
       _ => Err(serde::de::Error::unknown_variant(
         &s,
         &["cpu", "memory", "gpu"],
@@ -45,9 +47,9 @@ impl<'de> Deserialize<'de> for HardwareType {
 impl From<sysinfo::DiskKind> for DiskKind {
   fn from(kind: sysinfo::DiskKind) -> Self {
     match kind {
-      sysinfo::DiskKind::HDD => DiskKind::HDD,
+      sysinfo::DiskKind::HDD => DiskKind::Hdd,
 
-      sysinfo::DiskKind::SSD => DiskKind::SSD,
+      sysinfo::DiskKind::SSD => DiskKind::Ssd,
 
       _ => DiskKind::Unknown,
     }
@@ -57,9 +59,9 @@ impl From<sysinfo::DiskKind> for DiskKind {
 #[derive(Serialize, Deserialize, Type, Debug, PartialEq, Eq, Clone)]
 pub enum DiskKind {
   #[serde(rename = "hdd")]
-  HDD,
+  Hdd,
   #[serde(rename = "ssd")]
-  SSD,
+  Ssd,
   #[serde(rename = "other")]
   Unknown,
 }
@@ -67,8 +69,8 @@ pub enum DiskKind {
 impl fmt::Display for DiskKind {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     f.write_str(match *self {
-      DiskKind::HDD => "HDD",
-      DiskKind::SSD => "SSD",
+      DiskKind::Hdd => "HDD",
+      DiskKind::Ssd => "SSD",
       _ => "Other",
     })
   }

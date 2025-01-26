@@ -1,9 +1,13 @@
+import { gpuTempAtom } from "@/atom/chart";
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
+import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -15,17 +19,19 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
+import { openURL } from "@/lib/openUrl";
+import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
-import { DotOutline } from "@phosphor-icons/react";
+import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
+import { useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
-  const { t } = useTranslation();
   const selectedGraphTypes = settings.displayTargets;
 
   const toggleGraphType = async (type: ChartDataType) => {
@@ -33,35 +39,45 @@ const SettingGraphType = () => {
   };
 
   return (
-    <div className="flex items-center space-x-4 py-6">
-      <Label htmlFor="graphType" className="text-lg self-start">
-        {t("pages.settings.general.hardwareType")}
-      </Label>
-      <div>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={selectedGraphTypes.includes("cpu")}
-            onChange={() => toggleGraphType("cpu")}
-          />
-          <span>CPU</span>
-        </label>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={selectedGraphTypes.includes("memory")}
-            onChange={() => toggleGraphType("memory")}
-          />
-          <span>Memory</span>
-        </label>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={selectedGraphTypes.includes("gpu")}
-            onChange={() => toggleGraphType("gpu")}
-          />
-          <span>GPU</span>
-        </label>
+    <div className="py-6">
+      <div className="flex items-center space-x-2 py-3">
+        <Checkbox
+          id="graphType-cpu"
+          checked={selectedGraphTypes.includes("cpu")}
+          onCheckedChange={() => toggleGraphType("cpu")}
+        />
+        <Label
+          htmlFor="graphType-cpu"
+          className="flex items-center space-x-2 text-lg"
+        >
+          CPU
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2 py-3">
+        <Checkbox
+          id="graphType-ram"
+          checked={selectedGraphTypes.includes("memory")}
+          onCheckedChange={() => toggleGraphType("memory")}
+        />
+        <Label
+          htmlFor="graphType-ram"
+          className="flex items-center space-x-2 text-lg"
+        >
+          RAM
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2 py-3">
+        <Checkbox
+          id="graphType-gpu"
+          checked={selectedGraphTypes.includes("gpu")}
+          onCheckedChange={() => toggleGraphType("gpu")}
+        />
+        <Label
+          htmlFor="graphType-gpu"
+          className="flex items-center space-x-2 text-lg"
+        >
+          GPU
+        </Label>
       </div>
     </div>
   );
@@ -170,6 +186,61 @@ const SettingLineChartSize = () => {
   );
 };
 
+const SettingLineChartType = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const changeLineGraphType = async (
+    value: ClientSettings["lineGraphType"],
+  ) => {
+    await updateSettingAtom("lineGraphType", value);
+  };
+
+  const lineGraphTypes: LineGraphType[] = [
+    "default",
+    "step",
+    "linear",
+    "basis",
+  ] as const;
+
+  const lineGraphLabels: Record<LineGraphType, string> = {
+    default: "Default",
+    step: "Step",
+    linear: "Linear",
+    basis: "Soft",
+  };
+
+  return (
+    <div className="py-6">
+      <Label htmlFor="lineGraphType" className="text-lg mb-2">
+        {t("pages.settings.customTheme.graphStyle.lineType")}
+      </Label>
+      <RadioGroup
+        className="flex items-center space-x-4 mt-4"
+        defaultValue={settings.lineGraphType}
+        onValueChange={changeLineGraphType}
+      >
+        {lineGraphTypes.map((type) => {
+          const id = `radio-line-chart-type-${type}`;
+
+          return (
+            <div key={type} className="flex items-center space-x-2">
+              <RadioGroupItem value={type} id={id} />
+              <Label
+                className="text-lg flex items-center space-x-1 py-2"
+                htmlFor={id}
+              >
+                <LineChartIcon type={type} />
+                <span>{lineGraphLabels[type]}</span>
+              </Label>
+            </div>
+          );
+        })}
+      </RadioGroup>
+    </div>
+  );
+};
+
 const SettingBackGroundOpacity = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
@@ -200,12 +271,15 @@ const SettingBackGroundOpacity = () => {
 const SettingGraphSwitch = ({
   type,
 }: {
-  type:
+  type: Extract<
+    keyof ClientSettings,
     | "lineGraphBorder"
     | "lineGraphFill"
     | "lineGraphMix"
     | "lineGraphShowLegend"
-    | "lineGraphShowScale";
+    | "lineGraphShowScale"
+    | "lineGraphShowTooltip"
+  >;
 }) => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
@@ -287,6 +361,109 @@ const SettingColorReset = () => {
   );
 };
 
+const SettingTemperatureUnit = () => {
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { t } = useTranslation();
+  const setData = useSetAtom(gpuTempAtom);
+
+  const changeTemperatureUnit = async (
+    value: SettingTypes["temperatureUnit"],
+  ) => {
+    await updateSettingAtom("temperatureUnit", value);
+    setData([]);
+  };
+
+  return (
+    <div className="flex items-center space-x-4 py-6">
+      <Label htmlFor="temperatureUnit" className="text-lg">
+        {t("pages.settings.general.temperatureUnit.name")}
+      </Label>
+      <Select
+        value={settings.temperatureUnit}
+        onValueChange={changeTemperatureUnit}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Temperature Unit" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="C">
+            {t("pages.settings.general.temperatureUnit.celsius")}
+          </SelectItem>
+          <SelectItem value="F">
+            {t("pages.settings.general.temperatureUnit.fahrenheit")}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+const About = () => {
+  const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
+
+  return (
+    <div className="py-2">
+      <p className="text-sm text-gray-500">
+        {t("pages.settings.about.version", { version: settings.version })}
+      </p>
+      <p className="text-sm text-gray-500">
+        {t("pages.settings.about.author", { author: "shm11C3" })}
+      </p>
+      <div className="py-4 flex items-center space-x-4">
+        <Button
+          onClick={() =>
+            openURL("https://github.com/shm11C3/HardwareVisualizer")
+          }
+          className="text-sm  rounded-full"
+        >
+          <GithubLogo size={32} />
+          <span className="px-1">{t("pages.settings.about.checkGitHub")}</span>
+          <ArrowSquareOut size={16} />
+        </Button>
+        <Button
+          onClick={() =>
+            openURL(
+              "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
+            )
+          }
+          className="text-sm  rounded-full"
+        >
+          <span className="px-1">
+            {t("pages.settings.about.checkLatestVersion")}
+          </span>
+          <ArrowSquareOut size={16} />
+        </Button>
+        <Button
+          onClick={() =>
+            openURL(
+              "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
+            )
+          }
+          className="text-sm rounded-full"
+        >
+          <span className="px-1">{t("pages.settings.about.license")}</span>
+          <ArrowSquareOut size={16} />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * @todo
+ * - [x] About 欄の実装
+ * - [x] ハードウェア種別をカスタマイズに移動
+ * - [ ] ログを見るボタンの追加
+ * - できればやる
+ *   - [ ] 縦画面でのプレビューを見やすく（画面外の時はミニプレビューを追従して表示）
+ *   - [ ] CPUコアごと分割表示設定の追加
+ *   - [ ] アイコンをグラフスタイル欄にも追加する
+ *   - [ ] スケールを縦横で分割して数字の表示非表示を選択可能にする
+ *   - [ ] 設定リセットボタンの実装
+ *   - [ ] 自動スタートの設定
+ *   - [x] バージョンの表記
+ */
 const Settings = () => {
   const { t } = useTranslation();
 
@@ -298,13 +475,13 @@ const Settings = () => {
         </h3>
         <SettingLanguage />
         <SettingColorMode />
-        <SettingGraphType />
+        <SettingTemperatureUnit />
       </div>
       <div className="mt-8 p-4">
-        <h3 className="text-2xl font-bold py-3 px-2">
+        <h3 className="text-2xl font-bold py-3">
           {t("pages.settings.customTheme.name")}
         </h3>
-        <div className="xl:grid xl:grid-cols-6 gap-12 p-4 items-start">
+        <div className="xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 p-4 items-start">
           <div className="col-span-2 py-2">
             <h4 className="text-xl font-bold">
               {t("pages.settings.customTheme.graphStyle.name")}
@@ -314,18 +491,28 @@ const Settings = () => {
             <SettingGraphSwitch type="lineGraphMix" />
             <SettingGraphSwitch type="lineGraphShowLegend" />
             <SettingGraphSwitch type="lineGraphShowScale" />
+            <SettingGraphSwitch type="lineGraphShowTooltip" />
             <SettingLineChartSize />
+            <SettingLineChartType />
           </div>
           <div className="col-span-1 py-2">
-            <h4 className="text-xl font-bold">
-              {t("pages.settings.customTheme.lineColor")}
-            </h4>
-            <div className="md:flex lg:block">
-              <SettingColorInput label="CPU" hardwareType="cpu" />
-              <SettingColorInput label="Memory" hardwareType="memory" />
-              <SettingColorInput label="GPU" hardwareType="gpu" />
+            <div className="py-6">
+              <h4 className="text-xl font-bold">
+                {t("pages.settings.customTheme.lineColor")}
+              </h4>
+              <div className="md:flex lg:block">
+                <SettingColorInput label="CPU" hardwareType="cpu" />
+                <SettingColorInput label="RAM" hardwareType="memory" />
+                <SettingColorInput label="GPU" hardwareType="gpu" />
+              </div>
+              <SettingColorReset />
             </div>
-            <SettingColorReset />
+            <div className="py-6">
+              <h4 className="text-xl font-bold">
+                {t("pages.settings.general.hardwareType")}
+              </h4>
+              <SettingGraphType />
+            </div>
           </div>
           <div className="col-span-3 py-2 ml-10">
             <h4 className="text-xl font-bold">
@@ -333,11 +520,11 @@ const Settings = () => {
             </h4>
             <PreviewChart />
           </div>
-          <div className="col-span-3 py-6  order-2 xl:order-none">
-            <h3 className="text-2xl font-bold py-3">
+          <div className="col-span-3 order-2 xl:order-none">
+            <h4 className="text-xl font-bold py-3">
               {t("pages.settings.backgroundImage.name")}
-            </h3>
-            <div className="p-4">
+            </h4>
+            <div className="p-1">
               <div className="py-3">
                 <UploadImage />
                 <BackgroundImageList />
@@ -348,6 +535,12 @@ const Settings = () => {
             </div>
           </div>
         </div>
+      </div>
+      <div className="p-4">
+        <h3 className="text-2xl font-bold py-3">
+          {t("pages.settings.about.name")}
+        </h3>
+        <About />
       </div>
     </>
   );

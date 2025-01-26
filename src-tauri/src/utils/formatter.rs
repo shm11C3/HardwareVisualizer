@@ -1,3 +1,4 @@
+use crate::enums;
 use nvapi::Kibibytes;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
@@ -90,11 +91,18 @@ pub fn format_size(bytes: u64, precision: u32) -> String {
       round(bytes as f64 / MEGABYTE as f64, precision),
       precision = precision as usize
     )
+  } else if bytes >= KILOBYTE {
+    format!(
+      "{:.precision$} KB",
+      round(bytes as f64 / KILOBYTE as f64, precision),
+      precision = precision as usize
+    )
   } else {
     format!("{} bytes", bytes)
   }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SizeWithUnit {
   pub value: f32,
   pub unit: SizeUnit,
@@ -115,7 +123,7 @@ pub fn format_size_with_unit(
         bytes as f64 / 1024.0_f64.powi(unit.clone() as i32),
         precision,
       ) as f32,
-      unit: unit,
+      unit,
     }
   } else if bytes >= GIGABYTE {
     SizeWithUnit {
@@ -148,5 +156,23 @@ pub fn format_vendor_name(vendor_id: &str) -> String {
     "GenuineIntel" => "Intel".to_string(),
     "AuthenticAMD" => "AMD".to_string(),
     _ => vendor_id.to_string(),
+  }
+}
+
+pub fn format_temperature(
+  current_unit: enums::settings::TemperatureUnit,
+  unit: enums::settings::TemperatureUnit,
+  value: i32,
+) -> i32 {
+  match (current_unit, unit) {
+    (
+      enums::settings::TemperatureUnit::Celsius,
+      enums::settings::TemperatureUnit::Fahrenheit,
+    ) => (value * 9 / 5) + 32,
+    (
+      enums::settings::TemperatureUnit::Fahrenheit,
+      enums::settings::TemperatureUnit::Celsius,
+    ) => (value - 32) * 5 / 9,
+    _ => value,
   }
 }

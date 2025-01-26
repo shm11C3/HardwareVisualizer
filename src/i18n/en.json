@@ -20,12 +20,20 @@
     "process": "Process",
     "reset": "Reset",
     "storage": "Storage",
+    "network": "Network",
     "driveName": "Drive Name",
     "driveType": "Drive Type",
     "driveTotalSpace": "Drive Total Space",
     "driveUsedSpace": "Drive Used Space",
     "driveFreeSpace": "Drive Free Space",
     "driveFileSystem": "Drive File System",
+    "macAddress": "MAC Address",
+    "subnetMask": "Subnet Mask",
+    "gateway": "Gateway",
+    "linkLocal": "Link Local",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "address": "Address",
     "used": "Used",
     "free": "Free",
     "other": "Other"
@@ -48,7 +56,12 @@
           "light": "Light",
           "dark": "Dark"
         },
-        "hardwareType": "Hardware Type"
+        "hardwareType": "Hardware Type",
+        "temperatureUnit": {
+          "name": "Temperature Unit",
+          "celsius": "Celsius (°C)",
+          "fahrenheit": "Fahrenheit (°F)"
+        }
       },
       "customTheme": {
         "name": "Custom Theme",
@@ -61,7 +74,9 @@
           "lineGraphMix": "Graph Mix",
           "lineGraphShowLegend": "Legend",
           "lineGraphShowScale": "Scale",
-          "size": "Graph Size"
+          "lineGraphShowTooltip": "Tooltip",
+          "size": "Graph Size",
+          "lineType": "Line Graph Style"
         }
       },
       "backgroundImage": {
@@ -77,6 +92,14 @@
           "description": "The file will only be saved on your device"
         },
         "opacity": "Opacity"
+      },
+      "about": {
+        "name": "About",
+        "version": "Version: {{version}}",
+        "license": "License",
+        "checkGitHub": "Check GitHub",
+        "checkLatestVersion": "Check Latest Version",
+        "author": "Author: {{author}}"
       }
     }
   },

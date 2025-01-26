@@ -12,7 +12,7 @@ lto = true
 
 [package]
 name = "hardware_visualizer"
-version = "0.2.1"
+version = "0.3.0"
 description = "A real-time hardware monitoring tool for Windows"
 authors = ["@shm11C3"]
 license = ""
@@ -26,17 +26,17 @@ rust-version = "1.60"
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-serde_json = "1.0.133"
-serde = { version = "1.0.216", features = ["derive"] }
-tauri = { version = "2.1.1", features = [] }
-sysinfo = "0.33.0"
-tauri-plugin-window-state = { version = "2.2.0" }
+serde_json = "1.0.137"
+serde = { version = "1.0.217", features = ["derive"] }
+tauri = { version = "2.2.5", features = [] }
+sysinfo = "0.33.1"
+tauri-plugin-window-state = { version = "2.2.1" }
 nvapi = "=0.1.4"
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", default-features = true, features = ["env-filter"]  }
 chrono = "0.4.39"
-wmi = "0.14.2"
+wmi = "0.14.4"
 rust_decimal = "1.23.0"
 tauri-plugin-dialog = "2.2.0"
 tauri-plugin-store = "2.2.0"
@@ -45,14 +45,15 @@ image = "0.25.5"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
 regex = "1.11.1"
-tempfile = "3.14.0"
+tempfile = "3.15.0"
 sys-locale = "0.3.2"
-tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
-specta-typescript = "0.0.7"
-specta="=2.0.0-rc.20"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
+specta-typescript = "0.0.9"
+specta="=2.0.0-rc.22"
+tauri-plugin-shell = "2"
 
 [dependencies.uuid]
-version = "1.11.0"
+version = "1.12.1"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
@@ -66,7 +67,7 @@ features = [
 custom-protocol = [ "tauri/custom-protocol" ]
 
 [dependencies.windows]
-version = "0.58.0"
+version = "0.59.0"
 features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
@@ -81,3 +82,6 @@ features = [
 [lib]
 name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dev-dependencies]
+tauri = { version = "2.1.1", features = ["test"] }
