@@ -403,55 +403,48 @@ const About = () => {
   const { settings } = useSettingsAtom();
 
   return (
-    <div className="p-4">
-      <h3 className="text-2xl font-bold py-3">
-        {t("pages.settings.about.name")}
-      </h3>
-      <div className="py-2">
-        <p className="text-sm text-gray-500">
-          {t("pages.settings.about.version", { version: settings.version })}
-        </p>
-        <p className="text-sm text-gray-500">
-          {t("pages.settings.about.author", { author: "shm11C3" })}
-        </p>
-        <div className="py-4 flex items-center space-x-4">
-          <Button
-            onClick={() =>
-              openURL("https://github.com/shm11C3/HardwareVisualizer")
-            }
-            className="text-sm  rounded-full"
-          >
-            <GithubLogo size={32} />
-            <span className="px-1">
-              {t("pages.settings.about.checkGitHub")}
-            </span>
-            <ArrowSquareOut size={16} />
-          </Button>
-          <Button
-            onClick={() =>
-              openURL(
-                "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
-              )
-            }
-            className="text-sm  rounded-full"
-          >
-            <span className="px-1">
-              {t("pages.settings.about.checkLatestVersion")}
-            </span>
-            <ArrowSquareOut size={16} />
-          </Button>
-          <Button
-            onClick={() =>
-              openURL(
-                "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
-              )
-            }
-            className="text-sm rounded-full"
-          >
-            <span className="px-1">{t("pages.settings.about.license")}</span>
-            <ArrowSquareOut size={16} />
-          </Button>
-        </div>
+    <div className="py-2">
+      <p className="text-sm text-gray-500">
+        {t("pages.settings.about.version", { version: settings.version })}
+      </p>
+      <p className="text-sm text-gray-500">
+        {t("pages.settings.about.author", { author: "shm11C3" })}
+      </p>
+      <div className="py-4 flex items-center space-x-4">
+        <Button
+          onClick={() =>
+            openURL("https://github.com/shm11C3/HardwareVisualizer")
+          }
+          className="text-sm  rounded-full"
+        >
+          <GithubLogo size={32} />
+          <span className="px-1">{t("pages.settings.about.checkGitHub")}</span>
+          <ArrowSquareOut size={16} />
+        </Button>
+        <Button
+          onClick={() =>
+            openURL(
+              "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
+            )
+          }
+          className="text-sm  rounded-full"
+        >
+          <span className="px-1">
+            {t("pages.settings.about.checkLatestVersion")}
+          </span>
+          <ArrowSquareOut size={16} />
+        </Button>
+        <Button
+          onClick={() =>
+            openURL(
+              "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
+            )
+          }
+          className="text-sm rounded-full"
+        >
+          <span className="px-1">{t("pages.settings.about.license")}</span>
+          <ArrowSquareOut size={16} />
+        </Button>
       </div>
     </div>
   );
@@ -485,10 +478,10 @@ const Settings = () => {
         <SettingTemperatureUnit />
       </div>
       <div className="mt-8 p-4">
-        <h3 className="text-2xl font-bold py-3 px-2">
+        <h3 className="text-2xl font-bold py-3">
           {t("pages.settings.customTheme.name")}
         </h3>
-        <div className="xl:grid xl:grid-cols-6 gap-12 p-4 items-start">
+        <div className="xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 p-4 items-start">
           <div className="col-span-2 py-2">
             <h4 className="text-xl font-bold">
               {t("pages.settings.customTheme.graphStyle.name")}
@@ -527,11 +520,11 @@ const Settings = () => {
             </h4>
             <PreviewChart />
           </div>
-          <div className="col-span-3 py-6  order-2 xl:order-none">
-            <h3 className="text-2xl font-bold py-3">
+          <div className="col-span-3 order-2 xl:order-none">
+            <h4 className="text-xl font-bold py-3">
               {t("pages.settings.backgroundImage.name")}
-            </h3>
-            <div className="p-4">
+            </h4>
+            <div className="p-1">
               <div className="py-3">
                 <UploadImage />
                 <BackgroundImageList />
@@ -543,7 +536,10 @@ const Settings = () => {
           </div>
         </div>
       </div>
-      <div className="px-4">
+      <div className="p-4">
+        <h3 className="text-2xl font-bold py-3">
+          {t("pages.settings.about.name")}
+        </h3>
         <About />
       </div>
     </>
