@@ -526,7 +526,7 @@ const Settings = () => {
           </div>
         </div>
       </div>
-      <div>
+      <div className="px-4">
         <About />
       </div>
     </>
