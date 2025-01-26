@@ -19,7 +19,7 @@ const octokit = new Octokit({ auth: githubToken });
 /**
  * タグ名のフォーマット（`publish.yaml` で設定されている値）
  */
-const TAG_NAME_FORMAT = "release-v{VERSION}";
+const TAG_NAME_FORMAT = "v{VERSION}";
 const OWNER = "shm11C3";
 const REPO = "HardwareVisualizer";
 
