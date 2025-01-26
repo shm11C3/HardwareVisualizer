@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 
 const buttonClasses = tv({
-  base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all",
+  base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all cursor-pointer",
   variants: {
     open: {
       true: "left-64",
@@ -81,7 +81,7 @@ export const SideMenu = () => {
         >
           <button
             type="button"
-            className="p-2 w-full h-full text-left"
+            className="p-2 w-full h-full text-left cursor-pointer"
             onClick={() => handleMenuClick(type)}
             aria-expanded={isOpen}
             aria-label={isOpen ? "Close menu" : "Open menu"}
