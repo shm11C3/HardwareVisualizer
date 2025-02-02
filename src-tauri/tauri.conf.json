@@ -20,12 +20,12 @@
       "icons/icon.ico"
     ],
     "windows": {
-      "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
-      }
+      },
+      "signCommand": "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
     },
     "longDescription": "",
     "macOS": {
@@ -45,7 +45,7 @@
   },
   "productName": "HardwareVisualizer",
   "mainBinaryName": "hardware-visualizer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "identifier": "HardwareVisualizer",
   "plugins": {},
   "app": {
