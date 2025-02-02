@@ -20,12 +20,12 @@
       "icons/icon.ico"
     ],
     "windows": {
-      "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
-      }
+      },
+      "signCommand": "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
     },
     "longDescription": "",
     "macOS": {
