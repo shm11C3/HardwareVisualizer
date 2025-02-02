@@ -37,6 +37,10 @@ jobs:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Setup Azure Code Signing
+        run: |
+          cargo install trusted-signing-cli
+
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
 
