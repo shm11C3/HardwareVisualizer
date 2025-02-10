@@ -175,7 +175,7 @@ jobs:
   #
   # Test Frontend
   #
-  unit-testing-frontend:
+  unit-test-frontend:
     strategy:
       fail-fast: false
       matrix:
@@ -211,5 +211,5 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: check frontend build
+      - name: Unit Testing Frontend
         run: npm run test:unit
