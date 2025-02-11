@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chartConfig } from "@/consts/chart";
+import { chartConfig } from "@/consts";
 
 import {
   cpuUsageHistoryAtom,
