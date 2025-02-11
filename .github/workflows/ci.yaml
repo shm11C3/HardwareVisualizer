@@ -216,7 +216,7 @@ jobs:
         run: npm ci
 
       - name: Unit Testing Frontend
-        run: npm run unit-cov
+        run: npm run test:unit-cov
 
       - name: "Report Coverage"
         uses: davelosert/vitest-coverage-report-action@v2
