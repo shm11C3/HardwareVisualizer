@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/test/unit/**/*.test.ts", "src/test/unit/**/*.test.tsx"],
     coverage: {
-      include: ["src/**/*.ts"],
+      include: ["src/**/*.ts"], // [TODO] "src/**/*.tsx"
       exclude: ["src/rspc/**"],
       reporter: ["text", "html", "json-summary"],
       thresholds: {
