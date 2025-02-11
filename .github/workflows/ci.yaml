@@ -185,6 +185,10 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
+    permissions:
+      contents: read
+      pull-requests: write
+
     steps:
       - name: Set git to use LF
         # Lint でエラーが出るため、LF に設定
@@ -212,4 +216,9 @@ jobs:
         run: npm ci
 
       - name: Unit Testing Frontend
-        run: npm run test:unit
+        run: npm run unit-cov
+
+      - name: "Report Coverage"
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: coverage/vitest/coverage-summary.json
