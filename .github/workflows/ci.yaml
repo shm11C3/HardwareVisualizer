@@ -221,4 +221,4 @@ jobs:
       - name: "Report Coverage"
         uses: davelosert/vitest-coverage-report-action@v2
         with:
-          json-summary-path: coverage/vitest/coverage-summary.json
+          json-summary-path: coverage/coverage-summary.json
