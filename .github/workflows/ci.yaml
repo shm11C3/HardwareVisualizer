@@ -171,3 +171,54 @@ jobs:
 
       - name: check frontend build
         run: npm run build
+
+  #
+  # Test Frontend
+  #
+  unit-test-frontend:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "windows-latest"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Set git to use LF
+        # Lint でエラーが出るため、LF に設定
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Unit Testing Frontend
+        run: npm run test:unit-cov
+
+      - name: "Report Coverage"
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: coverage/coverage-summary.json
