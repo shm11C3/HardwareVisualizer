@@ -9,6 +9,6 @@
 export const RGB2HEX = (rgb: string): string => {
   return `#${rgb
     .split(",")
-    .map((value) => Number(value).toString(16))
+    .map((value) => Number(value).toString(16).padStart(2, "0"))
     .join("")}`;
 };
