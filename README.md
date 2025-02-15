@@ -19,18 +19,18 @@
 
 ## Features
 
-| Feature                       | Status |
-| ----------------------------- | ------ |
-| CPU Usage Monitoring          | ✅     |
-| RAM Usage Monitoring          | ✅     |
-| GPU Usage Monitoring          | ✅     |
-| Temperature Monitoring        | ⏳     |
-| Fan Monitoring                | ⏳     |
-| Storage Monitoring            | ✅     |
-| Network Monitoring            | ⏳     |
-| Customizable Chart Themes     | ✅     |
-| Customizable Dashboard        | ⏳     |
-| Custom Background Image       | ✅     |
+| Feature                   | Status |
+| ------------------------- | ------ |
+| CPU Usage Monitoring      | ✅     |
+| RAM Usage Monitoring      | ✅     |
+| GPU Usage Monitoring      | ✅     |
+| Temperature Monitoring    | ⏳     |
+| Fan Monitoring            | ⏳     |
+| Storage Monitoring        | ✅     |
+| Network Monitoring        | ⏳     |
+| Customizable Chart Themes | ✅     |
+| Customizable Dashboard    | ⏳     |
+| Custom Background Image   | ✅     |
 
 ### Dashboard
 
@@ -56,51 +56,61 @@
 
 [Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=shm11C3&labels=enhancement&projects=&template=feature_request.md&title=%5BFeature+request%5D)
 
-
-
 ## Development
 
 [![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat&logo=biome)](https://biomejs.dev)
 
 ### Requirements
 
- [Node.js v22](https://nodejs.org/)
+[Node.js v22](https://nodejs.org/)
 
 ```bash
 $ node -v
-v22.12.0
+v22.14.0
 ```
 
-[Rust 1.82](https://www.rust-lang.org/)
+[Rust 1.84](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.82.0 (f6e511eec 2024-10-15)
+rustc 1.84.1 (e71f9a9a9 2025-01-27)
 ```
 
-### Setup
+### Getting Started
 
-1. Clone the repository:
+- Install dependencies:
 
-   ```bash
-   git clone https://github.com/shm11C3/HardwareVisualizer.git
-   cd HardwareVisualizer
-   ```
+  ```bash
+  npm ci
+  ```
 
-2. Install dependencies:
+- Launch in development mode:
 
-   ```bash
-   npm ci
-   ```
+  ```bash
+  npm run tauri dev
+  ```
 
-3. Launch in development mode:
+- Build the app for production:
 
-   ```bash
-   npm run tauri dev
-   ```
+  ```bash
+  npm run tauri build
+  ```
 
-4. Build the app for production:
+- Lint the code:
 
-   ```bash
-   npm run tauri build
-   ```
+  ```bash
+   npm run lint
+  ```
+
+- Format the code:
+
+  ```bash
+   npm run format
+  ```
+
+- Run tests:
+
+  ```bash
+   npm run test:unit ## frontend unit tests
+   npm run test:tauri ## rust tests
+  ```
