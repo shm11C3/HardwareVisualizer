@@ -79,6 +79,8 @@ pub fn run() {
     settings::commands::set_background_img_opacity,
     settings::commands::set_selected_background_img,
     settings::commands::set_temperature_unit,
+    settings::commands::set_hardware_archive_enabled,
+    settings::commands::set_hardware_archive_interval,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,

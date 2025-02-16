@@ -282,4 +282,17 @@ impl structs::settings::Settings {
     self.temperature_unit = new_unit;
     self.write_file()
   }
+
+  pub fn set_hardware_archive_enabled(&mut self, new_value: bool) -> Result<(), String> {
+    self.hardware_archive.enabled = new_value;
+    self.write_file()
+  }
+
+  pub fn set_hardware_archive_interval(
+    &mut self,
+    new_interval: u32,
+  ) -> Result<(), String> {
+    self.hardware_archive.refresh_interval_days = new_interval;
+    self.write_file()
+  }
 }
