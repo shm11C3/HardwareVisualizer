@@ -27,10 +27,11 @@
 | Temperature Monitoring    | ⏳     |
 | Fan Monitoring            | ⏳     |
 | Storage Monitoring        | ✅     |
-| Network Monitoring        | ⏳     |
+| Network Monitoring        | ✅     |
 | Customizable Chart Themes | ✅     |
 | Customizable Dashboard    | ⏳     |
 | Custom Background Image   | ✅     |
+| Hardware Data History     | ⏳     |
 
 ### Dashboard
 
