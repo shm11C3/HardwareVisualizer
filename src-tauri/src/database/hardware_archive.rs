@@ -12,10 +12,9 @@ pub async fn insert(
   let pool = SqlitePool::connect(&database_url).await?;
 
   sqlx::query(
-
     "INSERT INTO DATA_ARCHIVE (cpu_avg, cpu_max, cpu_min, ram_avg, ram_max, ram_min, timestamp)
     VALUES ($1, $2, $3, $4, $5, $6, $7)",
-  ).bind(0).bind(cpu.avg).bind(cpu.max).bind(cpu.min).bind(ram.avg).bind(ram.max).bind(ram.min).bind(chrono::Utc::now().timestamp()).execute(&pool).await?;
+  ).bind(cpu.avg).bind(cpu.max).bind(cpu.min).bind(ram.avg).bind(ram.max).bind(ram.min).bind(chrono::Utc::now()).execute(&pool).await?;
 
   Ok(())
 }
