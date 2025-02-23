@@ -36,6 +36,20 @@
     "address": "アドレス",
     "used": "使用中",
     "free": "空き",
+    "avg": "平均",
+    "min": "最小",
+    "max": "最大",
+    "time": {
+      "seconds": "秒",
+      "minutes": "分",
+      "hours": "時間",
+      "days": "日",
+      "weeks": "週",
+      "months": "月",
+      "years": "年"
+    },
+    "select": "選択する",
+    "total": "合計",
     "other": "その他"
   },
 
