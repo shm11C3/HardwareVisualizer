@@ -1,7 +1,7 @@
 import { type archivePeriods, chartConfig } from "@/consts";
 import { sqlite } from "@/lib/sqlite";
 import type { DataArchive, ShowDataType } from "@/types/chart";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義
 // ※cpu_avg, ram_avgは平均、cpu_max, ram_maxは最大、cpu_min, ram_minは最小を採用する例
@@ -30,20 +30,30 @@ const getData = async ({
 
 export const useInsightChart = ({
   type,
-  endAt,
   period,
 }: {
   type: ShowDataType;
-  endAt: Date;
   period: (typeof archivePeriods)[number];
 }) => {
   const [data, setData] = useState<Array<DataArchive>>([]);
+  const [endAt, setEndAt] = useState(new Date());
 
   useEffect(() => {
-    getData({ endAt, period }).then((data) => {
-      setData(data);
-    });
-  }, [endAt, period]);
+    const updateData = () => {
+      const newEndAt = new Date();
+
+      setEndAt(newEndAt);
+      getData({ endAt: newEndAt, period }).then((data) => setData(data));
+    };
+
+    updateData();
+
+    const intervalId = setInterval(
+      updateData,
+      chartConfig.archiveUpdateIntervalMilSec,
+    );
+    return () => clearInterval(intervalId);
+  }, [period]);
 
   const step =
     {
@@ -90,7 +100,7 @@ export const useInsightChart = ({
 
   for (let t = startBucket; t <= endBucket; t += step) {
     if (!bucketedData[t] || bucketedData[t].length <= 0) {
-      if (t < endAt.getTime()) {
+      if (t <= endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) {
         filledChartData.push(null);
         filledLabels.push(
           new Date(t).toLocaleTimeString(undefined, {

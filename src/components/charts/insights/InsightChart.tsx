@@ -18,7 +18,6 @@ export const InsightChart = ({
 
   const { labels, chartData } = useInsightChart({
     type: type,
-    endAt: new Date(),
     period: period,
   });
 
