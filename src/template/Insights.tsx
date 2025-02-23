@@ -7,7 +7,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { archivePeriods } from "@/consts";
-import { type JSX, useState } from "react";
+import { useTauriStore } from "@/hooks/useTauriStore";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 const Border = ({ children }: { children: JSX.Element }) => {
@@ -59,18 +60,24 @@ const SelectPeriod = ({
 
 export const Insights = () => {
   const { t } = useTranslation();
-  const [periodAvgCPU, setPeriodAvgCPU] =
-    useState<(typeof archivePeriods)[number]>(180);
-  const [periodAvgRAM, setPeriodAvgRAM] =
-    useState<(typeof archivePeriods)[number]>(180);
-  const [periodMaxCPU, setPeriodMaxCPU] =
-    useState<(typeof archivePeriods)[number]>(180);
-  const [periodMaxRAM, setPeriodMaxRAM] =
-    useState<(typeof archivePeriods)[number]>(180);
-  const [periodMinCPU, setPeriodMinCPU] =
-    useState<(typeof archivePeriods)[number]>(180);
-  const [periodMinRAM, setPeriodMinRAM] =
-    useState<(typeof archivePeriods)[number]>(180);
+  const [periodAvgCPU, setPeriodAvgCPU] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodAvgCPU", 180);
+  const [periodAvgRAM, setPeriodAvgRAM] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodAvgRAM", 180);
+  const [periodMaxCPU, setPeriodMaxCPU] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMaxCPU", 180);
+  const [periodMaxRAM, setPeriodMaxRAM] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMaxRAM", 180);
+  const [periodMinCPU, setPeriodMinCPU] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMinCPU", 180);
+  const [periodMinRAM, setPeriodMinRAM] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMinRAM", 180);
 
   const periods: Record<(typeof archivePeriods)[number], string> = {
     "10": `10 ${t("shared.time.minutes")}`,
