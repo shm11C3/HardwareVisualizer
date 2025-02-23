@@ -166,7 +166,7 @@ export const Insights = () => {
               />
             </div>
 
-            <InsightChart dataType="cpu" period={periodMinCPU} type="cpu_max" />
+            <InsightChart dataType="cpu" period={periodMaxCPU} type="cpu_max" />
           </>
         </Border>
         <Border>
