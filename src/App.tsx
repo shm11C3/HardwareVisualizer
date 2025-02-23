@@ -18,6 +18,7 @@ import "@/lib/i18n";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useKeydown } from "./hooks/useInputListener";
+import { Insights } from "./template/Insights";
 
 const onError = (error: Error, info: ErrorInfo) => {
   console.error("error.message", error.message);
@@ -80,6 +81,11 @@ const Page = () => {
       </ScreenTemplate>
     ),
     usage: <ChartTemplate />,
+    insights: (
+      <ScreenTemplate title={t("pages.insights.name")}>
+        <Insights />
+      </ScreenTemplate>
+    ),
     settings: (
       <ScreenTemplate title={t("pages.settings.name")}>
         <Settings />

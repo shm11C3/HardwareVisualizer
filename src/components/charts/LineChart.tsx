@@ -21,7 +21,7 @@ type ChartProps = {
 };
 
 type SingleChartProps = {
-  chartData: number[];
+  chartData: (number | null)[];
   dataType: ChartDataType;
   lineGraphMix: false;
 } & ChartProps;

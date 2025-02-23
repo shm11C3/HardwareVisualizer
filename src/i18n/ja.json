@@ -46,6 +46,9 @@
     "usage": {
       "name": "ハードウェア使用率"
     },
+    "insights": {
+      "name": "インサイト"
+    },
     "settings": {
       "name": "設定",
       "general": {

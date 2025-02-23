@@ -46,6 +46,9 @@
     "usage": {
       "name": "Usage"
     },
+    "insights": {
+      "name": "Insights"
+    },
     "settings": {
       "name": "Settings",
       "general": {
