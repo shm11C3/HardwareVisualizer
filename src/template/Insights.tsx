@@ -1,4 +1,4 @@
-import { InsightChart } from "@/components/charts/insights/InightChart";
+import { InsightChart } from "@/components/charts/insights/InsightChart";
 import {
   Select,
   SelectContent,
