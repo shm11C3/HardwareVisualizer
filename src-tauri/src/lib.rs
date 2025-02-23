@@ -3,6 +3,7 @@
 #![macro_use]
 
 mod commands;
+mod database;
 mod enums;
 mod services;
 mod structs;
@@ -45,11 +46,22 @@ pub fn run() {
 
   hardware::initialize_system(
     system,
-    cpu_history,
-    memory_history,
+    cpu_history.clone(),
+    memory_history.clone(),
     process_cpu_histories,
     process_memory_histories,
   );
+
+  if app_state.settings.lock().unwrap().hardware_archive.enabled {
+    tauri::async_runtime::spawn(
+      services::hardware_archive_service::start_hardware_archive_service(
+        Arc::clone(&cpu_history),
+        Arc::clone(&memory_history),
+      ),
+    );
+  }
+
+  let migrations = database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
     hardware::get_process_list,
@@ -79,6 +91,8 @@ pub fn run() {
     settings::commands::set_background_img_opacity,
     settings::commands::set_selected_background_img,
     settings::commands::set_temperature_unit,
+    settings::commands::set_hardware_archive_enabled,
+    settings::commands::set_hardware_archive_interval,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,
@@ -115,6 +129,11 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_shell::init())
+    .plugin(
+      tauri_plugin_sql::Builder::new()
+        .add_migrations("sqlite:hv-database.db", migrations)
+        .build(),
+    )
     .manage(state)
     .manage(app_state)
     .run(tauri::generate_context!())

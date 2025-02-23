@@ -21,7 +21,7 @@ type ChartProps = {
 };
 
 type SingleChartProps = {
-  chartData: number[];
+  chartData: (number | null)[];
   dataType: ChartDataType;
   lineGraphMix: false;
 } & ChartProps;
@@ -64,13 +64,24 @@ const chartAreaVariants = tv({
   },
 });
 
-const SingleLineChart = ({
+export const SingleLineChart = ({
   labels,
   chartData,
   dataType,
   chartConfig,
   size,
-}: SingleChartProps & { chartConfig: ChartConfig }) => {
+  border,
+  lineGraphShowScale,
+  lineGraphShowTooltip,
+  lineGraphType,
+  lineGraphShowLegend,
+}: SingleChartProps & { chartConfig: ChartConfig } & {
+  border: boolean;
+  lineGraphShowScale: boolean;
+  lineGraphShowTooltip: boolean;
+  lineGraphType: LineGraphType;
+  lineGraphShowLegend: boolean;
+}) => {
   const { settings } = useSettingsAtom();
 
   const data = labels.map((label, index) => ({
@@ -100,18 +111,15 @@ const SingleLineChart = ({
   return (
     <div className={graphVariants({ size })}>
       <ChartContainer
-        className={chartAreaVariants({ border: settings.lineGraphBorder })}
+        className={chartAreaVariants({ border })}
         config={chartConfig}
       >
         <AreaChart data={data}>
-          <CartesianGrid
-            horizontal={settings.lineGraphShowScale}
-            vertical={false}
-          />
-          <XAxis dataKey="name" hide={!settings.lineGraphShowScale} />
+          <CartesianGrid horizontal={lineGraphShowScale} vertical={false} />
+          <XAxis dataKey="name" hide={!lineGraphShowScale} />
           <YAxis
             domain={[0, 100]}
-            hide={!settings.lineGraphShowScale}
+            hide={!lineGraphShowScale}
             tick={{
               fill: { light: "#77777", dark: "#fff" }[settings.theme],
             }}
@@ -122,11 +130,11 @@ const SingleLineChart = ({
             }
             tickCount={12}
           />
-          {settings.lineGraphShowTooltip && (
+          {lineGraphShowTooltip && (
             <ChartTooltip content={<ChartTooltipContent />} />
           )}
           <Area
-            type={lineGraphType2RechartsCurveType[settings.lineGraphType]}
+            type={lineGraphType2RechartsCurveType[lineGraphType]}
             dataKey="usage"
             stroke={`rgb(${settings.lineGraphColor[dataType]})`}
             strokeWidth={2}
@@ -139,7 +147,7 @@ const SingleLineChart = ({
           />
         </AreaChart>
       </ChartContainer>
-      {settings.lineGraphShowLegend && (
+      {lineGraphShowLegend && (
         <div className="flex justify-center mt-4 mb-2">
           <CustomLegend item={legendItems[dataType]} />
         </div>
@@ -270,6 +278,14 @@ export const LineChartComponent = (
   return lineGraphMix ? (
     <MixLineChart {...props} chartConfig={chartConfig} />
   ) : (
-    <SingleLineChart {...props} chartConfig={chartConfig} />
+    <SingleLineChart
+      {...props}
+      chartConfig={chartConfig}
+      border={settings.lineGraphBorder}
+      lineGraphShowScale={settings.lineGraphShowScale}
+      lineGraphShowTooltip={settings.lineGraphShowTooltip}
+      lineGraphType={settings.lineGraphType}
+      lineGraphShowLegend={settings.lineGraphShowLegend}
+    />
   );
 };

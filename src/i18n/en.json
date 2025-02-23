@@ -36,6 +36,20 @@
     "address": "Address",
     "used": "Used",
     "free": "Free",
+    "time": {
+      "seconds": "seconds",
+      "minutes": "minutes",
+      "hours": "hours",
+      "days": "days",
+      "weeks": "weeks",
+      "months": "months",
+      "years": "years"
+    },
+    "avg": "Avg",
+    "min": "Min",
+    "max": "Max",
+    "select": "選択する",
+    "total": "Total",
     "other": "Other"
   },
 
@@ -45,6 +59,9 @@
     },
     "usage": {
       "name": "Usage"
+    },
+    "insights": {
+      "name": "Insights"
     },
     "settings": {
       "name": "Settings",

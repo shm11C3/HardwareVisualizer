@@ -1,1 +1,5 @@
-export type SelectedDisplayType = "dashboard" | "usage" | "settings";
+export type SelectedDisplayType =
+  | "dashboard"
+  | "usage"
+  | "insights"
+  | "settings";

@@ -68,6 +68,7 @@ export const SideMenu = () => {
     const menuTitles: Record<SelectedDisplayType, string> = {
       dashboard: t("pages.dashboard.name"),
       usage: t("pages.usage.name"),
+      insights: t("pages.insights.name"),
       settings: t("pages.settings.name"),
     };
 
@@ -111,6 +112,7 @@ export const SideMenu = () => {
               </li>
               <MenuItem type="dashboard" />
               <MenuItem type="usage" />
+              <MenuItem type="insights" />
               <MenuItem type="settings" />
             </ul>
           </div>

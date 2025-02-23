@@ -35,6 +35,10 @@ mod tests {
       background_img_opacity: 50,
       selected_background_img: None,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
+      hardware_archive: structs::hardware_archive::HardwareArchiveSettings {
+        enabled: false,
+        refresh_interval_days: 30,
+      },
     };
 
     assert_eq!(settings.version, expected.version,);

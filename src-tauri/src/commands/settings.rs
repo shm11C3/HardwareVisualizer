@@ -95,6 +95,7 @@ pub mod commands {
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
       temperature_unit: settings.temperature_unit,
+      hardware_archive: settings.hardware_archive,
     };
 
     Ok(client_settings)
@@ -339,6 +340,38 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_temperature_unit(new_unit) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_hardware_archive_enabled(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_hardware_archive_enabled(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_hardware_archive_interval(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_interval: u32,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_hardware_archive_interval(new_interval) {
       emit_error(&window)?;
       return Err(e);
     }
