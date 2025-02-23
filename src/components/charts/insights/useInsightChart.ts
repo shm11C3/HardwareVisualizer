@@ -1,7 +1,7 @@
 import { type archivePeriods, chartConfig } from "@/consts";
 import { sqlite } from "@/lib/sqlite";
 import type { DataArchive, ShowDataType } from "@/types/chart";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義
 // ※cpu_avg, ram_avgは平均、cpu_max, ram_maxは最大、cpu_min, ram_minは最小を採用する例
