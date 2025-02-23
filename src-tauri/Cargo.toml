@@ -26,8 +26,8 @@ rust-version = "1.60"
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-serde_json = "1.0.138"
-serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.139"
+serde = { version = "1.0.218", features = ["derive"] }
 tauri = { version = "2.2.5", features = [] }
 sysinfo = "0.33.1"
 tauri-plugin-window-state = { version = "2.2.1" }
@@ -55,7 +55,7 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 sqlx = { version = "0.8.3", features = ["sqlite", "runtime-async-std", "macros", "chrono"] }
 
 [dependencies.uuid]
-version = "1.13.1"
+version = "1.14.0"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
@@ -69,7 +69,7 @@ features = [
 custom-protocol = [ "tauri/custom-protocol" ]
 
 [dependencies.windows]
-version = "0.59.0"
+version = "0.60.0"
 features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
