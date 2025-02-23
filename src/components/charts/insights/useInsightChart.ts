@@ -90,6 +90,19 @@ export const useInsightChart = ({
 
   for (let t = startBucket; t <= endBucket; t += step) {
     if (!bucketedData[t] || bucketedData[t].length <= 0) {
+      if (t < endAt.getTime()) {
+        filledChartData.push(null);
+        filledLabels.push(
+          new Date(t).toLocaleTimeString(undefined, {
+            year: period >= 1440 ? "numeric" : undefined,
+            month: period >= 180 ? "numeric" : undefined,
+            day: period >= 180 ? "2-digit" : undefined,
+            hour: period < 10080 ? "2-digit" : undefined,
+            minute: period < 10080 ? "2-digit" : undefined,
+          }),
+        );
+      }
+
       continue;
     }
 
