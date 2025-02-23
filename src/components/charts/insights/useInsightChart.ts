@@ -1,5 +1,5 @@
 import { type archivePeriods, chartConfig } from "@/consts";
-import { sqlite } from "@/lib/sqlite";
+import { sqlitePromise } from "@/lib/sqlite";
 import type { DataArchive, ShowDataType } from "@/types/chart";
 import { useEffect, useState } from "react";
 
@@ -25,7 +25,7 @@ const getData = async ({
   );
   const sql: string = `SELECT * FROM DATA_ARCHIVE WHERE timestamp BETWEEN '${new Date(adjustedEndAt.getTime() - period * 60 * 1000).toISOString()}' AND '${adjustedEndAt.toISOString()}'`;
 
-  return await sqlite.load(sql);
+  return await (await sqlitePromise).load(sql);
 };
 
 export const useInsightChart = ({
