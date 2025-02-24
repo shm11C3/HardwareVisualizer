@@ -33,7 +33,7 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 | Customizable Chart Themes | ✅     |
 | Customizable Dashboard    | ⏳     |
 | Custom Background Image   | ✅     |
-| Hardware Data History     | ⏳     |
+| Insights (Hardware Data History)     | ✅     |
 
 ## Screenshots
 
