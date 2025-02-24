@@ -1,5 +1,7 @@
 # HardwareVisualizer
 
+HardwareVisualizer is a tool for real-time monitoring of your computer's hardware performance. It provides an intuitive dashboard, detailed usage graphs, and customizable settings to help you keep track of your system’s vital statistics.
+
 <p align="left">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release">
   <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/publish.yaml">
@@ -15,7 +17,7 @@
 | ------- | ---------------------------------------------------------------------------- |
 | Windows | ✅ [Download](https://github.com/shm11C3/HardwareVisualizer/releases/latest) |
 | MacOS   | ⏳                                                                           |
-| linux   | ⏳                                                                           |
+| Linux   | ⏳                                                                           |
 
 ## Features
 
@@ -33,17 +35,34 @@
 | Custom Background Image   | ✅     |
 | Hardware Data History     | ⏳     |
 
+## Screenshots
+
 ### Dashboard
 
-![image](https://github.com/user-attachments/assets/e56a701d-a2e0-417a-9bf1-edca8be014a5)
+The current status of the hardware can be checked at a glance.
+
+![image](https://github.com/user-attachments/assets/afc91145-f4fd-4556-aca3-f24bd6c1be28)
 
 ### Usage Graph
 
+The resource utilization for the last 1 minute can be checked.
+
 ![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
+
+### Insight
+
+View resource utilization for up to the past 30 days.  
+Usage rates are calculated on a minute-by-minute basis.
+
+![image](https://github.com/user-attachments/assets/dd849d54-37a0-4f00-bec8-9c7f994d49fa)
+
 
 ### Custom Graph
 
-![image](https://github.com/user-attachments/assets/814eff68-9190-4c39-a67d-a7458778ec95)
+Flexible graph customization available.
+
+![image](https://github.com/user-attachments/assets/b6b2436b-c4c7-4252-9654-c5f2ca89e499)
+
 
 ### Background Image
 
@@ -112,6 +131,6 @@ rustc 1.84.1 (e71f9a9a9 2025-01-27)
 - Run tests:
 
   ```bash
-   npm run test:unit ## frontend unit tests
-   npm run test:tauri ## rust tests
+   npm run test:unit # frontend unit tests
+   npm run test:tauri # rust tests
   ```
