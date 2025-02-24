@@ -110,6 +110,16 @@
         },
         "opacity": "Opacity"
       },
+      "insights": {
+        "name": "Insights",
+        "about": {
+          "title": "About Insights",
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions."
+        },
+        "enable": "Enable Insights",
+        "disable": "Disable Insights",
+        "reset": "Reset Data"
+      },
       "about": {
         "name": "About",
         "version": "Version: {{version}}",

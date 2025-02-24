@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
@@ -398,6 +399,42 @@ const SettingTemperatureUnit = () => {
   );
 };
 
+const AboutInsight = () => {
+  const { t } = useTranslation();
+
+  return (
+    <TypographyP className="text-sm whitespace-pre-wrap">
+      {t("pages.settings.insights.about.description")}
+    </TypographyP>
+  );
+};
+
+const ToggleInsight = () => {
+  const { t } = useTranslation();
+  const { settings, toggleHardwareArchiveAtom } = useSettingsAtom();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4 py-3">
+        <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
+          <div className="space-y-0.5">
+            <Label htmlFor="insight" className="text-lg">
+              {t(
+                `pages.settings.insights.${settings.hardwareArchive.enabled ? "disable" : "enable"}`,
+              )}
+            </Label>
+          </div>
+
+          <Switch
+            checked={settings.hardwareArchive.enabled}
+            onCheckedChange={toggleHardwareArchiveAtom}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const About = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -536,6 +573,16 @@ const Settings = () => {
           </div>
         </div>
       </div>
+      <div className="p-4 xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 items-start">
+        <div className="col-span-2">
+          <h3 className="text-2xl font-bold pt-3 pb-1">
+            {t("pages.settings.insights.name")}
+          </h3>
+          <AboutInsight />
+          <ToggleInsight />
+        </div>
+      </div>
+
       <div className="p-4">
         <h3 className="text-2xl font-bold py-3">
           {t("pages.settings.about.name")}

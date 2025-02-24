@@ -36,7 +36,7 @@ mod tests {
       selected_background_img: None,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       hardware_archive: structs::hardware_archive::HardwareArchiveSettings {
-        enabled: false,
+        enabled: true,
         refresh_interval_days: 30,
       },
     };

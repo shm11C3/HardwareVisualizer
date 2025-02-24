@@ -29,7 +29,7 @@ const settingsAtom = atom<ClientSettings>({
   selectedBackgroundImg: null,
   temperatureUnit: "C",
   hardwareArchive: {
-    enabled: false,
+    enabled: true,
     refreshIntervalDays: 30,
   },
 });
@@ -134,11 +134,27 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  const toggleHardwareArchiveAtom = async (value: boolean) => {
+    const result = await commands.setHardwareArchiveEnabled(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      hardwareArchive: { ...prev.hardwareArchive, enabled: value },
+    }));
+  };
+
   return {
     settings,
     loadSettings,
     toggleDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,
+    toggleHardwareArchiveAtom,
   };
 };
