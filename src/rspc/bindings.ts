@@ -331,6 +331,9 @@ async deleteBackgroundImage(fileId: string) : Promise<Result<null, string>> {
 },
 async setDecoration(isDecorated: boolean) : Promise<void> {
     await TAURI_INVOKE("set_decoration", { isDecorated });
+},
+async restartApp() : Promise<void> {
+    await TAURI_INVOKE("restart_app");
 }
 }
 

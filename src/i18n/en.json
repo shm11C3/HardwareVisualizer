@@ -118,6 +118,12 @@
         },
         "enable": "Enable Insights",
         "disable": "Disable Insights",
+        "needRestart": {
+          "title": "Restart Required",
+          "description": "You need to restart the app to apply the changes.",
+          "restart": "Restart",
+          "cancel": "Restart later"
+        },
         "reset": "Reset Data"
       },
       "about": {

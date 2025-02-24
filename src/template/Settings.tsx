@@ -4,6 +4,16 @@ import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -21,7 +31,11 @@ import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
-import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
+import {
+  type ClientSettings,
+  type LineGraphType,
+  commands,
+} from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -29,6 +43,7 @@ import {
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { useSetAtom } from "jotai";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
@@ -410,28 +425,56 @@ const AboutInsight = () => {
 };
 
 const ToggleInsight = () => {
+  const [alertOpen, setAlertOpen] = useState(false);
   const { t } = useTranslation();
   const { settings, toggleHardwareArchiveAtom } = useSettingsAtom();
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4 py-3">
-        <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
-          <div className="space-y-0.5">
-            <Label htmlFor="insight" className="text-lg">
-              {t(
-                `pages.settings.insights.${settings.hardwareArchive.enabled ? "disable" : "enable"}`,
-              )}
-            </Label>
-          </div>
+  const handleCheckedChange = async (value: boolean) => {
+    await toggleHardwareArchiveAtom(value);
+    setAlertOpen(true);
+  };
 
-          <Switch
-            checked={settings.hardwareArchive.enabled}
-            onCheckedChange={toggleHardwareArchiveAtom}
-          />
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4 py-3">
+          <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
+            <div className="space-y-0.5">
+              <Label htmlFor="insight" className="text-lg">
+                {t(
+                  `pages.settings.insights.${settings.hardwareArchive.enabled ? "disable" : "enable"}`,
+                )}
+              </Label>
+            </div>
+
+            <Switch
+              checked={settings.hardwareArchive.enabled}
+              onCheckedChange={handleCheckedChange}
+            />
+          </div>
         </div>
       </div>
-    </div>
+      <AlertDialog open={alertOpen}>
+        <AlertDialogContent className="dark:text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("pages.settings.insights.needRestart.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("pages.settings.insights.needRestart.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAlertOpen(false)}>
+              {t("pages.settings.insights.needRestart.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={commands.restartApp}>
+              {t("pages.settings.insights.needRestart.restart")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

@@ -15,6 +15,7 @@ mod tests;
 use commands::background_image;
 use commands::hardware;
 use commands::settings;
+use commands::system;
 use commands::ui;
 use specta_typescript::Typescript;
 use tauri::Manager;
@@ -98,6 +99,7 @@ pub fn run() {
     background_image::save_background_image,
     background_image::delete_background_image,
     ui::set_decoration,
+    system::restart_app,
   ]);
 
   // TS bindings
