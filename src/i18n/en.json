@@ -110,6 +110,22 @@
         },
         "opacity": "Opacity"
       },
+      "insights": {
+        "name": "Insights",
+        "about": {
+          "title": "About Insights",
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions."
+        },
+        "enable": "Enable Insights",
+        "disable": "Disable Insights",
+        "needRestart": {
+          "title": "Restart Required",
+          "description": "You need to restart the app to apply the changes.",
+          "restart": "Restart",
+          "cancel": "Restart later"
+        },
+        "reset": "Reset Data"
+      },
       "about": {
         "name": "About",
         "version": "Version: {{version}}",
