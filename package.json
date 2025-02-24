@@ -34,7 +34,7 @@
     "vitest": "^3.0.6"
   },
   "dependencies": {
-    "@hookform/resolvers": "^4.1.0",
+    "@hookform/resolvers": "^4.1.2",
     "@phosphor-icons/react": "^2.1.7",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-checkbox": "^1.1.4",
