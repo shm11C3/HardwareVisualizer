@@ -109,7 +109,12 @@ const Page = () => {
         />
         <div className="relative z-10">
           <SideMenu />
-          {displayTarget && displayTargets[displayTarget]}
+          {displayTarget ? (
+            displayTargets[displayTarget]
+          ) : (
+            // biome-ignore lint/style/useSelfClosingElements: <explanation>
+            <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover"></div>
+          )}
         </div>
       </div>
     </ErrorBoundary>
