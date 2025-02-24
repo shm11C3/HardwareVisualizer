@@ -6,10 +6,11 @@ pub fn restart_app(app_handle: tauri::AppHandle) {
   let args: Vec<String> = std::env::args().collect();
 
   // 新たにプロセスを生成
-  std::process::Command::new(exe_path)
+  let _ = std::process::Command::new(exe_path)
     .args(args)
     .spawn()
-    .expect("Failed to restart process");
+    .expect("Failed to restart process")
+    .wait();
 
   app_handle.exit(0);
 }
