@@ -1,13 +1,11 @@
 import { open } from "@tauri-apps/plugin-shell";
 
 export const openURL = async (url: string) => {
-  if (!isValidURL(url)) console.error("Invalid URL:", url);
-
-  try {
-    await open(url);
-  } catch (error) {
-    console.error("Failed to open URL:", error);
+  if (!isValidURL(url)) {
+    throw new Error("Invalid URL");
   }
+
+  await open(url);
 };
 
 const isValidURL = (url: string) => {

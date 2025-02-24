@@ -24,8 +24,7 @@
       "timestampUrl": "",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
-      },
-      "signCommand": "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
+      }
     },
     "longDescription": "",
     "macOS": {
@@ -45,9 +44,13 @@
   },
   "productName": "HardwareVisualizer",
   "mainBinaryName": "hardware-visualizer",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "identifier": "HardwareVisualizer",
-  "plugins": {},
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:hv-database.db"]
+    }
+  },
   "app": {
     "windows": [
       {

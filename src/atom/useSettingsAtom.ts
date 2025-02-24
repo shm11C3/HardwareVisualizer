@@ -28,14 +28,19 @@ const settingsAtom = atom<ClientSettings>({
   backgroundImgOpacity: 50,
   selectedBackgroundImg: null,
   temperatureUnit: "C",
+  hardwareArchive: {
+    enabled: true,
+    refreshIntervalDays: 30,
+  },
 });
 
 export const useSettingsAtom = () => {
   const { error } = useTauriDialog();
   const mapSettingUpdater: {
-    [K in keyof Omit<ClientSettings, "state" | "lineGraphColor" | "version">]: (
-      value: ClientSettings[K],
-    ) => Promise<Result<null, string>>;
+    [K in keyof Omit<
+      ClientSettings,
+      "state" | "lineGraphColor" | "version" | "hardwareArchive"
+    >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
     theme: commands.setTheme,
     displayTargets: commands.setDisplayTargets,
@@ -71,7 +76,7 @@ export const useSettingsAtom = () => {
   const updateSettingAtom = async <
     K extends keyof Omit<
       ClientSettings,
-      "state" | "lineGraphColor" | "version"
+      "state" | "lineGraphColor" | "version" | "hardwareArchive"
     >,
   >(
     key: K,
@@ -129,11 +134,27 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  const toggleHardwareArchiveAtom = async (value: boolean) => {
+    const result = await commands.setHardwareArchiveEnabled(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      hardwareArchive: { ...prev.hardwareArchive, enabled: value },
+    }));
+  };
+
   return {
     settings,
     loadSettings,
     toggleDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,
+    toggleHardwareArchiveAtom,
   };
 };

@@ -4,6 +4,16 @@ import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -17,10 +27,15 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
-import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
+import {
+  type ClientSettings,
+  type LineGraphType,
+  commands,
+} from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -28,6 +43,7 @@ import {
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { useSetAtom } from "jotai";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
@@ -98,7 +114,7 @@ const SettingLanguage = () => {
   };
 
   return (
-    <div className="flex items-center space-x-4 py-6">
+    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
       <Label htmlFor="language" className="text-lg">
         {t("pages.settings.general.language")}
       </Label>
@@ -127,7 +143,7 @@ const SettingColorMode = () => {
   };
 
   return (
-    <div className="flex items-center space-x-4 py-6">
+    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
       <Label htmlFor="darkMode" className="text-lg">
         {t("pages.settings.general.colorMode.name")}
       </Label>
@@ -251,7 +267,7 @@ const SettingBackGroundOpacity = () => {
 
   return (
     settings.selectedBackgroundImg && (
-      <>
+      <div className="py-3 max-w-96">
         <Label className="block text-lg mb-2">
           {t("pages.settings.backgroundImage.opacity")}
         </Label>
@@ -263,7 +279,7 @@ const SettingBackGroundOpacity = () => {
           onValueChange={changeBackGroundOpacity}
           className="w-full mt-4"
         />
-      </>
+      </div>
     )
   );
 };
@@ -322,7 +338,7 @@ const SettingColorInput = ({
   const hexValue = RGB2HEX(settings.lineGraphColor[hardwareType]);
 
   return (
-    <div className="grid grid-cols-2 gap-4 py-6">
+    <div className="grid grid-cols-2 gap-4 py-3">
       <Label htmlFor={hardwareType} className="text-lg">
         {label}
       </Label>
@@ -374,7 +390,7 @@ const SettingTemperatureUnit = () => {
   };
 
   return (
-    <div className="flex items-center space-x-4 py-6">
+    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
       <Label htmlFor="temperatureUnit" className="text-lg">
         {t("pages.settings.general.temperatureUnit.name")}
       </Label>
@@ -398,12 +414,76 @@ const SettingTemperatureUnit = () => {
   );
 };
 
+const AboutInsight = () => {
+  const { t } = useTranslation();
+
+  return (
+    <TypographyP className="text-sm whitespace-pre-wrap">
+      {t("pages.settings.insights.about.description")}
+    </TypographyP>
+  );
+};
+
+const ToggleInsight = () => {
+  const [alertOpen, setAlertOpen] = useState(false);
+  const { t } = useTranslation();
+  const { settings, toggleHardwareArchiveAtom } = useSettingsAtom();
+
+  const handleCheckedChange = async (value: boolean) => {
+    await toggleHardwareArchiveAtom(value);
+    setAlertOpen(true);
+  };
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4 py-3">
+          <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
+            <div className="space-y-0.5">
+              <Label htmlFor="insight" className="text-lg">
+                {t(
+                  `pages.settings.insights.${settings.hardwareArchive.enabled ? "disable" : "enable"}`,
+                )}
+              </Label>
+            </div>
+
+            <Switch
+              checked={settings.hardwareArchive.enabled}
+              onCheckedChange={handleCheckedChange}
+            />
+          </div>
+        </div>
+      </div>
+      <AlertDialog open={alertOpen}>
+        <AlertDialogContent className="dark:text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("pages.settings.insights.needRestart.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("pages.settings.insights.needRestart.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAlertOpen(false)}>
+              {t("pages.settings.insights.needRestart.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={commands.restartApp}>
+              {t("pages.settings.insights.needRestart.restart")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
 const About = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
 
   return (
-    <div className="py-2">
+    <div className="py-2 px-4">
       <p className="text-sm text-gray-500">
         {t("pages.settings.about.version", { version: settings.version })}
       </p>
@@ -473,9 +553,11 @@ const Settings = () => {
         <h3 className="text-2xl font-bold py-3">
           {t("pages.settings.general.name")}
         </h3>
-        <SettingLanguage />
-        <SettingColorMode />
-        <SettingTemperatureUnit />
+        <div className="px-4">
+          <SettingLanguage />
+          <SettingColorMode />
+          <SettingTemperatureUnit />
+        </div>
       </div>
       <div className="mt-8 p-4">
         <h3 className="text-2xl font-bold py-3">
@@ -500,7 +582,7 @@ const Settings = () => {
               <h4 className="text-xl font-bold">
                 {t("pages.settings.customTheme.lineColor")}
               </h4>
-              <div className="md:flex lg:block">
+              <div className="md:flex lg:block py-6">
                 <SettingColorInput label="CPU" hardwareType="cpu" />
                 <SettingColorInput label="RAM" hardwareType="memory" />
                 <SettingColorInput label="GPU" hardwareType="gpu" />
@@ -529,13 +611,21 @@ const Settings = () => {
                 <UploadImage />
                 <BackgroundImageList />
               </div>
-              <div className="py-3 max-w-96">
-                <SettingBackGroundOpacity />
-              </div>
+              <SettingBackGroundOpacity />
             </div>
           </div>
         </div>
       </div>
+      <div className="p-4 xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 items-start">
+        <div className="col-span-2">
+          <h3 className="text-2xl font-bold pt-3 pb-1">
+            {t("pages.settings.insights.name")}
+          </h3>
+          <AboutInsight />
+          <ToggleInsight />
+        </div>
+      </div>
+
       <div className="p-4">
         <h3 className="text-2xl font-bold py-3">
           {t("pages.settings.about.name")}

@@ -152,8 +152,6 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
 
     let mut cooler_infos = Vec::new();
 
-    print!("{:?}", gpus);
-
     for gpu in gpus.iter() {
       // 温度情報を取得
       let cooler_settings = gpu.cooler_settings(None).map_err(|e| {
