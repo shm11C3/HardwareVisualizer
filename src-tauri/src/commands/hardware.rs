@@ -72,6 +72,8 @@ pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
 
   system.refresh_processes(ProcessesToUpdate::All, true);
 
+  let num_cores = system.cpus().len() as f32;
+
   system
     .processes()
     .values()
@@ -84,7 +86,8 @@ pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
         let sum: f32 = history.iter().rev().take(len).sum();
         let avg = sum / len as f32;
 
-        (avg * 10.0).round() / 10.0
+        let normalized_avg = avg / num_cores;
+        (normalized_avg * 10.0).round() / 10.0
       } else {
         0.0 // 履歴がなければ0を返す
       };
