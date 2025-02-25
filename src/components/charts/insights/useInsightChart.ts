@@ -1,7 +1,7 @@
 import { type archivePeriods, chartConfig } from "@/consts";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { DataArchive, ShowDataType } from "@/types/chart";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義
 // ※cpu_avg, ram_avgは平均、cpu_max, ram_maxは最大、cpu_min, ram_minは最小を採用する例
@@ -31,10 +31,7 @@ const getData = async ({
 export const useInsightChart = ({
   type,
   period,
-}: {
-  type: ShowDataType;
-  period: (typeof archivePeriods)[number];
-}) => {
+}: { type: ShowDataType; period: (typeof archivePeriods)[number] }) => {
   const [data, setData] = useState<Array<DataArchive>>([]);
   const [endAt, setEndAt] = useState(new Date());
 
@@ -79,56 +76,79 @@ export const useInsightChart = ({
       (endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) / step,
     ) * step;
 
-  const bucketedData = data.reduce(
-    (acc, record) => {
-      const recordTime = new Date(record.timestamp).getTime();
-      const bucketTimestamp = Math.ceil(recordTime / step) * step;
-      if (!acc[bucketTimestamp]) {
-        acc[bucketTimestamp] = [];
-      }
-      acc[bucketTimestamp].push(record[type]);
-      return acc;
-    },
-    {} as Record<number, number[]>,
-  );
+  const bucketedData = useMemo(() => {
+    return data.reduce(
+      (acc, record) => {
+        const recordTime = new Date(record.timestamp).getTime();
+        const bucketTimestamp = Math.ceil(recordTime / step) * step;
+        if (!acc[bucketTimestamp]) {
+          acc[bucketTimestamp] = [];
+        }
+        acc[bucketTimestamp].push(record[type]);
+        return acc;
+      },
+      {} as Record<number, number[]>,
+    );
+  }, [data, step, type]);
 
   const aggregateFn = aggregatorMap[type];
 
-  // startBucket～endBucketまで、step刻みでループし、各バケツ内のデータを集計
-  const filledChartData: Array<number | null> = [];
-  const filledLabels: string[] = [];
+  const dateFormatter = useMemo(() => {
+    // 表示オプションを定義（条件に応じてプロパティを設定）
+    const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
+      const options: Intl.DateTimeFormatOptions = {};
 
-  for (let t = startBucket; t <= endBucket; t += step) {
-    if (!bucketedData[t] || bucketedData[t].length <= 0) {
-      if (t <= endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) {
-        filledChartData.push(null);
-        filledLabels.push(
-          new Date(t).toLocaleTimeString(undefined, {
-            year: period >= 1440 ? "numeric" : undefined,
-            month: period >= 180 ? "numeric" : undefined,
-            day: period >= 180 ? "2-digit" : undefined,
-            hour: period < 10080 ? "2-digit" : undefined,
-            minute: period < 10080 ? "2-digit" : undefined,
-          }),
-        );
+      // 1440 分以上の場合は年を表示
+      if (period >= 1440) {
+        options.year = "numeric";
+      }
+      // 180 分以上の場合は月と日を表示
+      if (period >= 180) {
+        options.month = "numeric";
+        options.day = "2-digit";
+      }
+      // 10080 分未満の場合は時刻（時間と分）を表示
+      if (period < 10080) {
+        options.hour = "2-digit";
+        options.minute = "2-digit";
+      }
+      return options;
+    })();
+
+    // Intl.DateTimeFormat のインスタンスを生成してキャッシュ
+    return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
+  }, [period]);
+
+  // startBucket～endBucketまで、step刻みでループし、各バケツ内のデータを集計
+  const { filledLabels, filledChartData } = useMemo(() => {
+    const filledChartData: Array<number | null> = [];
+    const filledLabels: string[] = [];
+
+    for (let t = startBucket; t <= endBucket; t += step) {
+      if (!bucketedData[t] || bucketedData[t].length <= 0) {
+        if (t <= endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) {
+          filledChartData.push(null);
+          filledLabels.push(dateFormatter.format(new Date(t)));
+        }
+
+        continue;
       }
 
-      continue;
+      const aggregatedValue = aggregateFn(bucketedData[t]);
+      filledChartData.push(aggregatedValue);
+      filledLabels.push(dateFormatter.format(new Date(t)));
     }
 
-    const aggregatedValue = aggregateFn(bucketedData[t]);
-    filledChartData.push(aggregatedValue);
-
-    filledLabels.push(
-      new Date(t).toLocaleTimeString(undefined, {
-        year: period >= 1440 ? "numeric" : undefined,
-        month: period >= 180 ? "numeric" : undefined,
-        day: period >= 180 ? "2-digit" : undefined,
-        hour: period < 10080 ? "2-digit" : undefined,
-        minute: period < 10080 ? "2-digit" : undefined,
-      }),
-    );
-  }
+    return { filledLabels, filledChartData };
+  }, [
+    aggregateFn,
+    bucketedData,
+    endBucket,
+    endAt,
+    startBucket,
+    step,
+    dateFormatter,
+  ]);
 
   return { labels: filledLabels, chartData: filledChartData };
 };
