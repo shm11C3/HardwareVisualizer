@@ -15,11 +15,7 @@ export const InsightChart = ({
   type: "cpu_avg" | "cpu_max" | "cpu_min" | "ram_avg" | "ram_max" | "ram_min";
 }) => {
   const { settings } = useSettingsAtom();
-
-  const { labels, chartData } = useInsightChart({
-    type: type,
-    period: period,
-  });
+  const { labels, chartData } = useInsightChart({ type, period });
 
   const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
     cpu: {
