@@ -12,7 +12,7 @@ lto = true
 
 [package]
 name = "hardware_visualizer"
-version = "0.4.1"
+version = "0.4.2"
 description = "A real-time hardware monitoring tool for Windows"
 authors = ["@shm11C3"]
 license = ""
@@ -23,19 +23,19 @@ rust-version = "1.84"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.0.3", features = [] }
+tauri-build = { version = "2.0.6", features = [] }
 
 [dependencies]
 serde_json = "1.0.139"
 serde = { version = "1.0.218", features = ["derive"] }
-tauri = { version = "2.2.5", features = [] }
+tauri = { version = "2.3.1", features = [] }
 sysinfo = "0.33.1"
 tauri-plugin-window-state = { version = "2.2.1" }
 nvapi = "=0.1.4"
 tokio = { version = "1.43.0", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", default-features = true, features = ["env-filter"]  }
-chrono = "0.4.39"
+chrono = "0.4.40"
 wmi = "0.15.1"
 rust_decimal = "1.23.0"
 tauri-plugin-dialog = "2.2.0"
@@ -55,7 +55,7 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 sqlx = { version = "0.8.3", features = ["sqlite", "runtime-async-std", "macros", "chrono"] }
 
 [dependencies.uuid]
-version = "1.14.0"
+version = "1.15.1"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
