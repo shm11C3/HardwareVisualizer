@@ -6,11 +6,11 @@ pub fn restart_app(app_handle: tauri::AppHandle) {
   let args: Vec<String> = std::env::args().collect();
 
   // 新たにプロセスを生成
-  let _ = std::process::Command::new(exe_path)
+  #[allow(clippy::zombie_processes)]
+  std::process::Command::new(exe_path)
     .args(args)
     .spawn()
-    .expect("Failed to restart process")
-    .wait();
+    .expect("Failed to restart process");
 
   app_handle.exit(0);
 }
