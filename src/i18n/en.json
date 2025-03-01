@@ -114,7 +114,7 @@
         "name": "Insights",
         "about": {
           "title": "About Insights",
-          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions."
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month."
         },
         "enable": "Enable Insights",
         "disable": "Disable Insights",
