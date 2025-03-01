@@ -42,8 +42,9 @@ import {
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
+import { getVersion } from "@tauri-apps/api/app";
 import { useSetAtom } from "jotai";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
@@ -480,12 +481,16 @@ const ToggleInsight = () => {
 
 const About = () => {
   const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getVersion().then((v) => setVersion(v));
+  }, []);
 
   return (
     <div className="py-2 px-4">
       <p className="text-sm text-gray-500">
-        {t("pages.settings.about.version", { version: settings.version })}
+        {t("pages.settings.about.version", { version })}
       </p>
       <p className="text-sm text-gray-500">
         {t("pages.settings.about.author", { author: "shm11C3" })}
