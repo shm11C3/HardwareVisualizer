@@ -78,6 +78,9 @@
           "name": "Temperature Unit",
           "celsius": "Celsius (°C)",
           "fahrenheit": "Fahrenheit (°F)"
+        },
+        "autostart": {
+          "name": "Automatic startup at OS startup"
         }
       },
       "customTheme": {

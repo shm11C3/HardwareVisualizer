@@ -29,6 +29,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
 import {
@@ -43,6 +44,7 @@ import {
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -415,6 +417,44 @@ const SettingTemperatureUnit = () => {
   );
 };
 
+const SettingAutoStart = () => {
+  const { t } = useTranslation();
+  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+  const { error } = useTauriDialog();
+
+  const toggleAutoStart = async (value: boolean) => {
+    setAutoStartEnabled(value);
+
+    try {
+      value ? await enable() : await disable();
+    } catch (e) {
+      error("Failed to set autostart");
+      setAutoStartEnabled(!value);
+    }
+  };
+
+  useEffect(() => {
+    const checkAutoStart = async () => {
+      const enabled = await isEnabled();
+      setAutoStartEnabled(enabled);
+    };
+
+    checkAutoStart();
+  }, []);
+
+  return (
+    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
+      <div className="space-y-0.5">
+        <Label htmlFor="insight" className="text-lg">
+          {t("pages.settings.general.autostart.name")}
+        </Label>
+      </div>
+
+      <Switch checked={autoStartEnabled} onCheckedChange={toggleAutoStart} />
+    </div>
+  );
+};
+
 const AboutInsight = () => {
   const { t } = useTranslation();
 
@@ -562,6 +602,7 @@ const Settings = () => {
           <SettingLanguage />
           <SettingColorMode />
           <SettingTemperatureUnit />
+          <SettingAutoStart />
         </div>
       </div>
       <div className="mt-8 p-4">

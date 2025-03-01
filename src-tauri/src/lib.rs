@@ -20,6 +20,7 @@ use commands::ui;
 use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri::Wry;
+use tauri_plugin_autostart::MacosLauncher;
 use tauri_specta::{collect_commands, Builder};
 
 use std::collections::{HashMap, VecDeque};
@@ -136,6 +137,10 @@ pub fn run() {
         .add_migrations("sqlite:hv-database.db", migrations)
         .build(),
     )
+    .plugin(tauri_plugin_autostart::init(
+      MacosLauncher::LaunchAgent,
+      Some(vec![]),
+    ))
     .manage(state)
     .manage(app_state)
     .run(tauri::generate_context!())

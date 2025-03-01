@@ -78,6 +78,9 @@
           "name": "温度の単位",
           "celsius": "摂氏（℃）",
           "fahrenheit": "華氏（℉）"
+        },
+        "autostart": {
+          "name": "OS起動時に自動起動"
         }
       },
       "customTheme": {
