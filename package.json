@@ -54,6 +54,7 @@
     "@tauri-apps/plugin-shell": "^2.2.0",
     "@tauri-apps/plugin-sql": "^2.2.0",
     "@tauri-apps/plugin-store": "^2.2.0",
+    "babel-plugin-react-compiler": "^19.0.0-beta-e1e972c-20250221",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^24.2.2",
