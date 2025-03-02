@@ -127,7 +127,14 @@
           "restart": "Restart",
           "cancel": "Restart later"
         },
-        "reset": "Reset Data"
+        "reset": "Reset Data",
+        "resetDescription": "This will delete all the data collected by the Insights feature. This action cannot be undone.",
+        "scheduledDataDeletion": "Scheduled Data Deletion",
+        "holdingPeriod": {
+          "title": "Data Holding Period (Days)",
+          "placeHolder": "Select Days",
+          "description": "The data collected by the Insights feature will be stored for a period of any days. After  days, the data will be automatically deleted."
+        }
       },
       "about": {
         "name": "About",

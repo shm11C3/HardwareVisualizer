@@ -38,6 +38,7 @@ mod tests {
       hardware_archive: structs::hardware_archive::HardwareArchiveSettings {
         enabled: true,
         refresh_interval_days: 30,
+        scheduled_data_deletion: true,
       },
     };
 

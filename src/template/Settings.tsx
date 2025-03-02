@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -519,6 +520,59 @@ const ToggleInsight = () => {
   );
 };
 
+const SetNumberOfDaysInsightDataRetains = () => {
+  const {
+    settings,
+    setHardwareArchiveRefreshIntervalDays,
+    setScheduledDataDeletion,
+  } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const changeNumberOfDays = async (value: number) => {
+    await setHardwareArchiveRefreshIntervalDays(value);
+  };
+
+  return (
+    <div className="py-6">
+      <Label className="text-lg mb-2">
+        {t("pages.settings.insights.holdingPeriod.title")}
+      </Label>
+
+      <div className="flex items-center gap-1 justify-between my-1">
+        <div className="flex items-center">
+          <Input
+            type="number"
+            placeholder={t("pages.settings.insights.holdingPeriod.placeHolder")}
+            value={settings.hardwareArchive.refreshIntervalDays}
+            onChange={(e) => changeNumberOfDays(Number(e.target.value))}
+            min={1}
+            max={100000}
+            disabled={!settings.hardwareArchive.scheduledDataDeletion}
+          />
+          <span className="ml-2">{t("shared.time.days")}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="scheduledDataDeletion"
+            checked={settings.hardwareArchive.scheduledDataDeletion}
+            onCheckedChange={setScheduledDataDeletion}
+          />
+          <Label
+            htmlFor="scheduledDataDeletion"
+            className="flex items-center space-x-2 text-lg"
+          >
+            {t("pages.settings.insights.scheduledDataDeletion")}
+          </Label>
+        </div>
+      </div>
+
+      <p className="text-sm mt-2">
+        {t("pages.settings.insights.holdingPeriod.description")}
+      </p>
+    </div>
+  );
+};
+
 const About = () => {
   const { t } = useTranslation();
   const [version, setVersion] = useState("");
@@ -667,8 +721,11 @@ const Settings = () => {
           <h3 className="text-2xl font-bold pt-3 pb-1">
             {t("pages.settings.insights.name")}
           </h3>
-          <AboutInsight />
-          <ToggleInsight />
+          <div className="p-4">
+            <AboutInsight />
+            <ToggleInsight />
+            <SetNumberOfDaysInsightDataRetains />
+          </div>
         </div>
       </div>
 

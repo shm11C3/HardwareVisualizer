@@ -270,6 +270,14 @@ async setHardwareArchiveInterval(newInterval: number) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+async setHardwareArchiveScheduledDataDeletion(newValue: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * 背景画像を取得
  * 
@@ -359,7 +367,7 @@ export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: 
 export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
-export type HardwareArchiveSettings = { enabled: boolean; refreshIntervalDays: number }
+export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**
  * クライアントに送信する設定の構造体

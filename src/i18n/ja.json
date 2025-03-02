@@ -127,7 +127,14 @@
           "restart": "再起動",
           "cancel": "後で再起動する"
         },
-        "reset": "データをリセット"
+        "reset": "データをリセット",
+        "resetDescription": "インサイトのデータをリセットします。この操作は元に戻せません。",
+        "scheduledDataDeletion": "インサイトデータの定期削除",
+        "holdingPeriod": {
+          "title": "保持期間（日数）",
+          "placeHolder": "日数を入力してください",
+          "description": "インサイト機能によって収集されたデータは、任意の日数保存されます。 日数が経過すると、データは自動的に削除されます。"
+        }
       },
       "about": {
         "name": "本ソフトウェアについて",

@@ -5,6 +5,7 @@ use specta::Type;
 #[serde(rename_all = "camelCase")]
 pub struct HardwareArchiveSettings {
   pub enabled: bool,
+  pub scheduled_data_deletion: bool,
   pub refresh_interval_days: u32,
 }
 

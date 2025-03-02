@@ -12,6 +12,7 @@ const HISTORY_CAPACITY: usize = 60;
 pub async fn start_hardware_archive_service(
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
   memory_history: Arc<Mutex<VecDeque<f32>>>,
+  refresh_interval_days: u32,
 ) {
   tokio::spawn(async move {
     loop {
@@ -79,8 +80,6 @@ pub async fn start_hardware_archive_service(
 
       let result = hardware_archive::insert(cpu_data, memory_data).await;
       if let Err(e) = result {
-        // TODO
-        eprintln!("Failed to insert hardware archive data: {:?}", e);
         log_error!(
           "Failed to insert hardware archive data",
           "start_hardware_archive_service",

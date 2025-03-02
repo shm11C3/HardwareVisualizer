@@ -59,6 +59,12 @@ pub fn run() {
       services::hardware_archive_service::start_hardware_archive_service(
         Arc::clone(&cpu_history),
         Arc::clone(&memory_history),
+        app_state
+          .settings
+          .lock()
+          .unwrap()
+          .hardware_archive
+          .refresh_interval_days,
       ),
     );
   }
@@ -95,6 +101,7 @@ pub fn run() {
     settings::commands::set_temperature_unit,
     settings::commands::set_hardware_archive_enabled,
     settings::commands::set_hardware_archive_interval,
+    settings::commands::set_hardware_archive_scheduled_data_deletion,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,
