@@ -30,6 +30,7 @@ const settingsAtom = atom<ClientSettings>({
   temperatureUnit: "C",
   hardwareArchive: {
     enabled: true,
+    scheduledDataDeletion: true,
     refreshIntervalDays: 30,
   },
 });
@@ -149,6 +150,40 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  const setHardwareArchiveRefreshIntervalDays = async (value: number) => {
+    const result = await commands.setHardwareArchiveInterval(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      hardwareArchive: { ...prev.hardwareArchive, refreshIntervalDays: value },
+    }));
+  };
+
+  const setScheduledDataDeletion = async (value: boolean) => {
+    const result =
+      await commands.setHardwareArchiveScheduledDataDeletion(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      hardwareArchive: {
+        ...prev.hardwareArchive,
+        scheduledDataDeletion: value,
+      },
+    }));
+  };
+
   return {
     settings,
     loadSettings,
@@ -156,5 +191,7 @@ export const useSettingsAtom = () => {
     updateSettingAtom,
     updateLineGraphColorAtom,
     toggleHardwareArchiveAtom,
+    setHardwareArchiveRefreshIntervalDays,
+    setScheduledDataDeletion,
   };
 };

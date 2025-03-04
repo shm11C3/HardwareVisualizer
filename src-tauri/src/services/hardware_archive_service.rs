@@ -79,14 +79,30 @@ pub async fn start_hardware_archive_service(
 
       let result = hardware_archive::insert(cpu_data, memory_data).await;
       if let Err(e) = result {
-        // TODO
-        eprintln!("Failed to insert hardware archive data: {:?}", e);
         log_error!(
           "Failed to insert hardware archive data",
           "start_hardware_archive_service",
           Some(e.to_string())
         );
       }
+    }
+  });
+}
+
+///
+/// 指定された日数より古いデータを削除する
+///
+pub async fn batch_delete_old_data(refresh_interval_days: u32) {
+  tokio::task::spawn_blocking(move || {
+    let deletion_result = tokio::runtime::Handle::current()
+      .block_on(hardware_archive::delete_old_data(refresh_interval_days));
+
+    if let Err(e) = deletion_result {
+      log_error!(
+        "Failed to delete old hardware archive data",
+        "batch_delete_old_data",
+        Some(e.to_string())
+      );
     }
   });
 }

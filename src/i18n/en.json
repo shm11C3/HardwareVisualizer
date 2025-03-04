@@ -78,6 +78,9 @@
           "name": "Temperature Unit",
           "celsius": "Celsius (°C)",
           "fahrenheit": "Fahrenheit (°F)"
+        },
+        "autostart": {
+          "name": "Automatic startup at OS startup"
         }
       },
       "customTheme": {
@@ -114,17 +117,24 @@
         "name": "Insights",
         "about": {
           "title": "About Insights",
-          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions."
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month. \nWe recommend that the n-insight feature be enabled unless there are capacity or other issues."
         },
-        "enable": "Enable Insights",
-        "disable": "Disable Insights",
+        "enable": "Start Recording Insights",
+        "disable": "Stop recording insights",
         "needRestart": {
           "title": "Restart Required",
           "description": "You need to restart the app to apply the changes.",
           "restart": "Restart",
           "cancel": "Restart later"
         },
-        "reset": "Reset Data"
+        "reset": "Reset Data",
+        "resetDescription": "This will delete all the data collected by the Insights feature. This action cannot be undone.",
+        "scheduledDataDeletion": "Scheduled Data Deletion",
+        "holdingPeriod": {
+          "title": "Data Holding Period (Days)",
+          "placeHolder": "Select Days",
+          "description": "Data collected by the Insight function is stored for an arbitrary number of days.If periodic deletion is enabled, data will be deleted automatically after a number of days."
+        }
       },
       "about": {
         "name": "About",
