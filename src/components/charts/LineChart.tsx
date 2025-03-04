@@ -108,6 +108,7 @@ export const SingleLineChart = ({
     },
   };
 
+  // [TODO] 選択した範囲を横に移動できるようにする
   return (
     <div className={graphVariants({ size })}>
       <ChartContainer

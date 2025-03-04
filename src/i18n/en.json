@@ -117,10 +117,10 @@
         "name": "Insights",
         "about": {
           "title": "About Insights",
-          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month."
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month. \nWe recommend that the n-insight feature be enabled unless there are capacity or other issues."
         },
-        "enable": "Enable Insights",
-        "disable": "Disable Insights",
+        "enable": "Start Recording Insights",
+        "disable": "Stop recording insights",
         "needRestart": {
           "title": "Restart Required",
           "description": "You need to restart the app to apply the changes.",
