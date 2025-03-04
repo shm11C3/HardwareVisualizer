@@ -133,7 +133,7 @@
         "holdingPeriod": {
           "title": "Data Holding Period (Days)",
           "placeHolder": "Select Days",
-          "description": "The data collected by the Insights feature will be stored for a period of any days. After  days, the data will be automatically deleted."
+          "description": "Data collected by the Insight function is stored for an arbitrary number of days.If periodic deletion is enabled, data will be deleted automatically after a number of days."
         }
       },
       "about": {

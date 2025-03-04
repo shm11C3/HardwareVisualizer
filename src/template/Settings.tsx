@@ -566,7 +566,7 @@ const SetNumberOfDaysInsightDataRetains = () => {
         </div>
       </div>
 
-      <p className="text-sm mt-2">
+      <p className="text-sm mt-2 whitespace-pre-wrap">
         {t("pages.settings.insights.holdingPeriod.description")}
       </p>
     </div>
