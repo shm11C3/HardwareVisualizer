@@ -4,16 +4,8 @@ import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { NeedRestart } from "@/components/shared/System";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -33,11 +25,7 @@ import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
-import {
-  type ClientSettings,
-  type LineGraphType,
-  commands,
-} from "@/rspc/bindings";
+import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -496,26 +484,7 @@ const ToggleInsight = () => {
           </div>
         </div>
       </div>
-      <AlertDialog open={alertOpen}>
-        <AlertDialogContent className="dark:text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("pages.settings.insights.needRestart.title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("pages.settings.insights.needRestart.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setAlertOpen(false)}>
-              {t("pages.settings.insights.needRestart.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={commands.restartApp}>
-              {t("pages.settings.insights.needRestart.restart")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <NeedRestart alertOpen={alertOpen} setAlertOpen={setAlertOpen} />
     </>
   );
 };
@@ -527,49 +496,61 @@ const SetNumberOfDaysInsightDataRetains = () => {
     setScheduledDataDeletion,
   } = useSettingsAtom();
   const { t } = useTranslation();
+  const [alertOpen, setAlertOpen] = useState(false);
 
+  // 何らかの形で連続して変更かつ再起動を促すUIにする
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
   };
 
+  const handleScheduledDataDeletion = async (value: boolean) => {
+    await setScheduledDataDeletion(value);
+    setAlertOpen(true);
+  };
+
   return (
-    <div className="py-6">
-      <Label className="text-lg mb-2">
-        {t("pages.settings.insights.holdingPeriod.title")}
-      </Label>
+    <>
+      <div className="py-6">
+        <Label className="text-lg mb-2">
+          {t("pages.settings.insights.holdingPeriod.title")}
+        </Label>
 
-      <div className="flex items-center gap-1 justify-between my-1">
-        <div className="flex items-center">
-          <Input
-            type="number"
-            placeholder={t("pages.settings.insights.holdingPeriod.placeHolder")}
-            value={settings.hardwareArchive.refreshIntervalDays}
-            onChange={(e) => changeNumberOfDays(Number(e.target.value))}
-            min={1}
-            max={100000}
-            disabled={!settings.hardwareArchive.scheduledDataDeletion}
-          />
-          <span className="ml-2">{t("shared.time.days")}</span>
+        <div className="flex items-center gap-1 justify-between my-1">
+          <div className="flex items-center">
+            <Input
+              type="number"
+              placeholder={t(
+                "pages.settings.insights.holdingPeriod.placeHolder",
+              )}
+              value={settings.hardwareArchive.refreshIntervalDays}
+              onChange={(e) => changeNumberOfDays(Number(e.target.value))}
+              min={1}
+              max={100000}
+              disabled={!settings.hardwareArchive.scheduledDataDeletion}
+            />
+            <span className="ml-2">{t("shared.time.days")}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="scheduledDataDeletion"
+              checked={settings.hardwareArchive.scheduledDataDeletion}
+              onCheckedChange={handleScheduledDataDeletion}
+            />
+            <Label
+              htmlFor="scheduledDataDeletion"
+              className="flex items-center space-x-2 text-lg"
+            >
+              {t("pages.settings.insights.scheduledDataDeletion")}
+            </Label>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="scheduledDataDeletion"
-            checked={settings.hardwareArchive.scheduledDataDeletion}
-            onCheckedChange={setScheduledDataDeletion}
-          />
-          <Label
-            htmlFor="scheduledDataDeletion"
-            className="flex items-center space-x-2 text-lg"
-          >
-            {t("pages.settings.insights.scheduledDataDeletion")}
-          </Label>
-        </div>
+
+        <p className="text-sm mt-2 whitespace-pre-wrap">
+          {t("pages.settings.insights.holdingPeriod.description")}
+        </p>
       </div>
-
-      <p className="text-sm mt-2 whitespace-pre-wrap">
-        {t("pages.settings.insights.holdingPeriod.description")}
-      </p>
-    </div>
+      <NeedRestart alertOpen={alertOpen} setAlertOpen={setAlertOpen} />
+    </>
   );
 };
 
