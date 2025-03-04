@@ -12,7 +12,6 @@ const HISTORY_CAPACITY: usize = 60;
 pub async fn start_hardware_archive_service(
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
   memory_history: Arc<Mutex<VecDeque<f32>>>,
-  refresh_interval_days: u32,
 ) {
   tokio::spawn(async move {
     loop {
@@ -86,6 +85,24 @@ pub async fn start_hardware_archive_service(
           Some(e.to_string())
         );
       }
+    }
+  });
+}
+
+///
+/// 指定された日数より古いデータを削除する
+///
+pub async fn batch_delete_old_data(refresh_interval_days: u32) {
+  tokio::task::spawn_blocking(move || {
+    let deletion_result = tokio::runtime::Handle::current()
+      .block_on(hardware_archive::delete_old_data(refresh_interval_days));
+
+    if let Err(e) = deletion_result {
+      log_error!(
+        "Failed to delete old hardware archive data",
+        "batch_delete_old_data",
+        Some(e.to_string())
+      );
     }
   });
 }

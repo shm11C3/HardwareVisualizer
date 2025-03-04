@@ -46,6 +46,8 @@ pub fn run() {
     process_memory_histories: Arc::clone(&process_memory_histories),
   };
 
+  let settings = app_state.settings.lock().unwrap().clone();
+
   hardware::initialize_system(
     system,
     cpu_history.clone(),
@@ -54,11 +56,20 @@ pub fn run() {
     process_memory_histories,
   );
 
-  if app_state.settings.lock().unwrap().hardware_archive.enabled {
+  // ハードウェアアーカイブサービスの開始
+  if settings.hardware_archive.enabled {
     tauri::async_runtime::spawn(
       services::hardware_archive_service::start_hardware_archive_service(
         Arc::clone(&cpu_history),
         Arc::clone(&memory_history),
+      ),
+    );
+  }
+
+  // スケジュールされたデータ削除の開始
+  if settings.hardware_archive.scheduled_data_deletion {
+    tauri::async_runtime::spawn(
+      services::hardware_archive_service::batch_delete_old_data(
         app_state
           .settings
           .lock()
