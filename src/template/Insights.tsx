@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { archivePeriods } from "@/consts";
 import { useTauriStore } from "@/hooks/useTauriStore";
+import type { ChartDataType, DataStats } from "@/types/hardwareDataType";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -105,6 +106,22 @@ export const Insights = () => {
     periodMinRAM,
   ];
 
+  const chartData: {
+    type: Exclude<ChartDataType, "gpu">;
+    stats: DataStats;
+    period: [
+      (typeof archivePeriods)[number] | null,
+      (newValue: (typeof archivePeriods)[number] | null) => Promise<void>,
+    ];
+  }[] = [
+    { type: "cpu", stats: "avg", period: [periodAvgCPU, setPeriodAvgCPU] },
+    { type: "memory", stats: "avg", period: [periodAvgRAM, setPeriodAvgRAM] },
+    { type: "cpu", stats: "max", period: [periodMaxCPU, setPeriodMaxCPU] },
+    { type: "memory", stats: "max", period: [periodMaxRAM, setPeriodMaxRAM] },
+    { type: "cpu", stats: "min", period: [periodMinCPU, setPeriodMinCPU] },
+    { type: "memory", stats: "min", period: [periodMinRAM, setPeriodMinRAM] },
+  ];
+
   return (
     <div className="pb-6">
       <div className="flex justify-end items-center">
@@ -124,140 +141,38 @@ export const Insights = () => {
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
       </div>
+
       <div className="grid grid-cols-2 gap-6 mt-6">
-        {periodAvgCPU && (
-          <Border>
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold py-3">
-                  {t("shared.cpuUsage")} ({t("shared.avg")})
-                </h3>
-                <SelectPeriod
-                  options={options}
-                  selected={periodAvgCPU}
-                  onChange={setPeriodAvgCPU}
-                />
-              </div>
+        {chartData.map((data) => {
+          const { type, stats, period } = data;
+          const [periodData, setPeriodData] = period;
 
-              <InsightChart
-                dataType="cpu"
-                period={periodAvgCPU}
-                type="cpu_avg"
-              />
-            </>
-          </Border>
-        )}
+          return (
+            periodData && (
+              <Border key={`${data.type}-${data.stats}`}>
+                <>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-bold py-3">
+                      {t(`shared.${data.type}Usage`)} (
+                      {t(`shared.${data.stats}`)})
+                    </h3>
+                    <SelectPeriod
+                      options={options}
+                      selected={periodData}
+                      onChange={setPeriodData}
+                    />
+                  </div>
 
-        {periodAvgRAM && (
-          <Border>
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold py-3">
-                  {t("shared.memoryUsage")} ({t("shared.avg")})
-                </h3>
-                <SelectPeriod
-                  options={options}
-                  selected={periodAvgRAM}
-                  onChange={setPeriodAvgRAM}
-                />
-              </div>
-              <InsightChart
-                dataType="memory"
-                period={periodAvgRAM}
-                type="ram_avg"
-              />
-            </>
-          </Border>
-        )}
-
-        {periodMaxCPU && (
-          <Border>
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold py-3">
-                  {t("shared.cpuUsage")} ({t("shared.max")})
-                </h3>
-                <SelectPeriod
-                  options={options}
-                  selected={periodMaxCPU}
-                  onChange={setPeriodMaxCPU}
-                />
-              </div>
-
-              <InsightChart
-                dataType="cpu"
-                period={periodMaxCPU}
-                type="cpu_max"
-              />
-            </>
-          </Border>
-        )}
-
-        {periodMinRAM && (
-          <Border>
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold py-3">
-                  {t("shared.memoryUsage")} ({t("shared.max")})
-                </h3>
-                <SelectPeriod
-                  options={options}
-                  selected={periodMaxRAM}
-                  onChange={setPeriodMaxRAM}
-                />
-              </div>
-              <InsightChart
-                dataType="memory"
-                period={periodMinRAM}
-                type="ram_max"
-              />
-            </>
-          </Border>
-        )}
-
-        {periodMinCPU && (
-          <Border>
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold py-3">
-                  {t("shared.cpuUsage")} ({t("shared.min")})
-                </h3>
-                <SelectPeriod
-                  options={options}
-                  selected={periodMinCPU}
-                  onChange={setPeriodMinCPU}
-                />
-              </div>
-              <InsightChart
-                dataType="cpu"
-                period={periodMinCPU}
-                type="cpu_min"
-              />
-            </>
-          </Border>
-        )}
-
-        {periodMinRAM && (
-          <Border>
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold py-3">
-                  {t("shared.memoryUsage")} ({t("shared.min")})
-                </h3>
-                <SelectPeriod
-                  options={options}
-                  selected={periodMinRAM}
-                  onChange={setPeriodMinRAM}
-                />
-              </div>
-              <InsightChart
-                dataType="memory"
-                period={periodMinRAM}
-                type="ram_min"
-              />
-            </>
-          </Border>
-        )}
+                  <InsightChart
+                    hardwareType={type}
+                    period={periodData}
+                    dataStats={stats}
+                  />
+                </>
+              </Border>
+            )
+          );
+        })}
       </div>
     </div>
   );

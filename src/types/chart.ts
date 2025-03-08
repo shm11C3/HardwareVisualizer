@@ -8,11 +8,3 @@ export type DataArchive = {
   ram_min: number;
   timestamp: number;
 };
-
-export type ShowDataType =
-  | "cpu_avg"
-  | "cpu_max"
-  | "cpu_min"
-  | "ram_avg"
-  | "ram_max"
-  | "ram_min";
