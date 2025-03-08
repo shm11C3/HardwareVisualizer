@@ -10,16 +10,19 @@ export const InsightChart = ({
   hardwareType,
   period,
   dataStats,
+  offset,
 }: {
   hardwareType: Exclude<HardwareType, "gpu">;
   period: (typeof archivePeriods)[number];
   dataStats: DataStats;
+  offset: number;
 }) => {
   const { settings } = useSettingsAtom();
   const { labels, chartData } = useInsightChart({
     hardwareType,
     dataStats,
     period,
+    offset,
   });
 
   const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
@@ -38,7 +41,7 @@ export const InsightChart = ({
   } satisfies ChartConfig;
 
   return (
-    <div>
+    <div className="w-full h-full">
       <SingleLineChart
         labels={labels}
         chartData={chartData}

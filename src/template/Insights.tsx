@@ -9,8 +9,14 @@ import {
 import { archivePeriods } from "@/consts";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { ChartDataType, DataStats } from "@/types/hardwareDataType";
-import type { JSX } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
+
+const arrowButtonVariants = tv({
+  base: "text-zinc-500 dark:text-zinc-400 cursor-pointer disabled:opacity-50 disabled:pointer-events-none h-40",
+});
 
 const Border = ({ children }: { children: JSX.Element }) => {
   return (
@@ -146,6 +152,25 @@ export const Insights = () => {
         {chartData.map((data) => {
           const { type, stats, period } = data;
           const [periodData, setPeriodData] = period;
+          const [offset, setOffset] = useState(0);
+          const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(
+            null,
+          );
+
+          const handleMouseDown = (increment: number) => {
+            if (intervalId) return;
+            const id = setInterval(() => {
+              setOffset((prev) => Math.max(0, prev + increment));
+            }, 100);
+            setIntervalId(id);
+          };
+
+          const handleMouseUp = () => {
+            if (intervalId) {
+              clearInterval(intervalId);
+              setIntervalId(null);
+            }
+          };
 
           return (
             periodData && (
@@ -163,11 +188,39 @@ export const Insights = () => {
                     />
                   </div>
 
-                  <InsightChart
-                    hardwareType={type}
-                    period={periodData}
-                    dataStats={stats}
-                  />
+                  <div className="flex justify-between items-center">
+                    <button
+                      type="button"
+                      className={arrowButtonVariants()}
+                      onClick={() => setOffset(offset + 1)}
+                      onMouseDown={() => handleMouseDown(1)}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      onTouchStart={() => handleMouseDown(1)}
+                      onTouchEnd={handleMouseUp}
+                    >
+                      <ChevronLeft size={32} />
+                    </button>
+                    <InsightChart
+                      hardwareType={type}
+                      period={periodData}
+                      dataStats={stats}
+                      offset={offset}
+                    />
+                    <button
+                      type="button"
+                      className={arrowButtonVariants()}
+                      onClick={() => setOffset(offset - 1)}
+                      onMouseDown={() => handleMouseDown(-1)}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      onTouchStart={() => handleMouseDown(-1)}
+                      onTouchEnd={handleMouseUp}
+                      disabled={offset < 0}
+                    >
+                      <ChevronRight size={32} />
+                    </button>
+                  </div>
                 </>
               </Border>
             )

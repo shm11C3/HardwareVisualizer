@@ -53,31 +53,14 @@ export const useInsightChart = ({
   hardwareType,
   dataStats,
   period,
+  offset,
 }: {
   hardwareType: Exclude<HardwareType, "gpu">;
   dataStats: DataStats;
   period: (typeof archivePeriods)[number];
+  offset: number;
 }) => {
   const [data, setData] = useState<Array<DataArchive>>([]);
-  const [endAt, setEndAt] = useState(new Date());
-
-  useEffect(() => {
-    const updateData = () => {
-      const newEndAt = new Date();
-
-      setEndAt(newEndAt);
-      getData({ endAt: newEndAt, period }).then((data) => setData(data));
-    };
-
-    updateData();
-
-    const intervalId = setInterval(
-      updateData,
-      chartConfig.archiveUpdateIntervalMilSec,
-    );
-    return () => clearInterval(intervalId);
-  }, [period]);
-
   const step =
     {
       10: 1,
@@ -91,7 +74,28 @@ export const useInsightChart = ({
       43200: 720,
     }[period] * chartConfig.archiveUpdateIntervalMilSec;
 
-  const startTime = new Date(endAt.getTime() - period * 60 * 1000);
+  const endAt = useMemo(() => {
+    return new Date(Date.now() - offset * step);
+  }, [offset, step]);
+
+  useEffect(() => {
+    const updateData = () => {
+      getData({ endAt, period }).then((data) => setData(data));
+    };
+
+    updateData();
+
+    const intervalId = setInterval(
+      updateData,
+      chartConfig.archiveUpdateIntervalMilSec,
+    );
+    return () => clearInterval(intervalId);
+  }, [period, endAt]);
+
+  const startTime = useMemo(
+    () => new Date(endAt.getTime() - period * 60 * 1000),
+    [endAt, period],
+  );
 
   const startBucket =
     Math.ceil(
