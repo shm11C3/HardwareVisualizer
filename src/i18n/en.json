@@ -130,6 +130,7 @@
         "reset": "Reset Data",
         "resetDescription": "This will delete all the data collected by the Insights feature. This action cannot be undone.",
         "scheduledDataDeletion": "Scheduled Data Deletion",
+        "scheduledDataDeletionButton": "Scheduled Data Deletion Settings",
         "holdingPeriod": {
           "title": "Data Holding Period (Days)",
           "placeHolder": "Select Days",
