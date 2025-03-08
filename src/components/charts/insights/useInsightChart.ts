@@ -1,24 +1,22 @@
 import { type archivePeriods, chartConfig } from "@/consts";
 import { sqlitePromise } from "@/lib/sqlite";
-import type { DataArchive, ShowDataType } from "@/types/chart";
+import type { HardwareType } from "@/rspc/bindings";
+import type { DataArchive } from "@/types/chart";
+import type { DataStats } from "@/types/hardwareDataType";
 import { useEffect, useMemo, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義
-// ※cpu_avg, ram_avgは平均、cpu_max, ram_maxは最大、cpu_min, ram_minは最小を採用する例
-const aggregatorMap: Record<ShowDataType, (values: number[]) => number> = {
-  cpu_avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
-  cpu_max: (vals) => Math.max(...vals),
-  cpu_min: (vals) => Math.min(...vals),
-  ram_avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
-  ram_max: (vals) => Math.max(...vals),
-  ram_min: (vals) => Math.min(...vals),
+const aggregatorMap: Record<DataStats, (values: number[]) => number> = {
+  avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
+  max: (vals) => Math.max(...vals),
+  min: (vals) => Math.min(...vals),
 };
 
 const getData = async ({
   endAt,
   period,
 }: { endAt: Date; period: (typeof archivePeriods)[number] }): Promise<
-  Array<DataArchive>
+  DataArchive[]
 > => {
   const adjustedEndAt = new Date(
     endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
@@ -28,30 +26,41 @@ const getData = async ({
   return await (await sqlitePromise).load(sql);
 };
 
+const getDataArchiveKey = (
+  hardwareType: Exclude<HardwareType, "gpu">,
+  dataStats: DataStats,
+): keyof DataArchive => {
+  const keyMap: Record<
+    Exclude<HardwareType, "gpu">,
+    Record<string, keyof DataArchive>
+  > = {
+    cpu: {
+      avg: "cpu_avg",
+      max: "cpu_max",
+      min: "cpu_min",
+    },
+    memory: {
+      avg: "ram_avg",
+      max: "ram_max",
+      min: "ram_min",
+    },
+  };
+
+  return keyMap[hardwareType][dataStats];
+};
+
 export const useInsightChart = ({
-  type,
+  hardwareType,
+  dataStats,
   period,
-}: { type: ShowDataType; period: (typeof archivePeriods)[number] }) => {
+  offset,
+}: {
+  hardwareType: Exclude<HardwareType, "gpu">;
+  dataStats: DataStats;
+  period: (typeof archivePeriods)[number];
+  offset: number;
+}) => {
   const [data, setData] = useState<Array<DataArchive>>([]);
-  const [endAt, setEndAt] = useState(new Date());
-
-  useEffect(() => {
-    const updateData = () => {
-      const newEndAt = new Date();
-
-      setEndAt(newEndAt);
-      getData({ endAt: newEndAt, period }).then((data) => setData(data));
-    };
-
-    updateData();
-
-    const intervalId = setInterval(
-      updateData,
-      chartConfig.archiveUpdateIntervalMilSec,
-    );
-    return () => clearInterval(intervalId);
-  }, [period]);
-
   const step =
     {
       10: 1,
@@ -65,7 +74,28 @@ export const useInsightChart = ({
       43200: 720,
     }[period] * chartConfig.archiveUpdateIntervalMilSec;
 
-  const startTime = new Date(endAt.getTime() - period * 60 * 1000);
+  const endAt = useMemo(() => {
+    return new Date(Date.now() - offset * step);
+  }, [offset, step]);
+
+  useEffect(() => {
+    const updateData = () => {
+      getData({ endAt, period }).then((data) => setData(data));
+    };
+
+    updateData();
+
+    const intervalId = setInterval(
+      updateData,
+      chartConfig.archiveUpdateIntervalMilSec,
+    );
+    return () => clearInterval(intervalId);
+  }, [period, endAt]);
+
+  const startTime = useMemo(
+    () => new Date(endAt.getTime() - period * 60 * 1000),
+    [endAt, period],
+  );
 
   const startBucket =
     Math.ceil(
@@ -84,14 +114,16 @@ export const useInsightChart = ({
         if (!acc[bucketTimestamp]) {
           acc[bucketTimestamp] = [];
         }
-        acc[bucketTimestamp].push(record[type]);
+        acc[bucketTimestamp].push(
+          record[getDataArchiveKey(hardwareType, dataStats)],
+        );
         return acc;
       },
       {} as Record<number, number[]>,
     );
-  }, [data, step, type]);
+  }, [data, step, dataStats, hardwareType]);
 
-  const aggregateFn = aggregatorMap[type];
+  const aggregateFn = aggregatorMap[dataStats];
 
   const dateFormatter = useMemo(() => {
     // 表示オプションを定義（条件に応じてプロパティを設定）

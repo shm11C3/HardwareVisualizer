@@ -8,3 +8,5 @@ export type NameValues = Array<{
   name: string;
   value: number;
 }>;
+
+export type DataStats = "avg" | "max" | "min";
