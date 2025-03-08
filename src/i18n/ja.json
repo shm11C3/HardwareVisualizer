@@ -130,6 +130,7 @@
         "reset": "データをリセット",
         "resetDescription": "インサイトのデータをリセットします。この操作は元に戻せません。",
         "scheduledDataDeletion": "インサイトデータの定期削除",
+        "scheduledDataDeletionButton": "定期削除設定",
         "holdingPeriod": {
           "title": "保持期間（日数）",
           "placeHolder": "日数を入力してください",

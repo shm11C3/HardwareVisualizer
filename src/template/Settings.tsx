@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
@@ -35,6 +41,7 @@ import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useSetAtom } from "jotai";
+import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -444,13 +451,26 @@ const SettingAutoStart = () => {
   );
 };
 
-const AboutInsight = () => {
+const InsightTitle = () => {
   const { t } = useTranslation();
-
   return (
-    <TypographyP className="text-sm whitespace-pre-wrap">
-      {t("pages.settings.insights.about.description")}
-    </TypographyP>
+    <div className="flex items-center space-x-4 pt-3 pb-1">
+      <h3 className="text-2xl font-bold">
+        {t("pages.settings.insights.name")}
+      </h3>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info />
+          </TooltipTrigger>
+          <TooltipContent>
+            <TypographyP className="text-sm whitespace-pre-wrap">
+              {t("pages.settings.insights.about.description")}
+            </TypographyP>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
   );
 };
 
@@ -496,28 +516,33 @@ const SetNumberOfDaysInsightDataRetains = () => {
     setScheduledDataDeletion,
   } = useSettingsAtom();
   const { t } = useTranslation();
-  const [alertOpen, setAlertOpen] = useState(false);
 
-  // 何らかの形で連続して変更かつ再起動を促すUIにする
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
   };
 
   const handleScheduledDataDeletion = async (value: boolean) => {
     await setScheduledDataDeletion(value);
-    setAlertOpen(true);
   };
 
   return (
-    <>
-      <div className="py-6">
-        <Label className="text-lg mb-2">
+    <div className="py-4">
+      <h4 className="text-xl font-bold">
+        {t("pages.settings.insights.scheduledDataDeletion")}
+      </h4>
+
+      <p className="text-sm mt-2 whitespace-pre-wrap">
+        {t("pages.settings.insights.holdingPeriod.description")}
+      </p>
+
+      <div className="py-4">
+        <Label className="text-lg my-4" htmlFor="holdingPeriod">
           {t("pages.settings.insights.holdingPeriod.title")}
         </Label>
-
-        <div className="flex items-center gap-1 justify-between my-1">
-          <div className="flex items-center">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center mt-2">
             <Input
+              id="holdingPeriod"
               type="number"
               placeholder={t(
                 "pages.settings.insights.holdingPeriod.placeHolder",
@@ -530,7 +555,7 @@ const SetNumberOfDaysInsightDataRetains = () => {
             />
             <span className="ml-2">{t("shared.time.days")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center space-x-2">
             <Checkbox
               id="scheduledDataDeletion"
               checked={settings.hardwareArchive.scheduledDataDeletion}
@@ -540,17 +565,28 @@ const SetNumberOfDaysInsightDataRetains = () => {
               htmlFor="scheduledDataDeletion"
               className="flex items-center space-x-2 text-lg"
             >
-              {t("pages.settings.insights.scheduledDataDeletion")}
+              {t("pages.settings.insights.scheduledDataDeletionButton")}
             </Label>
           </div>
         </div>
-
-        <p className="text-sm mt-2 whitespace-pre-wrap">
-          {t("pages.settings.insights.holdingPeriod.description")}
-        </p>
       </div>
-      <NeedRestart alertOpen={alertOpen} setAlertOpen={setAlertOpen} />
-    </>
+      <div className="flex items-center justify-end py-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button>
+                {t("pages.settings.insights.needRestart.restart")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="whitespace-pre-wrap">
+                {t("pages.settings.insights.needRestart.description")}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
   );
 };
 
@@ -699,11 +735,8 @@ const Settings = () => {
       </div>
       <div className="p-4 xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 items-start">
         <div className="col-span-2">
-          <h3 className="text-2xl font-bold pt-3 pb-1">
-            {t("pages.settings.insights.name")}
-          </h3>
+          <InsightTitle />
           <div className="p-4">
-            <AboutInsight />
             <ToggleInsight />
             <SetNumberOfDaysInsightDataRetains />
           </div>
