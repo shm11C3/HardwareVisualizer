@@ -31,7 +31,11 @@ import { defaultColorRGB, sizeOptions } from "@/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
-import type { ClientSettings, LineGraphType } from "@/rspc/bindings";
+import {
+  type ClientSettings,
+  type LineGraphType,
+  commands,
+} from "@/rspc/bindings";
 import {
   type ChartDataType,
   chartHardwareTypes,
@@ -574,7 +578,7 @@ const SetNumberOfDaysInsightDataRetains = () => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button>
+              <Button onClick={commands.restartApp}>
                 {t("pages.settings.insights.needRestart.restart")}
               </Button>
             </TooltipTrigger>
