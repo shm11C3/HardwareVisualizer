@@ -15,3 +15,14 @@ pub struct HardwareData {
   pub max: f32,
   pub min: f32,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GpuData {
+  pub name: String,
+  pub usage_avg: f32,
+  pub usage_max: f32,
+  pub usage_min: f32,
+  pub temperature_avg: f32,
+  pub temperature_max: i32,
+  pub temperature_min: i32,
+}

@@ -36,6 +36,8 @@ pub fn run() {
   let gpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
   let process_cpu_histories = Arc::new(Mutex::new(HashMap::new()));
   let process_memory_histories = Arc::new(Mutex::new(HashMap::new()));
+  let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
+  let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
 
   let state = hardware::AppState {
     system: Arc::clone(&system),
@@ -44,6 +46,8 @@ pub fn run() {
     gpu_history: Arc::clone(&gpu_history),
     process_cpu_histories: Arc::clone(&process_cpu_histories),
     process_memory_histories: Arc::clone(&process_memory_histories),
+    nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+    nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
   };
 
   let settings = app_state.settings.lock().unwrap().clone();
@@ -54,6 +58,8 @@ pub fn run() {
     memory_history.clone(),
     process_cpu_histories,
     process_memory_histories,
+    nv_gpu_usage_histories.clone(),
+    nv_gpu_temperature_histories.clone(),
   );
 
   // ハードウェアアーカイブサービスの開始
@@ -62,6 +68,8 @@ pub fn run() {
       services::hardware_archive_service::start_hardware_archive_service(
         Arc::clone(&cpu_history),
         Arc::clone(&memory_history),
+        Arc::clone(&nv_gpu_usage_histories),
+        Arc::clone(&nv_gpu_temperature_histories),
       ),
     );
   }
