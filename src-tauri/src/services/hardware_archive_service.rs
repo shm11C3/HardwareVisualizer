@@ -219,13 +219,13 @@ fn get_gpu_data(
       .fold(100, i32::min);
 
     gpu_data.push(structs::hardware_archive::GpuData {
-      name: gpu_name,
-      usage_avg: usage_avg,
-      usage_max: usage_max,
-      usage_min: usage_min,
-      temperature_avg: temperature_avg,
-      temperature_max: temperature_max,
-      temperature_min: temperature_min,
+      gpu_name,
+      usage_avg,
+      usage_max,
+      usage_min,
+      temperature_avg,
+      temperature_max,
+      temperature_min,
     });
   }
 
