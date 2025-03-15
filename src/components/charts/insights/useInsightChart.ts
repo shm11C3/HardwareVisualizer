@@ -1,29 +1,19 @@
 import { type archivePeriods, chartConfig } from "@/consts";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { HardwareType } from "@/rspc/bindings";
-import type { DataArchive } from "@/types/chart";
-import type { DataStats } from "@/types/hardwareDataType";
-import { useEffect, useMemo, useState } from "react";
+import type {
+  DataArchive,
+  GpuDataArchive,
+  SingleDataArchive,
+} from "@/types/chart";
+import type { DataStats, HardwareDataType } from "@/types/hardwareDataType";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義
 const aggregatorMap: Record<DataStats, (values: number[]) => number> = {
   avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
   max: (vals) => Math.max(...vals),
   min: (vals) => Math.min(...vals),
-};
-
-const getData = async ({
-  endAt,
-  period,
-}: { endAt: Date; period: (typeof archivePeriods)[number] }): Promise<
-  DataArchive[]
-> => {
-  const adjustedEndAt = new Date(
-    endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
-  );
-  const sql: string = `SELECT * FROM DATA_ARCHIVE WHERE timestamp BETWEEN '${new Date(adjustedEndAt.getTime() - period * 60 * 1000).toISOString()}' AND '${adjustedEndAt.toISOString()}'`;
-
-  return await (await sqlitePromise).load(sql);
 };
 
 const getDataArchiveKey = (
@@ -49,18 +39,58 @@ const getDataArchiveKey = (
   return keyMap[hardwareType][dataStats];
 };
 
-export const useInsightChart = ({
-  hardwareType,
-  dataStats,
-  period,
-  offset,
-}: {
+const getGpuDataArchiveKey = (
+  dataType: Exclude<HardwareDataType, "clock">,
+  dataStats: DataStats,
+): keyof GpuDataArchive => {
+  const keyMap: Record<
+    Exclude<HardwareDataType, "clock">,
+    Record<string, keyof GpuDataArchive>
+  > = {
+    usage: {
+      avg: "usage_avg",
+      max: "usage_max",
+      min: "usage_min",
+    },
+    temp: {
+      avg: "temperature_avg",
+      max: "temperature_max",
+      min: "temperature_min",
+    },
+  };
+
+  return keyMap[dataType][dataStats];
+};
+
+type UseInsightChartGpuProps = {
+  hardwareType: Extract<HardwareType, "gpu">;
+  dataStats: DataStats;
+  dataType: Exclude<HardwareDataType, "clock">;
+  period: (typeof archivePeriods)[number];
+  offset: number;
+  gpuName: string;
+};
+
+type UseInsightChartProps = {
   hardwareType: Exclude<HardwareType, "gpu">;
   dataStats: DataStats;
   period: (typeof archivePeriods)[number];
   offset: number;
-}) => {
-  const [data, setData] = useState<Array<DataArchive>>([]);
+};
+
+export const useInsightChart = (
+  props: UseInsightChartGpuProps | UseInsightChartProps,
+) => {
+  const { hardwareType, dataStats, period, offset } = props;
+  const gpuName =
+    hardwareType === "gpu" ? (props as UseInsightChartGpuProps).gpuName : "";
+  const dataType =
+    hardwareType === "gpu"
+      ? (props as UseInsightChartGpuProps).dataType
+      : undefined;
+
+  const [data, setData] = useState<Array<SingleDataArchive>>([]);
+
   const step =
     {
       10: 1,
@@ -78,9 +108,34 @@ export const useInsightChart = ({
     return new Date(Date.now() - offset * step);
   }, [offset, step]);
 
+  const getData = useCallback(async (): Promise<SingleDataArchive[]> => {
+    const adjustedEndAt = new Date(
+      endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
+    );
+    const startTime = new Date(adjustedEndAt.getTime() - period * 60 * 1000);
+
+    const sql =
+      hardwareType === "gpu"
+        ? `SELECT ${getGpuDataArchiveKey(
+            // biome-ignore lint/style/noNonNullAssertion: <explanation>
+            dataType!,
+            dataStats,
+          )} as value, timestamp
+              FROM GPU_DATA_ARCHIVE
+              WHERE gpu_name = '${gpuName}'
+                AND timestamp BETWEEN '${startTime.toISOString()}'
+                AND '${adjustedEndAt.toISOString()}'`
+        : `SELECT ${getDataArchiveKey(hardwareType, dataStats)} as value, timestamp
+              FROM DATA_ARCHIVE
+              WHERE timestamp BETWEEN '${startTime.toISOString()}'
+                AND '${adjustedEndAt.toISOString()}'`;
+
+    return await (await sqlitePromise).load(sql);
+  }, [endAt, hardwareType, period, dataStats, gpuName, dataType]);
+
   useEffect(() => {
     const updateData = () => {
-      getData({ endAt, period }).then((data) => setData(data));
+      getData().then((data) => setData(data));
     };
 
     updateData();
@@ -90,7 +145,7 @@ export const useInsightChart = ({
       chartConfig.archiveUpdateIntervalMilSec,
     );
     return () => clearInterval(intervalId);
-  }, [period, endAt]);
+  }, [getData]);
 
   const startTime = useMemo(
     () => new Date(endAt.getTime() - period * 60 * 1000),
@@ -114,14 +169,12 @@ export const useInsightChart = ({
         if (!acc[bucketTimestamp]) {
           acc[bucketTimestamp] = [];
         }
-        acc[bucketTimestamp].push(
-          record[getDataArchiveKey(hardwareType, dataStats)],
-        );
+        acc[bucketTimestamp].push(record.value);
         return acc;
       },
       {} as Record<number, number[]>,
     );
-  }, [data, step, dataStats, hardwareType]);
+  }, [data, step]);
 
   const aggregateFn = aggregatorMap[dataStats];
 

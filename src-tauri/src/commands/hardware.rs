@@ -26,6 +26,10 @@ pub struct AppState {
   pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
   pub process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
   pub process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
+  #[allow(dead_code)]
+  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+  #[allow(dead_code)]
+  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 }
 
 ///
@@ -367,6 +371,8 @@ pub fn initialize_system(
   memory_history: Arc<Mutex<VecDeque<f32>>>,
   process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
   process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
+  nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+  nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) {
   thread::spawn(move || loop {
     {
@@ -430,8 +436,43 @@ pub fn initialize_system(
           memory_history.push_back(memory_usage);
         }
       }
-    }
 
+      // GPU使用率の履歴を保存
+      {
+        let mut nv_gpu_usage_histories = nv_gpu_usage_histories.lock().unwrap();
+        let mut nv_gpu_temperature_histories =
+          nv_gpu_temperature_histories.lock().unwrap();
+
+        let gpus = match nvapi::PhysicalGpu::enumerate() {
+          Ok(gpus) => gpus,
+          Err(_) => continue,
+        };
+
+        for (name, gpu) in gpus
+          .iter()
+          .map(|gpu| (gpu.full_name().unwrap_or("Unknown".to_string()), gpu))
+        {
+          let usage_history = nv_gpu_usage_histories.entry(name.clone()).or_default();
+
+          if usage_history.len() >= HISTORY_CAPACITY {
+            usage_history.pop_front();
+          }
+          usage_history
+            .push_back(nvidia_gpu_service::get_gpu_usage_from_physical_gpu(gpu));
+
+          let temperature_history = nv_gpu_temperature_histories
+            .entry(name.clone())
+            .or_default();
+
+          if temperature_history.len() >= HISTORY_CAPACITY {
+            temperature_history.pop_front();
+          }
+          temperature_history.push_back(
+            nvidia_gpu_service::get_gpu_temperature_from_physical_gpu(gpu),
+          );
+        }
+      }
+    }
     thread::sleep(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
   });
 }

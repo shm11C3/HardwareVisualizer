@@ -3,3 +3,7 @@ export type SelectedDisplayType =
   | "usage"
   | "insights"
   | "settings";
+
+export const insightChildMenu = ["main", "gpu"] as const;
+
+export type InsightChildMenuType = (typeof insightChildMenu)[number];

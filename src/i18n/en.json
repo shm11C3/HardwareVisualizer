@@ -61,7 +61,13 @@
       "name": "Usage"
     },
     "insights": {
-      "name": "Insights"
+      "name": "Insights",
+      "main": {
+        "title": "Main"
+      },
+      "gpu": {
+        "title": "GPU"
+      }
     },
     "settings": {
       "name": "Settings",

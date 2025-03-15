@@ -61,7 +61,13 @@
       "name": "ハードウェア使用率"
     },
     "insights": {
-      "name": "インサイト"
+      "name": "インサイト",
+      "main": {
+        "title": "メイン"
+      },
+      "gpu": {
+        "title": "GPU"
+      }
     },
     "settings": {
       "name": "設定",
