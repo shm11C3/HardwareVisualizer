@@ -8,3 +8,21 @@ export type DataArchive = {
   ram_min: number;
   timestamp: number;
 };
+
+export type GpuDataArchive = {
+  id: number;
+  gpu_name: string;
+  usage_avg: number;
+  usage_max: number;
+  usage_min: number;
+  temperature_avg: number;
+  temperature_max: number;
+  temperature_min: number;
+  timestamp: number;
+};
+
+export type SingleDataArchive = {
+  id: number;
+  value: number;
+  timestamp: number;
+};
