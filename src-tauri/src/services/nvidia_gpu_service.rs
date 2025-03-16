@@ -298,7 +298,7 @@ pub fn get_gpu_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> f32 {
   };
 
   if let Some(gpu_usage) = usage.get(&UtilizationDomain::Graphics) {
-    let usage_f32 = gpu_usage.0 as f32 / 100.0;
+    let usage_f32 = gpu_usage.0 as f32;
     return usage_f32;
   }
 
