@@ -89,11 +89,11 @@ $ node -v
 v22.14.0
 ```
 
-[Rust 1.84](https://www.rust-lang.org/)
+[Rust 1.85](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.84.1 (e71f9a9a9 2025-01-27)
+rustc 1.85.0 (4d91de4e4 2025-02-17)
 ```
 
 ### Getting Started
