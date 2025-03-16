@@ -1,8 +1,8 @@
 use crate::structs::hardware::GraphicInfo;
 
 use crate::{log_debug, log_error, log_internal};
-use dxgi::adapter::AdapterDesc;
 use dxgi::Factory;
+use dxgi::adapter::AdapterDesc;
 use tokio::task::spawn_blocking;
 
 /// Intel GPU情報を取得する

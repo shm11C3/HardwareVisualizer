@@ -4,8 +4,8 @@ use crate::{log_debug, log_error, log_info, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
 use specta::Type;
-use tokio::task::spawn_blocking;
 use tokio::task::JoinError;
+use tokio::task::spawn_blocking;
 
 ///
 /// GPU使用率を取得する（NVAPI を使用）

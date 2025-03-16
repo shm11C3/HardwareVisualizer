@@ -21,7 +21,7 @@ use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::{Builder, collect_commands};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
