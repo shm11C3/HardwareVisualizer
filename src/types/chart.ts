@@ -9,10 +9,20 @@ export type DataArchive = {
   timestamp: number;
 };
 
-export type ShowDataType =
-  | "cpu_avg"
-  | "cpu_max"
-  | "cpu_min"
-  | "ram_avg"
-  | "ram_max"
-  | "ram_min";
+export type GpuDataArchive = {
+  id: number;
+  gpu_name: string;
+  usage_avg: number;
+  usage_max: number;
+  usage_min: number;
+  temperature_avg: number;
+  temperature_max: number;
+  temperature_min: number;
+  timestamp: number;
+};
+
+export type SingleDataArchive = {
+  id: number;
+  value: number;
+  timestamp: number;
+};

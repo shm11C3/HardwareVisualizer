@@ -2,7 +2,7 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
 import { atom, useAtom } from "jotai";
-import { memo, useCallback, useEffect } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 
@@ -38,8 +38,8 @@ const menuItemClasses = tv({
 });
 
 export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
-export const SideMenu = () => {
-  const [_displayTargetAtom, setDisplayTargetAtom] = useAtom(displayTargetAtom);
+export const SideMenu = memo(() => {
+  const [, setDisplayTargetAtom] = useAtom(displayTargetAtom);
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
   const [displayTarget, setDisplayTarget] =
     useTauriStore<SelectedDisplayType | null>("display", null);
@@ -58,6 +58,11 @@ export const SideMenu = () => {
       setDisplayTargetAtom(type);
     },
     [setDisplayTarget, setDisplayTargetAtom],
+  );
+
+  const caretIcon = useMemo(
+    () => (isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />),
+    [isOpen],
   );
 
   const MenuItem = memo(({ type }: { type: SelectedDisplayType }) => {
@@ -92,6 +97,18 @@ export const SideMenu = () => {
     );
   });
 
+  const menuItems = useMemo(
+    () => (
+      <>
+        <MenuItem type="dashboard" />
+        <MenuItem type="usage" />
+        <MenuItem type="insights" />
+        <MenuItem type="settings" />
+      </>
+    ),
+    [MenuItem],
+  );
+
   return (
     isOpen != null && (
       <div className="inset-0">
@@ -101,21 +118,18 @@ export const SideMenu = () => {
             className={buttonClasses({ open: isOpen })}
             onClick={toggleMenu}
           >
-            {isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />}
+            {caretIcon}
           </button>
           <div className={sideMenuClasses({ open: isOpen })}>
             <ul className="p-4">
               <li className="mb-4">
                 <h2 className="text-xl font-bold">HardwareVisualizer</h2>
               </li>
-              <MenuItem type="dashboard" />
-              <MenuItem type="usage" />
-              <MenuItem type="insights" />
-              <MenuItem type="settings" />
+              {menuItems}
             </ul>
           </div>
         </div>
       </div>
     )
   );
-};
+});

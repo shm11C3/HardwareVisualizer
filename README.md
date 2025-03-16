@@ -56,6 +56,8 @@ Usage rates are calculated on a minute-by-minute basis.
 
 ![image](https://github.com/user-attachments/assets/dd849d54-37a0-4f00-bec8-9c7f994d49fa)
 
+![image](https://github.com/user-attachments/assets/472c73db-9299-4101-8d3e-294c35f13a39)
+*GPU Insight is available on Nvidia GPU only.
 
 ### Custom Graph
 
@@ -89,11 +91,11 @@ $ node -v
 v22.14.0
 ```
 
-[Rust 1.84](https://www.rust-lang.org/)
+[Rust 1.85](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.84.1 (e71f9a9a9 2025-01-27)
+rustc 1.85.0 (4d91de4e4 2025-02-17)
 ```
 
 ### Getting Started

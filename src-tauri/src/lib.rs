@@ -20,7 +20,8 @@ use commands::ui;
 use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri::Wry;
-use tauri_specta::{collect_commands, Builder};
+use tauri_plugin_autostart::MacosLauncher;
+use tauri_specta::{Builder, collect_commands};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -35,6 +36,8 @@ pub fn run() {
   let gpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
   let process_cpu_histories = Arc::new(Mutex::new(HashMap::new()));
   let process_memory_histories = Arc::new(Mutex::new(HashMap::new()));
+  let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
+  let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
 
   let state = hardware::AppState {
     system: Arc::clone(&system),
@@ -43,7 +46,11 @@ pub fn run() {
     gpu_history: Arc::clone(&gpu_history),
     process_cpu_histories: Arc::clone(&process_cpu_histories),
     process_memory_histories: Arc::clone(&process_memory_histories),
+    nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+    nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
   };
+
+  let settings = app_state.settings.lock().unwrap().clone();
 
   hardware::initialize_system(
     system,
@@ -51,13 +58,32 @@ pub fn run() {
     memory_history.clone(),
     process_cpu_histories,
     process_memory_histories,
+    nv_gpu_usage_histories.clone(),
+    nv_gpu_temperature_histories.clone(),
   );
 
-  if app_state.settings.lock().unwrap().hardware_archive.enabled {
+  // ハードウェアアーカイブサービスの開始
+  if settings.hardware_archive.enabled {
     tauri::async_runtime::spawn(
       services::hardware_archive_service::start_hardware_archive_service(
         Arc::clone(&cpu_history),
         Arc::clone(&memory_history),
+        Arc::clone(&nv_gpu_usage_histories),
+        Arc::clone(&nv_gpu_temperature_histories),
+      ),
+    );
+  }
+
+  // スケジュールされたデータ削除の開始
+  if settings.hardware_archive.scheduled_data_deletion {
+    tauri::async_runtime::spawn(
+      services::hardware_archive_service::batch_delete_old_data(
+        app_state
+          .settings
+          .lock()
+          .unwrap()
+          .hardware_archive
+          .refresh_interval_days,
       ),
     );
   }
@@ -94,6 +120,7 @@ pub fn run() {
     settings::commands::set_temperature_unit,
     settings::commands::set_hardware_archive_enabled,
     settings::commands::set_hardware_archive_interval,
+    settings::commands::set_hardware_archive_scheduled_data_deletion,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,
@@ -136,6 +163,10 @@ pub fn run() {
         .add_migrations("sqlite:hv-database.db", migrations)
         .build(),
     )
+    .plugin(tauri_plugin_autostart::init(
+      MacosLauncher::LaunchAgent,
+      Some(vec![]),
+    ))
     .manage(state)
     .manage(app_state)
     .run(tauri::generate_context!())

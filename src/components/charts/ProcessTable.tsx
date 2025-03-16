@@ -117,7 +117,7 @@ export const ProcessesTable = () => {
           <div className="ml-auto">
             <DialogTrigger
               type="button"
-              className="w-full flex justify-center items-center  dark:text-gray-400 hover:text-zinc-600 dark:hover:text-white focus:outline-hidden"
+              className="w-full flex justify-center items-center  dark:text-gray-400 hover:text-zinc-600 dark:hover:text-white focus:outline-hidden cursor-pointer"
             >
               <ArrowsOut size={28} />
             </DialogTrigger>

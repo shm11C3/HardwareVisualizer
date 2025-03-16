@@ -1,7 +1,7 @@
 use crate::enums;
 use nvapi::Kibibytes;
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;

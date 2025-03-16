@@ -295,4 +295,12 @@ impl structs::settings::Settings {
     self.hardware_archive.refresh_interval_days = new_interval;
     self.write_file()
   }
+
+  pub fn set_hardware_archive_scheduled_data_deletion(
+    &mut self,
+    new_value: bool,
+  ) -> Result<(), String> {
+    self.hardware_archive.scheduled_data_deletion = new_value;
+    self.write_file()
+  }
 }

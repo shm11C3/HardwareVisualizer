@@ -4,18 +4,11 @@ import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
 import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { NeedRestart } from "@/components/shared/System";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -27,8 +20,15 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/consts/chart";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
 import {
@@ -42,8 +42,11 @@ import {
 } from "@/types/hardwareDataType";
 import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
+import { getVersion } from "@tauri-apps/api/app";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useSetAtom } from "jotai";
-import { useState } from "react";
+import { Info } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const SettingGraphType = () => {
@@ -414,13 +417,64 @@ const SettingTemperatureUnit = () => {
   );
 };
 
-const AboutInsight = () => {
+const SettingAutoStart = () => {
   const { t } = useTranslation();
+  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+  const { error } = useTauriDialog();
+
+  const toggleAutoStart = async (value: boolean) => {
+    setAutoStartEnabled(value);
+
+    try {
+      value ? await enable() : await disable();
+    } catch (e) {
+      error("Failed to set autostart");
+      setAutoStartEnabled(!value);
+    }
+  };
+
+  useEffect(() => {
+    const checkAutoStart = async () => {
+      const enabled = await isEnabled();
+      setAutoStartEnabled(enabled);
+    };
+
+    checkAutoStart();
+  }, []);
 
   return (
-    <TypographyP className="text-sm whitespace-pre-wrap">
-      {t("pages.settings.insights.about.description")}
-    </TypographyP>
+    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
+      <div className="space-y-0.5">
+        <Label htmlFor="insight" className="text-lg">
+          {t("pages.settings.general.autostart.name")}
+        </Label>
+      </div>
+
+      <Switch checked={autoStartEnabled} onCheckedChange={toggleAutoStart} />
+    </div>
+  );
+};
+
+const InsightTitle = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center space-x-4 pt-3 pb-1">
+      <h3 className="text-2xl font-bold">
+        {t("pages.settings.insights.name")}
+      </h3>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info />
+          </TooltipTrigger>
+          <TooltipContent>
+            <TypographyP className="text-sm whitespace-pre-wrap">
+              {t("pages.settings.insights.about.description")}
+            </TypographyP>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
   );
 };
 
@@ -454,38 +508,104 @@ const ToggleInsight = () => {
           </div>
         </div>
       </div>
-      <AlertDialog open={alertOpen}>
-        <AlertDialogContent className="dark:text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("pages.settings.insights.needRestart.title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("pages.settings.insights.needRestart.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setAlertOpen(false)}>
-              {t("pages.settings.insights.needRestart.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={commands.restartApp}>
-              {t("pages.settings.insights.needRestart.restart")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <NeedRestart alertOpen={alertOpen} setAlertOpen={setAlertOpen} />
     </>
+  );
+};
+
+const SetNumberOfDaysInsightDataRetains = () => {
+  const {
+    settings,
+    setHardwareArchiveRefreshIntervalDays,
+    setScheduledDataDeletion,
+  } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const changeNumberOfDays = async (value: number) => {
+    await setHardwareArchiveRefreshIntervalDays(value);
+  };
+
+  const handleScheduledDataDeletion = async (value: boolean) => {
+    await setScheduledDataDeletion(value);
+  };
+
+  return (
+    <div className="py-4">
+      <h4 className="text-xl font-bold">
+        {t("pages.settings.insights.scheduledDataDeletion")}
+      </h4>
+
+      <p className="text-sm mt-2 whitespace-pre-wrap">
+        {t("pages.settings.insights.holdingPeriod.description")}
+      </p>
+
+      <div className="py-4">
+        <Label className="text-lg my-4" htmlFor="holdingPeriod">
+          {t("pages.settings.insights.holdingPeriod.title")}
+        </Label>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center mt-2">
+            <Input
+              id="holdingPeriod"
+              type="number"
+              placeholder={t(
+                "pages.settings.insights.holdingPeriod.placeHolder",
+              )}
+              value={settings.hardwareArchive.refreshIntervalDays}
+              onChange={(e) => changeNumberOfDays(Number(e.target.value))}
+              min={1}
+              max={100000}
+              disabled={!settings.hardwareArchive.scheduledDataDeletion}
+            />
+            <span className="ml-2">{t("shared.time.days")}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="scheduledDataDeletion"
+              checked={settings.hardwareArchive.scheduledDataDeletion}
+              onCheckedChange={handleScheduledDataDeletion}
+            />
+            <Label
+              htmlFor="scheduledDataDeletion"
+              className="flex items-center space-x-2 text-lg"
+            >
+              {t("pages.settings.insights.scheduledDataDeletionButton")}
+            </Label>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-end py-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={commands.restartApp}>
+                {t("pages.settings.insights.needRestart.restart")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="whitespace-pre-wrap">
+                {t("pages.settings.insights.needRestart.description")}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
   );
 };
 
 const About = () => {
   const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getVersion().then((v) => setVersion(v));
+  }, []);
 
   return (
     <div className="py-2 px-4">
       <p className="text-sm text-gray-500">
-        {t("pages.settings.about.version", { version: settings.version })}
+        {t("pages.settings.about.version", { version })}
       </p>
       <p className="text-sm text-gray-500">
         {t("pages.settings.about.author", { author: "shm11C3" })}
@@ -557,6 +677,7 @@ const Settings = () => {
           <SettingLanguage />
           <SettingColorMode />
           <SettingTemperatureUnit />
+          <SettingAutoStart />
         </div>
       </div>
       <div className="mt-8 p-4">
@@ -618,11 +739,11 @@ const Settings = () => {
       </div>
       <div className="p-4 xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 items-start">
         <div className="col-span-2">
-          <h3 className="text-2xl font-bold pt-3 pb-1">
-            {t("pages.settings.insights.name")}
-          </h3>
-          <AboutInsight />
-          <ToggleInsight />
+          <InsightTitle />
+          <div className="p-4">
+            <ToggleInsight />
+            <SetNumberOfDaysInsightDataRetains />
+          </div>
         </div>
       </div>
 

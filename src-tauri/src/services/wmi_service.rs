@@ -4,11 +4,11 @@ use crate::utils::formatter;
 use crate::{log_error, log_info, log_internal};
 
 use regex::Regex;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use std::error::Error;
 use std::net::IpAddr;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 use wmi::{COMLibrary, WMIConnection};
 

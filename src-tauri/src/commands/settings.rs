@@ -377,4 +377,20 @@ pub mod commands {
     }
     Ok(())
   }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_hardware_archive_scheduled_data_deletion(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_hardware_archive_scheduled_data_deletion(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
 }
