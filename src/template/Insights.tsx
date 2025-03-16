@@ -473,8 +473,14 @@ export const Insights = () => {
   ];
 
   return (
-    <div className="w=full">
-      <Tabs value={displayTarget}>
+    <Tabs
+      value={
+        insightsChild.some((v) => v.key === displayTarget)
+          ? displayTarget
+          : "main"
+      }
+    >
+      {insightsChild.length > 1 && (
         <TabsList>
           {insightsChild.map((child) => {
             const { key } = child;
@@ -489,12 +495,12 @@ export const Insights = () => {
             );
           })}
         </TabsList>
-        {insightsChild.map(({ key, element }) => (
-          <TabsContent key={key} value={key}>
-            {element}
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+      )}
+      {insightsChild.map(({ key, element }) => (
+        <TabsContent key={key} value={key}>
+          {element}
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 };
