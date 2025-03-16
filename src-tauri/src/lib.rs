@@ -62,32 +62,6 @@ pub fn run() {
     nv_gpu_temperature_histories.clone(),
   );
 
-  // ハードウェアアーカイブサービスの開始
-  if settings.hardware_archive.enabled {
-    tauri::async_runtime::spawn(
-      services::hardware_archive_service::start_hardware_archive_service(
-        Arc::clone(&cpu_history),
-        Arc::clone(&memory_history),
-        Arc::clone(&nv_gpu_usage_histories),
-        Arc::clone(&nv_gpu_temperature_histories),
-      ),
-    );
-  }
-
-  // スケジュールされたデータ削除の開始
-  if settings.hardware_archive.scheduled_data_deletion {
-    tauri::async_runtime::spawn(
-      services::hardware_archive_service::batch_delete_old_data(
-        app_state
-          .settings
-          .lock()
-          .unwrap()
-          .hardware_archive
-          .refresh_interval_days,
-      ),
-    );
-  }
-
   let migrations = database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
@@ -151,6 +125,27 @@ pub fn run() {
       commands::ui::init(app);
 
       builder.mount_events(app);
+
+      // ハードウェアアーカイブサービスの開始
+      if settings.hardware_archive.enabled {
+        tauri::async_runtime::spawn(
+          services::hardware_archive_service::start_hardware_archive_service(
+            Arc::clone(&cpu_history),
+            Arc::clone(&memory_history),
+            Arc::clone(&nv_gpu_usage_histories),
+            Arc::clone(&nv_gpu_temperature_histories),
+          ),
+        );
+      }
+
+      // スケジュールされたデータ削除の開始
+      if settings.hardware_archive.scheduled_data_deletion {
+        tauri::async_runtime::spawn(
+          services::hardware_archive_service::batch_delete_old_data(
+            settings.hardware_archive.refresh_interval_days,
+          ),
+        );
+      }
 
       Ok(())
     })
