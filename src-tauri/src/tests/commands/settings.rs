@@ -109,18 +109,22 @@ mod tests {
   #[test]
   fn test_set_graph_size() {
     let mut settings = structs::settings::Settings::default();
-    assert!(settings
-      .set_graph_size(enums::settings::GraphSize::SM)
-      .is_ok());
+    assert!(
+      settings
+        .set_graph_size(enums::settings::GraphSize::SM)
+        .is_ok()
+    );
     assert_eq!(settings.graph_size, enums::settings::GraphSize::SM);
   }
 
   #[test]
   fn test_set_line_graph_type() {
     let mut settings = structs::settings::Settings::default();
-    assert!(settings
-      .set_graph_size(enums::settings::GraphSize::SM)
-      .is_ok());
+    assert!(
+      settings
+        .set_graph_size(enums::settings::GraphSize::SM)
+        .is_ok()
+    );
     assert_eq!(settings.graph_size, enums::settings::GraphSize::SM);
   }
 
@@ -143,9 +147,11 @@ mod tests {
     let mut settings = structs::settings::Settings::default();
     let new_color = "#ff0000".to_string();
 
-    assert!(settings
-      .set_line_graph_color(hardware::HardwareType::Cpu, new_color.clone())
-      .is_ok());
+    assert!(
+      settings
+        .set_line_graph_color(hardware::HardwareType::Cpu, new_color.clone())
+        .is_ok()
+    );
     assert_eq!(settings.line_graph_color.cpu, [255, 0, 0]);
   }
 
@@ -154,18 +160,22 @@ mod tests {
     let mut settings = structs::settings::Settings::default();
     let invalid_color = "invalid_color".to_string();
 
-    assert!(settings
-      .set_line_graph_color(hardware::HardwareType::Cpu, invalid_color)
-      .is_err());
+    assert!(
+      settings
+        .set_line_graph_color(hardware::HardwareType::Cpu, invalid_color)
+        .is_err()
+    );
   }
 
   #[test]
   fn test_set_line_graph_color_invalid() {
     let mut settings = structs::settings::Settings::default();
     let new_color = "invalid_color".to_string();
-    assert!(settings
-      .set_line_graph_color(hardware::HardwareType::Cpu, new_color)
-      .is_err());
+    assert!(
+      settings
+        .set_line_graph_color(hardware::HardwareType::Cpu, new_color)
+        .is_err()
+    );
   }
 
   #[test]
@@ -207,9 +217,11 @@ mod tests {
   fn test_set_selected_background_img() {
     let mut settings = structs::settings::Settings::default();
     let img_path = Some("path/to/image.png".to_string());
-    assert!(settings
-      .set_selected_background_img(img_path.clone())
-      .is_ok());
+    assert!(
+      settings
+        .set_selected_background_img(img_path.clone())
+        .is_ok()
+    );
     assert_eq!(settings.selected_background_img, img_path);
   }
 
