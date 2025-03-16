@@ -1,4 +1,4 @@
-import { insightMenuAtom } from "@/atom/ui";
+import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
 import {
   GpuInsightChart,
   InsightChart,
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/consts";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
@@ -17,10 +18,8 @@ import type {
   DataStats,
   HardwareDataType,
 } from "@/types/hardwareDataType";
-import type { InsightChildMenuType } from "@/types/ui";
-import { useAtom } from "jotai";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type JSX, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 
@@ -241,7 +240,7 @@ const MainInsights = () => {
   );
 };
 
-const GPUInsights = () => {
+const GPUInsights = ({ gpuName }: { gpuName: string }) => {
   const { t } = useTranslation();
   const [periodAvgGpuUsage, setPeriodAvgGpuUsage] = useTauriStore<
     (typeof archivePeriods)[number] | null
@@ -387,8 +386,8 @@ const GPUInsights = () => {
                 <>
                   <div className="flex justify-between items-center">
                     <h3 className="text-2xl font-bold py-3">
-                      {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)}
-                      )
+                      GPU {t(`shared.${dataTypeKeys}`)} (
+                      {t(`shared.${data.stats}`)})
                     </h3>
                     <SelectPeriod
                       options={options}
@@ -415,6 +414,7 @@ const GPUInsights = () => {
                       period={periodData}
                       dataStats={stats}
                       offset={offset}
+                      gpuName={gpuName}
                     />
                     <button
                       type="button"
@@ -441,12 +441,60 @@ const GPUInsights = () => {
 };
 
 export const Insights = () => {
-  const [displayTarget] = useAtom(insightMenuAtom);
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+  const { init } = useHardwareInfoAtom();
+  const [displayTarget, setDisplayTarget] = useTauriStore<string>(
+    "insightDisplayTarget",
+    "main",
+  );
 
-  const InsightsChild: Record<InsightChildMenuType, JSX.Element> = {
-    main: <MainInsights />,
-    gpu: <GPUInsights />,
-  };
+  useEffect(() => {
+    init();
+  }, [init]);
 
-  return InsightsChild[displayTarget];
+  const insightsChild: {
+    key: string;
+    element: JSX.Element;
+  }[] = [
+    { key: "main", element: <MainInsights /> },
+    ...(hardwareInfo.gpus
+      ? hardwareInfo.gpus
+          .map((v) => {
+            return v.vendorName === "NVIDIA"
+              ? {
+                  key: v.name,
+                  element: <GPUInsights gpuName={v.name} />,
+                }
+              : undefined;
+          })
+          .filter((v): v is NonNullable<typeof v> => Boolean(v))
+      : []),
+  ];
+
+  return (
+    <div className="w=full">
+      <Tabs value={displayTarget}>
+        <TabsList>
+          {insightsChild.map((child) => {
+            const { key } = child;
+            return (
+              <TabsTrigger
+                key={key}
+                value={key}
+                onClick={() => setDisplayTarget(key)}
+              >
+                {key === "main" ? t("pages.insights.main.title") : key}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+        {insightsChild.map(({ key, element }) => (
+          <TabsContent key={key} value={key}>
+            {element}
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
 };

@@ -68,11 +68,13 @@ export const GpuInsightChart = ({
   period,
   dataStats,
   offset,
+  gpuName,
 }: {
   dataType: Exclude<HardwareDataType, "clock">;
   period: (typeof archivePeriods)[number];
   dataStats: DataStats;
   offset: number;
+  gpuName: string;
 }) => {
   const { settings } = useSettingsAtom();
   const { labels, chartData } = useInsightChart({
@@ -81,7 +83,7 @@ export const GpuInsightChart = ({
     dataType,
     period,
     offset,
-    gpuName: "NVIDIA GeForce RTX 3060 Ti",
+    gpuName,
   });
 
   const chartConfig: Record<ChartDataType, { label: string; color: string }> = {

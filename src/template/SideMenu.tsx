@@ -1,6 +1,5 @@
-import { insightMenuAtom } from "@/atom/ui";
 import { useTauriStore } from "@/hooks/useTauriStore";
-import { type SelectedDisplayType, insightChildMenu } from "@/types/ui";
+import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
 import { atom, useAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo } from "react";
@@ -93,9 +92,6 @@ export const SideMenu = memo(() => {
           >
             {menuTitles[type]}
           </button>
-          {type === "insights" && displayTarget === type && (
-            <InsightChildMenu />
-          )}
         </li>
       )
     );
@@ -136,26 +132,4 @@ export const SideMenu = memo(() => {
       </div>
     )
   );
-});
-
-const InsightChildMenu = memo(() => {
-  const { t } = useTranslation();
-  const [displayTarget, setDisplayTarget] = useAtom(insightMenuAtom);
-
-  return insightChildMenu.map((menuType) => (
-    <li
-      key={menuType}
-      className={menuItemClasses({
-        selected: displayTarget === menuType,
-      })}
-    >
-      <button
-        type="button"
-        className="p-2 w-full h-full text-left cursor-pointer pl-8 text-sm"
-        onClick={() => setDisplayTarget(menuType)}
-      >
-        {t(`pages.insights.${menuType}.title`)}
-      </button>
-    </li>
-  ));
 });
