@@ -21,7 +21,7 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 
 > [!IMPORTANT]
 >
-> ## If it does not start
+> **If it does not start**
 >
 > We are currently working to improve the problem, which we have confirmed does not start properly in some Windows environments.
 >
