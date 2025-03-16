@@ -14,7 +14,6 @@ use specta::Type;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tauri::command;
@@ -374,7 +373,7 @@ pub fn initialize_system(
   nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) {
-  thread::spawn(move || {
+  tokio::spawn(async move {
     loop {
       {
         let mut sys = match system.lock() {
@@ -474,7 +473,7 @@ pub fn initialize_system(
           }
         }
       }
-      thread::sleep(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
+      tokio::time::sleep(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL)).await;
     }
   });
 }
