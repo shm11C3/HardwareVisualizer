@@ -52,16 +52,6 @@ pub fn run() {
 
   let settings = app_state.settings.lock().unwrap().clone();
 
-  hardware::initialize_system(
-    system,
-    cpu_history.clone(),
-    memory_history.clone(),
-    process_cpu_histories,
-    process_memory_histories,
-    nv_gpu_usage_histories.clone(),
-    nv_gpu_temperature_histories.clone(),
-  );
-
   let migrations = database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
@@ -125,6 +115,16 @@ pub fn run() {
       commands::ui::init(app);
 
       builder.mount_events(app);
+
+      tauri::async_runtime::spawn(hardware::initialize_system(
+        system,
+        cpu_history.clone(),
+        memory_history.clone(),
+        process_cpu_histories,
+        process_memory_histories,
+        nv_gpu_usage_histories.clone(),
+        nv_gpu_temperature_histories.clone(),
+      ));
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
