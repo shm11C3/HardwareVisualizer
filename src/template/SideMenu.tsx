@@ -41,8 +41,10 @@ export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
 export const SideMenu = memo(() => {
   const [, setDisplayTargetAtom] = useAtom(displayTargetAtom);
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
-  const [displayTarget, setDisplayTarget] =
-    useTauriStore<SelectedDisplayType | null>("display", null);
+  const [displayTarget, setDisplayTarget] = useTauriStore<SelectedDisplayType>(
+    "display",
+    "dashboard",
+  );
 
   useEffect(() => {
     if (displayTarget) {

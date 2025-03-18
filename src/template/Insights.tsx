@@ -77,23 +77,23 @@ const SelectPeriod = ({
 const MainInsights = () => {
   const { t } = useTranslation();
   const [periodAvgCPU, setPeriodAvgCPU] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodAvgCPU", null);
+    (typeof archivePeriods)[number]
+  >("periodAvgCPU", 60);
   const [periodAvgRAM, setPeriodAvgRAM] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodAvgRAM", null);
+    (typeof archivePeriods)[number]
+  >("periodAvgRAM", 60);
   const [periodMaxCPU, setPeriodMaxCPU] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMaxCPU", null);
+    (typeof archivePeriods)[number]
+  >("periodMaxCPU", 60);
   const [periodMaxRAM, setPeriodMaxRAM] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMaxRAM", null);
+    (typeof archivePeriods)[number]
+  >("periodMaxRAM", 60);
   const [periodMinCPU, setPeriodMinCPU] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMinCPU", null);
+    (typeof archivePeriods)[number]
+  >("periodMinCPU", 60);
   const [periodMinRAM, setPeriodMinRAM] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMinRAM", null);
+    (typeof archivePeriods)[number]
+  >("periodMinRAM", 60);
 
   const periods: Record<(typeof archivePeriods)[number], string> = {
     "10": `10 ${t("shared.time.minutes")}`,
@@ -125,8 +125,8 @@ const MainInsights = () => {
     type: Exclude<ChartDataType, "gpu">;
     stats: DataStats;
     period: [
-      (typeof archivePeriods)[number] | null,
-      (newValue: (typeof archivePeriods)[number] | null) => Promise<void>,
+      (typeof archivePeriods)[number],
+      (newValue: (typeof archivePeriods)[number]) => Promise<void>,
     ];
   }[] = [
     { type: "cpu", stats: "avg", period: [periodAvgCPU, setPeriodAvgCPU] },

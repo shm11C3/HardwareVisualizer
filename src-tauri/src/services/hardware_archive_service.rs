@@ -3,11 +3,10 @@ use crate::{log_error, log_internal};
 use std::{
   collections::{HashMap, VecDeque},
   sync::{Arc, Mutex},
-  thread,
   time::Duration,
 };
 
-const HISTORY_CAPACITY: usize = 60;
+const HISTORY_CAPACITY: u64 = 60;
 
 pub async fn start_hardware_archive_service(
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
@@ -15,72 +14,69 @@ pub async fn start_hardware_archive_service(
   nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) {
-  tokio::spawn(async move {
-    loop {
-      // 1分待機
-      thread::sleep(Duration::from_secs(HISTORY_CAPACITY as u64));
+  let mut interval = tokio::time::interval(Duration::from_secs(HISTORY_CAPACITY));
 
-      // 現在時刻と平均値を用いてアーカイブデータを生成
-      let cpu_data = get_cpu_data(cpu_history.clone());
-      let memory_data = get_memory_data(memory_history.clone());
+  loop {
+    interval.tick().await;
 
-      let result = database::hardware_archive::insert(cpu_data, memory_data).await;
+    // 現在時刻と平均値を用いてアーカイブデータを生成
+    let cpu_data = get_cpu_data(cpu_history.clone());
+    let memory_data = get_memory_data(memory_history.clone());
+
+    let result = database::hardware_archive::insert(cpu_data, memory_data).await;
+    if let Err(e) = result {
+      log_error!(
+        "Failed to insert hardware archive data",
+        "start_hardware_archive_service",
+        Some(e.to_string())
+      );
+    }
+
+    let gpu_data_list = get_gpu_data(
+      nv_gpu_usage_histories.clone(),
+      nv_gpu_temperature_histories.clone(),
+    );
+
+    for gpu_data in gpu_data_list {
+      let result = database::gpu_archive::insert(gpu_data).await;
       if let Err(e) = result {
         log_error!(
-          "Failed to insert hardware archive data",
+          "Failed to insert GPU hardware archive data",
           "start_hardware_archive_service",
           Some(e.to_string())
         );
       }
-
-      let gpu_data_list = get_gpu_data(
-        nv_gpu_usage_histories.clone(),
-        nv_gpu_temperature_histories.clone(),
-      );
-
-      for gpu_data in gpu_data_list {
-        let result = database::gpu_archive::insert(gpu_data).await;
-        if let Err(e) = result {
-          log_error!(
-            "Failed to insert GPU hardware archive data",
-            "start_hardware_archive_service",
-            Some(e.to_string())
-          );
-        }
-      }
     }
-  });
+  }
 }
 
 ///
 /// 指定された日数より古いデータを削除する
 ///
 pub async fn batch_delete_old_data(refresh_interval_days: u32) {
-  tokio::task::spawn_blocking(move || {
-    let deletion_result = tokio::runtime::Handle::current().block_on(
-      database::hardware_archive::delete_old_data(refresh_interval_days),
+  let deletion_result = tokio::runtime::Handle::current().block_on(
+    database::hardware_archive::delete_old_data(refresh_interval_days),
+  );
+
+  if let Err(e) = deletion_result {
+    log_error!(
+      "Failed to delete old hardware archive data",
+      "batch_delete_old_data",
+      Some(e.to_string())
     );
+  }
 
-    if let Err(e) = deletion_result {
-      log_error!(
-        "Failed to delete old hardware archive data",
-        "batch_delete_old_data",
-        Some(e.to_string())
-      );
-    }
+  let deletion_result = tokio::runtime::Handle::current().block_on(
+    database::gpu_archive::delete_old_data(refresh_interval_days),
+  );
 
-    let deletion_result = tokio::runtime::Handle::current().block_on(
-      database::gpu_archive::delete_old_data(refresh_interval_days),
+  if let Err(e) = deletion_result {
+    log_error!(
+      "Failed to delete old GPU hardware archive data",
+      "batch_delete_old_data",
+      Some(e.to_string())
     );
-
-    if let Err(e) = deletion_result {
-      log_error!(
-        "Failed to delete old GPU hardware archive data",
-        "batch_delete_old_data",
-        Some(e.to_string())
-      );
-    }
-  });
+  }
 }
 
 fn get_cpu_data(
