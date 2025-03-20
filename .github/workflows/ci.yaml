@@ -271,7 +271,7 @@ jobs:
         run: cargo install tauri-driver --locked
 
       - name: Cargo build
-        run: cargo build --release
+        run: cargo build --release  --manifest-path src-tauri/Cargo.toml
 
       - name: Integration Testing
         run: npm run test:e2e
