@@ -270,8 +270,8 @@ jobs:
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
 
-      - name: Build Tauri
-        run: npm run tauri build
+      - name: Cargo build
+        run: cargo build --release
 
       - name: Integration Testing
         run: npm run test:e2e
