@@ -119,6 +119,7 @@ export const SideMenu = memo(() => {
             type="button"
             className={buttonClasses({ open: isOpen })}
             onClick={toggleMenu}
+            aria-label="Toggle Side Menu"
           >
             {caretIcon}
           </button>
