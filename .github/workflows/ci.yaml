@@ -271,4 +271,4 @@ jobs:
         run: cargo install tauri-driver --locked
 
       - name: Integration Testing
-        run: npm run test:integration
+        run: npm run test:e2e
