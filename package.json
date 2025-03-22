@@ -53,7 +53,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@radix-ui/react-visually-hidden": "^1.1.2",
     "@tailwindcss/vite": "^4.0.15",
-    "@tauri-apps/api": "^2.3.0",
+    "@tauri-apps/api": "^2.4.0",
     "@tauri-apps/plugin-autostart": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2.2.0",
