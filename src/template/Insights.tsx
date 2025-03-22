@@ -243,23 +243,23 @@ const MainInsights = () => {
 const GPUInsights = ({ gpuName }: { gpuName: string }) => {
   const { t } = useTranslation();
   const [periodAvgGpuUsage, setPeriodAvgGpuUsage] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodAvgGpuUsage", null);
+    (typeof archivePeriods)[number]
+  >("periodAvgGpuUsage", 60);
   const [periodAvgGpuTemperature, setPeriodAvgGpuTemperature] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodAvgGpuTemperature", null);
+    (typeof archivePeriods)[number]
+  >("periodAvgGpuTemperature", 60);
   const [periodMaxGpuUsage, setPeriodMaxGpuUsage] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMaxGpuUsage", null);
+    (typeof archivePeriods)[number]
+  >("periodMaxGpuUsage", 60);
   const [periodMaxGpuTemperature, setPeriodMaxGpuTemperature] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMaxGpuTemperature", null);
+    (typeof archivePeriods)[number]
+  >("periodMaxGpuTemperature", 60);
   const [periodMinGpuUsage, setPeriodMinGpuUsage] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMinGpuUsage", null);
+    (typeof archivePeriods)[number]
+  >("periodMinGpuUsage", 60);
   const [periodMinGpuTemperature, setPeriodMinGpuTemperature] = useTauriStore<
-    (typeof archivePeriods)[number] | null
-  >("periodMinGpuTemperature", null);
+    (typeof archivePeriods)[number]
+  >("periodMinGpuTemperature", 60);
 
   const periods: Record<(typeof archivePeriods)[number], string> = {
     "10": `10 ${t("shared.time.minutes")}`,
@@ -292,7 +292,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
     stats: DataStats;
     period: [
       (typeof archivePeriods)[number] | null,
-      (newValue: (typeof archivePeriods)[number] | null) => Promise<void>,
+      (newValue: (typeof archivePeriods)[number]) => Promise<void>,
     ];
   }[] = [
     {
