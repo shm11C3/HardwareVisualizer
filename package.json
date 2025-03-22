@@ -22,7 +22,7 @@
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.13.11",
-    "@types/react": "19.0.11",
+    "@types/react": "19.0.12",
     "@types/react-dom": "19.0.4",
     "@types/testing-library__user-event": "^4.2.0",
     "@vitejs/plugin-react": "^4.3.3",
