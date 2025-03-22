@@ -132,8 +132,11 @@ const GPUInfo = () => {
       </div>
 
       {hardwareInfo.gpus ? (
-        hardwareInfo.gpus.map((gpu, index) => (
-          <div className="py-2" key={`${gpu.name}${index}`}>
+        hardwareInfo.gpus.map((gpu, index, arr) => (
+          <div
+            className={index !== 0 ? "py-3" : arr.length > 1 ? "pb-3" : ""}
+            key={`${gpu.name}${index}`}
+          >
             <InfoTable
               data={{
                 [t("shared.name")]: gpu.name,
