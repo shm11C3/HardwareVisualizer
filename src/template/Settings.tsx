@@ -1,4 +1,5 @@
 import { gpuTempAtom } from "@/atom/chart";
+import { settingAtoms } from "@/atom/ui";
 import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { PreviewChart } from "@/components/charts/Preview";
 import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
@@ -45,7 +46,7 @@ import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -527,13 +528,18 @@ const SetNumberOfDaysInsightDataRetains = () => {
     setScheduledDataDeletion,
   } = useSettingsAtom();
   const { t } = useTranslation();
+  const [hasSettingChanged, setHasSettingChanged] = useAtom(
+    settingAtoms.isRequiredRestart,
+  );
 
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
+    setHasSettingChanged(true);
   };
 
   const handleScheduledDataDeletion = async (value: boolean) => {
     await setScheduledDataDeletion(value);
+    setHasSettingChanged(true);
   };
 
   return (
@@ -585,7 +591,10 @@ const SetNumberOfDaysInsightDataRetains = () => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={commands.restartApp}>
+              <Button
+                onClick={commands.restartApp}
+                disabled={!hasSettingChanged}
+              >
                 {t("pages.settings.insights.needRestart.restart")}
               </Button>
             </TooltipTrigger>
