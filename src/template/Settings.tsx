@@ -527,13 +527,16 @@ const SetNumberOfDaysInsightDataRetains = () => {
     setScheduledDataDeletion,
   } = useSettingsAtom();
   const { t } = useTranslation();
+  const [hasSettingChanged, setHasSettingChanged] = useState(false);
 
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
+    setHasSettingChanged(true);
   };
 
   const handleScheduledDataDeletion = async (value: boolean) => {
     await setScheduledDataDeletion(value);
+    setHasSettingChanged(true);
   };
 
   return (
@@ -585,7 +588,10 @@ const SetNumberOfDaysInsightDataRetains = () => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={commands.restartApp}>
+              <Button
+                onClick={commands.restartApp}
+                disabled={!hasSettingChanged}
+              >
                 {t("pages.settings.insights.needRestart.restart")}
               </Button>
             </TooltipTrigger>
