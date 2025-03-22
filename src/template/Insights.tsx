@@ -125,7 +125,7 @@ const MainInsights = () => {
     type: Exclude<ChartDataType, "gpu">;
     stats: DataStats;
     period: [
-      (typeof archivePeriods)[number],
+      (typeof archivePeriods)[number] | null,
       (newValue: (typeof archivePeriods)[number]) => Promise<void>,
     ];
   }[] = [
@@ -444,7 +444,7 @@ export const Insights = () => {
   const { t } = useTranslation();
   const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
-  const [displayTarget, setDisplayTarget] = useTauriStore<string>(
+  const [displayTarget, setDisplayTarget, isPending] = useTauriStore<string>(
     "insightDisplayTarget",
     "main",
   );
@@ -473,34 +473,36 @@ export const Insights = () => {
   ];
 
   return (
-    <Tabs
-      value={
-        insightsChild.some((v) => v.key === displayTarget)
-          ? displayTarget
-          : "main"
-      }
-    >
-      {insightsChild.length > 1 && (
-        <TabsList>
-          {insightsChild.map((child) => {
-            const { key } = child;
-            return (
-              <TabsTrigger
-                key={key}
-                value={key}
-                onClick={() => setDisplayTarget(key)}
-              >
-                {key === "main" ? t("pages.insights.main.title") : key}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      )}
-      {insightsChild.map(({ key, element }) => (
-        <TabsContent key={key} value={key}>
-          {element}
-        </TabsContent>
-      ))}
-    </Tabs>
+    !isPending && (
+      <Tabs
+        value={
+          insightsChild.some((v) => v.key === displayTarget)
+            ? displayTarget
+            : "main"
+        }
+      >
+        {insightsChild.length > 1 && (
+          <TabsList>
+            {insightsChild.map((child) => {
+              const { key } = child;
+              return (
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  onClick={() => setDisplayTarget(key)}
+                >
+                  {key === "main" ? t("pages.insights.main.title") : key}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        )}
+        {insightsChild.map(({ key, element }) => (
+          <TabsContent key={key} value={key}>
+            {element}
+          </TabsContent>
+        ))}
+      </Tabs>
+    )
   );
 };
