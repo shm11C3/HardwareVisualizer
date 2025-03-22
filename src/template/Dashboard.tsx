@@ -245,110 +245,108 @@ const NetworkInfo = () => {
     <>
       {networkInfo.map((network) => {
         return (
-          <>
-            <div
-              key={network.description}
-              className="mt-4 mb-2 px-4 pt-2 pb-2 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
-              style={{
-                opacity:
-                  settings.selectedBackgroundImg != null
-                    ? Math.max(
-                        (1 - settings.backgroundImgOpacity / 100) ** 2,
-                        minOpacity,
-                      )
-                    : 1,
-              }}
-            >
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-1" className="border-none">
-                  <AccordionTrigger>
-                    <div className="w-full flex items-center justify-between cursor-pointer">
-                      <p>{network.description ?? "No description"}</p>
-                      {/**  この部分にネットワーク使用量を表示 */}
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
-                        {network.ipv4[0] ?? "No IP Address"}
-                      </p>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <table className="w-full text-left text-base">
-                      <tbody>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.macAddress")}
-                          </th>
-                          <td className="py-2">
-                            {network.macAddress ?? "No MAC Address"}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv4")}
-                          </th>
-                          <td className="py-2">
-                            {network.ipv4.map((ip) => (
-                              <p key={ip}>{ip}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv4")} {t("shared.subnetMask")}
-                          </th>
-                          <td className="py-2">
-                            {network.ipSubnet.map((subnet) => (
-                              <p key={subnet}>{subnet}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv4")} {t("shared.gateway")}
-                          </th>
-                          <td className="py-2">
-                            {network.defaultIpv4Gateway.map((gateway) => (
-                              <p key={gateway}>{gateway}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv6")}
-                          </th>
-                          <td className="py-2">
-                            {network.ipv6.map((ip) => (
-                              <p key={ip}>{ip}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
-                            {t("shared.address")}
-                          </th>
-                          <td className="py-2">
-                            {network.linkLocalIpv6.map((ip) => (
-                              <p key={ip}>{ip}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv6")} {t("shared.gateway")}
-                          </th>
-                          <td className="py-2">
-                            {network.defaultIpv6Gateway.map((gateway) => (
-                              <p key={gateway}>{gateway}</p>
-                            ))}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          </>
+          <div
+            key={network.macAddress}
+            className="mt-4 mb-2 px-4 pt-2 pb-2 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+            style={{
+              opacity:
+                settings.selectedBackgroundImg != null
+                  ? Math.max(
+                      (1 - settings.backgroundImgOpacity / 100) ** 2,
+                      minOpacity,
+                    )
+                  : 1,
+            }}
+          >
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1" className="border-none">
+                <AccordionTrigger>
+                  <div className="w-full flex items-center justify-between cursor-pointer">
+                    <p>{network.description ?? "No description"}</p>
+                    {/**  この部分にネットワーク使用量を表示 */}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
+                      {network.ipv4[0] ?? "No IP Address"}
+                    </p>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <table className="w-full text-left text-base">
+                    <tbody>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.macAddress")}
+                        </th>
+                        <td className="py-2">
+                          {network.macAddress ?? "No MAC Address"}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv4")}
+                        </th>
+                        <td className="py-2">
+                          {network.ipv4.map((ip) => (
+                            <p key={ip}>{ip}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv4")} {t("shared.subnetMask")}
+                        </th>
+                        <td className="py-2">
+                          {network.ipSubnet.map((subnet) => (
+                            <p key={subnet}>{subnet}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv4")} {t("shared.gateway")}
+                        </th>
+                        <td className="py-2">
+                          {network.defaultIpv4Gateway.map((gateway) => (
+                            <p key={gateway}>{gateway}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv6")}
+                        </th>
+                        <td className="py-2">
+                          {network.ipv6.map((ip) => (
+                            <p key={ip}>{ip}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
+                          {t("shared.address")}
+                        </th>
+                        <td className="py-2">
+                          {network.linkLocalIpv6.map((ip) => (
+                            <p key={ip}>{ip}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv6")} {t("shared.gateway")}
+                        </th>
+                        <td className="py-2">
+                          {network.defaultIpv6Gateway.map((gateway) => (
+                            <p key={gateway}>{gateway}</p>
+                          ))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
         );
       })}
     </>
@@ -403,7 +401,7 @@ const Dashboard = () => {
     <div className="flex flex-wrap gap-4">
       <div className="flex-1 flex flex-col gap-4">
         {hardwareInfoListLeft.map(({ key, component }) => (
-          <DataArea key={key} title={dataAreaKey2Title[key]}>
+          <DataArea key={`left-${key}`} title={dataAreaKey2Title[key]}>
             {component}
           </DataArea>
         ))}
@@ -411,7 +409,7 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col gap-4">
         {hardwareInfoListRight.map(({ key, component }) => (
           <DataArea
-            key={key}
+            key={`right-${key}`}
             title={dataAreaKey2Title[key]}
             border={key !== "process"}
           >
