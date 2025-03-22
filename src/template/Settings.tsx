@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -419,7 +420,9 @@ const SettingTemperatureUnit = () => {
 
 const SettingAutoStart = () => {
   const { t } = useTranslation();
-  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+  const [autoStartEnabled, setAutoStartEnabled] = useState<boolean | null>(
+    null,
+  );
   const { error } = useTauriDialog();
 
   const toggleAutoStart = async (value: boolean) => {
@@ -450,7 +453,11 @@ const SettingAutoStart = () => {
         </Label>
       </div>
 
-      <Switch checked={autoStartEnabled} onCheckedChange={toggleAutoStart} />
+      {autoStartEnabled != null ? (
+        <Switch checked={autoStartEnabled} onCheckedChange={toggleAutoStart} />
+      ) : (
+        <Skeleton className="w-[44px] h-[24px] rounded-full" />
+      )}
     </div>
   );
 };

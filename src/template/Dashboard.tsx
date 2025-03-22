@@ -18,11 +18,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
-import { type JSX, useEffect } from "react";
+import { type JSX, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
@@ -82,12 +83,12 @@ const CPUInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
   return (
-    hardwareInfo.cpu && (
-      <>
-        <DoughnutChart
-          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+    <>
+      <DoughnutChart
+        chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
+        dataType={"usage"}
+      />
+      {hardwareInfo.cpu ? (
         <InfoTable
           data={{
             [t("shared.name")]: hardwareInfo.cpu.name,
@@ -97,8 +98,10 @@ const CPUInfo = () => {
               `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
           }}
         />
-      </>
-    )
+      ) : (
+        <Skeleton className="w-full h-[188px] rounded-md" />
+      )}
+    </>
   );
 };
 
@@ -117,19 +120,19 @@ const GPUInfo = () => {
   const targetTemperature = getTargetInfo(gpuTemp);
 
   return (
-    hardwareInfo.gpus && (
-      <>
-        <div className="flex justify-around h-[200px]">
-          <DoughnutChart
-            chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
-            dataType={"usage"}
-          />
-          {targetTemperature && (
-            <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
-          )}
-        </div>
+    <>
+      <div className="flex justify-around h-[200px]">
+        <DoughnutChart
+          chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
+        {targetTemperature && (
+          <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
+        )}
+      </div>
 
-        {hardwareInfo.gpus.map((gpu, index) => (
+      {hardwareInfo.gpus ? (
+        hardwareInfo.gpus.map((gpu, index) => (
           <div className="py-2" key={`${gpu.name}${index}`}>
             <InfoTable
               data={{
@@ -140,9 +143,11 @@ const GPUInfo = () => {
               }}
             />
           </div>
-        ))}
-      </>
-    )
+        ))
+      ) : (
+        <Skeleton className="w-full h-[188px] rounded-md" />
+      )}
+    </>
   );
 };
 
@@ -152,12 +157,12 @@ const MemoryInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
   return (
-    hardwareInfo.memory && (
-      <>
-        <DoughnutChart
-          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+    <>
+      <DoughnutChart
+        chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
+        dataType={"usage"}
+      />
+      {hardwareInfo.memory ? (
         <InfoTable
           data={{
             [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
@@ -168,8 +173,10 @@ const MemoryInfo = () => {
               `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
           }}
         />
-      </>
-    )
+      ) : (
+        <Skeleton className="w-full h-[188px] rounded-md" />
+      )}
+    </>
   );
 };
 
@@ -184,47 +191,62 @@ const StorageDataInfo = () => {
     a.name.localeCompare(b.name),
   );
 
-  const chartData: StorageBarChartData[] = sortedStorage.reduce(
-    (acc: StorageBarChartData[], storage: StorageInfo) => {
-      const used = storage.size - storage.free;
-      const free = storage.free;
-      acc.push({
-        label: storage.name,
-        used,
-        free,
-      });
-      return acc;
-    },
-    [],
-  );
+  const chartData: StorageBarChartData[] = useMemo(() => {
+    return sortedStorage
+      ? sortedStorage.reduce(
+          (acc: StorageBarChartData[], storage: StorageInfo) => {
+            const used = storage.size - storage.free;
+            const free = storage.free;
+            acc.push({
+              label: storage.name,
+              used,
+              free,
+            });
+            return acc;
+          },
+          [],
+        )
+      : [];
+  }, [sortedStorage]);
 
   return (
     <div className="pt-2">
       <div className="flex flex-col 2xl:flex-row">
         <div className="w-full 2xl:w-1/2">
-          {sortedStorage.map((storage) => {
-            return (
-              <div key={storage.name} className="mt-4">
-                <InfoTable
-                  data={{
-                    [t("shared.driveName")]: storage.name,
-                    [t("shared.driveFileSystem")]: storage.fileSystem,
-                    [t("shared.driveType")]: {
-                      hdd: "HDD",
-                      ssd: "SSD",
-                      other: t("shared.other"),
-                    }[storage.storageType],
-                  }}
-                />
-              </div>
-            );
-          })}
+          {sortedStorage.length > 0 ? (
+            sortedStorage.map((storage) => {
+              return (
+                <div key={storage.name} className="mt-4">
+                  <InfoTable
+                    data={{
+                      [t("shared.driveName")]: storage.name,
+                      [t("shared.driveFileSystem")]: storage.fileSystem,
+                      [t("shared.driveType")]: {
+                        hdd: "HDD",
+                        ssd: "SSD",
+                        other: t("shared.other"),
+                      }[storage.storageType],
+                    }}
+                  />
+                </div>
+              );
+            })
+          ) : (
+            <Skeleton className="h-[188px] rounded-md" />
+          )}
         </div>
         <div className="w-full 2xl:w-1/2 mt-8 2xl:mt-0">
-          <StorageBarChart
-            chartData={chartData}
-            unit={sortedStorage[0].sizeUnit}
-          />
+          {sortedStorage.length > 0 ? (
+            <StorageBarChart
+              chartData={chartData}
+              unit={sortedStorage[0].sizeUnit}
+            />
+          ) : (
+            <>
+              <Skeleton className="h-[88px] rounded-md ml-6" />
+              <Skeleton className="h-[88px] rounded-md ml-6 mt-3" />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -356,7 +378,6 @@ const NetworkInfo = () => {
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 const Dashboard = () => {
-  const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
   const { t } = useTranslation();
 
@@ -366,9 +387,12 @@ const Dashboard = () => {
   }, []);
 
   const hardwareInfoListLeft: { key: DataTypeKey; component: JSX.Element }[] = [
-    hardwareInfo.cpu && { key: "cpu", component: <CPUInfo /> },
-    hardwareInfo.memory && { key: "memory", component: <MemoryInfo /> },
-    hardwareInfo.storage.length > 0 && {
+    {
+      key: "cpu",
+      component: <CPUInfo />,
+    },
+    { key: "memory", component: <MemoryInfo /> },
+    {
       key: "storage",
       component: <StorageDataInfo />,
     },
@@ -376,7 +400,7 @@ const Dashboard = () => {
 
   const hardwareInfoListRight: { key: DataTypeKey; component: JSX.Element }[] =
     [
-      hardwareInfo.gpus && { key: "gpu", component: <GPUInfo /> },
+      { key: "gpu", component: <GPUInfo /> },
       {
         key: "process",
         component: <ProcessesTable />,
