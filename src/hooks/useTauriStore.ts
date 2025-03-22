@@ -1,39 +1,55 @@
-import { load } from "@tauri-apps/plugin-store";
-import { useEffect, useState } from "react";
+import { getStoreInstance } from "@/lib/tauriStore";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-const storePromise = load("store.json", { autoSave: true });
+type TauriStore<T> =
+  | [value: null, setValue: (newValue: T) => Promise<void>, isPending: true]
+  | [value: T, setValue: (newValue: T) => Promise<void>, isPending: false];
 
 export const useTauriStore = <T>(
   key: string,
   defaultValue: T,
-): [T, (newValue: T) => Promise<void>] => {
-  const [stateValue, setStateValue] = useState<T>(defaultValue);
+): TauriStore<T> => {
+  const [value, setValueState] = useState<T | null>(null);
+  const [isPending, setIsPending] = useState(true);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    const fetchToggleState = async () => {
-      const store = await storePromise;
+    isMountedRef.current = true;
 
-      if (await store.has(key)) {
-        const storedValue = await store.get<T>(key);
-        setStateValue(storedValue ?? defaultValue);
-      } else {
+    const fetchValue = async () => {
+      const store = await getStoreInstance();
+
+      const storedValue = (await store.has(key))
+        ? await store.get<T>(key)
+        : null;
+
+      if (!storedValue) {
         await store.set(key, defaultValue);
         await store.save();
+      }
 
-        setStateValue(defaultValue);
+      if (isMountedRef.current) {
+        setValueState(storedValue ?? defaultValue);
+        setIsPending(false);
       }
     };
 
-    fetchToggleState();
+    fetchValue();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [key, defaultValue]);
 
-  const setValue = async (newValue: T) => {
-    const store = await storePromise;
-    await store.set(key, newValue);
-    await store.save();
+  const setValue = useCallback(
+    async (newValue: T) => {
+      const store = await getStoreInstance();
+      await store.set(key, newValue);
+      await store.save();
+      setValueState(newValue);
+    },
+    [key],
+  );
 
-    setStateValue(newValue);
-  };
-
-  return [stateValue, setValue];
+  return isPending ? [null, setValue, true] : [value as T, setValue, false];
 };

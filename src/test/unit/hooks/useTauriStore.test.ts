@@ -19,7 +19,7 @@ let fakeStore: FakeStore;
 let useTauriStore: <T>(
   key: string,
   defaultValue: T,
-) => [T | null, (newValue: T) => Promise<void>];
+) => [T | null, (newValue: T) => Promise<void>, boolean];
 
 describe("useTauriStore", () => {
   beforeEach(async () => {
@@ -47,7 +47,9 @@ describe("useTauriStore", () => {
 
     // useTauriStore を含むモジュールを再読み込みする
     const module = await import("@/hooks/useTauriStore");
-    useTauriStore = module.useTauriStore;
+    useTauriStore = <T>(key: string, defaultValue: T) => {
+      return module.useTauriStore<T>(key, defaultValue);
+    };
   });
 
   afterEach(() => {
@@ -100,5 +102,19 @@ describe("useTauriStore", () => {
     expect(result.current[0]).toBe("newValue");
     expect(fakeStore.set).toHaveBeenCalledWith("testKey", "newValue");
     expect(fakeStore.save).toHaveBeenCalled();
+  });
+
+  it("undefined の defaultValue を扱える", async () => {
+    const { result } = renderHook(() =>
+      useTauriStore<undefined>("testKey", undefined),
+    );
+    await waitFor(() => result.current[0] !== null);
+    expect(result.current[0]).toBeUndefined();
+  });
+
+  it("読み込み中は isPending が true になっている", async () => {
+    const { result } = renderHook(() => useTauriStore("someKey", "someValue"));
+    expect(result.current[2]).toBe(true);
+    await waitFor(() => result.current[2] === false);
   });
 });

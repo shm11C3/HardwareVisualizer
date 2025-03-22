@@ -18,11 +18,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
-import { type JSX, useEffect } from "react";
+import { type JSX, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
@@ -82,12 +83,12 @@ const CPUInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
   return (
-    hardwareInfo.cpu && (
-      <>
-        <DoughnutChart
-          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+    <>
+      <DoughnutChart
+        chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
+        dataType={"usage"}
+      />
+      {hardwareInfo.cpu ? (
         <InfoTable
           data={{
             [t("shared.name")]: hardwareInfo.cpu.name,
@@ -97,8 +98,10 @@ const CPUInfo = () => {
               `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
           }}
         />
-      </>
-    )
+      ) : (
+        <Skeleton className="w-full h-[188px] rounded-md" />
+      )}
+    </>
   );
 };
 
@@ -117,20 +120,23 @@ const GPUInfo = () => {
   const targetTemperature = getTargetInfo(gpuTemp);
 
   return (
-    hardwareInfo.gpus && (
-      <>
-        <div className="flex justify-around h-[200px]">
-          <DoughnutChart
-            chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
-            dataType={"usage"}
-          />
-          {targetTemperature && (
-            <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
-          )}
-        </div>
+    <>
+      <div className="flex justify-around h-[200px]">
+        <DoughnutChart
+          chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
+        {targetTemperature && (
+          <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
+        )}
+      </div>
 
-        {hardwareInfo.gpus.map((gpu, index) => (
-          <div className="py-2" key={`${gpu.name}${index}`}>
+      {hardwareInfo.gpus ? (
+        hardwareInfo.gpus.map((gpu, index, arr) => (
+          <div
+            className={index !== 0 ? "py-3" : arr.length > 1 ? "pb-3" : ""}
+            key={`${gpu.name}${index}`}
+          >
             <InfoTable
               data={{
                 [t("shared.name")]: gpu.name,
@@ -140,9 +146,11 @@ const GPUInfo = () => {
               }}
             />
           </div>
-        ))}
-      </>
-    )
+        ))
+      ) : (
+        <Skeleton className="w-full h-[188px] rounded-md" />
+      )}
+    </>
   );
 };
 
@@ -152,12 +160,12 @@ const MemoryInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
   return (
-    hardwareInfo.memory && (
-      <>
-        <DoughnutChart
-          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+    <>
+      <DoughnutChart
+        chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
+        dataType={"usage"}
+      />
+      {hardwareInfo.memory ? (
         <InfoTable
           data={{
             [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
@@ -168,8 +176,10 @@ const MemoryInfo = () => {
               `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
           }}
         />
-      </>
-    )
+      ) : (
+        <Skeleton className="w-full h-[188px] rounded-md" />
+      )}
+    </>
   );
 };
 
@@ -184,47 +194,62 @@ const StorageDataInfo = () => {
     a.name.localeCompare(b.name),
   );
 
-  const chartData: StorageBarChartData[] = sortedStorage.reduce(
-    (acc: StorageBarChartData[], storage: StorageInfo) => {
-      const used = storage.size - storage.free;
-      const free = storage.free;
-      acc.push({
-        label: storage.name,
-        used,
-        free,
-      });
-      return acc;
-    },
-    [],
-  );
+  const chartData: StorageBarChartData[] = useMemo(() => {
+    return sortedStorage
+      ? sortedStorage.reduce(
+          (acc: StorageBarChartData[], storage: StorageInfo) => {
+            const used = storage.size - storage.free;
+            const free = storage.free;
+            acc.push({
+              label: storage.name,
+              used,
+              free,
+            });
+            return acc;
+          },
+          [],
+        )
+      : [];
+  }, [sortedStorage]);
 
   return (
     <div className="pt-2">
       <div className="flex flex-col 2xl:flex-row">
         <div className="w-full 2xl:w-1/2">
-          {sortedStorage.map((storage) => {
-            return (
-              <div key={storage.name} className="mt-4">
-                <InfoTable
-                  data={{
-                    [t("shared.driveName")]: storage.name,
-                    [t("shared.driveFileSystem")]: storage.fileSystem,
-                    [t("shared.driveType")]: {
-                      hdd: "HDD",
-                      ssd: "SSD",
-                      other: t("shared.other"),
-                    }[storage.storageType],
-                  }}
-                />
-              </div>
-            );
-          })}
+          {sortedStorage.length > 0 ? (
+            sortedStorage.map((storage) => {
+              return (
+                <div key={storage.name} className="mt-4">
+                  <InfoTable
+                    data={{
+                      [t("shared.driveName")]: storage.name,
+                      [t("shared.driveFileSystem")]: storage.fileSystem,
+                      [t("shared.driveType")]: {
+                        hdd: "HDD",
+                        ssd: "SSD",
+                        other: t("shared.other"),
+                      }[storage.storageType],
+                    }}
+                  />
+                </div>
+              );
+            })
+          ) : (
+            <Skeleton className="h-[188px] rounded-md" />
+          )}
         </div>
         <div className="w-full 2xl:w-1/2 mt-8 2xl:mt-0">
-          <StorageBarChart
-            chartData={chartData}
-            unit={sortedStorage[0].sizeUnit}
-          />
+          {sortedStorage.length > 0 ? (
+            <StorageBarChart
+              chartData={chartData}
+              unit={sortedStorage[0].sizeUnit}
+            />
+          ) : (
+            <>
+              <Skeleton className="h-[88px] rounded-md ml-6" />
+              <Skeleton className="h-[88px] rounded-md ml-6 mt-3" />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -245,110 +270,108 @@ const NetworkInfo = () => {
     <>
       {networkInfo.map((network) => {
         return (
-          <>
-            <div
-              key={network.description}
-              className="mt-4 mb-2 px-4 pt-2 pb-2 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
-              style={{
-                opacity:
-                  settings.selectedBackgroundImg != null
-                    ? Math.max(
-                        (1 - settings.backgroundImgOpacity / 100) ** 2,
-                        minOpacity,
-                      )
-                    : 1,
-              }}
-            >
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-1" className="border-none">
-                  <AccordionTrigger>
-                    <div className="w-full flex items-center justify-between cursor-pointer">
-                      <p>{network.description ?? "No description"}</p>
-                      {/**  この部分にネットワーク使用量を表示 */}
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
-                        {network.ipv4[0] ?? "No IP Address"}
-                      </p>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <table className="w-full text-left text-base">
-                      <tbody>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.macAddress")}
-                          </th>
-                          <td className="py-2">
-                            {network.macAddress ?? "No MAC Address"}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv4")}
-                          </th>
-                          <td className="py-2">
-                            {network.ipv4.map((ip) => (
-                              <p key={ip}>{ip}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv4")} {t("shared.subnetMask")}
-                          </th>
-                          <td className="py-2">
-                            {network.ipSubnet.map((subnet) => (
-                              <p key={subnet}>{subnet}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv4")} {t("shared.gateway")}
-                          </th>
-                          <td className="py-2">
-                            {network.defaultIpv4Gateway.map((gateway) => (
-                              <p key={gateway}>{gateway}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv6")}
-                          </th>
-                          <td className="py-2">
-                            {network.ipv6.map((ip) => (
-                              <p key={ip}>{ip}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
-                            {t("shared.address")}
-                          </th>
-                          <td className="py-2">
-                            {network.linkLocalIpv6.map((ip) => (
-                              <p key={ip}>{ip}</p>
-                            ))}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-gray-700">
-                          <th className="pr-4 py-2 dark:text-gray-400">
-                            {t("shared.ipv6")} {t("shared.gateway")}
-                          </th>
-                          <td className="py-2">
-                            {network.defaultIpv6Gateway.map((gateway) => (
-                              <p key={gateway}>{gateway}</p>
-                            ))}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          </>
+          <div
+            key={network.macAddress}
+            className="mt-4 mb-2 px-4 pt-2 pb-2 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+            style={{
+              opacity:
+                settings.selectedBackgroundImg != null
+                  ? Math.max(
+                      (1 - settings.backgroundImgOpacity / 100) ** 2,
+                      minOpacity,
+                    )
+                  : 1,
+            }}
+          >
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1" className="border-none">
+                <AccordionTrigger>
+                  <div className="w-full flex items-center justify-between cursor-pointer">
+                    <p>{network.description ?? "No description"}</p>
+                    {/**  この部分にネットワーク使用量を表示 */}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
+                      {network.ipv4[0] ?? "No IP Address"}
+                    </p>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <table className="w-full text-left text-base">
+                    <tbody>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.macAddress")}
+                        </th>
+                        <td className="py-2">
+                          {network.macAddress ?? "No MAC Address"}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv4")}
+                        </th>
+                        <td className="py-2">
+                          {network.ipv4.map((ip) => (
+                            <p key={ip}>{ip}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv4")} {t("shared.subnetMask")}
+                        </th>
+                        <td className="py-2">
+                          {network.ipSubnet.map((subnet) => (
+                            <p key={subnet}>{subnet}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv4")} {t("shared.gateway")}
+                        </th>
+                        <td className="py-2">
+                          {network.defaultIpv4Gateway.map((gateway) => (
+                            <p key={gateway}>{gateway}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv6")}
+                        </th>
+                        <td className="py-2">
+                          {network.ipv6.map((ip) => (
+                            <p key={ip}>{ip}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
+                          {t("shared.address")}
+                        </th>
+                        <td className="py-2">
+                          {network.linkLocalIpv6.map((ip) => (
+                            <p key={ip}>{ip}</p>
+                          ))}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-gray-700">
+                        <th className="pr-4 py-2 dark:text-gray-400">
+                          {t("shared.ipv6")} {t("shared.gateway")}
+                        </th>
+                        <td className="py-2">
+                          {network.defaultIpv6Gateway.map((gateway) => (
+                            <p key={gateway}>{gateway}</p>
+                          ))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
         );
       })}
     </>
@@ -358,7 +381,6 @@ const NetworkInfo = () => {
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 const Dashboard = () => {
-  const { hardwareInfo } = useHardwareInfoAtom();
   const { init } = useHardwareInfoAtom();
   const { t } = useTranslation();
 
@@ -368,9 +390,12 @@ const Dashboard = () => {
   }, []);
 
   const hardwareInfoListLeft: { key: DataTypeKey; component: JSX.Element }[] = [
-    hardwareInfo.cpu && { key: "cpu", component: <CPUInfo /> },
-    hardwareInfo.memory && { key: "memory", component: <MemoryInfo /> },
-    hardwareInfo.storage.length > 0 && {
+    {
+      key: "cpu",
+      component: <CPUInfo />,
+    },
+    { key: "memory", component: <MemoryInfo /> },
+    {
       key: "storage",
       component: <StorageDataInfo />,
     },
@@ -378,7 +403,7 @@ const Dashboard = () => {
 
   const hardwareInfoListRight: { key: DataTypeKey; component: JSX.Element }[] =
     [
-      hardwareInfo.gpus && { key: "gpu", component: <GPUInfo /> },
+      { key: "gpu", component: <GPUInfo /> },
       {
         key: "process",
         component: <ProcessesTable />,
@@ -403,7 +428,7 @@ const Dashboard = () => {
     <div className="flex flex-wrap gap-4">
       <div className="flex-1 flex flex-col gap-4">
         {hardwareInfoListLeft.map(({ key, component }) => (
-          <DataArea key={key} title={dataAreaKey2Title[key]}>
+          <DataArea key={`left-${key}`} title={dataAreaKey2Title[key]}>
             {component}
           </DataArea>
         ))}
@@ -411,7 +436,7 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col gap-4">
         {hardwareInfoListRight.map(({ key, component }) => (
           <DataArea
-            key={key}
+            key={`right-${key}`}
             title={dataAreaKey2Title[key]}
             border={key !== "process"}
           >
