@@ -1,6 +1,6 @@
 #[cfg(test)]
-pub mod color;
+pub mod color_test;
 #[cfg(test)]
-pub mod formatter;
+pub mod formatter_test;
 #[cfg(test)]
-pub mod ip;
+pub mod ip_test;
