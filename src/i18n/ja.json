@@ -63,7 +63,7 @@
     "insights": {
       "name": "インサイト",
       "main": {
-        "title": "メイン"
+        "title": "CPU・メモリ"
       },
       "gpu": {
         "title": "GPU"

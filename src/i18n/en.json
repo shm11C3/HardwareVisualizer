@@ -63,7 +63,7 @@
     "insights": {
       "name": "Insights",
       "main": {
-        "title": "Main"
+        "title": "CPU / Memory"
       },
       "gpu": {
         "title": "GPU"
