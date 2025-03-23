@@ -40,7 +40,7 @@ pub fn run() {
   let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
 
-  let state = hardware::AppState {
+  let state = structs::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
     cpu_history: Arc::clone(&cpu_history),
     memory_history: Arc::clone(&memory_history),

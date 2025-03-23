@@ -5,64 +5,25 @@ use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
-use crate::structs::hardware::NetworkInfo;
-use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
+use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use crate::utils;
 use crate::{log_error, log_internal};
-use serde::{Deserialize, Serialize, Serializer};
-use specta::Type;
-use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use sysinfo;
 use tauri::command;
-
-pub struct AppState {
-  pub system: Arc<Mutex<System>>,
-  pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub memory_history: Arc<Mutex<VecDeque<f32>>>,
-  pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
-  pub process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
-  #[allow(dead_code)]
-  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  #[allow(dead_code)]
-  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ProcessInfo {
-  pub pid: i32,
-  pub name: String,
-  #[serde(serialize_with = "serialize_usage")]
-  pub cpu_usage: f32,
-  #[serde(serialize_with = "serialize_usage")]
-  pub memory_usage: f32,
-}
-
-fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>
-where
-  S: Serializer,
-{
-  if x.fract() == 0.0 {
-    s.serialize_str(&format!("{:.0}", x)) // 整数のみ
-  } else {
-    s.serialize_str(&format!("{:.1}", x)) // 小数点以下1桁まで
-  }
-}
 
 ///
 /// ## プロセスリストを取得
 ///
 #[command]
 #[specta::specta]
-pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
+pub fn get_process_list(
+  state: tauri::State<'_, HardwareMonitorState>,
+) -> Vec<ProcessInfo> {
   let mut system = state.system.lock().unwrap();
   let process_cpu_histories = state.process_cpu_histories.lock().unwrap();
   let process_memory_histories = state.process_memory_histories.lock().unwrap();
 
-  system.refresh_processes(ProcessesToUpdate::All, true);
+  system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
   let num_cores = system.cpus().len() as f32;
 
@@ -113,7 +74,7 @@ pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
 ///
 #[command]
 #[specta::specta]
-pub fn get_cpu_usage(state: tauri::State<'_, AppState>) -> i32 {
+pub fn get_cpu_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
   let system = state.system.lock().unwrap();
   let cpus = system.cpus();
   let total_usage: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
@@ -122,22 +83,13 @@ pub fn get_cpu_usage(state: tauri::State<'_, AppState>) -> i32 {
   usage.round() as i32
 }
 
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SysInfo {
-  pub cpu: Option<system_info_service::CpuInfo>,
-  pub memory: Option<MemoryInfo>,
-  pub gpus: Option<Vec<GraphicInfo>>,
-  pub storage: Vec<StorageInfo>,
-}
-
 ///
 /// ## システム情報を取得
 ///
 #[command]
 #[specta::specta]
 pub async fn get_hardware_info(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
   let memory_result = wmi_service::get_memory_info();
@@ -194,7 +146,7 @@ pub async fn get_hardware_info(
 ///
 #[command]
 #[specta::specta]
-pub fn get_memory_usage(state: tauri::State<'_, AppState>) -> i32 {
+pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
   let system = state.system.lock().unwrap();
   let used_memory = system.used_memory() as f64;
   let total_memory = system.total_memory() as f64;
@@ -283,7 +235,7 @@ pub async fn get_nvidia_gpu_cooler() -> Result<Vec<nvidia_gpu_service::NameValue
 #[command]
 #[specta::specta]
 pub fn get_cpu_usage_history(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
   let history = state.cpu_history.lock().unwrap();
@@ -304,7 +256,7 @@ pub fn get_cpu_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_memory_usage_history(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
   let history = state.memory_history.lock().unwrap();
@@ -325,7 +277,7 @@ pub fn get_memory_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_gpu_usage_history(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
   let history = state.gpu_history.lock().unwrap();
