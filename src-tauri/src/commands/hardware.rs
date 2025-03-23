@@ -5,75 +5,25 @@ use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::services::wmi_service;
-use crate::structs::hardware::NetworkInfo;
-use crate::structs::hardware::{GraphicInfo, MemoryInfo, StorageInfo};
+use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use crate::utils;
 use crate::{log_error, log_internal};
-use serde::{Deserialize, Serialize, Serializer};
-use specta::Type;
-use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use sysinfo;
 use tauri::command;
-
-pub struct AppState {
-  pub system: Arc<Mutex<System>>,
-  pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub memory_history: Arc<Mutex<VecDeque<f32>>>,
-  pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
-  pub process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
-  #[allow(dead_code)]
-  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  #[allow(dead_code)]
-  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-}
-
-///
-/// システム情報の更新頻度（秒）
-///
-const SYSTEM_INFO_INIT_INTERVAL: u64 = 1;
-
-///
-/// データを保持する期間（秒）
-///
-const HISTORY_CAPACITY: usize = 60;
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ProcessInfo {
-  pub pid: i32,
-  pub name: String,
-  #[serde(serialize_with = "serialize_usage")]
-  pub cpu_usage: f32,
-  #[serde(serialize_with = "serialize_usage")]
-  pub memory_usage: f32,
-}
-
-fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>
-where
-  S: Serializer,
-{
-  if x.fract() == 0.0 {
-    s.serialize_str(&format!("{:.0}", x)) // 整数のみ
-  } else {
-    s.serialize_str(&format!("{:.1}", x)) // 小数点以下1桁まで
-  }
-}
 
 ///
 /// ## プロセスリストを取得
 ///
 #[command]
 #[specta::specta]
-pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
+pub fn get_process_list(
+  state: tauri::State<'_, HardwareMonitorState>,
+) -> Vec<ProcessInfo> {
   let mut system = state.system.lock().unwrap();
   let process_cpu_histories = state.process_cpu_histories.lock().unwrap();
   let process_memory_histories = state.process_memory_histories.lock().unwrap();
 
-  system.refresh_processes(ProcessesToUpdate::All, true);
+  system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
   let num_cores = system.cpus().len() as f32;
 
@@ -124,7 +74,7 @@ pub fn get_process_list(state: tauri::State<'_, AppState>) -> Vec<ProcessInfo> {
 ///
 #[command]
 #[specta::specta]
-pub fn get_cpu_usage(state: tauri::State<'_, AppState>) -> i32 {
+pub fn get_cpu_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
   let system = state.system.lock().unwrap();
   let cpus = system.cpus();
   let total_usage: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
@@ -133,22 +83,13 @@ pub fn get_cpu_usage(state: tauri::State<'_, AppState>) -> i32 {
   usage.round() as i32
 }
 
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SysInfo {
-  pub cpu: Option<system_info_service::CpuInfo>,
-  pub memory: Option<MemoryInfo>,
-  pub gpus: Option<Vec<GraphicInfo>>,
-  pub storage: Vec<StorageInfo>,
-}
-
 ///
 /// ## システム情報を取得
 ///
 #[command]
 #[specta::specta]
 pub async fn get_hardware_info(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
   let memory_result = wmi_service::get_memory_info();
@@ -205,7 +146,7 @@ pub async fn get_hardware_info(
 ///
 #[command]
 #[specta::specta]
-pub fn get_memory_usage(state: tauri::State<'_, AppState>) -> i32 {
+pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
   let system = state.system.lock().unwrap();
   let used_memory = system.used_memory() as f64;
   let total_memory = system.total_memory() as f64;
@@ -294,7 +235,7 @@ pub async fn get_nvidia_gpu_cooler() -> Result<Vec<nvidia_gpu_service::NameValue
 #[command]
 #[specta::specta]
 pub fn get_cpu_usage_history(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
   let history = state.cpu_history.lock().unwrap();
@@ -315,7 +256,7 @@ pub fn get_cpu_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_memory_usage_history(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
   let history = state.memory_history.lock().unwrap();
@@ -336,7 +277,7 @@ pub fn get_memory_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_gpu_usage_history(
-  state: tauri::State<'_, AppState>,
+  state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
   let history = state.gpu_history.lock().unwrap();
@@ -355,127 +296,4 @@ pub fn get_gpu_usage_history(
 #[specta::specta]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
   wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError)
-}
-
-///
-/// ## システム情報の初期化
-///
-/// - param system: `Arc<Mutex<System>>` システム情報
-///
-/// - `SYSTEM_INFO_INIT_INTERVAL` 秒ごとにCPU使用率とメモリ使用率を更新
-///
-pub async fn initialize_system(
-  system: Arc<Mutex<System>>,
-  cpu_history: Arc<Mutex<VecDeque<f32>>>,
-  memory_history: Arc<Mutex<VecDeque<f32>>>,
-  process_cpu_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
-  process_memory_histories: Arc<Mutex<HashMap<Pid, VecDeque<f32>>>>,
-  nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-) {
-  let mut interval = tokio::time::interval(Duration::from_secs(HISTORY_CAPACITY as u64));
-
-  loop {
-    interval.tick().await;
-
-    {
-      let mut sys = match system.lock() {
-        Ok(s) => s,
-        Err(_) => continue, // エラーハンドリング：ロックが破損している場合はスキップ
-      };
-
-      sys.refresh_all();
-
-      let cpu_usage = {
-        let cpus = sys.cpus();
-        let total_usage: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
-        (total_usage / cpus.len() as f32).round()
-      };
-
-      let memory_usage = {
-        let used_memory = sys.used_memory() as f64;
-        let total_memory = sys.total_memory() as f64;
-        (used_memory / total_memory * 100.0).round() as f32
-      };
-
-      {
-        let mut cpu_hist = cpu_history.lock().unwrap();
-        if cpu_hist.len() >= HISTORY_CAPACITY {
-          cpu_hist.pop_front();
-        }
-        cpu_hist.push_back(cpu_usage);
-      }
-
-      {
-        let mut memory_hist = memory_history.lock().unwrap();
-        if memory_hist.len() >= HISTORY_CAPACITY {
-          memory_hist.pop_front();
-        }
-        memory_hist.push_back(memory_usage);
-      }
-
-      // 各プロセスごとのCPUおよびメモリ使用率を保存
-      {
-        let mut process_cpu_histories = process_cpu_histories.lock().unwrap();
-        let mut process_memory_histories = process_memory_histories.lock().unwrap();
-
-        for (pid, process) in sys.processes() {
-          // CPU使用率の履歴を更新
-          let cpu_usage = process.cpu_usage();
-          let cpu_history = process_cpu_histories.entry(*pid).or_default();
-
-          if cpu_history.len() >= HISTORY_CAPACITY {
-            cpu_history.pop_front();
-          }
-          cpu_history.push_back(cpu_usage);
-
-          // メモリ使用率の履歴を更新
-          let memory_usage = process.memory() as f32 / 1024.0; // KB単位からMB単位に変換
-          let memory_history = process_memory_histories.entry(*pid).or_default();
-
-          if memory_history.len() >= HISTORY_CAPACITY {
-            memory_history.pop_front();
-          }
-          memory_history.push_back(memory_usage);
-        }
-      }
-
-      // GPU使用率の履歴を保存
-      {
-        let mut nv_gpu_usage_histories = nv_gpu_usage_histories.lock().unwrap();
-        let mut nv_gpu_temperature_histories =
-          nv_gpu_temperature_histories.lock().unwrap();
-
-        let gpus = match nvapi::PhysicalGpu::enumerate() {
-          Ok(gpus) => gpus,
-          Err(_) => continue,
-        };
-
-        for (name, gpu) in gpus
-          .iter()
-          .map(|gpu| (gpu.full_name().unwrap_or("Unknown".to_string()), gpu))
-        {
-          let usage_history = nv_gpu_usage_histories.entry(name.clone()).or_default();
-
-          if usage_history.len() >= HISTORY_CAPACITY {
-            usage_history.pop_front();
-          }
-          usage_history
-            .push_back(nvidia_gpu_service::get_gpu_usage_from_physical_gpu(gpu));
-
-          let temperature_history = nv_gpu_temperature_histories
-            .entry(name.clone())
-            .or_default();
-
-          if temperature_history.len() >= HISTORY_CAPACITY {
-            temperature_history.pop_front();
-          }
-          temperature_history.push_back(
-            nvidia_gpu_service::get_gpu_temperature_from_physical_gpu(gpu),
-          );
-        }
-      }
-    }
-    tokio::time::sleep(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL)).await;
-  }
 }

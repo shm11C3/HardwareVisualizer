@@ -1,6 +1,23 @@
+use crate::services;
 use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+use sysinfo;
+
+pub struct HardwareMonitorState {
+  pub system: Arc<Mutex<sysinfo::System>>,
+  pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
+  pub memory_history: Arc<Mutex<VecDeque<f32>>>,
+  pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
+  pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+  pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+  #[allow(dead_code)]
+  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+  #[allow(dead_code)]
+  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+}
 
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -57,4 +74,35 @@ pub struct NetworkUsage {
   pub sent_unit: SizeUnit,
   pub received: f32,
   pub received_unit: SizeUnit,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessInfo {
+  pub pid: i32,
+  pub name: String,
+  #[serde(serialize_with = "serialize_usage")]
+  pub cpu_usage: f32,
+  #[serde(serialize_with = "serialize_usage")]
+  pub memory_usage: f32,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SysInfo {
+  pub cpu: Option<services::system_info_service::CpuInfo>,
+  pub memory: Option<MemoryInfo>,
+  pub gpus: Option<Vec<GraphicInfo>>,
+  pub storage: Vec<StorageInfo>,
+}
+
+fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>
+where
+  S: serde::Serializer,
+{
+  if x.fract() == 0.0 {
+    s.serialize_str(&format!("{:.0}", x)) // 整数のみ
+  } else {
+    s.serialize_str(&format!("{:.1}", x)) // 小数点以下1桁まで
+  }
 }
