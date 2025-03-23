@@ -11,7 +11,7 @@ mod structs;
 mod utils;
 
 #[cfg(test)]
-mod tests;
+mod _tests;
 
 use commands::background_image;
 use commands::hardware;
