@@ -1,3 +1,4 @@
+import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { type archivePeriods, chartConfig } from "@/consts";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { HardwareType } from "@/rspc/bindings";
@@ -82,6 +83,8 @@ export const useInsightChart = (
   props: UseInsightChartGpuProps | UseInsightChartProps,
 ) => {
   const { hardwareType, dataStats, period, offset } = props;
+  const { settings } = useSettingsAtom();
+
   const gpuName =
     hardwareType === "gpu" ? (props as UseInsightChartGpuProps).gpuName : "";
   const dataType =
@@ -133,9 +136,20 @@ export const useInsightChart = (
     return await (await sqlitePromise).load(sql);
   }, [endAt, hardwareType, period, dataStats, gpuName, dataType]);
 
+  const formatTemperature = useCallback(
+    (value: number) => {
+      return settings.temperatureUnit === "F" && dataType === "temp"
+        ? (value * 9) / 5 + 32
+        : Number.parseFloat(value.toFixed(1));
+    },
+    [settings.temperatureUnit, dataType],
+  );
+
   useEffect(() => {
     const updateData = () => {
-      getData().then((data) => setData(data));
+      getData().then((data) =>
+        setData(data.map((V) => ({ ...V, value: formatTemperature(V.value) }))),
+      );
     };
 
     updateData();
@@ -145,7 +159,7 @@ export const useInsightChart = (
       chartConfig.archiveUpdateIntervalMilSec,
     );
     return () => clearInterval(intervalId);
-  }, [getData]);
+  }, [getData, formatTemperature]);
 
   const startTime = useMemo(
     () => new Date(endAt.getTime() - period * 60 * 1000),
