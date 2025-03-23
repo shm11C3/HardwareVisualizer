@@ -117,7 +117,7 @@ pub fn run() {
 
       builder.mount_events(app);
 
-      tauri::async_runtime::spawn(hardware::initialize_system(
+      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
         system,
         cpu_history.clone(),
         memory_history.clone(),
