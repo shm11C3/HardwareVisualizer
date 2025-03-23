@@ -8,7 +8,7 @@ use std::{
 
 const HISTORY_CAPACITY: u64 = 60;
 
-pub async fn start_hardware_archive_service(
+pub async fn setup(
   cpu_history: Arc<Mutex<VecDeque<f32>>>,
   memory_history: Arc<Mutex<VecDeque<f32>>>,
   nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,

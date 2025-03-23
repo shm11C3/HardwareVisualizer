@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
+mod backgrounds;
 mod commands;
 mod database;
 mod enums;
@@ -128,20 +129,18 @@ pub fn run() {
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(
-          services::hardware_archive_service::start_hardware_archive_service(
-            Arc::clone(&cpu_history),
-            Arc::clone(&memory_history),
-            Arc::clone(&nv_gpu_usage_histories),
-            Arc::clone(&nv_gpu_temperature_histories),
-          ),
-        );
+        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
+          Arc::clone(&cpu_history),
+          Arc::clone(&memory_history),
+          Arc::clone(&nv_gpu_usage_histories),
+          Arc::clone(&nv_gpu_temperature_histories),
+        ));
       }
 
       // スケジュールされたデータ削除の開始
       if settings.hardware_archive.scheduled_data_deletion {
         tauri::async_runtime::spawn(
-          services::hardware_archive_service::batch_delete_old_data(
+          backgrounds::hardware_archive::batch_delete_old_data(
             settings.hardware_archive.refresh_interval_days,
           ),
         );
