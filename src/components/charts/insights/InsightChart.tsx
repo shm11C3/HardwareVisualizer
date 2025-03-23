@@ -8,6 +8,7 @@ import type {
   DataStats,
   HardwareDataType,
 } from "@/types/hardwareDataType";
+import { useTranslation } from "react-i18next";
 import { useInsightChart } from "./useInsightChart";
 
 export const InsightChart = ({
@@ -21,6 +22,7 @@ export const InsightChart = ({
   dataStats: DataStats;
   offset: number;
 }) => {
+  const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { labels, chartData } = useInsightChart({
     hardwareType,
@@ -58,6 +60,7 @@ export const InsightChart = ({
         lineGraphShowTooltip={true}
         lineGraphType={settings.lineGraphType}
         lineGraphShowLegend={false}
+        dataKey={`${t("shared.usage")} (%)`}
       />
     </div>
   );
@@ -76,6 +79,7 @@ export const GpuInsightChart = ({
   offset: number;
   gpuName: string;
 }) => {
+  const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { labels, chartData } = useInsightChart({
     hardwareType: "gpu",
@@ -115,6 +119,17 @@ export const GpuInsightChart = ({
         lineGraphShowTooltip={true}
         lineGraphType={settings.lineGraphType}
         lineGraphShowLegend={false}
+        dataKey={
+          {
+            usage: `GPU ${t("shared.usage")} (%)`,
+            temp: `GPU ${t("shared.temperature")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`,
+          }[dataType]
+        }
+        range={
+          dataType === "temp" && settings.temperatureUnit === "F"
+            ? [0, 220]
+            : [0, 100]
+        }
       />
     </div>
   );

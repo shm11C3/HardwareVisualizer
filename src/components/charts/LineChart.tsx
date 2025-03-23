@@ -10,6 +10,7 @@ import type { LineGraphType } from "@/rspc/bindings";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { CurveType } from "recharts/types/shape/Curve";
 import { tv } from "tailwind-variants";
@@ -75,18 +76,22 @@ export const SingleLineChart = ({
   lineGraphShowTooltip,
   lineGraphType,
   lineGraphShowLegend,
+  dataKey,
+  range = [0, 100],
 }: SingleChartProps & { chartConfig: ChartConfig } & {
   border: boolean;
   lineGraphShowScale: boolean;
   lineGraphShowTooltip: boolean;
   lineGraphType: LineGraphType;
   lineGraphShowLegend: boolean;
+  dataKey: string;
+  range?: [number, number];
 }) => {
   const { settings } = useSettingsAtom();
 
   const data = labels.map((label, index) => ({
     name: label,
-    usage: chartData[index],
+    [dataKey]: chartData[index],
   }));
 
   const legendItems: Record<ChartDataType, LegendItem> = {
@@ -119,7 +124,7 @@ export const SingleLineChart = ({
           <CartesianGrid horizontal={lineGraphShowScale} vertical={false} />
           <XAxis dataKey="name" hide={!lineGraphShowScale} />
           <YAxis
-            domain={[0, 100]}
+            domain={range}
             hide={!lineGraphShowScale}
             tick={{
               fill: { light: "#77777", dark: "#fff" }[settings.theme],
@@ -136,7 +141,7 @@ export const SingleLineChart = ({
           )}
           <Area
             type={lineGraphType2RechartsCurveType[lineGraphType]}
-            dataKey="usage"
+            dataKey={dataKey}
             stroke={`rgb(${settings.lineGraphColor[dataType]})`}
             strokeWidth={2}
             fill={
@@ -258,6 +263,7 @@ const MixLineChart = ({
 export const LineChartComponent = (
   props: SingleChartProps | MultiChartProps,
 ) => {
+  const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { lineGraphMix } = props;
 
@@ -287,6 +293,7 @@ export const LineChartComponent = (
       lineGraphShowTooltip={settings.lineGraphShowTooltip}
       lineGraphType={settings.lineGraphType}
       lineGraphShowLegend={settings.lineGraphShowLegend}
+      dataKey={`${t("shared.usage")} (%)`}
     />
   );
 };
