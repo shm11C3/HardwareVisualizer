@@ -21,7 +21,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.13.11",
+    "@types/node": "^22.13.13",
     "@types/react": "19.0.12",
     "@types/react-dom": "19.0.4",
     "@types/testing-library__user-event": "^4.2.0",
@@ -32,7 +32,7 @@
     "react-devtools": "^6.1.1",
     "tailwindcss": "^4.0.15",
     "typescript": "^5.8.2",
-    "vite": "^6.2.2",
+    "vite": "^6.2.3",
     "vitest": "^3.0.8"
   },
   "dependencies": {
@@ -59,7 +59,7 @@
     "@tauri-apps/plugin-shell": "^2.2.0",
     "@tauri-apps/plugin-sql": "^2.2.0",
     "@tauri-apps/plugin-store": "^2.2.0",
-    "babel-plugin-react-compiler": "^19.0.0-beta-3229e95-20250315",
+    "babel-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^24.2.3",
