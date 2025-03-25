@@ -4,14 +4,11 @@ import {
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
 } from "@/atom/chart";
-import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   StorageBarChart,
   type StorageBarChartData,
 } from "@/components/charts/Bar";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
-import { ProcessesTable } from "@/components/charts/ProcessTable";
 import {
   Accordion,
   AccordionContent,
@@ -20,6 +17,9 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts";
+import { ProcessesTable } from "@/features/dashboard/components/ProcessTable";
+import { useHardwareInfoAtom } from "@/hooks/useHardwareInfoAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { StorageInfo } from "@/rspc/bindings";
 import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";

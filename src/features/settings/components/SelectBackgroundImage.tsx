@@ -1,6 +1,6 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { Button } from "@/components/ui/button";
 import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { X } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { tv } from "tailwind-variants";

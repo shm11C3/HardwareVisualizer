@@ -1,11 +1,11 @@
 import { gpuTempAtom } from "@/atom/chart";
 import { settingAtoms } from "@/atom/ui";
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
-import { PreviewChart } from "@/components/charts/Preview";
-import { BackgroundImageList } from "@/components/forms/SelectBackgroundImage/SelectBackgroundImage";
-import { UploadImage } from "@/components/forms/UploadImage/UploadImage";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { NeedRestart } from "@/components/shared/System";
+import { PreviewChart } from "@/features/settings/components/Preview";
+import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
+import { UploadImage } from "@/features/settings/components/UploadImage";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

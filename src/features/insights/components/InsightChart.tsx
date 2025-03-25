@@ -1,7 +1,7 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { archivePeriods } from "@/consts";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { HardwareType } from "@/rspc/bindings";
 import type {
   ChartDataType,

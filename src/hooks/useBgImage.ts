@@ -1,4 +1,4 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
 import { isError, isOk } from "@/types/result";

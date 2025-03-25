@@ -1,6 +1,6 @@
 import { ImageSquare, Spinner, UploadSimple } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../ui/button";
+import { Button } from "../../../components/ui/button";
 import {
   Form,
   FormControl,
@@ -9,9 +9,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../ui/form";
-import { Input } from "../../ui/input";
-import { useUploadImage } from "./useUploadImageForm";
+} from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { useUploadImage } from "../hooks/useUploadImageForm";
 
 export const UploadImage = () => {
   const { form, picture, onSubmit, isSubmitting, fileName, displayUrl } =

@@ -1,4 +1,3 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   Dialog,
   DialogContent,
@@ -7,6 +6,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { minOpacity } from "@/consts";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
 import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
@@ -16,7 +16,7 @@ import { atom, useAtom, useSetAtom } from "jotai";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
-import { ScrollArea, ScrollBar } from "../ui/scroll-area";
+import { ScrollArea, ScrollBar } from "../../../components/ui/scroll-area";
 
 const processesAtom = atom<ProcessInfo[]>([]);
 

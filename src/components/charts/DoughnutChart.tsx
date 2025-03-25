@@ -1,7 +1,7 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { HardwareDataType } from "@/types/hardwareDataType";
 import type { Settings } from "@/types/settingsType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";

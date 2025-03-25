@@ -1,8 +1,3 @@
-import { useHardwareInfoAtom } from "@/atom/useHardwareInfoAtom";
-import {
-  GpuInsightChart,
-  InsightChart,
-} from "@/components/charts/insights/InsightChart";
 import {
   Select,
   SelectContent,
@@ -12,6 +7,11 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/consts";
+import {
+  GpuInsightChart,
+  InsightChart,
+} from "@/features/insights/components/InsightChart";
+import { useHardwareInfoAtom } from "@/hooks/useHardwareInfoAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
   ChartDataType,

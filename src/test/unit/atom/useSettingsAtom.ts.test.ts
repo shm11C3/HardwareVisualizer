@@ -38,7 +38,7 @@ vi.mock("@/rspc/bindings", () => ({
 /**
  * テスト対象のフックをインポート
  */
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 /**

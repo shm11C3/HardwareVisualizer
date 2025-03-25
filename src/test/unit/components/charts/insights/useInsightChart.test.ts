@@ -1,4 +1,4 @@
-import { useInsightChart } from "@/components/charts/insights/useInsightChart";
+import { useInsightChart } from "@/features/insights/components/useInsightChart";
 import { sqlitePromise } from "@/lib/sqlite";
 import { act, renderHook } from "@testing-library/react";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";

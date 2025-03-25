@@ -1,4 +1,3 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   type ChartConfig,
   ChartContainer,
@@ -6,6 +5,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { sizeOptions } from "@/consts/chart";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import type { LineGraphType } from "@/rspc/bindings";
 import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";

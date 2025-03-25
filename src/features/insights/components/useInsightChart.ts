@@ -1,5 +1,5 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { type archivePeriods, chartConfig } from "@/consts";
+import { useSettingsAtom } from "@/hooks/useSettingsAtom";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { HardwareType } from "@/rspc/bindings";
 import type {
