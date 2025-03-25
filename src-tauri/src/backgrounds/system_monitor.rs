@@ -31,7 +31,7 @@ pub async fn setup(
   nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) {
   let mut interval =
-    tokio::time::interval(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL as u64));
+    tokio::time::interval(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
 
   loop {
     interval.tick().await;
@@ -135,6 +135,5 @@ pub async fn setup(
         }
       }
     }
-    tokio::time::sleep(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL)).await;
   }
 }
