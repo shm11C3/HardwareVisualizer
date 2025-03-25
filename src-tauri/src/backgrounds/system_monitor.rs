@@ -29,6 +29,7 @@ pub async fn setup(
   process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
   nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  nv_gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) {
   let mut interval = tokio::time::interval(Duration::from_secs(HISTORY_CAPACITY as u64));
 
@@ -130,6 +131,19 @@ pub async fn setup(
           }
           temperature_history.push_back(
             services::nvidia_gpu_service::get_gpu_temperature_from_physical_gpu(gpu),
+          );
+
+          let mut nv_gpu_dedicated_memory_histories =
+            nv_gpu_dedicated_memory_histories.lock().unwrap();
+          let gpu_memory_history = nv_gpu_dedicated_memory_histories
+            .entry(name.clone())
+            .or_default();
+
+          if gpu_memory_history.len() >= HISTORY_CAPACITY {
+            gpu_memory_history.pop_front();
+          }
+          gpu_memory_history.push_back(
+            services::nvidia_gpu_service::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as i32,
           );
         }
       }

@@ -14,5 +14,18 @@ pub fn get_migrations() -> Vec<Migration> {
       sql: "CREATE TABLE GPU_DATA_ARCHIVE (id INTEGER PRIMARY KEY, gpu_name TEXT, usage_avg INTEGER, usage_max INTEGER, usage_min INTEGER, temperature_avg INTEGER, temperature_max INTEGER, temperature_min INTEGER, timestamp DATETIME);",
       kind: MigrationKind::Up,
     },
+    Migration {
+      version: 3,
+      description: "add_gpu_memory_usage_columns",
+      sql: r#"
+        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN memory_dedicated_avg INTEGER;
+        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN memory_dedicated_max INTEGER;
+        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN memory_dedicated_min INTEGER;
+        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN memory_shared_avg INTEGER;
+        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN memory_shared_max INTEGER;
+        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN memory_shared_min INTEGER;
+      "#,
+      kind: MigrationKind::Up,
+    },
   ]
 }

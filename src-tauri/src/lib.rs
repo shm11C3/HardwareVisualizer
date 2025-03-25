@@ -39,6 +39,7 @@ pub fn run() {
   let process_memory_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
+  let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
 
   let state = structs::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
@@ -125,6 +126,7 @@ pub fn run() {
         process_memory_histories,
         nv_gpu_usage_histories.clone(),
         nv_gpu_temperature_histories.clone(),
+        nv_gpu_dedicated_memory_histories.clone(),
       ));
 
       // ハードウェアアーカイブサービスの開始
@@ -134,6 +136,7 @@ pub fn run() {
           Arc::clone(&memory_history),
           Arc::clone(&nv_gpu_usage_histories),
           Arc::clone(&nv_gpu_temperature_histories),
+          Arc::clone(&nv_gpu_dedicated_memory_histories),
         ));
       }
 

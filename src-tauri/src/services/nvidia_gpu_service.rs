@@ -324,3 +324,18 @@ pub fn get_gpu_temperature_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> i32 {
 
   0
 }
+
+///
+/// `PhysicalGpu` からGPUメモリ使用率を取得する
+///
+pub fn get_gpu_dedicated_memory_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> u32 {
+  let memory = match gpu.memory_info() {
+    Ok(usage) => usage,
+    Err(e) => {
+      log_error!("usages_failed", "get_gpu_memory", Some(e.to_string()));
+      return 0;
+    }
+  };
+
+  memory.dedicated.0 - memory.dedicated_available_current.0
+}

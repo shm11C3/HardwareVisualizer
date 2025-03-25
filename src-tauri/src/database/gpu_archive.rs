@@ -15,9 +15,9 @@ pub async fn insert(data: structs::hardware_archive::GpuData) -> Result<(), sqlx
   let pool = get_pool().await?;
 
   sqlx::query(
-    "INSERT INTO GPU_DATA_ARCHIVE (gpu_name, usage_avg, usage_max, usage_min, temperature_avg, temperature_max, temperature_min, timestamp)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-  ).bind(data.gpu_name).bind(data.usage_avg).bind(data.usage_max).bind(data.usage_min).bind(data.temperature_avg).bind(data.temperature_max).bind(data.temperature_min).bind(chrono::Utc::now()).execute(&pool).await?;
+    "INSERT INTO GPU_DATA_ARCHIVE (gpu_name, usage_avg, usage_max, usage_min, temperature_avg, temperature_max, temperature_min, memory_dedicated_avg, memory_dedicated_max, memory_dedicated_min, timestamp)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+  ).bind(data.gpu_name).bind(data.usage_avg).bind(data.usage_max).bind(data.usage_min).bind(data.temperature_avg).bind(data.temperature_max).bind(data.temperature_min).bind(data.memory_dedicated_avg).bind(data.memory_dedicated_max).bind(data.memory_dedicated_min).bind(chrono::Utc::now()).execute(&pool).await?;
 
   Ok(())
 }
