@@ -41,7 +41,7 @@ rust_decimal = "1.37.1"
 tauri-plugin-dialog = "2.2.0"
 tauri-plugin-store = "2.2.0"
 base64 = "0.22"
-image = "0.25.5"
+image = "0.25.6"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
 regex = "1.11.1"
