@@ -1,5 +1,5 @@
-import { settingAtoms } from "@/atom/ui";
 import { commands } from "@/rspc/bindings";
+import { settingAtoms } from "@/store/ui";
 import { useSetAtom } from "jotai";
 import type { Dispatch, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
