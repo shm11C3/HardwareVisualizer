@@ -10,7 +10,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { minOpacity } from "@/consts";
+import { minOpacity } from "@/consts/style";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {

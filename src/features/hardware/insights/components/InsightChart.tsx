@@ -1,6 +1,6 @@
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
-import type { archivePeriods } from "@/consts";
+import type { archivePeriods } from "@/features/hardware/consts/chart";
 import type {
   ChartDataType,
   DataStats,

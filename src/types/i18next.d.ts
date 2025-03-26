@@ -1,6 +1,6 @@
 import "i18next";
-import type en from "@/i18n/en.json";
-import type ja from "@/i18n/ja.json";
+import type en from "@/lang/en.json";
+import type ja from "@/lang/ja.json";
 
 type Resources = {
   en: typeof en;
