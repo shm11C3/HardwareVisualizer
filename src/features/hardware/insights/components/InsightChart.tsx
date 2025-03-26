@@ -9,7 +9,7 @@ import type {
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { HardwareType } from "@/rspc/bindings";
 import { useTranslation } from "react-i18next";
-import { useInsightChart } from "./useInsightChart";
+import { useInsightChart } from "../hooks/useInsightChart";
 
 export const InsightChart = ({
   hardwareType,
