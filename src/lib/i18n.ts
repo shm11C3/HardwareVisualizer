@@ -1,5 +1,5 @@
-import en from "@/i18n/en.json";
-import ja from "@/i18n/ja.json";
+import en from "@/lang/en.json";
+import ja from "@/lang/ja.json";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
