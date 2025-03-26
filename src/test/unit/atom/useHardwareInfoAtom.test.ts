@@ -23,7 +23,7 @@ vi.mock("@/rspc/bindings", () => ({
 /**
  * テスト対象のフックをインポート
  */
-import { useHardwareInfoAtom } from "@/hooks/useHardwareInfoAtom";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { commands } from "@/rspc/bindings";
 
 /**

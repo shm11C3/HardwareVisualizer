@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import Dashboard from "./features/dashboard/Dashboard";
-import ChartTemplate from "./features/usage/Usage";
+import Dashboard from "./features/hardware/dashboard/Dashboard";
+import ChartTemplate from "./features/hardware/usage/Usage";
 import "./index.css";
-import { useHardwareUpdater, useUsageUpdater } from "@/hooks/useHardwareData";
+import {
+  useHardwareUpdater,
+  useUsageUpdater,
+} from "@/features/hardware/hooks/useHardwareData";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -10,14 +13,14 @@ import ErrorFallback from "./components/ErrorFallback";
 import ScreenTemplate from "./components/shared/ScreenTemplate";
 import { SideMenu, displayTargetAtom } from "./features/menu/SideMenu";
 import Settings from "./features/settings/Settings";
+import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
-import { useSettingsAtom } from "./hooks/useSettingsAtom";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
-import { Insights } from "./features/insights/Insights";
+import { Insights } from "./features/hardware/insights/Insights";
 import { useKeydown } from "./hooks/useInputListener";
 
 const onError = (error: Error, info: ErrorInfo) => {

@@ -1,11 +1,11 @@
-import { gpuTempAtom } from "@/atom/chart";
-import { settingAtoms } from "@/atom/ui";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { NeedRestart } from "@/components/shared/System";
+import { gpuTempAtom } from "@/features/hardware/store/chart";
 import { PreviewChart } from "@/features/settings/components/Preview";
 import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
 import { UploadImage } from "@/features/settings/components/UploadImage";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { settingAtoms } from "@/store/ui";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,7 +29,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TypographyP } from "@/components/ui/typography";
-import { defaultColorRGB, sizeOptions } from "@/consts/chart";
+import { defaultColorRGB, sizeOptions } from "@/features/hardware/consts/chart";
+import {
+  type ChartDataType,
+  chartHardwareTypes,
+} from "@/features/hardware/types/hardwareDataType";
+import type { Settings as SettingTypes } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
@@ -38,11 +43,6 @@ import {
   type LineGraphType,
   commands,
 } from "@/rspc/bindings";
-import {
-  type ChartDataType,
-  chartHardwareTypes,
-} from "@/types/hardwareDataType";
-import type { Settings as SettingTypes } from "@/types/settingsType";
 import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";

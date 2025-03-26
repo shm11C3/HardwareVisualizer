@@ -1,3 +1,4 @@
+import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuFanSpeedAtom,
   cpuTempAtom,
@@ -6,10 +7,9 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
-} from "@/atom/chart";
-import { chartConfig } from "@/consts/chart";
+} from "@/features/hardware/store/chart";
+import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import { type NameValue, type Result, commands } from "@/rspc/bindings";
-import type { ChartDataType } from "@/types/hardwareDataType";
 import { isError, isOk, isResult } from "@/types/result";
 import { type PrimitiveAtom, useSetAtom } from "jotai";
 import { useEffect } from "react";

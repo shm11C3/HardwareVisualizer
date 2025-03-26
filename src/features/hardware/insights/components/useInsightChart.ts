@@ -1,13 +1,19 @@
-import { type archivePeriods, chartConfig } from "@/consts";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import { sqlitePromise } from "@/lib/sqlite";
-import type { HardwareType } from "@/rspc/bindings";
+import {
+  type archivePeriods,
+  chartConfig,
+} from "@/features/hardware/consts/chart";
 import type {
   DataArchive,
   GpuDataArchive,
   SingleDataArchive,
-} from "@/types/chart";
-import type { DataStats, HardwareDataType } from "@/types/hardwareDataType";
+} from "@/features/hardware/types/chart";
+import type {
+  DataStats,
+  HardwareDataType,
+} from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { sqlitePromise } from "@/lib/sqlite";
+import type { HardwareType } from "@/rspc/bindings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義

@@ -4,10 +4,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { sizeOptions } from "@/consts/chart";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import type { sizeOptions } from "@/features/hardware/consts/chart";
+import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { LineGraphType } from "@/rspc/bindings";
-import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";

@@ -1,11 +1,11 @@
+import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
+import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuUsageHistoryAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
-} from "@/atom/chart";
-import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
-import { chartConfig } from "@/consts/chart";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+} from "@/features/hardware/store/chart";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useAtom } from "jotai";
 import { useMemo } from "react";
 

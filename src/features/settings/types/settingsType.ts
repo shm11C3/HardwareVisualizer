@@ -1,5 +1,5 @@
-import type { sizeOptions } from "@/consts/chart";
-import type { ChartDataType } from "./hardwareDataType";
+import type { sizeOptions } from "@/features/hardware/consts/chart";
+import type { ChartDataType } from "../../hardware/types/hardwareDataType";
 
 export type Settings = {
   language: string;

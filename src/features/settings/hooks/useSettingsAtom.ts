@@ -1,9 +1,9 @@
-import { defaultColorRGB } from "@/consts/chart";
+import { defaultColorRGB } from "@/features/hardware/consts/chart";
+import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
+import type { Settings } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ClientSettings, type Result, commands } from "@/rspc/bindings";
-import type { ChartDataType } from "@/types/hardwareDataType";
 import { isError } from "@/types/result";
-import type { Settings } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useCallback } from "react";
 

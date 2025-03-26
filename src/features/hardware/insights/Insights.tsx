@@ -7,17 +7,17 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/consts";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   GpuInsightChart,
   InsightChart,
-} from "@/features/insights/components/InsightChart";
-import { useHardwareInfoAtom } from "@/hooks/useHardwareInfoAtom";
-import { useTauriStore } from "@/hooks/useTauriStore";
+} from "@/features/hardware/insights/components/InsightChart";
 import type {
   ChartDataType,
   DataStats,
   HardwareDataType,
-} from "@/types/hardwareDataType";
+} from "@/features/hardware/types/hardwareDataType";
+import { useTauriStore } from "@/hooks/useTauriStore";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";

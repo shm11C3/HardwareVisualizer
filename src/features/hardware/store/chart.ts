@@ -1,4 +1,4 @@
-import type { NameValues } from "@/types/hardwareDataType";
+import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { atom } from "jotai";
 
 export const cpuUsageHistoryAtom = atom<number[]>([]);

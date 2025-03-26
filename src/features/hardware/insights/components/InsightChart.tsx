@@ -1,13 +1,13 @@
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { archivePeriods } from "@/consts";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
-import type { HardwareType } from "@/rspc/bindings";
 import type {
   ChartDataType,
   DataStats,
   HardwareDataType,
-} from "@/types/hardwareDataType";
+} from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { HardwareType } from "@/rspc/bindings";
 import { useTranslation } from "react-i18next";
 import { useInsightChart } from "./useInsightChart";
 

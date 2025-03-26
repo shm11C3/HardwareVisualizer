@@ -1,10 +1,4 @@
 import {
-  cpuUsageHistoryAtom,
-  gpuTempAtom,
-  graphicUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-} from "@/atom/chart";
-import {
   StorageBarChart,
   type StorageBarChartData,
 } from "@/components/charts/Bar";
@@ -17,11 +11,17 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts";
-import { ProcessesTable } from "@/features/dashboard/components/ProcessTable";
-import { useHardwareInfoAtom } from "@/hooks/useHardwareInfoAtom";
-import { useSettingsAtom } from "@/hooks/useSettingsAtom";
+import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import {
+  cpuUsageHistoryAtom,
+  gpuTempAtom,
+  graphicUsageHistoryAtom,
+  memoryUsageHistoryAtom,
+} from "@/features/hardware/store/chart";
+import type { NameValues } from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { StorageInfo } from "@/rspc/bindings";
-import type { NameValues } from "@/types/hardwareDataType";
 import { useAtom } from "jotai";
 import { type JSX, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";

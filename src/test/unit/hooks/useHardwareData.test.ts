@@ -11,10 +11,13 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
-} from "@/atom/chart";
+} from "@/features/hardware/store/chart";
 
 // テスト対象のフック群
-import { useHardwareUpdater, useUsageUpdater } from "@/hooks/useHardwareData";
+import {
+  useHardwareUpdater,
+  useUsageUpdater,
+} from "@/features/hardware/hooks/useHardwareData";
 
 // コマンド群（モック対象）
 import { commands } from "@/rspc/bindings";
