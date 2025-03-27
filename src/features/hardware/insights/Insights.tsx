@@ -15,7 +15,7 @@ import {
 import type {
   ChartDataType,
   DataStats,
-  HardwareDataType,
+  GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -260,6 +260,21 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
   const [periodMinGpuTemperature, setPeriodMinGpuTemperature] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodMinGpuTemperature", 60);
+  const [periodAvgGpuDedicatedMemory, setPeriodAvgGpuDedicatedMemory] =
+    useTauriStore<(typeof archivePeriods)[number]>(
+      "periodAvgGpuDedicatedMemory",
+      60,
+    );
+  const [periodMaxGpuDedicatedMemory, setPeriodMaxGpuDedicatedMemory] =
+    useTauriStore<(typeof archivePeriods)[number]>(
+      "periodMaxGpuDedicatedMemory",
+      60,
+    );
+  const [periodMinGpuDedicatedMemory, setPeriodMinGpuDedicatedMemory] =
+    useTauriStore<(typeof archivePeriods)[number]>(
+      "periodMinGpuDedicatedMemory",
+      60,
+    );
 
   const periods: Record<(typeof archivePeriods)[number], string> = {
     "10": `10 ${t("shared.time.minutes")}`,
@@ -288,7 +303,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
   ];
 
   const chartData: {
-    type: Exclude<HardwareDataType, "clock">;
+    type: GpuDataType;
     stats: DataStats;
     period: [
       (typeof archivePeriods)[number] | null,
@@ -301,9 +316,9 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
       period: [periodAvgGpuUsage, setPeriodAvgGpuUsage],
     },
     {
-      type: "temp",
+      type: "dedicatedMemory",
       stats: "avg",
-      period: [periodAvgGpuTemperature, setPeriodAvgGpuTemperature],
+      period: [periodAvgGpuDedicatedMemory, setPeriodAvgGpuDedicatedMemory],
     },
     {
       type: "usage",
@@ -311,15 +326,31 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
       period: [periodMaxGpuUsage, setPeriodMaxGpuUsage],
     },
     {
-      type: "temp",
+      type: "dedicatedMemory",
       stats: "max",
-      period: [periodMaxGpuTemperature, setPeriodMaxGpuTemperature],
+      period: [periodMaxGpuDedicatedMemory, setPeriodMaxGpuDedicatedMemory],
     },
     {
       type: "usage",
       stats: "min",
       period: [periodMinGpuUsage, setPeriodMinGpuUsage],
     },
+    {
+      type: "dedicatedMemory",
+      stats: "min",
+      period: [periodMinGpuDedicatedMemory, setPeriodMinGpuDedicatedMemory],
+    },
+    {
+      type: "temp",
+      stats: "avg",
+      period: [periodAvgGpuTemperature, setPeriodAvgGpuTemperature],
+    },
+    {
+      type: "temp",
+      stats: "max",
+      period: [periodMaxGpuTemperature, setPeriodMaxGpuTemperature],
+    },
+
     {
       type: "temp",
       stats: "min",
@@ -344,6 +375,9 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
             setPeriodMaxGpuTemperature(v);
             setPeriodMinGpuUsage(v);
             setPeriodMinGpuTemperature(v);
+            setPeriodAvgGpuDedicatedMemory(v);
+            setPeriodMaxGpuDedicatedMemory(v);
+            setPeriodMinGpuDedicatedMemory(v);
           }}
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
@@ -373,12 +407,16 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
             }
           };
 
-          const dataType: Record<"temp" | "usage", "usage" | "temperature"> = {
+          const dataType: Record<
+            "temp" | "usage" | "dedicatedMemory",
+            "usage" | "temperature" | "memorySizeDedicatedUsage"
+          > = {
             usage: "usage",
             temp: "temperature",
+            dedicatedMemory: "memorySizeDedicatedUsage",
           };
 
-          const dataTypeKeys: "usage" | "temperature" = dataType[data.type];
+          const dataTypeKeys = dataType[data.type];
 
           return (
             periodData && (
@@ -386,8 +424,8 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
                 <>
                   <div className="flex justify-between items-center">
                     <h3 className="text-2xl font-bold py-3">
-                      GPU {t(`shared.${dataTypeKeys}`)} (
-                      {t(`shared.${data.stats}`)})
+                      {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)}
+                      )
                     </h3>
                     <SelectPeriod
                       options={options}

@@ -25,4 +25,7 @@ pub struct GpuData {
   pub temperature_avg: f32,
   pub temperature_max: i32,
   pub temperature_min: i32,
+  pub dedicated_memory_avg: i32,
+  pub dedicated_memory_max: i32,
+  pub dedicated_memory_min: i32,
 }

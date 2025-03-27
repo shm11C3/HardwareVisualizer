@@ -13,6 +13,7 @@ pub async fn setup(
   memory_history: Arc<Mutex<VecDeque<f32>>>,
   nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  nv_gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) {
   let mut interval = tokio::time::interval(Duration::from_secs(HISTORY_CAPACITY));
 
@@ -35,6 +36,7 @@ pub async fn setup(
     let gpu_data_list = get_gpu_data(
       nv_gpu_usage_histories.clone(),
       nv_gpu_temperature_histories.clone(),
+      nv_gpu_dedicated_memory_histories.clone(),
     );
 
     for gpu_data in gpu_data_list {
@@ -148,6 +150,7 @@ fn get_memory_data(
 fn get_gpu_data(
   nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  nv_gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 ) -> Vec<structs::hardware_archive::GpuData> {
   let gpu_names = nv_gpu_usage_histories
     .lock()
@@ -214,6 +217,32 @@ fn get_gpu_data(
       .cloned()
       .fold(100, i32::min);
 
+    let dedicated_memory_avg = {
+      let memory_hist = nv_gpu_dedicated_memory_histories.lock().unwrap();
+      if memory_hist.is_empty() {
+        0
+      } else {
+        memory_hist.values().flat_map(|v| v.iter()).sum::<i32>()
+          / memory_hist.values().map(|v| v.len()).sum::<usize>() as i32
+      }
+    };
+
+    let dedicated_memory_max = nv_gpu_dedicated_memory_histories
+      .lock()
+      .unwrap()
+      .values()
+      .flat_map(|v| v.iter())
+      .cloned()
+      .fold(0, i32::max);
+
+    let dedicated_memory_min = nv_gpu_dedicated_memory_histories
+      .lock()
+      .unwrap()
+      .values()
+      .flat_map(|v| v.iter())
+      .cloned()
+      .fold(0, i32::min);
+
     gpu_data.push(structs::hardware_archive::GpuData {
       gpu_name,
       usage_avg,
@@ -222,6 +251,9 @@ fn get_gpu_data(
       temperature_avg,
       temperature_max,
       temperature_min,
+      dedicated_memory_avg,
+      dedicated_memory_max,
+      dedicated_memory_min,
     });
   }
 
