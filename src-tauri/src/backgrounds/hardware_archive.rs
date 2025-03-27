@@ -217,7 +217,7 @@ fn get_gpu_data(
       .cloned()
       .fold(100, i32::min);
 
-    let memory_dedicated_avg = {
+    let dedicated_memory_avg = {
       let memory_hist = nv_gpu_dedicated_memory_histories.lock().unwrap();
       if memory_hist.is_empty() {
         0
@@ -227,7 +227,7 @@ fn get_gpu_data(
       }
     };
 
-    let memory_dedicated_max = nv_gpu_dedicated_memory_histories
+    let dedicated_memory_max = nv_gpu_dedicated_memory_histories
       .lock()
       .unwrap()
       .values()
@@ -235,7 +235,7 @@ fn get_gpu_data(
       .cloned()
       .fold(0, i32::max);
 
-    let memory_dedicated_min = nv_gpu_dedicated_memory_histories
+    let dedicated_memory_min = nv_gpu_dedicated_memory_histories
       .lock()
       .unwrap()
       .values()
@@ -251,9 +251,9 @@ fn get_gpu_data(
       temperature_avg,
       temperature_max,
       temperature_min,
-      memory_dedicated_avg,
-      memory_dedicated_max,
-      memory_dedicated_min,
+      dedicated_memory_avg,
+      dedicated_memory_max,
+      dedicated_memory_min,
     });
   }
 
