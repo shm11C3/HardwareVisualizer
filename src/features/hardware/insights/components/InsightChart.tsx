@@ -108,7 +108,7 @@ export const GpuInsightChart = ({
     },
   } satisfies ChartConfig;
 
-  const maxGpuMemory = useMemo(() => {
+  const maxDedicatedGpuMemory = useMemo(() => {
     const max =
       hardwareInfo.gpus?.reduce((acc, gpu) => {
         const matches = [
@@ -164,7 +164,7 @@ export const GpuInsightChart = ({
         range={(() => {
           switch (dataType) {
             case "dedicatedMemory":
-              return [0, maxGpuMemory];
+              return [0, maxDedicatedGpuMemory];
             case "temp":
               return settings.temperatureUnit === "C" ? [0, 100] : [0, 220];
             default:
