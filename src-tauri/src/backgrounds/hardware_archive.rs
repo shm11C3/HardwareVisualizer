@@ -241,7 +241,7 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(0, i32::min);
+      .fold(i32::MAX, i32::min);
 
     gpu_data.push(structs::hardware_archive::GpuData {
       gpu_name,
