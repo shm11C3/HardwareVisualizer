@@ -21,9 +21,6 @@ pub fn get_migrations() -> Vec<Migration> {
         ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN dedicated_memory_avg INTEGER;
         ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN dedicated_memory_max INTEGER;
         ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN dedicated_memory_min INTEGER;
-        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN shared_memory_avg INTEGER;
-        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN shared_memory_max INTEGER;
-        ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN shared_memory_min INTEGER;
       "#,
       kind: MigrationKind::Up,
     },
