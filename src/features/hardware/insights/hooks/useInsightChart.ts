@@ -9,7 +9,7 @@ import type {
 } from "@/features/hardware/types/chart";
 import type {
   DataStats,
-  HardwareDataType,
+  GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { sqlitePromise } from "@/lib/sqlite";
@@ -47,13 +47,10 @@ const getDataArchiveKey = (
 };
 
 const getGpuDataArchiveKey = (
-  dataType: Exclude<HardwareDataType, "clock">,
+  dataType: GpuDataType,
   dataStats: DataStats,
 ): keyof GpuDataArchive => {
-  const keyMap: Record<
-    Exclude<HardwareDataType, "clock">,
-    Record<string, keyof GpuDataArchive>
-  > = {
+  const keyMap: Record<GpuDataType, Record<string, keyof GpuDataArchive>> = {
     usage: {
       avg: "usage_avg",
       max: "usage_max",
@@ -64,6 +61,11 @@ const getGpuDataArchiveKey = (
       max: "temperature_max",
       min: "temperature_min",
     },
+    dedicatedMemory: {
+      avg: "dedicated_memory_avg",
+      max: "dedicated_memory_max",
+      min: "dedicated_memory_min",
+    },
   };
 
   return keyMap[dataType][dataStats];
@@ -72,7 +74,7 @@ const getGpuDataArchiveKey = (
 type UseInsightChartGpuProps = {
   hardwareType: Extract<HardwareType, "gpu">;
   dataStats: DataStats;
-  dataType: Exclude<HardwareDataType, "clock">;
+  dataType: GpuDataType;
   period: (typeof archivePeriods)[number];
   offset: number;
   gpuName: string;
@@ -142,11 +144,18 @@ export const useInsightChart = (
     return await (await sqlitePromise).load(sql);
   }, [endAt, hardwareType, period, dataStats, gpuName, dataType]);
 
-  const formatTemperature = useCallback(
+  const formatValue = useCallback(
     (value: number) => {
-      return settings.temperatureUnit === "F" && dataType === "temp"
-        ? (value * 9) / 5 + 32
-        : Number.parseFloat(value.toFixed(1));
+      if (dataType === "temp" && settings.temperatureUnit === "F") {
+        return (value * 9) / 5 + 32;
+      }
+
+      // KB => GB
+      if (dataType === "dedicatedMemory") {
+        return Number.parseFloat((value / (1024 * 1024)).toFixed(1));
+      }
+
+      return Number.parseFloat(value.toFixed(1));
     },
     [settings.temperatureUnit, dataType],
   );
@@ -154,7 +163,7 @@ export const useInsightChart = (
   useEffect(() => {
     const updateData = () => {
       getData().then((data) =>
-        setData(data.map((V) => ({ ...V, value: formatTemperature(V.value) }))),
+        setData(data.map((V) => ({ ...V, value: formatValue(V.value) }))),
       );
     };
 
@@ -165,7 +174,7 @@ export const useInsightChart = (
       chartConfig.archiveUpdateIntervalMilSec,
     );
     return () => clearInterval(intervalId);
-  }, [getData, formatTemperature]);
+  }, [getData, formatValue]);
 
   const startTime = useMemo(
     () => new Date(endAt.getTime() - period * 60 * 1000),

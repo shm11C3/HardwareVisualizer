@@ -4,11 +4,13 @@ import type { archivePeriods } from "@/features/hardware/consts/chart";
 import type {
   ChartDataType,
   DataStats,
-  HardwareDataType,
+  GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { HardwareType } from "@/rspc/bindings";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useInsightChart } from "../hooks/useInsightChart";
 
 export const InsightChart = ({
@@ -73,7 +75,7 @@ export const GpuInsightChart = ({
   offset,
   gpuName,
 }: {
-  dataType: Exclude<HardwareDataType, "clock">;
+  dataType: GpuDataType;
   period: (typeof archivePeriods)[number];
   dataStats: DataStats;
   offset: number;
@@ -81,6 +83,7 @@ export const GpuInsightChart = ({
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
+  const { hardwareInfo } = useHardwareInfoAtom();
   const { labels, chartData } = useInsightChart({
     hardwareType: "gpu",
     dataStats,
@@ -105,6 +108,38 @@ export const GpuInsightChart = ({
     },
   } satisfies ChartConfig;
 
+  const maxGpuMemory = useMemo(() => {
+    const max =
+      hardwareInfo.gpus?.reduce((acc, gpu) => {
+        const matches = [
+          ...gpu.memorySizeDedicated.matchAll(/(\d+(\.\d+)?|\D+)/g),
+        ];
+
+        if (matches.length < 2) {
+          return acc;
+        }
+
+        const value = Number.parseFloat(matches[0][0]);
+        const unit = matches[1][0].trim();
+
+        return Math.max(
+          acc,
+          Number.parseFloat(
+            (
+              value * (unit === "GB" ? 1 : unit === "MB" ? 0.001 : 0.000001)
+            ).toFixed(1),
+          ),
+        );
+      }, 0) ?? 0;
+
+    // 1 GB未満は1GBとして扱う
+    if (max < 1) {
+      return 1;
+    }
+
+    return max;
+  }, [hardwareInfo.gpus]);
+
   return (
     <div className="w-full h-full">
       <SingleLineChart
@@ -123,13 +158,19 @@ export const GpuInsightChart = ({
           {
             usage: `GPU ${t("shared.usage")} (%)`,
             temp: `GPU ${t("shared.temperature")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`,
+            dedicatedMemory: `${t("shared.memorySizeDedicatedUsage")} (GB)`,
           }[dataType]
         }
-        range={
-          dataType === "temp" && settings.temperatureUnit === "F"
-            ? [0, 220]
-            : [0, 100]
-        }
+        range={(() => {
+          switch (dataType) {
+            case "dedicatedMemory":
+              return [0, maxGpuMemory];
+            case "temp":
+              return settings.temperatureUnit === "C" ? [0, 100] : [0, 220];
+            default:
+              return [0, 100];
+          }
+        })()}
       />
     </div>
   );

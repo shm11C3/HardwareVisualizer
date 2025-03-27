@@ -18,6 +18,9 @@ export type GpuDataArchive = {
   temperature_avg: number;
   temperature_max: number;
   temperature_min: number;
+  dedicated_memory_avg: number;
+  dedicated_memory_max: number;
+  dedicated_memory_min: number;
   timestamp: number;
 };
 
