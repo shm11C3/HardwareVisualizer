@@ -5,7 +5,11 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { sizeOptions } from "@/features/hardware/consts/chart";
-import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
+import {
+  type ChartDataType,
+  type GpuDataType,
+  isChartDataType,
+} from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { LineGraphType } from "@/rspc/bindings";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
@@ -23,7 +27,7 @@ type ChartProps = {
 
 type SingleChartProps = {
   chartData: (number | null)[];
-  dataType: ChartDataType;
+  dataType: ChartDataType | GpuDataType;
   lineGraphMix: false;
 } & ChartProps;
 
@@ -142,18 +146,18 @@ export const SingleLineChart = ({
           <Area
             type={lineGraphType2RechartsCurveType[lineGraphType]}
             dataKey={dataKey}
-            stroke={`rgb(${settings.lineGraphColor[dataType]})`}
+            stroke={`rgb(${chartConfig[dataType].color})`}
             strokeWidth={2}
             fill={
               settings.lineGraphFill
-                ? `rgba(${settings.lineGraphColor[dataType]},0.3)`
+                ? `rgba(${chartConfig[dataType].color},0.3)`
                 : "none"
             }
             isAnimationActive={false}
           />
         </AreaChart>
       </ChartContainer>
-      {lineGraphShowLegend && (
+      {lineGraphShowLegend && isChartDataType(dataType) && (
         <div className="flex justify-center mt-4 mb-2">
           <CustomLegend item={legendItems[dataType]} />
         </div>
@@ -270,15 +274,15 @@ export const LineChartComponent = (
   const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
     cpu: {
       label: "CPU",
-      color: `rgb(${settings.lineGraphColor.cpu})`,
+      color: settings.lineGraphColor.cpu,
     },
     memory: {
       label: "RAM",
-      color: `rgb(${settings.lineGraphColor.memory})`,
+      color: settings.lineGraphColor.memory,
     },
     gpu: {
       label: "GPU",
-      color: `rgb(${settings.lineGraphColor.gpu})`,
+      color: settings.lineGraphColor.gpu,
     },
   } satisfies ChartConfig;
 

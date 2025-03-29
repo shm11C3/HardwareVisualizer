@@ -33,18 +33,17 @@ export const InsightChart = ({
     offset,
   });
 
-  const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
+  const chartConfig: Record<
+    Exclude<ChartDataType, "gpu">,
+    { label: string; color: string }
+  > = {
     cpu: {
       label: "CPU",
-      color: `rgb(${settings.lineGraphColor.cpu})`,
+      color: settings.lineGraphColor.cpu,
     },
     memory: {
       label: "RAM",
-      color: `rgb(${settings.lineGraphColor.memory})`,
-    },
-    gpu: {
-      label: "GPU",
-      color: `rgb(${settings.lineGraphColor.gpu})`,
+      color: settings.lineGraphColor.memory,
     },
   } satisfies ChartConfig;
 
@@ -93,18 +92,18 @@ export const GpuInsightChart = ({
     gpuName,
   });
 
-  const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
-    cpu: {
-      label: "CPU",
-      color: `rgb(${settings.lineGraphColor.cpu})`,
-    },
-    memory: {
-      label: "RAM",
-      color: `rgb(${settings.lineGraphColor.memory})`,
-    },
-    gpu: {
+  const chartConfig: Record<GpuDataType, { label: string; color: string }> = {
+    usage: {
       label: "GPU",
-      color: `rgb(${settings.lineGraphColor.gpu})`,
+      color: "92, 193, 99",
+    },
+    dedicatedMemory: {
+      label: "GPU",
+      color: "87, 151, 255",
+    },
+    temp: {
+      label: "GPU",
+      color: "254, 192, 57",
     },
   } satisfies ChartConfig;
 
@@ -145,7 +144,7 @@ export const GpuInsightChart = ({
       <SingleLineChart
         labels={labels}
         chartData={chartData}
-        dataType={"gpu"}
+        dataType={dataType}
         chartConfig={chartConfig}
         border={false}
         size="lg"
