@@ -2,6 +2,7 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 
 pub fn get_migrations() -> Vec<Migration> {
   vec![
+    // Up Migrations
     Migration {
       version: 1,
       description: "create_initial_tables",
@@ -23,6 +24,19 @@ pub fn get_migrations() -> Vec<Migration> {
         ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN dedicated_memory_min INTEGER;
       "#,
       kind: MigrationKind::Up,
+    },
+    Migration {
+      version: 4,
+      description: "create_process_stats ",
+      sql: "CREATE TABLE PROCESS_STATS (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL, process_name TEXT NOT NULL,  cpu_usage REAL NOT NULL,  memory_usage INTEGER NOT NULL, execution_sec INTEGER NOT NULL, timestamp DATETIME NOT NULL);",
+      kind: MigrationKind::Up,
+    },
+    // Down Migrations
+    Migration {
+      version: 4,
+      description: "drop_process_stats",
+      sql: "DROP TABLE IF EXISTS PROCESS_STATS;",
+      kind: MigrationKind::Down,
     },
   ]
 }

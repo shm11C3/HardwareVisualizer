@@ -1,8 +1,5 @@
-use crate::services;
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+use crate::{services, structs};
 use std::time::Duration;
-use sysinfo;
 
 ///
 /// システム情報の更新頻度（秒）
@@ -14,17 +11,6 @@ const SYSTEM_INFO_INIT_INTERVAL: u64 = 1;
 ///
 const HISTORY_CAPACITY: usize = 60;
 
-pub struct MonitorResources {
-  pub system: Arc<Mutex<sysinfo::System>>,
-  pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub memory_history: Arc<Mutex<VecDeque<f32>>>,
-  pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-  pub nv_gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-}
-
 ///
 /// ## システム情報の初期化
 ///
@@ -32,8 +18,8 @@ pub struct MonitorResources {
 ///
 /// - `SYSTEM_INFO_INIT_INTERVAL` 秒ごとにCPU使用率とメモリ使用率を更新
 ///
-pub async fn setup(resources: MonitorResources) {
-  let MonitorResources {
+pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
+  let structs::hardware_archive::MonitorResources {
     system,
     cpu_history,
     memory_history,
