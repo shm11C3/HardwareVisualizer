@@ -22,6 +22,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { ProcessInsight } from "./process/ProcessInsight";
 
 const arrowButtonVariants = tv({
   base: "text-zinc-500 dark:text-zinc-400 cursor-pointer disabled:opacity-50 disabled:pointer-events-none h-40",
@@ -508,6 +509,7 @@ export const Insights = () => {
           })
           .filter((v): v is NonNullable<typeof v> => Boolean(v))
       : []),
+    { key: "process", element: <ProcessInsight /> },
   ];
 
   return (
@@ -529,7 +531,9 @@ export const Insights = () => {
                   value={key}
                   onClick={() => setDisplayTarget(key)}
                 >
-                  {key === "main" ? t("pages.insights.main.title") : key}
+                  {["main", "process"].includes(key)
+                    ? t(`pages.insights.${key}.title`, { defaultValue: key })
+                    : key}
                 </TabsTrigger>
               );
             })}
