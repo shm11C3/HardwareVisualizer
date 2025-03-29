@@ -18,7 +18,7 @@ export const getProcessStats = async (
       process_name,
       AVG(cpu_usage) AS avg_cpu_usage,
       AVG(memory_usage) AS avg_memory_usage,
-      SUM(execution_sec) AS total_execution_sec,
+      MAX(execution_sec) AS total_execution_sec,
       MAX(timestamp) AS latest_timestamp
     FROM process_stats
     WHERE timestamp BETWEEN '${startTime.toISOString()}'

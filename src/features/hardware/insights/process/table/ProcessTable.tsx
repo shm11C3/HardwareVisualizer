@@ -1,6 +1,6 @@
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { formatBytes, formatLocaleTime } from "@/lib/formatter";
+import { formatBytes, formatDuration } from "@/lib/formatter";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -210,7 +210,7 @@ const InfoTable = ({
                 {formatBytes(process.avg_memory_usage * 1024).join(" ")}
               </td>
               <td className="py-2">
-                {formatLocaleTime(process.total_execution_sec, "ja-JP")}
+                {formatDuration(process.total_execution_sec, "ja-JP")}
               </td>
               <td className="py-2">
                 {new Date(process.latest_timestamp).toLocaleString()}
