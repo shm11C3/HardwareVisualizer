@@ -1,9 +1,9 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { minOpacity } from "@/consts";
-import type { HardwareDataType } from "@/types/hardwareDataType";
-import type { Settings } from "@/types/settingsType";
+import { minOpacity } from "@/consts/style";
+import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { Settings } from "@/features/settings/types/settingsType";
 import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";

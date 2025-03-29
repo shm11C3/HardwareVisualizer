@@ -1,8 +1,8 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { BackgroundImage } from "@/features/settings/types/settingsType";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
 import { isError, isOk } from "@/types/result";
-import type { BackgroundImage } from "@/types/settingsType";
 import { atom, useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { useTauriDialog } from "./useTauriDialog";

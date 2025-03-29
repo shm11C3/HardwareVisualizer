@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 // useSettingsAtom をモック化（テスト毎に変更可能なグローバル変数を参照）
-vi.mock("@/atom/useSettingsAtom", () => ({
+vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: settingsMock,
     updateSettingAtom: updateSettingAtomMock,
