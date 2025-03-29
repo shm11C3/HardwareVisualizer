@@ -12,3 +12,10 @@ export type NameValues = Array<{
 }>;
 
 export type DataStats = "avg" | "max" | "min";
+
+export const isChartDataType = (param: unknown): param is ChartDataType => {
+  return (
+    typeof param === "string" &&
+    ([...chartHardwareTypes] as string[]).includes(param)
+  );
+};
