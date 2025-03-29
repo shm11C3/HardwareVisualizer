@@ -12,7 +12,7 @@ lto = true
 
 [package]
 name = "hardware_visualizer"
-version = "0.5.2"
+version = "0.6.0"
 description = "A real-time hardware monitoring tool for Windows"
 authors = ["@shm11C3"]
 license = ""
