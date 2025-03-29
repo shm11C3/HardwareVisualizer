@@ -1,4 +1,5 @@
 import { minOpacity } from "@/consts/style";
+import type { archivePeriods } from "@/features/hardware/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { formatBytes, formatDuration } from "@/lib/formatter";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
@@ -7,10 +8,12 @@ import { useTranslation } from "react-i18next";
 import { useProcessStats } from "../hooks/useProcessStats";
 import type { ProcessStat } from "../types/processStats";
 
-export default function ProcessTable() {
+export default function ProcessTable({
+  period,
+}: { period: (typeof archivePeriods)[number] }) {
   const { settings } = useSettingsAtom();
   const { processStats, loading } = useProcessStats({
-    period: 10,
+    period: period,
     offset: 0,
   });
 

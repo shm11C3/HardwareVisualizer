@@ -1,10 +1,3 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/features/hardware/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
@@ -22,6 +15,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { SelectPeriod } from "./components/SelectPeriod";
 import { ProcessInsight } from "./process/ProcessInsight";
 
 const arrowButtonVariants = tv({
@@ -33,45 +27,6 @@ const Border = ({ children }: { children: JSX.Element }) => {
     <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600 p-4">
       {children}
     </div>
-  );
-};
-
-const SelectPeriod = ({
-  options,
-  selected,
-  onChange,
-  showDefaultOption,
-}: {
-  options: { label: string; value: keyof typeof archivePeriods }[];
-  selected: keyof typeof archivePeriods | null;
-  onChange: (value: (typeof archivePeriods)[number]) => void;
-  showDefaultOption?: boolean;
-}) => {
-  const { t } = useTranslation();
-
-  return (
-    <Select
-      value={String(selected ?? "not-selected")}
-      onValueChange={(value) =>
-        onChange(value as unknown as (typeof archivePeriods)[number])
-      }
-    >
-      <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Temperature Unit" />
-      </SelectTrigger>
-      <SelectContent>
-        {showDefaultOption && (
-          <SelectItem key="" value="not-selected">
-            {t("shared.select")}
-          </SelectItem>
-        )}
-        {options.map((option) => (
-          <SelectItem key={String(option.value)} value={String(option.value)}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 };
 
