@@ -11,21 +11,21 @@ pub struct HardwareArchiveSettings {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HardwareData {
-  pub avg: f32,
-  pub max: f32,
-  pub min: f32,
+  pub avg: Option<f32>,
+  pub max: Option<f32>,
+  pub min: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GpuData {
   pub gpu_name: String,
-  pub usage_avg: f32,
-  pub usage_max: f32,
-  pub usage_min: f32,
-  pub temperature_avg: f32,
-  pub temperature_max: i32,
-  pub temperature_min: i32,
-  pub dedicated_memory_avg: i32,
-  pub dedicated_memory_max: i32,
-  pub dedicated_memory_min: i32,
+  pub usage_avg: Option<f32>,
+  pub usage_max: Option<f32>,
+  pub usage_min: Option<f32>,
+  pub temperature_avg: Option<f32>,
+  pub temperature_max: Option<i32>,
+  pub temperature_min: Option<i32>,
+  pub dedicated_memory_avg: Option<i32>,
+  pub dedicated_memory_max: Option<i32>,
+  pub dedicated_memory_min: Option<i32>,
 }

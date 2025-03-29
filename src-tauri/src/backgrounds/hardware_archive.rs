@@ -87,9 +87,9 @@ fn get_cpu_data(
   let cpu_avg = {
     let cpu_hist = cpu_history.lock().unwrap();
     if cpu_hist.is_empty() {
-      0.0
+      None
     } else {
-      cpu_hist.iter().sum::<f32>() / cpu_hist.len() as f32
+      Some(cpu_hist.iter().sum::<f32>() / cpu_hist.len() as f32)
     }
   };
 
@@ -98,14 +98,14 @@ fn get_cpu_data(
     .unwrap()
     .iter()
     .cloned()
-    .fold(0.0, f32::max);
+    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
   let cpu_min = cpu_history
     .lock()
     .unwrap()
     .iter()
     .cloned()
-    .fold(100.0, f32::min);
+    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
   structs::hardware_archive::HardwareData {
     avg: cpu_avg,
@@ -120,9 +120,9 @@ fn get_memory_data(
   let memory_avg = {
     let mem_hist = memory_history.lock().unwrap();
     if mem_hist.is_empty() {
-      0.0
+      None
     } else {
-      mem_hist.iter().sum::<f32>() / mem_hist.len() as f32
+      Some(mem_hist.iter().sum::<f32>() / mem_hist.len() as f32)
     }
   };
 
@@ -131,14 +131,14 @@ fn get_memory_data(
     .unwrap()
     .iter()
     .cloned()
-    .fold(0.0, f32::max);
+    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
   let memory_min = memory_history
     .lock()
     .unwrap()
     .iter()
     .cloned()
-    .fold(100.0, f32::min);
+    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
   structs::hardware_archive::HardwareData {
     avg: memory_avg,
@@ -165,10 +165,12 @@ fn get_gpu_data(
     let usage_avg = {
       let usage_hist = nv_gpu_usage_histories.lock().unwrap();
       if usage_hist.is_empty() {
-        0.0
+        None
       } else {
-        usage_hist.values().flat_map(|v| v.iter()).sum::<f32>()
-          / usage_hist.values().map(|v| v.len()).sum::<usize>() as f32
+        Some(
+          usage_hist.values().flat_map(|v| v.iter()).sum::<f32>()
+            / usage_hist.values().map(|v| v.len()).sum::<usize>() as f32,
+        )
       }
     };
 
@@ -178,7 +180,7 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(0.0, f32::max);
+      .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let usage_min = nv_gpu_usage_histories
       .lock()
@@ -186,18 +188,20 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(100.0, f32::min);
+      .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let temperature_avg = {
       let temperature_hist = nv_gpu_temperature_histories.lock().unwrap();
       if temperature_hist.is_empty() {
-        0.0
+        None
       } else {
-        temperature_hist
-          .values()
-          .flat_map(|v| v.iter())
-          .sum::<i32>() as f32
-          / temperature_hist.values().map(|v| v.len()).sum::<usize>() as f32
+        Some(
+          temperature_hist
+            .values()
+            .flat_map(|v| v.iter())
+            .sum::<i32>() as f32
+            / temperature_hist.values().map(|v| v.len()).sum::<usize>() as f32,
+        )
       }
     };
 
@@ -207,7 +211,7 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(i32::MIN, i32::max);
+      .max();
 
     let temperature_min = nv_gpu_temperature_histories
       .lock()
@@ -215,15 +219,17 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(100, i32::min);
+      .min();
 
     let dedicated_memory_avg = {
       let memory_hist = nv_gpu_dedicated_memory_histories.lock().unwrap();
       if memory_hist.is_empty() {
-        0
+        None
       } else {
-        memory_hist.values().flat_map(|v| v.iter()).sum::<i32>()
-          / memory_hist.values().map(|v| v.len()).sum::<usize>() as i32
+        Some(
+          memory_hist.values().flat_map(|v| v.iter()).sum::<i32>()
+            / memory_hist.values().map(|v| v.len()).sum::<usize>() as i32,
+        )
       }
     };
 
@@ -233,7 +239,7 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(0, i32::max);
+      .max();
 
     let dedicated_memory_min = nv_gpu_dedicated_memory_histories
       .lock()
@@ -241,7 +247,7 @@ fn get_gpu_data(
       .values()
       .flat_map(|v| v.iter())
       .cloned()
-      .fold(i32::MAX, i32::min);
+      .min();
 
     gpu_data.push(structs::hardware_archive::GpuData {
       gpu_name,

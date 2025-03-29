@@ -145,7 +145,11 @@ export const useInsightChart = (
   }, [endAt, hardwareType, period, dataStats, gpuName, dataType]);
 
   const formatValue = useCallback(
-    (value: number) => {
+    (value: number | null) => {
+      if (value == null) {
+        return null;
+      }
+
       if (dataType === "temp" && settings.temperatureUnit === "F") {
         return (value * 9) / 5 + 32;
       }
@@ -198,7 +202,9 @@ export const useInsightChart = (
         if (!acc[bucketTimestamp]) {
           acc[bucketTimestamp] = [];
         }
-        acc[bucketTimestamp].push(record.value);
+        if (record.value != null) {
+          acc[bucketTimestamp].push(record.value);
+        }
         return acc;
       },
       {} as Record<number, number[]>,
