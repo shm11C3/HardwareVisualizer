@@ -8,7 +8,6 @@ import type { sizeOptions } from "@/features/hardware/consts/chart";
 import {
   type ChartDataType,
   type GpuDataType,
-  chartHardwareTypes,
   isChartDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
