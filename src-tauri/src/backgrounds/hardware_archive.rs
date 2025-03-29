@@ -317,6 +317,11 @@ fn get_process_stats(
         let cpu_avg = cpu_history.iter().copied().sum::<f32>() / cpu_history.len() as f32;
         let mem_avg = mem_history.iter().copied().sum::<f32>() / mem_history.len() as f32;
 
+        // CPU とメモリの使用率が両方とも 0 の場合はスキップ
+        if cpu_avg == 0.0 && mem_avg == 0.0 {
+          continue;
+        }
+
         if let Some(process) = sys.process(*pid) {
           let exec_time = process.run_time() as i32;
 
