@@ -3,6 +3,7 @@
     "usage": "使用率",
     "cpuUsage": "CPU 使用率",
     "memoryUsage": "メモリ使用率",
+    "memoryUsageValue": "メモリ使用量",
     "temperature": "温度",
     "name": "名前",
     "vendor": "ベンダー",
@@ -52,6 +53,7 @@
     },
     "select": "選択する",
     "total": "合計",
+    "execTime": "実行時間",
     "other": "その他"
   },
 

@@ -3,6 +3,7 @@
     "usage": "Usage",
     "cpuUsage": "CPU Usage",
     "memoryUsage": "Memory Usage",
+    "memoryUsageValue": "Memory Usage",
     "temperature": "Temperature",
     "name": "Name",
     "vendor": "Vendor",
@@ -52,6 +53,7 @@
     "max": "Max",
     "select": "Select",
     "total": "Total",
+    "execTime": "Execution Time",
     "other": "Other"
   },
 

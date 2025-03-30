@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { TooltipProps } from "recharts";
 import type {
   NameType,
@@ -8,6 +9,8 @@ export const CustomTooltip = ({
   active,
   payload,
 }: TooltipProps<ValueType, NameType>) => {
+  const { t } = useTranslation();
+
   if (!active || !payload || payload.length === 0) return null;
 
   const data = payload[0].payload;
@@ -18,14 +21,16 @@ export const CustomTooltip = ({
         {data.name} (PID: {data.pid})
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-neutral-500 dark:text-neutral-400">実行時間</span>
+        <span className="text-neutral-500 dark:text-neutral-400">
+          {t("shared.execTime")}
+        </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
           {data.x.toFixed(1)} 分
         </span>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-neutral-500 dark:text-neutral-400">
-          CPU使用率
+          {t("shared.cpuUsage")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
           {data.y.toFixed(1)}%
@@ -33,7 +38,7 @@ export const CustomTooltip = ({
       </div>
       <div className="flex items-center gap-2">
         <span className="text-neutral-500 dark:text-neutral-400">
-          メモリ使用量
+          {t("shared.memoryUsageValue")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
           {data.z.toFixed(1)}MB

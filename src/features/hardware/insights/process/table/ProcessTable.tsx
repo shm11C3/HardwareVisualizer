@@ -111,6 +111,7 @@ const InfoTable = ({
   className: string;
 }) => {
   const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
 
   const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
     ascending: <CaretUp className="ml-1" size={18} />,
@@ -208,7 +209,10 @@ const InfoTable = ({
                 {formatBytes(process.avg_memory_usage * 1024).join(" ")}
               </td>
               <td className="py-2">
-                {formatDuration(process.total_execution_sec, "ja-JP")}
+                {formatDuration(
+                  process.total_execution_sec,
+                  settings.language === "ja" ? "ja-JP" : "en-US",
+                )}
               </td>
               <td className="py-2">
                 {new Date(process.latest_timestamp).toLocaleString()}

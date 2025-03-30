@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -18,6 +19,8 @@ export const ProcessBubbleChart = ({
   processStats: ProcessStat[] | null;
   loading: boolean;
 }) => {
+  const { t } = useTranslation();
+
   if (loading || processStats == null) {
     return <></>;
   }
@@ -36,21 +39,21 @@ export const ProcessBubbleChart = ({
         <CartesianGrid />
         <XAxis
           dataKey="x"
-          name="実行時間（分）"
+          name={`${t("shared.execTime")} ${t("shared.time.minutes")}`}
           type="number"
           label={{
-            value: "実行時間（分）",
+            value: `${t("shared.execTime")} (${t("shared.time.minutes")})`,
             position: "insideBottom",
             offset: -10,
           }}
         />
         <YAxis
           dataKey="y"
-          name="CPU使用率（%）"
+          name={`${t("shared.cpuUsage")} (%)`}
           type="number"
           domain={[0, 100]}
           label={{
-            value: "CPU使用率（%）",
+            value: `${t("shared.cpuUsage")} (%)`,
             angle: -90,
             position: "insideLeft",
           }}
@@ -58,25 +61,28 @@ export const ProcessBubbleChart = ({
         <ZAxis
           dataKey="z"
           range={[60, 400]} // バブルサイズ（調整可能）
-          name="メモリ使用量（MB）"
+          name={`${t("shared.memoryUsageValue")} (%)`}
         />
         <Tooltip
           cursor={{ strokeDasharray: "3 3" }}
           formatter={(value, name) => {
             switch (name) {
               case "x":
-                return [`${(value as number).toFixed(1)} 分`, "実行時間"];
+                return [
+                  `${(value as number).toFixed(1)} ${t("shared.time.minutes")}`,
+                  t("shared.execTime"),
+                ];
               case "y":
                 return [`${(value as number).toFixed(1)} %`, "CPU"];
               case "z":
-                return [`${(value as number).toFixed(1)} MB`, "メモリ"];
+                return [`${(value as number).toFixed(1)} MB`, "RAM"];
               default:
                 return value;
             }
           }}
           content={<CustomTooltip />}
         />
-        <Scatter name="プロセス" data={chartData} fill="#8884d8" />
+        <Scatter name="process" data={chartData} fill="#8884d8" />
       </ScatterChart>
     </ResponsiveContainer>
   );
