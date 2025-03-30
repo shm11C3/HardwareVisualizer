@@ -178,7 +178,7 @@ const InfoTable = ({
             onKeyDown={() => requestSort("total_execution_sec")}
           >
             <div className="flex items-center">
-              <span>Total Exec Time</span>
+              <span>{t("shared.totalExecTime")}</span>
               {sortConfig &&
                 sortConfig.key === "total_execution_sec" &&
                 sortIcon[sortConfig.direction]}
@@ -190,7 +190,7 @@ const InfoTable = ({
             onKeyDown={() => requestSort("latest_timestamp")}
           >
             <div className="flex items-center">
-              <span>Latest Time</span>
+              <span>{t("shared.latestExecTime")}</span>
               {sortConfig &&
                 sortConfig.key === "latest_timestamp" &&
                 sortIcon[sortConfig.direction]}

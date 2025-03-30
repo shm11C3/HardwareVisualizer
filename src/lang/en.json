@@ -54,6 +54,8 @@
     "select": "Select",
     "total": "Total",
     "execTime": "Execution Time",
+    "totalExecTime": "Total Execution Time",
+    "latestExecTime": "Latest Execution Time",
     "other": "Other"
   },
 

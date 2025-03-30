@@ -54,6 +54,8 @@
     "select": "選択する",
     "total": "合計",
     "execTime": "実行時間",
+    "totalExecTime": "合計実行時間",
+    "latestExecTime": "最新実行時間",
     "other": "その他"
   },
 
