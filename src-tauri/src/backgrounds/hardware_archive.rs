@@ -325,6 +325,11 @@ fn get_process_stats(
         if let Some(process) = sys.process(*pid) {
           let exec_time = process.run_time() as i32;
 
+          // 異常な稼働時間のプロセスは無視
+          if exec_time < 0 || exec_time > 60 * 60 * 24 * 30 {
+            continue;
+          }
+
           all_stats.push(structs::hardware_archive::ProcessStatData {
             pid: (*pid).as_u32() as i32,
             process_name: process.name().to_string_lossy().into_owned(),
