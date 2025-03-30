@@ -2,6 +2,13 @@ import { chartConfig } from "@/features/hardware/consts/chart";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { ProcessStat } from "../types/processStats";
 
+/**
+ *
+ * @param period
+ * @param endAt
+ * @returns
+ * @todo ソートもSQLでやる
+ */
 export const getProcessStats = async (
   period: number,
   endAt: Date,

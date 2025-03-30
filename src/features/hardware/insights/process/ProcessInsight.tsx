@@ -1,7 +1,10 @@
 import { useTauriStore } from "@/hooks/useTauriStore";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { archivePeriods } from "../../consts/chart";
 import { SelectPeriod } from "../components/SelectPeriod";
+import { ProcessBubbleChart } from "./chart/Bubble";
+import { useProcessStats } from "./hooks/useProcessStats";
 import ProcessTable from "./table/ProcessTable";
 
 export const ProcessInsight = () => {
@@ -28,10 +31,6 @@ export const ProcessInsight = () => {
     value: period,
   }));
 
-  if (period == null) {
-    return <></>;
-  }
-
   return (
     <div className="pb-6">
       <div className="flex justify-end items-center">
@@ -41,8 +40,35 @@ export const ProcessInsight = () => {
           onChange={setPeriod}
         />
       </div>
+      {period != null && <ProcessArea period={period} />}
+    </div>
+  );
+};
 
-      <ProcessTable period={period} />
+const ProcessArea = ({
+  period,
+}: { period: (typeof archivePeriods)[number] }) => {
+  const { processStats, loading } = useProcessStats({
+    period,
+    offset: 0,
+  });
+
+  const filteredData = useMemo(() => {
+    if (processStats == null) {
+      return [];
+    }
+
+    return processStats.filter(
+      (stat) =>
+        stat.total_execution_sec > 0 &&
+        stat.total_execution_sec < 60 * 60 * 24 * 30, // 1ヶ月以上稼働しているものは無視する
+    );
+  }, [processStats]);
+
+  return (
+    <div className="mt-4">
+      <ProcessBubbleChart processStats={filteredData} loading={loading} />
+      <ProcessTable processStats={filteredData} loading={loading} />
     </div>
   );
 };
