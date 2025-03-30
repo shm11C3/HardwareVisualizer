@@ -305,6 +305,8 @@ fn get_process_stats(
   let mut sys = sysinfo::System::new();
   sys.refresh_all();
 
+  let num_cores = sys.cpus().len() as f32;
+
   let cpu_histories = process_cpu_histories.lock().unwrap();
   let mem_histories = process_memory_histories.lock().unwrap();
 
@@ -314,6 +316,8 @@ fn get_process_stats(
     if let Some(mem_history) = mem_histories.get(pid) {
       if !cpu_history.is_empty() && !mem_history.is_empty() {
         let cpu_avg = cpu_history.iter().copied().sum::<f32>() / cpu_history.len() as f32;
+        let cpu_normalized_avg = cpu_avg / num_cores;
+
         let mem_avg = mem_history.iter().copied().sum::<f32>() / mem_history.len() as f32;
 
         // CPU とメモリの使用率が両方とも 0 の場合はスキップ
@@ -332,7 +336,7 @@ fn get_process_stats(
           all_stats.push(structs::hardware_archive::ProcessStatData {
             pid: (*pid).as_u32() as i32,
             process_name: process.name().to_string_lossy().into_owned(),
-            cpu_usage: cpu_avg,
+            cpu_usage: cpu_normalized_avg,
             memory_usage: mem_avg.round() as i32,
             execution_sec: exec_time,
           });
