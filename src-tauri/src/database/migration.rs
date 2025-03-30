@@ -27,7 +27,7 @@ pub fn get_migrations() -> Vec<Migration> {
     },
     Migration {
       version: 4,
-      description: "create_process_stats ",
+      description: "create_process_stats",
       sql: "CREATE TABLE PROCESS_STATS (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL, process_name TEXT NOT NULL,  cpu_usage REAL NOT NULL,  memory_usage INTEGER NOT NULL, execution_sec INTEGER NOT NULL, timestamp DATETIME NOT NULL);",
       kind: MigrationKind::Up,
     },
