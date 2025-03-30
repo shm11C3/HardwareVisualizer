@@ -1,4 +1,3 @@
-import { Skeleton } from "@/components/ui/skeleton";
 import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,23 +22,22 @@ export const ProcessBubbleChart = ({
 }) => {
   const { t } = useTranslation();
 
-  if (loading || processStats == null) {
-    return <Skeleton className="w-full h-[500px]" />;
-  }
+  const chartData =
+    loading || processStats == null
+      ? []
+      : processStats.map((d) => {
+          const rawZ = (d.avg_cpu_usage ?? 0) * d.total_execution_sec;
 
-  const chartData = processStats.map((d) => {
-    const rawZ = (d.avg_cpu_usage ?? 0) * d.total_execution_sec;
-
-    return {
-      x: d.total_execution_sec / 60, // 実行時間（分）
-      y: d.avg_cpu_usage, // CPU使用率
-      z: Math.sqrt(rawZ),
-      name: d.process_name,
-      pid: d.pid,
-      zRaw: rawZ,
-      ram: d.avg_memory_usage,
-    };
-  });
+          return {
+            x: d.total_execution_sec / 60, // 実行時間（分）
+            y: d.avg_cpu_usage, // CPU使用率
+            z: Math.sqrt(rawZ),
+            name: d.process_name,
+            pid: d.pid,
+            zRaw: rawZ,
+            ram: d.avg_memory_usage,
+          };
+        });
 
   return (
     <ResponsiveContainer width="100%" height={500}>
@@ -49,6 +47,7 @@ export const ProcessBubbleChart = ({
           dataKey="x"
           name={`${t("shared.execTime")} ${t("shared.time.minutes")}`}
           type="number"
+          domain={loading || processStats == null ? [0, 1000] : undefined}
           label={{
             value: `${t("shared.execTime")} (${t("shared.time.minutes")})`,
             position: "insideBottom",
