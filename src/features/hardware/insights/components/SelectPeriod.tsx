@@ -29,7 +29,7 @@ export const SelectPeriod = ({
       }
     >
       <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Temperature Unit" />
+        <SelectValue placeholder="Select Period" />
       </SelectTrigger>
       <SelectContent>
         {showDefaultOption && (
