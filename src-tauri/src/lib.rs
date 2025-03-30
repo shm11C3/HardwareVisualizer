@@ -13,7 +13,6 @@ mod utils;
 #[cfg(test)]
 mod _tests;
 
-use backgrounds::system_monitor::MonitorResources;
 use commands::background_image;
 use commands::hardware;
 use commands::settings;
@@ -119,25 +118,36 @@ pub fn run() {
 
       builder.mount_events(app);
 
-      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(MonitorResources {
-        system: Arc::clone(&system),
-        cpu_history: Arc::clone(&cpu_history),
-        memory_history: Arc::clone(&memory_history),
-        process_cpu_histories: Arc::clone(&process_cpu_histories),
-        process_memory_histories: Arc::clone(&process_memory_histories),
-        nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
-        nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
-        nv_gpu_dedicated_memory_histories: Arc::clone(&nv_gpu_dedicated_memory_histories),
-      }));
+      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
+        structs::hardware_archive::MonitorResources {
+          system: Arc::clone(&system),
+          cpu_history: Arc::clone(&cpu_history),
+          memory_history: Arc::clone(&memory_history),
+          process_cpu_histories: Arc::clone(&process_cpu_histories),
+          process_memory_histories: Arc::clone(&process_memory_histories),
+          nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+          nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
+          nv_gpu_dedicated_memory_histories: Arc::clone(
+            &nv_gpu_dedicated_memory_histories,
+          ),
+        },
+      ));
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
         tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
-          Arc::clone(&cpu_history),
-          Arc::clone(&memory_history),
-          Arc::clone(&nv_gpu_usage_histories),
-          Arc::clone(&nv_gpu_temperature_histories),
-          Arc::clone(&nv_gpu_dedicated_memory_histories),
+          structs::hardware_archive::MonitorResources {
+            system: Arc::clone(&system),
+            cpu_history: Arc::clone(&cpu_history),
+            memory_history: Arc::clone(&memory_history),
+            process_cpu_histories: Arc::clone(&process_cpu_histories),
+            process_memory_histories: Arc::clone(&process_memory_histories),
+            nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+            nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
+            nv_gpu_dedicated_memory_histories: Arc::clone(
+              &nv_gpu_dedicated_memory_histories,
+            ),
+          },
         ));
       }
 
