@@ -102,9 +102,7 @@ pub async fn batch_delete_old_data(refresh_interval_days: u32) {
     );
   }
 
-  let deletion_result = tokio::runtime::Handle::current().block_on(
-    database::process_stats::delete_old_data(refresh_interval_days),
-  );
+  let deletion_result = database::process_stats::delete_old_data(refresh_interval_days).await;
   if let Err(e) = deletion_result {
     log_error!(
       "Failed to delete old process stats data",
