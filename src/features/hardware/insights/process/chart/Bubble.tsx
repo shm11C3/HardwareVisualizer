@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import { useTranslation } from "react-i18next";
 import {
   CartesianGrid,
@@ -83,7 +84,7 @@ export const ProcessBubbleChart = ({
           }}
           content={<CustomTooltip />}
         />
-        <Scatter name="process" data={chartData} fill="#8884d8" />
+        <Scatter name="process" data={chartData} fill={bubbleChartColor} />
       </ScatterChart>
     </ResponsiveContainer>
   );
