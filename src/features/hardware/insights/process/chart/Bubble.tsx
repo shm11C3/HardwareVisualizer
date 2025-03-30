@@ -26,13 +26,19 @@ export const ProcessBubbleChart = ({
     return <Skeleton className="w-full h-[500px]" />;
   }
 
-  const chartData = processStats.map((d) => ({
-    x: d.total_execution_sec / 60, // 実行時間（分）
-    y: d.avg_cpu_usage, // CPU使用率
-    z: Math.max(d.avg_memory_usage, 10), // 最低10にして可視化
-    name: d.process_name,
-    pid: d.pid,
-  }));
+  const chartData = processStats.map((d) => {
+    const rawZ = (d.avg_cpu_usage ?? 0) * d.total_execution_sec;
+
+    return {
+      x: d.total_execution_sec / 60, // 実行時間（分）
+      y: d.avg_cpu_usage, // CPU使用率
+      z: Math.sqrt(rawZ),
+      name: d.process_name,
+      pid: d.pid,
+      zRaw: rawZ,
+      ram: d.avg_memory_usage,
+    };
+  });
 
   return (
     <ResponsiveContainer width="100%" height={500}>
@@ -59,11 +65,7 @@ export const ProcessBubbleChart = ({
             position: "insideLeft",
           }}
         />
-        <ZAxis
-          dataKey="z"
-          range={[60, 400]} // バブルサイズ（調整可能）
-          name={`${t("shared.memoryUsageValue")} (%)`}
-        />
+        <ZAxis dataKey="z" range={[60, 400]} name="Cumulative CPU load" />
         <Tooltip
           cursor={{ strokeDasharray: "3 3" }}
           formatter={(value, name) => {
@@ -75,8 +77,6 @@ export const ProcessBubbleChart = ({
                 ];
               case "y":
                 return [`${(value as number).toFixed(1)} %`, "CPU"];
-              case "z":
-                return [`${(value as number).toFixed(1)} MB`, "RAM"];
               default:
                 return value;
             }
