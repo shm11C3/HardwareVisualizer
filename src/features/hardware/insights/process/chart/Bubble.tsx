@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import {
   CartesianGrid,
@@ -22,7 +23,7 @@ export const ProcessBubbleChart = ({
   const { t } = useTranslation();
 
   if (loading || processStats == null) {
-    return <></>;
+    return <Skeleton className="w-full h-[500px]" />;
   }
 
   const chartData = processStats.map((d) => ({

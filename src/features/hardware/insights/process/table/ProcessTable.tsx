@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { formatBytes, formatDuration } from "@/lib/formatter";
@@ -17,9 +18,10 @@ export const ProcessTable = ({
     direction: "ascending" | "descending";
   } | null>(null);
 
-  // TODO Skeletonを表示する
   if (loading) {
-    return <></>;
+    return (
+      <Skeleton className="w-full h-[400px] xl:h-[600px] 2xl:h-[800px] m-4" />
+    );
   }
 
   if (!processStats) {
