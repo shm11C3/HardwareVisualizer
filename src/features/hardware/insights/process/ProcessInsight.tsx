@@ -5,7 +5,7 @@ import { archivePeriods } from "../../consts/chart";
 import { SelectPeriod } from "../components/SelectPeriod";
 import { ProcessBubbleChart } from "./chart/Bubble";
 import { useProcessStats } from "./hooks/useProcessStats";
-import ProcessTable from "./table/ProcessTable";
+import { ProcessTable } from "./table/ProcessTable";
 
 export const ProcessInsight = () => {
   const { t } = useTranslation();

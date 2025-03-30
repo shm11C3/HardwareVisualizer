@@ -6,10 +6,10 @@ import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ProcessStat } from "../types/processStats";
 
-export default function ProcessTable({
+export const ProcessTable = ({
   processStats,
   loading,
-}: { processStats: ProcessStat[] | null; loading: boolean }) {
+}: { processStats: ProcessStat[] | null; loading: boolean }) => {
   const { settings } = useSettingsAtom();
 
   const [sortConfig, setSortConfig] = useState<{
@@ -95,7 +95,7 @@ export default function ProcessTable({
       />
     </div>
   );
-}
+};
 
 const InfoTable = ({
   processes,

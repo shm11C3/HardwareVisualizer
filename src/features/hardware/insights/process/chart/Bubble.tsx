@@ -11,13 +11,13 @@ import {
 import type { ProcessStat } from "../types/processStats";
 import { CustomTooltip } from "./components/CutstomToolTip";
 
-export function ProcessBubbleChart({
+export const ProcessBubbleChart = ({
   processStats,
   loading,
 }: {
   processStats: ProcessStat[] | null;
   loading: boolean;
-}) {
+}) => {
   if (loading || processStats == null) {
     return <></>;
   }
@@ -80,4 +80,4 @@ export function ProcessBubbleChart({
       </ScatterChart>
     </ResponsiveContainer>
   );
-}
+};

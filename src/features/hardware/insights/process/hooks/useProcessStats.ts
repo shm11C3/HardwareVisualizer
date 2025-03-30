@@ -8,10 +8,10 @@ import { getProcessStats } from "../funcs/getProcessStatsRecord";
 import type { ProcessStat } from "../types/processStats";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
 
-export function useProcessStats({
+export const useProcessStats = ({
   period,
   offset,
-}: { period: (typeof archivePeriods)[number]; offset: number }) {
+}: { period: (typeof archivePeriods)[number]; offset: number }) => {
   const [loading, setLoading] = useState(true);
   const { error } = useTauriDialog();
   const { processStats, setProcessStatsAtom } = useProcessStatsAtom();
@@ -60,4 +60,4 @@ export function useProcessStats({
   }, [setProcessStatsAtom, getData, error]);
 
   return { processStats, loading };
-}
+};
