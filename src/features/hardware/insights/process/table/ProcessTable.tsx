@@ -78,7 +78,7 @@ export const ProcessTable = ({
 
   return (
     <div
-      className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit"
+      className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
