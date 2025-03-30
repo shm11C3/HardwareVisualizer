@@ -326,7 +326,7 @@ fn get_process_stats(
           let exec_time = process.run_time() as i32;
 
           // 異常な稼働時間のプロセスは無視
-          if exec_time < 0 || exec_time > 60 * 60 * 24 * 30 {
+          if !(0..=60 * 60 * 24 * 30).contains(&exec_time) {
             continue;
           }
 
