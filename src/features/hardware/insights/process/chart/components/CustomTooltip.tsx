@@ -1,3 +1,4 @@
+import { formatBytes } from "@/lib/formatter";
 import { useTranslation } from "react-i18next";
 import type { TooltipProps } from "recharts";
 import type {
@@ -25,7 +26,7 @@ export const CustomTooltip = ({
           {t("shared.execTime")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
-          {data.x.toFixed(1)} 分
+          {data.x.toFixed(1)} {t("shared.time.minutes")}
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -41,7 +42,7 @@ export const CustomTooltip = ({
           {t("shared.memoryUsageValue")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
-          {data.z.toFixed(1)}MB
+          {formatBytes(data.ram * 1024).join(" ")}
         </span>
       </div>
     </div>
