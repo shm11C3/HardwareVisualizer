@@ -11,7 +11,7 @@ import {
   ZAxis,
 } from "recharts";
 import type { ProcessStat } from "../types/processStats";
-import { CustomTooltip } from "./components/CutstomToolTip";
+import { CustomToolTip } from "./components/CutstomToolTip";
 
 export const ProcessBubbleChart = ({
   processStats,
@@ -81,7 +81,7 @@ export const ProcessBubbleChart = ({
                 return value;
             }
           }}
-          content={<CustomTooltip />}
+          content={<CustomToolTip />}
         />
         <Scatter name="process" data={chartData} fill="#8884d8" />
       </ScatterChart>

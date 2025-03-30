@@ -5,7 +5,7 @@ import type {
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
 
-export const CustomTooltip = ({
+export const CustomToolTip = ({
   active,
   payload,
 }: TooltipProps<ValueType, NameType>) => {
