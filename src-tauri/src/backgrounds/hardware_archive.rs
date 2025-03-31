@@ -11,7 +11,7 @@ const HISTORY_CAPACITY: u64 = 60;
 ///
 /// プロセスアーカイブデータの保存する上限数
 ///
-/// `PROCESS_RECORD_LIMIT`` * `PROCESS_RECORD_GROUP` の数だけ保存する
+/// `PROCESS_RECORD_LIMIT` * `PROCESS_RECORD_GROUP` の数だけ保存する
 ///
 const PROCESS_RECORD_LIMIT: usize = 5;
 
