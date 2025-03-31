@@ -28,7 +28,7 @@ export const CustomTooltip = ({
       <div className="flex items-center gap-2">
         <Timer size={16} color={bubbleChartColor} />
         <span className="text-neutral-500 dark:text-neutral-400">
-          {t("shared.execTime")}
+          {t("shared.totalExecTime")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
           {data.x.toFixed(1)} {t("shared.time.minutes")}
@@ -37,7 +37,7 @@ export const CustomTooltip = ({
       <div className="flex items-center gap-2">
         <Cpu size={16} color={`rgb(${settings.lineGraphColor.cpu})`} />
         <span className="text-neutral-500 dark:text-neutral-400">
-          {t("shared.cpuUsage")}
+          {t("shared.avgCpuUsage")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
           {data.y.toFixed(1)}%
@@ -46,7 +46,7 @@ export const CustomTooltip = ({
       <div className="flex items-center gap-2">
         <Memory size={16} color={`rgb(${settings.lineGraphColor.memory})`} />
         <span className="text-neutral-500 dark:text-neutral-400">
-          {t("shared.memoryUsageValue")}
+          {t("shared.avgMemoryUsageValue")}
         </span>
         <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
           {formatBytes(data.ram * 1024).join(" ")}
