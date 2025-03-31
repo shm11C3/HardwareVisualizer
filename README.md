@@ -19,14 +19,6 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 | MacOS   | ⏳                                                                           |
 | Linux   | ⏳                                                                           |
 
-> [!IMPORTANT]
->
-> **If it does not start**
->
-> We are currently working to improve the problem, which we have confirmed does not start properly in some Windows environments.
->
-> If it does not start, use the following version. [v0.3.1](https://github.com/shm11C3/HardwareVisualizer/releases/tag/release-v0.3.1)
-
 ## Features
 
 | Feature                   | Status |
@@ -67,6 +59,9 @@ Usage rates are calculated on a minute-by-minute basis.
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
 *GPU Insight is available on Nvidia GPU only.
+
+![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
+
 
 ### Custom Graph
 

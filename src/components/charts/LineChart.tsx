@@ -1,15 +1,20 @@
-import { useSettingsAtom } from "@/atom/useSettingsAtom";
 import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { sizeOptions } from "@/consts/chart";
+import type { sizeOptions } from "@/features/hardware/consts/chart";
+import {
+  type ChartDataType,
+  type GpuDataType,
+  isChartDataType,
+} from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { LineGraphType } from "@/rspc/bindings";
-import type { ChartDataType } from "@/types/hardwareDataType";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { CurveType } from "recharts/types/shape/Curve";
 import { tv } from "tailwind-variants";
@@ -22,7 +27,7 @@ type ChartProps = {
 
 type SingleChartProps = {
   chartData: (number | null)[];
-  dataType: ChartDataType;
+  dataType: ChartDataType | GpuDataType;
   lineGraphMix: false;
 } & ChartProps;
 
@@ -75,18 +80,22 @@ export const SingleLineChart = ({
   lineGraphShowTooltip,
   lineGraphType,
   lineGraphShowLegend,
+  dataKey,
+  range = [0, 100],
 }: SingleChartProps & { chartConfig: ChartConfig } & {
   border: boolean;
   lineGraphShowScale: boolean;
   lineGraphShowTooltip: boolean;
   lineGraphType: LineGraphType;
   lineGraphShowLegend: boolean;
+  dataKey: string;
+  range?: [number, number];
 }) => {
   const { settings } = useSettingsAtom();
 
   const data = labels.map((label, index) => ({
     name: label,
-    usage: chartData[index],
+    [dataKey]: chartData[index],
   }));
 
   const legendItems: Record<ChartDataType, LegendItem> = {
@@ -119,7 +128,7 @@ export const SingleLineChart = ({
           <CartesianGrid horizontal={lineGraphShowScale} vertical={false} />
           <XAxis dataKey="name" hide={!lineGraphShowScale} />
           <YAxis
-            domain={[0, 100]}
+            domain={range}
             hide={!lineGraphShowScale}
             tick={{
               fill: { light: "#77777", dark: "#fff" }[settings.theme],
@@ -136,19 +145,19 @@ export const SingleLineChart = ({
           )}
           <Area
             type={lineGraphType2RechartsCurveType[lineGraphType]}
-            dataKey="usage"
-            stroke={`rgb(${settings.lineGraphColor[dataType]})`}
+            dataKey={dataKey}
+            stroke={`rgb(${chartConfig[dataType].color})`}
             strokeWidth={2}
             fill={
               settings.lineGraphFill
-                ? `rgba(${settings.lineGraphColor[dataType]},0.3)`
+                ? `rgba(${chartConfig[dataType].color},0.3)`
                 : "none"
             }
             isAnimationActive={false}
           />
         </AreaChart>
       </ChartContainer>
-      {lineGraphShowLegend && (
+      {lineGraphShowLegend && isChartDataType(dataType) && (
         <div className="flex justify-center mt-4 mb-2">
           <CustomLegend item={legendItems[dataType]} />
         </div>
@@ -258,21 +267,22 @@ const MixLineChart = ({
 export const LineChartComponent = (
   props: SingleChartProps | MultiChartProps,
 ) => {
+  const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { lineGraphMix } = props;
 
   const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
     cpu: {
       label: "CPU",
-      color: `rgb(${settings.lineGraphColor.cpu})`,
+      color: settings.lineGraphColor.cpu,
     },
     memory: {
       label: "RAM",
-      color: `rgb(${settings.lineGraphColor.memory})`,
+      color: settings.lineGraphColor.memory,
     },
     gpu: {
       label: "GPU",
-      color: `rgb(${settings.lineGraphColor.gpu})`,
+      color: settings.lineGraphColor.gpu,
     },
   } satisfies ChartConfig;
 
@@ -287,6 +297,7 @@ export const LineChartComponent = (
       lineGraphShowTooltip={settings.lineGraphShowTooltip}
       lineGraphType={settings.lineGraphType}
       lineGraphShowLegend={settings.lineGraphShowLegend}
+      dataKey={`${t("shared.usage")} (%)`}
     />
   );
 };

@@ -1,0 +1,178 @@
+{
+  "shared": {
+    "usage": "使用率",
+    "cpuUsage": "CPU 使用率",
+    "avgCpuUsage": "平均 CPU 使用率",
+    "memoryUsage": "メモリ使用率",
+    "memoryUsageValue": "メモリ使用量",
+    "avgMemoryUsageValue": "平均メモリ使用量",
+    "temperature": "温度",
+    "name": "名前",
+    "vendor": "ベンダー",
+    "coreCount": "コア数",
+    "defaultClockSpeed": "標準クロック数",
+    "memory": "メモリ",
+    "memorySize": "メモリ容量",
+    "memorySizeShared": "メモリ容量（共有）",
+    "memorySizeDedicated": "メモリ容量（専用）",
+    "memorySizeSharedUsage": "共有GPUメモリ使用量",
+    "memorySizeDedicatedUsage": "専用GPUメモリ使用量",
+    "memoryType": "メモリタイプ",
+    "totalMemory": "合計メモリ",
+    "memoryCount": "メモリ枚数",
+    "memoryClockSpeed": "メモリクロック数",
+    "clock": "クロック数",
+    "process": "プロセス",
+    "reset": "リセット",
+    "storage": "ストレージ",
+    "network": "ネットワーク",
+    "driveName": "ドライブ名",
+    "driveType": "ドライブタイプ",
+    "driveTotalSpace": "ドライブ容量",
+    "driveUsedSpace": "ドライブ使用量",
+    "driveFreeSpace": "ドライブ空き容量",
+    "driveFileSystem": "ファイルシステム",
+    "macAddress": "MAC アドレス",
+    "subnetMask": "サブネットマスク",
+    "gateway": "ゲートウェイ",
+    "linkLocal": "リンクローカル",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "address": "アドレス",
+    "used": "使用中",
+    "free": "空き",
+    "avg": "平均",
+    "min": "最小",
+    "max": "最大",
+    "time": {
+      "seconds": "秒",
+      "minutes": "分",
+      "hours": "時間",
+      "days": "日",
+      "weeks": "週",
+      "months": "月",
+      "years": "年"
+    },
+    "select": "選択する",
+    "total": "合計",
+    "execTime": "実行時間",
+    "totalExecTime": "合計実行時間",
+    "latestExecTime": "最終実行時間",
+    "other": "その他"
+  },
+
+  "pages": {
+    "dashboard": {
+      "name": "ダッシュボード"
+    },
+    "usage": {
+      "name": "ハードウェア使用率"
+    },
+    "insights": {
+      "name": "インサイト",
+      "main": {
+        "title": "CPU・メモリ"
+      },
+      "gpu": {
+        "title": "GPU"
+      },
+      "process": {
+        "title": "プロセス"
+      }
+    },
+    "settings": {
+      "name": "設定",
+      "general": {
+        "name": "一般",
+        "language": "言語",
+        "colorMode": {
+          "name": "カラーモード",
+          "light": "ライト",
+          "dark": "ダーク"
+        },
+        "hardwareType": "ハードウェア種別",
+        "temperatureUnit": {
+          "name": "温度の単位",
+          "celsius": "摂氏（℃）",
+          "fahrenheit": "華氏（℉）"
+        },
+        "autostart": {
+          "name": "OS起動時に自動起動"
+        }
+      },
+      "customTheme": {
+        "name": "カスタマイズ",
+        "preview": "プレビュー",
+        "lineColor": "グラフの色",
+        "graphStyle": {
+          "name": "グラフスタイル",
+          "lineGraphBorder": "グラフの枠線",
+          "lineGraphFill": "グラフ下部の塗りつぶし",
+          "lineGraphMix": "グラフの混合",
+          "lineGraphShowLegend": "凡例の表示",
+          "lineGraphShowScale": "スケールの表示",
+          "lineGraphShowTooltip": "ツールチップの表示",
+          "size": "グラフのサイズ",
+          "lineType": "線グラフのスタイル"
+        }
+      },
+      "backgroundImage": {
+        "name": "壁紙",
+        "upload": {
+          "name": "画像をアップロード",
+          "pleaseSelectAFile": "ファイルを選択してください",
+          "errors": {
+            "format": "JPEGまたはPNG形式の画像を選択してください",
+            "notSelected": "ファイルを選択してください"
+          },
+          "confirm": "確認",
+          "description": "アップロードしたファイルはこのデバイスにのみ保存されます"
+        },
+        "opacity": "透過率"
+      },
+      "insights": {
+        "name": "インサイト",
+        "about": {
+          "title": "インサイト機能について",
+          "description": "インサイトは、ハードウェアとシステムに関する有益な情報を提供する機能です。 \nシステムの現状を把握し、より適切な判断を下すのに役立ちます。\nインサイト機能は毎月1～2MBのストレージを使用します。\nインサイト機能は容量などの問題がない限りは有効にしておくことをおすすめします。"
+        },
+        "enable": "インサイトを記録を開始する",
+        "disable": "インサイトの記録を停止する",
+        "needRestart": {
+          "title": "再起動が必要です",
+          "description": "設定を変更すると、アプリケーションを再起動する必要があります。",
+          "restart": "再起動",
+          "cancel": "後で再起動する"
+        },
+        "reset": "データをリセット",
+        "resetDescription": "インサイトのデータをリセットします。この操作は元に戻せません。",
+        "scheduledDataDeletion": "インサイトデータの定期削除",
+        "scheduledDataDeletionButton": "定期削除設定",
+        "holdingPeriod": {
+          "title": "保持期間（日数）",
+          "placeHolder": "日数を入力してください",
+          "description": "インサイト機能によって収集されたデータは、任意の日数保存されます。\n定期削除が有効な場合、設定された日数が経過するとデータは自動的に削除されます。"
+        }
+      },
+      "about": {
+        "name": "本ソフトウェアについて",
+        "version": "バージョン：{{version}}",
+        "license": "ライセンス",
+        "checkGitHub": "GitHub",
+        "checkLatestVersion": "最新バージョンを確認する",
+        "author": "作者：{{author}}"
+      }
+    }
+  },
+
+  "error": {
+    "title": {
+      "info": "情報",
+      "confirm": "確認",
+      "warning": "警告",
+      "error": "エラー",
+      "success": "成功しました",
+      "unexpected": "予期せぬエラーが発生しました"
+    }
+  }
+}

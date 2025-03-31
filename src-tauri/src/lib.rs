@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
+mod backgrounds;
 mod commands;
 mod database;
 mod enums;
@@ -10,7 +11,7 @@ mod structs;
 mod utils;
 
 #[cfg(test)]
-mod tests;
+mod _tests;
 
 use commands::background_image;
 use commands::hardware;
@@ -38,8 +39,9 @@ pub fn run() {
   let process_memory_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
+  let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
 
-  let state = hardware::AppState {
+  let state = structs::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
     cpu_history: Arc::clone(&cpu_history),
     memory_history: Arc::clone(&memory_history),
@@ -116,32 +118,43 @@ pub fn run() {
 
       builder.mount_events(app);
 
-      tauri::async_runtime::spawn(hardware::initialize_system(
-        system,
-        cpu_history.clone(),
-        memory_history.clone(),
-        process_cpu_histories,
-        process_memory_histories,
-        nv_gpu_usage_histories.clone(),
-        nv_gpu_temperature_histories.clone(),
+      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
+        structs::hardware_archive::MonitorResources {
+          system: Arc::clone(&system),
+          cpu_history: Arc::clone(&cpu_history),
+          memory_history: Arc::clone(&memory_history),
+          process_cpu_histories: Arc::clone(&process_cpu_histories),
+          process_memory_histories: Arc::clone(&process_memory_histories),
+          nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+          nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
+          nv_gpu_dedicated_memory_histories: Arc::clone(
+            &nv_gpu_dedicated_memory_histories,
+          ),
+        },
       ));
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(
-          services::hardware_archive_service::start_hardware_archive_service(
-            Arc::clone(&cpu_history),
-            Arc::clone(&memory_history),
-            Arc::clone(&nv_gpu_usage_histories),
-            Arc::clone(&nv_gpu_temperature_histories),
-          ),
-        );
+        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
+          structs::hardware_archive::MonitorResources {
+            system: Arc::clone(&system),
+            cpu_history: Arc::clone(&cpu_history),
+            memory_history: Arc::clone(&memory_history),
+            process_cpu_histories: Arc::clone(&process_cpu_histories),
+            process_memory_histories: Arc::clone(&process_memory_histories),
+            nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+            nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
+            nv_gpu_dedicated_memory_histories: Arc::clone(
+              &nv_gpu_dedicated_memory_histories,
+            ),
+          },
+        ));
       }
 
       // スケジュールされたデータ削除の開始
       if settings.hardware_archive.scheduled_data_deletion {
         tauri::async_runtime::spawn(
-          services::hardware_archive_service::batch_delete_old_data(
+          backgrounds::hardware_archive::batch_delete_old_data(
             settings.hardware_archive.refresh_interval_days,
           ),
         );
