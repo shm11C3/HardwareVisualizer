@@ -8,7 +8,12 @@ use std::{
 
 const HISTORY_CAPACITY: u64 = 60;
 
-const PROCESS_RECORD_LIMIT: usize = 25;
+///
+/// プロセスアーカイブデータの保存する上限数
+///
+/// `PROCESS_RECORD_LIMIT` * `PROCESS_RECORD_GROUP` の数だけ保存する
+///
+const PROCESS_RECORD_LIMIT: usize = 5;
 
 const PROCESS_RECORD_GROUP: [&str; 3] = ["cpu", "memory", "exec"];
 
