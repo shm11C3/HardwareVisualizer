@@ -28,3 +28,5 @@ export const defaultColorRGB: Record<ChartDataType, string> = {
 export const archivePeriods = [
   10, 30, 60, 180, 720, 1440, 10080, 20160, 43200,
 ] as const;
+
+export const bubbleChartColor = "#8884d8";

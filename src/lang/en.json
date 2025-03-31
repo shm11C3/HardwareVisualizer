@@ -3,6 +3,7 @@
     "usage": "Usage",
     "cpuUsage": "CPU Usage",
     "memoryUsage": "Memory Usage",
+    "memoryUsageValue": "Memory Usage",
     "temperature": "Temperature",
     "name": "Name",
     "vendor": "Vendor",
@@ -52,6 +53,9 @@
     "max": "Max",
     "select": "Select",
     "total": "Total",
+    "execTime": "Execution Time",
+    "totalExecTime": "Total Execution Time",
+    "latestExecTime": "Latest Execution Time",
     "other": "Other"
   },
 
@@ -69,6 +73,9 @@
       },
       "gpu": {
         "title": "GPU"
+      },
+      "process": {
+        "title": "Process"
       }
     },
     "settings": {
