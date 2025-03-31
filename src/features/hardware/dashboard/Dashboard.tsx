@@ -286,7 +286,7 @@ const NetworkInfo = () => {
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="item-1" className="border-none">
                 <AccordionTrigger>
-                  <div className="w-full flex items-center justify-between cursor-pointer">
+                  <div className="w-full flex items-center justify-between">
                     <p>{network.description ?? "No description"}</p>
                     {/**  この部分にネットワーク使用量を表示 */}
                     <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
