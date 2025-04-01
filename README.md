@@ -60,6 +60,9 @@ Usage rates are calculated on a minute-by-minute basis.
 
 *GPU Insight is available on Nvidia GPU only.
 
+![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
+
+
 ### Custom Graph
 
 Flexible graph customization available.

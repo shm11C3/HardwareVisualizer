@@ -2,8 +2,10 @@
   "shared": {
     "usage": "使用率",
     "cpuUsage": "CPU 使用率",
+    "avgCpuUsage": "平均 CPU 使用率",
     "memoryUsage": "メモリ使用率",
     "memoryUsageValue": "メモリ使用量",
+    "avgMemoryUsageValue": "平均メモリ使用量",
     "temperature": "温度",
     "name": "名前",
     "vendor": "ベンダー",
@@ -55,7 +57,7 @@
     "total": "合計",
     "execTime": "実行時間",
     "totalExecTime": "合計実行時間",
-    "latestExecTime": "最新実行時間",
+    "latestExecTime": "最終実行時間",
     "other": "その他"
   },
 

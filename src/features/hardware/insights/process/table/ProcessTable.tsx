@@ -154,7 +154,7 @@ const InfoTable = ({
             onKeyDown={() => requestSort("avg_cpu_usage")}
           >
             <div className="flex items-center">
-              <span>{t("shared.cpuUsage")}</span>
+              <span>{t("shared.avgCpuUsage")}</span>
               {sortConfig &&
                 sortConfig.key === "avg_cpu_usage" &&
                 sortIcon[sortConfig.direction]}
@@ -166,7 +166,7 @@ const InfoTable = ({
             onKeyDown={() => requestSort("avg_memory_usage")}
           >
             <div className="flex items-center">
-              <span>{t("shared.memoryUsage")}</span>
+              <span>{t("shared.avgMemoryUsageValue")}</span>
               {sortConfig &&
                 sortConfig.key === "avg_memory_usage" &&
                 sortIcon[sortConfig.direction]}
