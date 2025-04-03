@@ -38,7 +38,7 @@ tracing-subscriber = { version = "0.3.19", default-features = true, features = [
 chrono = "0.4.40"
 wmi = "0.15.2"
 rust_decimal = "1.37.1"
-tauri-plugin-dialog = "2.2.0"
+tauri-plugin-dialog = "2.2.1"
 tauri-plugin-store = "2.2.0"
 base64 = "0.22"
 image = "0.25.6"
