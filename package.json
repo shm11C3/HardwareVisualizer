@@ -64,7 +64,7 @@
     "clsx": "^2.1.1",
     "i18next": "^24.2.3",
     "jotai": "^2.12.2",
-    "lucide-react": "^0.486.0",
+    "lucide-react": "^0.487.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-error-boundary": "^5.0.0",
