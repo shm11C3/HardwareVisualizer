@@ -30,7 +30,7 @@
     "concurrently": "^9.1.2",
     "jsdom": "^26.0.0",
     "react-devtools": "^6.1.1",
-    "tailwindcss": "^4.1.1",
+    "tailwindcss": "^4.1.2",
     "typescript": "^5.8.2",
     "vite": "^6.2.5",
     "vitest": "^3.0.8"
