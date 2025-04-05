@@ -3,7 +3,7 @@ import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { formatBytes, formatDuration } from "@/lib/formatter";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
-import { type JSX, useState } from "react";
+import { type JSX, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ProcessStat } from "../types/processStats";
 
@@ -28,9 +28,12 @@ export const ProcessTable = ({
     return <></>;
   }
 
-  const sortedProcesses = [...processStats];
-  if (sortConfig !== null) {
-    sortedProcesses.sort((a, b) => {
+  const sortedProcesses = useMemo(() => {
+    if (sortConfig == null) {
+      return processStats;
+    }
+
+    return [...processStats].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
@@ -62,7 +65,7 @@ export const ProcessTable = ({
       // 型が異なる場合は順序を変更しない
       return 0;
     });
-  }
+  }, [processStats, sortConfig]);
 
   const requestSort = (key: keyof ProcessStat) => {
     let direction: "ascending" | "descending" = "ascending";
