@@ -81,3 +81,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: dist/${{ matrix.build_type }}/*.msi
+          tag_name: v${{ needs.check-version.outputs.version }}

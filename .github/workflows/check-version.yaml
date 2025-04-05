@@ -7,6 +7,9 @@ jobs:
   check-version:
     runs-on: ubuntu-latest
 
+    outputs:
+      version: ${{ steps.tauri-version.outputs.version }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
