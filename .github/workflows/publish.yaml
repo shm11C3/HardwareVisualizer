@@ -71,11 +71,7 @@ jobs:
       - name: Rename artifacts
         run: |
           mkdir -p dist/${{ matrix.build_type }}
-          if [ "${{ matrix.build_type }}" == "normal" ]; then
-            cp src-tauri/target/release/bundle/msi/*.msi dist/${{ matrix.build_type }}/
-          elif [ "${{ matrix.build_type }}" == "microsoftstore" ]; then
-            cp src-tauri/target/release/bundle/appx/*.appx dist/${{ matrix.build_type }}/
-          fi
+          cp src-tauri/target/release/bundle/msi/*.msi dist/${{ matrix.build_type }}/
           echo "Artifact for ${{ matrix.build_type }} prepared."
 
       - name: Upload release asset
