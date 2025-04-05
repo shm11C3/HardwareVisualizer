@@ -199,9 +199,12 @@ const InfoTable = ({
         </tr>
       </thead>
       <tbody>
-        {processes.map((process) => {
+        {processes.map((process, i) => {
           return (
-            <tr key={process.pid} className="border-b border-gray-700">
+            <tr
+              key={`${process.pid}-${i}`}
+              className="border-b border-gray-700"
+            >
               <td className="py-2">{process.pid}</td>
               <td className="py-2">{process.process_name}</td>
               <td className="py-2">
