@@ -9,7 +9,7 @@ on:
 
 jobs:
   check-version:
-    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@develop
+    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@37453b4fbd281c4a37d4e475ebec1516bf12f8f5
 
   publish-tauri:
     needs: check-version
@@ -60,3 +60,21 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - if: ${{ matrix.platform == 'windows-latest' }}
+        name: Bundle Offline Installer
+        run: |
+          npm run tauri bundle -- --config src-tauri/tauri.microsoftstore.conf.json
+
+      - if: ${{ matrix.platform == 'windows-latest' }}
+        name: Rename Offline Installer
+        run: |
+          mkdir -p dist/offline
+          cp src-tauri/target/release/bundle/msi/*.msi dist/offline/HardwareVisualizer-OfflineInstaller.msi
+
+      - if: ${{ matrix.platform == 'windows-latest' }}
+        name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/offline/*.msi
+          tag_name: v${{ needs.check-version.outputs.version }}

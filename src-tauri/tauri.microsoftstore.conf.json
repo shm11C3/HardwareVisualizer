@@ -1,0 +1,10 @@
+{
+  "identifier": "HardwareVisualizer",
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
+    }
+  }
+}
