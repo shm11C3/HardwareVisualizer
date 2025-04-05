@@ -18,7 +18,6 @@ use commands::hardware;
 use commands::settings;
 use commands::system;
 use commands::ui;
-use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
@@ -27,6 +26,9 @@ use tauri_specta::{Builder, collect_commands};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
+
+#[cfg(debug_assertions)]
+use specta_typescript::Typescript;
 
 pub fn run() {
   let app_state = settings::AppState::new();
