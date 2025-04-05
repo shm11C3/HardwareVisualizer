@@ -2,6 +2,10 @@ name: Check Version
 
 on:
   workflow_call:
+    outputs:
+      version:
+        description: "Extracted App version"
+        value: ${{ jobs.check-version.outputs.version }}
 
 jobs:
   check-version:
