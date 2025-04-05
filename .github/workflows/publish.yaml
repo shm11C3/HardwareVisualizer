@@ -64,7 +64,7 @@ jobs:
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Bundle Offline Installer
-        run: npm run tauri bundle -- --config "src-tauri/tauri.microsoftstore.conf.json"
+        run: npm run tauri bundle --config="src-tauri/tauri.microsoftstore.conf.json"
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Rename Offline Installer
