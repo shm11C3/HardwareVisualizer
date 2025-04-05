@@ -22,12 +22,6 @@ jobs:
         include:
           - platform: "windows-latest"
             args: ""
-            build_type: "normal"
-            artifact_name: "HardwareVisualizer"
-          - platform: "windows-latest"
-            args: "--config src-tauri/tauri.microsoftstore.conf.json"
-            build_type: "microsoftstore"
-            artifact_name: "HardwareVisualizer-offline-installer"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -68,14 +62,20 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-      - name: Rename artifacts
+      - if: ${{ matrix.platform == 'windows-latest' }}
+        name: Bundle Offline Installer
         run: |
-          mkdir -p dist/${{ matrix.build_type }}
-          cp src-tauri/target/release/bundle/msi/*.msi dist/${{ matrix.build_type }}/
-          echo "Artifact for ${{ matrix.build_type }} prepared."
+          npm run tauri bundle -- --config src-tauri/tauri.microsoftstore.conf.json
 
-      - name: Upload release asset
+      - if: ${{ matrix.platform == 'windows-latest' }}
+        name: Rename Offline Installer
+        run: |
+          mkdir -p dist/offline
+          cp src-tauri/target/release/bundle/msi/*.msi dist/offline/HardwareVisualizer-OfflineInstaller.msi
+
+      - if: ${{ matrix.platform == 'windows-latest' }}
+        name: Upload release asset
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/${{ matrix.build_type }}/*.msi
+          files: dist/offline/*.msi
           tag_name: v${{ needs.check-version.outputs.version }}
