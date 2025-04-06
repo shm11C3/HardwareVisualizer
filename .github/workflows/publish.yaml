@@ -57,20 +57,8 @@ jobs:
       - name: Update tauri.conf.json using Node.js script
         run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
-      - if: matrix.platform == 'windows-latest'
-        name: Setup Azure Code Signing (PowerShell)
-        run: |
-          if (-not (Get-Command trusted-signing -ErrorAction SilentlyContinue)) {
-            cargo install trusted-signing-cli
-          }
-        shell: pwsh
-      - if: matrix.platform != 'windows-latest'
-        name: Setup Azure Code Signing (Bash)
-        run: |
-          if ! command -v trusted-signing &> /dev/null; then
-            cargo install trusted-signing-cli
-          fi
-        shell: bash
+      - name: Setup Azure Code Signing
+        run: cargo install trusted-signing-cli
 
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
