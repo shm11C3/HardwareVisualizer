@@ -9,7 +9,7 @@ on:
 
 jobs:
   check-version:
-    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@37453b4fbd281c4a37d4e475ebec1516bf12f8f5
+    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@6269cab2ca4bb386a8be491636799fe9df894b51
 
   publish-tauri:
     needs: check-version
