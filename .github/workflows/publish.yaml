@@ -83,3 +83,5 @@ jobs:
           files: dist/offline/*.msi
           tag_name: v${{ needs.check-version.outputs.version }}
           draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
