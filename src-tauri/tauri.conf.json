@@ -44,7 +44,7 @@
   },
   "productName": "HardwareVisualizer",
   "mainBinaryName": "hardware-visualizer",
-  "version": "0.6.2-3",
+  "version": "0.6.2-4",
   "identifier": "HardwareVisualizer",
   "plugins": {
     "sql": {
