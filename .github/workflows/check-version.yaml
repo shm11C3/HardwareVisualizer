@@ -22,7 +22,7 @@ jobs:
 
       - name: Check Version
         id: check-version
-        uses: shm11C3/tauri-check-release-version@v1.0.0
+        uses: shm11C3/tauri-check-release-version@v1.0.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           owner: shm11C3
