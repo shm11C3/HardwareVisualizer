@@ -68,7 +68,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: "npm run tauri bundle -- --config src-tauri/tauri.microsoftstore.conf.json"
+          TAURI_CONFIG: "src-tauri/tauri.microsoftstore.conf.json"
+        run: npm run tauri bundle
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Rename Offline Installer
