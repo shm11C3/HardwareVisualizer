@@ -13,4 +13,4 @@ on:
 
 jobs:
   check-version:
-    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@e233c685a5d9dc7e251a82008bc7e2598ae22926
+    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@3bdc4b077e211cb51e296ac508b6be77c675a278
