@@ -18,6 +18,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+
       - name: Check Version
         id: check-version
         uses: shm11C3/tauri-check-release-version@v1.0.0
