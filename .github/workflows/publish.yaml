@@ -74,14 +74,10 @@ jobs:
         name: Rename Offline Installer
         run: |
           mkdir -p dist/offline
-          cp src-tauri/target/release/bundle/msi/*.msi dist/offline/HardwareVisualizer-OfflineInstaller.msi
+          cp src-tauri/target/release/bundle/msi/*.msi "dist/offline/HardwareVisualizer_${{ needs.check-version.outputs.version }}_x64_en-US_offline.msi"
 
       - if: ${{ matrix.platform == 'windows-latest' }}
-        name: Upload release asset
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/offline/*.msi
-          tag_name: v${{ needs.check-version.outputs.version }}
-          draft: true
+        name: Upload MSI via gh CLI
+        run: gh release upload "v${{ needs.check-version.outputs.version }}" dist/offline/*.msi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
