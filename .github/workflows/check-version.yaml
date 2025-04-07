@@ -2,32 +2,30 @@ name: Check Version
 
 on:
   workflow_call:
+    outputs:
+      version:
+        description: "Extracted App version"
+        value: ${{ jobs.check-version.outputs.version }}
 
 jobs:
   check-version:
     runs-on: ubuntu-latest
 
+    outputs:
+      version: ${{ steps.check-version.outputs.version }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
+
+      - name: Check Version
+        id: check-version
+        uses: shm11C3/tauri-check-release-version@v1.0.3
         with:
-          node-version: lts/*
-
-      - name: Install dependencies
-        run: |
-          npm install
-          npm install toml
-          npm install @octokit/rest
-
-      - name: Extract Tauri version
-        id: tauri-version
-        run: node .github/scripts/extractVersion.cjs
-
-      - name: Verify version on GitHub
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.tauri-version.outputs.version }}
-        run: node .github/scripts/checkVersion.cjs
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: shm11C3
+          repo: HardwareVisualizer
+          tauri_config_path: ./src-tauri/tauri.conf.json
+          tag_name_format: v{VERSION}

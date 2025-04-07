@@ -2,7 +2,8 @@
 
 <p align="left">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release">
-  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/publish.yaml">
+  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yaml">
+  <img alt="CI" src="https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yaml/badge.svg?branch=develop">
   <img alt="Windows Support Only" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total">
 </p>
