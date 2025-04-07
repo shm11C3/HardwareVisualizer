@@ -10,7 +10,30 @@ on:
 
 jobs:
   check-version:
-    uses: shm11C3/HardwareVisualizer/.github/workflows/check-version.yaml@3bdc4b077e211cb51e296ac508b6be77c675a278
+    permissions:
+      contents: read
+      pull-requests: read
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.check-version.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+
+      - name: Check Version
+        id: check-version
+        uses: shm11C3/tauri-check-release-version@v1.0.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: shm11C3
+          repo: HardwareVisualizer
+          tauri_config_path: ./src-tauri/tauri.conf.json
+          tag_name_format: v{VERSION}
 
   publish-tauri:
     needs: check-version
