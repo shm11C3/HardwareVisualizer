@@ -1,28 +1,20 @@
 name: Check Version
 
 on:
-  workflow_call:
-    outputs:
-      version:
-        description: "Extracted App version"
-        value: ${{ jobs.check-version.outputs.version }}
+  pull_request:
+    branches:
+      - release/**
+      - master
 
 jobs:
   check-version:
     runs-on: ubuntu-latest
 
-    outputs:
-      version: ${{ steps.check-version.outputs.version }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-
-      - name: Check Version
-        id: check-version
-        uses: shm11C3/tauri-check-release-version@v1.0.3
+      - uses: shm11C3/tauri-check-release-version@v1.0.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           owner: shm11C3
