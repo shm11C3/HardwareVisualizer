@@ -8,6 +8,9 @@ on:
 
 jobs:
   check-version:
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
 
     steps:
