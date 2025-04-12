@@ -29,22 +29,22 @@ export const UploadImage = () => {
               <FormItem>
                 <div className="flex items-center gap-4">
                   <div className="h-28">
-                    <FormLabel className="block text-lg mb-2 mr-2">
+                    <FormLabel className="mr-2 mb-2 block text-lg">
                       {t("pages.settings.backgroundImage.upload.name")}
                     </FormLabel>
                     <FormControl>
-                      <div className="relative w-80 h-10">
+                      <div className="relative h-10 w-80">
                         <Input
                           type="file"
                           accept="image/png, image/jpeg"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                           {...rest}
                           onChange={(e) => {
                             onChange(e.target.files?.[0]);
                           }}
                         />
                         <Button
-                          className="w-full h-full flex items-center justify-start"
+                          className="flex h-full w-full items-center justify-start"
                           type="button"
                           variant="secondary"
                         >
@@ -59,7 +59,7 @@ export const UploadImage = () => {
                             <img
                               src={displayUrl}
                               alt=""
-                              className="w-full h-full object-contain object-right"
+                              className="h-full w-full object-contain object-right"
                             />
                           ) : (
                             <ImageSquare className="ml-auto object-contain" />
@@ -72,7 +72,7 @@ export const UploadImage = () => {
                       {t("pages.settings.backgroundImage.upload.description")}
                     </FormDescription>
                   </div>
-                  <div className="h-28 flex items-center">
+                  <div className="flex h-28 items-center">
                     <Button type="submit" disabled={!picture || isSubmitting}>
                       {t("pages.settings.backgroundImage.upload.confirm")}
                       {isSubmitting ? (

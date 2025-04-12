@@ -24,7 +24,7 @@ const arrowButtonVariants = tv({
 
 const Border = ({ children }: { children: JSX.Element }) => {
   return (
-    <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600 p-4">
+    <div className="rounded-2xl border border-zinc-400 p-4 dark:border-zinc-600">
       {children}
     </div>
   );
@@ -95,7 +95,7 @@ const MainInsights = () => {
 
   return (
     <div className="pb-6">
-      <div className="flex justify-end items-center">
+      <div className="flex items-center justify-end">
         <SelectPeriod
           options={options}
           selected={
@@ -113,7 +113,7 @@ const MainInsights = () => {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mt-6">
+      <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => {
           const { type, stats, period } = data;
           const [periodData, setPeriodData] = period;
@@ -141,8 +141,8 @@ const MainInsights = () => {
             periodData && (
               <Border key={`${data.type}-${data.stats}`}>
                 <>
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-2xl font-bold py-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="py-3 font-bold text-2xl">
                       {t(`shared.${data.type}Usage`)} (
                       {t(`shared.${data.stats}`)})
                     </h3>
@@ -153,7 +153,7 @@ const MainInsights = () => {
                     />
                   </div>
 
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <button
                       type="button"
                       className={arrowButtonVariants()}
@@ -316,7 +316,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
 
   return (
     <div className="pb-6">
-      <div className="flex justify-end items-center">
+      <div className="flex items-center justify-end">
         <SelectPeriod
           options={options}
           selected={
@@ -339,7 +339,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mt-6">
+      <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => {
           const { type, stats, period } = data;
           const [periodData, setPeriodData] = period;
@@ -378,8 +378,8 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
             periodData && (
               <Border key={`${data.type}-${data.stats}`}>
                 <>
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-2xl font-bold py-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="py-3 font-bold text-2xl">
                       {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)}
                       )
                     </h3>
@@ -390,7 +390,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
                     />
                   </div>
 
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <button
                       type="button"
                       className={arrowButtonVariants()}

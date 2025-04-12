@@ -48,7 +48,7 @@ export const InsightChart = ({
   } satisfies ChartConfig;
 
   return (
-    <div className="w-full h-full">
+    <div className="h-full w-full">
       <SingleLineChart
         labels={labels}
         chartData={chartData}
@@ -140,7 +140,7 @@ export const GpuInsightChart = ({
   }, [hardwareInfo.gpus]);
 
   return (
-    <div className="w-full h-full">
+    <div className="h-full w-full">
       <SingleLineChart
         labels={labels}
         chartData={chartData}

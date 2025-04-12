@@ -158,7 +158,7 @@ export const SingleLineChart = ({
         </AreaChart>
       </ChartContainer>
       {lineGraphShowLegend && isChartDataType(dataType) && (
-        <div className="flex justify-center mt-4 mb-2">
+        <div className="mt-4 mb-2 flex justify-center">
           <CustomLegend item={legendItems[dataType]} />
         </div>
       )}
@@ -250,7 +250,7 @@ const MixLineChart = ({
         </AreaChart>
       </ChartContainer>
       {settings.lineGraphShowLegend && (
-        <div className="flex justify-center mt-4 mb-2">
+        <div className="mt-4 mb-2 flex justify-center">
           {legendItems.map((item) => (
             <CustomLegend key={item.label} item={item} />
           ))}

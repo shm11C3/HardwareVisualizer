@@ -30,7 +30,7 @@ export const CustomTooltip = ({
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.totalExecTime")}
         </span>
-        <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
+        <span className="font-medium font-mono text-neutral-950 tabular-nums dark:text-neutral-50">
           {data.x.toFixed(1)} {t("shared.time.minutes")}
         </span>
       </div>
@@ -39,7 +39,7 @@ export const CustomTooltip = ({
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.avgCpuUsage")}
         </span>
-        <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
+        <span className="font-medium font-mono text-neutral-950 tabular-nums dark:text-neutral-50">
           {data.y.toFixed(1)}%
         </span>
       </div>
@@ -48,7 +48,7 @@ export const CustomTooltip = ({
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.avgMemoryUsageValue")}
         </span>
-        <span className="font-mono font-medium tabular-nums text-neutral-950 dark:text-neutral-50">
+        <span className="font-medium font-mono text-neutral-950 tabular-nums dark:text-neutral-50">
           {formatBytes(data.ram * 1024).join(" ")}
         </span>
       </div>

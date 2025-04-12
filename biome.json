@@ -8,7 +8,11 @@
     "rules": {
       "recommended": true,
       "nursery": {
-        "useSortedClasses": "off"
+        "useSortedClasses": {
+          "level": "error",
+          "fix": "safe",
+          "options": {}
+        }
       }
     }
   },

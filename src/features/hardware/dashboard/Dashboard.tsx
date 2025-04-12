@@ -31,7 +31,7 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
 
   return (
     <div
-      className="px-4 pt-2 pb-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+      className="rounded-md border bg-zinc-300 px-4 pt-2 pb-4 shadow-md dark:bg-gray-800 dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -45,8 +45,8 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
       <table className="w-full text-left">
         <tbody>
           {Object.keys(data).map((key) => (
-            <tr key={key} className="border-b border-gray-700">
-              <th className="pr-4 py-2 dark:text-gray-400">{key}</th>
+            <tr key={key} className="border-gray-700 border-b">
+              <th className="py-2 pr-4 dark:text-gray-400">{key}</th>
               <td className="py-2">{data[key]}</td>
             </tr>
           ))}
@@ -64,9 +64,9 @@ const DataArea = ({
   return (
     <div className="p-4">
       {border ? (
-        <div className="border rounded-2xl border-zinc-400 dark:border-zinc-600">
+        <div className="rounded-2xl border border-zinc-400 dark:border-zinc-600">
           {title && (
-            <h3 className="pt-4 pl-4 pb-2 text-xl font-bold">{title}</h3>
+            <h3 className="pt-4 pb-2 pl-4 font-bold text-xl">{title}</h3>
           )}
           <div className="px-4 pb-4">{children}</div>
         </div>
@@ -99,7 +99,7 @@ const CPUInfo = () => {
           }}
         />
       ) : (
-        <Skeleton className="w-full h-[188px] rounded-md" />
+        <Skeleton className="h-[188px] w-full rounded-md" />
       )}
     </>
   );
@@ -121,7 +121,7 @@ const GPUInfo = () => {
 
   return (
     <>
-      <div className="flex justify-around h-[200px]">
+      <div className="flex h-[200px] justify-around">
         <DoughnutChart
           chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
           dataType={"usage"}
@@ -148,7 +148,7 @@ const GPUInfo = () => {
           </div>
         ))
       ) : (
-        <Skeleton className="w-full h-[188px] rounded-md" />
+        <Skeleton className="h-[188px] w-full rounded-md" />
       )}
     </>
   );
@@ -177,7 +177,7 @@ const MemoryInfo = () => {
           }}
         />
       ) : (
-        <Skeleton className="w-full h-[188px] rounded-md" />
+        <Skeleton className="h-[188px] w-full rounded-md" />
       )}
     </>
   );
@@ -238,7 +238,7 @@ const StorageDataInfo = () => {
             <Skeleton className="h-[188px] rounded-md" />
           )}
         </div>
-        <div className="w-full 2xl:w-1/2 mt-8 2xl:mt-0">
+        <div className="mt-8 w-full 2xl:mt-0 2xl:w-1/2">
           {sortedStorage.length > 0 ? (
             <StorageBarChart
               chartData={chartData}
@@ -246,8 +246,8 @@ const StorageDataInfo = () => {
             />
           ) : (
             <>
-              <Skeleton className="h-[88px] rounded-md ml-6" />
-              <Skeleton className="h-[88px] rounded-md ml-6 mt-3" />
+              <Skeleton className="ml-6 h-[88px] rounded-md" />
+              <Skeleton className="mt-3 ml-6 h-[88px] rounded-md" />
             </>
           )}
         </div>
@@ -272,7 +272,7 @@ const NetworkInfo = () => {
         return (
           <div
             key={network.macAddress}
-            className="mt-4 mb-2 px-4 pt-2 pb-2 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+            className="mt-4 mb-2 rounded-md border bg-zinc-300 px-4 pt-2 pb-2 shadow-md dark:bg-gray-800 dark:text-white"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
@@ -286,10 +286,10 @@ const NetworkInfo = () => {
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="item-1" className="border-none">
                 <AccordionTrigger>
-                  <div className="w-full flex items-center justify-between">
+                  <div className="flex w-full items-center justify-between">
                     <p>{network.description ?? "No description"}</p>
                     {/**  この部分にネットワーク使用量を表示 */}
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mr-2 w-24 text-left ">
+                    <p className="mr-2 w-24 text-left text-gray-500 text-sm dark:text-gray-400 ">
                       {network.ipv4[0] ?? "No IP Address"}
                     </p>
                   </div>
@@ -297,16 +297,16 @@ const NetworkInfo = () => {
                 <AccordionContent>
                   <table className="w-full text-left text-base">
                     <tbody>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.macAddress")}
                         </th>
                         <td className="py-2">
                           {network.macAddress ?? "No MAC Address"}
                         </td>
                       </tr>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")}
                         </th>
                         <td className="py-2">
@@ -315,8 +315,8 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.subnetMask")}
                         </th>
                         <td className="py-2">
@@ -325,8 +325,8 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.gateway")}
                         </th>
                         <td className="py-2">
@@ -335,8 +335,8 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv6")}
                         </th>
                         <td className="py-2">
@@ -345,8 +345,8 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
                           {t("shared.address")}
                         </th>
@@ -356,8 +356,8 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-b border-gray-700">
-                        <th className="pr-4 py-2 dark:text-gray-400">
+                      <tr className="border-gray-700 border-b">
+                        <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv6")} {t("shared.gateway")}
                         </th>
                         <td className="py-2">
@@ -426,14 +426,14 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-wrap gap-4">
-      <div className="flex-1 flex flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-4">
         {hardwareInfoListLeft.map(({ key, component }) => (
           <DataArea key={`left-${key}`} title={dataAreaKey2Title[key]}>
             {component}
           </DataArea>
         ))}
       </div>
-      <div className="flex-1 flex flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-4">
         {hardwareInfoListRight.map(({ key, component }) => (
           <DataArea
             key={`right-${key}`}

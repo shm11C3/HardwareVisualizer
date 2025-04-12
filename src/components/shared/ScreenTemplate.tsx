@@ -5,8 +5,8 @@ interface ScreenTemplateProps {
 
 const ScreenTemplate: React.FC<ScreenTemplateProps> = ({ title, children }) => {
   return (
-    <div className="w-full 2xl:w-3/4 mx-auto px-4 pt-12">
-      {title && <h2 className="text-3xl font-bold py-3"> {title}</h2>}
+    <div className="mx-auto w-full px-4 pt-12 2xl:w-3/4">
+      {title && <h2 className="py-3 font-bold text-3xl"> {title}</h2>}
       {children}
     </div>
   );
