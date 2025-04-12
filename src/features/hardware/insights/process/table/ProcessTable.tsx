@@ -20,7 +20,7 @@ export const ProcessTable = ({
 
   if (loading) {
     return (
-      <Skeleton className="w-full h-[400px] xl:h-[600px] 2xl:h-[800px] m-4" />
+      <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
     );
   }
 
@@ -81,7 +81,7 @@ export const ProcessTable = ({
 
   return (
     <div
-      className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white"
+      className="rounded-md border bg-zinc-300 p-4 shadow-md dark:bg-gray-800 dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -125,10 +125,10 @@ const InfoTable = ({
 
   return (
     <table className="w-full text-left">
-      <thead className="sticky h-14 top-[-1px] bg-zinc-300 dark:bg-gray-800">
-        <tr className="border-b border-gray-700">
+      <thead className="sticky top-[-1px] h-14 bg-zinc-300 dark:bg-gray-800">
+        <tr className="border-gray-700 border-b">
           <th
-            className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
             onClick={() => requestSort("pid")}
             onKeyDown={() => requestSort("pid")}
           >
@@ -140,7 +140,7 @@ const InfoTable = ({
             </div>
           </th>
           <th
-            className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
             onClick={() => requestSort("process_name")}
             onKeyDown={() => requestSort("process_name")}
           >
@@ -152,7 +152,7 @@ const InfoTable = ({
             </div>
           </th>
           <th
-            className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
             onClick={() => requestSort("avg_cpu_usage")}
             onKeyDown={() => requestSort("avg_cpu_usage")}
           >
@@ -164,7 +164,7 @@ const InfoTable = ({
             </div>
           </th>
           <th
-            className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
             onClick={() => requestSort("avg_memory_usage")}
             onKeyDown={() => requestSort("avg_memory_usage")}
           >
@@ -176,7 +176,7 @@ const InfoTable = ({
             </div>
           </th>
           <th
-            className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
             onClick={() => requestSort("total_execution_sec")}
             onKeyDown={() => requestSort("total_execution_sec")}
           >
@@ -188,7 +188,7 @@ const InfoTable = ({
             </div>
           </th>
           <th
-            className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
             onClick={() => requestSort("latest_timestamp")}
             onKeyDown={() => requestSort("latest_timestamp")}
           >
@@ -206,7 +206,7 @@ const InfoTable = ({
           return (
             <tr
               key={`${process.pid}-${i}`}
-              className="border-b border-gray-700"
+              className="border-gray-700 border-b"
             >
               <td className="py-2">{process.pid}</td>
               <td className="py-2">{process.process_name}</td>

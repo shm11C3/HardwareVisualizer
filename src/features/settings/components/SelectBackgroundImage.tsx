@@ -23,13 +23,13 @@ export const BackgroundImageList = () => {
   return (
     <>
       {backgroundImageList.length > 0 && (
-        <div className="flex py-3 max-w-full overflow-x-auto">
+        <div className="flex max-w-full overflow-x-auto py-3">
           <Button
             className={twMerge(
               selectImageVariants({
                 selected: !settings.selectedBackgroundImg,
               }),
-              "flex items-center justify-center min-w-20 bg-zinc-300 dark:bg-gray-800 hover:bg-zinc-200 dark:hover:bg-gray-900",
+              "flex min-w-20 items-center justify-center bg-zinc-300 hover:bg-zinc-200 dark:bg-gray-800 dark:hover:bg-gray-900",
             )}
             onClick={() => {
               updateSettingAtom("selectedBackgroundImg", null);
@@ -41,7 +41,7 @@ export const BackgroundImageList = () => {
           {backgroundImageList.map((image) => (
             <div key={image.fileId} className="relative">
               <button
-                className="absolute top-[-6px] right-[-4px] p-1 text-white bg-gray-500 bg-opacity-80 rounded-full z-20 cursor-pointer"
+                className="absolute top-[-6px] right-[-4px] z-20 cursor-pointer rounded-full bg-gray-500 bg-opacity-80 p-1 text-white"
                 type="button"
                 onClick={() => deleteBackgroundImage(image.fileId)}
               >
@@ -63,7 +63,7 @@ export const BackgroundImageList = () => {
                 <img
                   src={image.imageData}
                   alt={`background image: ${image.fileId}`}
-                  className="object-cover w-full h-full opacity-50"
+                  className="h-full w-full object-cover opacity-50"
                 />
               </button>
             </div>

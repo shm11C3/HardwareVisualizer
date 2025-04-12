@@ -100,7 +100,7 @@ export const ProcessesTable = () => {
 
   return (
     <div
-      className="p-4 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-whit"
+      className="rounded-md border bg-zinc-300 p-4 shadow-md dark:bg-gray-800 dark:text-whit"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -113,11 +113,11 @@ export const ProcessesTable = () => {
     >
       <Dialog>
         <div className="flex">
-          <h4 className="text-xl font-bold mb-2">{t("shared.process")}</h4>
+          <h4 className="mb-2 font-bold text-xl">{t("shared.process")}</h4>
           <div className="ml-auto">
             <DialogTrigger
               type="button"
-              className="w-full flex justify-center items-center  dark:text-gray-400 hover:text-zinc-600 dark:hover:text-white focus:outline-hidden cursor-pointer"
+              className="flex w-full cursor-pointer items-center justify-center hover:text-zinc-600 focus:outline-hidden dark:text-gray-400 dark:hover:text-white"
             >
               <ArrowsOut size={28} />
             </DialogTrigger>
@@ -133,7 +133,7 @@ export const ProcessesTable = () => {
           />
         </div>
 
-        <DialogContent className="p-4 2xl:max-w-[800px] m-8 border rounded-md shadow-md bg-zinc-300 dark:bg-gray-800 dark:text-white">
+        <DialogContent className="m-8 rounded-md border bg-zinc-300 p-4 shadow-md 2xl:max-w-[800px] dark:bg-gray-800 dark:text-white">
           <DialogHeader>
             <DialogTitle>{t("shared.process")}</DialogTitle>
             <DialogDescription>
@@ -176,10 +176,10 @@ const InfoTable = ({
   return (
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
-        <thead className="sticky h-14 top-[-1px] bg-zinc-300 dark:bg-gray-800">
-          <tr className="border-b border-gray-700">
+        <thead className="sticky top-[-1px] h-14 bg-zinc-300 dark:bg-gray-800">
+          <tr className="border-gray-700 border-b">
             <th
-              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("pid")}
               onKeyDown={() => requestSort("pid")}
             >
@@ -191,7 +191,7 @@ const InfoTable = ({
               </div>
             </th>
             <th
-              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("name")}
               onKeyDown={() => requestSort("name")}
             >
@@ -203,7 +203,7 @@ const InfoTable = ({
               </div>
             </th>
             <th
-              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("cpuUsage")}
               onKeyDown={() => requestSort("cpuUsage")}
             >
@@ -215,7 +215,7 @@ const InfoTable = ({
               </div>
             </th>
             <th
-              className="pr-4 py-2 dark:text-gray-400 cursor-pointer"
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("memoryUsage")}
               onKeyDown={() => requestSort("memoryUsage")}
             >
@@ -230,7 +230,7 @@ const InfoTable = ({
         </thead>
         <tbody>
           {processes.map((process) => (
-            <tr key={process.pid} className="border-b border-gray-700">
+            <tr key={process.pid} className="border-gray-700 border-b">
               <td className="py-2">{process.pid}</td>
               <td className="py-2">{process.name}</td>
               <td className="py-2">{process.cpuUsage}%</td>
