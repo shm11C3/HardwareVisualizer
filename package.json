@@ -21,7 +21,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.14.0",
+    "@types/node": "^22.14.1",
     "@types/react": "19.0.12",
     "@types/react-dom": "19.0.4",
     "@types/testing-library__user-event": "^4.2.0",
