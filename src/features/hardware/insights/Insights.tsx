@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { ProcessInsight } from "./process/ProcessInsight";
 
@@ -436,7 +437,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
 
 export const Insights = () => {
   const { t } = useTranslation();
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const gpuNames = useGpuNames();
   const { init } = useHardwareInfoAtom();
   const [displayTarget, setDisplayTarget, isPending] = useTauriStore<string>(
     "insightDisplayTarget",
@@ -452,17 +453,15 @@ export const Insights = () => {
     element: JSX.Element;
   }[] = [
     { key: "main", element: <MainInsights /> },
-    ...(hardwareInfo.gpus
-      ? hardwareInfo.gpus
+    ...(gpuNames.length
+      ? gpuNames
+          .filter((v) => v !== "Unknown")
           .map((v) => {
-            return v.vendorName === "NVIDIA"
-              ? {
-                  key: v.name,
-                  element: <GPUInsights gpuName={v.name} />,
-                }
-              : undefined;
+            return {
+              key: v,
+              element: <GPUInsights gpuName={v} />,
+            };
           })
-          .filter((v): v is NonNullable<typeof v> => Boolean(v))
       : []),
     { key: "process", element: <ProcessInsight /> },
   ];
