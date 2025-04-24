@@ -454,14 +454,12 @@ export const Insights = () => {
   }[] = [
     { key: "main", element: <MainInsights /> },
     ...(gpuNames.length
-      ? gpuNames
-          .filter((v) => v !== "Unknown")
-          .map((v) => {
-            return {
-              key: v,
-              element: <GPUInsights gpuName={v} />,
-            };
-          })
+      ? gpuNames.map((v) => {
+          return {
+            key: v,
+            element: <GPUInsights gpuName={v} />,
+          };
+        })
       : []),
     { key: "process", element: <ProcessInsight /> },
   ];
