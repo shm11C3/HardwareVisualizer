@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"react-devtools\" \"vite dev\"",
+    "dev": "concurrently \"npx react-devtools\" \"vite dev\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:tauri": "cargo test --manifest-path src-tauri/Cargo.toml",
@@ -29,7 +29,6 @@
     "@vitest/coverage-v8": "^3.1.2",
     "concurrently": "^9.1.2",
     "jsdom": "^26.1.0",
-    "react-devtools": "^6.1.1",
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
