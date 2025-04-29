@@ -35,7 +35,7 @@ nvapi = "=0.1.4"
 tokio = { version = "1.44.2", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", default-features = true, features = ["env-filter"]  }
-chrono = "0.4.40"
+chrono = "0.4.41"
 wmi = "0.17.1"
 rust_decimal = "1.37.1"
 tauri-plugin-dialog = "2.2.1"
