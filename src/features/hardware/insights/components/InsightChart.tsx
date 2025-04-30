@@ -136,7 +136,7 @@ export const GpuInsightChart = ({
       return 1;
     }
 
-    return max;
+    return Math.ceil(max);
   }, [hardwareInfo.gpus]);
 
   return (
