@@ -54,7 +54,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!isZoomed || !dragStart.current) return;
+      if (!isZoomed || !dragStart.current || xDomain[1] === "auto") return;
 
       const deltaX = e.clientX - dragStart.current.x;
       const deltaY = e.clientY - dragStart.current.y;
@@ -67,10 +67,8 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
 
         const pixelWidth = containerRef.current?.getBoundingClientRect().width;
 
-        setXDomain(
-          calcDomain(deltaX, xDomain as [number, number], "x", pixelWidth),
-        );
-        setYDomain(calcDomain(deltaY, yDomain as [number, number], "y"));
+        setXDomain(calcDomain(deltaX, xDomain, "x", pixelWidth));
+        setYDomain(calcDomain(deltaY, yDomain, "y"));
 
         dragStart.current = { x: e.clientX, y: e.clientY };
       }
