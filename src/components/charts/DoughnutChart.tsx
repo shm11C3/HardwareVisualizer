@@ -84,7 +84,7 @@ export const DoughnutChart = ({
             gridType="circle"
             radialLines={false}
             stroke="none"
-            className="first:fill-zinc-300 dark:first:fill-muted  last:fill-zinc-200 dark:last:fill-gray-900"
+            className="first:fill-zinc-300 last:fill-zinc-200 dark:last:fill-gray-900 dark:first:fill-muted"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
@@ -109,7 +109,7 @@ export const DoughnutChart = ({
                         y={viewBox.cy}
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        className="fill-foreground text-2xl font-bold"
+                        className="fill-foreground font-bold text-2xl"
                       >
                         {`${chartValue}${dataType2Units(dataType, settings)}`}
                       </text>
@@ -133,8 +133,8 @@ export const DoughnutChart = ({
           </PolarRadiusAxis>
         </RadialBarChart>
       ) : (
-        <div className="flex items-center justify-center h-full">
-          <Skeleton className="w-32 h-32 rounded-full" />
+        <div className="flex h-full items-center justify-center">
+          <Skeleton className="h-32 w-32 rounded-full" />
         </div>
       )}
     </ChartContainer>

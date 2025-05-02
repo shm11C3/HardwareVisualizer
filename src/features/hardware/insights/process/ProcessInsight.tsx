@@ -33,7 +33,7 @@ export const ProcessInsight = () => {
 
   return (
     <div className="pb-6">
-      <div className="flex justify-end items-center">
+      <div className="flex items-center justify-end">
         <SelectPeriod
           options={options}
           selected={period}

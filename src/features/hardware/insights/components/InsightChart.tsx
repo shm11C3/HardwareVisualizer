@@ -48,7 +48,7 @@ export const InsightChart = ({
   } satisfies ChartConfig;
 
   return (
-    <div className="w-full h-full">
+    <div className="h-full w-full">
       <SingleLineChart
         labels={labels}
         chartData={chartData}
@@ -135,12 +135,12 @@ export const GpuInsightChart = ({
     if (max < 1) {
       return 1;
     }
-
-    return max;
+    // Round up the maximum value to the nearest integer to ensure proper grid alignment in the chart.
+    return Math.ceil(max);
   }, [hardwareInfo.gpus]);
 
   return (
-    <div className="w-full h-full">
+    <div className="h-full w-full">
       <SingleLineChart
         labels={labels}
         chartData={chartData}

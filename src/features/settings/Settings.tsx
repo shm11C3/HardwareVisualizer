@@ -119,7 +119,7 @@ const SettingLanguage = () => {
   };
 
   return (
-    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
+    <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
       <Label htmlFor="language" className="text-lg">
         {t("pages.settings.general.language")}
       </Label>
@@ -148,7 +148,7 @@ const SettingColorMode = () => {
   };
 
   return (
-    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
+    <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
       <Label htmlFor="darkMode" className="text-lg">
         {t("pages.settings.general.colorMode.name")}
       </Label>
@@ -182,8 +182,8 @@ const SettingLineChartSize = () => {
   };
 
   return (
-    <div className="py-6 w-full">
-      <Label className="block text-lg mb-2">
+    <div className="w-full py-6">
+      <Label className="mb-2 block text-lg">
         {t("pages.settings.customTheme.graphStyle.size")}
       </Label>
       <Slider
@@ -192,9 +192,9 @@ const SettingLineChartSize = () => {
         step={1}
         value={[sizeIndex]}
         onValueChange={changeGraphSize}
-        className="w-full mt-4"
+        className="mt-4 w-full"
       />
-      <div className="flex justify-between items-center text-sm mt-2">
+      <div className="mt-2 flex items-center justify-between text-sm">
         {sizeOptions.map((size) => (
           <DotOutline
             key={size}
@@ -233,11 +233,11 @@ const SettingLineChartType = () => {
 
   return (
     <div className="py-6">
-      <Label htmlFor="lineGraphType" className="text-lg mb-2">
+      <Label htmlFor="lineGraphType" className="mb-2 text-lg">
         {t("pages.settings.customTheme.graphStyle.lineType")}
       </Label>
       <RadioGroup
-        className="flex items-center space-x-4 mt-4"
+        className="mt-4 flex items-center space-x-4"
         defaultValue={settings.lineGraphType}
         onValueChange={changeLineGraphType}
       >
@@ -248,7 +248,7 @@ const SettingLineChartType = () => {
             <div key={type} className="flex items-center space-x-2">
               <RadioGroupItem value={type} id={id} />
               <Label
-                className="text-lg flex items-center space-x-1 py-2"
+                className="flex items-center space-x-1 py-2 text-lg"
                 htmlFor={id}
               >
                 <LineChartIcon type={type} />
@@ -272,8 +272,8 @@ const SettingBackGroundOpacity = () => {
 
   return (
     settings.selectedBackgroundImg && (
-      <div className="py-3 max-w-96">
-        <Label className="block text-lg mb-2">
+      <div className="max-w-96 py-3">
+        <Label className="mb-2 block text-lg">
           {t("pages.settings.backgroundImage.opacity")}
         </Label>
         <Slider
@@ -282,7 +282,7 @@ const SettingBackGroundOpacity = () => {
           step={1}
           value={[settings.backgroundImgOpacity]}
           onValueChange={changeBackGroundOpacity}
-          className="w-full mt-4"
+          className="mt-4 w-full"
         />
       </div>
     )
@@ -312,7 +312,7 @@ const SettingGraphSwitch = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4 py-3">
-        <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
+        <div className="flex w-full flex-row items-center justify-between rounded-lg border border-zinc-800 p-4 dark:border-gray-100">
           <div className="space-y-0.5">
             <Label htmlFor={type} className="text-lg">
               {t(`pages.settings.customTheme.graphStyle.${type}`)}
@@ -350,7 +350,7 @@ const SettingColorInput = ({
 
       <input
         type="color"
-        className="w-6 h-6 border-none p-0 cursor-pointer"
+        className="h-6 w-6 cursor-pointer border-none p-0"
         value={hexValue}
         onChange={(e) => updateGraphColor(e.target.value)}
       />
@@ -395,7 +395,7 @@ const SettingTemperatureUnit = () => {
   };
 
   return (
-    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
+    <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
       <Label htmlFor="temperatureUnit" className="text-lg">
         {t("pages.settings.general.temperatureUnit.name")}
       </Label>
@@ -447,7 +447,7 @@ const SettingAutoStart = () => {
   }, []);
 
   return (
-    <div className="flex items-center justify-between space-x-4 py-6 xl:w-1/3 w-full">
+    <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
       <div className="space-y-0.5">
         <Label htmlFor="insight" className="text-lg">
           {t("pages.settings.general.autostart.name")}
@@ -457,7 +457,7 @@ const SettingAutoStart = () => {
       {autoStartEnabled != null ? (
         <Switch checked={autoStartEnabled} onCheckedChange={toggleAutoStart} />
       ) : (
-        <Skeleton className="w-[44px] h-[24px] rounded-full" />
+        <Skeleton className="h-[24px] w-[44px] rounded-full" />
       )}
     </div>
   );
@@ -467,7 +467,7 @@ const InsightTitle = () => {
   const { t } = useTranslation();
   return (
     <div className="flex items-center space-x-4 pt-3 pb-1">
-      <h3 className="text-2xl font-bold">
+      <h3 className="font-bold text-2xl">
         {t("pages.settings.insights.name")}
       </h3>
       <TooltipProvider>
@@ -476,7 +476,7 @@ const InsightTitle = () => {
             <Info />
           </TooltipTrigger>
           <TooltipContent>
-            <TypographyP className="text-sm whitespace-pre-wrap">
+            <TypographyP className="whitespace-pre-wrap text-sm">
               {t("pages.settings.insights.about.description")}
             </TypographyP>
           </TooltipContent>
@@ -500,7 +500,7 @@ const ToggleInsight = () => {
     <>
       <div className="space-y-6">
         <div className="flex items-center space-x-4 py-3">
-          <div className="w-full flex flex-row items-center justify-between rounded-lg border p-4 border-zinc-800 dark:border-gray-100">
+          <div className="flex w-full flex-row items-center justify-between rounded-lg border border-zinc-800 p-4 dark:border-gray-100">
             <div className="space-y-0.5">
               <Label htmlFor="insight" className="text-lg">
                 {t(
@@ -544,20 +544,20 @@ const SetNumberOfDaysInsightDataRetains = () => {
 
   return (
     <div className="py-4">
-      <h4 className="text-xl font-bold">
+      <h4 className="font-bold text-xl">
         {t("pages.settings.insights.scheduledDataDeletion")}
       </h4>
 
-      <p className="text-sm mt-2 whitespace-pre-wrap">
+      <p className="mt-2 whitespace-pre-wrap text-sm">
         {t("pages.settings.insights.holdingPeriod.description")}
       </p>
 
       <div className="py-4">
-        <Label className="text-lg my-4" htmlFor="holdingPeriod">
+        <Label className="my-4 text-lg" htmlFor="holdingPeriod">
           {t("pages.settings.insights.holdingPeriod.title")}
         </Label>
-        <div className="flex justify-between items-center">
-          <div className="flex items-center mt-2">
+        <div className="flex items-center justify-between">
+          <div className="mt-2 flex items-center">
             <Input
               id="holdingPeriod"
               type="number"
@@ -619,19 +619,19 @@ const About = () => {
   }, []);
 
   return (
-    <div className="py-2 px-4">
-      <p className="text-sm text-gray-500">
+    <div className="px-4 py-2">
+      <p className="text-gray-500 text-sm">
         {t("pages.settings.about.version", { version })}
       </p>
-      <p className="text-sm text-gray-500">
+      <p className="text-gray-500 text-sm">
         {t("pages.settings.about.author", { author: "shm11C3" })}
       </p>
-      <div className="py-4 flex items-center space-x-4">
+      <div className="flex items-center space-x-4 py-4">
         <Button
           onClick={() =>
             openURL("https://github.com/shm11C3/HardwareVisualizer")
           }
-          className="text-sm  rounded-full"
+          className="rounded-full text-sm"
         >
           <GithubLogo size={32} />
           <span className="px-1">{t("pages.settings.about.checkGitHub")}</span>
@@ -643,7 +643,7 @@ const About = () => {
               "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
             )
           }
-          className="text-sm  rounded-full"
+          className="rounded-full text-sm"
         >
           <span className="px-1">
             {t("pages.settings.about.checkLatestVersion")}
@@ -656,7 +656,7 @@ const About = () => {
               "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
             )
           }
-          className="text-sm rounded-full"
+          className="rounded-full text-sm"
         >
           <span className="px-1">{t("pages.settings.about.license")}</span>
           <ArrowSquareOut size={16} />
@@ -686,7 +686,7 @@ const Settings = () => {
   return (
     <>
       <div className="mt-8 p-4">
-        <h3 className="text-2xl font-bold py-3">
+        <h3 className="py-3 font-bold text-2xl">
           {t("pages.settings.general.name")}
         </h3>
         <div className="px-4">
@@ -697,12 +697,12 @@ const Settings = () => {
         </div>
       </div>
       <div className="mt-8 p-4">
-        <h3 className="text-2xl font-bold py-3">
+        <h3 className="py-3 font-bold text-2xl">
           {t("pages.settings.customTheme.name")}
         </h3>
-        <div className="xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 p-4 items-start">
+        <div className="items-start gap-x-12 gap-y-4 p-4 xl:grid xl:grid-cols-6">
           <div className="col-span-2 py-2">
-            <h4 className="text-xl font-bold">
+            <h4 className="font-bold text-xl">
               {t("pages.settings.customTheme.graphStyle.name")}
             </h4>
             <SettingGraphSwitch type="lineGraphBorder" />
@@ -716,10 +716,10 @@ const Settings = () => {
           </div>
           <div className="col-span-1 py-2">
             <div className="py-6">
-              <h4 className="text-xl font-bold">
+              <h4 className="font-bold text-xl">
                 {t("pages.settings.customTheme.lineColor")}
               </h4>
-              <div className="md:flex lg:block py-6">
+              <div className="py-6 md:flex lg:block">
                 <SettingColorInput label="CPU" hardwareType="cpu" />
                 <SettingColorInput label="RAM" hardwareType="memory" />
                 <SettingColorInput label="GPU" hardwareType="gpu" />
@@ -727,20 +727,20 @@ const Settings = () => {
               <SettingColorReset />
             </div>
             <div className="py-6">
-              <h4 className="text-xl font-bold">
+              <h4 className="font-bold text-xl">
                 {t("pages.settings.general.hardwareType")}
               </h4>
               <SettingGraphType />
             </div>
           </div>
-          <div className="col-span-3 py-2 ml-10">
-            <h4 className="text-xl font-bold">
+          <div className="col-span-3 ml-10 py-2">
+            <h4 className="font-bold text-xl">
               {t("pages.settings.customTheme.preview")}
             </h4>
             <PreviewChart />
           </div>
-          <div className="col-span-3 order-2 xl:order-none">
-            <h4 className="text-xl font-bold py-3">
+          <div className="order-2 col-span-3 xl:order-none">
+            <h4 className="py-3 font-bold text-xl">
               {t("pages.settings.backgroundImage.name")}
             </h4>
             <div className="p-1">
@@ -753,7 +753,7 @@ const Settings = () => {
           </div>
         </div>
       </div>
-      <div className="p-4 xl:grid xl:grid-cols-6 gap-x-12 gap-y-4 items-start">
+      <div className="items-start gap-x-12 gap-y-4 p-4 xl:grid xl:grid-cols-6">
         <div className="col-span-2">
           <InsightTitle />
           <div className="p-4">
@@ -764,7 +764,7 @@ const Settings = () => {
       </div>
 
       <div className="p-4">
-        <h3 className="text-2xl font-bold py-3">
+        <h3 className="py-3 font-bold text-2xl">
           {t("pages.settings.about.name")}
         </h3>
         <About />

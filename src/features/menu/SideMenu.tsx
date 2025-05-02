@@ -87,7 +87,7 @@ export const SideMenu = memo(() => {
         >
           <button
             type="button"
-            className="p-2 w-full h-full text-left cursor-pointer"
+            className="h-full w-full cursor-pointer p-2 text-left"
             onClick={() => handleMenuClick(type)}
             aria-expanded={isOpen}
             aria-label={isOpen ? "Close menu" : "Open menu"}
@@ -125,7 +125,7 @@ export const SideMenu = memo(() => {
           <div className={sideMenuClasses({ open: isOpen })}>
             <ul className="p-4">
               <li className="mb-4">
-                <h2 className="text-xl font-bold">HardwareVisualizer</h2>
+                <h2 className="font-bold text-xl">HardwareVisualizer</h2>
               </li>
               {menuItems}
             </ul>

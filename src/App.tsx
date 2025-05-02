@@ -98,9 +98,9 @@ const Page = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover ease-in-out duration-300">
+      <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 duration-300 ease-in-out dark:bg-gray-900 dark:text-white">
         <div
-          className="fixed inset-0 bg-cover bg-center transition-opacity duration-500"
+          className="fixed inset-0 bg-center bg-cover transition-opacity duration-500"
           style={{
             backgroundImage: `url(${currentImage})`,
             backgroundAttachment: "fixed",
@@ -116,7 +116,7 @@ const Page = () => {
             displayTargets[displayTarget]
           ) : (
             // biome-ignore lint/style/useSelfClosingElements: <explanation>
-            <div className="bg-zinc-200 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen bg-cover"></div>
+            <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 dark:bg-gray-900 dark:text-white"></div>
           )}
         </div>
       </div>
