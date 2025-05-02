@@ -15,6 +15,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
   ]);
   const [yDomain, _setYDomain] = useState<[number, number]>([0, 100]);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const moved = useRef(false);
 
   const setXDomain = useCallback((domain: [number, number] | [0, "auto"]) => {
@@ -48,6 +49,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     dragStart.current = { x: e.clientX, y: e.clientY };
     moved.current = false;
+    setIsDragging(true);
   }, []);
 
   const handleMouseMove = useCallback(
@@ -78,17 +80,18 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
-      console.debug("Mouse up event detected");
+      setIsDragging(false);
+
+      // ドラッグが発生した場合はズームを無効にする
       if (!dragStart.current || moved.current) {
         dragStart.current = null;
         moved.current = false;
-        console.debug("Drag detected, not zooming");
         return;
       }
 
-      console.debug("Click detected, zooming", containerRef.current);
-
       if (!containerRef.current) return;
+
+      // ズーム処理
       const rect = containerRef.current.getBoundingClientRect();
       const clickXRatio = (e.clientX - rect.left) / rect.width;
       const clickYRatio = 1 - (e.clientY - rect.top) / rect.height;
@@ -122,12 +125,17 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
     [data, isZoomed, setXDomain, setYDomain],
   );
 
-  const cursorStyle = useMemo(
-    () => ({
-      cursor: isZoomed ? (moved.current ? "grabbing" : "grab") : "zoom-in",
-    }),
-    [isZoomed],
-  );
+  const cursorStyle = useMemo(() => {
+    if (isZoomed) {
+      return {
+        cursor: isDragging ? "grabbing" : "grab",
+      };
+    }
+
+    return {
+      cursor: "zoom-in",
+    };
+  }, [isZoomed, isDragging]);
 
   return {
     containerRef,
