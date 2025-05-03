@@ -2,7 +2,7 @@ import { useBackgroundImage } from "@/hooks/useBgImage";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
@@ -47,7 +47,10 @@ export const useUploadImage = () => {
     setIsSubmitting(false);
   };
 
-  const picture = form.watch("picture");
+  const picture = useWatch({
+    control: form.control,
+    name: "picture",
+  });
 
   useEffect(() => {
     if (picture) {
