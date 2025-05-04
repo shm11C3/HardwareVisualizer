@@ -90,7 +90,14 @@ jobs:
         run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
       - name: Setup Azure Code Signing
-        run: cargo install trusted-signing-cli
+        shell: bash
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/trusted-signing-cli.exe" ]; then
+            echo "trusted-signing-cli not found, installing..."
+            cargo install trusted-signing-cli
+          else
+            echo "trusted-signing-cli already installed, skipping."
+          fi
 
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
