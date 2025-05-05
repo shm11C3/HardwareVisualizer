@@ -81,7 +81,7 @@ jobs:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Update tauri.conf.json using Node.js script
-        run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
+        run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1 > signing.log 2>&1"
 
       - name: Setup Azure Code Signing
         run: cargo install trusted-signing-cli
@@ -105,6 +105,12 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+        continue-on-error: true # TODO 後で消す
+
+      # TODO 後で消す
+      - name: Check signing.log
+        run: type signing.log
+        shell: cmd
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Bundle Offline Installer
