@@ -69,12 +69,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Cache trusted-signing-cli
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/trusted-signing-cli.exe
-          key: ${{ runner.os }}-trusted-signing-v1
-
       - name: setup node
         uses: actions/setup-node@v4
         with:
@@ -87,17 +81,10 @@ jobs:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Update tauri.conf.json using Node.js script
-        run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
+        run: 'node .github/scripts/updateTauriConfig.cjs "echo Signing file: %1 && trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"'
 
       - name: Setup Azure Code Signing
-        shell: bash
-        run: |
-          if [ ! -f "$HOME/.cargo/bin/trusted-signing-cli.exe" ]; then
-            echo "trusted-signing-cli not found, installing..."
-            cargo install trusted-signing-cli
-          else
-            echo "trusted-signing-cli already installed, skipping."
-          fi
+        run: cargo install trusted-signing-cli
 
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
