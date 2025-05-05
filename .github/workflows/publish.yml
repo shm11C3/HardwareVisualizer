@@ -93,7 +93,7 @@ jobs:
         run: cat src-tauri/tauri.conf.json
 
       - name: Test Build
-        run: npm run tauri build --verbose
+        run: npm run tauri build --verbose --debug
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
