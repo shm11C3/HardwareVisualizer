@@ -92,6 +92,9 @@ jobs:
       - name: Debug show tauri.conf.json
         run: cat src-tauri/tauri.conf.json
 
+      - name: Verify trusted-signing-cli installation
+        run: trusted-signing-cli --version
+
       - name: Test Build
         run: npm run tauri build --verbose --debug
         env:
