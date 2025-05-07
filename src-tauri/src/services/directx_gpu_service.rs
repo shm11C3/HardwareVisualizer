@@ -1,11 +1,16 @@
 use crate::structs::hardware::GraphicInfo;
 
 use crate::{log_debug, log_error, log_internal};
-use dxgi::Factory;
-use dxgi::adapter::AdapterDesc;
 use tokio::task::spawn_blocking;
 
+#[cfg(target_os = "windows")]
+use dxgi::Factory;
+
+#[cfg(target_os = "windows")]
+use dxgi::adapter::AdapterDesc;
+
 /// Intel GPU情報を取得する
+#[cfg(target_os = "windows")]
 pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_intel_gpu_info", None::<&str>);
@@ -49,6 +54,7 @@ pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
 }
 
 /// AMD GPU情報を取得する
+#[cfg(target_os = "windows")]
 pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_amd_gpu_info", None::<&str>);
