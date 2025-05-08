@@ -474,7 +474,7 @@ export const Insights = () => {
         }
       >
         {insightsChild.length > 1 && (
-          <TabsList>
+          <TabsList className="sticky top-[8px] z-50 ml-1">
             {insightsChild.map((child) => {
               const { key } = child;
               return (
