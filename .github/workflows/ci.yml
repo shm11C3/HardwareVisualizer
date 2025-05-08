@@ -6,10 +6,11 @@ on:
       - master
       - develop
       - release/**
+      - develop-v*
   push:
     branches:
       - develop
-      - release/**
+      - develop-v*
 
 # [TODO] セットアップの処理を共通化する
 jobs:
