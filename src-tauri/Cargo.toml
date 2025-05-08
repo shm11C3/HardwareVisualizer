@@ -84,6 +84,9 @@ windows = { version = "0.61.1", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+ipnet = "2.11.0"
+
 [lib]
 name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]

@@ -316,9 +316,12 @@ pub fn get_gpu_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  #[cfg(not(target_os = "windows"))]
-  return Err(BackendError::UnexpectedError);
-
   #[cfg(target_os = "windows")]
-  wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError)
+  let result = wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError);
+
+  #[cfg(target_os = "linux")]
+  let result =
+    services::ip_linux::get_network_info().map_err(|_| BackendError::UnexpectedError);
+
+  result
 }
