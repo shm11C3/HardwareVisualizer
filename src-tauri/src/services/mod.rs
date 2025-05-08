@@ -6,3 +6,6 @@ pub mod system_info_service;
 
 #[cfg(target_os = "windows")]
 pub mod wmi_service;
+
+#[cfg(target_os = "linux")]
+pub mod dmidecode;

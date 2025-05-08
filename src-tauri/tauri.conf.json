@@ -38,7 +38,8 @@
     "shortDescription": "",
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [],
+        "desktopTemplate": "./templates/main.desktop"
       }
     }
   },

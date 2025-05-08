@@ -2,6 +2,7 @@ use crate::commands::settings;
 use crate::enums;
 use crate::enums::error::BackendError;
 use crate::enums::hardware;
+use crate::services;
 use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
@@ -100,6 +101,9 @@ pub async fn get_hardware_info(
   #[cfg(target_os = "windows")]
   let memory_result = wmi_service::get_memory_info();
 
+  #[cfg(target_os = "linux")]
+  let memory_result = services::dmidecode::get_memory_info_linux();
+
   let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
 
   #[cfg(target_os = "windows")]
@@ -132,22 +136,9 @@ pub async fn get_hardware_info(
 
   let storage_info = system_info_service::get_storage_info()?;
 
-  #[cfg(target_os = "windows")]
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
     memory: memory_result.ok(),
-    gpus: if gpus_result.is_empty() {
-      None
-    } else {
-      Some(gpus_result)
-    },
-    storage: storage_info,
-  };
-
-  #[cfg(not(target_os = "windows"))]
-  let sys_info = SysInfo {
-    cpu: cpu_result.ok(),
-    memory: None,
     gpus: if gpus_result.is_empty() {
       None
     } else {
