@@ -72,6 +72,15 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.0-dev \
+            librsvg2-dev
+
       - name: Set git to use LF
         run: |
           git config --global core.autocrlf false
@@ -116,6 +125,15 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.0-dev \
+            librsvg2-dev
+
       - name: Set git to use LF
         run: |
           git config --global core.autocrlf false
