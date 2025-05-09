@@ -3,7 +3,7 @@ use std::process::Command;
 
 pub async fn get_intel_gpu_usage(_card_id: u8) -> Result<f32, String> {
   let output = Command::new("intel_gpu_top")
-    .args(&["-J", "-s", "1000"]) // JSON出力で1秒だけ取得
+    .args(["-J", "-s", "1000"]) // JSON出力で1秒だけ取得
     .output()
     .map_err(|e| format!("Failed to run intel_gpu_top: {e}"))?;
 

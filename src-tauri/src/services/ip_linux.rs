@@ -79,7 +79,7 @@ fn populate_ip_addresses(map: &mut HashMap<String, NetworkInfo>) -> Result<(), S
       };
     } else if let Some(iface) = &current_iface {
       if line.trim().starts_with("inet ") {
-        if let Some(ip_str) = line.trim().split_whitespace().nth(1) {
+        if let Some(ip_str) = line.split_whitespace().nth(1) {
           if let Ok(addr) = ip_str.parse::<ipnet::IpNet>() {
             let iface_entry = map.get_mut(iface).unwrap();
             match addr.addr() {

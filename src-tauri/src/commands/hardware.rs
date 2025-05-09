@@ -1,12 +1,9 @@
 use crate::commands::settings;
 use crate::enums;
 use crate::enums::error::BackendError;
-use crate::enums::hardware;
 use crate::services;
-use crate::services::directx_gpu_service;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
-use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use crate::utils;
 use crate::{log_error, log_internal};
@@ -107,10 +104,10 @@ pub async fn get_hardware_info(
   let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
 
   #[cfg(target_os = "windows")]
-  let amd_gpus_result = directx_gpu_service::get_amd_gpu_info().await;
+  let amd_gpus_result = services::directx_gpu_service::get_amd_gpu_info().await;
 
   #[cfg(target_os = "windows")]
-  let intel_gpus_result = directx_gpu_service::get_intel_gpu_info().await;
+  let intel_gpus_result = services::directx_gpu_service::get_intel_gpu_info().await;
 
   let mut gpus_result = Vec::new();
 
