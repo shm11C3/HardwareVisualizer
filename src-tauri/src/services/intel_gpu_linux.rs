@@ -1,3 +1,4 @@
+use crate::structs;
 use std::process::Command;
 
 pub async fn get_intel_gpu_usage(_card_id: u8) -> Result<f32, String> {
@@ -22,4 +23,17 @@ pub async fn get_intel_gpu_usage(_card_id: u8) -> Result<f32, String> {
   }
 
   Err("Could not parse intel_gpu_top output".to_string())
+}
+
+pub async fn get_intel_graphic_info(
+  card_id: u8,
+) -> Result<structs::hardware::GraphicInfo, String> {
+  Ok(structs::hardware::GraphicInfo {
+    id: format!("card{card_id}"),
+    name: "Intel Integrated Graphics".into(),
+    vendor_name: "Intel".into(),
+    clock: 0, // 取得困難。未対応で0にしておく
+    memory_size: "N/A".into(),
+    memory_size_dedicated: "N/A".into(),
+  })
 }

@@ -14,6 +14,9 @@ pub mod dmidecode;
 pub mod ip_linux;
 
 #[cfg(target_os = "linux")]
+pub mod gpu_linux;
+
+#[cfg(target_os = "linux")]
 pub mod amd_gpu_linux;
 
 #[cfg(target_os = "linux")]

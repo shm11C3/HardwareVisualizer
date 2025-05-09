@@ -114,6 +114,24 @@ pub async fn get_hardware_info(
 
   let mut gpus_result = Vec::new();
 
+  #[cfg(target_os = "linux")]
+  for card_id in services::gpu_linux::get_all_card_ids() {
+    match services::gpu_linux::detect_gpu_vendor(card_id) {
+      services::gpu_linux::GpuVendor::Amd => {
+        if let Ok(info) = services::amd_gpu_linux::get_amd_graphic_info(card_id).await {
+          gpus_result.push(info);
+        }
+      }
+      services::gpu_linux::GpuVendor::Intel => {
+        if let Ok(info) = services::intel_gpu_linux::get_intel_graphic_info(card_id).await
+        {
+          gpus_result.push(info);
+        }
+      }
+      _ => {}
+    }
+  }
+
   // NVIDIA の結果を確認して結合
   match nvidia_gpus_result {
     Ok(nvidia_gpus) => gpus_result.extend(nvidia_gpus),
