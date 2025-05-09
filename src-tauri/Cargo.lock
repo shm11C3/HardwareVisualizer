@@ -1938,6 +1938,7 @@ dependencies = [
  "chrono",
  "dxgi",
  "image",
+ "ipnet",
  "nvapi",
  "regex",
  "rust_decimal",
