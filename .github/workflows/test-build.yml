@@ -14,6 +14,8 @@ jobs:
   # Test Build
   #
   test-build:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -58,10 +60,6 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Azure Code Signing
-        run: |
-          cargo install trusted-signing-cli
 
       - name: Install frontend dependencies
         run: npm ci
