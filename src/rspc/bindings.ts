@@ -46,7 +46,7 @@ async getMemoryUsage() : Promise<number> {
     return await TAURI_INVOKE("get_memory_usage");
 },
 /**
- * ## GPU使用率（%）を取得（Nvidia 限定）
+ * ## GPU使用率（%）を取得
  * 
  * - param state: `tauri::State<AppState>` アプリケーションの状態
  * - return: `i32` GPU使用率（%）

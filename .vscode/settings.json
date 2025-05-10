@@ -34,5 +34,8 @@
   ],
   "tailwindCSS.experimental.classRegex": [
     "tv\\(([^)(]*(?:\\([^)(]*(?:\\([^)(]*(?:\\([^)(]*\\)[^)(]*)*\\)[^)(]*)*\\)[^)(]*)*)\\)"
-  ]
+  ],
+  "terminal.integrated.env.linux": {
+    "GTK_PATH": ""
+  }
 }
