@@ -1,10 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
-import { type JSX, useMemo, useState } from "react";
+import { type JSX, memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 import type { ProcessStat } from "../types/processStats";
 
 export const ProcessTable = ({
@@ -116,7 +118,7 @@ const InfoTable = ({
   className: string;
 }) => {
   const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
+  const { sentinelRef, isStuck } = useStickyObserver();
 
   const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
     ascending: <CaretUp className="ml-1" size={18} />,
@@ -124,111 +126,129 @@ const InfoTable = ({
   };
 
   return (
-    <table className="w-full text-left">
-      <thead className="sticky top-[-1px] h-14 bg-zinc-300 dark:bg-gray-800">
-        <tr className="border-gray-700 border-b">
-          <th
-            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-            onClick={() => requestSort("pid")}
-            onKeyDown={() => requestSort("pid")}
-          >
-            <div className="flex items-center">
-              <span>PID</span>
-              {sortConfig &&
-                sortConfig.key === "pid" &&
-                sortIcon[sortConfig.direction]}
-            </div>
-          </th>
-          <th
-            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-            onClick={() => requestSort("process_name")}
-            onKeyDown={() => requestSort("process_name")}
-          >
-            <div className="flex items-center">
-              <span>{t("shared.name")}</span>
-              {sortConfig &&
-                sortConfig.key === "process_name" &&
-                sortIcon[sortConfig.direction]}
-            </div>
-          </th>
-          <th
-            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-            onClick={() => requestSort("avg_cpu_usage")}
-            onKeyDown={() => requestSort("avg_cpu_usage")}
-          >
-            <div className="flex items-center">
-              <span>{t("shared.avgCpuUsage")}</span>
-              {sortConfig &&
-                sortConfig.key === "avg_cpu_usage" &&
-                sortIcon[sortConfig.direction]}
-            </div>
-          </th>
-          <th
-            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-            onClick={() => requestSort("avg_memory_usage")}
-            onKeyDown={() => requestSort("avg_memory_usage")}
-          >
-            <div className="flex items-center">
-              <span>{t("shared.avgMemoryUsageValue")}</span>
-              {sortConfig &&
-                sortConfig.key === "avg_memory_usage" &&
-                sortIcon[sortConfig.direction]}
-            </div>
-          </th>
-          <th
-            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-            onClick={() => requestSort("total_execution_sec")}
-            onKeyDown={() => requestSort("total_execution_sec")}
-          >
-            <div className="flex items-center">
-              <span>{t("shared.totalExecTime")}</span>
-              {sortConfig &&
-                sortConfig.key === "total_execution_sec" &&
-                sortIcon[sortConfig.direction]}
-            </div>
-          </th>
-          <th
-            className="cursor-pointer py-2 pr-4 dark:text-gray-400"
-            onClick={() => requestSort("latest_timestamp")}
-            onKeyDown={() => requestSort("latest_timestamp")}
-          >
-            <div className="flex items-center">
-              <span>{t("shared.latestExecTime")}</span>
-              {sortConfig &&
-                sortConfig.key === "latest_timestamp" &&
-                sortIcon[sortConfig.direction]}
-            </div>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {processes.map((process, i) => {
-          return (
-            <tr
-              key={`${process.pid}-${i}`}
-              className="border-gray-700 border-b"
+    <>
+      <div ref={sentinelRef} className="h-1" />
+      <table className="w-full text-left">
+        <thead className="sticky top-[-1px] bg-zinc-300 dark:bg-gray-800">
+          <tr className="border-gray-700 border-b">
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              onClick={() => requestSort("pid")}
+              onKeyDown={() => requestSort("pid")}
             >
-              <td className="py-2">{process.pid}</td>
-              <td className="py-2">{process.process_name}</td>
-              <td className="py-2">
-                {Number.parseFloat(process.avg_cpu_usage.toFixed(2))}%
-              </td>
-              <td className="py-2">
-                {formatBytes(process.avg_memory_usage * 1024).join(" ")}
-              </td>
-              <td className="py-2">
-                {formatDuration(
-                  process.total_execution_sec,
-                  settings.language === "ja" ? "ja-JP" : "en-US",
-                )}
-              </td>
-              <td className="py-2">
-                {new Date(process.latest_timestamp).toLocaleString()}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+              <div className={tableHeaderVariants({ isStuck })}>
+                <span>PID</span>
+                {sortConfig &&
+                  sortConfig.key === "pid" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              onClick={() => requestSort("process_name")}
+              onKeyDown={() => requestSort("process_name")}
+            >
+              <div className={tableHeaderVariants({ isStuck })}>
+                <span>{t("shared.name")}</span>
+                {sortConfig &&
+                  sortConfig.key === "process_name" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              onClick={() => requestSort("avg_cpu_usage")}
+              onKeyDown={() => requestSort("avg_cpu_usage")}
+            >
+              <div className={tableHeaderVariants({ isStuck })}>
+                <span>{t("shared.avgCpuUsage")}</span>
+                {sortConfig &&
+                  sortConfig.key === "avg_cpu_usage" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              onClick={() => requestSort("avg_memory_usage")}
+              onKeyDown={() => requestSort("avg_memory_usage")}
+            >
+              <div className={tableHeaderVariants({ isStuck })}>
+                <span>{t("shared.avgMemoryUsageValue")}</span>
+                {sortConfig &&
+                  sortConfig.key === "avg_memory_usage" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              onClick={() => requestSort("total_execution_sec")}
+              onKeyDown={() => requestSort("total_execution_sec")}
+            >
+              <div className={tableHeaderVariants({ isStuck })}>
+                <span>{t("shared.totalExecTime")}</span>
+                {sortConfig &&
+                  sortConfig.key === "total_execution_sec" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+            <th
+              className="cursor-pointer py-2 pr-4 dark:text-gray-400"
+              onClick={() => requestSort("latest_timestamp")}
+              onKeyDown={() => requestSort("latest_timestamp")}
+            >
+              <div className={tableHeaderVariants({ isStuck })}>
+                <span>{t("shared.latestExecTime")}</span>
+                {sortConfig &&
+                  sortConfig.key === "latest_timestamp" &&
+                  sortIcon[sortConfig.direction]}
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <TableBody processes={processes} />
+      </table>
+    </>
   );
 };
+
+const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
+  const { settings } = useSettingsAtom();
+
+  return (
+    <tbody>
+      {processes.map((process, i) => {
+        return (
+          <tr key={`${process.pid}-${i}`} className="border-gray-700 border-b">
+            <td className="py-2">{process.pid}</td>
+            <td className="py-2">{process.process_name}</td>
+            <td className="py-2">
+              {Number.parseFloat(process.avg_cpu_usage.toFixed(2))}%
+            </td>
+            <td className="py-2">
+              {formatBytes(process.avg_memory_usage * 1024).join(" ")}
+            </td>
+            <td className="py-2">
+              {formatDuration(
+                process.total_execution_sec,
+                settings.language === "ja" ? "ja-JP" : "en-US",
+              )}
+            </td>
+            <td className="py-2">
+              {new Date(process.latest_timestamp).toLocaleString()}
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  );
+});
+
+const tableHeaderVariants = tv({
+  base: "flex transition-all duration-300",
+  variants: {
+    isStuck: {
+      true: "items-end h-20 mb-2",
+      false: "items-center h-14",
+    },
+  },
+});

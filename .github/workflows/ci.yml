@@ -18,6 +18,8 @@ jobs:
   # Lint Frontend
   #
   lint-frontend:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -60,6 +62,8 @@ jobs:
   # Lint Backend
   #
   lint-backend:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -115,6 +119,8 @@ jobs:
   # Testing Backend
   #
   unit-test-backend:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -167,6 +173,8 @@ jobs:
   # Test Build Frontend
   #
   test-build-frontend:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -209,6 +217,9 @@ jobs:
   # Test Frontend
   #
   unit-test-frontend:
+    permissions:
+      contents: read
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -217,10 +228,6 @@ jobs:
             args: ""
 
     runs-on: ${{ matrix.platform }}
-
-    permissions:
-      contents: read
-      pull-requests: write
 
     steps:
       - name: Set git to use LF
