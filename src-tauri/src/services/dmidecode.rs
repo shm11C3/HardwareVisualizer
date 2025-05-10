@@ -8,7 +8,7 @@ pub fn get_memory_info_linux() -> Result<structs::hardware::MemoryInfo, String> 
 }
 
 fn get_memory_info_dmidecode() -> Result<String, String> {
-  let output = Command::new("sudo")
+  let output = Command::new("sudo") // TODO 権限昇格処理を実装する
     .arg("dmidecode")
     .arg("--type")
     .arg("memory")

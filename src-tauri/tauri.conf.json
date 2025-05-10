@@ -38,8 +38,7 @@
     "shortDescription": "",
     "linux": {
       "deb": {
-        "depends": ["intel-gpu-tools", "dmidecode", "lm-sensors"],
-        "desktopTemplate": "./templates/main.desktop"
+        "depends": ["intel-gpu-tools", "dmidecode", "lm-sensors"]
       }
     }
   },
