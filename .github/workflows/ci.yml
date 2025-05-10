@@ -140,6 +140,8 @@ jobs:
   # Test Build Frontend
   #
   test-build-frontend:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
