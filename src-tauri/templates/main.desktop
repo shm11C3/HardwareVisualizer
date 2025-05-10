@@ -3,7 +3,7 @@ Categories={{{categories}}}
 {{#if comment}}
 Comment={{{comment}}}
 {{/if}}
-Exec=sh -c "pkexec env DISPLAY=$(w | grep $(whoami) | awk '{print $3}') XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority {{{exec}}}"
+Exec=sh -c "pkexec env DISPLAY=\\$(w | grep \\$(whoami) | awk '{print $3}') XAUTHORITY=/run/user/\\$(id -u)/gdm/Xauthority hardware-visualizer"
 Icon={{{icon}}}
 Name={{{name}}}
 Terminal=false
