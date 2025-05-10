@@ -39,6 +39,10 @@ jobs:
             libsoup-3.0-dev \
             libfuse2
 
+      - name: Fix linuxdeploy permissions
+        if: matrix.platform == 'ubuntu-22.04'
+        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+
       - name: Set git to use LF
         run: |
           git config --global core.autocrlf false
