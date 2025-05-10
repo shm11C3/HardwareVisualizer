@@ -17,8 +17,8 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 | OS      | Status                                                                       |
 | ------- | ---------------------------------------------------------------------------- |
 | Windows | ✅ [Download](https://github.com/shm11C3/HardwareVisualizer/releases/latest) |
-| MacOS   | ⏳                                                                           |
-| Linux   | ⏳                                                                           |
+| MacOS   | 🔒 Planned (No ETA - No test device)                                         |
+| Linux   | 🛠️ Coming Soon                                                               |
 
 ## Features
 
