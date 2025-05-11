@@ -36,6 +36,20 @@ async getHardwareInfo() : Promise<Result<SysInfo, string>> {
 }
 },
 /**
+ * ## 詳細なメモリ情報を取得（Linux）
+ * 
+ * - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
+ * 
+ */
+async getMemoryInfoDetailLinux() : Promise<Result<MemoryInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_memory_info_detail_linux") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * ## メモリ使用率（%）を取得
  * 
  * - pram state: `tauri::State<AppState>` アプリケーションの状態

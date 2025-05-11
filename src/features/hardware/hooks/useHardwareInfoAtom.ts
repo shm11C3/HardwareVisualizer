@@ -39,5 +39,27 @@ export const useHardwareInfoAtom = () => {
     setNetworkInfo(fetchedNetworkInfo.data);
   };
 
-  return { hardwareInfo, networkInfo, init, initNetwork };
+  const fetchMemoryInfoDetail = async () => {
+    const backup = hardwareInfo.memory;
+    setHardInfo({ ...hardwareInfo, memory: null });
+
+    const result = await commands.getMemoryInfoDetailLinux();
+
+    if (isError(result)) {
+      error(result.error);
+      console.error("Failed to fetch memory info detail:", result);
+      setHardInfo({ ...hardwareInfo, memory: backup });
+      return;
+    }
+
+    setHardInfo({ ...hardwareInfo, memory: result.data });
+  };
+
+  return {
+    hardwareInfo,
+    networkInfo,
+    init,
+    initNetwork,
+    fetchMemoryInfoDetail,
+  };
 };

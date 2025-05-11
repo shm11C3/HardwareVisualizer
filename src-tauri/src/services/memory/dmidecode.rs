@@ -1,18 +1,33 @@
-use tauri_plugin_shell::ShellExt;
-
+use crate::services::memory;
 use crate::structs;
 use crate::utils;
+use crate::{log_internal, log_warn};
 
-async fn get_memory_info_dmidecode(
-  app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-  let shell = app_handle.shell();
-  let output = shell
-    .command("sudo")
-    .args(["dmidecode", "--type", "memory"])
+use std::process::Command;
+
+pub async fn get_memory_info_dmidecode() -> Result<structs::hardware::MemoryInfo, String>
+{
+  let raw = get_raw_dmidecode().await?;
+  let parsed = parse_dmidecode_memory_info(&raw);
+
+  if let Err(e) = memory::save_memory_info_cache(&parsed) {
+    log_warn!(
+      "Failed to cache memory info",
+      "get_memory_info_dmidecode",
+      Some(e.to_string())
+    );
+  }
+
+  Ok(parsed)
+}
+
+async fn get_raw_dmidecode() -> Result<String, String> {
+  let output = Command::new("pkexec")
+    .arg("dmidecode")
+    .arg("--type")
+    .arg("memory")
     .output()
-    .await
-    .map_err(|e| format!("Failed to execute dmidecode: {e}"))?;
+    .map_err(|e| format!("Failed to execute pkexec dmidecode: {e}"))?;
 
   if output.status.success() {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())

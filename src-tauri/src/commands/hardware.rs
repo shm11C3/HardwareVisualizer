@@ -4,6 +4,7 @@ use crate::enums::error::BackendError;
 use crate::services;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
+use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use crate::utils;
 use crate::{log_error, log_internal};
@@ -168,6 +169,22 @@ pub async fn get_hardware_info(
   } else {
     Ok(sys_info)
   }
+}
+
+///
+/// ## 詳細なメモリ情報を取得（Linux）
+///
+/// - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
+///
+#[command]
+#[specta::specta]
+pub async fn get_memory_info_detail_linux()
+-> Result<structs::hardware::MemoryInfo, String> {
+  #[cfg(not(target_os = "linux"))]
+  return Err("Detailed memory info is not supported on this OS".to_string());
+
+  #[cfg(target_os = "linux")]
+  services::memory::get_memory_info_dmidecode().await
 }
 
 ///

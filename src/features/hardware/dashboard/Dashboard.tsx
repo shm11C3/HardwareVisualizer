@@ -201,9 +201,12 @@ const MemoryInfo = () => {
 const FetchDetailButton = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const { fetchMemoryInfoDetail } = useHardwareInfoAtom();
 
-  const handleLoadDetail = () => {
+  const handleLoadDetail = async () => {
     setLoading(true);
+    await fetchMemoryInfoDetail();
+    setLoading(false);
   };
 
   return (
