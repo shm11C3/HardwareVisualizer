@@ -41,7 +41,6 @@ pub async fn get_memory_info() -> Result<MemoryInfo, String> {
       wmi_query_in_thread(
         "SELECT MemoryDevices FROM Win32_PhysicalMemoryArray".to_string(),
       )
-      .and_then(|result| Ok(result))
     })
     .await
     .map_err(|e| format!("Join error: {e}"))??;
