@@ -47,6 +47,12 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
 
+      - name: Unset problematic env vars
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          unset GTK_PATH
+          unset LD_LIBRARY_PATH
+
       - name: Set git to use LF
         run: |
           git config --global core.autocrlf false
