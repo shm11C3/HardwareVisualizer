@@ -155,7 +155,7 @@ You can launch the app by running the following command in the terminal:
 ```bash
 sudo hardware-visualizer
 ```
-
+> [!NOTE]
 > 🔒 sudo is required to access certain system information such as CPU, memory, or GPU stats.
 
 This works on both native Linux and WSL (Windows Subsystem for Linux) with GUI support (WSLg).
