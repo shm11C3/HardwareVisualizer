@@ -110,8 +110,8 @@ const SettingLanguage = () => {
 
   const supported = Object.keys(i18n.services.resourceStore.data);
   const displaySupported: Record<string, string> = {
-    en: "English",
-    ja: "日本語",
+    en: t("lang.en"),
+    ja: t("lang.ja"),
   };
 
   const changeLanguage = async (value: string) => {
