@@ -414,7 +414,7 @@ const NetworkInfo = () => {
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 const Dashboard = () => {
-  const { init } = useHardwareInfoAtom();
+  const { init, hardwareInfo } = useHardwareInfoAtom();
   const { t } = useTranslation();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -422,32 +422,46 @@ const Dashboard = () => {
     init();
   }, []);
 
-  const hardwareInfoListLeft: { key: DataTypeKey; component: JSX.Element }[] = [
-    {
-      key: "cpu",
-      component: <CPUInfo />,
-    },
-    { key: "memory", component: <MemoryInfo /> },
-    {
-      key: "storage",
-      component: <StorageDataInfo />,
-    },
-  ].filter((x): x is { key: DataTypeKey; component: JSX.Element } => x != null);
-
-  const hardwareInfoListRight: { key: DataTypeKey; component: JSX.Element }[] =
-    [
-      { key: "gpu", component: <GPUInfo /> },
+  // 表示対象のリストをフィルタしたうえで左右交互に振り分ける
+  const [hardwareInfoListLeft, hardwareInfoListRight] = useMemo(() => {
+    const fullList = [
+      {
+        key: "cpu",
+        component: <CPUInfo />,
+      },
+      (hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0) && {
+        key: "gpu",
+        component: <GPUInfo />,
+      },
+      { key: "memory", component: <MemoryInfo /> },
       {
         key: "process",
         component: <ProcessesTable />,
       },
       {
+        key: "storage",
+        component: <StorageDataInfo />,
+      },
+      {
         key: "network",
         component: <NetworkInfo />,
       },
-    ].filter(
-      (x): x is { key: DataTypeKey; component: JSX.Element } => x != null,
+    ].filter((x): x is { key: DataTypeKey; component: JSX.Element } =>
+      Boolean(x),
     );
+
+    return fullList.reduce<[typeof fullList, typeof fullList]>(
+      ([left, right], item, index) => {
+        if (index % 2 === 0) {
+          left.push(item);
+        } else {
+          right.push(item);
+        }
+        return [left, right];
+      },
+      [[], []],
+    );
+  }, [hardwareInfo]);
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -461,7 +475,11 @@ const Dashboard = () => {
     <div className="flex flex-wrap gap-4">
       <div className="flex flex-1 flex-col gap-4">
         {hardwareInfoListLeft.map(({ key, component }) => (
-          <DataArea key={`left-${key}`} title={dataAreaKey2Title[key]}>
+          <DataArea
+            key={`left-${key}`}
+            title={dataAreaKey2Title[key]}
+            border={key !== "process"}
+          >
             {component}
           </DataArea>
         ))}

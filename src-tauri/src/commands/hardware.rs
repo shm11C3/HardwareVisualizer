@@ -155,11 +155,7 @@ pub async fn get_hardware_info(
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
     memory: memory_result.ok(),
-    gpus: if gpus_result.is_empty() {
-      None
-    } else {
-      Some(gpus_result)
-    },
+    gpus: Some(gpus_result),
     storage: storage_info,
   };
 
