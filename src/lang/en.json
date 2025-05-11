@@ -17,6 +17,7 @@
     "memorySizeDedicated": "Memory Size (Dedicated)",
     "memorySizeSharedUsage": "Shared GPU Memory Usage ",
     "memorySizeDedicatedUsage": "Dedicated GPU Memory Usage",
+    "loadDetailedInfo": "Load detailed info",
     "memoryType": "Memory Type",
     "totalMemory": "Total Memory",
     "memoryCount": "Memory Count",

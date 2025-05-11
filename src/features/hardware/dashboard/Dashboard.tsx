@@ -9,6 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
@@ -23,7 +24,7 @@ import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { StorageInfo } from "@/rspc/bindings";
 import { useAtom } from "jotai";
-import { type JSX, useEffect, useMemo } from "react";
+import { type JSX, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
@@ -166,20 +167,52 @@ const MemoryInfo = () => {
         dataType={"usage"}
       />
       {hardwareInfo.memory ? (
-        <InfoTable
-          data={{
-            [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
-            [t("shared.totalMemory")]: hardwareInfo.memory.size,
-            [t("shared.memoryCount")]:
-              `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
-            [t("shared.memoryClockSpeed")]:
-              `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
-          }}
-        />
+        <div className="space-y-2">
+          <InfoTable
+            data={
+              // Linuxの場合は pkexec でしか詳細な情報が取得できないため、
+              // 初期状態では memory.size と読み込みボタンを表示する
+              hardwareInfo.memory.isDetailed
+                ? {
+                    [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+                    [t("shared.totalMemory")]: hardwareInfo.memory.size,
+                    [t("shared.memoryCount")]:
+                      `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
+                    [t("shared.memoryClockSpeed")]:
+                      `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
+                  }
+                : {
+                    [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+                    [t("shared.totalMemory")]: hardwareInfo.memory.size,
+                  }
+            }
+          />
+          <div className="flex justify-end">
+            {!hardwareInfo.memory.isDetailed && <FetchDetailButton />}
+          </div>
+        </div>
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
     </>
+  );
+};
+
+const FetchDetailButton = () => {
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
+  const { fetchMemoryInfoDetail } = useHardwareInfoAtom();
+
+  const handleLoadDetail = async () => {
+    setLoading(true);
+    await fetchMemoryInfoDetail();
+    setLoading(false);
+  };
+
+  return (
+    <Button onClick={handleLoadDetail} disabled={loading}>
+      {t("shared.loadDetailedInfo")}
+    </Button>
   );
 };
 

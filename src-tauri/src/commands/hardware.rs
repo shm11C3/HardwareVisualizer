@@ -4,6 +4,7 @@ use crate::enums::error::BackendError;
 use crate::services;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
+use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use crate::utils;
 use crate::{log_error, log_internal};
@@ -96,18 +97,18 @@ pub async fn get_hardware_info(
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
 
   #[cfg(target_os = "windows")]
-  let memory_result = wmi_service::get_memory_info();
+  let (memory_result, nvidia_gpus_result, amd_gpus_result, intel_gpus_result) = tokio::join!(
+    wmi_service::get_memory_info(),
+    nvidia_gpu_service::get_nvidia_gpu_info(),
+    services::directx_gpu_service::get_amd_gpu_info(),
+    services::directx_gpu_service::get_intel_gpu_info(),
+  );
 
   #[cfg(target_os = "linux")]
-  let memory_result = services::dmidecode::get_memory_info_linux();
-
-  let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
-
-  #[cfg(target_os = "windows")]
-  let amd_gpus_result = services::directx_gpu_service::get_amd_gpu_info().await;
-
-  #[cfg(target_os = "windows")]
-  let intel_gpus_result = services::directx_gpu_service::get_intel_gpu_info().await;
+  let (memory_result, nvidia_gpus_result) = tokio::join!(
+    services::memory::get_memory_info_linux(),
+    nvidia_gpu_service::get_nvidia_gpu_info(),
+  );
 
   let mut gpus_result = Vec::new();
 
@@ -168,6 +169,22 @@ pub async fn get_hardware_info(
   } else {
     Ok(sys_info)
   }
+}
+
+///
+/// ## 詳細なメモリ情報を取得（Linux）
+///
+/// - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
+///
+#[command]
+#[specta::specta]
+pub async fn get_memory_info_detail_linux()
+-> Result<structs::hardware::MemoryInfo, String> {
+  #[cfg(not(target_os = "linux"))]
+  return Err("Detailed memory info is not supported on this OS".to_string());
+
+  #[cfg(target_os = "linux")]
+  services::memory::get_memory_info_dmidecode().await
 }
 
 ///

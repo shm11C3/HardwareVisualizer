@@ -1,19 +1,33 @@
+use crate::services::memory;
 use crate::structs;
 use crate::utils;
+use crate::{log_internal, log_warn};
+
 use std::process::Command;
 
-pub fn get_memory_info_linux() -> Result<structs::hardware::MemoryInfo, String> {
-  let raw = get_memory_info_dmidecode()?;
-  Ok(parse_dmidecode_memory_info(&raw))
+pub async fn get_memory_info_dmidecode() -> Result<structs::hardware::MemoryInfo, String>
+{
+  let raw = get_raw_dmidecode().await?;
+  let parsed = parse_dmidecode_memory_info(&raw);
+
+  if let Err(e) = memory::save_memory_info_cache(&parsed) {
+    log_warn!(
+      "Failed to cache memory info",
+      "get_memory_info_dmidecode",
+      Some(e.to_string())
+    );
+  }
+
+  Ok(parsed)
 }
 
-fn get_memory_info_dmidecode() -> Result<String, String> {
-  let output = Command::new("sudo") // TODO 権限昇格処理を実装する
+async fn get_raw_dmidecode() -> Result<String, String> {
+  let output = Command::new("pkexec")
     .arg("dmidecode")
     .arg("--type")
     .arg("memory")
     .output()
-    .map_err(|e| format!("Failed to execute dmidecode: {e}"))?;
+    .map_err(|e| format!("Failed to execute pkexec dmidecode: {e}"))?;
 
   if output.status.success() {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -77,6 +91,7 @@ fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
     utils::formatter::format_size_with_unit(total_bytes, 1, None);
 
   structs::hardware::MemoryInfo {
+    is_detailed: true,
     size: format!("{:.1} {}", size_with_unit.value, size_with_unit.unit),
     clock: clock_mts / 2, // DDR系メモリ：MT/s => MHz
     clock_unit: "MHz".into(),

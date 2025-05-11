@@ -36,6 +36,20 @@ async getHardwareInfo() : Promise<Result<SysInfo, string>> {
 }
 },
 /**
+ * ## 詳細なメモリ情報を取得（Linux）
+ * 
+ * - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
+ * 
+ */
+async getMemoryInfoDetailLinux() : Promise<Result<MemoryInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_memory_info_detail_linux") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * ## メモリ使用率（%）を取得
  * 
  * - pram state: `tauri::State<AppState>` アプリケーションの状態
@@ -375,7 +389,7 @@ export type HardwareType = "cpu" | "memory" | "gpu"
  */
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
 export type LineGraphType = "default" | "step" | "linear" | "basis"
-export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
+export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string; isDetailed: boolean }
 export type NameValue = { name: string; value: number }
 export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }

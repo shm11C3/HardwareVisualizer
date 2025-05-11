@@ -57,6 +57,7 @@ sqlx = { version = "0.8.5", features = [
     "macros",
     "chrono",
 ] }
+dirs = "6.0.0"
 
 [dependencies.uuid]
 version = "1.16.0"

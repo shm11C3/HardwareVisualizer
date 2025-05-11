@@ -30,15 +30,20 @@ struct Win32PhysicalMemoryArray {
 ///
 /// ## メモリ情報を取得
 ///
-pub fn get_memory_info() -> Result<MemoryInfo, String> {
+pub async fn get_memory_info() -> Result<MemoryInfo, String> {
   let physical_memory: Vec<Win32PhysicalMemory> = wmi_query_in_thread(
     "SELECT Capacity, Speed, MemoryType, SMBIOSMemoryType FROM Win32_PhysicalMemory"
       .to_string(),
   )?;
 
-  let physical_memory_array: Vec<Win32PhysicalMemoryArray> = wmi_query_in_thread(
-    "SELECT MemoryDevices FROM Win32_PhysicalMemoryArray".to_string(),
-  )?;
+  let physical_memory_array: Vec<Win32PhysicalMemoryArray> =
+    tokio::task::spawn_blocking(|| {
+      wmi_query_in_thread(
+        "SELECT MemoryDevices FROM Win32_PhysicalMemoryArray".to_string(),
+      )
+    })
+    .await
+    .map_err(|e| format!("Join error: {e}"))??;
 
   log_info!(
     &format!("mem info: {:?}", physical_memory),
@@ -56,6 +61,7 @@ pub fn get_memory_info() -> Result<MemoryInfo, String> {
       physical_memory[0].memory_type,
       physical_memory[0].smbios_memory_type,
     ),
+    is_detailed: true,
   };
 
   Ok(memory_info)
