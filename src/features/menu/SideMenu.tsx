@@ -1,8 +1,10 @@
 import { useTauriStore } from "@/hooks/useTauriStore";
+import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
+import { ChartLine, Cpu, Gear, SquaresFour } from "@phosphor-icons/react";
 import { atom, useAtom } from "jotai";
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { type JSX, memo, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 
@@ -27,12 +29,16 @@ const sideMenuClasses = tv({
 });
 
 const menuItemClasses = tv({
-  base: "mb-2 rounded-lg transition-colors",
+  base: "rounded-lg transition-colors",
   variants: {
     selected: {
       true: "dark:text-white font-bold",
       false:
         "text-neutral-700 dark:text-slate-400 hover:text-slate-400 dark:hover:text-neutral-200",
+    },
+    isBottom: {
+      true: "",
+      false: "mb-2",
     },
   },
 });
@@ -77,39 +83,39 @@ export const SideMenu = memo(() => {
       settings: t("pages.settings.name"),
     };
 
+    const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
+      dashboard: <SquaresFour size={20} />,
+      usage: <Cpu size={20} />,
+      insights: <ChartLine size={20} />,
+      settings: <Gear size={20} />,
+    };
+
     return (
       displayTarget &&
       isOpen && (
         <li
           className={menuItemClasses({
             selected: displayTarget === type,
+            isBottom: type === "settings",
           })}
         >
           <button
             type="button"
-            className="h-full w-full cursor-pointer p-2 text-left"
+            className={cn(
+              "flex h-full w-full cursor-pointer items-center text-left",
+              type === "settings" ? "" : "p-2",
+            )}
             onClick={() => handleMenuClick(type)}
             aria-expanded={isOpen}
             aria-label={isOpen ? "Close menu" : "Open menu"}
           >
-            {menuTitles[type]}
+            {menuIcons[type]}
+            <span className="ml-1">{menuTitles[type]}</span>
           </button>
         </li>
       )
     );
   });
-
-  const menuItems = useMemo(
-    () => (
-      <>
-        <MenuItem type="dashboard" />
-        <MenuItem type="usage" />
-        <MenuItem type="insights" />
-        <MenuItem type="settings" />
-      </>
-    ),
-    [MenuItem],
-  );
 
   return (
     isOpen != null && (
@@ -123,12 +129,20 @@ export const SideMenu = memo(() => {
             {caretIcon}
           </button>
           <div className={sideMenuClasses({ open: isOpen })}>
-            <ul className="p-4">
-              <li className="mb-4">
-                <h2 className="font-bold text-xl">HardwareVisualizer</h2>
-              </li>
-              {menuItems}
-            </ul>
+            <div className="relative flex h-full flex-col">
+              <ul className="p-4 pb-16">
+                {/* bottom space for settings */}
+                <li className="mb-4">
+                  <h2 className="font-bold text-xl">HardwareVisualizer</h2>
+                </li>
+                <MenuItem type="dashboard" />
+                <MenuItem type="usage" />
+                <MenuItem type="insights" />
+              </ul>
+              <ul className="absolute bottom-0 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
+                <MenuItem type="settings" />
+              </ul>
+            </div>
           </div>
         </div>
       </div>
