@@ -23,6 +23,14 @@ import {
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { StorageInfo } from "@/rspc/bindings";
+import {
+  Cpu,
+  Gear,
+  GraphicsCard,
+  HardDrives,
+  Memory,
+  Network,
+} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
 import { type JSX, useEffect, useMemo, useState } from "react";
@@ -62,15 +70,24 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
 const DataArea = ({
   children,
   title,
+  icon,
   border = true,
-}: { children: React.ReactNode; title?: string; border?: boolean }) => {
+}: {
+  children: React.ReactNode;
+  title?: string;
+  icon?: JSX.Element;
+  border?: boolean;
+}) => {
   return (
     <div className="p-4">
       {border ? (
         <div className="rounded-2xl border border-zinc-400 dark:border-zinc-600">
-          {title && (
-            <h3 className="pt-4 pb-2 pl-4 font-bold text-xl">{title}</h3>
-          )}
+          <div className="flex items-center pt-4 pb-2 pl-4">
+            {icon && <div className="mr-2 mb-0.5">{icon}</div>}
+            {title && (
+              <h3 className="align-middle font-bold text-xl">{title}</h3>
+            )}
+          </div>
           <div className="px-4 pb-4">{children}</div>
         </div>
       ) : (
@@ -442,27 +459,39 @@ const Dashboard = () => {
     const fullList = [
       {
         key: "cpu",
+        icon: <Cpu size={24} />,
         component: <CPUInfo />,
       },
       (hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0) && {
         key: "gpu",
+        icon: <GraphicsCard size={24} />,
         component: <GPUInfo />,
       },
-      { key: "memory", component: <MemoryInfo /> },
+      {
+        key: "memory",
+        icon: <Memory size={24} />,
+        component: <MemoryInfo />,
+      },
       {
         key: "process",
+        icon: <Gear size={24} />,
         component: <ProcessesTable />,
       },
       {
         key: "storage",
+        icon: <HardDrives size={24} />,
         component: <StorageDataInfo />,
       },
       {
         key: "network",
+        icon: <Network size={24} />,
         component: <NetworkInfo />,
       },
-    ].filter((x): x is { key: DataTypeKey; component: JSX.Element } =>
-      Boolean(x),
+    ].filter(
+      (
+        x,
+      ): x is { key: DataTypeKey; icon: JSX.Element; component: JSX.Element } =>
+        Boolean(x),
     );
 
     return fullList.reduce<[typeof fullList, typeof fullList]>(
@@ -489,10 +518,11 @@ const Dashboard = () => {
   return (
     <div className="flex flex-wrap gap-4">
       <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListLeft.map(({ key, component }) => (
+        {hardwareInfoListLeft.map(({ key, icon, component }) => (
           <DataArea
             key={`left-${key}`}
             title={dataAreaKey2Title[key]}
+            icon={icon}
             border={key !== "process"}
           >
             {component}
@@ -500,10 +530,11 @@ const Dashboard = () => {
         ))}
       </div>
       <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListRight.map(({ key, component }) => (
+        {hardwareInfoListRight.map(({ key, icon, component }) => (
           <DataArea
             key={`right-${key}`}
             title={dataAreaKey2Title[key]}
+            icon={icon}
             border={key !== "process"}
           >
             {component}
