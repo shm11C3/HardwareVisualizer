@@ -3,7 +3,7 @@ use crate::structs;
 use crate::utils;
 
 pub async fn get_memory_info_linux() -> Result<structs::hardware::MemoryInfo, String> {
-  if let Some(cached) = memory::get_memory_info_cached_detail().ok() {
+  if let Ok(cached) = memory::get_memory_info_cached_detail() {
     return Ok(cached);
   }
 

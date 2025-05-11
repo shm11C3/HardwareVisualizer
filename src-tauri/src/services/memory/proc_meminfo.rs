@@ -6,7 +6,6 @@ pub fn get_memtotal_kb() -> std::io::Result<u64> {
   for line in content.lines() {
     if let Some(mem_kb_str) = line.strip_prefix("MemTotal:") {
       let kb = mem_kb_str
-        .trim()
         .split_whitespace()
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "No value found"))?;
