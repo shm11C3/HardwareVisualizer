@@ -178,6 +178,7 @@ pub fn run() {
       MacosLauncher::LaunchAgent,
       Some(vec![]),
     ))
+    .plugin(tauri_plugin_os::init())
     .manage(state)
     .manage(app_state)
     .run(tauri::generate_context!())

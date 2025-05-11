@@ -7,6 +7,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { SizeUnit } from "@/rspc/bindings";
+import { platform } from "@tauri-apps/plugin-os";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -26,6 +28,7 @@ export const StorageBarChart = ({
   unit: SizeUnit;
 }) => {
   const { t } = useTranslation();
+  const os = useMemo(() => platform(), []);
 
   const StorageChartConfig: Record<
     (typeof chartKey)[number],
@@ -42,12 +45,12 @@ export const StorageBarChart = ({
   } satisfies ChartConfig;
 
   return (
-    <ChartContainer className="min-w-[700px]" config={StorageChartConfig}>
+    <ChartContainer className="max-w-[700px]" config={StorageChartConfig}>
       <BarChart layout="vertical" data={chartData}>
         <CartesianGrid horizontal={false} />
         <XAxis type="number" tickLine={false} axisLine={false} />
         <YAxis
-          width={80}
+          width={os === "windows" ? 30 : 80}
           dataKey="label"
           type="category"
           tickLine={false}
