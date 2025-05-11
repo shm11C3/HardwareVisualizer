@@ -375,7 +375,7 @@ export type HardwareType = "cpu" | "memory" | "gpu"
  */
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
 export type LineGraphType = "default" | "step" | "linear" | "basis"
-export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string }
+export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string; isDetailed: boolean }
 export type NameValue = { name: string; value: number }
 export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }
 export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }

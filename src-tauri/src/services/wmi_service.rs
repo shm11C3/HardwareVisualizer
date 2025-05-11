@@ -56,6 +56,7 @@ pub fn get_memory_info() -> Result<MemoryInfo, String> {
       physical_memory[0].memory_type,
       physical_memory[0].smbios_memory_type,
     ),
+    is_detailed: true,
   };
 
   Ok(memory_info)

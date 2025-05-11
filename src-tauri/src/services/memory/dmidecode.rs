@@ -1,18 +1,17 @@
+use tauri_plugin_shell::ShellExt;
+
 use crate::structs;
 use crate::utils;
-use std::process::Command;
 
-pub fn get_memory_info_linux() -> Result<structs::hardware::MemoryInfo, String> {
-  let raw = get_memory_info_dmidecode()?;
-  Ok(parse_dmidecode_memory_info(&raw))
-}
-
-fn get_memory_info_dmidecode() -> Result<String, String> {
-  let output = Command::new("sudo") // TODO 権限昇格処理を実装する
-    .arg("dmidecode")
-    .arg("--type")
-    .arg("memory")
+async fn get_memory_info_dmidecode(
+  app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+  let shell = app_handle.shell();
+  let output = shell
+    .command("sudo")
+    .args(["dmidecode", "--type", "memory"])
     .output()
+    .await
     .map_err(|e| format!("Failed to execute dmidecode: {e}"))?;
 
   if output.status.success() {
@@ -77,6 +76,7 @@ fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
     utils::formatter::format_size_with_unit(total_bytes, 1, None);
 
   structs::hardware::MemoryInfo {
+    is_detailed: true,
     size: format!("{:.1} {}", size_with_unit.value, size_with_unit.unit),
     clock: clock_mts / 2, // DDR系メモリ：MT/s => MHz
     clock_unit: "MHz".into(),

@@ -28,6 +28,7 @@ pub struct MemoryInfo {
   pub memory_count: u32,
   pub total_slots: u32,
   pub memory_type: String,
+  pub is_detailed: bool,
 }
 
 #[derive(Serialize, Deserialize, Type)]
