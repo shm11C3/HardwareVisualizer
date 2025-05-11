@@ -23,9 +23,11 @@ import {
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { StorageInfo } from "@/rspc/bindings";
+import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   const { settings } = useSettingsAtom();
@@ -216,9 +218,20 @@ const FetchDetailButton = () => {
   );
 };
 
+const storageDataInfoGridVariants = tv({
+  base: "grid grid-cols-1 gap-4",
+  variants: {
+    isWindows: {
+      true: "lg:grid-cols-2",
+      false: "3xl:grid-cols-2",
+    },
+  },
+});
+
 const StorageDataInfo = () => {
   const { t } = useTranslation();
   const { hardwareInfo } = useHardwareInfoAtom();
+  const os = useMemo(() => platform(), []);
 
   // TODO ストレージの総量・総使用量をグラフ化する
 
@@ -247,8 +260,10 @@ const StorageDataInfo = () => {
 
   return (
     <div className="pt-2">
-      <div className="flex flex-col 2xl:flex-row">
-        <div className="w-full 2xl:w-1/2">
+      <div
+        className={storageDataInfoGridVariants({ isWindows: os === "windows" })}
+      >
+        <div>
           {sortedStorage.length > 0 ? (
             sortedStorage.map((storage) => {
               return (
@@ -271,7 +286,7 @@ const StorageDataInfo = () => {
             <Skeleton className="h-[188px] rounded-md" />
           )}
         </div>
-        <div className="mt-8 w-full 2xl:mt-0 2xl:w-1/2">
+        <div className="mt-8">
           {sortedStorage.length > 0 ? (
             <StorageBarChart
               chartData={chartData}

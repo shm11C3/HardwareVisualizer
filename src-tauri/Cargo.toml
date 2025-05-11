@@ -58,6 +58,7 @@ sqlx = { version = "0.8.5", features = [
     "chrono",
 ] }
 dirs = "6.0.0"
+tauri-plugin-os = "2"
 
 [dependencies.uuid]
 version = "1.16.0"
