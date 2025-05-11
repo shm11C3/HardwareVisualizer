@@ -175,5 +175,9 @@
       "success": "Success",
       "unexpected": "Unexpected Error"
     }
+  },
+  "lang": {
+    "en": "English",
+    "ja": "Japanese"
   }
 }
