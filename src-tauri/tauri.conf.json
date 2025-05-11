@@ -38,7 +38,16 @@
     "shortDescription": "",
     "linux": {
       "deb": {
-        "depends": ["intel-gpu-tools", "dmidecode", "lm-sensors"]
+        "depends": [
+          "intel-gpu-tools",
+          "dmidecode",
+          "lm-sensors",
+          "pkexec",
+          "policykit-1"
+        ],
+        "files": {
+          "/usr/share/polkit-1/actions/com.HardwareVisualizer.app.policy": "./assets/deb/com.HardwareVisualizer.app.policy"
+        }
       }
     }
   },
