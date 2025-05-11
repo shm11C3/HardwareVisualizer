@@ -105,6 +105,12 @@ rustc 1.85.0 (4d91de4e4 2025-02-17)
 
 ### Getting Started
 
+- Install Linux build dependencies
+
+```bash
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+```
+
 - Install dependencies:
 
   ```bash
