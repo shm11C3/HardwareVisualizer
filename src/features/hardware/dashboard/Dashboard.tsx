@@ -170,7 +170,7 @@ const MemoryInfo = () => {
         <div className="space-y-2">
           <InfoTable
             data={
-              // Linuxの場合は sudo でしか詳細な情報が取得できないため、
+              // Linuxの場合は pkexec でしか詳細な情報が取得できないため、
               // 初期状態では memory.size と読み込みボタンを表示する
               hardwareInfo.memory.isDetailed
                 ? {
