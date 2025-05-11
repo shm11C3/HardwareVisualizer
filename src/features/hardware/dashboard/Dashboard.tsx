@@ -247,8 +247,8 @@ const StorageDataInfo = () => {
 
   return (
     <div className="pt-2">
-      <div className="flex flex-col 2xl:flex-row">
-        <div className="w-full 2xl:w-1/2">
+      <div className="flex space-x-2">
+        <div>
           {sortedStorage.length > 0 ? (
             sortedStorage.map((storage) => {
               return (
@@ -271,7 +271,7 @@ const StorageDataInfo = () => {
             <Skeleton className="h-[188px] rounded-md" />
           )}
         </div>
-        <div className="mt-8 w-full 2xl:mt-0 2xl:w-1/2">
+        <div className="mt-8">
           {sortedStorage.length > 0 ? (
             <StorageBarChart
               chartData={chartData}

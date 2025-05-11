@@ -42,21 +42,33 @@ export const StorageBarChart = ({
   } satisfies ChartConfig;
 
   return (
-    <ChartContainer config={StorageChartConfig}>
-      <BarChart layout="vertical" width={500} height={400} data={chartData}>
+    <ChartContainer className="min-w-[700px]" config={StorageChartConfig}>
+      <BarChart layout="vertical" data={chartData}>
         <CartesianGrid horizontal={false} />
         <XAxis type="number" tickLine={false} axisLine={false} />
         <YAxis
+          width={80}
           dataKey="label"
           type="category"
           tickLine={false}
-          tickMargin={10}
+          tickMargin={8}
           axisLine={false}
+          tick={({ x, y, payload }) => {
+            const label = payload.value as string;
+            const truncated =
+              label.length > 8 ? `${label.slice(0, 8)}...` : label;
+
+            return (
+              <text x={x} y={y} dy={4} textAnchor="end" fill="#666">
+                <title>{label}</title>
+                {truncated}
+              </text>
+            );
+          }}
         />
         <ChartTooltip
           content={
             <ChartTooltipContent
-              hideLabel
               showTotalValue
               totalLabel={`Total (${unit})`}
             />
