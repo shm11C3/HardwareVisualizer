@@ -166,7 +166,8 @@ export const SideMenu = memo(() => {
   return (
     isOpen != null && (
       <div className="inset-0">
-        <div className="fixed z-50">
+        <div className="fixed z-60">
+          {/** カーソルが近づいた時だけアイコンを表示する */}
           <button
             type="button"
             className={buttonClasses({ open: isOpen })}
