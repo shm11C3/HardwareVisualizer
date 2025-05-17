@@ -94,7 +94,9 @@ const MenuItem = memo(
             type === "settings" ? "" : "p-2",
           )}
           onClick={() => handleMenuClick(type)}
-          aria-label={`open ${type}`}
+          aria-label={`${menuTitles[type]} tab`}
+          aria-selected={selected}
+          role="tab"
         >
           {menuIcons[type]}
           <span className="ml-1">{menuTitles[type]}</span>
