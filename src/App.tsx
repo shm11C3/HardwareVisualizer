@@ -11,17 +11,21 @@ import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "./components/ErrorFallback";
 import ScreenTemplate from "./components/shared/ScreenTemplate";
-import { SideMenu, displayTargetAtom } from "./features/menu/SideMenu";
+import { SideMenu } from "./features/menu/SideMenu";
 import Settings from "./features/settings/Settings";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
+import { ChartLine, Gear } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { Insights } from "./features/hardware/insights/Insights";
+import { displayTargetAtom } from "./features/menu/hooks/useMenu";
 import { useKeydown } from "./hooks/useInputListener";
+import { useTauriStore } from "./hooks/useTauriStore";
 
 const onError = (error: Error, info: ErrorInfo) => {
   console.error("error.message", error.message);
@@ -37,6 +41,7 @@ const Page = () => {
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
   const { t, i18n } = useTranslation();
+  const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
@@ -75,7 +80,7 @@ const Page = () => {
 
   const [displayTarget] = useAtom(displayTargetAtom);
 
-  useKeydown();
+  useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
@@ -85,12 +90,18 @@ const Page = () => {
     ),
     usage: <ChartTemplate />,
     insights: (
-      <ScreenTemplate title={t("pages.insights.name")}>
+      <ScreenTemplate
+        icon={<ChartLine size={32} />}
+        title={t("pages.insights.name")}
+      >
         <Insights />
       </ScreenTemplate>
     ),
     settings: (
-      <ScreenTemplate title={t("pages.settings.name")}>
+      <ScreenTemplate
+        icon={<Gear size={32} />}
+        title={t("pages.settings.name")}
+      >
         <Settings />
       </ScreenTemplate>
     ),
@@ -120,6 +131,10 @@ const Page = () => {
           )}
         </div>
       </div>
+      <FullscreenExitButton
+        isDecorated={Boolean(isDecorated)}
+        setDecorated={setDecorated}
+      />
     </ErrorBoundary>
   );
 };

@@ -62,6 +62,7 @@ pub fn run() {
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
+    hardware::get_memory_info_detail_linux,
     hardware::get_memory_usage,
     hardware::get_gpu_usage,
     hardware::get_gpu_temperature,
@@ -177,6 +178,7 @@ pub fn run() {
       MacosLauncher::LaunchAgent,
       Some(vec![]),
     ))
+    .plugin(tauri_plugin_os::init())
     .manage(state)
     .manage(app_state)
     .run(tauri::generate_context!())
