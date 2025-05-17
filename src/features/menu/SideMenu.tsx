@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { useMenu } from "./hooks/useMenu";
 
+const menuTypes = ["dashboard", "usage", "insights", "settings"] as const;
+
 const buttonClasses = tv({
   base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all cursor-pointer z-20",
   variants: {
@@ -52,11 +54,63 @@ const menuItemClasses = tv({
   },
 });
 
+const MenuItem = memo(
+  ({
+    type,
+    selected,
+    handleMenuClick,
+  }: {
+    type: SelectedDisplayType;
+    selected: boolean;
+    handleMenuClick: (type: SelectedDisplayType) => void;
+  }) => {
+    const { t } = useTranslation();
+
+    const menuTitles: Record<SelectedDisplayType, string> = {
+      dashboard: t("pages.dashboard.name"),
+      usage: t("pages.usage.name"),
+      insights: t("pages.insights.name"),
+      settings: t("pages.settings.name"),
+    };
+
+    const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
+      dashboard: <SquaresFour size={20} />,
+      usage: <Cpu size={20} />,
+      insights: <ChartLine size={20} />,
+      settings: <Gear size={20} />,
+    };
+
+    return (
+      <li
+        className={menuItemClasses({
+          selected: selected,
+          isBottom: type === "settings",
+        })}
+      >
+        <button
+          type="button"
+          className={cn(
+            "flex h-full w-full cursor-pointer items-center text-left",
+            type === "settings" ? "" : "p-2",
+          )}
+          onClick={() => handleMenuClick(type)}
+          aria-label={`open ${type}`}
+        >
+          {menuIcons[type]}
+          <span className="ml-1">{menuTitles[type]}</span>
+        </button>
+      </li>
+    );
+  },
+);
+
 const ClosedSideMenu = ({
   type,
+  selected,
   handleMenuClick,
 }: {
   type: SelectedDisplayType;
+  selected: boolean;
   handleMenuClick: (type: SelectedDisplayType) => void;
 }) => {
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
@@ -69,7 +123,7 @@ const ClosedSideMenu = ({
   return (
     <li
       className={menuItemClasses({
-        selected: false,
+        selected,
         isBottom: type === "settings",
       })}
     >
@@ -96,50 +150,6 @@ export const SideMenu = memo(() => {
     [isOpen],
   );
 
-  const MenuItem = memo(({ type }: { type: SelectedDisplayType }) => {
-    const { t } = useTranslation();
-
-    const menuTitles: Record<SelectedDisplayType, string> = {
-      dashboard: t("pages.dashboard.name"),
-      usage: t("pages.usage.name"),
-      insights: t("pages.insights.name"),
-      settings: t("pages.settings.name"),
-    };
-
-    const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
-      dashboard: <SquaresFour size={20} />,
-      usage: <Cpu size={20} />,
-      insights: <ChartLine size={20} />,
-      settings: <Gear size={20} />,
-    };
-
-    return (
-      displayTarget &&
-      isOpen && (
-        <li
-          className={menuItemClasses({
-            selected: displayTarget === type,
-            isBottom: type === "settings",
-          })}
-        >
-          <button
-            type="button"
-            className={cn(
-              "flex h-full w-full cursor-pointer items-center text-left",
-              type === "settings" ? "" : "p-2",
-            )}
-            onClick={() => handleMenuClick(type)}
-            aria-expanded={isOpen}
-            aria-label={isOpen ? "Close menu" : "Open menu"}
-          >
-            {menuIcons[type]}
-            <span className="ml-1">{menuTitles[type]}</span>
-          </button>
-        </li>
-      )
-    );
-  });
-
   return (
     isOpen != null && (
       <div className="inset-0">
@@ -162,12 +172,23 @@ export const SideMenu = memo(() => {
                     <h2 className="font-bold text-xl">HardwareVisualizer</h2>
                   )}
                 </li>
-                <MenuItem type="dashboard" />
-                <MenuItem type="usage" />
-                <MenuItem type="insights" />
+                {menuTypes
+                  .filter((v) => v !== "settings")
+                  .map((type) => (
+                    <MenuItem
+                      key={type}
+                      type={type}
+                      handleMenuClick={handleMenuClick}
+                      selected={displayTarget === type}
+                    />
+                  ))}
               </ul>
               <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
-                <MenuItem type="settings" />
+                <MenuItem
+                  type="settings"
+                  handleMenuClick={handleMenuClick}
+                  selected={displayTarget === "settings"}
+                />
               </ul>
             </div>
           </div>
@@ -175,22 +196,21 @@ export const SideMenu = memo(() => {
           <div className={closedSideMenuClasses({ open: isOpen })}>
             <div className="relative flex h-full flex-col">
               <ul className="pt-2 ">
-                <ClosedSideMenu
-                  type="dashboard"
-                  handleMenuClick={handleMenuClick}
-                />
-                <ClosedSideMenu
-                  type="usage"
-                  handleMenuClick={handleMenuClick}
-                />
-                <ClosedSideMenu
-                  type="insights"
-                  handleMenuClick={handleMenuClick}
-                />
+                {menuTypes
+                  .filter((v) => v !== "settings")
+                  .map((type) => (
+                    <ClosedSideMenu
+                      key={type}
+                      type={type}
+                      selected={displayTarget === type}
+                      handleMenuClick={handleMenuClick}
+                    />
+                  ))}
               </ul>
               <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
                 <ClosedSideMenu
                   type="settings"
+                  selected={displayTarget === "settings"}
                   handleMenuClick={handleMenuClick}
                 />
               </ul>
