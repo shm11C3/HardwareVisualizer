@@ -239,7 +239,7 @@ const storageDataInfoGridVariants = tv({
   base: "grid grid-cols-1 gap-4",
   variants: {
     isWindows: {
-      true: "lg:grid-cols-2",
+      true: "2xl:grid-cols-2",
       false: "3xl:grid-cols-2",
     },
   },
