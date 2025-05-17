@@ -11,7 +11,7 @@ import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "./components/ErrorFallback";
 import ScreenTemplate from "./components/shared/ScreenTemplate";
-import { SideMenu, displayTargetAtom } from "./features/menu/SideMenu";
+import { SideMenu } from "./features/menu/SideMenu";
 import Settings from "./features/settings/Settings";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
@@ -21,6 +21,7 @@ import "@/lib/i18n";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Insights } from "./features/hardware/insights/Insights";
+import { displayTargetAtom } from "./features/menu/hooks/useMenu";
 import { useKeydown } from "./hooks/useInputListener";
 
 const onError = (error: Error, info: ErrorInfo) => {

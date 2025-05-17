@@ -1,12 +1,11 @@
-import { useTauriStore } from "@/hooks/useTauriStore";
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
 import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
 import { ChartLine, Cpu, Gear, SquaresFour } from "@phosphor-icons/react";
-import { atom, useAtom } from "jotai";
-import { type JSX, memo, useCallback, useEffect, useMemo } from "react";
+import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { useMenu } from "./hooks/useMenu";
 
 const buttonClasses = tv({
   base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all cursor-pointer z-20",
@@ -89,30 +88,8 @@ const ClosedSideMenu = ({
   );
 };
 
-export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
 export const SideMenu = memo(() => {
-  const [, setDisplayTargetAtom] = useAtom(displayTargetAtom);
-  const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
-  const [displayTarget, setDisplayTarget] = useTauriStore<SelectedDisplayType>(
-    "display",
-    "dashboard",
-  );
-
-  useEffect(() => {
-    if (displayTarget) {
-      setDisplayTargetAtom(displayTarget);
-    }
-  }, [displayTarget, setDisplayTargetAtom]);
-
-  const toggleMenu = () => setMenuOpen(!isOpen);
-
-  const handleMenuClick = useCallback(
-    (type: SelectedDisplayType) => {
-      setDisplayTarget(type);
-      setDisplayTargetAtom(type);
-    },
-    [setDisplayTarget, setDisplayTargetAtom],
-  );
+  const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu();
 
   const caretIcon = useMemo(
     () => (isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />),
