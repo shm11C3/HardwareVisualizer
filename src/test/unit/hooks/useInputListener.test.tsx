@@ -45,8 +45,14 @@ vi.mock("@/rspc/bindings", () => ({
 
 // テスト用のコンポーネント
 function TestComponent() {
-  useKeydown();
-  return <div>Test Component</div>;
+  // Pass the required arguments to useKeydown
+  const isDecorated = storeValue;
+  return (
+    <>
+      {useKeydown({ isDecorated, setDecorated: setDecoratedMock })}
+      <div>Test Component</div>
+    </>
+  );
 }
 
 describe("useKeydown", () => {
