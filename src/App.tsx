@@ -18,6 +18,7 @@ import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
+import { ChartLine, Gear } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Insights } from "./features/hardware/insights/Insights";
@@ -86,12 +87,18 @@ const Page = () => {
     ),
     usage: <ChartTemplate />,
     insights: (
-      <ScreenTemplate title={t("pages.insights.name")}>
+      <ScreenTemplate
+        icon={<ChartLine size={32} />}
+        title={t("pages.insights.name")}
+      >
         <Insights />
       </ScreenTemplate>
     ),
     settings: (
-      <ScreenTemplate title={t("pages.settings.name")}>
+      <ScreenTemplate
+        icon={<Gear size={32} />}
+        title={t("pages.settings.name")}
+      >
         <Settings />
       </ScreenTemplate>
     ),

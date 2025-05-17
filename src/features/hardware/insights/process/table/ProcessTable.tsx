@@ -20,7 +20,7 @@ export const ProcessTable = ({
     direction: "ascending" | "descending";
   } | null>(null);
 
-  if (loading) {
+  if (loading && processStats == null) {
     return (
       <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
     );
