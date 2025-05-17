@@ -20,14 +20,10 @@ export const ProcessTable = ({
     direction: "ascending" | "descending";
   } | null>(null);
 
-  if (loading && processStats == null) {
+  if (processStats == null || (loading && processStats.length === 0)) {
     return (
       <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
     );
-  }
-
-  if (!processStats) {
-    return <></>;
   }
 
   const sortedProcesses = useMemo(() => {
