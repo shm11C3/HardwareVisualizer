@@ -19,7 +19,9 @@ export const useMenu = () => {
     }
   }, [displayTarget, setDisplayTargetAtom]);
 
-  const toggleMenu = () => setMenuOpen(!isOpen);
+  const toggleMenu = useCallback(() => {
+    setMenuOpen((prev) => !prev);
+  }, []);
 
   const handleMenuClick = useCallback(
     (type: SelectedDisplayType) => {
