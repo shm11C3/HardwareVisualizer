@@ -26,7 +26,7 @@ export const FullscreenExitButton = ({
 
   return !isDecorated ? (
     <div
-      className="fixed top-0 left-0 z-50 flex h-24 w-full items-start justify-center"
+      className="-translate-x-1/2 fixed top-0 left-1/2 z-10 flex h-20 w-1/4 items-start justify-center"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
