@@ -43,6 +43,7 @@ export const useTauriStore = <T>(
 
   const setValue = useCallback(
     async (newValue: T) => {
+      console.log("setValue", newValue);
       const store = await getStoreInstance();
       await store.set(key, newValue);
       await store.save();

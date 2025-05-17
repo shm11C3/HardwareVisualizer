@@ -21,9 +21,11 @@ import "@/lib/i18n";
 import { ChartLine, Gear } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { Insights } from "./features/hardware/insights/Insights";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
 import { useKeydown } from "./hooks/useInputListener";
+import { useTauriStore } from "./hooks/useTauriStore";
 
 const onError = (error: Error, info: ErrorInfo) => {
   console.error("error.message", error.message);
@@ -39,6 +41,7 @@ const Page = () => {
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
   const { t, i18n } = useTranslation();
+  const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
@@ -77,7 +80,7 @@ const Page = () => {
 
   const [displayTarget] = useAtom(displayTargetAtom);
 
-  useKeydown();
+  useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
@@ -128,6 +131,10 @@ const Page = () => {
           )}
         </div>
       </div>
+      <FullscreenExitButton
+        isDecorated={Boolean(isDecorated)}
+        setDecorated={setDecorated}
+      />
     </ErrorBoundary>
   );
 };
