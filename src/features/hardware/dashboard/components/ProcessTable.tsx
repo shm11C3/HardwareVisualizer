@@ -9,7 +9,7 @@ import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
-import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { ArrowsOut, CaretDown, CaretUp, Gear } from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { atom, useAtom, useSetAtom } from "jotai";
@@ -113,7 +113,13 @@ export const ProcessesTable = () => {
     >
       <Dialog>
         <div className="flex">
-          <h4 className="mb-2 font-bold text-xl">{t("shared.process")}</h4>
+          <div className="mb-2 flex items-center">
+            <div className="mr-2 mb-0.5">
+              <Gear size={24} />
+            </div>
+            <h4 className="font-bold text-xl">{t("shared.process")}</h4>
+          </div>
+
           <div className="ml-auto">
             <DialogTrigger
               type="button"
