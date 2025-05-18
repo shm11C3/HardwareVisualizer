@@ -112,6 +112,7 @@ pub fn run() {
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
       let path_resolver = app.path();
+      let handle = app.handle().clone();
 
       // ロガーの初期化
       utils::logger::init(path_resolver.app_log_dir().unwrap());
@@ -120,6 +121,14 @@ pub fn run() {
       commands::ui::init(app);
 
       builder.mount_events(app);
+
+      // Check updates
+      tauri::async_runtime::spawn(async move {
+        if let Err(e) = backgrounds::updater::update(handle).await {
+          log_error!("Update process failed", "lib.run", Some(e.to_string()));
+          eprintln!("Update process failed: {:?}", e);
+        }
+      });
 
       tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
         structs::hardware_archive::MonitorResources {
