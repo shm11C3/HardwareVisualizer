@@ -21,7 +21,7 @@ pub fn get_memory_info_cached_detail() -> io::Result<structs::hardware::MemoryIn
 
   let now = std::time::SystemTime::now()
     .duration_since(std::time::UNIX_EPOCH)
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+    .map_err(io::Error::other)?
     .as_secs();
 
   let cache_time = wrapper.timestamp / 1000;
@@ -29,7 +29,7 @@ pub fn get_memory_info_cached_detail() -> io::Result<structs::hardware::MemoryIn
   if now - cache_time <= MAX_AGE_SECS {
     Ok(wrapper.data)
   } else {
-    Err(io::Error::new(io::ErrorKind::Other, "Cache expired"))
+    Err(io::Error::other("Cache expired"))
   }
 }
 
@@ -43,7 +43,7 @@ pub fn save_memory_info_cache(info: &structs::hardware::MemoryInfo) -> io::Resul
 
   let now = std::time::SystemTime::now()
     .duration_since(std::time::UNIX_EPOCH)
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+    .map_err(io::Error::other)?
     .as_millis() as u64;
 
   let wrapper = MemoryInfoWithMeta {
