@@ -42,7 +42,7 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
 
   return (
     <div
-      className="rounded-md border bg-zinc-300 px-4 pt-2 pb-4 shadow-md dark:bg-gray-800 dark:text-white"
+      className="grid grid-cols-2 gap-2 px-4 pt-2 pb-4 dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -53,16 +53,12 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
             : 1,
       }}
     >
-      <table className="w-full text-left">
-        <tbody>
-          {Object.keys(data).map((key) => (
-            <tr key={key} className="border-gray-700 border-b">
-              <th className="py-2 pr-4 dark:text-gray-400">{key}</th>
-              <td className="py-2">{data[key]}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {Object.keys(data).map((key) => (
+        <div key={key}>
+          <p className="text-slate-400 text-sm">{key}</p>
+          <p>{data[key]}</p>
+        </div>
+      ))}
     </div>
   );
 };
@@ -289,10 +285,16 @@ const StorageDataInfo = () => {
           {sortedStorage.length > 0 ? (
             sortedStorage.map((storage) => {
               return (
-                <div key={storage.name} className="mt-4">
+                <div key={storage.name} className="mt-4 ml-2">
+                  <h4 className="font-bold text-md">
+                    {storage.name}
+                    <span className="ml-2 font-normal text-gray-500 text-sm dark:text-gray-400">
+                      {" "}
+                      ({storage.size} {storage.sizeUnit})
+                    </span>
+                  </h4>
                   <InfoTable
                     data={{
-                      [t("shared.driveName")]: storage.name,
                       [t("shared.driveFileSystem")]: storage.fileSystem,
                       [t("shared.driveType")]: {
                         hdd: "HDD",
