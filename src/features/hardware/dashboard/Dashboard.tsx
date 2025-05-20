@@ -22,10 +22,10 @@ import {
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
 import {
   Cpu,
-  Gear,
   GraphicsCard,
   HardDrives,
   Memory,
@@ -71,17 +71,24 @@ const DataArea = ({
   children,
   title,
   icon,
-  border = true,
+  border = false,
+  className = "rounded-2xl bg-zinc-300/50 dark:bg-slate-950/50",
 }: {
   children: React.ReactNode;
   title?: string;
   icon?: JSX.Element;
   border?: boolean;
+  className?: string;
 }) => {
   return (
     <div className="p-4">
-      {border ? (
-        <div className="rounded-2xl border border-zinc-400 dark:border-zinc-600">
+      {
+        <div
+          className={cn(
+            border && "border border-zinc-400 dark:border-zinc-600",
+            className,
+          )}
+        >
           <div className="flex items-center pt-4 pb-2 pl-4">
             {icon && <div className="mr-2 mb-0.5">{icon}</div>}
             {title && (
@@ -90,9 +97,7 @@ const DataArea = ({
           </div>
           <div className="px-4 pb-4">{children}</div>
         </div>
-      ) : (
-        <>{children}</>
-      )}
+      }
     </div>
   );
 };
@@ -447,6 +452,7 @@ type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 const Dashboard = () => {
   const { init, hardwareInfo } = useHardwareInfoAtom();
+  const { settings } = useSettingsAtom();
   const { t } = useTranslation();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -459,32 +465,38 @@ const Dashboard = () => {
     const fullList = [
       {
         key: "cpu",
-        icon: <Cpu size={24} />,
+        icon: <Cpu size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />,
         component: <CPUInfo />,
       },
       (hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0) && {
         key: "gpu",
-        icon: <GraphicsCard size={24} />,
+        icon: (
+          <GraphicsCard
+            size={24}
+            color={`rgb(${settings.lineGraphColor.gpu})`}
+          />
+        ),
         component: <GPUInfo />,
       },
       {
         key: "memory",
-        icon: <Memory size={24} />,
+        icon: (
+          <Memory size={24} color={`rgb(${settings.lineGraphColor.memory})`} />
+        ),
         component: <MemoryInfo />,
       },
       {
         key: "process",
-        icon: <Gear size={24} />,
         component: <ProcessesTable />,
       },
       {
         key: "storage",
-        icon: <HardDrives size={24} />,
+        icon: <HardDrives size={24} color="var(--color-storage)" />,
         component: <StorageDataInfo />,
       },
       {
         key: "network",
-        icon: <Network size={24} />,
+        icon: <Network size={24} color="oklch(74.6% 0.16 232.661)" />,
         component: <NetworkInfo />,
       },
     ].filter(
@@ -505,7 +517,7 @@ const Dashboard = () => {
       },
       [[], []],
     );
-  }, [hardwareInfo]);
+  }, [hardwareInfo, settings.lineGraphColor]);
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -518,28 +530,38 @@ const Dashboard = () => {
   return (
     <div className="flex flex-wrap gap-4">
       <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListLeft.map(({ key, icon, component }) => (
-          <DataArea
-            key={`left-${key}`}
-            title={dataAreaKey2Title[key]}
-            icon={icon}
-            border={key !== "process"}
-          >
-            {component}
-          </DataArea>
-        ))}
+        {hardwareInfoListLeft.map(({ key, icon, component }) =>
+          key !== "process" ? (
+            <DataArea
+              key={`left-${key}`}
+              title={dataAreaKey2Title[key]}
+              icon={icon}
+            >
+              {component}
+            </DataArea>
+          ) : (
+            <div key={`left-${key}`} className="p-4">
+              {component}
+            </div>
+          ),
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListRight.map(({ key, icon, component }) => (
-          <DataArea
-            key={`right-${key}`}
-            title={dataAreaKey2Title[key]}
-            icon={icon}
-            border={key !== "process"}
-          >
-            {component}
-          </DataArea>
-        ))}
+        {hardwareInfoListRight.map(({ key, icon, component }) =>
+          key !== "process" ? (
+            <DataArea
+              key={`right-${key}`}
+              title={dataAreaKey2Title[key]}
+              icon={icon}
+            >
+              {component}
+            </DataArea>
+          ) : (
+            <div key={`right-${key}`} className="p-4">
+              {component}
+            </div>
+          ),
+        )}
       </div>
     </div>
   );
