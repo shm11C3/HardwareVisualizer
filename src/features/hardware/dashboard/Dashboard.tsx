@@ -344,7 +344,7 @@ const NetworkInfo = () => {
         return (
           <div
             key={network.macAddress}
-            className="mt-4 mb-2 rounded-md border bg-zinc-300 px-4 pt-2 pb-2 shadow-md dark:bg-gray-800 dark:text-white"
+            className="mt-4 mb-2 rounded-md bg-zinc-300/80 px-4 pt-2 pb-2 shadow-md dark:bg-slate-950/80 dark:text-white"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
@@ -369,7 +369,7 @@ const NetworkInfo = () => {
                 <AccordionContent>
                   <table className="w-full text-left text-base">
                     <tbody>
-                      <tr className="border-gray-700 border-b">
+                      <tr className="border-gray-700">
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.macAddress")}
                         </th>
@@ -377,7 +377,7 @@ const NetworkInfo = () => {
                           {network.macAddress ?? "No MAC Address"}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
+                      <tr className="border-gray-700">
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")}
                         </th>
@@ -387,7 +387,7 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
+                      <tr className="border-gray-700">
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.subnetMask")}
                         </th>
@@ -397,7 +397,7 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
+                      <tr className="border-gray-700">
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.gateway")}
                         </th>
@@ -407,37 +407,49 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
-                        <th className="py-2 pr-4 dark:text-gray-400">
-                          {t("shared.ipv6")}
-                        </th>
-                        <td className="py-2">
-                          {network.ipv6.map((ip) => (
-                            <p key={ip}>{ip}</p>
-                          ))}
-                        </td>
-                      </tr>
-                      <tr className="border-gray-700 border-b">
-                        <th className="py-2 pr-4 dark:text-gray-400">
-                          {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
-                          {t("shared.address")}
-                        </th>
-                        <td className="py-2">
-                          {network.linkLocalIpv6.map((ip) => (
-                            <p key={ip}>{ip}</p>
-                          ))}
-                        </td>
-                      </tr>
-                      <tr className="border-gray-700 border-b">
-                        <th className="py-2 pr-4 dark:text-gray-400">
-                          {t("shared.ipv6")} {t("shared.gateway")}
-                        </th>
-                        <td className="py-2">
-                          {network.defaultIpv6Gateway.map((gateway) => (
-                            <p key={gateway}>{gateway}</p>
-                          ))}
-                        </td>
-                      </tr>
+                      {network.ipv6.length > 0 ? (
+                        <tr className="border-gray-700">
+                          <th className="py-2 pr-4 dark:text-gray-400">
+                            {t("shared.ipv6")}
+                          </th>
+                          <td className="py-2">
+                            {network.ipv6.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
+                      {network.linkLocalIpv6.length > 0 ? (
+                        <tr className="border-gray-700">
+                          <th className="py-2 pr-4 dark:text-gray-400">
+                            {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
+                            {t("shared.address")}
+                          </th>
+                          <td className="py-2">
+                            {network.linkLocalIpv6.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
+                      {network.defaultIpv6Gateway.length > 0 ? (
+                        <tr className="border-gray-700">
+                          <th className="py-2 pr-4 dark:text-gray-400">
+                            {t("shared.ipv6")} {t("shared.gateway")}
+                          </th>
+                          <td className="py-2">
+                            {network.defaultIpv6Gateway.map((gateway) => (
+                              <p key={gateway}>{gateway}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
                     </tbody>
                   </table>
                 </AccordionContent>
