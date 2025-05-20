@@ -42,7 +42,7 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
 
   return (
     <div
-      className="grid grid-cols-2 gap-2 px-4 pt-2 pb-4 dark:text-white"
+      className="grid grid-cols-2 gap-2 px-4 pt-2 pb-4 "
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -55,7 +55,7 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
     >
       {Object.keys(data).map((key) => (
         <div key={key}>
-          <p className="text-slate-400 text-sm">{key}</p>
+          <p className="text-slate-900 text-sm dark:text-slate-400">{key}</p>
           <p>{data[key]}</p>
         </div>
       ))}
