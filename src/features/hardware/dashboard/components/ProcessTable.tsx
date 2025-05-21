@@ -100,7 +100,7 @@ export const ProcessesTable = () => {
 
   return (
     <div
-      className="rounded-md bg-[#dcdcdf] p-4 dark:bg-[#090f20] dark:text-whit"
+      className="rounded-md bg-[#dcdcdf] p-4 dark:bg-[#090f20] dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
