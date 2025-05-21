@@ -22,10 +22,10 @@ import {
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
 import {
   Cpu,
-  Gear,
   GraphicsCard,
   HardDrives,
   Memory,
@@ -42,7 +42,7 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
 
   return (
     <div
-      className="rounded-md border bg-zinc-300 px-4 pt-2 pb-4 shadow-md dark:bg-gray-800 dark:text-white"
+      className="grid grid-cols-2 gap-2 px-4 pt-2 pb-4 "
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -53,16 +53,12 @@ const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
             : 1,
       }}
     >
-      <table className="w-full text-left">
-        <tbody>
-          {Object.keys(data).map((key) => (
-            <tr key={key} className="border-gray-700 border-b">
-              <th className="py-2 pr-4 dark:text-gray-400">{key}</th>
-              <td className="py-2">{data[key]}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {Object.keys(data).map((key) => (
+        <div key={key}>
+          <p className="text-slate-900 text-sm dark:text-slate-400">{key}</p>
+          <p>{data[key]}</p>
+        </div>
+      ))}
     </div>
   );
 };
@@ -71,17 +67,24 @@ const DataArea = ({
   children,
   title,
   icon,
-  border = true,
+  border = false,
+  className = "rounded-2xl bg-zinc-300/50 dark:bg-slate-950/50",
 }: {
   children: React.ReactNode;
   title?: string;
   icon?: JSX.Element;
   border?: boolean;
+  className?: string;
 }) => {
   return (
     <div className="p-4">
-      {border ? (
-        <div className="rounded-2xl border border-zinc-400 dark:border-zinc-600">
+      {
+        <div
+          className={cn(
+            border && "border border-zinc-400 dark:border-zinc-600",
+            className,
+          )}
+        >
           <div className="flex items-center pt-4 pb-2 pl-4">
             {icon && <div className="mr-2 mb-0.5">{icon}</div>}
             {title && (
@@ -90,9 +93,7 @@ const DataArea = ({
           </div>
           <div className="px-4 pb-4">{children}</div>
         </div>
-      ) : (
-        <>{children}</>
-      )}
+      }
     </div>
   );
 };
@@ -284,10 +285,16 @@ const StorageDataInfo = () => {
           {sortedStorage.length > 0 ? (
             sortedStorage.map((storage) => {
               return (
-                <div key={storage.name} className="mt-4">
+                <div key={storage.name} className="mt-4 ml-2">
+                  <h4 className="font-bold text-md">
+                    {storage.name}
+                    <span className="ml-2 font-normal text-gray-500 text-sm dark:text-gray-400">
+                      {" "}
+                      ({storage.size} {storage.sizeUnit})
+                    </span>
+                  </h4>
                   <InfoTable
                     data={{
-                      [t("shared.driveName")]: storage.name,
                       [t("shared.driveFileSystem")]: storage.fileSystem,
                       [t("shared.driveType")]: {
                         hdd: "HDD",
@@ -337,7 +344,7 @@ const NetworkInfo = () => {
         return (
           <div
             key={network.macAddress}
-            className="mt-4 mb-2 rounded-md border bg-zinc-300 px-4 pt-2 pb-2 shadow-md dark:bg-gray-800 dark:text-white"
+            className="mt-4 mb-2 rounded-md bg-zinc-300/80 px-4 pt-2 pb-2 shadow-md dark:bg-slate-950/80 dark:text-white"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
@@ -362,7 +369,7 @@ const NetworkInfo = () => {
                 <AccordionContent>
                   <table className="w-full text-left text-base">
                     <tbody>
-                      <tr className="border-gray-700 border-b">
+                      <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.macAddress")}
                         </th>
@@ -370,7 +377,7 @@ const NetworkInfo = () => {
                           {network.macAddress ?? "No MAC Address"}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
+                      <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")}
                         </th>
@@ -380,7 +387,7 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
+                      <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.subnetMask")}
                         </th>
@@ -390,7 +397,7 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
+                      <tr className="border-gray-700">
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.gateway")}
                         </th>
@@ -400,37 +407,49 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700 border-b">
-                        <th className="py-2 pr-4 dark:text-gray-400">
-                          {t("shared.ipv6")}
-                        </th>
-                        <td className="py-2">
-                          {network.ipv6.map((ip) => (
-                            <p key={ip}>{ip}</p>
-                          ))}
-                        </td>
-                      </tr>
-                      <tr className="border-gray-700 border-b">
-                        <th className="py-2 pr-4 dark:text-gray-400">
-                          {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
-                          {t("shared.address")}
-                        </th>
-                        <td className="py-2">
-                          {network.linkLocalIpv6.map((ip) => (
-                            <p key={ip}>{ip}</p>
-                          ))}
-                        </td>
-                      </tr>
-                      <tr className="border-gray-700 border-b">
-                        <th className="py-2 pr-4 dark:text-gray-400">
-                          {t("shared.ipv6")} {t("shared.gateway")}
-                        </th>
-                        <td className="py-2">
-                          {network.defaultIpv6Gateway.map((gateway) => (
-                            <p key={gateway}>{gateway}</p>
-                          ))}
-                        </td>
-                      </tr>
+                      {network.ipv6.length > 0 ? (
+                        <tr className="border-gray-700">
+                          <th className="py-2 pr-4 dark:text-gray-400">
+                            {t("shared.ipv6")}
+                          </th>
+                          <td className="py-2">
+                            {network.ipv6.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
+                      {network.linkLocalIpv6.length > 0 ? (
+                        <tr>
+                          <th className="py-2 pr-4 dark:text-gray-400">
+                            {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
+                            {t("shared.address")}
+                          </th>
+                          <td className="py-2">
+                            {network.linkLocalIpv6.map((ip) => (
+                              <p key={ip}>{ip}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
+                      {network.defaultIpv6Gateway.length > 0 ? (
+                        <tr>
+                          <th className="py-2 pr-4 dark:text-gray-400">
+                            {t("shared.ipv6")} {t("shared.gateway")}
+                          </th>
+                          <td className="py-2">
+                            {network.defaultIpv6Gateway.map((gateway) => (
+                              <p key={gateway}>{gateway}</p>
+                            ))}
+                          </td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
                     </tbody>
                   </table>
                 </AccordionContent>
@@ -447,6 +466,7 @@ type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 const Dashboard = () => {
   const { init, hardwareInfo } = useHardwareInfoAtom();
+  const { settings } = useSettingsAtom();
   const { t } = useTranslation();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -459,32 +479,38 @@ const Dashboard = () => {
     const fullList = [
       {
         key: "cpu",
-        icon: <Cpu size={24} />,
+        icon: <Cpu size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />,
         component: <CPUInfo />,
       },
       (hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0) && {
         key: "gpu",
-        icon: <GraphicsCard size={24} />,
+        icon: (
+          <GraphicsCard
+            size={24}
+            color={`rgb(${settings.lineGraphColor.gpu})`}
+          />
+        ),
         component: <GPUInfo />,
       },
       {
         key: "memory",
-        icon: <Memory size={24} />,
+        icon: (
+          <Memory size={24} color={`rgb(${settings.lineGraphColor.memory})`} />
+        ),
         component: <MemoryInfo />,
       },
       {
         key: "process",
-        icon: <Gear size={24} />,
         component: <ProcessesTable />,
       },
       {
         key: "storage",
-        icon: <HardDrives size={24} />,
+        icon: <HardDrives size={24} color="var(--color-storage)" />,
         component: <StorageDataInfo />,
       },
       {
         key: "network",
-        icon: <Network size={24} />,
+        icon: <Network size={24} color="oklch(74.6% 0.16 232.661)" />,
         component: <NetworkInfo />,
       },
     ].filter(
@@ -505,7 +531,7 @@ const Dashboard = () => {
       },
       [[], []],
     );
-  }, [hardwareInfo]);
+  }, [hardwareInfo, settings.lineGraphColor]);
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -518,28 +544,38 @@ const Dashboard = () => {
   return (
     <div className="flex flex-wrap gap-4">
       <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListLeft.map(({ key, icon, component }) => (
-          <DataArea
-            key={`left-${key}`}
-            title={dataAreaKey2Title[key]}
-            icon={icon}
-            border={key !== "process"}
-          >
-            {component}
-          </DataArea>
-        ))}
+        {hardwareInfoListLeft.map(({ key, icon, component }) =>
+          key !== "process" ? (
+            <DataArea
+              key={`left-${key}`}
+              title={dataAreaKey2Title[key]}
+              icon={icon}
+            >
+              {component}
+            </DataArea>
+          ) : (
+            <div key={`left-${key}`} className="p-4">
+              {component}
+            </div>
+          ),
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListRight.map(({ key, icon, component }) => (
-          <DataArea
-            key={`right-${key}`}
-            title={dataAreaKey2Title[key]}
-            icon={icon}
-            border={key !== "process"}
-          >
-            {component}
-          </DataArea>
-        ))}
+        {hardwareInfoListRight.map(({ key, icon, component }) =>
+          key !== "process" ? (
+            <DataArea
+              key={`right-${key}`}
+              title={dataAreaKey2Title[key]}
+              icon={icon}
+            >
+              {component}
+            </DataArea>
+          ) : (
+            <div key={`right-${key}`} className="p-4">
+              {component}
+            </div>
+          ),
+        )}
       </div>
     </div>
   );
