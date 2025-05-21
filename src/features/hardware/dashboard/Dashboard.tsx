@@ -369,7 +369,7 @@ const NetworkInfo = () => {
                 <AccordionContent>
                   <table className="w-full text-left text-base">
                     <tbody>
-                      <tr className="border-gray-700">
+                      <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.macAddress")}
                         </th>
@@ -377,7 +377,7 @@ const NetworkInfo = () => {
                           {network.macAddress ?? "No MAC Address"}
                         </td>
                       </tr>
-                      <tr className="border-gray-700">
+                      <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")}
                         </th>
@@ -387,7 +387,7 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      <tr className="border-gray-700">
+                      <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.ipv4")} {t("shared.subnetMask")}
                         </th>
@@ -422,7 +422,7 @@ const NetworkInfo = () => {
                         <></>
                       )}
                       {network.linkLocalIpv6.length > 0 ? (
-                        <tr className="border-gray-700">
+                        <tr>
                           <th className="py-2 pr-4 dark:text-gray-400">
                             {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
                             {t("shared.address")}
@@ -437,7 +437,7 @@ const NetworkInfo = () => {
                         <></>
                       )}
                       {network.defaultIpv6Gateway.length > 0 ? (
-                        <tr className="border-gray-700">
+                        <tr>
                           <th className="py-2 pr-4 dark:text-gray-400">
                             {t("shared.ipv6")} {t("shared.gateway")}
                           </th>
