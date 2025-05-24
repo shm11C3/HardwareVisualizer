@@ -186,13 +186,52 @@ const MemoryInfo = () => {
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
 
+  const {
+    memoryCurrentUsage,
+    memoryCurrentUsageUnit,
+  }:
+    | {
+        memoryCurrentUsage: number;
+        memoryCurrentUsageUnit: "GB" | "MB";
+      }
+    | {
+        memoryCurrentUsage: null;
+        memoryCurrentUsageUnit: null;
+      } = useMemo(() => {
+    const current = memoryUsageHistory[memoryUsageHistory.length - 1];
+    const [total, unit] = hardwareInfo.memory?.size.split(" ") || [null, null];
+
+    if (total === null || unit === null) {
+      return {
+        memoryCurrentUsage: null,
+        memoryCurrentUsageUnit: null,
+      };
+    }
+
+    const currentUsage = (current / 100) * Number.parseFloat(total);
+    const currentUsageUnit = unit === "GB" ? "GB" : "MB";
+    return {
+      memoryCurrentUsage: Number(currentUsage.toFixed(0)),
+      memoryCurrentUsageUnit: currentUsageUnit,
+    };
+  }, [memoryUsageHistory, hardwareInfo.memory]);
+
   return (
     <>
       <div className="flex h-[200px] justify-around">
-        <DoughnutChart
-          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
+        {memoryCurrentUsage ? (
+          <DoughnutChart
+            chartValue={memoryCurrentUsage}
+            usagePercentage={memoryUsageHistory[memoryUsageHistory.length - 1]}
+            dataType={"memoryUsageValue"}
+            unit={memoryCurrentUsageUnit}
+          />
+        ) : (
+          <DoughnutChart
+            chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
+            dataType={"usage"}
+          />
+        )}
         {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
         <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />
       </div>

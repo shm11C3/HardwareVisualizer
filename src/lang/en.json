@@ -1,6 +1,7 @@
 {
   "shared": {
     "usage": "Usage",
+    "usageValue": "Usage",
     "cpuUsage": "CPU Usage",
     "memoryUsage": "Memory Usage",
     "avgCpuUsage": "Avg CPU Usage",
