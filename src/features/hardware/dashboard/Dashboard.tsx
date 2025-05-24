@@ -36,6 +36,7 @@ import { useAtom } from "jotai";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { MiniLineChart } from "./components/MiniLineChart";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   const { settings } = useSettingsAtom();
@@ -105,10 +106,15 @@ const CPUInfo = () => {
 
   return (
     <>
-      <DoughnutChart
-        chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
-        dataType={"usage"}
-      />
+      <div className="flex h-[200px] justify-around">
+        <DoughnutChart
+          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
+        {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
+        <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
+      </div>
+
       {hardwareInfo.cpu ? (
         <InfoTable
           data={{
@@ -182,10 +188,15 @@ const MemoryInfo = () => {
 
   return (
     <>
-      <DoughnutChart
-        chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-        dataType={"usage"}
-      />
+      <div className="flex h-[200px] justify-around">
+        <DoughnutChart
+          chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
+        {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
+        <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />
+      </div>
+
       {hardwareInfo.memory ? (
         <div className="space-y-2">
           <InfoTable
