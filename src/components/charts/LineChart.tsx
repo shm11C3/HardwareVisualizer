@@ -82,6 +82,8 @@ export const SingleLineChart = ({
   lineGraphShowLegend,
   dataKey,
   range = [0, 100],
+  width,
+  height,
 }: SingleChartProps & { chartConfig: ChartConfig } & {
   border: boolean;
   lineGraphShowScale: boolean;
@@ -90,6 +92,8 @@ export const SingleLineChart = ({
   lineGraphShowLegend: boolean;
   dataKey: string;
   range?: [number, number];
+  width?: number | string;
+  height?: number | string;
 }) => {
   const { settings } = useSettingsAtom();
 
@@ -123,6 +127,10 @@ export const SingleLineChart = ({
       <ChartContainer
         className={chartAreaVariants({ border })}
         config={chartConfig}
+        style={{
+          ...(width && { width }),
+          ...(height && { height }),
+        }}
       >
         <AreaChart data={data}>
           <CartesianGrid horizontal={lineGraphShowScale} vertical={false} />

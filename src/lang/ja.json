@@ -1,6 +1,7 @@
 {
   "shared": {
     "usage": "使用率",
+    "usageValue": "使用量",
     "cpuUsage": "CPU 使用率",
     "avgCpuUsage": "平均 CPU 使用率",
     "memoryUsage": "メモリ使用率",

@@ -36,6 +36,7 @@ import { useAtom } from "jotai";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { MiniLineChart } from "./components/MiniLineChart";
 
 const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
   const { settings } = useSettingsAtom();
@@ -105,10 +106,15 @@ const CPUInfo = () => {
 
   return (
     <>
-      <DoughnutChart
-        chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
-        dataType={"usage"}
-      />
+      <div className="flex h-[200px] justify-around">
+        <DoughnutChart
+          chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
+          dataType={"usage"}
+        />
+        {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
+        <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
+      </div>
+
       {hardwareInfo.cpu ? (
         <InfoTable
           data={{
@@ -180,12 +186,56 @@ const MemoryInfo = () => {
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
 
+  const {
+    memoryCurrentUsage,
+    memoryCurrentUsageUnit,
+  }:
+    | {
+        memoryCurrentUsage: number;
+        memoryCurrentUsageUnit: "GB" | "MB";
+      }
+    | {
+        memoryCurrentUsage: null;
+        memoryCurrentUsageUnit: null;
+      } = useMemo(() => {
+    const current = memoryUsageHistory[memoryUsageHistory.length - 1];
+    const [total, unit] = hardwareInfo.memory?.size.split(" ") || [null, null];
+
+    if (total === null || unit === null) {
+      return {
+        memoryCurrentUsage: null,
+        memoryCurrentUsageUnit: null,
+      };
+    }
+
+    const currentUsage = (current / 100) * Number.parseFloat(total);
+    const currentUsageUnit = unit === "GB" ? "GB" : "MB";
+    return {
+      memoryCurrentUsage: Number(currentUsage.toFixed(0)),
+      memoryCurrentUsageUnit: currentUsageUnit,
+    };
+  }, [memoryUsageHistory, hardwareInfo.memory]);
+
   return (
     <>
-      <DoughnutChart
-        chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
-        dataType={"usage"}
-      />
+      <div className="flex h-[200px] justify-around">
+        {memoryCurrentUsage ? (
+          <DoughnutChart
+            chartValue={memoryCurrentUsage}
+            usagePercentage={memoryUsageHistory[memoryUsageHistory.length - 1]}
+            dataType={"memoryUsageValue"}
+            unit={memoryCurrentUsageUnit}
+          />
+        ) : (
+          <DoughnutChart
+            chartValue={memoryUsageHistory[memoryUsageHistory.length - 1]}
+            dataType={"usage"}
+          />
+        )}
+        {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
+        <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />
+      </div>
+
       {hardwareInfo.memory ? (
         <div className="space-y-2">
           <InfoTable
