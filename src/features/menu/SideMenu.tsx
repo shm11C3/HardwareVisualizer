@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
 import {
-  CaretDoubleLeft,
-  CaretDoubleRight,
+  CaretDoubleLeftIcon,
+  CaretDoubleRightIcon,
+  ChartLineIcon,
   ComputerTowerIcon,
   CpuIcon,
+  GearIcon,
+  SquaresFourIcon,
 } from "@phosphor-icons/react";
-import { ChartLine, Gear, SquaresFour } from "@phosphor-icons/react";
 import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
@@ -86,11 +88,11 @@ const MenuItem = memo(
     };
 
     const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
-      dashboard: <SquaresFour size={20} />,
+      dashboard: <SquaresFourIcon size={20} />,
       usage: <ComputerTowerIcon size={20} />,
       cpuDetail: <CpuIcon size={20} />,
-      insights: <ChartLine size={20} />,
-      settings: <Gear size={20} />,
+      insights: <ChartLineIcon size={20} />,
+      settings: <GearIcon size={20} />,
     };
 
     return (
@@ -129,11 +131,11 @@ const ClosedSideMenu = ({
   handleMenuClick: (type: SelectedDisplayType) => void;
 }) => {
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
-    dashboard: <SquaresFour size={24} />,
+    dashboard: <SquaresFourIcon size={24} />,
     usage: <ComputerTowerIcon size={24} />,
     cpuDetail: <CpuIcon size={24} />,
-    insights: <ChartLine size={24} />,
-    settings: <Gear size={24} />,
+    insights: <ChartLineIcon size={24} />,
+    settings: <GearIcon size={24} />,
   };
 
   return (
@@ -162,7 +164,7 @@ export const SideMenu = memo(() => {
   const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu();
 
   const caretIcon = useMemo(
-    () => (isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />),
+    () => (isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />),
     [isOpen],
   );
 

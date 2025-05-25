@@ -3,7 +3,7 @@ import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
-import { CaretDown, CaretUp } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import { type JSX, memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
@@ -117,8 +117,8 @@ const InfoTable = ({
   const { sentinelRef, isStuck } = useStickyObserver();
 
   const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
-    ascending: <CaretUp className="ml-1" size={18} />,
-    descending: <CaretDown className="ml-1" size={18} />,
+    ascending: <CaretUpIcon className="ml-1" size={18} />,
+    descending: <CaretDownIcon className="ml-1" size={18} />,
   };
 
   return (

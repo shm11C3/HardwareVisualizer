@@ -44,11 +44,11 @@ import {
   commands,
 } from "@/rspc/bindings";
 import {
-  ArrowSquareOut,
-  CheckCircle,
-  DotOutline,
-  GithubLogo,
-  ProhibitInset,
+  ArrowSquareOutIcon,
+  CheckCircleIcon,
+  DotOutlineIcon,
+  GithubLogoIcon,
+  ProhibitInsetIcon,
 } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
@@ -202,7 +202,7 @@ const SettingLineChartSize = () => {
       />
       <div className="mt-2 flex items-center justify-between text-sm">
         {sizeOptions.map((size) => (
-          <DotOutline
+          <DotOutlineIcon
             key={size}
             className="text-slate-600 dark:text-gray-400"
             size={32}
@@ -510,12 +510,12 @@ const ToggleInsight = () => {
             <div className="space-y-0.5">
               <Label htmlFor="insight" className="flex items-center text-lg">
                 {settings.hardwareArchive.enabled ? (
-                  <CheckCircle
+                  <CheckCircleIcon
                     className="fill-emerald-700 pr-2 dark:fill-emerald-300"
                     size={28}
                   />
                 ) : (
-                  <ProhibitInset
+                  <ProhibitInsetIcon
                     className="fill-neutral-600 pr-2 dark:fill-neutral-400"
                     size={28}
                   />
@@ -650,9 +650,9 @@ const About = () => {
           }
           className="rounded-full text-sm"
         >
-          <GithubLogo size={32} />
+          <GithubLogoIcon size={32} />
           <span className="px-1">{t("pages.settings.about.checkGitHub")}</span>
-          <ArrowSquareOut size={16} />
+          <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
           onClick={() =>
@@ -665,7 +665,7 @@ const About = () => {
           <span className="px-1">
             {t("pages.settings.about.checkLatestVersion")}
           </span>
-          <ArrowSquareOut size={16} />
+          <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
           onClick={() =>
@@ -676,7 +676,7 @@ const About = () => {
           className="rounded-full text-sm"
         >
           <span className="px-1">{t("pages.settings.about.license")}</span>
-          <ArrowSquareOut size={16} />
+          <ArrowSquareOutIcon size={16} />
         </Button>
       </div>
     </div>

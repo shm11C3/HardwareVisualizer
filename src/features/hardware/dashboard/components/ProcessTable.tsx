@@ -8,7 +8,12 @@ import {
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { ProcessInfo } from "@/rspc/bindings";
-import { ArrowsOut, CaretDown, CaretUp, Gear } from "@phosphor-icons/react";
+import {
+  ArrowsOutIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  GearIcon,
+} from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { type JSX, useState } from "react";
@@ -92,7 +97,7 @@ export const ProcessesTable = () => {
         <div className="flex">
           <div className="mb-2 flex items-center">
             <div className="mr-2 mb-0.5">
-              <Gear size={24} color="var(--color-process)" />
+              <GearIcon size={24} color="var(--color-process)" />
             </div>
             <h4 className="font-bold text-xl">{t("shared.process")}</h4>
           </div>
@@ -102,7 +107,7 @@ export const ProcessesTable = () => {
               type="button"
               className="flex w-full cursor-pointer items-center justify-center hover:text-zinc-600 focus:outline-hidden dark:text-gray-400 dark:hover:text-white"
             >
-              <ArrowsOut size={28} />
+              <ArrowsOutIcon size={28} />
             </DialogTrigger>
           </div>
         </div>
@@ -152,8 +157,8 @@ const InfoTable = ({
   const { t } = useTranslation();
 
   const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
-    ascending: <CaretUp className="ml-1" size={18} />,
-    descending: <CaretDown className="ml-1" size={18} />,
+    ascending: <CaretUpIcon className="ml-1" size={18} />,
+    descending: <CaretDownIcon className="ml-1" size={18} />,
   };
 
   return (

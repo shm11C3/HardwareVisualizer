@@ -5,10 +5,10 @@ import type { HardwareDataType } from "@/features/hardware/types/hardwareDataTyp
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings } from "@/features/settings/types/settingsType";
 import {
-  Lightning,
+  LightningIcon,
   MemoryIcon,
-  Speedometer,
-  Thermometer,
+  SpeedometerIcon,
+  ThermometerIcon,
 } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -83,9 +83,9 @@ export const DoughnutChart = ({
   ];
 
   const dataTypeIcons: Record<HardwareDataType, JSX.Element> = {
-    usage: <Lightning className="mr-1" size={12} weight="duotone" />,
-    temp: <Thermometer className="mr-1" size={12} weight="duotone" />,
-    clock: <Speedometer className="mr-1" size={12} weight="duotone" />,
+    usage: <LightningIcon className="mr-1" size={12} weight="duotone" />,
+    temp: <ThermometerIcon className="mr-1" size={12} weight="duotone" />,
+    clock: <SpeedometerIcon className="mr-1" size={12} weight="duotone" />,
     memoryUsageValue: (
       <MemoryIcon className="mr-1" size={12} weight="duotone" />
     ),
