@@ -38,8 +38,8 @@ const CpuUsageChart = memo(() => {
   }, []);
 
   return (
-    <div className="flex gap-2">
-      <div className="w-2/6">
+    <div className="flex flex-col gap-2 xl:flex-row">
+      <div className="w-full xl:w-2/6">
         <LineChartComponent
           labels={Array(chartConfig.historyLengthSec).fill("")}
           chartData={cpuUsageHistory}
@@ -63,7 +63,7 @@ const CpuUsageChart = memo(() => {
         )}
       </div>
 
-      <div className="mt-5 grid w-4/6 grid-cols-4 gap-2">
+      <div className="mt-5 ml-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:w-4/6 xl:grid-cols-4">
         {transpose(processorsUsageHistory)
           .map((processorData, index) => {
             return { data: processorData, id: index };
@@ -93,26 +93,26 @@ const ProcessorChart = memo(
     } satisfies ChartConfig;
 
     return (
-      <SingleLineChart
-        labels={Array(chartConfig.historyLengthSec).fill("")}
-        chartData={Array(
-          Math.max(chartConfig.historyLengthSec - data.length, 0),
-        )
-          .fill(null)
-          .concat(data)}
-        dataType="cpu"
-        size="sm"
-        lineGraphMix={false}
-        chartConfig={config}
-        border={settings.lineGraphBorder}
-        lineGraphShowScale={settings.lineGraphShowScale}
-        lineGraphShowTooltip={settings.lineGraphShowTooltip}
-        lineGraphType={settings.lineGraphType}
-        lineGraphShowLegend={false}
-        dataKey={`${t("shared.usage")} (%)`}
-        width={300}
-        height={200}
-      />
+      <div className="max-h-[200px] max-w-[300px]">
+        <SingleLineChart
+          labels={Array(chartConfig.historyLengthSec).fill("")}
+          chartData={Array(
+            Math.max(chartConfig.historyLengthSec - data.length, 0),
+          )
+            .fill(null)
+            .concat(data)}
+          dataType="cpu"
+          size="md"
+          lineGraphMix={false}
+          chartConfig={config}
+          border={settings.lineGraphBorder}
+          lineGraphShowScale={settings.lineGraphShowScale}
+          lineGraphShowTooltip={settings.lineGraphShowTooltip}
+          lineGraphType={settings.lineGraphType}
+          lineGraphShowLegend={false}
+          dataKey={`${t("shared.usage")} (%)`}
+        />
+      </div>
     );
   },
 );
