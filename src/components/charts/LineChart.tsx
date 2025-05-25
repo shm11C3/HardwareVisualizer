@@ -106,13 +106,19 @@ export const SingleLineChart = ({
     memory: {
       label: "RAM",
       icon: (
-        <MemoryIcon size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
+        <MemoryIcon
+          size={20}
+          color={`rgb(${settings.lineGraphColor.memory})`}
+        />
       ),
     },
     gpu: {
       label: "GPU",
       icon: (
-        <GraphicsCardIcon size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
+        <GraphicsCardIcon
+          size={20}
+          color={`rgb(${settings.lineGraphColor.gpu})`}
+        />
       ),
     },
   };
@@ -195,7 +201,10 @@ const MixLineChart = ({
       <MemoryIcon size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
     ),
     gpu: (
-      <GraphicsCardIcon size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
+      <GraphicsCardIcon
+        size={20}
+        color={`rgb(${settings.lineGraphColor.gpu})`}
+      />
     ),
   };
 

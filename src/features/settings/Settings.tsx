@@ -43,7 +43,11 @@ import {
   type LineGraphType,
   commands,
 } from "@/rspc/bindings";
-import { ArrowSquareOutIcon, DotOutlineIcon, GithubLogoIcon } from "@phosphor-icons/react";
+import {
+  ArrowSquareOutIcon,
+  DotOutlineIcon,
+  GithubLogoIcon,
+} from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useAtom, useSetAtom } from "jotai";

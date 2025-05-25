@@ -44,7 +44,10 @@ export const CustomTooltip = ({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <MemoryIcon size={16} color={`rgb(${settings.lineGraphColor.memory})`} />
+        <MemoryIcon
+          size={16}
+          color={`rgb(${settings.lineGraphColor.memory})`}
+        />
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.avgMemoryUsageValue")}
         </span>

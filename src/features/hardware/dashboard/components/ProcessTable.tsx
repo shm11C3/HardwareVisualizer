@@ -9,7 +9,11 @@ import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
-import { ArrowsOutIcon, CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
+import {
+  ArrowsOutIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+} from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { atom, useAtom, useSetAtom } from "jotai";
