@@ -11,6 +11,7 @@ import {
   isChartDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import type { LineGraphType } from "@/rspc/bindings";
 import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
 import type { JSX } from "react";
@@ -27,7 +28,7 @@ type ChartProps = {
 
 type SingleChartProps = {
   chartData: (number | null)[];
-  dataType: ChartDataType | GpuDataType;
+  dataType: Exclude<ChartDataType, "processors"> | GpuDataType;
   lineGraphMix: false;
 } & ChartProps;
 
@@ -46,7 +47,7 @@ const lineGraphType2RechartsCurveType: Record<LineGraphType, CurveType> = {
 };
 
 const graphVariants = tv({
-  base: "mt-5 mx-auto",
+  base: "mx-auto",
   variants: {
     size: {
       sm: "max-w-(--breakpoint-sm)",
@@ -84,6 +85,7 @@ export const SingleLineChart = ({
   range = [0, 100],
   width,
   height,
+  className,
 }: SingleChartProps & { chartConfig: ChartConfig } & {
   border: boolean;
   lineGraphShowScale: boolean;
@@ -94,6 +96,7 @@ export const SingleLineChart = ({
   range?: [number, number];
   width?: number | string;
   height?: number | string;
+  className?: string;
 }) => {
   const { settings } = useSettingsAtom();
 
@@ -102,7 +105,10 @@ export const SingleLineChart = ({
     [dataKey]: chartData[index],
   }));
 
-  const legendItems: Record<ChartDataType, LegendItem> = {
+  const legendItems: Record<
+    Exclude<ChartDataType, "processors">,
+    LegendItem
+  > = {
     cpu: {
       label: "CPU",
       icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
@@ -123,7 +129,7 @@ export const SingleLineChart = ({
 
   // [TODO] 選択した範囲を横に移動できるようにする
   return (
-    <div className={graphVariants({ size })}>
+    <div className={cn(graphVariants({ size }), className)}>
       <ChartContainer
         className={chartAreaVariants({ border })}
         config={chartConfig}
@@ -279,7 +285,10 @@ export const LineChartComponent = (
   const { settings } = useSettingsAtom();
   const { lineGraphMix } = props;
 
-  const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
+  const chartConfig: Record<
+    Exclude<ChartDataType, "processors">,
+    { label: string; color: string }
+  > = {
     cpu: {
       label: "CPU",
       color: settings.lineGraphColor.cpu,
@@ -298,6 +307,7 @@ export const LineChartComponent = (
     <MixLineChart {...props} chartConfig={chartConfig} />
   ) : (
     <SingleLineChart
+      className="mt-5"
       {...props}
       chartConfig={chartConfig}
       border={settings.lineGraphBorder}

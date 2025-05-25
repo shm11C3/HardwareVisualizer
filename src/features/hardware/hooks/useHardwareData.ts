@@ -20,7 +20,7 @@ import { useEffect } from "react";
  */
 export const useUsageUpdater = (dataType: ChartDataType) => {
   type AtomActionMapping = {
-    atom: PrimitiveAtom<number[]>;
+    atom: PrimitiveAtom<number[]> | PrimitiveAtom<number[][]>;
     action: () =>
       | Promise<number>
       | Promise<Result<number, string>>
@@ -56,7 +56,17 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
       if (isResult(result) && isError(result)) return;
       const usage = isResult(result) ? result.data : result;
 
-      setHistory((prev) => {
+      // CPUやGPUの使用率は配列で返されることがある
+      if (Array.isArray(usage)) {
+        setHistory((prev: number[][]) => {
+          const newHistory = [...prev, usage];
+          return newHistory.slice(-chartConfig.historyLengthSec);
+        });
+        return;
+      }
+
+      // 単一の数値の場合はそのまま履歴に追加
+      setHistory((prev: number[]) => {
         const newHistory = [...prev, usage];
 
         // 履歴保持数に満たない場合は0で埋める

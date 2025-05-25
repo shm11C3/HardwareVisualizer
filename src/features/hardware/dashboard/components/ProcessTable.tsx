@@ -7,48 +7,25 @@ import {
 } from "@/components/ui/dialog";
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ProcessInfo, commands } from "@/rspc/bindings";
+import type { ProcessInfo } from "@/rspc/bindings";
 import { ArrowsOut, CaretDown, CaretUp, Gear } from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { atom, useAtom, useSetAtom } from "jotai";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
-
-const processesAtom = atom<ProcessInfo[]>([]);
+import { useProcessInfo } from "../../hooks/useProcessInfo";
 
 export const ProcessesTable = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { error } = useTauriDialog();
-  const [processes] = useAtom(processesAtom);
-  const setAtom = useSetAtom(processesAtom);
+  const processes = useProcessInfo();
+
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ProcessInfo;
     direction: "ascending" | "descending";
   } | null>(null);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    const fetchProcesses = async () => {
-      try {
-        const processesData = await commands.getProcessList();
-        setAtom(processesData);
-      } catch (err) {
-        error(err as string);
-        console.error("Failed to fetch processes:", err);
-      }
-    };
-
-    fetchProcesses();
-
-    const interval = setInterval(fetchProcesses, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const sortedProcesses = [...processes];
   if (sortConfig !== null) {

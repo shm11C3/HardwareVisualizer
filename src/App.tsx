@@ -18,11 +18,13 @@ import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
-import { ChartLine, Gear } from "@phosphor-icons/react";
+import { ChartLine, CpuIcon, Gear } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
+import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
 import { Insights } from "./features/hardware/insights/Insights";
+import { CpuUsages } from "./features/hardware/usage/cpu/CpuUsage";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
 import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";
@@ -53,6 +55,7 @@ const Page = () => {
   useUsageUpdater("processors");
   useHardwareUpdater("gpu", "temp");
   useHardwareUpdater("gpu", "fan");
+  const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {
     i18n.changeLanguage(settings.language);
@@ -90,6 +93,14 @@ const Page = () => {
       </ScreenTemplate>
     ),
     usage: <ChartTemplate />,
+    cpuDetail: (
+      <ScreenTemplate
+        icon={<CpuIcon size={32} />}
+        title={hardwareInfo.cpu?.name || "CPU"}
+      >
+        <CpuUsages />
+      </ScreenTemplate>
+    ),
     insights: (
       <ScreenTemplate
         icon={<ChartLine size={32} />}
