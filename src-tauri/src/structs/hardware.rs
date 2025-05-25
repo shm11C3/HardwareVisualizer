@@ -19,7 +19,7 @@ pub struct HardwareMonitorState {
   pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 }
 
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Deserialize, Type, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryInfo {
   pub size: String,
@@ -28,6 +28,7 @@ pub struct MemoryInfo {
   pub memory_count: u32,
   pub total_slots: u32,
   pub memory_type: String,
+  pub is_detailed: bool,
 }
 
 #[derive(Serialize, Deserialize, Type)]

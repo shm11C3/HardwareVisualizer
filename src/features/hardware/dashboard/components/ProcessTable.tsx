@@ -9,7 +9,7 @@ import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
-import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { ArrowsOut, CaretDown, CaretUp, Gear } from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { atom, useAtom, useSetAtom } from "jotai";
@@ -100,7 +100,7 @@ export const ProcessesTable = () => {
 
   return (
     <div
-      className="rounded-md border bg-zinc-300 p-4 shadow-md dark:bg-gray-800 dark:text-whit"
+      className="rounded-md bg-[#dcdcdf] p-4 dark:bg-[#090f20] dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -113,7 +113,13 @@ export const ProcessesTable = () => {
     >
       <Dialog>
         <div className="flex">
-          <h4 className="mb-2 font-bold text-xl">{t("shared.process")}</h4>
+          <div className="mb-2 flex items-center">
+            <div className="mr-2 mb-0.5">
+              <Gear size={24} color="var(--color-process)" />
+            </div>
+            <h4 className="font-bold text-xl">{t("shared.process")}</h4>
+          </div>
+
           <div className="ml-auto">
             <DialogTrigger
               type="button"
@@ -133,7 +139,7 @@ export const ProcessesTable = () => {
           />
         </div>
 
-        <DialogContent className="m-8 rounded-md border bg-zinc-300 p-4 shadow-md 2xl:max-w-[800px] dark:bg-gray-800 dark:text-white">
+        <DialogContent className="m-8 rounded-md border bg-[#dcdcdf] p-4 shadow-md 2xl:max-w-[800px] dark:bg-[#090f20] dark:text-white">
           <DialogHeader>
             <DialogTitle>{t("shared.process")}</DialogTitle>
             <DialogDescription>
@@ -176,7 +182,7 @@ const InfoTable = ({
   return (
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
-        <thead className="sticky top-[-1px] h-14 bg-zinc-300 dark:bg-gray-800">
+        <thead className="sticky top-[-1px] h-14 bg-[#dcdcdf] dark:bg-[#090f20]">
           <tr className="border-gray-700 border-b">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"

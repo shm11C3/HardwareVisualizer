@@ -1,6 +1,7 @@
 {
   "shared": {
     "usage": "使用率",
+    "usageValue": "使用量",
     "cpuUsage": "CPU 使用率",
     "avgCpuUsage": "平均 CPU 使用率",
     "memoryUsage": "メモリ使用率",
@@ -17,6 +18,7 @@
     "memorySizeDedicated": "メモリ容量（専用）",
     "memorySizeSharedUsage": "共有GPUメモリ使用量",
     "memorySizeDedicatedUsage": "専用GPUメモリ使用量",
+    "loadDetailedInfo": "より詳細なデータを読み込む",
     "memoryType": "メモリタイプ",
     "totalMemory": "合計メモリ",
     "memoryCount": "メモリ枚数",
@@ -174,5 +176,9 @@
       "success": "成功しました",
       "unexpected": "予期せぬエラーが発生しました"
     }
+  },
+  "lang": {
+    "en": "英語",
+    "ja": "日本語"
   }
 }

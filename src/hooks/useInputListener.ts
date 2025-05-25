@@ -1,11 +1,15 @@
 import { commands } from "@/rspc/bindings";
 import { useEffect } from "react";
 import { useTauriDialog } from "./useTauriDialog";
-import { useTauriStore } from "./useTauriStore";
 
-export const useKeydown = () => {
+export const useKeydown = ({
+  isDecorated,
+  setDecorated,
+}: {
+  isDecorated: boolean;
+  setDecorated: (newValue: boolean) => Promise<void>;
+}) => {
   const { error } = useTauriDialog();
-  const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   useEffect(() => {
     const handleDecoration = async () => {

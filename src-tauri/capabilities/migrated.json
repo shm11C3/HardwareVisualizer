@@ -2,9 +2,7 @@
   "identifier": "migrated",
   "description": "permissions that were migrated from v1",
   "local": true,
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:allow-open",
@@ -15,6 +13,7 @@
     "dialog:default",
     "store:default",
     "shell:allow-open",
+    "shell:allow-execute",
     "sql:default"
   ]
 }
