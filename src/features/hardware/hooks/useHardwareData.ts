@@ -7,8 +7,12 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
+import type {
+  ChartDataHardwareType,
+  ChartDataType,
+} from "@/features/hardware/types/hardwareDataType";
 import { type NameValue, type Result, commands } from "@/rspc/bindings";
 import { isError, isOk, isResult } from "@/types/result";
 import { type PrimitiveAtom, useSetAtom } from "jotai";
@@ -17,13 +21,16 @@ import { useEffect } from "react";
 /**
  * ハードウェア使用率の履歴を更新する
  */
-export const useUsageUpdater = (dataType: ChartDataType) => {
+export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
   type AtomActionMapping = {
-    atom: PrimitiveAtom<number[]>;
-    action: () => Promise<number> | Promise<Result<number, string>>;
+    atom: PrimitiveAtom<number[]> | PrimitiveAtom<number[][]>;
+    action: () =>
+      | Promise<number>
+      | Promise<Result<number, string>>
+      | Promise<number[]>;
   };
 
-  const mapping: Record<ChartDataType, AtomActionMapping> = {
+  const mapping: Record<ChartDataHardwareType, AtomActionMapping> = {
     cpu: {
       atom: cpuUsageHistoryAtom,
       action: commands.getCpuUsage,
@@ -35,6 +42,10 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
     gpu: {
       atom: graphicUsageHistoryAtom,
       action: commands.getGpuUsage,
+    },
+    processors: {
+      atom: processorsUsageHistoryAtom,
+      action: commands.getProcessorsUsage,
     },
   };
 
@@ -48,7 +59,17 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
       if (isResult(result) && isError(result)) return;
       const usage = isResult(result) ? result.data : result;
 
-      setHistory((prev) => {
+      // CPUやGPUの使用率は配列で返されることがある
+      if (Array.isArray(usage)) {
+        setHistory((prev: number[][]) => {
+          const newHistory = [...prev, usage];
+          return newHistory.slice(-chartConfig.historyLengthSec);
+        });
+        return;
+      }
+
+      // 単一の数値の場合はそのまま履歴に追加
+      setHistory((prev: number[]) => {
         const newHistory = [...prev, usage];
 
         // 履歴保持数に満たない場合は0で埋める

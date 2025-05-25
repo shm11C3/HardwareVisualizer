@@ -13,46 +13,25 @@ import {
   ArrowsOutIcon,
   CaretDownIcon,
   CaretUpIcon,
+  GearIcon
 } from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { atom, useAtom, useSetAtom } from "jotai";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
-
-const processesAtom = atom<ProcessInfo[]>([]);
+import { useProcessInfo } from "../../hooks/useProcessInfo";
 
 export const ProcessesTable = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { error } = useTauriDialog();
-  const [processes] = useAtom(processesAtom);
-  const setAtom = useSetAtom(processesAtom);
+  const processes = useProcessInfo();
+
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ProcessInfo;
     direction: "ascending" | "descending";
   } | null>(null);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    const fetchProcesses = async () => {
-      try {
-        const processesData = await commands.getProcessList();
-        setAtom(processesData);
-      } catch (err) {
-        error(err as string);
-        console.error("Failed to fetch processes:", err);
-      }
-    };
-
-    fetchProcesses();
-
-    const interval = setInterval(fetchProcesses, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const sortedProcesses = [...processes];
   if (sortConfig !== null) {
@@ -104,7 +83,7 @@ export const ProcessesTable = () => {
 
   return (
     <div
-      className="rounded-md border bg-zinc-300 p-4 shadow-md dark:bg-gray-800 dark:text-whit"
+      className="rounded-md bg-[#dcdcdf] p-4 dark:bg-[#090f20] dark:text-white"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -117,7 +96,13 @@ export const ProcessesTable = () => {
     >
       <Dialog>
         <div className="flex">
-          <h4 className="mb-2 font-bold text-xl">{t("shared.process")}</h4>
+          <div className="mb-2 flex items-center">
+            <div className="mr-2 mb-0.5">
+              <GearIcon size={24} color="var(--color-process)" />
+            </div>
+            <h4 className="font-bold text-xl">{t("shared.process")}</h4>
+          </div>
+
           <div className="ml-auto">
             <DialogTrigger
               type="button"
@@ -137,7 +122,7 @@ export const ProcessesTable = () => {
           />
         </div>
 
-        <DialogContent className="m-8 rounded-md border bg-zinc-300 p-4 shadow-md 2xl:max-w-[800px] dark:bg-gray-800 dark:text-white">
+        <DialogContent className="m-8 rounded-md border bg-[#dcdcdf] p-4 shadow-md 2xl:max-w-[800px] dark:bg-[#090f20] dark:text-white">
           <DialogHeader>
             <DialogTitle>{t("shared.process")}</DialogTitle>
             <DialogDescription>
@@ -180,7 +165,7 @@ const InfoTable = ({
   return (
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
-        <thead className="sticky top-[-1px] h-14 bg-zinc-300 dark:bg-gray-800">
+        <thead className="sticky top-[-1px] h-14 bg-[#dcdcdf] dark:bg-[#090f20]">
           <tr className="border-gray-700 border-b">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"

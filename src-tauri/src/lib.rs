@@ -62,8 +62,10 @@ pub fn run() {
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
+    hardware::get_memory_info_detail_linux,
     hardware::get_memory_usage,
     hardware::get_gpu_usage,
+    hardware::get_processors_usage,
     hardware::get_gpu_temperature,
     hardware::get_nvidia_gpu_cooler,
     hardware::get_cpu_usage_history,
@@ -111,6 +113,7 @@ pub fn run() {
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
       let path_resolver = app.path();
+      let handle = app.handle().clone();
 
       // ロガーの初期化
       utils::logger::init(path_resolver.app_log_dir().unwrap());
@@ -119,6 +122,14 @@ pub fn run() {
       commands::ui::init(app);
 
       builder.mount_events(app);
+
+      // Check updates
+      tauri::async_runtime::spawn(async move {
+        if let Err(e) = backgrounds::updater::update(handle).await {
+          log_error!("Update process failed", "lib.run", Some(e.to_string()));
+          eprintln!("Update process failed: {:?}", e);
+        }
+      });
 
       tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
         structs::hardware_archive::MonitorResources {
@@ -164,6 +175,7 @@ pub fn run() {
 
       Ok(())
     })
+    .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_store::Builder::new().build())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -177,6 +189,7 @@ pub fn run() {
       MacosLauncher::LaunchAgent,
       Some(vec![]),
     ))
+    .plugin(tauri_plugin_os::init())
     .manage(state)
     .manage(app_state)
     .run(tauri::generate_context!())

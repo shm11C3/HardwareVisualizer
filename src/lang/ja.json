@@ -1,6 +1,7 @@
 {
   "shared": {
     "usage": "使用率",
+    "usageValue": "使用量",
     "cpuUsage": "CPU 使用率",
     "avgCpuUsage": "平均 CPU 使用率",
     "memoryUsage": "メモリ使用率",
@@ -10,6 +11,7 @@
     "name": "名前",
     "vendor": "ベンダー",
     "coreCount": "コア数",
+    "threadCount": "スレッド数",
     "defaultClockSpeed": "標準クロック数",
     "memory": "メモリ",
     "memorySize": "メモリ容量",
@@ -17,12 +19,14 @@
     "memorySizeDedicated": "メモリ容量（専用）",
     "memorySizeSharedUsage": "共有GPUメモリ使用量",
     "memorySizeDedicatedUsage": "専用GPUメモリ使用量",
+    "loadDetailedInfo": "より詳細なデータを読み込む",
     "memoryType": "メモリタイプ",
     "totalMemory": "合計メモリ",
     "memoryCount": "メモリ枚数",
     "memoryClockSpeed": "メモリクロック数",
     "clock": "クロック数",
     "process": "プロセス",
+    "processCount": "プロセス数",
     "reset": "リセット",
     "storage": "ストレージ",
     "network": "ネットワーク",
@@ -174,5 +178,9 @@
       "success": "成功しました",
       "unexpected": "予期せぬエラーが発生しました"
     }
+  },
+  "lang": {
+    "en": "英語",
+    "ja": "日本語"
   }
 }

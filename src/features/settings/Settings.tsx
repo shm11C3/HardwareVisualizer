@@ -45,8 +45,10 @@ import {
 } from "@/rspc/bindings";
 import {
   ArrowSquareOutIcon,
+  CheckCircleIcon,
   DotOutlineIcon,
   GithubLogoIcon,
+  ProhibitInsetIcon,
 } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
@@ -114,8 +116,8 @@ const SettingLanguage = () => {
 
   const supported = Object.keys(i18n.services.resourceStore.data);
   const displaySupported: Record<string, string> = {
-    en: "English",
-    ja: "日本語",
+    en: t("lang.en"),
+    ja: t("lang.ja"),
   };
 
   const changeLanguage = async (value: string) => {
@@ -506,7 +508,18 @@ const ToggleInsight = () => {
         <div className="flex items-center space-x-4 py-3">
           <div className="flex w-full flex-row items-center justify-between rounded-lg border border-zinc-800 p-4 dark:border-gray-100">
             <div className="space-y-0.5">
-              <Label htmlFor="insight" className="text-lg">
+              <Label htmlFor="insight" className="flex items-center text-lg">
+                {settings.hardwareArchive.enabled ? (
+                  <CheckCircleIcon
+                    className="fill-emerald-700 pr-2 dark:fill-emerald-300"
+                    size={28}
+                  />
+                ) : (
+                  <ProhibitInsetIcon
+                    className="fill-neutral-600 pr-2 dark:fill-neutral-400"
+                    size={28}
+                  />
+                )}
                 {t(
                   `pages.settings.insights.${settings.hardwareArchive.enabled ? "disable" : "enable"}`,
                 )}
