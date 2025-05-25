@@ -107,7 +107,7 @@ jobs:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Update tauri.conf.json using Node.js script
-        run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1" "${{ secrets.TAURI_SIGNING_PUB_KEY }}"
+        run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
       - name: Setup Azure Code Signing
         run: cargo install trusted-signing-cli
