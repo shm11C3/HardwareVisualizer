@@ -1,4 +1,4 @@
-import { ImageSquare, Spinner, UploadSimple } from "@phosphor-icons/react";
+import { ImageSquareIcon, SpinnerIcon, UploadSimpleIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../components/ui/button";
 import {
@@ -62,7 +62,7 @@ export const UploadImage = () => {
                               className="h-full w-full object-contain object-right"
                             />
                           ) : (
-                            <ImageSquare className="ml-auto object-contain" />
+                            <ImageSquareIcon className="ml-auto object-contain" />
                           )}
                         </Button>
                       </div>
@@ -76,9 +76,9 @@ export const UploadImage = () => {
                     <Button type="submit" disabled={!picture || isSubmitting}>
                       {t("pages.settings.backgroundImage.upload.confirm")}
                       {isSubmitting ? (
-                        <Spinner className="ml-1 animate-spin" />
+                        <SpinnerIcon className="ml-1 animate-spin" />
                       ) : (
-                        <UploadSimple className="ml-1" />
+                        <UploadSimpleIcon className="ml-1" />
                       )}
                     </Button>
                   </div>

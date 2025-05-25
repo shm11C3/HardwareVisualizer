@@ -1,6 +1,6 @@
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { SelectedDisplayType } from "@/types/ui";
-import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
+import { CaretDoubleLeftIcon, CaretDoubleRightIcon } from "@phosphor-icons/react";
 import { atom, useAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -63,7 +63,7 @@ export const SideMenu = memo(() => {
   );
 
   const caretIcon = useMemo(
-    () => (isOpen ? <CaretDoubleLeft /> : <CaretDoubleRight />),
+    () => (isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />),
     [isOpen],
   );
 

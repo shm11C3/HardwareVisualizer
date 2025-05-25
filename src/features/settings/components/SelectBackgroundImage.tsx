@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";
-import { X } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { tv } from "tailwind-variants";
 
@@ -45,7 +45,7 @@ export const BackgroundImageList = () => {
                 type="button"
                 onClick={() => deleteBackgroundImage(image.fileId)}
               >
-                <X />
+                <XIcon />
               </button>
               <button
                 type="button"

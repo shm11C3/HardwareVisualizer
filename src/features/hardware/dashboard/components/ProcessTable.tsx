@@ -9,7 +9,7 @@ import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { type ProcessInfo, commands } from "@/rspc/bindings";
-import { ArrowsOut, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { ArrowsOutIcon, CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { atom, useAtom, useSetAtom } from "jotai";
@@ -119,7 +119,7 @@ export const ProcessesTable = () => {
               type="button"
               className="flex w-full cursor-pointer items-center justify-center hover:text-zinc-600 focus:outline-hidden dark:text-gray-400 dark:hover:text-white"
             >
-              <ArrowsOut size={28} />
+              <ArrowsOutIcon size={28} />
             </DialogTrigger>
           </div>
         </div>
@@ -169,8 +169,8 @@ const InfoTable = ({
   const { t } = useTranslation();
 
   const sortIcon: Record<"ascending" | "descending", JSX.Element> = {
-    ascending: <CaretUp className="ml-1" size={18} />,
-    descending: <CaretDown className="ml-1" size={18} />,
+    ascending: <CaretUpIcon className="ml-1" size={18} />,
+    descending: <CaretDownIcon className="ml-1" size={18} />,
   };
 
   return (
