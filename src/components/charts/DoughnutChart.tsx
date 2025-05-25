@@ -4,7 +4,11 @@ import { minOpacity } from "@/consts/style";
 import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings } from "@/features/settings/types/settingsType";
-import { Lightning, Speedometer, Thermometer } from "@phosphor-icons/react";
+import {
+  LightningIcon,
+  SpeedometerIcon,
+  ThermometerIcon,
+} from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -58,9 +62,9 @@ export const DoughnutChart = ({
   ];
 
   const dataTypeIcons: Record<HardwareDataType, JSX.Element> = {
-    usage: <Lightning className="mr-1" size={12} weight="duotone" />,
-    temp: <Thermometer className="mr-1" size={12} weight="duotone" />,
-    clock: <Speedometer className="mr-1" size={12} weight="duotone" />,
+    usage: <LightningIcon className="mr-1" size={12} weight="duotone" />,
+    temp: <ThermometerIcon className="mr-1" size={12} weight="duotone" />,
+    clock: <SpeedometerIcon className="mr-1" size={12} weight="duotone" />,
   };
 
   return (

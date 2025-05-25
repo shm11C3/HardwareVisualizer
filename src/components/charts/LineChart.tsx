@@ -12,7 +12,7 @@ import {
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { LineGraphType } from "@/rspc/bindings";
-import { Cpu, GraphicsCard, Memory } from "@phosphor-icons/react";
+import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -101,18 +101,24 @@ export const SingleLineChart = ({
   const legendItems: Record<ChartDataType, LegendItem> = {
     cpu: {
       label: "CPU",
-      icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
+      icon: <CpuIcon size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
     },
     memory: {
       label: "RAM",
       icon: (
-        <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
+        <MemoryIcon
+          size={20}
+          color={`rgb(${settings.lineGraphColor.memory})`}
+        />
       ),
     },
     gpu: {
       label: "GPU",
       icon: (
-        <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
+        <GraphicsCardIcon
+          size={20}
+          color={`rgb(${settings.lineGraphColor.gpu})`}
+        />
       ),
     },
   };
@@ -190,12 +196,15 @@ const MixLineChart = ({
   }));
 
   const iconMap: Record<string, JSX.Element> = {
-    cpu: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
+    cpu: <CpuIcon size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
     memory: (
-      <Memory size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
+      <MemoryIcon size={20} color={`rgb(${settings.lineGraphColor.memory})`} />
     ),
     gpu: (
-      <GraphicsCard size={20} color={`rgb(${settings.lineGraphColor.gpu})`} />
+      <GraphicsCardIcon
+        size={20}
+        color={`rgb(${settings.lineGraphColor.gpu})`}
+      />
     ),
   };
 

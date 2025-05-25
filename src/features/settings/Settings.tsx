@@ -43,7 +43,11 @@ import {
   type LineGraphType,
   commands,
 } from "@/rspc/bindings";
-import { ArrowSquareOut, DotOutline, GithubLogo } from "@phosphor-icons/react";
+import {
+  ArrowSquareOutIcon,
+  DotOutlineIcon,
+  GithubLogoIcon,
+} from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useAtom, useSetAtom } from "jotai";
@@ -196,7 +200,7 @@ const SettingLineChartSize = () => {
       />
       <div className="mt-2 flex items-center justify-between text-sm">
         {sizeOptions.map((size) => (
-          <DotOutline
+          <DotOutlineIcon
             key={size}
             className="text-slate-600 dark:text-gray-400"
             size={32}
@@ -633,9 +637,9 @@ const About = () => {
           }
           className="rounded-full text-sm"
         >
-          <GithubLogo size={32} />
+          <GithubLogoIcon size={32} />
           <span className="px-1">{t("pages.settings.about.checkGitHub")}</span>
-          <ArrowSquareOut size={16} />
+          <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
           onClick={() =>
@@ -648,7 +652,7 @@ const About = () => {
           <span className="px-1">
             {t("pages.settings.about.checkLatestVersion")}
           </span>
-          <ArrowSquareOut size={16} />
+          <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
           onClick={() =>
@@ -659,7 +663,7 @@ const About = () => {
           className="rounded-full text-sm"
         >
           <span className="px-1">{t("pages.settings.about.license")}</span>
-          <ArrowSquareOut size={16} />
+          <ArrowSquareOutIcon size={16} />
         </Button>
       </div>
     </div>
