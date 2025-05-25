@@ -7,6 +7,7 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import { type NameValue, type Result, commands } from "@/rspc/bindings";
@@ -20,7 +21,10 @@ import { useEffect } from "react";
 export const useUsageUpdater = (dataType: ChartDataType) => {
   type AtomActionMapping = {
     atom: PrimitiveAtom<number[]>;
-    action: () => Promise<number> | Promise<Result<number, string>>;
+    action: () =>
+      | Promise<number>
+      | Promise<Result<number, string>>
+      | Promise<number[]>;
   };
 
   const mapping: Record<ChartDataType, AtomActionMapping> = {
@@ -35,6 +39,10 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
     gpu: {
       atom: graphicUsageHistoryAtom,
       action: commands.getGpuUsage,
+    },
+    processors: {
+      atom: processorsUsageHistoryAtom,
+      action: commands.getProcessorsUsage,
     },
   };
 
@@ -69,7 +77,7 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
 };
 
 export const useHardwareUpdater = (
-  hardType: Exclude<ChartDataType, "memory">,
+  hardType: Exclude<ChartDataType, "memory" | "processors">,
   dataType: "temp" | "fan",
 ) => {
   type AtomActionMapping = {
@@ -78,7 +86,7 @@ export const useHardwareUpdater = (
   };
 
   const mapping: Record<
-    Exclude<ChartDataType, "memory">,
+    Exclude<ChartDataType, "memory" | "processors">,
     Record<"temp" | "fan", AtomActionMapping>
   > = {
     cpu: {

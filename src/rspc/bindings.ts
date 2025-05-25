@@ -74,6 +74,9 @@ async getGpuUsage() : Promise<Result<number, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getProcessorsUsage() : Promise<number[]> {
+    return await TAURI_INVOKE("get_processors_usage");
+},
 /**
  * ## GPU温度を取得
  * 

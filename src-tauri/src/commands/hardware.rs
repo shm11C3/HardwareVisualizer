@@ -86,6 +86,16 @@ pub fn get_cpu_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
   usage.round() as i32
 }
 
+#[command]
+#[specta::specta]
+pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Vec<f32> {
+  let system = state.system.lock().unwrap();
+  let cpus = system.cpus();
+
+  // 各プロセッサのCPU使用率を取得
+  cpus.iter().map(|cpu| cpu.cpu_usage()).collect()
+}
+
 ///
 /// ## システム情報を取得
 ///

@@ -50,6 +50,7 @@ const Page = () => {
   useUsageUpdater("cpu");
   useUsageUpdater("memory");
   useUsageUpdater("gpu");
+  useUsageUpdater("processors");
   useHardwareUpdater("gpu", "temp");
   useHardwareUpdater("gpu", "fan");
 
