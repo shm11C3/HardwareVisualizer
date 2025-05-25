@@ -1,6 +1,7 @@
 export type SelectedDisplayType =
   | "dashboard"
   | "usage"
+  | "cpuDetail"
   | "insights"
   | "settings";
 

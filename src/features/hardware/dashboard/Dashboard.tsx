@@ -3,6 +3,7 @@ import {
   type StorageBarChartData,
 } from "@/components/charts/Bar";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
+import { InfoTable } from "@/components/shared/InfoTable";
 import {
   Accordion,
   AccordionContent,
@@ -37,32 +38,6 @@ import { type JSX, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { MiniLineChart } from "./components/MiniLineChart";
-
-const InfoTable = ({ data }: { data: { [key: string]: string | number } }) => {
-  const { settings } = useSettingsAtom();
-
-  return (
-    <div
-      className="grid grid-cols-2 gap-2 px-4 pt-2 pb-4 "
-      style={{
-        opacity:
-          settings.selectedBackgroundImg != null
-            ? Math.max(
-                (1 - settings.backgroundImgOpacity / 100) ** 2,
-                minOpacity,
-              )
-            : 1,
-      }}
-    >
-      {Object.keys(data).map((key) => (
-        <div key={key}>
-          <p className="text-slate-900 text-sm dark:text-slate-400">{key}</p>
-          <p>{data[key]}</p>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const DataArea = ({
   children,

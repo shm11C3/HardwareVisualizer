@@ -65,6 +65,7 @@ pub fn run() {
     hardware::get_memory_info_detail_linux,
     hardware::get_memory_usage,
     hardware::get_gpu_usage,
+    hardware::get_processors_usage,
     hardware::get_gpu_temperature,
     hardware::get_nvidia_gpu_cooler,
     hardware::get_cpu_usage_history,

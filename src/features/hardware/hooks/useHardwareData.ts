@@ -7,6 +7,7 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import { type NameValue, type Result, commands } from "@/rspc/bindings";
@@ -19,8 +20,11 @@ import { useEffect } from "react";
  */
 export const useUsageUpdater = (dataType: ChartDataType) => {
   type AtomActionMapping = {
-    atom: PrimitiveAtom<number[]>;
-    action: () => Promise<number> | Promise<Result<number, string>>;
+    atom: PrimitiveAtom<number[]> | PrimitiveAtom<number[][]>;
+    action: () =>
+      | Promise<number>
+      | Promise<Result<number, string>>
+      | Promise<number[]>;
   };
 
   const mapping: Record<ChartDataType, AtomActionMapping> = {
@@ -36,6 +40,10 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
       atom: graphicUsageHistoryAtom,
       action: commands.getGpuUsage,
     },
+    processors: {
+      atom: processorsUsageHistoryAtom,
+      action: commands.getProcessorsUsage,
+    },
   };
 
   const setHistory = useSetAtom(mapping[dataType].atom);
@@ -48,7 +56,17 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
       if (isResult(result) && isError(result)) return;
       const usage = isResult(result) ? result.data : result;
 
-      setHistory((prev) => {
+      // CPUやGPUの使用率は配列で返されることがある
+      if (Array.isArray(usage)) {
+        setHistory((prev: number[][]) => {
+          const newHistory = [...prev, usage];
+          return newHistory.slice(-chartConfig.historyLengthSec);
+        });
+        return;
+      }
+
+      // 単一の数値の場合はそのまま履歴に追加
+      setHistory((prev: number[]) => {
         const newHistory = [...prev, usage];
 
         // 履歴保持数に満たない場合は0で埋める
@@ -69,7 +87,7 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
 };
 
 export const useHardwareUpdater = (
-  hardType: Exclude<ChartDataType, "memory">,
+  hardType: Exclude<ChartDataType, "memory" | "processors">,
   dataType: "temp" | "fan",
 ) => {
   type AtomActionMapping = {
@@ -78,7 +96,7 @@ export const useHardwareUpdater = (
   };
 
   const mapping: Record<
-    Exclude<ChartDataType, "memory">,
+    Exclude<ChartDataType, "memory" | "processors">,
     Record<"temp" | "fan", AtomActionMapping>
   > = {
     cpu: {

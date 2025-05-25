@@ -33,7 +33,7 @@ pub fn get_cpu_info(system: MutexGuard<'_, System>) -> Result<CpuInfo, String> {
   let cpu_info = CpuInfo {
     name: cpus[0].brand().to_string(),
     vendor: utils::formatter::format_vendor_name(cpus[0].vendor_id()),
-    core_count: cpus.len() as u32,
+    core_count: sysinfo::System::physical_core_count().unwrap_or(0) as u32,
     clock: cpus[0].frequency() as u32,
     clock_unit: "MHz".to_string(),
     cpu_name: cpus[0].name().to_string(),

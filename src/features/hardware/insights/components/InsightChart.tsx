@@ -50,6 +50,7 @@ export const InsightChart = ({
   return (
     <div className="h-full w-full">
       <SingleLineChart
+        className="mt-5"
         labels={labels}
         chartData={chartData}
         dataType={hardwareType}
@@ -142,6 +143,7 @@ export const GpuInsightChart = ({
   return (
     <div className="h-full w-full">
       <SingleLineChart
+        className="mt-5"
         labels={labels}
         chartData={chartData}
         dataType={dataType}

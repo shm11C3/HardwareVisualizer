@@ -1,13 +1,24 @@
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
-import { CaretDoubleLeft, CaretDoubleRight } from "@phosphor-icons/react";
-import { ChartLine, Cpu, Gear, SquaresFour } from "@phosphor-icons/react";
+import {
+  CaretDoubleLeft,
+  CaretDoubleRight,
+  ComputerTowerIcon,
+  CpuIcon,
+} from "@phosphor-icons/react";
+import { ChartLine, Gear, SquaresFour } from "@phosphor-icons/react";
 import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { useMenu } from "./hooks/useMenu";
 
-const menuTypes = ["dashboard", "usage", "insights", "settings"] as const;
+const menuTypes = [
+  "dashboard",
+  "usage",
+  "cpuDetail",
+  "insights",
+  "settings",
+] as const;
 
 const buttonClasses = tv({
   base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all cursor-pointer z-20",
@@ -69,13 +80,15 @@ const MenuItem = memo(
     const menuTitles: Record<SelectedDisplayType, string> = {
       dashboard: t("pages.dashboard.name"),
       usage: t("pages.usage.name"),
+      cpuDetail: "CPU",
       insights: t("pages.insights.name"),
       settings: t("pages.settings.name"),
     };
 
     const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
       dashboard: <SquaresFour size={20} />,
-      usage: <Cpu size={20} />,
+      usage: <ComputerTowerIcon size={20} />,
+      cpuDetail: <CpuIcon size={20} />,
       insights: <ChartLine size={20} />,
       settings: <Gear size={20} />,
     };
@@ -117,7 +130,8 @@ const ClosedSideMenu = ({
 }) => {
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: <SquaresFour size={24} />,
-    usage: <Cpu size={24} />,
+    usage: <ComputerTowerIcon size={24} />,
+    cpuDetail: <CpuIcon size={24} />,
     insights: <ChartLine size={24} />,
     settings: <Gear size={24} />,
   };
