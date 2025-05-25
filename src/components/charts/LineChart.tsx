@@ -28,7 +28,7 @@ type ChartProps = {
 
 type SingleChartProps = {
   chartData: (number | null)[];
-  dataType: Exclude<ChartDataType, "processors"> | GpuDataType;
+  dataType: ChartDataType | GpuDataType;
   lineGraphMix: false;
 } & ChartProps;
 
@@ -105,10 +105,7 @@ export const SingleLineChart = ({
     [dataKey]: chartData[index],
   }));
 
-  const legendItems: Record<
-    Exclude<ChartDataType, "processors">,
-    LegendItem
-  > = {
+  const legendItems: Record<ChartDataType, LegendItem> = {
     cpu: {
       label: "CPU",
       icon: <Cpu size={20} color={`rgb(${settings.lineGraphColor.cpu})`} />,
@@ -285,10 +282,7 @@ export const LineChartComponent = (
   const { settings } = useSettingsAtom();
   const { lineGraphMix } = props;
 
-  const chartConfig: Record<
-    Exclude<ChartDataType, "processors">,
-    { label: string; color: string }
-  > = {
+  const chartConfig: Record<ChartDataType, { label: string; color: string }> = {
     cpu: {
       label: "CPU",
       color: settings.lineGraphColor.cpu,

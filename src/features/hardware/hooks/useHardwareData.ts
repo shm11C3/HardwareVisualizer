@@ -9,7 +9,10 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
+import type {
+  ChartDataHardwareType,
+  ChartDataType,
+} from "@/features/hardware/types/hardwareDataType";
 import { type NameValue, type Result, commands } from "@/rspc/bindings";
 import { isError, isOk, isResult } from "@/types/result";
 import { type PrimitiveAtom, useSetAtom } from "jotai";
@@ -18,7 +21,7 @@ import { useEffect } from "react";
 /**
  * ハードウェア使用率の履歴を更新する
  */
-export const useUsageUpdater = (dataType: ChartDataType) => {
+export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
   type AtomActionMapping = {
     atom: PrimitiveAtom<number[]> | PrimitiveAtom<number[][]>;
     action: () =>
@@ -27,7 +30,7 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
       | Promise<number[]>;
   };
 
-  const mapping: Record<ChartDataType, AtomActionMapping> = {
+  const mapping: Record<ChartDataHardwareType, AtomActionMapping> = {
     cpu: {
       atom: cpuUsageHistoryAtom,
       action: commands.getCpuUsage,
@@ -87,7 +90,7 @@ export const useUsageUpdater = (dataType: ChartDataType) => {
 };
 
 export const useHardwareUpdater = (
-  hardType: Exclude<ChartDataType, "memory" | "processors">,
+  hardType: Exclude<ChartDataType, "memory">,
   dataType: "temp" | "fan",
 ) => {
   type AtomActionMapping = {
@@ -96,7 +99,7 @@ export const useHardwareUpdater = (
   };
 
   const mapping: Record<
-    Exclude<ChartDataType, "memory" | "processors">,
+    Exclude<ChartDataType, "memory">,
     Record<"temp" | "fan", AtomActionMapping>
   > = {
     cpu: {
