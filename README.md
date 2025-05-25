@@ -17,24 +17,24 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 | OS      | Status                                                                       |
 | ------- | ---------------------------------------------------------------------------- |
 | Windows | ✅ [Download](https://github.com/shm11C3/HardwareVisualizer/releases/latest) |
-| MacOS   | ⏳                                                                           |
-| Linux   | ⏳                                                                           |
+| MacOS   | 🔒 Planned (No ETA - No test device)                                         |
+| Linux   | 🛠️ Coming Soon                                                               |
 
 ## Features
 
-| Feature                   | Status |
-| ------------------------- | ------ |
-| CPU Usage Monitoring      | ✅     |
-| RAM Usage Monitoring      | ✅     |
-| GPU Usage Monitoring      | ✅     |
-| Temperature Monitoring    | ⏳     |
-| Fan Monitoring            | ⏳     |
-| Storage Monitoring        | ✅     |
-| Network Monitoring        | ✅     |
-| Customizable Chart Themes | ✅     |
-| Customizable Dashboard    | ⏳     |
-| Custom Background Image   | ✅     |
-| Insights (Hardware Data History)     | ✅     |
+| Feature                          | Status |
+| -------------------------------- | ------ |
+| CPU Usage Monitoring             | ✅     |
+| RAM Usage Monitoring             | ✅     |
+| GPU Usage Monitoring             | ✅     |
+| Temperature Monitoring           | ⏳     |
+| Fan Monitoring                   | ⏳     |
+| Storage Monitoring               | ✅     |
+| Network Monitoring               | ✅     |
+| Customizable Chart Themes        | ✅     |
+| Customizable Dashboard           | ⏳     |
+| Custom Background Image          | ✅     |
+| Insights (Hardware Data History) | ✅     |
 
 ## Screenshots
 
@@ -59,17 +59,15 @@ Usage rates are calculated on a minute-by-minute basis.
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-*GPU Insight is available on Nvidia GPU only.
+\*GPU Insight is available on Nvidia GPU only.
 
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
-
 
 ### Custom Graph
 
 Flexible graph customization available.
 
 ![image](https://github.com/user-attachments/assets/b6b2436b-c4c7-4252-9654-c5f2ca89e499)
-
 
 ### Background Image
 
@@ -104,6 +102,12 @@ rustc 1.85.0 (4d91de4e4 2025-02-17)
 ```
 
 ### Getting Started
+
+- Install Linux build dependencies
+
+```bash
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+```
 
 - Install dependencies:
 
@@ -141,3 +145,18 @@ rustc 1.85.0 (4d91de4e4 2025-02-17)
    npm run test:unit # frontend unit tests
    npm run test:tauri # rust tests
   ```
+
+## Tips
+
+### Launching the app by Linux command line
+
+You can launch the app by running the following command in the terminal:
+
+```bash
+sudo hardware-visualizer
+```
+> [!NOTE]
+> 🔒 sudo is required to access certain system information such as CPU, memory, or GPU stats.
+
+This works on both native Linux and WSL (Windows Subsystem for Linux) with GUI support (WSLg).
+If installed correctly, a Tauri window will open on execution.

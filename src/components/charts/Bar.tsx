@@ -7,6 +7,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { SizeUnit } from "@/rspc/bindings";
+import { platform } from "@tauri-apps/plugin-os";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -26,6 +28,7 @@ export const StorageBarChart = ({
   unit: SizeUnit;
 }) => {
   const { t } = useTranslation();
+  const os = useMemo(() => platform(), []);
 
   const StorageChartConfig: Record<
     (typeof chartKey)[number],
@@ -42,21 +45,33 @@ export const StorageBarChart = ({
   } satisfies ChartConfig;
 
   return (
-    <ChartContainer config={StorageChartConfig}>
-      <BarChart layout="vertical" width={500} height={400} data={chartData}>
+    <ChartContainer className="max-w-[700px]" config={StorageChartConfig}>
+      <BarChart layout="vertical" data={chartData}>
         <CartesianGrid horizontal={false} />
         <XAxis type="number" tickLine={false} axisLine={false} />
         <YAxis
+          width={os === "windows" ? 30 : 80}
           dataKey="label"
           type="category"
           tickLine={false}
-          tickMargin={10}
+          tickMargin={8}
           axisLine={false}
+          tick={({ x, y, payload }) => {
+            const label = payload.value as string;
+            const truncated =
+              label.length > 8 ? `${label.slice(0, 8)}...` : label;
+
+            return (
+              <text x={x} y={y} dy={4} textAnchor="end" fill="#666">
+                <title>{label}</title>
+                {truncated}
+              </text>
+            );
+          }}
         />
         <ChartTooltip
           content={
             <ChartTooltipContent
-              hideLabel
               showTotalValue
               totalLabel={`Total (${unit})`}
             />

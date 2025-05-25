@@ -38,7 +38,16 @@
     "shortDescription": "",
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [
+          "intel-gpu-tools",
+          "dmidecode",
+          "lm-sensors",
+          "pkexec",
+          "policykit-1"
+        ],
+        "files": {
+          "/usr/share/polkit-1/actions/com.HardwareVisualizer.app.policy": "./assets/deb/com.HardwareVisualizer.app.policy"
+        }
       }
     }
   },
@@ -49,6 +58,16 @@
   "plugins": {
     "sql": {
       "preload": ["sqlite:hv-database.db"]
+    },
+    "updater": {
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0OTdGNThBQTc0MTNFQ0UKUldUT1BrR25pdldYMU9tK2NCakpSRjdJaFhibDhDVzNnSW9RMmNoZzZpVGducGs5Y2xJbDdGMWEK",
+      "endpoints": [
+        "https://github.com/shm11C3/HardwareVisualizer/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "install_mode": "passive"
+      }
     }
   },
   "app": {
