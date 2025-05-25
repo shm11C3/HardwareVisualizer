@@ -45,9 +45,35 @@ jobs:
         include:
           - platform: "windows-latest"
             args: ""
+          - platform: "ubuntu-22.04"
+            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libfuse2 \
+            libappindicator3-dev \
+            patchelf
+
+      - name: Fix linuxdeploy permissions
+        if: matrix.platform == 'ubuntu-22.04'
+        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+
+      - name: Unset problematic env vars
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          unset GTK_PATH
+          unset LD_LIBRARY_PATH
+
       - uses: actions/checkout@v4
 
       - name: Cache Node.js modules
@@ -95,6 +121,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: "v__VERSION__"
@@ -109,6 +137,9 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
         run: npm run tauri bundle -- --config src-tauri/tauri.microsoftstore.conf.json
         shell: bash
 

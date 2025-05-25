@@ -1,6 +1,7 @@
 {
   "shared": {
     "usage": "Usage",
+    "usageValue": "Usage",
     "cpuUsage": "CPU Usage",
     "memoryUsage": "Memory Usage",
     "avgCpuUsage": "Avg CPU Usage",
@@ -10,6 +11,7 @@
     "name": "Name",
     "vendor": "Vendor",
     "coreCount": "Core Count",
+    "threadCount": "Thread Count",
     "defaultClockSpeed": "Default Clock Speed",
     "memory": "Memory",
     "memorySize": "Memory Size",
@@ -17,12 +19,14 @@
     "memorySizeDedicated": "Memory Size (Dedicated)",
     "memorySizeSharedUsage": "Shared GPU Memory Usage ",
     "memorySizeDedicatedUsage": "Dedicated GPU Memory Usage",
+    "loadDetailedInfo": "Load detailed info",
     "memoryType": "Memory Type",
     "totalMemory": "Total Memory",
     "memoryCount": "Memory Count",
     "memoryClockSpeed": "Memory Clock",
     "clock": "Clock",
     "process": "Process",
+    "processCount": "Process Count",
     "reset": "Reset",
     "storage": "Storage",
     "network": "Network",
@@ -174,5 +178,9 @@
       "success": "Success",
       "unexpected": "Unexpected Error"
     }
+  },
+  "lang": {
+    "en": "English",
+    "ja": "Japanese"
   }
 }

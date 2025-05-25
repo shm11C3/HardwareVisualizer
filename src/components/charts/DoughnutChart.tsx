@@ -6,6 +6,7 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings } from "@/features/settings/types/settingsType";
 import {
   LightningIcon,
+  MemoryIcon,
   SpeedometerIcon,
   ThermometerIcon,
 } from "@phosphor-icons/react";
@@ -19,7 +20,24 @@ import {
   RadialBarChart,
 } from "recharts";
 
-const dataType2Units = (dataType: HardwareDataType, settings: Settings) => {
+type DoughnutChartProps =
+  | {
+      chartValue: number;
+      usagePercentage: number;
+      dataType: "memoryUsageValue";
+      unit: string;
+    }
+  | {
+      chartValue: number;
+      dataType: Exclude<HardwareDataType, "memoryUsageValue">;
+      unit?: never;
+      usagePercentage?: never;
+    };
+
+const dataType2Units = (
+  dataType: Exclude<HardwareDataType, "memoryUsageValue">,
+  settings: Settings,
+) => {
   const units = {
     usage: "%",
     temp: settings.temperatureUnit === "C" ? "°C" : "°F",
@@ -32,10 +50,9 @@ const dataType2Units = (dataType: HardwareDataType, settings: Settings) => {
 export const DoughnutChart = ({
   chartValue,
   dataType,
-}: {
-  chartValue: number;
-  dataType: HardwareDataType;
-}) => {
+  unit,
+  usagePercentage,
+}: DoughnutChartProps) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
 
@@ -55,6 +72,10 @@ export const DoughnutChart = ({
       label: t("shared.clock"),
       color: "hsl(var(--chart-4))",
     },
+    memoryUsageValue: {
+      label: t("shared.usageValue"),
+      color: "hsl(var(--chart-5))",
+    },
   } satisfies ChartConfig;
 
   const chartData = [
@@ -65,6 +86,9 @@ export const DoughnutChart = ({
     usage: <LightningIcon className="mr-1" size={12} weight="duotone" />,
     temp: <ThermometerIcon className="mr-1" size={12} weight="duotone" />,
     clock: <SpeedometerIcon className="mr-1" size={12} weight="duotone" />,
+    memoryUsageValue: (
+      <MemoryIcon className="mr-1" size={12} weight="duotone" />
+    ),
   };
 
   return (
@@ -76,11 +100,15 @@ export const DoughnutChart = ({
         <RadialBarChart
           data={chartData}
           startAngle={0}
-          endAngle={
-            dataType === "temp" && settings.temperatureUnit === "F"
+          endAngle={(() => {
+            if (dataType === "memoryUsageValue") {
+              return usagePercentage * 3.6;
+            }
+
+            return dataType === "temp" && settings.temperatureUnit === "F"
               ? ((chartValue - 32) / 1.8) * 3.6 // 華氏から摂氏に換算し、100を最大値としてスケール
-              : chartValue * 3.6
-          }
+              : chartValue * 3.6;
+          })()}
           innerRadius={50}
           outerRadius={70}
         >
@@ -88,7 +116,7 @@ export const DoughnutChart = ({
             gridType="circle"
             radialLines={false}
             stroke="none"
-            className="first:fill-zinc-300 last:fill-zinc-200 dark:last:fill-gray-900 dark:first:fill-muted"
+            className="first:fill-zinc-300 last:fill-zinc-200/50 dark:last:fill-slate-950/70 dark:first:fill-muted"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
@@ -115,7 +143,7 @@ export const DoughnutChart = ({
                         dominantBaseline="middle"
                         className="fill-foreground font-bold text-2xl"
                       >
-                        {`${chartValue}${dataType2Units(dataType, settings)}`}
+                        {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings)}`}
                       </text>
                       {/* ラベルとアイコンの表示 */}
                       <foreignObject

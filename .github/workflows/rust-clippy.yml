@@ -11,12 +11,12 @@ name: rust-clippy analyze
 
 on:
   push:
-    branches: [ "develop", "master" ]
+    branches: ["develop", "develop-v*", "master"]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ "develop", "master" ]
+    branches: ["develop", "develop-v*", "master"]
   schedule:
-    - cron: '37 10 * * 4'
+    - cron: "37 10 * * 4"
 
 jobs:
   rust-clippy-analyze:
@@ -42,8 +42,7 @@ jobs:
         run: cargo install clippy-sarif sarif-fmt
 
       - name: Run rust-clippy
-        run:
-          cargo clippy
+        run: cargo clippy
           --manifest-path src-tauri/Cargo.toml
           --all-features
           --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt

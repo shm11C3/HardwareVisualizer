@@ -11,6 +11,7 @@ import {
   isChartDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import type { LineGraphType } from "@/rspc/bindings";
 import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
 import type { JSX } from "react";
@@ -46,7 +47,7 @@ const lineGraphType2RechartsCurveType: Record<LineGraphType, CurveType> = {
 };
 
 const graphVariants = tv({
-  base: "mt-5 mx-auto",
+  base: "mx-auto",
   variants: {
     size: {
       sm: "max-w-(--breakpoint-sm)",
@@ -82,6 +83,9 @@ export const SingleLineChart = ({
   lineGraphShowLegend,
   dataKey,
   range = [0, 100],
+  width,
+  height,
+  className,
 }: SingleChartProps & { chartConfig: ChartConfig } & {
   border: boolean;
   lineGraphShowScale: boolean;
@@ -90,6 +94,9 @@ export const SingleLineChart = ({
   lineGraphShowLegend: boolean;
   dataKey: string;
   range?: [number, number];
+  width?: number | string;
+  height?: number | string;
+  className?: string;
 }) => {
   const { settings } = useSettingsAtom();
 
@@ -125,10 +132,14 @@ export const SingleLineChart = ({
 
   // [TODO] 選択した範囲を横に移動できるようにする
   return (
-    <div className={graphVariants({ size })}>
+    <div className={cn(graphVariants({ size }), className)}>
       <ChartContainer
         className={chartAreaVariants({ border })}
         config={chartConfig}
+        style={{
+          ...(width && { width }),
+          ...(height && { height }),
+        }}
       >
         <AreaChart data={data}>
           <CartesianGrid horizontal={lineGraphShowScale} vertical={false} />
@@ -299,6 +310,7 @@ export const LineChartComponent = (
     <MixLineChart {...props} chartConfig={chartConfig} />
   ) : (
     <SingleLineChart
+      className="mt-5"
       {...props}
       chartConfig={chartConfig}
       border={settings.lineGraphBorder}
