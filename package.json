@@ -72,6 +72,7 @@
     "tailwind-merge": "^3.3.0",
     "tailwind-variants": "^1.0.0",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
     "zod": "^3.25.1"
   }
 }
