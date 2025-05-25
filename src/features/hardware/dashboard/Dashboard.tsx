@@ -20,6 +20,7 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
@@ -37,6 +38,7 @@ import { useAtom } from "jotai";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { useProcessInfo } from "../hooks/useProcessInfo";
 import { MiniLineChart } from "./components/MiniLineChart";
 
 const DataArea = ({
@@ -78,6 +80,8 @@ const CPUInfo = () => {
   const { t } = useTranslation();
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
+  const processes = useProcessInfo();
+  const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
 
   return (
     <>
@@ -96,8 +100,10 @@ const CPUInfo = () => {
             [t("shared.name")]: hardwareInfo.cpu.name,
             [t("shared.vendor")]: hardwareInfo.cpu.vendor,
             [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
+            [t("shared.threadCount")]: processorsUsageHistory[0]?.length || 0,
             [t("shared.defaultClockSpeed")]:
               `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
+            [t("shared.processCount")]: processes.length,
           }}
         />
       ) : (
