@@ -61,7 +61,7 @@ dirs = "6.0.0"
 tauri-plugin-os = "2"
 
 [dependencies.uuid]
-version = "1.16.0"
+version = "1.17.0"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
