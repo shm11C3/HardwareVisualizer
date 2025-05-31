@@ -17,10 +17,10 @@ pub fn init(log_dir: PathBuf) {
 
   let env_filter = if cfg!(debug_assertions) {
     // 開発環境 (デバッグビルド) の場合
-    EnvFilter::new("info")
+    EnvFilter::new("debug")
   } else {
     // リリース環境の場合
-    EnvFilter::new("warn")
+    EnvFilter::new("info")
   };
 
   let log = std::sync::Arc::new(std::fs::File::create(log_file).unwrap());
