@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "hardware_visualizer"
-version = "0.7.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
