@@ -37,7 +37,7 @@ pub mod commands {
     log_error!(
       "Failed to update settings file",
       "settings.rs",
-      Some(settings_json_path.display())
+      Some(settings_json_path.display().to_string())
     );
 
     window
