@@ -1,6 +1,6 @@
 use crate::structs::hardware::GraphicInfo;
 use crate::utils::{self};
-use crate::{log_debug, log_error, log_info, log_internal, log_warn};
+use crate::{log_debug, log_error, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
 use specta::Type;
@@ -17,12 +17,11 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
     let gpus = nvapi::PhysicalGpu::enumerate()?;
 
     if gpus.is_empty() {
-      log_warn!(
+      log_debug!(
         "not found",
         "get_nvidia_gpu_usage",
         Some("gpu is not found")
       );
-      tracing::warn!("gpu is not found");
       return Err(nvapi::Status::Error); // GPUが見つからない場合はエラーを返す
     }
 
@@ -45,7 +44,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
       }
     }
 
-    log_info!(
+    log_debug!(
       &format!("gpu_count: {:?}", gpu_count),
       "get_nvidia_gpu_usage",
       None::<&str>
@@ -90,13 +89,11 @@ pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Statu
     let gpus = nvapi::PhysicalGpu::enumerate()?;
 
     if gpus.is_empty() {
-      log_warn!(
+      log_debug!(
         "not found",
         "get_nvidia_gpu_temperature",
         Some("gpu is not found")
       );
-      tracing::warn!("gpu is not found");
-      return Err(nvapi::Status::Error); // GPUが見つからない場合はエラーを返す
     }
 
     let mut temperatures = Vec::new();
@@ -104,7 +101,7 @@ pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Statu
     for gpu in gpus.iter() {
       // 温度情報を取得
       let thermal_settings = gpu.thermal_settings(None).map_err(|e| {
-        log_warn!(
+        log_debug!(
           "thermal_settings_failed",
           "get_nvidia_gpu_temperature",
           Some(&format!("{:?}", e))
@@ -141,12 +138,11 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
     let gpus = nvapi::PhysicalGpu::enumerate()?;
 
     if gpus.is_empty() {
-      log_warn!(
+      log_debug!(
         "not found",
         "get_nvidia_gpu_cooler_stat",
         Some("gpu is not found")
       );
-      tracing::warn!("gpu is not found");
       return Err(nvapi::Status::Error); // GPUが見つからない場合はエラーを返す
     }
 
@@ -155,7 +151,7 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
     for gpu in gpus.iter() {
       // 温度情報を取得
       let cooler_settings = gpu.cooler_settings(None).map_err(|e| {
-        log_warn!(
+        log_debug!(
           "cooler_settings_failed",
           "get_nvidia_gpu_cooler_stat",
           Some(&format!("{:?}", e))
@@ -202,8 +198,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
     };
 
     if gpus.is_empty() {
-      log_warn!("not found", "get_nvidia_gpu_info", Some("gpu is not found"));
-      tracing::warn!("gpu is not found");
+      log_debug!("not found", "get_nvidia_gpu_info", Some("gpu is not found"));
     }
 
     let mut gpu_info_list = Vec::new();
