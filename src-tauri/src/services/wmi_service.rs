@@ -1,7 +1,7 @@
 use crate::structs::hardware::{MemoryInfo, NetworkInfo};
 use crate::utils;
 use crate::utils::formatter;
-use crate::{log_error, log_info, log_internal};
+use crate::{log_debug, log_error, log_internal};
 
 use regex::Regex;
 use serde::Deserialize;
@@ -45,7 +45,7 @@ pub async fn get_memory_info() -> Result<MemoryInfo, String> {
     .await
     .map_err(|e| format!("Join error: {e}"))??;
 
-  log_info!(
+  log_debug!(
     &format!("mem info: {:?}", physical_memory),
     "get_memory_info",
     None::<&str>
@@ -85,7 +85,7 @@ pub async fn get_gpu_usage_by_device_and_engine(
       "SELECT Name, UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine".to_string(),
   )?;
 
-  log_info!(
+  log_debug!(
     &format!("GPU engine usage data: {:?}", results),
     "get_gpu_usage_by_device_and_engine",
     None::<&str>
@@ -132,7 +132,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
     "SELECT Description, MACAddress, IPAddress, IPSubnet, DefaultIPGateway FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = TRUE".to_string(),
   )?;
 
-  log_info!(
+  log_debug!(
     &format!("Network adapter configuration data: {:?}", results),
     "get_network_info",
     None::<&str>
@@ -245,7 +245,7 @@ where
 /// ## MemoryTypeの値に対応するメモリの種類を文字列で返す
 ///
 fn get_memory_type_description(memory_type: Option<u16>) -> String {
-  log_info!(
+  log_debug!(
     &format!("mem type: {:?}", memory_type),
     "get_memory_type_description",
     None::<&str>

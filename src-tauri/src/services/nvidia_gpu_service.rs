@@ -1,6 +1,6 @@
 use crate::structs::hardware::GraphicInfo;
 use crate::utils::{self};
-use crate::{log_debug, log_error, log_info, log_internal, log_warn};
+use crate::{log_debug, log_error, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
 use specta::Type;
@@ -44,7 +44,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
       }
     }
 
-    log_info!(
+    log_debug!(
       &format!("gpu_count: {:?}", gpu_count),
       "get_nvidia_gpu_usage",
       None::<&str>
