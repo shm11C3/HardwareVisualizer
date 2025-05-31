@@ -7,6 +7,36 @@ pub fn init(log_dir: PathBuf) {
     fs::create_dir_all(&log_dir).expect("failed to create log directory");
   }
 
+  // --- ログ保持期間（日数）を定数で指定（3か月 = 90日） ---
+  const LOG_RETENTION_DAYS: i64 = 90;
+
+  // 古いログファイルを削除
+  if let Ok(entries) = fs::read_dir(&log_dir) {
+    let now = chrono::Local::now();
+    for entry in entries.flatten() {
+      let path = entry.path();
+      if !path.is_file() {
+        continue;
+      }
+      let metadata = match fs::metadata(&path) {
+        Ok(m) => m,
+        Err(_) => continue,
+      };
+      let modified = match metadata.modified() {
+        Ok(m) => m,
+        Err(_) => continue,
+      };
+      let modified: chrono::DateTime<chrono::Local> =
+        match chrono::DateTime::<chrono::Local>::from(modified) {
+          dt => dt,
+        };
+      let age = now.signed_duration_since(modified).num_days();
+      if age > LOG_RETENTION_DAYS {
+        let _ = fs::remove_file(&path);
+      }
+    }
+  }
+
   // ログファイル名を作成
   let now = Local::now();
   let formatted_date = now.format("%Y-%m-%d_%H-%M-%S").to_string();
