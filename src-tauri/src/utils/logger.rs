@@ -31,13 +31,7 @@ pub fn init(log_dir: PathBuf) {
 
       let age = now.signed_duration_since(modified).num_days();
       if age > LOG_RETENTION_DAYS {
-        if let Err(e) = fs::remove_file(&path) {
-            log_error!(
-                "remove_file",
-                "init",
-                Some(format!("Failed to remove file {}: {}", path.display(), e))
-            );
-        }
+        let _ = fs::remove_file(&path);
       }
     }
   }
