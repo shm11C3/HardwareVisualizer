@@ -26,10 +26,9 @@ pub fn init(log_dir: PathBuf) {
         Ok(m) => m,
         Err(_) => continue,
       };
-      let modified: chrono::DateTime<chrono::Local> =
-        match chrono::DateTime::<chrono::Local>::from(modified) {
-          dt => dt,
-        };
+
+      let modified = chrono::DateTime::<chrono::Local>::from(modified);
+
       let age = now.signed_duration_since(modified).num_days();
       if age > LOG_RETENTION_DAYS {
         let _ = fs::remove_file(&path);
