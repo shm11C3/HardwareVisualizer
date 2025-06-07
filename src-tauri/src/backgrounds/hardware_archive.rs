@@ -83,11 +83,8 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
 /// 指定された日数より古いデータを削除する
 ///
 pub async fn batch_delete_old_data(refresh_interval_days: u32) {
-  let deletion_result = tokio::runtime::Handle::current().block_on(
-    database::hardware_archive::delete_old_data(refresh_interval_days),
-  );
-
-  if let Err(e) = deletion_result {
+  if let Err(e) = database::hardware_archive::delete_old_data(refresh_interval_days).await
+  {
     log_error!(
       "Failed to delete old hardware archive data",
       "batch_delete_old_data",
@@ -95,11 +92,7 @@ pub async fn batch_delete_old_data(refresh_interval_days: u32) {
     );
   }
 
-  let deletion_result = tokio::runtime::Handle::current().block_on(
-    database::gpu_archive::delete_old_data(refresh_interval_days),
-  );
-
-  if let Err(e) = deletion_result {
+  if let Err(e) = database::gpu_archive::delete_old_data(refresh_interval_days).await {
     log_error!(
       "Failed to delete old GPU hardware archive data",
       "batch_delete_old_data",
@@ -107,9 +100,7 @@ pub async fn batch_delete_old_data(refresh_interval_days: u32) {
     );
   }
 
-  let deletion_result =
-    database::process_stats::delete_old_data(refresh_interval_days).await;
-  if let Err(e) = deletion_result {
+  if let Err(e) = database::process_stats::delete_old_data(refresh_interval_days).await {
     log_error!(
       "Failed to delete old process stats data",
       "batch_delete_old_data",

@@ -16,7 +16,6 @@ import { useScatterChartZoom } from "./hooks/useScatterChartZoom";
 
 export const ProcessBubbleChart = ({
   processStats,
-  loading,
 }: {
   processStats: ProcessStat[] | null;
   loading: boolean;
@@ -24,7 +23,7 @@ export const ProcessBubbleChart = ({
   const { t } = useTranslation();
 
   const chartData =
-    loading || processStats == null
+    processStats == null
       ? []
       : processStats.map((d) => {
           const rawZ = (d.avg_cpu_usage ?? 0) * d.total_execution_sec;

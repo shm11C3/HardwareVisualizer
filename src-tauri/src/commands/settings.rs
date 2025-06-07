@@ -2,6 +2,7 @@ use crate::enums;
 use crate::services;
 use crate::structs;
 use crate::utils;
+use crate::{log_error, log_internal};
 
 #[derive(Debug)]
 pub struct AppState {
@@ -17,6 +18,7 @@ impl AppState {
 }
 
 pub mod commands {
+
   use super::*;
   use serde_json::json;
   use tauri::{Emitter, EventTarget, Window};
@@ -31,6 +33,12 @@ pub mod commands {
   fn emit_error(window: &Window) -> Result<(), String> {
     let settings_json_path =
       utils::file::get_app_data_dir(services::setting_service::SETTINGS_FILENAME);
+
+    log_error!(
+      "Failed to update settings file",
+      "settings.rs",
+      Some(settings_json_path.display().to_string())
+    );
 
     window
       .emit_to(

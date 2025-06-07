@@ -1,7 +1,7 @@
 import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { formatBytes } from "@/lib/formatter";
-import { Cpu, Memory, Timer } from "@phosphor-icons/react";
+import { CpuIcon, MemoryIcon, TimerIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import type { TooltipProps } from "recharts";
 import type {
@@ -26,7 +26,7 @@ export const CustomTooltip = ({
         {data.name} (PID: {data.pid})
       </div>
       <div className="flex items-center gap-2">
-        <Timer size={16} color={bubbleChartColor} />
+        <TimerIcon size={16} color={bubbleChartColor} />
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.totalExecTime")}
         </span>
@@ -35,7 +35,7 @@ export const CustomTooltip = ({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <Cpu size={16} color={`rgb(${settings.lineGraphColor.cpu})`} />
+        <CpuIcon size={16} color={`rgb(${settings.lineGraphColor.cpu})`} />
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.avgCpuUsage")}
         </span>
@@ -44,7 +44,10 @@ export const CustomTooltip = ({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <Memory size={16} color={`rgb(${settings.lineGraphColor.memory})`} />
+        <MemoryIcon
+          size={16}
+          color={`rgb(${settings.lineGraphColor.memory})`}
+        />
         <span className="text-neutral-500 dark:text-neutral-400">
           {t("shared.avgMemoryUsageValue")}
         </span>

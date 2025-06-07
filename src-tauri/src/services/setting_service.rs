@@ -1,7 +1,7 @@
 use crate::enums;
 use crate::structs;
 use crate::utils;
-use crate::{log_error, log_internal};
+use crate::{log_error, log_info, log_internal};
 use std::io::Write;
 
 pub const SETTINGS_FILENAME: &str = "settings.json";
@@ -27,6 +27,12 @@ impl SettingActions for structs::settings::Settings {
     };
 
     if !config_dir.exists() {
+      log_info!(
+        "Creating configuration directory",
+        "write_file",
+        None::<&str>
+      );
+
       if let Err(e) = std::fs::create_dir_all(config_dir) {
         log_error!(
           "Failed to create configuration directory",

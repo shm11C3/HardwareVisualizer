@@ -7,6 +7,35 @@ pub fn init(log_dir: PathBuf) {
     fs::create_dir_all(&log_dir).expect("failed to create log directory");
   }
 
+  // --- ログ保持期間（日数）を定数で指定（3か月 = 90日） ---
+  const LOG_RETENTION_DAYS: i64 = 90;
+
+  // 古いログファイルを削除
+  if let Ok(entries) = fs::read_dir(&log_dir) {
+    let now = chrono::Local::now();
+    for entry in entries.flatten() {
+      let path = entry.path();
+      if !path.is_file() {
+        continue;
+      }
+      let metadata = match fs::metadata(&path) {
+        Ok(m) => m,
+        Err(_) => continue,
+      };
+      let modified = match metadata.modified() {
+        Ok(m) => m,
+        Err(_) => continue,
+      };
+
+      let modified = chrono::DateTime::<chrono::Local>::from(modified);
+
+      let age = now.signed_duration_since(modified).num_days();
+      if age > LOG_RETENTION_DAYS {
+        let _ = fs::remove_file(&path);
+      }
+    }
+  }
+
   // ログファイル名を作成
   let now = Local::now();
   let formatted_date = now.format("%Y-%m-%d_%H-%M-%S").to_string();
@@ -17,10 +46,10 @@ pub fn init(log_dir: PathBuf) {
 
   let env_filter = if cfg!(debug_assertions) {
     // 開発環境 (デバッグビルド) の場合
-    EnvFilter::new("info")
+    EnvFilter::new("debug")
   } else {
     // リリース環境の場合
-    EnvFilter::new("warn")
+    EnvFilter::new("info")
   };
 
   let log = std::sync::Arc::new(std::fs::File::create(log_file).unwrap());

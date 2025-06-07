@@ -11,6 +11,13 @@ import type {
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
+import {
+  ComputerTower,
+  Cpu,
+  Gear,
+  GraphicsCard,
+  Memory,
+} from "@phosphor-icons/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +25,7 @@ import { tv } from "tailwind-variants";
 import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { ProcessInsight } from "./process/ProcessInsight";
+import type { InsightType } from "./types/insight";
 
 const arrowButtonVariants = tv({
   base: "text-zinc-500 dark:text-zinc-400 cursor-pointer disabled:opacity-50 disabled:pointer-events-none h-40",
@@ -143,7 +151,13 @@ const MainInsights = () => {
               <Border key={`${data.type}-${data.stats}`}>
                 <>
                   <div className="flex items-center justify-between">
-                    <h3 className="py-3 font-bold text-2xl">
+                    <h3 className="flex items-center py-3 font-bold text-2xl">
+                      {
+                        {
+                          cpu: <Cpu className="pr-1" />,
+                          memory: <Memory className="pr-1" />,
+                        }[data.type]
+                      }
                       {t(`shared.${data.type}Usage`)} (
                       {t(`shared.${data.stats}`)})
                     </h3>
@@ -380,7 +394,8 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
               <Border key={`${data.type}-${data.stats}`}>
                 <>
                   <div className="flex items-center justify-between">
-                    <h3 className="py-3 font-bold text-2xl">
+                    <h3 className="flex items-center py-3 font-bold text-2xl">
+                      <GraphicsCard className="pr-1" />
                       {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)}
                       )
                     </h3>
@@ -435,6 +450,17 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
   );
 };
 
+const Icon = ({ type }: { type: InsightType }) => {
+  const iconMap: Record<InsightType, JSX.Element> = {
+    main: <ComputerTower size={32} />,
+
+    gpu: <GraphicsCard size={32} />,
+    process: <Gear size={32} />,
+  };
+
+  return iconMap[type];
+};
+
 export const Insights = () => {
   const { t } = useTranslation();
   const gpuNames = useGpuNames();
@@ -449,49 +475,64 @@ export const Insights = () => {
   }, [init]);
 
   const insightsChild: {
-    key: string;
+    type: InsightType;
+    name: string;
     element: JSX.Element;
   }[] = [
-    { key: "main", element: <MainInsights /> },
+    { name: "main", type: "main", element: <MainInsights /> },
     ...(gpuNames.length
-      ? gpuNames.map((v) => {
-          return {
-            key: v,
-            element: <GPUInsights gpuName={v} />,
-          };
-        })
+      ? gpuNames.map(
+          (
+            v,
+          ): {
+            type: "gpu";
+            name: string;
+            element: JSX.Element;
+          } => {
+            return {
+              type: "gpu",
+              name: v,
+              element: <GPUInsights gpuName={v} />,
+            };
+          },
+        )
       : []),
-    { key: "process", element: <ProcessInsight /> },
+    { type: "process", name: "process", element: <ProcessInsight /> },
   ];
 
   return (
     !isPending && (
       <Tabs
         value={
-          insightsChild.some((v) => v.key === displayTarget)
+          insightsChild.some((v) => v.name === displayTarget)
             ? displayTarget
             : "main"
         }
       >
         {insightsChild.length > 1 && (
-          <TabsList>
+          <TabsList className="sticky top-[8px] z-50 ml-1">
             {insightsChild.map((child) => {
-              const { key } = child;
+              const { name, type } = child;
               return (
                 <TabsTrigger
-                  key={key}
-                  value={key}
-                  onClick={() => setDisplayTarget(key)}
+                  key={name}
+                  value={name}
+                  onClick={() => setDisplayTarget(name)}
                 >
-                  {["main", "process"].includes(key)
-                    ? t(`pages.insights.${key}.title`, { defaultValue: key })
-                    : key}
+                  <>
+                    <Icon type={type} />
+                    {["main", "process"].includes(name)
+                      ? t(`pages.insights.${name}.title`, {
+                          defaultValue: name,
+                        })
+                      : name}
+                  </>
                 </TabsTrigger>
               );
             })}
           </TabsList>
         )}
-        {insightsChild.map(({ key, element }) => (
+        {insightsChild.map(({ name: key, element }) => (
           <TabsContent key={key} value={key}>
             {element}
           </TabsContent>
