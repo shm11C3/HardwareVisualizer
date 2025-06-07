@@ -4,7 +4,8 @@
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release">
   <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yml">
   <img alt="CI" src="https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop">
-  <img alt="Windows Support Only" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
+  <img alt="Supported Windows" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
+  <img alt="Supported Linux" src="https://img.shields.io/badge/platform-linux-orange?logo=linux">
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total">
 </p>
 
@@ -12,13 +13,15 @@
 
 HardwareVisualizer is a tool for real-time monitoring of your computer's hardware performance. It provides an intuitive dashboard, detailed usage graphs, and customizable settings to help you keep track of your system’s vital statistics.
 
+[Web Page](https://hardviz.com/)
+
 ## Supported OS
 
 | OS      | Status                                                                       |
 | ------- | ---------------------------------------------------------------------------- |
-| Windows | ✅ [Download](https://github.com/shm11C3/HardwareVisualizer/releases/latest) |
+| Windows | ✅ [Download](https://hardviz.com/#download)                                 |
 | MacOS   | 🔒 Planned (No ETA - No test device)                                         |
-| Linux   | 🛠️ Coming Soon                                                               |
+| Linux   | ✅ [Download](https://hardviz.com/#download)                                 |
 
 ## Features
 
@@ -42,13 +45,16 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 
 The current status of the hardware can be checked at a glance.
 
-![image](https://github.com/user-attachments/assets/afc91145-f4fd-4556-aca3-f24bd6c1be28)
+![image](https://github.com/user-attachments/assets/a578909a-5b85-4d3a-98cb-a885dc10eaec)
 
 ### Usage Graph
 
 The resource utilization for the last 1 minute can be checked.
 
 ![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
+
+![image](https://github.com/user-attachments/assets/7b786e00-12c0-4627-8b2a-cc3482072eb7)
+
 
 ### Insight
 
@@ -105,9 +111,9 @@ rustc 1.85.0 (4d91de4e4 2025-02-17)
 
 - Install Linux build dependencies
 
-```bash
-sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-```
+  ```bash
+  sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+  ```
 
 - Install dependencies:
 
