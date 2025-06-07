@@ -5,7 +5,7 @@
   <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yml">
   <img alt="CI" src="https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop">
   <img alt="Supported Windows" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
-  <img alt="Supported Linux" src="https://img.shields.io/badge/platform-linux-blue?logo=linux">
+  <img alt="Supported Linux" src="https://img.shields.io/badge/platform-linux-orange?logo=linux">
   <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total">
 </p>
 
