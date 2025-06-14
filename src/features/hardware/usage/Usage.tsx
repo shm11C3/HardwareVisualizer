@@ -93,7 +93,7 @@ const ChartTemplate = () => {
     );
   }, [settings]);
 
-  return <div className="p-8">{renderedCharts}</div>;
+  return <div className="ml-16 p-8">{renderedCharts}</div>;
 };
 
 export default ChartTemplate;
