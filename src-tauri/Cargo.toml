@@ -38,7 +38,7 @@ tracing-subscriber = { version = "0.3.19", default-features = true, features = [
     "env-filter",
 ] }
 chrono = "0.4.41"
-rust_decimal = "1.37.1"
+rust_decimal = "1.37.2"
 tauri-plugin-dialog = "2.2.2"
 tauri-plugin-store = "2.2.0"
 base64 = "0.22"
