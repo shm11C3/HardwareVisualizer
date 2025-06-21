@@ -27,11 +27,11 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
 import {
-  Cpu,
-  GraphicsCard,
-  HardDrives,
-  Memory,
-  Network,
+  CpuIcon,
+  GraphicsCardIcon,
+  HardDrivesIcon,
+  MemoryIcon,
+  NetworkIcon,
 } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
@@ -510,13 +510,15 @@ const Dashboard = () => {
     const fullList = [
       {
         key: "cpu",
-        icon: <Cpu size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />,
+        icon: (
+          <CpuIcon size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />
+        ),
         component: <CPUInfo />,
       },
       (hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0) && {
         key: "gpu",
         icon: (
-          <GraphicsCard
+          <GraphicsCardIcon
             size={24}
             color={`rgb(${settings.lineGraphColor.gpu})`}
           />
@@ -526,7 +528,10 @@ const Dashboard = () => {
       {
         key: "memory",
         icon: (
-          <Memory size={24} color={`rgb(${settings.lineGraphColor.memory})`} />
+          <MemoryIcon
+            size={24}
+            color={`rgb(${settings.lineGraphColor.memory})`}
+          />
         ),
         component: <MemoryInfo />,
       },
@@ -536,12 +541,12 @@ const Dashboard = () => {
       },
       {
         key: "storage",
-        icon: <HardDrives size={24} color="var(--color-storage)" />,
+        icon: <HardDrivesIcon size={24} color="var(--color-storage)" />,
         component: <StorageDataInfo />,
       },
       {
         key: "network",
-        icon: <Network size={24} color="oklch(74.6% 0.16 232.661)" />,
+        icon: <NetworkIcon size={24} color="oklch(74.6% 0.16 232.661)" />,
         component: <NetworkInfo />,
       },
     ].filter(
