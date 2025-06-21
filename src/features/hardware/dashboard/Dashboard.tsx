@@ -1,7 +1,21 @@
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
-import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  rectSortingStrategy,
+  rectSwappingStrategy,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   CpuIcon,
   GraphicsCardIcon,
@@ -9,86 +23,33 @@ import {
   MemoryIcon,
   NetworkIcon,
 } from "@phosphor-icons/react";
-import { type JSX, useEffect, useMemo,  } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
-import { CPUInfo, GPUInfo, MemoryInfo, NetworkInfo, StorageDataInfo } from "./components/DashboardItems";
-
+import {
+  CPUInfo,
+  GPUInfo,
+  MemoryInfo,
+  NetworkInfo,
+  StorageDataInfo,
+} from "./components/DashboardItems";
+import { SortableItem } from "./components/SortableItem";
+import { useSortableDashboard } from "./hooks/useSortableDashboard";
+import type { DashboardItemType } from "./types/dashboardItem";
 
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 export const Dashboard = () => {
-  const { init, hardwareInfo } = useHardwareInfoAtom();
+  const {
+    activeId,
+    dashboardItemMap,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDragCancel,
+  } = useSortableDashboard();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    init();
-  }, []);
-
-  // 表示対象のリストをフィルタしたうえで左右交互に振り分ける
-  const [hardwareInfoListLeft, hardwareInfoListRight] = useMemo(() => {
-    const fullList = [
-      {
-        key: "cpu",
-        icon: (
-          <CpuIcon size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />
-        ),
-        component: <CPUInfo />,
-      },
-      (hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0) && {
-        key: "gpu",
-        icon: (
-          <GraphicsCardIcon
-            size={24}
-            color={`rgb(${settings.lineGraphColor.gpu})`}
-          />
-        ),
-        component: <GPUInfo />,
-      },
-      {
-        key: "memory",
-        icon: (
-          <MemoryIcon
-            size={24}
-            color={`rgb(${settings.lineGraphColor.memory})`}
-          />
-        ),
-        component: <MemoryInfo />,
-      },
-      {
-        key: "process",
-        component: <ProcessesTable />,
-      },
-      {
-        key: "storage",
-        icon: <HardDrivesIcon size={24} color="var(--color-storage)" />,
-        component: <StorageDataInfo />,
-      },
-      {
-        key: "network",
-        icon: <NetworkIcon size={24} color="oklch(74.6% 0.16 232.661)" />,
-        component: <NetworkInfo />,
-      },
-    ].filter(
-      (
-        x,
-      ): x is { key: DataTypeKey; icon: JSX.Element; component: JSX.Element } =>
-        Boolean(x),
-    );
-
-    return fullList.reduce<[typeof fullList, typeof fullList]>(
-      ([left, right], item, index) => {
-        if (index % 2 === 0) {
-          left.push(item);
-        } else {
-          right.push(item);
-        }
-        return [left, right];
-      },
-      [[], []],
-    );
-  }, [hardwareInfo, settings.lineGraphColor]);
+  const sensors = useSensors(useSensor(PointerSensor));
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -98,46 +59,90 @@ export const Dashboard = () => {
     network: t("shared.network"),
   };
 
+  const dashboardItemKeyToItems: Record<
+    DashboardItemType,
+    { component: JSX.Element; icon?: JSX.Element }
+  > = {
+    cpu: {
+      icon: <CpuIcon size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />,
+      component: <CPUInfo />,
+    },
+    gpu: {
+      icon: (
+        <GraphicsCardIcon
+          size={24}
+          color={`rgb(${settings.lineGraphColor.gpu})`}
+        />
+      ),
+      component: <GPUInfo />,
+    },
+    memory: {
+      icon: (
+        <MemoryIcon
+          size={24}
+          color={`rgb(${settings.lineGraphColor.memory})`}
+        />
+      ),
+      component: <MemoryInfo />,
+    },
+    process: {
+      component: <ProcessesTable />,
+    },
+    storage: {
+      icon: <HardDrivesIcon size={24} color="var(--color-storage)" />,
+      component: <StorageDataInfo />,
+    },
+    network: {
+      icon: <NetworkIcon size={24} color="oklch(74.6% 0.16 232.661)" />,
+      component: <NetworkInfo />,
+    },
+  };
+
   return (
-    <div className="flex flex-wrap gap-4">
-      <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListLeft.map(({ key, icon, component }) =>
-          key !== "process" ? (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <SortableContext items={dashboardItemMap} strategy={rectSortingStrategy}>
+        <div className="grid grid-cols-2 gap-4">
+          {dashboardItemMap.map((key) => (
+            <SortableItem key={key} id={key}>
+              {key !== "process" ? (
+                <DataArea
+                  title={dataAreaKey2Title[key]}
+                  icon={dashboardItemKeyToItems[key].icon}
+                >
+                  {dashboardItemKeyToItems[key].component}
+                </DataArea>
+              ) : (
+                <div className="p-4">
+                  {dashboardItemKeyToItems[key].component}
+                </div>
+              )}
+            </SortableItem>
+          ))}
+        </div>
+      </SortableContext>
+
+      <DragOverlay adjustScale={false}>
+        {activeId ? (
+          <div className="opacity-80">
             <DataArea
-              key={`left-${key}`}
-              title={dataAreaKey2Title[key]}
-              icon={icon}
+              title={dataAreaKey2Title[activeId]}
+              icon={dashboardItemKeyToItems[activeId].icon}
             >
-              {component}
+              {dashboardItemKeyToItems[activeId].component}
             </DataArea>
-          ) : (
-            <div key={`left-${key}`} className="p-4">
-              {component}
-            </div>
-          ),
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-4">
-        {hardwareInfoListRight.map(({ key, icon, component }) =>
-          key !== "process" ? (
-            <DataArea
-              key={`right-${key}`}
-              title={dataAreaKey2Title[key]}
-              icon={icon}
-            >
-              {component}
-            </DataArea>
-          ) : (
-            <div key={`right-${key}`} className="p-4">
-              {component}
-            </div>
-          ),
-        )}
-      </div>
-    </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
-
 
 const DataArea = ({
   children,
