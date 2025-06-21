@@ -78,7 +78,7 @@ const MixUsageChart = () => {
   );
 };
 
-const ChartTemplate = () => {
+export const ChartTemplate = () => {
   const { settings } = useSettingsAtom();
 
   const renderedCharts = useMemo(() => {
@@ -95,5 +95,3 @@ const ChartTemplate = () => {
 
   return <div className="ml-16 p-8">{renderedCharts}</div>;
 };
-
-export default ChartTemplate;
