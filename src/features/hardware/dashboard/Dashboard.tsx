@@ -3,19 +3,12 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
-  DragOverlay,
   PointerSensor,
   closestCorners,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-  rectSortingStrategy,
-  rectSwappingStrategy,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import {
   CpuIcon,
   GraphicsCardIcon,
@@ -39,14 +32,7 @@ import type { DashboardItemType } from "./types/dashboardItem";
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 export const Dashboard = () => {
-  const {
-    activeId,
-    dashboardItemMap,
-    handleDragStart,
-    handleDragOver,
-    handleDragEnd,
-    handleDragCancel,
-  } = useSortableDashboard();
+  const { dashboardItemMap, handleDragOver } = useSortableDashboard();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
   const sensors = useSensors(useSensor(PointerSensor));
@@ -102,10 +88,7 @@ export const Dashboard = () => {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
       onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
     >
       <SortableContext items={dashboardItemMap} strategy={rectSortingStrategy}>
         <div className="grid grid-cols-2 gap-4">
@@ -127,19 +110,6 @@ export const Dashboard = () => {
           ))}
         </div>
       </SortableContext>
-
-      <DragOverlay adjustScale={false}>
-        {activeId ? (
-          <div className="opacity-80">
-            <DataArea
-              title={dataAreaKey2Title[activeId]}
-              icon={dashboardItemKeyToItems[activeId].icon}
-            >
-              {dashboardItemKeyToItems[activeId].component}
-            </DataArea>
-          </div>
-        ) : null}
-      </DragOverlay>
     </DndContext>
   );
 };
@@ -166,7 +136,7 @@ const DataArea = ({
             className,
           )}
         >
-          <div className="flex items-center pt-4 pb-2 pl-4">
+          <div className="flex items-center pt-4 pb-2 pl-10">
             {icon && <div className="mr-2 mb-0.5">{icon}</div>}
             {title && (
               <h3 className="align-middle font-bold text-xl">{title}</h3>
