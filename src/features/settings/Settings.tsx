@@ -697,7 +697,7 @@ const About = () => {
  *   - [ ] 自動スタートの設定
  *   - [x] バージョンの表記
  */
-const Settings = () => {
+export const Settings = () => {
   const { t } = useTranslation();
 
   return (
@@ -789,5 +789,3 @@ const Settings = () => {
     </>
   );
 };
-
-export default Settings;

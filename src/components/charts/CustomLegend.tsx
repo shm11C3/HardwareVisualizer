@@ -5,7 +5,7 @@ export type LegendItem = {
   icon: JSX.Element;
 };
 
-const CustomLegend = ({
+export const CustomLegend = ({
   item,
 }: {
   item: LegendItem;
@@ -19,5 +19,3 @@ const CustomLegend = ({
     </div>
   );
 };
-
-export default CustomLegend;

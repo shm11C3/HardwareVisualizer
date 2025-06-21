@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import Dashboard from "./features/hardware/dashboard/Dashboard";
-import ChartTemplate from "./features/hardware/usage/Usage";
+import { Dashboard } from "./features/hardware/dashboard/Dashboard";
+import { ChartTemplate } from "./features/hardware/usage/Usage";
 import "./index.css";
 import {
   useHardwareUpdater,
@@ -10,9 +10,9 @@ import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "./components/ErrorFallback";
-import ScreenTemplate from "./components/shared/ScreenTemplate";
+import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
-import Settings from "./features/settings/Settings";
+import { Settings } from "./features/settings/Settings";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
@@ -37,7 +37,7 @@ const onError = (error: Error, info: ErrorInfo) => {
   );
 };
 
-const Page = () => {
+export const App = () => {
   const { settings, loadSettings } = useSettingsAtom();
   const { toggle } = useDarkMode();
   const { backgroundImage: nextImage, initBackgroundImage } =
@@ -150,5 +150,3 @@ const Page = () => {
     </ErrorBoundary>
   );
 };
-
-export default Page;

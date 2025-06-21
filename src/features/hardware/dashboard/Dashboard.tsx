@@ -495,7 +495,7 @@ const NetworkInfo = () => {
 
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
-const Dashboard = () => {
+export const Dashboard = () => {
   const { init, hardwareInfo } = useHardwareInfoAtom();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
@@ -616,5 +616,3 @@ const Dashboard = () => {
     </div>
   );
 };
-
-export default Dashboard;
