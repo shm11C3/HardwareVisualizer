@@ -18,7 +18,7 @@ import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
-import { ChartLine, CpuIcon, Gear } from "@phosphor-icons/react";
+import { ChartLineIcon, CpuIcon, GearIcon } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
@@ -103,7 +103,7 @@ const Page = () => {
     ),
     insights: (
       <ScreenTemplate
-        icon={<ChartLine size={32} />}
+        icon={<ChartLineIcon size={32} />}
         title={t("pages.insights.name")}
       >
         <Insights />
@@ -111,7 +111,7 @@ const Page = () => {
     ),
     settings: (
       <ScreenTemplate
-        icon={<Gear size={32} />}
+        icon={<GearIcon size={32} />}
         title={t("pages.settings.name")}
       >
         <Settings />

@@ -12,11 +12,11 @@ import type {
 } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import {
-  ComputerTower,
-  Cpu,
-  Gear,
-  GraphicsCard,
-  Memory,
+  ComputerTowerIcon,
+  CpuIcon,
+  GearIcon,
+  GraphicsCardIcon,
+  MemoryIcon,
 } from "@phosphor-icons/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
@@ -154,8 +154,8 @@ const MainInsights = () => {
                     <h3 className="flex items-center py-3 font-bold text-2xl">
                       {
                         {
-                          cpu: <Cpu className="pr-1" />,
-                          memory: <Memory className="pr-1" />,
+                          cpu: <CpuIcon className="pr-1" />,
+                          memory: <MemoryIcon className="pr-1" />,
                         }[data.type]
                       }
                       {t(`shared.${data.type}Usage`)} (
@@ -395,7 +395,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
                 <>
                   <div className="flex items-center justify-between">
                     <h3 className="flex items-center py-3 font-bold text-2xl">
-                      <GraphicsCard className="pr-1" />
+                      <GraphicsCardIcon className="pr-1" />
                       {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)}
                       )
                     </h3>
@@ -452,10 +452,10 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
 
 const Icon = ({ type }: { type: InsightType }) => {
   const iconMap: Record<InsightType, JSX.Element> = {
-    main: <ComputerTower size={32} />,
+    main: <ComputerTowerIcon size={32} />,
 
-    gpu: <GraphicsCard size={32} />,
-    process: <Gear size={32} />,
+    gpu: <GraphicsCardIcon size={32} />,
+    process: <GearIcon size={32} />,
   };
 
   return iconMap[type];

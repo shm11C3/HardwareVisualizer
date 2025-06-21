@@ -1,7 +1,7 @@
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { cn } from "@/lib/utils";
 import { commands } from "@/rspc/bindings";
-import { X } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 export const FullscreenExitButton = ({
@@ -42,7 +42,7 @@ export const FullscreenExitButton = ({
           onClick={handleDecoration}
           aria-label="Exit Fullscreen"
         >
-          <X size={24} />
+          <XIcon size={24} />
         </button>
       </div>
     </div>
