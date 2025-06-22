@@ -4,7 +4,6 @@ export const dashBoardItemType = [
   "memory",
   "storage",
   "process",
-  "storage",
   "network",
 ] as const;
 
