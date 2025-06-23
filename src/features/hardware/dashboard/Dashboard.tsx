@@ -1,4 +1,16 @@
 import {
+  CpuIcon,
+  GraphicsCardIcon,
+  HardDrivesIcon,
+  MemoryIcon,
+  NetworkIcon,
+} from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
+import { useAtom } from "jotai";
+import { type JSX, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
+import {
   StorageBarChart,
   type StorageBarChartData,
 } from "@/components/charts/Bar";
@@ -26,18 +38,6 @@ import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
-import {
-  CpuIcon,
-  GraphicsCardIcon,
-  HardDrivesIcon,
-  MemoryIcon,
-  NetworkIcon,
-} from "@phosphor-icons/react";
-import { platform } from "@tauri-apps/plugin-os";
-import { useAtom } from "jotai";
-import { type JSX, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { tv } from "tailwind-variants";
 import { useProcessInfo } from "../hooks/useProcessInfo";
 import { MiniLineChart } from "./components/MiniLineChart";
 

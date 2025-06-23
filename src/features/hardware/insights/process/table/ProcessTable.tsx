@@ -1,18 +1,21 @@
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
+import { type JSX, memo, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
-import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
-import { type JSX, memo, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { tv } from "tailwind-variants";
 import type { ProcessStat } from "../types/processStats";
 
 export const ProcessTable = ({
   processStats,
   loading,
-}: { processStats: ProcessStat[] | null; loading: boolean }) => {
+}: {
+  processStats: ProcessStat[] | null;
+  loading: boolean;
+}) => {
   const { settings } = useSettingsAtom();
 
   const [sortConfig, setSortConfig] = useState<{

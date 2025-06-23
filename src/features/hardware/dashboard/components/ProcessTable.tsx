@@ -1,14 +1,4 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { minOpacity } from "@/consts/style";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { ProcessInfo } from "@/rspc/bindings";
-import {
   ArrowsOutIcon,
   CaretDownIcon,
   CaretUpIcon,
@@ -19,6 +9,16 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { minOpacity } from "@/consts/style";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { ProcessInfo } from "@/rspc/bindings";
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 

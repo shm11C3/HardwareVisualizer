@@ -1,3 +1,14 @@
+import {
+  ComputerTowerIcon,
+  CpuIcon,
+  GearIcon,
+  GraphicsCardIcon,
+  MemoryIcon,
+} from "@phosphor-icons/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { type JSX, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/features/hardware/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
@@ -11,17 +22,6 @@ import type {
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
-import {
-  ComputerTowerIcon,
-  CpuIcon,
-  GearIcon,
-  GraphicsCardIcon,
-  MemoryIcon,
-} from "@phosphor-icons/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { tv } from "tailwind-variants";
 import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { ProcessInsight } from "./process/ProcessInsight";

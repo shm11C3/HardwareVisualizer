@@ -1,11 +1,11 @@
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
   ask as showAsk,
   confirm as showConfirm,
   message as showMessage,
 } from "@tauri-apps/plugin-dialog";
 import { renderHook } from "@testing-library/react";
-import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 
 // react-i18next の useTranslation フックをモック化
 vi.mock("react-i18next", () => ({

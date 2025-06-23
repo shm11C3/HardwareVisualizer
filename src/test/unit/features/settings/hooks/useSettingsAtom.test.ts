@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 // src/test/unit/useSettingsAtom.test.ts
-import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 /**
  * モックの設定

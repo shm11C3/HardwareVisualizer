@@ -1,16 +1,19 @@
+import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { chartConfig as charConst } from "@/features/hardware/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { memo } from "react";
-import { useTranslation } from "react-i18next";
 import type { ChartDataType } from "../../types/hardwareDataType";
 
 export const MiniLineChart = memo(
   ({
     hardwareType,
     usage,
-  }: { hardwareType: ChartDataType; usage: number[] }) => {
+  }: {
+    hardwareType: ChartDataType;
+    usage: number[];
+  }) => {
     const { settings } = useSettingsAtom();
     const { t } = useTranslation();
 

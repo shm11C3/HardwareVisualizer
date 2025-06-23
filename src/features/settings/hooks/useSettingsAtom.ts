@@ -1,11 +1,11 @@
+import { atom, useAtom } from "jotai";
+import { useCallback } from "react";
 import { defaultColorRGB } from "@/features/hardware/consts/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import type { Settings } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ClientSettings, type Result, commands } from "@/rspc/bindings";
+import { type ClientSettings, commands, type Result } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-import { atom, useAtom } from "jotai";
-import { useCallback } from "react";
 
 const settingsAtom = atom<ClientSettings>({
   version: "0.0.0",

@@ -1,7 +1,7 @@
-import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ProcessInfo, commands } from "@/rspc/bindings";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { useEffect } from "react";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { commands, type ProcessInfo } from "@/rspc/bindings";
 
 const processesAtom = atom<ProcessInfo[]>([]);
 

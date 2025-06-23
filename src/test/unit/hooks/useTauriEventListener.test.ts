@@ -1,7 +1,7 @@
-import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import { message } from "@tauri-apps/plugin-dialog";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 
 // --- モックの設定 ---
 // テスト内でイベントリスナーのコールバックを保持するための変数

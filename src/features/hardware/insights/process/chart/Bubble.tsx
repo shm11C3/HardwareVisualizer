@@ -1,4 +1,3 @@
-import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import { useTranslation } from "react-i18next";
 import {
   CartesianGrid,
@@ -10,6 +9,7 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
+import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import type { ProcessStat } from "../types/processStats";
 import { CustomTooltip } from "./components/CustomTooltip";
 import { useScatterChartZoom } from "./hooks/useScatterChartZoom";

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type archivePeriods,
   chartConfig,
@@ -14,7 +15,6 @@ import type {
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { HardwareType } from "@/rspc/bindings";
-import { useCallback, useEffect, useMemo, useState } from "react";
 
 // 各タイプに合わせた集計関数の定義
 const aggregatorMap: Record<DataStats, (values: number[]) => number> = {

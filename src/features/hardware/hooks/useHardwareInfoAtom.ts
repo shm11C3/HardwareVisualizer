@@ -1,7 +1,7 @@
-import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type NetworkInfo, type SysInfo, commands } from "@/rspc/bindings";
-import { isError } from "@/types/result";
 import { atom, useAtom } from "jotai";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { commands, type NetworkInfo, type SysInfo } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
 const hardInfoAtom = atom<SysInfo>({
   cpu: null,

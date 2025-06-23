@@ -1,12 +1,18 @@
+import {
+  ArrowSquareOutIcon,
+  CheckCircleIcon,
+  DotOutlineIcon,
+  GithubLogoIcon,
+  ProhibitInsetIcon,
+} from "@phosphor-icons/react";
+import { getVersion } from "@tauri-apps/api/app";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { useAtom, useSetAtom } from "jotai";
+import { Info } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { NeedRestart } from "@/components/shared/System";
-import { gpuTempAtom } from "@/features/hardware/store/chart";
-import { PreviewChart } from "@/features/settings/components/Preview";
-import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
-import { UploadImage } from "@/features/settings/components/UploadImage";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { settingAtoms } from "@/store/ui";
-
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -30,32 +36,25 @@ import {
 } from "@/components/ui/tooltip";
 import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/features/hardware/consts/chart";
+import { gpuTempAtom } from "@/features/hardware/store/chart";
 import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/features/hardware/types/hardwareDataType";
+import { PreviewChart } from "@/features/settings/components/Preview";
+import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
+import { UploadImage } from "@/features/settings/components/UploadImage";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings as SettingTypes } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
 import {
   type ClientSettings,
-  type LineGraphType,
   commands,
+  type LineGraphType,
 } from "@/rspc/bindings";
-import {
-  ArrowSquareOutIcon,
-  CheckCircleIcon,
-  DotOutlineIcon,
-  GithubLogoIcon,
-  ProhibitInsetIcon,
-} from "@phosphor-icons/react";
-import { getVersion } from "@tauri-apps/api/app";
-import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useAtom, useSetAtom } from "jotai";
-import { Info } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { settingAtoms } from "@/store/ui";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
@@ -338,7 +337,10 @@ const SettingGraphSwitch = ({
 const SettingColorInput = ({
   label,
   hardwareType,
-}: { label: string; hardwareType: ChartDataType }) => {
+}: {
+  label: string;
+  hardwareType: ChartDataType;
+}) => {
   const { settings, updateLineGraphColorAtom } = useSettingsAtom();
 
   const updateGraphColor = async (value: string) => {
