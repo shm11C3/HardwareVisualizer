@@ -49,7 +49,7 @@ pub mod commands {
             "message": format!("If this happens repeatedly, delete {} and restart the app.", settings_json_path.display())
         }),
       )
-      .map_err(|e| format!("Failed to emit event: {}", e))?;
+      .map_err(|e| format!("Failed to emit event: {e}"))?;
 
     Ok(())
   }

@@ -5,7 +5,7 @@ use std::fs;
 const VENDOR_ID: &str = "1002";
 
 pub async fn get_amd_gpu_usage(card_id: u8) -> Result<f32, String> {
-  let path = format!("/sys/class/drm/card{}/device/gpu_busy_percent", card_id);
+  let path = format!("/sys/class/drm/card{card_id}/device/gpu_busy_percent");
   let content = fs::read_to_string(&path)
     .map_err(|e| format!("Failed to read AMD gpu_busy_percent: {e}"))?;
 
@@ -39,7 +39,7 @@ pub async fn get_amd_graphic_info(
 fn read_pm_info_sclk(card_id: u8) -> Option<u32> {
   use regex::Regex;
 
-  let path = format!("/sys/kernel/debug/dri/{}/amdgpu_pm_info", card_id);
+  let path = format!("/sys/kernel/debug/dri/{card_id}/amdgpu_pm_info");
   let content = fs::read_to_string(path).ok()?;
   let re = Regex::new(r"SCLK.*?(\d+)\s+MHz").ok()?;
   re.captures(&content)
@@ -47,6 +47,6 @@ fn read_pm_info_sclk(card_id: u8) -> Option<u32> {
 }
 
 fn read_vram_total_bytes(card_id: u8) -> Option<u64> {
-  let path = format!("/sys/class/drm/card{}/device/mem_info_vram_total", card_id);
+  let path = format!("/sys/class/drm/card{card_id}/device/mem_info_vram_total");
   fs::read_to_string(path).ok()?.trim().parse::<u64>().ok()
 }

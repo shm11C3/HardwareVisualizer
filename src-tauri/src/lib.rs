@@ -127,7 +127,7 @@ pub fn run() {
       tauri::async_runtime::spawn(async move {
         if let Err(e) = backgrounds::updater::update(handle).await {
           log_error!("Update process failed", "lib.run", Some(e.to_string()));
-          eprintln!("Update process failed: {:?}", e);
+          eprintln!("Update process failed: {e:?}");
         }
       });
 
