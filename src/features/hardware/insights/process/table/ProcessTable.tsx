@@ -23,13 +23,8 @@ export const ProcessTable = ({
     direction: "ascending" | "descending";
   } | null>(null);
 
-  if (processStats == null || (loading && processStats.length === 0)) {
-    return (
-      <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
-    );
-  }
-
   const sortedProcesses = useMemo(() => {
+    if (!processStats) return [];
     if (sortConfig == null) {
       return processStats;
     }
@@ -67,6 +62,12 @@ export const ProcessTable = ({
       return 0;
     });
   }, [processStats, sortConfig]);
+
+  if (processStats == null || (loading && processStats.length === 0)) {
+    return (
+      <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
+    );
+  }
 
   const requestSort = (key: keyof ProcessStat) => {
     let direction: "ascending" | "descending" = "ascending";

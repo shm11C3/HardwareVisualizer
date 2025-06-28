@@ -61,7 +61,7 @@ export const useSettingsAtom = () => {
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
     const setting = await commands.getSettings();
 

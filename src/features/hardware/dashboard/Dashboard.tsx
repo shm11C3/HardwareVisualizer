@@ -364,7 +364,7 @@ const NetworkInfo = () => {
   const { settings } = useSettingsAtom();
   const { networkInfo, initNetwork } = useHardwareInfoAtom();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional non-exhaustive deps for one-time init
   useEffect(() => {
     initNetwork();
   }, []);
@@ -438,7 +438,7 @@ const NetworkInfo = () => {
                           ))}
                         </td>
                       </tr>
-                      {network.ipv6.length > 0 ? (
+                      {network.ipv6.length > 0 && (
                         <tr className="border-gray-700">
                           <th className="py-2 pr-4 dark:text-gray-400">
                             {t("shared.ipv6")}
@@ -449,10 +449,8 @@ const NetworkInfo = () => {
                             ))}
                           </td>
                         </tr>
-                      ) : (
-                        <></>
                       )}
-                      {network.linkLocalIpv6.length > 0 ? (
+                      {network.linkLocalIpv6.length > 0 && (
                         <tr>
                           <th className="py-2 pr-4 dark:text-gray-400">
                             {t("shared.linkLocal")} {t("shared.ipv6")}{" "}
@@ -464,10 +462,8 @@ const NetworkInfo = () => {
                             ))}
                           </td>
                         </tr>
-                      ) : (
-                        <></>
                       )}
-                      {network.defaultIpv6Gateway.length > 0 ? (
+                      {network.linkLocalIpv6.length > 0 && (
                         <tr>
                           <th className="py-2 pr-4 dark:text-gray-400">
                             {t("shared.ipv6")} {t("shared.gateway")}
@@ -478,8 +474,6 @@ const NetworkInfo = () => {
                             ))}
                           </td>
                         </tr>
-                      ) : (
-                        <></>
                       )}
                     </tbody>
                   </table>
@@ -500,7 +494,7 @@ export const Dashboard = () => {
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional non-exhaustive deps for one-time init
   useEffect(() => {
     init();
   }, []);

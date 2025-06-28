@@ -138,8 +138,7 @@ export const App = () => {
           {displayTarget ? (
             displayTargets[displayTarget]
           ) : (
-            // biome-ignore lint/style/useSelfClosingElements: <explanation>
-            <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 dark:bg-gray-900 dark:text-white"></div>
+            <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 dark:bg-gray-900 dark:text-white" />
           )}
         </div>
       </div>

@@ -10,7 +10,7 @@ export const useProcessInfo = () => {
   const [processes] = useAtom(processesAtom);
   const setAtom = useSetAtom(processesAtom);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to fetch processes
   useEffect(() => {
     const fetchProcesses = async () => {
       try {

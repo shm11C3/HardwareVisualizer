@@ -125,21 +125,24 @@ export const useInsightChart = (
     );
     const startTime = new Date(adjustedEndAt.getTime() - period * 60 * 1000);
 
-    const sql =
-      hardwareType === "gpu"
-        ? `SELECT ${getGpuDataArchiveKey(
-            // biome-ignore lint/style/noNonNullAssertion: <explanation>
-            dataType!,
-            dataStats,
-          )} as value, timestamp
+    const sql: string = (() => {
+      if (hardwareType === "gpu") {
+        if (!dataType) {
+          throw new Error("Data type is required for GPU");
+        }
+
+        return `SELECT ${getGpuDataArchiveKey(dataType, dataStats)} as value, timestamp
               FROM GPU_DATA_ARCHIVE
               WHERE gpu_name = '${gpuName}'
                 AND timestamp BETWEEN '${startTime.toISOString()}'
-                AND '${adjustedEndAt.toISOString()}'`
-        : `SELECT ${getDataArchiveKey(hardwareType, dataStats)} as value, timestamp
+                AND '${adjustedEndAt.toISOString()}'`;
+      }
+
+      return `SELECT ${getDataArchiveKey(hardwareType, dataStats)} as value, timestamp
               FROM DATA_ARCHIVE
               WHERE timestamp BETWEEN '${startTime.toISOString()}'
                 AND '${adjustedEndAt.toISOString()}'`;
+    })();
 
     return await (await sqlitePromise).load(sql);
   }, [endAt, hardwareType, period, dataStats, gpuName, dataType]);

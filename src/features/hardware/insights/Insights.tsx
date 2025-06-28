@@ -31,7 +31,7 @@ const arrowButtonVariants = tv({
   base: "text-zinc-500 dark:text-zinc-400 cursor-pointer disabled:opacity-50 disabled:pointer-events-none h-40",
 });
 
-const Border = ({ children }: { children: JSX.Element }) => {
+const Border = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="rounded-2xl border border-zinc-400 p-4 dark:border-zinc-600">
       {children}
@@ -124,86 +124,12 @@ const MainInsights = () => {
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         {chartData.map((data) => {
-          const { type, stats, period } = data;
-          const [periodData, setPeriodData] = period;
-          const [offset, setOffset] = useState(0);
-          const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(
-            null,
-          );
-
-          const handleMouseDown = (increment: number) => {
-            if (intervalId) return;
-            const id = setInterval(() => {
-              setOffset((prev) => Math.max(0, prev + increment));
-            }, 100);
-            setIntervalId(id);
-          };
-
-          const handleMouseUp = () => {
-            if (intervalId) {
-              clearInterval(intervalId);
-              setIntervalId(null);
-            }
-          };
-
           return (
-            periodData && (
-              <Border key={`${data.type}-${data.stats}`}>
-                <>
-                  <div className="flex items-center justify-between">
-                    <h3 className="flex items-center py-3 font-bold text-2xl">
-                      {
-                        {
-                          cpu: <CpuIcon className="pr-1" />,
-                          memory: <MemoryIcon className="pr-1" />,
-                        }[data.type]
-                      }
-                      {t(`shared.${data.type}Usage`)} (
-                      {t(`shared.${data.stats}`)})
-                    </h3>
-                    <SelectPeriod
-                      options={options}
-                      selected={periodData}
-                      onChange={setPeriodData}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      className={arrowButtonVariants()}
-                      onClick={() => setOffset(offset + 1)}
-                      onMouseDown={() => handleMouseDown(1)}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                      onTouchStart={() => handleMouseDown(1)}
-                      onTouchEnd={handleMouseUp}
-                    >
-                      <ChevronLeft size={32} />
-                    </button>
-                    <InsightChart
-                      hardwareType={type}
-                      period={periodData}
-                      dataStats={stats}
-                      offset={offset}
-                    />
-                    <button
-                      type="button"
-                      className={arrowButtonVariants()}
-                      onClick={() => setOffset(offset - 1)}
-                      onMouseDown={() => handleMouseDown(-1)}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                      onTouchStart={() => handleMouseDown(-1)}
-                      onTouchEnd={handleMouseUp}
-                      disabled={offset < 0}
-                    >
-                      <ChevronRight size={32} />
-                    </button>
-                  </div>
-                </>
-              </Border>
-            )
+            <ChartArea
+              key={`${data.type}-${data.stats}-${data.period[0]}`}
+              {...data}
+              options={options}
+            />
           );
         })}
       </div>
@@ -355,98 +281,201 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-6">
-        {chartData.map((data) => {
-          const { type, stats, period } = data;
-          const [periodData, setPeriodData] = period;
-          const [offset, setOffset] = useState(0);
-          const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(
-            null,
-          );
-
-          const handleMouseDown = (increment: number) => {
-            if (intervalId) return;
-            const id = setInterval(() => {
-              setOffset((prev) => Math.max(0, prev + increment));
-            }, 100);
-            setIntervalId(id);
-          };
-
-          const handleMouseUp = () => {
-            if (intervalId) {
-              clearInterval(intervalId);
-              setIntervalId(null);
-            }
-          };
-
-          const dataType: Record<
-            "temp" | "usage" | "dedicatedMemory",
-            "usage" | "temperature" | "memorySizeDedicatedUsage"
-          > = {
-            usage: "usage",
-            temp: "temperature",
-            dedicatedMemory: "memorySizeDedicatedUsage",
-          };
-
-          const dataTypeKeys = dataType[data.type];
-
-          return (
-            periodData && (
-              <Border key={`${data.type}-${data.stats}`}>
-                <>
-                  <div className="flex items-center justify-between">
-                    <h3 className="flex items-center py-3 font-bold text-2xl">
-                      <GraphicsCardIcon className="pr-1" />
-                      {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)}
-                      )
-                    </h3>
-                    <SelectPeriod
-                      options={options}
-                      selected={periodData}
-                      onChange={setPeriodData}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      className={arrowButtonVariants()}
-                      onClick={() => setOffset(offset + 1)}
-                      onMouseDown={() => handleMouseDown(1)}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                      onTouchStart={() => handleMouseDown(1)}
-                      onTouchEnd={handleMouseUp}
-                    >
-                      <ChevronLeft size={32} />
-                    </button>
-                    <GpuInsightChart
-                      dataType={type}
-                      period={periodData}
-                      dataStats={stats}
-                      offset={offset}
-                      gpuName={gpuName}
-                    />
-                    <button
-                      type="button"
-                      className={arrowButtonVariants()}
-                      onClick={() => setOffset(offset - 1)}
-                      onMouseDown={() => handleMouseDown(-1)}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                      onTouchStart={() => handleMouseDown(-1)}
-                      onTouchEnd={handleMouseUp}
-                      disabled={offset < 0}
-                    >
-                      <ChevronRight size={32} />
-                    </button>
-                  </div>
-                </>
-              </Border>
-            )
-          );
-        })}
+        {chartData.map((data) => (
+          <GpuChartArea
+            key={data.type}
+            {...data}
+            options={options}
+            gpuName={gpuName}
+          />
+        ))}
       </div>
     </div>
+  );
+};
+
+const ChartArea = (data: {
+  type: Exclude<ChartDataType, "gpu">;
+  stats: DataStats;
+  period: [
+    (typeof archivePeriods)[number] | null,
+    (newValue: (typeof archivePeriods)[number]) => Promise<void>,
+  ];
+  options: { label: string; value: (typeof archivePeriods)[number] }[];
+}) => {
+  const { type, stats, period, options } = data;
+  const [periodData, setPeriodData] = period;
+  const [offset, setOffset] = useState(0);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const { t } = useTranslation();
+
+  const handleMouseDown = (increment: number) => {
+    if (intervalId) return;
+    const id = setInterval(() => {
+      setOffset((prev) => Math.max(0, prev + increment));
+    }, 100);
+    setIntervalId(id);
+  };
+
+  const handleMouseUp = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
+  };
+
+  return (
+    periodData && (
+      <Border key={`${data.type}-${data.stats}`}>
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center py-3 font-bold text-2xl">
+            {
+              {
+                cpu: <CpuIcon className="pr-1" />,
+                memory: <MemoryIcon className="pr-1" />,
+              }[data.type]
+            }
+            {t(`shared.${data.type}Usage`)} ({t(`shared.${data.stats}`)})
+          </h3>
+          <SelectPeriod
+            options={options}
+            selected={periodData}
+            onChange={setPeriodData}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            className={arrowButtonVariants()}
+            onClick={() => setOffset(offset + 1)}
+            onMouseDown={() => handleMouseDown(1)}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={() => handleMouseDown(1)}
+            onTouchEnd={handleMouseUp}
+          >
+            <ChevronLeft size={32} />
+          </button>
+          <InsightChart
+            hardwareType={type}
+            period={periodData}
+            dataStats={stats}
+            offset={offset}
+          />
+          <button
+            type="button"
+            className={arrowButtonVariants()}
+            onClick={() => setOffset(offset - 1)}
+            onMouseDown={() => handleMouseDown(-1)}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={() => handleMouseDown(-1)}
+            onTouchEnd={handleMouseUp}
+            disabled={offset < 0}
+          >
+            <ChevronRight size={32} />
+          </button>
+        </div>
+      </Border>
+    )
+  );
+};
+
+const GpuChartArea = (data: {
+  type: GpuDataType;
+  stats: DataStats;
+  period: [
+    (typeof archivePeriods)[number] | null,
+    (newValue: (typeof archivePeriods)[number]) => Promise<void>,
+  ];
+  options: { label: string; value: (typeof archivePeriods)[number] }[];
+  gpuName: string;
+}) => {
+  const { type, stats, period, options, gpuName } = data;
+
+  const [periodData, setPeriodData] = period;
+  const [offset, setOffset] = useState(0);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const { t } = useTranslation();
+
+  const handleMouseDown = (increment: number) => {
+    if (intervalId) return;
+    const id = setInterval(() => {
+      setOffset((prev) => Math.max(0, prev + increment));
+    }, 100);
+    setIntervalId(id);
+  };
+
+  const handleMouseUp = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
+  };
+
+  const dataType: Record<
+    "temp" | "usage" | "dedicatedMemory",
+    "usage" | "temperature" | "memorySizeDedicatedUsage"
+  > = {
+    usage: "usage",
+    temp: "temperature",
+    dedicatedMemory: "memorySizeDedicatedUsage",
+  };
+
+  const dataTypeKeys = dataType[data.type];
+
+  return (
+    periodData && (
+      <Border>
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center py-3 font-bold text-2xl">
+            <GraphicsCardIcon className="pr-1" />
+            {t(`shared.${dataTypeKeys}`)} ({t(`shared.${data.stats}`)})
+          </h3>
+          <SelectPeriod
+            options={options}
+            selected={periodData}
+            onChange={setPeriodData}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            className={arrowButtonVariants()}
+            onClick={() => setOffset(offset + 1)}
+            onMouseDown={() => handleMouseDown(1)}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={() => handleMouseDown(1)}
+            onTouchEnd={handleMouseUp}
+          >
+            <ChevronLeft size={32} />
+          </button>
+          <GpuInsightChart
+            dataType={type}
+            period={periodData}
+            dataStats={stats}
+            offset={offset}
+            gpuName={gpuName}
+          />
+          <button
+            type="button"
+            className={arrowButtonVariants()}
+            onClick={() => setOffset(offset - 1)}
+            onMouseDown={() => handleMouseDown(-1)}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={() => handleMouseDown(-1)}
+            onTouchEnd={handleMouseUp}
+            disabled={offset < 0}
+          >
+            <ChevronRight size={32} />
+          </button>
+        </div>
+      </Border>
+    )
   );
 };
 
@@ -519,14 +548,12 @@ export const Insights = () => {
                   value={name}
                   onClick={() => setDisplayTarget(name)}
                 >
-                  <>
-                    <Icon type={type} />
-                    {["main", "process"].includes(name)
-                      ? t(`pages.insights.${name}.title`, {
-                          defaultValue: name,
-                        })
-                      : name}
-                  </>
+                  <Icon type={type} />
+                  {["main", "process"].includes(name)
+                    ? t(`pages.insights.${name}.title`, {
+                        defaultValue: name,
+                      })
+                    : name}
                 </TabsTrigger>
               );
             })}

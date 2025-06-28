@@ -18,7 +18,7 @@ export const useBackgroundImage = () => {
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to initialize the background images
   const initBackgroundImage = useCallback(async () => {
     if (settings.selectedBackgroundImg) {
       const base64Image = await commands.getBackgroundImage(
@@ -110,7 +110,7 @@ export const useBackgroundImageList = () => {
     setBackgroundImageList(backgroundImagesWithUrl);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to initialize the background images
   useEffect(() => {
     initBackgroundImages();
   }, []);
