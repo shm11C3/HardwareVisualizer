@@ -107,7 +107,7 @@ pub async fn get_gpu_usage_by_device_and_engine(
         })
     })
     .ok_or_else(|| {
-      let message = format!("No usage data available for engine type: {}", engine_type);
+      let message = format!("No usage data available for engine type: {engine_type}");
       Box::new(std::io::Error::new(std::io::ErrorKind::NotFound, message))
         as Box<dyn Error>
     })
@@ -278,7 +278,7 @@ fn get_memory_type_description(memory_type: Option<u16>) -> String {
     Some(24) => "DDR3".to_string(),
     Some(25) => "FBD2".to_string(),
     Some(26) => "DDR4".to_string(),
-    Some(mt) => format!("Other or Unknown Memory Type ({})", mt),
+    Some(mt) => format!("Other or Unknown Memory Type ({mt})"),
     None => "Unknown".to_string(),
   }
 }
@@ -297,7 +297,7 @@ fn get_memory_type_with_fallback(
       Some(24) => "DDR3".to_string(),
       Some(26) => "DDR4".to_string(),
       Some(34) => "DDR5".to_string(),
-      Some(mt) => format!("Other SMBIOS Memory Type ({})", mt),
+      Some(mt) => format!("Other SMBIOS Memory Type ({mt})"),
       None => "Unknown".to_string(),
     },
     Some(mt) => get_memory_type_description(Some(mt)),
