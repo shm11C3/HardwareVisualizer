@@ -96,7 +96,7 @@ export const ProcessesTable = () => {
       <Dialog>
         <div className="flex">
           <div className="mb-2 flex items-center">
-            <div className="mr-2 mb-0.5">
+            <div className="mr-2 mb-0.5 ml-6">
               <GearIcon size={24} color="var(--color-process)" />
             </div>
             <h4 className="font-bold text-xl">{t("shared.process")}</h4>
