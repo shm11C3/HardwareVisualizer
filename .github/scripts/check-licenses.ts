@@ -36,6 +36,11 @@ const normalize = (
 };
 
 for (const [pkg, info] of Object.entries<any>(licenses)) {
+  // 自身のチェックはスキップ
+  if (pkg.split("@")[0] === "hardware-visualizer") {
+    continue;
+  }
+
   const license = info.licenses;
   const { type, values } = normalize(license);
 
