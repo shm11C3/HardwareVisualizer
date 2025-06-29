@@ -227,8 +227,7 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
   match wmi_service::get_gpu_usage_by_device_and_engine("3D").await {
     Ok(usage) => Ok((usage * 100.0).round() as i32),
     Err(e) => Err(format!(
-      "Failed to get GPU usage from both NVIDIA API and WMI: {:?}",
-      e
+      "Failed to get GPU usage from both NVIDIA API and WMI: {e:?}"
     )),
   }
 

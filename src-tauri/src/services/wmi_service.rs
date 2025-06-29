@@ -46,7 +46,7 @@ pub async fn get_memory_info() -> Result<MemoryInfo, String> {
     .map_err(|e| format!("Join error: {e}"))??;
 
   log_debug!(
-    &format!("mem info: {:?}", physical_memory),
+    &format!("mem info: {physical_memory:?}"),
     "get_memory_info",
     None::<&str>
   );
@@ -86,7 +86,7 @@ pub async fn get_gpu_usage_by_device_and_engine(
   )?;
 
   log_debug!(
-    &format!("GPU engine usage data: {:?}", results),
+    &format!("GPU engine usage data: {results:?}"),
     "get_gpu_usage_by_device_and_engine",
     None::<&str>
   );
@@ -133,7 +133,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
   )?;
 
   log_debug!(
-    &format!("Network adapter configuration data: {:?}", results),
+    &format!("Network adapter configuration data: {results:?}"),
     "get_network_info",
     None::<&str>
   );
@@ -214,14 +214,14 @@ where
   thread::spawn(move || {
     let result = (|| {
       let com_con = COMLibrary::new()
-        .map_err(|e| format!("Failed to initialize COM Library: {:?}", e))?;
+        .map_err(|e| format!("Failed to initialize COM Library: {e:?}"))?;
       let wmi_con = WMIConnection::new(com_con)
-        .map_err(|e| format!("Failed to create WMI connection: {:?}", e))?;
+        .map_err(|e| format!("Failed to create WMI connection: {e:?}"))?;
 
       // WMIクエリを実行してメモリ情報を取得
       let results: Vec<T> = wmi_con
         .raw_query(query)
-        .map_err(|e| format!("Failed to execute query: {:?}", e))?;
+        .map_err(|e| format!("Failed to execute query: {e:?}"))?;
 
       Ok(results)
     })();
@@ -246,7 +246,7 @@ where
 ///
 fn get_memory_type_description(memory_type: Option<u16>) -> String {
   log_debug!(
-    &format!("mem type: {:?}", memory_type),
+    &format!("mem type: {memory_type:?}"),
     "get_memory_type_description",
     None::<&str>
   );
