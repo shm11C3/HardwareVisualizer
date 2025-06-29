@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 coverage
+licenses.json
 
 # Editor directories and files
 .vscode/*

@@ -106,6 +106,16 @@ jobs:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Generate licenses.json
+        run: npx license-checker --production --json > licenses.json
+
+      - name: Check licenses
+        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
+
+      # TODO バンドル時に NOTICE ファイルをインストーラに同梱させる
+      - name: Extract Apache NOTICE
+        run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
+
       - name: Update tauri.conf.json using Node.js script
         run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
