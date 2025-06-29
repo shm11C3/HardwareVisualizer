@@ -6,28 +6,48 @@ if (!licensesFile) {
   process.exit(1);
 }
 
-const allowedLicenses = [
+const allowedLicenses = new Set([
   "MIT",
-  "BSD",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
   "Apache-2.0",
+  "BSD-3-Clause",
+  "BSD-2-Clause",
   "ISC",
   "Zlib",
   "CC0",
   "Unlicense",
-];
+  "0BSD",
+  "BlueOak-1.0.0",
+  "MPL-2.0",
+]);
 
-const licenses: Record<
-  string,
-  { licenses: string; path: string; licenseFile: string }
-> = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
+const licenses = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
 let errorCount = 0;
 
-for (const [pkgName, info] of Object.entries(licenses)) {
+const normalize = (
+  raw: string,
+): { type: "OR" | "AND" | "SINGLE"; values: string[] } => {
+  if (raw.includes(" OR ")) {
+    return { type: "OR", values: raw.split(/\s+OR\s+/).map((s) => s.trim()) };
+  }
+  if (raw.includes(" AND ")) {
+    return { type: "AND", values: raw.split(/\s+AND\s+/).map((s) => s.trim()) };
+  }
+  return { type: "SINGLE", values: [raw.trim()] };
+};
+
+for (const [pkg, info] of Object.entries<any>(licenses)) {
   const license = info.licenses;
-  if (!allowedLicenses.includes(license)) {
-    console.error(`❌ Unsupported license detected: ${license} (${pkgName})`);
+  const { type, values } = normalize(license);
+
+  const valid =
+    type === "OR"
+      ? values.some((l) => allowedLicenses.has(l))
+      : type === "AND"
+        ? values.every((l) => allowedLicenses.has(l))
+        : allowedLicenses.has(values[0]);
+
+  if (!valid) {
+    console.error(`❌ Unsupported license detected: ${license} (${pkg})`);
     errorCount++;
   }
 }
