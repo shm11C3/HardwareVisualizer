@@ -102,8 +102,8 @@ where
   S: serde::Serializer,
 {
   if x.fract() == 0.0 {
-    s.serialize_str(&format!("{:.0}", x)) // 整数のみ
+    s.serialize_str(&format!("{x:.0}")) // 整数のみ
   } else {
-    s.serialize_str(&format!("{:.1}", x)) // 小数点以下1桁まで
+    s.serialize_str(&format!("{x:.1}")) // 小数点以下1桁まで
   }
 }

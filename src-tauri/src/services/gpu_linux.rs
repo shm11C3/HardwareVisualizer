@@ -35,7 +35,7 @@ pub fn get_all_card_ids() -> Vec<u8> {
 }
 
 pub fn detect_gpu_vendor(card_id: u8) -> GpuVendor {
-  let path = format!("/sys/class/drm/card{}/device/vendor", card_id);
+  let path = format!("/sys/class/drm/card{card_id}/device/vendor");
 
   match fs::read_to_string(&path) {
     Ok(vendor_id) => match vendor_id.trim() {

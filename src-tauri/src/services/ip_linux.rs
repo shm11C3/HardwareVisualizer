@@ -30,7 +30,7 @@ fn collect_interfaces_with_mac() -> Result<HashMap<String, NetworkInfo>, String>
     let entry = entry.map_err(|e| e.to_string())?;
     let iface = entry.file_name().into_string().unwrap_or_default();
 
-    let mac_path = format!("/sys/class/net/{}/address", iface);
+    let mac_path = format!("/sys/class/net/{iface}/address");
     let mac_address = std::fs::read_to_string(mac_path)
       .ok()
       .map(|s| s.trim().to_string());
@@ -64,7 +64,7 @@ fn populate_ip_addresses(map: &mut HashMap<String, NetworkInfo>) -> Result<(), S
   let output = Command::new("ip")
     .arg("addr")
     .output()
-    .map_err(|e| format!("Failed to run ip addr: {}", e))?;
+    .map_err(|e| format!("Failed to run ip addr: {e}"))?;
 
   let stdout = String::from_utf8_lossy(&output.stdout);
   let mut current_iface = None;
