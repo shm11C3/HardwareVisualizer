@@ -28,7 +28,7 @@ pub async fn get_background_image(file_id: String) -> Result<String, String> {
   if !dir_path.exists() {
     fs::create_dir_all(&dir_path)
       .await
-      .map_err(|e| format!("Failed to create directory: {}", e))?;
+      .map_err(|e| format!("Failed to create directory: {e}"))?;
   }
 
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
@@ -37,7 +37,7 @@ pub async fn get_background_image(file_id: String) -> Result<String, String> {
   // 画像を読み込んでBase64にエンコード
   match fs::read(&file_path).await {
     Ok(image_data) => Ok(STANDARD.encode(image_data)),
-    Err(e) => Err(format!("Failed to load image: {}", e)),
+    Err(e) => Err(format!("Failed to load image: {e}")),
   }
 }
 
@@ -64,7 +64,7 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   if !dir_path.exists() {
     fs::create_dir_all(&dir_path)
       .await
-      .map_err(|e| format!("Failed to create directory: {}", e))?;
+      .map_err(|e| format!("Failed to create directory: {e}"))?;
   }
 
   // ディレクトリ内のファイル一覧を取得
@@ -92,7 +92,7 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
       images.sort_by(|a, b| b.file_id.cmp(&a.file_id));
       Ok(images)
     }
-    Err(e) => Err(format!("Failed to read directory: {}", e)),
+    Err(e) => Err(format!("Failed to read directory: {e}")),
   }
 }
 
@@ -116,7 +116,7 @@ pub async fn save_background_image(image_data: String) -> Result<String, String>
   if !dir_path.exists() {
     fs::create_dir_all(&dir_path)
       .await
-      .map_err(|e| format!("Failed to create directory: {}", e))?;
+      .map_err(|e| format!("Failed to create directory: {e}"))?;
   }
 
   // Base64データのプレフィックスを除去
@@ -141,25 +141,25 @@ pub async fn save_background_image(image_data: String) -> Result<String, String>
         Ok(image) => {
           let mut file = fs::File::create(&file_path)
             .await
-            .map_err(|e| format!("Failed to create file: {}", e))?;
+            .map_err(|e| format!("Failed to create file: {e}"))?;
 
           // 非同期で画像データを書き込む
           let mut buffer = Vec::new();
           let mut cursor = std::io::Cursor::new(&mut buffer);
           image
             .write_to(&mut cursor, ImageFormat::Png)
-            .map_err(|e| format!("Failed to convert image to PNG format: {}", e))?;
+            .map_err(|e| format!("Failed to convert image to PNG format: {e}"))?;
 
           file
             .write_all(&buffer)
             .await
-            .map_err(|e| format!("Failed to save image as PNG: {}", e))?;
+            .map_err(|e| format!("Failed to save image as PNG: {e}"))?;
           Ok(file_id)
         }
-        Err(e) => Err(format!("Failed to load image from memory: {}", e)),
+        Err(e) => Err(format!("Failed to load image from memory: {e}")),
       }
     }
-    Err(e) => Err(format!("Failed to decode image: {}", e)),
+    Err(e) => Err(format!("Failed to decode image: {e}")),
   }
 }
 
@@ -176,6 +176,6 @@ pub async fn delete_background_image(file_id: String) -> Result<(), String> {
 
   match fs::remove_file(&file_path).await {
     Ok(_) => Ok(()),
-    Err(e) => Err(format!("Failed to delete image: {}", e)),
+    Err(e) => Err(format!("Failed to delete image: {e}")),
   }
 }

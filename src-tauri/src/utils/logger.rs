@@ -39,7 +39,7 @@ pub fn init(log_dir: PathBuf) {
   // ログファイル名を作成
   let now = Local::now();
   let formatted_date = now.format("%Y-%m-%d_%H-%M-%S").to_string();
-  let log_filename = format!("app_log_{}.log", formatted_date);
+  let log_filename = format!("app_log_{formatted_date}.log");
 
   let mut log_file = log_dir.clone();
   log_file.push(log_filename);

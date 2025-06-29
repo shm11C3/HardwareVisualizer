@@ -30,8 +30,8 @@ pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
           name: gpu_name.trim_end_matches('\0').to_string(),
           vendor_name: "Intel".to_string(),
           clock: 0, // Intelのクロック周波数取得が難しいため0を設定
-          memory_size: format!("{} MB", memory_size_shared),
-          memory_size_dedicated: format!("{} MB", memory_size_dedicated),
+          memory_size: format!("{memory_size_shared} MB"),
+          memory_size_dedicated: format!("{memory_size_dedicated} MB"),
         };
 
         gpu_info_list.push(gpu_info);
@@ -73,8 +73,8 @@ pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
           name: gpu_name.trim_end_matches('\0').to_string(),
           vendor_name: "AMD".to_string(),
           clock: 0, // クロック取得が難しいため 0 に設定
-          memory_size: format!("{} MB", memory_size_shared),
-          memory_size_dedicated: format!("{} MB", memory_size_dedicated),
+          memory_size: format!("{memory_size_shared} MB"),
+          memory_size_dedicated: format!("{memory_size_dedicated} MB"),
         };
 
         gpu_info_list.push(gpu_info);

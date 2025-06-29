@@ -92,7 +92,11 @@ fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
 
   structs::hardware::MemoryInfo {
     is_detailed: true,
-    size: format!("{:.1} {}", size_with_unit.value, size_with_unit.unit),
+    size: format!(
+      "{value:.1} {unit}",
+      value = size_with_unit.value,
+      unit = size_with_unit.unit
+    ),
     clock: clock_mts / 2, // DDR系メモリ：MT/s => MHz
     clock_unit: "MHz".into(),
     memory_count: count,
