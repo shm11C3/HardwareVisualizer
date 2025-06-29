@@ -1,3 +1,5 @@
+import { type PrimitiveAtom, useSetAtom } from "jotai";
+import { useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuFanSpeedAtom,
@@ -13,10 +15,8 @@ import type {
   ChartDataHardwareType,
   ChartDataType,
 } from "@/features/hardware/types/hardwareDataType";
-import { type NameValue, type Result, commands } from "@/rspc/bindings";
+import { commands, type NameValue, type Result } from "@/rspc/bindings";
 import { isError, isOk, isResult } from "@/types/result";
-import { type PrimitiveAtom, useSetAtom } from "jotai";
-import { useEffect } from "react";
 
 /**
  * ハードウェア使用率の履歴を更新する

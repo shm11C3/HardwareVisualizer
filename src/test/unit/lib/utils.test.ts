@@ -1,5 +1,5 @@
-import { cn } from "@/lib/utils";
 import { describe, expect, it } from "vitest";
+import { cn } from "@/lib/utils";
 
 describe("cn", () => {
   it("should merge class names and remove duplicates", () => {

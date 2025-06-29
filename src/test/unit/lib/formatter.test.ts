@@ -1,5 +1,5 @@
-import { formatBytes, formatDuration } from "@/lib/formatter";
 import { describe, expect, it } from "vitest";
+import { formatBytes, formatDuration } from "@/lib/formatter";
 
 describe("formatBytes", () => {
   it("should return [0,'B'] for invalid numbers", () => {

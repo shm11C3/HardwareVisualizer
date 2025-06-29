@@ -1,7 +1,7 @@
-import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ProcessInfo, commands } from "@/rspc/bindings";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { useEffect } from "react";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { commands, type ProcessInfo } from "@/rspc/bindings";
 
 const processesAtom = atom<ProcessInfo[]>([]);
 
@@ -10,7 +10,7 @@ export const useProcessInfo = () => {
   const [processes] = useAtom(processesAtom);
   const setAtom = useSetAtom(processesAtom);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to fetch processes
   useEffect(() => {
     const fetchProcesses = async () => {
       try {

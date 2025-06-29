@@ -1,5 +1,5 @@
-import { transpose } from "@/lib/array";
 import { describe, expect, it } from "vitest";
+import { transpose } from "@/lib/array";
 
 describe("transpose", () => {
   it("should return an empty array when given an empty matrix", () => {

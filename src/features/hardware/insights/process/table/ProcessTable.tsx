@@ -1,18 +1,21 @@
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
+import { type JSX, memo, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
-import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
-import { type JSX, memo, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { tv } from "tailwind-variants";
 import type { ProcessStat } from "../types/processStats";
 
 export const ProcessTable = ({
   processStats,
   loading,
-}: { processStats: ProcessStat[] | null; loading: boolean }) => {
+}: {
+  processStats: ProcessStat[] | null;
+  loading: boolean;
+}) => {
   const { settings } = useSettingsAtom();
 
   const [sortConfig, setSortConfig] = useState<{
@@ -20,13 +23,8 @@ export const ProcessTable = ({
     direction: "ascending" | "descending";
   } | null>(null);
 
-  if (processStats == null || (loading && processStats.length === 0)) {
-    return (
-      <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
-    );
-  }
-
   const sortedProcesses = useMemo(() => {
+    if (!processStats) return [];
     if (sortConfig == null) {
       return processStats;
     }
@@ -64,6 +62,12 @@ export const ProcessTable = ({
       return 0;
     });
   }, [processStats, sortConfig]);
+
+  if (processStats == null || (loading && processStats.length === 0)) {
+    return (
+      <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
+    );
+  }
 
   const requestSort = (key: keyof ProcessStat) => {
     let direction: "ascending" | "descending" = "ascending";

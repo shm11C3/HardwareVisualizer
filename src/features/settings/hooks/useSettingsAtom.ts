@@ -1,11 +1,11 @@
+import { atom, useAtom } from "jotai";
+import { useCallback } from "react";
 import { defaultColorRGB } from "@/features/hardware/consts/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import type { Settings } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ClientSettings, type Result, commands } from "@/rspc/bindings";
+import { type ClientSettings, commands, type Result } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-import { atom, useAtom } from "jotai";
-import { useCallback } from "react";
 
 const settingsAtom = atom<ClientSettings>({
   version: "0.0.0",
@@ -61,7 +61,7 @@ export const useSettingsAtom = () => {
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
     const setting = await commands.getSettings();
 

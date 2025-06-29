@@ -5,7 +5,10 @@ import { cn } from "@/lib/utils";
 export const InfoTable = ({
   data,
   className,
-}: { data: { [key: string]: string | number }; className?: string }) => {
+}: {
+  data: { [key: string]: string | number };
+  className?: string;
+}) => {
   const { settings } = useSettingsAtom();
 
   return (

@@ -1,5 +1,5 @@
-import { RGB2HEX } from "@/lib/color";
 import { describe, expect, it } from "vitest";
+import { RGB2HEX } from "@/lib/color";
 
 describe("RGB2HEX", () => {
   it.each([

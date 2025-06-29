@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { archivePeriods } from "@/features/hardware/consts/chart";
@@ -8,8 +10,6 @@ import type {
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { HardwareType } from "@/rspc/bindings";
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useInsightChart } from "../hooks/useInsightChart";
 

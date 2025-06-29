@@ -1,3 +1,6 @@
+import { useAtom } from "jotai";
+import { memo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LineChartComponent,
   SingleLineChart,
@@ -6,9 +9,6 @@ import { InfoTable } from "@/components/shared/InfoTable";
 import type { ChartConfig } from "@/components/ui/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { transpose } from "@/lib/array";
-import { useAtom } from "jotai";
-import { memo, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import { chartConfig } from "../../consts/chart";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
@@ -32,7 +32,7 @@ const CpuUsageChart = memo(() => {
   const processes = useProcessInfo();
   const { t } = useTranslation();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional dependency omission
   useEffect(() => {
     init();
   }, []);

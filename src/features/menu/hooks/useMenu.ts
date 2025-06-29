@@ -1,7 +1,7 @@
-import { useTauriStore } from "@/hooks/useTauriStore";
-import type { SelectedDisplayType } from "@/types/ui";
 import { atom, useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
+import { useTauriStore } from "@/hooks/useTauriStore";
+import type { SelectedDisplayType } from "@/types/ui";
 
 export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
 

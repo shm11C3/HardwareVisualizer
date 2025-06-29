@@ -67,7 +67,10 @@ const BasisChartIcon = ({ className }: { className?: string }) => (
 export const LineChartIcon = ({
   type,
   className,
-}: { type: LineGraphType; className?: string }) => {
+}: {
+  type: LineGraphType;
+  className?: string;
+}) => {
   return {
     default: <MonotoneChartIcon className={className} />,
     step: <StepChartIcon className={className} />,

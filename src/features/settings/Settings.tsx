@@ -1,12 +1,18 @@
+import {
+  ArrowSquareOutIcon,
+  CheckCircleIcon,
+  DotOutlineIcon,
+  GithubLogoIcon,
+  ProhibitInsetIcon,
+} from "@phosphor-icons/react";
+import { getVersion } from "@tauri-apps/api/app";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { useAtom, useSetAtom } from "jotai";
+import { Info } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
 import { NeedRestart } from "@/components/shared/System";
-import { gpuTempAtom } from "@/features/hardware/store/chart";
-import { PreviewChart } from "@/features/settings/components/Preview";
-import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
-import { UploadImage } from "@/features/settings/components/UploadImage";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { settingAtoms } from "@/store/ui";
-
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -30,36 +36,33 @@ import {
 } from "@/components/ui/tooltip";
 import { TypographyP } from "@/components/ui/typography";
 import { defaultColorRGB, sizeOptions } from "@/features/hardware/consts/chart";
+import { gpuTempAtom } from "@/features/hardware/store/chart";
 import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/features/hardware/types/hardwareDataType";
+import { PreviewChart } from "@/features/settings/components/Preview";
+import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
+import { UploadImage } from "@/features/settings/components/UploadImage";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings as SettingTypes } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
 import {
   type ClientSettings,
-  type LineGraphType,
   commands,
+  type LineGraphType,
 } from "@/rspc/bindings";
-import {
-  ArrowSquareOutIcon,
-  CheckCircleIcon,
-  DotOutlineIcon,
-  GithubLogoIcon,
-  ProhibitInsetIcon,
-} from "@phosphor-icons/react";
-import { getVersion } from "@tauri-apps/api/app";
-import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useAtom, useSetAtom } from "jotai";
-import { Info } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { settingAtoms } from "@/store/ui";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
   const selectedGraphTypes = settings.displayTargets;
+
+  const cpuId = useId();
+  const memoryId = useId();
+  const gpuId = useId();
 
   const toggleGraphType = async (type: ChartDataType) => {
     await toggleDisplayTarget(type);
@@ -69,25 +72,22 @@ const SettingGraphType = () => {
     <div className="py-6">
       <div className="flex items-center space-x-2 py-3">
         <Checkbox
-          id="graphType-cpu"
+          id={cpuId}
           checked={selectedGraphTypes.includes("cpu")}
           onCheckedChange={() => toggleGraphType("cpu")}
         />
-        <Label
-          htmlFor="graphType-cpu"
-          className="flex items-center space-x-2 text-lg"
-        >
+        <Label htmlFor={cpuId} className="flex items-center space-x-2 text-lg">
           CPU
         </Label>
       </div>
       <div className="flex items-center space-x-2 py-3">
         <Checkbox
-          id="graphType-ram"
+          id={memoryId}
           checked={selectedGraphTypes.includes("memory")}
           onCheckedChange={() => toggleGraphType("memory")}
         />
         <Label
-          htmlFor="graphType-ram"
+          htmlFor={memoryId}
           className="flex items-center space-x-2 text-lg"
         >
           RAM
@@ -95,14 +95,11 @@ const SettingGraphType = () => {
       </div>
       <div className="flex items-center space-x-2 py-3">
         <Checkbox
-          id="graphType-gpu"
+          id={gpuId}
           checked={selectedGraphTypes.includes("gpu")}
           onCheckedChange={() => toggleGraphType("gpu")}
         />
-        <Label
-          htmlFor="graphType-gpu"
-          className="flex items-center space-x-2 text-lg"
-        >
+        <Label htmlFor={gpuId} className="flex items-center space-x-2 text-lg">
           GPU
         </Label>
       </div>
@@ -311,7 +308,7 @@ const SettingGraphSwitch = ({
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
 
-  const SettingGraphSwitch = async (value: boolean) => {
+  const settingGraphSwitch = async (value: boolean) => {
     await updateSettingAtom(type, value);
   };
 
@@ -327,7 +324,7 @@ const SettingGraphSwitch = ({
 
           <Switch
             checked={settings[type]}
-            onCheckedChange={SettingGraphSwitch}
+            onCheckedChange={settingGraphSwitch}
           />
         </div>
       </div>
@@ -338,7 +335,10 @@ const SettingGraphSwitch = ({
 const SettingColorInput = ({
   label,
   hardwareType,
-}: { label: string; hardwareType: ChartDataType }) => {
+}: {
+  label: string;
+  hardwareType: ChartDataType;
+}) => {
   const { settings, updateLineGraphColorAtom } = useSettingsAtom();
 
   const updateGraphColor = async (value: string) => {
@@ -437,7 +437,7 @@ const SettingAutoStart = () => {
 
     try {
       value ? await enable() : await disable();
-    } catch (e) {
+    } catch {
       error("Failed to set autostart");
       setAutoStartEnabled(!value);
     }
@@ -549,6 +549,9 @@ const SetNumberOfDaysInsightDataRetains = () => {
     settingAtoms.isRequiredRestart,
   );
 
+  const holdingPeriodId = useId();
+  const scheduledDataDeletionId = useId();
+
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
     setHasSettingChanged(true);
@@ -570,13 +573,13 @@ const SetNumberOfDaysInsightDataRetains = () => {
       </p>
 
       <div className="py-4">
-        <Label className="my-4 text-lg" htmlFor="holdingPeriod">
+        <Label className="my-4 text-lg" htmlFor={holdingPeriodId}>
           {t("pages.settings.insights.holdingPeriod.title")}
         </Label>
         <div className="flex items-center justify-between">
           <div className="mt-2 flex items-center">
             <Input
-              id="holdingPeriod"
+              id={holdingPeriodId}
               type="number"
               placeholder={t(
                 "pages.settings.insights.holdingPeriod.placeHolder",
@@ -591,12 +594,12 @@ const SetNumberOfDaysInsightDataRetains = () => {
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox
-              id="scheduledDataDeletion"
+              id={scheduledDataDeletionId}
               checked={settings.hardwareArchive.scheduledDataDeletion}
               onCheckedChange={handleScheduledDataDeletion}
             />
             <Label
-              htmlFor="scheduledDataDeletion"
+              htmlFor={scheduledDataDeletionId}
               className="flex items-center space-x-2 text-lg"
             >
               {t("pages.settings.insights.scheduledDataDeletionButton")}

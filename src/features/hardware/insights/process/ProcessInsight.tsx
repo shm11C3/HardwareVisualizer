@@ -1,6 +1,6 @@
-import { useTauriStore } from "@/hooks/useTauriStore";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useTauriStore } from "@/hooks/useTauriStore";
 import { archivePeriods } from "../../consts/chart";
 import { SelectPeriod } from "../components/SelectPeriod";
 import { ProcessBubbleChart } from "./chart/Bubble";
@@ -47,7 +47,9 @@ export const ProcessInsight = () => {
 
 const ProcessArea = ({
   period,
-}: { period: (typeof archivePeriods)[number] }) => {
+}: {
+  period: (typeof archivePeriods)[number];
+}) => {
   const { processStats, loading } = useProcessStats({
     period,
     offset: 0,

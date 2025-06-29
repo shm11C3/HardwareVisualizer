@@ -1,5 +1,5 @@
-import { convertFileToBase64 } from "@/lib/file";
 import { describe, expect, it } from "vitest";
+import { convertFileToBase64 } from "@/lib/file";
 
 describe("convertFileToBase64", () => {
   it("should convert a valid file to a base64 string", async () => {

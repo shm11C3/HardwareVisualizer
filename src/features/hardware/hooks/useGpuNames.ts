@@ -1,5 +1,5 @@
-import { sqlitePromise } from "@/lib/sqlite";
 import { useEffect, useState } from "react";
+import { sqlitePromise } from "@/lib/sqlite";
 
 export const useGpuNames = () => {
   const [gpuNames, setGpuNames] = useState<string[]>([]);

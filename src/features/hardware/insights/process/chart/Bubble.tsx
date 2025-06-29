@@ -1,4 +1,3 @@
-import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import { useTranslation } from "react-i18next";
 import {
   CartesianGrid,
@@ -10,6 +9,7 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
+import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import type { ProcessStat } from "../types/processStats";
 import { CustomTooltip } from "./components/CustomTooltip";
 import { useScatterChartZoom } from "./hooks/useScatterChartZoom";
@@ -50,12 +50,13 @@ export const ProcessBubbleChart = ({
   } = useScatterChartZoom(chartData);
 
   return (
-    <div
+    <section
       ref={containerRef}
       className="relative select-none"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      aria-label="Process Bubble Chart"
     >
       <ResponsiveContainer width="100%" height={500}>
         <ScatterChart
@@ -108,6 +109,6 @@ export const ProcessBubbleChart = ({
           <Scatter name="process" data={chartData} fill={bubbleChartColor} />
         </ScatterChart>
       </ResponsiveContainer>
-    </div>
+    </section>
   );
 };

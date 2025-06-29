@@ -1,6 +1,6 @@
-import { openURL } from "@/lib/openUrl";
 import { open } from "@tauri-apps/plugin-shell";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { openURL } from "@/lib/openUrl";
 
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn(),
