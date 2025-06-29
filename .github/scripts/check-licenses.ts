@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 const licensesFile = process.argv[2];
 if (!licensesFile) {
-  console.error("Usage: node check-licenses.js <licenses.json>");
+  console.error("Usage: ts-node check-licenses.ts <licenses.json>");
   process.exit(1);
 }
 
