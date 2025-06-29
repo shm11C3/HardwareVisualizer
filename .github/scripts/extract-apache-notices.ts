@@ -6,7 +6,7 @@ const outputDir = process.argv[3];
 
 if (!licensesFile || !outputDir) {
   console.error(
-    "Usage: node extract-apache-notices.js <licenses.json> <outputDir>",
+    "Usage: node extract-apache-notices <licenses.json> <outputDir>",
   );
   process.exit(1);
 }
