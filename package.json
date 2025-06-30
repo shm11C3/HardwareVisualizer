@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npx react-devtools\" \"vite dev\"",
     "build": "tsc && vite build",
@@ -28,6 +29,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "concurrently": "^9.2.0",
     "jsdom": "^26.1.0",
+    "license-checker": "^25.0.1",
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
