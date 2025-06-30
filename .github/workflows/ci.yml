@@ -309,4 +309,5 @@ jobs:
         run: cargo install cargo-deny
 
       - name: Check Rust licenses
-        run: cargo deny check licenses --deps=0
+        working-directory: src-tauri
+        run: cargo deny check licenses

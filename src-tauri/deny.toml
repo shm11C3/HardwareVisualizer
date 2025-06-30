@@ -85,22 +85,22 @@ ignore = [
 # More documentation for the licenses section can be found here:
 # https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
 [licenses]
-# List of explicitly allowed licenses
-# See https://spdx.org/licenses/ for list of possible licenses
-# [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
     "MIT",
     "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
     "BSD-3-Clause",
     "BSD-2-Clause",
-    "ISC",
-    "Zlib",
-    "CC0",
-    "Unlicense",
     "0BSD",
-    "BlueOak-1.0.0",
+    "ISC",
     "MPL-2.0",
-]
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+    "NCSA",
+    "Zlib",
+] # List of explicitly allowed licenses
+# See https://spdx.org/licenses/ for list of possible licenses
+# [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
 # canonical license text of a valid SPDX license file.

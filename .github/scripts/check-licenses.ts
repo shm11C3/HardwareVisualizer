@@ -11,11 +11,8 @@ const allowedLicenses = new Set([
   "Apache-2.0",
   "BSD-3-Clause",
   "BSD-2-Clause",
-  "ISC",
-  "Zlib",
-  "CC0",
-  "Unlicense",
   "0BSD",
+  "ISC",
   "BlueOak-1.0.0",
   "MPL-2.0",
 ]);
