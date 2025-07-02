@@ -1,3 +1,5 @@
+use tauri::Config;
+
 use crate::enums;
 use crate::structs;
 use crate::utils;
@@ -7,13 +9,13 @@ use std::io::Write;
 pub const SETTINGS_FILENAME: &str = "settings.json";
 
 pub trait SettingActions {
-  fn write_file(&self) -> Result<(), String>;
-  fn read_file(&mut self) -> Result<(), String>;
+  fn write_file(&self, config: &Config) -> Result<(), String>;
+  fn read_file(&mut self, config: &Config) -> Result<(), String>;
 }
 
 impl SettingActions for structs::settings::Settings {
-  fn write_file(&self) -> Result<(), String> {
-    let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
+  fn write_file(&self, config: &Config) -> Result<(), String> {
+    let config_file = utils::file::get_app_data_dir(config, SETTINGS_FILENAME);
     let config_dir = match config_file.parent() {
       Some(dir) => dir,
       None => {
@@ -90,8 +92,8 @@ impl SettingActions for structs::settings::Settings {
     Ok(())
   }
 
-  fn read_file(&mut self) -> Result<(), String> {
-    let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
+  fn read_file(&mut self, config: &Config) -> Result<(), String> {
+    let config_file = utils::file::get_app_data_dir(config, SETTINGS_FILENAME);
 
     match std::fs::read_to_string(config_file) {
       Ok(input) => match serde_json::from_str::<Self>(&input) {
@@ -121,8 +123,8 @@ impl SettingActions for structs::settings::Settings {
 }
 
 impl structs::settings::Settings {
-  pub fn new() -> Self {
-    let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
+  pub fn new(config: &Config) -> Self {
+    let config_file = utils::file::get_app_data_dir(config, SETTINGS_FILENAME);
 
     let mut settings = Self::default();
 
@@ -130,55 +132,74 @@ impl structs::settings::Settings {
       return settings;
     }
 
-    if let Err(e) = settings.read_file() {
+    if let Err(e) = settings.read_file(config) {
       log_error!("read_config_failed", "read_file", Some(e.to_string()));
     }
 
     settings
   }
 
-  pub fn set_language(&mut self, new_lang: String) -> Result<(), String> {
+  pub fn set_language(
+    &mut self,
+    config: &Config,
+    new_lang: String,
+  ) -> Result<(), String> {
     self.language = new_lang;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_theme(&mut self, new_theme: enums::settings::Theme) -> Result<(), String> {
+  pub fn set_theme(
+    &mut self,
+    config: &Config,
+    new_theme: enums::settings::Theme,
+  ) -> Result<(), String> {
     self.theme = new_theme;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_display_targets(
     &mut self,
+    config: &Config,
     new_targets: Vec<enums::hardware::HardwareType>,
   ) -> Result<(), String> {
     self.display_targets = new_targets;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_graph_size(
     &mut self,
+    config: &Config,
     new_size: enums::settings::GraphSize,
   ) -> Result<(), String> {
     self.graph_size = new_size;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_line_graph_type(
     &mut self,
+    config: &Config,
     new_type: enums::settings::LineGraphType,
   ) -> Result<(), String> {
     self.line_graph_type = new_type;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_line_graph_border(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_line_graph_border(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.line_graph_border = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_line_graph_fill(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_line_graph_fill(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.line_graph_fill = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
   ///
@@ -189,6 +210,7 @@ impl structs::settings::Settings {
   ///
   pub fn set_line_graph_color(
     &mut self,
+    config: &Config,
     key: enums::hardware::HardwareType,
     new_color: String,
   ) -> Result<String, String> {
@@ -212,7 +234,7 @@ impl structs::settings::Settings {
       }
     }
 
-    let _ = self.write_file();
+    let _ = self.write_file(config);
 
     match key {
       enums::hardware::HardwareType::Cpu => Ok(
@@ -245,65 +267,93 @@ impl structs::settings::Settings {
     }
   }
 
-  pub fn set_line_graph_mix(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_line_graph_mix(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.line_graph_mix = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_line_graph_show_legend(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_line_graph_show_legend(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.line_graph_show_legend = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_line_graph_show_scale(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_line_graph_show_scale(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.line_graph_show_scale = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_line_graph_show_tooltip(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_line_graph_show_tooltip(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.line_graph_show_tooltip = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_background_img_opacity(&mut self, new_value: u8) -> Result<(), String> {
+  pub fn set_background_img_opacity(
+    &mut self,
+    config: &Config,
+    new_value: u8,
+  ) -> Result<(), String> {
     self.background_img_opacity = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_selected_background_img(
     &mut self,
+    config: &Config,
     new_value: Option<String>,
   ) -> Result<(), String> {
     self.selected_background_img = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_temperature_unit(
     &mut self,
+    config: &Config,
     new_unit: enums::settings::TemperatureUnit,
   ) -> Result<(), String> {
     self.temperature_unit = new_unit;
-    self.write_file()
+    self.write_file(config)
   }
 
-  pub fn set_hardware_archive_enabled(&mut self, new_value: bool) -> Result<(), String> {
+  pub fn set_hardware_archive_enabled(
+    &mut self,
+    config: &Config,
+    new_value: bool,
+  ) -> Result<(), String> {
     self.hardware_archive.enabled = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_hardware_archive_interval(
     &mut self,
+    config: &Config,
     new_interval: u32,
   ) -> Result<(), String> {
     self.hardware_archive.refresh_interval_days = new_interval;
-    self.write_file()
+    self.write_file(config)
   }
 
   pub fn set_hardware_archive_scheduled_data_deletion(
     &mut self,
+    config: &Config,
     new_value: bool,
   ) -> Result<(), String> {
     self.hardware_archive.scheduled_data_deletion = new_value;
-    self.write_file()
+    self.write_file(config)
   }
 }

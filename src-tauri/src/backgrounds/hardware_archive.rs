@@ -17,7 +17,10 @@ const PROCESS_RECORD_LIMIT: usize = 5;
 
 const PROCESS_RECORD_GROUP: [&str; 3] = ["cpu", "memory", "exec"];
 
-pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
+pub async fn setup(
+  resources: structs::hardware_archive::MonitorResources,
+  config: tauri::State<'_, tauri::Config>,
+) {
   let structs::hardware_archive::MonitorResources {
     system: _system,
     cpu_history,
@@ -38,7 +41,10 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
     let cpu_data = get_cpu_data(cpu_history.clone());
     let memory_data = get_memory_data(memory_history.clone());
 
-    let result = database::hardware_archive::insert(cpu_data, memory_data).await;
+    let cloned_config = config.clone();
+    let result =
+      database::hardware_archive::insert(cpu_data, memory_data, cloned_config.inner())
+        .await;
     if let Err(e) = result {
       log_error!(
         "Failed to insert hardware archive data",
@@ -54,7 +60,8 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
     );
 
     for gpu_data in gpu_data_list {
-      let result = database::gpu_archive::insert(gpu_data).await;
+      let gpu_config = config.clone();
+      let result = database::gpu_archive::insert(gpu_data, gpu_config).await;
       if let Err(e) = result {
         log_error!(
           "Failed to insert GPU hardware archive data",
@@ -68,7 +75,8 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
       process_cpu_histories.clone(),
       process_memory_histories.clone(),
     );
-    let result = database::process_stats::insert(process_stats).await;
+    let process_config = config.clone();
+    let result = database::process_stats::insert(process_stats, process_config).await;
     if let Err(e) = result {
       log_error!(
         "Failed to insert process stats data",
@@ -82,8 +90,13 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
 ///
 /// 指定された日数より古いデータを削除する
 ///
-pub async fn batch_delete_old_data(refresh_interval_days: u32) {
-  if let Err(e) = database::hardware_archive::delete_old_data(refresh_interval_days).await
+pub async fn batch_delete_old_data(
+  refresh_interval_days: u32,
+  config: tauri::State<'_, tauri::Config>,
+) {
+  if let Err(e) =
+    database::hardware_archive::delete_old_data(refresh_interval_days, config.inner())
+      .await
   {
     log_error!(
       "Failed to delete old hardware archive data",
@@ -92,7 +105,9 @@ pub async fn batch_delete_old_data(refresh_interval_days: u32) {
     );
   }
 
-  if let Err(e) = database::gpu_archive::delete_old_data(refresh_interval_days).await {
+  if let Err(e) =
+    database::gpu_archive::delete_old_data(refresh_interval_days, config.clone()).await
+  {
     log_error!(
       "Failed to delete old GPU hardware archive data",
       "batch_delete_old_data",
@@ -100,7 +115,9 @@ pub async fn batch_delete_old_data(refresh_interval_days: u32) {
     );
   }
 
-  if let Err(e) = database::process_stats::delete_old_data(refresh_interval_days).await {
+  if let Err(e) =
+    database::process_stats::delete_old_data(refresh_interval_days, config).await
+  {
     log_error!(
       "Failed to delete old process stats data",
       "batch_delete_old_data",
