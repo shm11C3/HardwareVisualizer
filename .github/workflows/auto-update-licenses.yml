@@ -1,4 +1,7 @@
 name: "Auto Update Licenses Weekly"
+permissions:
+  contents: write
+  pull-requests: write
 
 on:
   schedule:
