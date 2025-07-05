@@ -1,14 +1,11 @@
-import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { cn } from "@/lib/utils";
 import {
+  closestCorners,
   DndContext,
   PointerSensor,
-  closestCorners,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
+import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import {
   CpuIcon,
   GraphicsCardIcon,
@@ -18,6 +15,9 @@ import {
 } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
+import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import {
   CPUInfo,
   GPUInfo,

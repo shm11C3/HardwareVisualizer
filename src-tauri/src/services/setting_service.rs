@@ -39,7 +39,7 @@ impl SettingActions for structs::settings::Settings {
           "write_file",
           Some(e.to_string())
         );
-        return Err(format!("Failed to create configuration directory: {}", e));
+        return Err(format!("Failed to create configuration directory: {e}"));
       }
     }
 
@@ -51,7 +51,7 @@ impl SettingActions for structs::settings::Settings {
           "write_file",
           Some(e.to_string())
         );
-        return Err(format!("Failed to serialize settings: {}", e));
+        return Err(format!("Failed to serialize settings: {e}"));
       }
     };
 
@@ -64,10 +64,7 @@ impl SettingActions for structs::settings::Settings {
           "write_file",
           Some(e.to_string())
         );
-        return Err(format!(
-          "Failed to create temporary file for settings: {}",
-          e
-        ));
+        return Err(format!("Failed to create temporary file for settings: {e}"));
       }
     };
 
@@ -77,7 +74,7 @@ impl SettingActions for structs::settings::Settings {
         "write_file",
         Some(e.to_string())
       );
-      return Err(format!("Failed to write to temporary settings file: {}", e));
+      return Err(format!("Failed to write to temporary settings file: {e}"));
     }
 
     // 一時ファイルを本来の設定ファイルに置き換える
@@ -87,7 +84,7 @@ impl SettingActions for structs::settings::Settings {
         "write_file",
         Some(e.to_string())
       );
-      return Err(format!("Failed to persist temporary settings file: {}", e));
+      return Err(format!("Failed to persist temporary settings file: {e}"));
     }
 
     Ok(())
@@ -108,7 +105,7 @@ impl SettingActions for structs::settings::Settings {
             "read_file",
             Some(e.to_string())
           );
-          Err(format!("Failed to deserialize settings: {}", e))
+          Err(format!("Failed to deserialize settings: {e}"))
         }
       },
       Err(e) => {
@@ -117,7 +114,7 @@ impl SettingActions for structs::settings::Settings {
           "read_file",
           Some(e.to_string())
         );
-        Err(format!("Failed to read settings file: {}", e))
+        Err(format!("Failed to read settings file: {e}"))
       }
     }
   }

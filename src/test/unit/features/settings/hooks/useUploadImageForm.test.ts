@@ -1,6 +1,6 @@
-import { useUploadImage } from "@/features/settings/hooks/useUploadImageForm";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useUploadImage } from "@/features/settings/hooks/useUploadImageForm";
 
 if (!URL.createObjectURL) {
   URL.createObjectURL = () => "blob:testurl";

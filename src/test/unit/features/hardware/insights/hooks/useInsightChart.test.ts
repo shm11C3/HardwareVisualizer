@@ -1,7 +1,7 @@
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { useInsightChart } from "@/features/hardware/insights/hooks/useInsightChart";
 import { sqlitePromise } from "@/lib/sqlite";
-import { act, renderHook } from "@testing-library/react";
-import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/sqlite", () => ({
   sqlitePromise: Promise.resolve({

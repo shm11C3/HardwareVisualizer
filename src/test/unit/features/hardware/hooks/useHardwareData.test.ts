@@ -1,10 +1,14 @@
 // src/test/unit/hooks/useUsageAndHardwareUpdater.test.ts
 import { renderHook, waitFor } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
-import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { chartConfig } from "@/features/hardware/consts/chart";
-
+// テスト対象のフック群
+import {
+  useHardwareUpdater,
+  useUsageUpdater,
+} from "@/features/hardware/hooks/useHardwareData";
 import {
   cpuUsageHistoryAtom,
   gpuFanSpeedAtom,
@@ -12,12 +16,6 @@ import {
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-
-// テスト対象のフック群
-import {
-  useHardwareUpdater,
-  useUsageUpdater,
-} from "@/features/hardware/hooks/useHardwareData";
 
 // コマンド群（モック対象）
 import { commands } from "@/rspc/bindings";

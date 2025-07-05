@@ -1,7 +1,7 @@
 // src/test/unit/hooks/useBgImage.test.ts
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
-import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 // ----------------------
 // モックの設定
@@ -53,6 +53,7 @@ vi.mock("@/rspc/bindings", () => ({
 // モック関数を利用するために、対象モジュールからインポートし、vi.mocked を利用
 // ----------------------
 import { convertFileToBase64 } from "@/lib/file";
+
 const convertFileToBase64Mock = vi.mocked(convertFileToBase64);
 
 import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";

@@ -2,12 +2,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface FakeStore {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
   data: Record<string, any>;
   has: (key: string) => Promise<boolean>;
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
   get: (key: string) => Promise<any>;
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
   set: (key: string, value: any) => Promise<void>;
   save: () => Promise<void>;
 }
@@ -31,7 +31,7 @@ describe("useTauriStore", () => {
       data: {},
       has: vi.fn((key: string) => Promise.resolve(key in fakeStore.data)),
       get: vi.fn((key: string) => Promise.resolve(fakeStore.data[key])),
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+      // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
       set: vi.fn((key: string, value: any) => {
         fakeStore.data[key] = value;
         return Promise.resolve();

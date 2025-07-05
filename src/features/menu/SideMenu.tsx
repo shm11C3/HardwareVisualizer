@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-import type { SelectedDisplayType } from "@/types/ui";
 import {
   CaretDoubleLeftIcon,
   CaretDoubleRightIcon,
@@ -12,6 +10,8 @@ import {
 import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { cn } from "@/lib/utils";
+import type { SelectedDisplayType } from "@/types/ui";
 import { useMenu } from "./hooks/useMenu";
 
 const menuTypes = [

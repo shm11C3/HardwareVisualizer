@@ -45,7 +45,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
     }
 
     log_debug!(
-      &format!("gpu_count: {:?}", gpu_count),
+      &format!("gpu_count: {gpu_count:?}"),
       "get_nvidia_gpu_usage",
       None::<&str>
     );
@@ -104,7 +104,7 @@ pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Statu
         log_debug!(
           "thermal_settings_failed",
           "get_nvidia_gpu_temperature",
-          Some(&format!("{:?}", e))
+          Some(&format!("{e:?}"))
         );
         nvapi::Status::Error
       })?;
@@ -154,7 +154,7 @@ pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Statu
         log_debug!(
           "cooler_settings_failed",
           "get_nvidia_gpu_cooler_stat",
-          Some(&format!("{:?}", e))
+          Some(&format!("{e:?}"))
         );
         nvapi::Status::Error
       })?;
@@ -308,7 +308,7 @@ pub fn get_gpu_temperature_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> i32 {
     log_warn!(
       "thermal_settings_failed",
       "get_gpu_temperature",
-      Some(&format!("{:?}", e))
+      Some(&format!("{e:?}"))
     );
     0
   });

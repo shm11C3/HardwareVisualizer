@@ -5,11 +5,7 @@ export type LegendItem = {
   icon: JSX.Element;
 };
 
-export const CustomLegend = ({
-  item,
-}: {
-  item: LegendItem;
-}) => {
+export const CustomLegend = ({ item }: { item: LegendItem }) => {
   return (
     <div className="mx-6">
       <div className="flex cursor-default items-center">

@@ -1,9 +1,3 @@
-import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
-import { Skeleton } from "@/components/ui/skeleton";
-import { minOpacity } from "@/consts/style";
-import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { Settings } from "@/features/settings/types/settingsType";
 import {
   LightningIcon,
   MemoryIcon,
@@ -19,6 +13,12 @@ import {
   RadialBar,
   RadialBarChart,
 } from "recharts";
+import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
+import { minOpacity } from "@/consts/style";
+import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { Settings } from "@/features/settings/types/settingsType";
 
 type DoughnutChartProps =
   | {

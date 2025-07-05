@@ -1,9 +1,9 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type archivePeriods,
   chartConfig,
 } from "@/features/hardware/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { getProcessStats } from "../funcs/getProcessStatsRecord";
 import type { ProcessStat } from "../types/processStats";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
@@ -11,7 +11,10 @@ import { useProcessStatsAtom } from "./useProcessStatsAtom";
 export const useProcessStats = ({
   period,
   offset,
-}: { period: (typeof archivePeriods)[number]; offset: number }) => {
+}: {
+  period: (typeof archivePeriods)[number];
+  offset: number;
+}) => {
   const [loading, setLoading] = useState(true);
   const { error } = useTauriDialog();
   const { processStats, setProcessStatsAtom } = useProcessStatsAtom();

@@ -1,7 +1,7 @@
-import { useDarkMode } from "@/hooks/useDarkMode";
 // src/test/unit/useDarkMode.test.ts
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 describe("useDarkMode", () => {
   // 各テスト実行前に、document のクラスリストをリセット
