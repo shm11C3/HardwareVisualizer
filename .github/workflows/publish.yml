@@ -112,10 +112,6 @@ jobs:
       - name: Check licenses
         run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
 
-      # TODO バンドル時に NOTICE ファイルをインストーラに同梱させる
-      - name: Extract Apache NOTICE
-        run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
-
       - name: Update tauri.conf.json using Node.js script
         run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
@@ -165,3 +161,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
+
+      # TODO バンドル時に NOTICE ファイルをインストーラに同梱させる
+      - name: Extract Apache NOTICE
+        run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
+
+      # THIRD_PARTY_LICENSES ファイルを生成
+      - name: Generate THIRD_PARTY_NOTICES
+        run: node --experimental-strip-types .github/scripts/generate-licenses.ts
+
+      - name: upload THIRD_PARTY_NOTICES.md
+        uses: actions/upload-artifact@v4
+        with:
+          name: THIRD_PARTY_NOTICES.md
+          path: ./THIRD_PARTY_NOTICES.md

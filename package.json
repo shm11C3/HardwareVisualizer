@@ -14,7 +14,8 @@
     "tauri": "tauri",
     "lint": "biome lint ./src && biome check ./src && biome format --write ./src",
     "format": "biome format --write ./src && biome check ./src --write",
-    "lint:ci": "biome ci ./src"
+    "lint:ci": "biome ci ./src",
+    "generate:licenses": "node --experimental-strip-types .github/scripts/generate-licenses.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.6",
