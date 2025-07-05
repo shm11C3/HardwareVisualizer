@@ -84,6 +84,10 @@ export const Dashboard = () => {
     },
   };
 
+  if (!dashboardItemMap) {
+    return <></>;
+  }
+
   return (
     <DndContext
       sensors={sensors}
