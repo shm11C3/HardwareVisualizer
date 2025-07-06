@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -85,7 +86,16 @@ export const Dashboard = () => {
   };
 
   if (!dashboardItemMap) {
-    return <></>;
+    return (
+      <div className="grid grid-cols-2 gap-4">
+        <Skeleton className="h-[400px] w-full rounded-md" />
+        <Skeleton className="h-[400px] w-full rounded-md" />
+        <Skeleton className="h-[400px] w-full rounded-md" />
+        <Skeleton className="h-[400px] w-full rounded-md" />
+        <Skeleton className="h-[400px] w-full rounded-md" />
+        <Skeleton className="h-[400px] w-full rounded-md" />
+      </div>
+    );
   }
 
   return (
