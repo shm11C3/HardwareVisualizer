@@ -73,7 +73,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-error-boundary": "^6.0.0",
-    "react-hook-form": "^7.59.0",
+    "react-hook-form": "^7.60.0",
     "react-i18next": "^15.5.3",
     "recharts": "^2.15.3",
     "tailwind-merge": "^3.3.1",
