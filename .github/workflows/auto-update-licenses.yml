@@ -46,3 +46,4 @@ jobs:
           add-paths: |
             ./THIRD_PARTY_NOTICES.md
           token: ${{ secrets.GITHUB_TOKEN }}
+          delete-branch: true
