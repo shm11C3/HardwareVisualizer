@@ -28,17 +28,20 @@ const generateLicenseTxt = (
   publisher?: string,
   email?: string,
 ) => {
-  let output = `## ${name}\n`;
+  let output = `## ${name}\n\n`;
   output += `- License: ${licenses}\n`;
-  if (repository)
-    output += `- Repository: <a href="${repository}">${repository}</a>\n`;
+  if (repository) output += `- Repository: [${repository}](${repository})\n`;
   if (publisher) output += `- Publisher: ${publisher}\n`;
-  if (email) output += `- Email: ${email}\n`;
+  if (email) output += `- Email: <${email}>\n`;
+  output += "\n";
+
   return output;
 };
 
-let output =
-  "# THIRD_PARTY_NOTICES\nThis application includes third-party libraries licensed under their respective licenses.\n\n";
+let output = "# THIRD_PARTY_NOTICES\n\n";
+
+output +=
+  "This application includes third-party libraries licensed under their respective licenses.\n\n";
 
 try {
   const npmRawJson = execSync("npx license-checker --production --json", {
@@ -63,7 +66,7 @@ try {
       const licenseContent = readFileSync(info.licenseFile, {
         encoding: "utf8",
       });
-      output += "```\n";
+      output += "```LICENSE\n";
       output += `${licenseContent.trim().replace(/```/g, "`` ``` ``")}\n`;
       output += "```\n\n";
     }
@@ -110,7 +113,7 @@ try {
         const licensePath = path.join(cratePath, file);
         if (existsSync(licensePath)) {
           const licenseContent = readFileSync(licensePath, "utf8");
-          output += "```\n";
+          output += "```LICENSE\n";
           output += `${licenseContent.trim().replace(/```/g, "`` ``` ``")}\n`;
           output += "```\n\n";
           break;
