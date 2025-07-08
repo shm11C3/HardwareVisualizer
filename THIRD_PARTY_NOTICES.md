@@ -1,12 +1,15 @@
 # THIRD_PARTY_NOTICES
+
 This application includes third-party libraries licensed under their respective licenses.
 
 ## @ampproject/remapping@2.3.0
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/ampproject/remapping">https://github.com/ampproject/remapping</a>
+- Repository: [https://github.com/ampproject/remapping](https://github.com/ampproject/remapping)
 - Publisher: Justin Ridgewell
-- Email: jridgewell@google.com
-```
+- Email: <jridgewell@google.com>
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -211,10 +214,12 @@ Apache License
 ```
 
 ## @babel/helper-string-parser@7.27.1
+
 - License: MIT
-- Repository: <a href="https://github.com/babel/babel">https://github.com/babel/babel</a>
+- Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
 - Publisher: The Babel Team
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2014-present Sebastian McKenzie and other contributors
@@ -240,10 +245,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## @babel/helper-validator-identifier@7.27.1
+
 - License: MIT
-- Repository: <a href="https://github.com/babel/babel">https://github.com/babel/babel</a>
+- Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
 - Publisher: The Babel Team
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2014-present Sebastian McKenzie and other contributors
@@ -269,10 +276,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## @babel/runtime@7.27.6
+
 - License: MIT
-- Repository: <a href="https://github.com/babel/babel">https://github.com/babel/babel</a>
+- Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
 - Publisher: The Babel Team
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2014-present Sebastian McKenzie and other contributors
@@ -297,11 +306,13 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/types@7.27.6
+## @babel/types@7.28.0
+
 - License: MIT
-- Repository: <a href="https://github.com/babel/babel">https://github.com/babel/babel</a>
+- Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
 - Publisher: The Babel Team
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2014-present Sebastian McKenzie and other contributors
@@ -326,20 +337,144 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @esbuild/win32-x64@0.25.1
+## @dnd-kit/accessibility@3.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/evanw/esbuild">https://github.com/evanw/esbuild</a>
+- Repository: [https://github.com/clauderic/dnd-kit](https://github.com/clauderic/dnd-kit)
+- Publisher: Claudéric Demers
+
+```LICENSE
+MIT License
+
+Copyright (c) 2021, Claudéric Demers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
+
+## @dnd-kit/core@6.3.1
+
+- License: MIT
+- Repository: [https://github.com/clauderic/dnd-kit](https://github.com/clauderic/dnd-kit)
+- Publisher: Claudéric Demers
+
+```LICENSE
+MIT License
+
+Copyright (c) 2021, Claudéric Demers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @dnd-kit/sortable@10.0.0
+
+- License: MIT
+- Repository: [https://github.com/clauderic/dnd-kit](https://github.com/clauderic/dnd-kit)
+- Publisher: Claudéric Demers
+
+```LICENSE
+MIT License
+
+Copyright (c) 2021, Claudéric Demers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @dnd-kit/utilities@3.2.2
+
+- License: MIT
+- Repository: [https://github.com/clauderic/dnd-kit](https://github.com/clauderic/dnd-kit)
+- Publisher: Claudéric Demers
+
+```LICENSE
+MIT License
+
+Copyright (c) 2021, Claudéric Demers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @esbuild/linux-x64@0.25.5
+
+- License: MIT
+- Repository: [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
+
+```LICENSE
 # esbuild
 
-This is the Windows 64-bit binary for esbuild, a JavaScript bundler and minifier. See https://github.com/evanw/esbuild for details.
+This is the Linux 64-bit binary for esbuild, a JavaScript bundler and minifier. See https://github.com/evanw/esbuild for details.
 ```
 
-## @floating-ui/core@1.6.9
+## @floating-ui/core@1.7.2
+
 - License: MIT
-- Repository: <a href="https://github.com/floating-ui/floating-ui">https://github.com/floating-ui/floating-ui</a>
+- Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - Publisher: atomiks
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021-present Floating UI contributors
@@ -362,11 +497,13 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/dom@1.6.13
+## @floating-ui/dom@1.7.2
+
 - License: MIT
-- Repository: <a href="https://github.com/floating-ui/floating-ui">https://github.com/floating-ui/floating-ui</a>
+- Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - Publisher: atomiks
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021-present Floating UI contributors
@@ -389,11 +526,13 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/react-dom@2.1.2
+## @floating-ui/react-dom@2.1.4
+
 - License: MIT
-- Repository: <a href="https://github.com/floating-ui/floating-ui">https://github.com/floating-ui/floating-ui</a>
+- Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - Publisher: atomiks
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021-present Floating UI contributors
@@ -416,11 +555,13 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/utils@0.2.9
+## @floating-ui/utils@0.2.10
+
 - License: MIT
-- Repository: <a href="https://github.com/floating-ui/floating-ui">https://github.com/floating-ui/floating-ui</a>
+- Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - Publisher: atomiks
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021-present Floating UI contributors
@@ -444,11 +585,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## @hookform/resolvers@5.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/react-hook-form/resolvers">https://github.com/react-hook-form/resolvers</a>
+- Repository: [https://github.com/react-hook-form/resolvers](https://github.com/react-hook-form/resolvers)
 - Publisher: bluebill1049
-- Email: bluebill1049@hotmail.com
-```
+- Email: <bluebill1049@hotmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019-present Beier(Bill) Luo
@@ -473,10 +616,12 @@ SOFTWARE.
 ```
 
 ## @isaacs/fs-minipass@4.0.1
+
 - License: ISC
-- Repository: <a href="https://github.com/npm/fs-minipass">https://github.com/npm/fs-minipass</a>
+- Repository: [https://github.com/npm/fs-minipass](https://github.com/npm/fs-minipass)
 - Publisher: Isaac Z. Schlueter
-```
+
+```LICENSE
 The ISC License
 
 Copyright (c) Isaac Z. Schlueter and Contributors
@@ -494,13 +639,15 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## @jridgewell/gen-mapping@0.3.8
+## @jridgewell/gen-mapping@0.3.12
+
 - License: MIT
-- Repository: <a href="https://github.com/jridgewell/gen-mapping">https://github.com/jridgewell/gen-mapping</a>
+- Repository: [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - Publisher: Justin Ridgewell
-- Email: justin@ridgewell.name
-```
-Copyright 2022 Justin Ridgewell <jridgewell@google.com>
+- Email: <justin@ridgewell.name>
+
+```LICENSE
+Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -522,11 +669,13 @@ SOFTWARE.
 ```
 
 ## @jridgewell/resolve-uri@3.1.2
+
 - License: MIT
-- Repository: <a href="https://github.com/jridgewell/resolve-uri">https://github.com/jridgewell/resolve-uri</a>
+- Repository: [https://github.com/jridgewell/resolve-uri](https://github.com/jridgewell/resolve-uri)
 - Publisher: Justin Ridgewell
-- Email: justin@ridgewell.name
-```
+- Email: <justin@ridgewell.name>
+
+```LICENSE
 Copyright 2019 Justin Ridgewell <jridgewell@google.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -548,13 +697,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @jridgewell/set-array@1.2.1
+## @jridgewell/sourcemap-codec@1.5.4
+
 - License: MIT
-- Repository: <a href="https://github.com/jridgewell/set-array">https://github.com/jridgewell/set-array</a>
+- Repository: [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - Publisher: Justin Ridgewell
-- Email: justin@ridgewell.name
-```
-Copyright 2022 Justin Ridgewell <jridgewell@google.com>
+- Email: <justin@ridgewell.name>
+
+```LICENSE
+Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -575,41 +726,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @jridgewell/sourcemap-codec@1.5.0
+## @jridgewell/trace-mapping@0.3.29
+
 - License: MIT
-- Repository: <a href="https://github.com/jridgewell/sourcemap-codec">https://github.com/jridgewell/sourcemap-codec</a>
-- Publisher: Rich Harris
-```
-The MIT License
-
-Copyright (c) 2015 Rich Harris
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-```
-
-## @jridgewell/trace-mapping@0.3.25
-- License: MIT
-- Repository: <a href="https://github.com/jridgewell/trace-mapping">https://github.com/jridgewell/trace-mapping</a>
+- Repository: [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - Publisher: Justin Ridgewell
-- Email: justin@ridgewell.name
-```
-Copyright 2022 Justin Ridgewell <justin@ridgewell.name>
+- Email: <justin@ridgewell.name>
+
+```LICENSE
+Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -631,11 +756,13 @@ SOFTWARE.
 ```
 
 ## @phosphor-icons/react@2.1.10
+
 - License: MIT
-- Repository: <a href="https://github.com/phosphor-icons/react">https://github.com/phosphor-icons/react</a>
+- Repository: [https://github.com/phosphor-icons/react](https://github.com/phosphor-icons/react)
 - Publisher: Tobias Fried
-- Email: friedtm@gmail.com
-```
+- Email: <friedtm@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Phosphor Icons
@@ -660,9 +787,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/number@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `number`
 
 ## Installation
@@ -679,9 +808,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/primitive@1.1.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `primitive`
 
 ## Installation
@@ -698,9 +829,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-accordion@1.2.11
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -725,9 +858,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-alert-dialog@1.1.14
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -752,9 +887,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-arrow@1.1.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -779,9 +916,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-checkbox@1.3.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -806,9 +945,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-collapsible@1.1.11
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -833,9 +974,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-collection@1.1.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -860,9 +1003,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-compose-refs@1.1.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-compose-refs`
 
 ## Installation
@@ -879,9 +1024,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-context@1.1.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-context`
 
 ## Installation
@@ -898,9 +1045,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-dialog@1.1.14
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -925,9 +1074,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-direction@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-direction`
 
 ## Installation
@@ -944,9 +1095,11 @@ View docs [here](https://radix-ui.com/primitives/docs/utilities/direction).
 ```
 
 ## @radix-ui/react-dismissable-layer@1.1.10
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -971,9 +1124,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-focus-guards@1.1.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-focus-guards`
 
 ## Installation
@@ -990,9 +1145,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-focus-scope@1.1.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1017,9 +1174,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-id@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-id`
 
 ## Installation
@@ -1036,9 +1195,11 @@ View docs [here](https://radix-ui.com/primitives/docs/utilities/id-provider).
 ```
 
 ## @radix-ui/react-label@2.1.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1063,9 +1224,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-popper@1.2.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1090,9 +1253,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-portal@1.1.9
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1117,9 +1282,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-presence@1.1.4
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1144,9 +1311,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-primitive@2.1.3
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1171,9 +1340,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-radio-group@1.3.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1198,9 +1369,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-roving-focus@1.1.10
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1225,9 +1398,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-scroll-area@1.2.9
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1252,9 +1427,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-select@2.2.5
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1279,9 +1456,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-slider@1.3.5
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1306,9 +1485,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-slot@1.2.3
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1333,9 +1514,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-switch@1.2.5
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1360,9 +1543,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-tabs@1.1.12
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1387,9 +1572,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-tooltip@1.2.7
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1414,9 +1601,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-use-callback-ref@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-use-callback-ref`
 
 ## Installation
@@ -1433,9 +1622,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-use-controllable-state@1.2.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1460,9 +1651,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-use-effect-event@0.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1487,9 +1680,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-use-escape-keydown@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-use-escape-keydown`
 
 ## Installation
@@ -1506,9 +1701,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-use-layout-effect@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-use-layout-effect`
 
 ## Installation
@@ -1525,9 +1722,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-use-previous@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-use-previous`
 
 ## Installation
@@ -1544,9 +1743,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-use-rect@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-use-rect`
 
 ## Installation
@@ -1563,9 +1764,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-use-size@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `react-use-size`
 
 ## Installation
@@ -1582,9 +1785,11 @@ This is an internal utility, not intended for public usage.
 ```
 
 ## @radix-ui/react-visually-hidden@1.2.3
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -1609,9 +1814,11 @@ SOFTWARE.
 ```
 
 ## @radix-ui/rect@1.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/radix-ui/primitives">https://github.com/radix-ui/primitives</a>
-```
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
 # `rect`
 
 ## Installation
@@ -1627,21 +1834,37 @@ $ npm install @radix-ui/rect
 This is an internal utility, not intended for public usage.
 ```
 
-## @rollup/rollup-win32-x64-msvc@4.38.0
-- License: MIT
-- Repository: <a href="https://github.com/rollup/rollup">https://github.com/rollup/rollup</a>
-- Publisher: Lukas Taegert-Atkinson
-```
-# `@rollup/rollup-win32-x64-msvc`
+## @rollup/rollup-linux-x64-gnu@4.44.2
 
-This is the **x86_64-pc-windows-msvc** binary for `rollup`
+- License: MIT
+- Repository: [https://github.com/rollup/rollup](https://github.com/rollup/rollup)
+- Publisher: Lukas Taegert-Atkinson
+
+```LICENSE
+# `@rollup/rollup-linux-x64-gnu`
+
+This is the **x86_64-unknown-linux-gnu** binary for `rollup`
+```
+
+## @rollup/rollup-linux-x64-musl@4.44.2
+
+- License: MIT
+- Repository: [https://github.com/rollup/rollup](https://github.com/rollup/rollup)
+- Publisher: Lukas Taegert-Atkinson
+
+```LICENSE
+# `@rollup/rollup-linux-x64-musl`
+
+This is the **x86_64-unknown-linux-musl** binary for `rollup`
 ```
 
 ## @standard-schema/utils@0.3.0
+
 - License: MIT
-- Repository: <a href="https://github.com/standard-schema/standard-schema">https://github.com/standard-schema/standard-schema</a>
+- Repository: [https://github.com/standard-schema/standard-schema](https://github.com/standard-schema/standard-schema)
 - Publisher: Fabian Hiller
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2024 Fabian Hiller
@@ -1665,10 +1888,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tailwindcss/node@4.1.10
+## @tailwindcss/node@4.1.11
+
 - License: MIT
-- Repository: <a href="https://github.com/tailwindlabs/tailwindcss">https://github.com/tailwindlabs/tailwindcss</a>
-```
+- Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tailwind Labs, Inc.
@@ -1692,10 +1917,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tailwindcss/oxide-win32-x64-msvc@4.1.10
+## @tailwindcss/oxide-linux-x64-gnu@4.1.11
+
 - License: MIT
-- Repository: <a href="https://github.com/tailwindlabs/tailwindcss">https://github.com/tailwindlabs/tailwindcss</a>
-```
+- Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tailwind Labs, Inc.
@@ -1719,10 +1946,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tailwindcss/oxide@4.1.10
+## @tailwindcss/oxide-linux-x64-musl@4.1.11
+
 - License: MIT
-- Repository: <a href="https://github.com/tailwindlabs/tailwindcss">https://github.com/tailwindlabs/tailwindcss</a>
-```
+- Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tailwind Labs, Inc.
@@ -1746,10 +1975,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tailwindcss/vite@4.1.10
+## @tailwindcss/oxide@4.1.11
+
 - License: MIT
-- Repository: <a href="https://github.com/tailwindlabs/tailwindcss">https://github.com/tailwindlabs/tailwindcss</a>
-```
+- Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tailwind Labs, Inc.
@@ -1773,10 +2004,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tauri-apps/api@2.5.0
+## @tailwindcss/vite@4.1.11
+
+- License: MIT
+- Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+
+```LICENSE
+MIT License
+
+Copyright (c) Tailwind Labs, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @tauri-apps/api@2.6.0
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
-```
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
+```LICENSE
 # @tauri-apps/api
 
  <img align="right" src="https://github.com/tauri-apps/tauri/raw/dev/.github/icon.png" height="128" width="128">
@@ -1831,10 +2093,12 @@ Logo: CC-BY-NC-ND
 - Original Tauri Logo Designs by [Daniel Thompson-Yvetot](https://github.com/nothingismagick) and [Guillaume Chau](https://github.com/akryum)
 ```
 
-## @tauri-apps/plugin-autostart@2.4.0
+## @tauri-apps/plugin-autostart@2.5.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -1857,10 +2121,12 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-dialog@2.2.2
+## @tauri-apps/plugin-dialog@2.3.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -1883,10 +2149,12 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-os@2.2.2
+## @tauri-apps/plugin-os@2.3.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -1909,10 +2177,12 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-shell@2.2.2
+## @tauri-apps/plugin-shell@2.3.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -1935,10 +2205,12 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-sql@2.2.1
+## @tauri-apps/plugin-sql@2.3.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -1961,10 +2233,12 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-store@2.2.1
+## @tauri-apps/plugin-store@2.3.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -1987,10 +2261,12 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-updater@2.8.1
+## @tauri-apps/plugin-updater@2.9.0
+
 - License: MIT OR Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
-```
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
+```LICENSE
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
 PackageName: tauri
@@ -2014,9 +2290,11 @@ Creator: Person: Daniel Thompson-Yvetot
 ```
 
 ## @types/d3-array@3.2.1
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2041,9 +2319,11 @@ MIT License
 ```
 
 ## @types/d3-color@3.1.3
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2068,9 +2348,11 @@ MIT License
 ```
 
 ## @types/d3-ease@3.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2095,9 +2377,11 @@ MIT License
 ```
 
 ## @types/d3-interpolate@3.0.4
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2122,9 +2406,11 @@ MIT License
 ```
 
 ## @types/d3-path@3.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2149,9 +2435,11 @@ MIT License
 ```
 
 ## @types/d3-scale@4.0.9
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2176,9 +2464,11 @@ MIT License
 ```
 
 ## @types/d3-shape@3.1.7
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2203,9 +2493,11 @@ MIT License
 ```
 
 ## @types/d3-time@3.0.4
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2230,9 +2522,11 @@ MIT License
 ```
 
 ## @types/d3-timer@3.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2256,10 +2550,12 @@ MIT License
     SOFTWARE
 ```
 
-## @types/estree@1.0.7
+## @types/estree@1.0.8
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2283,10 +2579,12 @@ MIT License
     SOFTWARE
 ```
 
-## @types/node@24.0.3
+## @types/node@24.0.10
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2311,9 +2609,11 @@ MIT License
 ```
 
 ## @types/react-dom@19.0.4
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2338,9 +2638,11 @@ MIT License
 ```
 
 ## @types/react@19.0.12
+
 - License: MIT
-- Repository: <a href="https://github.com/DefinitelyTyped/DefinitelyTyped">https://github.com/DefinitelyTyped/DefinitelyTyped</a>
-```
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation.
@@ -2364,12 +2666,14 @@ MIT License
     SOFTWARE
 ```
 
-## aria-hidden@1.2.4
+## aria-hidden@1.2.6
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/aria-hidden">https://github.com/theKashey/aria-hidden</a>
+- Repository: [https://github.com/theKashey/aria-hidden](https://github.com/theKashey/aria-hidden)
 - Publisher: Anton Korzunov
-- Email: thekashey@gmail.com
-```
+- Email: <thekashey@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Anton Korzunov
@@ -2393,10 +2697,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## babel-plugin-react-compiler@19.0.0-beta-714736e-20250131
+## babel-plugin-react-compiler@19.0.0-beta-ebf51a3-20250411
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/react">https://github.com/facebook/react</a>
-```
+- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+
+```LICENSE
 # babel-plugin-react-compiler
 
 React Compiler is a compiler that optimizes React applications, ensuring that only the minimal parts of components and hooks will re-render when state changes. The compiler also validates that components and hooks follow the Rules of React.
@@ -2405,11 +2711,13 @@ This package contains the React Compiler Babel plugin use in projects that make 
 ```
 
 ## chownr@3.0.0
+
 - License: BlueOak-1.0.0
-- Repository: <a href="https://github.com/isaacs/chownr">https://github.com/isaacs/chownr</a>
+- Repository: [https://github.com/isaacs/chownr](https://github.com/isaacs/chownr)
 - Publisher: Isaac Z. Schlueter
-- Email: i@izs.me
-```
+- Email: <i@izs.me>
+
+```LICENSE
 All packages under `src/` are licensed according to the terms in
 their respective `LICENSE` or `LICENSE.md` files.
 
@@ -2476,10 +2784,12 @@ software or this license, under any kind of legal claim.***
 ```
 
 ## class-variance-authority@0.7.1
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/joe-bell/cva">https://github.com/joe-bell/cva</a>
+- Repository: [https://github.com/joe-bell/cva](https://github.com/joe-bell/cva)
 - Publisher: Joe Bell
-```
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -2673,11 +2983,13 @@ Apache License
 ```
 
 ## clsx@2.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/lukeed/clsx">https://github.com/lukeed/clsx</a>
+- Repository: [https://github.com/lukeed/clsx](https://github.com/lukeed/clsx)
 - Publisher: Luke Edwards
-- Email: luke.edwards05@gmail.com
-```
+- Email: <luke.edwards05@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
@@ -2690,11 +3002,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## csstype@3.1.3
+
 - License: MIT
-- Repository: <a href="https://github.com/frenic/csstype">https://github.com/frenic/csstype</a>
+- Repository: [https://github.com/frenic/csstype](https://github.com/frenic/csstype)
 - Publisher: Fredrik Nicol
-- Email: fredrik.nicol@gmail.com
-```
+- Email: <fredrik.nicol@gmail.com>
+
+```LICENSE
 Copyright (c) 2017-2018 Fredrik Nicol
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -2717,10 +3031,12 @@ SOFTWARE.
 ```
 
 ## d3-array@3.2.4
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-array">https://github.com/d3/d3-array</a>
+- Repository: [https://github.com/d3/d3-array](https://github.com/d3/d3-array)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2023 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2737,10 +3053,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-color@3.1.0
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-color">https://github.com/d3/d3-color</a>
+- Repository: [https://github.com/d3/d3-color](https://github.com/d3/d3-color)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2022 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2757,10 +3075,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-ease@3.0.1
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/d3/d3-ease">https://github.com/d3/d3-ease</a>
+- Repository: [https://github.com/d3/d3-ease](https://github.com/d3/d3-ease)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2021 Mike Bostock
 Copyright 2001 Robert Penner
 All rights reserved.
@@ -2792,10 +3112,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## d3-format@3.1.0
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-format">https://github.com/d3/d3-format</a>
+- Repository: [https://github.com/d3/d3-format](https://github.com/d3/d3-format)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2021 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2812,10 +3134,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-interpolate@3.0.1
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-interpolate">https://github.com/d3/d3-interpolate</a>
+- Repository: [https://github.com/d3/d3-interpolate](https://github.com/d3/d3-interpolate)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2021 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2832,10 +3156,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-path@3.1.0
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-path">https://github.com/d3/d3-path</a>
+- Repository: [https://github.com/d3/d3-path](https://github.com/d3/d3-path)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2015-2022 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2852,10 +3178,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-scale@4.0.2
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-scale">https://github.com/d3/d3-scale</a>
+- Repository: [https://github.com/d3/d3-scale](https://github.com/d3/d3-scale)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2021 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2872,10 +3200,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-shape@3.2.0
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-shape">https://github.com/d3/d3-shape</a>
+- Repository: [https://github.com/d3/d3-shape](https://github.com/d3/d3-shape)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2022 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2892,10 +3222,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-time-format@4.1.0
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-time-format">https://github.com/d3/d3-time-format</a>
+- Repository: [https://github.com/d3/d3-time-format](https://github.com/d3/d3-time-format)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2021 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2912,10 +3244,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-time@3.1.0
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-time">https://github.com/d3/d3-time</a>
+- Repository: [https://github.com/d3/d3-time](https://github.com/d3/d3-time)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2022 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2932,10 +3266,12 @@ THIS SOFTWARE.
 ```
 
 ## d3-timer@3.0.1
+
 - License: ISC
-- Repository: <a href="https://github.com/d3/d3-timer">https://github.com/d3/d3-timer</a>
+- Repository: [https://github.com/d3/d3-timer](https://github.com/d3/d3-timer)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2010-2021 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -2952,11 +3288,13 @@ THIS SOFTWARE.
 ```
 
 ## decimal.js-light@2.5.1
+
 - License: MIT
-- Repository: <a href="https://github.com/MikeMcl/decimal.js-light">https://github.com/MikeMcl/decimal.js-light</a>
+- Repository: [https://github.com/MikeMcl/decimal.js-light](https://github.com/MikeMcl/decimal.js-light)
 - Publisher: Michael Mclaughlin
-- Email: M8ch88l@gmail.com
-```
+- Email: <M8ch88l@gmail.com>
+
+```LICENSE
 The MIT Expat Licence.
 
 Copyright (c) 2020 Michael Mclaughlin
@@ -2982,11 +3320,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## detect-libc@2.0.4
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/lovell/detect-libc">https://github.com/lovell/detect-libc</a>
+- Repository: [https://github.com/lovell/detect-libc](https://github.com/lovell/detect-libc)
 - Publisher: Lovell Fuller
-- Email: npm@lovell.info
-```
+- Email: <npm@lovell.info>
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -3191,10 +3531,12 @@ Apache License
 ```
 
 ## detect-node-es@1.1.0
+
 - License: MIT
-- Repository: <a href="https://github.com/thekashey/detect-node">https://github.com/thekashey/detect-node</a>
+- Repository: [https://github.com/thekashey/detect-node](https://github.com/thekashey/detect-node)
 - Publisher: Ilya Kantor
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Ilya Kantor
@@ -3219,11 +3561,13 @@ SOFTWARE.
 ```
 
 ## dom-helpers@5.2.1
+
 - License: MIT
-- Repository: <a href="https://github.com/react-bootstrap/dom-helpers">https://github.com/react-bootstrap/dom-helpers</a>
+- Repository: [https://github.com/react-bootstrap/dom-helpers](https://github.com/react-bootstrap/dom-helpers)
 - Publisher: Jason Quense
-- Email: monastic.panic@gmail.com
-```
+- Email: <monastic.panic@gmail.com>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Jason Quense
@@ -3247,11 +3591,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## enhanced-resolve@5.18.1
+## enhanced-resolve@5.18.2
+
 - License: MIT
-- Repository: <a href="https://github.com/webpack/enhanced-resolve">https://github.com/webpack/enhanced-resolve</a>
+- Repository: [https://github.com/webpack/enhanced-resolve](https://github.com/webpack/enhanced-resolve)
 - Publisher: Tobias Koppers @sokra
-```
+
+```LICENSE
 Copyright JS Foundation and other contributors
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -3274,10 +3620,12 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## esbuild@0.25.1
+## esbuild@0.25.5
+
 - License: MIT
-- Repository: <a href="https://github.com/evanw/esbuild">https://github.com/evanw/esbuild</a>
-```
+- Repository: [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Evan Wallace
@@ -3302,10 +3650,12 @@ SOFTWARE.
 ```
 
 ## eventemitter3@4.0.7
+
 - License: MIT
-- Repository: <a href="https://github.com/primus/eventemitter3">https://github.com/primus/eventemitter3</a>
+- Repository: [https://github.com/primus/eventemitter3](https://github.com/primus/eventemitter3)
 - Publisher: Arnout Kazemier
-```
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014 Arnout Kazemier
@@ -3330,10 +3680,12 @@ SOFTWARE.
 ```
 
 ## fast-equals@5.2.2
+
 - License: MIT
-- Repository: <a href="https://github.com/planttheidea/fast-equals">https://github.com/planttheidea/fast-equals</a>
+- Repository: [https://github.com/planttheidea/fast-equals](https://github.com/planttheidea/fast-equals)
 - Publisher: tony_quetano@planttheidea.com
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Tony Quetano
@@ -3357,12 +3709,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## fdir@6.4.4
+## fdir@6.4.6
+
 - License: MIT
-- Repository: <a href="https://github.com/thecodrr/fdir">https://github.com/thecodrr/fdir</a>
+- Repository: [https://github.com/thecodrr/fdir](https://github.com/thecodrr/fdir)
 - Publisher: thecodrr
-- Email: thecodrr@protonmail.com
-```
+- Email: <thecodrr@protonmail.com>
+
+```LICENSE
 Copyright 2023 Abdullah Atta
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -3373,11 +3727,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## get-nonce@1.0.1
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/get-nonce">https://github.com/theKashey/get-nonce</a>
+- Repository: [https://github.com/theKashey/get-nonce](https://github.com/theKashey/get-nonce)
 - Publisher: Anton Korzunov
-- Email: thekashey@gmail.com
-```
+- Email: <thekashey@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Anton Korzunov
@@ -3402,9 +3758,11 @@ SOFTWARE.
 ```
 
 ## graceful-fs@4.2.11
+
 - License: ISC
-- Repository: <a href="https://github.com/isaacs/node-graceful-fs">https://github.com/isaacs/node-graceful-fs</a>
-```
+- Repository: [https://github.com/isaacs/node-graceful-fs](https://github.com/isaacs/node-graceful-fs)
+
+```LICENSE
 The ISC License
 
 Copyright (c) 2011-2022 Isaac Z. Schlueter, Ben Noordhuis, and Contributors
@@ -3423,8 +3781,10 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## hardware-visualizer@1.0.0
+
 - License: UNLICENSED
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2025 shm
@@ -3449,11 +3809,13 @@ SOFTWARE.
 ```
 
 ## html-parse-stringify@3.0.1
+
 - License: MIT
-- Repository: <a href="https://github.com/henrikjoreteg/html-parse-stringify">https://github.com/henrikjoreteg/html-parse-stringify</a>
+- Repository: [https://github.com/henrikjoreteg/html-parse-stringify](https://github.com/henrikjoreteg/html-parse-stringify)
 - Publisher: Henrik Joreteg
-- Email: henrik@joreteg.com
-```
+- Email: <henrik@joreteg.com>
+
+```LICENSE
 # html-parse-stringify
 
 This is an _experimental lightweight approach_ to enable quickly parsing HTML into an AST and stringify'ing it back to the original string.
@@ -3610,12 +3972,14 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.2.1
+## i18next@25.3.1
+
 - License: MIT
-- Repository: <a href="https://github.com/i18next/i18next">https://github.com/i18next/i18next</a>
+- Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
 - Publisher: Jan Mühlemann
-- Email: jan.muehlemann@gmail.com
-```
+- Email: <jan.muehlemann@gmail.com>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2025 i18next
@@ -3640,10 +4004,12 @@ SOFTWARE.
 ```
 
 ## internmap@2.0.3
+
 - License: ISC
-- Repository: <a href="https://github.com/mbostock/internmap">https://github.com/mbostock/internmap</a>
+- Repository: [https://github.com/mbostock/internmap](https://github.com/mbostock/internmap)
 - Publisher: Mike Bostock
-```
+
+```LICENSE
 Copyright 2021 Mike Bostock
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -3660,9 +4026,11 @@ THIS SOFTWARE.
 ```
 
 ## jiti@2.4.2
+
 - License: MIT
-- Repository: <a href="https://github.com/unjs/jiti">https://github.com/unjs/jiti</a>
-```
+- Repository: [https://github.com/unjs/jiti](https://github.com/unjs/jiti)
+
+```LICENSE
 MIT License
 
 Copyright (c) Pooya Parsa <pooya@pi0.io>
@@ -3687,10 +4055,12 @@ SOFTWARE.
 ```
 
 ## jotai@2.12.5
+
 - License: MIT
-- Repository: <a href="https://github.com/pmndrs/jotai">https://github.com/pmndrs/jotai</a>
+- Repository: [https://github.com/pmndrs/jotai](https://github.com/pmndrs/jotai)
 - Publisher: Daishi Kato
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Poimandres
@@ -3715,10 +4085,12 @@ SOFTWARE.
 ```
 
 ## js-tokens@4.0.0
+
 - License: MIT
-- Repository: <a href="https://github.com/lydell/js-tokens">https://github.com/lydell/js-tokens</a>
+- Repository: [https://github.com/lydell/js-tokens](https://github.com/lydell/js-tokens)
 - Publisher: Simon Lydell
-```
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014, 2015, 2016, 2017, 2018 Simon Lydell
@@ -3742,10 +4114,393 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## lightningcss-win32-x64-msvc@1.30.1
+## lightningcss-linux-x64-gnu@1.30.1
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/parcel-bundler/lightningcss">https://github.com/parcel-bundler/lightningcss</a>
+- Repository: [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
+
+```LICENSE
+Mozilla Public License Version 2.0
+==================================
+
+1. Definitions
+--------------
+
+1.1. "Contributor"
+means each individual or legal entity that creates, contributes to
+the creation of, or owns Covered Software.
+
+1.2. "Contributor Version"
+means the combination of the Contributions of others (if any) used
+by a Contributor and that particular Contributor's Contribution.
+
+1.3. "Contribution"
+means Covered Software of a particular Contributor.
+
+1.4. "Covered Software"
+means Source Code Form to which the initial Contributor has attached
+the notice in Exhibit A, the Executable Form of such Source Code
+Form, and Modifications of such Source Code Form, in each case
+including portions thereof.
+
+1.5. "Incompatible With Secondary Licenses"
+means
+
+(a) that the initial Contributor has attached the notice described
+in Exhibit B to the Covered Software; or
+
+(b) that the Covered Software was made available under the terms of
+version 1.1 or earlier of the License, but not also under the
+terms of a Secondary License.
+
+1.6. "Executable Form"
+means any form of the work other than Source Code Form.
+
+1.7. "Larger Work"
+means a work that combines Covered Software with other material, in
+a separate file or files, that is not Covered Software.
+
+1.8. "License"
+means this document.
+
+1.9. "Licensable"
+means having the right to grant, to the maximum extent possible,
+whether at the time of the initial grant or subsequently, any and
+all of the rights conveyed by this License.
+
+1.10. "Modifications"
+means any of the following:
+
+(a) any file in Source Code Form that results from an addition to,
+deletion from, or modification of the contents of Covered
+Software; or
+
+(b) any new file in Source Code Form that contains any Covered
+Software.
+
+1.11. "Patent Claims" of a Contributor
+means any patent claim(s), including without limitation, method,
+process, and apparatus claims, in any patent Licensable by such
+Contributor that would be infringed, but for the grant of the
+License, by the making, using, selling, offering for sale, having
+made, import, or transfer of either its Contributions or its
+Contributor Version.
+
+1.12. "Secondary License"
+means either the GNU General Public License, Version 2.0, the GNU
+Lesser General Public License, Version 2.1, the GNU Affero General
+Public License, Version 3.0, or any later versions of those
+licenses.
+
+1.13. "Source Code Form"
+means the form of the work preferred for making modifications.
+
+1.14. "You" (or "Your")
+means an individual or a legal entity exercising rights under this
+License. For legal entities, "You" includes any entity that
+controls, is controlled by, or is under common control with You. For
+purposes of this definition, "control" means (a) the power, direct
+or indirect, to cause the direction or management of such entity,
+whether by contract or otherwise, or (b) ownership of more than
+fifty percent (50%) of the outstanding shares or beneficial
+ownership of such entity.
+
+2. License Grants and Conditions
+--------------------------------
+
+2.1. Grants
+
+Each Contributor hereby grants You a world-wide, royalty-free,
+non-exclusive license:
+
+(a) under intellectual property rights (other than patent or trademark)
+Licensable by such Contributor to use, reproduce, make available,
+modify, display, perform, distribute, and otherwise exploit its
+Contributions, either on an unmodified basis, with Modifications, or
+as part of a Larger Work; and
+
+(b) under Patent Claims of such Contributor to make, use, sell, offer
+for sale, have made, import, and otherwise transfer either its
+Contributions or its Contributor Version.
+
+2.2. Effective Date
+
+The licenses granted in Section 2.1 with respect to any Contribution
+become effective for each Contribution on the date the Contributor first
+distributes such Contribution.
+
+2.3. Limitations on Grant Scope
+
+The licenses granted in this Section 2 are the only rights granted under
+this License. No additional rights or licenses will be implied from the
+distribution or licensing of Covered Software under this License.
+Notwithstanding Section 2.1(b) above, no patent license is granted by a
+Contributor:
+
+(a) for any code that a Contributor has removed from Covered Software;
+or
+
+(b) for infringements caused by: (i) Your and any other third party's
+modifications of Covered Software, or (ii) the combination of its
+Contributions with other software (except as part of its Contributor
+Version); or
+
+(c) under Patent Claims infringed by Covered Software in the absence of
+its Contributions.
+
+This License does not grant any rights in the trademarks, service marks,
+or logos of any Contributor (except as may be necessary to comply with
+the notice requirements in Section 3.4).
+
+2.4. Subsequent Licenses
+
+No Contributor makes additional grants as a result of Your choice to
+distribute the Covered Software under a subsequent version of this
+License (see Section 10.2) or under the terms of a Secondary License (if
+permitted under the terms of Section 3.3).
+
+2.5. Representation
+
+Each Contributor represents that the Contributor believes its
+Contributions are its original creation(s) or it has sufficient rights
+to grant the rights to its Contributions conveyed by this License.
+
+2.6. Fair Use
+
+This License is not intended to limit any rights You have under
+applicable copyright doctrines of fair use, fair dealing, or other
+equivalents.
+
+2.7. Conditions
+
+Sections 3.1, 3.2, 3.3, and 3.4 are conditions of the licenses granted
+in Section 2.1.
+
+3. Responsibilities
+-------------------
+
+3.1. Distribution of Source Form
+
+All distribution of Covered Software in Source Code Form, including any
+Modifications that You create or to which You contribute, must be under
+the terms of this License. You must inform recipients that the Source
+Code Form of the Covered Software is governed by the terms of this
+License, and how they can obtain a copy of this License. You may not
+attempt to alter or restrict the recipients' rights in the Source Code
+Form.
+
+3.2. Distribution of Executable Form
+
+If You distribute Covered Software in Executable Form then:
+
+(a) such Covered Software must also be made available in Source Code
+Form, as described in Section 3.1, and You must inform recipients of
+the Executable Form how they can obtain a copy of such Source Code
+Form by reasonable means in a timely manner, at a charge no more
+than the cost of distribution to the recipient; and
+
+(b) You may distribute such Executable Form under the terms of this
+License, or sublicense it under different terms, provided that the
+license for the Executable Form does not attempt to limit or alter
+the recipients' rights in the Source Code Form under this License.
+
+3.3. Distribution of a Larger Work
+
+You may create and distribute a Larger Work under terms of Your choice,
+provided that You also comply with the requirements of this License for
+the Covered Software. If the Larger Work is a combination of Covered
+Software with a work governed by one or more Secondary Licenses, and the
+Covered Software is not Incompatible With Secondary Licenses, this
+License permits You to additionally distribute such Covered Software
+under the terms of such Secondary License(s), so that the recipient of
+the Larger Work may, at their option, further distribute the Covered
+Software under the terms of either this License or such Secondary
+License(s).
+
+3.4. Notices
+
+You may not remove or alter the substance of any license notices
+(including copyright notices, patent notices, disclaimers of warranty,
+or limitations of liability) contained within the Source Code Form of
+the Covered Software, except that You may alter any license notices to
+the extent required to remedy known factual inaccuracies.
+
+3.5. Application of Additional Terms
+
+You may choose to offer, and to charge a fee for, warranty, support,
+indemnity or liability obligations to one or more recipients of Covered
+Software. However, You may do so only on Your own behalf, and not on
+behalf of any Contributor. You must make it absolutely clear that any
+such warranty, support, indemnity, or liability obligation is offered by
+You alone, and You hereby agree to indemnify every Contributor for any
+liability incurred by such Contributor as a result of warranty, support,
+indemnity or liability terms You offer. You may include additional
+disclaimers of warranty and limitations of liability specific to any
+jurisdiction.
+
+4. Inability to Comply Due to Statute or Regulation
+---------------------------------------------------
+
+If it is impossible for You to comply with any of the terms of this
+License with respect to some or all of the Covered Software due to
+statute, judicial order, or regulation then You must: (a) comply with
+the terms of this License to the maximum extent possible; and (b)
+describe the limitations and the code they affect. Such description must
+be placed in a text file included with all distributions of the Covered
+Software under this License. Except to the extent prohibited by statute
+or regulation, such description must be sufficiently detailed for a
+recipient of ordinary skill to be able to understand it.
+
+5. Termination
+--------------
+
+5.1. The rights granted under this License will terminate automatically
+if You fail to comply with any of its terms. However, if You become
+compliant, then the rights granted under this License from a particular
+Contributor are reinstated (a) provisionally, unless and until such
+Contributor explicitly and finally terminates Your grants, and (b) on an
+ongoing basis, if such Contributor fails to notify You of the
+non-compliance by some reasonable means prior to 60 days after You have
+come back into compliance. Moreover, Your grants from a particular
+Contributor are reinstated on an ongoing basis if such Contributor
+notifies You of the non-compliance by some reasonable means, this is the
+first time You have received notice of non-compliance with this License
+from such Contributor, and You become compliant prior to 30 days after
+Your receipt of the notice.
+
+5.2. If You initiate litigation against any entity by asserting a patent
+infringement claim (excluding declaratory judgment actions,
+counter-claims, and cross-claims) alleging that a Contributor Version
+directly or indirectly infringes any patent, then the rights granted to
+You by any and all Contributors for the Covered Software under Section
+2.1 of this License shall terminate.
+
+5.3. In the event of termination under Sections 5.1 or 5.2 above, all
+end user license agreements (excluding distributors and resellers) which
+have been validly granted by You or Your distributors under this License
+prior to termination shall survive termination.
+
+************************************************************************
+* *
+* 6. Disclaimer of Warranty *
+* ------------------------- *
+* *
+* Covered Software is provided under this License on an "as is" *
+* basis, without warranty of any kind, either expressed, implied, or *
+* statutory, including, without limitation, warranties that the *
+* Covered Software is free of defects, merchantable, fit for a *
+* particular purpose or non-infringing. The entire risk as to the *
+* quality and performance of the Covered Software is with You. *
+* Should any Covered Software prove defective in any respect, You *
+* (not any Contributor) assume the cost of any necessary servicing, *
+* repair, or correction. This disclaimer of warranty constitutes an *
+* essential part of this License. No use of any Covered Software is *
+* authorized under this License except under this disclaimer. *
+* *
+************************************************************************
+
+************************************************************************
+* *
+* 7. Limitation of Liability *
+* -------------------------- *
+* *
+* Under no circumstances and under no legal theory, whether tort *
+* (including negligence), contract, or otherwise, shall any *
+* Contributor, or anyone who distributes Covered Software as *
+* permitted above, be liable to You for any direct, indirect, *
+* special, incidental, or consequential damages of any character *
+* including, without limitation, damages for lost profits, loss of *
+* goodwill, work stoppage, computer failure or malfunction, or any *
+* and all other commercial damages or losses, even if such party *
+* shall have been informed of the possibility of such damages. This *
+* limitation of liability shall not apply to liability for death or *
+* personal injury resulting from such party's negligence to the *
+* extent applicable law prohibits such limitation. Some *
+* jurisdictions do not allow the exclusion or limitation of *
+* incidental or consequential damages, so this exclusion and *
+* limitation may not apply to You. *
+* *
+************************************************************************
+
+8. Litigation
+-------------
+
+Any litigation relating to this License may be brought only in the
+courts of a jurisdiction where the defendant maintains its principal
+place of business and such litigation shall be governed by laws of that
+jurisdiction, without reference to its conflict-of-law provisions.
+Nothing in this Section shall prevent a party's ability to bring
+cross-claims or counter-claims.
+
+9. Miscellaneous
+----------------
+
+This License represents the complete agreement concerning the subject
+matter hereof. If any provision of this License is held to be
+unenforceable, such provision shall be reformed only to the extent
+necessary to make it enforceable. Any law or regulation which provides
+that the language of a contract shall be construed against the drafter
+shall not be used to construe this License against a Contributor.
+
+10. Versions of the License
+---------------------------
+
+10.1. New Versions
+
+Mozilla Foundation is the license steward. Except as provided in Section
+10.3, no one other than the license steward has the right to modify or
+publish new versions of this License. Each version will be given a
+distinguishing version number.
+
+10.2. Effect of New Versions
+
+You may distribute the Covered Software under the terms of the version
+of the License under which You originally received the Covered Software,
+or under the terms of any subsequent version published by the license
+steward.
+
+10.3. Modified Versions
+
+If you create software not governed by this License, and you want to
+create a new license for such software, you may create and use a
+modified version of this License if you rename the license and remove
+any references to the name of the license steward (except to note that
+such modified license differs from this License).
+
+10.4. Distributing Source Code Form that is Incompatible With Secondary
+Licenses
+
+If You choose to distribute Source Code Form that is Incompatible With
+Secondary Licenses under the terms of this version of the License, the
+notice described in Exhibit B of this License must be attached.
+
+Exhibit A - Source Code Form License Notice
+-------------------------------------------
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+If it is not possible or desirable to put the notice in a particular
+file, then You may include the notice in a location (such as a LICENSE
+file in a relevant directory) where a recipient would be likely to look
+for such a notice.
+
+You may add additional accurate notices of copyright ownership.
+
+Exhibit B - "Incompatible With Secondary Licenses" Notice
+---------------------------------------------------------
+
+This Source Code Form is "Incompatible With Secondary Licenses", as
+defined by the Mozilla Public License, v. 2.0.
 ```
+
+## lightningcss-linux-x64-musl@1.30.1
+
+- License: MPL-2.0
+- Repository: [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
+
+```LICENSE
 Mozilla Public License Version 2.0
 ==================================
 
@@ -4122,9 +4877,11 @@ defined by the Mozilla Public License, v. 2.0.
 ```
 
 ## lightningcss@1.30.1
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/parcel-bundler/lightningcss">https://github.com/parcel-bundler/lightningcss</a>
-```
+- Repository: [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
+
+```LICENSE
 Mozilla Public License Version 2.0
 ==================================
 
@@ -4501,11 +5258,13 @@ defined by the Mozilla Public License, v. 2.0.
 ```
 
 ## lodash@4.17.21
+
 - License: MIT
-- Repository: <a href="https://github.com/lodash/lodash">https://github.com/lodash/lodash</a>
+- Repository: [https://github.com/lodash/lodash](https://github.com/lodash/lodash)
 - Publisher: John-David Dalton
-- Email: john.david.dalton@gmail.com
-```
+- Email: <john.david.dalton@gmail.com>
+
+```LICENSE
 Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
 
 Based on Underscore.js, copyright Jeremy Ashkenas,
@@ -4556,11 +5315,13 @@ terms above.
 ```
 
 ## loose-envify@1.4.0
+
 - License: MIT
-- Repository: <a href="https://github.com/zertosh/loose-envify">https://github.com/zertosh/loose-envify</a>
+- Repository: [https://github.com/zertosh/loose-envify](https://github.com/zertosh/loose-envify)
 - Publisher: Andres Suarez
-- Email: zertosh@gmail.com
-```
+- Email: <zertosh@gmail.com>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andres Suarez <zertosh@gmail.com>
@@ -4584,11 +5345,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## lucide-react@0.522.0
+## lucide-react@0.525.0
+
 - License: ISC
-- Repository: <a href="https://github.com/lucide-icons/lucide">https://github.com/lucide-icons/lucide</a>
+- Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
 - Publisher: Eric Fennis
-```
+
+```LICENSE
 ISC License
 
 Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
@@ -4607,10 +5370,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## magic-string@0.30.17
+
 - License: MIT
-- Repository: <a href="https://github.com/rich-harris/magic-string">https://github.com/rich-harris/magic-string</a>
+- Repository: [https://github.com/rich-harris/magic-string](https://github.com/rich-harris/magic-string)
 - Publisher: Rich Harris
-```
+
+```LICENSE
 Copyright 2018 Rich Harris
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -4621,11 +5386,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## minipass@7.1.2
+
 - License: ISC
-- Repository: <a href="https://github.com/isaacs/minipass">https://github.com/isaacs/minipass</a>
+- Repository: [https://github.com/isaacs/minipass](https://github.com/isaacs/minipass)
 - Publisher: Isaac Z. Schlueter
-- Email: i@izs.me
-```
+- Email: <i@izs.me>
+
+```LICENSE
 The ISC License
 
 Copyright (c) 2017-2023 npm, Inc., Isaac Z. Schlueter, and Contributors
@@ -4644,11 +5411,13 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## minizlib@3.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/isaacs/minizlib">https://github.com/isaacs/minizlib</a>
+- Repository: [https://github.com/isaacs/minizlib](https://github.com/isaacs/minizlib)
 - Publisher: Isaac Z. Schlueter
-- Email: i@izs.me
-```
+- Email: <i@izs.me>
+
+```LICENSE
 Minizlib was created by Isaac Z. Schlueter.
 It is a derivative work of the Node.js project.
 
@@ -4678,9 +5447,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## mkdirp@3.0.1
+
 - License: MIT
-- Repository: <a href="https://github.com/isaacs/node-mkdirp">https://github.com/isaacs/node-mkdirp</a>
-```
+- Repository: [https://github.com/isaacs/node-mkdirp](https://github.com/isaacs/node-mkdirp)
+
+```LICENSE
 Copyright (c) 2011-2023 James Halliday (mail@substack.net) and Isaac Z. Schlueter (i@izs.me)
 
 This project is free software released under the MIT license:
@@ -4705,11 +5476,13 @@ THE SOFTWARE.
 ```
 
 ## nanoid@3.3.11
+
 - License: MIT
-- Repository: <a href="https://github.com/ai/nanoid">https://github.com/ai/nanoid</a>
+- Repository: [https://github.com/ai/nanoid](https://github.com/ai/nanoid)
 - Publisher: Andrey Sitnik
-- Email: andrey@sitnik.ru
-```
+- Email: <andrey@sitnik.ru>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
@@ -4733,11 +5506,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## object-assign@4.1.1
+
 - License: MIT
-- Repository: <a href="https://github.com/sindresorhus/object-assign">https://github.com/sindresorhus/object-assign</a>
+- Repository: [https://github.com/sindresorhus/object-assign](https://github.com/sindresorhus/object-assign)
 - Publisher: Sindre Sorhus
-- Email: sindresorhus@gmail.com
-```
+- Email: <sindresorhus@gmail.com>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
@@ -4762,10 +5537,12 @@ THE SOFTWARE.
 ```
 
 ## picocolors@1.1.1
+
 - License: ISC
-- Repository: <a href="https://github.com/alexeyraspopov/picocolors">https://github.com/alexeyraspopov/picocolors</a>
+- Repository: [https://github.com/alexeyraspopov/picocolors](https://github.com/alexeyraspopov/picocolors)
 - Publisher: Alexey Raspopov
-```
+
+```LICENSE
 ISC License
 
 Copyright (c) 2021-2024 Oleksii Raspopov, Kostiantyn Denysov, Anton Verinov
@@ -4784,10 +5561,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## picomatch@4.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/micromatch/picomatch">https://github.com/micromatch/picomatch</a>
+- Repository: [https://github.com/micromatch/picomatch](https://github.com/micromatch/picomatch)
 - Publisher: Jon Schlinkert
-```
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017-present, Jon Schlinkert.
@@ -4811,12 +5590,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## postcss@8.5.3
+## postcss@8.5.6
+
 - License: MIT
-- Repository: <a href="https://github.com/postcss/postcss">https://github.com/postcss/postcss</a>
+- Repository: [https://github.com/postcss/postcss](https://github.com/postcss/postcss)
 - Publisher: Andrey Sitnik
-- Email: andrey@sitnik.ru
-```
+- Email: <andrey@sitnik.ru>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright 2013 Andrey Sitnik <andrey@sitnik.ru>
@@ -4840,9 +5621,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## prop-types@15.8.1
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/prop-types">https://github.com/facebook/prop-types</a>
-```
+- Repository: [https://github.com/facebook/prop-types](https://github.com/facebook/prop-types)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2013-present, Facebook, Inc.
@@ -4867,9 +5650,11 @@ SOFTWARE.
 ```
 
 ## react-dom@19.0.0
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/react">https://github.com/facebook/react</a>
-```
+- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+
+```LICENSE
 MIT License
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -4894,11 +5679,13 @@ SOFTWARE.
 ```
 
 ## react-error-boundary@6.0.0
+
 - License: MIT
-- Repository: <a href="https://github.com/bvaughn/react-error-boundary">https://github.com/bvaughn/react-error-boundary</a>
+- Repository: [https://github.com/bvaughn/react-error-boundary](https://github.com/bvaughn/react-error-boundary)
 - Publisher: Brian Vaughn
-- Email: brian.david.vaughn@gmail.com
-```
+- Email: <brian.david.vaughn@gmail.com>
+
+```LICENSE
 The MIT License (MIT)
 Copyright (c) 2020 Brian Vaughn
 
@@ -4921,12 +5708,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.58.1
+## react-hook-form@7.60.0
+
 - License: MIT
-- Repository: <a href="https://github.com/react-hook-form/react-hook-form">https://github.com/react-hook-form/react-hook-form</a>
+- Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
 - Publisher: Beier
-- Email: bluebill1049@hotmail.com
-```
+- Email: <bluebill1049@hotmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019-present Beier(Bill) Luo
@@ -4950,12 +5739,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@15.5.3
+## react-i18next@15.6.0
+
 - License: MIT
-- Repository: <a href="https://github.com/i18next/react-i18next">https://github.com/i18next/react-i18next</a>
+- Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
 - Publisher: Jan Mühlemann
-- Email: jan.muehlemann@gmail.com
-```
+- Email: <jan.muehlemann@gmail.com>
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2025 i18next
@@ -4980,9 +5771,11 @@ SOFTWARE.
 ```
 
 ## react-is@16.13.1
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/react">https://github.com/facebook/react</a>
-```
+- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+
+```LICENSE
 MIT License
 
 Copyright (c) Facebook, Inc. and its affiliates.
@@ -5007,9 +5800,11 @@ SOFTWARE.
 ```
 
 ## react-is@18.3.1
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/react">https://github.com/facebook/react</a>
-```
+- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+
+```LICENSE
 MIT License
 
 Copyright (c) Facebook, Inc. and its affiliates.
@@ -5034,11 +5829,13 @@ SOFTWARE.
 ```
 
 ## react-remove-scroll-bar@2.3.8
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/react-remove-scroll-bar">https://github.com/theKashey/react-remove-scroll-bar</a>
+- Repository: [https://github.com/theKashey/react-remove-scroll-bar](https://github.com/theKashey/react-remove-scroll-bar)
 - Publisher: Anton Korzunov
-- Email: thekashey@gmail.com
-```
+- Email: <thekashey@gmail.com>
+
+```LICENSE
 <h1>react-remove-scroll-bar</h1>
 
 [![npm](https://img.shields.io/npm/v/react-remove-scroll-bar.svg)](https://www.npmjs.com/package/react-remove-scroll-bar)
@@ -5093,12 +5890,14 @@ There is a medium article about preventing the body scroll - [How to fight the <
 MIT
 ```
 
-## react-remove-scroll@2.6.3
+## react-remove-scroll@2.7.1
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/react-remove-scroll">https://github.com/theKashey/react-remove-scroll</a>
+- Repository: [https://github.com/theKashey/react-remove-scroll](https://github.com/theKashey/react-remove-scroll)
 - Publisher: Anton Korzunov
-- Email: thekashey@gmail.com
-```
+- Email: <thekashey@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Anton Korzunov
@@ -5123,10 +5922,12 @@ SOFTWARE.
 ```
 
 ## react-smooth@4.0.4
+
 - License: MIT
-- Repository: <a href="https://github.com/recharts/react-smooth">https://github.com/recharts/react-smooth</a>
+- Repository: [https://github.com/recharts/react-smooth](https://github.com/recharts/react-smooth)
 - Publisher: JasonHzq
-```
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2016 recharts
@@ -5151,10 +5952,12 @@ SOFTWARE.
 ```
 
 ## react-style-singleton@2.2.3
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/react-style-singleton">https://github.com/theKashey/react-style-singleton</a>
+- Repository: [https://github.com/theKashey/react-style-singleton](https://github.com/theKashey/react-style-singleton)
 - Publisher: Anton Korzunov
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Anton Korzunov
@@ -5179,9 +5982,11 @@ SOFTWARE.
 ```
 
 ## react-transition-group@4.4.5
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/reactjs/react-transition-group">https://github.com/reactjs/react-transition-group</a>
-```
+- Repository: [https://github.com/reactjs/react-transition-group](https://github.com/reactjs/react-transition-group)
+
+```LICENSE
 BSD 3-Clause License
 
 Copyright (c) 2018, React Community
@@ -5215,9 +6020,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## react@19.0.0
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/react">https://github.com/facebook/react</a>
-```
+- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+
+```LICENSE
 MIT License
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -5242,10 +6049,12 @@ SOFTWARE.
 ```
 
 ## recharts-scale@0.4.5
+
 - License: MIT
-- Repository: <a href="https://github.com/recharts/recharts-scale">https://github.com/recharts/recharts-scale</a>
+- Repository: [https://github.com/recharts/recharts-scale](https://github.com/recharts/recharts-scale)
 - Publisher: recharts group
-```
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Sen Yang
@@ -5269,11 +6078,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## recharts@2.15.3
+## recharts@2.15.4
+
 - License: MIT
-- Repository: <a href="https://github.com/recharts/recharts">https://github.com/recharts/recharts</a>
+- Repository: [https://github.com/recharts/recharts](https://github.com/recharts/recharts)
 - Publisher: recharts group
-```
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015-present recharts
@@ -5297,11 +6108,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## rollup@4.38.0
+## rollup@4.44.2
+
 - License: MIT
-- Repository: <a href="https://github.com/rollup/rollup">https://github.com/rollup/rollup</a>
+- Repository: [https://github.com/rollup/rollup](https://github.com/rollup/rollup)
 - Publisher: Rich Harris
-```
+
+```LICENSE
 # Rollup core license
 Rollup is released under the MIT license:
 
@@ -5322,12 +6135,10 @@ MIT, ISC, 0BSD
 # Bundled dependencies:
 ## @jridgewell/sourcemap-codec
 License: MIT
-By: Rich Harris
-Repository: git+https://github.com/jridgewell/sourcemap-codec.git
+By: Justin Ridgewell
+Repository: git+https://github.com/jridgewell/sourcemaps.git
 
-> The MIT License
-> 
-> Copyright (c) 2015 Rich Harris
+> Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
 > 
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
@@ -5344,8 +6155,8 @@ Repository: git+https://github.com/jridgewell/sourcemap-codec.git
 > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 > AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-> THE SOFTWARE.
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
 
 ---------------------------------------
 
@@ -5986,9 +6797,11 @@ Repository: https://github.com/yargs/yargs-parser.git
 ```
 
 ## scheduler@0.25.0
+
 - License: MIT
-- Repository: <a href="https://github.com/facebook/react">https://github.com/facebook/react</a>
-```
+- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+
+```LICENSE
 MIT License
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -6013,11 +6826,13 @@ SOFTWARE.
 ```
 
 ## source-map-js@1.2.1
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/7rulnik/source-map-js">https://github.com/7rulnik/source-map-js</a>
+- Repository: [https://github.com/7rulnik/source-map-js](https://github.com/7rulnik/source-map-js)
 - Publisher: Valentin 7rulnik Semirulnik
-- Email: v7rulnik@gmail.com
-```
+- Email: <v7rulnik@gmail.com>
+
+```LICENSE
 Copyright (c) 2009-2011, Mozilla Foundation and contributors
 All rights reserved.
 
@@ -6048,10 +6863,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## tailwind-merge@3.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/dcastil/tailwind-merge">https://github.com/dcastil/tailwind-merge</a>
+- Repository: [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
 - Publisher: Dany Castillo
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 Dany Castillo
@@ -6076,10 +6893,12 @@ SOFTWARE.
 ```
 
 ## tailwind-merge@3.3.1
+
 - License: MIT
-- Repository: <a href="https://github.com/dcastil/tailwind-merge">https://github.com/dcastil/tailwind-merge</a>
+- Repository: [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
 - Publisher: Dany Castillo
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 Dany Castillo
@@ -6104,11 +6923,13 @@ SOFTWARE.
 ```
 
 ## tailwind-variants@1.0.0
+
 - License: MIT
-- Repository: <a href="https://github.com/heroui-inc/tailwind-variants">https://github.com/heroui-inc/tailwind-variants</a>
+- Repository: [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
 - Publisher: Junior Garcia
-- Email: jrgarciadev@gmail.com
-```
+- Email: <jrgarciadev@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Tailwid Variants
@@ -6133,10 +6954,12 @@ SOFTWARE.
 ```
 
 ## tailwindcss-animate@1.0.7
+
 - License: MIT
 - Publisher: Jamie Kyle
-- Email: me@thejameskyle.com
-```
+- Email: <me@thejameskyle.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Jamie Kyle
@@ -6160,10 +6983,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwindcss@4.1.10
+## tailwindcss@4.1.11
+
 - License: MIT
-- Repository: <a href="https://github.com/tailwindlabs/tailwindcss">https://github.com/tailwindlabs/tailwindcss</a>
-```
+- Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tailwind Labs, Inc.
@@ -6188,10 +7013,12 @@ SOFTWARE.
 ```
 
 ## tapable@2.2.2
+
 - License: MIT
-- Repository: <a href="https://github.com/webpack/tapable">https://github.com/webpack/tapable</a>
+- Repository: [https://github.com/webpack/tapable](https://github.com/webpack/tapable)
 - Publisher: Tobias Koppers @sokra
-```
+
+```LICENSE
 The MIT License
 
 Copyright JS Foundation and other contributors
@@ -6216,10 +7043,12 @@ THE SOFTWARE.
 ```
 
 ## tar@7.4.3
+
 - License: ISC
-- Repository: <a href="https://github.com/isaacs/node-tar">https://github.com/isaacs/node-tar</a>
+- Repository: [https://github.com/isaacs/node-tar](https://github.com/isaacs/node-tar)
 - Publisher: Isaac Z. Schlueter
-```
+
+```LICENSE
 The ISC License
 
 Copyright (c) Isaac Z. Schlueter and Contributors
@@ -6238,11 +7067,13 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## tiny-invariant@1.3.3
+
 - License: MIT
-- Repository: <a href="https://github.com/alexreardon/tiny-invariant">https://github.com/alexreardon/tiny-invariant</a>
+- Repository: [https://github.com/alexreardon/tiny-invariant](https://github.com/alexreardon/tiny-invariant)
 - Publisher: Alex Reardon
-- Email: alexreardon@gmail.com
-```
+- Email: <alexreardon@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Alexander Reardon
@@ -6267,10 +7098,12 @@ SOFTWARE.
 ```
 
 ## tinyglobby@0.2.14
+
 - License: MIT
-- Repository: <a href="https://github.com/SuperchupuDev/tinyglobby">https://github.com/SuperchupuDev/tinyglobby</a>
+- Repository: [https://github.com/SuperchupuDev/tinyglobby](https://github.com/SuperchupuDev/tinyglobby)
 - Publisher: Superchupu
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2024 Madeline Gurriarán
@@ -6295,10 +7128,12 @@ SOFTWARE.
 ```
 
 ## tslib@2.8.1
+
 - License: 0BSD
-- Repository: <a href="https://github.com/Microsoft/tslib">https://github.com/Microsoft/tslib</a>
+- Repository: [https://github.com/Microsoft/tslib](https://github.com/Microsoft/tslib)
 - Publisher: Microsoft Corp.
-```
+
+```LICENSE
 Copyright (c) Microsoft Corporation.
 
 Permission to use, copy, modify, and/or distribute this software for any
@@ -6314,10 +7149,12 @@ PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## typescript@5.8.3
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/microsoft/TypeScript">https://github.com/microsoft/TypeScript</a>
+- Repository: [https://github.com/microsoft/TypeScript](https://github.com/microsoft/TypeScript)
 - Publisher: Microsoft Corp.
-```
+
+```LICENSE
 Apache License
 
 Version 2.0, January 2004
@@ -6376,9 +7213,11 @@ END OF TERMS AND CONDITIONS
 ```
 
 ## undici-types@7.8.0
+
 - License: MIT
-- Repository: <a href="https://github.com/nodejs/undici">https://github.com/nodejs/undici</a>
-```
+- Repository: [https://github.com/nodejs/undici](https://github.com/nodejs/undici)
+
+```LICENSE
 MIT License
 
 Copyright (c) Matteo Collina and Undici contributors
@@ -6403,11 +7242,13 @@ SOFTWARE.
 ```
 
 ## use-callback-ref@1.3.3
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/use-callback-ref">https://github.com/theKashey/use-callback-ref</a>
+- Repository: [https://github.com/theKashey/use-callback-ref](https://github.com/theKashey/use-callback-ref)
 - Publisher: theKashey
-- Email: thekashey@gmail.com
-```
+- Email: <thekashey@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Anton Korzunov
@@ -6432,11 +7273,13 @@ SOFTWARE.
 ```
 
 ## use-sidecar@1.1.3
+
 - License: MIT
-- Repository: <a href="https://github.com/theKashey/use-sidecar">https://github.com/theKashey/use-sidecar</a>
+- Repository: [https://github.com/theKashey/use-sidecar](https://github.com/theKashey/use-sidecar)
 - Publisher: theKashey
-- Email: thekashey@gmail.com
-```
+- Email: <thekashey@gmail.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Anton Korzunov
@@ -6461,10 +7304,12 @@ SOFTWARE.
 ```
 
 ## victory-vendor@36.9.2
+
 - License: MIT AND ISC
-- Repository: <a href="https://github.com/FormidableLabs/victory">https://github.com/FormidableLabs/victory</a>
+- Repository: [https://github.com/FormidableLabs/victory](https://github.com/FormidableLabs/victory)
 - Publisher: Formidable
-```
+
+```LICENSE
 # VictoryVendor
 
 Vendored dependencies for Victory.
@@ -6537,11 +7382,13 @@ Note that for some tooling (like Jest) that doesn't play well with `package.json
 This project is released under the MIT license, but the vendor'ed in libraries include other licenses (e.g. ISC) that we enumerate in our `package.json:license` field.
 ```
 
-## vite@6.3.5
+## vite@7.0.2
+
 - License: MIT
-- Repository: <a href="https://github.com/vitejs/vite">https://github.com/vitejs/vite</a>
+- Repository: [https://github.com/vitejs/vite](https://github.com/vitejs/vite)
 - Publisher: Evan You
-```
+
+```LICENSE
 # Vite core license
 Vite is released under the MIT license:
 
@@ -6867,9 +7714,9 @@ Repository: git+https://github.com/jridgewell/sourcemap-codec.git
 ## @jridgewell/trace-mapping
 License: MIT
 By: Justin Ridgewell
-Repository: git+https://github.com/jridgewell/trace-mapping.git
+Repository: git+https://github.com/jridgewell/sourcemaps.git
 
-> Copyright 2022 Justin Ridgewell <justin@ridgewell.name>
+> Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
 > 
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
@@ -7705,6 +8552,35 @@ Repository: gulpjs/glob-parent
 > WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 > ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 > IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+---------------------------------------
+
+## host-validation-middleware
+License: MIT
+By: sapphi-red
+Repository: git+https://github.com/sapphi-red/host-validation-middleware.git
+
+> MIT License
+> 
+> Copyright (c) 2025 sapphi-red
+> 
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+> 
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+> 
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
 
 ---------------------------------------
 
@@ -8951,10 +9827,12 @@ Repository: git+https://github.com/websockets/ws.git
 ```
 
 ## void-elements@3.1.0
+
 - License: MIT
-- Repository: <a href="https://github.com/pugjs/void-elements">https://github.com/pugjs/void-elements</a>
+- Repository: [https://github.com/pugjs/void-elements](https://github.com/pugjs/void-elements)
 - Publisher: hemanth.hm
-```
+
+```LICENSE
 (The MIT License)
 
 Copyright (c) 2014 hemanth
@@ -8980,11 +9858,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## yallist@5.0.0
+
 - License: BlueOak-1.0.0
-- Repository: <a href="https://github.com/isaacs/yallist">https://github.com/isaacs/yallist</a>
+- Repository: [https://github.com/isaacs/yallist](https://github.com/isaacs/yallist)
 - Publisher: Isaac Z. Schlueter
-- Email: i@izs.me
-```
+- Email: <i@izs.me>
+
+```LICENSE
 All packages under `src/` are licensed according to the terms in
 their respective `LICENSE` or `LICENSE.md` files.
 
@@ -9050,12 +9930,14 @@ will be liable to anyone for any damages related to this
 software or this license, under any kind of legal claim.***
 ```
 
-## zod@3.25.67
+## zod@3.25.75
+
 - License: MIT
-- Repository: <a href="https://github.com/colinhacks/zod">https://github.com/colinhacks/zod</a>
+- Repository: [https://github.com/colinhacks/zod](https://github.com/colinhacks/zod)
 - Publisher: Colin McDonnell
-- Email: zod@colinhacks.com
-```
+- Email: <zod@colinhacks.com>
+
+```LICENSE
 MIT License
 
 Copyright (c) 2025 Colin McDonnell
@@ -9080,12 +9962,16 @@ SOFTWARE.
 ```
 
 ## Inflector
+
 - License: BSD-2-Clause
-- Repository: <a href="https://github.com/whatisinternet/inflector">https://github.com/whatisinternet/inflector</a>
+- Repository: [https://github.com/whatisinternet/inflector](https://github.com/whatisinternet/inflector)
+
 ## addr2line
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/gimli-rs/addr2line">https://github.com/gimli-rs/addr2line</a>
-```
+- Repository: [https://github.com/gimli-rs/addr2line](https://github.com/gimli-rs/addr2line)
+
+```LICENSE
 Copyright (c) 2016-2018 The gimli Developers
 
 Permission is hereby granted, free of charge, to any
@@ -9114,9 +10000,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## adler2
+
 - License: 0BSD OR Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/oyvindln/adler2">https://github.com/oyvindln/adler2</a>
-```
+- Repository: [https://github.com/oyvindln/adler2](https://github.com/oyvindln/adler2)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9143,9 +10031,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## ahash
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tkaitchuck/ahash">https://github.com/tkaitchuck/ahash</a>
-```
+- Repository: [https://github.com/tkaitchuck/ahash](https://github.com/tkaitchuck/ahash)
+
+```LICENSE
 Copyright (c) 2016 Amanieu d'Antras
 
 Permission is hereby granted, free of charge, to any
@@ -9174,9 +10064,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## aho-corasick
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/aho-corasick">https://github.com/BurntSushi/aho-corasick</a>
-```
+- Repository: [https://github.com/BurntSushi/aho-corasick](https://github.com/BurntSushi/aho-corasick)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
@@ -9201,9 +10093,11 @@ THE SOFTWARE.
 ```
 
 ## aligned-vec
+
 - License: MIT
-- Repository: <a href="https://github.com/sarah-ek/aligned-vec/">https://github.com/sarah-ek/aligned-vec/</a>
-```
+- Repository: [https://github.com/sarah-ek/aligned-vec/](https://github.com/sarah-ek/aligned-vec/)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 sarah
@@ -9228,9 +10122,11 @@ SOFTWARE.
 ```
 
 ## alloc-no-stdlib
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/dropbox/rust-alloc-no-stdlib">https://github.com/dropbox/rust-alloc-no-stdlib</a>
-```
+- Repository: [https://github.com/dropbox/rust-alloc-no-stdlib](https://github.com/dropbox/rust-alloc-no-stdlib)
+
+```LICENSE
 Copyright (c) 2016 Dropbox, Inc.
 All rights reserved.
 
@@ -9246,12 +10142,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ```
 
 ## alloc-stdlib
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/dropbox/rust-alloc-no-stdlib">https://github.com/dropbox/rust-alloc-no-stdlib</a>
+- Repository: [https://github.com/dropbox/rust-alloc-no-stdlib](https://github.com/dropbox/rust-alloc-no-stdlib)
+
 ## allocator-api2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/zakarumych/allocator-api2">https://github.com/zakarumych/allocator-api2</a>
-```
+- Repository: [https://github.com/zakarumych/allocator-api2](https://github.com/zakarumych/allocator-api2)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9278,9 +10178,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## android-tzdata
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RumovZ/android-tzdata">https://github.com/RumovZ/android-tzdata</a>
-```
+- Repository: [https://github.com/RumovZ/android-tzdata](https://github.com/RumovZ/android-tzdata)
+
+```LICENSE
 MIT License
 
 Copyright (c) [year] [fullname]
@@ -9305,9 +10207,11 @@ SOFTWARE.
 ```
 
 ## android_system_properties
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/nical/android_system_properties">https://github.com/nical/android_system_properties</a>
-```
+- Repository: [https://github.com/nical/android_system_properties](https://github.com/nical/android_system_properties)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2013 Nicolas Silva
@@ -9331,9 +10235,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## anyhow
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/anyhow">https://github.com/dtolnay/anyhow</a>
-```
+- Repository: [https://github.com/dtolnay/anyhow](https://github.com/dtolnay/anyhow)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9360,9 +10266,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## arbitrary
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-fuzz/arbitrary/">https://github.com/rust-fuzz/arbitrary/</a>
-```
+- Repository: [https://github.com/rust-fuzz/arbitrary/](https://github.com/rust-fuzz/arbitrary/)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Manish Goregaokar
@@ -9393,9 +10301,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## arg_enum_proc_macro
+
 - License: MIT
-- Repository: <a href="https://github.com/lu-zero/arg_enum_proc_macro">https://github.com/lu-zero/arg_enum_proc_macro</a>
-```
+- Repository: [https://github.com/lu-zero/arg_enum_proc_macro](https://github.com/lu-zero/arg_enum_proc_macro)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2018 Luca Barbato
@@ -9420,9 +10330,11 @@ SOFTWARE.
 ```
 
 ## arrayvec
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bluss/arrayvec">https://github.com/bluss/arrayvec</a>
-```
+- Repository: [https://github.com/bluss/arrayvec](https://github.com/bluss/arrayvec)
+
+```LICENSE
 Copyright (c) Ulrik Sverdrup "bluss" 2015-2023
 
 Permission is hereby granted, free of charge, to any
@@ -9451,9 +10363,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## ashpd
+
 - License: MIT
-- Repository: <a href="https://github.com/bilelmoussaoui/ashpd">https://github.com/bilelmoussaoui/ashpd</a>
-```
+- Repository: [https://github.com/bilelmoussaoui/ashpd](https://github.com/bilelmoussaoui/ashpd)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Bilal Elmoussaoui
@@ -9478,9 +10392,11 @@ SOFTWARE.
 ```
 
 ## async-broadcast
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-broadcast">https://github.com/smol-rs/async-broadcast</a>
-```
+- Repository: [https://github.com/smol-rs/async-broadcast](https://github.com/smol-rs/async-broadcast)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2020 Yoshua Wuyts
@@ -9505,9 +10421,11 @@ SOFTWARE.
 ```
 
 ## async-channel
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-channel">https://github.com/smol-rs/async-channel</a>
-```
+- Repository: [https://github.com/smol-rs/async-channel](https://github.com/smol-rs/async-channel)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9534,9 +10452,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-channel
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-channel">https://github.com/smol-rs/async-channel</a>
-```
+- Repository: [https://github.com/smol-rs/async-channel](https://github.com/smol-rs/async-channel)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9563,9 +10483,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-executor
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-executor">https://github.com/smol-rs/async-executor</a>
-```
+- Repository: [https://github.com/smol-rs/async-executor](https://github.com/smol-rs/async-executor)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9592,9 +10514,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-global-executor
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Keruspe/async-global-executor">https://github.com/Keruspe/async-global-executor</a>
-```
+- Repository: [https://github.com/Keruspe/async-global-executor](https://github.com/Keruspe/async-global-executor)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9621,9 +10545,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-io
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-io">https://github.com/smol-rs/async-io</a>
-```
+- Repository: [https://github.com/smol-rs/async-io](https://github.com/smol-rs/async-io)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9650,9 +10576,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-io
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-io">https://github.com/smol-rs/async-io</a>
-```
+- Repository: [https://github.com/smol-rs/async-io](https://github.com/smol-rs/async-io)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9679,9 +10607,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-lock
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-lock">https://github.com/smol-rs/async-lock</a>
-```
+- Repository: [https://github.com/smol-rs/async-lock](https://github.com/smol-rs/async-lock)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9708,9 +10638,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-lock
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-lock">https://github.com/smol-rs/async-lock</a>
-```
+- Repository: [https://github.com/smol-rs/async-lock](https://github.com/smol-rs/async-lock)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9737,9 +10669,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-recursion
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dcchut/async-recursion">https://github.com/dcchut/async-recursion</a>
-```
+- Repository: [https://github.com/dcchut/async-recursion](https://github.com/dcchut/async-recursion)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9766,9 +10700,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-std
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/async-rs/async-std">https://github.com/async-rs/async-std</a>
-```
+- Repository: [https://github.com/async-rs/async-std](https://github.com/async-rs/async-std)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9795,9 +10731,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-task
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/async-task">https://github.com/smol-rs/async-task</a>
-```
+- Repository: [https://github.com/smol-rs/async-task](https://github.com/smol-rs/async-task)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9824,9 +10762,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## async-trait
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/async-trait">https://github.com/dtolnay/async-trait</a>
-```
+- Repository: [https://github.com/dtolnay/async-trait](https://github.com/dtolnay/async-trait)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9853,9 +10793,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## atk
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -9876,9 +10818,11 @@ SOFTWARE.
 ```
 
 ## atk-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -9899,9 +10843,11 @@ SOFTWARE.
 ```
 
 ## atoi
+
 - License: MIT
-- Repository: <a href="https://github.com/pacman82/atoi-rs">https://github.com/pacman82/atoi-rs</a>
-```
+- Repository: [https://github.com/pacman82/atoi-rs](https://github.com/pacman82/atoi-rs)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 
@@ -9926,9 +10872,11 @@ SOFTWARE.
 ```
 
 ## atomic-waker
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/atomic-waker">https://github.com/smol-rs/atomic-waker</a>
-```
+- Repository: [https://github.com/smol-rs/atomic-waker](https://github.com/smol-rs/atomic-waker)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -9955,9 +10903,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## auto-launch
+
 - License: MIT
-- Repository: <a href="https://github.com/zzzgydi/auto-launch.git">https://github.com/zzzgydi/auto-launch.git</a>
-```
+- Repository: [https://github.com/zzzgydi/auto-launch.git](https://github.com/zzzgydi/auto-launch.git)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 zzzgydi
@@ -9982,9 +10932,11 @@ SOFTWARE.
 ```
 
 ## autocfg
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/cuviper/autocfg">https://github.com/cuviper/autocfg</a>
-```
+- Repository: [https://github.com/cuviper/autocfg](https://github.com/cuviper/autocfg)
+
+```LICENSE
 Copyright (c) 2018 Josh Stone
 
 Permission is hereby granted, free of charge, to any
@@ -10013,9 +10965,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## av1-grain
+
 - License: BSD-2-Clause
-- Repository: <a href="https://github.com/rust-av/av1-grain">https://github.com/rust-av/av1-grain</a>
-```
+- Repository: [https://github.com/rust-av/av1-grain](https://github.com/rust-av/av1-grain)
+
+```LICENSE
 BSD 2-Clause License
 
 Copyright (c) 2022-2022, the rav1e contributors
@@ -10044,9 +10998,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## avif-serialize
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/kornelski/avif-serialize">https://github.com/kornelski/avif-serialize</a>
-```
+- Repository: [https://github.com/kornelski/avif-serialize](https://github.com/kornelski/avif-serialize)
+
+```LICENSE
 BSD 3-Clause License
 
 Copyright (c) 2020, Cloudflare, Inc.
@@ -10079,9 +11035,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## backtrace
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/backtrace-rs">https://github.com/rust-lang/backtrace-rs</a>
-```
+- Repository: [https://github.com/rust-lang/backtrace-rs](https://github.com/rust-lang/backtrace-rs)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -10110,9 +11068,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## base64
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/marshallpierce/rust-base64">https://github.com/marshallpierce/rust-base64</a>
-```
+- Repository: [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Alice Maz
@@ -10137,9 +11097,11 @@ THE SOFTWARE.
 ```
 
 ## base64
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/marshallpierce/rust-base64">https://github.com/marshallpierce/rust-base64</a>
-```
+- Repository: [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Alice Maz
@@ -10164,9 +11126,11 @@ THE SOFTWARE.
 ```
 
 ## base64ct
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats">https://github.com/RustCrypto/formats</a>
-```
+- Repository: [https://github.com/RustCrypto/formats](https://github.com/RustCrypto/formats)
+
+```LICENSE
 Copyright (c) 2014 Steve "Sc00bz" Thomas (steve at tobtu dot com)
 Copyright (c) 2021-2025 The RustCrypto Project Developers
 
@@ -10196,9 +11160,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## bit_field
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/phil-opp/rust-bit-field">https://github.com/phil-opp/rust-bit-field</a>
-```
+- Repository: [https://github.com/phil-opp/rust-bit-field](https://github.com/phil-opp/rust-bit-field)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2016 Philipp Oppermann
@@ -10223,9 +11189,11 @@ SOFTWARE.
 ```
 
 ## bitflags
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bitflags/bitflags">https://github.com/bitflags/bitflags</a>
-```
+- Repository: [https://github.com/bitflags/bitflags](https://github.com/bitflags/bitflags)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -10254,9 +11222,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## bitflags
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bitflags/bitflags">https://github.com/bitflags/bitflags</a>
-```
+- Repository: [https://github.com/bitflags/bitflags](https://github.com/bitflags/bitflags)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -10285,9 +11255,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## bitstream-io
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tuffy/bitstream-io">https://github.com/tuffy/bitstream-io</a>
-```
+- Repository: [https://github.com/tuffy/bitstream-io](https://github.com/tuffy/bitstream-io)
+
+```LICENSE
 Copyright (c) 2017 Brian Langenberger
 
 Permission is hereby granted, free of charge, to any
@@ -10316,12 +11288,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## bitvec
+
 - License: MIT
-- Repository: <a href="https://github.com/bitvecto-rs/bitvec">https://github.com/bitvecto-rs/bitvec</a>
+- Repository: [https://github.com/bitvecto-rs/bitvec](https://github.com/bitvecto-rs/bitvec)
+
 ## block-buffer
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/utils">https://github.com/RustCrypto/utils</a>
-```
+- Repository: [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
+
+```LICENSE
 Copyright (c) 2018-2019 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -10350,15 +11326,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## block2
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## block2
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## blocking
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/blocking">https://github.com/smol-rs/blocking</a>
-```
+- Repository: [https://github.com/smol-rs/blocking](https://github.com/smol-rs/blocking)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -10385,9 +11367,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## boolinator
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/DanielKeep/rust-boolinator">https://github.com/DanielKeep/rust-boolinator</a>
-```
+- Repository: [https://github.com/DanielKeep/rust-boolinator](https://github.com/DanielKeep/rust-boolinator)
+
+```LICENSE
 Copyright ⓒ 2016 Daniel Keep.
 
 Licensed under either of:
@@ -10628,18 +11612,26 @@ limitations under the License.
 ```
 
 ## borsh
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/near/borsh-rs">https://github.com/near/borsh-rs</a>
+- Repository: [https://github.com/near/borsh-rs](https://github.com/near/borsh-rs)
+
 ## borsh-derive
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/near/borsh-rs">https://github.com/near/borsh-rs</a>
+- Repository: [https://github.com/near/borsh-rs](https://github.com/near/borsh-rs)
+
 ## brotli
+
 - License: BSD-3-Clause AND MIT
-- Repository: <a href="https://github.com/dropbox/rust-brotli">https://github.com/dropbox/rust-brotli</a>
+- Repository: [https://github.com/dropbox/rust-brotli](https://github.com/dropbox/rust-brotli)
+
 ## brotli-decompressor
+
 - License: BSD-3-Clause OR MIT
-- Repository: <a href="https://github.com/dropbox/rust-brotli-decompressor">https://github.com/dropbox/rust-brotli-decompressor</a>
-```
+- Repository: [https://github.com/dropbox/rust-brotli-decompressor](https://github.com/dropbox/rust-brotli-decompressor)
+
+```LICENSE
 Copyright (c) 2016 Dropbox, Inc.
 All rights reserved.
 
@@ -10655,9 +11647,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ```
 
 ## built
+
 - License: MIT
-- Repository: <a href="https://github.com/lukaslueg/built">https://github.com/lukaslueg/built</a>
-```
+- Repository: [https://github.com/lukaslueg/built](https://github.com/lukaslueg/built)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017-2023 Lukas Lueg
@@ -10682,9 +11676,11 @@ SOFTWARE.
 ```
 
 ## bumpalo
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/fitzgen/bumpalo">https://github.com/fitzgen/bumpalo</a>
-```
+- Repository: [https://github.com/fitzgen/bumpalo](https://github.com/fitzgen/bumpalo)
+
+```LICENSE
 Copyright (c) 2019 Nick Fitzgerald
 
 Permission is hereby granted, free of charge, to any
@@ -10713,9 +11709,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## bytecheck
+
 - License: MIT
-- Repository: <a href="https://github.com/djkoloski/bytecheck">https://github.com/djkoloski/bytecheck</a>
-```
+- Repository: [https://github.com/djkoloski/bytecheck](https://github.com/djkoloski/bytecheck)
+
+```LICENSE
 Copyright 2020 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -10726,9 +11724,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## bytecheck_derive
+
 - License: MIT
-- Repository: <a href="https://github.com/djkoloski/bytecheck">https://github.com/djkoloski/bytecheck</a>
-```
+- Repository: [https://github.com/djkoloski/bytecheck](https://github.com/djkoloski/bytecheck)
+
+```LICENSE
 Copyright 2020 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -10739,9 +11739,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## bytemuck
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/Lokathor/bytemuck">https://github.com/Lokathor/bytemuck</a>
-```
+- Repository: [https://github.com/Lokathor/bytemuck](https://github.com/Lokathor/bytemuck)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Daniel "Lokathor" Gee.
@@ -10754,9 +11756,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## byteorder
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/byteorder">https://github.com/BurntSushi/byteorder</a>
-```
+- Repository: [https://github.com/BurntSushi/byteorder](https://github.com/BurntSushi/byteorder)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
@@ -10781,9 +11785,11 @@ THE SOFTWARE.
 ```
 
 ## byteorder-lite
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/image-rs/byteorder-lite">https://github.com/image-rs/byteorder-lite</a>
-```
+- Repository: [https://github.com/image-rs/byteorder-lite](https://github.com/image-rs/byteorder-lite)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
@@ -10808,9 +11814,11 @@ THE SOFTWARE.
 ```
 
 ## bytes
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/bytes">https://github.com/tokio-rs/bytes</a>
-```
+- Repository: [https://github.com/tokio-rs/bytes](https://github.com/tokio-rs/bytes)
+
+```LICENSE
 Copyright (c) 2018 Carl Lerche
 
 Permission is hereby granted, free of charge, to any
@@ -10839,9 +11847,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cairo-rs
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -10862,9 +11872,11 @@ SOFTWARE.
 ```
 
 ## cairo-sys-rs
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -10885,9 +11897,11 @@ SOFTWARE.
 ```
 
 ## camino
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/camino-rs/camino">https://github.com/camino-rs/camino</a>
-```
+- Repository: [https://github.com/camino-rs/camino](https://github.com/camino-rs/camino)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -10914,9 +11928,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cargo-platform
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/cargo">https://github.com/rust-lang/cargo</a>
-```
+- Repository: [https://github.com/rust-lang/cargo](https://github.com/rust-lang/cargo)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -10943,9 +11959,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cargo_metadata
+
 - License: MIT
-- Repository: <a href="https://github.com/oli-obk/cargo_metadata">https://github.com/oli-obk/cargo_metadata</a>
-```
+- Repository: [https://github.com/oli-obk/cargo_metadata](https://github.com/oli-obk/cargo_metadata)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -10972,9 +11990,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cargo_toml
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://gitlab.com/lib.rs/cargo_toml">https://gitlab.com/lib.rs/cargo_toml</a>
-```
+- Repository: [https://gitlab.com/lib.rs/cargo_toml](https://gitlab.com/lib.rs/cargo_toml)
+
+```LICENSE
 © Kornel Lesiński
 
                                  Apache License
@@ -11180,9 +12200,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/cc-rs">https://github.com/rust-lang/cc-rs</a>
-```
+- Repository: [https://github.com/rust-lang/cc-rs](https://github.com/rust-lang/cc-rs)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -11211,12 +12233,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cesu8
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/emk/cesu8-rs">https://github.com/emk/cesu8-rs</a>
+- Repository: [https://github.com/emk/cesu8-rs](https://github.com/emk/cesu8-rs)
+
 ## cfb
+
 - License: MIT
-- Repository: <a href="https://github.com/mdsteele/rust-cfb">https://github.com/mdsteele/rust-cfb</a>
-```
+- Repository: [https://github.com/mdsteele/rust-cfb](https://github.com/mdsteele/rust-cfb)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Matthew D. Steele
@@ -11241,9 +12267,11 @@ SOFTWARE.
 ```
 
 ## cfg-expr
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/EmbarkStudios/cfg-expr">https://github.com/EmbarkStudios/cfg-expr</a>
-```
+- Repository: [https://github.com/EmbarkStudios/cfg-expr](https://github.com/EmbarkStudios/cfg-expr)
+
+```LICENSE
 Copyright (c) 2019 Embark Studios
 
 Permission is hereby granted, free of charge, to any
@@ -11272,9 +12300,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cfg-if
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/alexcrichton/cfg-if">https://github.com/alexcrichton/cfg-if</a>
-```
+- Repository: [https://github.com/alexcrichton/cfg-if](https://github.com/alexcrichton/cfg-if)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -11303,9 +12333,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cfg_aliases
+
 - License: MIT
-- Repository: <a href="https://github.com/katharostech/cfg_aliases">https://github.com/katharostech/cfg_aliases</a>
-```
+- Repository: [https://github.com/katharostech/cfg_aliases](https://github.com/katharostech/cfg_aliases)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Katharos Technology
@@ -11318,12 +12350,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## chrono
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/chronotope/chrono">https://github.com/chronotope/chrono</a>
+- Repository: [https://github.com/chronotope/chrono](https://github.com/chronotope/chrono)
+
 ## color_quant
+
 - License: MIT
-- Repository: <a href="https://github.com/image-rs/color_quant.git">https://github.com/image-rs/color_quant.git</a>
-```
+- Repository: [https://github.com/image-rs/color_quant.git](https://github.com/image-rs/color_quant.git)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2016 PistonDevelopers
@@ -11348,9 +12384,11 @@ SOFTWARE.
 ```
 
 ## combine
+
 - License: MIT
-- Repository: <a href="https://github.com/Marwes/combine">https://github.com/Marwes/combine</a>
-```
+- Repository: [https://github.com/Marwes/combine](https://github.com/Marwes/combine)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Markus Westerlind
@@ -11375,9 +12413,11 @@ THE SOFTWARE.
 ```
 
 ## concurrent-queue
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/concurrent-queue">https://github.com/smol-rs/concurrent-queue</a>
-```
+- Repository: [https://github.com/smol-rs/concurrent-queue](https://github.com/smol-rs/concurrent-queue)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -11404,9 +12444,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## const-oid
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats/tree/master/const-oid">https://github.com/RustCrypto/formats/tree/master/const-oid</a>
-```
+- Repository: [https://github.com/RustCrypto/formats/tree/master/const-oid](https://github.com/RustCrypto/formats/tree/master/const-oid)
+
+```LICENSE
 Copyright (c) 2020-2022 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -11435,12 +12477,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## convert_case
+
 - License: MIT
-- Repository: <a href="https://github.com/rutrum/convert-case">https://github.com/rutrum/convert-case</a>
+- Repository: [https://github.com/rutrum/convert-case](https://github.com/rutrum/convert-case)
+
 ## cookie
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/SergioBenitez/cookie-rs">https://github.com/SergioBenitez/cookie-rs</a>
-```
+- Repository: [https://github.com/SergioBenitez/cookie-rs](https://github.com/SergioBenitez/cookie-rs)
+
+```LICENSE
 Copyright (c) 2017 Sergio Benitez
 Copyright (c) 2014 Alex Crichton
 
@@ -11470,9 +12516,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## core-foundation
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/core-foundation-rs">https://github.com/servo/core-foundation-rs</a>
-```
+- Repository: [https://github.com/servo/core-foundation-rs](https://github.com/servo/core-foundation-rs)
+
+```LICENSE
 Copyright (c) 2012-2013 Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -11501,9 +12549,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## core-foundation-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/core-foundation-rs">https://github.com/servo/core-foundation-rs</a>
-```
+- Repository: [https://github.com/servo/core-foundation-rs](https://github.com/servo/core-foundation-rs)
+
+```LICENSE
 Copyright (c) 2012-2013 Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -11532,9 +12582,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## core-graphics
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/core-foundation-rs">https://github.com/servo/core-foundation-rs</a>
-```
+- Repository: [https://github.com/servo/core-foundation-rs](https://github.com/servo/core-foundation-rs)
+
+```LICENSE
 Copyright (c) 2012-2013 Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -11563,9 +12615,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## core-graphics-types
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/core-foundation-rs">https://github.com/servo/core-foundation-rs</a>
-```
+- Repository: [https://github.com/servo/core-foundation-rs](https://github.com/servo/core-foundation-rs)
+
+```LICENSE
 Copyright (c) 2012-2013 Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -11594,9 +12648,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cpufeatures
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/utils">https://github.com/RustCrypto/utils</a>
-```
+- Repository: [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
+
+```LICENSE
 Copyright (c) 2020-2025 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -11625,9 +12681,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## crc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/mrhooray/crc-rs.git">https://github.com/mrhooray/crc-rs.git</a>
-```
+- Repository: [https://github.com/mrhooray/crc-rs.git](https://github.com/mrhooray/crc-rs.git)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 crc-rs Developers
@@ -11652,12 +12710,16 @@ SOFTWARE.
 ```
 
 ## crc-catalog
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/akhilles/crc-catalog.git">https://github.com/akhilles/crc-catalog.git</a>
+- Repository: [https://github.com/akhilles/crc-catalog.git](https://github.com/akhilles/crc-catalog.git)
+
 ## crc32fast
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/srijs/rust-crc32fast">https://github.com/srijs/rust-crc32fast</a>
-```
+- Repository: [https://github.com/srijs/rust-crc32fast](https://github.com/srijs/rust-crc32fast)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2018 Sam Rijs, Alex Crichton and contributors
@@ -11682,9 +12744,11 @@ SOFTWARE.
 ```
 
 ## crossbeam-channel
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/crossbeam-rs/crossbeam">https://github.com/crossbeam-rs/crossbeam</a>
-```
+- Repository: [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 The Crossbeam Project Developers
@@ -11715,9 +12779,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## crossbeam-deque
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/crossbeam-rs/crossbeam">https://github.com/crossbeam-rs/crossbeam</a>
-```
+- Repository: [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 The Crossbeam Project Developers
@@ -11748,9 +12814,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## crossbeam-epoch
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/crossbeam-rs/crossbeam">https://github.com/crossbeam-rs/crossbeam</a>
-```
+- Repository: [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 The Crossbeam Project Developers
@@ -11781,9 +12849,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## crossbeam-queue
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/crossbeam-rs/crossbeam">https://github.com/crossbeam-rs/crossbeam</a>
-```
+- Repository: [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 The Crossbeam Project Developers
@@ -11814,9 +12884,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## crossbeam-utils
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/crossbeam-rs/crossbeam">https://github.com/crossbeam-rs/crossbeam</a>
-```
+- Repository: [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 The Crossbeam Project Developers
@@ -11847,9 +12919,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## crunchy
+
 - License: MIT
-- Repository: <a href="https://github.com/eira-fransham/crunchy">https://github.com/eira-fransham/crunchy</a>
-```
+- Repository: [https://github.com/eira-fransham/crunchy](https://github.com/eira-fransham/crunchy)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright 2017-2023 Eira Fransham.
@@ -11874,9 +12948,11 @@ SOFTWARE.
 ```
 
 ## crypto-common
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/traits">https://github.com/RustCrypto/traits</a>
-```
+- Repository: [https://github.com/RustCrypto/traits](https://github.com/RustCrypto/traits)
+
+```LICENSE
 Copyright (c) 2021 RustCrypto Developers
 
 Permission is hereby granted, free of charge, to any
@@ -11905,9 +12981,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## cssparser
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/servo/rust-cssparser">https://github.com/servo/rust-cssparser</a>
-```
+- Repository: [https://github.com/servo/rust-cssparser](https://github.com/servo/rust-cssparser)
+
+```LICENSE
 Mozilla Public License Version 2.0
 ==================================
 
@@ -12284,9 +13362,11 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ```
 
 ## cssparser-macros
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/servo/rust-cssparser">https://github.com/servo/rust-cssparser</a>
-```
+- Repository: [https://github.com/servo/rust-cssparser](https://github.com/servo/rust-cssparser)
+
+```LICENSE
 Mozilla Public License Version 2.0
 ==================================
 
@@ -12663,9 +13743,11 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ```
 
 ## ctor
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/mmastrac/rust-ctor">https://github.com/mmastrac/rust-ctor</a>
-```
+- Repository: [https://github.com/mmastrac/rust-ctor](https://github.com/mmastrac/rust-ctor)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
@@ -12674,9 +13756,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## darling
+
 - License: MIT
-- Repository: <a href="https://github.com/TedDriggs/darling">https://github.com/TedDriggs/darling</a>
-```
+- Repository: [https://github.com/TedDriggs/darling](https://github.com/TedDriggs/darling)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Ted Driggs
@@ -12701,9 +13785,11 @@ SOFTWARE.
 ```
 
 ## darling_core
+
 - License: MIT
-- Repository: <a href="https://github.com/TedDriggs/darling">https://github.com/TedDriggs/darling</a>
-```
+- Repository: [https://github.com/TedDriggs/darling](https://github.com/TedDriggs/darling)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Ted Driggs
@@ -12728,9 +13814,11 @@ SOFTWARE.
 ```
 
 ## darling_macro
+
 - License: MIT
-- Repository: <a href="https://github.com/TedDriggs/darling">https://github.com/TedDriggs/darling</a>
-```
+- Repository: [https://github.com/TedDriggs/darling](https://github.com/TedDriggs/darling)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Ted Driggs
@@ -12755,9 +13843,11 @@ SOFTWARE.
 ```
 
 ## der
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats/tree/master/der">https://github.com/RustCrypto/formats/tree/master/der</a>
-```
+- Repository: [https://github.com/RustCrypto/formats/tree/master/der](https://github.com/RustCrypto/formats/tree/master/der)
+
+```LICENSE
 Copyright (c) 2020-2023 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -12786,9 +13876,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## deranged
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jhpratt/deranged">https://github.com/jhpratt/deranged</a>
-```
+- Repository: [https://github.com/jhpratt/deranged](https://github.com/jhpratt/deranged)
+
+```LICENSE
 Copyright (c) 2024 Jacob Pratt et al.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -12811,9 +13903,11 @@ SOFTWARE.
 ```
 
 ## derive_arbitrary
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-fuzz/arbitrary">https://github.com/rust-fuzz/arbitrary</a>
-```
+- Repository: [https://github.com/rust-fuzz/arbitrary](https://github.com/rust-fuzz/arbitrary)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Manish Goregaokar
@@ -12844,9 +13938,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## derive_more
+
 - License: MIT
-- Repository: <a href="https://github.com/JelteF/derive_more">https://github.com/JelteF/derive_more</a>
-```
+- Repository: [https://github.com/JelteF/derive_more](https://github.com/JelteF/derive_more)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2016 Jelte Fennema
@@ -12871,9 +13967,11 @@ SOFTWARE.
 ```
 
 ## digest
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/traits">https://github.com/RustCrypto/traits</a>
-```
+- Repository: [https://github.com/RustCrypto/traits](https://github.com/RustCrypto/traits)
+
+```LICENSE
 Copyright (c) 2017 Artyom Pavlov
 
 Permission is hereby granted, free of charge, to any
@@ -12902,9 +14000,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## dirs
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/soc/dirs-rs">https://github.com/soc/dirs-rs</a>
-```
+- Repository: [https://github.com/soc/dirs-rs](https://github.com/soc/dirs-rs)
+
+```LICENSE
 Copyright (c) 2018-2019 dirs-rs contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -12927,9 +14027,11 @@ SOFTWARE.
 ```
 
 ## dirs
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/soc/dirs-rs">https://github.com/soc/dirs-rs</a>
-```
+- Repository: [https://github.com/soc/dirs-rs](https://github.com/soc/dirs-rs)
+
+```LICENSE
 Copyright (c) 2018-2019 dirs-rs contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -12952,9 +14054,11 @@ SOFTWARE.
 ```
 
 ## dirs-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dirs-dev/dirs-sys-rs">https://github.com/dirs-dev/dirs-sys-rs</a>
-```
+- Repository: [https://github.com/dirs-dev/dirs-sys-rs](https://github.com/dirs-dev/dirs-sys-rs)
+
+```LICENSE
 Copyright (c) 2018-2019 dirs-rs contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -12977,9 +14081,11 @@ SOFTWARE.
 ```
 
 ## dirs-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dirs-dev/dirs-sys-rs">https://github.com/dirs-dev/dirs-sys-rs</a>
-```
+- Repository: [https://github.com/dirs-dev/dirs-sys-rs](https://github.com/dirs-dev/dirs-sys-rs)
+
+```LICENSE
 Copyright (c) 2018-2019 dirs-rs contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -13002,18 +14108,26 @@ SOFTWARE.
 ```
 
 ## dispatch
+
 - License: MIT
-- Repository: <a href="http://github.com/SSheldon/rust-dispatch">http://github.com/SSheldon/rust-dispatch</a>
+- Repository: [http://github.com/SSheldon/rust-dispatch](http://github.com/SSheldon/rust-dispatch)
+
 ## dispatch2
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## dispatch2
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## displaydoc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/yaahc/displaydoc">https://github.com/yaahc/displaydoc</a>
-```
+- Repository: [https://github.com/yaahc/displaydoc](https://github.com/yaahc/displaydoc)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -13040,14 +14154,20 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## dlopen2
+
 - License: MIT
-- Repository: <a href="https://github.com/OpenByteDev/dlopen2">https://github.com/OpenByteDev/dlopen2</a>
+- Repository: [https://github.com/OpenByteDev/dlopen2](https://github.com/OpenByteDev/dlopen2)
+
 ## dlopen2_derive
+
 - License: MIT
+
 ## dotenvy
+
 - License: MIT
-- Repository: <a href="https://github.com/allan2/dotenvy">https://github.com/allan2/dotenvy</a>
-```
+- Repository: [https://github.com/allan2/dotenvy](https://github.com/allan2/dotenvy)
+
+```LICENSE
 # The MIT License (MIT)
 
 Copyright (c) 2014 Santiago Lapresta and contributors
@@ -13072,9 +14192,11 @@ THE SOFTWARE.
 ```
 
 ## dpi
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/rust-windowing/winit">https://github.com/rust-windowing/winit</a>
-```
+- Repository: [https://github.com/rust-windowing/winit](https://github.com/rust-windowing/winit)
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -13279,9 +14401,11 @@ Apache License
 ```
 
 ## dtoa
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/dtoa">https://github.com/dtolnay/dtoa</a>
-```
+- Repository: [https://github.com/dtolnay/dtoa](https://github.com/dtolnay/dtoa)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -13308,9 +14432,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## dtoa-short
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/upsuper/dtoa-short">https://github.com/upsuper/dtoa-short</a>
-```
+- Repository: [https://github.com/upsuper/dtoa-short](https://github.com/upsuper/dtoa-short)
+
+```LICENSE
 Mozilla Public License Version 2.0
 ==================================
 
@@ -13687,9 +14813,11 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ```
 
 ## dunce
+
 - License: Apache-2.0 OR CC0-1.0 OR MIT-0
-- Repository: <a href="https://gitlab.com/kornelski/dunce">https://gitlab.com/kornelski/dunce</a>
-```
+- Repository: [https://gitlab.com/kornelski/dunce](https://gitlab.com/kornelski/dunce)
+
+```LICENSE
 Creative Commons Legal Code
 
 CC0 1.0 Universal
@@ -13814,9 +14942,11 @@ express Statement of Purpose.
 ```
 
 ## dxgi
+
 - License: MIT
-- Repository: <a href="https://github.com/Connicpu/dxgi-rs">https://github.com/Connicpu/dxgi-rs</a>
-```
+- Repository: [https://github.com/Connicpu/dxgi-rs](https://github.com/Connicpu/dxgi-rs)
+
+```LICENSE
 Copyright (c) 2018 Connie Hilarides
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -13839,9 +14969,11 @@ SOFTWARE.
 ```
 
 ## dyn-clone
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/dyn-clone">https://github.com/dtolnay/dyn-clone</a>
-```
+- Repository: [https://github.com/dtolnay/dyn-clone](https://github.com/dtolnay/dyn-clone)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -13868,9 +15000,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## either
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rayon-rs/either">https://github.com/rayon-rs/either</a>
-```
+- Repository: [https://github.com/rayon-rs/either](https://github.com/rayon-rs/either)
+
+```LICENSE
 Copyright (c) 2015
 
 Permission is hereby granted, free of charge, to any
@@ -13899,9 +15033,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## embed-resource
+
 - License: MIT
-- Repository: <a href="https://github.com/nabijaczleweli/rust-embed-resource">https://github.com/nabijaczleweli/rust-embed-resource</a>
-```
+- Repository: [https://github.com/nabijaczleweli/rust-embed-resource](https://github.com/nabijaczleweli/rust-embed-resource)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017 nabijaczleweli
@@ -13926,9 +15062,11 @@ SOFTWARE.
 ```
 
 ## embed_plist
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/nvzqz/embed-plist-rs">https://github.com/nvzqz/embed-plist-rs</a>
-```
+- Repository: [https://github.com/nvzqz/embed-plist-rs](https://github.com/nvzqz/embed-plist-rs)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 Nikolai Vazquez
@@ -13953,9 +15091,11 @@ SOFTWARE.
 ```
 
 ## encoding_rs
+
 - License: (Apache-2.0 OR MIT) AND BSD-3-Clause
-- Repository: <a href="https://github.com/hsivonen/encoding_rs">https://github.com/hsivonen/encoding_rs</a>
-```
+- Repository: [https://github.com/hsivonen/encoding_rs](https://github.com/hsivonen/encoding_rs)
+
+```LICENSE
 Copyright Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -13984,9 +15124,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## endi
+
 - License: MIT
-- Repository: <a href="https://github.com/zeenix/endi">https://github.com/zeenix/endi</a>
-```
+- Repository: [https://github.com/zeenix/endi](https://github.com/zeenix/endi)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14013,9 +15155,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## enumflags2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/meithecatte/enumflags2">https://github.com/meithecatte/enumflags2</a>
-```
+- Repository: [https://github.com/meithecatte/enumflags2](https://github.com/meithecatte/enumflags2)
+
+```LICENSE
 Copyright (c) 2017-2023 Maik Klein, Maja Kądziołka
 
 Permission is hereby granted, free of charge, to any
@@ -14044,9 +15188,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## enumflags2_derive
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/meithecatte/enumflags2">https://github.com/meithecatte/enumflags2</a>
-```
+- Repository: [https://github.com/meithecatte/enumflags2](https://github.com/meithecatte/enumflags2)
+
+```LICENSE
 Copyright (c) 2017 Maik Klein
 
 Permission is hereby granted, free of charge, to any
@@ -14075,9 +15221,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## equivalent
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/indexmap-rs/equivalent">https://github.com/indexmap-rs/equivalent</a>
-```
+- Repository: [https://github.com/indexmap-rs/equivalent](https://github.com/indexmap-rs/equivalent)
+
+```LICENSE
 Copyright (c) 2016--2023
 
 Permission is hereby granted, free of charge, to any
@@ -14106,9 +15254,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## erased-serde
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/erased-serde">https://github.com/dtolnay/erased-serde</a>
-```
+- Repository: [https://github.com/dtolnay/erased-serde](https://github.com/dtolnay/erased-serde)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14135,9 +15285,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## errno
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/lambda-fairy/rust-errno">https://github.com/lambda-fairy/rust-errno</a>
-```
+- Repository: [https://github.com/lambda-fairy/rust-errno](https://github.com/lambda-fairy/rust-errno)
+
+```LICENSE
 Copyright (c) 2014 Chris Wong
 
 Permission is hereby granted, free of charge, to any
@@ -14166,9 +15318,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## etcetera
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/lunacookies/etcetera">https://github.com/lunacookies/etcetera</a>
-```
+- Repository: [https://github.com/lunacookies/etcetera](https://github.com/lunacookies/etcetera)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14195,9 +15349,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## event-listener
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/event-listener">https://github.com/smol-rs/event-listener</a>
-```
+- Repository: [https://github.com/smol-rs/event-listener](https://github.com/smol-rs/event-listener)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14224,9 +15380,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## event-listener
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/event-listener">https://github.com/smol-rs/event-listener</a>
-```
+- Repository: [https://github.com/smol-rs/event-listener](https://github.com/smol-rs/event-listener)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14253,9 +15411,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## event-listener-strategy
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/event-listener-strategy">https://github.com/smol-rs/event-listener-strategy</a>
-```
+- Repository: [https://github.com/smol-rs/event-listener-strategy](https://github.com/smol-rs/event-listener-strategy)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14282,12 +15442,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## exr
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/johannesvollmer/exrs">https://github.com/johannesvollmer/exrs</a>
+- Repository: [https://github.com/johannesvollmer/exrs](https://github.com/johannesvollmer/exrs)
+
 ## fastrand
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/fastrand">https://github.com/smol-rs/fastrand</a>
-```
+- Repository: [https://github.com/smol-rs/fastrand](https://github.com/smol-rs/fastrand)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14314,9 +15478,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## fastrand
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/fastrand">https://github.com/smol-rs/fastrand</a>
-```
+- Repository: [https://github.com/smol-rs/fastrand](https://github.com/smol-rs/fastrand)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14343,9 +15509,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## fdeflate
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/fdeflate">https://github.com/image-rs/fdeflate</a>
-```
+- Repository: [https://github.com/image-rs/fdeflate](https://github.com/image-rs/fdeflate)
+
+```LICENSE
 MIT License
 
 Permission is hereby granted, free of charge, to any
@@ -14374,9 +15542,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## field-offset
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Diggsey/rust-field-offset">https://github.com/Diggsey/rust-field-offset</a>
-```
+- Repository: [https://github.com/Diggsey/rust-field-offset](https://github.com/Diggsey/rust-field-offset)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2016-2021 Diggory Blake, and other contributors.
@@ -14401,9 +15571,11 @@ SOFTWARE.
 ```
 
 ## filetime
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/alexcrichton/filetime">https://github.com/alexcrichton/filetime</a>
-```
+- Repository: [https://github.com/alexcrichton/filetime](https://github.com/alexcrichton/filetime)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -14432,9 +15604,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## flate2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/flate2-rs">https://github.com/rust-lang/flate2-rs</a>
-```
+- Repository: [https://github.com/rust-lang/flate2-rs](https://github.com/rust-lang/flate2-rs)
+
+```LICENSE
 Copyright (c) 2014-2025 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -14463,9 +15637,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## flume
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/zesterer/flume">https://github.com/zesterer/flume</a>
-```
+- Repository: [https://github.com/zesterer/flume](https://github.com/zesterer/flume)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14492,9 +15668,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## fnv
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/rust-fnv">https://github.com/servo/rust-fnv</a>
-```
+- Repository: [https://github.com/servo/rust-fnv](https://github.com/servo/rust-fnv)
+
+```LICENSE
 Copyright (c) 2017 Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -14523,9 +15701,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## foldhash
+
 - License: Zlib
-- Repository: <a href="https://github.com/orlp/foldhash">https://github.com/orlp/foldhash</a>
-```
+- Repository: [https://github.com/orlp/foldhash](https://github.com/orlp/foldhash)
+
+```LICENSE
 Copyright (c) 2024 Orson Peters
 
 This software is provided 'as-is', without any express or implied warranty. In
@@ -14548,9 +15728,11 @@ the following restrictions:
 ```
 
 ## foreign-types
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/sfackler/foreign-types">https://github.com/sfackler/foreign-types</a>
-```
+- Repository: [https://github.com/sfackler/foreign-types](https://github.com/sfackler/foreign-types)
+
+```LICENSE
 Copyright (c) 2017 The foreign-types Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -14573,9 +15755,11 @@ SOFTWARE.
 ```
 
 ## foreign-types-macros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/sfackler/foreign-types">https://github.com/sfackler/foreign-types</a>
-```
+- Repository: [https://github.com/sfackler/foreign-types](https://github.com/sfackler/foreign-types)
+
+```LICENSE
 Copyright (c) 2017 The foreign-types Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -14598,9 +15782,11 @@ SOFTWARE.
 ```
 
 ## foreign-types-shared
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/sfackler/foreign-types">https://github.com/sfackler/foreign-types</a>
-```
+- Repository: [https://github.com/sfackler/foreign-types](https://github.com/sfackler/foreign-types)
+
+```LICENSE
 Copyright (c) 2017 The foreign-types Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -14623,9 +15809,11 @@ SOFTWARE.
 ```
 
 ## form_urlencoded
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/rust-url">https://github.com/servo/rust-url</a>
-```
+- Repository: [https://github.com/servo/rust-url](https://github.com/servo/rust-url)
+
+```LICENSE
 Copyright (c) 2013-2016 The rust-url developers
 
 Permission is hereby granted, free of charge, to any
@@ -14654,9 +15842,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## fuchsia-cprng
+
 - License: null
-- Repository: <a href="https://fuchsia.googlesource.com/fuchsia/+/master/garnet/public/rust/fuchsia-cprng">https://fuchsia.googlesource.com/fuchsia/+/master/garnet/public/rust/fuchsia-cprng</a>
-```
+- Repository: [https://fuchsia.googlesource.com/fuchsia/+/master/garnet/public/rust/fuchsia-cprng](https://fuchsia.googlesource.com/fuchsia/+/master/garnet/public/rust/fuchsia-cprng)
+
+```LICENSE
 Copyright 2019 The Fuchsia Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -14687,12 +15877,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## funty
+
 - License: MIT
-- Repository: <a href="https://github.com/myrrlyn/funty">https://github.com/myrrlyn/funty</a>
+- Repository: [https://github.com/myrrlyn/funty](https://github.com/myrrlyn/funty)
+
 ## futf
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/futf">https://github.com/servo/futf</a>
-```
+- Repository: [https://github.com/servo/futf](https://github.com/servo/futf)
+
+```LICENSE
 Copyright (c) 2015 Keegan McAllister
 
 Permission is hereby granted, free of charge, to any
@@ -14721,9 +15915,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -14753,9 +15949,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-channel
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -14785,9 +15983,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -14817,9 +16017,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-executor
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -14849,9 +16051,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-intrusive
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Matthias247/futures-intrusive">https://github.com/Matthias247/futures-intrusive</a>
-```
+- Repository: [https://github.com/Matthias247/futures-intrusive](https://github.com/Matthias247/futures-intrusive)
+
+```LICENSE
 Copyright (c) 2019 Matthias Einwag
 
 Permission is hereby granted, free of charge, to any
@@ -14880,9 +16084,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-io
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -14912,9 +16118,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-lite
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/futures-lite">https://github.com/smol-rs/futures-lite</a>
-```
+- Repository: [https://github.com/smol-rs/futures-lite](https://github.com/smol-rs/futures-lite)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14941,9 +16149,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-lite
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/futures-lite">https://github.com/smol-rs/futures-lite</a>
-```
+- Repository: [https://github.com/smol-rs/futures-lite](https://github.com/smol-rs/futures-lite)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -14970,9 +16180,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-macro
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -15002,9 +16214,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-sink
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -15034,9 +16248,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-task
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -15066,9 +16282,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## futures-util
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/futures-rs">https://github.com/rust-lang/futures-rs</a>
-```
+- Repository: [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+
+```LICENSE
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
 
@@ -15098,12 +16316,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## fxhash
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/cbreeden/fxhash">https://github.com/cbreeden/fxhash</a>
+- Repository: [https://github.com/cbreeden/fxhash](https://github.com/cbreeden/fxhash)
+
 ## gdk
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15124,9 +16346,11 @@ SOFTWARE.
 ```
 
 ## gdk-pixbuf
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15147,9 +16371,11 @@ SOFTWARE.
 ```
 
 ## gdk-pixbuf-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15170,9 +16396,11 @@ SOFTWARE.
 ```
 
 ## gdk-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15193,9 +16421,11 @@ SOFTWARE.
 ```
 
 ## gdkwayland-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15216,9 +16446,11 @@ SOFTWARE.
 ```
 
 ## gdkx11
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15239,9 +16471,11 @@ SOFTWARE.
 ```
 
 ## gdkx11-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15262,9 +16496,11 @@ SOFTWARE.
 ```
 
 ## generic-array
+
 - License: MIT
-- Repository: <a href="https://github.com/fizyk20/generic-array.git">https://github.com/fizyk20/generic-array.git</a>
-```
+- Repository: [https://github.com/fizyk20/generic-array.git](https://github.com/fizyk20/generic-array.git)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Bartłomiej Kamiński
@@ -15289,9 +16525,11 @@ SOFTWARE.
 ```
 
 ## gethostname
+
 - License: Apache-2.0
-- Repository: <a href="https://codeberg.org/swsnr/gethostname.rs.git">https://codeberg.org/swsnr/gethostname.rs.git</a>
-```
+- Repository: [https://codeberg.org/swsnr/gethostname.rs.git](https://codeberg.org/swsnr/gethostname.rs.git)
+
+```LICENSE
 Apache License
                         Version 2.0, January 2004
                      http://www.apache.org/licenses/
@@ -15496,9 +16734,11 @@ limitations under the License.
 ```
 
 ## getrandom
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/getrandom">https://github.com/rust-random/getrandom</a>
-```
+- Repository: [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -15528,9 +16768,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## getrandom
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/getrandom">https://github.com/rust-random/getrandom</a>
-```
+- Repository: [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
+
+```LICENSE
 Copyright (c) 2018-2024 The rust-random Project Developers
 Copyright (c) 2014 The Rust Project Developers
 
@@ -15560,9 +16802,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## getrandom
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/getrandom">https://github.com/rust-random/getrandom</a>
-```
+- Repository: [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
+
+```LICENSE
 Copyright (c) 2018-2025 The rust-random Project Developers
 Copyright (c) 2014 The Rust Project Developers
 
@@ -15592,9 +16836,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## gif
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/image-gif">https://github.com/image-rs/image-gif</a>
-```
+- Repository: [https://github.com/image-rs/image-gif](https://github.com/image-rs/image-gif)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 nwin
@@ -15619,9 +16865,11 @@ SOFTWARE.
 ```
 
 ## gimli
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/gimli-rs/gimli">https://github.com/gimli-rs/gimli</a>
-```
+- Repository: [https://github.com/gimli-rs/gimli](https://github.com/gimli-rs/gimli)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -15650,9 +16898,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## gio
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15673,9 +16923,11 @@ SOFTWARE.
 ```
 
 ## gio-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15696,9 +16948,11 @@ SOFTWARE.
 ```
 
 ## glib
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15719,9 +16973,11 @@ SOFTWARE.
 ```
 
 ## glib-macros
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15742,9 +16998,11 @@ SOFTWARE.
 ```
 
 ## glib-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15765,9 +17023,11 @@ SOFTWARE.
 ```
 
 ## glob
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/glob">https://github.com/rust-lang/glob</a>
-```
+- Repository: [https://github.com/rust-lang/glob](https://github.com/rust-lang/glob)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -15796,12 +17056,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## gloo-timers
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/gloo/tree/master/crates/timers">https://github.com/rustwasm/gloo/tree/master/crates/timers</a>
+- Repository: [https://github.com/rustwasm/gloo/tree/master/crates/timers](https://github.com/rustwasm/gloo/tree/master/crates/timers)
+
 ## gobject-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15822,9 +17086,11 @@ SOFTWARE.
 ```
 
 ## gtk
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15845,9 +17111,11 @@ SOFTWARE.
 ```
 
 ## gtk-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15868,9 +17136,11 @@ SOFTWARE.
 ```
 
 ## gtk3-macros
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk3-rs">https://github.com/gtk-rs/gtk3-rs</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk3-rs](https://github.com/gtk-rs/gtk3-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -15891,9 +17161,11 @@ SOFTWARE.
 ```
 
 ## half
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/starkat99/half-rs">https://github.com/starkat99/half-rs</a>
-```
+- Repository: [https://github.com/starkat99/half-rs](https://github.com/starkat99/half-rs)
+
+```LICENSE
 MIT License
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -15916,11 +17188,15 @@ SOFTWARE.
 ```
 
 ## hardware_visualizer
+
 - License: MIT
+
 ## hashbrown
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/hashbrown">https://github.com/rust-lang/hashbrown</a>
-```
+- Repository: [https://github.com/rust-lang/hashbrown](https://github.com/rust-lang/hashbrown)
+
+```LICENSE
 Copyright (c) 2016 Amanieu d'Antras
 
 Permission is hereby granted, free of charge, to any
@@ -15949,9 +17225,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## hashbrown
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/hashbrown">https://github.com/rust-lang/hashbrown</a>
-```
+- Repository: [https://github.com/rust-lang/hashbrown](https://github.com/rust-lang/hashbrown)
+
+```LICENSE
 Copyright (c) 2016 Amanieu d'Antras
 
 Permission is hereby granted, free of charge, to any
@@ -15980,9 +17258,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## hashlink
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/kyren/hashlink">https://github.com/kyren/hashlink</a>
-```
+- Repository: [https://github.com/kyren/hashlink](https://github.com/kyren/hashlink)
+
+```LICENSE
 This work is derived in part from the `linked-hash-map` crate, Copyright (c)
 2015 The Rust Project Developers
 
@@ -16012,9 +17292,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## heck
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/withoutboats/heck">https://github.com/withoutboats/heck</a>
-```
+- Repository: [https://github.com/withoutboats/heck](https://github.com/withoutboats/heck)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -16043,9 +17325,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## heck
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/withoutboats/heck">https://github.com/withoutboats/heck</a>
-```
+- Repository: [https://github.com/withoutboats/heck](https://github.com/withoutboats/heck)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -16074,9 +17358,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## hermit-abi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hermit-os/hermit-rs">https://github.com/hermit-os/hermit-rs</a>
-```
+- Repository: [https://github.com/hermit-os/hermit-rs](https://github.com/hermit-os/hermit-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -16103,9 +17389,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## hermit-abi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hermit-os/hermit-rs">https://github.com/hermit-os/hermit-rs</a>
-```
+- Repository: [https://github.com/hermit-os/hermit-rs](https://github.com/hermit-os/hermit-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -16132,9 +17420,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## hex
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/KokaKiwi/rust-hex">https://github.com/KokaKiwi/rust-hex</a>
-```
+- Repository: [https://github.com/KokaKiwi/rust-hex](https://github.com/KokaKiwi/rust-hex)
+
+```LICENSE
 Copyright (c) 2013-2014 The Rust Project Developers.
 Copyright (c) 2015-2020 The rust-hex Developers
 
@@ -16158,9 +17448,11 @@ SOFTWARE.
 ```
 
 ## hkdf
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/KDFs/">https://github.com/RustCrypto/KDFs/</a>
-```
+- Repository: [https://github.com/RustCrypto/KDFs/](https://github.com/RustCrypto/KDFs/)
+
+```LICENSE
 Copyright (c) 2015-2018 Vlad Filippov
 Copyright (c) 2018-2021 RustCrypto Developers
 
@@ -16190,9 +17482,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## hmac
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/MACs">https://github.com/RustCrypto/MACs</a>
-```
+- Repository: [https://github.com/RustCrypto/MACs](https://github.com/RustCrypto/MACs)
+
+```LICENSE
 Copyright (c) 2017 Artyom Pavlov
 
 Permission is hereby granted, free of charge, to any
@@ -16221,9 +17515,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## home
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/cargo">https://github.com/rust-lang/cargo</a>
-```
+- Repository: [https://github.com/rust-lang/cargo](https://github.com/rust-lang/cargo)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -16250,9 +17546,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## html5ever
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/html5ever">https://github.com/servo/html5ever</a>
-```
+- Repository: [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
+
+```LICENSE
 Copyright (c) 2014 The html5ever Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -16281,9 +17579,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## http
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hyperium/http">https://github.com/hyperium/http</a>
-```
+- Repository: [https://github.com/hyperium/http](https://github.com/hyperium/http)
+
+```LICENSE
 Copyright (c) 2017 http-rs authors
 
 Permission is hereby granted, free of charge, to any
@@ -16312,9 +17612,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## http-body
+
 - License: MIT
-- Repository: <a href="https://github.com/hyperium/http-body">https://github.com/hyperium/http-body</a>
-```
+- Repository: [https://github.com/hyperium/http-body](https://github.com/hyperium/http-body)
+
+```LICENSE
 Copyright (c) 2019-2024 Sean McArthur & Hyper Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -16343,9 +17645,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## http-body-util
+
 - License: MIT
-- Repository: <a href="https://github.com/hyperium/http-body">https://github.com/hyperium/http-body</a>
-```
+- Repository: [https://github.com/hyperium/http-body](https://github.com/hyperium/http-body)
+
+```LICENSE
 Copyright (c) 2019-2025 Sean McArthur & Hyper Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -16374,9 +17678,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## httparse
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/seanmonstar/httparse">https://github.com/seanmonstar/httparse</a>
-```
+- Repository: [https://github.com/seanmonstar/httparse](https://github.com/seanmonstar/httparse)
+
+```LICENSE
 Copyright (c) 2015-2025 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -16399,9 +17705,11 @@ THE SOFTWARE.
 ```
 
 ## hyper
+
 - License: MIT
-- Repository: <a href="https://github.com/hyperium/hyper">https://github.com/hyperium/hyper</a>
-```
+- Repository: [https://github.com/hyperium/hyper](https://github.com/hyperium/hyper)
+
+```LICENSE
 Copyright (c) 2014-2025 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -16424,9 +17732,11 @@ THE SOFTWARE.
 ```
 
 ## hyper-rustls
+
 - License: Apache-2.0 OR ISC OR MIT
-- Repository: <a href="https://github.com/rustls/hyper-rustls">https://github.com/rustls/hyper-rustls</a>
-```
+- Repository: [https://github.com/rustls/hyper-rustls](https://github.com/rustls/hyper-rustls)
+
+```LICENSE
 hyper-rustls is distributed under the following three licenses:
 
 - Apache License version 2.0.
@@ -16439,9 +17749,11 @@ of these licenses, at your option.
 ```
 
 ## hyper-util
+
 - License: MIT
-- Repository: <a href="https://github.com/hyperium/hyper-util">https://github.com/hyperium/hyper-util</a>
-```
+- Repository: [https://github.com/hyperium/hyper-util](https://github.com/hyperium/hyper-util)
+
+```LICENSE
 Copyright (c) 2023 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -16464,9 +17776,11 @@ THE SOFTWARE.
 ```
 
 ## iana-time-zone
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/strawlab/iana-time-zone">https://github.com/strawlab/iana-time-zone</a>
-```
+- Repository: [https://github.com/strawlab/iana-time-zone](https://github.com/strawlab/iana-time-zone)
+
+```LICENSE
 Copyright (c) 2020 Andrew D. Straw
 
 Permission is hereby granted, free of charge, to any
@@ -16495,9 +17809,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## iana-time-zone-haiku
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/strawlab/iana-time-zone">https://github.com/strawlab/iana-time-zone</a>
-```
+- Repository: [https://github.com/strawlab/iana-time-zone](https://github.com/strawlab/iana-time-zone)
+
+```LICENSE
 Copyright (c) 2020 Andrew D. Straw
 
 Permission is hereby granted, free of charge, to any
@@ -16526,9 +17842,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## ico
+
 - License: MIT
-- Repository: <a href="https://github.com/mdsteele/rust-ico">https://github.com/mdsteele/rust-ico</a>
-```
+- Repository: [https://github.com/mdsteele/rust-ico](https://github.com/mdsteele/rust-ico)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2018 Matthew D. Steele
@@ -16553,9 +17871,11 @@ SOFTWARE.
 ```
 
 ## icu_collections
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16605,9 +17925,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_locid
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16657,9 +17979,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_locid_transform
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16709,9 +18033,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_locid_transform_data
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16761,9 +18087,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_normalizer
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16813,9 +18141,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_normalizer_data
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16865,9 +18195,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_properties
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16917,9 +18249,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_properties_data
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -16969,9 +18303,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_provider
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -17021,9 +18357,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## icu_provider_macros
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -17073,9 +18411,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## ident_case
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/TedDriggs/ident_case">https://github.com/TedDriggs/ident_case</a>
-```
+- Repository: [https://github.com/TedDriggs/ident_case](https://github.com/TedDriggs/ident_case)
+
+```LICENSE
 MIT License
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -17098,9 +18438,11 @@ SOFTWARE.
 ```
 
 ## idna
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/rust-url/">https://github.com/servo/rust-url/</a>
-```
+- Repository: [https://github.com/servo/rust-url/](https://github.com/servo/rust-url/)
+
+```LICENSE
 Copyright (c) 2013-2022 The rust-url developers
 
 Permission is hereby granted, free of charge, to any
@@ -17129,9 +18471,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## idna_adapter
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hsivonen/idna_adapter">https://github.com/hsivonen/idna_adapter</a>
-```
+- Repository: [https://github.com/hsivonen/idna_adapter](https://github.com/hsivonen/idna_adapter)
+
+```LICENSE
 Copyright (c) The rust-url developers
 
 Permission is hereby granted, free of charge, to any
@@ -17160,9 +18504,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## image
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/image">https://github.com/image-rs/image</a>
-```
+- Repository: [https://github.com/image-rs/image](https://github.com/image-rs/image)
+
+```LICENSE
 MIT License
 
 Permission is hereby granted, free of charge, to any
@@ -17191,9 +18537,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## image-webp
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/image-webp">https://github.com/image-rs/image-webp</a>
-```
+- Repository: [https://github.com/image-rs/image-webp](https://github.com/image-rs/image-webp)
+
+```LICENSE
 MIT License
 
 Permission is hereby granted, free of charge, to any
@@ -17222,9 +18570,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## imgref
+
 - License: Apache-2.0 OR CC0-1.0
-- Repository: <a href="https://github.com/kornelski/imgref">https://github.com/kornelski/imgref</a>
-```
+- Repository: [https://github.com/kornelski/imgref](https://github.com/kornelski/imgref)
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -17429,9 +18779,11 @@ Apache License
 ```
 
 ## indexmap
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bluss/indexmap">https://github.com/bluss/indexmap</a>
-```
+- Repository: [https://github.com/bluss/indexmap](https://github.com/bluss/indexmap)
+
+```LICENSE
 Copyright (c) 2016--2017
 
 Permission is hereby granted, free of charge, to any
@@ -17460,9 +18812,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## indexmap
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/indexmap-rs/indexmap">https://github.com/indexmap-rs/indexmap</a>
-```
+- Repository: [https://github.com/indexmap-rs/indexmap](https://github.com/indexmap-rs/indexmap)
+
+```LICENSE
 Copyright (c) 2016--2017
 
 Permission is hereby granted, free of charge, to any
@@ -17491,9 +18845,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## infer
+
 - License: MIT
-- Repository: <a href="https://github.com/bojand/infer">https://github.com/bojand/infer</a>
-```
+- Repository: [https://github.com/bojand/infer](https://github.com/bojand/infer)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Bojan
@@ -17518,9 +18874,11 @@ SOFTWARE.
 ```
 
 ## instant
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/sebcrozet/instant">https://github.com/sebcrozet/instant</a>
-```
+- Repository: [https://github.com/sebcrozet/instant](https://github.com/sebcrozet/instant)
+
+```LICENSE
 Copyright (c) 2019, Sébastien Crozet
 All rights reserved.
 
@@ -17551,9 +18909,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## interpolate_name
+
 - License: MIT
-- Repository: <a href="https://github.com/lu-zero/interpolate_name">https://github.com/lu-zero/interpolate_name</a>
-```
+- Repository: [https://github.com/lu-zero/interpolate_name](https://github.com/lu-zero/interpolate_name)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2018 Luca Barbato
@@ -17578,9 +18938,11 @@ SOFTWARE.
 ```
 
 ## io-lifetimes
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/sunfishcode/io-lifetimes">https://github.com/sunfishcode/io-lifetimes</a>
-```
+- Repository: [https://github.com/sunfishcode/io-lifetimes](https://github.com/sunfishcode/io-lifetimes)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -17607,9 +18969,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## ipnet
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/krisprice/ipnet">https://github.com/krisprice/ipnet</a>
-```
+- Repository: [https://github.com/krisprice/ipnet](https://github.com/krisprice/ipnet)
+
+```LICENSE
 Copyright 2017 Juniper Networks, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -17620,9 +18984,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## is-docker
+
 - License: MIT
-- Repository: <a href="https://github.com/TheLarkInn/is-docker">https://github.com/TheLarkInn/is-docker</a>
-```
+- Repository: [https://github.com/TheLarkInn/is-docker](https://github.com/TheLarkInn/is-docker)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2023 Sean Larkin
@@ -17647,9 +19013,11 @@ SOFTWARE.
 ```
 
 ## is-wsl
+
 - License: MIT
-- Repository: <a href="https://github.com/TheLarkInn/is-wsl">https://github.com/TheLarkInn/is-wsl</a>
-```
+- Repository: [https://github.com/TheLarkInn/is-wsl](https://github.com/TheLarkInn/is-wsl)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2023 Sean Larkin
@@ -17674,9 +19042,11 @@ SOFTWARE.
 ```
 
 ## itertools
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-itertools/itertools">https://github.com/rust-itertools/itertools</a>
-```
+- Repository: [https://github.com/rust-itertools/itertools](https://github.com/rust-itertools/itertools)
+
+```LICENSE
 Copyright (c) 2015
 
 Permission is hereby granted, free of charge, to any
@@ -17705,38 +19075,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## itoa
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/itoa">https://github.com/dtolnay/itoa</a>
-```
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
+- Repository: [https://github.com/dtolnay/itoa](https://github.com/dtolnay/itoa)
 
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
-## itoa
-- License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/itoa">https://github.com/dtolnay/itoa</a>
-```
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -17763,9 +19106,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## javascriptcore-rs
+
 - License: MIT
-- Repository: <a href="https://github.com/tauri-apps/javascriptcore-rs">https://github.com/tauri-apps/javascriptcore-rs</a>
-```
+- Repository: [https://github.com/tauri-apps/javascriptcore-rs](https://github.com/tauri-apps/javascriptcore-rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2013-2021, The Gtk-rs Project Developers.
@@ -17791,9 +19136,11 @@ SOFTWARE.
 ```
 
 ## javascriptcore-rs-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/tauri-apps/javascriptcore-rs">https://github.com/tauri-apps/javascriptcore-rs</a>
-```
+- Repository: [https://github.com/tauri-apps/javascriptcore-rs](https://github.com/tauri-apps/javascriptcore-rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2013-2017, The Gtk-rs Project Developers.
@@ -17818,9 +19165,11 @@ SOFTWARE.
 ```
 
 ## jni
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jni-rs/jni-rs">https://github.com/jni-rs/jni-rs</a>
-```
+- Repository: [https://github.com/jni-rs/jni-rs](https://github.com/jni-rs/jni-rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2016 Prevoty, Inc. and jni-rs contributors
@@ -17845,9 +19194,11 @@ SOFTWARE.
 ```
 
 ## jni-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/sfackler/rust-jni-sys">https://github.com/sfackler/rust-jni-sys</a>
-```
+- Repository: [https://github.com/sfackler/rust-jni-sys](https://github.com/sfackler/rust-jni-sys)
+
+```LICENSE
 Copyright (c) 2015 The rust-jni-sys Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -17870,9 +19221,11 @@ SOFTWARE.
 ```
 
 ## jobserver
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/jobserver-rs">https://github.com/rust-lang/jobserver-rs</a>
-```
+- Repository: [https://github.com/rust-lang/jobserver-rs](https://github.com/rust-lang/jobserver-rs)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -17901,9 +19254,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## jpeg-decoder
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/jpeg-decoder">https://github.com/image-rs/jpeg-decoder</a>
-```
+- Repository: [https://github.com/image-rs/jpeg-decoder](https://github.com/image-rs/jpeg-decoder)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2016 The jpeg-decoder Developers
@@ -17928,9 +19283,11 @@ SOFTWARE.
 ```
 
 ## js-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/js-sys">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/js-sys</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/js-sys](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/js-sys)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -17959,9 +19316,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## json-patch
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/idubrov/json-patch">https://github.com/idubrov/json-patch</a>
-```
+- Repository: [https://github.com/idubrov/json-patch](https://github.com/idubrov/json-patch)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Ivan Dubrov
@@ -17986,9 +19345,11 @@ SOFTWARE.
 ```
 
 ## jsonptr
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/chanced/jsonptr">https://github.com/chanced/jsonptr</a>
-```
+- Repository: [https://github.com/chanced/jsonptr](https://github.com/chanced/jsonptr)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 Chance Dinkins
@@ -18013,9 +19374,11 @@ SOFTWARE.
 ```
 
 ## keyboard-types
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/pyfisch/keyboard-types">https://github.com/pyfisch/keyboard-types</a>
-```
+- Repository: [https://github.com/pyfisch/keyboard-types](https://github.com/pyfisch/keyboard-types)
+
+```LICENSE
 Copyright (c) 2017 Pyfisch
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18038,9 +19401,11 @@ THE SOFTWARE.
 ```
 
 ## kuchikiki
+
 - License: MIT
-- Repository: <a href="https://github.com/brave/kuchikiki">https://github.com/brave/kuchikiki</a>
-```
+- Repository: [https://github.com/brave/kuchikiki](https://github.com/brave/kuchikiki)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -18067,9 +19432,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## kv-log-macro
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/yoshuawuyts/kv-log-macro">https://github.com/yoshuawuyts/kv-log-macro</a>
-```
+- Repository: [https://github.com/yoshuawuyts/kv-log-macro](https://github.com/yoshuawuyts/kv-log-macro)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 Yoshua Wuyts
@@ -18094,9 +19461,11 @@ SOFTWARE.
 ```
 
 ## lazy_static
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang-nursery/lazy-static.rs">https://github.com/rust-lang-nursery/lazy-static.rs</a>
-```
+- Repository: [https://github.com/rust-lang-nursery/lazy-static.rs](https://github.com/rust-lang-nursery/lazy-static.rs)
+
+```LICENSE
 Copyright (c) 2010 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -18125,11 +19494,15 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## lebe
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/johannesvollmer/lebe">https://github.com/johannesvollmer/lebe</a>
+- Repository: [https://github.com/johannesvollmer/lebe](https://github.com/johannesvollmer/lebe)
+
 ## libappindicator
+
 - License: Apache-2.0 OR MIT
-```
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017-2021 qDot
@@ -18155,11 +19528,15 @@ SOFTWARE.
 ```
 
 ## libappindicator-sys
+
 - License: Apache-2.0 OR MIT
+
 ## libc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/libc">https://github.com/rust-lang/libc</a>
-```
+- Repository: [https://github.com/rust-lang/libc](https://github.com/rust-lang/libc)
+
+```LICENSE
 Copyright (c) 2014-2020 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -18188,9 +19565,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## libfuzzer-sys
+
 - License: (MIT OR Apache-2.0) AND NCSA
-- Repository: <a href="https://github.com/rust-fuzz/libfuzzer">https://github.com/rust-fuzz/libfuzzer</a>
-```
+- Repository: [https://github.com/rust-fuzz/libfuzzer](https://github.com/rust-fuzz/libfuzzer)
+
+```LICENSE
 Copyright (c) 2010 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -18219,9 +19598,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## libloading
+
 - License: ISC
-- Repository: <a href="https://github.com/nagisa/rust_libloading/">https://github.com/nagisa/rust_libloading/</a>
-```
+- Repository: [https://github.com/nagisa/rust_libloading/](https://github.com/nagisa/rust_libloading/)
+
+```LICENSE
 Copyright © 2015, Simonas Kazlauskas
 
 Permission to use, copy, modify, and/or distribute this software for any purpose with or without
@@ -18237,12 +19618,16 @@ THIS SOFTWARE.
 ```
 
 ## libm
+
 - License: Apache-2.0) OR MIT AND (MIT
-- Repository: <a href="https://github.com/rust-lang/libm">https://github.com/rust-lang/libm</a>
+- Repository: [https://github.com/rust-lang/libm](https://github.com/rust-lang/libm)
+
 ## libredox
+
 - License: MIT
-- Repository: <a href="https://gitlab.redox-os.org/redox-os/libredox.git">https://gitlab.redox-os.org/redox-os/libredox.git</a>
-```
+- Repository: [https://gitlab.redox-os.org/redox-os/libredox.git](https://gitlab.redox-os.org/redox-os/libredox.git)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2023 4lDO2
@@ -18267,9 +19652,11 @@ SOFTWARE.
 ```
 
 ## libsqlite3-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/rusqlite/rusqlite">https://github.com/rusqlite/rusqlite</a>
-```
+- Repository: [https://github.com/rusqlite/rusqlite](https://github.com/rusqlite/rusqlite)
+
+```LICENSE
 Copyright (c) 2014-2021 The rusqlite developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18292,9 +19679,11 @@ THE SOFTWARE.
 ```
 
 ## linux-raw-sys
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/sunfishcode/linux-raw-sys">https://github.com/sunfishcode/linux-raw-sys</a>
-```
+- Repository: [https://github.com/sunfishcode/linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -18321,9 +19710,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## linux-raw-sys
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/sunfishcode/linux-raw-sys">https://github.com/sunfishcode/linux-raw-sys</a>
-```
+- Repository: [https://github.com/sunfishcode/linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -18350,9 +19741,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## linux-raw-sys
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/sunfishcode/linux-raw-sys">https://github.com/sunfishcode/linux-raw-sys</a>
-```
+- Repository: [https://github.com/sunfishcode/linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -18379,9 +19772,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## litemap
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -18431,9 +19826,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## lock_api
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Amanieu/parking_lot">https://github.com/Amanieu/parking_lot</a>
-```
+- Repository: [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
+
+```LICENSE
 Copyright (c) 2016 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -18462,9 +19859,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## log
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/log">https://github.com/rust-lang/log</a>
-```
+- Repository: [https://github.com/rust-lang/log](https://github.com/rust-lang/log)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -18493,9 +19892,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## loop9
+
 - License: MIT
-- Repository: <a href="https://gitlab.com/kornelski/loop9.git">https://gitlab.com/kornelski/loop9.git</a>
-```
+- Repository: [https://gitlab.com/kornelski/loop9.git](https://gitlab.com/kornelski/loop9.git)
+
+```LICENSE
 © Kornel Lesiński
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -18506,9 +19907,11 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 ```
 
 ## lru-slab
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/Ralith/lru-slab">https://github.com/Ralith/lru-slab</a>
-```
+- Repository: [https://github.com/Ralith/lru-slab](https://github.com/Ralith/lru-slab)
+
+```LICENSE
 Copyright (c) 2024 The lru-slab Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -18519,12 +19922,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## mac
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/reem/rust-mac.git">https://github.com/reem/rust-mac.git</a>
+- Repository: [https://github.com/reem/rust-mac.git](https://github.com/reem/rust-mac.git)
+
 ## markup5ever
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/html5ever">https://github.com/servo/html5ever</a>
-```
+- Repository: [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
+
+```LICENSE
 Copyright (c) 2014 The html5ever Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -18552,10 +19959,17 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+## match_token
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
+
 ## matchers
+
 - License: MIT
-- Repository: <a href="https://github.com/hawkw/matchers">https://github.com/hawkw/matchers</a>
-```
+- Repository: [https://github.com/hawkw/matchers](https://github.com/hawkw/matchers)
+
+```LICENSE
 Copyright (c) 2019 Eliza Weisman
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18578,9 +19992,11 @@ SOFTWARE.
 ```
 
 ## matches
+
 - License: MIT
-- Repository: <a href="https://github.com/SimonSapin/rust-std-candidates">https://github.com/SimonSapin/rust-std-candidates</a>
-```
+- Repository: [https://github.com/SimonSapin/rust-std-candidates](https://github.com/SimonSapin/rust-std-candidates)
+
+```LICENSE
 Copyright (c) 2014-2016 Simon Sapin
 
 Permission is hereby granted, free of charge, to any
@@ -18609,9 +20025,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## maybe-rayon
+
 - License: MIT
-- Repository: <a href="https://github.com/shssoichiro/maybe-rayon">https://github.com/shssoichiro/maybe-rayon</a>
-```
+- Repository: [https://github.com/shssoichiro/maybe-rayon](https://github.com/shssoichiro/maybe-rayon)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 Joshua Holmer
@@ -18636,9 +20054,11 @@ SOFTWARE.
 ```
 
 ## md-5
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/hashes">https://github.com/RustCrypto/hashes</a>
-```
+- Repository: [https://github.com/RustCrypto/hashes](https://github.com/RustCrypto/hashes)
+
+```LICENSE
 Copyright (c) 2006-2009 Graydon Hoare
 Copyright (c) 2009-2013 Mozilla Foundation
 Copyright (c) 2016 Artyom Pavlov
@@ -18669,9 +20089,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## memchr
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/memchr">https://github.com/BurntSushi/memchr</a>
-```
+- Repository: [https://github.com/BurntSushi/memchr](https://github.com/BurntSushi/memchr)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
@@ -18696,9 +20118,11 @@ THE SOFTWARE.
 ```
 
 ## memoffset
+
 - License: MIT
-- Repository: <a href="https://github.com/Gilnaa/memoffset">https://github.com/Gilnaa/memoffset</a>
-```
+- Repository: [https://github.com/Gilnaa/memoffset](https://github.com/Gilnaa/memoffset)
+
+```LICENSE
 Copyright (c) 2017 Gilad Naaman
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18721,9 +20145,11 @@ SOFTWARE.
 ```
 
 ## mime
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hyperium/mime">https://github.com/hyperium/mime</a>
-```
+- Repository: [https://github.com/hyperium/mime](https://github.com/hyperium/mime)
+
+```LICENSE
 Copyright (c) 2014 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18746,9 +20172,11 @@ THE SOFTWARE.
 ```
 
 ## minimal-lexical
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Alexhuszagh/minimal-lexical">https://github.com/Alexhuszagh/minimal-lexical</a>
-```
+- Repository: [https://github.com/Alexhuszagh/minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -18775,9 +20203,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## minisign-verify
+
 - License: MIT
-- Repository: <a href="https://github.com/jedisct1/rust-minisign-verify">https://github.com/jedisct1/rust-minisign-verify</a>
-```
+- Repository: [https://github.com/jedisct1/rust-minisign-verify](https://github.com/jedisct1/rust-minisign-verify)
+
+```LICENSE
 Copyright (c) 2019-2024 Frank Denis
 
 Permission is hereby granted, free of charge, to any
@@ -18840,9 +20270,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## miniz_oxide
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide">https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide</a>
-```
+- Repository: [https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
+
+```LICENSE
 MIT License
 
 Copyright 2013-2014 RAD Game Tools and Valve Software
@@ -18871,9 +20303,11 @@ SOFTWARE.
 ```
 
 ## mio
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/mio">https://github.com/tokio-rs/mio</a>
-```
+- Repository: [https://github.com/tokio-rs/mio](https://github.com/tokio-rs/mio)
+
+```LICENSE
 Copyright (c) 2014 Carl Lerche and other MIO contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18896,9 +20330,11 @@ THE SOFTWARE.
 ```
 
 ## muda
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/amrbashir/muda">https://github.com/amrbashir/muda</a>
-```
+- Repository: [https://github.com/amrbashir/muda](https://github.com/amrbashir/muda)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022-2022 Tauri Programme within The Commons Conservancy
@@ -18923,18 +20359,26 @@ SOFTWARE.
 ```
 
 ## ndk
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-mobile/ndk">https://github.com/rust-mobile/ndk</a>
+- Repository: [https://github.com/rust-mobile/ndk](https://github.com/rust-mobile/ndk)
+
 ## ndk-context
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-windowing/android-ndk-rs">https://github.com/rust-windowing/android-ndk-rs</a>
+- Repository: [https://github.com/rust-windowing/android-ndk-rs](https://github.com/rust-windowing/android-ndk-rs)
+
 ## ndk-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-mobile/ndk">https://github.com/rust-mobile/ndk</a>
+- Repository: [https://github.com/rust-mobile/ndk](https://github.com/rust-mobile/ndk)
+
 ## new_debug_unreachable
+
 - License: MIT
-- Repository: <a href="https://github.com/mbrubeck/rust-debug-unreachable">https://github.com/mbrubeck/rust-debug-unreachable</a>
-```
+- Repository: [https://github.com/mbrubeck/rust-debug-unreachable](https://github.com/mbrubeck/rust-debug-unreachable)
+
+```LICENSE
 Copyright (c) 2015 Jonathan Reem
 
 Permission is hereby granted, free of charge, to any
@@ -18963,9 +20407,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## nix
+
 - License: MIT
-- Repository: <a href="https://github.com/nix-rust/nix">https://github.com/nix-rust/nix</a>
-```
+- Repository: [https://github.com/nix-rust/nix](https://github.com/nix-rust/nix)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Carl Lerche + nix-rust Authors
@@ -18990,9 +20436,11 @@ THE SOFTWARE.
 ```
 
 ## nodrop
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bluss/arrayvec">https://github.com/bluss/arrayvec</a>
-```
+- Repository: [https://github.com/bluss/arrayvec](https://github.com/bluss/arrayvec)
+
+```LICENSE
 Copyright (c) Ulrik Sverdrup "bluss" 2015-2017
 
 Permission is hereby granted, free of charge, to any
@@ -19021,9 +20469,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## nom
+
 - License: MIT
-- Repository: <a href="https://github.com/Geal/nom">https://github.com/Geal/nom</a>
-```
+- Repository: [https://github.com/Geal/nom](https://github.com/Geal/nom)
+
+```LICENSE
 Copyright (c) 2014-2019 Geoffroy Couprie
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -19047,9 +20497,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## noop_proc_macro
+
 - License: MIT
-- Repository: <a href="https://github.com/lu-zero/noop_proc_macro">https://github.com/lu-zero/noop_proc_macro</a>
-```
+- Repository: [https://github.com/lu-zero/noop_proc_macro](https://github.com/lu-zero/noop_proc_macro)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Luca Barbato
@@ -19074,9 +20526,11 @@ SOFTWARE.
 ```
 
 ## ntapi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/MSxDOS/ntapi">https://github.com/MSxDOS/ntapi</a>
-```
+- Repository: [https://github.com/MSxDOS/ntapi](https://github.com/MSxDOS/ntapi)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"),to deal
 in the Software without restriction, including without limitation the rights
@@ -19097,12 +20551,16 @@ SOFTWARE.
 ```
 
 ## nu-ansi-term
+
 - License: MIT
-- Repository: <a href="https://github.com/nushell/nu-ansi-term">https://github.com/nushell/nu-ansi-term</a>
+- Repository: [https://github.com/nushell/nu-ansi-term](https://github.com/nushell/nu-ansi-term)
+
 ## num
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num">https://github.com/rust-num/num</a>
-```
+- Repository: [https://github.com/rust-num/num](https://github.com/rust-num/num)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19131,9 +20589,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-bigint
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-bigint">https://github.com/rust-num/num-bigint</a>
-```
+- Repository: [https://github.com/rust-num/num-bigint](https://github.com/rust-num/num-bigint)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19162,9 +20622,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-bigint
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-bigint">https://github.com/rust-num/num-bigint</a>
-```
+- Repository: [https://github.com/rust-num/num-bigint](https://github.com/rust-num/num-bigint)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19193,9 +20655,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-bigint-dig
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dignifiedquire/num-bigint">https://github.com/dignifiedquire/num-bigint</a>
-```
+- Repository: [https://github.com/dignifiedquire/num-bigint](https://github.com/dignifiedquire/num-bigint)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19224,9 +20688,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-complex
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-complex">https://github.com/rust-num/num-complex</a>
-```
+- Repository: [https://github.com/rust-num/num-complex](https://github.com/rust-num/num-complex)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19255,9 +20721,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-conv
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jhpratt/num-conv">https://github.com/jhpratt/num-conv</a>
-```
+- Repository: [https://github.com/jhpratt/num-conv](https://github.com/jhpratt/num-conv)
+
+```LICENSE
 Copyright (c) 2023 Jacob Pratt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19280,9 +20748,11 @@ SOFTWARE.
 ```
 
 ## num-derive
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-derive">https://github.com/rust-num/num-derive</a>
-```
+- Repository: [https://github.com/rust-num/num-derive](https://github.com/rust-num/num-derive)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19311,9 +20781,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-integer
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-integer">https://github.com/rust-num/num-integer</a>
-```
+- Repository: [https://github.com/rust-num/num-integer](https://github.com/rust-num/num-integer)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19342,9 +20814,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-iter
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-iter">https://github.com/rust-num/num-iter</a>
-```
+- Repository: [https://github.com/rust-num/num-iter](https://github.com/rust-num/num-iter)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19373,9 +20847,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-rational
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-rational">https://github.com/rust-num/num-rational</a>
-```
+- Repository: [https://github.com/rust-num/num-rational](https://github.com/rust-num/num-rational)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19404,9 +20880,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-rational
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-rational">https://github.com/rust-num/num-rational</a>
-```
+- Repository: [https://github.com/rust-num/num-rational](https://github.com/rust-num/num-rational)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19435,9 +20913,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num-traits
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-num/num-traits">https://github.com/rust-num/num-traits</a>
-```
+- Repository: [https://github.com/rust-num/num-traits](https://github.com/rust-num/num-traits)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19466,9 +20946,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num_enum
+
 - License: Apache-2.0 OR BSD-3-Clause OR MIT
-- Repository: <a href="https://github.com/illicitonion/num_enum">https://github.com/illicitonion/num_enum</a>
-```
+- Repository: [https://github.com/illicitonion/num_enum](https://github.com/illicitonion/num_enum)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -19495,9 +20977,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## num_enum_derive
+
 - License: Apache-2.0 OR BSD-3-Clause OR MIT
-- Repository: <a href="https://github.com/illicitonion/num_enum">https://github.com/illicitonion/num_enum</a>
-```
+- Repository: [https://github.com/illicitonion/num_enum](https://github.com/illicitonion/num_enum)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -19524,9 +21008,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## nvapi
+
 - License: MIT
-- Repository: <a href="https://github.com/arcnmx/nvapi-rs">https://github.com/arcnmx/nvapi-rs</a>
-```
+- Repository: [https://github.com/arcnmx/nvapi-rs](https://github.com/arcnmx/nvapi-rs)
+
+```LICENSE
 Copyright (c) 2017 arcnmx
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19549,75 +21035,121 @@ THE SOFTWARE.
 ```
 
 ## nvapi-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/arcnmx/nvapi-rs">https://github.com/arcnmx/nvapi-rs</a>
+- Repository: [https://github.com/arcnmx/nvapi-rs](https://github.com/arcnmx/nvapi-rs)
+
 ## objc-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-app-kit
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-cloud-kit
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-core-data
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-core-foundation
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-core-graphics
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-core-image
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-encode
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-exception-helper
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-foundation
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-foundation
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-io-kit
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-io-surface
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-metal
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-osa-kit
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-quartz-core
+
 - License: MIT
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-quartz-core
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-ui-kit
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-web-kit
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/madsmtm/objc2">https://github.com/madsmtm/objc2</a>
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## object
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/gimli-rs/object">https://github.com/gimli-rs/object</a>
-```
+- Repository: [https://github.com/gimli-rs/object](https://github.com/gimli-rs/object)
+
+```LICENSE
 Copyright (c) 2015 The Gimli Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19646,9 +21178,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## once_cell
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/matklad/once_cell">https://github.com/matklad/once_cell</a>
-```
+- Repository: [https://github.com/matklad/once_cell](https://github.com/matklad/once_cell)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -19675,15 +21209,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## open
+
 - License: MIT
-- Repository: <a href="https://github.com/Byron/open-rs">https://github.com/Byron/open-rs</a>
+- Repository: [https://github.com/Byron/open-rs](https://github.com/Byron/open-rs)
+
 ## option-ext
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/soc/option-ext.git">https://github.com/soc/option-ext.git</a>
+- Repository: [https://github.com/soc/option-ext.git](https://github.com/soc/option-ext.git)
+
 ## ordered-stream
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/danieldg/ordered-stream">https://github.com/danieldg/ordered-stream</a>
-```
+- Repository: [https://github.com/danieldg/ordered-stream](https://github.com/danieldg/ordered-stream)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -19710,9 +21250,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## os_info
+
 - License: MIT
-- Repository: <a href="https://github.com/stanislav-tkach/os_info">https://github.com/stanislav-tkach/os_info</a>
-```
+- Repository: [https://github.com/stanislav-tkach/os_info](https://github.com/stanislav-tkach/os_info)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017 Stanislav Tkach
@@ -19737,9 +21279,11 @@ SOFTWARE.
 ```
 
 ## os_pipe
+
 - License: MIT
-- Repository: <a href="https://github.com/oconnor663/os_pipe.rs">https://github.com/oconnor663/os_pipe.rs</a>
-```
+- Repository: [https://github.com/oconnor663/os_pipe.rs](https://github.com/oconnor663/os_pipe.rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19762,9 +21306,11 @@ THE SOFTWARE.
 ```
 
 ## osakit
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/mdevils/rust-osakit">https://github.com/mdevils/rust-osakit</a>
-```
+- Repository: [https://github.com/mdevils/rust-osakit](https://github.com/mdevils/rust-osakit)
+
+```LICENSE
 Copyright (c) 2024 Marat Dulin
 
 Permission is hereby granted, free of charge, to any
@@ -19793,9 +21339,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## overload
+
 - License: MIT
-- Repository: <a href="https://github.com/danaugrs/overload">https://github.com/danaugrs/overload</a>
-```
+- Repository: [https://github.com/danaugrs/overload](https://github.com/danaugrs/overload)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Daniel Augusto Rizzi Salvadori
@@ -19820,9 +21368,11 @@ SOFTWARE.
 ```
 
 ## pango
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -19843,9 +21393,11 @@ SOFTWARE.
 ```
 
 ## pango-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/gtk-rs/gtk-rs-core">https://github.com/gtk-rs/gtk-rs-core</a>
-```
+- Repository: [https://github.com/gtk-rs/gtk-rs-core](https://github.com/gtk-rs/gtk-rs-core)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -19866,9 +21418,11 @@ SOFTWARE.
 ```
 
 ## parking
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/parking">https://github.com/smol-rs/parking</a>
-```
+- Repository: [https://github.com/smol-rs/parking](https://github.com/smol-rs/parking)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -19895,9 +21449,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## parking_lot
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Amanieu/parking_lot">https://github.com/Amanieu/parking_lot</a>
-```
+- Repository: [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
+
+```LICENSE
 Copyright (c) 2016 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19926,9 +21482,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## parking_lot_core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Amanieu/parking_lot">https://github.com/Amanieu/parking_lot</a>
-```
+- Repository: [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
+
+```LICENSE
 Copyright (c) 2016 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -19957,9 +21515,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## paste
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/paste">https://github.com/dtolnay/paste</a>
-```
+- Repository: [https://github.com/dtolnay/paste](https://github.com/dtolnay/paste)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -19986,9 +21546,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## pathdiff
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Manishearth/pathdiff">https://github.com/Manishearth/pathdiff</a>
-```
+- Repository: [https://github.com/Manishearth/pathdiff](https://github.com/Manishearth/pathdiff)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20015,9 +21577,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## pem-rfc7468
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats/tree/master/pem-rfc7468">https://github.com/RustCrypto/formats/tree/master/pem-rfc7468</a>
-```
+- Repository: [https://github.com/RustCrypto/formats/tree/master/pem-rfc7468](https://github.com/RustCrypto/formats/tree/master/pem-rfc7468)
+
+```LICENSE
 Copyright (c) 2021 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -20046,9 +21610,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## percent-encoding
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/rust-url/">https://github.com/servo/rust-url/</a>
-```
+- Repository: [https://github.com/servo/rust-url/](https://github.com/servo/rust-url/)
+
+```LICENSE
 Copyright (c) 2013-2022 The rust-url developers
 
 Permission is hereby granted, free of charge, to any
@@ -20077,15 +21643,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## phf
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
 ## phf
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
 ## phf
+
 - License: MIT
-- Repository: <a href="https://github.com/rust-phf/rust-phf">https://github.com/rust-phf/rust-phf</a>
-```
+- Repository: [https://github.com/rust-phf/rust-phf](https://github.com/rust-phf/rust-phf)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
@@ -20109,21 +21681,54 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## phf_codegen
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
 ## phf_codegen
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
-## phf_generator
-- License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
-## phf_generator
-- License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
-## phf_generator
-- License: MIT
-- Repository: <a href="https://github.com/rust-phf/rust-phf">https://github.com/rust-phf/rust-phf</a>
+- Repository: [https://github.com/rust-phf/rust-phf](https://github.com/rust-phf/rust-phf)
+
+```LICENSE
+The MIT License (MIT)
+
+Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
+## phf_generator
+
+- License: MIT
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
+## phf_generator
+
+- License: MIT
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
+## phf_generator
+
+- License: MIT
+- Repository: [https://github.com/rust-phf/rust-phf](https://github.com/rust-phf/rust-phf)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
@@ -20147,12 +21752,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## phf_macros
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
 ## phf_macros
+
 - License: MIT
-- Repository: <a href="https://github.com/rust-phf/rust-phf">https://github.com/rust-phf/rust-phf</a>
-```
+- Repository: [https://github.com/rust-phf/rust-phf](https://github.com/rust-phf/rust-phf)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
@@ -20176,15 +21785,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## phf_shared
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
 ## phf_shared
+
 - License: MIT
-- Repository: <a href="https://github.com/sfackler/rust-phf">https://github.com/sfackler/rust-phf</a>
+- Repository: [https://github.com/sfackler/rust-phf](https://github.com/sfackler/rust-phf)
+
 ## phf_shared
+
 - License: MIT
-- Repository: <a href="https://github.com/rust-phf/rust-phf">https://github.com/rust-phf/rust-phf</a>
-```
+- Repository: [https://github.com/rust-phf/rust-phf](https://github.com/rust-phf/rust-phf)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
@@ -20208,9 +21823,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## pin-project-lite
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/taiki-e/pin-project-lite">https://github.com/taiki-e/pin-project-lite</a>
-```
+- Repository: [https://github.com/taiki-e/pin-project-lite](https://github.com/taiki-e/pin-project-lite)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20237,9 +21854,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## pin-utils
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang-nursery/pin-utils">https://github.com/rust-lang-nursery/pin-utils</a>
-```
+- Repository: [https://github.com/rust-lang-nursery/pin-utils](https://github.com/rust-lang-nursery/pin-utils)
+
+```LICENSE
 Copyright (c) 2018 The pin-utils authors
 
 Permission is hereby granted, free of charge, to any
@@ -20268,9 +21887,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## piper
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/piper">https://github.com/smol-rs/piper</a>
-```
+- Repository: [https://github.com/smol-rs/piper](https://github.com/smol-rs/piper)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20297,9 +21918,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## pkcs1
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats/tree/master/pkcs1">https://github.com/RustCrypto/formats/tree/master/pkcs1</a>
-```
+- Repository: [https://github.com/RustCrypto/formats/tree/master/pkcs1](https://github.com/RustCrypto/formats/tree/master/pkcs1)
+
+```LICENSE
 Copyright (c) 2021-2023 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -20328,9 +21951,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## pkcs8
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats/tree/master/pkcs8">https://github.com/RustCrypto/formats/tree/master/pkcs8</a>
-```
+- Repository: [https://github.com/RustCrypto/formats/tree/master/pkcs8](https://github.com/RustCrypto/formats/tree/master/pkcs8)
+
+```LICENSE
 Copyright (c) 2020-2023 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -20359,9 +21984,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## pkg-config
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/pkg-config-rs">https://github.com/rust-lang/pkg-config-rs</a>
-```
+- Repository: [https://github.com/rust-lang/pkg-config-rs](https://github.com/rust-lang/pkg-config-rs)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -20390,12 +22017,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## plist
+
 - License: MIT
-- Repository: <a href="https://github.com/ebarnard/rust-plist/">https://github.com/ebarnard/rust-plist/</a>
+- Repository: [https://github.com/ebarnard/rust-plist/](https://github.com/ebarnard/rust-plist/)
+
 ## png
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/image-png">https://github.com/image-rs/image-png</a>
-```
+- Repository: [https://github.com/image-rs/image-png](https://github.com/image-rs/image-png)
+
+```LICENSE
 Copyright (c) 2015 nwin
 
 Permission is hereby granted, free of charge, to any
@@ -20424,9 +22055,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## polling
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/polling">https://github.com/smol-rs/polling</a>
-```
+- Repository: [https://github.com/smol-rs/polling](https://github.com/smol-rs/polling)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20453,9 +22086,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## polling
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/polling">https://github.com/smol-rs/polling</a>
-```
+- Repository: [https://github.com/smol-rs/polling](https://github.com/smol-rs/polling)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20482,9 +22117,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## powerfmt
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jhpratt/powerfmt">https://github.com/jhpratt/powerfmt</a>
-```
+- Repository: [https://github.com/jhpratt/powerfmt](https://github.com/jhpratt/powerfmt)
+
+```LICENSE
 Copyright (c) 2023 Jacob Pratt et al.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20507,9 +22144,11 @@ SOFTWARE.
 ```
 
 ## ppv-lite86
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/cryptocorrosion/cryptocorrosion">https://github.com/cryptocorrosion/cryptocorrosion</a>
-```
+- Repository: [https://github.com/cryptocorrosion/cryptocorrosion](https://github.com/cryptocorrosion/cryptocorrosion)
+
+```LICENSE
 Copyright (c) 2019 The CryptoCorrosion Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -20538,9 +22177,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## precomputed-hash
+
 - License: MIT
-- Repository: <a href="https://github.com/emilio/precomputed-hash">https://github.com/emilio/precomputed-hash</a>
-```
+- Repository: [https://github.com/emilio/precomputed-hash](https://github.com/emilio/precomputed-hash)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Emilio Cobos Álvarez
@@ -20565,9 +22206,11 @@ SOFTWARE.
 ```
 
 ## proc-macro-crate
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bkchr/proc-macro-crate">https://github.com/bkchr/proc-macro-crate</a>
-```
+- Repository: [https://github.com/bkchr/proc-macro-crate](https://github.com/bkchr/proc-macro-crate)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20594,9 +22237,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## proc-macro-crate
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bkchr/proc-macro-crate">https://github.com/bkchr/proc-macro-crate</a>
-```
+- Repository: [https://github.com/bkchr/proc-macro-crate](https://github.com/bkchr/proc-macro-crate)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20623,9 +22268,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## proc-macro-crate
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bkchr/proc-macro-crate">https://github.com/bkchr/proc-macro-crate</a>
-```
+- Repository: [https://github.com/bkchr/proc-macro-crate](https://github.com/bkchr/proc-macro-crate)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20652,9 +22299,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## proc-macro-error
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://gitlab.com/CreepySkeleton/proc-macro-error">https://gitlab.com/CreepySkeleton/proc-macro-error</a>
-```
+- Repository: [https://gitlab.com/CreepySkeleton/proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019-2020 CreepySkeleton
@@ -20679,9 +22328,11 @@ SOFTWARE.
 ```
 
 ## proc-macro-error-attr
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://gitlab.com/CreepySkeleton/proc-macro-error">https://gitlab.com/CreepySkeleton/proc-macro-error</a>
-```
+- Repository: [https://gitlab.com/CreepySkeleton/proc-macro-error](https://gitlab.com/CreepySkeleton/proc-macro-error)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019-2020 CreepySkeleton
@@ -20706,9 +22357,11 @@ SOFTWARE.
 ```
 
 ## proc-macro-hack
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/proc-macro-hack">https://github.com/dtolnay/proc-macro-hack</a>
-```
+- Repository: [https://github.com/dtolnay/proc-macro-hack](https://github.com/dtolnay/proc-macro-hack)
+
+```LICENSE
 Copyright (c) 2018 David Tolnay
 
 Permission is hereby granted, free of charge, to any
@@ -20737,9 +22390,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## proc-macro2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/proc-macro2">https://github.com/dtolnay/proc-macro2</a>
-```
+- Repository: [https://github.com/dtolnay/proc-macro2](https://github.com/dtolnay/proc-macro2)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20766,15 +22421,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## profiling
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/aclysma/profiling">https://github.com/aclysma/profiling</a>
+- Repository: [https://github.com/aclysma/profiling](https://github.com/aclysma/profiling)
+
 ## profiling-procmacros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/aclysma/profiling">https://github.com/aclysma/profiling</a>
+- Repository: [https://github.com/aclysma/profiling](https://github.com/aclysma/profiling)
+
 ## ptr_meta
+
 - License: MIT
-- Repository: <a href="https://github.com/djkoloski/ptr_meta">https://github.com/djkoloski/ptr_meta</a>
-```
+- Repository: [https://github.com/djkoloski/ptr_meta](https://github.com/djkoloski/ptr_meta)
+
+```LICENSE
 Copyright 2021 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -20785,9 +22446,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## ptr_meta_derive
+
 - License: MIT
-- Repository: <a href="https://github.com/djkoloski/ptr_meta">https://github.com/djkoloski/ptr_meta</a>
-```
+- Repository: [https://github.com/djkoloski/ptr_meta](https://github.com/djkoloski/ptr_meta)
+
+```LICENSE
 Copyright 2021 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -20798,9 +22461,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## qoi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/aldanor/qoi-rust">https://github.com/aldanor/qoi-rust</a>
-```
+- Repository: [https://github.com/aldanor/qoi-rust](https://github.com/aldanor/qoi-rust)
+
+```LICENSE
 Copyright (c) 2022 Ivan Smirnov
 
 Permission is hereby granted, free of charge, to any
@@ -20829,9 +22494,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## quick-error
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="http://github.com/tailhook/quick-error">http://github.com/tailhook/quick-error</a>
-```
+- Repository: [http://github.com/tailhook/quick-error](http://github.com/tailhook/quick-error)
+
+```LICENSE
 Copyright (c) 2015 The quick-error Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20854,12 +22521,16 @@ SOFTWARE.
 ```
 
 ## quick-xml
+
 - License: MIT
-- Repository: <a href="https://github.com/tafia/quick-xml">https://github.com/tafia/quick-xml</a>
+- Repository: [https://github.com/tafia/quick-xml](https://github.com/tafia/quick-xml)
+
 ## quinn
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/quinn-rs/quinn">https://github.com/quinn-rs/quinn</a>
-```
+- Repository: [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
+
+```LICENSE
 Copyright (c) 2018 The quinn Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -20870,9 +22541,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## quinn-proto
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/quinn-rs/quinn">https://github.com/quinn-rs/quinn</a>
-```
+- Repository: [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
+
+```LICENSE
 Copyright (c) 2018 The quinn Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -20883,9 +22556,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## quinn-udp
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/quinn-rs/quinn">https://github.com/quinn-rs/quinn</a>
-```
+- Repository: [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
+
+```LICENSE
 Copyright (c) 2018 The quinn Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -20896,9 +22571,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## quote
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/quote">https://github.com/dtolnay/quote</a>
-```
+- Repository: [https://github.com/dtolnay/quote](https://github.com/dtolnay/quote)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -20925,15 +22602,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## r-efi
+
 - License: Apache-2.0 OR LGPL-2.1-or-later OR MIT
-- Repository: <a href="https://github.com/r-efi/r-efi">https://github.com/r-efi/r-efi</a>
+- Repository: [https://github.com/r-efi/r-efi](https://github.com/r-efi/r-efi)
+
 ## radium
+
 - License: MIT
-- Repository: <a href="https://github.com/bitvecto-rs/radium">https://github.com/bitvecto-rs/radium</a>
+- Repository: [https://github.com/bitvecto-rs/radium](https://github.com/bitvecto-rs/radium)
+
 ## rand
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang-nursery/rand">https://github.com/rust-lang-nursery/rand</a>
-```
+- Repository: [https://github.com/rust-lang-nursery/rand](https://github.com/rust-lang-nursery/rand)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -20962,9 +22645,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -20994,9 +22679,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21026,9 +22713,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21058,9 +22747,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_chacha
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21090,9 +22781,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_chacha
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21122,9 +22815,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_chacha
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21154,9 +22849,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21186,9 +22883,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21218,9 +22917,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21250,9 +22951,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21282,9 +22985,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
 
@@ -21314,9 +23019,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_hc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright 2018 Developers of the Rand project
 
 Permission is hereby granted, free of charge, to any
@@ -21345,9 +23052,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rand_pcg
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-random/rand">https://github.com/rust-random/rand</a>
-```
+- Repository: [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+
+```LICENSE
 Copyright (c) 2014-2017 Melissa O'Neill and PCG Project contributors
 Copyright 2018 Developers of the Rand project
 
@@ -21377,9 +23086,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rav1e
+
 - License: BSD-2-Clause
-- Repository: <a href="https://github.com/xiph/rav1e/">https://github.com/xiph/rav1e/</a>
-```
+- Repository: [https://github.com/xiph/rav1e/](https://github.com/xiph/rav1e/)
+
+```LICENSE
 BSD 2-Clause License
 
 Copyright (c) 2017-2023, the rav1e contributors
@@ -21408,9 +23119,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## ravif
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/kornelski/cavif-rs">https://github.com/kornelski/cavif-rs</a>
-```
+- Repository: [https://github.com/kornelski/cavif-rs](https://github.com/kornelski/cavif-rs)
+
+```LICENSE
 BSD 3-Clause License
 
 Copyright (c) 2020, Kornel
@@ -21443,12 +23156,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## raw-window-handle
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/rust-windowing/raw-window-handle">https://github.com/rust-windowing/raw-window-handle</a>
+- Repository: [https://github.com/rust-windowing/raw-window-handle](https://github.com/rust-windowing/raw-window-handle)
+
 ## rayon
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rayon-rs/rayon">https://github.com/rayon-rs/rayon</a>
-```
+- Repository: [https://github.com/rayon-rs/rayon](https://github.com/rayon-rs/rayon)
+
+```LICENSE
 Copyright (c) 2010 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -21477,9 +23194,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rayon-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rayon-rs/rayon">https://github.com/rayon-rs/rayon</a>
-```
+- Repository: [https://github.com/rayon-rs/rayon](https://github.com/rayon-rs/rayon)
+
+```LICENSE
 Copyright (c) 2010 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -21508,9 +23227,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rdrand
+
 - License: ISC
-- Repository: <a href="https://github.com/nagisa/rust_rdrand/">https://github.com/nagisa/rust_rdrand/</a>
-```
+- Repository: [https://github.com/nagisa/rust_rdrand/](https://github.com/nagisa/rust_rdrand/)
+
+```LICENSE
 Copyright © 2014, Simonas Kazlauskas
 
 Permission to use, copy, modify, and/or distribute this software for any purpose with or without
@@ -21526,9 +23247,11 @@ THIS SOFTWARE.
 ```
 
 ## redox_syscall
+
 - License: MIT
-- Repository: <a href="https://gitlab.redox-os.org/redox-os/syscall">https://gitlab.redox-os.org/redox-os/syscall</a>
-```
+- Repository: [https://gitlab.redox-os.org/redox-os/syscall](https://gitlab.redox-os.org/redox-os/syscall)
+
+```LICENSE
 Copyright (c) 2017 Redox OS Developers
 
 MIT License
@@ -21554,9 +23277,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## redox_users
+
 - License: MIT
-- Repository: <a href="https://gitlab.redox-os.org/redox-os/users">https://gitlab.redox-os.org/redox-os/users</a>
-```
+- Repository: [https://gitlab.redox-os.org/redox-os/users](https://gitlab.redox-os.org/redox-os/users)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017 Jose Narvaez
@@ -21581,9 +23306,11 @@ SOFTWARE.
 ```
 
 ## redox_users
+
 - License: MIT
-- Repository: <a href="https://gitlab.redox-os.org/redox-os/users">https://gitlab.redox-os.org/redox-os/users</a>
-```
+- Repository: [https://gitlab.redox-os.org/redox-os/users](https://gitlab.redox-os.org/redox-os/users)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017 Jose Narvaez
@@ -21608,9 +23335,11 @@ SOFTWARE.
 ```
 
 ## regex
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/regex">https://github.com/rust-lang/regex</a>
-```
+- Repository: [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -21639,9 +23368,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## regex-automata
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/regex-automata">https://github.com/BurntSushi/regex-automata</a>
-```
+- Repository: [https://github.com/BurntSushi/regex-automata](https://github.com/BurntSushi/regex-automata)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
@@ -21666,9 +23397,11 @@ THE SOFTWARE.
 ```
 
 ## regex-automata
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/regex/tree/master/regex-automata">https://github.com/rust-lang/regex/tree/master/regex-automata</a>
-```
+- Repository: [https://github.com/rust-lang/regex/tree/master/regex-automata](https://github.com/rust-lang/regex/tree/master/regex-automata)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -21697,9 +23430,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## regex-syntax
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/regex">https://github.com/rust-lang/regex</a>
-```
+- Repository: [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -21728,9 +23463,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## regex-syntax
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/regex/tree/master/regex-syntax">https://github.com/rust-lang/regex/tree/master/regex-syntax</a>
-```
+- Repository: [https://github.com/rust-lang/regex/tree/master/regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -21759,9 +23496,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rend
+
 - License: MIT
-- Repository: <a href="https://github.com/djkoloski/rend">https://github.com/djkoloski/rend</a>
-```
+- Repository: [https://github.com/djkoloski/rend](https://github.com/djkoloski/rend)
+
+```LICENSE
 Copyright 2021 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -21772,9 +23511,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## reqwest
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/seanmonstar/reqwest">https://github.com/seanmonstar/reqwest</a>
-```
+- Repository: [https://github.com/seanmonstar/reqwest](https://github.com/seanmonstar/reqwest)
+
+```LICENSE
 Copyright (c) 2016-2025 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21797,9 +23538,11 @@ THE SOFTWARE.
 ```
 
 ## rfd
+
 - License: MIT
-- Repository: <a href="https://github.com/PolyMeilex/rfd">https://github.com/PolyMeilex/rfd</a>
-```
+- Repository: [https://github.com/PolyMeilex/rfd](https://github.com/PolyMeilex/rfd)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022 Bartłomiej Maryńczak
@@ -21824,9 +23567,11 @@ SOFTWARE.
 ```
 
 ## rgb
+
 - License: MIT
-- Repository: <a href="https://github.com/kornelski/rust-rgb">https://github.com/kornelski/rust-rgb</a>
-```
+- Repository: [https://github.com/kornelski/rust-rgb](https://github.com/kornelski/rust-rgb)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Kornel
@@ -21851,9 +23596,11 @@ SOFTWARE.
 ```
 
 ## ring
+
 - License: Apache-2.0 AND ISC
-- Repository: <a href="https://github.com/briansmith/ring">https://github.com/briansmith/ring</a>
-```
+- Repository: [https://github.com/briansmith/ring](https://github.com/briansmith/ring)
+
+```LICENSE
 *ring* uses an "ISC" license, like BoringSSL used to use, for new code
 files. See LICENSE-other-bits for the text of that license.
 
@@ -21866,9 +23613,11 @@ for the license to code that was sourced from the once_cell project.
 ```
 
 ## rkyv
+
 - License: MIT
-- Repository: <a href="https://github.com/rkyv/rkyv">https://github.com/rkyv/rkyv</a>
-```
+- Repository: [https://github.com/rkyv/rkyv](https://github.com/rkyv/rkyv)
+
+```LICENSE
 Copyright 2021 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -21879,9 +23628,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## rkyv_derive
+
 - License: MIT
-- Repository: <a href="https://github.com/rkyv/rkyv">https://github.com/rkyv/rkyv</a>
-```
+- Repository: [https://github.com/rkyv/rkyv](https://github.com/rkyv/rkyv)
+
+```LICENSE
 Copyright 2021 David Koloski
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -21892,9 +23643,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## rsa
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/RSA">https://github.com/RustCrypto/RSA</a>
-```
+- Repository: [https://github.com/RustCrypto/RSA](https://github.com/RustCrypto/RSA)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -21921,9 +23674,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rust_decimal
+
 - License: MIT
-- Repository: <a href="https://github.com/paupino/rust-decimal">https://github.com/paupino/rust-decimal</a>
-```
+- Repository: [https://github.com/paupino/rust-decimal](https://github.com/paupino/rust-decimal)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2016 Paul Mason
@@ -21948,9 +23703,11 @@ SOFTWARE.
 ```
 
 ## rustc-demangle
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/rustc-demangle">https://github.com/rust-lang/rustc-demangle</a>
-```
+- Repository: [https://github.com/rust-lang/rustc-demangle](https://github.com/rust-lang/rustc-demangle)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -21979,9 +23736,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustc-hash
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/rustc-hash">https://github.com/rust-lang/rustc-hash</a>
-```
+- Repository: [https://github.com/rust-lang/rustc-hash](https://github.com/rust-lang/rustc-hash)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22008,9 +23767,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustc-serialize
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/rustc-serialize">https://github.com/rust-lang/rustc-serialize</a>
-```
+- Repository: [https://github.com/rust-lang/rustc-serialize](https://github.com/rust-lang/rustc-serialize)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -22039,9 +23800,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustc_version
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/djc/rustc-version-rs">https://github.com/djc/rustc-version-rs</a>
-```
+- Repository: [https://github.com/djc/rustc-version-rs](https://github.com/djc/rustc-version-rs)
+
+```LICENSE
 Copyright (c) 2016 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -22070,9 +23833,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustix
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/rustix">https://github.com/bytecodealliance/rustix</a>
-```
+- Repository: [https://github.com/bytecodealliance/rustix](https://github.com/bytecodealliance/rustix)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22099,9 +23864,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustix
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/rustix">https://github.com/bytecodealliance/rustix</a>
-```
+- Repository: [https://github.com/bytecodealliance/rustix](https://github.com/bytecodealliance/rustix)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22128,9 +23895,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustix
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/rustix">https://github.com/bytecodealliance/rustix</a>
-```
+- Repository: [https://github.com/bytecodealliance/rustix](https://github.com/bytecodealliance/rustix)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22157,9 +23926,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustls
+
 - License: Apache-2.0 OR ISC OR MIT
-- Repository: <a href="https://github.com/rustls/rustls">https://github.com/rustls/rustls</a>
-```
+- Repository: [https://github.com/rustls/rustls](https://github.com/rustls/rustls)
+
+```LICENSE
 Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
 
 Permission is hereby granted, free of charge, to any
@@ -22188,9 +23959,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustls-pemfile
+
 - License: Apache-2.0 OR ISC OR MIT
-- Repository: <a href="https://github.com/rustls/pemfile">https://github.com/rustls/pemfile</a>
-```
+- Repository: [https://github.com/rustls/pemfile](https://github.com/rustls/pemfile)
+
+```LICENSE
 rustls-pemfile is distributed under the following three licenses:
 
 - Apache License version 2.0.
@@ -22203,9 +23976,11 @@ of these licenses, at your option.
 ```
 
 ## rustls-pki-types
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustls/pki-types">https://github.com/rustls/pki-types</a>
-```
+- Repository: [https://github.com/rustls/pki-types](https://github.com/rustls/pki-types)
+
+```LICENSE
 Copyright (c) 2023 Dirkjan Ochtman <dirkjan@ochtman.nl>
 
 Permission is hereby granted, free of charge, to any
@@ -22234,9 +24009,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustls-webpki
+
 - License: ISC
-- Repository: <a href="https://github.com/rustls/webpki">https://github.com/rustls/webpki</a>
-```
+- Repository: [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
+
+```LICENSE
 Except as otherwise noted, this project is licensed under the following
 (ISC-style) terms:
 
@@ -22259,9 +24036,11 @@ third-party/chromium/LICENSE.
 ```
 
 ## rustversion
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/rustversion">https://github.com/dtolnay/rustversion</a>
-```
+- Repository: [https://github.com/dtolnay/rustversion](https://github.com/dtolnay/rustversion)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22288,9 +24067,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## ryu
+
 - License: Apache-2.0 OR BSL-1.0
-- Repository: <a href="https://github.com/dtolnay/ryu">https://github.com/dtolnay/ryu</a>
-```
+- Repository: [https://github.com/dtolnay/ryu](https://github.com/dtolnay/ryu)
+
+```LICENSE
 Apache License
                         Version 2.0, January 2004
                      http://www.apache.org/licenses/
@@ -22470,9 +24251,11 @@ END OF TERMS AND CONDITIONS
 ```
 
 ## same-file
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/same-file">https://github.com/BurntSushi/same-file</a>
-```
+- Repository: [https://github.com/BurntSushi/same-file](https://github.com/BurntSushi/same-file)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017 Andrew Gallant
@@ -22497,9 +24280,11 @@ THE SOFTWARE.
 ```
 
 ## schemars
+
 - License: MIT
-- Repository: <a href="https://github.com/GREsau/schemars">https://github.com/GREsau/schemars</a>
-```
+- Repository: [https://github.com/GREsau/schemars](https://github.com/GREsau/schemars)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Graham Esau
@@ -22524,9 +24309,11 @@ SOFTWARE.
 ```
 
 ## schemars_derive
+
 - License: MIT
-- Repository: <a href="https://github.com/GREsau/schemars">https://github.com/GREsau/schemars</a>
-```
+- Repository: [https://github.com/GREsau/schemars](https://github.com/GREsau/schemars)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Graham Esau
@@ -22551,9 +24338,11 @@ SOFTWARE.
 ```
 
 ## scopeguard
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/bluss/scopeguard">https://github.com/bluss/scopeguard</a>
-```
+- Repository: [https://github.com/bluss/scopeguard](https://github.com/bluss/scopeguard)
+
+```LICENSE
 Copyright (c) 2016-2019 Ulrik Sverdrup "bluss" and scopeguard developers
 
 Permission is hereby granted, free of charge, to any
@@ -22582,15 +24371,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## seahash
+
 - License: MIT
-- Repository: <a href="https://gitlab.redox-os.org/redox-os/seahash">https://gitlab.redox-os.org/redox-os/seahash</a>
+- Repository: [https://gitlab.redox-os.org/redox-os/seahash](https://gitlab.redox-os.org/redox-os/seahash)
+
 ## selectors
+
 - License: MPL-2.0
-- Repository: <a href="https://github.com/servo/servo">https://github.com/servo/servo</a>
+- Repository: [https://github.com/servo/servo](https://github.com/servo/servo)
+
 ## semver
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/semver">https://github.com/dtolnay/semver</a>
-```
+- Repository: [https://github.com/dtolnay/semver](https://github.com/dtolnay/semver)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22617,9 +24412,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/serde-rs/serde">https://github.com/serde-rs/serde</a>
-```
+- Repository: [https://github.com/serde-rs/serde](https://github.com/serde-rs/serde)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22646,9 +24443,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde-untagged
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/serde-untagged">https://github.com/dtolnay/serde-untagged</a>
-```
+- Repository: [https://github.com/dtolnay/serde-untagged](https://github.com/dtolnay/serde-untagged)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22675,9 +24474,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_derive
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/serde-rs/serde">https://github.com/serde-rs/serde</a>
-```
+- Repository: [https://github.com/serde-rs/serde](https://github.com/serde-rs/serde)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22704,9 +24505,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_derive_internals
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/serde-rs/serde">https://github.com/serde-rs/serde</a>
-```
+- Repository: [https://github.com/serde-rs/serde](https://github.com/serde-rs/serde)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22733,9 +24536,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_json
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/serde-rs/json">https://github.com/serde-rs/json</a>
-```
+- Repository: [https://github.com/serde-rs/json](https://github.com/serde-rs/json)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22762,9 +24567,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_repr
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/serde-repr">https://github.com/dtolnay/serde-repr</a>
-```
+- Repository: [https://github.com/dtolnay/serde-repr](https://github.com/dtolnay/serde-repr)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -22791,9 +24598,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_spanned
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/toml-rs/toml">https://github.com/toml-rs/toml</a>
-```
+- Repository: [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
+
+```LICENSE
 Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22816,9 +24625,11 @@ SOFTWARE.
 ```
 
 ## serde_urlencoded
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/nox/serde_urlencoded">https://github.com/nox/serde_urlencoded</a>
-```
+- Repository: [https://github.com/nox/serde_urlencoded](https://github.com/nox/serde_urlencoded)
+
+```LICENSE
 Copyright (c) 2016 Anthony Ramine
 
 Permission is hereby granted, free of charge, to any
@@ -22847,9 +24658,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_with
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jonasbb/serde_with/">https://github.com/jonasbb/serde_with/</a>
-```
+- Repository: [https://github.com/jonasbb/serde_with/](https://github.com/jonasbb/serde_with/)
+
+```LICENSE
 Copyright (c) 2015
 
 Permission is hereby granted, free of charge, to any
@@ -22878,9 +24691,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serde_with_macros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jonasbb/serde_with/">https://github.com/jonasbb/serde_with/</a>
-```
+- Repository: [https://github.com/jonasbb/serde_with/](https://github.com/jonasbb/serde_with/)
+
+```LICENSE
 Copyright (c) 2015
 
 Permission is hereby granted, free of charge, to any
@@ -22909,9 +24724,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## serialize-to-javascript
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/chippers/serialize-to-javascript">https://github.com/chippers/serialize-to-javascript</a>
-```
+- Repository: [https://github.com/chippers/serialize-to-javascript](https://github.com/chippers/serialize-to-javascript)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 Chip Reed
@@ -22936,9 +24753,11 @@ SOFTWARE.
 ```
 
 ## serialize-to-javascript-impl
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/chippers/serialize-to-javascript">https://github.com/chippers/serialize-to-javascript</a>
-```
+- Repository: [https://github.com/chippers/serialize-to-javascript](https://github.com/chippers/serialize-to-javascript)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 Chip Reed
@@ -22963,12 +24782,42 @@ SOFTWARE.
 ```
 
 ## servo_arc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/servo">https://github.com/servo/servo</a>
-## sha1
-- License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/hashes">https://github.com/RustCrypto/hashes</a>
+- Repository: [https://github.com/servo/servo](https://github.com/servo/servo)
+
+```LICENSE
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 ```
+
+## sha1
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/RustCrypto/hashes](https://github.com/RustCrypto/hashes)
+
+```LICENSE
 Copyright (c) 2006-2009 Graydon Hoare
 Copyright (c) 2009-2013 Mozilla Foundation
 Copyright (c) 2016 Artyom Pavlov
@@ -22999,9 +24848,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sha2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/hashes">https://github.com/RustCrypto/hashes</a>
-```
+- Repository: [https://github.com/RustCrypto/hashes](https://github.com/RustCrypto/hashes)
+
+```LICENSE
 Copyright (c) 2006-2009 Graydon Hoare
 Copyright (c) 2009-2013 Mozilla Foundation
 Copyright (c) 2016 Artyom Pavlov
@@ -23032,9 +24883,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sharded-slab
+
 - License: MIT
-- Repository: <a href="https://github.com/hawkw/sharded-slab">https://github.com/hawkw/sharded-slab</a>
-```
+- Repository: [https://github.com/hawkw/sharded-slab](https://github.com/hawkw/sharded-slab)
+
+```LICENSE
 Copyright (c) 2019 Eliza Weisman
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23057,9 +24910,11 @@ THE SOFTWARE.
 ```
 
 ## shared_child
+
 - License: MIT
-- Repository: <a href="https://github.com/oconnor663/shared_child.rs">https://github.com/oconnor663/shared_child.rs</a>
-```
+- Repository: [https://github.com/oconnor663/shared_child.rs](https://github.com/oconnor663/shared_child.rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23082,9 +24937,11 @@ THE SOFTWARE.
 ```
 
 ## shlex
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/comex/rust-shlex">https://github.com/comex/rust-shlex</a>
-```
+- Repository: [https://github.com/comex/rust-shlex](https://github.com/comex/rust-shlex)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Nicholas Allegra (comex).
@@ -23109,9 +24966,11 @@ THE SOFTWARE.
 ```
 
 ## signal-hook-registry
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/vorner/signal-hook">https://github.com/vorner/signal-hook</a>
-```
+- Repository: [https://github.com/vorner/signal-hook](https://github.com/vorner/signal-hook)
+
+```LICENSE
 Copyright (c) 2017 tokio-jsonrpc developers
 
 Permission is hereby granted, free of charge, to any
@@ -23140,9 +24999,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## signature
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/traits/tree/master/signature">https://github.com/RustCrypto/traits/tree/master/signature</a>
-```
+- Repository: [https://github.com/RustCrypto/traits/tree/master/signature](https://github.com/RustCrypto/traits/tree/master/signature)
+
+```LICENSE
 Copyright (c) 2018-2023 RustCrypto Developers
 
 Permission is hereby granted, free of charge, to any
@@ -23171,15 +25032,21 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## simd-adler32
+
 - License: MIT
-- Repository: <a href="https://github.com/mcountryman/simd-adler32">https://github.com/mcountryman/simd-adler32</a>
+- Repository: [https://github.com/mcountryman/simd-adler32](https://github.com/mcountryman/simd-adler32)
+
 ## simd_helpers
+
 - License: MIT
-- Repository: <a href="https://github.com/lu-zero/simd_helpers">https://github.com/lu-zero/simd_helpers</a>
+- Repository: [https://github.com/lu-zero/simd_helpers](https://github.com/lu-zero/simd_helpers)
+
 ## simdutf8
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rusticstuff/simdutf8">https://github.com/rusticstuff/simdutf8</a>
-```
+- Repository: [https://github.com/rusticstuff/simdutf8](https://github.com/rusticstuff/simdutf8)
+
+```LICENSE
 MIT License
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23202,9 +25069,11 @@ SOFTWARE.
 ```
 
 ## siphasher
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jedisct1/rust-siphash">https://github.com/jedisct1/rust-siphash</a>
-```
+- Repository: [https://github.com/jedisct1/rust-siphash](https://github.com/jedisct1/rust-siphash)
+
+```LICENSE
 Copyright 2012-2016 The Rust Project Developers.
 Copyright 2016-2023 Frank Denis.
 
@@ -23215,9 +25084,11 @@ option.
 ```
 
 ## siphasher
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/jedisct1/rust-siphash">https://github.com/jedisct1/rust-siphash</a>
-```
+- Repository: [https://github.com/jedisct1/rust-siphash](https://github.com/jedisct1/rust-siphash)
+
+```LICENSE
 Copyright 2012-2016 The Rust Project Developers.
 Copyright 2016-2024 Frank Denis.
 
@@ -23228,9 +25099,11 @@ option.
 ```
 
 ## slab
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/slab">https://github.com/tokio-rs/slab</a>
-```
+- Repository: [https://github.com/tokio-rs/slab](https://github.com/tokio-rs/slab)
+
+```LICENSE
 Copyright (c) 2019 Carl Lerche
 
 Permission is hereby granted, free of charge, to any
@@ -23259,9 +25132,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## smallvec
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/rust-smallvec">https://github.com/servo/rust-smallvec</a>
-```
+- Repository: [https://github.com/servo/rust-smallvec](https://github.com/servo/rust-smallvec)
+
+```LICENSE
 Copyright (c) 2018 The Servo Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -23290,9 +25165,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## socket2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/socket2">https://github.com/rust-lang/socket2</a>
-```
+- Repository: [https://github.com/rust-lang/socket2](https://github.com/rust-lang/socket2)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -23321,9 +25198,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## socket2
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-lang/socket2">https://github.com/rust-lang/socket2</a>
-```
+- Repository: [https://github.com/rust-lang/socket2](https://github.com/rust-lang/socket2)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -23352,9 +25231,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## softbuffer
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rust-windowing/softbuffer">https://github.com/rust-windowing/softbuffer</a>
-```
+- Repository: [https://github.com/rust-windowing/softbuffer](https://github.com/rust-windowing/softbuffer)
+
+```LICENSE
 Copyright 2022 Kirill Chibisov
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23377,9 +25258,11 @@ SOFTWARE.
 ```
 
 ## soup3
+
 - License: MIT
-- Repository: <a href="https://gitlab.gnome.org/World/Rust/soup3-rs">https://gitlab.gnome.org/World/Rust/soup3-rs</a>
-```
+- Repository: [https://gitlab.gnome.org/World/Rust/soup3-rs](https://gitlab.gnome.org/World/Rust/soup3-rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2013-2017, The Gtk-rs Project Developers.
@@ -23404,9 +25287,11 @@ SOFTWARE.
 ```
 
 ## soup3-sys
+
 - License: MIT
-- Repository: <a href="https://gitlab.gnome.org/World/Rust/soup3-rs">https://gitlab.gnome.org/World/Rust/soup3-rs</a>
-```
+- Repository: [https://gitlab.gnome.org/World/Rust/soup3-rs](https://gitlab.gnome.org/World/Rust/soup3-rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2013-2017, The Gtk-rs Project Developers.
@@ -23431,21 +25316,31 @@ SOFTWARE.
 ```
 
 ## specta
+
 - License: MIT
-- Repository: <a href="https://github.com/oscartbeaumont/specta">https://github.com/oscartbeaumont/specta</a>
+- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
+
 ## specta-macros
+
 - License: MIT
-- Repository: <a href="https://github.com/oscartbeaumont/specta">https://github.com/oscartbeaumont/specta</a>
+- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
+
 ## specta-serde
+
 - License: MIT
-- Repository: <a href="https://github.com/oscartbeaumont/specta">https://github.com/oscartbeaumont/specta</a>
+- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
+
 ## specta-typescript
+
 - License: MIT
-- Repository: <a href="https://github.com/oscartbeaumont/specta">https://github.com/oscartbeaumont/specta</a>
+- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
+
 ## spin
+
 - License: MIT
-- Repository: <a href="https://github.com/mvdnes/spin-rs.git">https://github.com/mvdnes/spin-rs.git</a>
-```
+- Repository: [https://github.com/mvdnes/spin-rs.git](https://github.com/mvdnes/spin-rs.git)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014 Mathijs van de Nes
@@ -23470,9 +25365,11 @@ SOFTWARE.
 ```
 
 ## spki
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/formats/tree/master/spki">https://github.com/RustCrypto/formats/tree/master/spki</a>
-```
+- Repository: [https://github.com/RustCrypto/formats/tree/master/spki](https://github.com/RustCrypto/formats/tree/master/spki)
+
+```LICENSE
 Copyright (c) 2021-2023 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -23501,9 +25398,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23532,9 +25431,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23563,9 +25464,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx-macros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23594,9 +25497,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx-macros-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23625,9 +25530,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx-mysql
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23656,9 +25563,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx-postgres
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23687,9 +25596,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sqlx-sqlite
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/launchbadge/sqlx">https://github.com/launchbadge/sqlx</a>
-```
+- Repository: [https://github.com/launchbadge/sqlx](https://github.com/launchbadge/sqlx)
+
+```LICENSE
 Copyright (c) 2020 LaunchBadge, LLC
 
 Permission is hereby granted, free of charge, to any
@@ -23718,9 +25629,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## stable_deref_trait
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/storyyeller/stable_deref_trait">https://github.com/storyyeller/stable_deref_trait</a>
-```
+- Repository: [https://github.com/storyyeller/stable_deref_trait](https://github.com/storyyeller/stable_deref_trait)
+
+```LICENSE
 Copyright (c) 2017 Robert Grosse
 
 Permission is hereby granted, free of charge, to any
@@ -23749,9 +25662,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## static_assertions
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/nvzqz/static-assertions-rs">https://github.com/nvzqz/static-assertions-rs</a>
-```
+- Repository: [https://github.com/nvzqz/static-assertions-rs](https://github.com/nvzqz/static-assertions-rs)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2017 Nikolai Vazquez
@@ -23776,9 +25691,11 @@ SOFTWARE.
 ```
 
 ## string_cache
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/string-cache">https://github.com/servo/string-cache</a>
-```
+- Repository: [https://github.com/servo/string-cache](https://github.com/servo/string-cache)
+
+```LICENSE
 Copyright (c) 2012-2013 Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -23807,9 +25724,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## string_cache_codegen
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/string-cache">https://github.com/servo/string-cache</a>
-```
+- Repository: [https://github.com/servo/string-cache](https://github.com/servo/string-cache)
+
+```LICENSE
 Copyright (c) 2012-2013 Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -23838,9 +25757,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## stringprep
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/sfackler/rust-stringprep">https://github.com/sfackler/rust-stringprep</a>
-```
+- Repository: [https://github.com/sfackler/rust-stringprep](https://github.com/sfackler/rust-stringprep)
+
+```LICENSE
 Copyright (c) 2017 The rust-stringprep Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23863,9 +25784,11 @@ SOFTWARE.
 ```
 
 ## strsim
+
 - License: MIT
-- Repository: <a href="https://github.com/rapidfuzz/strsim-rs">https://github.com/rapidfuzz/strsim-rs</a>
-```
+- Repository: [https://github.com/rapidfuzz/strsim-rs](https://github.com/rapidfuzz/strsim-rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Danny Guo
@@ -23892,9 +25815,11 @@ SOFTWARE.
 ```
 
 ## subtle
+
 - License: BSD-3-Clause
-- Repository: <a href="https://github.com/dalek-cryptography/subtle">https://github.com/dalek-cryptography/subtle</a>
-```
+- Repository: [https://github.com/dalek-cryptography/subtle](https://github.com/dalek-cryptography/subtle)
+
+```LICENSE
 Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
 Copyright (c) 2016-2024 Isis Agora Lovecruft. All rights reserved.
 
@@ -23927,9 +25852,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## swift-rs
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Brendonovich/swift-rs">https://github.com/Brendonovich/swift-rs</a>
-```
+- Repository: [https://github.com/Brendonovich/swift-rs](https://github.com/Brendonovich/swift-rs)
+
+```LICENSE
 Copyright (c) 2023 The swift-rs Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23952,9 +25879,11 @@ SOFTWARE.
 ```
 
 ## syn
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/syn">https://github.com/dtolnay/syn</a>
-```
+- Repository: [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -23981,9 +25910,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## syn
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/syn">https://github.com/dtolnay/syn</a>
-```
+- Repository: [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -24010,9 +25941,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## sync_wrapper
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/Actyx/sync_wrapper">https://github.com/Actyx/sync_wrapper</a>
-```
+- Repository: [https://github.com/Actyx/sync_wrapper](https://github.com/Actyx/sync_wrapper)
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -24192,9 +26125,11 @@ Apache License
 ```
 
 ## synstructure
+
 - License: MIT
-- Repository: <a href="https://github.com/mystor/synstructure">https://github.com/mystor/synstructure</a>
-```
+- Repository: [https://github.com/mystor/synstructure](https://github.com/mystor/synstructure)
+
+```LICENSE
 Copyright 2016 Nika Layzell
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -24205,9 +26140,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## sys-locale
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/1Password/sys-locale">https://github.com/1Password/sys-locale</a>
-```
+- Repository: [https://github.com/1Password/sys-locale](https://github.com/1Password/sys-locale)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 1Password
@@ -24232,9 +26169,11 @@ SOFTWARE.
 ```
 
 ## sysinfo
+
 - License: MIT
-- Repository: <a href="https://github.com/GuillaumeGomez/sysinfo">https://github.com/GuillaumeGomez/sysinfo</a>
-```
+- Repository: [https://github.com/GuillaumeGomez/sysinfo](https://github.com/GuillaumeGomez/sysinfo)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Guillaume Gomez
@@ -24259,9 +26198,11 @@ SOFTWARE.
 ```
 
 ## system-deps
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/gdesmott/system-deps">https://github.com/gdesmott/system-deps</a>
-```
+- Repository: [https://github.com/gdesmott/system-deps](https://github.com/gdesmott/system-deps)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -24288,9 +26229,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tao
+
 - License: Apache-2.0
-- Repository: <a href="https://github.com/tauri-apps/tao">https://github.com/tauri-apps/tao</a>
-```
+- Repository: [https://github.com/tauri-apps/tao](https://github.com/tauri-apps/tao)
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -24495,15 +26438,21 @@ Apache License
 ```
 
 ## tao-macros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tao">https://github.com/tauri-apps/tao</a>
+- Repository: [https://github.com/tauri-apps/tao](https://github.com/tauri-apps/tao)
+
 ## tap
+
 - License: MIT
-- Repository: <a href="https://github.com/myrrlyn/tap">https://github.com/myrrlyn/tap</a>
+- Repository: [https://github.com/myrrlyn/tap](https://github.com/myrrlyn/tap)
+
 ## tar
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/alexcrichton/tar-rs">https://github.com/alexcrichton/tar-rs</a>
-```
+- Repository: [https://github.com/alexcrichton/tar-rs](https://github.com/alexcrichton/tar-rs)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -24532,9 +26481,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## target-lexicon
+
 - License: Apache-2.0 WITH LLVM-exception
-- Repository: <a href="https://github.com/bytecodealliance/target-lexicon">https://github.com/bytecodealliance/target-lexicon</a>
-```
+- Repository: [https://github.com/bytecodealliance/target-lexicon](https://github.com/bytecodealliance/target-lexicon)
+
+```LICENSE
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -24756,66 +26707,106 @@ Software.
 ```
 
 ## tauri
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-build
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-codegen
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-macros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-plugin
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-plugin-autostart
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-dialog
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-fs
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-os
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-shell
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-sql
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-store
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-updater
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-plugin-window-state
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/plugins-workspace">https://github.com/tauri-apps/plugins-workspace</a>
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-runtime
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-runtime-wry
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-specta
+
 - License: MIT
-- Repository: <a href="https://github.com/oscartbeaumont/tauri-specta">https://github.com/oscartbeaumont/tauri-specta</a>
+- Repository: [https://github.com/oscartbeaumont/tauri-specta](https://github.com/oscartbeaumont/tauri-specta)
+
 ## tauri-specta-macros
+
 - License: MIT
-- Repository: <a href="https://github.com/oscartbeaumont/tauri-specta">https://github.com/oscartbeaumont/tauri-specta</a>
+- Repository: [https://github.com/oscartbeaumont/tauri-specta](https://github.com/oscartbeaumont/tauri-specta)
+
 ## tauri-utils
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri">https://github.com/tauri-apps/tauri</a>
+- Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+
 ## tauri-winres
+
 - License: MIT
-- Repository: <a href="https://github.com/tauri-apps/winres">https://github.com/tauri-apps/winres</a>
-```
+- Repository: [https://github.com/tauri-apps/winres](https://github.com/tauri-apps/winres)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2023 - Present Tauri Apps Contributors
@@ -24847,9 +26838,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tempfile
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Stebalien/tempfile">https://github.com/Stebalien/tempfile</a>
-```
+- Repository: [https://github.com/Stebalien/tempfile](https://github.com/Stebalien/tempfile)
+
+```LICENSE
 Copyright (c) 2015 Steven Allen
 
 Permission is hereby granted, free of charge, to any
@@ -24878,9 +26871,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tendril
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/tendril">https://github.com/servo/tendril</a>
-```
+- Repository: [https://github.com/servo/tendril](https://github.com/servo/tendril)
+
+```LICENSE
 Copyright (c) 2015 Keegan McAllister
 
 Permission is hereby granted, free of charge, to any
@@ -24908,13 +26903,12 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## thin-slice
-- License: MPL-2.0
-- Repository: <a href="https://github.com/heycam/thin-slice">https://github.com/heycam/thin-slice</a>
 ## thiserror
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/thiserror">https://github.com/dtolnay/thiserror</a>
-```
+- Repository: [https://github.com/dtolnay/thiserror](https://github.com/dtolnay/thiserror)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -24941,9 +26935,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## thiserror
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/thiserror">https://github.com/dtolnay/thiserror</a>
-```
+- Repository: [https://github.com/dtolnay/thiserror](https://github.com/dtolnay/thiserror)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -24970,9 +26966,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## thiserror-impl
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/thiserror">https://github.com/dtolnay/thiserror</a>
-```
+- Repository: [https://github.com/dtolnay/thiserror](https://github.com/dtolnay/thiserror)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -24999,9 +26997,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## thiserror-impl
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/thiserror">https://github.com/dtolnay/thiserror</a>
-```
+- Repository: [https://github.com/dtolnay/thiserror](https://github.com/dtolnay/thiserror)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -25028,9 +27028,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## thread_local
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Amanieu/thread_local-rs">https://github.com/Amanieu/thread_local-rs</a>
-```
+- Repository: [https://github.com/Amanieu/thread_local-rs](https://github.com/Amanieu/thread_local-rs)
+
+```LICENSE
 Copyright (c) 2016 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -25059,9 +27061,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tiff
+
 - License: MIT
-- Repository: <a href="https://github.com/image-rs/image-tiff">https://github.com/image-rs/image-tiff</a>
-```
+- Repository: [https://github.com/image-rs/image-tiff](https://github.com/image-rs/image-tiff)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2018 PistonDevelopers
@@ -25086,9 +27090,11 @@ SOFTWARE.
 ```
 
 ## time
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/time-rs/time">https://github.com/time-rs/time</a>
-```
+- Repository: [https://github.com/time-rs/time](https://github.com/time-rs/time)
+
+```LICENSE
 Copyright (c) Jacob Pratt et al.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25111,9 +27117,11 @@ SOFTWARE.
 ```
 
 ## time-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/time-rs/time">https://github.com/time-rs/time</a>
-```
+- Repository: [https://github.com/time-rs/time](https://github.com/time-rs/time)
+
+```LICENSE
 Copyright (c) Jacob Pratt et al.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25136,9 +27144,11 @@ SOFTWARE.
 ```
 
 ## time-macros
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/time-rs/time">https://github.com/time-rs/time</a>
-```
+- Repository: [https://github.com/time-rs/time](https://github.com/time-rs/time)
+
+```LICENSE
 Copyright (c) Jacob Pratt et al.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25161,9 +27171,11 @@ SOFTWARE.
 ```
 
 ## tinystr
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -25213,15 +27225,21 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## tinyvec
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/Lokathor/tinyvec">https://github.com/Lokathor/tinyvec</a>
+- Repository: [https://github.com/Lokathor/tinyvec](https://github.com/Lokathor/tinyvec)
+
 ## tinyvec_macros
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/Soveu/tinyvec_macros">https://github.com/Soveu/tinyvec_macros</a>
+- Repository: [https://github.com/Soveu/tinyvec_macros](https://github.com/Soveu/tinyvec_macros)
+
 ## tokio
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tokio">https://github.com/tokio-rs/tokio</a>
-```
+- Repository: [https://github.com/tokio-rs/tokio](https://github.com/tokio-rs/tokio)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tokio Contributors
@@ -25246,9 +27264,11 @@ SOFTWARE.
 ```
 
 ## tokio-macros
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tokio">https://github.com/tokio-rs/tokio</a>
-```
+- Repository: [https://github.com/tokio-rs/tokio](https://github.com/tokio-rs/tokio)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2019 Yoshua Wuyts
@@ -25274,9 +27294,11 @@ SOFTWARE.
 ```
 
 ## tokio-rustls
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustls/tokio-rustls">https://github.com/rustls/tokio-rustls</a>
-```
+- Repository: [https://github.com/rustls/tokio-rustls](https://github.com/rustls/tokio-rustls)
+
+```LICENSE
 Copyright (c) 2017 quininer kel
 
 Permission is hereby granted, free of charge, to any
@@ -25305,9 +27327,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tokio-stream
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tokio">https://github.com/tokio-rs/tokio</a>
-```
+- Repository: [https://github.com/tokio-rs/tokio](https://github.com/tokio-rs/tokio)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tokio Contributors
@@ -25332,9 +27356,11 @@ SOFTWARE.
 ```
 
 ## tokio-util
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tokio">https://github.com/tokio-rs/tokio</a>
-```
+- Repository: [https://github.com/tokio-rs/tokio](https://github.com/tokio-rs/tokio)
+
+```LICENSE
 MIT License
 
 Copyright (c) Tokio Contributors
@@ -25359,9 +27385,11 @@ SOFTWARE.
 ```
 
 ## toml
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/toml-rs/toml">https://github.com/toml-rs/toml</a>
-```
+- Repository: [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
+
+```LICENSE
 Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25384,9 +27412,11 @@ SOFTWARE.
 ```
 
 ## toml_datetime
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/toml-rs/toml">https://github.com/toml-rs/toml</a>
-```
+- Repository: [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
+
+```LICENSE
 Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25409,9 +27439,11 @@ SOFTWARE.
 ```
 
 ## toml_edit
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/toml-rs/toml">https://github.com/toml-rs/toml</a>
-```
+- Repository: [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
+
+```LICENSE
 Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25434,9 +27466,11 @@ SOFTWARE.
 ```
 
 ## toml_edit
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/toml-rs/toml">https://github.com/toml-rs/toml</a>
-```
+- Repository: [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
+
+```LICENSE
 Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25459,9 +27493,11 @@ SOFTWARE.
 ```
 
 ## toml_edit
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/toml-rs/toml">https://github.com/toml-rs/toml</a>
-```
+- Repository: [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
+
+```LICENSE
 Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25484,9 +27520,11 @@ SOFTWARE.
 ```
 
 ## tower
+
 - License: MIT
-- Repository: <a href="https://github.com/tower-rs/tower">https://github.com/tower-rs/tower</a>
-```
+- Repository: [https://github.com/tower-rs/tower](https://github.com/tower-rs/tower)
+
+```LICENSE
 Copyright (c) 2019 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25515,9 +27553,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tower-layer
+
 - License: MIT
-- Repository: <a href="https://github.com/tower-rs/tower">https://github.com/tower-rs/tower</a>
-```
+- Repository: [https://github.com/tower-rs/tower](https://github.com/tower-rs/tower)
+
+```LICENSE
 Copyright (c) 2019 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25546,9 +27586,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tower-service
+
 - License: MIT
-- Repository: <a href="https://github.com/tower-rs/tower">https://github.com/tower-rs/tower</a>
-```
+- Repository: [https://github.com/tower-rs/tower](https://github.com/tower-rs/tower)
+
+```LICENSE
 Copyright (c) 2019 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25577,9 +27619,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tracing
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tracing">https://github.com/tokio-rs/tracing</a>
-```
+- Repository: [https://github.com/tokio-rs/tracing](https://github.com/tokio-rs/tracing)
+
+```LICENSE
 Copyright (c) 2019 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25608,9 +27652,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tracing-attributes
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tracing">https://github.com/tokio-rs/tracing</a>
-```
+- Repository: [https://github.com/tokio-rs/tracing](https://github.com/tokio-rs/tracing)
+
+```LICENSE
 Copyright (c) 2019 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25639,9 +27685,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tracing-core
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tracing">https://github.com/tokio-rs/tracing</a>
-```
+- Repository: [https://github.com/tokio-rs/tracing](https://github.com/tokio-rs/tracing)
+
+```LICENSE
 Copyright (c) 2019 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25670,9 +27718,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tracing-log
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tracing">https://github.com/tokio-rs/tracing</a>
-```
+- Repository: [https://github.com/tokio-rs/tracing](https://github.com/tokio-rs/tracing)
+
+```LICENSE
 Copyright (c) 2019 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25701,9 +27751,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tracing-subscriber
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/tracing">https://github.com/tokio-rs/tracing</a>
-```
+- Repository: [https://github.com/tokio-rs/tracing](https://github.com/tokio-rs/tracing)
+
+```LICENSE
 Copyright (c) 2019 Tokio Contributors
 
 Permission is hereby granted, free of charge, to any
@@ -25732,9 +27784,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## tray-icon
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tray-icon">https://github.com/tauri-apps/tray-icon</a>
-```
+- Repository: [https://github.com/tauri-apps/tray-icon](https://github.com/tauri-apps/tray-icon)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2022-2022 Tauri Programme within The Commons Conservancy
@@ -25759,9 +27813,11 @@ SOFTWARE.
 ```
 
 ## try-lock
+
 - License: MIT
-- Repository: <a href="https://github.com/seanmonstar/try-lock">https://github.com/seanmonstar/try-lock</a>
-```
+- Repository: [https://github.com/seanmonstar/try-lock](https://github.com/seanmonstar/try-lock)
+
+```LICENSE
 Copyright (c) 2018-2023 Sean McArthur
 Copyright (c) 2016 Alex Crichton
 
@@ -25785,9 +27841,11 @@ THE SOFTWARE.
 ```
 
 ## typeid
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/dtolnay/typeid">https://github.com/dtolnay/typeid</a>
-```
+- Repository: [https://github.com/dtolnay/typeid](https://github.com/dtolnay/typeid)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -25814,16 +27872,20 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## typenum
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/paholg/typenum">https://github.com/paholg/typenum</a>
-```
+- Repository: [https://github.com/paholg/typenum](https://github.com/paholg/typenum)
+
+```LICENSE
 MIT OR Apache-2.0
 ```
 
 ## uds_windows
+
 - License: MIT
-- Repository: <a href="https://github.com/haraldh/rust_uds_windows">https://github.com/haraldh/rust_uds_windows</a>
-```
+- Repository: [https://github.com/haraldh/rust_uds_windows](https://github.com/haraldh/rust_uds_windows)
+
+```LICENSE
 MIT License
 
     Copyright (c) Microsoft Corporation. All rights reserved.
@@ -25848,24 +27910,36 @@ MIT License
 ```
 
 ## unic-char-property
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/open-i18n/rust-unic/">https://github.com/open-i18n/rust-unic/</a>
+- Repository: [https://github.com/open-i18n/rust-unic/](https://github.com/open-i18n/rust-unic/)
+
 ## unic-char-range
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/open-i18n/rust-unic/">https://github.com/open-i18n/rust-unic/</a>
+- Repository: [https://github.com/open-i18n/rust-unic/](https://github.com/open-i18n/rust-unic/)
+
 ## unic-common
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/open-i18n/rust-unic/">https://github.com/open-i18n/rust-unic/</a>
+- Repository: [https://github.com/open-i18n/rust-unic/](https://github.com/open-i18n/rust-unic/)
+
 ## unic-ucd-ident
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/open-i18n/rust-unic/">https://github.com/open-i18n/rust-unic/</a>
+- Repository: [https://github.com/open-i18n/rust-unic/](https://github.com/open-i18n/rust-unic/)
+
 ## unic-ucd-version
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/open-i18n/rust-unic/">https://github.com/open-i18n/rust-unic/</a>
+- Repository: [https://github.com/open-i18n/rust-unic/](https://github.com/open-i18n/rust-unic/)
+
 ## unicode-bidi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/unicode-bidi">https://github.com/servo/unicode-bidi</a>
-```
+- Repository: [https://github.com/servo/unicode-bidi](https://github.com/servo/unicode-bidi)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -25894,9 +27968,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## unicode-ident
+
 - License: (MIT OR Apache-2.0) AND Unicode-3.0
-- Repository: <a href="https://github.com/dtolnay/unicode-ident">https://github.com/dtolnay/unicode-ident</a>
-```
+- Repository: [https://github.com/dtolnay/unicode-ident](https://github.com/dtolnay/unicode-ident)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -25923,9 +27999,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## unicode-normalization
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/unicode-rs/unicode-normalization">https://github.com/unicode-rs/unicode-normalization</a>
-```
+- Repository: [https://github.com/unicode-rs/unicode-normalization](https://github.com/unicode-rs/unicode-normalization)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -25954,9 +28032,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## unicode-properties
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/unicode-rs/unicode-properties">https://github.com/unicode-rs/unicode-properties</a>
-```
+- Repository: [https://github.com/unicode-rs/unicode-properties](https://github.com/unicode-rs/unicode-properties)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -25985,9 +28065,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## unicode-segmentation
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/unicode-rs/unicode-segmentation">https://github.com/unicode-rs/unicode-segmentation</a>
-```
+- Repository: [https://github.com/unicode-rs/unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation)
+
+```LICENSE
 Copyright (c) 2015 The Rust Project Developers
 
 Permission is hereby granted, free of charge, to any
@@ -26016,12 +28098,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## untrusted
+
 - License: ISC
-- Repository: <a href="https://github.com/briansmith/untrusted">https://github.com/briansmith/untrusted</a>
+- Repository: [https://github.com/briansmith/untrusted](https://github.com/briansmith/untrusted)
+
 ## url
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/servo/rust-url">https://github.com/servo/rust-url</a>
-```
+- Repository: [https://github.com/servo/rust-url](https://github.com/servo/rust-url)
+
+```LICENSE
 Copyright (c) 2013-2022 The rust-url developers
 
 Permission is hereby granted, free of charge, to any
@@ -26050,9 +28136,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## urlpattern
+
 - License: MIT
-- Repository: <a href="https://github.com/denoland/rust-urlpattern">https://github.com/denoland/rust-urlpattern</a>
-```
+- Repository: [https://github.com/denoland/rust-urlpattern](https://github.com/denoland/rust-urlpattern)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2021 the Deno authors
@@ -26077,9 +28165,11 @@ SOFTWARE.
 ```
 
 ## utf-8
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/SimonSapin/rust-utf8">https://github.com/SimonSapin/rust-utf8</a>
-```
+- Repository: [https://github.com/SimonSapin/rust-utf8](https://github.com/SimonSapin/rust-utf8)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -26106,9 +28196,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## utf16_iter
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hsivonen/utf16_iter">https://github.com/hsivonen/utf16_iter</a>
-```
+- Repository: [https://github.com/hsivonen/utf16_iter](https://github.com/hsivonen/utf16_iter)
+
+```LICENSE
 Copyright Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -26137,9 +28229,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## utf8_iter
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hsivonen/utf8_iter">https://github.com/hsivonen/utf8_iter</a>
-```
+- Repository: [https://github.com/hsivonen/utf8_iter](https://github.com/hsivonen/utf8_iter)
+
+```LICENSE
 Copyright Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -26168,9 +28262,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## uuid
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/uuid-rs/uuid">https://github.com/uuid-rs/uuid</a>
-```
+- Repository: [https://github.com/uuid-rs/uuid](https://github.com/uuid-rs/uuid)
+
+```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 Copyright (c) 2018 Ashley Mannix, Christopher Armstrong, Dylan DPC, Hunar Roop Kahlon
 
@@ -26200,9 +28296,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## uuid-macro-internal
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/uuid-rs/uuid">https://github.com/uuid-rs/uuid</a>
-```
+- Repository: [https://github.com/uuid-rs/uuid](https://github.com/uuid-rs/uuid)
+
+```LICENSE
 Copyright (c) 2021 The Uuid Developers
 
 Permission is hereby granted, free of charge, to any
@@ -26231,9 +28329,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## v_frame
+
 - License: BSD-2-Clause
-- Repository: <a href="https://github.com/rust-av/v_frame">https://github.com/rust-av/v_frame</a>
-```
+- Repository: [https://github.com/rust-av/v_frame](https://github.com/rust-av/v_frame)
+
+```LICENSE
 BSD 2-Clause License
 
 Copyright (c) 2017-2022, the rav1e contributors
@@ -26262,12 +28362,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ## valuable
+
 - License: MIT
-- Repository: <a href="https://github.com/tokio-rs/valuable">https://github.com/tokio-rs/valuable</a>
+- Repository: [https://github.com/tokio-rs/valuable](https://github.com/tokio-rs/valuable)
+
 ## value-bag
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/sval-rs/value-bag">https://github.com/sval-rs/value-bag</a>
-```
+- Repository: [https://github.com/sval-rs/value-bag](https://github.com/sval-rs/value-bag)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020 sval-rs
@@ -26292,9 +28396,11 @@ SOFTWARE.
 ```
 
 ## vcpkg
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/mcgoo/vcpkg-rs">https://github.com/mcgoo/vcpkg-rs</a>
-```
+- Repository: [https://github.com/mcgoo/vcpkg-rs](https://github.com/mcgoo/vcpkg-rs)
+
+```LICENSE
 Copyright (c) 2017 Jim McGrath
 
 Permission is hereby granted, free of charge, to any
@@ -26323,9 +28429,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## version-compare
+
 - License: MIT
-- Repository: <a href="https://gitlab.com/timvisee/version-compare">https://gitlab.com/timvisee/version-compare</a>
-```
+- Repository: [https://gitlab.com/timvisee/version-compare](https://gitlab.com/timvisee/version-compare)
+
+```LICENSE
 Copyright (c) 2017 Tim Visée
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26348,9 +28456,11 @@ SOFTWARE.
 ```
 
 ## version_check
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/SergioBenitez/version_check">https://github.com/SergioBenitez/version_check</a>
-```
+- Repository: [https://github.com/SergioBenitez/version_check](https://github.com/SergioBenitez/version_check)
+
+```LICENSE
 The MIT License (MIT)
 Copyright (c) 2017-2018 Sergio Benitez
 
@@ -26373,12 +28483,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## void
+
 - License: MIT
-- Repository: <a href="https://github.com/reem/rust-void.git">https://github.com/reem/rust-void.git</a>
+- Repository: [https://github.com/reem/rust-void.git](https://github.com/reem/rust-void.git)
+
 ## vswhom
+
 - License: MIT
-- Repository: <a href="https://github.com/nabijaczleweli/vswhom.rs">https://github.com/nabijaczleweli/vswhom.rs</a>
-```
+- Repository: [https://github.com/nabijaczleweli/vswhom.rs](https://github.com/nabijaczleweli/vswhom.rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 nabijaczleweli
@@ -26403,9 +28517,11 @@ SOFTWARE.
 ```
 
 ## vswhom-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/nabijaczleweli/vswhom-sys.rs">https://github.com/nabijaczleweli/vswhom-sys.rs</a>
-```
+- Repository: [https://github.com/nabijaczleweli/vswhom-sys.rs](https://github.com/nabijaczleweli/vswhom-sys.rs)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2019 nabijaczleweli
@@ -26430,9 +28546,11 @@ SOFTWARE.
 ```
 
 ## waker-fn
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/smol-rs/waker-fn">https://github.com/smol-rs/waker-fn</a>
-```
+- Repository: [https://github.com/smol-rs/waker-fn](https://github.com/smol-rs/waker-fn)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -26459,9 +28577,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## walkdir
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/walkdir">https://github.com/BurntSushi/walkdir</a>
-```
+- Repository: [https://github.com/BurntSushi/walkdir](https://github.com/BurntSushi/walkdir)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
@@ -26486,9 +28606,11 @@ THE SOFTWARE.
 ```
 
 ## want
+
 - License: MIT
-- Repository: <a href="https://github.com/seanmonstar/want">https://github.com/seanmonstar/want</a>
-```
+- Repository: [https://github.com/seanmonstar/want](https://github.com/seanmonstar/want)
+
+```LICENSE
 Copyright (c) 2018-2019 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26511,9 +28633,11 @@ THE SOFTWARE.
 ```
 
 ## wasi
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/wasi">https://github.com/bytecodealliance/wasi</a>
-```
+- Repository: [https://github.com/bytecodealliance/wasi](https://github.com/bytecodealliance/wasi)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -26540,9 +28664,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasi
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/wasi">https://github.com/bytecodealliance/wasi</a>
-```
+- Repository: [https://github.com/bytecodealliance/wasi](https://github.com/bytecodealliance/wasi)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -26569,9 +28695,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasi
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/wasi-rs">https://github.com/bytecodealliance/wasi-rs</a>
-```
+- Repository: [https://github.com/bytecodealliance/wasi-rs](https://github.com/bytecodealliance/wasi-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -26598,12 +28726,16 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasite
+
 - License: Apache-2.0 OR BSL-1.0 OR MIT
-- Repository: <a href="https://github.com/ardaku/wasite">https://github.com/ardaku/wasite</a>
+- Repository: [https://github.com/ardaku/wasite](https://github.com/ardaku/wasite)
+
 ## wasm-bindgen
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen">https://github.com/rustwasm/wasm-bindgen</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen](https://github.com/rustwasm/wasm-bindgen)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26632,9 +28764,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasm-bindgen-backend
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/backend">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/backend</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/backend](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/backend)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26663,9 +28797,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasm-bindgen-futures
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/futures">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/futures</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/futures](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/futures)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26694,9 +28830,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasm-bindgen-macro
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26725,9 +28863,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasm-bindgen-macro-support
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro-support">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro-support</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro-support](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro-support)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26756,9 +28896,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasm-bindgen-shared
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/shared">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/shared</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/shared](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/shared)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26787,9 +28929,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## wasm-streams
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/MattiasBuelens/wasm-streams/">https://github.com/MattiasBuelens/wasm-streams/</a>
-```
+- Repository: [https://github.com/MattiasBuelens/wasm-streams/](https://github.com/MattiasBuelens/wasm-streams/)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -26816,9 +28960,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## web-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys">https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys</a>
-```
+- Repository: [https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys)
+
+```LICENSE
 Copyright (c) 2014 Alex Crichton
 
 Permission is hereby granted, free of charge, to any
@@ -26847,9 +28993,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## web-time
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/daxpedda/web-time">https://github.com/daxpedda/web-time</a>
-```
+- Repository: [https://github.com/daxpedda/web-time](https://github.com/daxpedda/web-time)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2023 dAxpeDDa
@@ -26874,9 +29022,11 @@ SOFTWARE.
 ```
 
 ## webkit2gtk
+
 - License: MIT
-- Repository: <a href="https://github.com/tauri-apps/webkit2gtk-rs">https://github.com/tauri-apps/webkit2gtk-rs</a>
-```
+- Repository: [https://github.com/tauri-apps/webkit2gtk-rs](https://github.com/tauri-apps/webkit2gtk-rs)
+
+```LICENSE
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
 Copyright (c) 2017-2021, The Gtk-rs Project Developers.
 Copyright (c) 2021, Tauri Programme within The Commons Conservancy
@@ -26900,9 +29050,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## webkit2gtk-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/tauri-apps/webkit2gtk-rs">https://github.com/tauri-apps/webkit2gtk-rs</a>
-```
+- Repository: [https://github.com/tauri-apps/webkit2gtk-rs](https://github.com/tauri-apps/webkit2gtk-rs)
+
+```LICENSE
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -26924,9 +29076,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## webpki-roots
+
 - License: CDLA-Permissive-2.0
-- Repository: <a href="https://github.com/rustls/webpki-roots">https://github.com/rustls/webpki-roots</a>
-```
+- Repository: [https://github.com/rustls/webpki-roots](https://github.com/rustls/webpki-roots)
+
+```LICENSE
 # Community Data License Agreement - Permissive - Version 2.0
 
 This is the Community Data License Agreement - Permissive, Version
@@ -26991,9 +29145,11 @@ insights.
 ```
 
 ## webpki-roots
+
 - License: CDLA-Permissive-2.0
-- Repository: <a href="https://github.com/rustls/webpki-roots">https://github.com/rustls/webpki-roots</a>
-```
+- Repository: [https://github.com/rustls/webpki-roots](https://github.com/rustls/webpki-roots)
+
+```LICENSE
 # Community Data License Agreement - Permissive - Version 2.0
 
 This is the Community Data License Agreement - Permissive, Version
@@ -27058,18 +29214,26 @@ insights.
 ```
 
 ## webview2-com
+
 - License: MIT
-- Repository: <a href="https://github.com/wravery/webview2-rs">https://github.com/wravery/webview2-rs</a>
+- Repository: [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
+
 ## webview2-com-macros
+
 - License: MIT
-- Repository: <a href="https://github.com/wravery/webview2-rs">https://github.com/wravery/webview2-rs</a>
+- Repository: [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
+
 ## webview2-com-sys
+
 - License: MIT
-- Repository: <a href="https://github.com/wravery/webview2-rs">https://github.com/wravery/webview2-rs</a>
+- Repository: [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
+
 ## weezl
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/image-rs/lzw">https://github.com/image-rs/lzw</a>
-```
+- Repository: [https://github.com/image-rs/lzw](https://github.com/image-rs/lzw)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) HeroicKatora 2020
@@ -27094,12 +29258,16 @@ SOFTWARE.
 ```
 
 ## whoami
+
 - License: Apache-2.0 OR BSL-1.0 OR MIT
-- Repository: <a href="https://github.com/ardaku/whoami">https://github.com/ardaku/whoami</a>
+- Repository: [https://github.com/ardaku/whoami](https://github.com/ardaku/whoami)
+
 ## winapi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/retep998/winapi-rs">https://github.com/retep998/winapi-rs</a>
-```
+- Repository: [https://github.com/retep998/winapi-rs](https://github.com/retep998/winapi-rs)
+
+```LICENSE
 Copyright (c) 2015-2018 The winapi-rs Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27122,12 +29290,16 @@ SOFTWARE.
 ```
 
 ## winapi-i686-pc-windows-gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/retep998/winapi-rs">https://github.com/retep998/winapi-rs</a>
+- Repository: [https://github.com/retep998/winapi-rs](https://github.com/retep998/winapi-rs)
+
 ## winapi-util
+
 - License: MIT OR Unlicense
-- Repository: <a href="https://github.com/BurntSushi/winapi-util">https://github.com/BurntSushi/winapi-util</a>
-```
+- Repository: [https://github.com/BurntSushi/winapi-util](https://github.com/BurntSushi/winapi-util)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2017 Andrew Gallant
@@ -27152,12 +29324,16 @@ THE SOFTWARE.
 ```
 
 ## winapi-x86_64-pc-windows-gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/retep998/winapi-rs">https://github.com/retep998/winapi-rs</a>
+- Repository: [https://github.com/retep998/winapi-rs](https://github.com/retep998/winapi-rs)
+
 ## window-vibrancy
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/tauri-plugin-vibrancy">https://github.com/tauri-apps/tauri-plugin-vibrancy</a>
-```
+- Repository: [https://github.com/tauri-apps/tauri-plugin-vibrancy](https://github.com/tauri-apps/tauri-plugin-vibrancy)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020-2022 Tauri Programme within The Commons Conservancy
@@ -27182,1467 +29358,281 @@ SOFTWARE.
 ```
 
 ## windows
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-collections
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-core
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-future
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-implement
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-interface
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-link
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-numerics
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-registry
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-result
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-strings
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-strings
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-sys
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-targets
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-targets
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-targets
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-targets
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-threading
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-version
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_aarch64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_i686_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnu
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_gnullvm
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows_x86_64_msvc
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/microsoft/windows-rs">https://github.com/microsoft/windows-rs</a>
-```
-MIT License
-
-    Copyright (c) Microsoft Corporation.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE
-```
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## winnow
+
 - License: MIT
-- Repository: <a href="https://github.com/winnow-rs/winnow">https://github.com/winnow-rs/winnow</a>
-```
+- Repository: [https://github.com/winnow-rs/winnow](https://github.com/winnow-rs/winnow)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
 "Software"), to deal in the Software without restriction, including
@@ -28664,9 +29654,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## winnow
+
 - License: MIT
-- Repository: <a href="https://github.com/winnow-rs/winnow">https://github.com/winnow-rs/winnow</a>
-```
+- Repository: [https://github.com/winnow-rs/winnow](https://github.com/winnow-rs/winnow)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
 "Software"), to deal in the Software without restriction, including
@@ -28688,9 +29680,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## winreg
+
 - License: MIT
-- Repository: <a href="https://github.com/gentoo90/winreg-rs">https://github.com/gentoo90/winreg-rs</a>
-```
+- Repository: [https://github.com/gentoo90/winreg-rs](https://github.com/gentoo90/winreg-rs)
+
+```LICENSE
 Copyright (c) 2015 Igor Shaula
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28713,9 +29707,11 @@ THE SOFTWARE.
 ```
 
 ## winreg
+
 - License: MIT
-- Repository: <a href="https://github.com/gentoo90/winreg-rs">https://github.com/gentoo90/winreg-rs</a>
-```
+- Repository: [https://github.com/gentoo90/winreg-rs](https://github.com/gentoo90/winreg-rs)
+
+```LICENSE
 Copyright (c) 2015 Igor Shaula
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28738,9 +29734,11 @@ THE SOFTWARE.
 ```
 
 ## wio
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/retep998/wio-rs">https://github.com/retep998/wio-rs</a>
-```
+- Repository: [https://github.com/retep998/wio-rs](https://github.com/retep998/wio-rs)
+
+```LICENSE
 Copyright (c) 2015 The winapi-rs Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28763,12 +29761,16 @@ SOFTWARE.
 ```
 
 ## wit-bindgen-rt
+
 - License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: <a href="https://github.com/bytecodealliance/wit-bindgen">https://github.com/bytecodealliance/wit-bindgen</a>
+- Repository: [https://github.com/bytecodealliance/wit-bindgen](https://github.com/bytecodealliance/wit-bindgen)
+
 ## wmi
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/ohadravid/wmi-rs">https://github.com/ohadravid/wmi-rs</a>
-```
+- Repository: [https://github.com/ohadravid/wmi-rs](https://github.com/ohadravid/wmi-rs)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -28795,9 +29797,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## write16
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/hsivonen/write16">https://github.com/hsivonen/write16</a>
-```
+- Repository: [https://github.com/hsivonen/write16](https://github.com/hsivonen/write16)
+
+```LICENSE
 Copyright Mozilla Foundation
 
 Permission is hereby granted, free of charge, to any
@@ -28826,9 +29830,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## writeable
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -28878,9 +29884,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## wry
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/tauri-apps/wry">https://github.com/tauri-apps/wry</a>
-```
+- Repository: [https://github.com/tauri-apps/wry](https://github.com/tauri-apps/wry)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2020-2023 Ngo Iok Ui & Tauri Programme within The Commons Conservancy
@@ -28905,12 +29913,16 @@ SOFTWARE.
 ```
 
 ## wyz
+
 - License: MIT
-- Repository: <a href="https://github.com/myrrlyn/wyz">https://github.com/myrrlyn/wyz</a>
+- Repository: [https://github.com/myrrlyn/wyz](https://github.com/myrrlyn/wyz)
+
 ## x11
+
 - License: MIT
-- Repository: <a href="https://github.com/AltF02/x11-rs.git">https://github.com/AltF02/x11-rs.git</a>
-```
+- Repository: [https://github.com/AltF02/x11-rs.git](https://github.com/AltF02/x11-rs.git)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -28937,9 +29949,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## x11-dl
+
 - License: MIT
-- Repository: <a href="https://github.com/AltF02/x11-rs.git">https://github.com/AltF02/x11-rs.git</a>
-```
+- Repository: [https://github.com/AltF02/x11-rs.git](https://github.com/AltF02/x11-rs.git)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -28966,9 +29980,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## xattr
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/Stebalien/xattr">https://github.com/Stebalien/xattr</a>
-```
+- Repository: [https://github.com/Stebalien/xattr](https://github.com/Stebalien/xattr)
+
+```LICENSE
 Copyright (c) 2015 Steven Allen
 
 Permission is hereby granted, free of charge, to any
@@ -28997,9 +30013,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## xdg-home
+
 - License: MIT
-- Repository: <a href="https://github.com/zeenix/xdg-home">https://github.com/zeenix/xdg-home</a>
-```
+- Repository: [https://github.com/zeenix/xdg-home](https://github.com/zeenix/xdg-home)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
@@ -29026,9 +30044,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## yoke
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -29078,9 +30098,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## yoke-derive
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -29130,9 +30152,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## zbus
+
 - License: MIT
-- Repository: <a href="https://github.com/dbus2/zbus/">https://github.com/dbus2/zbus/</a>
-```
+- Repository: [https://github.com/dbus2/zbus/](https://github.com/dbus2/zbus/)
+
+```LICENSE
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
 Permission is hereby granted, free of charge, to any
@@ -29161,9 +30185,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zbus_macros
+
 - License: MIT
-- Repository: <a href="https://github.com/dbus2/zbus/">https://github.com/dbus2/zbus/</a>
-```
+- Repository: [https://github.com/dbus2/zbus/](https://github.com/dbus2/zbus/)
+
+```LICENSE
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
 Permission is hereby granted, free of charge, to any
@@ -29192,9 +30218,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zbus_names
+
 - License: MIT
-- Repository: <a href="https://github.com/dbus2/zbus/">https://github.com/dbus2/zbus/</a>
-```
+- Repository: [https://github.com/dbus2/zbus/](https://github.com/dbus2/zbus/)
+
+```LICENSE
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
 Permission is hereby granted, free of charge, to any
@@ -29223,9 +30251,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zerocopy
+
 - License: Apache-2.0 OR BSD-2-Clause OR MIT
-- Repository: <a href="https://github.com/google/zerocopy">https://github.com/google/zerocopy</a>
-```
+- Repository: [https://github.com/google/zerocopy](https://github.com/google/zerocopy)
+
+```LICENSE
 Copyright 2023 The Fuchsia Authors
 
 Permission is hereby granted, free of charge, to any
@@ -29254,9 +30284,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zerocopy-derive
+
 - License: Apache-2.0 OR BSD-2-Clause OR MIT
-- Repository: <a href="https://github.com/google/zerocopy">https://github.com/google/zerocopy</a>
-```
+- Repository: [https://github.com/google/zerocopy](https://github.com/google/zerocopy)
+
+```LICENSE
 Copyright 2023 The Fuchsia Authors
 
 Permission is hereby granted, free of charge, to any
@@ -29285,9 +30317,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zerofrom
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -29337,9 +30371,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## zerofrom-derive
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -29389,9 +30425,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## zeroize
+
 - License: Apache-2.0 OR MIT
-- Repository: <a href="https://github.com/RustCrypto/utils/tree/master/zeroize">https://github.com/RustCrypto/utils/tree/master/zeroize</a>
-```
+- Repository: [https://github.com/RustCrypto/utils/tree/master/zeroize](https://github.com/RustCrypto/utils/tree/master/zeroize)
+
+```LICENSE
 MIT License
 
 Copyright (c) 2018-2021 The RustCrypto Project Developers
@@ -29416,9 +30454,11 @@ SOFTWARE.
 ```
 
 ## zerovec
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -29468,9 +30508,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## zerovec-derive
+
 - License: Unicode-3.0
-- Repository: <a href="https://github.com/unicode-org/icu4x">https://github.com/unicode-org/icu4x</a>
-```
+- Repository: [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
+
+```LICENSE
 UNICODE LICENSE V3
 
 COPYRIGHT AND PERMISSION NOTICE
@@ -29520,9 +30562,11 @@ ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation a
 ```
 
 ## zip
+
 - License: MIT
-- Repository: <a href="https://github.com/zip-rs/zip2.git">https://github.com/zip-rs/zip2.git</a>
-```
+- Repository: [https://github.com/zip-rs/zip2.git](https://github.com/zip-rs/zip2.git)
+
+```LICENSE
 The MIT License (MIT)
 
 Copyright (c) 2014 Mathijs van de Nes
@@ -29550,16 +30594,24 @@ licences; see files named LICENSE.*.txt for details.
 ```
 
 ## zune-core
+
 - License: Apache-2.0 OR MIT OR Zlib
+
 ## zune-inflate
+
 - License: Apache-2.0 OR MIT OR Zlib
+
 ## zune-jpeg
+
 - License: Apache-2.0 OR MIT OR Zlib
-- Repository: <a href="https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg">https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg</a>
+- Repository: [https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg](https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg)
+
 ## zvariant
+
 - License: MIT
-- Repository: <a href="https://github.com/dbus2/zbus/">https://github.com/dbus2/zbus/</a>
-```
+- Repository: [https://github.com/dbus2/zbus/](https://github.com/dbus2/zbus/)
+
+```LICENSE
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
 Permission is hereby granted, free of charge, to any
@@ -29588,9 +30640,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zvariant_derive
+
 - License: MIT
-- Repository: <a href="https://github.com/dbus2/zbus/">https://github.com/dbus2/zbus/</a>
-```
+- Repository: [https://github.com/dbus2/zbus/](https://github.com/dbus2/zbus/)
+
+```LICENSE
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
 Permission is hereby granted, free of charge, to any
@@ -29619,9 +30673,11 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 ## zvariant_utils
+
 - License: MIT
-- Repository: <a href="https://github.com/dbus2/zbus/">https://github.com/dbus2/zbus/</a>
-```
+- Repository: [https://github.com/dbus2/zbus/](https://github.com/dbus2/zbus/)
+
+```LICENSE
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the
