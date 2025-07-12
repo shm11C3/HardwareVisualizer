@@ -120,6 +120,9 @@ pub async fn get_hardware_info(
     nvidia_gpu_service::get_nvidia_gpu_info(),
   );
 
+  #[cfg(target_os = "macos")]
+  let memory_result = services::memory::get_memory_info_linux().await;
+
   let mut gpus_result = Vec::new();
 
   #[cfg(target_os = "linux")]
@@ -138,12 +141,6 @@ pub async fn get_hardware_info(
       }
       _ => {}
     }
-  }
-
-  // NVIDIA の結果を確認して結合
-  match nvidia_gpus_result {
-    Ok(nvidia_gpus) => gpus_result.extend(nvidia_gpus),
-    Err(e) => log_error!("nvidia_error", "get_all_gpu_info", Some(e)),
   }
 
   // AMD の結果を確認して結合
@@ -218,6 +215,10 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 #[command]
 #[specta::specta]
 pub async fn get_gpu_usage() -> Result<i32, String> {
+  #[cfg(target_os = "macos")]
+  return Err("GPU usage is not supported on macOS".to_string());
+
+  #[cfg(not(target_os = "macos"))]
   if let Ok(usage) = nvidia_gpu_service::get_nvidia_gpu_usage().await {
     return Ok((usage * 100.0).round() as i32);
   }
@@ -388,7 +389,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
   #[cfg(target_os = "windows")]
   let result = wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError);
 
-  #[cfg(target_os = "linux")]
+  #[cfg(any(target_os = "linux", target_os = "macos"))]
   let result =
     services::ip_linux::get_network_info().map_err(|_| BackendError::UnexpectedError);
 

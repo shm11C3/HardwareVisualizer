@@ -18,6 +18,7 @@ use commands::hardware;
 use commands::settings;
 use commands::system;
 use commands::ui;
+use tauri::Config;
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
@@ -31,8 +32,6 @@ use sysinfo::System;
 use specta_typescript::Typescript;
 
 pub fn run() {
-  let app_state = settings::AppState::new();
-
   let system = Arc::new(Mutex::new(System::new_all()));
   let cpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
   let memory_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
@@ -53,8 +52,6 @@ pub fn run() {
     nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
     nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
   };
-
-  let settings = app_state.settings.lock().unwrap().clone();
 
   let migrations = database::migration::get_migrations();
 
@@ -112,6 +109,14 @@ pub fn run() {
   tauri::Builder::<Wry>::default()
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
+      let config = app.config();
+      app.manage(Config::clone(&config));
+
+      let app_state = settings::AppState::new(app.config());
+      let settings = app_state.settings.lock().unwrap().clone();
+
+      app.manage(app_state);
+
       let path_resolver = app.path();
       let handle = app.handle().clone();
 
@@ -147,31 +152,33 @@ pub fn run() {
       ));
 
       // ハードウェアアーカイブサービスの開始
-      if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
-          structs::hardware_archive::MonitorResources {
-            system: Arc::clone(&system),
-            cpu_history: Arc::clone(&cpu_history),
-            memory_history: Arc::clone(&memory_history),
-            process_cpu_histories: Arc::clone(&process_cpu_histories),
-            process_memory_histories: Arc::clone(&process_memory_histories),
-            nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
-            nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
-            nv_gpu_dedicated_memory_histories: Arc::clone(
-              &nv_gpu_dedicated_memory_histories,
-            ),
-          },
-        ));
-      }
-
-      // スケジュールされたデータ削除の開始
-      if settings.hardware_archive.scheduled_data_deletion {
-        tauri::async_runtime::spawn(
-          backgrounds::hardware_archive::batch_delete_old_data(
-            settings.hardware_archive.refresh_interval_days,
-          ),
-        );
-      }
+      //      if settings.hardware_archive.enabled {
+      //        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
+      //          structs::hardware_archive::MonitorResources {
+      //            system: Arc::clone(&system),
+      //            cpu_history: Arc::clone(&cpu_history),
+      //            memory_history: Arc::clone(&memory_history),
+      //            process_cpu_histories: Arc::clone(&process_cpu_histories),
+      //            process_memory_histories: Arc::clone(&process_memory_histories),
+      //            nv_gpu_usage_histories: Arc::clone(&nv_gpu_usage_histories),
+      //            nv_gpu_temperature_histories: Arc::clone(&nv_gpu_temperature_histories),
+      //            nv_gpu_dedicated_memory_histories: Arc::clone(
+      //              &nv_gpu_dedicated_memory_histories,
+      //            ),
+      //          },
+      //          app_state, // Pass the whole app_state instead of settings
+      //        ));
+      //      }
+      //
+      //      // スケジュールされたデータ削除の開始
+      //      if settings.hardware_archive.scheduled_data_deletion {
+      //        tauri::async_runtime::spawn(
+      //          backgrounds::hardware_archive::batch_delete_old_data(
+      //            settings.hardware_archive.refresh_interval_days,
+      //            app_state.settings.clone(),
+      //          ),
+      //        );
+      //      }
 
       Ok(())
     })
@@ -191,7 +198,6 @@ pub fn run() {
     ))
     .plugin(tauri_plugin_os::init())
     .manage(state)
-    .manage(app_state)
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
