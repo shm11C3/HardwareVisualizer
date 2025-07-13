@@ -18,7 +18,12 @@ import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
-import { ChartLineIcon, CpuIcon, GearIcon } from "@phosphor-icons/react";
+import {
+  ChartLineIcon,
+  CpuIcon,
+  GearIcon,
+  SquaresFourIcon,
+} from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
@@ -88,7 +93,10 @@ export const App = () => {
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
-      <ScreenTemplate>
+      <ScreenTemplate
+        icon={<SquaresFourIcon size={32} />}
+        title={t("pages.dashboard.name")}
+      >
         <Dashboard />
       </ScreenTemplate>
     ),

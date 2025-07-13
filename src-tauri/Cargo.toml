@@ -59,6 +59,7 @@ sqlx = { version = "0.8.6", features = [
 ] }
 dirs = "6.0.0"
 tauri-plugin-os = "2"
+tauri-plugin-clipboard-manager = "2"
 
 [dependencies.uuid]
 version = "1.17.0"
