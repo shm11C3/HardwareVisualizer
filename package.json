@@ -67,7 +67,7 @@
     "babel-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "i18next": "^25.3.1",
+    "i18next": "^25.3.2",
     "jotai": "^2.12.5",
     "lucide-react": "^0.525.0",
     "react": "19.0.0",
