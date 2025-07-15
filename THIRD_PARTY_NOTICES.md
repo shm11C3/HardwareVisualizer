@@ -2579,7 +2579,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/node@24.0.10
+## @types/node@24.0.13
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -2697,7 +2697,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## babel-plugin-react-compiler@19.0.0-beta-ebf51a3-20250411
+## babel-plugin-react-compiler@19.0.0-beta-714736e-20250131
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -3972,7 +3972,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.3.1
+## i18next@25.3.2
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -7382,7 +7382,7 @@ Note that for some tooling (like Jest) that doesn't play well with `package.json
 This project is released under the MIT license, but the vendor'ed in libraries include other licenses (e.g. ISC) that we enumerate in our `package.json:license` field.
 ```
 
-## vite@7.0.2
+## vite@7.0.4
 
 - License: MIT
 - Repository: [https://github.com/vitejs/vite](https://github.com/vitejs/vite)
