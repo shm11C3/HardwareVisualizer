@@ -18,12 +18,12 @@
     "generate:licenses": "node --experimental-strip-types .github/scripts/generate-licenses.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.0.6",
+    "@biomejs/biome": "^2.1.1",
     "@tauri-apps/cli": "^2.6.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^24.0.10",
+    "@types/node": "^24.0.13",
     "@types/react": "19.0.12",
     "@types/react-dom": "19.0.4",
     "@vitejs/plugin-react": "^4.6.0",
@@ -33,7 +33,7 @@
     "license-checker": "^25.0.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
-    "vite": "^7.0.0",
+    "vite": "^7.0.4",
     "vitest": "^3.1.2"
   },
   "dependencies": {
@@ -68,7 +68,7 @@
     "babel-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "i18next": "^25.3.1",
+    "i18next": "^25.3.2",
     "jotai": "^2.12.5",
     "lucide-react": "^0.525.0",
     "react": "19.0.0",
@@ -80,6 +80,6 @@
     "tailwind-merge": "^3.3.1",
     "tailwind-variants": "^1.0.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.25.67"
+    "zod": "^4.0.5"
   }
 }
