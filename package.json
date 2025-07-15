@@ -18,7 +18,7 @@
     "generate:licenses": "node --experimental-strip-types .github/scripts/generate-licenses.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.0.6",
+    "@biomejs/biome": "^2.1.1",
     "@tauri-apps/cli": "^2.6.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
