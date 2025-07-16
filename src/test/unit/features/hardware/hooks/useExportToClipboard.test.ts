@@ -1,7 +1,7 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useExportToClipboard } from "../../../../../../src/features/hardware/dashboard/hooks/useExportToClipboard";
+import { useExportToClipboard } from "@/features/hardware/dashboard/hooks/useExportToClipboard";
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(),
