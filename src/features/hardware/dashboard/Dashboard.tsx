@@ -26,6 +26,7 @@ import {
   NetworkInfo,
   StorageDataInfo,
 } from "./components/DashboardItems";
+import { ExportHardwareInfo } from "./components/ExportHardwareInfo";
 import { SortableItem } from "./components/SortableItem";
 import { useSortableDashboard } from "./hooks/useSortableDashboard";
 import type { DashboardItemType } from "./types/dashboardItem";
@@ -99,32 +100,38 @@ export const Dashboard = () => {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragOver={handleDragOver}
-    >
-      <SortableContext items={dashboardItemMap} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-2 gap-4">
-          {dashboardItemMap.map((key) => (
-            <SortableItem key={key} id={key}>
-              {key !== "process" ? (
-                <DataArea
-                  title={dataAreaKey2Title[key]}
-                  icon={dashboardItemKeyToItems[key].icon}
-                >
-                  {dashboardItemKeyToItems[key].component}
-                </DataArea>
-              ) : (
-                <div className="p-4">
-                  {dashboardItemKeyToItems[key].component}
-                </div>
-              )}
-            </SortableItem>
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <>
+      <ExportHardwareInfo />
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragOver={handleDragOver}
+      >
+        <SortableContext
+          items={dashboardItemMap}
+          strategy={rectSortingStrategy}
+        >
+          <div className="grid grid-cols-2 gap-4">
+            {dashboardItemMap.map((key) => (
+              <SortableItem key={key} id={key}>
+                {key !== "process" ? (
+                  <DataArea
+                    title={dataAreaKey2Title[key]}
+                    icon={dashboardItemKeyToItems[key].icon}
+                  >
+                    {dashboardItemKeyToItems[key].component}
+                  </DataArea>
+                ) : (
+                  <div className="p-4">
+                    {dashboardItemKeyToItems[key].component}
+                  </div>
+                )}
+              </SortableItem>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </>
   );
 };
 

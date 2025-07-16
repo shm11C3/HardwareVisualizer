@@ -189,6 +189,7 @@ pub fn run() {
       MacosLauncher::LaunchAgent,
       Some(vec![]),
     ))
+    .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_os::init())
     .manage(state)
     .manage(app_state)

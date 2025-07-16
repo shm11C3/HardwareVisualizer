@@ -14,6 +14,7 @@
     "store:default",
     "shell:allow-open",
     "shell:allow-execute",
-    "sql:default"
+    "sql:default",
+    "clipboard-manager:allow-write-text"
   ]
 }
