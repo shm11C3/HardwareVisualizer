@@ -15,10 +15,10 @@ name = "hardware_visualizer"
 version = "1.0.0"
 description = "A real-time hardware monitoring tool for Windows"
 authors = ["@shm11C3"]
-license = ""
+license = "MIT"
 repository = ""
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -29,18 +29,18 @@ tauri-build = { version = "2.2.0", features = [] }
 serde_json = "1.0.140"
 serde = { version = "1.0.219", features = ["derive"] }
 tauri = { version = "2.5.1", features = [] }
-sysinfo = "0.35.1"
-tauri-plugin-window-state = { version = "2.2.2" }
+sysinfo = "0.36.0"
+tauri-plugin-window-state = { version = "2.3.0" }
 nvapi = "=0.1.4"
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.46.1", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", default-features = true, features = [
     "env-filter",
 ] }
 chrono = "0.4.41"
-rust_decimal = "1.37.1"
-tauri-plugin-dialog = "2.2.2"
-tauri-plugin-store = "2.2.0"
+rust_decimal = "1.37.2"
+tauri-plugin-dialog = "2.3.0"
+tauri-plugin-store = "2.3.0"
 base64 = "0.22"
 image = "0.25.6"
 regex = "1.11.1"
@@ -59,6 +59,7 @@ sqlx = { version = "0.8.6", features = [
 ] }
 dirs = "6.0.0"
 tauri-plugin-os = "2"
+tauri-plugin-clipboard-manager = "2"
 
 [dependencies.uuid]
 version = "1.17.0"
@@ -78,7 +79,7 @@ custom-protocol = ["tauri/custom-protocol"]
 wmi = "0.17.2"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
-windows = { version = "0.61.1", features = [
+windows = { version = "0.61.3", features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
     "Win32_Security",

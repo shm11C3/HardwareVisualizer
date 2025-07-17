@@ -45,7 +45,7 @@ impl fmt::Display for RoundedKibibytes {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let value = self.kibibytes.0; // Kibibytesの内部値を取得
     if value < 1000 {
-      write!(f, "{} KB", value)
+      write!(f, "{value} KB")
     } else if value < 1000000 {
       let value_in_mib = value as f32 / 1024.0;
       write!(
@@ -98,7 +98,7 @@ pub fn format_size(bytes: u64, precision: u32) -> String {
       precision = precision as usize
     )
   } else {
-    format!("{} bytes", bytes)
+    format!("{bytes} bytes")
   }
 }
 

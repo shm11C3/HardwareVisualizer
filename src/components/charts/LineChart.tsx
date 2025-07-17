@@ -1,3 +1,9 @@
+import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
+import type { JSX } from "react";
+import { useTranslation } from "react-i18next";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import type { CurveType } from "recharts/types/shape/Curve";
+import { tv } from "tailwind-variants";
 import {
   type ChartConfig,
   ChartContainer,
@@ -13,13 +19,7 @@ import {
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import type { LineGraphType } from "@/rspc/bindings";
-import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
-import type { JSX } from "react";
-import { useTranslation } from "react-i18next";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import type { CurveType } from "recharts/types/shape/Curve";
-import { tv } from "tailwind-variants";
-import CustomLegend, { type LegendItem } from "./CustomLegend";
+import { CustomLegend, type LegendItem } from "./CustomLegend";
 
 type ChartProps = {
   labels: string[];

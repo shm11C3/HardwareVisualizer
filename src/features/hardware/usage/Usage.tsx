@@ -1,3 +1,5 @@
+import { useAtom } from "jotai";
+import { useMemo } from "react";
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
@@ -6,8 +8,6 @@ import {
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { useAtom } from "jotai";
-import { useMemo } from "react";
 
 const labels = Array(chartConfig.historyLengthSec).fill("");
 
@@ -78,7 +78,7 @@ const MixUsageChart = () => {
   );
 };
 
-const ChartTemplate = () => {
+export const ChartTemplate = () => {
   const { settings } = useSettingsAtom();
 
   const renderedCharts = useMemo(() => {
@@ -93,7 +93,5 @@ const ChartTemplate = () => {
     );
   }, [settings]);
 
-  return <div className="p-8">{renderedCharts}</div>;
+  return <div className="ml-16 p-8">{renderedCharts}</div>;
 };
-
-export default ChartTemplate;

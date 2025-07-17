@@ -1,10 +1,10 @@
-import { useBackgroundImage } from "@/hooks/useBgImage";
-import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { useBackgroundImage } from "@/hooks/useBgImage";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 
 //　画像アップロードカスタムフック
 export const useUploadImage = () => {

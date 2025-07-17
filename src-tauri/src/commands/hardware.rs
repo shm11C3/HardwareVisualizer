@@ -227,15 +227,14 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
   match wmi_service::get_gpu_usage_by_device_and_engine("3D").await {
     Ok(usage) => Ok((usage * 100.0).round() as i32),
     Err(e) => Err(format!(
-      "Failed to get GPU usage from both NVIDIA API and WMI: {:?}",
-      e
+      "Failed to get GPU usage from both NVIDIA API and WMI: {e:?}"
     )),
   }
 
   #[cfg(target_os = "linux")]
   {
     for card_id in 0..=9 {
-      let vendor_path = format!("/sys/class/drm/card{}/device/vendor", card_id);
+      let vendor_path = format!("/sys/class/drm/card{card_id}/device/vendor");
       if !std::path::Path::new(&vendor_path).exists() {
         continue;
       }
@@ -300,7 +299,7 @@ pub async fn get_gpu_temperature(
         .collect();
       Ok(temps)
     }
-    Err(e) => Err(format!("Failed to get GPU temperature: {:?}", e)),
+    Err(e) => Err(format!("Failed to get GPU temperature: {e:?}")),
   }
 }
 
@@ -313,7 +312,7 @@ pub async fn get_nvidia_gpu_cooler() -> Result<Vec<nvidia_gpu_service::NameValue
 {
   match nvidia_gpu_service::get_nvidia_gpu_cooler_stat().await {
     Ok(temps) => Ok(temps),
-    Err(e) => Err(format!("Failed to get GPU cooler status: {:?}", e)),
+    Err(e) => Err(format!("Failed to get GPU cooler status: {e:?}")),
   }
 }
 

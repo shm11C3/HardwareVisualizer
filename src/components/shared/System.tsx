@@ -1,8 +1,8 @@
-import { commands } from "@/rspc/bindings";
-import { settingAtoms } from "@/store/ui";
 import { useSetAtom } from "jotai";
 import type { Dispatch, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
+import { commands } from "@/rspc/bindings";
+import { settingAtoms } from "@/store/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,10 @@ import {
 export const NeedRestart = ({
   alertOpen,
   setAlertOpen,
-}: { alertOpen: boolean; setAlertOpen: Dispatch<SetStateAction<boolean>> }) => {
+}: {
+  alertOpen: boolean;
+  setAlertOpen: Dispatch<SetStateAction<boolean>>;
+}) => {
   const { t } = useTranslation();
   const setIsRequiredRestart = useSetAtom(settingAtoms.isRequiredRestart);
 

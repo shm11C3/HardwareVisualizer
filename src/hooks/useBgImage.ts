@@ -1,10 +1,10 @@
+import { atom, useAtom } from "jotai";
+import { useCallback, useEffect } from "react";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { BackgroundImage } from "@/features/settings/types/settingsType";
 import { convertFileToBase64 } from "@/lib/file";
 import { commands } from "@/rspc/bindings";
 import { isError, isOk } from "@/types/result";
-import { atom, useAtom } from "jotai";
-import { useCallback, useEffect } from "react";
 import { useTauriDialog } from "./useTauriDialog";
 
 const backgroundImageAtom = atom<string | null>(null);
@@ -18,7 +18,7 @@ export const useBackgroundImage = () => {
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to initialize the background images
   const initBackgroundImage = useCallback(async () => {
     if (settings.selectedBackgroundImg) {
       const base64Image = await commands.getBackgroundImage(
@@ -110,7 +110,7 @@ export const useBackgroundImageList = () => {
     setBackgroundImageList(backgroundImagesWithUrl);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to initialize the background images
   useEffect(() => {
     initBackgroundImages();
   }, []);

@@ -1,3 +1,7 @@
+import { platform } from "@tauri-apps/plugin-os";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   type ChartConfig,
   ChartContainer,
@@ -7,10 +11,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { SizeUnit } from "@/rspc/bindings";
-import { platform } from "@tauri-apps/plugin-os";
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 const chartKey = ["used", "free"] as const;
 

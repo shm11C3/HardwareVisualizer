@@ -46,10 +46,10 @@ pub mod commands {
         "error_event",
         json!({
             "title": ERROR_TITLE,
-            "message": format!("If this happens repeatedly, delete {} and restart the app.", settings_json_path.display())
+            "message": format!("If this happens repeatedly, delete {settings_json_path} and restart the app.", settings_json_path = settings_json_path.display())
         }),
       )
-      .map_err(|e| format!("Failed to emit event: {}", e))?;
+      .map_err(|e| format!("Failed to emit event: {e}"))?;
 
     Ok(())
   }

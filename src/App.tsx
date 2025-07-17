@@ -1,24 +1,29 @@
 import { useEffect, useState } from "react";
-import Dashboard from "./features/hardware/dashboard/Dashboard";
-import ChartTemplate from "./features/hardware/usage/Usage";
+import { Dashboard } from "./features/hardware/dashboard/Dashboard";
+import { ChartTemplate } from "./features/hardware/usage/Usage";
 import "./index.css";
+import type { ErrorInfo, JSX } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import {
   useHardwareUpdater,
   useUsageUpdater,
 } from "@/features/hardware/hooks/useHardwareData";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
-import type { ErrorInfo, JSX } from "react";
-import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "./components/ErrorFallback";
-import ScreenTemplate from "./components/shared/ScreenTemplate";
+import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
-import Settings from "./features/settings/Settings";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
+import { Settings } from "./features/settings/Settings";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
-import { ChartLine, CpuIcon, Gear } from "@phosphor-icons/react";
+import {
+  ChartLineIcon,
+  CpuIcon,
+  GearIcon,
+  SquaresFourIcon,
+} from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
@@ -37,7 +42,7 @@ const onError = (error: Error, info: ErrorInfo) => {
   );
 };
 
-const Page = () => {
+export const App = () => {
   const { settings, loadSettings } = useSettingsAtom();
   const { toggle } = useDarkMode();
   const { backgroundImage: nextImage, initBackgroundImage } =
@@ -88,7 +93,10 @@ const Page = () => {
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
-      <ScreenTemplate>
+      <ScreenTemplate
+        icon={<SquaresFourIcon size={32} />}
+        title={t("pages.dashboard.name")}
+      >
         <Dashboard />
       </ScreenTemplate>
     ),
@@ -103,7 +111,7 @@ const Page = () => {
     ),
     insights: (
       <ScreenTemplate
-        icon={<ChartLine size={32} />}
+        icon={<ChartLineIcon size={32} />}
         title={t("pages.insights.name")}
       >
         <Insights />
@@ -111,7 +119,7 @@ const Page = () => {
     ),
     settings: (
       <ScreenTemplate
-        icon={<Gear size={32} />}
+        icon={<GearIcon size={32} />}
         title={t("pages.settings.name")}
       >
         <Settings />
@@ -138,8 +146,7 @@ const Page = () => {
           {displayTarget ? (
             displayTargets[displayTarget]
           ) : (
-            // biome-ignore lint/style/useSelfClosingElements: <explanation>
-            <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 dark:bg-gray-900 dark:text-white"></div>
+            <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 dark:bg-gray-900 dark:text-white" />
           )}
         </div>
       </div>
@@ -150,5 +157,3 @@ const Page = () => {
     </ErrorBoundary>
   );
 };
-
-export default Page;

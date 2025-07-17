@@ -1,14 +1,4 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { minOpacity } from "@/consts/style";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { ProcessInfo } from "@/rspc/bindings";
-import {
   ArrowsOutIcon,
   CaretDownIcon,
   CaretUpIcon,
@@ -19,6 +9,16 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { minOpacity } from "@/consts/style";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { ProcessInfo } from "@/rspc/bindings";
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 
@@ -96,7 +96,7 @@ export const ProcessesTable = () => {
       <Dialog>
         <div className="flex">
           <div className="mb-2 flex items-center">
-            <div className="mr-2 mb-0.5">
+            <div className="mr-2 mb-0.5 ml-6">
               <GearIcon size={24} color="var(--color-process)" />
             </div>
             <h4 className="font-bold text-xl">{t("shared.process")}</h4>

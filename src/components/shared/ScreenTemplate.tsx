@@ -6,7 +6,7 @@ interface ScreenTemplateProps {
   children: React.ReactNode;
 }
 
-const ScreenTemplate: React.FC<ScreenTemplateProps> = ({
+export const ScreenTemplate: React.FC<ScreenTemplateProps> = ({
   title,
   icon,
   children,
@@ -22,5 +22,3 @@ const ScreenTemplate: React.FC<ScreenTemplateProps> = ({
     </div>
   );
 };
-
-export default ScreenTemplate;

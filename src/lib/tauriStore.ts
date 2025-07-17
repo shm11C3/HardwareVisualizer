@@ -1,4 +1,4 @@
-import { type Store, load } from "@tauri-apps/plugin-store";
+import { load, type Store } from "@tauri-apps/plugin-store";
 
 let storeInstance: Store | null = null;
 

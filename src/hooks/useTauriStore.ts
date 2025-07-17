@@ -1,5 +1,5 @@
-import { getStoreInstance } from "@/lib/tauriStore";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getStoreInstance } from "@/lib/tauriStore";
 
 type TauriStore<T> =
   | [value: null, setValue: (newValue: T) => Promise<void>, isPending: true]
