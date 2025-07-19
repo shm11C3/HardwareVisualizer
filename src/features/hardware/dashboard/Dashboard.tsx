@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
+import { useHardwareInfoAtom } from "../hooks/useHardwareInfoAtom";
 import {
   CPUInfo,
   GPUInfo,
@@ -34,6 +35,7 @@ import type { DashboardItemType } from "./types/dashboardItem";
 type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
 
 export const Dashboard = () => {
+  const { hardwareInfo } = useHardwareInfoAtom();
   const { dashboardItemMap, handleDragOver } = useSortableDashboard();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
@@ -49,7 +51,7 @@ export const Dashboard = () => {
 
   const dashboardItemKeyToItems: Record<
     DashboardItemType,
-    { component: JSX.Element; icon?: JSX.Element }
+    { component: JSX.Element | null; icon?: JSX.Element }
   > = {
     cpu: {
       icon: <CpuIcon size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />,
@@ -62,7 +64,10 @@ export const Dashboard = () => {
           color={`rgb(${settings.lineGraphColor.gpu})`}
         />
       ),
-      component: <GPUInfo />,
+      component:
+        hardwareInfo.gpus != null && hardwareInfo.gpus.length > 0 ? (
+          <GPUInfo />
+        ) : null,
     },
     memory: {
       icon: (
@@ -111,23 +116,25 @@ export const Dashboard = () => {
           items={dashboardItemMap}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-4">
-            {dashboardItemMap.map((key) => (
-              <SortableItem key={key} id={key}>
-                {key !== "process" ? (
-                  <DataArea
-                    title={dataAreaKey2Title[key]}
-                    icon={dashboardItemKeyToItems[key].icon}
-                  >
-                    {dashboardItemKeyToItems[key].component}
-                  </DataArea>
-                ) : (
-                  <div className="p-4">
-                    {dashboardItemKeyToItems[key].component}
-                  </div>
-                )}
-              </SortableItem>
-            ))}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {dashboardItemMap
+              .filter((key) => dashboardItemKeyToItems[key].component != null)
+              .map((key) => (
+                <SortableItem key={key} id={key}>
+                  {key !== "process" ? (
+                    <DataArea
+                      title={dataAreaKey2Title[key]}
+                      icon={dashboardItemKeyToItems[key].icon}
+                    >
+                      {dashboardItemKeyToItems[key].component}
+                    </DataArea>
+                  ) : (
+                    <div className="p-4">
+                      {dashboardItemKeyToItems[key].component}
+                    </div>
+                  )}
+                </SortableItem>
+              ))}
           </div>
         </SortableContext>
       </DndContext>
