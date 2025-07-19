@@ -65,7 +65,7 @@ export const Dashboard = () => {
         />
       ),
       component:
-        hardwareInfo.gpus == null || hardwareInfo.gpus.length > 0 ? (
+        hardwareInfo.gpus != null && hardwareInfo.gpus.length > 0 ? (
           <GPUInfo />
         ) : null,
     },
