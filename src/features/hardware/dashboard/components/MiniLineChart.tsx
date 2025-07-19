@@ -36,7 +36,7 @@ export const MiniLineChart = memo(
     const labels = Array(charConst.historyLengthSec).fill("");
 
     return (
-      <div className="w-[300px]">
+      <div className="w-[200px] xl:w-[300px]">
         <SingleLineChart
           labels={labels}
           chartData={usage}
@@ -51,7 +51,7 @@ export const MiniLineChart = memo(
           lineGraphShowLegend={false}
           dataKey={`${t("shared.usage")} (%)`}
           height={160}
-          width={300}
+          width="stretch"
         />
       </div>
     );

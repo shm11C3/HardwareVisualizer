@@ -111,23 +111,7 @@ export const Dashboard = () => {
           items={dashboardItemMap}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-4">
-            {dashboardItemMap.map((key) => (
-              <SortableItem key={key} id={key}>
-                {key !== "process" ? (
-                  <DataArea
-                    title={dataAreaKey2Title[key]}
-                    icon={dashboardItemKeyToItems[key].icon}
-                  >
-                    {dashboardItemKeyToItems[key].component}
-                  </DataArea>
-                ) : (
-                  <div className="p-4">
-                    {dashboardItemKeyToItems[key].component}
-                  </div>
-                )}
-              </SortableItem>
-            ))}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           </div>
         </SortableContext>
       </DndContext>
