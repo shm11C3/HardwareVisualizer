@@ -3,8 +3,9 @@ use crate::structs;
 
 pub async fn insert(
   processes: Vec<structs::hardware_archive::ProcessStatData>,
+  config: tauri::State<'_, tauri::Config>,
 ) -> Result<(), sqlx::Error> {
-  let pool = db::get_pool().await?;
+  let pool = db::get_pool(config).await?;
 
   for proc in processes {
     sqlx::query(
@@ -24,8 +25,11 @@ pub async fn insert(
   Ok(())
 }
 
-pub async fn delete_old_data(refresh_interval_days: u32) -> Result<(), sqlx::Error> {
-  let pool = db::get_pool().await?;
+pub async fn delete_old_data(
+  refresh_interval_days: u32,
+  config: tauri::State<'_, tauri::Config>,
+) -> Result<(), sqlx::Error> {
+  let pool = db::get_pool(config).await?;
 
   sqlx::query("DELETE FROM PROCESS_STATS WHERE timestamp < $1")
     .bind(chrono::Utc::now() - chrono::Duration::days(refresh_interval_days as i64))

@@ -9,10 +9,10 @@ pub mod directx_gpu_service;
 #[cfg(target_os = "windows")]
 pub mod wmi_service;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod memory;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod ip_linux;
 
 #[cfg(target_os = "linux")]
