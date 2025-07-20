@@ -83,7 +83,7 @@ export const ProcessTable = ({
 
   return (
     <div
-      className="rounded-md border bg-zinc-300 p-4 shadow-md dark:bg-gray-800 dark:text-white"
+      className="rounded-md bg-card-non-transparent p-4 text-foreground shadow-md"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -129,7 +129,7 @@ const InfoTable = ({
     <>
       <div ref={sentinelRef} className="h-1" />
       <table className="w-full text-left">
-        <thead className="sticky top-[-1px] bg-zinc-300 dark:bg-gray-800">
+        <thead className="sticky top-[-1px] bg-card-non-transparent">
           <tr className="border-gray-700 border-b">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"

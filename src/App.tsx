@@ -129,7 +129,7 @@ export const App = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 duration-300 ease-in-out dark:bg-gray-900 dark:text-white">
+      <div className="min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out ">
         <div
           className="fixed inset-0 bg-center bg-cover transition-opacity duration-500"
           style={{
@@ -146,7 +146,7 @@ export const App = () => {
           {displayTarget ? (
             displayTargets[displayTarget]
           ) : (
-            <div className="min-h-screen bg-cover bg-zinc-200 text-gray-900 dark:bg-gray-900 dark:text-white" />
+            <div className="min-h-screen bg-background bg-cover text-foreground" />
           )}
         </div>
       </div>

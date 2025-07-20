@@ -9,7 +9,7 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
+  --color-background: var(--background);
   --color-foreground: hsl(var(--foreground));
 
   --color-primary: hsl(var(--primary));
@@ -24,14 +24,18 @@
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
 
+  --color-modal: var(--modal);
+
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
 
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
 
-  --color-card: hsl(var(--card));
+  --color-card: var(--card);
+  --color-card-overlay: var(--card-overlay);
   --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-non-transparent: var(--card-non-transparent);
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -93,10 +97,10 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: oklch(92% 0.004 286.32);
     --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: oklch(87.1% 0.006 286.286);
+    --card-non-transparent: oklch(0.8711 0.0055 286.29);
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 222.2 47.4% 11.2%;
@@ -105,6 +109,7 @@
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
+    --modal: oklch(0.8954 0.0041 286.32);
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
@@ -124,10 +129,11 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: oklch(21% 0.034 264.665);
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: oklch(12.9% 0.042 264.695 / 80%);
     --card-foreground: 210 40% 98%;
+    --card-non-transparent: oklch(0.1501 0.0378 267.11);
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
@@ -136,6 +142,7 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
+    --modal: oklch(0.1727 0.0367 267.72);
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
