@@ -92,7 +92,14 @@
         "colorMode": {
           "name": "カラーモード",
           "light": "ライト",
-          "dark": "ダーク"
+          "dark": "ダーク",
+          "sky": "スカイ",
+          "grove": "グローブ",
+          "sunset": "サンセット",
+          "nebula": "ネビュラ",
+          "orbit": "オービット",
+          "cappuccino": "カプチーノ",
+          "espresso": "エスプレッソ"
         },
         "hardwareType": "ハードウェア種別",
         "temperatureUnit": {

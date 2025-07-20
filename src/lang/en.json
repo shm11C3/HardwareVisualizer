@@ -92,7 +92,14 @@
         "colorMode": {
           "name": "Color Mode",
           "light": "Light",
-          "dark": "Dark"
+          "dark": "Dark",
+          "sky": "Sky",
+          "grove": "Grove",
+          "sunset": "Sunset",
+          "nebula": "Nebula",
+          "orbit": "Orbit",
+          "cappuccino": "Cappuccino",
+          "espresso": "Espresso"
         },
         "hardwareType": "Hardware Type",
         "temperatureUnit": {

@@ -3,7 +3,16 @@ import type { ChartDataType } from "../../hardware/types/hardwareDataType";
 
 export type Settings = {
   language: string;
-  theme: "light" | "dark";
+  theme:
+    | "light"
+    | "dark"
+    | "sky"
+    | "grove"
+    | "sunset"
+    | "nebula"
+    | "orbit"
+    | "cappuccino"
+    | "espresso";
   displayTargets: Array<ChartDataType>;
   graphSize: (typeof sizeOptions)[number];
   lineGraphBorder: boolean;

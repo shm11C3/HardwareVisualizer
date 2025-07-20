@@ -331,7 +331,7 @@ export const NetworkInfo = () => {
         return (
           <div
             key={network.macAddress}
-            className="mt-4 mb-2 rounded-md bg-zinc-300/80 px-4 pt-2 pb-2 shadow-md dark:bg-slate-950/80 dark:text-white"
+            className="mt-4 mb-2 rounded-md bg-card px-4 pt-2 pb-2 text-foreground shadow-md"
             style={{
               opacity:
                 settings.selectedBackgroundImg != null
