@@ -53,6 +53,7 @@ import {
   type ClientSettings,
   commands,
   type LineGraphType,
+  type Theme,
 } from "@/rspc/bindings";
 import { settingAtoms } from "@/store/ui";
 
@@ -146,7 +147,7 @@ const SettingColorMode = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t } = useTranslation();
 
-  const toggleDarkMode = async (mode: "light" | "dark") => {
+  const toggleDarkMode = async (mode: Theme) => {
     await updateSettingAtom("theme", mode);
   };
 
@@ -165,6 +166,27 @@ const SettingColorMode = () => {
           </SelectItem>
           <SelectItem value="dark">
             {t("pages.settings.general.colorMode.dark")}
+          </SelectItem>
+          <SelectItem value="sky">
+            {t("pages.settings.general.colorMode.sky")}
+          </SelectItem>
+          <SelectItem value="grove">
+            {t("pages.settings.general.colorMode.grove")}
+          </SelectItem>
+          <SelectItem value="sunset">
+            {t("pages.settings.general.colorMode.sunset")}
+          </SelectItem>
+          <SelectItem value="nebula">
+            {t("pages.settings.general.colorMode.nebula")}
+          </SelectItem>
+          <SelectItem value="orbit">
+            {t("pages.settings.general.colorMode.orbit")}
+          </SelectItem>
+          <SelectItem value="cappuccino">
+            {t("pages.settings.general.colorMode.cappuccino")}
+          </SelectItem>
+          <SelectItem value="espresso">
+            {t("pages.settings.general.colorMode.espresso")}
           </SelectItem>
         </SelectContent>
       </Select>

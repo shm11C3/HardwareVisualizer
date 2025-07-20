@@ -400,7 +400,7 @@ export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
 export type TemperatureUnit = "C" | "F"
-export type Theme = "light" | "dark"
+export type Theme = "light" | "dark" | "ocean" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso"
 
 /** tauri-specta globals **/
 

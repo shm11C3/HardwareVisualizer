@@ -15,7 +15,7 @@ import { SideMenu } from "./features/menu/SideMenu";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { Settings } from "./features/settings/Settings";
 import { useBackgroundImage } from "./hooks/useBgImage";
-import { useDarkMode } from "./hooks/useDarkMode";
+import { useColorTheme } from "./hooks/useColorTheme";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
 import {
@@ -44,7 +44,7 @@ const onError = (error: Error, info: ErrorInfo) => {
 
 export const App = () => {
   const { settings, loadSettings } = useSettingsAtom();
-  const { toggle } = useDarkMode();
+  useColorTheme(settings.theme);
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
   const { t, i18n } = useTranslation();
@@ -65,12 +65,6 @@ export const App = () => {
   useEffect(() => {
     i18n.changeLanguage(settings.language);
   }, [settings.language, i18n]);
-
-  useEffect(() => {
-    if (settings.theme) {
-      toggle(settings.theme === "dark");
-    }
-  }, [settings.theme, toggle]);
 
   useEffect(() => {
     setOpacity(0);
@@ -129,7 +123,10 @@ export const App = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
-      <div className="min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out ">
+      <div
+        className="min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out"
+        style={{ backgroundImage: "var(--background-gradient)" }}
+      >
         <div
           className="fixed inset-0 bg-center bg-cover transition-opacity duration-500"
           style={{
@@ -146,7 +143,10 @@ export const App = () => {
           {displayTarget ? (
             displayTargets[displayTarget]
           ) : (
-            <div className="min-h-screen bg-background bg-cover text-foreground" />
+            <div
+              className="min-h-screen bg-background bg-cover text-foreground"
+              style={{ backgroundImage: "var(--background-gradient)" }}
+            />
           )}
         </div>
       </div>
