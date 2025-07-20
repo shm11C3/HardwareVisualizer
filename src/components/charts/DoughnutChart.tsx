@@ -36,11 +36,11 @@ type DoughnutChartProps =
 
 const dataType2Units = (
   dataType: Exclude<HardwareDataType, "memoryUsageValue">,
-  settings: Settings,
+  temperatureUnit: Settings["temperatureUnit"],
 ) => {
   const units = {
     usage: "%",
-    temp: settings.temperatureUnit === "C" ? "°C" : "°F",
+    temp: temperatureUnit === "C" ? "°C" : "°F",
     clock: "MHz",
   } as const;
 
@@ -143,7 +143,7 @@ export const DoughnutChart = ({
                         dominantBaseline="middle"
                         className="fill-foreground font-bold text-2xl"
                       >
-                        {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings)}`}
+                        {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
                       </text>
                       {/* ラベルとアイコンの表示 */}
                       <foreignObject

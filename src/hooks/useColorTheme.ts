@@ -1,8 +1,8 @@
 import { useEffect } from "react";
+import { darkClasses } from "@/consts/style";
 import type { Theme } from "@/rspc/bindings";
 
 const defaultTheme = ["dark", "light"];
-const darkClasses = ["dark", "nebula", "espresso"];
 
 export const useColorTheme = (theme: Theme) => {
   useEffect(() => {
