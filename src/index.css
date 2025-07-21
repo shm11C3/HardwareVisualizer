@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @plugin 'tailwindcss-animate';
+@plugin "@tailwindcss/forms";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -92,6 +93,11 @@
   ::backdrop,
   ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
+  }
+
+  /* Chrome/Safari */
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    @apply hidden;
   }
 }
 
@@ -255,8 +261,7 @@
 
   [data-theme="nebula"] {
     --background: oklch(20% 0.01 300);
-    --background-gradient:
-      radial-gradient(
+    --background-gradient: radial-gradient(
         circle at 20% 30%,
         oklch(35% 0.1 300 / 70%) 0%,
         transparent 60%
