@@ -181,7 +181,7 @@ const SettingColorMode = () => {
           </SelectItem>
           <SelectItem
             value="grove"
-            className="focus:bg-emerald-300 dark:focus::bg-emerald-700"
+            className="focus:bg-emerald-300 dark:focus:bg-emerald-700"
           >
             {t("pages.settings.general.colorMode.grove")}
           </SelectItem>
