@@ -28,7 +28,7 @@ tauri-build = { version = "2.3.1", features = [] }
 [dependencies]
 serde_json = "1.0.141"
 serde = { version = "1.0.219", features = ["derive"] }
-tauri = { version = "2.5.1", features = [] }
+tauri = { version = "2.7.0", features = [] }
 sysinfo = "0.36.1"
 tauri-plugin-window-state = { version = "2.3.0" }
 nvapi = "=0.1.4"
@@ -95,7 +95,7 @@ name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
-tauri = { version = "2.5.1", features = ["test"] }
+tauri = { version = "2.7.0", features = ["test"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"
