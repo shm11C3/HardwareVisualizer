@@ -161,31 +161,58 @@ const SettingColorMode = () => {
           <SelectValue placeholder="Theme" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="light">
+          <SelectItem
+            value="light"
+            className="focus:bg-gray-200 dark:focus:bg-gray-400"
+          >
             {t("pages.settings.general.colorMode.light")}
           </SelectItem>
-          <SelectItem value="dark">
+          <SelectItem
+            value="dark"
+            className="focus:bg-gray-400 dark:focus:bg-gray-700"
+          >
             {t("pages.settings.general.colorMode.dark")}
           </SelectItem>
-          <SelectItem value="sky">
+          <SelectItem
+            value="sky"
+            className="focus:bg-sky-300 dark:focus:bg-sky-700"
+          >
             {t("pages.settings.general.colorMode.sky")}
           </SelectItem>
-          <SelectItem value="grove">
+          <SelectItem
+            value="grove"
+            className="focus:bg-emerald-300 dark:focus::bg-emerald-700"
+          >
             {t("pages.settings.general.colorMode.grove")}
           </SelectItem>
-          <SelectItem value="sunset">
+          <SelectItem
+            value="sunset"
+            className="focus:bg-orange-400 dark:focus:bg-orange-700"
+          >
             {t("pages.settings.general.colorMode.sunset")}
           </SelectItem>
-          <SelectItem value="nebula">
+          <SelectItem
+            value="nebula"
+            className="focus:bg-purple-300 dark:focus:bg-purple-900"
+          >
             {t("pages.settings.general.colorMode.nebula")}
           </SelectItem>
-          <SelectItem value="orbit">
+          <SelectItem
+            value="orbit"
+            className="focus:bg-slate-300 dark:focus:bg-slate-500"
+          >
             {t("pages.settings.general.colorMode.orbit")}
           </SelectItem>
-          <SelectItem value="cappuccino">
+          <SelectItem
+            value="cappuccino"
+            className="focus:bg-amber-300 dark:focus:bg-amber-500"
+          >
             {t("pages.settings.general.colorMode.cappuccino")}
           </SelectItem>
-          <SelectItem value="espresso">
+          <SelectItem
+            value="espresso"
+            className="focus:bg-amber-500 dark:focus:bg-amber-800"
+          >
             {t("pages.settings.general.colorMode.espresso")}
           </SelectItem>
         </SelectContent>
@@ -292,7 +319,8 @@ const SettingBackGroundOpacity = () => {
   const { t } = useTranslation();
 
   const changeBackGroundOpacity = async (value: number[]) => {
-    await updateSettingAtom("backgroundImgOpacity", value[0]);
+    console.log("change");
+    updateSettingAtom("backgroundImgOpacity", value[0]);
   };
 
   return (
