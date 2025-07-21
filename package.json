@@ -33,7 +33,7 @@
     "license-checker": "^25.0.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
-    "vite": "^7.0.4",
+    "vite": "^7.0.5",
     "vitest": "^3.1.2"
   },
   "dependencies": {
@@ -59,7 +59,7 @@
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-autostart": "^2.5.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.0",
-    "@tauri-apps/plugin-dialog": "^2.3.0",
+    "@tauri-apps/plugin-dialog": "^2.3.1",
     "@tauri-apps/plugin-os": "^2.3.0",
     "@tauri-apps/plugin-shell": "^2.3.0",
     "@tauri-apps/plugin-sql": "^2.3.0",
