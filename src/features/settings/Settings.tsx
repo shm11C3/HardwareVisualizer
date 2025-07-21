@@ -319,7 +319,6 @@ const SettingBackGroundOpacity = () => {
   const { t } = useTranslation();
 
   const changeBackGroundOpacity = async (value: number[]) => {
-    console.log("change");
     updateSettingAtom("backgroundImgOpacity", value[0]);
   };
 
