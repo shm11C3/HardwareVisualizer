@@ -1,34 +1,58 @@
-import { useState } from "react";
+import { CpuIcon, MemoryIcon } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
+import { SingleLineChart } from "@/components/charts/LineChart";
+import type { ChartConfig } from "@/components/ui/chart";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import type { ChartDataType } from "../../types/hardwareDataType";
 import { SelectPeriod, SelectRange } from "./components/SnapshotForm";
-import type { SnapshotPeriod, UsageRange } from "./types/snapshotType";
+import { useSnapshot } from "./hooks/useSnapshot";
 
 export const Snapshot = () => {
-  const [period, setPeriod] = useState<SnapshotPeriod>({
-    start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    end: new Date().toISOString(),
-  });
-  const [cpuRange, setCpuRange] = useState<UsageRange>({
-    type: "cpu",
-    value: [0, 100],
-  });
-  const [memoryRange, setMemoryRange] = useState<UsageRange>({
-    type: "memory",
-    value: [0, 100],
-  });
+  const {
+    period,
+    setPeriod,
+    cpuRange,
+    setCpuRange,
+    memoryRange,
+    setMemoryRange,
+    selectedDataType,
+    setSelectedDataType,
+    filledLabels,
+    filledChartData,
+  } = useSnapshot();
+  const { settings } = useSettingsAtom();
+  const { t } = useTranslation();
+
+  const chartConfig: Record<
+    Exclude<ChartDataType, "gpu">,
+    { label: string; color: string }
+  > = {
+    cpu: {
+      label: "CPU",
+      color: settings.lineGraphColor.cpu,
+    },
+    memory: {
+      label: "RAM",
+      color: settings.lineGraphColor.memory,
+    },
+  } satisfies ChartConfig;
+
   return (
     <div>
       <div className="mt-2 flex items-center justify-between gap-5">
         <div className="flex w-full gap-4">
           <div className="flex-1">
             <SelectRange
-              label="CPU Usage Range"
+              label={`Process CPU Usage Range (${cpuRange.value[0]}% - ${cpuRange.value[1]}%)`}
               range={cpuRange}
               setRange={setCpuRange}
             />
           </div>
           <div className="flex-1">
             <SelectRange
-              label="Memory Usage Range"
+              label={`Process Memory Usage Range (${memoryRange.value[0]}% - ${memoryRange.value[1]}%)`}
               range={memoryRange}
               setRange={setMemoryRange}
             />
@@ -38,8 +62,44 @@ export const Snapshot = () => {
         <SelectPeriod period={period} setPeriod={setPeriod} />
       </div>
 
-      {/** 日付やCPU使用率の範囲を設定するUI */}
+      {/** データタイプの選択 */}
+      <RadioGroup
+        className="mt-4 flex gap-4"
+        defaultValue="cpu"
+        onValueChange={(e) => setSelectedDataType(e as "cpu" | "memory")}
+      >
+        <Label className="flex items-center gap-2">
+          <RadioGroupItem value="cpu" className="h-4 w-4 text-blue-600" />
+          <span className="flex items-center gap-1">
+            <CpuIcon color={`rgb(${settings.lineGraphColor.cpu})`} />
+            CPU
+          </span>
+        </Label>
+        <Label className="flex items-center gap-2">
+          <RadioGroupItem value="memory" className="h-4 w-4 text-blue-600" />
+          <span className="flex items-center gap-1">
+            <MemoryIcon color={`rgb(${settings.lineGraphColor.memory})`} />
+            RAM
+          </span>
+        </Label>
+      </RadioGroup>
+
       {/** 選択された範囲のCPU使用率・メモリ使用率 */}
+      <SingleLineChart
+        className="mt-5"
+        labels={filledLabels}
+        chartData={filledChartData}
+        dataType={selectedDataType}
+        chartConfig={chartConfig}
+        border={false}
+        size="lg"
+        lineGraphMix={false}
+        lineGraphShowScale={true}
+        lineGraphShowTooltip={true}
+        lineGraphType={settings.lineGraphType}
+        lineGraphShowLegend={false}
+        dataKey={`${t("shared.usage")} (%)`}
+      />
       {/** 選択された範囲のプロセス */}
     </div>
   );

@@ -27,5 +27,5 @@ export type GpuDataArchive = {
 export type SingleDataArchive = {
   id: number;
   value: number | null;
-  timestamp: number;
+  timestamp: string;
 };
