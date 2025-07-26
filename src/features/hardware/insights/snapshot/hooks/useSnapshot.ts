@@ -64,6 +64,34 @@ export const useSnapshot = () => {
     );
   }, [archivedData, step]);
 
+  const dateFormatter = useMemo(() => {
+    const periodMinutes = (new Date(period.end).getTime() - new Date(period.start).getTime()) / (1000 * 60);
+    
+    // 表示オプションを定義（useInsightChartと同じ条件）
+    const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
+      const options: Intl.DateTimeFormatOptions = {};
+
+      // 1440 分以上の場合は年を表示
+      if (periodMinutes >= 1440) {
+        options.year = "numeric";
+      }
+      // 180 分以上の場合は月と日を表示
+      if (periodMinutes >= 180) {
+        options.month = "numeric";
+        options.day = "2-digit";
+      }
+      // 10080 分未満の場合は時刻（時間と分）を表示
+      if (periodMinutes < 10080) {
+        options.hour = "2-digit";
+        options.minute = "2-digit";
+      }
+      return options;
+    })();
+
+    // Intl.DateTimeFormat のインスタンスを生成してキャッシュ
+    return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
+  }, [period]);
+
   const { filledLabels, filledChartData } = useMemo(() => {
     const filledChartData: Array<number | null> = [];
     const filledLabels: string[] = [];
@@ -75,10 +103,7 @@ export const useSnapshot = () => {
 
     for (let t = startBucket; t <= endBucket; t += step) {
       const bucketTime = new Date(t);
-      const timeLabel = bucketTime.toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      const timeLabel = dateFormatter.format(bucketTime);
 
       if (!bucketedData[t] || bucketedData[t].length === 0) {
         filledChartData.push(null);
@@ -93,7 +118,7 @@ export const useSnapshot = () => {
     }
 
     return { filledLabels, filledChartData };
-  }, [bucketedData, step, period]);
+  }, [bucketedData, step, period, dateFormatter]);
 
   return {
     period,
