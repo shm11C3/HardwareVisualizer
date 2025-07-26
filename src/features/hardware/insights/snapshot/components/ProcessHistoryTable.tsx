@@ -9,7 +9,7 @@ import { useStickyObserver } from "@/hooks/useStickyObserver";
 import { formatBytes, formatDuration } from "@/lib/formatter";
 import type { ProcessStat } from "../../types/processStats";
 
-export const ProcessTable = ({
+export const ProcessHistoryTable = ({
   processStats,
   loading,
 }: {
@@ -17,11 +17,15 @@ export const ProcessTable = ({
   loading: boolean;
 }) => {
   const { settings } = useSettingsAtom();
+  const { t } = useTranslation();
 
   const [sortConfig, setSortConfig] = useState<{
     key: keyof ProcessStat;
     direction: "ascending" | "descending";
-  } | null>(null);
+  } | null>({
+    key: "avg_cpu_usage",
+    direction: "descending",
+  });
 
   const sortedProcesses = useMemo(() => {
     if (!processStats) return [];
@@ -64,9 +68,7 @@ export const ProcessTable = ({
   }, [processStats, sortConfig]);
 
   if (processStats == null || (loading && processStats.length === 0)) {
-    return (
-      <Skeleton className="m-4 h-[400px] w-full xl:h-[600px] 2xl:h-[800px]" />
-    );
+    return <Skeleton className="h-[400px] w-full" />;
   }
 
   const requestSort = (key: keyof ProcessStat) => {
@@ -94,8 +96,13 @@ export const ProcessTable = ({
             : 1,
       }}
     >
+      <div className="mb-4">
+        <h3 className="font-semibold text-lg">
+          {t("shared.processHistory")} (
+          {t("shared.processHistoryCount", { count: sortedProcesses.length })})
+        </h3>
+      </div>
       <InfoTable
-        className="max-h-[400px] xl:max-h-[600px] 2xl:max-h-[800px]"
         processes={sortedProcesses}
         sortConfig={sortConfig}
         requestSort={requestSort}
@@ -104,19 +111,20 @@ export const ProcessTable = ({
   );
 };
 
-const InfoTable = ({
+const InfoTable = memo(function InfoTable({
   processes,
   sortConfig,
   requestSort,
+  className,
 }: {
   processes: ProcessStat[];
-  requestSort: (key: keyof ProcessStat) => void;
   sortConfig: {
     key: keyof ProcessStat;
     direction: "ascending" | "descending";
   } | null;
-  className: string;
-}) => {
+  requestSort: (_key: keyof ProcessStat) => void;
+  className?: string;
+}) {
   const { t } = useTranslation();
   const { sentinelRef, isStuck } = useStickyObserver();
 
@@ -126,7 +134,7 @@ const InfoTable = ({
   };
 
   return (
-    <>
+    <div className={className}>
       <div ref={sentinelRef} className="h-1" />
       <table className="w-full text-left">
         <thead className="sticky top-[-1px] bg-card-non-transparent">
@@ -207,9 +215,14 @@ const InfoTable = ({
         </thead>
         <TableBody processes={processes} />
       </table>
-    </>
+      {processes.length === 0 && (
+        <div className="py-8 text-center text-muted-foreground">
+          {t("shared.noProcessDataFound")}
+        </div>
+      )}
+    </div>
   );
-};
+});
 
 const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
   const { settings } = useSettingsAtom();
@@ -220,21 +233,27 @@ const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
         return (
           <tr key={`${process.pid}-${i}`} className="border-gray-700 border-b">
             <td className="py-2">{process.pid}</td>
-            <td className="py-2">{process.process_name}</td>
-            <td className="py-2">
-              {Number.parseFloat(process.avg_cpu_usage.toFixed(2))}%
+            <td className="max-w-48 truncate py-2" title={process.process_name}>
+              {process.process_name}
             </td>
             <td className="py-2">
-              {formatBytes(process.avg_memory_usage * 1024).join(" ")}
+              {Number.parseFloat(process.avg_cpu_usage?.toFixed(2) || "0")}%
+            </td>
+            <td className="py-2">
+              {process.avg_memory_usage
+                ? formatBytes(process.avg_memory_usage * 1024).join(" ")
+                : "N/A"}
             </td>
             <td className="py-2">
               {formatDuration(
-                process.total_execution_sec,
+                process.total_execution_sec || 0,
                 settings.language === "ja" ? "ja-JP" : "en-US",
               )}
             </td>
             <td className="py-2">
-              {new Date(process.latest_timestamp).toLocaleString()}
+              {process.latest_timestamp
+                ? new Date(process.latest_timestamp).toLocaleString()
+                : "N/A"}
             </td>
           </tr>
         );

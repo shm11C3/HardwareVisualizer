@@ -1,6 +1,6 @@
 import { chartConfig } from "@/features/hardware/consts/chart";
 import { sqlitePromise } from "@/lib/sqlite";
-import type { ProcessStat } from "../types/processStats";
+import type { ProcessStat } from "../../types/processStats";
 
 /**
  *

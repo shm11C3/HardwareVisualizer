@@ -93,6 +93,11 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
   }
+
+  /* Chrome/Safari */
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    @apply hidden;
+  }
 }
 
 @layer base {
