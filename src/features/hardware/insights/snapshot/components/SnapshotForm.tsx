@@ -1,7 +1,15 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import type { SnapshotPeriod, UsageRange } from "../types/snapshotType";
 
@@ -59,11 +67,13 @@ export const SelectRange = ({
   setRange,
   label,
   className,
+  max = 100,
 }: {
   range: UsageRange;
   setRange: (range: UsageRange) => void;
   label: string;
   className?: string;
+  max?: number;
 }) => {
   const formId = useId();
   return (
@@ -75,7 +85,7 @@ export const SelectRange = ({
         id={formId}
         aria-label={label}
         min={0}
-        max={100}
+        max={max}
         value={range.value}
         onValueChange={(value) => {
           setRange({
@@ -85,6 +95,76 @@ export const SelectRange = ({
         }}
         className="w-full"
       />
+    </div>
+  );
+};
+
+export const SelectMemoryMaxOption = ({
+  memoryMaxOption,
+  setMemoryMaxOption,
+  totalMemoryMB,
+  className,
+}: {
+  memoryMaxOption:
+    | "128MB"
+    | "256MB"
+    | "512MB"
+    | "1GB"
+    | "2GB"
+    | "8GB"
+    | "device";
+
+  setMemoryMaxOption: (
+    option: "128MB" | "256MB" | "512MB" | "1GB" | "2GB" | "8GB" | "device",
+  ) => void;
+  totalMemoryMB: number;
+  className?: string;
+}) => {
+  const formId = useId();
+  const { t } = useTranslation();
+
+  const formatMemorySize = (mb: number) => {
+    if (mb >= 1024) {
+      return `${Math.round(mb / 1024)}GB`;
+    }
+    return `${mb}MB`;
+  };
+
+  return (
+    <div className={twMerge("flex flex-col", className)}>
+      <Label htmlFor={formId} className="mb-3">
+        {t("shared.memoryRangeMax")}
+      </Label>
+      <Select
+        value={memoryMaxOption}
+        onValueChange={(value) =>
+          setMemoryMaxOption(
+            value as
+              | "128MB"
+              | "256MB"
+              | "512MB"
+              | "1GB"
+              | "2GB"
+              | "8GB"
+              | "device",
+          )
+        }
+      >
+        <SelectTrigger id={formId}>
+          <SelectValue placeholder={t("shared.selectMemoryRangeMax")} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="128MB">128MB</SelectItem>
+          <SelectItem value="256MB">256MB</SelectItem>
+          <SelectItem value="512MB">512MB</SelectItem>
+          <SelectItem value="1GB">1GB</SelectItem>
+          <SelectItem value="2GB">2GB</SelectItem>
+          <SelectItem value="8GB">8GB</SelectItem>
+          <SelectItem value="device">
+            {t("shared.deviceCapacity")} ({formatMemorySize(totalMemoryMB)})
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 };

@@ -50,3 +50,27 @@ export const getArchivedRecord = async (
 
   return db.load(sql);
 };
+
+export const getProcessStatsInPeriod = async (
+  start: Date,
+  end: Date,
+): Promise<ProcessStat[]> => {
+  const db = await sqlitePromise;
+
+  const sql = `
+    SELECT
+      pid,
+      process_name,
+      AVG(cpu_usage) AS avg_cpu_usage,
+      AVG(memory_usage) AS avg_memory_usage,
+      MAX(execution_sec) AS total_execution_sec,
+      MAX(timestamp) AS latest_timestamp
+    FROM process_stats
+    WHERE timestamp BETWEEN '${start.toISOString()}'
+    AND '${end.toISOString()}'
+    GROUP BY pid, process_name
+    ORDER BY avg_cpu_usage DESC
+  `;
+
+  return db.load(sql);
+};

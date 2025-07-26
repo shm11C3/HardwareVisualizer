@@ -25,6 +25,28 @@ vi.mock("@/features/hardware/insights/snapshot/funcs/getArchivedRecord");
 
 const mockGetArchivedRecord = vi.mocked(getArchivedRecord);
 
+// Import getProcessStatsInPeriod to mock it
+import { getProcessStatsInPeriod } from "@/features/hardware/insights/snapshot/funcs/getArchivedRecord";
+const mockGetProcessStatsInPeriod = vi.mocked(getProcessStatsInPeriod);
+
+// Mock useHardwareInfoAtom
+vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
+  useHardwareInfoAtom: () => ({
+    hardwareInfo: {
+      memory: {
+        size: "32 GB"
+      }
+    }
+  })
+}));
+
+// Mock react-i18next
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => key
+  })
+}));
+
 describe("useSnapshot - Label Formatting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -33,6 +55,19 @@ describe("useSnapshot - Label Formatting", () => {
       { id: 2, value: 60, timestamp: "2023-01-01T11:00:00Z" },
     ];
     mockGetArchivedRecord.mockResolvedValue(mockData);
+    
+    // Mock process data
+    const mockProcessData = [
+      {
+        pid: 1,
+        process_name: "test_process",
+        avg_cpu_usage: 50,
+        avg_memory_usage: 1024,
+        total_execution_sec: 100,
+        latest_timestamp: "2023-01-01T10:30:00Z"
+      }
+    ];
+    mockGetProcessStatsInPeriod.mockResolvedValue(mockProcessData);
   });
 
   it("should generate time-only labels for short periods (< 180 minutes)", async () => {

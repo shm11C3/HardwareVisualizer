@@ -6,7 +6,12 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { ChartDataType } from "../../types/hardwareDataType";
-import { SelectPeriod, SelectRange } from "./components/SnapshotForm";
+import { ProcessHistoryTable } from "./components/ProcessHistoryTable";
+import {
+  SelectMemoryMaxOption,
+  SelectPeriod,
+  SelectRange,
+} from "./components/SnapshotForm";
 import { useSnapshot } from "./hooks/useSnapshot";
 
 export const Snapshot = () => {
@@ -21,9 +26,23 @@ export const Snapshot = () => {
     setSelectedDataType,
     filledLabels,
     filledChartData,
+    processData,
+    filteredProcessData,
+    totalMemoryMB,
+    memoryMaxOption,
+    setMemoryMaxOption,
+    selectedMemoryMaxMB,
   } = useSnapshot();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
+
+  // メモリ値のフォーマット関数
+  const formatMemoryValue = (mb: number) => {
+    if (mb >= 1024) {
+      return `${Math.round(mb / 1024 * 100) / 100}GB`;
+    }
+    return `${mb}MB`;
+  };
 
   const chartConfig: Record<
     Exclude<ChartDataType, "gpu">,
@@ -52,9 +71,17 @@ export const Snapshot = () => {
           </div>
           <div className="flex-1">
             <SelectRange
-              label={`Process Memory Usage Range (${memoryRange.value[0]}% - ${memoryRange.value[1]}%)`}
+              label={`Process Memory Usage Range (${formatMemoryValue(memoryRange.value[0])} - ${formatMemoryValue(memoryRange.value[1])})`}
               range={memoryRange}
               setRange={setMemoryRange}
+              max={selectedMemoryMaxMB}
+            />
+          </div>
+          <div className="w-48">
+            <SelectMemoryMaxOption
+              memoryMaxOption={memoryMaxOption}
+              setMemoryMaxOption={setMemoryMaxOption}
+              totalMemoryMB={totalMemoryMB}
             />
           </div>
         </div>
@@ -100,7 +127,14 @@ export const Snapshot = () => {
         lineGraphShowLegend={false}
         dataKey={`${t("shared.usage")} (%)`}
       />
+
       {/** 選択された範囲のプロセス */}
+      <div className="mt-6">
+        <ProcessHistoryTable
+          processStats={filteredProcessData}
+          loading={false}
+        />
+      </div>
     </div>
   );
 };

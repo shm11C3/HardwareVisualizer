@@ -62,6 +62,15 @@
     "execTime": "Execution Time",
     "totalExecTime": "Total Execution Time",
     "latestExecTime": "Latest Execution Time",
+    "processHistory": "Process History",
+    "processHistoryCount": "{{count}} items",
+    "noProcessDataFound": "No process data found for the selected period",
+    "maxProcessCount": "Max Process Count",
+    "selectProcessCount": "Select process count",
+    "processCountValue": "{{count}} processes",
+    "memoryRangeMax": "Memory Range Max",
+    "selectMemoryRangeMax": "Select memory range max",
+    "deviceCapacity": "Device Capacity",
     "other": "Other"
   },
 

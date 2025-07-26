@@ -62,6 +62,15 @@
     "execTime": "実行時間",
     "totalExecTime": "合計実行時間",
     "latestExecTime": "最終実行時間",
+    "processHistory": "プロセス履歴",
+    "processHistoryCount": "{{count}} 件",
+    "noProcessDataFound": "選択された期間にプロセスデータが見つかりませんでした",
+    "maxProcessCount": "最大プロセス数",
+    "selectProcessCount": "プロセス数を選択",
+    "processCountValue": "{{count}} プロセス",
+    "memoryRangeMax": "メモリ範囲上限",
+    "selectMemoryRangeMax": "メモリ上限を選択",
+    "deviceCapacity": "デバイス容量",
     "other": "その他"
   },
 
