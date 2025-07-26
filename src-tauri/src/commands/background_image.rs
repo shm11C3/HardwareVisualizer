@@ -4,6 +4,7 @@ use image::ImageFormat;
 use image::load_from_memory;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tauri::Config;
 use tauri::command;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -21,8 +22,11 @@ const BG_IMG_DIR_NAME: &str = "BgImages";
 ///
 #[command]
 #[specta::specta]
-pub async fn get_background_image(file_id: String) -> Result<String, String> {
-  let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+pub async fn get_background_image(
+  config: tauri::State<'_, Config>,
+  file_id: String,
+) -> Result<String, String> {
+  let dir_path = get_app_data_dir(&config, BG_IMG_DIR_NAME);
 
   // App/BgImages ディレクトリが存在しない場合新規作成
   if !dir_path.exists() {
@@ -57,8 +61,10 @@ pub struct BackgroundImage {
 ///
 #[command]
 #[specta::specta]
-pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
-  let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+pub async fn get_background_images(
+  config: tauri::State<'_, Config>,
+) -> Result<Vec<BackgroundImage>, String> {
+  let dir_path = get_app_data_dir(&config, BG_IMG_DIR_NAME);
 
   // App/BgImages ディレクトリが存在しない場合新規作成
   if !dir_path.exists() {
@@ -109,8 +115,11 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
 ///
 #[command]
 #[specta::specta]
-pub async fn save_background_image(image_data: String) -> Result<String, String> {
-  let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+pub async fn save_background_image(
+  config: tauri::State<'_, Config>,
+  image_data: String,
+) -> Result<String, String> {
+  let dir_path = get_app_data_dir(&config, BG_IMG_DIR_NAME);
 
   // App/BgImages ディレクトリが存在しない場合新規作成
   if !dir_path.exists() {
@@ -169,8 +178,11 @@ pub async fn save_background_image(image_data: String) -> Result<String, String>
 ///
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_background_image(file_id: String) -> Result<(), String> {
-  let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
+pub async fn delete_background_image(
+  config: tauri::State<'_, Config>,
+  file_id: String,
+) -> Result<(), String> {
+  let dir_path = get_app_data_dir(&config, BG_IMG_DIR_NAME);
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
   let file_path = dir_path.join(file_name);
 
