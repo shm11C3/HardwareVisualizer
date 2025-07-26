@@ -60,7 +60,6 @@ const RangeControl = ({
   color,
   max = 100,
   formatValue,
-  tooltip,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -69,7 +68,6 @@ const RangeControl = ({
   color: string;
   max?: number;
   formatValue?: (value: number) => string;
-  tooltip?: string;
 }) => {
   const formatVal = formatValue || ((val) => `${val}%`);
 

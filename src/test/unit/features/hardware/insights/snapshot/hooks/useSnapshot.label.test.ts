@@ -1,7 +1,7 @@
-import { renderHook, act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useSnapshot } from "@/features/hardware/insights/snapshot/hooks/useSnapshot";
 import { getArchivedRecord } from "@/features/hardware/insights/snapshot/funcs/getArchivedRecord";
+import { useSnapshot } from "@/features/hardware/insights/snapshot/hooks/useSnapshot";
 
 // Mock Tauri dependencies to prevent runtime errors
 vi.mock("@tauri-apps/api/core", () => ({
@@ -27,6 +27,7 @@ const mockGetArchivedRecord = vi.mocked(getArchivedRecord);
 
 // Import getProcessStatsInPeriod to mock it
 import { getProcessStatsInPeriod } from "@/features/hardware/insights/snapshot/funcs/getArchivedRecord";
+
 const mockGetProcessStatsInPeriod = vi.mocked(getProcessStatsInPeriod);
 
 // Mock useHardwareInfoAtom
@@ -34,17 +35,17 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
   useHardwareInfoAtom: () => ({
     hardwareInfo: {
       memory: {
-        size: "32 GB"
-      }
-    }
-  })
+        size: "32 GB",
+      },
+    },
+  }),
 }));
 
 // Mock react-i18next
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key
-  })
+    t: (key: string) => key,
+  }),
 }));
 
 describe("useSnapshot - Label Formatting", () => {
@@ -55,7 +56,7 @@ describe("useSnapshot - Label Formatting", () => {
       { id: 2, value: 60, timestamp: "2023-01-01T11:00:00Z" },
     ];
     mockGetArchivedRecord.mockResolvedValue(mockData);
-    
+
     // Mock process data
     const mockProcessData = [
       {
@@ -64,8 +65,8 @@ describe("useSnapshot - Label Formatting", () => {
         avg_cpu_usage: 50,
         avg_memory_usage: 1024,
         total_execution_sec: 100,
-        latest_timestamp: "2023-01-01T10:30:00Z"
-      }
+        latest_timestamp: "2023-01-01T10:30:00Z",
+      },
     ];
     mockGetProcessStatsInPeriod.mockResolvedValue(mockProcessData);
   });
@@ -86,8 +87,8 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Labels should be in HH:MM format for periods under 180 minutes
-    const hasTimeFormat = result.current.filledLabels.some(label => 
-      /^\d{2}:\d{2}$/.test(label)
+    const hasTimeFormat = result.current.filledLabels.some((label) =>
+      /^\d{2}:\d{2}$/.test(label),
     );
     expect(hasTimeFormat).toBe(true);
   });
@@ -108,8 +109,8 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Labels should include month/day and time for periods >= 180 minutes
-    const hasDateTimeFormat = result.current.filledLabels.some(label => 
-      /\d+\/\d+.*\d{2}:\d{2}/.test(label)
+    const hasDateTimeFormat = result.current.filledLabels.some((label) =>
+      /\d+\/\d+.*\d{2}:\d{2}/.test(label),
     );
     expect(hasDateTimeFormat).toBe(true);
   });
@@ -130,8 +131,8 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Labels should include year for periods >= 1440 minutes
-    const hasYear = result.current.filledLabels.some(label => 
-      /2023/.test(label)
+    const hasYear = result.current.filledLabels.some((label) =>
+      /2023/.test(label),
     );
     expect(hasYear).toBe(true);
   });
@@ -152,15 +153,15 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Labels should include year and date but no time for periods >= 10080 minutes
-    const hasTime = result.current.filledLabels.some(label => 
-      /\d{2}:\d{2}/.test(label)
+    const hasTime = result.current.filledLabels.some((label) =>
+      /\d{2}:\d{2}/.test(label),
     );
-    const hasYear = result.current.filledLabels.some(label => 
-      /2023/.test(label)
+    const hasYear = result.current.filledLabels.some((label) =>
+      /2023/.test(label),
     );
-    
+
     expect(hasTime).toBe(false); // No time for very long periods
-    expect(hasYear).toBe(true);  // Should have year
+    expect(hasYear).toBe(true); // Should have year
   });
 
   it("should use system locale for date formatting", async () => {
@@ -180,7 +181,9 @@ describe("useSnapshot - Label Formatting", () => {
 
     // Should have formatted labels (exact format depends on system locale)
     expect(result.current.filledLabels.length).toBeGreaterThan(0);
-    expect(result.current.filledLabels.every(label => label.length > 0)).toBe(true);
+    expect(result.current.filledLabels.every((label) => label.length > 0)).toBe(
+      true,
+    );
   });
 
   it("should maintain consistent label count with data count", async () => {
@@ -191,7 +194,9 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Labels and data should have same length
-    expect(result.current.filledLabels.length).toBe(result.current.filledChartData.length);
+    expect(result.current.filledLabels.length).toBe(
+      result.current.filledChartData.length,
+    );
   });
 
   it("should update labels when period changes", async () => {
@@ -235,8 +240,8 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Should include date for exactly 180 minutes
-    const hasDate = result.current.filledLabels.some(label => 
-      /\d+\/\d+/.test(label)
+    const hasDate = result.current.filledLabels.some((label) =>
+      /\d+\/\d+/.test(label),
     );
     expect(hasDate).toBe(true);
   });
@@ -257,8 +262,8 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Should include year for exactly 1440 minutes
-    const hasYear = result.current.filledLabels.some(label => 
-      /2023/.test(label)
+    const hasYear = result.current.filledLabels.some((label) =>
+      /2023/.test(label),
     );
     expect(hasYear).toBe(true);
   });
@@ -279,8 +284,8 @@ describe("useSnapshot - Label Formatting", () => {
     });
 
     // Should not include time for exactly 10080 minutes
-    const hasTime = result.current.filledLabels.some(label => 
-      /\d{2}:\d{2}/.test(label)
+    const hasTime = result.current.filledLabels.some((label) =>
+      /\d{2}:\d{2}/.test(label),
     );
     expect(hasTime).toBe(false);
   });

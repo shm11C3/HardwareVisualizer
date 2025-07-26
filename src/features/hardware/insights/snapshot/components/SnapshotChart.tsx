@@ -1,8 +1,8 @@
-import { Warning, Database } from "@phosphor-icons/react";
+import { Database, Warning } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
-import type { ChartConfig } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
+import type { ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ClientSettings } from "@/rspc/bindings";
 
@@ -31,10 +31,10 @@ export const SnapshotChart = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[400px]">
-        <div className="text-center space-y-4 w-full">
+      <div className="flex h-[400px] items-center justify-center">
+        <div className="w-full space-y-4 text-center">
           <Skeleton className="h-[300px] w-full" />
-          <Skeleton className="h-4 w-48 mx-auto" />
+          <Skeleton className="mx-auto h-4 w-48" />
         </div>
       </div>
     );
@@ -42,11 +42,11 @@ export const SnapshotChart = ({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[400px]">
-        <div className="text-center space-y-2">
-          <Warning className="h-12 w-12 text-destructive mx-auto" />
-          <p className="text-destructive font-medium">Failed to load data</p>
-          <p className="text-sm text-muted-foreground">{error.message}</p>
+      <div className="flex h-[400px] items-center justify-center">
+        <div className="space-y-2 text-center">
+          <Warning className="mx-auto h-12 w-12 text-destructive" />
+          <p className="font-medium text-destructive">Failed to load data</p>
+          <p className="text-muted-foreground text-sm">{error.message}</p>
           {onRetry && (
             <Button onClick={onRetry} variant="outline" size="sm">
               Try Again
@@ -59,11 +59,11 @@ export const SnapshotChart = ({
 
   if (!chartData.some((d) => d !== null)) {
     return (
-      <div className="flex items-center justify-center h-[400px]">
-        <div className="text-center space-y-2">
-          <Database className="h-12 w-12 text-muted-foreground mx-auto" />
+      <div className="flex h-[400px] items-center justify-center">
+        <div className="space-y-2 text-center">
+          <Database className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="font-medium">No data available</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Try adjusting your time range or filters
           </p>
         </div>

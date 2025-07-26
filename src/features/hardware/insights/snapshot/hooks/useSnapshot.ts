@@ -94,10 +94,7 @@ export const useSnapshot = () => {
       setArchivedData(archivedResult);
 
       // プロセスデータ取得
-      const processResult = await getProcessStatsInPeriod(
-        startDate,
-        endDate,
-      );
+      const processResult = await getProcessStatsInPeriod(startDate, endDate);
       setProcessData(processResult);
     };
 
