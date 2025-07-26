@@ -291,7 +291,6 @@ export const SnapshotControls = ({
             setRange={setCpuRange}
             color={settings.lineGraphColor.cpu}
             max={100}
-            tooltip={t("shared.snapshot.cpuFilterTooltip")}
           />
           <RangeControl
             icon={<MemoryIcon size={20} />}
@@ -301,7 +300,6 @@ export const SnapshotControls = ({
             color={settings.lineGraphColor.memory}
             max={selectedMemoryMaxMB}
             formatValue={formatMemoryValue}
-            tooltip={t("shared.snapshot.memoryFilterTooltip")}
           />
         </div>
       </div>

@@ -87,7 +87,7 @@ export const SelectRange = ({
         min={0}
         max={max}
         value={range.value}
-        onValueChange={(value) => {
+        onValueChange={(value: [number, number]) => {
           setRange({
             ...range,
             value: [value[0], value[1]],

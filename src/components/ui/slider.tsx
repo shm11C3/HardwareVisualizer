@@ -3,7 +3,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function _Slider({
+function Slider({
   className,
   defaultValue,
   value,
@@ -58,4 +58,4 @@ function _Slider({
   );
 }
 
-export { _Slider };
+export { Slider };
