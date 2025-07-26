@@ -98,7 +98,8 @@ export const ProcessHistoryTable = ({
     >
       <div className="mb-4">
         <h3 className="font-semibold text-lg">
-          {t("shared.processHistory")} ({t("shared.processHistoryCount", { count: sortedProcesses.length })})
+          {t("shared.processHistory")} (
+          {t("shared.processHistoryCount", { count: sortedProcesses.length })})
         </h3>
       </div>
       <InfoTable
@@ -110,20 +111,20 @@ export const ProcessHistoryTable = ({
   );
 };
 
-const InfoTable = ({
+const InfoTable = memo(function InfoTable({
   processes,
   sortConfig,
   requestSort,
   className,
 }: {
   processes: ProcessStat[];
-  requestSort: (key: keyof ProcessStat) => void;
   sortConfig: {
     key: keyof ProcessStat;
     direction: "ascending" | "descending";
   } | null;
+  requestSort: (_key: keyof ProcessStat) => void;
   className?: string;
-}) => {
+}) {
   const { t } = useTranslation();
   const { sentinelRef, isStuck } = useStickyObserver();
 
@@ -221,7 +222,7 @@ const InfoTable = ({
       )}
     </div>
   );
-};
+});
 
 const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
   const { settings } = useSettingsAtom();

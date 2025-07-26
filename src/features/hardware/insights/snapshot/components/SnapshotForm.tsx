@@ -131,10 +131,8 @@ export const SelectMemoryMaxOption = ({
   };
 
   return (
-    <div className={twMerge("flex flex-col", className)}>
-      <Label htmlFor={formId} className="mb-3">
-        {t("shared.memoryRangeMax")}
-      </Label>
+    <div className={twMerge("flex items-center gap-3", className)}>
+      <Label htmlFor={formId}>{t("shared.memoryRangeMax")}</Label>
       <Select
         value={memoryMaxOption}
         onValueChange={(value) =>

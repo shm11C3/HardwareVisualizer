@@ -556,7 +556,7 @@ export const Insights = () => {
                   onClick={() => setDisplayTarget(name)}
                 >
                   <Icon type={type} />
-                  {["main", "process"].includes(name)
+                  {["main", "process", "snapshot"].includes(name)
                     ? t(`pages.insights.${name}.title`, {
                         defaultValue: name,
                       })

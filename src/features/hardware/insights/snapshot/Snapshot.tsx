@@ -1,17 +1,18 @@
-import { CpuIcon, MemoryIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import { SingleLineChart } from "@/components/charts/LineChart";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { ChartDataType } from "../../types/hardwareDataType";
+import { SnapshotIcon } from "../icons/snapshot";
 import { ProcessHistoryTable } from "./components/ProcessHistoryTable";
-import {
-  SelectMemoryMaxOption,
-  SelectPeriod,
-  SelectRange,
-} from "./components/SnapshotForm";
+import { SnapshotChart } from "./components/SnapshotChart";
+import { SnapshotControls } from "./components/SnapshotControls";
 import { useSnapshot } from "./hooks/useSnapshot";
 
 export const Snapshot = () => {
@@ -26,7 +27,6 @@ export const Snapshot = () => {
     setSelectedDataType,
     filledLabels,
     filledChartData,
-    processData,
     filteredProcessData,
     totalMemoryMB,
     memoryMaxOption,
@@ -35,14 +35,6 @@ export const Snapshot = () => {
   } = useSnapshot();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
-
-  // メモリ値のフォーマット関数
-  const formatMemoryValue = (mb: number) => {
-    if (mb >= 1024) {
-      return `${Math.round(mb / 1024 * 100) / 100}GB`;
-    }
-    return `${mb}MB`;
-  };
 
   const chartConfig: Record<
     Exclude<ChartDataType, "gpu">,
@@ -59,82 +51,65 @@ export const Snapshot = () => {
   } satisfies ChartConfig;
 
   return (
-    <div>
-      <div className="mt-2 flex items-center justify-between gap-5">
-        <div className="flex w-full gap-4">
-          <div className="flex-1">
-            <SelectRange
-              label={`Process CPU Usage Range (${cpuRange.value[0]}% - ${cpuRange.value[1]}%)`}
-              range={cpuRange}
-              setRange={setCpuRange}
-            />
-          </div>
-          <div className="flex-1">
-            <SelectRange
-              label={`Process Memory Usage Range (${formatMemoryValue(memoryRange.value[0])} - ${formatMemoryValue(memoryRange.value[1])})`}
-              range={memoryRange}
-              setRange={setMemoryRange}
-              max={selectedMemoryMaxMB}
-            />
-          </div>
-          <div className="w-48">
-            <SelectMemoryMaxOption
+    <div className="my-4 space-y-6">
+      {/* Controls Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <SnapshotIcon size={24} color="currentColor" />
+            {t("shared.snapshot.title")}
+          </CardTitle>
+          <CardDescription>{t("shared.snapshot.description")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <SnapshotControls
+              period={period}
+              setPeriod={setPeriod}
+              cpuRange={cpuRange}
+              setCpuRange={setCpuRange}
+              memoryRange={memoryRange}
+              setMemoryRange={setMemoryRange}
+              selectedDataType={selectedDataType}
+              setSelectedDataType={setSelectedDataType}
+              selectedMemoryMaxMB={selectedMemoryMaxMB}
               memoryMaxOption={memoryMaxOption}
               setMemoryMaxOption={setMemoryMaxOption}
               totalMemoryMB={totalMemoryMB}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Chart Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <SnapshotChart
+            labels={filledLabels}
+            chartData={filledChartData}
+            selectedDataType={selectedDataType}
+            chartConfig={chartConfig}
+            settings={settings}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Process Results Card */}
+      {filteredProcessData.length === 0 ? (
+        <div className="space-y-2 py-8 text-center">
+          <p className="text-muted-foreground">
+            {t("shared.snapshot.noDataMessage")}
+          </p>
+          <p className="text-muted-foreground text-sm">
+            {t("shared.snapshot.adjustFiltersHint")}
+          </p>
         </div>
-
-        <SelectPeriod period={period} setPeriod={setPeriod} />
-      </div>
-
-      {/** データタイプの選択 */}
-      <RadioGroup
-        className="mt-4 flex gap-4"
-        defaultValue="cpu"
-        onValueChange={(e) => setSelectedDataType(e as "cpu" | "memory")}
-      >
-        <Label className="flex items-center gap-2">
-          <RadioGroupItem value="cpu" className="h-4 w-4 text-blue-600" />
-          <span className="flex items-center gap-1">
-            <CpuIcon color={`rgb(${settings.lineGraphColor.cpu})`} />
-            CPU
-          </span>
-        </Label>
-        <Label className="flex items-center gap-2">
-          <RadioGroupItem value="memory" className="h-4 w-4 text-blue-600" />
-          <span className="flex items-center gap-1">
-            <MemoryIcon color={`rgb(${settings.lineGraphColor.memory})`} />
-            RAM
-          </span>
-        </Label>
-      </RadioGroup>
-
-      {/** 選択された範囲のCPU使用率・メモリ使用率 */}
-      <SingleLineChart
-        className="mt-5"
-        labels={filledLabels}
-        chartData={filledChartData}
-        dataType={selectedDataType}
-        chartConfig={chartConfig}
-        border={false}
-        size="lg"
-        lineGraphMix={false}
-        lineGraphShowScale={true}
-        lineGraphShowTooltip={true}
-        lineGraphType={settings.lineGraphType}
-        lineGraphShowLegend={false}
-        dataKey={`${t("shared.usage")} (%)`}
-      />
-
-      {/** 選択された範囲のプロセス */}
-      <div className="mt-6">
+      ) : (
         <ProcessHistoryTable
           processStats={filteredProcessData}
           loading={false}
         />
-      </div>
+      )}
     </div>
   );
 };

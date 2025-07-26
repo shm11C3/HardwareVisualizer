@@ -71,6 +71,27 @@
     "memoryRangeMax": "Memory Range Max",
     "selectMemoryRangeMax": "Select memory range max",
     "deviceCapacity": "Device Capacity",
+    "snapshot": {
+      "title": "Snapshot Analysis",
+      "description": "Analyze hardware usage for the specified time period",
+      "timeRange": "Time Range",
+      "dataType": "Data Type",
+      "filters": "Filters",
+      "cpuUsageFilter": "CPU Usage Filter",
+      "memoryUsageFilter": "Memory Usage Filter",
+      "cpuFilterTooltip": "Only show processes with CPU usage within the specified range",
+      "memoryFilterTooltip": "Only show processes with memory usage within the specified range",
+      "filtersSectionTitle": "Process Filters",
+      "filtersSectionDescription": "Filter processes by the conditions below and display results in the process list",
+      "quickPeriods": {
+        "1h": "1 Hour",
+        "6h": "6 Hours",
+        "24h": "24 Hours",
+        "7d": "7 Days"
+      },
+      "noDataMessage": "No processes found matching the specified criteria",
+      "adjustFiltersHint": "Try adjusting the filter conditions"
+    },
     "other": "Other"
   },
 
@@ -91,6 +112,9 @@
       },
       "process": {
         "title": "Process"
+      },
+      "snapshot": {
+        "title": "Snapshot"
       }
     },
     "settings": {
