@@ -17,16 +17,17 @@ export const useSnapshot = () => {
     value: [0, 100],
   });
   const [archivedData, setArchivedData] = useState<SingleDataArchive[]>([]);
-  const [selectedDataType, setSelectedDataType] = useState<"cpu" | "memory">("cpu");
+  const [selectedDataType, setSelectedDataType] = useState<"cpu" | "memory">(
+    "cpu",
+  );
 
   useEffect(() => {
     const fetchData = async () => {
       const hardwareType = selectedDataType === "memory" ? "ram" : "cpu";
-      const result = await getArchivedRecord(
-        hardwareType,
-        new Date(period.start),
-        new Date(period.end),
-      );
+      const startDate = new Date(period.start);
+      const endDate = new Date(period.end);
+
+      const result = await getArchivedRecord(hardwareType, startDate, endDate);
 
       setArchivedData(result);
     };
@@ -41,14 +42,20 @@ export const useSnapshot = () => {
   const BUCKET_COUNT = 100;
 
   const step = useMemo(() => {
-    const diff =
-      new Date(period.end).getTime() - new Date(period.start).getTime();
-    return diff > 0 ? Math.max(diff / BUCKET_COUNT, 60000) : 60000; // 最小1分間隔
+    const startTime = new Date(period.start).getTime();
+    const endTime = new Date(period.end).getTime();
+    const diff = endTime - startTime;
+
+    // 開始時刻が終了時刻より後の場合は無効
+    if (diff <= 0) return 60000;
+
+    // ステップを整数にして計算の一貫性を保つ
+    return Math.floor(Math.max(diff / BUCKET_COUNT, 60000));
   }, [period]);
 
   const bucketedData = useMemo(() => {
-    return archivedData.reduce(
-      (acc, record) => {
+    const result = archivedData.reduce(
+      (acc, record, _index) => {
         if (record.value == null) return acc;
 
         const recordTime = new Date(record.timestamp).getTime();
@@ -58,15 +65,20 @@ export const useSnapshot = () => {
           acc[bucketTimestamp] = [];
         }
         acc[bucketTimestamp].push(record.value);
+
         return acc;
       },
       {} as Record<number, number[]>,
     );
+
+    return result;
   }, [archivedData, step]);
 
   const dateFormatter = useMemo(() => {
-    const periodMinutes = (new Date(period.end).getTime() - new Date(period.start).getTime()) / (1000 * 60);
-    
+    const periodMinutes =
+      (new Date(period.end).getTime() - new Date(period.start).getTime()) /
+      (1000 * 60);
+
     // 表示オプションを定義（useInsightChartと同じ条件）
     const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
       const options: Intl.DateTimeFormatOptions = {};
@@ -98,6 +110,12 @@ export const useSnapshot = () => {
 
     const startAt = new Date(period.start);
     const endAt = new Date(period.end);
+
+    // 開始時刻が終了時刻より後の場合は空のデータを返す
+    if (startAt.getTime() >= endAt.getTime()) {
+      return { filledLabels, filledChartData };
+    }
+
     const startBucket = Math.floor(startAt.getTime() / step) * step;
     const endBucket = Math.floor(endAt.getTime() / step) * step;
 
@@ -105,15 +123,35 @@ export const useSnapshot = () => {
       const bucketTime = new Date(t);
       const timeLabel = dateFormatter.format(bucketTime);
 
-      if (!bucketedData[t] || bucketedData[t].length === 0) {
-        filledChartData.push(null);
+      // 直接一致を先に確認
+      if (bucketedData[t] && bucketedData[t].length > 0) {
+        const aggregatedValue =
+          bucketedData[t].reduce((sum, v) => sum + v, 0) /
+          bucketedData[t].length;
+        filledChartData.push(Math.round(aggregatedValue * 100) / 100);
         filledLabels.push(timeLabel);
         continue;
       }
 
-      const aggregatedValue =
-        bucketedData[t].reduce((sum, v) => sum + v, 0) / bucketedData[t].length;
-      filledChartData.push(Math.round(aggregatedValue * 100) / 100); // 小数点2桁で丸める
+      // 近接バケット検索
+      let foundData = null;
+      const tolerance = step * 0.5;
+
+      for (const bucketKey of Object.keys(bucketedData)) {
+        const bucketTimestamp = Number(bucketKey);
+        if (
+          Math.abs(bucketTimestamp - t) <= tolerance &&
+          bucketedData[bucketTimestamp]?.length > 0
+        ) {
+          const aggregatedValue =
+            bucketedData[bucketTimestamp].reduce((sum, v) => sum + v, 0) /
+            bucketedData[bucketTimestamp].length;
+          foundData = Math.round(aggregatedValue * 100) / 100;
+          break;
+        }
+      }
+
+      filledChartData.push(foundData);
       filledLabels.push(timeLabel);
     }
 

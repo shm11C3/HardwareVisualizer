@@ -14,28 +14,41 @@ export const SelectPeriod = ({
   setPeriod: (period: SnapshotPeriod) => void;
   className?: string;
 }) => {
+  const toLocalInputValue = (iso: string) => {
+    // ISOストリング（UTC）をローカル時間のinput値に変換
+    const date = new Date(iso);
+    // toISOString()はUTC時間を返すので、getTimezoneOffset()を使ってローカル時間に調整
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    const localDate = new Date(date.getTime() - tzOffset);
+    return localDate.toISOString().slice(0, 16);
+  };
+
   return (
     <div className={twMerge("flex items-center gap-2", className)}>
       <Input
         type="datetime-local"
-        value={period.start.slice(0, 16)}
-        onChange={(e) =>
+        value={toLocalInputValue(period.start)}
+        onChange={(e) => {
+          const localDate = new Date(e.target.value);
+
           setPeriod({
             ...period,
-            start: e.target.value,
-          })
-        }
+            start: localDate.toISOString(),
+          });
+        }}
       />
       ~
       <Input
         type="datetime-local"
-        value={period.end.slice(0, 16)}
-        onChange={(e) =>
+        value={toLocalInputValue(period.end)}
+        onChange={(e) => {
+          const localDate = new Date(e.target.value);
+
           setPeriod({
             ...period,
-            end: e.target.value,
-          })
-        }
+            end: localDate.toISOString(),
+          });
+        }}
       />
     </div>
   );
