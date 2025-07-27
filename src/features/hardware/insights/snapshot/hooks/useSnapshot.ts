@@ -217,8 +217,7 @@ export const useSnapshot = () => {
       const bucketData = bucketedData[t];
       if (bucketData && bucketData.length > 0) {
         const aggregatedValue =
-          bucketData.reduce((sum, v) => sum + v, 0) /
-          bucketData.length;
+          bucketData.reduce((sum, v) => sum + v, 0) / bucketData.length;
         filledChartData.push(Math.round(aggregatedValue * 100) / 100);
         filledLabels.push(timeLabel);
         continue;
