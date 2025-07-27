@@ -5,8 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 後で消す
-    - cron: "0 3 * * 1" # 毎週月曜 12:00(JST)に実行（UTC+9）
+    - cron: "0 3 * * 5"
   workflow_dispatch:
 
 jobs:
