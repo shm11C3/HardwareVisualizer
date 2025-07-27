@@ -62,6 +62,36 @@
     "execTime": "実行時間",
     "totalExecTime": "合計実行時間",
     "latestExecTime": "最終実行時間",
+    "processHistory": "プロセス履歴",
+    "processHistoryCount": "{{count}} 件",
+    "noProcessDataFound": "選択された期間にプロセスデータが見つかりませんでした",
+    "maxProcessCount": "最大プロセス数",
+    "selectProcessCount": "プロセス数を選択",
+    "processCountValue": "{{count}} プロセス",
+    "memoryRangeMax": "メモリ範囲上限",
+    "selectMemoryRangeMax": "メモリ上限を選択",
+    "deviceCapacity": "デバイス容量",
+    "snapshot": {
+      "title": "スナップショット分析",
+      "description": "指定した期間のハードウェア使用状況を分析します",
+      "timeRange": "時間範囲",
+      "dataType": "データタイプ",
+      "filters": "フィルター",
+      "cpuUsageFilter": "CPU使用率フィルター",
+      "memoryUsageFilter": "メモリ使用量フィルター",
+      "cpuFilterTooltip": "指定したCPU使用率範囲内のプロセスのみを表示します",
+      "memoryFilterTooltip": "指定したメモリ使用量範囲内のプロセスのみを表示します",
+      "filtersSectionTitle": "プロセスフィルター",
+      "filtersSectionDescription": "プロセスを絞り込み、結果をプロセス一覧に表示します",
+      "quickPeriods": {
+        "1h": "1時間",
+        "6h": "6時間",
+        "24h": "24時間",
+        "7d": "7日間"
+      },
+      "noDataMessage": "指定した条件に一致するプロセスが見つかりませんでした",
+      "adjustFiltersHint": "フィルター条件を緩めてみてください"
+    },
     "other": "その他"
   },
 
@@ -82,6 +112,9 @@
       },
       "process": {
         "title": "プロセス"
+      },
+      "snapshot": {
+        "title": "スナップショット"
       }
     },
     "settings": {
