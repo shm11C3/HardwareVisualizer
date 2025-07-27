@@ -214,10 +214,11 @@ export const useSnapshot = () => {
       const timeLabel = dateFormatter.format(bucketTime);
 
       // 直接一致を先に確認
-      if (bucketedData[t] && bucketedData[t].length > 0) {
+      const bucketData = bucketedData[t];
+      if (bucketData && bucketData.length > 0) {
         const aggregatedValue =
-          bucketedData[t].reduce((sum, v) => sum + v, 0) /
-          bucketedData[t].length;
+          bucketData.reduce((sum, v) => sum + v, 0) /
+          bucketData.length;
         filledChartData.push(Math.round(aggregatedValue * 100) / 100);
         filledLabels.push(timeLabel);
         continue;
