@@ -93,12 +93,8 @@ export const useInsightChart = (
   const { hardwareType, dataStats, period, offset } = props;
   const { settings } = useSettingsAtom();
 
-  const gpuName =
-    hardwareType === "gpu" ? (props as UseInsightChartGpuProps).gpuName : "";
-  const dataType =
-    hardwareType === "gpu"
-      ? (props as UseInsightChartGpuProps).dataType
-      : undefined;
+  const gpuName = hardwareType === "gpu" ? props.gpuName : "";
+  const dataType = hardwareType === "gpu" ? props.dataType : undefined;
 
   const [data, setData] = useState<Array<SingleDataArchive>>([]);
 

@@ -1,4 +1,5 @@
-import { Database, Warning } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
+import { DatabaseIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ export const SnapshotChart = ({
     return (
       <div className="flex h-[400px] items-center justify-center">
         <div className="space-y-2 text-center">
-          <Warning className="mx-auto h-12 w-12 text-destructive" />
+          <WarningIcon className="mx-auto h-12 w-12 text-destructive" />
           <p className="font-medium text-destructive">Failed to load data</p>
           <p className="text-muted-foreground text-sm">{error.message}</p>
           {onRetry && (
@@ -61,7 +62,7 @@ export const SnapshotChart = ({
     return (
       <div className="flex h-[400px] items-center justify-center">
         <div className="space-y-2 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground" />
+          <DatabaseIcon className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="font-medium">No data available</p>
           <p className="text-muted-foreground text-sm">
             Try adjusting your time range or filters
