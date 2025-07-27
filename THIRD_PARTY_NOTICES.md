@@ -2033,7 +2033,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tauri-apps/api@2.6.0
+## @tauri-apps/api@2.7.0
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
@@ -2149,7 +2149,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-dialog@2.3.0
+## @tauri-apps/plugin-dialog@2.3.1
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -2607,7 +2607,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/node@24.0.13
+## @types/node@24.0.15
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -7410,7 +7410,7 @@ Note that for some tooling (like Jest) that doesn't play well with `package.json
 This project is released under the MIT license, but the vendor'ed in libraries include other licenses (e.g. ISC) that we enumerate in our `package.json:license` field.
 ```
 
-## vite@7.0.4
+## vite@7.0.5
 
 - License: MIT
 - Repository: [https://github.com/vitejs/vite](https://github.com/vitejs/vite)
@@ -7928,10 +7928,10 @@ Repository: jonschlinkert/is-number
 
 ---------------------------------------
 
-## bundle-name, default-browser, default-browser-id, define-lazy-prop, is-docker, is-inside-container, is-wsl, open, run-applescript
+## bundle-name, default-browser, default-browser-id, define-lazy-prop, is-docker, is-inside-container, is-wsl, open, run-applescript, wsl-utils
 License: MIT
 By: Sindre Sorhus
-Repositories: sindresorhus/bundle-name, sindresorhus/default-browser, sindresorhus/default-browser-id, sindresorhus/define-lazy-prop, sindresorhus/is-docker, sindresorhus/is-inside-container, sindresorhus/is-wsl, sindresorhus/open, sindresorhus/run-applescript
+Repositories: sindresorhus/bundle-name, sindresorhus/default-browser, sindresorhus/default-browser-id, sindresorhus/define-lazy-prop, sindresorhus/is-docker, sindresorhus/is-inside-container, sindresorhus/is-wsl, sindresorhus/open, sindresorhus/run-applescript, sindresorhus/wsl-utils
 
 > MIT License
 > 

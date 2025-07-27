@@ -23,14 +23,14 @@ rust-version = "1.88"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.2.0", features = [] }
+tauri-build = { version = "2.3.1", features = [] }
 
 [dependencies]
-serde_json = "1.0.140"
+serde_json = "1.0.141"
 serde = { version = "1.0.219", features = ["derive"] }
-tauri = { version = "2.5.1", features = [] }
-sysinfo = "0.36.0"
-tauri-plugin-window-state = { version = "2.3.0" }
+tauri = { version = "2.7.0", features = [] }
+sysinfo = "0.36.1"
+tauri-plugin-window-state = { version = "2.4.0" }
 nvapi = "=0.1.4"
 tokio = { version = "1.46.1", features = ["full"] }
 tracing = "0.1.41"
@@ -39,7 +39,7 @@ tracing-subscriber = { version = "0.3.19", default-features = true, features = [
 ] }
 chrono = "0.4.41"
 rust_decimal = "1.37.2"
-tauri-plugin-dialog = "2.3.0"
+tauri-plugin-dialog = "2.3.1"
 tauri-plugin-store = "2.3.0"
 base64 = "0.22"
 image = "0.25.6"
@@ -95,7 +95,7 @@ name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
-tauri = { version = "2.5.1", features = ["test"] }
+tauri = { version = "2.7.0", features = ["test"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"
