@@ -28,6 +28,18 @@
 │   └── lib/              # Utility functions
 ├── src-tauri/            # Rust backend
 │   ├── src/              # Rust source code
+│   │   ├── commands/     # Tauri command layer (UI interface)
+│   │   ├── services/     # Application business logic layer
+│   │   ├── platform/     # Platform abstraction layer
+│   │   │   ├── traits.rs # Common interfaces
+│   │   │   ├── factory.rs # Platform selection
+│   │   │   ├── common/   # Shared utilities
+│   │   │   ├── windows/  # Windows-specific implementations
+│   │   │   ├── linux/    # Linux-specific implementations
+│   │   │   └── macos/    # macOS-specific implementations
+│   │   ├── structs/      # Data type definitions
+│   │   ├── utils/        # Utility functions
+│   │   └── _tests/       # Test modules
 │   └── capabilities/     # Tauri permissions
 |── .github/               # GitHub Actions workflows
 │   |── scripts/         # Automation scripts
@@ -77,6 +89,60 @@
 | Windows  | ✅ Supported | WebView2                |
 | Linux    | ✅ Supported | webkit2gtk, sudo access |
 | macOS    | 🔒 Planned   | No ETA                  |
+
+## Architecture Design
+
+### Layered Architecture Pattern
+
+The backend follows a strict layered architecture with unidirectional dependencies:
+
+```
+Commands → Services → Platform → OS APIs
+```
+
+#### Layer Responsibilities
+
+1. **Commands Layer** (`src/commands/`)
+   - Tauri command handlers (UI interface)
+   - Input validation and output formatting
+   - Calls services layer for business logic
+
+2. **Services Layer** (`src/services/`)
+   - Application business logic
+   - Hardware data aggregation and processing
+   - Settings management and system information
+
+3. **Platform Layer** (`src/platform/`)
+   - OS-specific hardware access implementations
+   - Strategy, Adapter, and Factory patterns
+   - Clean abstraction for cross-platform compatibility
+
+#### Design Patterns Used
+
+- **Strategy Pattern**: Unified interfaces for platform services
+- **Adapter Pattern**: OS-specific implementations adapting to common interfaces  
+- **Factory Pattern**: Runtime platform detection and service creation
+
+#### Platform Abstraction
+
+```rust
+// Common interface
+pub trait GpuService: Send + Sync {
+    async fn get_gpu_usage(&self) -> Result<f32, String>;
+    async fn get_all_gpus(&self) -> Result<Vec<GraphicInfo>, String>;
+}
+
+// Platform-specific implementations
+impl GpuService for WindowsGpuService { /* Windows implementation */ }
+impl GpuService for LinuxGpuService { /* Linux implementation */ }
+impl GpuService for MacOSGpuService { /* macOS implementation */ }
+```
+
+### Dependency Rules
+
+- **Single Direction**: Upper layers can only depend on lower layers
+- **No Cross-References**: Services cannot reference commands, platform cannot reference services
+- **Interface Segregation**: Platform interfaces are kept minimal and focused
 
 ## Key Features
 
