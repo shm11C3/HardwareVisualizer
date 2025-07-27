@@ -1,18 +1,13 @@
 use crate::commands::settings;
 use crate::enums;
 use crate::enums::error::BackendError;
-use crate::services;
-use crate::services::nvidia_gpu_service;
+use crate::services::hardware_service::HardwareService;
 use crate::services::system_info_service;
 use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use crate::utils;
-use crate::{log_error, log_internal};
 use sysinfo;
 use tauri::command;
-
-#[cfg(target_os = "windows")]
-use crate::services::wmi_service;
 
 ///
 /// ## プロセスリストを取得
@@ -106,66 +101,17 @@ pub async fn get_hardware_info(
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
 
-  #[cfg(target_os = "windows")]
-  let (memory_result, nvidia_gpus_result, amd_gpus_result, intel_gpus_result) = tokio::join!(
-    wmi_service::get_memory_info(),
-    nvidia_gpu_service::get_nvidia_gpu_info(),
-    services::directx_gpu_service::get_amd_gpu_info(),
-    services::directx_gpu_service::get_intel_gpu_info(),
-  );
+  let hardware_service = HardwareService::new();
 
-  #[cfg(target_os = "linux")]
-  let (memory_result, nvidia_gpus_result) = tokio::join!(
-    services::memory::get_memory_info_linux(),
-    nvidia_gpu_service::get_nvidia_gpu_info(),
-  );
-
-  let mut gpus_result = Vec::new();
-
-  #[cfg(target_os = "linux")]
-  for card_id in services::gpu_linux::get_all_card_ids() {
-    match services::gpu_linux::detect_gpu_vendor(card_id) {
-      services::gpu_linux::GpuVendor::Amd => {
-        if let Ok(info) = services::amd_gpu_linux::get_amd_graphic_info(card_id).await {
-          gpus_result.push(info);
-        }
-      }
-      services::gpu_linux::GpuVendor::Intel => {
-        if let Ok(info) = services::intel_gpu_linux::get_intel_graphic_info(card_id).await
-        {
-          gpus_result.push(info);
-        }
-      }
-      _ => {}
-    }
-  }
-
-  // NVIDIA の結果を確認して結合
-  match nvidia_gpus_result {
-    Ok(nvidia_gpus) => gpus_result.extend(nvidia_gpus),
-    Err(e) => log_error!("nvidia_error", "get_all_gpu_info", Some(e)),
-  }
-
-  // AMD の結果を確認して結合
-  #[cfg(target_os = "windows")]
-  match amd_gpus_result {
-    Ok(amd_gpus) => gpus_result.extend(amd_gpus),
-    Err(e) => log_error!("amd_error", "get_all_gpu_info", Some(e)),
-  }
-
-  // Intel の結果を確認して結合
-  #[cfg(target_os = "windows")]
-  match intel_gpus_result {
-    Ok(intel_gpus) => gpus_result.extend(intel_gpus),
-    Err(e) => log_error!("intel_error", "get_all_gpu_info", Some(e)),
-  }
+  let (memory_result, gpus_result) =
+    tokio::join!(hardware_service.get_memory_info(), hardware_service.get_all_gpus(),);
 
   let storage_info = system_info_service::get_storage_info()?;
 
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
     memory: memory_result.ok(),
-    gpus: Some(gpus_result),
+    gpus: Some(gpus_result.unwrap_or_default()),
     storage: storage_info,
   };
 
@@ -186,11 +132,14 @@ pub async fn get_hardware_info(
 #[specta::specta]
 pub async fn get_memory_info_detail_linux()
 -> Result<structs::hardware::MemoryInfo, String> {
-  #[cfg(not(target_os = "linux"))]
-  return Err("Detailed memory info is not supported on this OS".to_string());
-
-  #[cfg(target_os = "linux")]
-  services::memory::get_memory_info_dmidecode().await
+  let hardware_service = HardwareService::new();
+  match hardware_service.get_detailed_memory_info().await {
+    Ok(infos) => infos
+      .into_iter()
+      .next()
+      .ok_or_else(|| "No memory info available".to_string()),
+    Err(e) => Err(e),
+  }
 }
 
 ///
@@ -218,52 +167,10 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 #[command]
 #[specta::specta]
 pub async fn get_gpu_usage() -> Result<i32, String> {
-  if let Ok(usage) = nvidia_gpu_service::get_nvidia_gpu_usage().await {
-    return Ok((usage * 100.0).round() as i32);
-  }
-
-  // NVIDIA APIが失敗した場合、WMIから取得を試みる
-  #[cfg(target_os = "windows")]
-  match wmi_service::get_gpu_usage_by_device_and_engine("3D").await {
-    Ok(usage) => Ok((usage * 100.0).round() as i32),
-    Err(e) => Err(format!(
-      "Failed to get GPU usage from both NVIDIA API and WMI: {e:?}"
-    )),
-  }
-
-  #[cfg(target_os = "linux")]
-  {
-    for card_id in 0..=9 {
-      let vendor_path = format!("/sys/class/drm/card{card_id}/device/vendor");
-      if !std::path::Path::new(&vendor_path).exists() {
-        continue;
-      }
-
-      let vendor_id = tokio::fs::read_to_string(&vendor_path)
-        .await
-        .map_err(|e| format!("Failed to read vendor: {e}"))?
-        .trim()
-        .to_string();
-
-      match vendor_id.as_str() {
-        // AMDのGPUを検出した場合
-        "0x1002" => {
-          if let Ok(usage) = services::amd_gpu_linux::get_amd_gpu_usage(card_id).await {
-            return Ok((usage * 100.0).round() as i32);
-          }
-        }
-        // IntelのGPUを検出した場合
-        "0x8086" => {
-          if let Ok(usage) = services::intel_gpu_linux::get_intel_gpu_usage(card_id).await
-          {
-            return Ok((usage * 100.0).round() as i32);
-          }
-        }
-        _ => {}
-      }
-    }
-
-    Err("Failed to get GPU usage on Linux (non-NVIDIA fallback)".to_string())
+  let hardware_service = HardwareService::new();
+  match hardware_service.get_gpu_usage().await {
+    Ok(usage) => Ok(usage.round() as i32),
+    Err(e) => Err(e),
   }
 }
 
@@ -274,13 +181,14 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 #[specta::specta]
 pub async fn get_gpu_temperature(
   state: tauri::State<'_, settings::AppState>,
-) -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+) -> Result<Vec<crate::services::hardware_service::NameValue>, String> {
   let temperature_unit = {
     let config = state.settings.lock().unwrap();
     config.temperature_unit.clone()
   };
 
-  match nvidia_gpu_service::get_nvidia_gpu_temperature().await {
+  let hardware_service = HardwareService::new();
+  match hardware_service.get_nvidia_gpu_temperature().await {
     Ok(temps) => {
       let temps = temps
         .iter()
@@ -291,7 +199,7 @@ pub async fn get_gpu_temperature(
             temp.value,
           );
 
-          nvidia_gpu_service::NameValue {
+          crate::services::hardware_service::NameValue {
             name: temp.name.clone(),
             value,
           }
@@ -308,9 +216,10 @@ pub async fn get_gpu_temperature(
 ///
 #[command]
 #[specta::specta]
-pub async fn get_nvidia_gpu_cooler() -> Result<Vec<nvidia_gpu_service::NameValue>, String>
+pub async fn get_nvidia_gpu_cooler() -> Result<Vec<crate::services::hardware_service::NameValue>, String>
 {
-  match nvidia_gpu_service::get_nvidia_gpu_cooler_stat().await {
+  let hardware_service = HardwareService::new();
+  match hardware_service.get_nvidia_gpu_cooler_stat().await {
     Ok(temps) => Ok(temps),
     Err(e) => Err(format!("Failed to get GPU cooler status: {e:?}")),
   }
@@ -384,13 +293,10 @@ pub fn get_gpu_usage_history(
 ///
 #[command]
 #[specta::specta]
-pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  #[cfg(target_os = "windows")]
-  let result = wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError);
-
-  #[cfg(target_os = "linux")]
-  let result =
-    services::ip_linux::get_network_info().map_err(|_| BackendError::UnexpectedError);
-
-  result
+pub async fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+  let hardware_service = HardwareService::new();
+  match hardware_service.get_network_info().await {
+    Ok(info) => Ok(info),
+    Err(_) => Err(BackendError::UnexpectedError),
+  }
 }
