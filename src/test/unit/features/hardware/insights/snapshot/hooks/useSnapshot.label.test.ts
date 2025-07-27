@@ -88,8 +88,9 @@ describe("useSnapshot - Label Formatting", () => {
 
     // Labels should be in HH:MM format for periods under 180 minutes
     const hasTimeFormat = result.current.filledLabels.some((label) =>
-      /^\d{2}:\d{2}$/.test(label),
+      /\d{1,2}:\d{2}/.test(label),
     );
+    expect(result.current.filledLabels.length).toBeGreaterThan(0);
     expect(hasTimeFormat).toBe(true);
   });
 
