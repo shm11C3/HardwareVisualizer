@@ -4,8 +4,8 @@ import {
   chartConfig,
 } from "@/features/hardware/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
+import type { ProcessStat } from "../../types/processStats";
 import { getProcessStats } from "../funcs/getProcessStatsRecord";
-import type { ProcessStat } from "../types/processStats";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
 
 export const useProcessStats = ({

@@ -147,7 +147,7 @@ const DataArea = ({
   title,
   icon,
   border = false,
-  className = "rounded-2xl bg-zinc-300/50 dark:bg-slate-950/50",
+  className = "rounded-2xl bg-card",
 }: {
   children: React.ReactNode;
   title?: string;

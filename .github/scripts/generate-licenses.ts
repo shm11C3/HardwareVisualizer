@@ -43,6 +43,11 @@ let output = "# THIRD_PARTY_NOTICES\n\n";
 output +=
   "This application includes third-party libraries licensed under their respective licenses.\n\n";
 
+//
+// ====================
+// 1. Node.js dependencies (prod only)
+// ====================
+//
 try {
   const npmRawJson = execSync("npx license-checker --production --json", {
     encoding: "utf8",
@@ -75,6 +80,11 @@ try {
   console.error("❌ Failed to collect NPM licenses:", e);
 }
 
+//
+// ====================
+// 2. Rust dependencies (filtered by metadata)
+// ====================
+//
 try {
   const cargoJson = execSync("cargo license --json", {
     cwd: "src-tauri",
@@ -82,13 +92,25 @@ try {
   });
   const cargoData: CargoLicenseInfo[] = JSON.parse(cargoJson);
 
-  // crate名→パスの辞書を作る
   const metadataJson = execSync("cargo metadata --format-version 1", {
     cwd: "src-tauri",
     encoding: "utf8",
     maxBuffer: 100 * 1024 * 1024,
   });
   const metadata = JSON.parse(metadataJson);
+
+  // runtime に必要な crate のみ残す
+  const runtimeCrates = new Set<string>();
+  for (const pkg of metadata.packages) {
+    const kinds = pkg.targets.flatMap((t: any) => t.kind);
+    const isBuildOnly = kinds.includes("custom-build"); // build.rs専用
+    const isTestOnly = kinds.includes("test") || kinds.includes("example"); // dev専用
+
+    if (!isBuildOnly && !isTestOnly) {
+      runtimeCrates.add(`${pkg.name}@${pkg.version}`);
+    }
+  }
+
   const packageMap: Record<string, string> = {};
   for (const pkg of metadata.packages) {
     packageMap[`${pkg.name}@${pkg.version}`] = pkg.manifest_path
@@ -97,10 +119,12 @@ try {
   }
 
   for (const crate of cargoData) {
+    const crateKey = `${crate.name}@${crate.version}`;
+    if (!runtimeCrates.has(crateKey)) continue; // build/test専用は除外
+
     output += generateLicenseTxt(crate.name, crate.license, crate.repository);
 
     // LICENSEファイルを探して内容を追加
-    const crateKey = `${crate.name}@${crate.version}`;
     const cratePath = packageMap[crateKey];
     if (cratePath) {
       const licenseFiles = [

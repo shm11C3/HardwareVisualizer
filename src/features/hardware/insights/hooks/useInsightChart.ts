@@ -93,12 +93,8 @@ export const useInsightChart = (
   const { hardwareType, dataStats, period, offset } = props;
   const { settings } = useSettingsAtom();
 
-  const gpuName =
-    hardwareType === "gpu" ? (props as UseInsightChartGpuProps).gpuName : "";
-  const dataType =
-    hardwareType === "gpu"
-      ? (props as UseInsightChartGpuProps).dataType
-      : undefined;
+  const gpuName = hardwareType === "gpu" ? props.gpuName : "";
+  const dataType = hardwareType === "gpu" ? props.dataType : undefined;
 
   const [data, setData] = useState<Array<SingleDataArchive>>([]);
 
@@ -248,7 +244,8 @@ export const useInsightChart = (
     const filledLabels: string[] = [];
 
     for (let t = startBucket; t <= endBucket; t += step) {
-      if (!bucketedData[t] || bucketedData[t].length <= 0) {
+      const bucketData = bucketedData[t];
+      if (!bucketData || bucketData.length <= 0) {
         if (t <= endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) {
           filledChartData.push(null);
           filledLabels.push(dateFormatter.format(new Date(t)));
@@ -257,7 +254,7 @@ export const useInsightChart = (
         continue;
       }
 
-      const aggregatedValue = aggregateFn(bucketedData[t]);
+      const aggregatedValue = aggregateFn(bucketData);
       filledChartData.push(aggregatedValue);
       filledLabels.push(dateFormatter.format(new Date(t)));
     }

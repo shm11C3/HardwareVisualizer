@@ -33,7 +33,7 @@ const buttonClasses = tv({
 });
 
 const sideMenuClasses = tv({
-  base: "fixed top-0 left-0 h-full bg-zinc-300 dark:bg-gray-800 dark:text-white w-64 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full bg-accent text-foreground w-64 transform transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "translate-x-0",
@@ -43,7 +43,7 @@ const sideMenuClasses = tv({
 });
 
 const closedSideMenuClasses = tv({
-  base: "fixed top-0 left-0 h-full bg-zinc-300 dark:bg-gray-800 dark:text-white w-16 transform transition-transform duration-300 ease-in-out",
+  base: "fixed top-0 left-0 h-full bg-accent text-foreground w-16 transform transition-transform duration-300 ease-in-out",
   variants: {
     open: {
       true: "-translate-x-full",

@@ -82,7 +82,7 @@ export const ProcessesTable = () => {
 
   return (
     <div
-      className="rounded-md bg-[#dcdcdf] p-4 dark:bg-[#090f20] dark:text-white"
+      className="rounded-md bg-card-non-transparent p-4 "
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -121,7 +121,7 @@ export const ProcessesTable = () => {
           />
         </div>
 
-        <DialogContent className="m-8 rounded-md border bg-[#dcdcdf] p-4 shadow-md 2xl:max-w-[800px] dark:bg-[#090f20] dark:text-white">
+        <DialogContent className="m-8 rounded-md border bg-card-non-transparent p-4 text-foreground shadow-md 2xl:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>{t("shared.process")}</DialogTitle>
             <DialogDescription>
@@ -164,7 +164,7 @@ const InfoTable = ({
   return (
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
-        <thead className="sticky top-[-1px] h-14 bg-[#dcdcdf] dark:bg-[#090f20]">
+        <thead className="sticky top-[-1px] h-14 bg-card-non-transparent">
           <tr className="border-gray-700 border-b">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"

@@ -10,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { darkClasses } from "@/consts/style";
 import type { sizeOptions } from "@/features/hardware/consts/chart";
 import {
   type ChartDataType,
@@ -148,12 +149,12 @@ export const SingleLineChart = ({
             domain={range}
             hide={!lineGraphShowScale}
             tick={{
-              fill: { light: "#77777", dark: "#fff" }[settings.theme],
+              fill: darkClasses.includes(settings.theme) ? "#fff" : "#77777",
             }}
             stroke={
-              { light: "#77777", dark: "rgba(255, 255, 255, 0.2)" }[
-                settings.theme
-              ]
+              darkClasses.includes(settings.theme)
+                ? "rgba(255, 255, 255, 0.2)"
+                : "#77777"
             }
             tickCount={12}
           />
@@ -240,12 +241,12 @@ const MixLineChart = ({
             domain={[0, 100]}
             hide={!settings.lineGraphShowScale}
             tick={{
-              fill: { light: "#77777", dark: "#fff" }[settings.theme],
+              fill: darkClasses.includes(settings.theme) ? "#fff" : "#77777",
             }}
             stroke={
-              { light: "#77777", dark: "rgba(255, 255, 255, 0.2)" }[
-                settings.theme
-              ]
+              darkClasses.includes(settings.theme)
+                ? "rgba(255, 255, 255, 0.2)"
+                : "#77777"
             }
             tickCount={12}
           />
@@ -284,6 +285,7 @@ const MixLineChart = ({
  * @todo `type="monotone"` を変更できるようにする
  * @todo tooltip の表示/非表示を変更できるようにする
  */
+
 export const LineChartComponent = (
   props: SingleChartProps | MultiChartProps,
 ) => {
