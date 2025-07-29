@@ -97,7 +97,7 @@
 The backend follows a strict layered architecture with unidirectional dependencies:
 
 ```
-Commands → Services → Platform → OS APIs
+Commands → Services → Repositories → Platform (via Factory) → OS APIs
 ```
 
 #### Layer Responsibilities
@@ -112,37 +112,76 @@ Commands → Services → Platform → OS APIs
    - Hardware data aggregation and processing
    - Settings management and system information
 
-3. **Platform Layer** (`src/platform/`)
+3. **Repositories Layer** (`src/repositories/`)
+   - Data access abstraction layer
+   - Platform-agnostic data retrieval interfaces
+   - Handles platform-specific implementation details
+   - Error handling and data format standardization
+
+4. **Platform Layer** (`src/platform/`)
    - OS-specific hardware access implementations
-   - Strategy, Adapter, and Factory patterns
+   - Factory pattern for platform instance creation
    - Clean abstraction for cross-platform compatibility
 
 #### Design Patterns Used
 
+- **Repository Pattern**: Abstracts data access and platform-specific logic
 - **Strategy Pattern**: Unified interfaces for platform services
 - **Adapter Pattern**: OS-specific implementations adapting to common interfaces  
 - **Factory Pattern**: Runtime platform detection and service creation
 
+#### Repository Pattern Implementation
+
+```rust
+// Repository abstracts platform complexity
+pub trait MemoryRepository: Send + Sync {
+    async fn get_memory_info(&self) -> Result<MemoryInfo, String>;
+    async fn get_memory_info_detail(&self) -> Result<MemoryInfo, String>;
+}
+
+// Platform-agnostic repository implementation
+pub struct MemoryRepositoryImpl {
+    platform: PlatformInstance,
+}
+
+impl MemoryRepository for MemoryRepositoryImpl {
+    async fn get_memory_info(&self) -> Result<MemoryInfo, String> {
+        self.platform.get_memory_info().await
+    }
+}
+```
+
 #### Platform Abstraction
 
 ```rust
-// Common interface
-pub trait GpuService: Send + Sync {
-    async fn get_gpu_usage(&self) -> Result<f32, String>;
-    async fn get_all_gpus(&self) -> Result<Vec<GraphicInfo>, String>;
+// Platform traits define hardware access contracts
+pub trait MemoryPlatform: Send + Sync {
+    fn get_memory_info(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
+    fn get_memory_info_detail(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
+    fn platform_name(&self) -> &'static str;
+}
+
+// Factory creates appropriate platform instances
+impl PlatformFactory {
+    pub fn create() -> Result<PlatformInstance, PlatformError> {
+        let platform_type = PlatformType::detect();
+        Self::create_for_platform(platform_type)
+    }
 }
 
 // Platform-specific implementations
-impl GpuService for WindowsGpuService { /* Windows implementation */ }
-impl GpuService for LinuxGpuService { /* Linux implementation */ }
-impl GpuService for MacOSGpuService { /* macOS implementation */ }
+impl MemoryPlatform for WindowsPlatform { /* Windows implementation */ }
+impl MemoryPlatform for LinuxPlatform { /* Linux implementation */ }
+impl MemoryPlatform for MacOSPlatform { /* macOS implementation */ }
 ```
 
 ### Dependency Rules
 
 - **Single Direction**: Upper layers can only depend on lower layers
-- **No Cross-References**: Services cannot reference commands, platform cannot reference services
+- **No Cross-References**: Services cannot reference commands, repositories cannot reference services
 - **Interface Segregation**: Platform interfaces are kept minimal and focused
+- **Factory Responsibility**: Factory focuses solely on instance creation, not business logic
+- **Repository Responsibility**: Repository handles platform complexity and data access abstraction
 
 ## Key Features
 
