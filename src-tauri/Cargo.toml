@@ -32,7 +32,7 @@ tauri = { version = "2.7.0", features = [] }
 sysinfo = "0.36.1"
 tauri-plugin-window-state = { version = "2.4.0" }
 nvapi = "=0.1.4"
-tokio = { version = "1.46.1", features = ["full"] }
+tokio = { version = "1.47.0", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", default-features = true, features = [
     "env-filter",
