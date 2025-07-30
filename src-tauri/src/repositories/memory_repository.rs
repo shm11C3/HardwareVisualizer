@@ -1,5 +1,5 @@
-use crate::platform::traits::{MemoryPlatform, Platform};
-use crate::platform::{PlatformError, PlatformFactory, PlatformType};
+use crate::platform::traits::Platform;
+use crate::platform::{PlatformFactory, PlatformType};
 use crate::structs::hardware::MemoryInfo;
 use async_trait::async_trait;
 
@@ -21,7 +21,7 @@ pub struct MemoryRepositoryImpl {
 impl MemoryRepositoryImpl {
   /// 新しい MemoryRepositoryImpl インスタンスを作成
   pub fn new() -> Result<Self, String> {
-    let platform = PlatformFactory::create_platform()
+    let platform = PlatformFactory::create()
       .map_err(|e| format!("Failed to create platform: {}", e))?;
 
     Ok(Self { platform })

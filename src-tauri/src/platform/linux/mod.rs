@@ -7,6 +7,8 @@ use crate::utils::formatter::SizeUnit;
 use std::future::Future;
 use std::pin::Pin;
 
+pub mod memory;
+
 /// Linux プラットフォーム実装（ダミー）
 pub struct LinuxPlatform;
 
@@ -16,39 +18,29 @@ impl LinuxPlatform {
   }
 }
 
-impl MemoryPlatform for LinuxPlatform {
+impl MemoryPlatform for WindowsPlatform {
   fn get_memory_info(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
-    Box::pin(async {
-      // Linux ダミー実装
-      Ok(MemoryInfo {
-        size: "32 GB".to_string(),
-        clock: 3600,
-        clock_unit: "MHz".to_string(),
-        memory_count: 4,
-        total_slots: 4,
-        memory_type: "DDR4".to_string(),
-        is_detailed: false,
-      })
-    })
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<crate::structs::hardware::MemoryInfo, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    memory::get_memory_info()
   }
 
   fn get_memory_info_detail(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
-    Box::pin(async {
-      // Linux ダミー実装
-      Ok(MemoryInfo {
-        size: "32 GB".to_string(),
-        clock: 3600,
-        clock_unit: "MHz".to_string(),
-        memory_count: 4,
-        total_slots: 4,
-        memory_type: "DDR4".to_string(),
-        is_detailed: true,
-      })
-    })
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<crate::structs::hardware::MemoryInfo, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    memory::get_memory_info_detail()
   }
 }
 

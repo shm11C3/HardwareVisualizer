@@ -6,6 +6,7 @@ mod backgrounds;
 mod commands;
 mod database;
 mod enums;
+mod infrastructure;
 mod platform;
 mod repositories;
 mod services;
@@ -29,6 +30,8 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 
+use services::hardware_services::HardwareServices;
+
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 
@@ -44,6 +47,10 @@ pub fn run() {
   let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
+
+  // ハードウェアサービス層の初期化
+  let hardware_services =
+    HardwareServices::new().expect("Failed to create hardware services");
 
   let state = structs::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
@@ -64,7 +71,7 @@ pub fn run() {
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
-    hardware::get_memory_info_detail_linux,
+    hardware::get_memory_info_detail,
     hardware::get_memory_usage,
     hardware::get_gpu_usage,
     hardware::get_processors_usage,
@@ -194,6 +201,7 @@ pub fn run() {
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_os::init())
     .manage(state)
+    .manage(hardware_services)
     .manage(app_state)
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

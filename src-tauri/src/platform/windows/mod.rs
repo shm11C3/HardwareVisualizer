@@ -1,9 +1,13 @@
-use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
-use crate::structs::hardware::{GraphicInfo, MemoryInfo, NetworkInfo, SysInfo, StorageInfo};
 use crate::enums::hardware::DiskKind;
+use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
+use crate::structs::hardware::{
+  GraphicInfo, MemoryInfo, NetworkInfo, StorageInfo, SysInfo,
+};
 use crate::utils::formatter::SizeUnit;
 use std::future::Future;
 use std::pin::Pin;
+
+pub mod memory;
 
 /// Windows プラットフォーム実装（ダミー）
 pub struct WindowsPlatform;
@@ -17,36 +21,26 @@ impl WindowsPlatform {
 impl MemoryPlatform for WindowsPlatform {
   fn get_memory_info(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
-    Box::pin(async {
-      // Windows ダミー実装
-      Ok(MemoryInfo {
-        size: "16 GB".to_string(),
-        clock: 3200,
-        clock_unit: "MHz".to_string(),
-        memory_count: 2,
-        total_slots: 4,
-        memory_type: "DDR4".to_string(),
-        is_detailed: false,
-      })
-    })
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<crate::structs::hardware::MemoryInfo, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    memory::get_memory_info()
   }
 
   fn get_memory_info_detail(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
-    Box::pin(async {
-      // Windows ダミー実装
-      Ok(MemoryInfo {
-        size: "16 GB".to_string(),
-        clock: 3200,
-        clock_unit: "MHz".to_string(),
-        memory_count: 2,
-        total_slots: 4,
-        memory_type: "DDR4".to_string(),
-        is_detailed: true,
-      })
-    })
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<crate::structs::hardware::MemoryInfo, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    memory::get_memory_info_detail()
   }
 }
 
@@ -121,10 +115,10 @@ impl Platform for WindowsPlatform {
       let storage_info = vec![StorageInfo {
         name: "C:".to_string(),
         size: 1000.0,
-        size_unit: SizeUnit::GB,
+        size_unit: SizeUnit::GBytes,
         free: 500.0,
-        free_unit: SizeUnit::GB,
-        storage_type: DiskKind::SSD,
+        free_unit: SizeUnit::GBytes,
+        storage_type: DiskKind::Ssd,
         file_system: "NTFS".to_string(),
       }];
 

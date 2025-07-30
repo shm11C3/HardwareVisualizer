@@ -59,7 +59,12 @@ impl PlatformType {
 pub struct PlatformFactory;
 
 impl PlatformFactory {
-    /// 現在のプラットフォームに適した Platform trait object を作成
+  /// 現在のプラットフォームに適した Platform trait object を作成
+  pub fn create() -> Result<Box<dyn crate::platform::traits::Platform>, PlatformError> {
+    Self::create_platform()
+  }
+
+  /// 現在のプラットフォームに適した Platform trait object を作成
   pub fn create_platform() -> Result<Box<dyn crate::platform::traits::Platform>, PlatformError> {
     #[cfg(target_os = "windows")]
     {

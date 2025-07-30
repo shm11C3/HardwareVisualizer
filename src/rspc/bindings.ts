@@ -36,14 +36,14 @@ async getHardwareInfo() : Promise<Result<SysInfo, string>> {
 }
 },
 /**
- * ## 詳細なメモリ情報を取得（Linux）
+ * ## 詳細なメモリ情報を取得
  * 
  * - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
  * 
  */
-async getMemoryInfoDetailLinux() : Promise<Result<MemoryInfo, string>> {
+async getMemoryInfoDetail() : Promise<Result<MemoryInfo, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_memory_info_detail_linux") };
+    return { status: "ok", data: await TAURI_INVOKE("get_memory_info_detail") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

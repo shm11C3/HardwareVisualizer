@@ -87,7 +87,7 @@ mod tests {
     // 現在のプラットフォーム以外を指定してエラーになることを確認
     #[cfg(target_os = "windows")]
     {
-      let result = PlatformFactory::create_for_platform(PlatformType::Linux);
+      let result = PlatformFactory::create_platform_for_type(PlatformType::Linux);
       assert!(result.is_err());
       match result {
         Err(PlatformError::UnsupportedPlatform(_)) => {
@@ -99,7 +99,7 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     {
-      let result = PlatformFactory::create_for_platform(PlatformType::Windows);
+      let result = PlatformFactory::create_platform_for_type(PlatformType::Windows);
       assert!(result.is_err());
       match result {
         Err(PlatformError::UnsupportedPlatform(_)) => {
@@ -114,7 +114,7 @@ mod tests {
   fn test_create_for_current_platform() {
     // 現在のプラットフォーム用のインスタンス作成は実装未完了のためエラーになる
     let current = PlatformType::detect();
-    let result = PlatformFactory::create_for_platform(current);
+    let result = PlatformFactory::create_platform_for_type(current);
     assert!(result.is_err());
     match result {
       Err(PlatformError::InitializationFailed(_)) => {
