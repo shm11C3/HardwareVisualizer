@@ -1,6 +1,4 @@
-use crate::infrastructure::wmi_provider;
 use crate::services::memory;
-use crate::structs;
 use crate::structs;
 use crate::structs::hardware::MemoryInfo;
 use crate::utils;

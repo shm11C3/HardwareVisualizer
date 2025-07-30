@@ -18,7 +18,7 @@ impl LinuxPlatform {
   }
 }
 
-impl MemoryPlatform for WindowsPlatform {
+impl MemoryPlatform for LinuxPlatform {
   fn get_memory_info(
     &self,
   ) -> Pin<
@@ -115,10 +115,10 @@ impl Platform for LinuxPlatform {
       let storage_info = vec![StorageInfo {
         name: "/dev/sda1".to_string(),
         size: 2000.0,
-        size_unit: SizeUnit::GB,
+        size_unit: SizeUnit::GBytes,
         free: 1000.0,
-        free_unit: SizeUnit::GB,
-        storage_type: DiskKind::NVMe,
+        free_unit: SizeUnit::GBytes,
+        storage_type: DiskKind::Ssd,
         file_system: "ext4".to_string(),
       }];
 
