@@ -1,3 +1,3 @@
-pub mod memory_repository;
+pub mod platform_repository;
 
-pub use memory_repository::{MemoryRepository, MemoryRepositoryImpl};
+pub use platform_repository::{MemoryRepository, MemoryRepositoryImpl};
