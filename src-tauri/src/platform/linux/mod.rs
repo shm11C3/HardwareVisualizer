@@ -7,6 +7,7 @@ use crate::utils::formatter::SizeUnit;
 use std::future::Future;
 use std::pin::Pin;
 
+pub mod cache;
 pub mod memory;
 
 /// Linux プラットフォーム実装（ダミー）
