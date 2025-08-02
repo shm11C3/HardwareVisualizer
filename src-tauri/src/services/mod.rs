@@ -11,9 +11,6 @@ pub mod directx_gpu_service;
 pub mod wmi_service;
 
 #[cfg(target_os = "linux")]
-pub mod memory;
-
-#[cfg(target_os = "linux")]
 pub mod ip_linux;
 
 #[cfg(target_os = "linux")]

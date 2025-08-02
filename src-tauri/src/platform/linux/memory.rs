@@ -1,4 +1,3 @@
-use crate::services::memory;
 use crate::structs;
 use crate::structs::hardware::MemoryInfo;
 use crate::utils;
@@ -48,7 +47,7 @@ pub fn get_memory_info_detail()
     let raw = get_raw_dmidecode().await?;
     let parsed = parse_dmidecode_memory_info(&raw);
 
-    if let Err(e) = memory::save_memory_info_cache(&parsed) {
+    if let Err(e) = save_memory_info_cache(&parsed) {
       log_warn!(
         "Failed to cache memory info",
         "get_memory_info_dmidecode",
@@ -185,6 +184,28 @@ fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
     total_slots,
     memory_type,
   }
+}
+
+/// メモリ情報キャッシュを保存読み込む
+pub fn save_memory_info_cache(info: &structs::hardware::MemoryInfo) -> io::Result<()> {
+  let path = get_cache_path();
+
+  if let Some(parent) = path.parent() {
+    fs::create_dir_all(parent)?;
+  }
+
+  let now = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map_err(io::Error::other)?
+    .as_millis() as u64;
+
+  let wrapper = MemoryInfoWithMeta {
+    timestamp: now,
+    data: info.clone(),
+  };
+
+  let json = serde_json::to_string_pretty(&wrapper)?;
+  fs::write(path, json)
 }
 
 fn get_cache_path() -> std::path::PathBuf {
