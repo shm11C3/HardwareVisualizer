@@ -1,5 +1,5 @@
+use crate::platform::PlatformFactory;
 use crate::platform::traits::Platform;
-use crate::platform::{PlatformFactory, PlatformType};
 use crate::structs::hardware::MemoryInfo;
 use async_trait::async_trait;
 
@@ -21,21 +21,14 @@ pub struct MemoryRepositoryImpl {
 impl MemoryRepositoryImpl {
   /// 新しい MemoryRepositoryImpl インスタンスを作成
   pub fn new() -> Result<Self, String> {
-    let platform = PlatformFactory::create()
-      .map_err(|e| format!("Failed to create platform: {}", e))?;
-
-    Ok(Self { platform })
-  }
-
-  /// 指定されたプラットフォーム用の MemoryRepositoryImpl を作成
-  pub fn new_for_platform(platform_type: PlatformType) -> Result<Self, String> {
-    let platform = PlatformFactory::create_platform_for_type(platform_type)
-      .map_err(|e| format!("Failed to create platform: {}", e))?;
+    let platform =
+      PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
     Ok(Self { platform })
   }
 
   /// 依存注入用のコンストラクタ（テスト用）
+  #[cfg(test)]
   pub fn new_with_platform(platform: Box<dyn Platform>) -> Self {
     Self { platform }
   }

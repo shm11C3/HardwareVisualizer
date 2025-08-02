@@ -69,6 +69,7 @@ pub async fn query_memory_info() -> Result<MemoryInfo, String> {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
+#[allow(dead_code)] // TODO 後で外す
 struct GpuEngineLoadInfo {
   name: String,
   utilization_percentage: Option<u16>,
@@ -77,6 +78,7 @@ struct GpuEngineLoadInfo {
 ///
 /// 指定したGPUエンジンの使用率を取得する（WMIを使用）
 ///
+#[allow(dead_code)] // TODO 後で外す
 pub async fn query_gpu_usage_by_device_and_engine(
   engine_type: &str,
 ) -> Result<f32, Box<dyn Error>> {
@@ -115,6 +117,7 @@ pub async fn query_gpu_usage_by_device_and_engine(
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
+#[allow(dead_code)] // TODO 後で外す
 struct NetworkAdapterConfiguration {
   description: Option<String>,
   #[serde(rename = "MACAddress")]
@@ -127,6 +130,7 @@ struct NetworkAdapterConfiguration {
   default_ip_gateway: Option<Vec<String>>,
 }
 
+#[allow(dead_code)] // TODO 後で外す
 pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
   let results: Vec<NetworkAdapterConfiguration> = wmi_query_in_thread(
     "SELECT Description, MACAddress, IPAddress, IPSubnet, DefaultIPGateway FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = TRUE".to_string(),

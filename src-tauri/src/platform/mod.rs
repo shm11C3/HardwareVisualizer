@@ -10,6 +10,4 @@ pub mod windows;
 #[cfg(target_os = "macos")]
 pub mod macos;
 
-// Factory API のみをエクスポート（責務を明確化）
-pub use factory::{PlatformFactory, PlatformType, PlatformError};
-pub use traits::{MemoryPlatform, GpuPlatform, NetworkPlatform, Platform};
+pub use factory::PlatformFactory;

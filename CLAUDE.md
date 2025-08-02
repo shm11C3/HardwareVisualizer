@@ -128,7 +128,7 @@ Commands → Services → Repositories → Platform (via Factory) → OS APIs
 - **Repository Pattern**: Abstracts data access and platform-specific logic
 - **Strategy Pattern**: Unified interfaces for platform services
 - **Adapter Pattern**: OS-specific implementations adapting to common interfaces  
-- **Factory Pattern**: Runtime platform detection and service creation
+- **Factory Pattern**: Automatic platform detection via conditional compilation and service creation
 
 #### Repository Pattern Implementation
 
@@ -141,7 +141,7 @@ pub trait MemoryRepository: Send + Sync {
 
 // Platform-agnostic repository implementation
 pub struct MemoryRepositoryImpl {
-    platform: PlatformInstance,
+    platform: Box<dyn Platform>,
 }
 
 impl MemoryRepository for MemoryRepositoryImpl {
@@ -158,14 +158,23 @@ impl MemoryRepository for MemoryRepositoryImpl {
 pub trait MemoryPlatform: Send + Sync {
     fn get_memory_info(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
     fn get_memory_info_detail(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
-    fn platform_name(&self) -> &'static str;
 }
 
-// Factory creates appropriate platform instances
+// Simplified factory for automatic platform detection
 impl PlatformFactory {
-    pub fn create() -> Result<PlatformInstance, PlatformError> {
-        let platform_type = PlatformType::detect();
-        Self::create_for_platform(platform_type)
+    pub fn create() -> Result<Box<dyn Platform>, PlatformError> {
+        Self::create_platform()
+    }
+    
+    // Automatically detects and creates platform instance
+    pub fn create_platform() -> Result<Box<dyn Platform>, PlatformError> {
+        // Uses conditional compilation for platform detection
+        #[cfg(target_os = "windows")]
+        { /* Windows implementation */ }
+        #[cfg(target_os = "linux")]
+        { /* Linux implementation */ }
+        #[cfg(target_os = "macos")]
+        { /* macOS implementation */ }
     }
 }
 
@@ -180,7 +189,7 @@ impl MemoryPlatform for MacOSPlatform { /* macOS implementation */ }
 - **Single Direction**: Upper layers can only depend on lower layers
 - **No Cross-References**: Services cannot reference commands, repositories cannot reference services
 - **Interface Segregation**: Platform interfaces are kept minimal and focused
-- **Factory Responsibility**: Factory focuses solely on instance creation, not business logic
+- **Factory Responsibility**: Factory focuses solely on automatic platform detection and instance creation
 - **Repository Responsibility**: Repository handles platform complexity and data access abstraction
 
 ## Key Features

@@ -17,7 +17,7 @@ impl HardwareServices {
 
     let memory_repository: Arc<dyn MemoryRepository> = Arc::new(
       MemoryRepositoryImpl::new()
-        .map_err(|e| format!("Failed to create memory repository: {}", e))?,
+        .map_err(|e| format!("Failed to create memory repository: {e}"))?,
     );
 
     Ok(Self { memory_repository })
@@ -29,6 +29,7 @@ impl HardwareServices {
   }
 
   /// 依存注入用のコンストラクタ（テスト用）
+  #[allow(dead_code)]
   pub fn new_with_memory_repository(
     memory_repository: Arc<dyn MemoryRepository>,
   ) -> Self {
