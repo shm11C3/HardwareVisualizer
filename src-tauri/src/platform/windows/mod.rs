@@ -7,6 +7,7 @@ use crate::utils::formatter::SizeUnit;
 use std::future::Future;
 use std::pin::Pin;
 
+pub mod gpu;
 pub mod memory;
 
 /// Windows プラットフォーム実装（ダミー）
@@ -48,10 +49,7 @@ impl GpuPlatform for WindowsPlatform {
   fn get_gpu_usage(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
-    Box::pin(async {
-      // Windows ダミー実装
-      Ok(50.0) // 50% ダミー値
-    })
+    Box::pin(gpu::get_gpu_usage())
   }
 
   fn get_gpu_info(

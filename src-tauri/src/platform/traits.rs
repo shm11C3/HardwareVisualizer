@@ -18,13 +18,11 @@ pub trait MemoryPlatform: Send + Sync {
 /// プラットフォーム固有の GPU 操作を定義する trait
 pub trait GpuPlatform: Send + Sync {
   /// GPU 使用率を取得
-  #[allow(dead_code)]
   fn get_gpu_usage(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>>;
 
   /// GPU 情報を取得
-  #[allow(dead_code)]
   fn get_gpu_info(
     &self,
   ) -> Pin<

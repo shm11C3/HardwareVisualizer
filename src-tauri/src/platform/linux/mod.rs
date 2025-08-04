@@ -8,6 +8,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 pub mod cache;
+pub mod gpu;
 pub mod memory;
 
 /// Linux プラットフォーム実装（ダミー）
@@ -49,10 +50,7 @@ impl GpuPlatform for LinuxPlatform {
   fn get_gpu_usage(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
-    Box::pin(async {
-      // Linux ダミー実装
-      Ok(75.0) // 75% ダミー値
-    })
+    Box::pin(gpu::get_gpu_usage())
   }
 
   fn get_gpu_info(
