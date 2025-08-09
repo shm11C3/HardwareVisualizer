@@ -71,19 +71,19 @@ fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
       }
     }
 
-    if memory_type == "Unknown" {
-      if let Some(cap) = re_type.captures(line) {
-        let typ = &cap[1];
-        if typ != "Unknown" && typ != "RAM" {
-          memory_type = typ.to_string();
-        }
+    if memory_type == "Unknown"
+      && let Some(cap) = re_type.captures(line)
+    {
+      let typ = &cap[1];
+      if typ != "Unknown" && typ != "RAM" {
+        memory_type = typ.to_string();
       }
     }
 
-    if clock_mts == 0 {
-      if let Some(cap) = re_clock.captures(line) {
-        clock_mts = cap[1].parse().unwrap_or(0);
-      }
+    if clock_mts == 0
+      && let Some(cap) = re_clock.captures(line)
+    {
+      clock_mts = cap[1].parse().unwrap_or(0);
     }
   }
 

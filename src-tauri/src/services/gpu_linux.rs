@@ -20,12 +20,11 @@ pub fn get_all_card_ids() -> Vec<u8> {
 
   if let Ok(entries) = fs::read_dir(path) {
     for entry in entries.flatten() {
-      if let Some(name) = entry.file_name().to_str() {
-        if let Some(cap) = re.captures(name) {
-          if let Ok(id) = cap[1].parse::<u8>() {
-            ids.push(id);
-          }
-        }
+      if let Some(name) = entry.file_name().to_str()
+        && let Some(cap) = re.captures(name)
+        && let Ok(id) = cap[1].parse::<u8>()
+      {
+        ids.push(id);
       }
     }
   }
