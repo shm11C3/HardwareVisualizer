@@ -1,3 +1,5 @@
+use tauri::Config;
+
 use crate::enums;
 use crate::services;
 use crate::structs;
@@ -10,9 +12,9 @@ pub struct AppState {
 }
 
 impl AppState {
-  pub fn new() -> Self {
+  pub fn new(config: &Config) -> Self {
     Self {
-      settings: std::sync::Mutex::from(structs::settings::Settings::new()),
+      settings: std::sync::Mutex::from(structs::settings::Settings::new(config)),
     }
   }
 }
@@ -30,9 +32,9 @@ pub mod commands {
   ///
   /// [TODO] dialog を使ってエラーメッセージを表示する
   ///
-  fn emit_error(window: &Window) -> Result<(), String> {
+  fn emit_error(window: &Window, config: &Config) -> Result<(), String> {
     let settings_json_path =
-      utils::file::get_app_data_dir(services::setting_service::SETTINGS_FILENAME);
+      utils::file::get_app_data_dir(config, services::setting_service::SETTINGS_FILENAME);
 
     log_error!(
       "Failed to update settings file",
@@ -114,12 +116,13 @@ pub mod commands {
   pub async fn set_language(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_language: String,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_language(new_language) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_language(&config, new_language) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
 
@@ -131,12 +134,13 @@ pub mod commands {
   pub async fn set_theme(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_theme: enums::settings::Theme,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_theme(new_theme) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_theme(&config, new_theme) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
 
@@ -148,12 +152,13 @@ pub mod commands {
   pub async fn set_display_targets(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_targets: Vec<enums::hardware::HardwareType>,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_display_targets(new_targets) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_display_targets(&config, new_targets) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -164,12 +169,13 @@ pub mod commands {
   pub async fn set_graph_size(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_size: enums::settings::GraphSize,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_graph_size(new_size) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_graph_size(&config, new_size) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -180,12 +186,13 @@ pub mod commands {
   pub async fn set_line_graph_type(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_type: enums::settings::LineGraphType,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_type(new_type) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_type(&config, new_type) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -196,12 +203,13 @@ pub mod commands {
   pub async fn set_line_graph_border(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_border(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_border(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -212,12 +220,13 @@ pub mod commands {
   pub async fn set_line_graph_fill(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_fill(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_fill(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -228,15 +237,16 @@ pub mod commands {
   pub async fn set_line_graph_color(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     target: enums::hardware::HardwareType,
     new_color: String,
   ) -> Result<String, String> {
     let mut settings = state.settings.lock().unwrap();
 
-    match settings.set_line_graph_color(target, new_color) {
+    match settings.set_line_graph_color(&config, target, new_color) {
       Ok(result) => Ok(result),
       Err(e) => {
-        emit_error(&window)?;
+        emit_error(&window, &config)?;
         Err(e)
       }
     }
@@ -247,12 +257,13 @@ pub mod commands {
   pub async fn set_line_graph_mix(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_mix(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_mix(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -263,12 +274,13 @@ pub mod commands {
   pub async fn set_line_graph_show_legend(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_show_legend(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_show_legend(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -279,12 +291,13 @@ pub mod commands {
   pub async fn set_line_graph_show_scale(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_show_scale(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_show_scale(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -295,12 +308,13 @@ pub mod commands {
   pub async fn set_line_graph_show_tooltip(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_line_graph_show_tooltip(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_line_graph_show_tooltip(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -311,12 +325,14 @@ pub mod commands {
   pub async fn set_background_img_opacity(
     window: Window,
     state: tauri::State<'_, AppState>,
+
+    config: tauri::State<'_, Config>,
     new_value: u8,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_background_img_opacity(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_background_img_opacity(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -327,12 +343,13 @@ pub mod commands {
   pub async fn set_selected_background_img(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     file_id: Option<String>,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_selected_background_img(file_id) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_selected_background_img(&config, file_id) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -343,12 +360,13 @@ pub mod commands {
   pub async fn set_temperature_unit(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_unit: enums::settings::TemperatureUnit,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_temperature_unit(new_unit) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_temperature_unit(&config, new_unit) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -359,12 +377,13 @@ pub mod commands {
   pub async fn set_hardware_archive_enabled(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_hardware_archive_enabled(new_value) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_hardware_archive_enabled(&config, new_value) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -375,12 +394,13 @@ pub mod commands {
   pub async fn set_hardware_archive_interval(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_interval: u32,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_hardware_archive_interval(new_interval) {
-      emit_error(&window)?;
+    if let Err(e) = settings.set_hardware_archive_interval(&config, new_interval) {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
@@ -391,12 +411,15 @@ pub mod commands {
   pub async fn set_hardware_archive_scheduled_data_deletion(
     window: Window,
     state: tauri::State<'_, AppState>,
+    config: tauri::State<'_, Config>,
     new_value: bool,
   ) -> Result<(), String> {
     let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_hardware_archive_scheduled_data_deletion(new_value) {
-      emit_error(&window)?;
+    if let Err(e) =
+      settings.set_hardware_archive_scheduled_data_deletion(&config, new_value)
+    {
+      emit_error(&window, &config)?;
       return Err(e);
     }
     Ok(())
