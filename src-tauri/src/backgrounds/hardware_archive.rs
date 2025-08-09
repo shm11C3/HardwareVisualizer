@@ -309,8 +309,8 @@ fn get_process_stats(
   let mut all_stats: Vec<structs::hardware_archive::ProcessStatData> = Vec::new();
 
   for (pid, cpu_history) in cpu_histories.iter() {
-    if let Some(mem_history) = mem_histories.get(pid) {
-      if !cpu_history.is_empty() && !mem_history.is_empty() {
+    if let Some(mem_history) = mem_histories.get(pid)
+      && !cpu_history.is_empty() && !mem_history.is_empty() {
         let cpu_avg = cpu_history.iter().copied().sum::<f32>() / cpu_history.len() as f32;
         let cpu_normalized_avg = cpu_avg / num_cores;
 
@@ -338,7 +338,6 @@ fn get_process_stats(
           });
         }
       }
-    }
   }
 
   // 上位25件 × 3種（重複排除）

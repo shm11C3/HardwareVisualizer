@@ -10,11 +10,10 @@ pub fn get_default_language() -> String {
   let os_language = get_os_language();
 
   // 言語設定が取得でき、サポートされている場合はその言語を返す
-  if let Some(language) = os_language {
-    if SUPPORTED_LANGUAGES.contains(&language.as_str()) {
+  if let Some(language) = os_language
+    && SUPPORTED_LANGUAGES.contains(&language.as_str()) {
       return language;
     }
-  }
 
   // 一致しない場合は英語（デフォルト）を返す
   "en".to_string()
