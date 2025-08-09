@@ -2,6 +2,7 @@ use crate::commands::settings;
 use crate::enums;
 use crate::enums::error::BackendError;
 use crate::services;
+use crate::services::hardware_services::HardwareServices;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::structs;
@@ -103,22 +104,22 @@ pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Ve
 #[specta::specta]
 pub async fn get_hardware_info(
   state: tauri::State<'_, HardwareMonitorState>,
+  hardware_services: tauri::State<'_, HardwareServices>,
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
 
+  let memory_repository = hardware_services.get_memory_repository();
+  let memory_result = memory_repository.get_memory_info().await;
+
   #[cfg(target_os = "windows")]
-  let (memory_result, nvidia_gpus_result, amd_gpus_result, intel_gpus_result) = tokio::join!(
-    wmi_service::get_memory_info(),
+  let (nvidia_gpus_result, amd_gpus_result, intel_gpus_result) = tokio::join!(
     nvidia_gpu_service::get_nvidia_gpu_info(),
     services::directx_gpu_service::get_amd_gpu_info(),
     services::directx_gpu_service::get_intel_gpu_info(),
   );
 
   #[cfg(target_os = "linux")]
-  let (memory_result, nvidia_gpus_result) = tokio::join!(
-    services::memory::get_memory_info_linux(),
-    nvidia_gpu_service::get_nvidia_gpu_info(),
-  );
+  let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
 
   let mut gpus_result = Vec::new();
 
@@ -178,19 +179,17 @@ pub async fn get_hardware_info(
 }
 
 ///
-/// ## 詳細なメモリ情報を取得（Linux）
+/// ## 詳細なメモリ情報を取得
 ///
 /// - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
 ///
 #[command]
 #[specta::specta]
-pub async fn get_memory_info_detail_linux()
--> Result<structs::hardware::MemoryInfo, String> {
-  #[cfg(not(target_os = "linux"))]
-  return Err("Detailed memory info is not supported on this OS".to_string());
-
-  #[cfg(target_os = "linux")]
-  services::memory::get_memory_info_dmidecode().await
+pub async fn get_memory_info_detail(
+  hardware_services: tauri::State<'_, HardwareServices>,
+) -> Result<structs::hardware::MemoryInfo, String> {
+  let memory_repository = hardware_services.get_memory_repository();
+  memory_repository.get_memory_info_detail().await
 }
 
 ///
@@ -217,54 +216,16 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_usage() -> Result<i32, String> {
-  if let Ok(usage) = nvidia_gpu_service::get_nvidia_gpu_usage().await {
-    return Ok((usage * 100.0).round() as i32);
-  }
-
-  // NVIDIA APIが失敗した場合、WMIから取得を試みる
-  #[cfg(target_os = "windows")]
-  match wmi_service::get_gpu_usage_by_device_and_engine("3D").await {
-    Ok(usage) => Ok((usage * 100.0).round() as i32),
-    Err(e) => Err(format!(
-      "Failed to get GPU usage from both NVIDIA API and WMI: {e:?}"
-    )),
-  }
-
-  #[cfg(target_os = "linux")]
-  {
-    for card_id in 0..=9 {
-      let vendor_path = format!("/sys/class/drm/card{card_id}/device/vendor");
-      if !std::path::Path::new(&vendor_path).exists() {
-        continue;
-      }
-
-      let vendor_id = tokio::fs::read_to_string(&vendor_path)
-        .await
-        .map_err(|e| format!("Failed to read vendor: {e}"))?
-        .trim()
-        .to_string();
-
-      match vendor_id.as_str() {
-        // AMDのGPUを検出した場合
-        "0x1002" => {
-          if let Ok(usage) = services::amd_gpu_linux::get_amd_gpu_usage(card_id).await {
-            return Ok((usage * 100.0).round() as i32);
-          }
-        }
-        // IntelのGPUを検出した場合
-        "0x8086" => {
-          if let Ok(usage) = services::intel_gpu_linux::get_intel_gpu_usage(card_id).await
-          {
-            return Ok((usage * 100.0).round() as i32);
-          }
-        }
-        _ => {}
-      }
-    }
-
-    Err("Failed to get GPU usage on Linux (non-NVIDIA fallback)".to_string())
-  }
+pub async fn get_gpu_usage(
+  hardware_services: tauri::State<'_, HardwareServices>,
+) -> Result<i32, String> {
+  use crate::platform::factory::PlatformFactory;
+  
+  let platform = PlatformFactory::create()
+    .map_err(|e| format!("Failed to create platform: {e}"))?;
+  
+  let usage = platform.get_gpu_usage().await?;
+  Ok(usage.round() as i32)
 }
 
 ///
