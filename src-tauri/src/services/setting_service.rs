@@ -33,14 +33,14 @@ impl SettingActions for structs::settings::Settings {
         None::<&str>
       );
 
-      if let Err(e) = std::fs::create_dir_all(config_dir) {
+      std::fs::create_dir_all(config_dir).map_err(|e| {
         log_error!(
           "Failed to create configuration directory",
           "write_file",
           Some(e.to_string())
         );
-        return Err(format!("Failed to create configuration directory: {e}"));
-      }
+        format!("Failed to create configuration directory: {e}")
+      })?;
     }
 
     let serialized = match serde_json::to_string(self) {
