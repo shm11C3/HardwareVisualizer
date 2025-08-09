@@ -78,14 +78,14 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
             .strip_prefix("bg-img-")
             .and_then(|s| s.strip_suffix(".png"))
         {
-            let file_path = entry.path();
-            if let Ok(image_data) = fs::read(&file_path).await {
-              images.push(BackgroundImage {
-                file_id: file_id.to_string(),
-                image_data: STANDARD.encode(image_data),
-              });
-            }
+          let file_path = entry.path();
+          if let Ok(image_data) = fs::read(&file_path).await {
+            images.push(BackgroundImage {
+              file_id: file_id.to_string(),
+              image_data: STANDARD.encode(image_data),
+            });
           }
+        }
       }
 
       images.sort_by(|a, b| b.file_id.cmp(&a.file_id));

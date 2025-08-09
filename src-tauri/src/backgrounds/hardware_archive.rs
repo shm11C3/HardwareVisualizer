@@ -310,34 +310,36 @@ fn get_process_stats(
 
   for (pid, cpu_history) in cpu_histories.iter() {
     if let Some(mem_history) = mem_histories.get(pid)
-      && !cpu_history.is_empty() && !mem_history.is_empty() {
-        let cpu_avg = cpu_history.iter().copied().sum::<f32>() / cpu_history.len() as f32;
-        let cpu_normalized_avg = cpu_avg / num_cores;
+      && !cpu_history.is_empty()
+      && !mem_history.is_empty()
+    {
+      let cpu_avg = cpu_history.iter().copied().sum::<f32>() / cpu_history.len() as f32;
+      let cpu_normalized_avg = cpu_avg / num_cores;
 
-        let mem_avg = mem_history.iter().copied().sum::<f32>() / mem_history.len() as f32;
+      let mem_avg = mem_history.iter().copied().sum::<f32>() / mem_history.len() as f32;
 
-        // CPU とメモリの使用率が両方とも 0 の場合はスキップ
-        if cpu_avg == 0.0 && mem_avg == 0.0 {
+      // CPU とメモリの使用率が両方とも 0 の場合はスキップ
+      if cpu_avg == 0.0 && mem_avg == 0.0 {
+        continue;
+      }
+
+      if let Some(process) = sys.process(*pid) {
+        let exec_time = process.run_time() as i32;
+
+        // 異常な稼働時間のプロセスは無視
+        if !(0..=60 * 60 * 24 * 30).contains(&exec_time) {
           continue;
         }
 
-        if let Some(process) = sys.process(*pid) {
-          let exec_time = process.run_time() as i32;
-
-          // 異常な稼働時間のプロセスは無視
-          if !(0..=60 * 60 * 24 * 30).contains(&exec_time) {
-            continue;
-          }
-
-          all_stats.push(structs::hardware_archive::ProcessStatData {
-            pid: (*pid).as_u32() as i32,
-            process_name: process.name().to_string_lossy().into_owned(),
-            cpu_usage: cpu_normalized_avg,
-            memory_usage: mem_avg.round() as i32,
-            execution_sec: exec_time,
-          });
-        }
+        all_stats.push(structs::hardware_archive::ProcessStatData {
+          pid: (*pid).as_u32() as i32,
+          process_name: process.name().to_string_lossy().into_owned(),
+          cpu_usage: cpu_normalized_avg,
+          memory_usage: mem_avg.round() as i32,
+          execution_sec: exec_time,
+        });
       }
+    }
   }
 
   // 上位25件 × 3種（重複排除）
