@@ -22,12 +22,14 @@
     "editor.formatOnSave": true,
     "editor.inlayHints.enabled": "off"
   },
+  "rust-analyzer.check.command": "clippy",
   "cSpell.words": [
     "consts",
     "directx",
     "fullscreen",
     "microsoftstore",
     "nvapi",
+    "oklab",
     "rspc",
     "shadcn",
     "specta",

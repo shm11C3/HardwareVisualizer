@@ -24,7 +24,9 @@ import type {
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
+import { SnapshotIcon } from "./icons/snapshot";
 import { ProcessInsight } from "./process/ProcessInsight";
+import { Snapshot } from "./snapshot/Snapshot";
 import type { InsightType } from "./types/insight";
 
 const arrowButtonVariants = tv({
@@ -482,9 +484,9 @@ const GpuChartArea = (data: {
 const Icon = ({ type }: { type: InsightType }) => {
   const iconMap: Record<InsightType, JSX.Element> = {
     main: <ComputerTowerIcon size={32} />,
-
     gpu: <GraphicsCardIcon size={32} />,
     process: <GearIcon size={32} />,
+    snapshot: <SnapshotIcon size={32} color="currentColor" />,
   };
 
   return iconMap[type];
@@ -527,6 +529,11 @@ export const Insights = () => {
         )
       : []),
     { type: "process", name: "process", element: <ProcessInsight /> },
+    {
+      type: "snapshot",
+      name: "snapshot",
+      element: <Snapshot />,
+    },
   ];
 
   return (
@@ -549,7 +556,7 @@ export const Insights = () => {
                   onClick={() => setDisplayTarget(name)}
                 >
                   <Icon type={type} />
-                  {["main", "process"].includes(name)
+                  {["main", "process", "snapshot"].includes(name)
                     ? t(`pages.insights.${name}.title`, {
                         defaultValue: name,
                       })

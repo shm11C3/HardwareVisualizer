@@ -26,7 +26,7 @@ export const NeedRestart = ({
 
   return (
     <AlertDialog open={alertOpen}>
-      <AlertDialogContent className="dark:text-white">
+      <AlertDialogContent className="text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {t("pages.settings.insights.needRestart.title")}

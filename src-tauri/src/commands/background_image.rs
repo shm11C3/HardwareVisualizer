@@ -73,19 +73,16 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
       let mut images: Vec<BackgroundImage> = Vec::new();
 
       while let Some(entry) = entries.next_entry().await.ok().flatten() {
-        if let Some(file_name) = entry.file_name().to_str() {
-          if let Some(file_id) = file_name
+        if let Some(file_name) = entry.file_name().to_str()
+          && let Some(file_id) = file_name
             .strip_prefix("bg-img-")
             .and_then(|s| s.strip_suffix(".png"))
-          {
-            let file_path = entry.path();
-            if let Ok(image_data) = fs::read(&file_path).await {
-              images.push(BackgroundImage {
-                file_id: file_id.to_string(),
-                image_data: STANDARD.encode(image_data),
-              });
-            }
-          }
+          && let Ok(image_data) = fs::read(&entry.path()).await
+        {
+          images.push(BackgroundImage {
+            file_id: file_id.to_string(),
+            image_data: STANDARD.encode(image_data),
+          });
         }
       }
 

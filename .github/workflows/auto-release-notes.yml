@@ -1,0 +1,236 @@
+name: "Auto Release Notes"
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read
+
+jobs:
+  generate-release-notes:
+    runs-on: ubuntu-latest
+    if: github.event.release.draft == true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous release
+        id: previous-release
+        run: |
+          CURRENT_TAG="${{ github.event.release.tag_name }}"
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -A1 "$CURRENT_TAG" | tail -1)
+          if [ "$PREVIOUS_TAG" = "$CURRENT_TAG" ]; then
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+      - name: Collect commit information
+        id: commits
+        run: |
+          PREVIOUS_TAG="${{ steps.previous-release.outputs.previous_tag }}"
+          CURRENT_TAG="${{ github.event.release.tag_name }}"
+
+          # Get commits and their associated PRs/issues
+          git log --format="%H|%s|%b" ${PREVIOUS_TAG}..${CURRENT_TAG} > commits.txt
+
+          # Get PR and issue information
+          echo "## Commits in this release:" > commit_info.md
+          while IFS='|' read -r hash subject body; do
+            echo "- **$subject** ($hash)" >> commit_info.md
+
+            # Extract PR numbers from commit message
+            pr_numbers=$(echo "$subject $body" | grep -oE '#[0-9]+' | sort -u | head -5)
+            for pr in $pr_numbers; do
+              pr_num=$(echo $pr | sed 's/#//')
+              if gh pr view $pr_num --json title,url,labels >/dev/null 2>&1; then
+                pr_info=$(gh pr view $pr_num --json title,url,labels --jq '{title: .title, url: .url, labels: [.labels[].name]}')
+                echo "  - Related PR: $pr_info" >> commit_info.md
+              fi
+            done
+          done < commits.txt
+
+          echo "commit_info_file=commit_info.md" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate release notes with validation
+        id: generate-notes
+        run: |
+          set -euo pipefail
+          
+          # バリデーション関数
+          validate_release_notes() {
+            local file="$1"
+            
+            if [ ! -f "$file" ]; then
+              echo "❌ Release notes file not found"
+              return 1
+            fi
+            
+            if [ ! -s "$file" ]; then
+              echo "❌ Release notes file is empty"
+              return 1
+            fi
+            
+            local required_sections=("What's Changed" "Installation")
+            for section in "${required_sections[@]}"; do
+              if ! grep -q "## $section" "$file"; then
+                echo "❌ Missing required section: $section"
+                return 1
+              fi
+            done
+            
+            echo "✅ Release notes validation passed"
+            return 0
+          }
+          
+          # フォールバック機能付きリリースノート生成
+          generate_fallback_notes() {
+            echo "🔄 Generating fallback release notes..."
+            
+            RELEASE_NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+              -f tag_name="${{ github.event.release.tag_name }}" \
+              -f target_commitish="${{ github.event.release.target_commitish }}" \
+              -f previous_tag_name="${{ steps.previous-release.outputs.previous_tag }}" \
+              --jq '.body')
+            
+            cat > RELEASE_NOTES.md << EOF
+          ## What's Changed
+          
+          $RELEASE_NOTES
+          
+          ### Commit Details
+          $(cat commit_info.md)
+          
+          ## Installation
+          
+          ### Windows
+          - **Installer**: Download \`HardwareVisualizer_${{ github.event.release.tag_name }}_x64-setup.exe\`
+          - **Portable MSI**: Download \`HardwareVisualizer_${{ github.event.release.tag_name }}_x64_en-US.msi\`
+          - **Microsoft Store Package**: Download \`HardwareVisualizer_${{ github.event.release.tag_name }}_x64_en-US_offline.msi\`
+          
+          ### Linux
+          - **AppImage**: Download \`hardware-visualizer_${{ github.event.release.tag_name }}_amd64.AppImage\`
+          - **Debian Package**: Download \`hardware-visualizer_${{ github.event.release.tag_name }}_amd64.deb\`
+          
+          > **Note**: Linux version requires sudo privileges for hardware monitoring functionality
+          
+          ## System Requirements
+          
+          ### Windows
+          - Windows 10 1903 or later
+          - WebView2 Runtime (automatically installed)
+          
+          ### Linux
+          - Ubuntu 20.04+ or equivalent
+          - webkit2gtk-4.1
+          - sudo access for hardware monitoring
+          
+          ## Security
+          
+          All binaries are digitally signed and verified. Check the SHA256 checksums provided in the release assets.
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.previous-release.outputs.previous_tag }}...${{ github.event.release.tag_name }}
+          EOF
+          }
+          
+          # リリースノート生成実行
+          echo "📝 Generating release notes..."
+          generate_fallback_notes
+          
+          # バリデーション実行
+          if validate_release_notes "RELEASE_NOTES.md"; then
+            NOTES_SOURCE="github_api"
+            NOTES_LENGTH=$(wc -l < RELEASE_NOTES.md)
+            echo "notes_source=$NOTES_SOURCE" >> $GITHUB_OUTPUT
+            echo "notes_length=$NOTES_LENGTH" >> $GITHUB_OUTPUT
+            echo "✅ Release notes generated successfully"
+          else
+            echo "❌ Release notes validation failed"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read generated release notes
+        id: release-notes
+        run: |
+          {
+            echo 'notes<<EOF'
+            cat RELEASE_NOTES.md
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          
+          # Quality metrics collection
+          NOTES_LENGTH=$(wc -l < RELEASE_NOTES.md)
+          COMMIT_COUNT=$(git rev-list --count ${{ steps.previous-release.outputs.previous_tag }}..${{ github.event.release.tag_name }})
+          
+          echo "📊 Quality Metrics:"
+          echo "Notes length: $NOTES_LENGTH lines"
+          echo "Commits processed: $COMMIT_COUNT"
+          echo "Generation source: ${{ steps.generate-notes.outputs.notes_source }}"
+          
+          # Quality alerts
+          if [ "$NOTES_LENGTH" -lt 20 ]; then
+            echo "⚠️ Warning: Release notes seem unusually short"
+          fi
+          
+          if [ "$COMMIT_COUNT" -eq 0 ]; then
+            echo "⚠️ Warning: No commits found between releases"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update release with generated notes
+        run: |
+          gh api repos/${{ github.repository }}/releases/${{ github.event.release.id }} \
+            -X PATCH \
+            -f body="${{ steps.release-notes.outputs.notes }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add labels to related PRs and issues
+        run: |
+          PREVIOUS_TAG="${{ steps.previous-release.outputs.previous_tag }}"
+          CURRENT_TAG="${{ github.event.release.tag_name }}"
+
+          # Get commits and process them
+          git log --format="%s" ${PREVIOUS_TAG}..${CURRENT_TAG} | while read -r commit_msg; do
+            # Extract PR numbers from commit message
+            pr_numbers=$(echo "$commit_msg" | grep -oE '#[0-9]+' | sed 's/#//')
+
+            for pr_num in $pr_numbers; do
+              if [ ! -z "$pr_num" ]; then
+                # Add release label to PR
+                gh pr edit $pr_num --add-label "released:${{ github.event.release.tag_name }}" || true
+
+                # Get linked issues from PR
+                linked_issues=$(gh pr view $pr_num --json closingIssuesReferences --jq '.closingIssuesReferences[].number' 2>/dev/null || true)
+
+                for issue in $linked_issues; do
+                  if [ ! -z "$issue" ]; then
+                    # Add release label to linked issues
+                    gh issue edit $issue --add-label "released:${{ github.event.release.tag_name }}" || true
+                  fi
+                done
+              fi
+            done
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload release notes as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes-${{ github.event.release.tag_name }}
+          path: |
+            RELEASE_NOTES.md
+            commit_info.md
+        if: always()

@@ -6,6 +6,13 @@ use specta::Type;
 pub enum Theme {
   Light,
   Dark,
+  Ocean,
+  Grove,
+  Sunset,
+  Nebula,
+  Orbit,
+  Cappuccino,
+  Espresso,
 }
 
 impl Serialize for Theme {
@@ -16,6 +23,13 @@ impl Serialize for Theme {
     let s = match *self {
       Theme::Light => "light",
       Theme::Dark => "dark",
+      Theme::Ocean => "sky",
+      Theme::Grove => "grove",
+      Theme::Sunset => "sunset",
+      Theme::Nebula => "nebula",
+      Theme::Orbit => "orbit",
+      Theme::Cappuccino => "cappuccino",
+      Theme::Espresso => "espresso",
     };
     serializer.serialize_str(s)
   }
@@ -30,7 +44,27 @@ impl<'de> Deserialize<'de> for Theme {
     match s.as_str() {
       "light" => Ok(Theme::Light),
       "dark" => Ok(Theme::Dark),
-      _ => Err(serde::de::Error::unknown_variant(&s, &["light", "dark"])),
+      "sky" => Ok(Theme::Ocean),
+      "grove" => Ok(Theme::Grove),
+      "sunset" => Ok(Theme::Sunset),
+      "nebula" => Ok(Theme::Nebula),
+      "orbit" => Ok(Theme::Orbit),
+      "cappuccino" => Ok(Theme::Cappuccino),
+      "espresso" => Ok(Theme::Espresso),
+      _ => Err(serde::de::Error::unknown_variant(
+        &s,
+        &[
+          "light",
+          "dark",
+          "sky",
+          "grove",
+          "sunset",
+          "nebula",
+          "orbit",
+          "cappuccino",
+          "espresso",
+        ],
+      )),
     }
   }
 }
