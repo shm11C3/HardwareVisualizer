@@ -62,7 +62,7 @@ tauri-plugin-os = "2"
 tauri-plugin-clipboard-manager = "2"
 
 [dependencies.uuid]
-version = "1.17.0"
+version = "1.18.0"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
