@@ -69,7 +69,12 @@ describe("useTauriStore", () => {
       await waitFor(() => !result.current[2] && result.current[0] === "storedValue");
     });
 
-    expect(result.current[0]).toBe("storedValue");
+      const [value, , isPending] = result.current;
+      await waitFor(() => !isPending && value === "storedValue");
+    });
+
+    const [value] = result.current;
+    expect(value).toBe("storedValue");
     expect(fakeStore.has).toHaveBeenCalledWith("testKey");
     expect(fakeStore.get).toHaveBeenCalledWith("testKey");
   });
@@ -86,7 +91,13 @@ describe("useTauriStore", () => {
     });
 
     // キーが存在しなかったため、defaultValue がセットされる
-    expect(result.current[0]).toBe("defaultValue");
+      const [value, , loading] = result.current;
+      await waitFor(() => !loading && value === "defaultValue");
+    });
+
+    // キーが存在しなかったため、defaultValue がセットされる
+    const [value] = result.current;
+    expect(value).toBe("defaultValue");
     // 存在しなかったので set と save が呼ばれている
     expect(fakeStore.set).toHaveBeenCalledWith("nonExisting", "defaultValue");
     expect(fakeStore.save).toHaveBeenCalled();
@@ -121,7 +132,8 @@ describe("useTauriStore", () => {
     
     // React 19.1.0 対応: act でラップして確実に状態更新を完了
     await act(async () => {
-      await waitFor(() => !result.current[2]);
+      const [, , isPending] = result.current;
+      await waitFor(() => !isPending);
     });
     
     expect(result.current[0]).toBeUndefined();
