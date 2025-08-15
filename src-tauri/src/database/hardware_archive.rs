@@ -1,9 +1,10 @@
 use crate::structs;
 use crate::utils;
 use sqlx::sqlite::SqlitePool;
+use tauri::Config;
 
-pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
-  let dir_path = utils::file::get_app_data_dir("hv-database.db");
+pub async fn get_pool(config: &Config) -> Result<SqlitePool, sqlx::Error> {
+  let dir_path = utils::file::get_app_data_dir(config, "hv-database.db");
   let database_url = format!("sqlite:{dir_path}", dir_path = dir_path.to_str().unwrap());
 
   let pool = SqlitePool::connect(&database_url).await?;
@@ -14,8 +15,9 @@ pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
 pub async fn insert(
   cpu: structs::hardware_archive::HardwareData,
   ram: structs::hardware_archive::HardwareData,
+  config: &Config,
 ) -> Result<(), sqlx::Error> {
-  let pool = get_pool().await?;
+  let pool = get_pool(&config).await?;
 
   sqlx::query(
     "INSERT INTO DATA_ARCHIVE (cpu_avg, cpu_max, cpu_min, ram_avg, ram_max, ram_min, timestamp)
@@ -25,8 +27,11 @@ pub async fn insert(
   Ok(())
 }
 
-pub async fn delete_old_data(refresh_interval_days: u32) -> Result<(), sqlx::Error> {
-  let pool = get_pool().await?;
+pub async fn delete_old_data(
+  refresh_interval_days: u32,
+  config: &Config,
+) -> Result<(), sqlx::Error> {
+  let pool = get_pool(&config).await?;
 
   sqlx::query("DELETE FROM DATA_ARCHIVE WHERE timestamp < $1")
     .bind(chrono::Utc::now() - chrono::Duration::days(refresh_interval_days as i64))
