@@ -3,6 +3,7 @@ use crate::services;
 use crate::structs;
 use crate::utils;
 use crate::{log_error, log_internal};
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -21,7 +22,7 @@ pub mod commands {
 
   use super::*;
   use serde_json::json;
-  use tauri::{Emitter, EventTarget, Window};
+  use tauri::{Emitter, EventTarget, Manager, Window};
 
   const ERROR_TITLE: &str = "Failed to update settings file";
 
@@ -400,5 +401,52 @@ pub mod commands {
       return Err(e);
     }
     Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn read_license_file(app: tauri::AppHandle) -> Result<String, String> {
+    let resource_path = app
+      .path()
+      .resource_dir()
+      .map_err(|e| format!("Failed to get resource directory: {}", e))?
+      .join("LICENSE");
+
+    std::fs::read_to_string(&resource_path)
+      .map_err(|e| format!("Failed to read LICENSE file: {}", e))
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn read_third_party_notices_file(
+    app: tauri::AppHandle,
+  ) -> Result<String, String> {
+    let resource_path = app
+      .path()
+      .resource_dir()
+      .map_err(|e| format!("Failed to get resource directory: {}", e))?
+      .join("THIRD_PARTY_NOTICES.md");
+
+    std::fs::read_to_string(&resource_path)
+      .map_err(|e| format!("Failed to read THIRD_PARTY_NOTICES.md file: {}", e))
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn open_license_file_path(app: tauri::AppHandle) -> Result<(), String> {
+    let resource_path = app
+      .path()
+      .resource_dir()
+      .map_err(|e| format!("Failed to get resource directory: {}", e));
+
+    let path_str = resource_path?
+      .to_str()
+      .ok_or_else(|| "Failed to convert path to string".to_string())?
+      .to_string();
+
+    app
+      .opener()
+      .open_path(path_str, None::<&str>)
+      .map_err(|e| format!("Failed to open LICENSE file path: {}", e))
   }
 }
