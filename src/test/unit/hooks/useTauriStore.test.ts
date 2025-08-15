@@ -64,8 +64,12 @@ describe("useTauriStore", () => {
       useTauriStore<string>("testKey", "defaultValue"),
     );
 
-    // 初期状態は useEffect 未実行のため null となるが、非同期処理で更新される
-    await waitFor(() => result.current[0] !== null);
+    // React 19.1.0 対応: act でラップして確実に状態更新を完了
+    await act(async () => {
+      await waitFor(
+        () => !result.current[2] && result.current[0] === "storedValue",
+      );
+    });
 
     expect(result.current[0]).toBe("storedValue");
     expect(fakeStore.has).toHaveBeenCalledWith("testKey");
@@ -77,7 +81,13 @@ describe("useTauriStore", () => {
     const { result } = renderHook(() =>
       useTauriStore<string>("nonExisting", "defaultValue"),
     );
-    await waitFor(() => result.current[0] !== null);
+
+    // React 19.1.0 対応: act でラップして確実に状態更新を完了
+    await act(async () => {
+      await waitFor(
+        () => !result.current[2] && result.current[0] === "defaultValue",
+      );
+    });
 
     // キーが存在しなかったため、defaultValue がセットされる
     expect(result.current[0]).toBe("defaultValue");
@@ -90,7 +100,13 @@ describe("useTauriStore", () => {
     const { result } = renderHook(() =>
       useTauriStore<string>("testKey", "defaultValue"),
     );
-    await waitFor(() => result.current[0] !== null);
+
+    // React 19.1.0 対応: act でラップして確実に初期状態更新を完了
+    await act(async () => {
+      await waitFor(
+        () => !result.current[2] && result.current[0] === "defaultValue",
+      );
+    });
     expect(result.current[0]).toBe("defaultValue");
 
     // Act: setValue を呼び出して値を更新する
@@ -108,7 +124,12 @@ describe("useTauriStore", () => {
     const { result } = renderHook(() =>
       useTauriStore<undefined>("testKey", undefined),
     );
-    await waitFor(() => result.current[0] !== null);
+
+    // React 19.1.0 対応: act でラップして確実に状態更新を完了
+    await act(async () => {
+      await waitFor(() => !result.current[2]);
+    });
+
     expect(result.current[0]).toBeUndefined();
   });
 
