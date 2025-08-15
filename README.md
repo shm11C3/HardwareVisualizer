@@ -13,6 +13,40 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 
 Web: <https://hardviz.com/>
 
+## Table of Contents
+
+- [HardwareVisualizer](#hardwarevisualizer)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Supported OS](#supported-os)
+  - [Quick Start (End Users)](#quick-start-end-users)
+  - [Screenshots](#screenshots)
+  - [Bug Report](#bug-report)
+  - [Feature Request](#feature-request)
+  - [Development](#development)
+  - [Permissions \& Security Notes](#permissions--security-notes)
+  - [Roadmap (Excerpt)](#roadmap-excerpt)
+  - [Contributing](#contributing)
+  - [FAQ](#faq)
+  - [Tips](#tips)
+  - [License](#license)
+
+## Features
+
+| Category                 | Status | Notes                            |
+| ------------------------ | ------ | -------------------------------- |
+| CPU / RAM Usage          | ✅     | Realtime + history               |
+| GPU Usage                | ✅     | NVIDIA full / others partial     |
+| GPU Temperature          | ✅     | NVIDIA full / others partial     |
+| Fan Monitoring           | ⏳     | Planned                          |
+| Storage Monitoring       | ✅     | Device summary                   |
+| Network Monitoring       | ✅     | Basic interfaces / Usage planned |
+| Custom Graph Themes      | ✅     | Persistent                       |
+| Dashboard Customization  | ✅     | Layout editing partial           |
+| Background Image         | ✅     | Local assets                     |
+| Historical Insights      | ✅     | Default Up to 30 days            |
+| GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
+
 ## Supported OS
 
 | OS      | Status | Download                                  |
@@ -21,21 +55,12 @@ Web: <https://hardviz.com/>
 | Linux   | ✅     | [Download](https://hardviz.com/#download) |
 | macOS   | 🔒     | Planned (v2)                              |
 
-## Features
+## Quick Start (End Users)
 
-| Feature                          | Status |
-| -------------------------------- | ------ |
-| CPU Usage Monitoring             | ✅     |
-| RAM Usage Monitoring             | ✅     |
-| GPU Usage Monitoring             | ✅     |
-| Temperature Monitoring           | ⏳     |
-| Fan Monitoring                   | ⏳     |
-| Storage Monitoring               | ✅     |
-| Network Monitoring               | ✅     |
-| Customizable Chart Themes        | ✅     |
-| Customizable Dashboard           | ⏳     |
-| Custom Background Image          | ✅     |
-| Insights (Hardware Data History) | ✅     |
+1. Download installer from Website
+2. Launch app
+3. (Linux) If some metrics missing → restart via `sudo hardware-visualizer`
+4. Open Settings → adjust theme & polling intervals
 
 ## Screenshots
 
@@ -88,7 +113,7 @@ Flexible graph customization available.
 
 [![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat&logo=biome)](https://biomejs.dev)
 
-### Requirements
+### Prerequisites
 
 [Node.js v22](https://nodejs.org/)
 
@@ -104,50 +129,71 @@ $ rustc -V
 rustc 1.89.0 (29483883e 2025-08-04)
 ```
 
-### Getting Started
+### Linux Build Dependencies
 
-- Install Linux build dependencies
+```bash
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+```
 
-  ```bash
-  sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-  ```
+### Build & Run
 
-- Install dependencies:
+```bash
+npm ci
+npm run tauri dev
+```
 
-  ```bash
-  npm ci
-  ```
+### Production Build
 
-- Launch in development mode:
+```bash
+npm run tauri build
+```
 
-  ```bash
-  npm run tauri dev
-  ```
+### Common scripts
 
-- Build the app for production:
+```bash
+npm run lint        # biome
+npm run format
+npm run test:unit   # frontend
+npm run test:tauri  # rust
+```
 
-  ```bash
-  npm run tauri build
-  ```
+## Permissions & Security Notes
 
-- Lint the code:
+| Context               | Reason                                                  |
+| --------------------- | ------------------------------------------------------- |
+| Linux sudo            | Access to certain device files (GPU, sensors)           |
+| Windows WMI           | GPU/memory extended metrics                             |
+| No outbound telemetry | No telemetry; the app does not send any data externally |
 
-  ```bash
-   npm run lint
-  ```
+## Roadmap (Excerpt)
 
-- Format the code:
+| Item                         | Target |
+| ---------------------------- | ------ |
+| macOS Support                | v2     |
+| Unified Platform Abstraction | v1.x   |
+| Fan / Temp Full Cross Vendor | v1.x   |
+| Dashboard Layout Editor      | v2.x   |
+| Power Consumption Estimation | v2.x   |
 
-  ```bash
-   npm run format
-  ```
+## Contributing
 
-- Run tests:
+1. Fork & branch (`feat/...` or `fix/...`)
+2. Run lint & tests
+3. Open PR with concise description
+4. Link related issue
 
-  ```bash
-   npm run test:unit # frontend unit tests
-   npm run test:tauri # rust tests
-  ```
+Style:
+
+- Rust: `cargo fmt` (enforced by CI if added)
+- TS: Biome config defaults
+
+## FAQ
+
+**Q: Why sudo on Linux?**  
+Access to privileged hardware interfaces for sensors.
+
+**Q: NVIDIA only historic GPU charts?**  
+Vendor APIs differ; expansion planned.
 
 ## Tips
 
@@ -164,3 +210,7 @@ sudo hardware-visualizer
 
 This works on both native Linux and WSL (Windows Subsystem for Linux) with GUI support (WSLg).
 If installed correctly, a Tauri window will open on execution.
+
+## License
+
+[MIT License](LICENSE)
