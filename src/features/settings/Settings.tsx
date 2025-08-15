@@ -41,10 +41,10 @@ import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/features/hardware/types/hardwareDataType";
+import { LicensePage } from "@/features/settings/components/LicensePage";
 import { PreviewChart } from "@/features/settings/components/Preview";
 import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
 import { UploadImage } from "@/features/settings/components/UploadImage";
-import { LicensePage } from "@/features/settings/components/LicensePage";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings as SettingTypes } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
