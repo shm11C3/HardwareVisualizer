@@ -66,15 +66,12 @@ describe("useTauriStore", () => {
 
     // React 19.1.0 対応: act でラップして確実に状態更新を完了
     await act(async () => {
-      await waitFor(() => !result.current[2] && result.current[0] === "storedValue");
+      await waitFor(
+        () => !result.current[2] && result.current[0] === "storedValue",
+      );
     });
 
-      const [value, , isPending] = result.current;
-      await waitFor(() => !isPending && value === "storedValue");
-    });
-
-    const [value] = result.current;
-    expect(value).toBe("storedValue");
+    expect(result.current[0]).toBe("storedValue");
     expect(fakeStore.has).toHaveBeenCalledWith("testKey");
     expect(fakeStore.get).toHaveBeenCalledWith("testKey");
   });
@@ -84,20 +81,16 @@ describe("useTauriStore", () => {
     const { result } = renderHook(() =>
       useTauriStore<string>("nonExisting", "defaultValue"),
     );
-    
+
     // React 19.1.0 対応: act でラップして確実に状態更新を完了
     await act(async () => {
-      await waitFor(() => !result.current[2] && result.current[0] === "defaultValue");
+      await waitFor(
+        () => !result.current[2] && result.current[0] === "defaultValue",
+      );
     });
 
     // キーが存在しなかったため、defaultValue がセットされる
-      const [value, , loading] = result.current;
-      await waitFor(() => !loading && value === "defaultValue");
-    });
-
-    // キーが存在しなかったため、defaultValue がセットされる
-    const [value] = result.current;
-    expect(value).toBe("defaultValue");
+    expect(result.current[0]).toBe("defaultValue");
     // 存在しなかったので set と save が呼ばれている
     expect(fakeStore.set).toHaveBeenCalledWith("nonExisting", "defaultValue");
     expect(fakeStore.save).toHaveBeenCalled();
@@ -107,10 +100,12 @@ describe("useTauriStore", () => {
     const { result } = renderHook(() =>
       useTauriStore<string>("testKey", "defaultValue"),
     );
-    
+
     // React 19.1.0 対応: act でラップして確実に初期状態更新を完了
     await act(async () => {
-      await waitFor(() => !result.current[2] && result.current[0] === "defaultValue");
+      await waitFor(
+        () => !result.current[2] && result.current[0] === "defaultValue",
+      );
     });
     expect(result.current[0]).toBe("defaultValue");
 
@@ -129,13 +124,12 @@ describe("useTauriStore", () => {
     const { result } = renderHook(() =>
       useTauriStore<undefined>("testKey", undefined),
     );
-    
+
     // React 19.1.0 対応: act でラップして確実に状態更新を完了
     await act(async () => {
-      const [, , isPending] = result.current;
-      await waitFor(() => !isPending);
+      await waitFor(() => !result.current[2]);
     });
-    
+
     expect(result.current[0]).toBeUndefined();
   });
 
