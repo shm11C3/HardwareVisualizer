@@ -295,6 +295,30 @@ async setHardwareArchiveScheduledDataDeletion(newValue: boolean) : Promise<Resul
     else return { status: "error", error: e  as any };
 }
 },
+async readLicenseFile() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("read_license_file") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async readThirdPartyNoticesFile() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("read_third_party_notices_file") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openLicenseFilePath() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_license_file_path") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * 背景画像を取得
  * 

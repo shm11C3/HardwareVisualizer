@@ -34,7 +34,10 @@
       "providerShortName": null,
       "signingIdentity": null
     },
-    "resources": [],
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+    },
     "shortDescription": "",
     "linux": {
       "deb": {

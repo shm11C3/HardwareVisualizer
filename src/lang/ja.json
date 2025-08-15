@@ -1,5 +1,6 @@
 {
   "shared": {
+    "loading": "読み込み中...",
     "usage": "使用率",
     "usageValue": "使用量",
     "cpuUsage": "CPU 使用率",
@@ -92,7 +93,9 @@
       "noDataMessage": "指定した条件に一致するプロセスが見つかりませんでした",
       "adjustFiltersHint": "フィルター条件を緩めてみてください"
     },
-    "other": "その他"
+    "other": "その他",
+    "back": "戻る",
+    "showInExplorer": "エクスプローラで表示"
   },
 
   "pages": {
@@ -205,6 +208,10 @@
         "checkGitHub": "GitHub",
         "checkLatestVersion": "最新バージョンを確認する",
         "author": "作者：{{author}}"
+      },
+      "license": {
+        "applicationLicense": "アプリケーションライセンス",
+        "thirdPartyLicenses": "サードパーティライセンス"
       }
     }
   },
