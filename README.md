@@ -1,27 +1,25 @@
 # HardwareVisualizer
 
-<p align="left">
-  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release">
-  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yml">
-  <img alt="CI" src="https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop">
-  <img alt="Supported Windows" src="https://img.shields.io/badge/platform-Windows-blue?logo=windows">
-  <img alt="Supported Linux" src="https://img.shields.io/badge/platform-linux-orange?logo=linux">
-  <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total">
-</p>
+[![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
+[![CI test-build](https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yml?label=test-build)](https://github.com/shm11C3/HardwareVisualizer/actions)
+[![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
+![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
+![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
 HardwareVisualizer is a tool for real-time monitoring of your computer's hardware performance. It provides an intuitive dashboard, detailed usage graphs, and customizable settings to help you keep track of your system’s vital statistics.
 
-[Web Page](https://hardviz.com/)
+Web: <https://hardviz.com/>
 
 ## Supported OS
 
-| OS      | Status                                                                       |
-| ------- | ---------------------------------------------------------------------------- |
-| Windows | ✅ [Download](https://hardviz.com/#download)                                 |
-| MacOS   | 🔒 Planned (No ETA - No test device)                                         |
-| Linux   | ✅ [Download](https://hardviz.com/#download)                                 |
+| OS      | Status | Download                                  |
+| ------- | ------ | ----------------------------------------- |
+| Windows | ✅     | [Download](https://hardviz.com/#download) |
+| Linux   | ✅     | [Download](https://hardviz.com/#download) |
+| macOS   | 🔒     | Planned (v2)                              |
 
 ## Features
 
@@ -54,7 +52,6 @@ The resource utilization for the last 1 minute can be checked.
 ![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
 
 ![image](https://github.com/user-attachments/assets/7b786e00-12c0-4627-8b2a-cc3482072eb7)
-
 
 ### Insight
 
@@ -97,14 +94,14 @@ Flexible graph customization available.
 
 ```bash
 $ node -v
-v22.14.0
+v22.16.0
 ```
 
-[Rust 1.85](https://www.rust-lang.org/)
+[Rust 1.89](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.85.0 (4d91de4e4 2025-02-17)
+rustc 1.89.0 (29483883e 2025-08-04)
 ```
 
 ### Getting Started
@@ -161,6 +158,7 @@ You can launch the app by running the following command in the terminal:
 ```bash
 sudo hardware-visualizer
 ```
+
 > [!NOTE]
 > 🔒 sudo is required to access certain system information such as CPU, memory, or GPU stats.
 
