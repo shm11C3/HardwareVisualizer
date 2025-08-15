@@ -91,7 +91,13 @@ describe("useTauriStore", () => {
     });
 
     // キーが存在しなかったため、defaultValue がセットされる
-    expect(result.current[0]).toBe("defaultValue");
+      const [value, , loading] = result.current;
+      await waitFor(() => !loading && value === "defaultValue");
+    });
+
+    // キーが存在しなかったため、defaultValue がセットされる
+    const [value] = result.current;
+    expect(value).toBe("defaultValue");
     // 存在しなかったので set と save が呼ばれている
     expect(fakeStore.set).toHaveBeenCalledWith("nonExisting", "defaultValue");
     expect(fakeStore.save).toHaveBeenCalled();
