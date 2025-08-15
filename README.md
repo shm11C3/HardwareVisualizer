@@ -21,14 +21,25 @@ Web: <https://hardviz.com/>
   - [Supported OS](#supported-os)
   - [Quick Start (End Users)](#quick-start-end-users)
   - [Screenshots](#screenshots)
-  - [Bug Report](#bug-report)
-  - [Feature Request](#feature-request)
+    - [Dashboard](#dashboard)
+    - [Usage Graph](#usage-graph)
+    - [Insight](#insight)
+    - [Custom Graph](#custom-graph)
+    - [Background Image](#background-image)
   - [Development](#development)
+    - [Prerequisites](#prerequisites)
+    - [Linux Build Dependencies](#linux-build-dependencies)
+    - [Build \& Run](#build--run)
+    - [Production Build](#production-build)
+    - [Common scripts](#common-scripts)
   - [Permissions \& Security Notes](#permissions--security-notes)
   - [Roadmap (Excerpt)](#roadmap-excerpt)
   - [Contributing](#contributing)
+    - [Bug Report](#bug-report)
+    - [Feature Request](#feature-request)
   - [FAQ](#faq)
   - [Tips](#tips)
+    - [Launching the app by Linux command line](#launching-the-app-by-linux-command-line)
   - [License](#license)
 
 ## Features
@@ -100,14 +111,6 @@ Flexible graph customization available.
 ### Background Image
 
 ![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
-
-## Bug Report
-
-[Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D)
-
-## Feature Request
-
-[Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=shm11C3&labels=enhancement&projects=&template=feature_request.md&title=%5BFeature+request%5D)
 
 ## Development
 
@@ -186,6 +189,14 @@ Style:
 
 - Rust: `cargo fmt` (enforced by CI if added)
 - TS: Biome config defaults
+
+### Bug Report
+
+[Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D)
+
+### Feature Request
+
+[Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=shm11C3&labels=enhancement&projects=&template=feature_request.md&title=%5BFeature+request%5D)
 
 ## FAQ
 
