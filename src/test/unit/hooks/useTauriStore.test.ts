@@ -132,7 +132,8 @@ describe("useTauriStore", () => {
     
     // React 19.1.0 対応: act でラップして確実に状態更新を完了
     await act(async () => {
-      await waitFor(() => !result.current[2]);
+      const [, , isPending] = result.current;
+      await waitFor(() => !isPending);
     });
     
     expect(result.current[0]).toBeUndefined();
