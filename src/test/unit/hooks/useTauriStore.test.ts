@@ -69,7 +69,12 @@ describe("useTauriStore", () => {
       await waitFor(() => !result.current[2] && result.current[0] === "storedValue");
     });
 
-    expect(result.current[0]).toBe("storedValue");
+      const [value, , isPending] = result.current;
+      await waitFor(() => !isPending && value === "storedValue");
+    });
+
+    const [value] = result.current;
+    expect(value).toBe("storedValue");
     expect(fakeStore.has).toHaveBeenCalledWith("testKey");
     expect(fakeStore.get).toHaveBeenCalledWith("testKey");
   });
