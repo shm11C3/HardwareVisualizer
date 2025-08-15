@@ -213,7 +213,7 @@ export const SideMenu = memo(() => {
           {/** Closed */}
           <div className={closedSideMenuClasses({ open: isOpen })}>
             <div className="relative flex h-full flex-col">
-              <ul className="pt-2 ">
+              <ul className="pt-2">
                 {menuTypes
                   .filter((v) => v !== "settings")
                   .map((type) => (

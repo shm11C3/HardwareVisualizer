@@ -82,7 +82,7 @@ export const ProcessesTable = () => {
 
   return (
     <div
-      className="rounded-md bg-card-non-transparent p-4 "
+      className="rounded-md bg-card-non-transparent p-4"
       style={{
         opacity:
           settings.selectedBackgroundImg != null
