@@ -69,7 +69,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^25.3.4",
-    "jotai": "^2.12.5",
+    "jotai": "^2.13.1",
     "lucide-react": "^0.539.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
