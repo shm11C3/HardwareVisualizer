@@ -15,6 +15,7 @@ const allowedLicenses = new Set([
   "ISC",
   "BlueOak-1.0.0",
   "MPL-2.0",
+  "CC-BY-4.0",
 ]);
 
 const licenses = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
