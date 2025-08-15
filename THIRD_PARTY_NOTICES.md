@@ -2923,7 +2923,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.3.2
+## i18next@25.3.4
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -3124,7 +3124,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## lucide-react@0.536.0
+## lucide-react@0.539.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -4104,7 +4104,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## zod@4.0.14
+## zod@4.0.17
 
 - License: MIT
 - Repository: [https://github.com/colinhacks/zod](https://github.com/colinhacks/zod)
