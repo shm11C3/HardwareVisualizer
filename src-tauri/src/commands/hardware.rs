@@ -1,13 +1,10 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::platform::factory::PlatformFactory;
-use crate::services;
 use crate::services::hardware_services::HardwareServices;
-use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
-use crate::{log_error, log_internal};
 use sysinfo;
 use tauri::command;
 
@@ -110,17 +107,15 @@ pub async fn get_hardware_info(
   let memory_repository = hardware_services.get_memory_repository();
   let memory_result = memory_repository.get_memory_info().await;
 
-  #[cfg(target_os = "windows")]
-  let (nvidia_gpus_result, amd_gpus_result, intel_gpus_result) = tokio::join!(
-    nvidia_gpu_service::get_nvidia_gpu_info(),
-    services::directx_gpu_service::get_amd_gpu_info(),
-    services::directx_gpu_service::get_intel_gpu_info(),
-  );
-
-  #[cfg(target_os = "linux")]
-  let nvidia_gpus_result = nvidia_gpu_service::get_nvidia_gpu_info().await;
-
   let mut gpus_result = Vec::new();
+
+  #[cfg(target_os = "windows")]
+  {
+    let platform =
+      PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+
+    gpus_result = platform.get_gpu_info().await?;
+  }
 
   #[cfg(target_os = "linux")]
   for card_id in services::gpu_linux::get_all_card_ids() {
@@ -138,26 +133,6 @@ pub async fn get_hardware_info(
       }
       _ => {}
     }
-  }
-
-  // NVIDIA の結果を確認して結合
-  match nvidia_gpus_result {
-    Ok(nvidia_gpus) => gpus_result.extend(nvidia_gpus),
-    Err(e) => log_error!("nvidia_error", "get_all_gpu_info", Some(e)),
-  }
-
-  // AMD の結果を確認して結合
-  #[cfg(target_os = "windows")]
-  match amd_gpus_result {
-    Ok(amd_gpus) => gpus_result.extend(amd_gpus),
-    Err(e) => log_error!("amd_error", "get_all_gpu_info", Some(e)),
-  }
-
-  // Intel の結果を確認して結合
-  #[cfg(target_os = "windows")]
-  match intel_gpus_result {
-    Ok(intel_gpus) => gpus_result.extend(intel_gpus),
-    Err(e) => log_error!("intel_error", "get_all_gpu_info", Some(e)),
   }
 
   let storage_info = system_info_service::get_storage_info()?;

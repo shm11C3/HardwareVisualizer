@@ -69,17 +69,7 @@ impl GpuPlatform for WindowsPlatform {
   fn get_gpu_info(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
-    Box::pin(async {
-      // Windows ダミー実装
-      Ok(vec![GraphicInfo {
-        id: "GPU-00000000-0000-0000-0000-000000000000".to_string(),
-        name: "Windows GPU (Dummy)".to_string(),
-        vendor_name: "NVIDIA".to_string(),
-        clock: 1500,
-        memory_size: "8 GB".to_string(),
-        memory_size_dedicated: "8 GB".to_string(),
-      }])
-    })
+    Box::pin(gpu::get_gpu_info())
   }
 }
 

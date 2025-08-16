@@ -122,57 +122,6 @@ pub async fn get_nvidia_gpu_temperature()
 }
 
 ///
-/// ## GPUのファン回転数を取得する（NVAPI を使用）
-///
-pub async fn get_nvidia_gpu_cooler_stat()
--> Result<Vec<structs::hardware::NameValue>, nvapi::Status> {
-  let handle = spawn_blocking(|| {
-    log_debug!("start", "get_nvidia_gpu_cooler_stat", None::<&str>);
-
-    let gpus = nvapi::PhysicalGpu::enumerate()?;
-
-    if gpus.is_empty() {
-      log_debug!(
-        "not found",
-        "get_nvidia_gpu_cooler_stat",
-        Some("gpu is not found")
-      );
-      return Err(nvapi::Status::Error); // GPUが見つからない場合はエラーを返す
-    }
-
-    let mut cooler_infos = Vec::new();
-
-    for gpu in gpus.iter() {
-      // 温度情報を取得
-      let cooler_settings = gpu.cooler_settings(None).map_err(|e| {
-        log_debug!(
-          "cooler_settings_failed",
-          "get_nvidia_gpu_cooler_stat",
-          Some(&format!("{e:?}"))
-        );
-        nvapi::Status::Error
-      })?;
-
-      cooler_infos.push(structs::hardware::NameValue {
-        name: gpu.full_name().unwrap_or("Unknown".to_string()),
-        value: cooler_settings[0].current_level.0 as i32,
-      });
-    }
-
-    Ok(cooler_infos)
-  });
-
-  handle.await.map_err(|e: JoinError| {
-    log_error!(
-      "join_error",
-      "get_nvidia_gpu_cooler_stat",
-      Some(e.to_string())
-    );
-    nvapi::Status::Error
-  })?
-}
-
-///
 /// GPU情報を取得する
 ///
 pub async fn get_nvidia_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, String>
