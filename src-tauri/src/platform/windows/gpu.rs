@@ -1,4 +1,6 @@
+use crate::enums;
 use crate::infrastructure;
+use crate::utils;
 
 pub async fn get_gpu_usage() -> Result<f32, String> {
   // NVAPI から取得できた場合は NVAPI 優先
@@ -11,5 +13,31 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
     Err(e) => Err(format!(
       "Failed to get GPU usage from both NVIDIA API and WMI: {e:?}"
     )),
+  }
+}
+
+pub async fn get_gpu_temperature(
+  temperature_unit: enums::settings::TemperatureUnit,
+) -> Result<Vec<crate::structs::hardware::NameValue>, String> {
+  match infrastructure::nvapi::get_nvidia_gpu_temperature().await {
+    Ok(temps) => {
+      let temps = temps
+        .iter()
+        .map(|temp| {
+          let value = utils::formatter::format_temperature(
+            enums::settings::TemperatureUnit::Celsius,
+            temperature_unit.clone(),
+            temp.value,
+          );
+
+          crate::structs::hardware::NameValue {
+            name: temp.name.clone(),
+            value,
+          }
+        })
+        .collect();
+      Ok(temps)
+    }
+    Err(e) => Err(format!("Failed to get GPU temperature: {e:?}")),
   }
 }

@@ -1,4 +1,5 @@
 use crate::enums::hardware::DiskKind;
+use crate::enums::settings::TemperatureUnit;
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use crate::structs::hardware::{
   GraphicInfo, MemoryInfo, NetworkInfo, StorageInfo, SysInfo,
@@ -50,6 +51,19 @@ impl GpuPlatform for WindowsPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
     Box::pin(gpu::get_gpu_usage())
+  }
+
+  fn get_gpu_temperature(
+    &self,
+    temperature_unit: TemperatureUnit,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<Vec<crate::structs::hardware::NameValue>, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    Box::pin(gpu::get_gpu_temperature(temperature_unit))
   }
 
   fn get_gpu_info(

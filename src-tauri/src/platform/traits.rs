@@ -1,4 +1,5 @@
-use crate::structs::hardware::MemoryInfo;
+use crate::enums;
+use crate::structs;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -7,12 +8,16 @@ pub trait MemoryPlatform: Send + Sync {
   /// 基本的なメモリ情報を取得
   fn get_memory_info(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
+  ) -> Pin<
+    Box<dyn Future<Output = Result<structs::hardware::MemoryInfo, String>> + Send + '_>,
+  >;
 
   /// 詳細なメモリ情報を取得（対応プラットフォームのみ）
   fn get_memory_info_detail(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
+  ) -> Pin<
+    Box<dyn Future<Output = Result<structs::hardware::MemoryInfo, String>> + Send + '_>,
+  >;
 }
 
 /// プラットフォーム固有の GPU 操作を定義する trait
@@ -22,12 +27,22 @@ pub trait GpuPlatform: Send + Sync {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>>;
 
+  /// GPU 温度を取得
+  fn get_gpu_temperature(
+    &self,
+    temperature_unit: enums::settings::TemperatureUnit,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<Vec<structs::hardware::NameValue>, String>> + Send + '_,
+    >,
+  >;
+
   /// GPU 情報を取得
   fn get_gpu_info(
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<crate::structs::hardware::GraphicInfo>, String>>
+      dyn Future<Output = Result<Vec<structs::hardware::GraphicInfo>, String>>
         + Send
         + '_,
     >,

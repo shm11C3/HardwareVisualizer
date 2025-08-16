@@ -53,6 +53,19 @@ impl GpuPlatform for LinuxPlatform {
     Box::pin(gpu::get_gpu_usage())
   }
 
+  fn get_gpu_temperature(
+    &self,
+    temperature_unit: TemperatureUnit,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<Vec<crate::structs::hardware::NameValue>, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    Box::pin(Err("Not implemented".to_string()))
+  }
+
   fn get_gpu_info(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {

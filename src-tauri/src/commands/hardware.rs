@@ -1,13 +1,12 @@
 use crate::commands::settings;
-use crate::enums;
 use crate::enums::error::BackendError;
+use crate::platform::factory::PlatformFactory;
 use crate::services;
 use crate::services::hardware_services::HardwareServices;
 use crate::services::nvidia_gpu_service;
 use crate::services::system_info_service;
 use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
-use crate::utils;
 use crate::{log_error, log_internal};
 use sysinfo;
 use tauri::command;
@@ -216,14 +215,10 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_usage(
-  hardware_services: tauri::State<'_, HardwareServices>,
-) -> Result<i32, String> {
-  use crate::platform::factory::PlatformFactory;
-  
-  let platform = PlatformFactory::create()
-    .map_err(|e| format!("Failed to create platform: {e}"))?;
-  
+pub async fn get_gpu_usage() -> Result<i32, String> {
+  let platform =
+    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+
   let usage = platform.get_gpu_usage().await?;
   Ok(usage.round() as i32)
 }
@@ -235,31 +230,17 @@ pub async fn get_gpu_usage(
 #[specta::specta]
 pub async fn get_gpu_temperature(
   state: tauri::State<'_, settings::AppState>,
-) -> Result<Vec<nvidia_gpu_service::NameValue>, String> {
+) -> Result<Vec<structs::hardware::NameValue>, String> {
   let temperature_unit = {
     let config = state.settings.lock().unwrap();
     config.temperature_unit.clone()
   };
 
-  match nvidia_gpu_service::get_nvidia_gpu_temperature().await {
-    Ok(temps) => {
-      let temps = temps
-        .iter()
-        .map(|temp| {
-          let value = utils::formatter::format_temperature(
-            enums::settings::TemperatureUnit::Celsius,
-            temperature_unit.clone(),
-            temp.value,
-          );
+  let platform =
+    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
-          nvidia_gpu_service::NameValue {
-            name: temp.name.clone(),
-            value,
-          }
-        })
-        .collect();
-      Ok(temps)
-    }
+  match platform.get_gpu_temperature(temperature_unit).await {
+    Ok(temps) => Ok(temps),
     Err(e) => Err(format!("Failed to get GPU temperature: {e:?}")),
   }
 }
@@ -269,12 +250,9 @@ pub async fn get_gpu_temperature(
 ///
 #[command]
 #[specta::specta]
-pub async fn get_nvidia_gpu_cooler() -> Result<Vec<nvidia_gpu_service::NameValue>, String>
+pub async fn get_nvidia_gpu_cooler() -> Result<Vec<structs::hardware::NameValue>, String>
 {
-  match nvidia_gpu_service::get_nvidia_gpu_cooler_stat().await {
-    Ok(temps) => Ok(temps),
-    Err(e) => Err(format!("Failed to get GPU cooler status: {e:?}")),
-  }
+  Err("Failed to get GPU cooler status: This function is not implemented".to_string())
 }
 
 ///
