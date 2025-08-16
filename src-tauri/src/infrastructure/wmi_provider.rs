@@ -69,7 +69,6 @@ pub async fn query_memory_info() -> Result<MemoryInfo, String> {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-#[allow(dead_code)] // TODO 後で外す
 struct GpuEngineLoadInfo {
   name: String,
   utilization_percentage: Option<u16>,
@@ -78,7 +77,6 @@ struct GpuEngineLoadInfo {
 ///
 /// 指定したGPUエンジンの使用率を取得する（WMIを使用）
 ///
-#[allow(dead_code)] // TODO 後で外す
 pub async fn query_gpu_usage_by_device_and_engine(
   engine_type: &str,
 ) -> Result<f32, Box<dyn Error>> {
