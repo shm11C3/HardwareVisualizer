@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
-  use crate::enums;
   use crate::utils::formatter::*;
+
+  #[cfg(target_os = "windows")]
+  use crate::enums;
+  #[cfg(target_os = "windows")]
   use nvapi::Kibibytes;
 
   #[test]
