@@ -42,7 +42,7 @@ pub async fn get_amd_gpu_usage(card_id: u32) -> Result<f64, String> {
     .parse::<f32>()
     .map_err(|e| format!("Failed to parse gpu_busy_percent: {e}"))?;
 
-  Ok(percent / 100.0)
+  Ok((percent / 100.0).into())
 }
 
 pub async fn get_intel_gpu_usage(card_id: u32) -> Result<f64, String> {
@@ -60,15 +60,11 @@ pub async fn get_intel_gpu_usage(card_id: u32) -> Result<f64, String> {
     if line.contains("\"render busy\"") {
       if let Some(value_str) = line.split(':').nth(1) {
         if let Ok(value) = value_str.trim().trim_end_matches(',').parse::<f32>() {
-          return Ok(value / 100.0);
+          return Ok((value / 100.0).into());
         }
       }
     }
   }
 
   Err("Could not parse intel_gpu_top output".to_string())
-}
-
-pub async fn get_nvidia_gpu_usage() -> Result<f64, String> {
-  // TODO
 }

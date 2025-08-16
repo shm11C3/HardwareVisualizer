@@ -1,4 +1,4 @@
-use crate::enums::hardware::DiskKind;
+use crate::enums;
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use crate::structs::hardware::{
   GraphicInfo, MemoryInfo, NetworkInfo, StorageInfo, SysInfo,
@@ -55,7 +55,7 @@ impl GpuPlatform for LinuxPlatform {
 
   fn get_gpu_temperature(
     &self,
-    temperature_unit: TemperatureUnit,
+    temperature_unit: enums::settings::TemperatureUnit,
   ) -> Pin<
     Box<
       dyn Future<Output = Result<Vec<crate::structs::hardware::NameValue>, String>>
@@ -63,7 +63,7 @@ impl GpuPlatform for LinuxPlatform {
         + '_,
     >,
   > {
-    Box::pin(Err("Not implemented".to_string()))
+    Box::pin(async { Err("Not implemented".to_string()) })
   }
 
   fn get_gpu_info(
@@ -130,7 +130,7 @@ impl Platform for LinuxPlatform {
         size_unit: SizeUnit::GBytes,
         free: 1000.0,
         free_unit: SizeUnit::GBytes,
-        storage_type: DiskKind::Ssd,
+        storage_type: enums::hardware::DiskKind::Ssd,
         file_system: "ext4".to_string(),
       }];
 

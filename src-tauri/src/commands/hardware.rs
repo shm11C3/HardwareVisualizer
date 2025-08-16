@@ -118,20 +118,25 @@ pub async fn get_hardware_info(
   }
 
   #[cfg(target_os = "linux")]
-  for card_id in services::gpu_linux::get_all_card_ids() {
-    match services::gpu_linux::detect_gpu_vendor(card_id) {
-      services::gpu_linux::GpuVendor::Amd => {
-        if let Ok(info) = services::amd_gpu_linux::get_amd_graphic_info(card_id).await {
-          gpus_result.push(info);
+  {
+    use crate::services;
+
+    for card_id in services::gpu_linux::get_all_card_ids() {
+      match services::gpu_linux::detect_gpu_vendor(card_id) {
+        services::gpu_linux::GpuVendor::Amd => {
+          if let Ok(info) = services::amd_gpu_linux::get_amd_graphic_info(card_id).await {
+            gpus_result.push(info);
+          }
         }
-      }
-      services::gpu_linux::GpuVendor::Intel => {
-        if let Ok(info) = services::intel_gpu_linux::get_intel_graphic_info(card_id).await
-        {
-          gpus_result.push(info);
+        services::gpu_linux::GpuVendor::Intel => {
+          if let Ok(info) =
+            services::intel_gpu_linux::get_intel_graphic_info(card_id).await
+          {
+            gpus_result.push(info);
+          }
         }
+        _ => {}
       }
-      _ => {}
     }
   }
 
@@ -298,13 +303,19 @@ pub fn get_gpu_usage_history(
 ///
 #[command]
 #[specta::specta]
+#[cfg(target_os = "windows")]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  #[cfg(target_os = "windows")]
-  let result = wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError);
+  wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError)
+}
 
-  #[cfg(target_os = "linux")]
-  let result =
-    services::ip_linux::get_network_info().map_err(|_| BackendError::UnexpectedError);
+///
+/// ## ネットワーク情報を取得
+///
+#[command]
+#[specta::specta]
+#[cfg(target_os = "linux")]
+pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+  use crate::services;
 
-  result
+  services::ip_linux::get_network_info().map_err(|_| BackendError::UnexpectedError)
 }
