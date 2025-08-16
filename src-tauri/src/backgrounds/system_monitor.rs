@@ -19,6 +19,7 @@ const HISTORY_CAPACITY: usize = 60;
 /// - `SYSTEM_INFO_INIT_INTERVAL` 秒ごとにCPU使用率とメモリ使用率を更新
 ///
 pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
+  #[cfg(target_os = "windows")]
   let structs::hardware_archive::MonitorResources {
     system,
     cpu_history,
@@ -28,6 +29,18 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
     nv_gpu_usage_histories,
     nv_gpu_temperature_histories,
     nv_gpu_dedicated_memory_histories,
+  } = resources;
+
+  #[cfg(target_os = "linux")]
+  let structs::hardware_archive::MonitorResources {
+    system,
+    cpu_history,
+    memory_history,
+    process_cpu_histories,
+    process_memory_histories,
+    nv_gpu_usage_histories: _nv_gpu_usage_histories,
+    nv_gpu_temperature_histories: _nv_gpu_temperature_histories,
+    nv_gpu_dedicated_memory_histories: _nv_gpu_dedicated_memory_histories,
   } = resources;
 
   let mut interval =
