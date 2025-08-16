@@ -57,7 +57,7 @@ pub async fn get_amd_gpu_usage(card_id: u32) -> Result<f64, String> {
   Ok((percent / 100.0).into())
 }
 
-pub async fn get_intel_gpu_usage(card_id: u32) -> Result<f64, String> {
+pub async fn get_intel_gpu_usage() -> Result<f64, String> {
   let output = Command::new("intel_gpu_top")
     .args(["-J", "-s", "1000"]) // JSON出力で1秒だけ取得
     .output()
@@ -69,12 +69,11 @@ pub async fn get_intel_gpu_usage(card_id: u32) -> Result<f64, String> {
 
   let stdout = String::from_utf8_lossy(&output.stdout);
   for line in stdout.lines() {
-    if line.contains("\"render busy\"") {
-      if let Some(value_str) = line.split(':').nth(1) {
-        if let Ok(value) = value_str.trim().trim_end_matches(',').parse::<f32>() {
-          return Ok((value / 100.0).into());
-        }
-      }
+    if line.contains("\"render busy\"")
+      && let Some(value_str) = line.split(':').nth(1)
+      && let Ok(value) = value_str.trim().trim_end_matches(',').parse::<f32>()
+    {
+      return Ok((value / 100.0).into());
     }
   }
 
