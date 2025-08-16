@@ -92,7 +92,10 @@
       "noDataMessage": "No processes found matching the specified criteria",
       "adjustFiltersHint": "Try adjusting the filter conditions"
     },
-    "other": "Other"
+    "other": "Other",
+    "loading": "Loading...",
+    "back": "Back",
+    "showInExplorer": "Show in Explorer"
   },
 
   "pages": {
@@ -205,6 +208,10 @@
         "checkGitHub": "Check GitHub",
         "checkLatestVersion": "Check Latest Version",
         "author": "Author: {{author}}"
+      },
+      "license": {
+        "applicationLicense": "Application License",
+        "thirdPartyLicenses": "Third-Party Licenses"
       }
     }
   },

@@ -100,6 +100,9 @@ pub fn run() {
     settings::commands::set_hardware_archive_enabled,
     settings::commands::set_hardware_archive_interval,
     settings::commands::set_hardware_archive_scheduled_data_deletion,
+    settings::commands::read_license_file,
+    settings::commands::read_third_party_notices_file,
+    settings::commands::open_license_file_path,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,
@@ -200,6 +203,7 @@ pub fn run() {
     ))
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_os::init())
+    .plugin(tauri_plugin_opener::init())
     .manage(state)
     .manage(hardware_services)
     .manage(app_state)

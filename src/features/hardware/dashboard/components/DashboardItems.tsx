@@ -348,7 +348,7 @@ export const NetworkInfo = () => {
                   <div className="flex w-full items-center justify-between">
                     <p>{network.description ?? "No description"}</p>
                     {/**  この部分にネットワーク使用量を表示 */}
-                    <p className="mr-2 w-24 text-left text-gray-500 text-sm dark:text-gray-400 ">
+                    <p className="mr-2 w-24 text-left text-gray-500 text-sm dark:text-gray-400">
                       {network.ipv4[0] ?? "No IP Address"}
                     </p>
                   </div>

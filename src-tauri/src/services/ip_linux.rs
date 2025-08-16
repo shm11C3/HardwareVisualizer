@@ -77,24 +77,22 @@ fn populate_ip_addresses(map: &mut HashMap<String, NetworkInfo>) -> Result<(), S
       } else {
         None
       };
-    } else if let Some(iface) = &current_iface {
-      if line.trim().starts_with("inet ") {
-        if let Some(ip_str) = line.split_whitespace().nth(1) {
-          if let Ok(addr) = ip_str.parse::<ipnet::IpNet>() {
-            let iface_entry = map.get_mut(iface).unwrap();
-            match addr.addr() {
-              IpAddr::V4(v4) => {
-                iface_entry.ipv4.push(v4.to_string());
-                iface_entry.ip_subnet.push(ip_str.to_string());
-              }
-              IpAddr::V6(v6) => {
-                if v6.is_unicast_link_local() {
-                  iface_entry.link_local_ipv6.push(v6.to_string());
-                } else {
-                  iface_entry.ipv6.push(v6.to_string());
-                }
-              }
-            }
+    } else if let Some(iface) = &current_iface
+      && line.trim().starts_with("inet ")
+      && let Some(ip_str) = line.split_whitespace().nth(1)
+      && let Ok(addr) = ip_str.parse::<ipnet::IpNet>()
+    {
+      let iface_entry = map.get_mut(iface).unwrap();
+      match addr.addr() {
+        IpAddr::V4(v4) => {
+          iface_entry.ipv4.push(v4.to_string());
+          iface_entry.ip_subnet.push(ip_str.to_string());
+        }
+        IpAddr::V6(v6) => {
+          if v6.is_unicast_link_local() {
+            iface_entry.link_local_ipv6.push(v6.to_string());
+          } else {
+            iface_entry.ipv6.push(v6.to_string());
           }
         }
       }

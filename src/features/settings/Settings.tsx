@@ -41,6 +41,7 @@ import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/features/hardware/types/hardwareDataType";
+import { LicensePage } from "@/features/settings/components/LicensePage";
 import { PreviewChart } from "@/features/settings/components/Preview";
 import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
 import { UploadImage } from "@/features/settings/components/UploadImage";
@@ -679,7 +680,7 @@ const SetNumberOfDaysInsightDataRetains = () => {
   );
 };
 
-const About = () => {
+const About = ({ onShowLicense }: { onShowLicense: () => void }) => {
   const { t } = useTranslation();
   const [version, setVersion] = useState("");
 
@@ -720,15 +721,11 @@ const About = () => {
           <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
-          onClick={() =>
-            openURL(
-              "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
-            )
-          }
+          onClick={onShowLicense}
+          variant="outline"
           className="rounded-full text-sm"
         >
-          <span className="px-1">{t("pages.settings.about.license")}</span>
-          <ArrowSquareOutIcon size={16} />
+          {t("pages.settings.about.license")}
         </Button>
       </div>
     </div>
@@ -751,6 +748,11 @@ const About = () => {
  */
 export const Settings = () => {
   const { t } = useTranslation();
+  const [showLicensePage, setShowLicensePage] = useState(false);
+
+  if (showLicensePage) {
+    return <LicensePage onBack={() => setShowLicensePage(false)} />;
+  }
 
   return (
     <>
@@ -836,7 +838,7 @@ export const Settings = () => {
         <h3 className="py-3 font-bold text-2xl">
           {t("pages.settings.about.name")}
         </h3>
-        <About />
+        <About onShowLicense={() => setShowLicensePage(true)} />
       </div>
     </>
   );
