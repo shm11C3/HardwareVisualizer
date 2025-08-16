@@ -1,6 +1,5 @@
 pub mod hardware_services;
 pub mod language;
-pub mod nvidia_gpu_service;
 pub mod setting_service;
 pub mod system_info_service;
 

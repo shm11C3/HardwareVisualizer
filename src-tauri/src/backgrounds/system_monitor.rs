@@ -1,4 +1,4 @@
-use crate::{services, structs};
+use crate::structs;
 use std::time::Duration;
 
 ///
@@ -99,6 +99,7 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
       }
 
       // GPU使用率の履歴を保存
+      #[cfg(target_os = "windows")]
       {
         let mut nv_gpu_usage_histories = nv_gpu_usage_histories.lock().unwrap();
         let mut nv_gpu_temperature_histories =
@@ -113,14 +114,15 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
           .iter()
           .map(|gpu| (gpu.full_name().unwrap_or("Unknown".to_string()), gpu))
         {
+          use crate::infrastructure;
+
           let usage_history = nv_gpu_usage_histories.entry(name.clone()).or_default();
 
           if usage_history.len() >= HISTORY_CAPACITY {
             usage_history.pop_front();
           }
-          usage_history.push_back(
-            services::nvidia_gpu_service::get_gpu_usage_from_physical_gpu(gpu),
-          );
+          usage_history
+            .push_back(infrastructure::nvapi::get_gpu_usage_from_physical_gpu(gpu));
 
           let temperature_history = nv_gpu_temperature_histories
             .entry(name.clone())
@@ -129,9 +131,8 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
           if temperature_history.len() >= HISTORY_CAPACITY {
             temperature_history.pop_front();
           }
-          temperature_history.push_back(
-            services::nvidia_gpu_service::get_gpu_temperature_from_physical_gpu(gpu),
-          );
+          temperature_history
+            .push_back(infrastructure::nvapi::get_gpu_temperature_from_physical_gpu(gpu));
 
           let mut nv_gpu_dedicated_memory_histories =
             nv_gpu_dedicated_memory_histories.lock().unwrap();
@@ -143,7 +144,8 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
             gpu_memory_history.pop_front();
           }
           gpu_memory_history.push_back(
-            services::nvidia_gpu_service::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as i32,
+            infrastructure::nvapi::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu)
+              as i32,
           );
         }
       }
