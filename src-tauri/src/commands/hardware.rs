@@ -272,23 +272,10 @@ pub fn get_gpu_usage_history(
 ///
 #[command]
 #[specta::specta]
-#[cfg(target_os = "windows")]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
   let platform = PlatformFactory::create().map_err(|_| BackendError::UnexpectedError)?;
 
   platform
     .get_network_info()
     .map_err(|_| BackendError::UnexpectedError)
-}
-
-///
-/// ## ネットワーク情報を取得
-///
-#[command]
-#[specta::specta]
-#[cfg(target_os = "linux")]
-pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  use crate::services;
-
-  services::ip_linux::get_network_info().map_err(|_| BackendError::UnexpectedError)
 }

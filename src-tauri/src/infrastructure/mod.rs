@@ -21,3 +21,6 @@ pub mod lspci;
 
 #[cfg(target_os = "linux")]
 pub mod kernel;
+
+#[cfg(target_os = "linux")]
+pub mod net_sys;

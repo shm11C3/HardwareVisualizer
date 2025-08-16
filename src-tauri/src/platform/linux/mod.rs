@@ -1,4 +1,5 @@
 use crate::enums;
+use crate::enums::error::BackendError;
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use crate::structs::hardware::{
   GraphicInfo, MemoryInfo, NetworkInfo, StorageInfo, SysInfo,
@@ -10,6 +11,7 @@ use std::pin::Pin;
 pub mod cache;
 pub mod gpu;
 pub mod memory;
+pub mod network;
 
 /// Linux プラットフォーム実装（ダミー）
 pub struct LinuxPlatform;
@@ -74,18 +76,8 @@ impl GpuPlatform for LinuxPlatform {
 }
 
 impl NetworkPlatform for LinuxPlatform {
-  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, String> {
-    // Linux ダミー実装
-    Ok(vec![NetworkInfo {
-      description: Some("Linux Network Interface (Dummy)".to_string()),
-      mac_address: Some("aa:bb:cc:dd:ee:ff".to_string()),
-      ipv4: vec!["10.0.0.100".to_string()],
-      ipv6: vec!["2001:db8::1".to_string()],
-      link_local_ipv6: vec!["fe80::2%eth0".to_string()],
-      ip_subnet: vec!["10.0.0.0/24".to_string()],
-      default_ipv4_gateway: vec!["10.0.0.1".to_string()],
-      default_ipv6_gateway: vec!["2001:db8::1".to_string()],
-    }])
+  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
+    network::get_network_info()
   }
 }
 
