@@ -42,6 +42,13 @@ pub struct GraphicInfo {
   pub memory_size_dedicated: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct NameValue {
+  pub name: String,
+  pub value: i32, // 摂氏温度
+}
+
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageInfo {

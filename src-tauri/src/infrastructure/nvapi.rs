@@ -1,9 +1,8 @@
-use crate::structs::hardware::GraphicInfo;
+use crate::structs;
 use crate::utils::{self};
 use crate::{log_debug, log_error, log_internal, log_warn};
 use nvapi;
 use nvapi::UtilizationDomain;
-use specta::Type;
 use tokio::task::JoinError;
 use tokio::task::spawn_blocking;
 
@@ -72,17 +71,11 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
   })?
 }
 
-#[derive(Debug, Clone, serde::Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct NameValue {
-  pub name: String,
-  pub value: i32, // 摂氏温度
-}
-
 ///
 /// ## GPU温度を取得する（NVAPI を使用）
 ///
-pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Status> {
+pub async fn get_nvidia_gpu_temperature()
+-> Result<Vec<structs::hardware::NameValue>, nvapi::Status> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_nvidia_gpu_temperature", None::<&str>);
 
@@ -109,7 +102,7 @@ pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Statu
         nvapi::Status::Error
       })?;
 
-      temperatures.push(NameValue {
+      temperatures.push(structs::hardware::NameValue {
         name: gpu.full_name().unwrap_or("Unknown".to_string()),
         value: thermal_settings[0].current_temperature.0,
       });
@@ -129,59 +122,10 @@ pub async fn get_nvidia_gpu_temperature() -> Result<Vec<NameValue>, nvapi::Statu
 }
 
 ///
-/// ## GPUのファン回転数を取得する（NVAPI を使用）
-///
-pub async fn get_nvidia_gpu_cooler_stat() -> Result<Vec<NameValue>, nvapi::Status> {
-  let handle = spawn_blocking(|| {
-    log_debug!("start", "get_nvidia_gpu_cooler_stat", None::<&str>);
-
-    let gpus = nvapi::PhysicalGpu::enumerate()?;
-
-    if gpus.is_empty() {
-      log_debug!(
-        "not found",
-        "get_nvidia_gpu_cooler_stat",
-        Some("gpu is not found")
-      );
-      return Err(nvapi::Status::Error); // GPUが見つからない場合はエラーを返す
-    }
-
-    let mut cooler_infos = Vec::new();
-
-    for gpu in gpus.iter() {
-      // 温度情報を取得
-      let cooler_settings = gpu.cooler_settings(None).map_err(|e| {
-        log_debug!(
-          "cooler_settings_failed",
-          "get_nvidia_gpu_cooler_stat",
-          Some(&format!("{e:?}"))
-        );
-        nvapi::Status::Error
-      })?;
-
-      cooler_infos.push(NameValue {
-        name: gpu.full_name().unwrap_or("Unknown".to_string()),
-        value: cooler_settings[0].current_level.0 as i32,
-      });
-    }
-
-    Ok(cooler_infos)
-  });
-
-  handle.await.map_err(|e: JoinError| {
-    log_error!(
-      "join_error",
-      "get_nvidia_gpu_cooler_stat",
-      Some(e.to_string())
-    );
-    nvapi::Status::Error
-  })?
-}
-
-///
 /// GPU情報を取得する
 ///
-pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
+pub async fn get_nvidia_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, String>
+{
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_nvidia_gpu_info", None::<&str>);
 
@@ -249,7 +193,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<GraphicInfo>, String> {
         }
       };
 
-      let gpu_info = GraphicInfo {
+      let gpu_info = structs::hardware::GraphicInfo {
         id: gpu_id,
         name,
         vendor_name: "NVIDIA".to_string(),

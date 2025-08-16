@@ -43,7 +43,7 @@ export const useHardwareInfoAtom = () => {
     const backup = hardwareInfo.memory;
     setHardInfo({ ...hardwareInfo, memory: null });
 
-    const result = await commands.getMemoryInfoDetailLinux();
+    const result = await commands.getMemoryInfoDetail();
 
     if (isError(result)) {
       error(result.error);

@@ -1,10 +1,14 @@
-use crate::enums;
-use nvapi::Kibibytes;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
+
+#[cfg(target_os = "windows")]
+use crate::enums;
+
+#[cfg(target_os = "windows")]
+use nvapi::Kibibytes;
 
 const KILOBYTE: u64 = 1024;
 const MEGABYTE: u64 = KILOBYTE * 1024;
@@ -33,6 +37,7 @@ impl fmt::Display for SizeUnit {
   }
 }
 
+#[cfg(target_os = "windows")]
 pub struct RoundedKibibytes {
   pub kibibytes: Kibibytes,
   pub precision: u32,
@@ -41,6 +46,7 @@ pub struct RoundedKibibytes {
 ///
 /// ## `Kibibytes` をフォーマット
 ///
+#[cfg(target_os = "windows")]
 impl fmt::Display for RoundedKibibytes {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let value = self.kibibytes.0; // Kibibytesの内部値を取得
@@ -159,6 +165,7 @@ pub fn format_vendor_name(vendor_id: &str) -> String {
   }
 }
 
+#[cfg(target_os = "windows")]
 pub fn format_temperature(
   current_unit: enums::settings::TemperatureUnit,
   unit: enums::settings::TemperatureUnit,

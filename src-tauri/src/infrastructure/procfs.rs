@@ -1,4 +1,4 @@
-pub fn get_memtotal_kb() -> std::io::Result<u64> {
+pub fn get_mem_total_kb() -> std::io::Result<u64> {
   use std::fs;
   use std::io;
 
