@@ -15,3 +15,9 @@ pub mod procfs;
 
 #[cfg(target_os = "linux")]
 pub mod drm_sys;
+
+#[cfg(target_os = "linux")]
+pub mod lspci;
+
+#[cfg(target_os = "linux")]
+pub mod kernel;

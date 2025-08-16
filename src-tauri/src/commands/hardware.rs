@@ -107,38 +107,10 @@ pub async fn get_hardware_info(
   let memory_repository = hardware_services.get_memory_repository();
   let memory_result = memory_repository.get_memory_info().await;
 
-  let mut gpus_result = Vec::new();
+  let platform =
+    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
-  #[cfg(target_os = "windows")]
-  {
-    let platform =
-      PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
-
-    gpus_result = platform.get_gpu_info().await?;
-  }
-
-  #[cfg(target_os = "linux")]
-  {
-    use crate::services;
-
-    for card_id in services::gpu_linux::get_all_card_ids() {
-      match services::gpu_linux::detect_gpu_vendor(card_id) {
-        services::gpu_linux::GpuVendor::Amd => {
-          if let Ok(info) = services::amd_gpu_linux::get_amd_graphic_info(card_id).await {
-            gpus_result.push(info);
-          }
-        }
-        services::gpu_linux::GpuVendor::Intel => {
-          if let Ok(info) =
-            services::intel_gpu_linux::get_intel_graphic_info(card_id).await
-          {
-            gpus_result.push(info);
-          }
-        }
-        _ => {}
-      }
-    }
-  }
+  let gpus_result = platform.get_gpu_info().await?;
 
   let storage_info = system_info_service::get_storage_info()?;
 

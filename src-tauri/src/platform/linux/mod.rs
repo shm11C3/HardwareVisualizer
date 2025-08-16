@@ -55,7 +55,7 @@ impl GpuPlatform for LinuxPlatform {
 
   fn get_gpu_temperature(
     &self,
-    temperature_unit: enums::settings::TemperatureUnit,
+    _temperature_unit: enums::settings::TemperatureUnit,
   ) -> Pin<
     Box<
       dyn Future<Output = Result<Vec<crate::structs::hardware::NameValue>, String>>
@@ -69,17 +69,7 @@ impl GpuPlatform for LinuxPlatform {
   fn get_gpu_info(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
-    Box::pin(async {
-      // Linux ダミー実装
-      Ok(vec![GraphicInfo {
-        id: "GPU-11111111-1111-1111-1111-111111111111".to_string(),
-        name: "Linux GPU (Dummy)".to_string(),
-        vendor_name: "AMD".to_string(),
-        clock: 1800,
-        memory_size: "12 GB".to_string(),
-        memory_size_dedicated: "12 GB".to_string(),
-      }])
-    })
+    Box::pin(gpu::get_gpu_info())
   }
 }
 

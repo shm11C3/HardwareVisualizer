@@ -9,12 +9,3 @@ pub mod wmi_service;
 
 #[cfg(target_os = "linux")]
 pub mod ip_linux;
-
-#[cfg(target_os = "linux")]
-pub mod gpu_linux;
-
-#[cfg(target_os = "linux")]
-pub mod amd_gpu_linux;
-
-#[cfg(target_os = "linux")]
-pub mod intel_gpu_linux;
