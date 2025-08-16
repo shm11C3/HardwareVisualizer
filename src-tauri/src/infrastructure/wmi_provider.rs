@@ -128,7 +128,6 @@ struct NetworkAdapterConfiguration {
   default_ip_gateway: Option<Vec<String>>,
 }
 
-#[allow(dead_code)] // TODO 後で外す
 pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
   let results: Vec<NetworkAdapterConfiguration> = wmi_query_in_thread(
     "SELECT Description, MACAddress, IPAddress, IPSubnet, DefaultIPGateway FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = TRUE".to_string(),
@@ -136,7 +135,7 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
 
   log_debug!(
     &format!("Network adapter configuration data: {results:?}"),
-    "get_network_info",
+    "query_network_info",
     None::<&str>
   );
 

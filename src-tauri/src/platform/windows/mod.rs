@@ -1,3 +1,4 @@
+use crate::enums::error::BackendError;
 use crate::enums::hardware::DiskKind;
 use crate::enums::settings::TemperatureUnit;
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
@@ -10,6 +11,7 @@ use std::pin::Pin;
 
 pub mod gpu;
 pub mod memory;
+pub mod network;
 
 /// Windows プラットフォーム実装（ダミー）
 pub struct WindowsPlatform;
@@ -74,18 +76,8 @@ impl GpuPlatform for WindowsPlatform {
 }
 
 impl NetworkPlatform for WindowsPlatform {
-  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, String> {
-    // Windows ダミー実装
-    Ok(vec![NetworkInfo {
-      description: Some("Windows Network Adapter (Dummy)".to_string()),
-      mac_address: Some("00:11:22:33:44:55".to_string()),
-      ipv4: vec!["192.168.1.100".to_string()],
-      ipv6: vec!["fe80::1%eth0".to_string()],
-      link_local_ipv6: vec!["fe80::1%eth0".to_string()],
-      ip_subnet: vec!["192.168.1.0/24".to_string()],
-      default_ipv4_gateway: vec!["192.168.1.1".to_string()],
-      default_ipv6_gateway: vec!["fe80::1%eth0".to_string()],
-    }])
+  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
+    network::get_network_info()
   }
 }
 

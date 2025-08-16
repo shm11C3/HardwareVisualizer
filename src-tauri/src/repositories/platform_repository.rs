@@ -118,7 +118,9 @@ mod tests {
   }
 
   impl NetworkPlatform for MockPlatform {
-    fn get_network_info(&self) -> Result<Vec<NetworkInfo>, String> {
+    fn get_network_info(
+      &self,
+    ) -> Result<Vec<NetworkInfo>, crate::enums::error::BackendError> {
       Ok(vec![])
     }
   }

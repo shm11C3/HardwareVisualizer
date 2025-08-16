@@ -1,4 +1,5 @@
 use crate::enums;
+use crate::enums::error::BackendError;
 use crate::structs;
 use std::future::Future;
 use std::pin::Pin;
@@ -55,7 +56,7 @@ pub trait NetworkPlatform: Send + Sync {
   #[allow(dead_code)]
   fn get_network_info(
     &self,
-  ) -> Result<Vec<crate::structs::hardware::NetworkInfo>, String>;
+  ) -> Result<Vec<crate::structs::hardware::NetworkInfo>, BackendError>;
 }
 
 /// 全てのプラットフォーム機能を統合する trait

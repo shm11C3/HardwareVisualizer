@@ -8,9 +8,6 @@ use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, S
 use sysinfo;
 use tauri::command;
 
-#[cfg(target_os = "windows")]
-use crate::services::wmi_service;
-
 ///
 /// ## プロセスリストを取得
 ///
@@ -277,7 +274,11 @@ pub fn get_gpu_usage_history(
 #[specta::specta]
 #[cfg(target_os = "windows")]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  wmi_service::get_network_info().map_err(|_| BackendError::UnexpectedError)
+  let platform = PlatformFactory::create().map_err(|_| BackendError::UnexpectedError)?;
+
+  platform
+    .get_network_info()
+    .map_err(|_| BackendError::UnexpectedError)
 }
 
 ///
