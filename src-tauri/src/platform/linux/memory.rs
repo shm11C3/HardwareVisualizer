@@ -37,8 +37,9 @@ pub fn get_memory_info() -> std::pin::Pin<
   })
 }
 
-pub fn get_memory_info_detail()
--> std::pin::Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + 'static>> {
+pub fn get_memory_info_detail() -> std::pin::Pin<
+  Box<dyn std::future::Future<Output = Result<MemoryInfo, String>> + Send + 'static>,
+> {
   Box::pin(async {
     let raw = infrastructure::dmidecode::get_raw_dmidecode().await?;
     let parsed = infrastructure::dmidecode::parse_dmidecode_memory_info(&raw);
