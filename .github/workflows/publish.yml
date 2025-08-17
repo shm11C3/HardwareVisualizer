@@ -173,5 +173,5 @@ jobs:
       - name: upload THIRD_PARTY_NOTICES.md
         uses: actions/upload-artifact@v4
         with:
-          name: THIRD_PARTY_NOTICES_(${{ runner.os }}).md
+          name: THIRD_PARTY_NOTICES_(${{ matrix.platform == 'ubuntu-22.04' && 'linux' || (matrix.platform == 'windows-latest' && 'windows' || 'other') }}).md
           path: ./THIRD_PARTY_NOTICES.md
