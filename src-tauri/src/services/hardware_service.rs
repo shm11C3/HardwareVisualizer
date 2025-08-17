@@ -34,7 +34,6 @@ pub async fn collect_hardware_info(
 
   if cpu.is_none() && gpus.is_none() && memory.is_none() {
     return Err("Failed to get any hardware info".to_string());
-  }
 
   Ok(SysInfo {
     cpu,
