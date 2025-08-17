@@ -1,4 +1,3 @@
-use crate::services;
 use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -98,10 +97,21 @@ pub struct ProcessInfo {
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SysInfo {
-  pub cpu: Option<services::system_info_service::CpuInfo>,
+  pub cpu: Option<CpuInfo>,
   pub memory: Option<MemoryInfo>,
   pub gpus: Option<Vec<GraphicInfo>>,
   pub storage: Vec<StorageInfo>,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CpuInfo {
+  pub name: String,
+  pub vendor: String,
+  pub core_count: u32,
+  pub clock: u32,
+  pub clock_unit: String,
+  pub cpu_name: String,
 }
 
 fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>

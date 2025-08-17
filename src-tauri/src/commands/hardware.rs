@@ -1,7 +1,7 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
+use crate::infrastructure;
 use crate::platform::factory::PlatformFactory;
-use crate::services::system_info_service;
 use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use sysinfo;
@@ -97,7 +97,8 @@ pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Ve
 pub async fn get_hardware_info(
   state: tauri::State<'_, HardwareMonitorState>,
 ) -> Result<SysInfo, String> {
-  let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
+  let cpu_result =
+    infrastructure::sysinfo_provider::get_cpu_info(state.system.lock().unwrap());
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
@@ -105,7 +106,7 @@ pub async fn get_hardware_info(
   let gpus_result = platform.get_gpu_info().await?;
   let memory_result = platform.get_memory_info().await?;
 
-  let storage_info = system_info_service::get_storage_info()?;
+  let storage_info = infrastructure::sysinfo_provider::get_storage_info()?;
 
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
