@@ -1,6 +1,5 @@
 use crate::infrastructure;
 use crate::structs;
-use futures::future;
 
 pub async fn get_gpu_usage() -> Result<f32, String> {
   let cards = infrastructure::drm_sys::get_card_ids().await?;
@@ -26,27 +25,37 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
 }
 
 pub async fn get_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, String> {
+  use tokio::task::JoinSet;
+
   let card_ids = infrastructure::drm_sys::get_all_card_ids();
+  let mut join_set = JoinSet::new();
 
-  // 各GPUカードの情報取得を並列実行するためのタスクを作成
-  let tasks = card_ids.into_iter().map(|card_id| async move {
-    match infrastructure::drm_sys::detect_gpu_vendor(card_id) {
-      infrastructure::drm_sys::GpuVendor::Amd => get_amd_graphic_info(card_id).await.ok(),
-      infrastructure::drm_sys::GpuVendor::Intel => {
-        get_intel_graphic_info(card_id).await.ok()
+  for card_id in card_ids {
+    join_set.spawn(async move {
+      match infrastructure::drm_sys::detect_gpu_vendor(card_id) {
+        infrastructure::drm_sys::GpuVendor::Amd => {
+          get_amd_graphic_info(card_id).await.ok()
+        }
+        infrastructure::drm_sys::GpuVendor::Intel => {
+          get_intel_graphic_info(card_id).await.ok()
+        }
+        _ => None,
       }
-      _ => None,
+      .map(|info| (card_id, info)) // ソート用に card_id を付加
+    });
+  }
+
+  let mut infos: Vec<(u8, structs::hardware::GraphicInfo)> = Vec::new();
+  while let Some(res) = join_set.join_next().await {
+    if let Ok(Some((card_id, info))) = res {
+      infos.push((card_id, info));
     }
-  });
+  }
 
-  // 全てのタスクを並列実行
-  let results = future::join_all(tasks).await;
+  // 元の card_id 昇順に安定化
+  infos.sort_by_key(|(id, _)| *id);
 
-  // 成功した結果のみを収集
-  let gpus_result: Vec<structs::hardware::GraphicInfo> =
-    results.into_iter().flatten().collect();
-
-  Ok(gpus_result)
+  Ok(infos.into_iter().map(|(_, info)| info).collect())
 }
 
 async fn get_amd_graphic_info(
