@@ -14,8 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "windows-latest"
-          - platform: "ubuntu-22.04"
+          - platform: "windows"
+          - platform: "linux"
 
     runs-on: ${{ matrix.platform }}
 
