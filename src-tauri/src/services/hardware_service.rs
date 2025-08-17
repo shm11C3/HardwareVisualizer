@@ -17,9 +17,20 @@ pub async fn collect_hardware_info(
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
-  let gpus = platform.get_gpu_info().await.ok();
-  let memory = platform.get_memory_info().await.ok();
-  let storage = infrastructure::sysinfo_provider::get_storage_info().unwrap_or_default();
+
+  // GPU / Memory を並行実行
+  let (gpus_res, memory_res, storage_res) =
+    tokio::join!(platform.get_gpu_info(), platform.get_memory_info(), async {
+      infrastructure::sysinfo_provider::get_storage_info()
+    });
+
+  let gpus = gpus_res.ok();
+  let memory = memory_res.ok();
+  let storage = storage_res.map_err(|e| format!("Failed to get storage info: {e}"))?;
+
+  if cpu.is_none() && gpus.is_none() && memory.is_none() {
+    return Err("Failed to get any hardware info".to_string());
+  }
 
   if cpu.is_none() && gpus.is_none() && memory.is_none() {
     return Err("Failed to get any hardware info".to_string());
