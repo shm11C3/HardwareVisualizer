@@ -1,7 +1,6 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::platform::factory::PlatformFactory;
-use crate::services::hardware_services::HardwareServices;
 use crate::services::system_info_service;
 use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
@@ -97,23 +96,20 @@ pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Ve
 #[specta::specta]
 pub async fn get_hardware_info(
   state: tauri::State<'_, HardwareMonitorState>,
-  hardware_services: tauri::State<'_, HardwareServices>,
 ) -> Result<SysInfo, String> {
   let cpu_result = system_info_service::get_cpu_info(state.system.lock().unwrap());
-
-  let memory_repository = hardware_services.get_memory_repository();
-  let memory_result = memory_repository.get_memory_info().await;
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
   let gpus_result = platform.get_gpu_info().await?;
+  let memory_result = platform.get_memory_info().await?;
 
   let storage_info = system_info_service::get_storage_info()?;
 
   let sys_info = SysInfo {
     cpu: cpu_result.ok(),
-    memory: memory_result.ok(),
+    memory: Some(memory_result),
     gpus: Some(gpus_result),
     storage: storage_info,
   };
@@ -133,11 +129,11 @@ pub async fn get_hardware_info(
 ///
 #[command]
 #[specta::specta]
-pub async fn get_memory_info_detail(
-  hardware_services: tauri::State<'_, HardwareServices>,
-) -> Result<structs::hardware::MemoryInfo, String> {
-  let memory_repository = hardware_services.get_memory_repository();
-  memory_repository.get_memory_info_detail().await
+pub async fn get_memory_info_detail() -> Result<structs::hardware::MemoryInfo, String> {
+  let platform =
+    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+
+  platform.get_memory_info_detail().await
 }
 
 ///

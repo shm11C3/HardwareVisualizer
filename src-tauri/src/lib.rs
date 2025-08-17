@@ -8,7 +8,6 @@ mod database;
 mod enums;
 mod infrastructure;
 mod platform;
-mod repositories;
 mod services;
 mod structs;
 mod utils;
@@ -30,8 +29,6 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 
-use services::hardware_services::HardwareServices;
-
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 
@@ -47,10 +44,6 @@ pub fn run() {
   let nv_gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
-
-  // ハードウェアサービス層の初期化
-  let hardware_services =
-    HardwareServices::new().expect("Failed to create hardware services");
 
   let state = structs::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
@@ -205,7 +198,6 @@ pub fn run() {
     .plugin(tauri_plugin_os::init())
     .plugin(tauri_plugin_opener::init())
     .manage(state)
-    .manage(hardware_services)
     .manage(app_state)
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
