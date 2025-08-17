@@ -53,7 +53,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 sqlx = { version = "0.8.6", features = [
     "sqlite",
-    "runtime-async-std",
+    "runtime-tokio-rustls",
     "macros",
     "chrono",
 ] }
