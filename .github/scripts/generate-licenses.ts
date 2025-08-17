@@ -23,7 +23,7 @@ type CargoLicenseInfo = {
 // ==========================
 const target = process.argv[2]; // "linux" or "windows"
 if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
-  console.error("Usage: ts-node script.ts <linux|windows|macos|tmp>");
+  console.error("Usage: node --experimental-strip-types script.ts <linux|windows|macos|tmp>");
   process.exit(1);
 }
 
