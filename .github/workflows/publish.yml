@@ -168,10 +168,10 @@ jobs:
 
       # THIRD_PARTY_LICENSES ファイルを生成
       - name: Generate THIRD_PARTY_NOTICES
-        run: node --experimental-strip-types .github/scripts/generate-licenses.ts
+        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
       - name: upload THIRD_PARTY_NOTICES.md
         uses: actions/upload-artifact@v4
         with:
-          name: THIRD_PARTY_NOTICES.md
+          name: THIRD_PARTY_NOTICES_(${{ runner.os }}).md
           path: ./THIRD_PARTY_NOTICES.md
