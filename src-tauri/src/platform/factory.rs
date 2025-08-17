@@ -1,5 +1,3 @@
-// Platform factory implementation
-
 /// プラットフォーム判定エラー
 #[derive(Debug, Clone)]
 pub enum PlatformError {
