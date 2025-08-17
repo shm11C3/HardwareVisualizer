@@ -60,14 +60,4 @@ pub trait NetworkPlatform: Send + Sync {
 }
 
 /// 全てのプラットフォーム機能を統合する trait
-pub trait Platform: MemoryPlatform + GpuPlatform + NetworkPlatform {
-  /// システム情報を取得
-  #[allow(dead_code)]
-  fn get_system_info(
-    &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<crate::structs::hardware::SysInfo, String>> + Send + '_,
-    >,
-  >;
-}
+pub trait Platform: MemoryPlatform + GpuPlatform + NetworkPlatform {}
