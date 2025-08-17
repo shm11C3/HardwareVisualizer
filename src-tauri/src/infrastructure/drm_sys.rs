@@ -18,30 +18,36 @@ pub struct CardInfo {
 /// `/sys/class/drm/` に存在する `card*` をすべて列挙して card ID を返す
 ///
 pub async fn get_card_ids() -> Result<Vec<CardInfo>, String> {
-  use futures::future::join_all;
+  use tokio::task::JoinSet;
 
-  let card_futures = (0..=9)
-    .filter_map(|card_id| {
-      let vendor_path = format!("/sys/class/drm/card{card_id}/device/vendor");
-      if std::path::Path::new(&vendor_path).exists() {
-        Some(async move {
-          tokio::fs::read_to_string(&vendor_path)
-            .await
-            .map(|content| CardInfo {
-              id: card_id,
-              vendor_id: content.trim().to_string(),
-            })
-            .map_err(|e| format!("Failed to read vendor for card{card_id}: {e}"))
-        })
-      } else {
-        None
-      }
-    })
-    .collect::<Vec<_>>();
+  let mut join_set = JoinSet::new();
 
-  let results = join_all(card_futures).await;
+  for card_id in 0..=9 {
+    let vendor_path = format!("/sys/class/drm/card{card_id}/device/vendor");
+    if std::path::Path::new(&vendor_path).exists() {
+      join_set.spawn(async move {
+        match tokio::fs::read_to_string(&vendor_path).await {
+          Ok(content) => Ok(CardInfo {
+            id: card_id,
+            vendor_id: content.trim().to_string(),
+          }),
+          Err(e) => Err(format!("Failed to read vendor for card{card_id}: {e}")),
+        }
+      });
+    }
+  }
 
-  results.into_iter().collect::<Result<Vec<_>, _>>()
+  let mut cards = Vec::new();
+  while let Some(res) = join_set.join_next().await {
+    match res {
+      Ok(Ok(card)) => cards.push(card),
+      Ok(Err(e)) => return Err(e),
+      Err(e) => return Err(format!("Join error: {e}")),
+    }
+  }
+
+  cards.sort_by_key(|c| c.id);
+  Ok(cards)
 }
 
 pub async fn get_amd_gpu_usage(card_id: u32) -> Result<f64, String> {
