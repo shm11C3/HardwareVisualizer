@@ -1,28 +1,9 @@
-use crate::services::memory;
 use crate::structs;
 use crate::utils;
-use crate::{log_internal, log_warn};
+use std;
 
-use std::process::Command;
-
-pub async fn get_memory_info_dmidecode() -> Result<structs::hardware::MemoryInfo, String>
-{
-  let raw = get_raw_dmidecode().await?;
-  let parsed = parse_dmidecode_memory_info(&raw);
-
-  if let Err(e) = memory::save_memory_info_cache(&parsed) {
-    log_warn!(
-      "Failed to cache memory info",
-      "get_memory_info_dmidecode",
-      Some(e.to_string())
-    );
-  }
-
-  Ok(parsed)
-}
-
-async fn get_raw_dmidecode() -> Result<String, String> {
-  let output = Command::new("pkexec")
+pub async fn get_raw_dmidecode() -> Result<String, String> {
+  let output = std::process::Command::new("pkexec")
     .arg("dmidecode")
     .arg("--type")
     .arg("memory")
@@ -36,7 +17,7 @@ async fn get_raw_dmidecode() -> Result<String, String> {
   }
 }
 
-fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
+pub fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
   use regex::Regex;
 
   let mut total_bytes: u64 = 0;

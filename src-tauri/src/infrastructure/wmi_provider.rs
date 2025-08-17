@@ -30,7 +30,7 @@ struct Win32PhysicalMemoryArray {
 ///
 /// ## メモリ情報を取得
 ///
-pub async fn get_memory_info() -> Result<MemoryInfo, String> {
+pub async fn query_memory_info() -> Result<MemoryInfo, String> {
   let physical_memory: Vec<Win32PhysicalMemory> = wmi_query_in_thread(
     "SELECT Capacity, Speed, MemoryType, SMBIOSMemoryType FROM Win32_PhysicalMemory"
       .to_string(),
@@ -57,7 +57,7 @@ pub async fn get_memory_info() -> Result<MemoryInfo, String> {
     clock_unit: "MHz".to_string(),
     memory_count: physical_memory.len() as u32,
     total_slots: physical_memory_array[0].memory_devices.unwrap_or(0),
-    memory_type: get_memory_type_with_fallback(
+    memory_type: describe_memory_type_with_fallback(
       physical_memory[0].memory_type,
       physical_memory[0].smbios_memory_type,
     ),
@@ -77,7 +77,7 @@ struct GpuEngineLoadInfo {
 ///
 /// 指定したGPUエンジンの使用率を取得する（WMIを使用）
 ///
-pub async fn get_gpu_usage_by_device_and_engine(
+pub async fn query_gpu_usage_by_device_and_engine(
   engine_type: &str,
 ) -> Result<f32, Box<dyn Error>> {
   // GPUエンジン情報を取得
@@ -115,6 +115,7 @@ pub async fn get_gpu_usage_by_device_and_engine(
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
+#[allow(dead_code)] // TODO 後で外す
 struct NetworkAdapterConfiguration {
   description: Option<String>,
   #[serde(rename = "MACAddress")]
@@ -127,14 +128,14 @@ struct NetworkAdapterConfiguration {
   default_ip_gateway: Option<Vec<String>>,
 }
 
-pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
+pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
   let results: Vec<NetworkAdapterConfiguration> = wmi_query_in_thread(
     "SELECT Description, MACAddress, IPAddress, IPSubnet, DefaultIPGateway FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = TRUE".to_string(),
   )?;
 
   log_debug!(
     &format!("Network adapter configuration data: {results:?}"),
-    "get_network_info",
+    "query_network_info",
     None::<&str>
   );
 
@@ -244,7 +245,7 @@ where
 ///
 /// ## MemoryTypeの値に対応するメモリの種類を文字列で返す
 ///
-fn get_memory_type_description(memory_type: Option<u16>) -> String {
+fn describe_memory_type(memory_type: Option<u16>) -> String {
   log_debug!(
     &format!("mem type: {memory_type:?}"),
     "get_memory_type_description",
@@ -286,7 +287,7 @@ fn get_memory_type_description(memory_type: Option<u16>) -> String {
 ///
 /// ## MemoryType もしくは SMBIOSMemoryType からメモリの種類を取得
 ///
-fn get_memory_type_with_fallback(
+fn describe_memory_type_with_fallback(
   memory_type: Option<u16>,
   smbios_memory_type: Option<u16>,
 ) -> String {
@@ -300,7 +301,7 @@ fn get_memory_type_with_fallback(
       Some(mt) => format!("Other SMBIOS Memory Type ({mt})"),
       None => "Unknown".to_string(),
     },
-    Some(mt) => get_memory_type_description(Some(mt)),
+    Some(mt) => describe_memory_type(Some(mt)),
     None => "Unknown".to_string(),
   }
 }

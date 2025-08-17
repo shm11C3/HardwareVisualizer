@@ -1,4 +1,3 @@
-use crate::services;
 use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -42,6 +41,13 @@ pub struct GraphicInfo {
   pub memory_size_dedicated: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct NameValue {
+  pub name: String,
+  pub value: i32, // 摂氏温度
+}
+
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageInfo {
@@ -80,10 +86,17 @@ pub struct NetworkUsage {
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
+  /// プロセスID
   pub pid: i32,
+
+  /// プロセス名
   pub name: String,
+
+  /// CPU 使用率
   #[serde(serialize_with = "serialize_usage")]
   pub cpu_usage: f32,
+
+  /// メモリ使用量
   #[serde(serialize_with = "serialize_usage")]
   pub memory_usage: f32,
 }
@@ -91,10 +104,21 @@ pub struct ProcessInfo {
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SysInfo {
-  pub cpu: Option<services::system_info_service::CpuInfo>,
+  pub cpu: Option<CpuInfo>,
   pub memory: Option<MemoryInfo>,
   pub gpus: Option<Vec<GraphicInfo>>,
   pub storage: Vec<StorageInfo>,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CpuInfo {
+  pub name: String,
+  pub vendor: String,
+  pub core_count: u32,
+  pub clock: u32,
+  pub clock_unit: String,
+  pub cpu_name: String,
 }
 
 fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>

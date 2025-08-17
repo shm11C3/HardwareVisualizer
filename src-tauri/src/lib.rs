@@ -6,6 +6,8 @@ mod backgrounds;
 mod commands;
 mod database;
 mod enums;
+mod infrastructure;
+mod platform;
 mod services;
 mod structs;
 mod utils;
@@ -62,7 +64,7 @@ pub fn run() {
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
-    hardware::get_memory_info_detail_linux,
+    hardware::get_memory_info_detail,
     hardware::get_memory_usage,
     hardware::get_gpu_usage,
     hardware::get_processors_usage,

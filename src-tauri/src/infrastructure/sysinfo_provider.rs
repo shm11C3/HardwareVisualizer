@@ -3,26 +3,15 @@ use crate::structs;
 use crate::utils;
 use crate::utils::formatter::SizeUnit;
 
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use std::sync::MutexGuard;
 use sysinfo::{Disks, System};
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct CpuInfo {
-  name: String,
-  vendor: String,
-  core_count: u32,
-  clock: u32,
-  clock_unit: String,
-  cpu_name: String,
-}
 
 ///
 /// ## CPU情報を取得
 ///
-pub fn get_cpu_info(system: MutexGuard<'_, System>) -> Result<CpuInfo, String> {
+pub fn get_cpu_info(
+  system: MutexGuard<'_, System>,
+) -> Result<structs::hardware::CpuInfo, String> {
   let cpus = system.cpus();
 
   if cpus.is_empty() {
@@ -30,7 +19,7 @@ pub fn get_cpu_info(system: MutexGuard<'_, System>) -> Result<CpuInfo, String> {
   }
 
   // CPU情報を収集
-  let cpu_info = CpuInfo {
+  let cpu_info = structs::hardware::CpuInfo {
     name: cpus[0].brand().to_string(),
     vendor: utils::formatter::format_vendor_name(cpus[0].vendor_id()),
     core_count: sysinfo::System::physical_core_count().unwrap_or(0) as u32,
