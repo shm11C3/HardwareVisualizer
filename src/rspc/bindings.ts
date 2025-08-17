@@ -419,7 +419,23 @@ export type LineGraphType = "default" | "step" | "linear" | "basis"
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string; isDetailed: boolean }
 export type NameValue = { name: string; value: number }
 export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }
-export type ProcessInfo = { pid: number; name: string; cpuUsage: number; memoryUsage: number }
+export type ProcessInfo = { 
+/**
+ * プロセスID
+ */
+pid: number; 
+/**
+ * プロセス名
+ */
+name: string; 
+/**
+ * CPU 使用率
+ */
+cpuUsage: number; 
+/**
+ * メモリ使用量
+ */
+memoryUsage: number }
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }

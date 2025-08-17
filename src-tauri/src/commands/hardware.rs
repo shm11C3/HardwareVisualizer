@@ -1,10 +1,7 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
-use crate::infrastructure;
-use crate::platform::factory::PlatformFactory;
 use crate::structs;
 use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
-use sysinfo;
 use tauri::command;
 
 ///
@@ -15,51 +12,9 @@ use tauri::command;
 pub fn get_process_list(
   state: tauri::State<'_, HardwareMonitorState>,
 ) -> Vec<ProcessInfo> {
-  let mut system = state.system.lock().unwrap();
-  let process_cpu_histories = state.process_cpu_histories.lock().unwrap();
-  let process_memory_histories = state.process_memory_histories.lock().unwrap();
+  use crate::services::process_service;
 
-  system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
-
-  let num_cores = system.cpus().len() as f32;
-
-  system
-    .processes()
-    .values()
-    .map(|process| {
-      let pid = process.pid();
-
-      // 5秒間のCPU使用率の平均を計算
-      let cpu_usage = if let Some(history) = process_cpu_histories.get(&pid) {
-        let len = history.len().min(5); // 最大5秒分のデータ
-        let sum: f32 = history.iter().rev().take(len).sum();
-        let avg = sum / len as f32;
-
-        let normalized_avg = avg / num_cores;
-        (normalized_avg * 10.0).round() / 10.0
-      } else {
-        0.0 // 履歴がなければ0を返す
-      };
-
-      // 5秒間のメモリ使用率の平均を計算
-      let memory_usage = if let Some(history) = process_memory_histories.get(&pid) {
-        let len = history.len().min(5); // 最大5秒分のデータ
-        let sum: f32 = history.iter().rev().take(len).sum();
-        let avg = (sum / 1024.0) / len as f32;
-
-        (avg * 10.0).round() / 10.0 // 小数点1桁で丸める
-      } else {
-        process.memory() as f32 / 1024.0 // KB → MBに変換
-      };
-
-      ProcessInfo {
-        pid: pid.as_u32() as i32,                            // プロセスID
-        name: process.name().to_string_lossy().into_owned(), // プロセス名を取得
-        cpu_usage,                                           // 平均CPU使用率
-        memory_usage,                                        // 平均メモリ使用率
-      }
-    })
-    .collect()
+  process_service::collect_process_list(&state)
 }
 
 ///
@@ -71,22 +26,17 @@ pub fn get_process_list(
 #[command]
 #[specta::specta]
 pub fn get_cpu_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
-  let system = state.system.lock().unwrap();
-  let cpus = system.cpus();
-  let total_usage: f32 = cpus.iter().map(|cpu| cpu.cpu_usage()).sum();
+  use crate::services::cpu_service;
 
-  let usage = total_usage / cpus.len() as f32;
-  usage.round() as i32
+  cpu_service::overall_cpu_usage(&state)
 }
 
 #[command]
 #[specta::specta]
 pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Vec<f32> {
-  let system = state.system.lock().unwrap();
-  let cpus = system.cpus();
+  use crate::services::cpu_service;
 
-  // 各プロセッサのCPU使用率を取得
-  cpus.iter().map(|cpu| cpu.cpu_usage()).collect()
+  cpu_service::per_cpu_usage(&state)
 }
 
 ///
@@ -97,30 +47,9 @@ pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Ve
 pub async fn get_hardware_info(
   state: tauri::State<'_, HardwareMonitorState>,
 ) -> Result<SysInfo, String> {
-  let cpu_result =
-    infrastructure::sysinfo_provider::get_cpu_info(state.system.lock().unwrap());
+  use crate::services::hardware_service;
 
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
-
-  let gpus_result = platform.get_gpu_info().await?;
-  let memory_result = platform.get_memory_info().await?;
-
-  let storage_info = infrastructure::sysinfo_provider::get_storage_info()?;
-
-  let sys_info = SysInfo {
-    cpu: cpu_result.ok(),
-    memory: Some(memory_result),
-    gpus: Some(gpus_result),
-    storage: storage_info,
-  };
-
-  // すべての情報が失敗した場合にのみエラーメッセージを返す
-  if sys_info.cpu.is_none() && sys_info.memory.is_none() && sys_info.gpus.is_none() {
-    Err("Failed to get any hardware info".to_string())
-  } else {
-    Ok(sys_info)
-  }
+  hardware_service::collect_hardware_info(state.inner()).await
 }
 
 ///
@@ -131,10 +60,9 @@ pub async fn get_hardware_info(
 #[command]
 #[specta::specta]
 pub async fn get_memory_info_detail() -> Result<structs::hardware::MemoryInfo, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+  use crate::services::memory_service;
 
-  platform.get_memory_info_detail().await
+  memory_service::fetch_memory_detail().await
 }
 
 ///
@@ -146,11 +74,9 @@ pub async fn get_memory_info_detail() -> Result<structs::hardware::MemoryInfo, S
 #[command]
 #[specta::specta]
 pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
-  let system = state.system.lock().unwrap();
-  let used_memory = system.used_memory() as f64;
-  let total_memory = system.total_memory() as f64;
+  use crate::services::memory_service;
 
-  ((used_memory / total_memory) * 100.0).round() as i32
+  memory_service::memory_usage_percent(&state)
 }
 
 ///
@@ -162,11 +88,9 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 #[command]
 #[specta::specta]
 pub async fn get_gpu_usage() -> Result<i32, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+  use crate::services::gpu_service;
 
-  let usage = platform.get_gpu_usage().await?;
-  Ok(usage.round() as i32)
+  gpu_service::fetch_gpu_usage().await
 }
 
 ///
@@ -177,18 +101,14 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 pub async fn get_gpu_temperature(
   state: tauri::State<'_, settings::AppState>,
 ) -> Result<Vec<structs::hardware::NameValue>, String> {
+  use crate::services::gpu_service;
+
   let temperature_unit = {
     let config = state.settings.lock().unwrap();
     config.temperature_unit.clone()
   };
 
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
-
-  match platform.get_gpu_temperature(temperature_unit).await {
-    Ok(temps) => Ok(temps),
-    Err(e) => Err(format!("Failed to get GPU temperature: {e:?}")),
-  }
+  gpu_service::fetch_gpu_temperature(temperature_unit).await
 }
 
 ///
@@ -198,7 +118,9 @@ pub async fn get_gpu_temperature(
 #[specta::specta]
 pub async fn get_nvidia_gpu_cooler() -> Result<Vec<structs::hardware::NameValue>, String>
 {
-  Err("Failed to get GPU cooler status: This function is not implemented".to_string())
+  use crate::services::gpu_service;
+
+  gpu_service::fetch_nvidia_gpu_cooler().await
 }
 
 ///
@@ -213,13 +135,9 @@ pub fn get_cpu_usage_history(
   state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
-  let history = state.cpu_history.lock().unwrap();
-  history
-    .iter()
-    .rev()
-    .take(seconds as usize)
-    .cloned()
-    .collect()
+  use crate::services::monitoring_service;
+
+  monitoring_service::cpu_usage_history(&state, seconds)
 }
 
 ///
@@ -234,13 +152,9 @@ pub fn get_memory_usage_history(
   state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
-  let history = state.memory_history.lock().unwrap();
-  history
-    .iter()
-    .rev()
-    .take(seconds as usize)
-    .cloned()
-    .collect()
+  use crate::services::monitoring_service;
+
+  monitoring_service::memory_usage_history(&state, seconds)
 }
 
 ///
@@ -255,13 +169,9 @@ pub fn get_gpu_usage_history(
   state: tauri::State<'_, HardwareMonitorState>,
   seconds: u32,
 ) -> Vec<f32> {
-  let history = state.gpu_history.lock().unwrap();
-  history
-    .iter()
-    .rev()
-    .take(seconds as usize)
-    .cloned()
-    .collect()
+  use crate::services::monitoring_service;
+
+  monitoring_service::gpu_usage_history(&state, seconds)
 }
 
 ///
@@ -270,9 +180,7 @@ pub fn get_gpu_usage_history(
 #[command]
 #[specta::specta]
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  let platform = PlatformFactory::create().map_err(|_| BackendError::UnexpectedError)?;
+  use crate::services::network_service;
 
-  platform
-    .get_network_info()
-    .map_err(|_| BackendError::UnexpectedError)
+  network_service::fetch_network_info()
 }

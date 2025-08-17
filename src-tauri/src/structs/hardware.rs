@@ -86,10 +86,17 @@ pub struct NetworkUsage {
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
+  /// プロセスID
   pub pid: i32,
+
+  /// プロセス名
   pub name: String,
+
+  /// CPU 使用率
   #[serde(serialize_with = "serialize_usage")]
   pub cpu_usage: f32,
+
+  /// メモリ使用量
   #[serde(serialize_with = "serialize_usage")]
   pub memory_usage: f32,
 }
