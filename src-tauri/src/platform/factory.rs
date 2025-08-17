@@ -19,7 +19,6 @@ impl std::fmt::Display for PlatformError {
 impl std::error::Error for PlatformError {}
 
 /// Platform インスタンスを生成する Factory
-/// 責務: プラットフォーム検出とインスタンス生成のみ
 pub struct PlatformFactory;
 
 impl PlatformFactory {

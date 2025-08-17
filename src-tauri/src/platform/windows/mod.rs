@@ -10,7 +10,6 @@ pub mod gpu;
 pub mod memory;
 pub mod network;
 
-/// Windows プラットフォーム実装（ダミー）
 pub struct WindowsPlatform;
 
 impl WindowsPlatform {

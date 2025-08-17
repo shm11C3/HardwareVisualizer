@@ -10,7 +10,6 @@ pub mod gpu;
 pub mod memory;
 pub mod network;
 
-/// Linux プラットフォーム実装（ダミー）
 pub struct LinuxPlatform;
 
 impl LinuxPlatform {
