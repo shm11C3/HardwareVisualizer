@@ -32,11 +32,9 @@ tauri = { version = "2.7.0", features = [] }
 sysinfo = "0.37.0"
 tauri-plugin-window-state = { version = "2.4.0" }
 nvapi = "=0.1.4"
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = { version = "1.47.1", features = ["rt-multi-thread", "macros", "time", "fs"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", default-features = true, features = [
-    "env-filter",
-] }
+tracing-subscriber = { version = "0.3.19", default-features = false, features = ["env-filter", "fmt"] }
 chrono = "0.4.41"
 rust_decimal = "1.37.2"
 tauri-plugin-dialog = "2.3.2"
