@@ -8,3 +8,4 @@ pub mod monitoring_service;
 pub mod network_service;
 pub mod process_service;
 pub mod setting_service;
+pub mod system_service;
