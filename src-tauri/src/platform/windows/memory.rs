@@ -1,5 +1,5 @@
 use crate::infrastructure::providers::wmi_provider;
-use crate::structs::hardware::MemoryInfo;
+use crate::models::hardware::MemoryInfo;
 use std::future::Future;
 use std::pin::Pin;
 

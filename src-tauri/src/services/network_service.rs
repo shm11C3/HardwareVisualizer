@@ -1,6 +1,6 @@
 use crate::enums;
+use crate::models::hardware::NetworkInfo;
 use crate::platform::factory::PlatformFactory;
-use crate::structs::hardware::NetworkInfo;
 
 ///
 /// ネットワークインターフェイス情報を取得

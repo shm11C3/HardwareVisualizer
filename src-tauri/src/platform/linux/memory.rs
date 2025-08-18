@@ -1,7 +1,7 @@
 use crate::infrastructure::providers;
+use crate::models;
+use crate::models::hardware::MemoryInfo;
 use crate::platform::linux;
-use crate::structs;
-use crate::structs::hardware::MemoryInfo;
 use crate::utils;
 use crate::{log_internal, log_warn};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std;
 #[derive(Serialize, Deserialize)]
 struct MemoryInfoWithMeta {
   pub timestamp: u64, // UNIX time millis
-  pub data: structs::hardware::MemoryInfo,
+  pub data: models::hardware::MemoryInfo,
 }
 
 pub fn get_memory_info() -> std::pin::Pin<
@@ -25,7 +25,7 @@ pub fn get_memory_info() -> std::pin::Pin<
     let mem_kb = providers::procfs::get_mem_total_kb()
       .map_err(|e| format!("Failed to read /proc/meminfo: {e}"))?;
 
-    Ok(structs::hardware::MemoryInfo {
+    Ok(models::hardware::MemoryInfo {
       size: utils::formatter::format_size(mem_kb * 1024, 1),
       clock: 0,
       clock_unit: "MHz".into(),

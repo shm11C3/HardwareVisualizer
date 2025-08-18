@@ -1,5 +1,5 @@
 use crate::infrastructure;
-use crate::structs;
+use crate::models;
 
 pub async fn get_gpu_usage() -> Result<f32, String> {
   let cards = infrastructure::providers::drm_sys::get_card_ids().await?;
@@ -27,7 +27,7 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
   Err("Failed to get GPU usage on Linux (non-NVIDIA fallback)".to_string())
 }
 
-pub async fn get_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, String> {
+pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
   use tokio::task::JoinSet;
 
   let card_ids = infrastructure::providers::drm_sys::get_all_card_ids();
@@ -48,7 +48,7 @@ pub async fn get_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, Strin
     });
   }
 
-  let mut infos: Vec<(u8, structs::hardware::GraphicInfo)> = Vec::new();
+  let mut infos: Vec<(u8, models::hardware::GraphicInfo)> = Vec::new();
   while let Some(res) = join_set.join_next().await {
     if let Ok(Some((card_id, info))) = res {
       infos.push((card_id, info));
@@ -63,7 +63,7 @@ pub async fn get_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, Strin
 
 async fn get_amd_graphic_info(
   card_id: u8,
-) -> Result<structs::hardware::GraphicInfo, String> {
+) -> Result<models::hardware::GraphicInfo, String> {
   const VENDOR_ID: &str = "1002";
 
   let name =
@@ -74,7 +74,7 @@ async fn get_amd_graphic_info(
   let memory_total =
     infrastructure::providers::drm_sys::read_vram_total_bytes(card_id).unwrap_or(0);
 
-  Ok(structs::hardware::GraphicInfo {
+  Ok(models::hardware::GraphicInfo {
     id: format!("card{card_id}"),
     name,
     vendor_name: "AMD".into(),
@@ -86,8 +86,8 @@ async fn get_amd_graphic_info(
 
 pub async fn get_intel_graphic_info(
   card_id: u8,
-) -> Result<structs::hardware::GraphicInfo, String> {
-  Ok(structs::hardware::GraphicInfo {
+) -> Result<models::hardware::GraphicInfo, String> {
+  Ok(models::hardware::GraphicInfo {
     id: format!("card{card_id}"),
     name: "Intel Integrated Graphics".into(),
     vendor_name: "Intel".into(),

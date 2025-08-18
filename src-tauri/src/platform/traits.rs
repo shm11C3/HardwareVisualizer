@@ -1,6 +1,6 @@
 use crate::enums;
 use crate::enums::error::BackendError;
-use crate::structs;
+use crate::models;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -10,14 +10,14 @@ pub trait MemoryPlatform: Send + Sync {
   fn get_memory_info(
     &self,
   ) -> Pin<
-    Box<dyn Future<Output = Result<structs::hardware::MemoryInfo, String>> + Send + '_>,
+    Box<dyn Future<Output = Result<models::hardware::MemoryInfo, String>> + Send + '_>,
   >;
 
   /// 詳細なメモリ情報を取得（対応プラットフォームのみ）
   fn get_memory_info_detail(
     &self,
   ) -> Pin<
-    Box<dyn Future<Output = Result<structs::hardware::MemoryInfo, String>> + Send + '_>,
+    Box<dyn Future<Output = Result<models::hardware::MemoryInfo, String>> + Send + '_>,
   >;
 }
 
@@ -34,7 +34,7 @@ pub trait GpuPlatform: Send + Sync {
     temperature_unit: enums::settings::TemperatureUnit,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<structs::hardware::NameValue>, String>> + Send + '_,
+      dyn Future<Output = Result<Vec<models::hardware::NameValue>, String>> + Send + '_,
     >,
   >;
 
@@ -43,9 +43,7 @@ pub trait GpuPlatform: Send + Sync {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<structs::hardware::GraphicInfo>, String>>
-        + Send
-        + '_,
+      dyn Future<Output = Result<Vec<models::hardware::GraphicInfo>, String>> + Send + '_,
     >,
   >;
 }
@@ -56,7 +54,7 @@ pub trait NetworkPlatform: Send + Sync {
   #[allow(dead_code)]
   fn get_network_info(
     &self,
-  ) -> Result<Vec<crate::structs::hardware::NetworkInfo>, BackendError>;
+  ) -> Result<Vec<crate::models::hardware::NetworkInfo>, BackendError>;
 }
 
 /// 全てのプラットフォーム機能を統合する trait

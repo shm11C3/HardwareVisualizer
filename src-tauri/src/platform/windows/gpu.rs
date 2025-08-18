@@ -25,7 +25,7 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
 
 pub async fn get_gpu_temperature(
   temperature_unit: enums::settings::TemperatureUnit,
-) -> Result<Vec<crate::structs::hardware::NameValue>, String> {
+) -> Result<Vec<crate::models::hardware::NameValue>, String> {
   match infrastructure::providers::nvapi_provider::get_nvidia_gpu_temperature().await {
     Ok(temps) => {
       let temps = temps
@@ -37,7 +37,7 @@ pub async fn get_gpu_temperature(
             temp.value,
           );
 
-          crate::structs::hardware::NameValue {
+          crate::models::hardware::NameValue {
             name: temp.name.clone(),
             value,
           }
@@ -49,8 +49,7 @@ pub async fn get_gpu_temperature(
   }
 }
 
-pub async fn get_gpu_info() -> Result<Vec<crate::structs::hardware::GraphicInfo>, String>
-{
+pub async fn get_gpu_info() -> Result<Vec<crate::models::hardware::GraphicInfo>, String> {
   let (nvidia_res, amd_res, intel_res) = tokio::join!(
     infrastructure::providers::nvapi_provider::get_nvidia_gpu_info(),
     infrastructure::providers::directx::get_amd_gpu_info(),
@@ -59,8 +58,8 @@ pub async fn get_gpu_info() -> Result<Vec<crate::structs::hardware::GraphicInfo>
 
   fn append(
     tag: &str,
-    result: Result<Vec<crate::structs::hardware::GraphicInfo>, String>,
-    acc: &mut Vec<crate::structs::hardware::GraphicInfo>,
+    result: Result<Vec<crate::models::hardware::GraphicInfo>, String>,
+    acc: &mut Vec<crate::models::hardware::GraphicInfo>,
   ) {
     match result {
       Ok(list) => acc.extend(list),

@@ -1,7 +1,7 @@
 use crate::enums::error::BackendError;
 use crate::enums::settings::TemperatureUnit;
+use crate::models::hardware::{GraphicInfo, NetworkInfo};
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
-use crate::structs::hardware::{GraphicInfo, NetworkInfo};
 
 use std::future::Future;
 use std::pin::Pin;
@@ -23,7 +23,7 @@ impl MemoryPlatform for WindowsPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::structs::hardware::MemoryInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, String>>
         + Send
         + '_,
     >,
@@ -35,7 +35,7 @@ impl MemoryPlatform for WindowsPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::structs::hardware::MemoryInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, String>>
         + Send
         + '_,
     >,
@@ -56,7 +56,7 @@ impl GpuPlatform for WindowsPlatform {
     temperature_unit: TemperatureUnit,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<crate::structs::hardware::NameValue>, String>>
+      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, String>>
         + Send
         + '_,
     >,

@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use crate::constants::{
   HARDWARE_HISTORY_BUFFER_SIZE, MAX_HISTORY_QUERY_DURATION_SECONDS,
 };
-use crate::structs::hardware::HardwareMonitorState;
-use crate::structs::hardware_archive::MonitorResources;
+use crate::models::hardware::HardwareMonitorState;
+use crate::models::hardware_archive::MonitorResources;
 
 /// 1サイクル分のシステムサンプリング (CPU/メモリ/プロセス)
 pub fn sample_system(resources: &MonitorResources) {

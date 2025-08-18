@@ -1,5 +1,5 @@
 use crate::enums;
-use crate::structs;
+use crate::models;
 use crate::utils;
 use crate::utils::formatter::SizeUnit;
 
@@ -11,7 +11,7 @@ use sysinfo::{Disks, System};
 ///
 pub fn get_cpu_info(
   system: MutexGuard<'_, System>,
-) -> Result<structs::hardware::CpuInfo, String> {
+) -> Result<models::hardware::CpuInfo, String> {
   let cpus = system.cpus();
 
   if cpus.is_empty() {
@@ -19,7 +19,7 @@ pub fn get_cpu_info(
   }
 
   // CPU情報を収集
-  let cpu_info = structs::hardware::CpuInfo {
+  let cpu_info = models::hardware::CpuInfo {
     name: cpus[0].brand().to_string(),
     vendor: utils::formatter::format_vendor_name(cpus[0].vendor_id()),
     core_count: sysinfo::System::physical_core_count().unwrap_or(0) as u32,
@@ -31,8 +31,8 @@ pub fn get_cpu_info(
   Ok(cpu_info)
 }
 
-pub fn get_storage_info() -> Result<Vec<structs::hardware::StorageInfo>, String> {
-  let mut storage_info: Vec<structs::hardware::StorageInfo> = Vec::new();
+pub fn get_storage_info() -> Result<Vec<models::hardware::StorageInfo>, String> {
+  let mut storage_info: Vec<models::hardware::StorageInfo> = Vec::new();
 
   let disks = Disks::new_with_refreshed_list();
 
@@ -47,7 +47,7 @@ pub fn get_storage_info() -> Result<Vec<structs::hardware::StorageInfo>, String>
       2,
       Some(SizeUnit::GBytes),
     );
-    let storage = structs::hardware::StorageInfo {
+    let storage = models::hardware::StorageInfo {
       name: disk.mount_point().to_string_lossy().into_owned(),
       size: size.value,
       size_unit: size.unit,

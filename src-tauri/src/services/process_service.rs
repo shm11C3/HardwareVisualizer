@@ -1,4 +1,4 @@
-use crate::structs::hardware::{HardwareMonitorState, ProcessInfo};
+use crate::models::hardware::{HardwareMonitorState, ProcessInfo};
 use sysinfo::{self, ProcessesToUpdate};
 
 /// プロセス平均計算ウィンドウ (秒)

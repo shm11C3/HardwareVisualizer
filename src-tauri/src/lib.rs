@@ -6,9 +6,9 @@ mod commands;
 mod constants;
 mod enums;
 mod infrastructure;
+mod models;
 mod platform;
 mod services;
-mod structs;
 mod utils;
 mod workers;
 
@@ -45,7 +45,7 @@ pub fn run() {
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
 
-  let state = structs::hardware::HardwareMonitorState {
+  let state = models::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
     cpu_history: Arc::clone(&cpu_history),
     memory_history: Arc::clone(&memory_history),
@@ -137,7 +137,7 @@ pub fn run() {
       });
 
       tauri::async_runtime::spawn(workers::system_monitor::setup(
-        structs::hardware_archive::MonitorResources {
+        models::hardware_archive::MonitorResources {
           system: Arc::clone(&system),
           cpu_history: Arc::clone(&cpu_history),
           memory_history: Arc::clone(&memory_history),
@@ -154,7 +154,7 @@ pub fn run() {
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
         tauri::async_runtime::spawn(workers::hardware_archive::setup(
-          structs::hardware_archive::MonitorResources {
+          models::hardware_archive::MonitorResources {
             system: Arc::clone(&system),
             cpu_history: Arc::clone(&cpu_history),
             memory_history: Arc::clone(&memory_history),

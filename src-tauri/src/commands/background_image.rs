@@ -1,7 +1,7 @@
 use tauri::command;
 
+use crate::models::background_image::BackgroundImage;
 use crate::services::background_image_service;
-use crate::structs::background_image::BackgroundImage;
 
 ///
 /// 背景画像を取得

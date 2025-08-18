@@ -1,4 +1,4 @@
-use crate::structs::hardware::{MemoryInfo, NetworkInfo};
+use crate::models::hardware::{MemoryInfo, NetworkInfo};
 use crate::utils;
 use crate::utils::formatter;
 use crate::{log_debug, log_error, log_internal};

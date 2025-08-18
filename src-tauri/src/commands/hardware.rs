@@ -1,7 +1,7 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
-use crate::structs;
-use crate::structs::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
+use crate::models;
+use crate::models::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
 use tauri::command;
 
 ///
@@ -55,11 +55,11 @@ pub async fn get_hardware_info(
 ///
 /// ## 詳細なメモリ情報を取得
 ///
-/// - return: `structs::hardware::MemoryInfo` 詳細なメモリ情報
+/// - return: `models::hardware::MemoryInfo` 詳細なメモリ情報
 ///
 #[command]
 #[specta::specta]
-pub async fn get_memory_info_detail() -> Result<structs::hardware::MemoryInfo, String> {
+pub async fn get_memory_info_detail() -> Result<models::hardware::MemoryInfo, String> {
   use crate::services::memory_service;
 
   memory_service::fetch_memory_detail().await
@@ -100,7 +100,7 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 #[specta::specta]
 pub async fn get_gpu_temperature(
   state: tauri::State<'_, settings::AppState>,
-) -> Result<Vec<structs::hardware::NameValue>, String> {
+) -> Result<Vec<models::hardware::NameValue>, String> {
   use crate::services::gpu_service;
 
   let temperature_unit = {
@@ -116,8 +116,7 @@ pub async fn get_gpu_temperature(
 ///
 #[command]
 #[specta::specta]
-pub async fn get_nvidia_gpu_cooler() -> Result<Vec<structs::hardware::NameValue>, String>
-{
+pub async fn get_nvidia_gpu_cooler() -> Result<Vec<models::hardware::NameValue>, String> {
   use crate::services::gpu_service;
 
   gpu_service::fetch_nvidia_gpu_cooler().await

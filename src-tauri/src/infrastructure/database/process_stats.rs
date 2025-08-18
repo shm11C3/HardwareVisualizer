@@ -1,8 +1,8 @@
 use super::db;
-use crate::structs;
+use crate::models;
 
 pub async fn insert(
-  processes: Vec<structs::hardware_archive::ProcessStatData>,
+  processes: Vec<models::hardware_archive::ProcessStatData>,
 ) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
 

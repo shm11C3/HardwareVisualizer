@@ -1,6 +1,6 @@
 use crate::enums::hardware::DiskKind;
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
-use crate::structs::hardware::{
+use crate::models::hardware::{
   GraphicInfo, MemoryInfo, NetworkInfo, StorageInfo, SysInfo,
 };
 use crate::utils::formatter::SizeUnit;

@@ -1,4 +1,4 @@
-use crate::structs::hardware::HardwareMonitorState;
+use crate::models::hardware::HardwareMonitorState;
 
 ///
 /// ## 全体 CPU 使用率 (%) を返す

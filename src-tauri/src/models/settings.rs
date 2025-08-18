@@ -1,6 +1,6 @@
 use crate::enums;
+use crate::models;
 use crate::services;
-use crate::structs;
 use crate::utils;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -35,7 +35,7 @@ pub struct Settings {
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
   pub temperature_unit: enums::settings::TemperatureUnit,
-  pub hardware_archive: structs::hardware_archive::HardwareArchiveSettings,
+  pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
 }
 
 ///
@@ -68,7 +68,7 @@ pub struct ClientSettings {
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
   pub temperature_unit: enums::settings::TemperatureUnit,
-  pub hardware_archive: structs::hardware_archive::HardwareArchiveSettings,
+  pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
 }
 
 impl Default for Settings {
@@ -98,7 +98,7 @@ impl Default for Settings {
       background_img_opacity: 50,
       selected_background_img: None,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
-      hardware_archive: structs::hardware_archive::HardwareArchiveSettings {
+      hardware_archive: models::hardware_archive::HardwareArchiveSettings {
         enabled: true,
         refresh_interval_days: 30,
         scheduled_data_deletion: true,

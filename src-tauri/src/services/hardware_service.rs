@@ -1,6 +1,6 @@
 use crate::infrastructure;
+use crate::models::hardware::{HardwareMonitorState, SysInfo};
 use crate::platform::factory::PlatformFactory;
-use crate::structs::hardware::{HardwareMonitorState, SysInfo};
 
 ///
 /// ハードウェア情報を統合収集する
