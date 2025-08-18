@@ -5,7 +5,6 @@
 mod backgrounds;
 mod commands;
 mod constants;
-mod database;
 mod enums;
 mod infrastructure;
 mod platform;
@@ -59,7 +58,7 @@ pub fn run() {
 
   let settings = app_state.settings.lock().unwrap().clone();
 
-  let migrations = database::migration::get_migrations();
+  let migrations = infrastructure::database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
     hardware::get_process_list,

@@ -1,3 +1,5 @@
+pub mod database;
+
 pub mod sysinfo_provider;
 
 #[cfg(target_os = "windows")]

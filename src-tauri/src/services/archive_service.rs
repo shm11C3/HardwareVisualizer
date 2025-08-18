@@ -1,4 +1,4 @@
-use crate::{database, log_error, log_internal, structs};
+use crate::{infrastructure::database, log_error, log_internal, structs};
 use std::{
   collections::{HashMap, HashSet, VecDeque},
   sync::{Arc, Mutex},
