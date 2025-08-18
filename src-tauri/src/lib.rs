@@ -4,6 +4,7 @@
 
 mod backgrounds;
 mod commands;
+mod constants;
 mod database;
 mod enums;
 mod infrastructure;

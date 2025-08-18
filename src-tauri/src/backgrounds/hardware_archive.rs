@@ -1,3 +1,4 @@
+use crate::constants::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
 use crate::{database, structs};
 use crate::{log_error, log_internal};
 use std::{
@@ -5,8 +6,6 @@ use std::{
   sync::{Arc, Mutex},
   time::Duration,
 };
-
-const HISTORY_CAPACITY: u64 = 60;
 
 ///
 /// プロセスアーカイブデータの保存する上限数
@@ -29,7 +28,7 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
     nv_gpu_dedicated_memory_histories,
   } = resources;
 
-  let mut interval = tokio::time::interval(Duration::from_secs(HISTORY_CAPACITY));
+  let mut interval = tokio::time::interval(Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS));
 
   loop {
     interval.tick().await;
