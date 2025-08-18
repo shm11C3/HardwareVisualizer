@@ -1,8 +1,8 @@
 use crate::enums::hardware::DiskKind;
-use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use crate::models::hardware::{
   GraphicInfo, MemoryInfo, NetworkInfo, StorageInfo, SysInfo,
 };
+use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use crate::utils::formatter::SizeUnit;
 use std::future::Future;
 use std::pin::Pin;
