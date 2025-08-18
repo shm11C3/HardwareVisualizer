@@ -1,5 +1,5 @@
+use crate::models;
 use crate::services::monitoring_service;
-use crate::structs;
 use std::time::Duration;
 
 ///
@@ -14,7 +14,7 @@ const SYSTEM_INFO_INIT_INTERVAL: u64 = 1;
 ///
 /// - `SYSTEM_INFO_INIT_INTERVAL` 秒ごとにCPU使用率とメモリ使用率を更新
 ///
-pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
+pub async fn setup(resources: models::hardware_archive::MonitorResources) {
   let mut interval =
     tokio::time::interval(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
 
@@ -22,7 +22,7 @@ pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
     interval.tick().await;
 
     {
-      let monitor_resources = structs::hardware_archive::MonitorResources {
+      let monitor_resources = models::hardware_archive::MonitorResources {
         system: resources.system.clone(),
         cpu_history: resources.cpu_history.clone(),
         memory_history: resources.memory_history.clone(),

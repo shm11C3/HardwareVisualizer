@@ -1,4 +1,4 @@
-use crate::structs;
+use crate::models;
 use crate::utils::{self};
 use crate::{log_debug, log_error, log_internal, log_warn};
 use nvapi;
@@ -75,7 +75,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
 /// ## GPU温度を取得する（NVAPI を使用）
 ///
 pub async fn get_nvidia_gpu_temperature()
--> Result<Vec<structs::hardware::NameValue>, nvapi::Status> {
+-> Result<Vec<models::hardware::NameValue>, nvapi::Status> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_nvidia_gpu_temperature", None::<&str>);
 
@@ -102,7 +102,7 @@ pub async fn get_nvidia_gpu_temperature()
         nvapi::Status::Error
       })?;
 
-      temperatures.push(structs::hardware::NameValue {
+      temperatures.push(models::hardware::NameValue {
         name: gpu.full_name().unwrap_or("Unknown".to_string()),
         value: thermal_settings[0].current_temperature.0,
       });
@@ -124,8 +124,7 @@ pub async fn get_nvidia_gpu_temperature()
 ///
 /// GPU情報を取得する
 ///
-pub async fn get_nvidia_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>, String>
-{
+pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_nvidia_gpu_info", None::<&str>);
 
@@ -193,7 +192,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<structs::hardware::GraphicInfo>
         }
       };
 
-      let gpu_info = structs::hardware::GraphicInfo {
+      let gpu_info = models::hardware::GraphicInfo {
         id: gpu_id,
         name,
         vendor_name: "NVIDIA".to_string(),

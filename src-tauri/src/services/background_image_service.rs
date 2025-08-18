@@ -5,7 +5,7 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
-use crate::structs::background_image::BackgroundImage;
+use crate::models::background_image::BackgroundImage;
 use crate::utils::file::get_app_data_dir;
 
 const FILE_NAME_FORMAT: &str = "bg-img-{}.png";

@@ -1,4 +1,4 @@
-use crate::{database, log_error, log_internal, structs};
+use crate::{infrastructure::database, log_error, log_internal, models};
 use std::{
   collections::{HashMap, HashSet, VecDeque},
   sync::{Arc, Mutex},
@@ -66,7 +66,7 @@ impl ArchiveService {
 
   /// Archives a single snapshot of current hardware data.
   pub async fn archive_current_snapshot(
-    resources: &structs::hardware_archive::MonitorResources,
+    resources: &models::hardware_archive::MonitorResources,
   ) {
     let hardware_data = Self::collect_hardware_metrics(resources);
     let gpu_data = GpuMetricsCollector::new(
@@ -87,10 +87,10 @@ impl ArchiveService {
 
   /// Collects CPU and memory metrics
   fn collect_hardware_metrics(
-    resources: &structs::hardware_archive::MonitorResources,
+    resources: &models::hardware_archive::MonitorResources,
   ) -> (
-    structs::hardware_archive::HardwareData,
-    structs::hardware_archive::HardwareData,
+    models::hardware_archive::HardwareData,
+    models::hardware_archive::HardwareData,
   ) {
     (
       StatsCalculator::calculate_hardware_stats(&resources.cpu_history),
@@ -100,10 +100,10 @@ impl ArchiveService {
 
   /// Persists all collected data to the database
   async fn persist_all_data(
-    cpu_data: structs::hardware_archive::HardwareData,
-    memory_data: structs::hardware_archive::HardwareData,
-    gpu_data_list: Vec<structs::hardware_archive::GpuData>,
-    process_stats: Vec<structs::hardware_archive::ProcessStatData>,
+    cpu_data: models::hardware_archive::HardwareData,
+    memory_data: models::hardware_archive::HardwareData,
+    gpu_data_list: Vec<models::hardware_archive::GpuData>,
+    process_stats: Vec<models::hardware_archive::ProcessStatData>,
   ) {
     Self::persist_with_error_handling(
       database::hardware_archive::insert(cpu_data, memory_data),
@@ -145,7 +145,7 @@ impl StatsCalculator {
   /// Calculates average, min, and max values from a history buffer
   fn calculate_hardware_stats(
     history: &Arc<Mutex<VecDeque<f32>>>,
-  ) -> structs::hardware_archive::HardwareData {
+  ) -> models::hardware_archive::HardwareData {
     let values = Self::extract_values(history);
     Self::compute_stats(&values)
   }
@@ -154,9 +154,9 @@ impl StatsCalculator {
     history.lock().unwrap().iter().cloned().collect()
   }
 
-  fn compute_stats(values: &[f32]) -> structs::hardware_archive::HardwareData {
+  fn compute_stats(values: &[f32]) -> models::hardware_archive::HardwareData {
     if values.is_empty() {
-      return structs::hardware_archive::HardwareData {
+      return models::hardware_archive::HardwareData {
         avg: None,
         max: None,
         min: None,
@@ -167,7 +167,7 @@ impl StatsCalculator {
     let max = values.iter().cloned().max_by(f32::total_cmp);
     let min = values.iter().cloned().min_by(f32::total_cmp);
 
-    structs::hardware_archive::HardwareData { avg, max, min }
+    models::hardware_archive::HardwareData { avg, max, min }
   }
 
   fn compute_f32_aggregates(values: &[f32]) -> (Option<f32>, Option<f32>, Option<f32>) {
@@ -208,7 +208,7 @@ impl<'a> GpuMetricsCollector<'a> {
     }
   }
 
-  fn collect_all(&self) -> Vec<structs::hardware_archive::GpuData> {
+  fn collect_all(&self) -> Vec<models::hardware_archive::GpuData> {
     self
       .get_gpu_names()
       .into_iter()
@@ -229,12 +229,12 @@ impl<'a> GpuMetricsCollector<'a> {
   fn collect_single_gpu_metrics(
     &self,
     gpu_name: &str,
-  ) -> structs::hardware_archive::GpuData {
+  ) -> models::hardware_archive::GpuData {
     let usage_stats = self.calculate_usage_stats();
     let temperature_stats = self.calculate_temperature_stats();
     let memory_stats = self.calculate_memory_stats();
 
-    structs::hardware_archive::GpuData {
+    models::hardware_archive::GpuData {
       gpu_name: gpu_name.to_string(),
       usage_avg: usage_stats.0,
       usage_max: usage_stats.1,
@@ -302,7 +302,7 @@ impl<'a> ProcessStatsCollector<'a> {
     }
   }
 
-  fn collect_and_rank(&self) -> Vec<structs::hardware_archive::ProcessStatData> {
+  fn collect_and_rank(&self) -> Vec<models::hardware_archive::ProcessStatData> {
     let system_info = self.get_system_info();
     let all_stats = self.collect_all_process_stats(&system_info);
     self.rank_and_filter_processes(all_stats)
@@ -318,7 +318,7 @@ impl<'a> ProcessStatsCollector<'a> {
   fn collect_all_process_stats(
     &self,
     (sys, num_cores): &(sysinfo::System, f32),
-  ) -> Vec<structs::hardware_archive::ProcessStatData> {
+  ) -> Vec<models::hardware_archive::ProcessStatData> {
     let cpu_histories = self.cpu_histories.lock().unwrap();
     let mem_histories = self.memory_histories.lock().unwrap();
 
@@ -339,7 +339,7 @@ impl<'a> ProcessStatsCollector<'a> {
     mem_history: &VecDeque<f32>,
     num_cores: f32,
     sys: &sysinfo::System,
-  ) -> Option<structs::hardware_archive::ProcessStatData> {
+  ) -> Option<models::hardware_archive::ProcessStatData> {
     let (cpu_avg, mem_avg) = self.calculate_process_averages(cpu_history, mem_history)?;
 
     if cpu_avg == 0.0 && mem_avg == 0.0 {
@@ -353,7 +353,7 @@ impl<'a> ProcessStatsCollector<'a> {
       return None;
     }
 
-    Some(structs::hardware_archive::ProcessStatData {
+    Some(models::hardware_archive::ProcessStatData {
       pid: pid.as_u32() as i32,
       process_name: process.name().to_string_lossy().into_owned(),
       cpu_usage: cpu_avg / num_cores,
@@ -383,8 +383,8 @@ impl<'a> ProcessStatsCollector<'a> {
 
   fn rank_and_filter_processes(
     &self,
-    all_stats: Vec<structs::hardware_archive::ProcessStatData>,
-  ) -> Vec<structs::hardware_archive::ProcessStatData> {
+    all_stats: Vec<models::hardware_archive::ProcessStatData>,
+  ) -> Vec<models::hardware_archive::ProcessStatData> {
     let mut result = Vec::new();
     let mut seen_pids = HashSet::new();
 
@@ -402,9 +402,9 @@ impl<'a> ProcessStatsCollector<'a> {
 
   fn sort_by_metric(
     &self,
-    mut stats: Vec<structs::hardware_archive::ProcessStatData>,
+    mut stats: Vec<models::hardware_archive::ProcessStatData>,
     metric: ProcessRankingMetric,
-  ) -> Vec<structs::hardware_archive::ProcessStatData> {
+  ) -> Vec<models::hardware_archive::ProcessStatData> {
     match metric {
       ProcessRankingMetric::Cpu => {
         stats.sort_by(|a, b| b.cpu_usage.total_cmp(&a.cpu_usage));
@@ -421,9 +421,9 @@ impl<'a> ProcessStatsCollector<'a> {
 
   fn add_top_processes(
     &self,
-    result: &mut Vec<structs::hardware_archive::ProcessStatData>,
+    result: &mut Vec<models::hardware_archive::ProcessStatData>,
     seen_pids: &mut HashSet<i32>,
-    sorted_stats: &[structs::hardware_archive::ProcessStatData],
+    sorted_stats: &[models::hardware_archive::ProcessStatData],
   ) {
     for stat in sorted_stats.iter().take(PROCESS_RECORD_LIMIT) {
       if seen_pids.insert(stat.pid) {

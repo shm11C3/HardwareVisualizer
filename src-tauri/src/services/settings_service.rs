@@ -1,5 +1,5 @@
 use crate::enums;
-use crate::structs;
+use crate::models;
 use crate::utils;
 use crate::{log_error, log_info, log_internal};
 use std::io::Write;
@@ -11,7 +11,7 @@ pub trait SettingActions {
   fn read_file(&mut self) -> Result<(), String>;
 }
 
-impl SettingActions for structs::settings::Settings {
+impl SettingActions for models::settings::Settings {
   fn write_file(&self) -> Result<(), String> {
     let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
     let config_dir = match config_file.parent() {
@@ -120,7 +120,7 @@ impl SettingActions for structs::settings::Settings {
   }
 }
 
-impl structs::settings::Settings {
+impl models::settings::Settings {
   pub fn new() -> Self {
     let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
 

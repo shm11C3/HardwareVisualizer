@@ -1,7 +1,7 @@
-use crate::infrastructure;
+use crate::infrastructure::providers;
+use crate::models;
+use crate::models::hardware::MemoryInfo;
 use crate::platform::linux;
-use crate::structs;
-use crate::structs::hardware::MemoryInfo;
 use crate::utils;
 use crate::{log_internal, log_warn};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std;
 #[derive(Serialize, Deserialize)]
 struct MemoryInfoWithMeta {
   pub timestamp: u64, // UNIX time millis
-  pub data: structs::hardware::MemoryInfo,
+  pub data: models::hardware::MemoryInfo,
 }
 
 pub fn get_memory_info() -> std::pin::Pin<
@@ -22,10 +22,10 @@ pub fn get_memory_info() -> std::pin::Pin<
     }
 
     // fallback: メモリ容量のみ取得
-    let mem_kb = infrastructure::procfs::get_mem_total_kb()
+    let mem_kb = providers::procfs::get_mem_total_kb()
       .map_err(|e| format!("Failed to read /proc/meminfo: {e}"))?;
 
-    Ok(structs::hardware::MemoryInfo {
+    Ok(models::hardware::MemoryInfo {
       size: utils::formatter::format_size(mem_kb * 1024, 1),
       clock: 0,
       clock_unit: "MHz".into(),
@@ -41,8 +41,8 @@ pub fn get_memory_info_detail() -> std::pin::Pin<
   Box<dyn std::future::Future<Output = Result<MemoryInfo, String>> + Send + 'static>,
 > {
   Box::pin(async {
-    let raw = infrastructure::dmidecode::get_raw_dmidecode().await?;
-    let parsed = infrastructure::dmidecode::parse_dmidecode_memory_info(&raw);
+    let raw = providers::dmidecode::get_raw_dmidecode().await?;
+    let parsed = providers::dmidecode::parse_dmidecode_memory_info(&raw);
 
     if let Err(e) =
       linux::cache::write_cache(&parsed, &linux::cache::get_memory_cache_path())

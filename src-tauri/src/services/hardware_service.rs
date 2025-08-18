@@ -1,6 +1,6 @@
 use crate::infrastructure;
+use crate::models::hardware::{HardwareMonitorState, SysInfo};
 use crate::platform::factory::PlatformFactory;
-use crate::structs::hardware::{HardwareMonitorState, SysInfo};
 
 ///
 /// ハードウェア情報を統合収集する
@@ -12,8 +12,10 @@ use crate::structs::hardware::{HardwareMonitorState, SysInfo};
 pub async fn collect_hardware_info(
   state: &HardwareMonitorState,
 ) -> Result<SysInfo, String> {
-  let cpu =
-    infrastructure::sysinfo_provider::get_cpu_info(state.system.lock().unwrap()).ok();
+  let cpu = infrastructure::providers::sysinfo_provider::get_cpu_info(
+    state.system.lock().unwrap(),
+  )
+  .ok();
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
@@ -21,7 +23,7 @@ pub async fn collect_hardware_info(
   // GPU / Memory を並行実行
   let (gpus_res, memory_res, storage_res) =
     tokio::join!(platform.get_gpu_info(), platform.get_memory_info(), async {
-      infrastructure::sysinfo_provider::get_storage_info()
+      infrastructure::providers::sysinfo_provider::get_storage_info()
     });
 
   let gpus = gpus_res.ok();

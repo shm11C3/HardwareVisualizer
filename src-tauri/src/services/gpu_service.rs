@@ -1,6 +1,6 @@
 use crate::enums;
+use crate::models::hardware::NameValue;
 use crate::platform::factory::PlatformFactory;
-use crate::structs::hardware::NameValue;
 
 ///
 /// GPU 使用率 (%) を取得し四捨五入して整数返却

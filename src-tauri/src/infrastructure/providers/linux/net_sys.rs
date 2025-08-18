@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::process::Command;
 
-use crate::structs::hardware::NetworkInfo;
+use crate::models::hardware::NetworkInfo;
 
 ///
 /// ## ネットワーク情報を取得

@@ -1,19 +1,19 @@
 use crate::enums;
+use crate::models;
 use crate::services;
-use crate::structs;
 use crate::utils;
 use crate::{log_error, log_internal};
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Debug)]
 pub struct AppState {
-  pub settings: std::sync::Mutex<structs::settings::Settings>,
+  pub settings: std::sync::Mutex<models::settings::Settings>,
 }
 
 impl AppState {
   pub fn new() -> Self {
     Self {
-      settings: std::sync::Mutex::from(structs::settings::Settings::new()),
+      settings: std::sync::Mutex::from(models::settings::Settings::new()),
     }
   }
 }
@@ -33,7 +33,7 @@ pub mod commands {
   ///
   fn emit_error(window: &Window) -> Result<(), String> {
     let settings_json_path =
-      utils::file::get_app_data_dir(services::setting_service::SETTINGS_FILENAME);
+      utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
 
     log_error!(
       "Failed to update settings file",
@@ -59,11 +59,11 @@ pub mod commands {
   #[specta::specta]
   pub async fn get_settings(
     state: tauri::State<'_, AppState>,
-  ) -> Result<structs::settings::ClientSettings, String> {
+  ) -> Result<models::settings::ClientSettings, String> {
     let settings = state.settings.lock().unwrap().clone();
 
     // フロントで扱いやすいようにカンマ区切りの文字列に変換する
-    let color_strings = structs::settings::LineGraphColorStringSettings {
+    let color_strings = models::settings::LineGraphColorStringSettings {
       cpu: settings
         .line_graph_color
         .cpu
@@ -87,7 +87,7 @@ pub mod commands {
         .join(","),
     };
 
-    let client_settings = structs::settings::ClientSettings {
+    let client_settings = models::settings::ClientSettings {
       version: settings.version,
       language: settings.language,
       theme: settings.theme,

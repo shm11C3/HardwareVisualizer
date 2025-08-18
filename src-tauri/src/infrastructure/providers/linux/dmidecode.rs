@@ -1,4 +1,4 @@
-use crate::structs;
+use crate::models;
 use crate::utils;
 use std;
 
@@ -17,7 +17,7 @@ pub async fn get_raw_dmidecode() -> Result<String, String> {
   }
 }
 
-pub fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
+pub fn parse_dmidecode_memory_info(raw: &str) -> models::hardware::MemoryInfo {
   use regex::Regex;
 
   let mut total_bytes: u64 = 0;
@@ -71,7 +71,7 @@ pub fn parse_dmidecode_memory_info(raw: &str) -> structs::hardware::MemoryInfo {
   let size_with_unit: utils::formatter::SizeWithUnit =
     utils::formatter::format_size_with_unit(total_bytes, 1, None);
 
-  structs::hardware::MemoryInfo {
+  models::hardware::MemoryInfo {
     is_detailed: true,
     size: format!(
       "{value:.1} {unit}",

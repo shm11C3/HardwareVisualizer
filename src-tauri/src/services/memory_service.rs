@@ -1,5 +1,5 @@
+use crate::models::hardware::{HardwareMonitorState, MemoryInfo};
 use crate::platform::factory::PlatformFactory;
-use crate::structs::hardware::{HardwareMonitorState, MemoryInfo};
 
 ///
 /// ## メモリ使用率 (%) を返す。used / total * 100 を四捨五入する

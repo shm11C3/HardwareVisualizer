@@ -2,16 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
-mod backgrounds;
 mod commands;
 mod constants;
-mod database;
 mod enums;
 mod infrastructure;
+mod models;
 mod platform;
 mod services;
-mod structs;
 mod utils;
+mod workers;
 
 #[cfg(test)]
 mod _tests;
@@ -46,7 +45,7 @@ pub fn run() {
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
 
-  let state = structs::hardware::HardwareMonitorState {
+  let state = models::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
     cpu_history: Arc::clone(&cpu_history),
     memory_history: Arc::clone(&memory_history),
@@ -59,7 +58,7 @@ pub fn run() {
 
   let settings = app_state.settings.lock().unwrap().clone();
 
-  let migrations = database::migration::get_migrations();
+  let migrations = infrastructure::database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
     hardware::get_process_list,
@@ -131,14 +130,14 @@ pub fn run() {
 
       // Check updates
       tauri::async_runtime::spawn(async move {
-        if let Err(e) = backgrounds::updater::update(handle).await {
+        if let Err(e) = workers::updater::update(handle).await {
           log_error!("Update process failed", "lib.run", Some(e.to_string()));
           eprintln!("Update process failed: {e:?}");
         }
       });
 
-      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
-        structs::hardware_archive::MonitorResources {
+      tauri::async_runtime::spawn(workers::system_monitor::setup(
+        models::hardware_archive::MonitorResources {
           system: Arc::clone(&system),
           cpu_history: Arc::clone(&cpu_history),
           memory_history: Arc::clone(&memory_history),
@@ -154,8 +153,8 @@ pub fn run() {
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
-          structs::hardware_archive::MonitorResources {
+        tauri::async_runtime::spawn(workers::hardware_archive::setup(
+          models::hardware_archive::MonitorResources {
             system: Arc::clone(&system),
             cpu_history: Arc::clone(&cpu_history),
             memory_history: Arc::clone(&memory_history),
@@ -172,11 +171,9 @@ pub fn run() {
 
       // スケジュールされたデータ削除の開始
       if settings.hardware_archive.scheduled_data_deletion {
-        tauri::async_runtime::spawn(
-          backgrounds::hardware_archive::batch_delete_old_data(
-            settings.hardware_archive.refresh_interval_days,
-          ),
-        );
+        tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
+          settings.hardware_archive.refresh_interval_days,
+        ));
       }
 
       Ok(())

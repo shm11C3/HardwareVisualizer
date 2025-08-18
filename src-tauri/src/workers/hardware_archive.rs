@@ -1,13 +1,13 @@
 use crate::constants::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
+use crate::models;
 use crate::services::archive_service::ArchiveService;
-use crate::structs;
 use std::time::Duration;
 
 /// Starts the hardware archive background service.
 ///
 /// This orchestrates the periodic collection and archiving of hardware data
 /// by coordinating between data collection (service layer) and persistence (database layer).
-pub async fn setup(resources: structs::hardware_archive::MonitorResources) {
+pub async fn setup(resources: models::hardware_archive::MonitorResources) {
   let mut interval =
     tokio::time::interval(Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS));
 

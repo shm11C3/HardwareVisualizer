@@ -1,4 +1,4 @@
-use crate::structs;
+use crate::models;
 use crate::utils;
 use sqlx::sqlite::SqlitePool;
 
@@ -12,8 +12,8 @@ pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
 }
 
 pub async fn insert(
-  cpu: structs::hardware_archive::HardwareData,
-  ram: structs::hardware_archive::HardwareData,
+  cpu: models::hardware_archive::HardwareData,
+  ram: models::hardware_archive::HardwareData,
 ) -> Result<(), sqlx::Error> {
   let pool = get_pool().await?;
 
