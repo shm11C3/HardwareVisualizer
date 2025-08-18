@@ -36,7 +36,7 @@
     },
     "resources": {
       "../LICENSE": "LICENSE",
-      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+      "../tmp/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
     },
     "shortDescription": "",
     "linux": {

@@ -32,7 +32,7 @@ if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
 // 出力先をOS毎に切り替える
 const outputDir =
   target === "tmp"
-    ? path.resolve("./")
+    ? path.resolve("./tmp")
     : path.resolve(`./docs/THIRD_PARTY_NOTICES/${target}`);
 const outputPath = path.join(outputDir, "THIRD_PARTY_NOTICES.md");
 
