@@ -3,7 +3,7 @@ pub mod background_image_service;
 pub mod cpu_service;
 pub mod gpu_service;
 pub mod hardware_service;
-pub mod language;
+pub mod language_service;
 pub mod memory_service;
 pub mod monitoring_service;
 pub mod network_service;

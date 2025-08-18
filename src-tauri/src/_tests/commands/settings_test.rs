@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
   use crate::enums::{self, hardware};
-  use crate::services::language;
+  use crate::services::language_service;
   use crate::structs;
   use crate::utils;
 
@@ -12,7 +12,7 @@ mod tests {
 
     let expected = structs::settings::Settings {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
-      language: language::get_default_language(),
+      language: language_service::get_default_language(),
       theme: enums::settings::Theme::Dark,
       display_targets: vec![
         hardware::HardwareType::Cpu,

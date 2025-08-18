@@ -75,7 +75,7 @@ impl Default for Settings {
   fn default() -> Self {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
-      language: services::language::get_default_language().to_string(),
+      language: services::language_service::get_default_language().to_string(),
       theme: enums::settings::Theme::Dark,
       display_targets: vec![
         enums::hardware::HardwareType::Cpu,
