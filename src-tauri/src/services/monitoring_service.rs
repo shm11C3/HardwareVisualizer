@@ -2,38 +2,36 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use crate::constants::{
-  HARDWARE_HISTORY_BUFFER_SIZE,
-  MAX_HISTORY_QUERY_DURATION_SECONDS,
+  HARDWARE_HISTORY_BUFFER_SIZE, MAX_HISTORY_QUERY_DURATION_SECONDS,
 };
 use crate::structs::hardware::HardwareMonitorState;
 use crate::structs::hardware_archive::MonitorResources;
 
-
 /// 1サイクル分のシステムサンプリング (CPU/メモリ/プロセス)
 pub fn sample_system(resources: &MonitorResources) {
-  resources
-    .system
-    .lock()
-    .ok()
-    .map(|mut sys| {
+  if let Some((cpu_usage, memory_usage, process_metrics)) =
+    resources.system.lock().ok().map(|mut sys| {
       sys.refresh_all();
-      
+
       let cpu_usage = calculate_average_cpu_usage(sys.cpus());
-      let memory_usage = calculate_memory_usage_percentage(sys.used_memory(), sys.total_memory());
-      
+      let memory_usage =
+        calculate_memory_usage_percentage(sys.used_memory(), sys.total_memory());
+
       let process_metrics: Vec<_> = sys
         .processes()
         .iter()
-        .map(|(pid, process)| (*pid, process.cpu_usage(), process.memory() as f32 / 1024.0))
+        .map(|(pid, process)| {
+          (*pid, process.cpu_usage(), process.memory() as f32 / 1024.0)
+        })
         .collect();
-      
+
       (cpu_usage, memory_usage, process_metrics)
     })
-    .map(|(cpu_usage, memory_usage, process_metrics)| {
-      push_history(&resources.cpu_history, cpu_usage);
-      push_history(&resources.memory_history, memory_usage);
-      update_process_histories(resources, &process_metrics);
-    });
+  {
+    push_history(&resources.cpu_history, cpu_usage);
+    push_history(&resources.memory_history, memory_usage);
+    update_process_histories(resources, &process_metrics);
+  }
 }
 
 fn calculate_average_cpu_usage(cpus: &[sysinfo::Cpu]) -> f32 {
@@ -56,11 +54,13 @@ fn update_process_histories(
 ) {
   let mut cpu_histories = resources.process_cpu_histories.lock().unwrap();
   let mut mem_histories = resources.process_memory_histories.lock().unwrap();
-  
-  process_metrics.iter().for_each(|(pid, cpu_usage, memory_mb)| {
-    push_history_inner(cpu_histories.entry(*pid).or_default(), *cpu_usage);
-    push_history_inner(mem_histories.entry(*pid).or_default(), *memory_mb);
-  });
+
+  process_metrics
+    .iter()
+    .for_each(|(pid, cpu_usage, memory_mb)| {
+      push_history_inner(cpu_histories.entry(*pid).or_default(), *cpu_usage);
+      push_history_inner(mem_histories.entry(*pid).or_default(), *memory_mb);
+    });
 }
 
 #[cfg(target_os = "windows")]
@@ -77,7 +77,8 @@ pub fn sample_gpu(resources: &MonitorResources) {
           let name = gpu.full_name().unwrap_or_else(|| "Unknown".to_string());
           let usage = nvapi::get_gpu_usage_from_physical_gpu(gpu);
           let temperature = nvapi::get_gpu_temperature_from_physical_gpu(gpu) as f32;
-          let memory_usage = nvapi::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
+          let memory_usage =
+            nvapi::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
           (name, usage, temperature, memory_usage)
         })
         .collect::<Vec<_>>()
@@ -94,11 +95,19 @@ fn update_gpu_histories(
   let mut temp_histories = resources.nv_gpu_temperature_histories.lock().unwrap();
   let mut mem_histories = resources.nv_gpu_dedicated_memory_histories.lock().unwrap();
 
-  gpu_metrics.iter().for_each(|(name, usage, temperature, memory_usage)| {
-    push_history_inner(usage_histories.entry(name.clone()).or_default(), *usage);
-    push_history_inner(temp_histories.entry(name.clone()).or_default(), *temperature);
-    push_history_inner(mem_histories.entry(name.clone()).or_default(), *memory_usage);
-  });
+  gpu_metrics
+    .iter()
+    .for_each(|(name, usage, temperature, memory_usage)| {
+      push_history_inner(usage_histories.entry(name.clone()).or_default(), *usage);
+      push_history_inner(
+        temp_histories.entry(name.clone()).or_default(),
+        *temperature,
+      );
+      push_history_inner(
+        mem_histories.entry(name.clone()).or_default(),
+        *memory_usage,
+      );
+    });
 }
 
 ///
