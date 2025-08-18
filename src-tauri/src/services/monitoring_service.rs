@@ -58,8 +58,16 @@ fn update_process_histories(
   process_metrics
     .iter()
     .for_each(|(pid, cpu_usage, memory_mb)| {
-      push_history_inner(cpu_histories.entry(*pid).or_default(), *cpu_usage);
-      push_history_inner(mem_histories.entry(*pid).or_default(), *memory_mb);
+      let cpu_history = cpu_histories.entry(*pid).or_default();
+      if cpu_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+        cpu_history.pop_front();
+      }
+      cpu_history.push_back(*cpu_usage);
+      let mem_history = mem_histories.entry(*pid).or_default();
+      if mem_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+        mem_history.pop_front();
+      }
+      mem_history.push_back(*memory_mb);
     });
 }
 
@@ -68,23 +76,22 @@ pub fn sample_gpu(resources: &MonitorResources) {
   use crate::infrastructure::nvapi_provider;
   use nvapi::PhysicalGpu;
 
-  PhysicalGpu::enumerate()
-    .ok()
-    .map(|gpus| {
-      gpus
-        .iter()
-        .map(|gpu| {
-          let name = gpu.full_name().unwrap_or_else(|| "Unknown".to_string());
-          let usage = nvapi_provider::get_gpu_usage_from_physical_gpu(gpu);
-          let temperature =
-            nvapi_provider::get_gpu_temperature_from_physical_gpu(gpu) as f32;
-          let memory_usage =
-            nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
-          (name, usage, temperature, memory_usage)
-        })
-        .collect::<Vec<_>>()
-    })
-    .map(|gpu_metrics| update_gpu_histories(resources, &gpu_metrics));
+  if let Some(gpu_metrics) = PhysicalGpu::enumerate().ok().map(|gpus| {
+    gpus
+      .iter()
+      .map(|gpu| {
+        let name = gpu.full_name().unwrap_or_else(|_| "Unknown".to_string());
+        let usage = nvapi_provider::get_gpu_usage_from_physical_gpu(gpu);
+        let temperature =
+          nvapi_provider::get_gpu_temperature_from_physical_gpu(gpu) as f32;
+        let memory_usage =
+          nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
+        (name, usage, temperature, memory_usage)
+      })
+      .collect::<Vec<_>>()
+  }) {
+    update_gpu_histories(resources, &gpu_metrics);
+  }
 }
 
 #[cfg(target_os = "windows")]
@@ -99,15 +106,21 @@ fn update_gpu_histories(
   gpu_metrics
     .iter()
     .for_each(|(name, usage, temperature, memory_usage)| {
-      push_history_inner(usage_histories.entry(name.clone()).or_default(), *usage);
-      push_history_inner(
-        temp_histories.entry(name.clone()).or_default(),
-        *temperature,
-      );
-      push_history_inner(
-        mem_histories.entry(name.clone()).or_default(),
-        *memory_usage,
-      );
+      let usage_history = usage_histories.entry(name.clone()).or_default();
+      if usage_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+        usage_history.pop_front();
+      }
+      usage_history.push_back(*usage);
+      let temp_history = temp_histories.entry(name.clone()).or_default();
+      if temp_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+        temp_history.pop_front();
+      }
+      temp_history.push_back(*temperature as i32);
+      let mem_history = mem_histories.entry(name.clone()).or_default();
+      if mem_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+        mem_history.pop_front();
+      }
+      mem_history.push_back(*memory_usage as i32);
     });
 }
 
@@ -149,12 +162,8 @@ pub fn gpu_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f32>
 
 fn push_history(history: &Arc<Mutex<VecDeque<f32>>>, value: f32) {
   let mut h = history.lock().unwrap();
-  push_history_inner(&mut h, value);
-}
-
-fn push_history_inner<T: Into<f32> + Copy>(deque: &mut VecDeque<T>, value: T) {
-  if deque.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
-    deque.pop_front();
+  if h.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+    h.pop_front();
   }
-  deque.push_back(value);
+  h.push_back(value);
 }
