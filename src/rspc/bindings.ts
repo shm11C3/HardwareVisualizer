@@ -378,9 +378,21 @@ async deleteBackgroundImage(fileId: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setDecoration(isDecorated: boolean) : Promise<void> {
-    await TAURI_INVOKE("set_decoration", { isDecorated });
+/**
+ * ウィンドウの装飾状態を設定
+ * 
+ */
+async setDecoration(isDecorated: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_decoration", { isDecorated }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
+/**
+ * アプリケーションを再起動する
+ */
 async restartApp() : Promise<void> {
     await TAURI_INVOKE("restart_app");
 }

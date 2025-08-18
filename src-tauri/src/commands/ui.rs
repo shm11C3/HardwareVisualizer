@@ -1,20 +1,24 @@
 use tauri::App;
-use tauri::Manager;
-use tauri_plugin_store::StoreExt;
 
-#[warn(unused_must_use)]
+use crate::services::ui_service;
+
 pub fn init(app: &mut App) {
-  let store = app.store("store.json").unwrap();
-
-  // 設定値をロードしてウィンドウの初期状態を設定
-  if let Some(is_decorated) = store.get("window_decorated").and_then(|v| v.as_bool()) {
-    let window = app.get_webview_window("main").unwrap();
-    set_decoration(window, is_decorated);
-  }
+  let app_handle = app.handle();
+  let _ = ui_service::apply_saved_window_decoration(app_handle);
 }
 
+///
+/// ウィンドウの装飾状態を設定
+///
 #[tauri::command]
 #[specta::specta]
-pub fn set_decoration(window: tauri::WebviewWindow, is_decorated: bool) {
-  let _ = window.set_fullscreen(!is_decorated);
+pub fn set_decoration(
+  window: tauri::WebviewWindow,
+  is_decorated: bool,
+  app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+  ui_service::set_window_decoration(&window, is_decorated)?;
+  ui_service::persist_window_decoration(&app_handle, is_decorated)?;
+
+  Ok(())
 }
