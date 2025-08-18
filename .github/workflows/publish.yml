@@ -45,8 +45,10 @@ jobs:
         include:
           - platform: "windows-latest"
             args: ""
+            os-name: "windows"
           - platform: "ubuntu-22.04"
             args: ""
+            os-name: "linux"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -173,5 +175,5 @@ jobs:
       - name: upload THIRD_PARTY_NOTICES.md
         uses: actions/upload-artifact@v4
         with:
-          name: THIRD_PARTY_NOTICES_(${{ matrix.platform == 'ubuntu-22.04' && 'linux' || (matrix.platform == 'windows-latest' && 'windows' || 'other') }}).md
+          name: THIRD_PARTY_NOTICES_(${{ matrix.platform['os-name'] }}).md
           path: ./THIRD_PARTY_NOTICES.md
