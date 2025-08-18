@@ -20,7 +20,7 @@ pub fn apply_saved_window_decoration(app: &AppHandle) -> Result<(), String> {
   Ok(())
 }
 
-/// ウィンドウ装飾状態を反映)
+/// ウィンドウ装飾状態を反映
 pub fn set_window_decoration(
   window: &tauri::WebviewWindow,
   is_decorated: bool,
