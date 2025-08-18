@@ -10,7 +10,14 @@ on:
 
 jobs:
   update-licenses:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "windows"
+          - platform: "linux"
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
@@ -31,7 +38,7 @@ jobs:
         run: cargo install cargo-license
 
       - name: Generate licenses
-        run: npm run generate:licenses
+        run: node --experimental-strip-types .github/scripts/generate-licenses.ts ${{ matrix.platform }}
 
       - name: Commit and create PR if changed
         uses: peter-evans/create-pull-request@v7

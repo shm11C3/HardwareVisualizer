@@ -701,6 +701,7 @@ const About = ({ onShowLicense }: { onShowLicense: () => void }) => {
           onClick={() =>
             openURL("https://github.com/shm11C3/HardwareVisualizer")
           }
+          variant="secondary"
           className="rounded-full text-sm"
         >
           <GithubLogoIcon size={32} />
@@ -713,6 +714,7 @@ const About = ({ onShowLicense }: { onShowLicense: () => void }) => {
               "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
             )
           }
+          variant="secondary"
           className="rounded-full text-sm"
         >
           <span className="px-1">
@@ -722,7 +724,7 @@ const About = ({ onShowLicense }: { onShowLicense: () => void }) => {
         </Button>
         <Button
           onClick={onShowLicense}
-          variant="outline"
+          variant="secondary"
           className="rounded-full text-sm"
         >
           {t("pages.settings.about.license")}

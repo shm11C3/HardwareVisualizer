@@ -18,7 +18,22 @@ type CargoLicenseInfo = {
   description?: string;
 };
 
-const outputDir = path.resolve("./");
+// ==========================
+// 引数処理
+// ==========================
+const target = process.argv[2]; // "linux" or "windows"
+if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
+  console.error(
+    "Usage: node --experimental-strip-types script.ts <linux|windows|macos|tmp>",
+  );
+  process.exit(1);
+}
+
+// 出力先をOS毎に切り替える
+const outputDir =
+  target === "tmp"
+    ? path.resolve("./tmp")
+    : path.resolve(`./docs/THIRD_PARTY_NOTICES/${target}`);
 const outputPath = path.join(outputDir, "THIRD_PARTY_NOTICES.md");
 
 const generateLicenseTxt = (
