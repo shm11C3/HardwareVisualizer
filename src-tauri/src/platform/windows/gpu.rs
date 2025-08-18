@@ -5,11 +5,17 @@ use crate::{log_error, log_internal};
 
 pub async fn get_gpu_usage() -> Result<f32, String> {
   // NVAPI から取得できた場合は NVAPI 優先
-  if let Ok(usage) = infrastructure::nvapi_provider::get_nvidia_gpu_usage().await {
+  if let Ok(usage) =
+    infrastructure::providers::nvapi_provider::get_nvidia_gpu_usage().await
+  {
     return Ok((usage * 100.0).round());
   }
 
-  match infrastructure::wmi_provider::query_gpu_usage_by_device_and_engine("3D").await {
+  match infrastructure::providers::wmi_provider::query_gpu_usage_by_device_and_engine(
+    "3D",
+  )
+  .await
+  {
     Ok(usage) => Ok((usage * 100.0).round()),
     Err(e) => Err(format!(
       "Failed to get GPU usage from both NVIDIA API and WMI: {e:?}"
@@ -20,7 +26,7 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
 pub async fn get_gpu_temperature(
   temperature_unit: enums::settings::TemperatureUnit,
 ) -> Result<Vec<crate::structs::hardware::NameValue>, String> {
-  match infrastructure::nvapi_provider::get_nvidia_gpu_temperature().await {
+  match infrastructure::providers::nvapi_provider::get_nvidia_gpu_temperature().await {
     Ok(temps) => {
       let temps = temps
         .iter()
@@ -46,9 +52,9 @@ pub async fn get_gpu_temperature(
 pub async fn get_gpu_info() -> Result<Vec<crate::structs::hardware::GraphicInfo>, String>
 {
   let (nvidia_res, amd_res, intel_res) = tokio::join!(
-    infrastructure::nvapi_provider::get_nvidia_gpu_info(),
-    infrastructure::directx::get_amd_gpu_info(),
-    infrastructure::directx::get_intel_gpu_info(),
+    infrastructure::providers::nvapi_provider::get_nvidia_gpu_info(),
+    infrastructure::providers::directx::get_amd_gpu_info(),
+    infrastructure::providers::directx::get_intel_gpu_info(),
   );
 
   fn append(

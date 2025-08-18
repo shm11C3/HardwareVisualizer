@@ -73,7 +73,7 @@ fn update_process_histories(
 
 #[cfg(target_os = "windows")]
 pub fn sample_gpu(resources: &MonitorResources) {
-  use crate::infrastructure::nvapi_provider;
+  use crate::infrastructure::providers::nvapi_provider;
   use nvapi::PhysicalGpu;
 
   if let Some(gpu_metrics) = PhysicalGpu::enumerate().ok().map(|gpus| {
