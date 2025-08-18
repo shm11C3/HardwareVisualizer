@@ -33,7 +33,7 @@ pub mod commands {
   ///
   fn emit_error(window: &Window) -> Result<(), String> {
     let settings_json_path =
-      utils::file::get_app_data_dir(services::setting_service::SETTINGS_FILENAME);
+      utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
 
     log_error!(
       "Failed to update settings file",
