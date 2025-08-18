@@ -4,7 +4,7 @@ pub mod sysinfo_provider;
 pub mod wmi_provider;
 
 #[cfg(target_os = "windows")]
-pub mod nvapi;
+pub mod nvapi_provider;
 
 #[cfg(target_os = "windows")]
 pub mod directx;

@@ -65,7 +65,7 @@ fn update_process_histories(
 
 #[cfg(target_os = "windows")]
 pub fn sample_gpu(resources: &MonitorResources) {
-  use crate::infrastructure::nvapi;
+  use crate::infrastructure::nvapi_provider;
   use nvapi::PhysicalGpu;
 
   PhysicalGpu::enumerate()
@@ -75,10 +75,11 @@ pub fn sample_gpu(resources: &MonitorResources) {
         .iter()
         .map(|gpu| {
           let name = gpu.full_name().unwrap_or_else(|| "Unknown".to_string());
-          let usage = nvapi::get_gpu_usage_from_physical_gpu(gpu);
-          let temperature = nvapi::get_gpu_temperature_from_physical_gpu(gpu) as f32;
+          let usage = nvapi_provider::get_gpu_usage_from_physical_gpu(gpu);
+          let temperature =
+            nvapi_provider::get_gpu_temperature_from_physical_gpu(gpu) as f32;
           let memory_usage =
-            nvapi::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
+            nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
           (name, usage, temperature, memory_usage)
         })
         .collect::<Vec<_>>()
