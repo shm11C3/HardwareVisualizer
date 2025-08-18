@@ -2,7 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
-mod backgrounds;
 mod commands;
 mod constants;
 mod enums;
@@ -11,6 +10,7 @@ mod platform;
 mod services;
 mod structs;
 mod utils;
+mod workers;
 
 #[cfg(test)]
 mod _tests;
@@ -130,13 +130,13 @@ pub fn run() {
 
       // Check updates
       tauri::async_runtime::spawn(async move {
-        if let Err(e) = backgrounds::updater::update(handle).await {
+        if let Err(e) = workers::updater::update(handle).await {
           log_error!("Update process failed", "lib.run", Some(e.to_string()));
           eprintln!("Update process failed: {e:?}");
         }
       });
 
-      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
+      tauri::async_runtime::spawn(workers::system_monitor::setup(
         structs::hardware_archive::MonitorResources {
           system: Arc::clone(&system),
           cpu_history: Arc::clone(&cpu_history),
@@ -153,7 +153,7 @@ pub fn run() {
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
+        tauri::async_runtime::spawn(workers::hardware_archive::setup(
           structs::hardware_archive::MonitorResources {
             system: Arc::clone(&system),
             cpu_history: Arc::clone(&cpu_history),
@@ -171,11 +171,9 @@ pub fn run() {
 
       // スケジュールされたデータ削除の開始
       if settings.hardware_archive.scheduled_data_deletion {
-        tauri::async_runtime::spawn(
-          backgrounds::hardware_archive::batch_delete_old_data(
-            settings.hardware_archive.refresh_interval_days,
-          ),
-        );
+        tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
+          settings.hardware_archive.refresh_interval_days,
+        ));
       }
 
       Ok(())
