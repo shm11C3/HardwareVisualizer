@@ -1,5 +1,5 @@
+use crate::infrastructure::providers;
 use crate::platform::linux;
-use crate::providers::providers;
 use crate::structs;
 use crate::structs::hardware::MemoryInfo;
 use crate::utils;
