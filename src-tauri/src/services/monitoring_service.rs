@@ -11,85 +11,94 @@ use crate::structs::hardware_archive::MonitorResources;
 
 /// 1サイクル分のシステムサンプリング (CPU/メモリ/プロセス)
 pub fn sample_system(resources: &MonitorResources) {
-  let mut sys = match resources.system.lock() {
-    Ok(s) => s,
-    Err(_) => return,
-  };
-  sys.refresh_all();
+  resources
+    .system
+    .lock()
+    .ok()
+    .map(|mut sys| {
+      sys.refresh_all();
+      
+      let cpu_usage = calculate_average_cpu_usage(sys.cpus());
+      let memory_usage = calculate_memory_usage_percentage(sys.used_memory(), sys.total_memory());
+      
+      let process_metrics: Vec<_> = sys
+        .processes()
+        .iter()
+        .map(|(pid, process)| (*pid, process.cpu_usage(), process.memory() as f32 / 1024.0))
+        .collect();
+      
+      (cpu_usage, memory_usage, process_metrics)
+    })
+    .map(|(cpu_usage, memory_usage, process_metrics)| {
+      push_history(&resources.cpu_history, cpu_usage);
+      push_history(&resources.memory_history, memory_usage);
+      update_process_histories(resources, &process_metrics);
+    });
+}
 
-  // CPU 平均使用率
-  let cpu_usage = {
-    let cpus = sys.cpus();
-    if cpus.is_empty() {
-      0.0
-    } else {
-      (cpus.iter().map(|c| c.cpu_usage()).sum::<f32>() / cpus.len() as f32).round()
-    }
-  };
-  push_history(&resources.cpu_history, cpu_usage);
-
-  // メモリ使用率
-  let memory_usage = {
-    let used_memory = sys.used_memory() as f64;
-    let total_memory = sys.total_memory() as f64;
-    if total_memory == 0.0 {
-      0.0
-    } else {
-      (used_memory / total_memory * 100.0).round() as f32
-    }
-  };
-  push_history(&resources.memory_history, memory_usage);
-
-  // プロセス履歴
-  {
-    let mut proc_cpu_histories = resources.process_cpu_histories.lock().unwrap();
-    let mut proc_mem_histories = resources.process_memory_histories.lock().unwrap();
-    for (pid, process) in sys.processes() {
-      let cpu = process.cpu_usage();
-      let cpu_hist = proc_cpu_histories.entry(*pid).or_default();
-      push_history_inner(cpu_hist, cpu);
-
-      let mem = process.memory() as f32 / 1024.0; // KB→MB
-      let mem_hist = proc_mem_histories.entry(*pid).or_default();
-      push_history_inner(mem_hist, mem);
-    }
+fn calculate_average_cpu_usage(cpus: &[sysinfo::Cpu]) -> f32 {
+  match cpus.len() {
+    0 => 0.0,
+    len => (cpus.iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / len as f32).round(),
   }
 }
 
-/// Windows 向け GPU サンプリング
+fn calculate_memory_usage_percentage(used: u64, total: u64) -> f32 {
+  match total {
+    0 => 0.0,
+    total => ((used as f64 / total as f64) * 100.0).round() as f32,
+  }
+}
+
+fn update_process_histories(
+  resources: &MonitorResources,
+  process_metrics: &[(sysinfo::Pid, f32, f32)],
+) {
+  let mut cpu_histories = resources.process_cpu_histories.lock().unwrap();
+  let mut mem_histories = resources.process_memory_histories.lock().unwrap();
+  
+  process_metrics.iter().for_each(|(pid, cpu_usage, memory_mb)| {
+    push_history_inner(cpu_histories.entry(*pid).or_default(), *cpu_usage);
+    push_history_inner(mem_histories.entry(*pid).or_default(), *memory_mb);
+  });
+}
+
 #[cfg(target_os = "windows")]
 pub fn sample_gpu(resources: &MonitorResources) {
   use crate::infrastructure::nvapi;
   use nvapi::PhysicalGpu;
 
+  PhysicalGpu::enumerate()
+    .ok()
+    .map(|gpus| {
+      gpus
+        .iter()
+        .map(|gpu| {
+          let name = gpu.full_name().unwrap_or_else(|| "Unknown".to_string());
+          let usage = nvapi::get_gpu_usage_from_physical_gpu(gpu);
+          let temperature = nvapi::get_gpu_temperature_from_physical_gpu(gpu) as f32;
+          let memory_usage = nvapi::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
+          (name, usage, temperature, memory_usage)
+        })
+        .collect::<Vec<_>>()
+    })
+    .map(|gpu_metrics| update_gpu_histories(resources, &gpu_metrics));
+}
+
+#[cfg(target_os = "windows")]
+fn update_gpu_histories(
+  resources: &MonitorResources,
+  gpu_metrics: &[(String, f32, f32, f32)],
+) {
   let mut usage_histories = resources.nv_gpu_usage_histories.lock().unwrap();
   let mut temp_histories = resources.nv_gpu_temperature_histories.lock().unwrap();
   let mut mem_histories = resources.nv_gpu_dedicated_memory_histories.lock().unwrap();
 
-  let gpus = match PhysicalGpu::enumerate() {
-    Ok(g) => g,
-    Err(_) => return,
-  };
-
-  for (name, gpu) in gpus
-    .iter()
-    .map(|g| (g.full_name().unwrap_or("Unknown".to_string()), g))
-  {
-    let usage_hist = usage_histories.entry(name.clone()).or_default();
-    push_history_inner(usage_hist, nvapi::get_gpu_usage_from_physical_gpu(gpu));
-
-    let temp_hist = temp_histories.entry(name.clone()).or_default();
-    push_history_inner(
-      temp_hist,
-      nvapi::get_gpu_temperature_from_physical_gpu(gpu) as f32,
-    );
-
-    let mem_hist = mem_histories.entry(name.clone()).or_default();
-    push_history_inner(
-      mem_hist,
-      nvapi::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32,
-    );
-  }
+  gpu_metrics.iter().for_each(|(name, usage, temperature, memory_usage)| {
+    push_history_inner(usage_histories.entry(name.clone()).or_default(), *usage);
+    push_history_inner(temp_histories.entry(name.clone()).or_default(), *temperature);
+    push_history_inner(mem_histories.entry(name.clone()).or_default(), *memory_usage);
+  });
 }
 
 ///
