@@ -1,28 +1,13 @@
 pub mod sysinfo_provider;
 
 #[cfg(target_os = "windows")]
-pub mod wmi_provider;
+pub mod windows;
 
 #[cfg(target_os = "windows")]
-pub mod nvapi_provider;
-
-#[cfg(target_os = "windows")]
-pub mod directx;
+pub use windows::*;
 
 #[cfg(target_os = "linux")]
-pub mod dmidecode;
+pub mod linux;
 
 #[cfg(target_os = "linux")]
-pub mod procfs;
-
-#[cfg(target_os = "linux")]
-pub mod drm_sys;
-
-#[cfg(target_os = "linux")]
-pub mod lspci;
-
-#[cfg(target_os = "linux")]
-pub mod kernel;
-
-#[cfg(target_os = "linux")]
-pub mod net_sys;
+pub use linux::*;
