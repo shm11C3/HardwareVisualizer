@@ -1,19 +1,64 @@
 use crate::constants::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
 use crate::models;
 use crate::services::archive_service::ArchiveService;
-use std::time::Duration;
 
-/// Starts the hardware archive background service.
-///
-/// This orchestrates the periodic collection and archiving of hardware data
-/// by coordinating between data collection (service layer) and persistence (database layer).
-pub async fn setup(resources: models::hardware_archive::MonitorResources) {
-  let mut interval =
-    tokio::time::interval(Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS));
+pub struct HardwareArchiveController {
+  handle: tauri::async_runtime::JoinHandle<()>,
+  stop_tx: tokio::sync::watch::Sender<bool>,
+}
 
-  loop {
-    interval.tick().await;
-    ArchiveService::archive_current_snapshot(&resources).await;
+impl HardwareArchiveController {
+  /// Starts the hardware archive background service.
+  ///
+  /// This orchestrates the periodic collection and archiving of hardware data
+  /// by coordinating between data collection (service layer) and persistence (database layer).
+  pub fn setup(resources: models::hardware_archive::MonitorResources) -> Self {
+    let (tx, mut rx) = tokio::sync::watch::channel(false);
+
+    let handle: tauri::async_runtime::JoinHandle<()> = tauri::async_runtime::spawn(
+      async move {
+        let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(
+          HARDWARE_ARCHIVE_INTERVAL_SECONDS,
+        ));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+          tokio::select! {
+            _ = ticker.tick() =>  {
+              let start = std::time::Instant::now();
+
+              ArchiveService::archive_current_snapshot(&resources).await;
+
+              let elapsed = start.elapsed();
+              if elapsed > tokio::time::Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS) {
+                // tracing を使っているなら tracing::warn! に置換
+                eprintln!(
+                  "[hardware-archive] overrun: {:?} (> {}s)",
+                  elapsed,
+                  HARDWARE_ARCHIVE_INTERVAL_SECONDS
+                );
+              }
+            }
+            result = rx.changed() => {
+              if result.is_err() || *rx.borrow() {
+                eprintln!("[hardware-archive] shutdown signal received");
+                break;
+              }
+            }
+          }
+        }
+      },
+    );
+
+    Self {
+      stop_tx: tx,
+      handle,
+    }
+  }
+
+  pub async fn terminate(self) {
+    let _ = self.stop_tx.send(true);
+    let _ = self.handle.await;
   }
 }
 
