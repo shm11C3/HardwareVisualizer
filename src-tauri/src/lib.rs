@@ -136,7 +136,7 @@ pub fn run() {
         }
       });
 
-      tauri::async_runtime::spawn(workers::system_monitor::setup(
+      let monitor = workers::system_monitor::SystemMonitorController::setup(
         models::hardware_archive::MonitorResources {
           system: Arc::clone(&system),
           cpu_history: Arc::clone(&cpu_history),
@@ -149,11 +149,15 @@ pub fn run() {
             &nv_gpu_dedicated_memory_histories,
           ),
         },
-      ));
+      );
+      {
+        let ws = app.state::<workers::WorkersState>();
+        ws.monitor.lock().unwrap().replace(monitor);
+      }
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(workers::hardware_archive::setup(
+        let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
           models::hardware_archive::MonitorResources {
             system: Arc::clone(&system),
             cpu_history: Arc::clone(&cpu_history),
@@ -166,7 +170,11 @@ pub fn run() {
               &nv_gpu_dedicated_memory_histories,
             ),
           },
-        ));
+        );
+        {
+          let ws = app.state::<workers::WorkersState>();
+          ws.hw_archive.lock().unwrap().replace(hw_archive);
+        }
       }
 
       // スケジュールされたデータ削除の開始
@@ -177,6 +185,20 @@ pub fn run() {
       }
 
       Ok(())
+    })
+    .on_window_event(|win, ev| {
+      if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+        api.prevent_close();
+        let app = win.app_handle().clone();
+
+        tauri::async_runtime::spawn(async move {
+          // バックグラウンド処理を全て停止
+          let ws = app.state::<workers::WorkersState>();
+          ws.terminate_all().await;
+
+          app.exit(0);
+        });
+      }
     })
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_store::Builder::new().build())
@@ -197,6 +219,7 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .manage(state)
     .manage(app_state)
+    .manage(workers::WorkersState::default())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
