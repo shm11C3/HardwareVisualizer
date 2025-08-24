@@ -1,6 +1,7 @@
 use crate::constants::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
 use crate::models;
 use crate::services::archive_service::ArchiveService;
+use crate::{log_internal, log_warn};
 
 pub struct HardwareArchiveController {
   handle: tauri::async_runtime::JoinHandle<()>,
@@ -31,11 +32,10 @@ impl HardwareArchiveController {
 
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS) {
-                // tracing を使っているなら tracing::warn! に置換
-                eprintln!(
-                  "[hardware-archive] overrun: {:?} (> {}s)",
-                  elapsed,
-                  HARDWARE_ARCHIVE_INTERVAL_SECONDS
+                log_warn!(
+                  &format!("overrun {:?} (> {}s)", elapsed, HARDWARE_ARCHIVE_INTERVAL_SECONDS),
+                  "hardware_archive",
+                  None::<&str>
                 );
               }
             }

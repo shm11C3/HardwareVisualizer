@@ -1,5 +1,6 @@
 use crate::models;
 use crate::services::monitoring_service;
+use crate::{log_internal, log_warn};
 
 pub struct SystemMonitorController {
   handle: tauri::async_runtime::JoinHandle<()>,
@@ -56,11 +57,10 @@ impl SystemMonitorController {
 
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL) {
-                // tracing を使っているなら tracing::warn! に置換
-                eprintln!(
-                  "[system-monitor] overrun: {:?} (> {}s)",
-                  elapsed,
-                  SYSTEM_INFO_INIT_INTERVAL
+                log_warn!(
+                  &format!("overrun {:?} (> {}s)", elapsed, SYSTEM_INFO_INIT_INTERVAL),
+                  "system_monitor",
+                  None::<&str>
                 );
               }
             }
