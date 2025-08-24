@@ -150,7 +150,7 @@
         "burnInShift": {
           "name": "Burn-In Protection",
           "description": "Enable to prevent screen burn-in by periodically shifting the app position.",
-          "detailSettings": "Detail Settings for Burn-In Protection",
+          "detailSettings": "Detail Settings",
           "mode": {
             "name": "Shift Mode",
             "jump": "Jump (Interval-based shifts)",
