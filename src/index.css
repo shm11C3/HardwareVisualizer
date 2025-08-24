@@ -296,7 +296,8 @@
 
   [data-theme="nebula"] {
     --background: oklch(20% 0.01 300);
-    --background-gradient: radial-gradient(
+    --background-gradient:
+      radial-gradient(
         circle at 20% 30%,
         oklch(35% 0.1 300 / 70%) 0%,
         transparent 60%
