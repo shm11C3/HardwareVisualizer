@@ -129,6 +129,7 @@
           "name": "Color Mode",
           "light": "Light",
           "dark": "Dark",
+          "darkPlus": "Dark+",
           "sky": "Sky",
           "grove": "Grove",
           "sunset": "Sunset",

@@ -175,6 +175,12 @@ const SettingColorMode = () => {
             {t("pages.settings.general.colorMode.dark")}
           </SelectItem>
           <SelectItem
+            value="darkPlus"
+            className="focus:bg-black dark:focus:bg-black"
+          >
+            {t("pages.settings.general.colorMode.darkPlus")}
+          </SelectItem>
+          <SelectItem
             value="sky"
             className="focus:bg-sky-300 dark:focus:bg-sky-700"
           >

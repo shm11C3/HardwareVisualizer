@@ -129,6 +129,7 @@
           "name": "カラーモード",
           "light": "ライト",
           "dark": "ダーク",
+          "darkPlus": "Dark+",
           "sky": "スカイ",
           "grove": "グローブ",
           "sunset": "サンセット",
