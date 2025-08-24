@@ -193,12 +193,10 @@ pub fn run() {
 
         tauri::async_runtime::spawn(async move {
           // バックグラウンド処理を全て停止
-          {
-            let ws = app.state::<workers::WorkersState>();
-            ws.terminate_all().await;
+          let ws = app.state::<workers::WorkersState>();
+          ws.terminate_all().await;
 
-            app.exit(0);
-          }
+          app.exit(0);
         });
       }
     })
