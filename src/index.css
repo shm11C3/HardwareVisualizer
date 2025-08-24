@@ -78,6 +78,92 @@
 }
 
 /*
+  Burn-in (OLED) utilities
+  -----------------------------------------------------
+  Lightweight pixel-shift implementation to reduce OLED burn-in.
+  The structure is:
+
+  - burnin-root   : wrapper to hide overflow when shifting
+  - burnin-shift  : container whose position is controlled by
+                    CSS variables (--shift-x / --shift-y).
+                    Typically updated by JS for "jump" mode.
+  - burnin-drift-x / y : continuous drift using CSS animations.
+                        X and Y are independent so they can run
+                        on different cycles for a more natural effect.
+  - prefers-reduced-motion : disables motion if user prefers reduced motion.
+*/
+
+/* === Wrapper =========================================
+  - Hides overflow when content is shifted
+  - Adds padding (via --burnin-padding) so content
+    doesn’t get clipped while moving                  */
+@utility burnin-root {
+  overflow: hidden;
+  --burnin-padding: 64px;
+  padding: var(--burnin-padding);
+}
+
+/* === Shift target container ==========================
+  - Position controlled by --shift-x / --shift-y
+  - transition gives a smooth effect on "jump" shifts  */
+@utility burnin-shift {
+  transform: translate(var(--shift-x, 0px), var(--shift-y, 0px));
+  transition: transform 200ms linear;
+  will-change: transform;
+}
+
+/* === Drift animation (X axis) ========================
+  - Controlled via --shift-x-start/mid/end variables
+  - JS can set these values to adjust amplitude        */
+@keyframes burnin-drift-x {
+  0% {
+    transform: translate(var(--shift-x-start, 0px), var(--shift-y, 0px));
+  }
+  50% {
+    transform: translate(var(--shift-x-mid, 20px), var(--shift-y, 0px));
+  }
+  100% {
+    transform: translate(var(--shift-x-end, 0px), var(--shift-y, 0px));
+  }
+}
+
+/* === Drift animation (Y axis) ======================== */
+@keyframes burnin-drift-y {
+  0% {
+    transform: translate(var(--shift-x, 0px), var(--shift-y-start, 0px));
+  }
+  50% {
+    transform: translate(var(--shift-x, 0px), var(--shift-y-mid, 20px));
+  }
+  100% {
+    transform: translate(var(--shift-x, 0px), var(--shift-y-end, 0px));
+  }
+}
+
+/* === Drift utilities =================================
+  - X and Y drift independently
+  - alternate makes the animation go back and forth   */
+@utility burnin-drift-x {
+  animation: burnin-drift-x var(--drift-duration, 18s) linear infinite alternate;
+}
+@utility burnin-drift-y {
+  animation: burnin-drift-y var(--drift-duration, 22s) linear infinite alternate;
+}
+
+/* === Accessibility ===================================
+  - Disable animations/transitions if the user
+    has prefers-reduced-motion enabled                 */
+@media (prefers-reduced-motion: reduce) {
+  .burnin-drift-x,
+  .burnin-drift-y {
+    animation: none;
+  }
+  .burnin-shift {
+    transition: none;
+  }
+}
+
+/*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.
