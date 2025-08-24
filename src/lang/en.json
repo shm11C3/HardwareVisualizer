@@ -146,6 +146,30 @@
         },
         "autostart": {
           "name": "Automatic startup at OS startup"
+        },
+        "burnInShift": {
+          "name": "Burn-In Protection",
+          "description": "Enable to prevent screen burn-in by periodically shifting the app position.",
+          "detailSettings": "Detail Settings for Burn-In Protection",
+          "mode": {
+            "name": "Shift Mode",
+            "jump": "Jump (Interval-based shifts)",
+            "drift": "Drift (Smooth animation)"
+          },
+          "preset": {
+            "name": "Shift Preset",
+            "gentle": "Gentle (Less frequent, smaller shifts)",
+            "balanced": "Balanced (Moderate frequency and shift size)",
+            "aggressive": "Aggressive (More frequent, larger shifts)"
+          },
+          "idleOnly": {
+            "name": "Idle Only",
+            "description": "Enable to shift the app position only when there is no user activity (mouse/keyboard input) for a certain period."
+          },
+          "tooltip": {
+            "jump": "The app will shift its position at regular intervals to prevent screen burn-in.",
+            "drift": "The app will smoothly drift around the screen to prevent screen burn-in."
+          }
         }
       },
       "customTheme": {

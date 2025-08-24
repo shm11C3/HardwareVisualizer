@@ -166,3 +166,18 @@ pub enum LineGraphType {
   Linear,
   Basis,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Type, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BurnInShiftMode {
+  Jump,
+  Drift,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Type, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BurnInShiftPreset {
+  Gentle,
+  Balanced,
+  Aggressive,
+}
