@@ -6,6 +6,7 @@ use specta::Type;
 pub enum Theme {
   Light,
   Dark,
+  DarkPlus,
   Ocean,
   Grove,
   Sunset,
@@ -23,6 +24,7 @@ impl Serialize for Theme {
     let s = match *self {
       Theme::Light => "light",
       Theme::Dark => "dark",
+      Theme::DarkPlus => "darkPlus",
       Theme::Ocean => "sky",
       Theme::Grove => "grove",
       Theme::Sunset => "sunset",
@@ -44,6 +46,7 @@ impl<'de> Deserialize<'de> for Theme {
     match s.as_str() {
       "light" => Ok(Theme::Light),
       "dark" => Ok(Theme::Dark),
+      "darkplus" => Ok(Theme::DarkPlus),
       "sky" => Ok(Theme::Ocean),
       "grove" => Ok(Theme::Grove),
       "sunset" => Ok(Theme::Sunset),
@@ -56,6 +59,7 @@ impl<'de> Deserialize<'de> for Theme {
         &[
           "light",
           "dark",
+          "darkPlus",
           "sky",
           "grove",
           "sunset",
@@ -161,4 +165,19 @@ pub enum LineGraphType {
   Step,
   Linear,
   Basis,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Type, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BurnInShiftMode {
+  Jump,
+  Drift,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Type, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BurnInShiftPreset {
+  Gentle,
+  Balanced,
+  Aggressive,
 }

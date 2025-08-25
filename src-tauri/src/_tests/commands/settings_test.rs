@@ -40,6 +40,10 @@ mod tests {
         refresh_interval_days: 30,
         scheduled_data_deletion: true,
       },
+      burn_in_shift: false,
+      burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
+      burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
+      burn_in_shift_idle_only: true,
     };
 
     assert_eq!(settings.version, expected.version,);

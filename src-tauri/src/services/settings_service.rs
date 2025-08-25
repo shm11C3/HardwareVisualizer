@@ -306,4 +306,30 @@ impl models::settings::Settings {
     self.hardware_archive.scheduled_data_deletion = new_value;
     self.write_file()
   }
+
+  pub fn set_burn_in_shift(&mut self, new_value: bool) -> Result<(), String> {
+    self.burn_in_shift = new_value;
+    self.write_file()
+  }
+
+  pub fn set_burn_in_shift_mode(
+    &mut self,
+    new_value: enums::settings::BurnInShiftMode,
+  ) -> Result<(), String> {
+    self.burn_in_shift_mode = new_value;
+    self.write_file()
+  }
+
+  pub fn set_burn_in_shift_preset(
+    &mut self,
+    new_value: enums::settings::BurnInShiftPreset,
+  ) -> Result<(), String> {
+    self.burn_in_shift_preset = new_value;
+    self.write_file()
+  }
+
+  pub fn set_burn_in_shift_idle_only(&mut self, new_value: bool) -> Result<(), String> {
+    self.burn_in_shift_idle_only = new_value;
+    self.write_file()
+  }
 }

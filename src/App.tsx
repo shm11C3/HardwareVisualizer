@@ -90,6 +90,7 @@ export const App = () => {
       <ScreenTemplate
         icon={<SquaresFourIcon size={32} />}
         title={t("pages.dashboard.name")}
+        enabledBurnInShift
       >
         <Dashboard />
       </ScreenTemplate>
@@ -99,6 +100,7 @@ export const App = () => {
       <ScreenTemplate
         icon={<CpuIcon size={32} />}
         title={hardwareInfo.cpu?.name || "CPU"}
+        enabledBurnInShift
       >
         <CpuUsages />
       </ScreenTemplate>
@@ -107,6 +109,7 @@ export const App = () => {
       <ScreenTemplate
         icon={<ChartLineIcon size={32} />}
         title={t("pages.insights.name")}
+        enabledBurnInShift
       >
         <Insights />
       </ScreenTemplate>

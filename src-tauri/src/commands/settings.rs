@@ -105,6 +105,10 @@ pub mod commands {
       selected_background_img: settings.selected_background_img,
       temperature_unit: settings.temperature_unit,
       hardware_archive: settings.hardware_archive,
+      burn_in_shift: settings.burn_in_shift,
+      burn_in_shift_mode: settings.burn_in_shift_mode,
+      burn_in_shift_preset: settings.burn_in_shift_preset,
+      burn_in_shift_idle_only: settings.burn_in_shift_idle_only,
     };
 
     Ok(client_settings)
@@ -397,6 +401,70 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_hardware_archive_scheduled_data_deletion(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_burn_in_shift(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_burn_in_shift(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_burn_in_shift_mode(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: enums::settings::BurnInShiftMode,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_burn_in_shift_mode(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_burn_in_shift_preset(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: enums::settings::BurnInShiftPreset,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_burn_in_shift_preset(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_burn_in_shift_idle_only(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_burn_in_shift_idle_only(new_value) {
       emit_error(&window)?;
       return Err(e);
     }

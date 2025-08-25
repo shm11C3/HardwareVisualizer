@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { useMemo } from "react";
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
+import { BurnInShift } from "@/components/shared/BurnInShift";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuUsageHistoryAtom,
@@ -93,5 +94,9 @@ export const ChartTemplate = () => {
     );
   }, [settings]);
 
-  return <div className="ml-16 p-8">{renderedCharts}</div>;
+  return (
+    <BurnInShift enabled>
+      <div className="ml-16 p-8">{renderedCharts}</div>
+    </BurnInShift>
+  );
 };

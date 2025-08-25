@@ -36,6 +36,10 @@ pub struct Settings {
   pub selected_background_img: Option<String>,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
+  pub burn_in_shift: bool,
+  pub burn_in_shift_mode: enums::settings::BurnInShiftMode,
+  pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
+  pub burn_in_shift_idle_only: bool,
 }
 
 ///
@@ -69,6 +73,10 @@ pub struct ClientSettings {
   pub selected_background_img: Option<String>,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
+  pub burn_in_shift: bool,
+  pub burn_in_shift_mode: enums::settings::BurnInShiftMode,
+  pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
+  pub burn_in_shift_idle_only: bool,
 }
 
 impl Default for Settings {
@@ -103,6 +111,10 @@ impl Default for Settings {
         refresh_interval_days: 30,
         scheduled_data_deletion: true,
       },
+      burn_in_shift: false,
+      burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
+      burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
+      burn_in_shift_idle_only: true,
     }
   }
 }
