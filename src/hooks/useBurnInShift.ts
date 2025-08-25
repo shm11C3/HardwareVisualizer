@@ -31,6 +31,7 @@ const randInt = (min: number, max: number) =>
 
 export const useBurnInShift = (
   ref: React.RefObject<HTMLElement | null>,
+  enabled: boolean,
   opts?: BurnInOptions,
 ) => {
   const {
@@ -48,7 +49,7 @@ export const useBurnInShift = (
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || !settings.burnInShift) return;
+    if (!el || !settings.burnInShift || !enabled) return;
 
     // Resolve preset values
     const p = PRESETS[settings.burnInShiftPreset];
@@ -123,5 +124,6 @@ export const useBurnInShift = (
     amplitudePx,
     idleThresholdMs,
     driftDurationSec,
+    enabled,
   ]);
 };

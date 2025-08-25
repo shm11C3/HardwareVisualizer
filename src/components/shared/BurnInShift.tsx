@@ -11,7 +11,7 @@ export const BurnInShift = ({
   children: ReactNode;
 }) => {
   const shiftRef = useRef<HTMLDivElement>(null);
-  useBurnInShift(shiftRef);
+  useBurnInShift(shiftRef, enabled);
   const { settings } = useSettingsAtom();
 
   const isDriftEnabled =
