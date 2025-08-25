@@ -277,7 +277,7 @@
     --muted: oklch(15% 0 0 / 100%);
 
     --border: oklch(18% 0 0);
-    --input: oklch(14% 0 0);
+    --input: oklch(54% 0 0);
     --ring: oklch(50% 0.12 260);
 
     --destructive: oklch(55% 0.18 27);
@@ -382,8 +382,7 @@
 
   [data-theme="nebula"] {
     --background: oklch(20% 0.01 300);
-    --background-gradient:
-      radial-gradient(
+    --background-gradient: radial-gradient(
         circle at 20% 30%,
         oklch(35% 0.1 300 / 70%) 0%,
         transparent 60%
