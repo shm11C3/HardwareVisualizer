@@ -55,7 +55,6 @@ export const useBurnInShift = (
     const p = PRESETS[settings.burnInShiftPreset];
     const amp = amplitudePx ?? randInt(p.ampPx[0], p.ampPx[1]);
     const interval = intervalMs ?? randInt(p.intervalMs[0], p.intervalMs[1]);
-    console.log(interval);
     const driftDuration = driftDurationSec ?? p.driftSec;
 
     // CSS vars for drift
