@@ -14,10 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "windows"
-          - platform: "linux"
+          - platform: windows
+            runs-on: windows-latest
 
-    runs-on: ${{ matrix.platform }}
+          - platform: linux
+            runs-on: ubuntu-22.04
+
+    runs-on: ${{ matrix.runs-on }}
 
     steps:
       - name: Checkout repository

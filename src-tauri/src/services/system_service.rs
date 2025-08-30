@@ -1,4 +1,6 @@
-pub fn restart_app(app_handle: &tauri::AppHandle) {
+use tauri::Manager;
+
+pub async fn restart_app(app_handle: &tauri::AppHandle) {
   // 現在の実行ファイルのパスを取得
   let exe_path = std::env::current_exe().expect("Failed to obtain executable file path");
   let args: Vec<String> = std::env::args().collect();
@@ -9,6 +11,9 @@ pub fn restart_app(app_handle: &tauri::AppHandle) {
     .args(args)
     .spawn()
     .expect("Failed to restart process");
+
+  let state = app_handle.state::<crate::workers::WorkersState>();
+  state.terminate_all().await;
 
   app_handle.exit(0);
 }
