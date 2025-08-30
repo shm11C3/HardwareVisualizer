@@ -95,7 +95,11 @@
     },
     "other": "その他",
     "back": "戻る",
-    "showInExplorer": "エクスプローラで表示"
+    "showInExplorer": "エクスプローラで表示",
+    "fullscreen": {
+      "enter": "フルスクリーン",
+      "exit": "フルスクリーンを終了"
+    }
   },
 
   "pages": {

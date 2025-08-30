@@ -95,7 +95,11 @@
     "other": "Other",
     "loading": "Loading...",
     "back": "Back",
-    "showInExplorer": "Show in Explorer"
+    "showInExplorer": "Show in Explorer",
+    "fullscreen": {
+      "enter": "Enter Fullscreen",
+      "exit": "Exit Fullscreen"
+    }
   },
 
   "pages": {

@@ -23,11 +23,13 @@ const menuTypes = [
 ] as const;
 
 const buttonClasses = tv({
-  base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 transition-all cursor-pointer z-20",
+  base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 cursor-pointer z-20",
   variants: {
-    open: {
-      true: "left-64",
-      false: "left-16",
+    status: {
+      open: "left-64 transition-all",
+      close: "left-16 transition-all",
+      fullScreenClose:
+        "left-0 opacity-0 hover:opacity-100 transition-opacity duration-300",
     },
   },
 });
@@ -160,7 +162,7 @@ const ClosedSideMenu = ({
   );
 };
 
-export const SideMenu = memo(() => {
+export const SideMenu = memo(({ isFullScreen }: { isFullScreen: boolean }) => {
   const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu();
 
   const caretIcon = useMemo(
@@ -175,7 +177,14 @@ export const SideMenu = memo(() => {
           {/** カーソルが近づいた時だけアイコンを表示する */}
           <button
             type="button"
-            className={buttonClasses({ open: isOpen })}
+            className={buttonClasses({
+              status:
+                isFullScreen && !isOpen
+                  ? "fullScreenClose"
+                  : isOpen
+                    ? "open"
+                    : "close",
+            })}
             onClick={toggleMenu}
           >
             {caretIcon}
@@ -211,29 +220,31 @@ export const SideMenu = memo(() => {
             </div>
           </div>
           {/** Closed */}
-          <div className={closedSideMenuClasses({ open: isOpen })}>
-            <div className="relative flex h-full flex-col">
-              <ul className="pt-2">
-                {menuTypes
-                  .filter((v) => v !== "settings")
-                  .map((type) => (
-                    <ClosedSideMenu
-                      key={type}
-                      type={type}
-                      selected={displayTarget === type}
-                      handleMenuClick={handleMenuClick}
-                    />
-                  ))}
-              </ul>
-              <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
-                <ClosedSideMenu
-                  type="settings"
-                  selected={displayTarget === "settings"}
-                  handleMenuClick={handleMenuClick}
-                />
-              </ul>
+          {!isFullScreen && (
+            <div className={closedSideMenuClasses({ open: isOpen })}>
+              <div className="relative flex h-full flex-col">
+                <ul className="pt-2">
+                  {menuTypes
+                    .filter((v) => v !== "settings")
+                    .map((type) => (
+                      <ClosedSideMenu
+                        key={type}
+                        type={type}
+                        selected={displayTarget === type}
+                        handleMenuClick={handleMenuClick}
+                      />
+                    ))}
+                </ul>
+                <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
+                  <ClosedSideMenu
+                    type="settings"
+                    selected={displayTarget === "settings"}
+                    handleMenuClick={handleMenuClick}
+                  />
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     )
