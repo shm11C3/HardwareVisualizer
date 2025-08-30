@@ -1,25 +1,13 @@
-pub mod language;
-pub mod nvidia_gpu_service;
-pub mod setting_service;
-pub mod system_info_service;
-
-#[cfg(target_os = "windows")]
-pub mod directx_gpu_service;
-
-#[cfg(target_os = "windows")]
-pub mod wmi_service;
-
-#[cfg(target_os = "linux")]
-pub mod memory;
-
-#[cfg(target_os = "linux")]
-pub mod ip_linux;
-
-#[cfg(target_os = "linux")]
-pub mod gpu_linux;
-
-#[cfg(target_os = "linux")]
-pub mod amd_gpu_linux;
-
-#[cfg(target_os = "linux")]
-pub mod intel_gpu_linux;
+pub mod archive_service;
+pub mod background_image_service;
+pub mod cpu_service;
+pub mod gpu_service;
+pub mod hardware_service;
+pub mod language_service;
+pub mod memory_service;
+pub mod monitoring_service;
+pub mod network_service;
+pub mod process_service;
+pub mod settings_service;
+pub mod system_service;
+pub mod ui_service;

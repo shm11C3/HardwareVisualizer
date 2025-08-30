@@ -97,7 +97,7 @@
 The backend follows a strict layered architecture with unidirectional dependencies:
 
 ```
-Commands → Services → Platform → OS APIs
+Commands → Services → Platform (via Factory) → OS APIs
 ```
 
 #### Layer Responsibilities
@@ -105,44 +105,109 @@ Commands → Services → Platform → OS APIs
 1. **Commands Layer** (`src/commands/`)
    - Tauri command handlers (UI interface)
    - Input validation and output formatting
-   - Calls services layer for business logic
+   - Delegates to services layer for business logic
 
 2. **Services Layer** (`src/services/`)
-   - Application business logic
-   - Hardware data aggregation and processing
-   - Settings management and system information
+   - Application business logic and hardware data processing
+   - Platform abstraction through Factory pattern
+   - Hardware monitoring state management
+   - Data aggregation and formatting
 
 3. **Platform Layer** (`src/platform/`)
    - OS-specific hardware access implementations
-   - Strategy, Adapter, and Factory patterns
-   - Clean abstraction for cross-platform compatibility
+   - Trait-based platform abstraction (`MemoryPlatform`, `GpuPlatform`, `NetworkPlatform`)
+   - Factory pattern for automatic platform detection
+   - Direct OS API interactions
 
 #### Design Patterns Used
 
-- **Strategy Pattern**: Unified interfaces for platform services
-- **Adapter Pattern**: OS-specific implementations adapting to common interfaces  
-- **Factory Pattern**: Runtime platform detection and service creation
+- **Strategy Pattern**: Platform-specific implementations via trait objects
+- **Factory Pattern**: Automatic platform detection and instance creation
+- **Adapter Pattern**: OS-specific implementations adapting to common trait interfaces
+- **Service Layer Pattern**: Business logic abstraction from UI and platform concerns
+
+#### Service Layer Implementation
+
+```rust
+// Services layer uses Factory to access platform functionality
+use crate::platform::factory::PlatformFactory;
+
+pub async fn fetch_memory_detail() -> Result<MemoryInfo, String> {
+  let platform = PlatformFactory::create()
+    .map_err(|e| format!("Failed to create platform: {e}"))?;
+  platform.get_memory_info_detail().await
+}
+
+pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+  let platform = PlatformFactory::create()
+    .map_err(|_| BackendError::UnexpectedError)?;
+  platform.get_network_info()
+    .map_err(|_| BackendError::UnexpectedError)
+}
+```
 
 #### Platform Abstraction
 
 ```rust
-// Common interface
-pub trait GpuService: Send + Sync {
-    async fn get_gpu_usage(&self) -> Result<f32, String>;
-    async fn get_all_gpus(&self) -> Result<Vec<GraphicInfo>, String>;
+// Platform traits define hardware access contracts
+pub trait MemoryPlatform: Send + Sync {
+  fn get_memory_info(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
+  fn get_memory_info_detail(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
 }
 
-// Platform-specific implementations
-impl GpuService for WindowsGpuService { /* Windows implementation */ }
-impl GpuService for LinuxGpuService { /* Linux implementation */ }
-impl GpuService for MacOSGpuService { /* macOS implementation */ }
+pub trait GpuPlatform: Send + Sync {
+  fn get_gpu_usage(&self) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>>;
+  fn get_gpu_temperature(&self, unit: TemperatureUnit) -> Pin<Box<dyn Future<Output = Result<Vec<NameValue>, String>> + Send + '_>>;
+  fn get_gpu_info(&self) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>>;
+}
+
+pub trait NetworkPlatform: Send + Sync {
+  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError>;
+}
+
+// Unified Platform trait combining all hardware access
+pub trait Platform: MemoryPlatform + GpuPlatform + NetworkPlatform {}
+
+// Factory for automatic platform detection
+impl PlatformFactory {
+  pub fn create() -> Result<Box<dyn Platform>, PlatformError> {
+    #[cfg(target_os = "windows")]
+    {
+      let platform = WindowsPlatform::new()
+        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
+      Ok(Box::new(platform))
+    }
+    #[cfg(target_os = "linux")]
+    {
+      let platform = LinuxPlatform::new()
+        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
+      Ok(Box::new(platform))
+    }
+    #[cfg(target_os = "macos")]
+    {
+      let platform = MacOSPlatform::new()
+        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
+      Ok(Box::new(platform))
+    }
+  }
+}
 ```
 
 ### Dependency Rules
 
-- **Single Direction**: Upper layers can only depend on lower layers
-- **No Cross-References**: Services cannot reference commands, platform cannot reference services
-- **Interface Segregation**: Platform interfaces are kept minimal and focused
+- **Unidirectional Flow**: Commands → Services → Platform, no reverse dependencies
+- **Factory Encapsulation**: Services use Factory for platform access, never direct platform instantiation
+- **Trait Abstraction**: Platform traits provide clean interfaces hiding OS-specific complexity
+- **Conditional Compilation**: Platform selection handled at compile time via `#[cfg(target_os)]`
+- **Service Isolation**: Services handle business logic, platforms handle hardware access only
+
+### Current Architecture Benefits
+
+- **Simplified Design**: Removed intermediate repository layer for cleaner data flow
+- **Direct Platform Access**: Services directly use Factory for platform functionality
+- **Better Performance**: Fewer abstraction layers reduce overhead
+- **Clear Separation**: Business logic in services, hardware access in platform layer
+- **Automatic Platform Detection**: Factory handles OS detection transparently
 
 ## Key Features
 

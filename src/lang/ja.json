@@ -1,5 +1,6 @@
 {
   "shared": {
+    "loading": "読み込み中...",
     "usage": "使用率",
     "usageValue": "使用量",
     "cpuUsage": "CPU 使用率",
@@ -92,7 +93,13 @@
       "noDataMessage": "指定した条件に一致するプロセスが見つかりませんでした",
       "adjustFiltersHint": "フィルター条件を緩めてみてください"
     },
-    "other": "その他"
+    "other": "その他",
+    "back": "戻る",
+    "showInExplorer": "エクスプローラで表示",
+    "fullscreen": {
+      "enter": "フルスクリーン",
+      "exit": "フルスクリーンを終了"
+    }
   },
 
   "pages": {
@@ -126,6 +133,7 @@
           "name": "カラーモード",
           "light": "ライト",
           "dark": "ダーク",
+          "darkPlus": "Dark+",
           "sky": "スカイ",
           "grove": "グローブ",
           "sunset": "サンセット",
@@ -142,6 +150,30 @@
         },
         "autostart": {
           "name": "OS起動時に自動起動"
+        },
+        "burnInShift": {
+          "name": "画面焼き付き防止シフト",
+          "description": "アプリケーションウィンドウを定期的にわずかに移動させ、画面焼き付きのリスクを軽減します。",
+          "detailSettings": "詳細設定",
+          "mode": {
+            "name": "シフトモード",
+            "jump": "ジャンプ（間隔ベース）",
+            "drift": "ドリフト（アニメーション）"
+          },
+          "preset": {
+            "name": "プリセット",
+            "gentle": "優しい",
+            "balanced": "バランス",
+            "aggressive": "積極的"
+          },
+          "idleOnly": {
+            "name": "アイドル時のみ有効",
+            "description": "ユーザーが一定時間操作していない場合にのみ、画面焼き付き防止シフトを有効にします。"
+          },
+          "tooltip": {
+            "jump": "アプリケーションウィンドウが指定した間隔でランダムにジャンプします。",
+            "drift": "アプリケーションウィンドウが画面上をゆっくりとドリフトします。"
+          }
         }
       },
       "customTheme": {
@@ -205,6 +237,10 @@
         "checkGitHub": "GitHub",
         "checkLatestVersion": "最新バージョンを確認する",
         "author": "作者：{{author}}"
+      },
+      "license": {
+        "applicationLicense": "アプリケーションライセンス",
+        "thirdPartyLicenses": "サードパーティライセンス"
       }
     }
   },

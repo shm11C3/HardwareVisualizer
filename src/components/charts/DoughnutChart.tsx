@@ -152,7 +152,7 @@ export const DoughnutChart = ({
                         width="80"
                         height="40"
                       >
-                        <div className="flex items-center justify-center dark:text-muted-foreground ">
+                        <div className="flex items-center justify-center dark:text-muted-foreground">
                           {dataTypeIcons[dataType]}
                           <span>{chartConfig[dataType].label}</span>
                         </div>

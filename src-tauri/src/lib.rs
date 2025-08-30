@@ -2,13 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
-mod backgrounds;
 mod commands;
-mod database;
+mod constants;
 mod enums;
+mod infrastructure;
+mod models;
+mod platform;
 mod services;
-mod structs;
 mod utils;
+mod workers;
 
 #[cfg(test)]
 mod _tests;
@@ -43,7 +45,7 @@ pub fn run() {
   let nv_gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
   let nv_gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
 
-  let state = structs::hardware::HardwareMonitorState {
+  let state = models::hardware::HardwareMonitorState {
     system: Arc::clone(&system),
     cpu_history: Arc::clone(&cpu_history),
     memory_history: Arc::clone(&memory_history),
@@ -56,13 +58,13 @@ pub fn run() {
 
   let settings = app_state.settings.lock().unwrap().clone();
 
-  let migrations = database::migration::get_migrations();
+  let migrations = infrastructure::database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
-    hardware::get_memory_info_detail_linux,
+    hardware::get_memory_info_detail,
     hardware::get_memory_usage,
     hardware::get_gpu_usage,
     hardware::get_processors_usage,
@@ -91,6 +93,13 @@ pub fn run() {
     settings::commands::set_hardware_archive_enabled,
     settings::commands::set_hardware_archive_interval,
     settings::commands::set_hardware_archive_scheduled_data_deletion,
+    settings::commands::set_burn_in_shift,
+    settings::commands::set_burn_in_shift_mode,
+    settings::commands::set_burn_in_shift_preset,
+    settings::commands::set_burn_in_shift_idle_only,
+    settings::commands::read_license_file,
+    settings::commands::read_third_party_notices_file,
+    settings::commands::open_license_file_path,
     background_image::get_background_image,
     background_image::get_background_images,
     background_image::save_background_image,
@@ -125,14 +134,14 @@ pub fn run() {
 
       // Check updates
       tauri::async_runtime::spawn(async move {
-        if let Err(e) = backgrounds::updater::update(handle).await {
+        if let Err(e) = workers::updater::update(handle).await {
           log_error!("Update process failed", "lib.run", Some(e.to_string()));
           eprintln!("Update process failed: {e:?}");
         }
       });
 
-      tauri::async_runtime::spawn(backgrounds::system_monitor::setup(
-        structs::hardware_archive::MonitorResources {
+      let monitor = workers::system_monitor::SystemMonitorController::setup(
+        models::hardware_archive::MonitorResources {
           system: Arc::clone(&system),
           cpu_history: Arc::clone(&cpu_history),
           memory_history: Arc::clone(&memory_history),
@@ -144,12 +153,16 @@ pub fn run() {
             &nv_gpu_dedicated_memory_histories,
           ),
         },
-      ));
+      );
+      {
+        let ws = app.state::<workers::WorkersState>();
+        ws.monitor.lock().unwrap().replace(monitor);
+      }
 
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
-        tauri::async_runtime::spawn(backgrounds::hardware_archive::setup(
-          structs::hardware_archive::MonitorResources {
+        let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
+          models::hardware_archive::MonitorResources {
             system: Arc::clone(&system),
             cpu_history: Arc::clone(&cpu_history),
             memory_history: Arc::clone(&memory_history),
@@ -161,19 +174,35 @@ pub fn run() {
               &nv_gpu_dedicated_memory_histories,
             ),
           },
-        ));
+        );
+        {
+          let ws = app.state::<workers::WorkersState>();
+          ws.hw_archive.lock().unwrap().replace(hw_archive);
+        }
       }
 
       // スケジュールされたデータ削除の開始
       if settings.hardware_archive.scheduled_data_deletion {
-        tauri::async_runtime::spawn(
-          backgrounds::hardware_archive::batch_delete_old_data(
-            settings.hardware_archive.refresh_interval_days,
-          ),
-        );
+        tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
+          settings.hardware_archive.refresh_interval_days,
+        ));
       }
 
       Ok(())
+    })
+    .on_window_event(|win, ev| {
+      if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+        api.prevent_close();
+        let app = win.app_handle().clone();
+
+        tauri::async_runtime::spawn(async move {
+          // バックグラウンド処理を全て停止
+          let ws = app.state::<workers::WorkersState>();
+          ws.terminate_all().await;
+
+          app.exit(0);
+        });
+      }
     })
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_store::Builder::new().build())
@@ -191,8 +220,10 @@ pub fn run() {
     ))
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_os::init())
+    .plugin(tauri_plugin_opener::init())
     .manage(state)
     .manage(app_state)
+    .manage(workers::WorkersState::default())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
