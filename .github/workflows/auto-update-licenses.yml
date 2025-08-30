@@ -7,9 +7,6 @@ on:
   schedule:
     - cron: "0 3 * * 5"
   workflow_dispatch:
-  pull_request:
-    branches:
-      - develop
 
 jobs:
   update-licenses:
