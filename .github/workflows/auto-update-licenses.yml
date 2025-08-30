@@ -18,9 +18,12 @@ jobs:
       matrix:
         include:
           - platform: windows
-          - platform: linux
+            runs-on: windows-latest
 
-    runs-on: ${{ matrix.platform }}-latest
+          - platform: linux
+            runs-on: ubuntu-22.04
+
+    runs-on: ${{ matrix.runs-on }}
 
     steps:
       - name: Checkout repository
