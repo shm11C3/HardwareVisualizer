@@ -162,9 +162,9 @@
           },
           "preset": {
             "name": "Shift Preset",
-            "gentle": "Gentle (Less frequent, smaller shifts)",
-            "balanced": "Balanced (Moderate frequency and shift size)",
-            "aggressive": "Aggressive (More frequent, larger shifts)"
+            "gentle": "Gentle",
+            "balanced": "Balanced",
+            "aggressive": "Aggressive"
           },
           "idleOnly": {
             "name": "Idle Only",
