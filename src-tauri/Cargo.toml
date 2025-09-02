@@ -47,7 +47,7 @@ rust_decimal = "1.37.2"
 tauri-plugin-dialog = "2.3.2"
 tauri-plugin-store = "2.3.0"
 base64 = "0.22"
-image = { version = "0.25.6", default-features = false, features = ["png"] }
+image = { version = "0.25.7", default-features = false, features = ["png"] }
 regex = "1.11.2"
 tempfile = "3.21.0"
 sys-locale = "0.3.2"
