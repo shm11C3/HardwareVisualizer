@@ -125,6 +125,9 @@ jobs:
 
       # THIRD_PARTY_LICENSES ファイルを生成
       # Tauri のビルド時のバンドルに含めるためここで生成する
+      - name: Install cargo-license
+        run: cargo install cargo-license
+
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
@@ -172,5 +175,5 @@ jobs:
       - name: upload THIRD_PARTY_NOTICES.md
         uses: actions/upload-artifact@v4
         with:
-          name: THIRD_PARTY_NOTICES_(${{ matrix.platform['os-name'] }}).md
+          name: THIRD_PARTY_NOTICES_(${{ matrix.os-name }}).md
           path: ./tmp/THIRD_PARTY_NOTICES.md
