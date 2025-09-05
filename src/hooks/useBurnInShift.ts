@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { randInt } from "@/lib/math";
 import type { BurnInShiftPreset } from "@/rspc/bindings";
 
 export interface BurnInOptions {
@@ -25,9 +26,6 @@ const PRESETS: Record<
   balanced: { intervalMs: [60_000, 120_000], ampPx: [4, 8], driftSec: 24 },
   aggressive: { intervalMs: [30_000, 60_000], ampPx: [16, 48], driftSec: 40 },
 };
-
-const randInt = (min: number, max: number) =>
-  Math.floor(min + Math.random() * (max - min + 1));
 
 export const useBurnInShift = (
   ref: React.RefObject<HTMLElement | null>,
