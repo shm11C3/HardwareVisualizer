@@ -26,11 +26,13 @@ import {
 } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
 import { Insights } from "./features/hardware/insights/Insights";
 import { CpuUsages } from "./features/hardware/usage/cpu/CpuUsage";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
+import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";
 
@@ -84,12 +86,14 @@ export const App = () => {
   const [displayTarget] = useAtom(displayTargetAtom);
 
   useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
+  const { isFullScreen, toggleFullScreen } = useFullScreenMode();
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
       <ScreenTemplate
         icon={<SquaresFourIcon size={32} />}
         title={t("pages.dashboard.name")}
+        enabledBurnInShift
       >
         <Dashboard />
       </ScreenTemplate>
@@ -99,6 +103,7 @@ export const App = () => {
       <ScreenTemplate
         icon={<CpuIcon size={32} />}
         title={hardwareInfo.cpu?.name || "CPU"}
+        enabledBurnInShift
       >
         <CpuUsages />
       </ScreenTemplate>
@@ -107,6 +112,7 @@ export const App = () => {
       <ScreenTemplate
         icon={<ChartLineIcon size={32} />}
         title={t("pages.insights.name")}
+        enabledBurnInShift
       >
         <Insights />
       </ScreenTemplate>
@@ -139,7 +145,7 @@ export const App = () => {
           }}
         />
         <div className="relative z-10">
-          <SideMenu />
+          <SideMenu isFullScreen={isFullScreen || false} />
           {displayTarget ? (
             displayTargets[displayTarget]
           ) : (
@@ -153,6 +159,10 @@ export const App = () => {
       <FullscreenExitButton
         isDecorated={Boolean(isDecorated)}
         setDecorated={setDecorated}
+      />
+      <FullScreenButton
+        isFullScreen={isFullScreen || false}
+        onToggleFullScreen={toggleFullScreen}
       />
     </ErrorBoundary>
   );

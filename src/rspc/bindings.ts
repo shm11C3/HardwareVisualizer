@@ -295,6 +295,46 @@ async setHardwareArchiveScheduledDataDeletion(newValue: boolean) : Promise<Resul
     else return { status: "error", error: e  as any };
 }
 },
+async setBurnInShift(newValue: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_burn_in_shift", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setBurnInShiftMode(newValue: BurnInShiftMode) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_burn_in_shift_mode", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setBurnInShiftPreset(newValue: BurnInShiftPreset) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_burn_in_shift_preset", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setBurnInShiftIdleOnly(newValue: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_burn_in_shift_idle_only", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setBurnInShiftOptions(newValue: BurnInShiftOptions | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_burn_in_shift_options", { newValue }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async readLicenseFile() : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_license_file") };
@@ -415,7 +455,26 @@ export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "
  * 
  */
 export type BackgroundImage = { fileId: string; imageData: string }
-export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings }
+export type BurnInShiftMode = "jump" | "drift"
+export type BurnInShiftOptions = { 
+/**
+ * Override interval (ms) for jump
+ */
+intervalMs: number | null; 
+/**
+ * Override amplitude (px) for jump [x, y]
+ */
+amplitudePx: [number, number] | null; 
+/**
+ * Idle threshold in ms
+ */
+idleThresholdMs: number | null; 
+/**
+ * Drift cycle duration (sec)
+ */
+driftDurationSec: number | null }
+export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive"
+export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings; burnInShift: boolean; burnInShiftMode: BurnInShiftMode; burnInShiftPreset: BurnInShiftPreset; burnInShiftIdleOnly: boolean; burnInShiftOptions: BurnInShiftOptions | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
@@ -452,7 +511,7 @@ export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
 export type TemperatureUnit = "C" | "F"
-export type Theme = "light" | "dark" | "ocean" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso"
+export type Theme = "light" | "dark" | "darkPlus" | "ocean" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso"
 
 /** tauri-specta globals **/
 
