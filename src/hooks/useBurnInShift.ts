@@ -1,18 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { randInt } from "@/lib/math";
-import type { BurnInShiftPreset } from "@/rspc/bindings";
+import type { BurnInShiftOptions, BurnInShiftPreset } from "@/rspc/bindings";
 
-export interface BurnInOptions {
-  /** Override interval (ms) for jump */
-  intervalMs?: number;
-  /** Override amplitude (±px) */
-  amplitudePx?: number;
-  /** Idle threshold in ms (default 10s) */
-  idleThresholdMs?: number;
-  /** Drift cycle duration (sec) */
-  driftDurationSec?: number;
-}
+
 
 const PRESETS: Record<
   BurnInShiftPreset,
@@ -30,7 +21,7 @@ const PRESETS: Record<
 export const useBurnInShift = (
   ref: React.RefObject<HTMLElement | null>,
   enabled: boolean,
-  opts?: BurnInOptions,
+  opts?: BurnInShiftOptions,
 ) => {
   const {
     intervalMs,
@@ -51,18 +42,18 @@ export const useBurnInShift = (
 
     // Resolve preset values
     const p = PRESETS[settings.burnInShiftPreset];
-    const amp = amplitudePx ?? randInt(p.ampPx[0], p.ampPx[1]);
+    const amp = amplitudePx ?? [randInt(p.ampPx[0], p.ampPx[1]), randInt(p.ampPx[0], p.ampPx[1])];
     const interval = intervalMs ?? randInt(p.intervalMs[0], p.intervalMs[1]);
     const driftDuration = driftDurationSec ?? p.driftSec;
 
     // CSS vars for drift
     el.style.setProperty("--drift-duration", `${driftDuration}s`);
-    el.style.setProperty("--shift-x-start", `${-amp}px`);
-    el.style.setProperty("--shift-x-mid", `${amp}px`);
-    el.style.setProperty("--shift-x-end", `${-amp}px`);
-    el.style.setProperty("--shift-y-start", `${-amp}px`);
-    el.style.setProperty("--shift-y-mid", `${amp}px`);
-    el.style.setProperty("--shift-y-end", `${-amp}px`);
+    el.style.setProperty("--shift-x-start", `${-amp[0]}px`);
+    el.style.setProperty("--shift-x-mid", `${amp[0]}px`);
+    el.style.setProperty("--shift-x-end", `${-amp[0]}px`);
+    el.style.setProperty("--shift-y-start", `${-amp[1]}px`);
+    el.style.setProperty("--shift-y-mid", `${amp[1]}px`);
+    el.style.setProperty("--shift-y-end", `${-amp[1]}px`);
 
     // Idle detection
     const armIdle = () => {
@@ -71,7 +62,7 @@ export const useBurnInShift = (
       if (idleTimer.current) clearTimeout(idleTimer.current);
       idleTimer.current = window.setTimeout(() => {
         isIdle.current = true;
-      }, idleThresholdMs);
+      }, idleThresholdMs ?? undefined);
     };
     const onInput = () => armIdle();
 
@@ -88,8 +79,9 @@ export const useBurnInShift = (
     if (settings.burnInShiftMode === "jump") {
       const jump = () => {
         if (!isIdle.current) return;
-        const x = randInt(-amp, amp);
-        const y = randInt(-amp, amp);
+        const x = randInt(-amp[0], amp[0]);
+        const y = randInt(-amp[1], amp[1]);
+        console.log(`Jump: X=${x}px (max: ±${amp[0]}), Y=${y}px (max: ±${amp[1]})`);
         el.style.setProperty("--shift-x", `${x}px`);
         el.style.setProperty("--shift-y", `${y}px`);
       };

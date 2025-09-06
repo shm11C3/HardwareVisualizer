@@ -332,4 +332,12 @@ impl models::settings::Settings {
     self.burn_in_shift_idle_only = new_value;
     self.write_file()
   }
+
+  pub fn set_burn_in_shift_options(
+    &mut self,
+    new_value: Option<models::settings::BurnInShiftOptions>,
+  ) -> Result<(), String> {
+    self.burn_in_shift_options = new_value;
+    self.write_file()
+  }
 }

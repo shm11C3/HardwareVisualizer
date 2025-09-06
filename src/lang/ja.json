@@ -170,6 +170,17 @@
             "name": "アイドル時のみ有効",
             "description": "ユーザーが一定時間操作していない場合にのみ、画面焼き付き防止シフトを有効にします。"
           },
+          "override": {
+            "name": "画面焼き付き防止設定を上書きする",
+            "options": {
+              "intervalMs": "シフト間隔 (ms)",
+              "amplitudePx": "シフト振幅 (px)",
+              "amplitudePxX": "シフト振幅 X (px)",
+              "amplitudePxY": "シフト振幅 Y (px)",
+              "idleThresholdMs": "アイドル判定時間 (ms)",
+              "driftDurationSec": "ドリフト周期 (sec)"
+            }
+          },
           "tooltip": {
             "jump": "アプリケーションウィンドウが指定した間隔でランダムにジャンプします。",
             "drift": "アプリケーションウィンドウが画面上をゆっくりとドリフトします。"
