@@ -3,8 +3,6 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { randInt } from "@/lib/math";
 import type { BurnInShiftOptions, BurnInShiftPreset } from "@/rspc/bindings";
 
-
-
 const PRESETS: Record<
   BurnInShiftPreset,
   { intervalMs: [number, number]; ampPx: [number, number]; driftSec: number }
@@ -42,7 +40,10 @@ export const useBurnInShift = (
 
     // Resolve preset values
     const p = PRESETS[settings.burnInShiftPreset];
-    const amp = amplitudePx ?? [randInt(p.ampPx[0], p.ampPx[1]), randInt(p.ampPx[0], p.ampPx[1])];
+    const amp = amplitudePx ?? [
+      randInt(p.ampPx[0], p.ampPx[1]),
+      randInt(p.ampPx[0], p.ampPx[1]),
+    ];
     const interval = intervalMs ?? randInt(p.intervalMs[0], p.intervalMs[1]);
     const driftDuration = driftDurationSec ?? p.driftSec;
 
@@ -81,7 +82,6 @@ export const useBurnInShift = (
         if (!isIdle.current) return;
         const x = randInt(-amp[0], amp[0]);
         const y = randInt(-amp[1], amp[1]);
-        console.log(`Jump: X=${x}px (max: ±${amp[0]}), Y=${y}px (max: ±${amp[1]})`);
         el.style.setProperty("--shift-x", `${x}px`);
         el.style.setProperty("--shift-y", `${y}px`);
       };
