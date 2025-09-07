@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
-  use crate::enums;
   use crate::utils::formatter::*;
+
+  #[cfg(target_os = "windows")]
+  use crate::enums;
+  #[cfg(target_os = "windows")]
   use nvapi::Kibibytes;
 
   #[test]
@@ -67,6 +70,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_os = "windows")]
   fn test_rounded_kibibytes_display() {
     let kibibytes = RoundedKibibytes {
       kibibytes: Kibibytes(500),
@@ -88,6 +92,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_os = "windows")]
   fn test_celsius_to_fahrenheit() {
     let value = 100; // 100°C
     let result = format_temperature(
@@ -99,6 +104,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_os = "windows")]
   fn test_fahrenheit_to_celsius() {
     let value = 212; // 212°F
     let result = format_temperature(
@@ -110,6 +116,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_os = "windows")]
   fn test_celsius_to_fahrenheit_negative() {
     let value = -40; // -40°C
     let result = format_temperature(
@@ -121,6 +128,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_os = "windows")]
   fn test_fahrenheit_to_celsius_negative() {
     let value = -40; // -40°F
     let result = format_temperature(
@@ -132,6 +140,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_os = "windows")]
   fn test_no_conversion() {
     let value = 25; // 25°C
     let result = format_temperature(

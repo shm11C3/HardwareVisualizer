@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - uses: actions/setup-node@v4
 
@@ -45,8 +45,10 @@ jobs:
         include:
           - platform: "windows-latest"
             args: ""
+            os-name: "windows"
           - platform: "ubuntu-22.04"
             args: ""
+            os-name: "linux"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -74,7 +76,7 @@ jobs:
           unset GTK_PATH
           unset LD_LIBRARY_PATH
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Cache Node.js modules
         uses: actions/cache@v4
@@ -121,6 +123,14 @@ jobs:
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
 
+      # THIRD_PARTY_LICENSES ファイルを生成
+      # Tauri のビルド時のバンドルに含めるためここで生成する
+      - name: Install cargo-license
+        run: cargo install cargo-license
+
+      - name: Generate THIRD_PARTY_NOTICES
+        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -162,16 +172,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
 
-      # TODO バンドル時に NOTICE ファイルをインストーラに同梱させる
-      - name: Extract Apache NOTICE
-        run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
-
-      # THIRD_PARTY_LICENSES ファイルを生成
-      - name: Generate THIRD_PARTY_NOTICES
-        run: node --experimental-strip-types .github/scripts/generate-licenses.ts
-
-      - name: upload THIRD_PARTY_NOTICES.md
-        uses: actions/upload-artifact@v4
-        with:
-          name: THIRD_PARTY_NOTICES.md
-          path: ./THIRD_PARTY_NOTICES.md
+      - name: Upload THIRD_PARTY_NOTICES.md
+        run: |
+          mv ./tmp/THIRD_PARTY_NOTICES.md ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
+          gh release upload "v${{ needs.check-version.outputs.version }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash

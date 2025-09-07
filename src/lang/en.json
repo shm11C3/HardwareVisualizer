@@ -92,7 +92,14 @@
       "noDataMessage": "No processes found matching the specified criteria",
       "adjustFiltersHint": "Try adjusting the filter conditions"
     },
-    "other": "Other"
+    "other": "Other",
+    "loading": "Loading...",
+    "back": "Back",
+    "showInExplorer": "Show in Explorer",
+    "fullscreen": {
+      "enter": "Enter Fullscreen",
+      "exit": "Exit Fullscreen"
+    }
   },
 
   "pages": {
@@ -126,6 +133,7 @@
           "name": "Color Mode",
           "light": "Light",
           "dark": "Dark",
+          "darkPlus": "Dark+",
           "sky": "Sky",
           "grove": "Grove",
           "sunset": "Sunset",
@@ -142,6 +150,41 @@
         },
         "autostart": {
           "name": "Automatic startup at OS startup"
+        },
+        "burnInShift": {
+          "name": "Burn-In Protection",
+          "description": "Enable to prevent screen burn-in by periodically shifting the app position.",
+          "detailSettings": "Detail Settings",
+          "mode": {
+            "name": "Shift Mode",
+            "jump": "Jump (Interval-based shifts)",
+            "drift": "Drift (Smooth animation)"
+          },
+          "preset": {
+            "name": "Shift Preset",
+            "gentle": "Gentle",
+            "balanced": "Balanced",
+            "aggressive": "Aggressive"
+          },
+          "idleOnly": {
+            "name": "Idle Only",
+            "description": "Enable to shift the app position only when there is no user activity (mouse/keyboard input) for a certain period."
+          },
+          "override": {
+            "name": "Override Burn-In Setting",
+            "options": {
+              "intervalMs": "Shift Interval (ms)",
+              "amplitudePx": "Shift Amplitude (px)",
+              "amplitudePxX": "Shift Amplitude X (px)",
+              "amplitudePxY": "Shift Amplitude Y (px)",
+              "idleThresholdMs": "Idle Threshold (ms)",
+              "driftDurationSec": "Drift Duration (sec)"
+            }
+          },
+          "tooltip": {
+            "jump": "The app will shift its position at regular intervals to prevent screen burn-in.",
+            "drift": "The app will smoothly drift around the screen to prevent screen burn-in."
+          }
         }
       },
       "customTheme": {
@@ -205,6 +248,10 @@
         "checkGitHub": "Check GitHub",
         "checkLatestVersion": "Check Latest Version",
         "author": "Author: {{author}}"
+      },
+      "license": {
+        "applicationLicense": "Application License",
+        "thirdPartyLicenses": "Third-Party Licenses"
       }
     }
   },

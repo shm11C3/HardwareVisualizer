@@ -33,6 +33,11 @@ const settingsAtom = atom<ClientSettings>({
     scheduledDataDeletion: true,
     refreshIntervalDays: 30,
   },
+  burnInShift: false,
+  burnInShiftPreset: "aggressive",
+  burnInShiftMode: "jump",
+  burnInShiftIdleOnly: false,
+  burnInShiftOptions: null,
 });
 
 export const useSettingsAtom = () => {
@@ -57,6 +62,11 @@ export const useSettingsAtom = () => {
     backgroundImgOpacity: commands.setBackgroundImgOpacity,
     selectedBackgroundImg: commands.setSelectedBackgroundImg,
     temperatureUnit: commands.setTemperatureUnit,
+    burnInShift: commands.setBurnInShift,
+    burnInShiftPreset: commands.setBurnInShiftPreset,
+    burnInShiftMode: commands.setBurnInShiftMode,
+    burnInShiftIdleOnly: commands.setBurnInShiftIdleOnly,
+    burnInShiftOptions: commands.setBurnInShiftOptions,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);

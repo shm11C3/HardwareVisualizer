@@ -12,7 +12,14 @@ import { Info } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LineChartIcon } from "@/components/icons/LineChartIcon";
+import { BurnInShift } from "@/components/shared/BurnInShift";
 import { NeedRestart } from "@/components/shared/System";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -41,6 +48,7 @@ import {
   type ChartDataType,
   chartHardwareTypes,
 } from "@/features/hardware/types/hardwareDataType";
+import { LicensePage } from "@/features/settings/components/LicensePage";
 import { PreviewChart } from "@/features/settings/components/Preview";
 import { BackgroundImageList } from "@/features/settings/components/SelectBackgroundImage";
 import { UploadImage } from "@/features/settings/components/UploadImage";
@@ -50,6 +58,9 @@ import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { RGB2HEX } from "@/lib/color";
 import { openURL } from "@/lib/openUrl";
 import {
+  type BurnInShiftMode,
+  type BurnInShiftOptions,
+  type BurnInShiftPreset,
   type ClientSettings,
   commands,
   type LineGraphType,
@@ -172,6 +183,12 @@ const SettingColorMode = () => {
             className="focus:bg-gray-400 dark:focus:bg-gray-700"
           >
             {t("pages.settings.general.colorMode.dark")}
+          </SelectItem>
+          <SelectItem
+            value="darkPlus"
+            className="focus:bg-black dark:focus:bg-black"
+          >
+            {t("pages.settings.general.colorMode.darkPlus")}
           </SelectItem>
           <SelectItem
             value="sky"
@@ -518,6 +535,375 @@ const SettingAutoStart = () => {
   );
 };
 
+const SettingBurnInShift = () => {
+  const { t } = useTranslation();
+  const { settings, updateSettingAtom } = useSettingsAtom();
+
+  const [defaultOpen, setDefaultOpen] = useState(false);
+
+  const toggleBurnInShiftId = useId();
+
+  const toggleBurnInShift = async (value: boolean) => {
+    setDefaultOpen(value);
+    await updateSettingAtom("burnInShift", value);
+  };
+  const selectShiftPreset = async (value: BurnInShiftPreset) => {
+    await updateSettingAtom("burnInShiftPreset", value);
+  };
+  const selectShiftMode = async (value: BurnInShiftMode) => {
+    await updateSettingAtom("burnInShiftMode", value);
+  };
+  const toggleIdleOnly = async (value: boolean) => {
+    await updateSettingAtom("burnInShiftIdleOnly", value);
+  };
+
+  return (
+    <>
+      <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
+        <div className="space-y-0.5">
+          <Label htmlFor={toggleBurnInShiftId} className="text-lg">
+            {t("pages.settings.general.burnInShift.name")}
+          </Label>
+        </div>
+
+        <Switch
+          id={toggleBurnInShiftId}
+          checked={settings.burnInShift}
+          onCheckedChange={toggleBurnInShift}
+        />
+      </div>
+      {settings.burnInShift && (
+        <Accordion
+          type="single"
+          collapsible
+          className="w-full xl:w-1/3"
+          defaultValue={defaultOpen ? "burnInShiftSettings" : undefined}
+        >
+          <AccordionItem value="burnInShiftSettings">
+            <AccordionTrigger>
+              {t("pages.settings.general.burnInShift.detailSettings")}
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-col space-y-2">
+                <div className="py-4">
+                  <BurnInShiftPresetRadio
+                    settings={settings}
+                    selectShiftPreset={selectShiftPreset}
+                  />
+                </div>
+                <div className="py-4">
+                  <BurnInShiftModeRadio
+                    settings={settings}
+                    selectShiftMode={selectShiftMode}
+                  />
+                </div>
+
+                <BurnInShiftIdleOnlyCheckbox
+                  settings={settings}
+                  toggleIdleOnly={toggleIdleOnly}
+                />
+
+                <BurnInShiftOverrideCheckbox />
+                {settings.burnInShiftOptions !== null && (
+                  <BurnInShiftOptionInputs />
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
+    </>
+  );
+};
+
+const BurnInShiftPresetRadio = ({
+  settings,
+  selectShiftPreset,
+}: {
+  settings: ClientSettings;
+  selectShiftPreset: (value: BurnInShiftPreset) => Promise<void>;
+}) => {
+  const { t } = useTranslation();
+  const radioBurnInShiftGentle = useId();
+  const radioBurnInShiftBalanced = useId();
+  const radioBurnInShiftAggressive = useId();
+
+  return (
+    <>
+      <Label className="text-lg">
+        {t("pages.settings.general.burnInShift.preset.name")}
+      </Label>
+      <RadioGroup
+        className="mt-2 flex space-x-2"
+        defaultValue={settings.burnInShiftPreset}
+        onValueChange={selectShiftPreset}
+      >
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="gentle" id={radioBurnInShiftGentle} />
+          <Label
+            className="flex items-center space-x-2 text-md"
+            htmlFor={radioBurnInShiftGentle}
+          >
+            <span>{t("pages.settings.general.burnInShift.preset.gentle")}</span>
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="balanced" id={radioBurnInShiftBalanced} />
+          <Label
+            className="flex items-center space-x-2 text-md"
+            htmlFor={radioBurnInShiftBalanced}
+          >
+            <span>
+              {t("pages.settings.general.burnInShift.preset.balanced")}
+            </span>
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="aggressive" id={radioBurnInShiftAggressive} />
+          <Label
+            className="flex items-center space-x-2 text-md"
+            htmlFor={radioBurnInShiftAggressive}
+          >
+            <span>
+              {t("pages.settings.general.burnInShift.preset.aggressive")}
+            </span>
+          </Label>
+        </div>
+      </RadioGroup>
+    </>
+  );
+};
+
+const BurnInShiftModeRadio = ({
+  settings,
+  selectShiftMode,
+}: {
+  settings: ClientSettings;
+  selectShiftMode: (value: BurnInShiftMode) => Promise<void>;
+}) => {
+  const { t } = useTranslation();
+  const radioBurnInShiftJump = useId();
+  const radioBurnInShiftDrift = useId();
+  return (
+    <>
+      <Label className="text-lg">
+        {t("pages.settings.general.burnInShift.mode.name")}
+      </Label>
+      <RadioGroup
+        className="mt-2 flex space-x-2"
+        defaultValue={settings.burnInShiftMode}
+        onValueChange={selectShiftMode}
+      >
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="jump" id={radioBurnInShiftJump} />
+          <Label
+            className="flex items-center space-x-2 text-md"
+            htmlFor={radioBurnInShiftJump}
+          >
+            <span>{t("pages.settings.general.burnInShift.mode.jump")}</span>
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="drift" id={radioBurnInShiftDrift} />
+          <Label
+            className="flex items-center space-x-2 text-md"
+            htmlFor={radioBurnInShiftDrift}
+          >
+            <span>{t("pages.settings.general.burnInShift.mode.drift")}</span>
+          </Label>
+        </div>
+      </RadioGroup>
+    </>
+  );
+};
+
+const BurnInShiftIdleOnlyCheckbox = ({
+  settings,
+  toggleIdleOnly,
+}: {
+  settings: ClientSettings;
+  toggleIdleOnly: (value: boolean) => Promise<void>;
+}) => {
+  const { t } = useTranslation();
+  const burnInShiftIdleOnlyId = useId();
+
+  return (
+    <div className="flex items-center space-x-2 py-4">
+      <Checkbox
+        id={burnInShiftIdleOnlyId}
+        checked={settings.burnInShiftIdleOnly}
+        onCheckedChange={toggleIdleOnly}
+      />
+      <Label
+        htmlFor={burnInShiftIdleOnlyId}
+        className="flex items-center space-x-2 text-lg"
+      >
+        {t("pages.settings.general.burnInShift.idleOnly.name")}
+      </Label>
+    </div>
+  );
+};
+
+const BurnInShiftOverrideCheckbox = () => {
+  const { t } = useTranslation();
+  const { settings, updateSettingAtom } = useSettingsAtom();
+  const id = useId();
+
+  const handleOverrideChange = (checked: boolean) => {
+    updateSettingAtom(
+      "burnInShiftOptions",
+      checked ? ({} as BurnInShiftOptions) : null,
+    );
+  };
+
+  return (
+    <div className="flex items-center space-x-2 py-4">
+      <Checkbox
+        id={id}
+        checked={settings.burnInShiftOptions !== null}
+        onCheckedChange={handleOverrideChange}
+      />
+      <Label htmlFor={id} className="flex items-center space-x-2 text-lg">
+        {t("pages.settings.general.burnInShift.override.name")}
+      </Label>
+    </div>
+  );
+};
+
+const BurnInShiftOptionInputs = () => {
+  const { t } = useTranslation();
+  const { settings, updateSettingAtom } = useSettingsAtom();
+
+  const intervalMsId = useId();
+  const amplitudePxIdX = useId();
+  const amplitudePxIdY = useId();
+  const idleThresholdMsId = useId();
+  const driftDurationSecId = useId();
+
+  const inputVariants = "grid w-full max-w-3xs items-center gap-3";
+
+  const updateBurnInShiftOption = async (
+    field: keyof BurnInShiftOptions,
+    value: number | [number, number] | null,
+  ) => {
+    const currentOptions = settings.burnInShiftOptions || {};
+    const updatedOptions = { ...currentOptions, [field]: value };
+    await updateSettingAtom(
+      "burnInShiftOptions",
+      updatedOptions as BurnInShiftOptions,
+    );
+  };
+
+  const handleInputChange = (
+    field: keyof BurnInShiftOptions,
+    inputValue: string,
+  ) => {
+    if (inputValue === "") {
+      updateBurnInShiftOption(field, null);
+      return;
+    }
+
+    const numValue = Number(inputValue);
+    if (!Number.isNaN(numValue)) {
+      updateBurnInShiftOption(field, numValue);
+    }
+  };
+
+  const handleAmplitudeChange = (axis: 0 | 1, inputValue: string) => {
+    const currentAmplitude = settings.burnInShiftOptions?.amplitudePx || [0, 0];
+
+    if (inputValue === "") {
+      updateBurnInShiftOption("amplitudePx", null);
+      return;
+    }
+
+    const numValue = Number(inputValue);
+    if (!Number.isNaN(numValue)) {
+      const newAmplitude: [number, number] = [...currentAmplitude];
+      newAmplitude[axis] = numValue;
+      updateBurnInShiftOption("amplitudePx", newAmplitude);
+    }
+  };
+
+  return (
+    <div className="flex flex-col space-y-4 py-4">
+      <div className={inputVariants}>
+        <Label htmlFor={intervalMsId}>
+          {t("pages.settings.general.burnInShift.override.options.intervalMs")}
+        </Label>
+        <Input
+          type="number"
+          id={intervalMsId}
+          placeholder="Not set"
+          value={settings.burnInShiftOptions?.intervalMs ?? ""}
+          onChange={(e) => handleInputChange("intervalMs", e.target.value)}
+        />
+      </div>
+      <div className="flex space-x-4">
+        <div className={inputVariants}>
+          <Label htmlFor={amplitudePxIdX}>
+            {t(
+              "pages.settings.general.burnInShift.override.options.amplitudePxX",
+            )}
+          </Label>
+          <Input
+            type="number"
+            id={amplitudePxIdX}
+            placeholder="Not set"
+            value={settings.burnInShiftOptions?.amplitudePx?.[0] ?? ""}
+            onChange={(e) => handleAmplitudeChange(0, e.target.value)}
+          />
+        </div>
+
+        <div className={inputVariants}>
+          <Label htmlFor={amplitudePxIdY}>
+            {t(
+              "pages.settings.general.burnInShift.override.options.amplitudePxY",
+            )}
+          </Label>
+          <Input
+            type="number"
+            id={amplitudePxIdY}
+            placeholder="Not set"
+            value={settings.burnInShiftOptions?.amplitudePx?.[1] ?? ""}
+            onChange={(e) => handleAmplitudeChange(1, e.target.value)}
+          />
+        </div>
+      </div>
+      <div className={inputVariants}>
+        <Label htmlFor={idleThresholdMsId}>
+          {t(
+            "pages.settings.general.burnInShift.override.options.idleThresholdMs",
+          )}
+        </Label>
+        <Input
+          type="number"
+          id={idleThresholdMsId}
+          placeholder="Not set"
+          value={settings.burnInShiftOptions?.idleThresholdMs ?? ""}
+          onChange={(e) => handleInputChange("idleThresholdMs", e.target.value)}
+        />
+      </div>
+      <div className={inputVariants}>
+        <Label htmlFor={driftDurationSecId}>
+          {t(
+            "pages.settings.general.burnInShift.override.options.driftDurationSec",
+          )}
+        </Label>
+        <Input
+          type="number"
+          id={driftDurationSecId}
+          placeholder="Not set"
+          value={settings.burnInShiftOptions?.driftDurationSec ?? ""}
+          onChange={(e) =>
+            handleInputChange("driftDurationSec", e.target.value)
+          }
+        />
+      </div>
+    </div>
+  );
+};
+
 const InsightTitle = () => {
   const { t } = useTranslation();
   return (
@@ -679,7 +1065,7 @@ const SetNumberOfDaysInsightDataRetains = () => {
   );
 };
 
-const About = () => {
+const About = ({ onShowLicense }: { onShowLicense: () => void }) => {
   const { t } = useTranslation();
   const [version, setVersion] = useState("");
 
@@ -700,6 +1086,7 @@ const About = () => {
           onClick={() =>
             openURL("https://github.com/shm11C3/HardwareVisualizer")
           }
+          variant="secondary"
           className="rounded-full text-sm"
         >
           <GithubLogoIcon size={32} />
@@ -712,6 +1099,7 @@ const About = () => {
               "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
             )
           }
+          variant="secondary"
           className="rounded-full text-sm"
         >
           <span className="px-1">
@@ -720,15 +1108,11 @@ const About = () => {
           <ArrowSquareOutIcon size={16} />
         </Button>
         <Button
-          onClick={() =>
-            openURL(
-              "https://github.com/shm11C3/HardwareVisualizer?tab=MIT-1-ov-file#readme",
-            )
-          }
+          onClick={onShowLicense}
+          variant="secondary"
           className="rounded-full text-sm"
         >
-          <span className="px-1">{t("pages.settings.about.license")}</span>
-          <ArrowSquareOutIcon size={16} />
+          {t("pages.settings.about.license")}
         </Button>
       </div>
     </div>
@@ -751,6 +1135,12 @@ const About = () => {
  */
 export const Settings = () => {
   const { t } = useTranslation();
+  const [showLicensePage, setShowLicensePage] = useState(false);
+  const { settings } = useSettingsAtom();
+
+  if (showLicensePage) {
+    return <LicensePage onBack={() => setShowLicensePage(false)} />;
+  }
 
   return (
     <>
@@ -763,6 +1153,7 @@ export const Settings = () => {
           <SettingColorMode />
           <SettingTemperatureUnit />
           <SettingAutoStart />
+          <SettingBurnInShift />
         </div>
       </div>
       <div className="mt-8 p-4">
@@ -806,7 +1197,9 @@ export const Settings = () => {
             <h4 className="font-bold text-xl">
               {t("pages.settings.customTheme.preview")}
             </h4>
-            <PreviewChart />
+            <BurnInShift enabled={settings.burnInShift}>
+              <PreviewChart />
+            </BurnInShift>
           </div>
           <div className="order-2 col-span-3 xl:order-none">
             <h4 className="py-3 font-bold text-xl">
@@ -836,7 +1229,7 @@ export const Settings = () => {
         <h3 className="py-3 font-bold text-2xl">
           {t("pages.settings.about.name")}
         </h3>
-        <About />
+        <About onShowLicense={() => setShowLicensePage(true)} />
       </div>
     </>
   );
