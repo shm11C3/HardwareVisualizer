@@ -1,7 +1,6 @@
 # HardwareVisualizer
 
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
-[![CI test-build](https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yml?label=test-build)](https://github.com/shm11C3/HardwareVisualizer/actions)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
