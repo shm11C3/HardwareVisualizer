@@ -25,7 +25,8 @@ export const useColorTheme = (theme: Theme) => {
       .theme()
       .then((t) => setSystemTheme(t === "dark" ? "dark" : "light"));
 
-    listenTheme();
+    const cleanup = listenTheme();
+    return cleanup;
   }, [listenTheme]);
 
   useEffect(() => {
