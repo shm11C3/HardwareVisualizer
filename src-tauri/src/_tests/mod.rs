@@ -5,6 +5,9 @@ pub mod commands;
 pub mod enums;
 
 #[cfg(test)]
+pub mod infrastructure;
+
+#[cfg(test)]
 pub mod models;
 
 #[cfg(test)]
