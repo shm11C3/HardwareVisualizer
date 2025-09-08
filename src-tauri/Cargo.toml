@@ -42,7 +42,7 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
     "env-filter",
     "fmt",
 ] }
-chrono = "0.4.41"
+chrono = "0.4.42"
 rust_decimal = "1.37.2"
 tauri-plugin-dialog = "2.3.3"
 tauri-plugin-store = "2.4.0"
