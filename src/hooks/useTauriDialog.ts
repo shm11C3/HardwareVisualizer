@@ -1,4 +1,5 @@
 import {
+  type MessageDialogResult,
   ask as showAsk,
   confirm as showConfirm,
   message as showMessage,
@@ -55,7 +56,7 @@ export const useTauriDialog = () => {
     title?: TitleType;
     message: string;
     kind?: Kind;
-  }): Promise<void> => {
+  }): Promise<MessageDialogResult> => {
     return await showMessage(message, {
       title: title ? t(`error.title.${title}`) : undefined,
       kind,
