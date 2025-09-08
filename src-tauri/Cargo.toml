@@ -42,12 +42,12 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
     "env-filter",
     "fmt",
 ] }
-chrono = "0.4.41"
+chrono = "0.4.42"
 rust_decimal = "1.37.2"
-tauri-plugin-dialog = "2.3.3"
+tauri-plugin-dialog = "2.4.0"
 tauri-plugin-store = "2.4.0"
 base64 = "0.22"
-image = { version = "0.25.7", default-features = false, features = ["png"] }
+image = { version = "0.25.8", default-features = false, features = ["png"] }
 regex = "1.11.2"
 tempfile = "3.21.0"
 sys-locale = "0.3.2"
@@ -68,7 +68,7 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 
 [dependencies.uuid]
-version = "1.18.0"
+version = "1.18.1"
 features = [
     "v7",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
@@ -85,7 +85,7 @@ custom-protocol = ["tauri/custom-protocol"]
 wmi = "0.17.2"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
-windows = { version = "0.61.3", features = [
+windows = { version = "0.62.0", features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
     "Win32_Security",
