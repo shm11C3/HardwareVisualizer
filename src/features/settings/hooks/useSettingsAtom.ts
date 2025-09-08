@@ -10,7 +10,7 @@ import { isError } from "@/types/result";
 const settingsAtom = atom<ClientSettings>({
   version: "0.0.0",
   language: "en",
-  theme: "light",
+  theme: "system",
   displayTargets: [],
   graphSize: "xl",
   lineGraphType: "default",
