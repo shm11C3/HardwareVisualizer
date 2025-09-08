@@ -131,6 +131,7 @@
         "language": "言語",
         "colorMode": {
           "name": "カラーモード",
+          "system": "システムの既定",
           "light": "ライト",
           "dark": "ダーク",
           "darkPlus": "Dark+",

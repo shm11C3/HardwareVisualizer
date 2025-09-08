@@ -35,7 +35,8 @@
     "shadcn",
     "specta",
     "sysinfo",
-    "tauri"
+    "tauri",
+    "unlisten"
   ],
   "tailwindCSS.experimental.classRegex": [
     "tv\\(([^)(]*(?:\\([^)(]*(?:\\([^)(]*(?:\\([^)(]*\\)[^)(]*)*\\)[^)(]*)*\\)[^)(]*)*)\\)"
