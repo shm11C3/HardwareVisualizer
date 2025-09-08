@@ -258,7 +258,8 @@ mod tests {
 
     // 戻り値が PathBuf 型であることを確認
     let _pathbuf: PathBuf = result;
-    //assert!(true);
+    // パスの文字列表現を確認
+    assert!(_pathbuf.to_string_lossy().contains("type_test"));
 
     // テスト後のクリーンアップ
     #[cfg(target_os = "windows")]
