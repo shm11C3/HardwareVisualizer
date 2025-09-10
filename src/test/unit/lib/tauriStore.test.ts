@@ -18,7 +18,7 @@ describe("tauriStore", () => {
       save: vi.fn(),
     };
     const { load } = await vi.importMock("@tauri-apps/plugin-store");
-    vi.mocked(load).mockResolvedValueOnce(mockStore);
+    (load as any).mockResolvedValueOnce(mockStore);
 
     const store = await getStoreInstance();
 

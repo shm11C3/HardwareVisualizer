@@ -16,7 +16,7 @@ vi.mock("@/hooks/useTauriStore", () => ({
 describe("useFullScreenMode (Simple)", () => {
   it("should return fullscreen state and toggle function", () => {
     const { result } = renderHook(() => useFullScreenMode());
-    
+
     expect(result.current.isFullScreen).toBe(false);
     expect(typeof result.current.toggleFullScreen).toBe("function");
   });
