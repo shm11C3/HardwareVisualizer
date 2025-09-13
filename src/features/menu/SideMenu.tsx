@@ -8,9 +8,9 @@ import {
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { type JSX, memo, useMemo } from "react";
-import { prefetchScreen } from "@/lazyScreens";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { prefetchScreen } from "@/lazyScreens";
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
 import { useMenu } from "./hooks/useMenu";

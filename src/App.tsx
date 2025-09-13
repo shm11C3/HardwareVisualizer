@@ -1,5 +1,11 @@
 import { Suspense, useEffect, useState } from "react";
-import { Dashboard, ChartTemplate, CpuUsages, Insights, Settings } from "./lazyScreens";
+import {
+  ChartTemplate,
+  CpuUsages,
+  Dashboard,
+  Insights,
+  Settings,
+} from "./lazyScreens";
 import "./index.css";
 import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -45,7 +51,7 @@ export const App = () => {
   useColorTheme(settings.theme);
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
-    const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
@@ -142,11 +148,7 @@ export const App = () => {
         />
         <div className="relative z-10">
           <SideMenu isFullScreen={isFullScreen || false} />
-          <Suspense
-            fallback={
-              <></>
-            }
-          >
+          <Suspense>
             {displayTarget ? (
               displayTargets[displayTarget]
             ) : (

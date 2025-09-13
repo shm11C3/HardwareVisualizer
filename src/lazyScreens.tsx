@@ -54,4 +54,3 @@ export const prefetchScreen = async (type: SelectedDisplayType) => {
       break;
   }
 };
-
