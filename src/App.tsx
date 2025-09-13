@@ -15,7 +15,7 @@ import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useColorTheme } from "./hooks/useColorTheme";
 import type { SelectedDisplayType } from "./types/ui";
-import { ensureLanguage } from "@/lib/i18n";
+import "@/lib/i18n";
 import {
   ChartLineIcon,
   CpuIcon,
@@ -45,7 +45,7 @@ export const App = () => {
   useColorTheme(settings.theme);
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
-  const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
   const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
@@ -61,8 +61,8 @@ export const App = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {
-    ensureLanguage(settings.language as "en" | "ja");
-  }, [settings.language]);
+    i18n.changeLanguage(settings.language);
+  }, [settings.language, i18n]);
 
   useEffect(() => {
     setOpacity(0);
