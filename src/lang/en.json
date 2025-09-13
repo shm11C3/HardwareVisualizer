@@ -131,6 +131,7 @@
         "language": "Language",
         "colorMode": {
           "name": "Color Mode",
+          "system": "System Default",
           "light": "Light",
           "dark": "Dark",
           "darkPlus": "Dark+",

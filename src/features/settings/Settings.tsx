@@ -173,6 +173,12 @@ const SettingColorMode = () => {
         </SelectTrigger>
         <SelectContent>
           <SelectItem
+            value="system"
+            className="focus:bg-gray-200 dark:focus:bg-gray-400"
+          >
+            {t("pages.settings.general.colorMode.system")}
+          </SelectItem>
+          <SelectItem
             value="light"
             className="focus:bg-gray-200 dark:focus:bg-gray-400"
           >
