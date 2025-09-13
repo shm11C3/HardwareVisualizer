@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { Dashboard } from "./features/hardware/dashboard/Dashboard";
-import { ChartTemplate } from "./features/hardware/usage/Usage";
+import { Suspense, useEffect, useState } from "react";
+import { Dashboard, ChartTemplate, CpuUsages, Insights, Settings } from "./lazyScreens";
 import "./index.css";
 import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -13,11 +12,10 @@ import ErrorFallback from "./components/ErrorFallback";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
-import { Settings } from "./features/settings/Settings";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useColorTheme } from "./hooks/useColorTheme";
 import type { SelectedDisplayType } from "./types/ui";
-import "@/lib/i18n";
+import { ensureLanguage } from "@/lib/i18n";
 import {
   ChartLineIcon,
   CpuIcon,
@@ -29,8 +27,6 @@ import { useTranslation } from "react-i18next";
 import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
-import { Insights } from "./features/hardware/insights/Insights";
-import { CpuUsages } from "./features/hardware/usage/cpu/CpuUsage";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
 import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
@@ -49,7 +45,7 @@ export const App = () => {
   useColorTheme(settings.theme);
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
@@ -65,8 +61,8 @@ export const App = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {
-    i18n.changeLanguage(settings.language);
-  }, [settings.language, i18n]);
+    ensureLanguage(settings.language as "en" | "ja");
+  }, [settings.language]);
 
   useEffect(() => {
     setOpacity(0);
@@ -146,14 +142,20 @@ export const App = () => {
         />
         <div className="relative z-10">
           <SideMenu isFullScreen={isFullScreen || false} />
-          {displayTarget ? (
-            displayTargets[displayTarget]
-          ) : (
-            <div
-              className="min-h-screen bg-background bg-cover text-foreground"
-              style={{ backgroundImage: "var(--background-gradient)" }}
-            />
-          )}
+          <Suspense
+            fallback={
+              <></>
+            }
+          >
+            {displayTarget ? (
+              displayTargets[displayTarget]
+            ) : (
+              <div
+                className="min-h-screen bg-background bg-cover text-foreground"
+                style={{ backgroundImage: "var(--background-gradient)" }}
+              />
+            )}
+          </Suspense>
         </div>
       </div>
       <FullscreenExitButton

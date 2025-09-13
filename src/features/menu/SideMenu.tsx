@@ -8,6 +8,7 @@ import {
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { type JSX, memo, useMemo } from "react";
+import { prefetchScreen } from "@/lazyScreens";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,8 @@ const MenuItem = memo(
             type === "settings" ? "" : "p-2",
           )}
           onClick={() => handleMenuClick(type)}
+          onMouseEnter={() => prefetchScreen(type)}
+          onFocus={() => prefetchScreen(type)}
           aria-label={`${menuTitles[type]} tab`}
           aria-selected={selected}
           role="tab"
@@ -154,6 +157,8 @@ const ClosedSideMenu = ({
           type === "settings" ? "" : "p-2",
         )}
         onClick={() => handleMenuClick(type)}
+        onMouseEnter={() => prefetchScreen(type)}
+        onFocus={() => prefetchScreen(type)}
         aria-label={`open ${type}`}
       >
         {menuIcons[type]}
