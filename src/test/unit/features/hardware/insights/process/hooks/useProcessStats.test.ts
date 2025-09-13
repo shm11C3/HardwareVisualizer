@@ -125,7 +125,7 @@ describe("useProcessStats", () => {
     });
     expect(result.current.processStats).toEqual(first);
 
-    // Advance 60 seconds to trigger int erval
+    // Advance 60 seconds to trigger interval
     await act(async () => {
       vi.advanceTimersByTime(60000);
       await Promise.resolve();
