@@ -129,13 +129,13 @@ describe("useSettingsAtom", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,
     });
-    // 初期状態の theme は "light"
+    // 初期状態の theme は "system"
     await act(async () => {
       await result.current.updateSettingAtom("theme", "dark");
     });
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
-    // 更新失敗時は元の値 ("light") に戻る
-    expect(result.current.settings.theme).toEqual("light");
+    // 更新失敗時は元の値 ("system") に戻る
+    expect(result.current.settings.theme).toEqual("system");
   });
 
   it("toggleDisplayTarget: 成功時に displayTargets が更新される", async () => {
@@ -209,5 +209,28 @@ describe("useSettingsAtom", () => {
     });
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     expect(result.current.settings.lineGraphColor.cpu).toEqual(initialColor);
+  });
+
+  it("updateSettingAtom: 'system' テーマを正常に設定できる", async () => {
+    (commands.setTheme as Mock).mockResolvedValue({ data: null });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.updateSettingAtom("theme", "system");
+    });
+
+    expect(commands.setTheme).toHaveBeenCalledWith("system");
+    expect(result.current.settings.theme).toEqual("system");
+  });
+
+  it("デフォルトのテーマが 'system' である", () => {
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    expect(result.current.settings.theme).toEqual("system");
   });
 });

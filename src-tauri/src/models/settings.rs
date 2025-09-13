@@ -86,7 +86,7 @@ impl Default for Settings {
     Self {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
       language: services::language_service::get_default_language().to_string(),
-      theme: enums::settings::Theme::Dark,
+      theme: enums::settings::Theme::System,
       display_targets: vec![
         enums::hardware::HardwareType::Cpu,
         enums::hardware::HardwareType::Memory,
