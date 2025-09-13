@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { getStoreInstance } from "@/lib/tauriStore";
 
 // Mock @tauri-apps/plugin-store
@@ -18,7 +18,7 @@ describe("tauriStore", () => {
       save: vi.fn(),
     };
     const { load } = await vi.importMock("@tauri-apps/plugin-store");
-    (load as any).mockResolvedValueOnce(mockStore);
+    (load as Mock).mockResolvedValueOnce(mockStore);
 
     const store = await getStoreInstance();
 
