@@ -34,7 +34,7 @@ describe("sqlite wrapper", () => {
     const { sqlitePromise } = await import("@/lib/sqlite");
     const db = await sqlitePromise;
 
-    const res = await db.load<typeof rows[number]>("SELECT 1");
+    const res = await db.load<(typeof rows)[number]>("SELECT 1");
     expect(res).toEqual(rows);
     expect(select).toHaveBeenCalledWith("SELECT 1");
   });
@@ -76,4 +76,3 @@ describe("sqlite wrapper", () => {
     expect(errorSpy).toHaveBeenCalled();
   });
 });
-
