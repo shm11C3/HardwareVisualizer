@@ -8,7 +8,12 @@ export default defineConfig({
     include: ["src/test/unit/**/*.test.ts", "src/test/unit/**/*.test.tsx"],
     coverage: {
       include: ["src/**/*.ts"],
-      exclude: ["src/rspc/**", "src/test/**", "src/**/*.d.ts"],
+      exclude: [
+        "src/rspc/**",
+        "src/test/**",
+        "src/**/*.d.ts",
+        "src/**/types/**",
+      ],
       reporter: ["text", "html", "json-summary"],
       thresholds: {
         statements: 50,
