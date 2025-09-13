@@ -27,9 +27,11 @@ describe("useTauriStore", () => {
     fakeStore = {
       data: {},
       has: vi.fn((key: string) => Promise.resolve(key in fakeStore.data)),
-      get: vi.fn().mockImplementation(<T>(key: string) =>
-        Promise.resolve(fakeStore.data[key] as T | undefined),
-      ) as <T = unknown>(key: string) => Promise<T | undefined>,
+      get: vi
+        .fn()
+        .mockImplementation(<T>(key: string) =>
+          Promise.resolve(fakeStore.data[key] as T | undefined),
+        ) as <T = unknown>(key: string) => Promise<T | undefined>,
       set: vi.fn(<T>(key: string, value: T) => {
         fakeStore.data[key] = value;
         return Promise.resolve();
