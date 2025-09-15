@@ -1,61 +1,102 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import * as React from "react";
-
 import { cn } from "@/lib/utils";
 
-function Slider({
-  className,
-  defaultValue,
-  value,
-  min = 0,
-  max = 100,
-  ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
-  const _values = React.useMemo(
-    () =>
-      Array.isArray(value)
-        ? value
-        : Array.isArray(defaultValue)
-          ? defaultValue
-          : [min, max],
-    [value, defaultValue, min, max],
+// 簡易ID生成（外部依存なし）
+const makeId = (() => {
+  let n = 0;
+  return () => `thumb-${n++}`;
+})();
+
+function reorderIdsByNearest(
+  prevValues: number[],
+  nextValues: number[],
+  prevIds: string[],
+) {
+  // 貪欲に「次の値」と「前の値」を最小距離でマッチング（1対1）
+  const usedPrev = new Set<number>();
+  const mapping: string[] = new Array(nextValues.length);
+
+  for (let i = 0; i < nextValues.length; i++) {
+    let bestJ = -1;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let j = 0; j < prevValues.length; j++) {
+      if (usedPrev.has(j)) continue;
+      const d = Math.abs(nextValues[i] - prevValues[j]);
+      if (d < bestDist) {
+        bestDist = d;
+        bestJ = j;
+      }
+    }
+    usedPrev.add(bestJ);
+    mapping[i] = prevIds[bestJ];
+  }
+  return mapping;
+}
+
+type SliderProps = React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>;
+
+export const Slider = React.forwardRef<
+  React.ComponentRef<typeof SliderPrimitive.Root>,
+  SliderProps
+>(({ className, value, onValueChange, ...props }, ref) => {
+  // 値の長さに合わせて恒久IDを保持
+  const [ids, setIds] = React.useState<string[]>(() =>
+    Array.from({ length: value?.length ?? 1 }, () => makeId()),
   );
+  const prevValuesRef = React.useRef<number[] | null>(value ?? null);
+
+  // サム数が増減したらIDも増減（末尾追加/末尾切り捨て）
+  React.useEffect(() => {
+    const len = value?.length ?? 1;
+    setIds((prev) => {
+      if (prev.length === len) return prev;
+      if (prev.length < len) {
+        return [
+          ...prev,
+          ...Array.from({ length: len - prev.length }, () => makeId()),
+        ];
+      }
+      return prev.slice(0, len);
+    });
+  }, [value?.length]);
+
+  // 値が更新されたら、どのIDがどの位置に来たかを推定して並べ替える
+  React.useEffect(() => {
+    if (!value) return;
+    const prev = prevValuesRef.current;
+    if (
+      prev &&
+      prev.length === value.length &&
+      prev.some((v, i) => v !== value[i])
+    ) {
+      setIds((prevIds) => reorderIdsByNearest(prev, value, prevIds));
+    }
+    prevValuesRef.current = value.slice();
+  }, [value]);
 
   return (
     <SliderPrimitive.Root
-      data-slot="slider"
-      defaultValue={defaultValue}
-      value={value}
-      min={min}
-      max={max}
+      ref={ref}
       className={cn(
-        "relative flex w-full touch-none select-none items-center data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col data-[disabled]:opacity-50",
+        "relative flex w-full touch-none select-none items-center",
         className,
       )}
+      value={value}
+      onValueChange={onValueChange}
       {...props}
     >
-      <SliderPrimitive.Track
-        data-slot="slider-track"
-        className={cn(
-          "relative grow overflow-hidden rounded-full bg-muted data-[orientation=horizontal]:h-1.5 data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-1.5",
-        )}
-      >
-        <SliderPrimitive.Range
-          data-slot="slider-range"
-          className={cn(
-            "absolute bg-primary data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
-          )}
-        />
+      <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">
+        <SliderPrimitive.Range className="absolute h-full bg-primary" />
       </SliderPrimitive.Track>
-      {Array.from({ length: _values.length }, (_, index) => (
+
+      {(value ?? [0]).map((_, i) => (
         <SliderPrimitive.Thumb
-          data-slot="slider-thumb"
-          key={`${index}-${_values[index]}`}
-          className="block size-4 shrink-0 rounded-full border border-primary bg-background shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:outline-hidden focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50"
+          key={ids[i]}
+          className="block h-5 w-5 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
     </SliderPrimitive.Root>
   );
-}
-
-export { Slider };
+});
+Slider.displayName = SliderPrimitive.Root.displayName;
