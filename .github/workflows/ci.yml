@@ -97,6 +97,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.90.0
 
+      - name: Install Rustfmt
+        run: rustup component add rustfmt
+
       - name: check Rust Lint
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 
