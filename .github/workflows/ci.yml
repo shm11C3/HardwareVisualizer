@@ -94,8 +94,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.90.0
 
       - name: check Rust Lint
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -151,8 +151,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.90.0
 
       - name: Testing Tauri Backend
         run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
@@ -226,8 +226,8 @@ jobs:
         with:
           node-version: lts/*
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.90.0
 
       - name: Install frontend dependencies
         run: npm ci
@@ -351,8 +351,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.90.0
 
       - name: Install cargo-deny
         run: cargo install cargo-deny
