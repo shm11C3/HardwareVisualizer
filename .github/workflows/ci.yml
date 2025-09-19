@@ -95,7 +95,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Install Rustfmt
         run: rustup component add rustfmt clippy
@@ -155,7 +155,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Testing Tauri Backend
         run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
@@ -230,7 +230,7 @@ jobs:
           node-version: lts/*
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Install frontend dependencies
         run: npm ci
@@ -355,7 +355,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Install cargo-deny
         run: cargo install cargo-deny
