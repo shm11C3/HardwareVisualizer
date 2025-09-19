@@ -974,7 +974,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @hookform/resolvers@5.2.1
+## @hookform/resolvers@5.2.2
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/resolvers](https://github.com/react-hook-form/resolvers)
@@ -2820,7 +2820,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.1.12
+## @types/react@19.1.13
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -4594,7 +4594,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@0.542.0
+## lucide-react@0.544.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -5328,7 +5328,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwind-variants@3.1.0
+## tailwind-variants@3.1.1
 
 - License: MIT
 - Repository: [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
@@ -5761,7 +5761,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## zod@4.1.5
+## zod@4.1.8
 
 - License: MIT
 - Repository: [https://github.com/colinhacks/zod](https://github.com/colinhacks/zod)
