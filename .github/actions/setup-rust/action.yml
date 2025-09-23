@@ -9,6 +9,9 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install Rust
+      run: rustup toolchain add 1.90.0
+
     - name: Cache Cargo
       uses: actions/cache@v4
       with:
@@ -19,9 +22,6 @@ runs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-cargo-
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@1.90.0
 
     - name: Install Rust components
       if: inputs.components != ''
