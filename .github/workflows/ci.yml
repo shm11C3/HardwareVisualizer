@@ -47,7 +47,7 @@ jobs:
               - '.github/workflows/**'
               - '.github/scripts/**'
             frontend-deps:
-              - 'package*.json'\
+              - 'package*.json'
             backend-deps:
               - 'Cargo.*'
 
