@@ -1,10 +1,6 @@
 name: "Setup Rust Environment"
 description: "Setup Rust toolchain with caching and components"
 inputs:
-  rust-version:
-    description: "Rust version to install"
-    required: false
-    default: "1.90.0"
   components:
     description: "Additional components to install"
     required: false
@@ -26,8 +22,6 @@ runs:
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@1.90.0
-      with:
-        toolchain: ${{ inputs.rust-version }}
 
     - name: Install Rust components
       if: inputs.components != ''
