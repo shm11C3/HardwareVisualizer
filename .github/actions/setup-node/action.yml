@@ -1,0 +1,25 @@
+name: "Setup Node.js Environment"
+description: "Setup Node.js with caching and dependency installation"
+inputs:
+  node-version:
+    description: "Node.js version to install"
+    required: false
+    default: "lts/*"
+  install-deps:
+    description: "Whether to install dependencies"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "npm"
+
+    - name: Install dependencies
+      if: inputs.install-deps == 'true'
+      run: npm ci
+      shell: bash

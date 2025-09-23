@@ -1,0 +1,35 @@
+name: "Setup Rust Environment"
+description: "Setup Rust toolchain with caching and components"
+inputs:
+  rust-version:
+    description: "Rust version to install"
+    required: false
+    default: "1.90.0"
+  components:
+    description: "Additional components to install"
+    required: false
+    default: "rustfmt clippy"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.rust-version }}
+
+    - name: Install Rust components
+      if: inputs.components != ''
+      run: rustup component add ${{ inputs.components }}
+      shell: bash
