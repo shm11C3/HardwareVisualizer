@@ -23,7 +23,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          install-deps: false
 
       - name: Check Version
         id: check-version
@@ -52,19 +55,11 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Install Linux build dependencies
+      - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev \
-            libfuse2 \
-            libappindicator3-dev \
-            patchelf
+        uses: ./.github/actions/setup-linux-deps
+        with:
+          extra-packages: 'libfuse2 libappindicator3-dev patchelf'
 
       - name: Fix linuxdeploy permissions
         if: matrix.platform == 'ubuntu-22.04'
@@ -78,35 +73,15 @@ jobs:
 
       - uses: actions/checkout@v5
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          install-deps: false
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: setup node
-        uses: actions/setup-node@v5
-        with:
-          node-version: lts/*
-
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          components: ""
 
       - name: Generate licenses.json
         run: npx license-checker --production --json > licenses.json

@@ -5,18 +5,22 @@
 
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 20
+  #- package-ecosystem: "npm"
+  #  directory: "/"
+  #  schedule:
+  #    interval: "weekly"
+  #  cooldown:
+  #    default-days: 7
+  #  open-pull-requests-limit: 20
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 20
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      # Check for updates to GitHub Actions every week
-      interval: "weekly"
+  #- package-ecosystem: "github-actions"
+  #  directory: "/"
+  #  schedule:
+  #    # Check for updates to GitHub Actions every week
+  #    interval: "weekly"
+  #  cooldown:
+  #    default-days: 7

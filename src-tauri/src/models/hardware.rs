@@ -75,16 +75,6 @@ pub struct NetworkInfo {
 
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub struct NetworkUsage {
-  pub ip: String,
-  pub sent: f32,
-  pub sent_unit: SizeUnit,
-  pub received: f32,
-  pub received_unit: SizeUnit,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
   /// プロセスID
   pub pid: i32,
