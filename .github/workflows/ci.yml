@@ -156,12 +156,22 @@ jobs:
         run: |
           echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
 
-      - name: Build with Tauri (CI optimized)
+      - name: Build with Tauri (CI optimized for PR)
+        if: github.event_name == 'pull_request'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: -- --profile ci
+          includeDebug: false
+          includeRelease: false
+
+      - name: Build with Tauri (Release profile for push)
+        if: github.event_name != 'pull_request'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
           includeDebug: false
           includeRelease: false
 
