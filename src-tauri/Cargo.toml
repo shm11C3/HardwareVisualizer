@@ -12,7 +12,7 @@ lto = true
 
 [profile.ci]
 inherits = "release"
-opt-level = 1
+opt-level = 0
 lto = false
 codegen-units = 16
 
