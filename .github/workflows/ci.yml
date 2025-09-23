@@ -156,7 +156,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --profile ci
+          args: -- --profile ci
 
   #
   # Frontend tests
