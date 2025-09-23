@@ -26,13 +26,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: lts/*
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@1.90.0
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
 
       - name: Install dependencies
         run: npm ci
