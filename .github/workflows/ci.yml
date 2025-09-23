@@ -14,15 +14,17 @@ on:
 
 jobs:
   #
-  # Quick checks - run first for fast feedback
+  # Checks to see what changed
   #
-  quick-checks:
+  change-detection:
     permissions:
       contents: read
     runs-on: ubuntu-latest
     outputs:
       frontend-changed: ${{ steps.changes.outputs.frontend }}
       backend-changed: ${{ steps.changes.outputs.backend }}
+      frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
+      backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -44,20 +46,21 @@ jobs:
               - 'Cargo.*'
               - '.github/workflows/**'
               - '.github/scripts/**'
-
-      - name: Setup Node.js
-        uses: ./.github/actions/setup-node
-
-      - name: Frontend lint
-        if: steps.changes.outputs.frontend == 'true'
-        run: npm run lint:ci
+            frontend-deps:
+              - 'package*.json'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
+            backend-deps:
+              - 'Cargo.*'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
 
   #
   # Backend lint and clippy
   #
   lint-backend:
-    needs: quick-checks
-    if: needs.quick-checks.outputs.backend-changed == 'true'
+    needs: change-detection
+    if: needs.change-detection.outputs.backend-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -86,8 +89,8 @@ jobs:
   # Backend tests
   #
   test-backend:
-    needs: quick-checks
-    if: needs.quick-checks.outputs.backend-changed == 'true'
+    needs: change-detection
+    if: needs.change-detection.outputs.backend-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -115,7 +118,10 @@ jobs:
   # Build test
   #
   test-build:
-    needs: quick-checks
+    needs: change-detection
+    # When updating npm packages related to tauri, build errors may occur.
+    # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
+    if: needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -171,11 +177,30 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #
+  # Frontend Lint
+  #
+  lint-frontend:
+    needs: change-detection
+    if: needs.change-detection.outputs.frontend-changed == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Frontend lint
+        run: npm run lint:ci
+
+  #
   # Frontend tests
   #
   test-frontend:
-    needs: quick-checks
-    if: needs.quick-checks.outputs.frontend-changed == 'true'
+    needs: change-detection
+    if: needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
@@ -199,7 +224,8 @@ jobs:
   # License checks (only on PR)
   #
   license-check-npm:
-    if: github.event_name == 'pull_request'
+    needs: change-detection
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -220,7 +246,8 @@ jobs:
         run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
 
   license-check-cargo:
-    if: github.event_name == 'pull_request'
+    needs: change-detection
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.backend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
