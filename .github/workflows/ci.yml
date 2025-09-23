@@ -151,12 +151,19 @@ jobs:
         with:
           components: ""
 
-      - name: Build with Tauri
+      - name: Optimize Windows build environment
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
+
+      - name: Build with Tauri (CI optimized)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: -- --profile ci
+          includeDebug: false
+          includeRelease: false
 
   #
   # Frontend tests
