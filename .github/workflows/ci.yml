@@ -115,7 +115,7 @@ jobs:
   # Build test
   #
   test-build:
-    needs: [quick-checks, lint-backend]
+    needs: quick-checks
     permissions:
       contents: read
     strategy:
