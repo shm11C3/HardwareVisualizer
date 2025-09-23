@@ -48,8 +48,12 @@ jobs:
               - '.github/scripts/**'
             frontend-deps:
               - 'package*.json'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
             backend-deps:
               - 'Cargo.*'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
 
   #
   # Backend lint and clippy
