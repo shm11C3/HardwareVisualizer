@@ -25,7 +25,7 @@ runs:
           ${{ runner.os }}-cargo-
 
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@1.90.0
       with:
         toolchain: ${{ inputs.rust-version }}
 
