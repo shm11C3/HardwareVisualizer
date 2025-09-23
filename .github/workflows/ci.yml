@@ -241,9 +241,6 @@ jobs:
         with:
           components: ""
 
-      - name: Install cargo-deny
-        run: cargo install cargo-deny
-
       - name: Check Rust licenses
         working-directory: src-tauri
         run: cargo deny check licenses

@@ -59,7 +59,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         uses: ./.github/actions/setup-linux-deps
         with:
-          extra-packages: 'libfuse2 libappindicator3-dev patchelf'
+          extra-packages: "libfuse2 libappindicator3-dev patchelf"
 
       - name: Fix linuxdeploy permissions
         if: matrix.platform == 'ubuntu-22.04'
@@ -92,17 +92,11 @@ jobs:
       - name: Update tauri.conf.json using Node.js script
         run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
-      - name: Setup Azure Code Signing
-        run: cargo install trusted-signing-cli
-
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
 
       # THIRD_PARTY_LICENSES ファイルを生成
       # Tauri のビルド時のバンドルに含めるためここで生成する
-      - name: Install cargo-license
-        run: cargo install cargo-license
-
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
