@@ -48,7 +48,7 @@ jobs:
         with:
           name: licenses-${{ matrix.platform }}
           path: ./docs/THIRD_PARTY_NOTICES/${{ matrix.platform }}/
-          retention-days: 1
+          retention-days: 7
 
   merge-and-create-pr:
     needs: generate-licenses
