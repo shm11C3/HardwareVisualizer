@@ -59,7 +59,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         uses: ./.github/actions/setup-linux-deps
         with:
-          extra-packages: 'libfuse2 libappindicator3-dev patchelf'
+          extra-packages: "libfuse2 libappindicator3-dev patchelf"
 
       - name: Fix linuxdeploy permissions
         if: matrix.platform == 'ubuntu-22.04'
@@ -106,7 +106,7 @@ jobs:
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@e834788a94591d81e3ae0bd9ec06366f5afb8994 # v0.5.23
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
