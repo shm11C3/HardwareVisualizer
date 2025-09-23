@@ -44,7 +44,7 @@ jobs:
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts ${{ matrix.platform }}
 
       - name: Commit and create PR if changed
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
           commit-message: "chore: update THIRD_PARTY_NOTICES.md (auto)"
           title: "chore: update THIRD_PARTY_NOTICES.md (auto)"
