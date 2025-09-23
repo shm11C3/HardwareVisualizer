@@ -14,7 +14,7 @@ on:
 
 jobs:
   #
-  # Quick checks - run first for fast feedback
+  # Checks to see what changed
   #
   quick-checks:
     permissions:
@@ -23,6 +23,8 @@ jobs:
     outputs:
       frontend-changed: ${{ steps.changes.outputs.frontend }}
       backend-changed: ${{ steps.changes.outputs.backend }}
+      frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
+      backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -44,13 +46,10 @@ jobs:
               - 'Cargo.*'
               - '.github/workflows/**'
               - '.github/scripts/**'
-
-      - name: Setup Node.js
-        uses: ./.github/actions/setup-node
-
-      - name: Frontend lint
-        if: steps.changes.outputs.frontend == 'true'
-        run: npm run lint:ci
+            frontend-deps:
+              - 'package*.json'\
+            backend-deps:
+              - 'Cargo.*'
 
   #
   # Backend lint and clippy
@@ -116,6 +115,9 @@ jobs:
   #
   test-build:
     needs: quick-checks
+    # When updating npm packages related to tauri, build errors may occur.
+    # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
+    if: needs.quick-checks.outputs.backend-changed == 'true' || needs.quick-checks.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -171,6 +173,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #
+  # Frontend Lint
+  #
+  lint-frontend:
+    needs: quick-checks
+    if: needs.quick-checks.outputs.frontend-changed == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Frontend lint
+        run: npm run lint:ci
+
+  #
   # Frontend tests
   #
   test-frontend:
@@ -199,7 +220,8 @@ jobs:
   # License checks (only on PR)
   #
   license-check-npm:
-    if: github.event_name == 'pull_request'
+    needs: quick-checks
+    if: github.event_name == 'pull_request' && needs.quick-checks.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -220,7 +242,8 @@ jobs:
         run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
 
   license-check-cargo:
-    if: github.event_name == 'pull_request'
+    needs: quick-checks
+    if: github.event_name == 'pull_request' && needs.quick-checks.outputs.backend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
