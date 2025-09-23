@@ -163,17 +163,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: -- --profile ci
-          includeDebug: false
-          includeRelease: false
 
       - name: Build with Tauri (Release profile for push)
         if: github.event_name != 'pull_request'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          includeDebug: false
-          includeRelease: false
 
   #
   # Frontend tests
