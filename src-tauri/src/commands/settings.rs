@@ -108,7 +108,6 @@ pub mod commands {
       burn_in_shift_preset: settings.burn_in_shift_preset,
       burn_in_shift_idle_only: settings.burn_in_shift_idle_only,
       burn_in_shift_options: settings.burn_in_shift_options,
-      libre_hardware_monitor_import: settings.libre_hardware_monitor_import,
     };
 
     Ok(client_settings)
@@ -481,22 +480,6 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_burn_in_shift_options(new_value) {
-      emit_error(&window)?;
-      return Err(e);
-    }
-    Ok(())
-  }
-
-  #[tauri::command]
-  #[specta::specta]
-  pub async fn set_libre_hardware_monitor_import(
-    window: Window,
-    state: tauri::State<'_, AppState>,
-    new_value: Option<models::settings::LibreHardwareMonitorImportSettings>,
-  ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_libre_hardware_monitor_import(new_value) {
       emit_error(&window)?;
       return Err(e);
     }
