@@ -14,7 +14,7 @@ lto = true
 inherits = "release"
 opt-level = 0
 lto = false
-codegen-units = 128
+codegen-units = 256
 
 [package]
 name = "hardware_visualizer"
