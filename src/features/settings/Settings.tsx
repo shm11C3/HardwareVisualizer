@@ -1125,20 +1125,6 @@ const About = ({ onShowLicense }: { onShowLicense: () => void }) => {
   );
 };
 
-/**
- * @todo
- * - [x] About 欄の実装
- * - [x] ハードウェア種別をカスタマイズに移動
- * - [ ] ログを見るボタンの追加
- * - できればやる
- *   - [ ] 縦画面でのプレビューを見やすく（画面外の時はミニプレビューを追従して表示）
- *   - [ ] CPUコアごと分割表示設定の追加
- *   - [ ] アイコンをグラフスタイル欄にも追加する
- *   - [ ] スケールを縦横で分割して数字の表示非表示を選択可能にする
- *   - [ ] 設定リセットボタンの実装
- *   - [ ] 自動スタートの設定
- *   - [x] バージョンの表記
- */
 export const Settings = () => {
   const { t } = useTranslation();
   const [showLicensePage, setShowLicensePage] = useState(false);

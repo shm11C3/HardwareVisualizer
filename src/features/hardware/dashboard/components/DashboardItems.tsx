@@ -238,8 +238,6 @@ export const StorageDataInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
 
-  // TODO ストレージの総量・総使用量をグラフ化する
-
   // ドライブ名でソート
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
     a.name.localeCompare(b.name),
