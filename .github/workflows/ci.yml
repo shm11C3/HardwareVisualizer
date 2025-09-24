@@ -290,6 +290,8 @@ jobs:
       - test-frontend
       - license-check-npm
       - license-check-cargo
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     env:
       # Change detection outputs
