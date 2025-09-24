@@ -57,6 +57,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/create-github-app-token@v1
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
@@ -85,5 +91,5 @@ jobs:
           branch: auto/update-licenses-${{ github.run_id }}
           add-paths: |
             ./docs/THIRD_PARTY_NOTICES
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.generate-token.outputs.token }}
           delete-branch: true
