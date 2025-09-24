@@ -1,7 +1,4 @@
 name: "Auto Update Licenses Weekly"
-permissions:
-  contents: write
-  pull-requests: write
 
 on:
   schedule:
@@ -10,6 +7,8 @@ on:
 
 jobs:
   generate-licenses:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +51,9 @@ jobs:
 
   merge-and-create-pr:
     needs: generate-licenses
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
 
     steps:
