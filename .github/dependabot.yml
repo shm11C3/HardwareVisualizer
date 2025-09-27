@@ -39,6 +39,6 @@ updates:
       time: "03:00"
       timezone: "Asia/Tokyo"
     cooldown:
-    default-days: 3
+      default-days: 3
     assignees:
       - "shm11C3"
