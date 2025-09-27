@@ -974,7 +974,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @hookform/resolvers@5.2.1
+## @hookform/resolvers@5.2.2
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/resolvers](https://github.com/react-hook-form/resolvers)
@@ -1063,7 +1063,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @jridgewell/sourcemap-codec@1.5.4
+## @jridgewell/sourcemap-codec@1.5.5
 
 - License: MIT
 - Repository: [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
@@ -2362,7 +2362,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-dialog@2.3.3
+## @tauri-apps/plugin-dialog@2.4.0
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -2820,7 +2820,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.1.12
+## @types/react@19.1.13
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -4306,7 +4306,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.4.2
+## i18next@25.5.2
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4359,7 +4359,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-## jotai@2.13.1
+## jotai@2.14.0
 
 - License: MIT
 - Repository: [https://github.com/pmndrs/jotai](https://github.com/pmndrs/jotai)
@@ -4594,7 +4594,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@0.542.0
+## lucide-react@0.544.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -5328,7 +5328,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwind-variants@3.1.0
+## tailwind-variants@3.1.1
 
 - License: MIT
 - Repository: [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
@@ -5389,7 +5389,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwindcss@4.1.12
+## tailwindcss@4.1.13
 
 - License: MIT
 - Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
@@ -5761,7 +5761,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## zod@4.1.5
+## zod@4.1.8
 
 - License: MIT
 - Repository: [https://github.com/colinhacks/zod](https://github.com/colinhacks/zod)
@@ -5914,35 +5914,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-```
-
-## android-tzdata
-
-- License: Apache-2.0 OR MIT
-- Repository: [https://github.com/RumovZ/android-tzdata](https://github.com/RumovZ/android-tzdata)
-
-```LICENSE
-MIT License
-
-Copyright (c) [year] [fullname]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 
 ## atk
@@ -10535,6 +10506,39 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## mockall
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/asomers/mockall](https://github.com/asomers/mockall)
+
+```LICENSE
+Copyright (c) 2019 Alan Somers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
 ## moxcms
 
 - License: Apache-2.0 OR BSD-3-Clause
@@ -11187,6 +11191,33 @@ DEALINGS IN THE SOFTWARE.
 MIT License
 
 Copyright (c) 2017 Emilio Cobos Álvarez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## predicates-core
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/assert-rs/predicates-rs/tree/master/crates/core](https://github.com/assert-rs/predicates-rs/tree/master/crates/core)
+
+```LICENSE
+Copyright (c) Individual contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -14139,6 +14170,16 @@ THE SOFTWARE.
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
+## windows
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
+## windows-collections
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
 ## windows-collections
 
 - License: Apache-2.0 OR MIT
@@ -14150,6 +14191,16 @@ THE SOFTWARE.
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-core
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
+## windows-core
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
+## windows-future
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
@@ -14174,12 +14225,27 @@ THE SOFTWARE.
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
+## windows-link
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
+## windows-numerics
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
 ## windows-numerics
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-registry
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
+## windows-result
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
@@ -14199,6 +14265,11 @@ THE SOFTWARE.
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
+## windows-strings
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
 ## windows-sys
 
 - License: Apache-2.0 OR MIT
@@ -14240,6 +14311,11 @@ THE SOFTWARE.
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
 ## windows-targets
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
+
+## windows-threading
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)

@@ -29,8 +29,6 @@ pub mod commands {
   ///
   /// ## エラーイベントを発生させフロントエンドに通知する
   ///
-  /// [TODO] dialog を使ってエラーメッセージを表示する
-  ///
   fn emit_error(window: &Window) -> Result<(), String> {
     let settings_json_path =
       utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
