@@ -10,7 +10,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "03:00"
+      time: "07:00"
       timezone: "Asia/Tokyo"
     cooldown:
       default-days: 5
@@ -23,7 +23,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "03:00"
+      time: "07:00"
       timezone: "Asia/Tokyo"
     cooldown:
       default-days: 5
@@ -36,7 +36,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "03:00"
+      time: "07:00"
       timezone: "Asia/Tokyo"
     cooldown:
       default-days: 5
