@@ -41,6 +41,7 @@ pub struct Settings {
   pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
   pub burn_in_shift_idle_only: bool,
   pub burn_in_shift_options: Option<BurnInShiftOptions>,
+  pub libre_hardware_monitor_import: Option<LibreHardwareMonitorImportSettings>,
 }
 
 ///
@@ -79,6 +80,7 @@ pub struct ClientSettings {
   pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
   pub burn_in_shift_idle_only: bool,
   pub burn_in_shift_options: Option<BurnInShiftOptions>,
+  pub libre_hardware_monitor_import: Option<LibreHardwareMonitorImportSettings>,
 }
 
 impl Default for Settings {
@@ -118,6 +120,7 @@ impl Default for Settings {
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
+      libre_hardware_monitor_import: None,
     }
   }
 }
@@ -132,4 +135,17 @@ pub struct BurnInShiftOptions {
   idle_threshold_ms: Option<u32>,
   /// Drift cycle duration (sec)
   drift_duration_sec: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LibreHardwareMonitorImportSettings {
+  pub enabled: bool,
+  pub host: String,
+  pub port: u16,
+  pub use_https: bool,
+  pub refresh_interval: u32,
+  pub timeout: u32,
+  pub basic_auth_username: Option<String>,
+  pub basic_auth_password: Option<String>,
 }
