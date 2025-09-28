@@ -45,6 +45,7 @@ mod tests {
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
+      libre_hardware_monitor_import: None,
     };
 
     assert_eq!(settings.version, expected.version,);
