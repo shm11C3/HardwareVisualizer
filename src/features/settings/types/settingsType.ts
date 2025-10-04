@@ -8,6 +8,8 @@ export type LibreHardwareMonitorImportSettings = {
   useHttps: boolean;
   refreshInterval: number;
   timeout: number;
+  basicAuthUsername?: string;
+  basicAuthPassword?: string;
 };
 
 export type Settings = {
