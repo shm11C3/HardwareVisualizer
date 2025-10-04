@@ -244,7 +244,7 @@ const LibreHardwareMonitorImportSettings = () => {
                             )
                           }
                           min={1}
-                          max={60}
+                          max={60000}
                         />
                       </div>
                     </div>
