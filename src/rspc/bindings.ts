@@ -497,7 +497,7 @@ export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareType = "cpu" | "memory" | "gpu"
-export type LibreHardwareMonitorImportSettings = { enabled: boolean; host: string; port: number; useHttps: boolean; refreshInterval: number; timeout: number; basicAuthUsername: string | null; basicAuthPassword: string | null }
+export type LibreHardwareMonitorImportSettings = { enabled: boolean; host: string; port: number; useHttps: boolean; basicAuthUsername: string | null; basicAuthPassword: string | null }
 /**
  * クライアントに送信する設定の構造体
  * 

@@ -144,8 +144,6 @@ pub struct LibreHardwareMonitorImportSettings {
   pub host: String,
   pub port: u16,
   pub use_https: bool,
-  pub refresh_interval: u32,
-  pub timeout: u32,
   pub basic_auth_username: Option<String>,
   pub basic_auth_password: Option<String>,
 }

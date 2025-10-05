@@ -55,8 +55,6 @@ const LibreHardwareMonitorImportSettings = () => {
   const hostInputId = useId();
   const portInputId = useId();
   const httpsCheckboxId = useId();
-  const refreshIntervalId = useId();
-  const timeoutId = useId();
 
   const toggleImport = async (value: boolean) => {
     setDefaultOpen(value);
@@ -202,53 +200,6 @@ const LibreHardwareMonitorImportSettings = () => {
                       <Label htmlFor={httpsCheckboxId}>
                         {t("pages.settings.advanced.lhm.useHttps")}
                       </Label>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={refreshIntervalId}>
-                          {t("pages.settings.advanced.lhm.refreshInterval")}
-                        </Label>
-                        <Input
-                          id={refreshIntervalId}
-                          type="number"
-                          placeholder={t(
-                            "pages.settings.advanced.lhm.refreshIntervalPlaceholder",
-                          )}
-                          value={
-                            settings.libreHardwareMonitorImport.refreshInterval
-                          }
-                          onChange={(e) =>
-                            updateImportSetting(
-                              "refreshInterval",
-                              Number(e.target.value),
-                            )
-                          }
-                          min={1}
-                          max={3600}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={timeoutId}>
-                          {t("pages.settings.advanced.lhm.timeout")}
-                        </Label>
-                        <Input
-                          id={timeoutId}
-                          type="number"
-                          placeholder={t(
-                            "pages.settings.advanced.lhm.timeoutPlaceholder",
-                          )}
-                          value={settings.libreHardwareMonitorImport.timeout}
-                          onChange={(e) =>
-                            updateImportSetting(
-                              "timeout",
-                              Number(e.target.value),
-                            )
-                          }
-                          min={1}
-                          max={60000}
-                        />
-                      </div>
                     </div>
 
                     <div className="flex items-center justify-between">
