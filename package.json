@@ -39,7 +39,7 @@
     "rollup-plugin-visualizer": "^6.0.3",
     "shadcn": "^3.3.1",
     "tailwindcss": "^4.1.13",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "vite": "^7.1.7",
     "vitest": "^3.1.2"
   },
