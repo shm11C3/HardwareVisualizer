@@ -1,0 +1,1 @@
+pub mod libre_hardware_monitor_provider;
