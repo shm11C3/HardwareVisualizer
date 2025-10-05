@@ -99,6 +99,7 @@ pub fn run() {
     settings::commands::set_burn_in_shift_idle_only,
     settings::commands::set_burn_in_shift_options,
     settings::commands::set_libre_hardware_monitor_import,
+    settings::commands::test_libre_hardware_monitor_connection,
     settings::commands::read_license_file,
     settings::commands::read_third_party_notices_file,
     settings::commands::open_license_file_path,

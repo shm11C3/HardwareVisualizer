@@ -1,3 +1,4 @@
+pub mod api;
 pub mod sysinfo_provider;
 
 #[cfg(target_os = "windows")]

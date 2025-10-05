@@ -20,6 +20,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { commands } from "@/rspc/bindings";
+import { isOk } from "@/types/result";
 import { getDefaultLHMSettings } from "../libreHardwareMonitorImport/lhmSettings";
 
 /**
@@ -92,8 +94,8 @@ const LibreHardwareMonitorImportSettings = () => {
     setConnectionStatus("idle");
 
     try {
-      // await commands.testLibreHardwareMonitorConnection(); TODO
-      setConnectionStatus("success");
+      const result = await commands.testLibreHardwareMonitorConnection();
+      setConnectionStatus(isOk(result) ? "success" : "error");
     } catch (error) {
       console.error("Connection test failed:", error);
       setConnectionStatus("error");
