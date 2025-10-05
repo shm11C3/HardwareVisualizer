@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Response from /data.json API endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct SensorApiResponse {
   pub result: SensorApiResult,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -17,6 +18,7 @@ pub struct SensorApiResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum SensorApiResult {
   #[serde(rename = "ok")]
   Ok,
@@ -26,6 +28,7 @@ pub enum SensorApiResult {
 
 /// Request parameters for /Sensor API
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct SensorApiRequest {
   pub action: SensorApiAction,
   pub id: String,
@@ -34,6 +37,7 @@ pub struct SensorApiRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum SensorApiAction {
   #[serde(rename = "Get")]
   Get,
@@ -45,6 +49,7 @@ pub enum SensorApiAction {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum SensorApiValue {
   Number(f64),
   Null,
@@ -52,6 +57,7 @@ pub enum SensorApiValue {
 
 /// Configuration for the HTTP server
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct HttpServerConfig {
   #[serde(rename = "listenerIp")]
   pub listener_ip: String,
@@ -72,6 +78,7 @@ pub struct HttpServerConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct LibreHardwareMonitorNode {
   pub id: u32,
   #[serde(rename = "Text")]
@@ -93,6 +100,7 @@ pub struct LibreHardwareMonitorNode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum SensorType {
   #[serde(rename = "Voltage")]
   Voltage,
