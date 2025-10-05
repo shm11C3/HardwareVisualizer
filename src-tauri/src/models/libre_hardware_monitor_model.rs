@@ -131,13 +131,14 @@ pub enum SensorType {
   SmallData,
 }
 
-#[allow(dead_code)]
 impl LibreHardwareMonitorNode {
+  #[allow(dead_code)]
   /// Parse JSON string and create root node
   pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
     serde_json::from_str(json_str)
   }
 
+  #[allow(dead_code)]
   /// Find node by sensor ID
   pub fn find_by_sensor_id(&self, sensor_id: &str) -> Option<&LibreHardwareMonitorNode> {
     if let Some(ref id) = self.sensor_id
@@ -155,6 +156,7 @@ impl LibreHardwareMonitorNode {
     None
   }
 
+  #[allow(dead_code)]
   /// Find all nodes by sensor type
   pub fn find_by_sensor_type(
     &self,
@@ -175,6 +177,7 @@ impl LibreHardwareMonitorNode {
     result
   }
 
+  #[allow(dead_code)]
   /// Find nodes that contain specified text
   pub fn find_by_text_contains(&self, text: &str) -> Vec<&LibreHardwareMonitorNode> {
     let mut result = Vec::new();
@@ -190,6 +193,7 @@ impl LibreHardwareMonitorNode {
     result
   }
 
+  #[allow(dead_code)]
   /// Get sensor leaf nodes (nodes with sensor values)
   pub fn get_sensor_leaves(&self) -> Vec<&LibreHardwareMonitorNode> {
     let mut result = Vec::new();
@@ -205,6 +209,7 @@ impl LibreHardwareMonitorNode {
     result
   }
 
+  #[allow(dead_code)]
   /// Extract numeric value from sensor value string
   pub fn get_numeric_value(&self) -> Option<f64> {
     // Extract numeric part from strings like "1.136 V" or "33.333"
@@ -219,6 +224,7 @@ impl LibreHardwareMonitorNode {
     numeric_part.parse::<f64>().ok()
   }
 
+  #[allow(dead_code)]
   /// Extract unit from sensor value string
   pub fn get_unit(&self) -> Option<&str> {
     let value_str = self.value.trim();
@@ -234,6 +240,7 @@ impl LibreHardwareMonitorNode {
     }
   }
 
+  #[allow(dead_code)]
   /// Convert hierarchy to string representation (for debugging)
   pub fn to_tree_string(&self, indent: usize) -> String {
     let mut result = String::new();
