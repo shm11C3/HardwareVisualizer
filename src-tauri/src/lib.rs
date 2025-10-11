@@ -162,6 +162,21 @@ pub fn run() {
         ws.monitor.lock().unwrap().replace(monitor);
       }
 
+      // Start LibreHardwareMonitor import worker if enabled
+      if let Some(lhm) = settings.libre_hardware_monitor_import.clone()
+        && lhm.enabled
+      {
+        match workers::libre_hardware_monitor_import::LibreHardwareMonitorImportController::setup(app.handle().clone(), lhm) {
+          Ok(controller) => {
+            let ws = app.state::<workers::WorkersState>();
+            ws.lhm_import.lock().unwrap().replace(controller);
+          }
+          Err(e) => {
+            log_error!("Failed to start LHM import worker", "lib.run", Some(e.to_string()));
+          }
+        }
+      }
+
       // ハードウェアアーカイブサービスの開始
       if settings.hardware_archive.enabled {
         let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
@@ -224,6 +239,7 @@ pub fn run() {
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_os::init())
     .plugin(tauri_plugin_opener::init())
+    .manage(models::libre_hardware_monitor_state::LibreHardwareMonitorDataState::default())
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
