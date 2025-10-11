@@ -101,18 +101,41 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+type TooltipPayload = {
+  dataKey?: string;
+  name?: string;
+  value?: number | string;
+  color?: string;
+  payload?: Record<string, unknown> & { fill?: string };
+};
+
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean;
-      hideIndicator?: boolean;
-      indicator?: "line" | "dot" | "dashed";
-      nameKey?: string;
-      labelKey?: string;
-      showTotalValue?: boolean;
-      totalLabel?: string;
-    }
+  React.ComponentProps<"div"> & {
+    active?: boolean;
+    payload?: TooltipPayload[];
+    label?: string | number;
+    labelFormatter?: (
+      label: React.ReactNode,
+      payload: TooltipPayload[],
+    ) => React.ReactNode;
+    labelClassName?: string;
+    formatter?: (
+      value: number | string | undefined,
+      name: string | undefined,
+      item: TooltipPayload,
+      index: number,
+      payload: Record<string, unknown> | undefined,
+    ) => React.ReactNode;
+    color?: string;
+    hideLabel?: boolean;
+    hideIndicator?: boolean;
+    indicator?: "line" | "dot" | "dashed";
+    nameKey?: string;
+    labelKey?: string;
+    showTotalValue?: boolean;
+    totalLabel?: string;
+  }
 >(
   (
     {
@@ -176,7 +199,7 @@ const ChartTooltipContent = React.forwardRef<
       return null;
     }
 
-    const totalValue = payload.reduce((sum, item) => {
+    const totalValue = payload.reduce((sum: number, item: TooltipPayload) => {
       return sum + (typeof item.value === "number" ? item.value : 0);
     }, 0);
 
@@ -240,10 +263,10 @@ const ChartTooltipContent = React.forwardRef<
           </div>
         )}
         <div className="grid gap-1.5">
-          {payload.map((item, index) => {
+          {payload.map((item: TooltipPayload, index: number) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
-            const indicatorColor = color || item.payload.fill || item.color;
+            const indicatorColor = color || item.payload?.fill || item.color;
 
             return (
               <div
@@ -313,16 +336,29 @@ ChartTooltipContent.displayName = "ChartTooltip";
 
 const ChartLegend = RechartsPrimitive.Legend;
 
+type LegendPayload = {
+  value?: string;
+  dataKey?: string;
+  color?: string;
+};
+
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-      hideIcon?: boolean;
-      nameKey?: string;
-    }
+  React.ComponentProps<"div"> & {
+    payload?: LegendPayload[];
+    verticalAlign?: "top" | "bottom";
+    hideIcon?: boolean;
+    nameKey?: string;
+  }
 >(
   (
-    { className, hideIcon = false, payload, verticalAlign = "bottom", nameKey },
+    {
+      className,
+      hideIcon = false,
+      payload = [],
+      verticalAlign = "bottom",
+      nameKey,
+    },
     ref,
   ) => {
     const { config } = useChart();
