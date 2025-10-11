@@ -1,18 +1,23 @@
 import { CpuIcon, MemoryIcon, TimerIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import type { TooltipProps } from "recharts";
-import type {
-  NameType,
-  ValueType,
-} from "recharts/types/component/DefaultTooltipContent";
 import { bubbleChartColor } from "@/features/hardware/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { formatBytes } from "@/lib/formatter";
 
-export const CustomTooltip = ({
-  active,
-  payload,
-}: TooltipProps<ValueType, NameType>) => {
+type CustomTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      name: string;
+      pid: number;
+      x: number;
+      y: number;
+      ram: number;
+    };
+  }>;
+};
+
+export const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
 
