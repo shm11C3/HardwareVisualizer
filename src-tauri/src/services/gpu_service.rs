@@ -1,5 +1,6 @@
 use crate::enums;
 use crate::models::hardware::NameValue;
+use crate::models::libre_hardware_monitor_model::{LibreHardwareMonitorNode, SensorType};
 use crate::platform::factory::PlatformFactory;
 
 ///
@@ -27,6 +28,59 @@ pub async fn fetch_gpu_temperature(
     .get_gpu_temperature(temperature_unit)
     .await
     .map_err(|e| format!("Failed to get GPU temperature: {e:?}"))
+}
+
+/// Prefer LibreHardwareMonitor snapshot when enabled and available; fallback to platform.
+pub async fn fetch_gpu_temperature_preferring_lhm(
+  temperature_unit: enums::settings::TemperatureUnit,
+  lhm_enabled: bool,
+  lhm_root: Option<&LibreHardwareMonitorNode>,
+) -> Result<Vec<NameValue>, String> {
+  // Local, platform-agnostic temperature converter
+  fn convert_temperature(
+    current_unit: enums::settings::TemperatureUnit,
+    unit: enums::settings::TemperatureUnit,
+    value: i32,
+  ) -> i32 {
+    match (current_unit, unit) {
+      (
+        enums::settings::TemperatureUnit::Celsius,
+        enums::settings::TemperatureUnit::Fahrenheit,
+      ) => (value * 9 / 5) + 32,
+      (
+        enums::settings::TemperatureUnit::Fahrenheit,
+        enums::settings::TemperatureUnit::Celsius,
+      ) => (value - 32) * 5 / 9,
+      _ => value,
+    }
+  }
+
+  if lhm_enabled && let Some(root) = lhm_root {
+    let mut temps: Vec<NameValue> = Vec::new();
+    for node in root.find_by_sensor_type(&SensorType::Temperature) {
+      if node.text.contains("GPU")
+        && let Some(val) = node.get_numeric_value()
+      {
+        let celsius = val.round() as i32;
+        let value = convert_temperature(
+          enums::settings::TemperatureUnit::Celsius,
+          temperature_unit.clone(),
+          celsius,
+        );
+        temps.push(NameValue {
+          name: node.text.clone(),
+          value,
+        });
+      }
+    }
+
+    if !temps.is_empty() {
+      return Ok(temps);
+    }
+  }
+
+  // Fallback to platform specific provider
+  fetch_gpu_temperature(temperature_unit).await
 }
 
 ///

@@ -100,15 +100,35 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 #[specta::specta]
 pub async fn get_gpu_temperature(
   state: tauri::State<'_, settings::AppState>,
+  lhm_state: tauri::State<
+    '_,
+    models::libre_hardware_monitor_state::LibreHardwareMonitorDataState,
+  >,
 ) -> Result<Vec<models::hardware::NameValue>, String> {
   use crate::services::gpu_service;
 
-  let temperature_unit = {
-    let config = state.settings.lock().unwrap();
-    config.temperature_unit.clone()
+  // Read required settings and latest LHM snapshot once
+  let (temperature_unit, lhm_enabled, lhm_root) = {
+    let settings_guard = state.settings.lock().unwrap();
+    let temperature_unit = settings_guard.temperature_unit.clone();
+    let lhm_enabled = settings_guard
+      .libre_hardware_monitor_import
+      .as_ref()
+      .map(|s| s.enabled)
+      .unwrap_or(false);
+    drop(settings_guard);
+
+    let latest_guard = lhm_state.latest.lock().unwrap();
+    let lhm_root = latest_guard.as_ref().cloned();
+    (temperature_unit, lhm_enabled, lhm_root)
   };
 
-  gpu_service::fetch_gpu_temperature(temperature_unit).await
+  gpu_service::fetch_gpu_temperature_preferring_lhm(
+    temperature_unit,
+    lhm_enabled,
+    lhm_root.as_ref(),
+  )
+  .await
 }
 
 ///
