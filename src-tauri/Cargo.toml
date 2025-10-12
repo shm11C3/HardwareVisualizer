@@ -94,7 +94,7 @@ custom-protocol = ["tauri/custom-protocol"]
 wmi = "0.17.2"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
-windows = { version = "0.62.1", features = [
+windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
     "Win32_Security",
