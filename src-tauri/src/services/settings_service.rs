@@ -340,12 +340,4 @@ impl models::settings::Settings {
     self.burn_in_shift_options = new_value;
     self.write_file()
   }
-
-  pub fn set_libre_hardware_monitor_import(
-    &mut self,
-    new_value: Option<models::settings::LibreHardwareMonitorImportSettings>,
-  ) -> Result<(), String> {
-    self.libre_hardware_monitor_import = new_value;
-    self.write_file()
-  }
 }

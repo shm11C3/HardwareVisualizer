@@ -67,7 +67,6 @@ import {
   type Theme,
 } from "@/rspc/bindings";
 import { settingAtoms } from "@/store/ui";
-import { AdvancedSettings } from "./components/AdvancedSettings";
 
 const SettingGraphType = () => {
   const { settings, toggleDisplayTarget } = useSettingsAtom();
@@ -1217,8 +1216,6 @@ export const Settings = () => {
           </div>
         </div>
       </div>
-
-      <AdvancedSettings />
 
       <div className="p-4">
         <h3 className="py-3 font-bold text-2xl">

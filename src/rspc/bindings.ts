@@ -335,22 +335,6 @@ async setBurnInShiftOptions(newValue: BurnInShiftOptions | null) : Promise<Resul
     else return { status: "error", error: e  as any };
 }
 },
-async setLibreHardwareMonitorImport(newValue: LibreHardwareMonitorImportSettings | null) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_libre_hardware_monitor_import", { newValue }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async testLibreHardwareMonitorConnection() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("test_libre_hardware_monitor_connection") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async readLicenseFile() : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_license_file") };
@@ -490,14 +474,13 @@ idleThresholdMs: number | null;
  */
 driftDurationSec: number | null }
 export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive"
-export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings; burnInShift: boolean; burnInShiftMode: BurnInShiftMode; burnInShiftPreset: BurnInShiftPreset; burnInShiftIdleOnly: boolean; burnInShiftOptions: BurnInShiftOptions | null; libreHardwareMonitorImport: LibreHardwareMonitorImportSettings | null }
+export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings; burnInShift: boolean; burnInShiftMode: BurnInShiftMode; burnInShiftPreset: BurnInShiftPreset; burnInShiftIdleOnly: boolean; burnInShiftOptions: BurnInShiftOptions | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareType = "cpu" | "memory" | "gpu"
-export type LibreHardwareMonitorImportSettings = { enabled: boolean; host: string; port: number; useHttps: boolean; basicAuthUsername: string | null; basicAuthPassword: string | null }
 /**
  * クライアントに送信する設定の構造体
  * 

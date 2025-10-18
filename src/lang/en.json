@@ -253,29 +253,6 @@
       "license": {
         "applicationLicense": "Application License",
         "thirdPartyLicenses": "Third-Party Licenses"
-      },
-      "advanced": {
-        "name": "Advanced Settings",
-        "lhm": {
-          "title": "LibreHardwareMonitor Import",
-          "description": "Import hardware data from LibreHardwareMonitor API",
-          "connectionSettings": "Connection Settings",
-          "host": "Host",
-          "hostPlaceholder": "localhost",
-          "port": "Port",
-          "portPlaceholder": "8085",
-          "useHttps": "Use HTTPS",
-          "refreshInterval": "Refresh Interval (seconds)",
-          "refreshIntervalPlaceholder": "5",
-          "timeout": "Timeout (milliseconds)",
-          "timeoutPlaceholder": "3000",
-          "connectionTest": "Connection Test",
-          "testing": "Testing...",
-          "connectionSuccess": "Connection Successful",
-          "connectionFailed": "Connection Failed",
-          "info": "Please enable Web Server in LibreHardwareMonitor",
-          "infoTooltip": "Enable 'Options → Web Server' in LibreHardwareMonitor settings and configure the port number. Default port is 8085."
-        }
       }
     }
   },

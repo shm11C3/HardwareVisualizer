@@ -253,29 +253,6 @@
       "license": {
         "applicationLicense": "アプリケーションライセンス",
         "thirdPartyLicenses": "サードパーティライセンス"
-      },
-      "advanced": {
-        "name": "高度な設定",
-        "lhm": {
-          "title": "LibreHardwareMonitor インポート",
-          "description": "LibreHardwareMonitorのAPIからハードウェアデータを取得します",
-          "connectionSettings": "接続設定",
-          "host": "ホスト",
-          "hostPlaceholder": "localhost",
-          "port": "ポート",
-          "portPlaceholder": "8085",
-          "useHttps": "HTTPS を使用",
-          "refreshInterval": "更新間隔 (秒)",
-          "refreshIntervalPlaceholder": "5",
-          "timeout": "タイムアウト (ミリ秒)",
-          "timeoutPlaceholder": "3000",
-          "connectionTest": "接続テスト",
-          "testing": "テスト中...",
-          "connectionSuccess": "接続成功",
-          "connectionFailed": "接続失敗",
-          "info": "LibreHardwareMonitorでWebサーバーを有効にしてください",
-          "infoTooltip": "LibreHardwareMonitorの設定で「Options → Web Server」を有効にし、ポート番号を設定してください。デフォルトポートは8085です。"
-        }
       }
     }
   },

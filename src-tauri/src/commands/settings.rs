@@ -108,7 +108,6 @@ pub mod commands {
       burn_in_shift_preset: settings.burn_in_shift_preset,
       burn_in_shift_idle_only: settings.burn_in_shift_idle_only,
       burn_in_shift_options: settings.burn_in_shift_options,
-      libre_hardware_monitor_import: settings.libre_hardware_monitor_import,
     };
 
     Ok(client_settings)
@@ -489,22 +488,6 @@ pub mod commands {
 
   #[tauri::command]
   #[specta::specta]
-  pub async fn set_libre_hardware_monitor_import(
-    window: Window,
-    state: tauri::State<'_, AppState>,
-    new_value: Option<models::settings::LibreHardwareMonitorImportSettings>,
-  ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_libre_hardware_monitor_import(new_value) {
-      emit_error(&window)?;
-      return Err(e);
-    }
-    Ok(())
-  }
-
-  #[tauri::command]
-  #[specta::specta]
   pub async fn read_license_file(app: tauri::AppHandle) -> Result<String, String> {
     let resource_path = app
       .path()
@@ -548,14 +531,5 @@ pub mod commands {
       .opener()
       .open_path(path_str, None::<&str>)
       .map_err(|e| format!("Failed to open LICENSE file path: {}", e))
-  }
-
-  #[tauri::command]
-  #[specta::specta]
-  pub async fn test_libre_hardware_monitor_connection(
-    state: tauri::State<'_, AppState>,
-  ) -> Result<(), String> {
-    let settings = state.settings.lock().unwrap().clone();
-    services::data_export_service::call_libre_hardware_monitor_api(&settings).await
   }
 }

@@ -38,14 +38,6 @@ const settingsAtom = atom<ClientSettings>({
   burnInShiftMode: "jump",
   burnInShiftIdleOnly: false,
   burnInShiftOptions: null,
-  libreHardwareMonitorImport: {
-    enabled: false,
-    host: "localhost",
-    port: 8085,
-    useHttps: false,
-    basicAuthUsername: null,
-    basicAuthPassword: null,
-  },
 });
 
 export const useSettingsAtom = () => {
@@ -75,7 +67,6 @@ export const useSettingsAtom = () => {
     burnInShiftMode: commands.setBurnInShiftMode,
     burnInShiftIdleOnly: commands.setBurnInShiftIdleOnly,
     burnInShiftOptions: commands.setBurnInShiftOptions,
-    libreHardwareMonitorImport: commands.setLibreHardwareMonitorImport,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);
