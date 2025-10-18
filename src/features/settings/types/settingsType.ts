@@ -1,17 +1,6 @@
 import type { sizeOptions } from "@/features/hardware/consts/chart";
 import type { ChartDataType } from "../../hardware/types/hardwareDataType";
 
-export type LibreHardwareMonitorImportSettings = {
-  enabled: boolean;
-  host: string;
-  port: number;
-  useHttps: boolean;
-  refreshInterval: number;
-  timeout: number;
-  basicAuthUsername?: string;
-  basicAuthPassword?: string;
-};
-
 export type Settings = {
   language: string;
   theme:
@@ -39,7 +28,6 @@ export type Settings = {
   backgroundImgOpacity: number;
   selectedBackgroundImg: string | null;
   temperatureUnit: "C" | "F";
-  libreHardwareMonitorImport: LibreHardwareMonitorImportSettings;
 };
 
 export type BackgroundImage = {
