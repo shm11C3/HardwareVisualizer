@@ -19,15 +19,16 @@
 
 ```
 ├── src/                    # React frontend
-│   ├── features/          # Feature-based modules
+│   ├── features/          # Feature-based modules (with co-located tests)
 │   │   ├── hardware/      # Hardware monitoring logic
 │   │   ├── settings/      # Application settings
 │   │   └── menu/          # Navigation menu
-│   ├── components/        # Reusable UI components
-│   ├── hooks/            # Custom React hooks
-│   └── lib/              # Utility functions
+│   ├── components/        # Reusable UI components (with co-located tests)
+│   ├── hooks/            # Custom React hooks (with co-located tests)
+│   ├── lib/              # Utility functions (with co-located tests)
+│   └── test/             # Test setup files
 ├── src-tauri/            # Rust backend
-│   ├── src/              # Rust source code
+│   ├── src/              # Rust source code (with co-located tests)
 │   │   ├── commands/     # Tauri command layer (UI interface)
 │   │   ├── services/     # Application business logic layer
 │   │   ├── platform/     # Platform abstraction layer
@@ -38,8 +39,7 @@
 │   │   │   ├── linux/    # Linux-specific implementations
 │   │   │   └── macos/    # macOS-specific implementations
 │   │   ├── structs/      # Data type definitions
-│   │   ├── utils/        # Utility functions
-│   │   └── _tests/       # Test modules
+│   │   └── utils/        # Utility functions
 │   └── capabilities/     # Tauri permissions
 |── .github/               # GitHub Actions workflows
 │   |── scripts/         # Automation scripts
@@ -74,7 +74,12 @@
 
 - **Unit Tests**: Vitest for frontend, Cargo test for Rust
 - **Coverage**: Aim for comprehensive test coverage
-- **Test Location**: `/test/unit/` for frontend, `/src-tauri/src/_tests/` for Rust
+- **Test Co-location**: Tests are co-located with source files
+  - Frontend: `*.test.ts` and `*.test.tsx` files alongside source code
+  - Rust: `#[cfg(test)] mod tests { ... }` blocks within source files
+- **Test Discovery**:
+  - Frontend: Vitest automatically discovers `**/*.test.ts` and `**/*.test.tsx`
+  - Rust: Tests run with `cargo test` from within each module
 
 ### TypeScript Configuration
 

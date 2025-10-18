@@ -183,3 +183,59 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
 
   network_service::fetch_network_info()
 }
+
+#[cfg(test)]
+mod tests {
+  use std::collections::{HashMap, VecDeque};
+  use std::sync::{Arc, Mutex};
+  use sysinfo::System;
+  use tauri::Manager;
+
+  use super::*;
+
+  ///
+  /// Test the get_process_list function
+  ///
+  #[test]
+  fn test_get_process_list() {
+    let app = tauri::test::mock_app();
+
+    // Mock
+    let mut mock_system = System::new_all();
+    mock_system.refresh_all();
+
+    let mut cpu_histories = HashMap::new();
+    let mut memory_histories = HashMap::new();
+
+    // Add history for any existing process in the system
+    if let Some((pid, _)) = mock_system.processes().iter().next() {
+      cpu_histories.insert(*pid, VecDeque::from(vec![50.0; 5]));
+      memory_histories.insert(*pid, VecDeque::from(vec![1024.0; 5]));
+    }
+
+    let app_state = HardwareMonitorState {
+      system: Arc::new(Mutex::new(mock_system)),
+      cpu_history: Arc::new(Mutex::new(VecDeque::new())),
+      memory_history: Arc::new(Mutex::new(VecDeque::new())),
+      gpu_history: Arc::new(Mutex::new(VecDeque::new())),
+      process_cpu_histories: Arc::new(Mutex::new(cpu_histories)),
+      process_memory_histories: Arc::new(Mutex::new(memory_histories)),
+      nv_gpu_usage_histories: Arc::new(Mutex::new(HashMap::new())),
+      nv_gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
+    };
+
+    app.manage(app_state);
+
+    // Act
+    let process_list = get_process_list(app.state());
+
+    // Assert - just verify we get a non-empty list
+    assert!(!process_list.is_empty(), "Process list should not be empty");
+
+    // Verify that processes have valid data
+    for process in &process_list {
+      assert!(process.pid > 0, "Process PID should be positive");
+      assert!(!process.name.is_empty(), "Process name should not be empty");
+    }
+  }
+}

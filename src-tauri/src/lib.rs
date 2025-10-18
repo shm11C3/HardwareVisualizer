@@ -12,9 +12,6 @@ mod services;
 mod utils;
 mod workers;
 
-#[cfg(test)]
-mod _tests;
-
 use commands::background_image;
 use commands::hardware;
 use commands::settings;

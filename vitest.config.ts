@@ -5,14 +5,17 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["src/test/setup.ts"],
-    include: ["src/test/unit/**/*.test.ts", "src/test/unit/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
-      include: ["src/**/*.ts"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: [
         "src/rspc/**",
         "src/test/**",
         "src/**/*.d.ts",
         "src/**/types/**",
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
       ],
       reporter: ["text", "html", "json-summary"],
       thresholds: {
