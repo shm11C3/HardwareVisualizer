@@ -343,14 +343,6 @@ async setLibreHardwareMonitorImport(newValue: LibreHardwareMonitorImportSettings
     else return { status: "error", error: e  as any };
 }
 },
-async testLibreHardwareMonitorConnection() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("test_libre_hardware_monitor_connection") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async readLicenseFile() : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_license_file") };

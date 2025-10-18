@@ -549,13 +549,4 @@ pub mod commands {
       .open_path(path_str, None::<&str>)
       .map_err(|e| format!("Failed to open LICENSE file path: {}", e))
   }
-
-  #[tauri::command]
-  #[specta::specta]
-  pub async fn test_libre_hardware_monitor_connection(
-    state: tauri::State<'_, AppState>,
-  ) -> Result<(), String> {
-    let settings = state.settings.lock().unwrap().clone();
-    services::data_export_service::call_libre_hardware_monitor_api(&settings).await
-  }
 }
