@@ -110,7 +110,7 @@ export const DoughnutChart = ({
               : chartValue * 3.6;
           })()}
           innerRadius={50}
-          outerRadius={70}
+          outerRadius={60}
         >
           <PolarGrid
             gridType="circle"
