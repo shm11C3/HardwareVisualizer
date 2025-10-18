@@ -5,6 +5,8 @@ const defaultLHMSettings: Omit<LibreHardwareMonitorImportSettings, "enabled"> =
     host: "localhost",
     port: 8085,
     useHttps: false,
+    refreshInterval: 5,
+    timeout: 3000,
     basicAuthUsername: null,
     basicAuthPassword: null,
   };

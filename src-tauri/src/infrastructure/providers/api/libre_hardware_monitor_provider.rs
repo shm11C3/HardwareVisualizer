@@ -1,6 +1,7 @@
 use crate::models::libre_hardware_monitor_model::LibreHardwareMonitorNode;
 use crate::models::settings::LibreHardwareMonitorImportSettings;
 use reqwest::Client;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct LibreHardwareMonitorProvider {
@@ -40,6 +41,7 @@ impl LibreHardwareMonitorProvider {
     let base_url = format!("{}://{}:{}", protocol, settings.host, settings.port);
 
     let client = Client::builder()
+      .timeout(Duration::from_millis(settings.timeout as u64))
       .build()
       .map_err(|e| LibreHardwareMonitorError::ConnectionFailed(e.to_string()))?;
 
@@ -150,6 +152,8 @@ mod tests {
       host: "127.0.0.1".to_string(),
       port: 8085,
       use_https: false,
+      refresh_interval: 1000,
+      timeout: 5000,
       basic_auth_username: None,
       basic_auth_password: None,
     }

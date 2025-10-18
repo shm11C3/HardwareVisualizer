@@ -43,6 +43,8 @@ const settingsAtom = atom<ClientSettings>({
     host: "localhost",
     port: 8085,
     useHttps: false,
+    refreshInterval: 5,
+    timeout: 3000,
     basicAuthUsername: null,
     basicAuthPassword: null,
   },
