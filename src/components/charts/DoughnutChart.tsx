@@ -73,7 +73,7 @@ export const DoughnutChart = ({
       color: "hsl(var(--chart-2))",
     },
     temp: {
-      label: t("shared.temperature"),
+      label: t("shared.temperature.abbrev"),
       color: "hsl(var(--chart-3))",
     },
     clock: {
@@ -160,7 +160,7 @@ export const DoughnutChart = ({
                         width="80"
                         height="40"
                       >
-                        <div className="flex items-center justify-center dark:text-muted-foreground">
+                        <div className="flex items-center justify-center text-xs">
                           {dataTypeIcons[dataType]}
                           <span>{chartConfig[dataType].label}</span>
                         </div>

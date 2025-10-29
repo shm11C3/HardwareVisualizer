@@ -7,7 +7,10 @@
     "avgCpuUsage": "Avg CPU Usage",
     "memoryUsageValue": "Memory Usage",
     "avgMemoryUsageValue": "Avg Memory Usage",
-    "temperature": "Temperature",
+    "temperature": {
+      "": "Temperature",
+      "abbrev": "Temp"
+    },
     "name": "Name",
     "vendor": "Vendor",
     "coreCount": "Core Count",
