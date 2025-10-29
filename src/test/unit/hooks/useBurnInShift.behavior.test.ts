@@ -70,6 +70,10 @@ describe("useBurnInShift (Behavior)", () => {
         amplitudePx: [3, 7],
         driftDurationSec: 12,
         idleThresholdMs: null,
+        panelScale: null,
+        panelAspect: null,
+        roamAreaPercent: null,
+        keepWithinBounds: null,
       }),
     );
 
@@ -99,6 +103,10 @@ describe("useBurnInShift (Behavior)", () => {
         amplitudePx: [2, 2],
         idleThresholdMs: 100,
         driftDurationSec: null,
+        panelScale: null,
+        panelAspect: null,
+        roamAreaPercent: null,
+        keepWithinBounds: null,
       }),
     );
 

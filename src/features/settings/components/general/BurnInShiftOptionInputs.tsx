@@ -2,8 +2,17 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { BurnInShiftOptions } from "@/rspc/bindings";
+import type { BurnInShiftOptions, PanelAspect } from "@/rspc/bindings";
 
 export const BurnInShiftOptionInputs = () => {
   const { t } = useTranslation();
@@ -14,12 +23,16 @@ export const BurnInShiftOptionInputs = () => {
   const amplitudePxIdY = useId();
   const idleThresholdMsId = useId();
   const driftDurationSecId = useId();
+  const panelScaleId = useId();
+  const panelAspectId = useId();
+  const roamAreaPercentId = useId();
+  const keepWithinBoundsId = useId();
 
   const inputVariants = "grid w-full max-w-3xs items-center gap-3";
 
   const updateBurnInShiftOption = async (
     field: keyof BurnInShiftOptions,
-    value: number | [number, number] | null,
+    value: number | [number, number] | boolean | PanelAspect | null,
   ) => {
     const currentOptions = settings.burnInShiftOptions || {};
     const updatedOptions = { ...currentOptions, [field]: value };
@@ -132,6 +145,98 @@ export const BurnInShiftOptionInputs = () => {
           value={settings.burnInShiftOptions?.driftDurationSec ?? ""}
           onChange={(e) =>
             handleInputChange("driftDurationSec", e.target.value)
+          }
+        />
+      </div>
+
+      {/* Panel Scale */}
+      <div className={inputVariants}>
+        <Label htmlFor={panelScaleId}>
+          {t("pages.settings.general.burnInShift.override.options.panelScale")}
+        </Label>
+        <div className="flex items-center gap-4">
+          <Slider
+            id={panelScaleId}
+            min={50}
+            max={150}
+            step={5}
+            value={[settings.burnInShiftOptions?.panelScale ?? 100]}
+            onValueChange={(value) =>
+              updateBurnInShiftOption("panelScale", value[0])
+            }
+            className="flex-1"
+          />
+          <span className="w-12 text-center">
+            {settings.burnInShiftOptions?.panelScale ?? 100}%
+          </span>
+        </div>
+      </div>
+
+      {/* Panel Aspect */}
+      <div className={inputVariants}>
+        <Label htmlFor={panelAspectId}>
+          {t("pages.settings.general.burnInShift.override.options.panelAspect")}
+        </Label>
+        <Select
+          value={settings.burnInShiftOptions?.panelAspect ?? "auto"}
+          onValueChange={(value) =>
+            updateBurnInShiftOption("panelAspect", value as PanelAspect)
+          }
+        >
+          <SelectTrigger id={panelAspectId}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">
+              {t("pages.settings.general.burnInShift.panelAspect.auto")}
+            </SelectItem>
+            <SelectItem value="compact">
+              {t("pages.settings.general.burnInShift.panelAspect.compact")}
+            </SelectItem>
+            <SelectItem value="tall">
+              {t("pages.settings.general.burnInShift.panelAspect.tall")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Roam Area */}
+      <div className={inputVariants}>
+        <Label htmlFor={roamAreaPercentId}>
+          {t(
+            "pages.settings.general.burnInShift.override.options.roamAreaPercent",
+          )}
+        </Label>
+        <div className="flex items-center gap-4">
+          <Slider
+            id={roamAreaPercentId}
+            min={50}
+            max={100}
+            step={5}
+            value={[settings.burnInShiftOptions?.roamAreaPercent ?? 100]}
+            onValueChange={(value) =>
+              updateBurnInShiftOption("roamAreaPercent", value[0])
+            }
+            className="flex-1"
+          />
+          <span className="w-12 text-center">
+            {settings.burnInShiftOptions?.roamAreaPercent ?? 100}%
+          </span>
+        </div>
+      </div>
+
+      {/* Keep Within Bounds */}
+      <div className="flex w-full items-center justify-between space-x-4 py-2">
+        <Label htmlFor={keepWithinBoundsId}>
+          {t(
+            "pages.settings.general.burnInShift.override.options.keepWithinBounds",
+          )}
+        </Label>
+        <Switch
+          id={keepWithinBoundsId}
+          checked={settings.burnInShiftOptions?.keepWithinBounds ?? true}
+          onCheckedChange={(value) =>
+            updateBurnInShiftOption("keepWithinBounds", value)
           }
         />
       </div>

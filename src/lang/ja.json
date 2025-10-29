@@ -179,8 +179,17 @@
               "amplitudePxX": "シフト振幅 X (px)",
               "amplitudePxY": "シフト振幅 Y (px)",
               "idleThresholdMs": "アイドル判定時間 (ms)",
-              "driftDurationSec": "ドリフト周期 (sec)"
+              "driftDurationSec": "ドリフト周期 (sec)",
+              "panelScale": "パネルスケール (%)",
+              "panelAspect": "パネルのアスペクト比",
+              "roamAreaPercent": "移動範囲 (画面の%)",
+              "keepWithinBounds": "境界内に保持"
             }
+          },
+          "panelAspect": {
+            "auto": "自動",
+            "compact": "コンパクト",
+            "tall": "縦長"
           },
           "tooltip": {
             "jump": "アプリケーションウィンドウが指定した間隔でランダムにジャンプします。",

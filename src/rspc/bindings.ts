@@ -472,8 +472,25 @@ idleThresholdMs: number | null;
 /**
  * Drift cycle duration (sec)
  */
-driftDurationSec: number | null }
+driftDurationSec: number | null;
+/**
+ * Panel scale percentage (50-150)
+ */
+panelScale: number | null;
+/**
+ * Panel aspect ratio
+ */
+panelAspect: PanelAspect | null;
+/**
+ * Roam area as screen percentage (50-100)
+ */
+roamAreaPercent: number | null;
+/**
+ * Keep panel within bounds
+ */
+keepWithinBounds: boolean | null }
 export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive"
+export type PanelAspect = "auto" | "compact" | "tall"
 export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings; burnInShift: boolean; burnInShiftMode: BurnInShiftMode; burnInShiftPreset: BurnInShiftPreset; burnInShiftIdleOnly: boolean; burnInShiftOptions: BurnInShiftOptions | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"

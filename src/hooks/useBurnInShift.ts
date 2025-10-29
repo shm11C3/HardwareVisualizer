@@ -26,6 +26,10 @@ export const useBurnInShift = (
     amplitudePx,
     idleThresholdMs = 10_000,
     driftDurationSec,
+    panelScale = 100,
+    panelAspect = "auto",
+    roamAreaPercent = 100,
+    keepWithinBounds = true,
   } = opts || {};
 
   const { settings } = useSettingsAtom();
@@ -38,23 +42,65 @@ export const useBurnInShift = (
     const el = ref.current;
     if (!el || !settings.burnInShift || !enabled) return;
 
+    // Apply panel scale
+    const scale = (panelScale ?? 100) / 100;
+    el.style.setProperty("--panel-scale", scale.toString());
+    el.style.transform = `scale(${scale})`;
+    el.style.transformOrigin = "top left";
+
+    // Apply panel aspect ratio
+    if (panelAspect === "compact") {
+      el.style.maxWidth = "1200px";
+      el.style.aspectRatio = "16/9";
+    } else if (panelAspect === "tall") {
+      el.style.maxWidth = "800px";
+      el.style.aspectRatio = "9/16";
+    } else {
+      el.style.maxWidth = "";
+      el.style.aspectRatio = "";
+    }
+
+    // Calculate roam boundaries
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const roamFactor = (roamAreaPercent ?? 100) / 100;
+
+    // Calculate effective panel dimensions with scale
+    const panelRect = el.getBoundingClientRect();
+    const scaledWidth = panelRect.width * scale;
+    const scaledHeight = panelRect.height * scale;
+
+    // Calculate maximum shift to keep within bounds
+    const maxShiftX = keepWithinBounds
+      ? Math.max(0, (screenWidth * roamFactor - scaledWidth) / 2)
+      : (screenWidth * roamFactor) / 2;
+    const maxShiftY = keepWithinBounds
+      ? Math.max(0, (screenHeight * roamFactor - scaledHeight) / 2)
+      : (screenHeight * roamFactor) / 2;
+
     // Resolve preset values
     const p = PRESETS[settings.burnInShiftPreset];
     const amp = amplitudePx ?? [
-      randInt(p.ampPx[0], p.ampPx[1]),
-      randInt(p.ampPx[0], p.ampPx[1]),
+      Math.min(randInt(p.ampPx[0], p.ampPx[1]), maxShiftX),
+      Math.min(randInt(p.ampPx[0], p.ampPx[1]), maxShiftY),
     ];
     const interval = intervalMs ?? randInt(p.intervalMs[0], p.intervalMs[1]);
     const driftDuration = driftDurationSec ?? p.driftSec;
 
     // CSS vars for drift
     el.style.setProperty("--drift-duration", `${driftDuration}s`);
-    el.style.setProperty("--shift-x-start", `${-amp[0]}px`);
-    el.style.setProperty("--shift-x-mid", `${amp[0]}px`);
-    el.style.setProperty("--shift-x-end", `${-amp[0]}px`);
-    el.style.setProperty("--shift-y-start", `${-amp[1]}px`);
-    el.style.setProperty("--shift-y-mid", `${amp[1]}px`);
-    el.style.setProperty("--shift-y-end", `${-amp[1]}px`);
+    el.style.setProperty(
+      "--shift-x-start",
+      `${-Math.min(amp[0], maxShiftX)}px`,
+    );
+    el.style.setProperty("--shift-x-mid", `${Math.min(amp[0], maxShiftX)}px`);
+    el.style.setProperty("--shift-x-end", `${-Math.min(amp[0], maxShiftX)}px`);
+    el.style.setProperty(
+      "--shift-y-start",
+      `${-Math.min(amp[1], maxShiftY)}px`,
+    );
+    el.style.setProperty("--shift-y-mid", `${Math.min(amp[1], maxShiftY)}px`);
+    el.style.setProperty("--shift-y-end", `${-Math.min(amp[1], maxShiftY)}px`);
 
     // Idle detection
     const armIdle = () => {
@@ -80,8 +126,15 @@ export const useBurnInShift = (
     if (settings.burnInShiftMode === "jump") {
       const jump = () => {
         if (!isIdle.current) return;
-        const x = randInt(-amp[0], amp[0]);
-        const y = randInt(-amp[1], amp[1]);
+        let x = randInt(-amp[0], amp[0]);
+        let y = randInt(-amp[1], amp[1]);
+
+        // Clamp to bounds if enabled
+        if (keepWithinBounds) {
+          x = Math.max(-maxShiftX, Math.min(maxShiftX, x));
+          y = Math.max(-maxShiftY, Math.min(maxShiftY, y));
+        }
+
         el.style.setProperty("--shift-x", `${x}px`);
         el.style.setProperty("--shift-y", `${y}px`);
       };
@@ -102,6 +155,11 @@ export const useBurnInShift = (
         clearTimeout(idleTimer.current);
         idleTimer.current = null;
       }
+      // Reset styles
+      el.style.transform = "";
+      el.style.transformOrigin = "";
+      el.style.maxWidth = "";
+      el.style.aspectRatio = "";
     };
   }, [
     ref,
@@ -113,6 +171,10 @@ export const useBurnInShift = (
     amplitudePx,
     idleThresholdMs,
     driftDurationSec,
+    panelScale,
+    panelAspect,
+    roamAreaPercent,
+    keepWithinBounds,
     enabled,
   ]);
 };

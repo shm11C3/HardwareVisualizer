@@ -132,4 +132,12 @@ pub struct BurnInShiftOptions {
   idle_threshold_ms: Option<u32>,
   /// Drift cycle duration (sec)
   drift_duration_sec: Option<u32>,
+  /// Panel scale percentage (50-150)
+  panel_scale: Option<u8>,
+  /// Panel aspect ratio
+  panel_aspect: Option<enums::settings::PanelAspect>,
+  /// Roam area as screen percentage (50-100)
+  roam_area_percent: Option<u8>,
+  /// Keep panel within bounds
+  keep_within_bounds: Option<bool>,
 }

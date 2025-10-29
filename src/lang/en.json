@@ -179,8 +179,17 @@
               "amplitudePxX": "Shift Amplitude X (px)",
               "amplitudePxY": "Shift Amplitude Y (px)",
               "idleThresholdMs": "Idle Threshold (ms)",
-              "driftDurationSec": "Drift Duration (sec)"
+              "driftDurationSec": "Drift Duration (sec)",
+              "panelScale": "Panel Scale (%)",
+              "panelAspect": "Panel Aspect",
+              "roamAreaPercent": "Roam Area (% of screen)",
+              "keepWithinBounds": "Keep Within Bounds"
             }
+          },
+          "panelAspect": {
+            "auto": "Auto",
+            "compact": "Compact",
+            "tall": "Tall"
           },
           "tooltip": {
             "jump": "The app will shift its position at regular intervals to prevent screen burn-in.",

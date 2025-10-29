@@ -185,3 +185,11 @@ pub enum BurnInShiftPreset {
   Balanced,
   Aggressive,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Type, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PanelAspect {
+  Auto,
+  Compact,
+  Tall,
+}
