@@ -9,7 +9,6 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "tailwind-merge";
-import { is } from "zod/v4/locales";
 import {
   Dialog,
   DialogContent,
