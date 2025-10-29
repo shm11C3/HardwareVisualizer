@@ -92,7 +92,7 @@ export const GPUInfo = () => {
         className={cn(
           "flex justify-around",
           !isBreak("md") && targetTemperature
-            ? "lg-[100px] h-[150px] xl:h-[200px]"
+            ? "h-[150px] lg:h-[100px] xl:h-[200px]"
             : "h-[100px] xl:h-[200px]",
         )}
       >
