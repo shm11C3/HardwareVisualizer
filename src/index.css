@@ -100,6 +100,15 @@
 @utility burnin-root {
   overflow: hidden;
   --burnin-padding: 64px;
+
+  @media (max-width: 1023.98px) {
+    --burnin-padding: 32px;
+  }
+
+  @media (max-width: 639.98px) {
+    --burnin-padding: 8px;
+  }
+
   padding: var(--burnin-padding);
 }
 

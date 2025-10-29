@@ -1,10 +1,22 @@
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import { tv } from "tailwind-variants";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { chartConfig as charConst } from "@/features/hardware/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useWindowSize } from "@/hooks/useWindowSize";
 import type { ChartDataType } from "../../types/hardwareDataType";
+
+const miniLineChartVariant = tv({
+  base: "xl:w-[300px]",
+  variants: {
+    isBackground: {
+      true: "w-5/6 top-40 absolute opacity-50",
+      false: "w-[200px]",
+    },
+  },
+});
 
 export const MiniLineChart = memo(
   ({
@@ -16,6 +28,7 @@ export const MiniLineChart = memo(
   }) => {
     const { settings } = useSettingsAtom();
     const { t } = useTranslation();
+    const { isBreak } = useWindowSize();
 
     const chartConfig: Record<ChartDataType, { label: string; color: string }> =
       {
@@ -36,7 +49,7 @@ export const MiniLineChart = memo(
     const labels = Array(charConst.historyLengthSec).fill("");
 
     return (
-      <div className="w-[200px] xl:w-[300px]">
+      <div className={miniLineChartVariant({ isBackground: !isBreak("lg") })}>
         <SingleLineChart
           labels={labels}
           chartData={usage}
@@ -50,7 +63,7 @@ export const MiniLineChart = memo(
           lineGraphType={settings.lineGraphType}
           lineGraphShowLegend={false}
           dataKey={`${t("shared.usage")} (%)`}
-          height={160}
+          height={isBreak("xl") ? 160 : 100}
           width="stretch"
         />
       </div>

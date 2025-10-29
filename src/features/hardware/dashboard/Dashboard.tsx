@@ -116,7 +116,7 @@ export const Dashboard = () => {
           items={dashboardItemMap}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4">
             {dashboardItemMap
               .filter((key) => dashboardItemKeyToItems[key].component != null)
               .map((key) => (
@@ -156,7 +156,7 @@ const DataArea = ({
   className?: string;
 }) => {
   return (
-    <div className="p-4">
+    <div className="p-0 lg:p-4">
       {
         <div
           className={cn(
@@ -167,7 +167,9 @@ const DataArea = ({
           <div className="flex items-center pt-4 pb-2 pl-10">
             {icon && <div className="mr-2 mb-0.5">{icon}</div>}
             {title && (
-              <h3 className="align-middle font-bold text-xl">{title}</h3>
+              <h3 className="align-middle font-bold text-md lg:text-xl">
+                {title}
+              </h3>
             )}
           </div>
           <div className="px-4 pb-4">{children}</div>
