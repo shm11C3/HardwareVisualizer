@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap");
 @import "tailwindcss";
 
-@plugin 'tailwindcss-animate';
+@plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -382,8 +382,7 @@
 
   [data-theme="nebula"] {
     --background: oklch(20% 0.01 300);
-    --background-gradient:
-      radial-gradient(
+    --background-gradient: radial-gradient(
         circle at 20% 30%,
         oklch(35% 0.1 300 / 70%) 0%,
         transparent 60%
