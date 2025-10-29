@@ -5,7 +5,7 @@ import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { chartConfig as charConst } from "@/features/hardware/consts/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { useWindowsSize } from "@/hooks/useWindowSize";
+import { useWindowSize } from "@/hooks/useWindowSize";
 import type { ChartDataType } from "../../types/hardwareDataType";
 
 const miniLineChartVariant = tv({
@@ -28,7 +28,7 @@ export const MiniLineChart = memo(
   }) => {
     const { settings } = useSettingsAtom();
     const { t } = useTranslation();
-    const { isBreak } = useWindowsSize();
+    const { isBreak } = useWindowSize();
 
     const chartConfig: Record<ChartDataType, { label: string; color: string }> =
       {

@@ -28,7 +28,7 @@ import {
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { useWindowsSize } from "@/hooks/useWindowSize";
+import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
@@ -76,7 +76,7 @@ export const GPUInfo = () => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { isBreak } = useWindowsSize();
+  const { isBreak } = useWindowSize();
 
   const getTargetInfo = (data: NameValues) => {
     return data.find(

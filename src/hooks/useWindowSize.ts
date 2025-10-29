@@ -22,7 +22,7 @@ const getBreakpoint = (): BreakpointSize => {
   return "xs";
 };
 
-export const useWindowsSize = () => {
+export const useWindowSize = () => {
   const [breakpoint, setBreakpoint] = useState<BreakpointSize>(getBreakpoint());
 
   useEffect(() => {

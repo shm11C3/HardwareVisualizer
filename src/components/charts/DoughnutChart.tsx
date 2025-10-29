@@ -19,7 +19,7 @@ import { minOpacity } from "@/consts/style";
 import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings } from "@/features/settings/types/settingsType";
-import { useWindowsSize } from "@/hooks/useWindowSize";
+import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 
 type DoughnutChartProps =
@@ -60,7 +60,7 @@ export const DoughnutChart = ({
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { isBreak } = useWindowsSize();
+  const { isBreak } = useWindowSize();
 
   const isXl = isBreak("xl");
 
