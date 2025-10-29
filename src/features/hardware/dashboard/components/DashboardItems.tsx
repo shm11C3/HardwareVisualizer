@@ -28,6 +28,8 @@ import {
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useWindowsSize } from "@/hooks/useWindowSize";
+import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 import { MiniLineChart } from "./MiniLineChart";
@@ -41,7 +43,7 @@ export const CPUInfo = () => {
 
   return (
     <>
-      <div className="flex h-[200px] justify-around">
+      <div className="flex h-[100px] justify-around xl:h-[200px]">
         <DoughnutChart
           chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
@@ -74,6 +76,7 @@ export const GPUInfo = () => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
+  const { isBreak } = useWindowsSize();
 
   const getTargetInfo = (data: NameValues) => {
     return data.find(
@@ -85,13 +88,24 @@ export const GPUInfo = () => {
 
   return (
     <>
-      <div className="flex h-[200px] justify-around">
+      <div
+        className={cn(
+          "flex justify-around",
+          !isBreak("md") && targetTemperature
+            ? "lg-[100px] h-[150px] xl:h-[200px]"
+            : "h-[100px] xl:h-[200px]",
+        )}
+      >
         <DoughnutChart
           chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
           dataType={"usage"}
         />
         {targetTemperature && (
-          <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
+          <DoughnutChart
+            chartValue={targetTemperature}
+            dataType={"temp"}
+            className={!isBreak("md") ? "mt-12" : ""}
+          />
         )}
       </div>
 
@@ -155,7 +169,7 @@ export const MemoryInfo = () => {
 
   return (
     <>
-      <div className="flex h-[200px] justify-around">
+      <div className="flex h-[100px] justify-around xl:h-[200px]">
         {memoryCurrentUsage ? (
           <DoughnutChart
             chartValue={memoryCurrentUsage}

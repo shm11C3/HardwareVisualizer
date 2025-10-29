@@ -100,6 +100,15 @@
 @utility burnin-root {
   overflow: hidden;
   --burnin-padding: 64px;
+
+  @media (max-width: 1023.98px) {
+    --burnin-padding: 32px;
+  }
+
+  @media (max-width: 639.98px) {
+    --burnin-padding: 8px;
+  }
+
   padding: var(--burnin-padding);
 }
 
@@ -382,8 +391,7 @@
 
   [data-theme="nebula"] {
     --background: oklch(20% 0.01 300);
-    --background-gradient:
-      radial-gradient(
+    --background-gradient: radial-gradient(
         circle at 20% 30%,
         oklch(35% 0.1 300 / 70%) 0%,
         transparent 60%

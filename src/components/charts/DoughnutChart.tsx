@@ -19,6 +19,8 @@ import { minOpacity } from "@/consts/style";
 import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { Settings } from "@/features/settings/types/settingsType";
+import { useWindowsSize } from "@/hooks/useWindowSize";
+import { cn } from "@/lib/utils";
 
 type DoughnutChartProps =
   | {
@@ -52,9 +54,15 @@ export const DoughnutChart = ({
   dataType,
   unit,
   usagePercentage,
-}: DoughnutChartProps) => {
+  className,
+}: DoughnutChartProps & {
+  className?: string;
+}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
+  const { isBreak } = useWindowsSize();
+
+  const isXl = isBreak("xl");
 
   const chartConfig: Record<
     HardwareDataType,
@@ -94,7 +102,7 @@ export const DoughnutChart = ({
   return (
     <ChartContainer
       config={chartConfig}
-      className="aspect-square max-h-[200px]"
+      className={cn("aspect-square max-h-[100px] xl:max-h-[200px]", className)}
     >
       {chartData[0].value != null ? (
         <RadialBarChart
@@ -109,8 +117,8 @@ export const DoughnutChart = ({
               ? ((chartValue - 32) / 1.8) * 3.6 // 華氏から摂氏に換算し、100を最大値としてスケール
               : chartValue * 3.6;
           })()}
-          innerRadius={50}
-          outerRadius={60}
+          innerRadius={isXl ? 50 : 35}
+          outerRadius={isXl ? 60 : 45}
         >
           <PolarGrid
             gridType="circle"
@@ -126,7 +134,7 @@ export const DoughnutChart = ({
                     )
                   : 1,
             }}
-            polarRadius={[70, 60]}
+            polarRadius={isXl ? [70, 60] : [50, 42.5]}
           />
           <RadialBar dataKey="value" background cornerRadius={10} />
           <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
@@ -141,7 +149,7 @@ export const DoughnutChart = ({
                         y={viewBox.cy}
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        className="fill-foreground font-bold text-2xl"
+                        className="fill-foreground font-bold text-lg xl:text-2xl"
                       >
                         {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
                       </text>
