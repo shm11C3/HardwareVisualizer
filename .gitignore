@@ -26,3 +26,6 @@ licenses.json
 *.sw?
 .claude
 .mcp.json
+
+# Rust files
+target
