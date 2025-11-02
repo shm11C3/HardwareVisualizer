@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { minOpacity } from "@/consts/style";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import type { ProcessInfo } from "@/rspc/bindings";
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
@@ -118,6 +119,7 @@ export const ProcessesTable = () => {
             processes={sortedProcesses}
             sortConfig={sortConfig}
             requestSort={requestSort}
+            isTruncate
           />
         </div>
 
@@ -145,6 +147,7 @@ const InfoTable = ({
   sortConfig,
   requestSort,
   className,
+  isTruncate,
 }: {
   processes: ProcessInfo[];
   requestSort: (key: keyof ProcessInfo) => void;
@@ -153,6 +156,7 @@ const InfoTable = ({
     direction: "ascending" | "descending";
   } | null;
   className: string;
+  isTruncate?: boolean;
 }) => {
   const { t } = useTranslation();
 
@@ -165,7 +169,7 @@ const InfoTable = ({
     <ScrollArea className={twMerge("w-full overflow-auto", className)}>
       <table className="w-full text-left">
         <thead className="sticky top-[-1px] h-14 bg-card-non-transparent">
-          <tr className="border-gray-700 border-b">
+          <tr className="border-gray-700 border-b text-sm xl:text-base">
             <th
               className="cursor-pointer py-2 pr-4 dark:text-gray-400"
               onClick={() => requestSort("pid")}
@@ -218,9 +222,20 @@ const InfoTable = ({
         </thead>
         <tbody>
           {processes.map((process) => (
-            <tr key={process.pid} className="border-gray-700 border-b">
+            <tr
+              key={process.pid}
+              className="border-gray-700 border-b text-sm xl:text-base"
+            >
               <td className="py-2">{process.pid}</td>
-              <td className="py-2">{process.name}</td>
+              <td
+                className={cn(
+                  isTruncate
+                    ? "inline-block max-w-[150px] truncate px-2 py-2"
+                    : "py-2",
+                )}
+              >
+                {process.name}
+              </td>
               <td className="py-2">{process.cpuUsage}%</td>
               <td className="py-2">{process.memoryUsage} MB</td>
             </tr>

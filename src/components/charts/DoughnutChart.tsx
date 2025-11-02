@@ -73,7 +73,7 @@ export const DoughnutChart = ({
       color: "hsl(var(--chart-2))",
     },
     temp: {
-      label: t("shared.temperature"),
+      label: t("shared.temperature.abbrev"),
       color: "hsl(var(--chart-3))",
     },
     clock: {
@@ -155,14 +155,14 @@ export const DoughnutChart = ({
                       </text>
                       {/* ラベルとアイコンの表示 */}
                       <foreignObject
-                        x={(viewBox.cx || 0) - 42}
-                        y={(viewBox.cy || 0) + 20}
+                        x={(viewBox.cx || 0) - (isXl ? 42 : 38)}
+                        y={(viewBox.cy || 0) + (isXl ? 25 : 15)}
                         width="80"
                         height="40"
                       >
-                        <div className="flex items-center justify-center dark:text-muted-foreground">
+                        <div className="flex items-center justify-center text-xs">
                           {dataTypeIcons[dataType]}
-                          <span>{chartConfig[dataType].label}</span>
+                          {isXl && <span>{chartConfig[dataType].label}</span>}
                         </div>
                       </foreignObject>
                     </g>

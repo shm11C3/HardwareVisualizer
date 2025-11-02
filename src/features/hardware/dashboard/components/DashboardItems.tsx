@@ -285,10 +285,9 @@ export const StorageDataInfo = () => {
             sortedStorage.map((storage) => {
               return (
                 <div key={storage.name} className="mt-4 ml-2">
-                  <h4 className="font-bold text-md">
+                  <h4 className="font-bold text-sm md:text-md">
                     {storage.name}
-                    <span className="ml-2 font-normal text-gray-500 text-sm dark:text-gray-400">
-                      {" "}
+                    <span className="ml-2 font-normal text-gray-500 text-xs md:text-sm dark:text-gray-400">
                       ({storage.size} {storage.sizeUnit})
                     </span>
                   </h4>
@@ -358,16 +357,18 @@ export const NetworkInfo = () => {
               <AccordionItem value="item-1" className="border-none">
                 <AccordionTrigger>
                   <div className="flex w-full items-center justify-between">
-                    <p>{network.description ?? "No description"}</p>
+                    <p className="text-xs md:text-sm xl:text-base">
+                      {network.description ?? "No description"}
+                    </p>
                     {/**  この部分にネットワーク使用量を表示 */}
-                    <p className="mr-2 w-24 text-left text-gray-500 text-sm dark:text-gray-400">
+                    <p className="mr-2 w-24 text-left text-gray-500 text-xs lg:text-sm dark:text-gray-400">
                       {network.ipv4[0] ?? "No IP Address"}
                     </p>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <table className="w-full text-left text-base">
-                    <tbody>
+                    <tbody className="text-sm xl:text-base">
                       <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.macAddress")}
@@ -413,7 +414,9 @@ export const NetworkInfo = () => {
                           </th>
                           <td className="py-2">
                             {network.ipv6.map((ip) => (
-                              <p key={ip}>{ip}</p>
+                              <p className="text-xs xl:text-base" key={ip}>
+                                {ip}
+                              </p>
                             ))}
                           </td>
                         </tr>
