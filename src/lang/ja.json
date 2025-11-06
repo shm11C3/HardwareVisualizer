@@ -9,7 +9,7 @@
     "memoryUsageValue": "メモリ使用量",
     "avgMemoryUsageValue": "平均メモリ使用量",
     "temperature": {
-      "": "温度",
+      "full": "温度",
       "abbrev": "温度"
     },
     "name": "名前",

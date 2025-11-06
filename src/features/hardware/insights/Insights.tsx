@@ -418,10 +418,10 @@ const GpuChartArea = (data: {
 
   const dataType: Record<
     "temp" | "usage" | "dedicatedMemory",
-    "usage" | "temperature" | "memorySizeDedicatedUsage"
+    "usage" | "temperature.full" | "memorySizeDedicatedUsage"
   > = {
     usage: "usage",
-    temp: "temperature",
+    temp: "temperature.full",
     dedicatedMemory: "memorySizeDedicatedUsage",
   };
 
