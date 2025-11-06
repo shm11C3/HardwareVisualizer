@@ -307,6 +307,7 @@ jobs:
       - test-build
       - lint-frontend
       - test-frontend
+      - build-frontend
       - license-check-npm
       - license-check-cargo
     permissions:
@@ -325,6 +326,7 @@ jobs:
       RES_TEST_BUILD: ${{ needs.test-build.result }}
       RES_LINT_FRONTEND: ${{ needs.lint-frontend.result }}
       RES_TEST_FRONTEND: ${{ needs.test-frontend.result }}
+      RES_BUILD_FRONTEND: ${{ needs.build-frontend.result }}
       RES_LICENSE_NPM: ${{ needs.license-check-npm.result }}
       RES_LICENSE_CARGO: ${{ needs.license-check-cargo.result }}
     steps:
@@ -335,6 +337,7 @@ jobs:
           echo "test-build:        $RES_TEST_BUILD"
           echo "lint-frontend:     $RES_LINT_FRONTEND"
           echo "test-frontend:     $RES_TEST_FRONTEND"
+          echo "build-frontend:    $RES_BUILD_FRONTEND"
           echo "license-check-npm: $RES_LICENSE_NPM"
           echo "license-cargo:     $RES_LICENSE_CARGO"
 
@@ -370,6 +373,7 @@ jobs:
 
           must_be "$FRONTEND_CHANGED"     "$RES_LINT_FRONTEND"  "lint-frontend"
           must_be "$FRONTEND_CHANGED"     "$RES_TEST_FRONTEND"  "test-frontend"
+          must_be "$FRONTEND_CHANGED"     "$RES_BUILD_FRONTEND" "build-frontend"
 
           # License checks run only on PR with dependency changes
           # For push events, they should be skipped regardless of dependency changes
