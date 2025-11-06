@@ -8,7 +8,7 @@
     "memoryUsageValue": "Memory Usage",
     "avgMemoryUsageValue": "Avg Memory Usage",
     "temperature": {
-      "": "Temperature",
+      "full": "Temperature",
       "abbrev": "Temp"
     },
     "name": "Name",

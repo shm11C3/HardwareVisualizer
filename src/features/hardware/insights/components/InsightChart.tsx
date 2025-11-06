@@ -158,7 +158,7 @@ export const GpuInsightChart = ({
         dataKey={
           {
             usage: `GPU ${t("shared.usage")} (%)`,
-            temp: `GPU ${t("shared.temperature.")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`,
+            temp: `GPU ${t("shared.temperature.full")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`,
             dedicatedMemory: `${t("shared.memorySizeDedicatedUsage")} (GB)`,
           }[dataType]
         }
