@@ -4626,7 +4626,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@0.546.0
+## lucide-react@0.552.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -4848,7 +4848,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@16.1.4
+## react-i18next@16.2.3
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -5354,7 +5354,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwindcss@4.1.15
+## tailwindcss@4.1.16
 
 - License: MIT
 - Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
