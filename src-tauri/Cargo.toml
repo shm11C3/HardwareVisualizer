@@ -52,7 +52,7 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
 chrono = "0.4.42"
 rust_decimal = "1.39.0"
 tauri-plugin-dialog = "2.4.0"
-tauri-plugin-store = "2.4.0"
+tauri-plugin-store = "2.4.1"
 base64 = "0.22"
 image = { version = "0.25.8", default-features = false, features = ["png"] }
 regex = "1.12.2"
