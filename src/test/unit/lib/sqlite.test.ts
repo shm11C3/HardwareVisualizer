@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Will be assigned per test before importing the module under test
-let mockLoad: ReturnType<typeof vi.fn>;
+let mockLoad: ReturnType<
+  typeof vi.fn<
+    (...args: unknown[]) => Promise<{
+      select: ReturnType<typeof vi.fn>;
+      execute: ReturnType<typeof vi.fn>;
+    }>
+  >
+>;
 
 // Mock the Tauri SQL plugin so we can control DB behaviors
 vi.mock("@tauri-apps/plugin-sql", () => {

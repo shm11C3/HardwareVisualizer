@@ -1,5 +1,7 @@
 # HardwareVisualizer
 
+[English](README.md) | [日本語](docs/README.ja.md)
+
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
@@ -13,13 +15,33 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 
 Web: <https://hardviz.com/>
 
+> [!NOTE]
+> ## Official downloads & security notice
+> HardwareVisualizer is officially distributed **only** through the channels below:
+>
+> - GitHub Releases: https://github.com/shm11C3/HardwareVisualizer/releases
+> - Official website: https://hardviz.com/
+>
+> Any other distribution (e.g. third-party mirrors or listings on download sites such as
+> SourceForge) is **not affiliated** with this project.
+>
+> In particular, the SourceForge project named `Hardware Visualizer`
+> (`https://sourceforge.net/projects/hardware-visualizer/`) was created without my
+> involvement. I cannot verify the authenticity or safety of the ZIP archives
+> published there. Use them at your own risk.
+
 ## Table of Contents
 
 - [HardwareVisualizer](#hardwarevisualizer)
+  - [Official downloads \& security notice](#official-downloads--security-notice)
   - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Supported OS](#supported-os)
   - [Quick Start (End Users)](#quick-start-end-users)
+    - [Download](#download)
+    - [Windows Installation](#windows-installation)
+    - [Linux Installation](#linux-installation)
+    - [First-time Setup](#first-time-setup)
   - [Screenshots](#screenshots)
     - [Dashboard](#dashboard)
     - [Usage Graph](#usage-graph)
@@ -38,8 +60,6 @@ Web: <https://hardviz.com/>
     - [Bug Report](#bug-report)
     - [Feature Request](#feature-request)
   - [FAQ](#faq)
-  - [Tips](#tips)
-    - [Launching the app by Linux command line](#launching-the-app-by-linux-command-line)
   - [License](#license)
 
 ## Features
@@ -68,10 +88,54 @@ Web: <https://hardviz.com/>
 
 ## Quick Start (End Users)
 
-1. Download installer from Website
-2. Launch app
-3. (Linux) If some metrics missing → restart via `sudo hardware-visualizer`
-4. Open Settings → adjust theme & polling intervals
+### Download
+
+Choose your platform and download the latest installer:
+
+- **Official Website**: [hardviz.com/#download](https://hardviz.com/#download)
+- **GitHub Releases**: [Latest Release](https://github.com/shm11C3/HardwareVisualizer/releases/latest) > Assets section
+
+### Windows Installation
+
+1. Download `HardwareVisualizer_x.x.x_x64-setup_windows.exe` or `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` from the download page
+2. Run the installer (`.exe` or `.msi` file)
+3. Follow the installation wizard
+4. Launch **HardwareVisualizer** from Start Menu or Desktop shortcut
+
+> [!NOTE]
+> No additional permissions required on Windows
+
+### Linux Installation
+
+1. Download `hardware-visualizer_x.x.x_amd64.deb` from the download page
+2. Install via package manager:
+
+   ```bash
+   sudo dpkg -i hardware-visualizer_*.deb
+   sudo apt-get install -f  # Install dependencies if needed
+   ```
+
+3. Launch from application menu or terminal:
+
+   ```bash
+   hardware-visualizer
+   ```
+
+> [!TIP]
+> ### Missing hardware data?  
+> Some metrics require elevated privileges. Restart with sudo for full hardware access:
+>
+> ```bash
+> sudo hardware-visualizer
+> ```
+
+### First-time Setup
+
+After launching the app:
+
+1. Navigate to **Settings** (⚙️ icon in sidebar)
+2. Choose your preferred **theme** and **language**
+3. (Optional) Set a custom **background image**
 
 ## Screenshots
 
@@ -205,22 +269,6 @@ Access to privileged hardware interfaces for sensors.
 
 **Q: NVIDIA only historic GPU charts?**  
 Vendor APIs differ; expansion planned.
-
-## Tips
-
-### Launching the app by Linux command line
-
-You can launch the app by running the following command in the terminal:
-
-```bash
-sudo hardware-visualizer
-```
-
-> [!NOTE]
-> 🔒 sudo is required to access certain system information such as CPU, memory, or GPU stats.
-
-This works on both native Linux and WSL (Windows Subsystem for Linux) with GUI support (WSLg).
-If installed correctly, a Tauri window will open on execution.
 
 ## License
 
