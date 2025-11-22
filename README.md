@@ -1,5 +1,7 @@
 # HardwareVisualizer
 
+[English](README.md) | [日本語](docs/README.ja.md)
+
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
@@ -17,22 +19,22 @@ Web: <https://hardviz.com/>
 
 > [!NOTE]
 > HardwareVisualizer is officially distributed **only** through the channels below:
-> 
+>
 > - GitHub Releases: https://github.com/shm11C3/HardwareVisualizer/releases
 > - Official website: https://hardviz.com/
-> 
+>
 > Any other distribution (e.g. third-party mirrors or listings on download sites such as
 > SourceForge) is **not affiliated** with this project.
-> 
+>
 > In particular, the SourceForge project named `Hardware Visualizer`
 > (`https://sourceforge.net/projects/hardware-visualizer/`) was created without my
 > involvement. I cannot verify the authenticity or safety of the ZIP archives
 > published there. Use them at your own risk.
 
-
 ## Table of Contents
 
 - [HardwareVisualizer](#hardwarevisualizer)
+  - [Official downloads \& security notice](#official-downloads--security-notice)
   - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Supported OS](#supported-os)
