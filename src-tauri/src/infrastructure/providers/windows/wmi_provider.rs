@@ -10,7 +10,7 @@ use std::error::Error;
 use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
-use wmi::{COMLibrary, WMIConnection};
+use wmi::WMIConnection;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -213,9 +213,7 @@ where
   // 別スレッドを起動してWMIクエリを実行
   thread::spawn(move || {
     let result = (|| {
-      let com_con = COMLibrary::new()
-        .map_err(|e| format!("Failed to initialize COM Library: {e:?}"))?;
-      let wmi_con = WMIConnection::new(com_con)
+      let wmi_con = WMIConnection::new()
         .map_err(|e| format!("Failed to create WMI connection: {e:?}"))?;
 
       // WMIクエリを実行してメモリ情報を取得
