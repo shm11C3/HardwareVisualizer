@@ -12,246 +12,248 @@ on:
       - develop
       - develop-v*
 
-# [TODO] セットアップの処理を共通化する
 jobs:
   #
-  # Lint Frontend
+  # Checks to see what changed
   #
-  lint-frontend:
+  change-detection:
     permissions:
       contents: read
-
     runs-on: ubuntu-latest
-
+    outputs:
+      frontend-changed: ${{ steps.changes.outputs.frontend }}
+      backend-changed: ${{ steps.changes.outputs.backend }}
+      frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
+      backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v4
+      - name: Check changed files
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: check front end Lint
-        run: npm run lint:ci
+          filters: |
+            frontend:
+              - 'src/**'
+              - 'package*.json'
+              - 'vite.config.ts'
+              - 'tsconfig*.json'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
+            backend:
+              - 'src-tauri/**'
+              - 'Cargo.*'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
+            frontend-deps:
+              - 'package*.json'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
+            backend-deps:
+              - 'Cargo.*'
+              - '.github/workflows/**'
+              - '.github/scripts/**'
 
   #
-  # Lint Backend
+  # Backend lint and clippy
   #
   lint-backend:
+    needs: change-detection
+    if: needs.change-detection.outputs.backend-changed == 'true'
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: "windows-latest"
-            args: ""
-          - platform: "ubuntu-22.04"
-            args: ""
-
+        platform: ["windows-latest", "ubuntu-22.04"]
     runs-on: ${{ matrix.platform }}
-
     steps:
-      - name: Install Linux build dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev
-
-      - name: Set git to use LF
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
 
-      - name: check Rust Lint
+      - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 
-      - name: check Rust Clippy
+      - name: Check Rust clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
   #
-  # Testing Backend
+  # Backend tests
   #
-  unit-test-backend:
+  test-backend:
+    needs: change-detection
+    if: needs.change-detection.outputs.backend-changed == 'true'
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: "windows-latest"
-            args: ""
-          - platform: "ubuntu-22.04"
-            args: ""
-
+        platform: ["windows-latest", "ubuntu-22.04"]
     runs-on: ${{ matrix.platform }}
-
     steps:
-      - name: Install Linux build dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev
-
-      - name: Set git to use LF
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          components: ""
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Testing Tauri Backend
+      - name: Run backend tests
         run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
 
   #
-  # Test Build Frontend
+  # Build test
   #
-  test-build-frontend:
+  test-build:
+    needs: change-detection
+    # When updating npm packages related to tauri, build errors may occur.
+    # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
+    if: needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
-
-    runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["windows-latest", "ubuntu-22.04"]
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v4
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          extra-packages: "libfuse2 libappindicator3-dev patchelf"
+
+      - name: Fix linuxdeploy permissions
+        if: matrix.platform == 'ubuntu-22.04'
+        run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
+
+      - name: Unset problematic env vars
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          unset GTK_PATH
+          unset LD_LIBRARY_PATH
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: ./.github/actions/setup-node
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          node-version: lts/*
+          components: ""
 
-      - name: Install frontend dependencies
-        run: npm ci
+      - name: Optimize Windows build environment
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
 
-      - name: check frontend build
-        run: npm run build
+      - name: Build with Tauri (CI optimized for PR)
+        if: github.event_name == 'pull_request'
+        uses: tauri-apps/tauri-action@3b50ac4d4512105f96edbaa78a6e2f9392805589 # v0.5.24
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: -- --profile ci
+
+      - name: Build with Tauri (Release profile for push)
+        if: github.event_name != 'pull_request'
+        uses: tauri-apps/tauri-action@3b50ac4d4512105f96edbaa78a6e2f9392805589 # v0.5.24
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #
-  # Test Frontend
+  # Frontend Lint
   #
-  unit-test-frontend:
+  lint-frontend:
+    needs: change-detection
+    if: needs.change-detection.outputs.frontend-changed == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Frontend lint
+        run: npm run lint:ci
+
+  #
+  # Frontend tests
+  #
+  test-frontend:
+    needs: change-detection
+    if: needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
-
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
       - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
+        uses: ./.github/actions/setup-node
 
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Unit Testing Frontend
+      - name: Run frontend tests with coverage
         run: npm run test:unit-cov
 
-      - name: "Report Coverage"
-        uses: davelosert/vitest-coverage-report-action@v2
+      - name: Report coverage
+        uses: davelosert/vitest-coverage-report-action@8ab049ff5a2c6e78f78af446329379b318544a1a # v2.8.3
         with:
           json-summary-path: coverage/coverage-summary.json
 
-  license-check-notice-npm:
+  #
+  # Frontend Build
+  #
+  build-frontend:
+    needs: change-detection
+    if: needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
-
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Run frontend build
+        run: npm run build
+
+  #
+  # License checks (only on PR)
+  #
+  license-check-npm:
+    needs: change-detection
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.frontend-deps-changed == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
-      - name: Install frontend dependencies
-        run: npm ci
+        uses: ./.github/actions/setup-node
 
       - name: Generate licenses.json
         run: npx license-checker --production --json > licenses.json
@@ -262,48 +264,28 @@ jobs:
       - name: Extract Apache NOTICE
         run: node --experimental-strip-types .github/scripts/extract-apache-notices.ts licenses.json notices
 
-  license-check-notice-cargo:
+  license-check-cargo:
+    needs: change-detection
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.backend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: "windows-latest"
-            args: ""
-          - platform: "ubuntu-22.04"
-            args: ""
-
+        platform: ["windows-latest", "ubuntu-22.04"]
     runs-on: ${{ matrix.platform }}
-
     steps:
-      - name: Install Linux build dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev
-
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
 
       - name: Install cargo-deny
         run: cargo install cargo-deny
@@ -311,3 +293,96 @@ jobs:
       - name: Check Rust licenses
         working-directory: src-tauri
         run: cargo deny check licenses
+
+  #
+  # Final merge gate: Strict checks for required jobs = success, unnecessary jobs = skipped
+  #
+  merge-gate:
+    name: Merge Gate
+    if: ${{ always() }}
+    needs:
+      - change-detection
+      - lint-backend
+      - test-backend
+      - test-build
+      - lint-frontend
+      - test-frontend
+      - build-frontend
+      - license-check-npm
+      - license-check-cargo
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    env:
+      # Change detection outputs
+      BACKEND_CHANGED: ${{ needs.change-detection.outputs.backend-changed }}
+      FRONTEND_CHANGED: ${{ needs.change-detection.outputs.frontend-changed }}
+      BACKEND_DEPS_CHANGED: ${{ needs.change-detection.outputs.backend-deps-changed }}
+      FRONTEND_DEPS_CHANGED: ${{ needs.change-detection.outputs.frontend-deps-changed }}
+
+      # Job results (success/failure/cancelled/skipped/timed_out etc.)
+      RES_LINT_BACKEND: ${{ needs.lint-backend.result }}
+      RES_TEST_BACKEND: ${{ needs.test-backend.result }}
+      RES_TEST_BUILD: ${{ needs.test-build.result }}
+      RES_LINT_FRONTEND: ${{ needs.lint-frontend.result }}
+      RES_TEST_FRONTEND: ${{ needs.test-frontend.result }}
+      RES_BUILD_FRONTEND: ${{ needs.build-frontend.result }}
+      RES_LICENSE_NPM: ${{ needs.license-check-npm.result }}
+      RES_LICENSE_CARGO: ${{ needs.license-check-cargo.result }}
+    steps:
+      - name: Print matrix results (debug)
+        run: |
+          echo "lint-backend:      $RES_LINT_BACKEND"
+          echo "test-backend:      $RES_TEST_BACKEND"
+          echo "test-build:        $RES_TEST_BUILD"
+          echo "lint-frontend:     $RES_LINT_FRONTEND"
+          echo "test-frontend:     $RES_TEST_FRONTEND"
+          echo "build-frontend:    $RES_BUILD_FRONTEND"
+          echo "license-check-npm: $RES_LICENSE_NPM"
+          echo "license-cargo:     $RES_LICENSE_CARGO"
+
+      - name: Enforce dynamic required checks
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$1"; exit 1; }
+
+          # helper: require success if needed, skipped if not needed
+          must_be() {
+            local when="$1"  # "true" or "false"
+            local result="$2"
+            local name="$3"
+            if [ "$when" = "true" ]; then
+              [ "$result" = "success" ] || fail "$name must be success when required, but was '$result'"
+            else
+              # Strictly require skipped when not needed (don't allow cancelled/neutral)
+              [ "$result" = "skipped" ] || fail "$name must be skipped when not required, but was '$result'"
+            fi
+          }
+
+          # Apply change-based rules
+          must_be "$BACKEND_CHANGED"      "$RES_LINT_BACKEND"   "lint-backend"
+          must_be "$BACKEND_CHANGED"      "$RES_TEST_BACKEND"   "test-backend"
+
+          # test-build is required when backend changed OR frontend deps changed
+          if [ "$BACKEND_CHANGED" = "true" ] || [ "$FRONTEND_DEPS_CHANGED" = "true" ]; then
+            [ "$RES_TEST_BUILD" = "success" ] || fail "test-build must be success when backend changed or frontend deps changed, but was '$RES_TEST_BUILD'"
+          else
+            [ "$RES_TEST_BUILD" = "skipped" ] || fail "test-build must be skipped when not required, but was '$RES_TEST_BUILD'"
+          fi
+
+          must_be "$FRONTEND_CHANGED"     "$RES_LINT_FRONTEND"  "lint-frontend"
+          must_be "$FRONTEND_CHANGED"     "$RES_TEST_FRONTEND"  "test-frontend"
+          must_be "$FRONTEND_CHANGED"     "$RES_BUILD_FRONTEND" "build-frontend"
+
+          # License checks run only on PR with dependency changes
+          # For push events, they should be skipped regardless of dependency changes
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            must_be "$FRONTEND_DEPS_CHANGED" "$RES_LICENSE_NPM"   "license-check-npm"
+            must_be "$BACKEND_DEPS_CHANGED"  "$RES_LICENSE_CARGO" "license-check-cargo"
+          else
+            [ "$RES_LICENSE_NPM" = "skipped" ] || fail "license-check-npm must be skipped on push events, but was '$RES_LICENSE_NPM'"
+            [ "$RES_LICENSE_CARGO" = "skipped" ] || fail "license-check-cargo must be skipped on push events, but was '$RES_LICENSE_CARGO'"
+          fi
+
+          echo "All dynamic checks satisfied."

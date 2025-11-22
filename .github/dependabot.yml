@@ -9,14 +9,36 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 20
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 5
+    open-pull-requests-limit: 40
+    assignees:
+      - "shm11C3"
+
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 20
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 5
+    open-pull-requests-limit: 40
+    assignees:
+      - "shm11C3"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      # Check for updates to GitHub Actions every week
       interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 5
+    assignees:
+      - "shm11C3"

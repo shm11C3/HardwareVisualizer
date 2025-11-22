@@ -13,7 +13,7 @@ mod tests {
     let expected = models::settings::Settings {
       version: utils::tauri::get_app_version(&utils::tauri::get_config()),
       language: language_service::get_default_language(),
-      theme: enums::settings::Theme::Dark,
+      theme: enums::settings::Theme::System,
       display_targets: vec![
         hardware::HardwareType::Cpu,
         hardware::HardwareType::Memory,

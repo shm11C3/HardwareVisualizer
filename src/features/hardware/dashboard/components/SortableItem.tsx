@@ -23,7 +23,7 @@ export const SortableItem = ({
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-9.5 left-8 z-10 cursor-grab"
+        className="absolute top-5 left-4 z-10 cursor-grab lg:top-9.5 lg:left-8"
       >
         <GripVertical size={16} />
       </div>

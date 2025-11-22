@@ -4,14 +4,7 @@ use crate::models::hardware::MemoryInfo;
 use crate::platform::linux;
 use crate::utils;
 use crate::{log_internal, log_warn};
-use serde::{Deserialize, Serialize};
 use std;
-
-#[derive(Serialize, Deserialize)]
-struct MemoryInfoWithMeta {
-  pub timestamp: u64, // UNIX time millis
-  pub data: models::hardware::MemoryInfo,
-}
 
 pub fn get_memory_info() -> std::pin::Pin<
   Box<dyn std::future::Future<Output = Result<MemoryInfo, String>> + Send + 'static>,

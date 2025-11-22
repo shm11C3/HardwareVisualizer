@@ -2,13 +2,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface FakeStore {
-  // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   has: (key: string) => Promise<boolean>;
-  // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
-  get: (key: string) => Promise<any>;
-  // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
-  set: (key: string, value: any) => Promise<void>;
+  get: <T = unknown>(key: string) => Promise<T | undefined>;
+  set: <T>(key: string, value: T) => Promise<void>;
   save: () => Promise<void>;
 }
 
@@ -30,9 +27,12 @@ describe("useTauriStore", () => {
     fakeStore = {
       data: {},
       has: vi.fn((key: string) => Promise.resolve(key in fakeStore.data)),
-      get: vi.fn((key: string) => Promise.resolve(fakeStore.data[key])),
-      // biome-ignore lint/suspicious/noExplicitAny: using any for test flexibility
-      set: vi.fn((key: string, value: any) => {
+      get: vi
+        .fn()
+        .mockImplementation(<T>(key: string) =>
+          Promise.resolve(fakeStore.data[key] as T | undefined),
+        ) as <T = unknown>(key: string) => Promise<T | undefined>,
+      set: vi.fn(<T>(key: string, value: T) => {
         fakeStore.data[key] = value;
         return Promise.resolve();
       }),

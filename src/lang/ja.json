@@ -8,7 +8,10 @@
     "memoryUsage": "メモリ使用率",
     "memoryUsageValue": "メモリ使用量",
     "avgMemoryUsageValue": "平均メモリ使用量",
-    "temperature": "温度",
+    "temperature": {
+      "full": "温度",
+      "abbrev": "温度"
+    },
     "name": "名前",
     "vendor": "ベンダー",
     "coreCount": "コア数",
@@ -131,6 +134,7 @@
         "language": "言語",
         "colorMode": {
           "name": "カラーモード",
+          "system": "システムの既定",
           "light": "ライト",
           "dark": "ダーク",
           "darkPlus": "Dark+",

@@ -28,6 +28,8 @@ import {
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useWindowSize } from "@/hooks/useWindowSize";
+import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 import { MiniLineChart } from "./MiniLineChart";
@@ -41,7 +43,7 @@ export const CPUInfo = () => {
 
   return (
     <>
-      <div className="flex h-[200px] justify-around">
+      <div className="flex h-[100px] justify-around xl:h-[200px]">
         <DoughnutChart
           chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
@@ -74,6 +76,7 @@ export const GPUInfo = () => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
+  const { isBreak } = useWindowSize();
 
   const getTargetInfo = (data: NameValues) => {
     return data.find(
@@ -85,13 +88,24 @@ export const GPUInfo = () => {
 
   return (
     <>
-      <div className="flex h-[200px] justify-around">
+      <div
+        className={cn(
+          "flex justify-around",
+          !isBreak("md") && targetTemperature
+            ? "h-[150px] lg:h-[100px] xl:h-[200px]"
+            : "h-[100px] xl:h-[200px]",
+        )}
+      >
         <DoughnutChart
           chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
           dataType={"usage"}
         />
         {targetTemperature && (
-          <DoughnutChart chartValue={targetTemperature} dataType={"temp"} />
+          <DoughnutChart
+            chartValue={targetTemperature}
+            dataType={"temp"}
+            className={!isBreak("md") ? "mt-12" : ""}
+          />
         )}
       </div>
 
@@ -155,7 +169,7 @@ export const MemoryInfo = () => {
 
   return (
     <>
-      <div className="flex h-[200px] justify-around">
+      <div className="flex h-[100px] justify-around xl:h-[200px]">
         {memoryCurrentUsage ? (
           <DoughnutChart
             chartValue={memoryCurrentUsage}
@@ -238,8 +252,6 @@ export const StorageDataInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
 
-  // TODO ストレージの総量・総使用量をグラフ化する
-
   // ドライブ名でソート
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -273,10 +285,9 @@ export const StorageDataInfo = () => {
             sortedStorage.map((storage) => {
               return (
                 <div key={storage.name} className="mt-4 ml-2">
-                  <h4 className="font-bold text-md">
+                  <h4 className="font-bold text-sm md:text-md">
                     {storage.name}
-                    <span className="ml-2 font-normal text-gray-500 text-sm dark:text-gray-400">
-                      {" "}
+                    <span className="ml-2 font-normal text-gray-500 text-xs md:text-sm dark:text-gray-400">
                       ({storage.size} {storage.sizeUnit})
                     </span>
                   </h4>
@@ -346,16 +357,18 @@ export const NetworkInfo = () => {
               <AccordionItem value="item-1" className="border-none">
                 <AccordionTrigger>
                   <div className="flex w-full items-center justify-between">
-                    <p>{network.description ?? "No description"}</p>
+                    <p className="text-xs md:text-sm xl:text-base">
+                      {network.description ?? "No description"}
+                    </p>
                     {/**  この部分にネットワーク使用量を表示 */}
-                    <p className="mr-2 w-24 text-left text-gray-500 text-sm dark:text-gray-400">
+                    <p className="mr-2 w-24 text-left text-gray-500 text-xs lg:text-sm dark:text-gray-400">
                       {network.ipv4[0] ?? "No IP Address"}
                     </p>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <table className="w-full text-left text-base">
-                    <tbody>
+                    <tbody className="text-sm xl:text-base">
                       <tr>
                         <th className="py-2 pr-4 dark:text-gray-400">
                           {t("shared.macAddress")}
@@ -401,7 +414,9 @@ export const NetworkInfo = () => {
                           </th>
                           <td className="py-2">
                             {network.ipv6.map((ip) => (
-                              <p key={ip}>{ip}</p>
+                              <p className="text-xs xl:text-base" key={ip}>
+                                {ip}
+                              </p>
                             ))}
                           </td>
                         </tr>

@@ -115,7 +115,6 @@ pub async fn query_gpu_usage_by_device_and_engine(
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-#[allow(dead_code)] // TODO 後で外す
 struct NetworkAdapterConfiguration {
   description: Option<String>,
   #[serde(rename = "MACAddress")]

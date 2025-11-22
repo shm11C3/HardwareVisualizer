@@ -10,6 +10,7 @@ import {
 import { type JSX, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
+import { prefetchScreen } from "@/lazyScreens";
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
 import { useMenu } from "./hooks/useMenu";
@@ -111,6 +112,8 @@ const MenuItem = memo(
             type === "settings" ? "" : "p-2",
           )}
           onClick={() => handleMenuClick(type)}
+          onMouseEnter={() => prefetchScreen(type)}
+          onFocus={() => prefetchScreen(type)}
           aria-label={`${menuTitles[type]} tab`}
           aria-selected={selected}
           role="tab"
@@ -154,6 +157,8 @@ const ClosedSideMenu = ({
           type === "settings" ? "" : "p-2",
         )}
         onClick={() => handleMenuClick(type)}
+        onMouseEnter={() => prefetchScreen(type)}
+        onFocus={() => prefetchScreen(type)}
         aria-label={`open ${type}`}
       >
         {menuIcons[type]}

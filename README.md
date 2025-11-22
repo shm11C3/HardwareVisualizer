@@ -1,7 +1,6 @@
 # HardwareVisualizer
 
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
-[![CI test-build](https://img.shields.io/github/actions/workflow/status/shm11C3/HardwareVisualizer/test-build.yml?label=test-build)](https://github.com/shm11C3/HardwareVisualizer/actions)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
@@ -126,11 +125,11 @@ $ node -v
 v22.16.0
 ```
 
-[Rust 1.89](https://www.rust-lang.org/)
+[Rust 1.90](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.89.0 (29483883e 2025-08-04)
+rustc 1.90.0 (1159e78c4 2025-09-14)
 ```
 
 ### Linux Build Dependencies

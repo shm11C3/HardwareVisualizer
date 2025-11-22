@@ -16,5 +16,8 @@
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
+  },
+  "registries": {
+    "@acme": "https://acme.com/r/{name}.json"
   }
 }

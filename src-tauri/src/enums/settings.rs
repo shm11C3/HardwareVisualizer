@@ -4,6 +4,7 @@ use specta::Type;
 #[derive(Debug, PartialEq, Eq, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum Theme {
+  System,
   Light,
   Dark,
   DarkPlus,
@@ -22,6 +23,7 @@ impl Serialize for Theme {
     S: Serializer,
   {
     let s = match *self {
+      Theme::System => "system",
       Theme::Light => "light",
       Theme::Dark => "dark",
       Theme::DarkPlus => "darkPlus",
@@ -44,6 +46,7 @@ impl<'de> Deserialize<'de> for Theme {
   {
     let s = String::deserialize(deserializer)?.to_lowercase();
     match s.as_str() {
+      "system" => Ok(Theme::System),
       "light" => Ok(Theme::Light),
       "dark" => Ok(Theme::Dark),
       "darkplus" => Ok(Theme::DarkPlus),
@@ -57,6 +60,7 @@ impl<'de> Deserialize<'de> for Theme {
       _ => Err(serde::de::Error::unknown_variant(
         &s,
         &[
+          "system",
           "light",
           "dark",
           "darkPlus",

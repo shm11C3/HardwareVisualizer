@@ -13,7 +13,10 @@ export const InfoTable = ({
 
   return (
     <div
-      className={cn("grid grid-cols-2 gap-2 px-4 pt-2 pb-4", className)}
+      className={cn(
+        "grid grid-cols-2 gap-2 px-4 pt-2 pb-4 text-xs md:text-sm lg:text-base",
+        className,
+      )}
       style={{
         opacity:
           settings.selectedBackgroundImg != null
@@ -26,7 +29,9 @@ export const InfoTable = ({
     >
       {Object.keys(data).map((key) => (
         <div key={key}>
-          <p className="text-slate-900 text-sm dark:text-slate-400">{key}</p>
+          <p className="text-slate-900 text-xs md:text-sm dark:text-slate-400">
+            {key}
+          </p>
           <p>{data[key]}</p>
         </div>
       ))}
