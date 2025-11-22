@@ -13,6 +13,23 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 
 Web: <https://hardviz.com/>
 
+## Official downloads & security notice
+
+> [!NOTE]
+> HardwareVisualizer is officially distributed **only** through the channels below:
+> 
+> - GitHub Releases: https://github.com/shm11C3/HardwareVisualizer/releases
+> - Official website: https://hardviz.com/
+> 
+> Any other distribution (e.g. third-party mirrors or listings on download sites such as
+> SourceForge) is **not affiliated** with this project.
+> 
+> In particular, the SourceForge project named `Hardware Visualizer`
+> (`https://sourceforge.net/projects/hardware-visualizer/`) was created without my
+> involvement. I cannot verify the authenticity or safety of the ZIP archives
+> published there. Use them at your own risk.
+
+
 ## Table of Contents
 
 - [HardwareVisualizer](#hardwarevisualizer)
@@ -216,7 +233,7 @@ You can launch the app by running the following command in the terminal:
 sudo hardware-visualizer
 ```
 
-> [!NOTE]
+> [!TIP]
 > 🔒 sudo is required to access certain system information such as CPU, memory, or GPU stats.
 
 This works on both native Linux and WSL (Windows Subsystem for Linux) with GUI support (WSLg).
