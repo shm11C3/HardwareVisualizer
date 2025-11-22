@@ -272,4 +272,4 @@ npm run test:tauri  # rust
 
 ## ライセンス
 
-[MIT License](LICENSE)
+[MIT License](../LICENSE)
