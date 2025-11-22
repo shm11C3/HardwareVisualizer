@@ -96,7 +96,7 @@ Choose your platform and download the latest installer:
 
 ### Windows Installation
 
-1. Download `HardwareVisualizer_x.x.x_x64-setup.exe` from the download page
+1. Download `HardwareVisualizer_x.x.x_x64-setup_windows.exe` or `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` from the download page
 2. Run the installer (`.exe` or `.msi` file)
 3. Follow the installation wizard
 4. Launch **HardwareVisualizer** from Start Menu or Desktop shortcut
