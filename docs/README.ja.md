@@ -98,7 +98,7 @@ Web: <https://hardviz.com/>
 
 ### Windows へのインストール
 
-1. ダウンロードページから `HardwareVisualizer_x.x.x_x64-setup.exe` をダウンロード
+1. ダウンロードページから `HardwareVisualizer_x.x.x_x64-setup_windows.exe` または `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` をダウンロード
 2. インストーラー（`.exe` または `.msi` ファイル）を実行
 3. インストールウィザードの指示に従う
 4. スタートメニューまたはデスクトップショートカットから **HardwareVisualizer** を起動
