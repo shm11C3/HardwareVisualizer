@@ -15,9 +15,8 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 
 Web: <https://hardviz.com/>
 
-## Official downloads & security notice
-
 > [!NOTE]
+> ## Official downloads & security notice
 > HardwareVisualizer is officially distributed **only** through the channels below:
 >
 > - GitHub Releases: https://github.com/shm11C3/HardwareVisualizer/releases
@@ -122,7 +121,8 @@ Choose your platform and download the latest installer:
    hardware-visualizer
    ```
 
-> [!TIP] Missing hardware data?
+> [!TIP]
+> ### Missing hardware data?  
 > Some metrics require elevated privileges. Restart with sudo for full hardware access:
 >
 > ```bash
