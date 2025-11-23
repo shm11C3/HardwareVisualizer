@@ -16,7 +16,9 @@ HardwareVisualizer is a tool for real-time monitoring of your computer's hardwar
 Web: <https://hardviz.com/>
 
 > [!NOTE]
+>
 > ## Official downloads & security notice
+>
 > HardwareVisualizer is officially distributed **only** through the channels below:
 >
 > - GitHub Releases: https://github.com/shm11C3/HardwareVisualizer/releases
@@ -33,15 +35,14 @@ Web: <https://hardviz.com/>
 ## Table of Contents
 
 - [HardwareVisualizer](#hardwarevisualizer)
-  - [Official downloads \& security notice](#official-downloads--security-notice)
   - [Table of Contents](#table-of-contents)
-  - [Features](#features)
-  - [Supported OS](#supported-os)
-  - [Quick Start (End Users)](#quick-start-end-users)
+  - [Installation Guide](#installation-guide)
     - [Download](#download)
     - [Windows Installation](#windows-installation)
     - [Linux Installation](#linux-installation)
     - [First-time Setup](#first-time-setup)
+  - [Features](#features)
+  - [Supported OS](#supported-os)
   - [Screenshots](#screenshots)
     - [Dashboard](#dashboard)
     - [Usage Graph](#usage-graph)
@@ -62,31 +63,7 @@ Web: <https://hardviz.com/>
   - [FAQ](#faq)
   - [License](#license)
 
-## Features
-
-| Category                 | Status | Notes                            |
-| ------------------------ | ------ | -------------------------------- |
-| CPU / RAM Usage          | ✅     | Realtime + history               |
-| GPU Usage                | ✅     | NVIDIA full / others partial     |
-| GPU Temperature          | ✅     | NVIDIA full / others partial     |
-| Fan Monitoring           | ⏳     | Planned                          |
-| Storage Monitoring       | ✅     | Device summary                   |
-| Network Monitoring       | ✅     | Basic interfaces / Usage planned |
-| Custom Graph Themes      | ✅     | Persistent                       |
-| Dashboard Customization  | ✅     | Layout editing partial           |
-| Background Image         | ✅     | Local assets                     |
-| Historical Insights      | ✅     | Default Up to 30 days            |
-| GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
-
-## Supported OS
-
-| OS      | Status | Download                                  |
-| ------- | ------ | ----------------------------------------- |
-| Windows | ✅     | [Download](https://hardviz.com/#download) |
-| Linux   | ✅     | [Download](https://hardviz.com/#download) |
-| macOS   | 🔒     | Planned (v2)                              |
-
-## Quick Start (End Users)
+## Installation Guide
 
 ### Download
 
@@ -122,7 +99,9 @@ Choose your platform and download the latest installer:
    ```
 
 > [!TIP]
-> ### Missing hardware data?  
+>
+> ### Missing hardware data?
+>
 > Some metrics require elevated privileges. Restart with sudo for full hardware access:
 >
 > ```bash
@@ -136,6 +115,30 @@ After launching the app:
 1. Navigate to **Settings** (⚙️ icon in sidebar)
 2. Choose your preferred **theme** and **language**
 3. (Optional) Set a custom **background image**
+
+## Features
+
+| Category                 | Status | Notes                            |
+| ------------------------ | ------ | -------------------------------- |
+| CPU / RAM Usage          | ✅     | Realtime + history               |
+| GPU Usage                | ✅     | NVIDIA full / others partial     |
+| GPU Temperature          | ✅     | NVIDIA full / others partial     |
+| Fan Monitoring           | ⏳     | Planned                          |
+| Storage Monitoring       | ✅     | Device summary                   |
+| Network Monitoring       | ✅     | Basic interfaces / Usage planned |
+| Custom Graph Themes      | ✅     | Persistent                       |
+| Dashboard Customization  | ✅     | Layout editing partial           |
+| Background Image         | ✅     | Local assets                     |
+| Historical Insights      | ✅     | Default Up to 30 days            |
+| GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
+
+## Supported OS
+
+| OS      | Status | Download                                  |
+| ------- | ------ | ----------------------------------------- |
+| Windows | ✅     | [Download](https://hardviz.com/#download) |
+| Linux   | ✅     | [Download](https://hardviz.com/#download) |
+| macOS   | 🔒     | Planned (v2)                              |
 
 ## Screenshots
 
