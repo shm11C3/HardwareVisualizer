@@ -9,17 +9,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { DashboardItemType } from "@/features/hardware/dashboard/types/dashboardItem";
+import type { DashboardSelectItemType } from "@/features/hardware/dashboard/types/dashboardItem";
 
 export const DashboardItemSelector = ({
   visibleItems,
   toggleItem,
 }: {
-  visibleItems: DashboardItemType[] | null;
-  toggleItem: (item: DashboardItemType) => void;
+  visibleItems: DashboardSelectItemType[] | null;
+  toggleItem: (item: DashboardSelectItemType) => void;
 }) => {
   const { t } = useTranslation();
 
+  const titleId = useId();
   const cpuId = useId();
   const gpuId = useId();
   const memoryId = useId();
@@ -29,7 +30,8 @@ export const DashboardItemSelector = ({
 
   if (!visibleItems) return null;
 
-  const itemLabels: Record<DashboardItemType, string> = {
+  const itemLabels: Record<DashboardSelectItemType, string> = {
+    title: t("shared.title"),
     cpu: "CPU",
     gpu: "GPU",
     memory: "RAM",
@@ -38,7 +40,8 @@ export const DashboardItemSelector = ({
     network: t("shared.network"),
   };
 
-  const items: { id: string; type: DashboardItemType }[] = [
+  const items: { id: string; type: DashboardSelectItemType }[] = [
+    { id: titleId, type: "title" },
     { id: cpuId, type: "cpu" },
     { id: gpuId, type: "gpu" },
     { id: memoryId, type: "memory" },
