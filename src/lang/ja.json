@@ -102,12 +102,15 @@
     "fullscreen": {
       "enter": "フルスクリーン",
       "exit": "フルスクリーンを終了"
-    }
+    },
+    "title": "タイトル"
   },
 
   "pages": {
     "dashboard": {
-      "name": "ダッシュボード"
+      "name": "ダッシュボード",
+      "visibleItems": "表示項目",
+      "selectItems": "表示する項目を選択してください"
     },
     "usage": {
       "name": "ハードウェア使用率"

@@ -16,6 +16,7 @@ import {
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardItemSelector } from "@/features/hardware/dashboard/components/DashboardItemSelector";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ import {
 } from "./components/DashboardItems";
 import { ExportHardwareInfo } from "./components/ExportHardwareInfo";
 import { SortableItem } from "./components/SortableItem";
+import { useDashboardSelector } from "./hooks/useDashboardSelector";
 import { useSortableDashboard } from "./hooks/useSortableDashboard";
 import type { DashboardItemType } from "./types/dashboardItem";
 
@@ -40,6 +42,7 @@ export const Dashboard = () => {
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
   const sensors = useSensors(useSensor(PointerSensor));
+  const { visibleItems, toggleItem } = useDashboardSelector();
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -106,7 +109,13 @@ export const Dashboard = () => {
 
   return (
     <>
-      <ExportHardwareInfo />
+      <div className="mr-4 flex justify-end gap-3">
+        <DashboardItemSelector
+          visibleItems={visibleItems}
+          toggleItem={toggleItem}
+        />
+        <ExportHardwareInfo />
+      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -118,7 +127,11 @@ export const Dashboard = () => {
         >
           <div className="grid grid-cols-2 gap-4">
             {dashboardItemMap
-              .filter((key) => dashboardItemKeyToItems[key].component != null)
+              .filter(
+                (key) =>
+                  dashboardItemKeyToItems[key].component != null &&
+                  (visibleItems?.includes(key) ?? true),
+              )
               .map((key) => (
                 <SortableItem key={key} id={key}>
                   {key !== "process" ? (

@@ -8,3 +8,5 @@ export const dashBoardItemType = [
 ] as const;
 
 export type DashboardItemType = (typeof dashBoardItemType)[number];
+
+export type DashboardSelectItemType = DashboardItemType | "title";
