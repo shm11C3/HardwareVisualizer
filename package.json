@@ -30,7 +30,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.10.1",
     "@types/react": "19.2.6",
-    "@types/react-dom": "19.2.2",
+    "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "@vitest/coverage-v8": "^4.0.9",
     "babel-plugin-react-compiler": "^1.0.0",
