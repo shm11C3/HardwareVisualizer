@@ -56,6 +56,7 @@ export const DashboardItemSelector = ({
         <button
           className="rounded-lg bg-zinc-200 p-2 hover:bg-zinc-300 dark:bg-slate-800 dark:hover:bg-slate-700"
           type="button"
+          aria-label={t("pages.dashboard.visibleItems")}
         >
           <FunnelIcon size={32} />
         </button>
