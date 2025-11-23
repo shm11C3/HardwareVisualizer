@@ -107,7 +107,9 @@
 
   "pages": {
     "dashboard": {
-      "name": "Dashboard"
+      "name": "Dashboard",
+      "visibleItems": "Visible Items",
+      "selectItems": "Select items to display on the dashboard"
     },
     "usage": {
       "name": "Usage"
