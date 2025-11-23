@@ -1,5 +1,4 @@
 import { FunnelIcon } from "@phosphor-icons/react";
-import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
@@ -9,7 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { DashboardSelectItemType } from "@/features/hardware/dashboard/types/dashboardItem";
+import {
+  type DashboardSelectItemType,
+  dashBoardItemType,
+} from "@/features/hardware/dashboard/types/dashboardItem";
 
 export const DashboardItemSelector = ({
   visibleItems,
@@ -19,14 +21,6 @@ export const DashboardItemSelector = ({
   toggleItem: (item: DashboardSelectItemType) => void;
 }) => {
   const { t } = useTranslation();
-
-  const titleId = useId();
-  const cpuId = useId();
-  const gpuId = useId();
-  const memoryId = useId();
-  const storageId = useId();
-  const processId = useId();
-  const networkId = useId();
 
   if (!visibleItems) return null;
 
@@ -40,15 +34,7 @@ export const DashboardItemSelector = ({
     network: t("shared.network"),
   };
 
-  const items: { id: string; type: DashboardSelectItemType }[] = [
-    { id: titleId, type: "title" },
-    { id: cpuId, type: "cpu" },
-    { id: gpuId, type: "gpu" },
-    { id: memoryId, type: "memory" },
-    { id: storageId, type: "storage" },
-    { id: processId, type: "process" },
-    { id: networkId, type: "network" },
-  ];
+  const items: DashboardSelectItemType[] = ["title", ...dashBoardItemType];
 
   return (
     <DropdownMenu>
@@ -66,7 +52,7 @@ export const DashboardItemSelector = ({
           {t("pages.dashboard.visibleItems")}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {items.map(({ type }) => (
+        {items.map((type) => (
           <DropdownMenuCheckboxItem
             key={type}
             checked={visibleItems.includes(type)}
