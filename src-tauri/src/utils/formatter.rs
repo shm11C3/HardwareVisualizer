@@ -44,12 +44,12 @@ pub struct RoundedKibibytes {
 }
 
 ///
-/// ## `Kibibytes` をフォーマット
+/// ## Format `Kibibytes`
 ///
 #[cfg(target_os = "windows")]
 impl fmt::Display for RoundedKibibytes {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let value = self.kibibytes.0; // Kibibytesの内部値を取得
+    let value = self.kibibytes.0; // Get internal value of Kibibytes
     if value < 1000 {
       write!(f, "{value} KB")
     } else if value < 1000000 {
@@ -59,7 +59,7 @@ impl fmt::Display for RoundedKibibytes {
         "{:.precision$} MB",
         value_in_mib,
         precision = self.precision as usize
-      ) // 指定された桁数でフォーマット
+      ) // Format with specified precision
     } else {
       let value_in_gib = value as f32 / 1048576.0;
       write!(
@@ -67,13 +67,13 @@ impl fmt::Display for RoundedKibibytes {
         "{:.precision$} GB",
         value_in_gib,
         precision = self.precision as usize
-      ) // 指定された桁数でフォーマット
+      ) // Format with specified precision
     }
   }
 }
 
 ///
-/// ## 小数を指定桁数で丸める（四捨五入）
+/// ## Round decimal to specified precision (rounding)
 ///
 pub fn round(num: f64, precision: u32) -> f64 {
   Decimal::from_f64(num)
@@ -82,7 +82,7 @@ pub fn round(num: f64, precision: u32) -> f64 {
 }
 
 ///
-/// ## バイト数を単位付きの文字列に変換
+/// ## Convert bytes to string with unit
 ///
 pub fn format_size(bytes: u64, precision: u32) -> String {
   if bytes >= GIGABYTE {
@@ -115,14 +115,14 @@ pub struct SizeWithUnit {
 }
 
 ///
-/// ## バイト数をフォーマットし、単位と合わせて返却
+/// ## Format bytes and return with unit
 ///
 pub fn format_size_with_unit(
   bytes: u64,
   precision: u32,
   unit: Option<SizeUnit>,
 ) -> SizeWithUnit {
-  // 単位が指定されている場合は単位で丸めて返却
+  // If unit is specified, round by that unit and return
   if let Some(unit) = unit {
     SizeWithUnit {
       value: round(
@@ -155,7 +155,7 @@ pub fn format_size_with_unit(
 }
 
 ///
-/// ## ベンダー名をフォーマット
+/// ## Format vendor name
 ///
 pub fn format_vendor_name(vendor_id: &str) -> String {
   match vendor_id {

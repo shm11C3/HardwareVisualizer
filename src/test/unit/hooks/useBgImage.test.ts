@@ -4,29 +4,29 @@ import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 // ----------------------
-// モックの設定
+// Mock setup
 // ----------------------
 
-// Tauri のダイアログ用エラー関数をモック化
+// Mock Tauri dialog error function
 const errorMock = vi.fn();
 vi.mock("@/hooks/useTauriDialog", () => ({
   useTauriDialog: () => ({ error: errorMock }),
 }));
 
-// useSettingsAtom のモック用に、グローバル変数で設定状態と更新関数を管理
+// Manage settings state and update function with global variables for useSettingsAtom mock
 let settingsMock: { selectedBackgroundImg: string | null } = {
   selectedBackgroundImg: null,
 };
 let updateSettingAtomMock = vi.fn();
 
-// 各テスト毎に状態をリセット
+// Reset state for each test
 beforeEach(() => {
   vi.clearAllMocks();
   settingsMock = { selectedBackgroundImg: null };
   updateSettingAtomMock = vi.fn();
 });
 
-// useSettingsAtom をモック化（テスト毎に変更可能なグローバル変数を参照）
+// Mock useSettingsAtom (references global variables that can be changed per test)
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: settingsMock,
@@ -34,12 +34,12 @@ vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
   }),
 }));
 
-// ファイル変換用関数のモック化（トップレベル変数に依存せず、直接 vi.fn() を返す）
+// Mock file conversion function (returns vi.fn() directly without depending on top-level variables)
 vi.mock("@/lib/file", () => ({
   convertFileToBase64: vi.fn(),
 }));
 
-// コマンド群をモック化
+// Mock command groups
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     getBackgroundImage: vi.fn(),
@@ -50,7 +50,7 @@ vi.mock("@/rspc/bindings", () => ({
 }));
 
 // ----------------------
-// モック関数を利用するために、対象モジュールからインポートし、vi.mocked を利用
+// Import target modules and use vi.mocked to utilize mock functions
 // ----------------------
 import { convertFileToBase64 } from "@/lib/file";
 
@@ -60,7 +60,7 @@ import { useBackgroundImage, useBackgroundImageList } from "@/hooks/useBgImage";
 import { commands } from "@/rspc/bindings";
 
 // ----------------------
-// テスト本体
+// Test body
 // ----------------------
 describe("useBackgroundImage", () => {
   beforeEach(() => {
@@ -71,10 +71,10 @@ describe("useBackgroundImage", () => {
   });
 
   describe("initBackgroundImage", () => {
-    it("settings.selectedBackgroundImgが存在し、getBackgroundImageがokを返した場合、backgroundImageを設定する", async () => {
-      // settings に背景画像IDが設定されている場合
+    it("When settings.selectedBackgroundImg exists and getBackgroundImage returns ok, sets backgroundImage", async () => {
+      // When background image ID is set in settings
       settingsMock.selectedBackgroundImg = "file123";
-      // getBackgroundImage が正常結果を返す
+      // getBackgroundImage returns success result
       (commands.getBackgroundImage as Mock).mockResolvedValue({
         status: "ok",
         data: "base64data",
@@ -93,7 +93,7 @@ describe("useBackgroundImage", () => {
       );
     });
 
-    it("getBackgroundImageがエラーを返したときにエラーを呼び出す", async () => {
+    it("Calls error when getBackgroundImage returns error", async () => {
       settingsMock.selectedBackgroundImg = "file123";
       const errorMsg = "Error loading image";
       (commands.getBackgroundImage as Mock).mockResolvedValue({
@@ -110,11 +110,11 @@ describe("useBackgroundImage", () => {
       });
 
       expect(errorMock).toHaveBeenCalledWith(errorMsg);
-      // 背景画像が設定されていない（null）状態となる
+      // Background image is not set (null state)
       expect(result.current.backgroundImage).toBeNull();
     });
 
-    it("selectedBackgroundImgが設定されていない場合、backgroundImageをnullに設定する", async () => {
+    it("Sets backgroundImage to null when selectedBackgroundImg is not set", async () => {
       settingsMock.selectedBackgroundImg = null;
 
       const { result } = renderHook(() => useBackgroundImage(), {
@@ -130,23 +130,23 @@ describe("useBackgroundImage", () => {
   });
 
   describe("saveBackgroundImage", () => {
-    it("保存成功後に設定が更新されること", async () => {
-      // ダミーのファイルオブジェクトを生成（File コンストラクタが利用可能なテスト環境で）
+    it("Settings are updated after successful save", async () => {
+      // Generate dummy file object (in test environment where File constructor is available)
       const file = new File(["dummy content"], "dummy.png", {
         type: "image/png",
       });
 
-      // convertFileToBase64 が base64 文字列を返す
+      // convertFileToBase64 returns base64 string
       convertFileToBase64Mock.mockResolvedValue("base64image");
 
-      // saveBackgroundImage が成功結果を返す
+      // saveBackgroundImage returns success result
       (commands.saveBackgroundImage as Mock).mockResolvedValue({
         status: "ok",
         data: "newFileId",
       });
 
-      // useBackgroundImage 内で useBackgroundImageList から initBackgroundImages を利用しているので、
-      // その関数が呼ばれたかどうかをスパイする
+      // Since useBackgroundImage uses initBackgroundImages from useBackgroundImageList internally,
+      // spy on whether that function was called
       const { result } = renderHook(() => useBackgroundImage(), {
         wrapper: Provider,
       });
@@ -155,14 +155,14 @@ describe("useBackgroundImage", () => {
         await result.current.saveBackgroundImage(file);
       });
 
-      // updateSettingAtom が呼ばれて新しい背景画像IDが設定されることを検証
+      // Verify that updateSettingAtom is called to set new background image ID
       expect(updateSettingAtomMock).toHaveBeenCalledWith(
         "selectedBackgroundImg",
         "newFileId",
       );
     });
 
-    it("saveBackgroundImageがエラーを返した場合、エラーを呼び出し、設定を更新は更新されない", async () => {
+    it("Calls error and does not update settings when saveBackgroundImage returns error", async () => {
       const file = new File(["dummy content"], "dummy.png", {
         type: "image/png",
       });
@@ -189,17 +189,17 @@ describe("useBackgroundImage", () => {
   });
 
   describe("deleteBackgroundImage", () => {
-    it("選択された背景画像が削除され、設定がリセットされることを確認", async () => {
-      // settings で削除対象が選択されている状態にする
+    it("Verify selected background image is deleted and settings are reset", async () => {
+      // Set state where deletion target is selected in settings
       settingsMock.selectedBackgroundImg = "fileToDelete";
 
-      // 初期の背景画像リストを設定
+      // Set initial background image list
       const initialList = [
         { fileId: "fileToDelete", imageData: "data:image/png;base64,oldData" },
         { fileId: "otherFile", imageData: "data:image/png;base64,otherData" },
       ];
 
-      // useBackgroundImageList のフックを個別にレンダリングしてリストを操作
+      // Render useBackgroundImageList hook separately to manipulate list
       const { result: listResult } = renderHook(
         () => useBackgroundImageList(),
         { wrapper: Provider },
@@ -208,7 +208,7 @@ describe("useBackgroundImage", () => {
         listResult.current.setBackgroundImageList(initialList);
       });
 
-      // deleteBackgroundImage が成功するように設定
+      // Set deleteBackgroundImage to succeed
       (commands.deleteBackgroundImage as Mock).mockResolvedValue({});
 
       const { result } = renderHook(() => useBackgroundImage(), {
@@ -219,15 +219,15 @@ describe("useBackgroundImage", () => {
         await result.current.deleteBackgroundImage("fileToDelete");
       });
 
-      // 選択中だったため、updateSettingAtom が null をセットする
+      // Since it was selected, updateSettingAtom sets null
       expect(updateSettingAtomMock).toHaveBeenCalledWith(
         "selectedBackgroundImg",
         null,
       );
     });
 
-    it("エラーをスローしたときにエラーダイアログを呼び出すようにする", async () => {
-      // 初期の背景画像リスト
+    it("Calls error dialog when deletion throws error", async () => {
+      // Initial background image list
       const initialList = [
         { fileId: "fileToDelete", imageData: "data:image/png;base64,oldData" },
       ];
@@ -241,7 +241,7 @@ describe("useBackgroundImage", () => {
       });
 
       const errorMsg = "Deletion failed";
-      // deleteBackgroundImage が例外をスローするように設定
+      // Set deleteBackgroundImage to throw exception
       (commands.deleteBackgroundImage as Mock).mockRejectedValue(errorMsg);
 
       const { result } = renderHook(() => useBackgroundImage(), {
@@ -262,8 +262,8 @@ describe("useBackgroundImageList", () => {
     errorMock.mockClear();
   });
 
-  it("initBackgroundImages: getBackgroundImagesが成功を返したら、backgroundImageListを更新する。", async () => {
-    // getBackgroundImages が複数の画像データを返す
+  it("initBackgroundImages: Updates backgroundImageList when getBackgroundImages returns success", async () => {
+    // getBackgroundImages returns multiple image data
     const images = [
       { fileId: "img1", imageData: "imgData1" },
       { fileId: "img2", imageData: "imgData2" },
@@ -281,14 +281,14 @@ describe("useBackgroundImageList", () => {
       await result.current.initBackgroundImages();
     });
 
-    // 返された各画像の imageData にプレフィックスが付与されることを確認
+    // Verify that each returned image's imageData has prefix added
     expect(result.current.backgroundImageList).toEqual([
       { fileId: "img1", imageData: "data:image/png;base64,imgData1" },
       { fileId: "img2", imageData: "data:image/png;base64,imgData2" },
     ]);
   });
 
-  it("initBackgroundImages: getBackgroundImagesがエラーを返した場合、エラーをコールする", async () => {
+  it("initBackgroundImages: Calls error when getBackgroundImages returns error", async () => {
     const errorMsg = "Failed to load images";
     (commands.getBackgroundImages as Mock).mockResolvedValue({
       status: "error",
@@ -298,7 +298,7 @@ describe("useBackgroundImageList", () => {
     const { result } = renderHook(() => useBackgroundImageList(), {
       wrapper: Provider,
     });
-    // 初期状態を空リストにしておく
+    // Set initial state to empty list
     act(() => {
       result.current.setBackgroundImageList([]);
     });

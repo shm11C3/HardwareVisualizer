@@ -6,7 +6,7 @@ use std::pin::Pin;
 pub fn get_memory_info()
 -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + 'static>> {
   Box::pin(async {
-    // 実際のWMI実装を使用
+    // Use actual WMI implementation
     match wmi_provider::query_memory_info().await {
       Ok(info) => Ok(info),
       Err(e) => Err(e),

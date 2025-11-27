@@ -27,7 +27,7 @@ pub mod commands {
   const ERROR_TITLE: &str = "Failed to update settings file";
 
   ///
-  /// ## エラーイベントを発生させフロントエンドに通知する
+  /// ## Emit error event to notify frontend
   ///
   fn emit_error(window: &Window) -> Result<(), String> {
     let settings_json_path =
@@ -60,7 +60,7 @@ pub mod commands {
   ) -> Result<models::settings::ClientSettings, String> {
     let settings = state.settings.lock().unwrap().clone();
 
-    // フロントで扱いやすいようにカンマ区切りの文字列に変換する
+    // Convert to comma-separated string for easier handling in frontend
     let color_strings = models::settings::LineGraphColorStringSettings {
       cpu: settings
         .line_graph_color

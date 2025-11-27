@@ -386,14 +386,14 @@ async getBackgroundImages() : Promise<Result<BackgroundImage[], string>> {
 }
 },
 /**
- * 背景画像を保存
+ * Save background image
  * 
- * - `image_data`: 画像データのBase64文字列
+ * - `image_data`: Base64 string of image data
  * - returns: `file_id`
  * 
  * ### TODO
- * - JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html を使用する
- * - specta での型定義が難しかったため一旦 Base64 で実装
+ * - Use JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html
+ * - Implemented with Base64 for now as type definition with specta was difficult
  * 
  * 
  */

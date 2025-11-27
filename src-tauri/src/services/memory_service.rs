@@ -2,9 +2,9 @@ use crate::models::hardware::{HardwareMonitorState, MemoryInfo};
 use crate::platform::factory::PlatformFactory;
 
 ///
-/// ## メモリ使用率 (%) を返す。used / total * 100 を四捨五入する
+/// ## Return memory usage (%). Round used / total * 100
 ///
-/// total が 0 の場合は 0
+/// Returns 0 if total is 0
 ///
 pub fn memory_usage_percent(state: &HardwareMonitorState) -> i32 {
   let system = state.system.lock().unwrap();
@@ -18,8 +18,8 @@ pub fn memory_usage_percent(state: &HardwareMonitorState) -> i32 {
 }
 
 ///
-/// ## 詳細メモリ情報を Platform 経由で取得する
-/// 成功時 `MemoryInfo`、失敗時はエラーメッセージ
+/// ## Get detailed memory information via Platform
+/// Returns `MemoryInfo` on success, error message on failure
 ///
 pub async fn fetch_memory_detail() -> Result<MemoryInfo, String> {
   let platform =

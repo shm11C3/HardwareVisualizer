@@ -9,10 +9,10 @@ interface FakeStore {
   save: () => Promise<void>;
 }
 
-// この変数にテスト毎に新しいストアオブジェクトを代入する
+// This variable will hold a new store object for each test
 let fakeStore: FakeStore;
 
-// useTauriStore フックの再読み込み用変数
+// Variable for reloading the useTauriStore hook
 let useTauriStore: <T>(
   key: string,
   defaultValue: T,
@@ -20,10 +20,10 @@ let useTauriStore: <T>(
 
 describe("useTauriStore", () => {
   beforeEach(async () => {
-    // モジュールキャッシュをクリアして再読み込みできるようにする
+    // Clear module cache to enable reloading
     vi.resetModules();
 
-    // テスト毎に新しい fakeStore を作成
+    // Create new fakeStore for each test
     fakeStore = {
       data: {},
       has: vi.fn((key: string) => Promise.resolve(key in fakeStore.data)),
@@ -39,13 +39,13 @@ describe("useTauriStore", () => {
       save: vi.fn(() => Promise.resolve()),
     };
 
-    // @tauri-apps/plugin-store モジュールをモック化する
-    // storePromise（load("store.json", { autoSave: true })）の返り値として fakeStore を返す
+    // Mock @tauri-apps/plugin-store module
+    // Return fakeStore as the return value of storePromise (load("store.json", { autoSave: true }))
     vi.doMock("@tauri-apps/plugin-store", () => ({
       load: vi.fn(() => Promise.resolve(fakeStore)),
     }));
 
-    // useTauriStore を含むモジュールを再読み込みする
+    // Reload the module containing useTauriStore
     const module = await import("@/hooks/useTauriStore");
     useTauriStore = <T>(key: string, defaultValue: T) => {
       return module.useTauriStore<T>(key, defaultValue);
@@ -57,14 +57,14 @@ describe("useTauriStore", () => {
     vi.clearAllMocks();
   });
 
-  it("初回ロードでキーが存在する場合、ストアから取得した値が返る", async () => {
-    // Arrange: fakeStore に既に値が保存されている状態
+  it("When key exists on initial load, value from store is returned", async () => {
+    // Arrange: State where value is already saved in fakeStore
     fakeStore.data.testKey = "storedValue";
     const { result } = renderHook(() =>
       useTauriStore<string>("testKey", "defaultValue"),
     );
 
-    // React 19.1.0 対応: act でラップして確実に状態更新を完了
+    // React 19.1.0 compatible: Wrap with act to ensure state update completes
     await act(async () => {
       await waitFor(
         () => !result.current[2] && result.current[0] === "storedValue",
@@ -76,32 +76,32 @@ describe("useTauriStore", () => {
     expect(fakeStore.get).toHaveBeenCalledWith("testKey");
   });
 
-  it("初回ロードでキーが存在しない場合、デフォルト値をセットして返す", async () => {
-    // Arrange: "nonExisting" は fakeStore.data に存在しない状態
+  it("When key does not exist on initial load, default value is set and returned", async () => {
+    // Arrange: State where "nonExisting" does not exist in fakeStore.data
     const { result } = renderHook(() =>
       useTauriStore<string>("nonExisting", "defaultValue"),
     );
 
-    // React 19.1.0 対応: act でラップして確実に状態更新を完了
+    // React 19.1.0 compatible: Wrap with act to ensure state update completes
     await act(async () => {
       await waitFor(
         () => !result.current[2] && result.current[0] === "defaultValue",
       );
     });
 
-    // キーが存在しなかったため、defaultValue がセットされる
+    // Since key did not exist, defaultValue is set
     expect(result.current[0]).toBe("defaultValue");
-    // 存在しなかったので set と save が呼ばれている
+    // Since it did not exist, set and save are called
     expect(fakeStore.set).toHaveBeenCalledWith("nonExisting", "defaultValue");
     expect(fakeStore.save).toHaveBeenCalled();
   });
 
-  it("setValue を呼び出すと、新しい値が更新される", async () => {
+  it("When setValue is called, value is updated", async () => {
     const { result } = renderHook(() =>
       useTauriStore<string>("testKey", "defaultValue"),
     );
 
-    // React 19.1.0 対応: act でラップして確実に初期状態更新を完了
+    // React 19.1.0 compatible: Wrap with act to ensure initial state update completes
     await act(async () => {
       await waitFor(
         () => !result.current[2] && result.current[0] === "defaultValue",
@@ -109,23 +109,23 @@ describe("useTauriStore", () => {
     });
     expect(result.current[0]).toBe("defaultValue");
 
-    // Act: setValue を呼び出して値を更新する
+    // Act: Call setValue to update value
     await act(async () => {
       await result.current[1]("newValue");
     });
 
-    // Assert: state が新しい値に更新される
+    // Assert: state is updated to new value
     expect(result.current[0]).toBe("newValue");
     expect(fakeStore.set).toHaveBeenCalledWith("testKey", "newValue");
     expect(fakeStore.save).toHaveBeenCalled();
   });
 
-  it("undefined の defaultValue を扱える", async () => {
+  it("Can handle undefined defaultValue", async () => {
     const { result } = renderHook(() =>
       useTauriStore<undefined>("testKey", undefined),
     );
 
-    // React 19.1.0 対応: act でラップして確実に状態更新を完了
+    // React 19.1.0 compatible: Wrap with act to ensure state update completes
     await act(async () => {
       await waitFor(() => !result.current[2]);
     });
@@ -133,7 +133,7 @@ describe("useTauriStore", () => {
     expect(result.current[0]).toBeUndefined();
   });
 
-  it("読み込み中は isPending が true になっている", async () => {
+  it("isPending is true while loading", async () => {
     const { result } = renderHook(() => useTauriStore("someKey", "someValue"));
     expect(result.current[2]).toBe(true);
     await waitFor(() => result.current[2] === false);

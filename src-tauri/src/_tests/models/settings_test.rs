@@ -29,7 +29,7 @@ mod tests {
 
     let serialized = serde_json::to_string(&color_settings).unwrap();
 
-    // キャメルケース形式であることを確認
+    // Verify it's in camelCase format
     assert!(serialized.contains("\"cpu\""));
     assert!(serialized.contains("\"memory\""));
     assert!(serialized.contains("\"gpu\""));
@@ -52,11 +52,11 @@ mod tests {
     assert_eq!(color_settings.gpu, deserialized.gpu);
   }
 
-  // BurnInShiftOptions のフィールドはプライベートなため、
-  // シリアライゼーションのテストのみ実行
+  // BurnInShiftOptions fields are private, so
+  // only run serialization tests
   #[test]
   fn test_burn_in_shift_options_serialization() {
-    // シリアライゼーションがエラーなく完了することを確認
+    // Verify that serialization completes without error
     let json_str = r#"{"intervalMs":1000,"amplitudePx":[10,20],"idleThresholdMs":5000,"driftDurationSec":30}"#;
     let result: Result<BurnInShiftOptions, _> = serde_json::from_str(json_str);
     assert!(result.is_ok());
@@ -64,7 +64,7 @@ mod tests {
 
   #[test]
   fn test_burn_in_shift_options_none_values() {
-    // null値を含むJSONのデシリアライゼーション
+    // Deserialization of JSON containing null values
     let json_str = r#"{"intervalMs":null,"amplitudePx":null,"idleThresholdMs":null,"driftDurationSec":null}"#;
     let result: Result<BurnInShiftOptions, _> = serde_json::from_str(json_str);
     assert!(result.is_ok());
@@ -75,7 +75,7 @@ mod tests {
     let settings = Settings::default();
     let cloned = settings.clone();
 
-    // 基本フィールドの比較
+    // Compare basic fields
     assert_eq!(settings.language, cloned.language);
     assert_eq!(settings.theme, cloned.theme);
     assert_eq!(settings.graph_size, cloned.graph_size);
@@ -84,7 +84,7 @@ mod tests {
       cloned.background_img_opacity
     );
 
-    // 配列の比較
+    // Compare arrays
     assert_eq!(settings.line_graph_color.cpu, cloned.line_graph_color.cpu);
     assert_eq!(
       settings.line_graph_color.memory,
@@ -144,7 +144,7 @@ mod tests {
     let settings = Settings::default();
     let serialized = serde_json::to_string(&settings).unwrap();
 
-    // キャメルケース形式のフィールドが含まれていることを確認
+    // Verify that camelCase format fields are included
     assert!(serialized.contains("\"displayTargets\""));
     assert!(serialized.contains("\"graphSize\""));
     assert!(serialized.contains("\"lineGraphType\""));
@@ -154,15 +154,15 @@ mod tests {
 
   #[test]
   fn test_burn_in_shift_options_camel_case_serialization() {
-    // キャメルケース形式のJSONからのデシリアライゼーション
+    // Deserialization from camelCase format JSON
     let json_str = r#"{"intervalMs":1000,"amplitudePx":[5,10],"idleThresholdMs":2000,"driftDurationSec":60}"#;
     let result: Result<BurnInShiftOptions, _> = serde_json::from_str(json_str);
     assert!(result.is_ok());
 
-    // 不完全なJSONでエラーになることを確認
-    let invalid_json = r#"{"invalidField":1000}"#; // 無効なフィールド名
+    // Verify that incomplete JSON causes an error
+    let invalid_json = r#"{"invalidField":1000}"#; // Invalid field name
     let result: Result<BurnInShiftOptions, _> = serde_json::from_str(invalid_json);
-    assert!(result.is_ok()); // serde は未知のフィールドを無視する
+    assert!(result.is_ok()); // serde ignores unknown fields
   }
 
   #[test]
@@ -173,12 +173,12 @@ mod tests {
       gpu: [128, 128, 128],
     };
 
-    // RGB値が正しい配列長であることを確認
+    // Verify that RGB values have correct array length
     assert_eq!(color_settings.cpu.len(), 3);
     assert_eq!(color_settings.memory.len(), 3);
     assert_eq!(color_settings.gpu.len(), 3);
 
-    // 値が期待通りであることを確認
+    // Verify values are as expected
     assert_eq!(color_settings.cpu, [0, 255, 128]);
     assert_eq!(color_settings.memory, [255, 0, 255]);
     assert_eq!(color_settings.gpu, [128, 128, 128]);

@@ -11,7 +11,7 @@ pub fn get_gpu_name_from_lspci_by_vendor_id(vendor_id: &str) -> Option<String> {
 
   for line in stdout.lines() {
     if line.contains("VGA") && line.contains(vendor_id) {
-      // 例: "03:00.0 VGA compatible controller [0300]: AMD/ATI Renoir [1002:1636]"
+      // Example: "03:00.0 VGA compatible controller [0300]: AMD/ATI Renoir [1002:1636]"
       return Some(line.trim().to_string());
     }
   }

@@ -5,7 +5,7 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
   let cards = infrastructure::providers::drm_sys::get_card_ids().await?;
 
   for card in cards {
-    // TODO Vendor ID の判定もインフラ層でやる
+    // TODO Also handle Vendor ID detection in infrastructure layer
     match card.vendor_id.as_str() {
       "0x1002" => {
         if let Ok(usage) =
@@ -44,7 +44,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
         }
         _ => None,
       }
-      .map(|info| (card_id, info)) // ソート用に card_id を付加
+      .map(|info| (card_id, info)) // Attach card_id for sorting
     });
   }
 
@@ -55,7 +55,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
     }
   }
 
-  // 元の card_id 昇順に安定化
+  // Sort by original card_id in ascending order
   infos.sort_by_key(|(id, _)| *id);
 
   Ok(infos.into_iter().map(|(_, info)| info).collect())
@@ -91,7 +91,7 @@ pub async fn get_intel_graphic_info(
     id: format!("card{card_id}"),
     name: "Intel Integrated Graphics".into(),
     vendor_name: "Intel".into(),
-    clock: 0, // 取得困難。未対応で0にしておく
+    clock: 0, // Difficult to obtain. Set to 0 as unsupported
     memory_size: "N/A".into(),
     memory_size_dedicated: "N/A".into(),
   })

@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 ///
-/// - `file_id` : 画像ファイルID
-/// - `image_data` : 画像データのBase64文字列
+/// - `file_id` : Image file ID
+/// - `image_data` : Base64 string of image data
 ///
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]

@@ -57,7 +57,7 @@ export const useBackgroundImage = () => {
   };
 
   const deleteBackgroundImage = async (fileId: string) => {
-    // 選択中のファイルを削除する場合は選択を解除
+    // Deselect if deleting the currently selected file
     if (fileId === settings.selectedBackgroundImg) {
       updateSettingAtom("selectedBackgroundImg", null);
     }

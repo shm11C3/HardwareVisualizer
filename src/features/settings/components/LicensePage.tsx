@@ -19,7 +19,7 @@ export const LicensePage = ({ onBack }: LicensePageProps) => {
   const [thirdPartyContent, setThirdPartyContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // ファイルが存在するディレクトリを開く
+  // Open the directory where files exist
   const openLicenseInExplorer = async () => {
     try {
       const result = await commands.openLicenseFilePath();

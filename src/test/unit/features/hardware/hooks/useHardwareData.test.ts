@@ -4,7 +4,7 @@ import { Provider, useAtom } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { chartConfig } from "@/features/hardware/consts/chart";
-// テスト対象のフック群
+// Hook groups to test
 import {
   useHardwareUpdater,
   useUsageUpdater,
@@ -17,11 +17,11 @@ import {
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 
-// コマンド群（モック対象）
+// Commands (mock targets)
 import { commands } from "@/rspc/bindings";
 
 // ------
-// 各コマンドのモック設定
+// Mock setup for each command
 // ------
 vi.mock("@/rspc/bindings", () => ({
   commands: {
@@ -34,7 +34,7 @@ vi.mock("@/rspc/bindings", () => ({
 }));
 
 // ------
-// テスト本体
+// Test body
 // ------
 
 describe("useUsageUpdater", () => {
@@ -42,13 +42,13 @@ describe("useUsageUpdater", () => {
     vi.clearAllMocks();
   });
 
-  it("CPU使用率の履歴が更新されること", async () => {
-    // simulate: commands.getCpuUsage が数値 50 を返す
+  it("CPU usage history is updated", async () => {
+    // simulate: commands.getCpuUsage returns number 50
     (commands.getCpuUsage as Mock).mockResolvedValue(50);
 
     const { result } = renderHook(
       () => {
-        // CPU 使用率履歴の更新フックを呼び出し、同時に atom の値を取得する
+        // Call CPU usage history update hook and get atom value simultaneously
         useUsageUpdater("cpu");
         const [history] = useAtom(cpuUsageHistoryAtom);
         return history;
@@ -56,8 +56,8 @@ describe("useUsageUpdater", () => {
       { wrapper: Provider },
     );
 
-    // useUsageUpdater はマウント時に即座に fetchAndUpdate を呼ぶので、
-    // waitFor で atom の更新状態を検証する
+    // useUsageUpdater calls fetchAndUpdate immediately on mount, so
+    // verify atom update state with waitFor
     await waitFor(() => {
       const history = result.current;
       expect(history.length).toEqual(chartConfig.historyLengthSec);
@@ -65,8 +65,8 @@ describe("useUsageUpdater", () => {
     });
   });
 
-  it("GPU使用率の履歴が更新されること", async () => {
-    // simulate: commands.getGpuUsage が { data: 75 } を返す
+  it("GPU usage history is updated", async () => {
+    // simulate: commands.getGpuUsage returns { data: 75 }
     (commands.getGpuUsage as Mock).mockResolvedValue({
       status: "ok",
       data: 75,
@@ -88,13 +88,13 @@ describe("useUsageUpdater", () => {
     });
   });
 
-  it("RAM使用率の履歴が更新されること", async () => {
-    // simulate: commands.getCpuUsage が数値 50 を返す
+  it("RAM usage history is updated", async () => {
+    // simulate: commands.getMemoryUsage returns number 50
     (commands.getMemoryUsage as Mock).mockResolvedValue(50);
 
     const { result } = renderHook(
       () => {
-        // CPU 使用率履歴の更新フックを呼び出し、同時に atom の値を取得する
+        // Call memory usage history update hook and get atom value simultaneously
         useUsageUpdater("memory");
         const [history] = useAtom(memoryUsageHistoryAtom);
         return history;
@@ -102,8 +102,8 @@ describe("useUsageUpdater", () => {
       { wrapper: Provider },
     );
 
-    // useUsageUpdater はマウント時に即座に fetchAndUpdate を呼ぶので、
-    // waitFor で atom の更新状態を検証する
+    // useUsageUpdater calls fetchAndUpdate immediately on mount, so
+    // verify atom update state with waitFor
     await waitFor(() => {
       const history = result.current;
       expect(history.length).toEqual(chartConfig.historyLengthSec);
@@ -117,7 +117,7 @@ describe("useHardwareUpdater", () => {
     vi.clearAllMocks();
   });
 
-  it("'gpu', 'fan' の場合、gpuFanSpeedAtomが更新される", async () => {
+  it("gpuFanSpeedAtom is updated when 'gpu', 'fan'", async () => {
     (commands.getNvidiaGpuCooler as Mock).mockResolvedValue({
       status: "ok",
       data: [{ name: "test1", value: 100 }],
@@ -137,7 +137,7 @@ describe("useHardwareUpdater", () => {
     });
   });
 
-  it("'gpu', 'temp' の場合、gpuTempAtomが更新される", async () => {
+  it("gpuTempAtom is updated when 'gpu', 'temp'", async () => {
     (commands.getGpuTemperature as Mock).mockResolvedValue({
       status: "ok",
       data: [{ name: "test2", value: 70 }],

@@ -37,32 +37,32 @@ export const ProcessHistoryTable = ({
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
-      // 数値の場合はそのまま比較
+      // Compare directly for numbers
       if (typeof aValue === "number" && typeof bValue === "number") {
         return sortConfig.direction === "ascending"
           ? aValue - bValue
           : bValue - aValue;
       }
 
-      // 数値を文字列として保持している場合は数値に変換
+      // Convert to number if stored as string
       if (typeof aValue === "string" && typeof bValue === "string") {
         const aNumber = Number.parseFloat(aValue);
         const bNumber = Number.parseFloat(bValue);
 
-        // 小数が文字列として比較されてしまうため、NaNでない場合は数値として比較
+        // Compare as numbers if not NaN to avoid string comparison of decimals
         if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
           return sortConfig.direction === "ascending"
             ? aNumber - bNumber
             : bNumber - aNumber;
         }
 
-        // 数値でない場合は文字列として比較
+        // Compare as strings if not numbers
         return sortConfig.direction === "ascending"
           ? aValue.localeCompare(bValue)
           : bValue.localeCompare(aValue);
       }
 
-      // 型が異なる場合は順序を変更しない
+      // Don't change order if types differ
       return 0;
     });
   }, [processStats, sortConfig]);

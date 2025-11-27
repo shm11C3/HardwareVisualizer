@@ -191,8 +191,8 @@ export const MemoryInfo = () => {
         <div className="space-y-2">
           <InfoTable
             data={
-              // Linuxの場合は pkexec でしか詳細な情報が取得できないため、
-              // 初期状態では memory.size と読み込みボタンを表示する
+              // On Linux, detailed information can only be obtained with pkexec,
+              // so initially display memory.size and load button
               hardwareInfo.memory.isDetailed
                 ? {
                     [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
@@ -252,7 +252,7 @@ export const StorageDataInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
 
-  // ドライブ名でソート
+  // Sort by drive name
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
     a.name.localeCompare(b.name),
   );

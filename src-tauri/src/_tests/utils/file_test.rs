@@ -165,7 +165,7 @@ mod tests {
       .with(eq("APPDATA"))
       .return_const(Err(std::env::VarError::NotPresent));
 
-    // パニックが発生することを期待
+    // Expect panic to occur
     let result =
       std::panic::catch_unwind(|| get_app_data_dir_with_env(&mock_env, "test"));
 
@@ -204,7 +204,7 @@ mod tests {
     let result = get_app_data_dir_with_env(&mock_env, "test");
     let path_str = result.to_string_lossy();
 
-    // HOME が無い場合は "." が使用されることを確認
+    // Verify that "." is used when HOME is not set
     assert!(!path_str.is_empty());
     assert!(path_str.contains("test"));
     assert!(path_str.contains(".config"));
@@ -231,7 +231,7 @@ mod tests {
 
     let result = get_app_data_dir_with_env(&mock_env, "type_test");
 
-    // 戻り値が PathBuf 型であることを確認
+    // Verify that return value is PathBuf type
     let _pathbuf: PathBuf = result;
     assert!(_pathbuf.to_string_lossy().contains("type_test"));
   }
@@ -257,11 +257,11 @@ mod tests {
 
     let result = get_app_data_dir_with_env(&mock_env, "components_test");
 
-    // パスのコンポーネントを確認
+    // Verify path components
     let components: Vec<_> = result.components().collect();
     assert!(!components.is_empty());
 
-    // 最後のコンポーネントがサブディレクトリ名であることを確認
+    // Verify that the last component is the subdirectory name
     if let Some(last_component) = components.last() {
       let last_str = last_component.as_os_str().to_string_lossy();
       assert_eq!(last_str, "components_test");
@@ -298,7 +298,7 @@ mod tests {
         .return_const(Ok("/home/test".to_string()));
     }
 
-    // 同じ引数・同じ環境変数で複数回呼び出した場合、同じ結果が返されることを確認
+    // Verify that calling multiple times with same arguments and environment variables returns same result
     let result1 = get_app_data_dir_with_env(&mock_env1, "consistency_test");
     let result2 = get_app_data_dir_with_env(&mock_env2, "consistency_test");
 
@@ -309,16 +309,16 @@ mod tests {
   fn test_real_env_provider() {
     let env = RealEnvProvider;
 
-    // PATH環境変数は通常存在するはず
+    // PATH environment variable should normally exist
     match env.get_var("PATH") {
       Ok(path) => assert!(!path.is_empty()),
       Err(_) => panic!("PATH environment variable should exist"),
     }
 
-    // 存在しない環境変数はエラーになるはず
+    // Nonexistent environment variable should return error
     match env.get_var("NONEXISTENT_VAR_12345") {
       Ok(_) => panic!("Nonexistent environment variable should not exist"),
-      Err(std::env::VarError::NotPresent) => {} // 期待される結果
+      Err(std::env::VarError::NotPresent) => {} // Expected result
       Err(_) => panic!("Unexpected error type"),
     }
   }

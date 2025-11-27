@@ -16,7 +16,7 @@ export const GraphColorPicker = ({
     await updateLineGraphColorAtom(hardwareType, value);
   };
 
-  // カンマ区切りのRGB値を16進数に変換
+  // Convert comma-separated RGB values to hexadecimal
   const hexValue = RGB2HEX(settings.lineGraphColor[hardwareType]);
 
   return (

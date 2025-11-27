@@ -3,7 +3,7 @@ import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 /**
- * モックの設定
+ * Mock setup
  */
 const errorMock = vi.fn();
 vi.mock("@/hooks/useTauriDialog", () => ({
@@ -12,7 +12,7 @@ vi.mock("@/hooks/useTauriDialog", () => ({
   }),
 }));
 
-// commands 内の getHardwareInfo, getNetworkInfo をモック化
+// Mock getHardwareInfo, getNetworkInfo in commands
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     getHardwareInfo: vi.fn(),
@@ -21,22 +21,22 @@ vi.mock("@/rspc/bindings", () => ({
 }));
 
 /**
- * テスト対象のフックをインポート
+ * Import hook to test
  */
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import { commands } from "@/rspc/bindings";
 
 /**
- * テスト実行
+ * Test execution
  */
 describe("useHardwareInfoAtom", () => {
   beforeEach(() => {
-    // 各テスト実行前にモック状態をリセット
+    // Reset mock state before each test execution
     vi.clearAllMocks();
   });
 
-  it("init: 成功時に hardwareInfo が更新される", async () => {
-    // コマンドから返すデータをモック
+  it("init: hardwareInfo is updated on success", async () => {
+    // Mock data returned from commands
     const hardwareData = {
       cpu: "Intel",
       memory: "16GB",
@@ -47,21 +47,21 @@ describe("useHardwareInfoAtom", () => {
       data: hardwareData,
     });
 
-    // Provider でラップしてフックをレンダリング
+    // Render hook wrapped with Provider
     const { result } = renderHook(() => useHardwareInfoAtom(), {
       wrapper: Provider,
     });
 
-    // async の中で act() を使用して init() を実行
+    // Execute init() using act() in async
     await act(async () => {
       await result.current.init();
     });
 
-    // hardwareInfo が更新されていることを確認
+    // Verify that hardwareInfo is updated
     expect(result.current.hardwareInfo).toEqual(hardwareData);
   });
 
-  it("init: エラー時に error() が呼ばれ、hardwareInfo は初期値のまま", async () => {
+  it("init: error() is called on error and hardwareInfo remains at initial value", async () => {
     const errorMsg = "Failed to fetch hardware info";
     (commands.getHardwareInfo as Mock).mockResolvedValue({
       status: "error",
@@ -80,9 +80,9 @@ describe("useHardwareInfoAtom", () => {
       await result.current.init();
     });
 
-    // error() が呼ばれていること
+    // Verify that error() was called
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
-    // 初期状態（cpu, memory, gpus が null、storage が空配列）のまま
+    // Initial state (cpu, memory, gpus are null, storage is empty array) remains
     expect(result.current.hardwareInfo).toEqual({
       cpu: null,
       memory: null,
@@ -93,7 +93,7 @@ describe("useHardwareInfoAtom", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("initNetwork: 成功時に networkInfo が更新される", async () => {
+  it("initNetwork: networkInfo is updated on success", async () => {
     const networkData = [{ name: "eth0", ip: "192.168.1.2" }];
     (commands.getNetworkInfo as Mock).mockResolvedValue({ data: networkData });
 
@@ -108,7 +108,7 @@ describe("useHardwareInfoAtom", () => {
     expect(result.current.networkInfo).toEqual(networkData);
   });
 
-  it("initNetwork: エラー時に error() が呼ばれ、networkInfo は初期値のまま", async () => {
+  it("initNetwork: error() is called on error and networkInfo remains at initial value", async () => {
     const errorMsg = "Failed to fetch network info";
     (commands.getNetworkInfo as Mock).mockResolvedValue({
       status: "error",

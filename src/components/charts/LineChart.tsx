@@ -131,7 +131,7 @@ export const SingleLineChart = ({
     },
   };
 
-  // [TODO] 選択した範囲を横に移動できるようにする
+  // [TODO] Allow horizontally dragging the selected range
   return (
     <div className={cn(graphVariants({ size }), className)}>
       <ChartContainer

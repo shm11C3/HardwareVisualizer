@@ -3,8 +3,8 @@ use crate::models::hardware::NetworkInfo;
 use crate::platform::factory::PlatformFactory;
 
 ///
-/// ネットワークインターフェイス情報を取得
-/// Platform が未対応 / 失敗時は `BackendError::UnexpectedError`
+/// Get network interface information
+/// Returns `BackendError::UnexpectedError` if Platform is unsupported / fails
 ///
 pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, enums::error::BackendError> {
   let platform =

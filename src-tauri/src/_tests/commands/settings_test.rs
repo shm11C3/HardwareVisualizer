@@ -7,7 +7,7 @@ mod tests {
 
   #[test]
   fn test_default_settings() {
-    // デフォルト設定が正しいか確認
+    // Verify that default settings are correct
     let settings = models::settings::Settings::default();
 
     let expected = models::settings::Settings {

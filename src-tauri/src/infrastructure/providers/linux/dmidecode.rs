@@ -78,7 +78,7 @@ pub fn parse_dmidecode_memory_info(raw: &str) -> models::hardware::MemoryInfo {
       value = size_with_unit.value,
       unit = size_with_unit.unit
     ),
-    clock: clock_mts / 2, // DDR系メモリ：MT/s => MHz
+    clock: clock_mts / 2, // DDR memory: MT/s => MHz
     clock_unit: "MHz".into(),
     memory_count: count,
     total_slots,

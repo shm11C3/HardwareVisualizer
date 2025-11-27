@@ -3,11 +3,11 @@ use crate::models::hardware::{HardwareMonitorState, SysInfo};
 use crate::platform::factory::PlatformFactory;
 
 ///
-/// ハードウェア情報を統合収集する
+/// Collect hardware information in aggregate
 ///
-/// - CPU / GPU / Memory / Storage をそれぞれ取得
-/// - 個別失敗は None (または空) として続行
-/// - CPU / GPU / Memory が全て取得不能なら Err
+/// - Get CPU / GPU / Memory / Storage respectively
+/// - Continue with None (or empty) for individual failures
+/// - Return Err if all of CPU / GPU / Memory cannot be obtained
 ///
 pub async fn collect_hardware_info(
   state: &HardwareMonitorState,
@@ -20,7 +20,7 @@ pub async fn collect_hardware_info(
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
-  // GPU / Memory を並行実行
+  // Execute GPU / Memory in parallel
   let (gpus_res, memory_res, storage_res) =
     tokio::join!(platform.get_gpu_info(), platform.get_memory_info(), async {
       infrastructure::providers::sysinfo_provider::get_storage_info()

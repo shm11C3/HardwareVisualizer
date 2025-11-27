@@ -3,75 +3,75 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 
-// --- モックの設定 ---
-// テスト内でイベントリスナーのコールバックを保持するための変数
+// --- Mock setup ---
+// Variable to hold the event listener callback within tests
 let registeredCallback:
   | ((event: { payload: { title: string; message: string } }) => void)
   | undefined;
 
-// イベントリスナー解除用のモック関数
+// Mock function for unsubscribing from event listener
 const offMock = vi.fn();
 
-// Tauri の listen をモック化
+// Mock Tauri's listen
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(
     (
       _eventName: string,
       handler: (event: { payload: { title: string; message: string } }) => void,
     ) => {
-      // 登録されたコールバック関数を保持
+      // Store the registered callback function
       registeredCallback = handler;
-      // オフ関数を返す Promise を返す
+      // Return a Promise that resolves to the off function
       return Promise.resolve(offMock);
     },
   ),
 }));
 
-// Tauri の message をモック化
+// Mock Tauri's message
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   message: vi.fn(),
 }));
 
 describe("useErrorModalListener", () => {
   beforeEach(() => {
-    // 各テストの前にモックの状態をリセット
+    // Reset mock state before each test
     vi.clearAllMocks();
     registeredCallback = undefined;
   });
 
-  it("エラーイベント受信時に正しくダイアログが表示される", async () => {
-    // フックを実行
+  it("Dialog is displayed correctly when error event is received", async () => {
+    // Execute the hook
     renderHook(() => useErrorModalListener());
 
-    // 登録されたコールバックが存在するか確認
+    // Check if registered callback exists
     if (!registeredCallback) {
-      throw new Error("イベントリスナーが登録されていません");
+      throw new Error("Event listener was not registered");
     }
 
-    // エラーイベントをシミュレーション
+    // Simulate error event
     const errorPayload = { title: "Error Title", message: "An error occurred" };
     registeredCallback({ payload: errorPayload });
 
-    // イベントハンドラ内の非同期処理完了待ち
+    // Wait for async processing in event handler to complete
     await Promise.resolve();
 
-    // エラー内容が正しくダイアログ表示用の message 関数に渡されていることを検証
+    // Verify that error content is correctly passed to the message function for dialog display
     expect(message).toHaveBeenCalledWith("An error occurred", {
       title: "Error Title",
       kind: "error",
     });
   });
 
-  it("コンポーネントのアンマウント時にイベントリスナーが解除される", async () => {
+  it("Event listener is unsubscribed when component unmounts", async () => {
     const { unmount } = renderHook(() => useErrorModalListener());
 
-    // フックのクリーンアップ（アンマウント）を実行
+    // Execute hook cleanup (unmount)
     unmount();
 
-    // 非同期処理の完了を待つ（Promise の解決）
+    // Wait for async processing to complete (Promise resolution)
     await Promise.resolve();
 
-    // イベントリスナー解除用のオフ関数が呼ばれていることを検証
+    // Verify that the off function for unsubscribing from event listener was called
     expect(offMock).toHaveBeenCalled();
   });
 });

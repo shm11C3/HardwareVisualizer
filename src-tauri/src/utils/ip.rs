@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 ///
-/// ## ipがユニキャストアドレスかどうかを判定
+/// ## Determine if IP is a unicast link-local address
 ///
 pub fn is_unicast_link_local<T>(ip: &T) -> bool
 where

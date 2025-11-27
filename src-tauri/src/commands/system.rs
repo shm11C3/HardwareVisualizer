@@ -1,4 +1,4 @@
-/// アプリケーションを再起動する
+/// Restart the application
 #[tauri::command]
 #[specta::specta]
 pub async fn restart_app(app_handle: tauri::AppHandle) {

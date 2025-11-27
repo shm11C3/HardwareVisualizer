@@ -8,7 +8,7 @@ pub fn init(app: &mut App) {
 }
 
 ///
-/// ウィンドウの装飾状態を設定
+/// Set window decoration state
 ///
 #[tauri::command]
 #[specta::specta]

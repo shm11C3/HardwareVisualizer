@@ -7,7 +7,7 @@ use crate::constants::{
 use crate::models::hardware::HardwareMonitorState;
 use crate::models::hardware_archive::MonitorResources;
 
-/// 1サイクル分のシステムサンプリング (CPU/メモリ/プロセス)
+/// System sampling for one cycle (CPU/memory/process)
 pub fn sample_system(resources: &MonitorResources) {
   if let Some((cpu_usage, memory_usage, process_metrics)) =
     resources.system.lock().ok().map(|mut sys| {
@@ -125,9 +125,9 @@ fn update_gpu_histories(
 }
 
 ///
-/// ## CPU 使用率履歴
+/// ## CPU usage history
 ///
-/// (最新から `seconds` 秒, 上限 MAX_HISTORY_QUERY_DURATION_SECONDS) を逆順スライス収集
+/// (Last `seconds` from newest, max MAX_HISTORY_QUERY_DURATION_SECONDS) collected in reverse order
 ///
 pub fn cpu_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f32> {
   let history = state.cpu_history.lock().unwrap();
@@ -137,9 +137,9 @@ pub fn cpu_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f32>
 }
 
 ///
-/// ## メモリ使用率履歴
+/// ## Memory usage history
 ///
-/// (最新から `seconds` 秒, 上限 MAX_HISTORY_QUERY_DURATION_SECONDS) を逆順スライス収集
+/// (Last `seconds` from newest, max MAX_HISTORY_QUERY_DURATION_SECONDS) collected in reverse order
 ///
 pub fn memory_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f32> {
   let history = state.memory_history.lock().unwrap();
@@ -149,9 +149,9 @@ pub fn memory_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f
 }
 
 ///
-/// ## GPU 使用率履歴
+/// ## GPU usage history
 ///
-/// (最新から `seconds` 秒, 上限 MAX_HISTORY_QUERY_DURATION_SECONDS) を逆順スライス収集
+/// (Last `seconds` from newest, max MAX_HISTORY_QUERY_DURATION_SECONDS) collected in reverse order
 ///
 pub fn gpu_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f32> {
   let history = state.gpu_history.lock().unwrap();

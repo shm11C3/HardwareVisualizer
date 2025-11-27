@@ -63,7 +63,7 @@ const ProcessArea = ({
     return processStats.filter(
       (stat) =>
         stat.total_execution_sec > 0 &&
-        stat.total_execution_sec < 60 * 60 * 24 * 30, // 1ヶ月以上稼働しているものは無視する
+        stat.total_execution_sec < 60 * 60 * 24 * 30, // Ignore processes running for more than 1 month
     );
   }, [processStats]);
 

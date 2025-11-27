@@ -14,7 +14,7 @@ pub struct LineGraphColorSettings {
 }
 
 ///
-/// ## settings.json に格納するJSONの構造体
+/// ## JSON structure stored in settings.json
 ///
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -44,7 +44,7 @@ pub struct Settings {
 }
 
 ///
-/// クライアントに送信する設定の構造体
+/// Structure of settings to send to client
 ///
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]

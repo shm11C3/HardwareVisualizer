@@ -1,27 +1,27 @@
 use sys_locale;
 
-// 現在アプリがサポートしている言語のリスト
+// List of languages currently supported by the app
 pub const SUPPORTED_LANGUAGES: [&str; 2] = ["en", "ja"];
 
 ///
-/// デフォルトの言語設定を取得
+/// Get default language setting
 ///
 pub fn get_default_language() -> String {
   let os_language = get_os_language();
 
-  // 言語設定が取得でき、サポートされている場合はその言語を返す
+  // Return the language if it can be obtained and is supported
   if let Some(language) = os_language
     && SUPPORTED_LANGUAGES.contains(&language.as_str())
   {
     return language;
   }
 
-  // 一致しない場合は英語（デフォルト）を返す
+  // Return English (default) if no match
   "en".to_string()
 }
 
 ///
-/// システムのロケール（言語設定）を取得
+/// Get system locale (language setting)
 ///
 fn get_os_language() -> Option<String> {
   sys_locale::get_locale()
