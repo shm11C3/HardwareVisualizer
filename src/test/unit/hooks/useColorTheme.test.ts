@@ -17,28 +17,28 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 describe("useColorTheme", () => {
-  // 各テスト実行前に、document のクラスリストをリセット
+  // Reset document class list before each test execution
   beforeEach(() => {
     document.documentElement.classList.remove("dark", "light");
     document.documentElement.dataset.theme = "";
     vi.clearAllMocks();
 
-    // デフォルトのモック動作を設定
+    // Set default mock behavior
     mockTheme.mockResolvedValue("light");
     mockOnThemeChanged.mockResolvedValue(() => {});
   });
 
-  it("デフォルトでは 'light' で初期化される", () => {
+  it("Initialized with 'light' by default", () => {
     renderHook(() => useColorTheme("light"));
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
-  it("初期値として 'dark' が渡された場合、正しく初期化される", () => {
+  it("Correctly initialized when 'dark' is passed as initial value", () => {
     renderHook(() => useColorTheme("dark"));
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
-  it("状態が指定されたテーマに変更されること", () => {
+  it("State changes to specified theme", () => {
     const { rerender } = renderHook(({ theme }) => useColorTheme(theme), {
       initialProps: { theme: "light" as Theme },
     });
@@ -51,17 +51,17 @@ describe("useColorTheme", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
-  it("darkClasses に含まれるテーマが 'dark' クラスを追加する", () => {
+  it("Themes included in darkClasses add 'dark' class", () => {
     const darkThemes: Theme[] = ["dark", "nebula", "espresso"];
 
     darkThemes.forEach((theme) => {
       renderHook(() => useColorTheme(theme));
       expect(document.documentElement.classList.contains("dark")).toBe(true);
-      document.documentElement.classList.remove("dark"); // 次のループのためにリセット
+      document.documentElement.classList.remove("dark"); // Reset for next loop
     });
   });
 
-  it("darkClasses に含まれないテーマが 'dark' クラスを追加しない", () => {
+  it("Themes not included in darkClasses do not add 'dark' class", () => {
     const nonDarkThemes: Theme[] = [
       "light",
       "ocean",
@@ -77,7 +77,7 @@ describe("useColorTheme", () => {
     });
   });
 
-  it("'system' テーマでシステムテーマが 'light' の場合、'light' クラスが追加される", async () => {
+  it("'light' class is added when 'system' theme and system theme is 'light'", async () => {
     renderHook(() => useColorTheme("system"));
 
     await waitFor(() => {
@@ -86,8 +86,8 @@ describe("useColorTheme", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
-  it("'system' テーマでシステムテーマが 'dark' の場合、'dark' クラスが追加される", async () => {
-    // このテスト用にdarkテーマを返すようにモックを設定
+  it("'dark' class is added when 'system' theme and system theme is 'dark'", async () => {
+    // Set mock to return dark theme for this test
     mockTheme.mockResolvedValue("dark");
 
     renderHook(() => useColorTheme("system"));

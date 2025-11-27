@@ -57,7 +57,7 @@ export const useProcessStats = ({
 
     fetchStats();
 
-    const interval = setInterval(fetchStats, 60000); // 1分ごとに更新
+    const interval = setInterval(fetchStats, 60000); // Update every 1 minute
 
     return () => clearInterval(interval);
   }, [setProcessStatsAtom, getData, error]);

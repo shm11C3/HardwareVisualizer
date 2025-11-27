@@ -6,7 +6,7 @@ if (!URL.createObjectURL) {
   URL.createObjectURL = () => "blob:testurl";
 }
 
-// --- 依存モジュールのモック設定 ---
+// --- Dependency module mock setup ---
 // react-i18next
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -14,7 +14,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-// useTauriDialog のモック化
+// Mock useTauriDialog
 const errorMock = vi.fn();
 vi.mock("@/hooks/useTauriDialog", () => ({
   useTauriDialog: () => ({
@@ -22,7 +22,7 @@ vi.mock("@/hooks/useTauriDialog", () => ({
   }),
 }));
 
-// useBackgroundImage のモック化
+// Mock useBackgroundImage
 const saveBackgroundImageMock = vi.fn();
 vi.mock("@/hooks/useBgImage", () => ({
   useBackgroundImage: () => ({
@@ -30,7 +30,7 @@ vi.mock("@/hooks/useBgImage", () => ({
   }),
 }));
 
-// --- URL.createObjectURL のモック化 ---
+// --- Mock URL.createObjectURL ---
 const createObjectURLSpy = vi
   .spyOn(URL, "createObjectURL")
   .mockReturnValue("blob:testurl");
@@ -45,72 +45,72 @@ describe("useUploadImage", () => {
     vi.clearAllMocks();
   });
 
-  it("初期状態では fileName が空文字、displayUrl が null、isSubmitting が false となる", () => {
+  it("Initial state has empty fileName, null displayUrl, and false isSubmitting", () => {
     const { result } = renderHook(() => useUploadImage());
     expect(result.current.fileName).toBe("");
     expect(result.current.displayUrl).toBeNull();
     expect(result.current.isSubmitting).toBe(false);
   });
 
-  it("picture にファイルがセットされると fileName と displayUrl が更新される", async () => {
+  it("fileName and displayUrl are updated when file is set to picture", async () => {
     const fakeFile = new File(["dummy content"], "test.png", {
       type: "image/png",
     });
     const { result } = renderHook(() => useUploadImage());
 
-    // form は react-hook-form のオブジェクトなので setValue で picture を更新できる
+    // form is react-hook-form object so update picture with setValue
     act(() => {
       result.current.form.setValue("picture", fakeFile);
     });
 
-    // useEffect の非同期更新を待つ
+    // Wait for useEffect async update
     await waitFor(() => result.current.fileName !== "");
 
     expect(result.current.fileName).toBe("test.png");
-    // URL.createObjectURL に渡されたファイルが正しいかも確認（モックの戻り値 "blob:testurl"）
+    // Also verify correct file was passed to URL.createObjectURL (mock return value "blob:testurl")
     expect(result.current.displayUrl).toBe("blob:testurl");
     expect(createObjectURLSpy).toHaveBeenCalledWith(fakeFile);
   });
 
-  it("onSubmit 呼び出しで正常に画像が保存され、フォームがリセットされる", async () => {
+  it("Image is saved successfully on onSubmit call and form is reset", async () => {
     const fakeFile = new File(["dummy content"], "test.jpg", {
       type: "image/jpeg",
     });
     const { result } = renderHook(() => useUploadImage());
 
-    // まず、picture に値をセット
+    // First, set value to picture
     act(() => {
       result.current.form.setValue("picture", fakeFile);
     });
 
-    // 送信前は isSubmitting が false
+    // isSubmitting is false before submit
     expect(result.current.isSubmitting).toBe(false);
 
-    // onSubmit を呼び出す（正常ケース）
+    // Call onSubmit (success case)
     await act(async () => {
       await result.current.onSubmit({ picture: fakeFile });
     });
 
-    // saveBackgroundImageMock が正しく呼ばれたことを検証
+    // Verify saveBackgroundImageMock was called correctly
     expect(saveBackgroundImageMock).toHaveBeenCalledWith(fakeFile);
-    // フォームがリセットされ、picture の値が undefined（defaultValues）になっているはず
+    // Form is reset and picture value should be undefined (defaultValues)
     expect(result.current.form.getValues("picture")).toBeUndefined();
-    // isSubmitting が処理完了後に false に戻る
+    // isSubmitting returns to false after processing completes
     expect(result.current.isSubmitting).toBe(false);
   });
 
-  it("onSubmit で saveBackgroundImage がエラーの場合、error ハンドラが呼ばれる", async () => {
+  it("Error handler is called when saveBackgroundImage returns error in onSubmit", async () => {
     const fakeFile = new File(["dummy content"], "error.png", {
       type: "image/png",
     });
-    // saveBackgroundImageMock をエラー返却に上書き
+    // Override saveBackgroundImageMock to return error
     saveBackgroundImageMock.mockRejectedValue(new Error("Test error"));
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
     const { result } = renderHook(() => useUploadImage());
 
-    // picture に値をセット
+    // Set value to picture
     act(() => {
       result.current.form.setValue("picture", fakeFile);
     });
@@ -119,13 +119,13 @@ describe("useUploadImage", () => {
       await result.current.onSubmit({ picture: fakeFile });
     });
 
-    // エラー時に error ハンドラが呼ばれていることを検証
+    // Verify error handler was called on error
     expect(errorMock).toHaveBeenCalledWith(new Error("Test error"));
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "Error saveBackgroundImage:",
       expect.any(Error),
     );
-    // isSubmitting は false に戻っている
+    // isSubmitting returns to false
     expect(result.current.isSubmitting).toBe(false);
     consoleErrorSpy.mockRestore();
   });
