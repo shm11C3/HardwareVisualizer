@@ -11,11 +11,11 @@ use crate::utils::file::get_app_data_dir;
 const FILE_NAME_FORMAT: &str = "bg-img-{}.png";
 const BG_IMG_DIR_NAME: &str = "BgImages";
 
-/// 背景画像を1件取得
+/// Get a single background image
 pub async fn get_background_image(file_id: &str) -> Result<String, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
-  // App/BgImages ディレクトリが存在しない場合新規作成
+  // Create App/BgImages directory if it doesn't exist
   if !dir_path.exists() {
     fs::create_dir_all(&dir_path)
       .await
@@ -25,25 +25,25 @@ pub async fn get_background_image(file_id: &str) -> Result<String, String> {
   let file_name = FILE_NAME_FORMAT.replace("{}", file_id);
   let file_path = dir_path.join(file_name);
 
-  // 画像を読み込んでBase64にエンコード
+  // Load image and encode to Base64
   match fs::read(&file_path).await {
     Ok(image_data) => Ok(STANDARD.encode(image_data)),
     Err(e) => Err(format!("Failed to load image: {e}")),
   }
 }
 
-/// 背景画像一覧を取得
+/// Get list of background images
 pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
-  // App/BgImages ディレクトリが存在しない場合新規作成
+  // Create App/BgImages directory if it doesn't exist
   if !dir_path.exists() {
     fs::create_dir_all(&dir_path)
       .await
       .map_err(|e| format!("Failed to create directory: {e}"))?;
   }
 
-  // ディレクトリ内のファイル一覧を取得
+  // Get list of files in directory
   match fs::read_dir(&dir_path).await {
     Ok(mut entries) => {
       let mut images: Vec<BackgroundImage> = Vec::new();
@@ -69,42 +69,42 @@ pub async fn get_background_images() -> Result<Vec<BackgroundImage>, String> {
   }
 }
 
-/// 背景画像を保存し file_id を返す
+/// Save background image and return file_id
 pub async fn save_background_image(image_data: &str) -> Result<String, String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
 
-  // App/BgImages ディレクトリが存在しない場合新規作成
+  // Create App/BgImages directory if it doesn't exist
   if !dir_path.exists() {
     fs::create_dir_all(&dir_path)
       .await
       .map_err(|e| format!("Failed to create directory: {e}"))?;
   }
 
-  // Base64データのプレフィックスを除去
+  // Remove Base64 data prefix
   let image_data = if let Some(index) = image_data.find(",") {
     &image_data[(index + 1)..]
   } else {
     image_data
   };
 
-  // 改行や余分な空白を除去
+  // Remove newlines and extra whitespace
   let cleaned_data = image_data.replace("\n", "").replace("\r", "");
 
   let file_id = Uuid::now_v7().to_string();
   let file_name = FILE_NAME_FORMAT.replace("{}", &file_id);
   let file_path = dir_path.join(file_name);
 
-  // Base64データをデコード
+  // Decode Base64 data
   match STANDARD.decode(&cleaned_data) {
     Ok(decoded_data) => {
-      // 画像データをPNGとして保存
+      // Save image data as PNG
       match load_from_memory(&decoded_data) {
         Ok(image) => {
           let mut file = fs::File::create(&file_path)
             .await
             .map_err(|e| format!("Failed to create file: {e}"))?;
 
-          // 非同期で画像データを書き込む
+          // Write image data asynchronously
           let mut buffer = Vec::new();
           let mut cursor = std::io::Cursor::new(&mut buffer);
           image
@@ -124,7 +124,7 @@ pub async fn save_background_image(image_data: &str) -> Result<String, String> {
   }
 }
 
-/// 背景画像を削除
+/// Delete background image
 pub async fn delete_background_image(file_id: &str) -> Result<(), String> {
   let dir_path = get_app_data_dir(BG_IMG_DIR_NAME);
   let file_name = FILE_NAME_FORMAT.replace("{}", file_id);

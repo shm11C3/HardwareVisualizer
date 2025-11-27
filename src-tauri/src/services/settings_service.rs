@@ -55,7 +55,7 @@ impl SettingActions for models::settings::Settings {
       }
     };
 
-    // 一時ファイルに書き込む
+    // Write to temporary file
     let mut temp_file = match tempfile::NamedTempFile::new_in(config_dir) {
       Ok(file) => file,
       Err(e) => {
@@ -77,7 +77,7 @@ impl SettingActions for models::settings::Settings {
       return Err(format!("Failed to write to temporary settings file: {e}"));
     }
 
-    // 一時ファイルを本来の設定ファイルに置き換える
+    // Replace temporary file with actual settings file
     if let Err(e) = temp_file.persist(&config_file) {
       log_error!(
         "Failed to persist temporary settings file",
@@ -182,10 +182,10 @@ impl models::settings::Settings {
   }
 
   ///
-  /// ## グラフの色を設定する
+  /// ## Set graph color
   ///
-  /// - グラフの色は #ffffff 形式の文字列で入力される
-  /// - グラフの色は RGB 形式の値に変換して保存する
+  /// - Graph color is input as a #ffffff format string
+  /// - Graph color is converted to RGB format values and saved
   ///
   pub fn set_line_graph_color(
     &mut self,

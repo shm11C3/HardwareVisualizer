@@ -14,7 +14,7 @@ pub fn get_memory_info() -> std::pin::Pin<
       return Ok(cached);
     }
 
-    // fallback: メモリ容量のみ取得
+    // fallback: Only get memory capacity
     let mem_kb = providers::procfs::get_mem_total_kb()
       .map_err(|e| format!("Failed to read /proc/meminfo: {e}"))?;
 

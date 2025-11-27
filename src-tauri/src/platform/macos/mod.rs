@@ -7,7 +7,7 @@ use crate::utils::formatter::SizeUnit;
 use std::future::Future;
 use std::pin::Pin;
 
-/// macOS プラットフォーム実装（ダミー）
+/// macOS platform implementation (dummy)
 pub struct MacOSPlatform;
 
 impl MacOSPlatform {
@@ -21,7 +21,7 @@ impl MemoryPlatform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
     Box::pin(async {
-      // macOS ダミー実装
+      // macOS dummy implementation
       Ok(MemoryInfo {
         size: "64 GB".to_string(),
         clock: 4800,
@@ -38,7 +38,7 @@ impl MemoryPlatform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
     Box::pin(async {
-      // macOS ダミー実装
+      // macOS dummy implementation
       Ok(MemoryInfo {
         size: "64 GB".to_string(),
         clock: 4800,
@@ -57,8 +57,8 @@ impl GpuPlatform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
     Box::pin(async {
-      // macOS ダミー実装
-      Ok(30.0) // 30% ダミー値
+      // macOS dummy implementation
+      Ok(30.0) // 30% dummy value
     })
   }
 
@@ -66,7 +66,7 @@ impl GpuPlatform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
     Box::pin(async {
-      // macOS ダミー実装
+      // macOS dummy implementation
       Ok(vec![GraphicInfo {
         id: "GPU-22222222-2222-2222-2222-222222222222".to_string(),
         name: "Apple M1 Pro (Dummy)".to_string(),
@@ -81,7 +81,7 @@ impl GpuPlatform for MacOSPlatform {
 
 impl NetworkPlatform for MacOSPlatform {
   fn get_network_info(&self) -> Result<Vec<NetworkInfo>, String> {
-    // macOS ダミー実装
+    // macOS dummy implementation
     Ok(vec![NetworkInfo {
       description: Some("macOS Network Interface (Dummy)".to_string()),
       mac_address: Some("11:22:33:44:55:66".to_string()),
@@ -100,7 +100,7 @@ impl Platform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<SysInfo, String>> + Send + '_>> {
     Box::pin(async {
-      // macOS ダミー実装
+      // macOS dummy implementation
       let memory_info = MemoryInfo {
         size: "64 GB".to_string(),
         clock: 4800,
@@ -131,7 +131,7 @@ impl Platform for MacOSPlatform {
       }];
 
       Ok(SysInfo {
-        cpu: None, // CPU情報は別途実装が必要
+        cpu: None, // CPU info requires separate implementation
         memory: Some(memory_info),
         gpus: Some(gpu_info),
         storage: storage_info,

@@ -7,7 +7,7 @@ use tokio::task::JoinError;
 use tokio::task::spawn_blocking;
 
 ///
-/// GPU使用率を取得する（NVAPI を使用）
+/// Get GPU usage (using NVAPI)
 ///
 pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
   let handle = spawn_blocking(|| {
@@ -21,7 +21,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
         "get_nvidia_gpu_usage",
         Some("gpu is not found")
       );
-      return Err(nvapi::Status::Error); // GPUが見つからない場合はエラーを返す
+      return Err(nvapi::Status::Error); // Return error if GPU is not found
     }
 
     let mut total_usage = 0.0;
@@ -37,7 +37,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
       };
 
       if let Some(gpu_usage) = usage.get(&UtilizationDomain::Graphics) {
-        let usage_f32 = gpu_usage.0 as f32 / 100.0; // Percentage を f32 に変換
+        let usage_f32 = gpu_usage.0 as f32 / 100.0; // Convert Percentage to f32
         total_usage += usage_f32;
         gpu_count += 1;
       }
@@ -55,7 +55,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
         "get_nvidia_gpu_usage",
         Some("No GPU usage data collected")
       );
-      return Err(nvapi::Status::Error); // 使用率が取得できなかった場合のエラーハンドリング
+      return Err(nvapi::Status::Error); // Error handling when usage cannot be obtained
     }
 
     let average_usage = total_usage / gpu_count as f32;
@@ -72,7 +72,7 @@ pub async fn get_nvidia_gpu_usage() -> Result<f32, nvapi::Status> {
 }
 
 ///
-/// ## GPU温度を取得する（NVAPI を使用）
+/// ## Get GPU temperature (using NVAPI)
 ///
 pub async fn get_nvidia_gpu_temperature()
 -> Result<Vec<models::hardware::NameValue>, nvapi::Status> {
@@ -92,7 +92,7 @@ pub async fn get_nvidia_gpu_temperature()
     let mut temperatures = Vec::new();
 
     for gpu in gpus.iter() {
-      // 温度情報を取得
+      // Get temperature information
       let thermal_settings = gpu.thermal_settings(None).map_err(|e| {
         log_debug!(
           "thermal_settings_failed",
@@ -122,7 +122,7 @@ pub async fn get_nvidia_gpu_temperature()
 }
 
 ///
-/// GPU情報を取得する
+/// Get GPU information
 ///
 pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
@@ -149,7 +149,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>,
     for gpu in gpus.iter() {
       let name = gpu.full_name().unwrap_or("Unknown".to_string());
 
-      // クロック周波数 (MHz) の取得
+      // Get clock frequency (MHz)
       let clock_frequencies =
         match gpu.clock_frequencies(nvapi::ClockFrequencyType::Current) {
           Ok(freqs) => freqs,
@@ -167,11 +167,11 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>,
             "get_nvidia_gpu_info",
             Some("Graphics clock not found")
           );
-          0 // デフォルト値として 0 を設定
+          0 // Set 0 as default value
         }
       };
 
-      // メモリサイズ (MB) の取得
+      // Get memory size (MB)
       let memory_info = match gpu.memory_info() {
         Ok(info) => info,
         Err(e) => {
@@ -224,7 +224,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>,
 }
 
 ///
-/// `PhysicalGpu` からGPU使用率を取得する
+/// Get GPU usage from `PhysicalGpu`
 ///
 pub fn get_gpu_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> f32 {
   let usage = match gpu.usages() {
@@ -244,7 +244,7 @@ pub fn get_gpu_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> f32 {
 }
 
 ///
-/// `PhysicalGpu` からGPU温度を取得する
+/// Get GPU temperature from `PhysicalGpu`
 ///
 pub fn get_gpu_temperature_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> i32 {
   let thermal_settings = gpu.thermal_settings(None).map_err(|e| {
@@ -264,7 +264,7 @@ pub fn get_gpu_temperature_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> i32 {
 }
 
 ///
-/// `PhysicalGpu` からGPUメモリ使用率を取得する
+/// Get GPU memory usage from `PhysicalGpu`
 ///
 pub fn get_gpu_dedicated_memory_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> u32 {
   let memory = match gpu.memory_info() {

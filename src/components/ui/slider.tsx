@@ -2,7 +2,7 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-// 簡易ID生成（外部依存なし）
+// Simple ID generation (no external dependencies)
 const makeId = (() => {
   let n = 0;
   return () => `thumb-${n++}`;
@@ -13,7 +13,7 @@ function reorderIdsByNearest(
   nextValues: number[],
   prevIds: string[],
 ) {
-  // 貪欲に「次の値」と「前の値」を最小距離でマッチング（1対1）
+  // Greedily match "next values" to "previous values" by minimum distance (1-to-1)
   const usedPrev = new Set<number>();
   const mapping: string[] = new Array(nextValues.length);
 
@@ -40,13 +40,13 @@ export const Slider = React.forwardRef<
   React.ComponentRef<typeof SliderPrimitive.Root>,
   SliderProps
 >(({ className, value, onValueChange, ...props }, ref) => {
-  // 値の長さに合わせて恒久IDを保持
+  // Maintain persistent IDs according to the length of values
   const [ids, setIds] = React.useState<string[]>(() =>
     Array.from({ length: value?.length ?? 1 }, () => makeId()),
   );
   const prevValuesRef = React.useRef<number[] | null>(value ?? null);
 
-  // サム数が増減したらIDも増減（末尾追加/末尾切り捨て）
+  // Adjust IDs when thumb count changes (add to end / truncate from end)
   React.useEffect(() => {
     const len = value?.length ?? 1;
     setIds((prev) => {
@@ -61,7 +61,7 @@ export const Slider = React.forwardRef<
     });
   }, [value?.length]);
 
-  // 値が更新されたら、どのIDがどの位置に来たかを推定して並べ替える
+  // When values are updated, estimate which ID corresponds to which position and reorder
   React.useEffect(() => {
     if (!value) return;
     const prev = prevValuesRef.current;

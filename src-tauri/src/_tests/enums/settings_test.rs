@@ -37,7 +37,7 @@ mod tests {
       ("\"orbit\"", Theme::Orbit),
       ("\"cappuccino\"", Theme::Cappuccino),
       ("\"espresso\"", Theme::Espresso),
-      // 大文字小文字の変換テスト
+      // Case conversion test
       ("\"LIGHT\"", Theme::Light),
       ("\"DARK\"", Theme::Dark),
       ("\"SKY\"", Theme::Ocean),
@@ -83,7 +83,7 @@ mod tests {
       ("\"lg\"", GraphSize::LG),
       ("\"xl\"", GraphSize::XL),
       ("\"2xl\"", GraphSize::_2XL),
-      // 大文字小文字の変換テスト
+      // Case conversion test
       ("\"SM\"", GraphSize::SM),
       ("\"MD\"", GraphSize::MD),
       ("\"LG\"", GraphSize::LG),
@@ -241,7 +241,7 @@ mod tests {
 
   #[test]
   fn test_all_themes_covered() {
-    // すべてのThemeバリアントがテストされていることを確認
+    // Verify that all Theme variants are tested
     let all_themes = vec![
       Theme::Light,
       Theme::Dark,
@@ -255,7 +255,7 @@ mod tests {
       Theme::Espresso,
     ];
 
-    // 各テーマがシリアライズ可能であることを確認
+    // Verify that each theme can be serialized
     for theme in all_themes {
       assert!(serde_json::to_string(&theme).is_ok());
     }
@@ -263,7 +263,7 @@ mod tests {
 
   #[test]
   fn test_all_graph_sizes_covered() {
-    // すべてのGraphSizeバリアントがテストされていることを確認
+    // Verify that all GraphSize variants are tested
     let all_sizes = vec![
       GraphSize::SM,
       GraphSize::MD,
@@ -272,7 +272,7 @@ mod tests {
       GraphSize::_2XL,
     ];
 
-    // 各サイズがシリアライズ可能であることを確認
+    // Verify that each size can be serialized
     for size in all_sizes {
       assert!(serde_json::to_string(&size).is_ok());
     }

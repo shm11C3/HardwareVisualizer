@@ -123,10 +123,10 @@ pub async fn get_nvidia_gpu_cooler() -> Result<Vec<models::hardware::NameValue>,
 }
 
 ///
-/// ## CPU使用率の履歴を取得
+/// ## Get CPU usage history
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - param seconds: `u32` 取得する秒数
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
@@ -140,10 +140,10 @@ pub fn get_cpu_usage_history(
 }
 
 ///
-/// ## メモリ使用率の履歴を取得
+/// ## Get memory usage history
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - param seconds: `u32` 取得する秒数
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
@@ -157,10 +157,10 @@ pub fn get_memory_usage_history(
 }
 
 ///
-/// ## GPU使用率の履歴を取得
+/// ## Get GPU usage history
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - param seconds: `u32` 取得する秒数
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
@@ -174,7 +174,7 @@ pub fn get_gpu_usage_history(
 }
 
 ///
-/// ## ネットワーク情報を取得
+/// ## Get network information
 ///
 #[command]
 #[specta::specta]

@@ -65,7 +65,7 @@ mod tests {
 
   #[test]
   fn test_all_error_variants_exist() {
-    // すべてのエラーバリアントが定義されていることを確認
+    // Verify that all error variants are defined
     let errors = vec![
       BackendError::CpuInfoNotAvailable,
       BackendError::StorageInfoNotAvailable,
@@ -76,7 +76,7 @@ mod tests {
       BackendError::UnexpectedError,
     ];
 
-    // 各エラーがシリアライズ可能であることを確認
+    // Verify that each error can be serialized
     for error in errors {
       assert!(serde_json::to_string(&error).is_ok());
     }
@@ -87,7 +87,7 @@ mod tests {
     let error = BackendError::CpuInfoNotAvailable;
     let serialized = serde_json::to_string(&error).unwrap();
 
-    // キャメルケース形式であることを確認
+    // Verify that it's in camelCase format
     assert!(serialized.contains("cpuInfoNotAvailable"));
     assert!(!serialized.contains("cpu_info_not_available"));
   }
@@ -104,7 +104,7 @@ mod tests {
       BackendError::UnexpectedError,
     ];
 
-    // すべてのシリアライズ結果が異なることを確認
+    // Verify that all serialization results are unique
     let mut serialized_values = std::collections::HashSet::new();
     for error in errors {
       let serialized = serde_json::to_string(&error).unwrap();

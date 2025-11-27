@@ -124,7 +124,7 @@ mod tests {
       enums::settings::TemperatureUnit::Fahrenheit,
       value,
     );
-    assert_eq!(result, -40); // -40°C = -40°F (特殊なケース)
+    assert_eq!(result, -40); // -40°C = -40°F (special case)
   }
 
   #[test]
@@ -136,7 +136,7 @@ mod tests {
       enums::settings::TemperatureUnit::Celsius,
       value,
     );
-    assert_eq!(result, -40); // -40°F = -40°C (特殊なケース)
+    assert_eq!(result, -40); // -40°F = -40°C (special case)
   }
 
   #[test]
@@ -148,6 +148,6 @@ mod tests {
       enums::settings::TemperatureUnit::Celsius,
       value,
     );
-    assert_eq!(result, 25); // 単位が同じ場合、変換しない
+    assert_eq!(result, 25); // No conversion when units are the same
   }
 }

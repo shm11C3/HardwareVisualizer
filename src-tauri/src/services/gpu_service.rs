@@ -3,8 +3,8 @@ use crate::models::hardware::NameValue;
 use crate::platform::factory::PlatformFactory;
 
 ///
-/// GPU 使用率 (%) を取得し四捨五入して整数返却
-/// 複数 GPU の場合は Platform 実装側のポリシーに依存
+/// Get GPU usage (%) and return as rounded integer
+/// For multiple GPUs, depends on Platform implementation policy
 ///
 pub async fn fetch_gpu_usage() -> Result<i32, String> {
   let platform =
@@ -14,8 +14,8 @@ pub async fn fetch_gpu_usage() -> Result<i32, String> {
 }
 
 ///
-/// GPU 温度一覧を取得する
-/// `temperature_unit` はユーザ設定 (Celsius/Fahrenheit 等) を想定
+/// Get list of GPU temperatures
+/// `temperature_unit` assumes user setting (Celsius/Fahrenheit etc.)
 ///
 pub async fn fetch_gpu_temperature(
   temperature_unit: enums::settings::TemperatureUnit,
@@ -30,8 +30,8 @@ pub async fn fetch_gpu_temperature(
 }
 
 ///
-/// NVIDIA GPU のファン回転数を取得する (未実装)
-/// 未来実装予定のため常に Err
+/// Get NVIDIA GPU fan speed (not implemented)
+/// Always returns Err as planned for future implementation
 ///
 pub async fn fetch_nvidia_gpu_cooler() -> Result<Vec<NameValue>, String> {
   Err("Failed to get GPU cooler status: This function is not implemented".to_string())

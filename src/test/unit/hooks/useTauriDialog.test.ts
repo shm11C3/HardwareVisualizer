@@ -7,15 +7,15 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 
-// react-i18next の useTranslation フックをモック化
+// Mock the useTranslation hook from react-i18next
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    // テスト用に単純に翻訳キーをそのまま返す
+    // For testing, simply return the translation key as-is
     t: (key: string) => key,
   }),
 }));
 
-// @tauri-apps/plugin-dialog の各関数をモック化
+// Mock each function from @tauri-apps/plugin-dialog
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   ask: vi.fn(),
   confirm: vi.fn(),
@@ -27,9 +27,9 @@ describe("useTauriDialog", () => {
     vi.clearAllMocks();
   });
 
-  it("ask: タイトルが指定されている場合、翻訳されたタイトルとともに showAsk を呼び出す", async () => {
+  it("ask: When title is specified, calls showAsk with translated title", async () => {
     const { result } = renderHook(() => useTauriDialog());
-    // モックの戻り値を設定（例えば true）
+    // Set mock return value (e.g., true)
     (showAsk as Mock).mockResolvedValue(true);
 
     const dialog = result.current;

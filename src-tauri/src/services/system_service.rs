@@ -1,11 +1,11 @@
 use tauri::Manager;
 
 pub async fn restart_app(app_handle: &tauri::AppHandle) {
-  // 現在の実行ファイルのパスを取得
+  // Get current executable file path
   let exe_path = std::env::current_exe().expect("Failed to obtain executable file path");
   let args: Vec<String> = std::env::args().collect();
 
-  // 新たにプロセスを生成
+  // Spawn new process
   #[allow(clippy::zombie_processes)]
   std::process::Command::new(exe_path)
     .args(args)

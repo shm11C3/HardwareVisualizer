@@ -11,24 +11,24 @@ import {
 import { useKeydown } from "@/hooks/useInputListener";
 import { commands } from "@/rspc/bindings";
 
-// --- モックの定義 ---
-// useTauriDialog の error 関数をモック
+// --- Mock definitions ---
+// Mock the error function from useTauriDialog
 const errorMock = vi.fn();
 
-// useTauriStore の戻り値として [状態, setState] を返すモック
+// Mock returning [state, setState] as the return value of useTauriStore
 let storeValue = false;
 const setDecoratedMock = vi.fn((newVal: boolean) => {
   storeValue = newVal;
   return Promise.resolve();
 });
 
-// useTauriDialog をモック化
+// Mock useTauriDialog
 vi.mock("@/hooks/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: errorMock,
   }),
 }));
-// useTauriStore をモック化
+// Mock useTauriStore
 vi.mock("@/hooks/useTauriStore", () => ({
   useTauriStore: (_key: string, defaultValue: boolean) => {
     storeValue = defaultValue;
@@ -36,14 +36,14 @@ vi.mock("@/hooks/useTauriStore", () => ({
   },
 }));
 
-// commands.setDecoration をモック化
+// Mock commands.setDecoration
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     setDecoration: vi.fn(() => Promise.resolve()),
   },
 }));
 
-// テスト用のコンポーネント
+// Test component
 function TestComponent() {
   // Pass the required arguments to useKeydown
   const isDecorated = storeValue;
@@ -61,7 +61,7 @@ function TestComponent() {
 
 describe("useKeydown", () => {
   beforeEach(() => {
-    // 初期状態のリセット
+    // Reset initial state
     storeValue = false;
     errorMock.mockReset();
     setDecoratedMock.mockReset();
@@ -72,19 +72,19 @@ describe("useKeydown", () => {
     cleanup();
   });
 
-  it("F11 キー押下時に commands.setDecoration と setDecorated が呼ばれる", async () => {
+  it("When F11 key is pressed, commands.setDecoration and setDecorated are called", async () => {
     render(<TestComponent />);
-    // F11 キーのイベントをディスパッチ
+    // Dispatch F11 key event
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "F11" }));
-    // 非同期処理完了待ち（マイクロタスクの完了を待つ）
+    // Wait for async processing to complete (wait for microtasks)
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // 初期状態 false なので !false → true が渡されることを検証
+    // Since initial state is false, verify that !false → true is passed
     expect(commands.setDecoration).toHaveBeenCalledWith(true);
     expect(setDecoratedMock).toHaveBeenCalledWith(true);
   });
 
-  it("F11 以外のキー押下時は何も実行されない", async () => {
+  it("When a key other than F11 is pressed, nothing is executed", async () => {
     render(<TestComponent />);
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -93,8 +93,8 @@ describe("useKeydown", () => {
     expect(setDecoratedMock).not.toHaveBeenCalled();
   });
 
-  it("commands.setDecoration でエラーが発生した場合、error ハンドラと console.error が呼ばれる", async () => {
-    // commands.setDecoration がエラーを返すように実装
+  it("When commands.setDecoration throws an error, error handler and console.error are called", async () => {
+    // Configure commands.setDecoration to return an error
     const errorMessage = "Test error";
     (commands.setDecoration as Mock).mockImplementationOnce(() =>
       Promise.reject(new Error(errorMessage)),
@@ -107,7 +107,7 @@ describe("useKeydown", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "F11" }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // error モックと console.error が呼ばれていることを確認
+    // Verify that error mock and console.error were called
     expect(errorMock).toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "Failed to toggle window decoration:",
@@ -117,11 +117,11 @@ describe("useKeydown", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("コンポーネントのアンマウント時にイベントリスナーが削除される", async () => {
+  it("Event listener is removed when component unmounts", async () => {
     const { unmount } = render(<TestComponent />);
     unmount();
 
-    // アンマウント後に F11 イベントを発生させても何も起こらないことを検証
+    // Verify that dispatching F11 event after unmount does nothing
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "F11" }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 

@@ -114,7 +114,7 @@ export const DoughnutChart = ({
             }
 
             return dataType === "temp" && settings.temperatureUnit === "F"
-              ? ((chartValue - 32) / 1.8) * 3.6 // 華氏から摂氏に換算し、100を最大値としてスケール
+              ? ((chartValue - 32) / 1.8) * 3.6 // Convert Fahrenheit to Celsius and scale to 100 max
               : chartValue * 3.6;
           })()}
           innerRadius={isXl ? 50 : 35}

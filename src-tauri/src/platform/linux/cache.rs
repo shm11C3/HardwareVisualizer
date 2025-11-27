@@ -9,7 +9,7 @@ pub struct CachedData<T> {
 
 const MAX_AGE_SECS: u64 = 60 * 60 * 24;
 
-/// キャッシュからデータを読み込む
+/// Read data from cache
 pub fn read_cache<T>(cache_path: &std::path::PathBuf) -> std::io::Result<T>
 where
   T: for<'de> Deserialize<'de>,
@@ -31,7 +31,7 @@ where
   }
 }
 
-/// キャッシュにデータを保存
+/// Save data to cache
 pub fn write_cache<T>(data: &T, cache_path: &std::path::PathBuf) -> std::io::Result<()>
 where
   T: Serialize + Clone,
@@ -54,7 +54,7 @@ where
   std::fs::write(cache_path, json)
 }
 
-/// メモリ情報のキャッシュパスを取得
+/// Get cache path for memory information
 pub fn get_memory_cache_path() -> std::path::PathBuf {
   dirs::cache_dir()
     .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))

@@ -5,7 +5,7 @@ use std::process::Command;
 use crate::models::hardware::NetworkInfo;
 
 ///
-/// ## ネットワーク情報を取得
+/// ## Get network information
 ///
 pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
   let mut interfaces = collect_interfaces_with_mac()?;
@@ -21,7 +21,7 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, String> {
 }
 
 ///
-/// ## MACアドレスとinterface名を収集
+/// ## Collect MAC addresses and interface names
 ///
 fn collect_interfaces_with_mac() -> Result<HashMap<String, NetworkInfo>, String> {
   let mut map = HashMap::new();
@@ -54,7 +54,7 @@ fn collect_interfaces_with_mac() -> Result<HashMap<String, NetworkInfo>, String>
 }
 
 ///
-/// ## IPアドレスとサブネット、リンクローカルIPv6を収集
+/// ## Collect IP addresses, subnets, and link-local IPv6
 ///
 fn populate_ip_addresses(map: &mut HashMap<String, NetworkInfo>) -> Result<(), String> {
   use regex::Regex;
@@ -103,7 +103,7 @@ fn populate_ip_addresses(map: &mut HashMap<String, NetworkInfo>) -> Result<(), S
 }
 
 ///
-/// ## デフォルトゲートウェイの取得（IPv4 & IPv6）
+/// ## Get default gateways (IPv4 & IPv6)
 ///
 fn get_default_gateways() -> Result<(Vec<String>, Vec<String>), String> {
   let ipv4_gw = get_default_gateway("ip route", 2)?;
