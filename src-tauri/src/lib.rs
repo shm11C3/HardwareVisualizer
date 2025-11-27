@@ -113,7 +113,7 @@ pub fn run() {
   #[cfg(debug_assertions)]
   builder
     .export(
-      Typescript::default().header("// @ts-nocheck\n"), // TODO 未使用なimportを削除して型エラーをなくす
+      Typescript::default().header("// @ts-nocheck\n"), // TODO Remove unused imports to eliminate type errors
       //.formatter(specta_typescript::formatter::biome),
       "../src/rspc/bindings.ts",
     )
@@ -125,10 +125,10 @@ pub fn run() {
       let path_resolver = app.path();
       let handle = app.handle().clone();
 
-      // ロガーの初期化
+      // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
-      // UIの初期化
+      // Initialize UI
       commands::ui::init(app);
 
       builder.mount_events(app);
@@ -160,7 +160,7 @@ pub fn run() {
         ws.monitor.lock().unwrap().replace(monitor);
       }
 
-      // ハードウェアアーカイブサービスの開始
+      // Start hardware archive service
       if settings.hardware_archive.enabled {
         let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
           models::hardware_archive::MonitorResources {
@@ -182,7 +182,7 @@ pub fn run() {
         }
       }
 
-      // スケジュールされたデータ削除の開始
+      // Start scheduled data deletion
       if settings.hardware_archive.scheduled_data_deletion {
         tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
           settings.hardware_archive.refresh_interval_days,
@@ -197,7 +197,7 @@ pub fn run() {
         let app = win.app_handle().clone();
 
         tauri::async_runtime::spawn(async move {
-          // バックグラウンド処理を全て停止
+          // Stop all background processing
           let ws = app.state::<workers::WorkersState>();
           ws.terminate_all().await;
 

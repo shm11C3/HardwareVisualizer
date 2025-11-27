@@ -45,7 +45,7 @@ pub struct GraphicInfo {
 #[serde(rename_all = "camelCase")]
 pub struct NameValue {
   pub name: String,
-  pub value: i32, // 摂氏温度
+  pub value: i32, // Celsius temperature
 }
 
 #[derive(Serialize, Deserialize, Type)]
@@ -76,17 +76,17 @@ pub struct NetworkInfo {
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
-  /// プロセスID
+  /// Process ID
   pub pid: i32,
 
-  /// プロセス名
+  /// Process name
   pub name: String,
 
-  /// CPU 使用率
+  /// CPU usage
   #[serde(serialize_with = "serialize_usage")]
   pub cpu_usage: f32,
 
-  /// メモリ使用量
+  /// Memory usage
   #[serde(serialize_with = "serialize_usage")]
   pub memory_usage: f32,
 }
@@ -116,8 +116,8 @@ where
   S: serde::Serializer,
 {
   if x.fract() == 0.0 {
-    s.serialize_str(&format!("{x:.0}")) // 整数のみ
+    s.serialize_str(&format!("{x:.0}")) // Integer only
   } else {
-    s.serialize_str(&format!("{x:.1}")) // 小数点以下1桁まで
+    s.serialize_str(&format!("{x:.1}")) // Up to 1 decimal place
   }
 }

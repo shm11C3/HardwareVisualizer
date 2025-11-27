@@ -11,22 +11,22 @@ import type { SnapshotPeriod, UsageRange } from "../types/snapshotType";
 export const useSnapshot = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
 
-  // メモリ総量をMB単位で計算
+  // Calculate total memory in MB
   const totalMemoryMB = useMemo(() => {
     const memorySize = hardwareInfo.memory?.size;
-    if (!memorySize) return 32768; // デフォルト32GB
+    if (!memorySize) return 32768; // Default 32GB
 
     const [total, unit] = memorySize.split(" ");
     const totalNum = Number.parseFloat(total);
 
     if (unit === "GB") {
-      return Math.ceil(totalNum * 1024); // GBをMBに変換
+      return Math.ceil(totalNum * 1024); // Convert GB to MB
     }
     if (unit === "MB") {
       return Math.ceil(totalNum);
     }
 
-    return 32768; // デフォルト32GB
+    return 32768; // Default 32GB
   }, [hardwareInfo.memory]);
 
   const [period, setPeriod] = useState<SnapshotPeriod>({
@@ -46,7 +46,7 @@ export const useSnapshot = () => {
     "128MB" | "256MB" | "512MB" | "1GB" | "2GB" | "8GB" | "device"
   >("device");
 
-  // 選択されたオプションに基づく実際のメモリ最大値
+  // Actual memory max based on selected option
   const selectedMemoryMaxMB = useMemo(() => {
     switch (memoryMaxOption) {
       case "128MB":
@@ -62,16 +62,16 @@ export const useSnapshot = () => {
       case "8GB":
         return 8192;
       default:
-        return totalMemoryMB; // デバイスのメモリ総量
+        return totalMemoryMB; // Device total memory
     }
   }, [memoryMaxOption, totalMemoryMB]);
 
   const [memoryRange, setMemoryRange] = useState<UsageRange>({
     type: "memory",
-    value: [0, 32768], // デフォルト0MB - 32GB の範囲
+    value: [0, 32768], // Default 0MB - 32GB range
   });
 
-  // メモリ最大値選択が変更されたときにmemoryRangeの最大値を更新
+  // Update memoryRange max value when memory max selection changes
   useEffect(() => {
     setMemoryRange((prev) => ({
       ...prev,
@@ -84,7 +84,7 @@ export const useSnapshot = () => {
       const startDate = new Date(period.start);
       const endDate = new Date(period.end);
 
-      // ハードウェアデータ取得
+      // Get hardware data
       const hardwareType = selectedDataType === "memory" ? "ram" : "cpu";
       const archivedResult = await getArchivedRecord(
         hardwareType,
@@ -93,7 +93,7 @@ export const useSnapshot = () => {
       );
       setArchivedData(archivedResult);
 
-      // プロセスデータ取得
+      // Get process data
       const processResult = await getProcessStatsInPeriod(startDate, endDate);
       setProcessData(processResult);
     };
@@ -102,8 +102,8 @@ export const useSnapshot = () => {
   }, [period, selectedDataType]);
 
   /**
-   * チャートに表示するデータポイントの最大数
-   * 期間に関係なく100個のバケットに分割してデータを集約する
+   * Maximum number of data points to display in chart
+   * Aggregate data into 100 buckets regardless of period
    */
   const BUCKET_COUNT = 100;
 
@@ -112,10 +112,10 @@ export const useSnapshot = () => {
     const endTime = new Date(period.end).getTime();
     const diff = endTime - startTime;
 
-    // 開始時刻が終了時刻より後の場合は無効
+    // Invalid if start time is after end time
     if (diff <= 0) return 60000;
 
-    // ステップを整数にして計算の一貫性を保つ
+    // Keep step as integer for calculation consistency
     return Math.floor(Math.max(diff / BUCKET_COUNT, 60000));
   }, [period]);
 
@@ -145,20 +145,20 @@ export const useSnapshot = () => {
       (new Date(period.end).getTime() - new Date(period.start).getTime()) /
       (1000 * 60);
 
-    // 表示オプションを定義（useInsightChartと同じ条件）
+    // Define display options (same conditions as useInsightChart)
     const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
       const options: Intl.DateTimeFormatOptions = {};
 
-      // 1440 分以上の場合は年を表示
+      // Show year if 1440 minutes or more
       if (periodMinutes >= 1440) {
         options.year = "numeric";
       }
-      // 180 分以上の場合は月と日を表示
+      // Show month and day if 180 minutes or more
       if (periodMinutes >= 180) {
         options.month = "numeric";
         options.day = "2-digit";
       }
-      // 10080 分未満の場合は時刻（時間と分）を表示
+      // Show time (hours and minutes) if less than 10080 minutes
       if (periodMinutes < 10080) {
         options.hour = "2-digit";
         options.minute = "2-digit";
@@ -166,11 +166,11 @@ export const useSnapshot = () => {
       return options;
     })();
 
-    // Intl.DateTimeFormat のインスタンスを生成してキャッシュ
+    // Create and cache Intl.DateTimeFormat instance
     return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
   }, [period]);
 
-  // プロセスデータの範囲フィルタリング
+  // Range filtering for process data
   const filteredProcessData = useMemo(() => {
     if (!processData || !Array.isArray(processData)) {
       return [];
@@ -178,14 +178,14 @@ export const useSnapshot = () => {
     return processData.filter((process) => {
       const cpuUsage = process.avg_cpu_usage || 0;
       const memoryUsageKB = process.avg_memory_usage || 0;
-      const memoryUsageMB = memoryUsageKB / 1024; // KBからMBに変換
+      const memoryUsageMB = memoryUsageKB / 1024; // Convert KB to MB
 
-      // CPU使用率の範囲チェック（パーセンテージ）
+      // CPU usage range check (percentage)
       const cpuInRange =
         cpuUsage >= cpuRange.value[0] && cpuUsage <= cpuRange.value[1];
 
-      // メモリ使用量の範囲チェック（MB）
-      // memoryRange.value[0]とvalue[1]はMB単位での範囲を表す
+      // Memory usage range check (MB)
+      // memoryRange.value[0] and value[1] represent range in MB
       const memoryInRange =
         memoryUsageMB >= memoryRange.value[0] &&
         memoryUsageMB <= memoryRange.value[1];
@@ -201,7 +201,7 @@ export const useSnapshot = () => {
     const startAt = new Date(period.start);
     const endAt = new Date(period.end);
 
-    // 開始時刻が終了時刻より後の場合は空のデータを返す
+    // Return empty data if start time is after end time
     if (startAt.getTime() >= endAt.getTime()) {
       return { filledLabels, filledChartData };
     }
@@ -213,7 +213,7 @@ export const useSnapshot = () => {
       const bucketTime = new Date(t);
       const timeLabel = dateFormatter.format(bucketTime);
 
-      // 直接一致を先に確認
+      // Check for direct match first
       const bucketData = bucketedData[t];
       if (bucketData && bucketData.length > 0) {
         const aggregatedValue =
@@ -223,7 +223,7 @@ export const useSnapshot = () => {
         continue;
       }
 
-      // 近接バケット検索
+      // Search nearby buckets
       let foundData = null;
       const tolerance = step * 0.5;
 

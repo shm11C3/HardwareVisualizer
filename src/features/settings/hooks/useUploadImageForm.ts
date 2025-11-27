@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useBackgroundImage } from "@/hooks/useBgImage";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 
-//　画像アップロードカスタムフック
+// Custom hook for image upload
 export const useUploadImage = () => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();

@@ -23,9 +23,9 @@ export const SelectPeriod = ({
   className?: string;
 }) => {
   const toLocalInputValue = (iso: string) => {
-    // ISOストリング（UTC）をローカル時間のinput値に変換
+    // Convert ISO string (UTC) to local time input value
     const date = new Date(iso);
-    // toISOString()はUTC時間を返すので、getTimezoneOffset()を使ってローカル時間に調整
+    // toISOString() returns UTC time, so adjust to local time using getTimezoneOffset()
     const tzOffset = date.getTimezoneOffset() * 60000;
     const localDate = new Date(date.getTime() - tzOffset);
     return localDate.toISOString().slice(0, 16);

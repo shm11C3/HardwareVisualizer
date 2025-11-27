@@ -132,7 +132,7 @@ export const GpuInsightChart = ({
         );
       }, 0) ?? 0;
 
-    // 1 GB未満は1GBとして扱う
+    // Treat less than 1 GB as 1GB
     if (max < 1) {
       return 1;
     }

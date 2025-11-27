@@ -59,7 +59,7 @@ export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
       if (isResult(result) && isError(result)) return;
       const usage = isResult(result) ? result.data : result;
 
-      // CPUやGPUの使用率は配列で返されることがある
+      // CPU and GPU usage may be returned as array
       if (Array.isArray(usage)) {
         setHistory((prev: number[][]) => {
           const newHistory = [...prev, usage];
@@ -68,11 +68,11 @@ export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
         return;
       }
 
-      // 単一の数値の場合はそのまま履歴に追加
+      // Add directly to history if single number
       setHistory((prev: number[]) => {
         const newHistory = [...prev, usage];
 
-        // 履歴保持数に満たない場合は0で埋める
+        // Pad with 0 if not enough history
         const paddedHistory = Array(
           Math.max(chartConfig.historyLengthSec - newHistory.length, 0),
         )

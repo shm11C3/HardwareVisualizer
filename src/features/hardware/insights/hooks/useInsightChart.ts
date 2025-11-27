@@ -16,7 +16,7 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { sqlitePromise } from "@/lib/sqlite";
 import type { HardwareType } from "@/rspc/bindings";
 
-// 各タイプに合わせた集計関数の定義
+// Aggregation function definitions for each type
 const aggregatorMap: Record<DataStats, (values: number[]) => number> = {
   avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
   max: (vals) => Math.max(...vals),
@@ -213,20 +213,20 @@ export const useInsightChart = (
   const aggregateFn = aggregatorMap[dataStats];
 
   const dateFormatter = useMemo(() => {
-    // 表示オプションを定義（条件に応じてプロパティを設定）
+    // Define display options (set properties based on conditions)
     const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
       const options: Intl.DateTimeFormatOptions = {};
 
-      // 1440 分以上の場合は年を表示
+      // Show year if 1440 minutes or more
       if (period >= 1440) {
         options.year = "numeric";
       }
-      // 180 分以上の場合は月と日を表示
+      // Show month and day if 180 minutes or more
       if (period >= 180) {
         options.month = "numeric";
         options.day = "2-digit";
       }
-      // 10080 分未満の場合は時刻（時間と分）を表示
+      // Show time (hours and minutes) if less than 10080 minutes
       if (period < 10080) {
         options.hour = "2-digit";
         options.minute = "2-digit";
@@ -234,11 +234,11 @@ export const useInsightChart = (
       return options;
     })();
 
-    // Intl.DateTimeFormat のインスタンスを生成してキャッシュ
+    // Create and cache Intl.DateTimeFormat instance
     return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
   }, [period]);
 
-  // startBucket～endBucketまで、step刻みでループし、各バケツ内のデータを集計
+  // Loop from startBucket to endBucket by step, aggregating data in each bucket
   const { filledLabels, filledChartData } = useMemo(() => {
     const filledChartData: Array<number | null> = [];
     const filledLabels: string[] = [];
