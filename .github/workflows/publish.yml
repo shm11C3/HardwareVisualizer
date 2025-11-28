@@ -99,8 +99,8 @@ jobs:
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
 
-      # THIRD_PARTY_LICENSES ファイルを生成
-      # Tauri のビルド時のバンドルに含めるためここで生成する
+      # Generate THIRD_PARTY_LICENSES file
+      # Generate here to include in Tauri build bundle
       - name: Install cargo-license
         run: cargo install cargo-license
 
