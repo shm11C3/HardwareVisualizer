@@ -7,7 +7,7 @@ import type { ProcessStat } from "../../types/processStats";
  * @param period
  * @param endAt
  * @returns
- * @todo ソートもSQLでやる
+ * @todo Also do sorting in SQL
  */
 export const getProcessStats = async (
   period: number,

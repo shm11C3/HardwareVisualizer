@@ -48,7 +48,7 @@ export const CPUInfo = () => {
           chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
         />
-        {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
+        {/**  TODO If temperature can be retrieved here, display temperature instead of `MiniLineChart`  */}
         <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
       </div>
 
@@ -183,7 +183,7 @@ export const MemoryInfo = () => {
             dataType={"usage"}
           />
         )}
-        {/**  TODO ここで温度を取得し取得できれば `MiniLineChart` ではなく温度を表示させる  */}
+        {/**  TODO If temperature can be retrieved here, display temperature instead of `MiniLineChart`  */}
         <MiniLineChart hardwareType="memory" usage={memoryUsageHistory} />
       </div>
 
@@ -360,7 +360,7 @@ export const NetworkInfo = () => {
                     <p className="text-xs md:text-sm xl:text-base">
                       {network.description ?? "No description"}
                     </p>
-                    {/**  この部分にネットワーク使用量を表示 */}
+                    {/**  Display network usage in this section */}
                     <p className="mr-2 w-24 text-left text-gray-500 text-xs lg:text-sm dark:text-gray-400">
                       {network.ipv4[0] ?? "No IP Address"}
                     </p>

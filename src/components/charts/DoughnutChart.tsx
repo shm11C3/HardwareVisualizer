@@ -143,7 +143,7 @@ export const DoughnutChart = ({
                 if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                   return (
                     <g>
-                      {/* メインの値表示 */}
+                      {/* Display main value */}
                       <text
                         x={viewBox.cx}
                         y={viewBox.cy}
@@ -153,7 +153,7 @@ export const DoughnutChart = ({
                       >
                         {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
                       </text>
-                      {/* ラベルとアイコンの表示 */}
+                      {/* Display label and icon */}
                       <foreignObject
                         x={(viewBox.cx || 0) - (isXl ? 42 : 38)}
                         y={(viewBox.cy || 0) + (isXl ? 25 : 15)}

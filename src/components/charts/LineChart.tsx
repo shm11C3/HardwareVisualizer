@@ -282,8 +282,8 @@ const MixLineChart = ({
 };
 
 /**
- * @todo `type="monotone"` を変更できるようにする
- * @todo tooltip の表示/非表示を変更できるようにする
+ * @todo Allow changing `type="monotone"`
+ * @todo Allow toggling tooltip visibility
  */
 
 export const LineChartComponent = (

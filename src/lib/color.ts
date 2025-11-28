@@ -1,10 +1,10 @@
 /**
- * xxx,yyy,zzz を HEX に変換する
+ * Convert xxx,yyy,zzz to HEX
  *
  * @param rgb
  * @returns
  *
- * @todo rbg(xxx,yyy,zzz) 形式や rgba(xxx,yyy,zzz,a.a) 形式に対応する
+ * @todo Support rgb(xxx,yyy,zzz) and rgba(xxx,yyy,zzz,a.a) formats
  */
 export const RGB2HEX = (rgb: string): string => {
   return `#${rgb

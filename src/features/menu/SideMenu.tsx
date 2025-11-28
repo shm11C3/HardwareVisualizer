@@ -179,7 +179,7 @@ export const SideMenu = memo(({ isFullScreen }: { isFullScreen: boolean }) => {
     isOpen != null && (
       <div className="inset-0">
         <div className="fixed z-60">
-          {/** カーソルが近づいた時だけアイコンを表示する */}
+          {/** Show icon only when cursor is near */}
           <button
             type="button"
             className={buttonClasses({

@@ -37,7 +37,7 @@ export const useBackgroundImage = () => {
   }, [setBackgroundImage, settings.selectedBackgroundImg]);
 
   /**
-   * 背景画像を保存する
+   * Save background image
    *
    * @param filePath
    */

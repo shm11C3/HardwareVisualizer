@@ -46,7 +46,7 @@ describe("useTauriDialog", () => {
     expect(res).toBe(true);
   });
 
-  it("ask: タイトルが指定されていない場合、title は undefined となる", async () => {
+  it("ask: When title is not specified, title becomes undefined", async () => {
     const { result } = renderHook(() => useTauriDialog());
     (showAsk as Mock).mockResolvedValue(false);
 
@@ -63,7 +63,7 @@ describe("useTauriDialog", () => {
     expect(res).toBe(false);
   });
 
-  it("confirm: タイトルが指定されている場合、翻訳されたタイトルとともに showConfirm を呼び出す", async () => {
+  it("confirm: When title is specified, calls showConfirm with translated title", async () => {
     const { result } = renderHook(() => useTauriDialog());
     (showConfirm as Mock).mockResolvedValue(true);
 
@@ -81,7 +81,7 @@ describe("useTauriDialog", () => {
     expect(res).toBe(true);
   });
 
-  it("message: タイトルが指定されている場合、翻訳されたタイトルとともに showMessage を呼び出す", async () => {
+  it("message: When title is specified, calls showMessage with translated title", async () => {
     const { result } = renderHook(() => useTauriDialog());
     (showMessage as Mock).mockResolvedValue(undefined);
 
@@ -98,7 +98,7 @@ describe("useTauriDialog", () => {
     });
   });
 
-  it("error: エラー時は、内部的に message を呼び出し、タイトルに 'error' を指定する", async () => {
+  it("error: On error, internally calls message and specifies 'error' as title", async () => {
     const { result } = renderHook(() => useTauriDialog());
     (showMessage as Mock).mockResolvedValue(undefined);
 

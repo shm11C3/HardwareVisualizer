@@ -19,7 +19,7 @@ import { commands, type NameValue, type Result } from "@/rspc/bindings";
 import { isError, isOk, isResult } from "@/types/result";
 
 /**
- * ハードウェア使用率の履歴を更新する
+ * Update hardware usage history
  */
 export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
   type AtomActionMapping = {
