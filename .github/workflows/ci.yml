@@ -13,10 +13,34 @@ on:
       - develop-v*
 
 jobs:
+
+  #
+  # npm supplychain safe check
+  #
+  safe-chain-check:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Setup safe-chain
+        run: |
+          npm i -g @aikidosec/safe-chain
+          safe-chain setup-ci
+
+      - name: Install deps
+        run: npm ci
+
   #
   # Checks to see what changed
   #
   change-detection:
+    needs: safe-chain-check
     permissions:
       contents: read
     runs-on: ubuntu-latest
