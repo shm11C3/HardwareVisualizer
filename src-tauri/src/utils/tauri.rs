@@ -1,11 +1,18 @@
+use std::sync::OnceLock;
 use tauri::Config;
+
+static CONFIG: OnceLock<Config> = OnceLock::new();
+
+/// Initialize the Config structure (called only once at application startup)
+pub fn init_config(config: Config) {
+  CONFIG.set(config).ok();
+}
 
 ///
 /// Get the Config structure
 ///
 pub fn get_config() -> Config {
-  let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
-  context.config().clone()
+  CONFIG.get().expect("Config not initialized").clone()
 }
 
 ///
