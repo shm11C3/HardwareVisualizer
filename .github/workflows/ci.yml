@@ -287,7 +287,7 @@ jobs:
         platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
         include:
           - platform: "macos-latest"
-            allow-failure: true
+            allow-failure: true  # macOS support is experimental/in-progress; failures do not block CI
     runs-on: ${{ matrix.platform }}
     continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
