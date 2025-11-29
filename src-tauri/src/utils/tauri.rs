@@ -4,6 +4,7 @@ use tauri::Config;
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
 /// Initialize the Config structure (called only once at application startup)
+/// Note: Subsequent calls after the first initialization will be ignored.
 pub fn init_config(config: Config) {
   CONFIG.set(config).ok();
 }
