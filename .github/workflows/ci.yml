@@ -258,7 +258,7 @@ jobs:
         uses: ./.github/actions/setup-node
 
       - name: Generate licenses.json
-        run: npx license-checker --production --json > licenses.json
+        run: npm run license-checker
 
       - name: Check licenses
         run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
