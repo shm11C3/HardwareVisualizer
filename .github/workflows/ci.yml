@@ -146,7 +146,7 @@ jobs:
   test-build:
     needs:
       - change-detection
-      - safe-chain-check
+
     # When updating npm packages related to tauri, build errors may occur.
     # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
     if: needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
