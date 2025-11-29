@@ -151,6 +151,8 @@ jobs:
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
+        with:
+          node-version: 22.x
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -164,15 +166,15 @@ jobs:
 
       - name: Build with Tauri (CI optimized for PR)
         if: github.event_name == 'pull_request'
-        uses: shm11C3/tauri-action@ae46078d6d6b2fce51fc699c7d2c29099cddc14d # v0.6.0
+        uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --profile ci
+          args: -- --profile ci
 
       - name: Build with Tauri (Release profile for push)
         if: github.event_name != 'pull_request'
-        uses: shm11C3/tauri-action@ae46078d6d6b2fce51fc699c7d2c29099cddc14d # v0.6.0
+        uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
