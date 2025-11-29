@@ -149,10 +149,43 @@ jobs:
           unset GTK_PATH
           unset LD_LIBRARY_PATH
 
+      - name: Cache AppRun binary
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tauri/AppRun-x86_64
+          key: tauri-apprun-x86_64
+
+      - name: Pre-download AppRun if not cached
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p ~/.cache/tauri
+          if [ ! -f ~/.cache/tauri/AppRun-x86_64 ]; then
+            curl -L https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64 -o ~/.cache/tauri/AppRun-x86_64
+            chmod +x ~/.cache/tauri/AppRun-x86_64
+          fi
+
+      - name: Cache WiX binary
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\tauri\WixTools
+          key: tauri-wix-314
+
+      - name: Pre-download WiX if not cached
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $wixDir = "$env:LOCALAPPDATA\tauri\WixTools"
+          if (-not (Test-Path $wixDir)) {
+            New-Item -ItemType Directory -Force -Path $wixDir
+            Invoke-WebRequest -Uri https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip -OutFile "$wixDir\wix314.zip"
+            Expand-Archive -Path "$wixDir\wix314.zip" -DestinationPath $wixDir -Force
+            Remove-Item "$wixDir\wix314.zip"
+          }
+
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
-        with:
-          node-version: 22.x
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -170,7 +203,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: -- -- --profile ci
+          args: -- --profile ci
 
       - name: Build with Tauri (Release profile for push)
         if: github.event_name != 'pull_request'
