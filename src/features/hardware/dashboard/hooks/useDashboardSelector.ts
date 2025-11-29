@@ -6,10 +6,15 @@ import {
   dashBoardItems,
 } from "../types/dashboardItem";
 
+const DEFAULT_VISIBLE_ITEMS: DashboardSelectItemType[] = [
+  ...dashBoardItems,
+  "title",
+] as const;
+
 export const useDashboardSelector = () => {
   const [visibleItems, setVisibleItems] = useTauriStore<
     DashboardSelectItemType[]
-  >("dashboardVisibleItems", [...dashBoardItems, "title"]);
+  >("dashboardVisibleItems", DEFAULT_VISIBLE_ITEMS);
   const { toggleTitleIconVisibility } = useTitleIconVisualSelector();
 
   useEffect(() => {
