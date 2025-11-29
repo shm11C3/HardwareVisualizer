@@ -19,6 +19,11 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
 
+    - name: Setup safe-chain
+      run: |
+        npm i -g @aikidosec/safe-chain
+        safe-chain setup-ci
+
     - name: Install dependencies
       if: inputs.install-deps == 'true'
       run: npm ci
