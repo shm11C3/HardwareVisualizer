@@ -13,6 +13,7 @@
     "lint": "biome lint ./src && biome check ./src && biome format --write ./src",
     "format": "biome format --write ./src && biome check ./src --write",
     "lint:ci": "biome ci ./src",
+    "license-checker": "license-checker --production --json > licenses.json",
     "gen:licenses:linux": "node --experimental-strip-types .github/scripts/generate-licenses.ts linux",
     "gen:licenses:win": "node --experimental-strip-types .github/scripts/generate-licenses.ts windows",
     "gen:licenses:mac": "node --experimental-strip-types .github/scripts/generate-licenses.ts macos",
