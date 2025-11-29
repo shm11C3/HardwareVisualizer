@@ -1,4 +1,4 @@
-export const dashBoardItemType = [
+export const dashBoardItems = [
   "cpu",
   "gpu",
   "memory",
@@ -7,6 +7,6 @@ export const dashBoardItemType = [
   "network",
 ] as const;
 
-export type DashboardItemType = (typeof dashBoardItemType)[number];
+export type DashboardItemType = (typeof dashBoardItems)[number];
 
 export type DashboardSelectItemType = DashboardItemType | "title";

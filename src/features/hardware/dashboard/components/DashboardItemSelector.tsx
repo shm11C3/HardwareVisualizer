@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   type DashboardSelectItemType,
-  dashBoardItemType,
+  dashBoardItems,
 } from "@/features/hardware/dashboard/types/dashboardItem";
 
 export const DashboardItemSelector = ({
@@ -34,7 +34,7 @@ export const DashboardItemSelector = ({
     network: t("shared.network"),
   };
 
-  const items: DashboardSelectItemType[] = ["title", ...dashBoardItemType];
+  const items: DashboardSelectItemType[] = ["title", ...dashBoardItems];
 
   return (
     <DropdownMenu>

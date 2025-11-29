@@ -1,12 +1,20 @@
 import { useEffect } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { useTitleIconVisualSelector } from "@/hooks/useTitleIconVisualSelector";
-import type { DashboardSelectItemType } from "../types/dashboardItem";
+import {
+  type DashboardSelectItemType,
+  dashBoardItems,
+} from "../types/dashboardItem";
+
+const DEFAULT_VISIBLE_ITEMS: DashboardSelectItemType[] = [
+  ...dashBoardItems,
+  "title",
+] as const;
 
 export const useDashboardSelector = () => {
   const [visibleItems, setVisibleItems] = useTauriStore<
     DashboardSelectItemType[]
-  >("dashboardVisibleItems", []);
+  >("dashboardVisibleItems", DEFAULT_VISIBLE_ITEMS);
   const { toggleTitleIconVisibility } = useTitleIconVisualSelector();
 
   useEffect(() => {
