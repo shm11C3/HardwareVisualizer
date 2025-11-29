@@ -186,7 +186,7 @@ describe("useDashboardSelector", () => {
     expect(result.current.visibleItems).toEqual(["cpu"]);
   });
 
-  it("calls toggleTitleIconVisibility when visibleItems changes", async () => {
+  it("calls toggleTitleIconVisibility with true when title is in visibleItems", async () => {
     // Arrange: Start with 'title' included
     const initialItems: DashboardSelectItemType[] = ["cpu", "title"];
     fakeStore.data.dashboardVisibleItems = initialItems;
