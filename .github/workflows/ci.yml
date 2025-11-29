@@ -203,7 +203,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: -- --profile ci
+          args: -- --profile ci --verbose
 
       - name: Build with Tauri (Release profile for push)
         if: github.event_name != 'pull_request'
