@@ -23,6 +23,7 @@ runs:
       run: |
         npm i -g @aikidosec/safe-chain
         safe-chain setup-ci
+      shell: bash
 
     - name: Install dependencies
       if: inputs.install-deps == 'true'
