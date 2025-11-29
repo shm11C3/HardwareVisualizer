@@ -410,7 +410,7 @@ jobs:
             [ "$RES_TEST_BUILD" = "skipped" ] || fail "test-build must be skipped when not required, but was '$RES_TEST_BUILD'"
           fi
 
-          must_be "$FRONTEND_CHANGED"      "$RES_SAFE_CHAIN_CHECK" "safe-chain-check"
+          must_be "$FRONTEND_DEPS_CHANGED"      "$RES_SAFE_CHAIN_CHECK" "safe-chain-check"
           must_be "$FRONTEND_CHANGED"     "$RES_LINT_FRONTEND"  "lint-frontend"
           must_be "$FRONTEND_CHANGED"     "$RES_TEST_FRONTEND"  "test-frontend"
           must_be "$FRONTEND_CHANGED"     "$RES_BUILD_FRONTEND" "build-frontend"
