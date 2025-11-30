@@ -221,10 +221,12 @@ npm run tauri build
 ### 共通スクリプト
 
 ```bash
-npm run lint        # biome
+npm run lint
 npm run format
-npm run test:unit   # frontend
-npm run test:tauri  # rust
+npm test
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
 ```
 
 ## 権限とセキュリティに関する注意事項

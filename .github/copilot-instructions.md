@@ -46,15 +46,18 @@ HardwareVisualizer は、リアルタイムでコンピュータのハードウ�
 - **コードのリント**:
   ```bash
   npm run lint
+  cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
   ```
 - **コードのフォーマット**:
   ```bash
   npm run format
+  cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
   ```
 - **テストの実行**:
+
   ```bash
-  npm run test:unit:unit-cov # フロントエンドの単体テスト
-  npm run test:tauri # Rust のテスト
+  npm test
+  cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
   ```
 
 ## プロジェクト固有のパターン
