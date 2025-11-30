@@ -112,7 +112,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
 tauri = { version = "2.9.3", features = ["test"] }
-mockall = "0.13"
+mockall = "0.14"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"
