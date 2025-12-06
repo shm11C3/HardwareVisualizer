@@ -11,17 +11,6 @@ pub fn get_config() -> Config {
   context.config().clone()
 }
 
-///
-/// Get application version from Config structure
-///
-#[cfg(not(target_os = "macos"))]
-pub fn get_app_version(config: &Config) -> String {
-  config
-    .version
-    .clone()
-    .unwrap_or_else(|| "unknown".to_string())
-}
-
 #[cfg(target_os = "macos")]
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
@@ -38,4 +27,14 @@ pub fn init_config(config: Config) {
 #[cfg(target_os = "macos")]
 pub fn get_config() -> Config {
   CONFIG.get().expect("Config not initialized").clone()
+}
+
+///
+/// Get application version from Config structure
+///
+pub fn get_app_version(config: &Config) -> String {
+  config
+    .version
+    .clone()
+    .unwrap_or_else(|| "unknown".to_string())
 }
