@@ -32,7 +32,9 @@ use sysinfo::System;
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 
-pub fn run() {
+pub fn build(config: tauri::Config) -> tauri::Builder<Wry> {
+  utils::tauri::init_config(config);
+
   let app_state = settings::AppState::new();
 
   let system = Arc::new(Mutex::new(System::new_all()));
@@ -225,6 +227,9 @@ pub fn run() {
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn run(config: tauri::Config) -> tauri::Result<()> {
+  build(config).run()
 }
