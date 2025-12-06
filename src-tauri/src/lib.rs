@@ -228,3 +228,9 @@ pub fn build(config: tauri::Config) -> tauri::Builder<Wry> {
     .manage(app_state)
     .manage(workers::WorkersState::default())
 }
+
+
+#[cfg(not(target_os = "macos"))]
+pub fn run(config: tauri::Config) -> tauri::Result<()> {
+    build(config).run()
+}
