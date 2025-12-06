@@ -3,17 +3,6 @@ use std::sync::OnceLock;
 use tauri::Config;
 
 ///
-/// Get application version from Config structure
-///
-#[cfg(not(target_os = "macos"))]
-pub fn get_app_version(config: &Config) -> String {
-  config
-    .version
-    .clone()
-    .unwrap_or_else(|| "unknown".to_string())
-}
-
-///
 /// Get the Config structure
 ///
 #[cfg(not(target_os = "macos"))]
