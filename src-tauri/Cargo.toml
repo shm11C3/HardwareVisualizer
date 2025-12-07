@@ -8,7 +8,7 @@ lto = false
 opt-level = 3
 debug = false
 overflow-checks = true
-lto = false
+lto = true
 
 [profile.ci]
 inherits = "release"

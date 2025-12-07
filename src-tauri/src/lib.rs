@@ -32,7 +32,8 @@ use sysinfo::System;
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 
-pub fn build(config: tauri::Config) -> tauri::Builder<Wry> {
+pub fn build(#[cfg(target_os = "macos")] config: tauri::Config) -> tauri::Builder<Wry> {
+  #[cfg(target_os = "macos")]
   utils::tauri::init_config(config);
 
   let app_state = settings::AppState::new();
@@ -227,9 +228,4 @@ pub fn build(config: tauri::Config) -> tauri::Builder<Wry> {
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn run(config: tauri::Config) -> tauri::Result<()> {
-  build(config).run()
 }
