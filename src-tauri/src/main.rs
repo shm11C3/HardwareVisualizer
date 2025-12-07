@@ -8,6 +8,7 @@ fn main() {
       .expect("error while running tauri application");
   }
 
+  #[cfg(target_os = "macos")]
   {
     let context = tauri::generate_context!();
     let config = context.config().clone();
