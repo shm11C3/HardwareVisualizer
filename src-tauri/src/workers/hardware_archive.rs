@@ -33,7 +33,7 @@ impl HardwareArchiveController {
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS) {
                 log_warn!(
-                  &format!("overrun {:?} (> {}s)", elapsed, HARDWARE_ARCHIVE_INTERVAL_SECONDS),
+                  &format!("overrun {elapsed:?} (> {HARDWARE_ARCHIVE_INTERVAL_SECONDS}s)"),
                   "hardware_archive",
                   None::<&str>
                 );
