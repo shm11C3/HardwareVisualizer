@@ -492,11 +492,11 @@ pub mod commands {
     let resource_path = app
       .path()
       .resource_dir()
-      .map_err(|e| format!("Failed to get resource directory: {}", e))?
+      .map_err(|e| format!("Failed to get resource directory: {e}"))?
       .join("LICENSE");
 
     std::fs::read_to_string(&resource_path)
-      .map_err(|e| format!("Failed to read LICENSE file: {}", e))
+      .map_err(|e| format!("Failed to read LICENSE file: {e}"))
   }
 
   #[tauri::command]
@@ -507,11 +507,11 @@ pub mod commands {
     let resource_path = app
       .path()
       .resource_dir()
-      .map_err(|e| format!("Failed to get resource directory: {}", e))?
+      .map_err(|e| format!("Failed to get resource directory: {e}"))?
       .join("THIRD_PARTY_NOTICES.md");
 
     std::fs::read_to_string(&resource_path)
-      .map_err(|e| format!("Failed to read THIRD_PARTY_NOTICES.md file: {}", e))
+      .map_err(|e| format!("Failed to read THIRD_PARTY_NOTICES.md file: {e}"))
   }
 
   #[tauri::command]
@@ -520,7 +520,7 @@ pub mod commands {
     let resource_path = app
       .path()
       .resource_dir()
-      .map_err(|e| format!("Failed to get resource directory: {}", e));
+      .map_err(|e| format!("Failed to get resource directory: {e}"));
 
     let path_str = resource_path?
       .to_str()
@@ -530,6 +530,6 @@ pub mod commands {
     app
       .opener()
       .open_path(path_str, None::<&str>)
-      .map_err(|e| format!("Failed to open LICENSE file path: {}", e))
+      .map_err(|e| format!("Failed to open LICENSE file path: {e}"))
   }
 }
