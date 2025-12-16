@@ -9,16 +9,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Cache Cargo
-      uses: actions/cache@v4
+    - uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b # stable
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+        workspaces: "./src-tauri -> target"
 
     - name: Install Rust components
       if: inputs.components != ''
