@@ -51,16 +51,14 @@
 
 ## Development Commands
 
-| Command                 | Description                                  |
-| ----------------------- | -------------------------------------------- |
-| `npm run dev`           | Start development server with React DevTools |
-| `npm run tauri dev`     | Launch Tauri development mode                |
-| `npm run build`         | Build for production                         |
-| `npm run lint`          | Run Biome linter and formatter               |
-| `npm run format`        | Format code with Biome                       |
-| `npm run test:unit`     | Run frontend unit tests                      |
-| `npm run test:tauri`    | Run Rust tests                               |
-| `npm run test:unit-cov` | Run tests with coverage                      |
+| Command             | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `npm run dev`       | Start development server with React DevTools |
+| `npm run tauri dev` | Launch Tauri development mode                |
+| `npm run build`     | Build for production                         |
+| `npm run lint`      | Run Biome linter and formatter               |
+| `npm run format`    | Format code with Biome                       |
+| `npm test`          | Run frontend tests with coverage             |
 
 ## Code Quality Standards
 
@@ -103,11 +101,13 @@ Commands → Services → Platform (via Factory) → OS APIs
 #### Layer Responsibilities
 
 1. **Commands Layer** (`src/commands/`)
+
    - Tauri command handlers (UI interface)
    - Input validation and output formatting
    - Delegates to services layer for business logic
 
 2. **Services Layer** (`src/services/`)
+
    - Application business logic and hardware data processing
    - Platform abstraction through Factory pattern
    - Hardware monitoring state management

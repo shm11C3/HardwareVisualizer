@@ -31,6 +31,16 @@ updates:
     assignees:
       - "shm11C3"
 
+  - package-ecosystem: "rust-toolchain"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Tokyo"
+    cooldown:
+      default-days: 5
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

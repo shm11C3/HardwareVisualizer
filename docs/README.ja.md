@@ -192,11 +192,11 @@ $ node -v
 v22.16.0
 ```
 
-[Rust 1.90](https://www.rust-lang.org/)
+[Rust](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.90.0 (1159e78c4 2025-09-14)
+rustc 1.xx.x
 ```
 
 ### Linux ビルド依存関係
@@ -221,10 +221,12 @@ npm run tauri build
 ### 共通スクリプト
 
 ```bash
-npm run lint        # biome
+npm run lint
 npm run format
-npm run test:unit   # frontend
-npm run test:tauri  # rust
+npm test
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
 ```
 
 ## 権限とセキュリティに関する注意事項

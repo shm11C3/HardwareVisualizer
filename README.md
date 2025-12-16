@@ -64,7 +64,6 @@ Web: <https://hardviz.com/>
   - [FAQ](#faq)
   - [License](#license)
 
-
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_large)
 
 ## Installation Guide
@@ -196,11 +195,11 @@ $ node -v
 v22.16.0
 ```
 
-[Rust 1.90](https://www.rust-lang.org/)
+[Rust](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.90.0 (1159e78c4 2025-09-14)
+rustc 1.xx.x
 ```
 
 ### Linux Build Dependencies
@@ -225,10 +224,12 @@ npm run tauri build
 ### Common scripts
 
 ```bash
-npm run lint        # biome
+npm run lint
 npm run format
-npm run test:unit   # frontend
-npm run test:tauri  # rust
+npm test
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
 ```
 
 ## Permissions & Security Notes

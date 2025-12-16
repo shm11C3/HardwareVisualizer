@@ -50,7 +50,7 @@ For JavaScript/TypeScript:
 ```bash
 npm run lint
 npm run format
-npm run test:unit
+npm test
 ```
 
 For Rust:
