@@ -10,7 +10,7 @@ runs:
   using: "composite"
   steps:
     - name: Install Rust
-      run: rustup toolchain add 1.90.0
+      run: rustup toolchain add
       shell: bash
 
     - name: Cache Cargo
