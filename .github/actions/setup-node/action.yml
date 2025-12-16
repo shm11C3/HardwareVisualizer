@@ -20,9 +20,7 @@ runs:
         cache: "npm"
 
     - name: Setup safe-chain
-      run: |
-        npm i -g @aikidosec/safe-chain
-        safe-chain setup-ci
+      run: curl -fsSL https://raw.githubusercontent.com/AikidoSec/safe-chain/main/install-scripts/install-safe-chain.sh | sh -s -- --ci
       shell: bash
 
     - name: Install dependencies
