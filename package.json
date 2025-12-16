@@ -78,7 +78,7 @@
     "jotai": "^2.16.0",
     "lucide-react": "^0.560.0",
     "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react-dom": "19.2.1",
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "^7.68.0",
     "react-i18next": "^16.4.1",
