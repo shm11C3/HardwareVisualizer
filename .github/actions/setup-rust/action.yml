@@ -12,7 +12,7 @@ runs:
     - uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b # stable
     - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       with:
-        workspaces: "src-tauri -> target"
+        workspaces: "./src-tauri -> target"
 
     - name: Install Rust components
       if: inputs.components != ''
