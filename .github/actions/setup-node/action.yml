@@ -19,11 +19,17 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
 
-    - name: Setup safe-chain
+    - name: Setup safe-chain (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
       run: |
-        npm i -g @aikidosec/safe-chain
-        safe-chain setup-ci
+        iex (iwr "https://raw.githubusercontent.com/AikidoSec/safe-chain/main/install-scripts/install-safe-chain.ps1" -UseBasicParsing)
+
+    - name: Setup safe-chain (Unix)
+      if: runner.os != 'Windows'
       shell: bash
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/AikidoSec/safe-chain/main/install-scripts/install-safe-chain.sh | sh -s -- --ci
 
     - name: Install dependencies
       if: inputs.install-deps == 'true'
