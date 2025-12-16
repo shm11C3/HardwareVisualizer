@@ -9,10 +9,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install Rust
-      run: rustup toolchain add
-      shell: bash
-
     - name: Cache Cargo
       uses: actions/cache@v4
       with:
