@@ -192,11 +192,11 @@ $ node -v
 v22.16.0
 ```
 
-[Rust 1.90](https://www.rust-lang.org/)
+[Rust](https://www.rust-lang.org/)
 
 ```bash
 $ rustc -V
-rustc 1.90.0 (1159e78c4 2025-09-14)
+rustc 1.xx.x
 ```
 
 ### Linux ビルド依存関係
