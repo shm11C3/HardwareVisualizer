@@ -40,19 +40,23 @@ jobs:
               - 'vite.config.ts'
               - 'tsconfig*.json'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
             backend:
               - 'src-tauri/**'
               - 'Cargo.*'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
             frontend-deps:
               - 'package*.json'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
             backend-deps:
               - 'Cargo.*'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
 
   #
