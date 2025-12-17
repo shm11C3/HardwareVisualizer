@@ -16,7 +16,25 @@ updates:
       default-days: 5
     open-pull-requests-limit: 40
     assignees:
-      - "shm11C3"
+    groups:
+      default:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+        exclude-patterns:
+          - "react*"
+          - "@types/react*"
+          - "typescript"
+      tauri:
+        patterns:
+          - "tauri"
+          - "@tauri-apps/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
 
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
