@@ -43,7 +43,7 @@ jobs:
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts ${{ matrix.platform }}
 
       - name: Upload license artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: licenses-${{ matrix.platform }}
           path: ./docs/THIRD_PARTY_NOTICES/${{ matrix.platform }}/
