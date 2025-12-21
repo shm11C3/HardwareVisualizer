@@ -38,7 +38,7 @@ updates:
           - "react-dom"
       biome:
         patterns:
-          - "biome"
+          - "@biomejs/biome"
 
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
