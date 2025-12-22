@@ -15,12 +15,10 @@ pub fn get_network_interfaces() -> Result<Vec<String>, String> {
 
   let mut interfaces = Vec::new();
   for line in output_str.lines() {
-    if line.starts_with("Device:") {
-      if let Some(device) = line.split(':').nth(1) {
-        let device_name = device.trim().to_string();
-        if !device_name.is_empty() {
-          interfaces.push(device_name);
-        }
+    if let Some(("Device", device)) = line.split_once(':') {
+      let device_name = device.trim().to_string();
+      if !device_name.is_empty() {
+        interfaces.push(device_name);
       }
     }
   }
@@ -50,22 +48,28 @@ pub fn get_interface_info(
 
   for line in output_str.lines() {
     let trimmed = line.trim();
+    let mut it = trimmed.split_whitespace();
 
-    if trimmed.starts_with("ether ") {
-      mac_address = trimmed.split_whitespace().nth(1).map(|s| s.to_string());
-    } else if trimmed.starts_with("inet ") {
-      if let Some(ip) = trimmed.split_whitespace().nth(1) {
-        ipv4_addresses.push(ip.to_string());
+    match it.next() {
+      Some("ether") => {
+        mac_address = it.next().map(ToString::to_string);
       }
-    } else if trimmed.starts_with("inet6 ") {
-      if let Some(ip) = trimmed.split_whitespace().nth(1) {
-        let ip_str = ip.to_string();
-        if ip_str.starts_with("fe80:") {
-          link_local_ipv6.push(ip_str);
-        } else {
-          ipv6_addresses.push(ip_str);
+      Some("inet") => {
+        if let Some(ip) = it.next() {
+          ipv4_addresses.push(ip.to_string());
         }
       }
+      Some("inet6") => {
+        if let Some(ip) = it.next() {
+          let ip_str = ip.to_string();
+          if ip_str.starts_with("fe80:") {
+            link_local_ipv6.push(ip_str);
+          } else {
+            ipv6_addresses.push(ip_str);
+          }
+        }
+      }
+      _ => {}
     }
   }
 
