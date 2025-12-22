@@ -1,5 +1,29 @@
 use std::process::Command;
 
+use serde_json::Value;
+
+fn get_spmemory_json() -> Result<Value, String> {
+  let output = Command::new("system_profiler")
+    .arg("-json")
+    .arg("SPMemoryDataType")
+    .output()
+    .map_err(|e| format!("Failed to execute system_profiler: {e}"))?;
+
+  if !output.status.success() {
+    return Err("system_profiler command failed".to_string());
+  }
+
+  serde_json::from_slice::<Value>(&output.stdout)
+    .map_err(|e| format!("Failed to parse output as JSON: {e}"))
+}
+
+fn parse_speed_with_unit(value: &str) -> Option<(u32, String)> {
+  let mut parts = value.split_whitespace();
+  let speed = parts.next()?.parse::<u32>().ok()?;
+  let unit = parts.next().unwrap_or("MHz").to_string();
+  Some((speed, unit))
+}
+
 pub fn get_hw_memsize() -> Result<u64, String> {
   let output = Command::new("sysctl")
     .arg("-n")
@@ -21,85 +45,42 @@ pub fn get_hw_memsize() -> Result<u64, String> {
 }
 
 pub fn get_memory_type() -> Result<String, String> {
-  let output = Command::new("system_profiler")
-    .arg("SPMemoryDataType")
-    .output()
-    .map_err(|e| format!("Failed to execute system_profiler: {e}"))?;
+  let json = get_spmemory_json()?;
+  let items = json
+    .get("SPMemoryDataType")
+    .and_then(|v| v.as_array())
+    .ok_or_else(|| "Memory type not found".to_string())?;
 
-  if !output.status.success() {
-    return Err("system_profiler command failed".to_string());
-  }
-
-  let output_str = String::from_utf8(output.stdout)
-    .map_err(|e| format!("Failed to parse output: {e}"))?;
-
-  // "Type: DDR4" のような行を探す
-  for line in output_str.lines() {
-    if line.trim().starts_with("Type:") {
-      if let Some(mem_type) = line.split(':').nth(1) {
-        return Ok(mem_type.trim().to_string());
-      }
-    }
-  }
-
-  Err("Memory type not found".to_string())
+  items
+    .iter()
+    .find_map(|item| item.get("dimm_type").and_then(|v| v.as_str()))
+    .map(|s| s.to_string())
+    .ok_or_else(|| "Memory type not found".to_string())
 }
 
-pub fn get_memory_speed() -> Result<u32, String> {
-  let output = Command::new("system_profiler")
-    .arg("SPMemoryDataType")
-    .output()
-    .map_err(|e| format!("Failed to execute system_profiler: {e}"))?;
+pub fn get_memory_speed_with_unit() -> Result<(u32, String), String> {
+  let json = get_spmemory_json()?;
+  let items = json
+    .get("SPMemoryDataType")
+    .and_then(|v| v.as_array())
+    .ok_or_else(|| "Memory speed not found".to_string())?;
 
-  if !output.status.success() {
-    return Err("system_profiler command failed".to_string());
-  }
-
-  let output_str = String::from_utf8(output.stdout)
-    .map_err(|e| format!("Failed to parse output: {e}"))?;
-
-  // "Speed: 2667 MHz" のような行を探す
-  for line in output_str.lines() {
-    if line.trim().starts_with("Speed:") {
-      if let Some(speed_part) = line.split(':').nth(1) {
-        // "2667 MHz" から数字部分を抽出
-        let speed_str = speed_part.split_whitespace().next().unwrap_or("0");
-        if let Ok(speed) = speed_str.parse::<u32>() {
-          return Ok(speed);
-        }
-      }
-    }
-  }
-
-  Err("Memory speed not found".to_string())
+  items
+    .iter()
+    .find_map(|item| item.get("dimm_speed").and_then(|v| v.as_str()))
+    .and_then(parse_speed_with_unit)
+    .ok_or_else(|| {
+      "Memory speed not available from system_profiler on this system".to_string()
+    })
 }
 
 pub fn get_memory_count() -> Result<u32, String> {
-  let output = Command::new("system_profiler")
-    .arg("SPMemoryDataType")
-    .output()
-    .map_err(|e| format!("Failed to execute system_profiler: {e}"))?;
+  let json = get_spmemory_json()?;
+  let items = json
+    .get("SPMemoryDataType")
+    .and_then(|v| v.as_array())
+    .ok_or_else(|| "Memory count not found".to_string())?;
 
-  if !output.status.success() {
-    return Err("system_profiler command failed".to_string());
-  }
-
-  let output_str = String::from_utf8(output.stdout)
-    .map_err(|e| format!("Failed to parse output: {e}"))?;
-
-  // メモリスロット情報をカウント（"DIMM" や "BANK" で始まる行）
-  let count = output_str
-    .lines()
-    .filter(|line| {
-      let trimmed = line.trim();
-      trimmed.starts_with("DIMM") || trimmed.starts_with("BANK")
-    })
-    .count();
-
-  if count > 0 {
-    Ok(count as u32)
-  } else {
-    // Apple Siliconの場合は1とする
-    Ok(1)
-  }
+  let count = items.len() as u32;
+  if count > 0 { Ok(count) } else { Ok(1) }
 }

@@ -18,13 +18,14 @@ async fn get_memory_info_impl() -> Result<MemoryInfo, String> {
   let total_memory = mac_memory::get_hw_memsize()?;
   let memory_type =
     mac_memory::get_memory_type().unwrap_or_else(|_| "Unknown".to_string());
-  let clock = mac_memory::get_memory_speed().unwrap_or(0);
+  let (clock, clock_unit) =
+    mac_memory::get_memory_speed_with_unit().unwrap_or((0, "MHz".to_string()));
   let memory_count = mac_memory::get_memory_count().unwrap_or(0);
 
   Ok(MemoryInfo {
     size: formatter::format_size(total_memory, 1),
     clock,
-    clock_unit: "MHz".to_string(),
+    clock_unit,
     memory_count,
     total_slots: memory_count, // On macOS, accurate slot count retrieval is difficult, so we use the module count instead
     memory_type,
