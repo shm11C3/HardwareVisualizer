@@ -107,7 +107,7 @@ dirs = "6.0.0"
 
 [lib]
 name = "hardware_monitor_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [dev-dependencies]
 tauri = { version = "2.9.5", features = ["test"] }
