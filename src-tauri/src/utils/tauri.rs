@@ -26,6 +26,13 @@ pub fn init_config(config: Config) {
 ///
 #[cfg(target_os = "macos")]
 pub fn get_config() -> Config {
+  #[cfg(test)]
+  {
+    // テスト環境ではデフォルトのConfigを返す
+    if CONFIG.get().is_none() {
+      return Config::default();
+    }
+  }
   CONFIG.get().expect("Config not initialized").clone()
 }
 
