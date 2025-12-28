@@ -28,6 +28,8 @@ pub fn get_network_interfaces() -> Result<Vec<String>, String> {
 
 pub fn get_interface_info(
   interface: &str,
+  default_ipv4_gateway: &[String],
+  default_ipv6_gateway: &[String],
 ) -> Result<crate::models::hardware::NetworkInfo, String> {
   let output = Command::new("ifconfig")
     .arg(interface)
@@ -45,6 +47,7 @@ pub fn get_interface_info(
   let mut ipv4_addresses = Vec::new();
   let mut ipv6_addresses = Vec::new();
   let mut link_local_ipv6 = Vec::new();
+  let mut ip_subnet = Vec::new();
 
   for line in output_str.lines() {
     let trimmed = line.trim();
@@ -57,6 +60,14 @@ pub fn get_interface_info(
       Some("inet") => {
         if let Some(ip) = it.next() {
           ipv4_addresses.push(ip.to_string());
+
+          // Parse subnet information inline
+          let parts: Vec<&str> = trimmed.split_whitespace().collect();
+          if parts.len() >= 4 && parts[2] == "netmask" {
+            if let Some(subnet) = calculate_subnet(parts[1], parts[3]) {
+              ip_subnet.push(subnet);
+            }
+          }
         }
       }
       Some("inet6") => {
@@ -73,12 +84,6 @@ pub fn get_interface_info(
     }
   }
 
-  // Get default gateways
-  let (default_ipv4_gateway, default_ipv6_gateway) = get_default_gateways()?;
-
-  // Get subnet information
-  let ip_subnet = get_subnet_info(interface)?;
-
   Ok(crate::models::hardware::NetworkInfo {
     description: Some(
       get_interface_description(interface).unwrap_or_else(|_| interface.to_string()),
@@ -88,8 +93,8 @@ pub fn get_interface_info(
     ipv6: ipv6_addresses,
     link_local_ipv6,
     ip_subnet,
-    default_ipv4_gateway,
-    default_ipv6_gateway,
+    default_ipv4_gateway: default_ipv4_gateway.to_vec(),
+    default_ipv6_gateway: default_ipv6_gateway.to_vec(),
   })
 }
 
@@ -127,7 +132,7 @@ fn get_interface_description(interface: &str) -> Result<String, String> {
   Ok(interface.to_string())
 }
 
-fn get_default_gateways() -> Result<(Vec<String>, Vec<String>), String> {
+pub fn get_default_gateways() -> Result<(Vec<String>, Vec<String>), String> {
   let output = Command::new("netstat")
     .arg("-nr")
     .output()
@@ -156,41 +161,6 @@ fn get_default_gateways() -> Result<(Vec<String>, Vec<String>), String> {
   }
 
   Ok((ipv4_gateways, ipv6_gateways))
-}
-
-fn get_subnet_info(interface: &str) -> Result<Vec<String>, String> {
-  let output = Command::new("ifconfig")
-    .arg(interface)
-    .output()
-    .map_err(|e| format!("Failed to execute ifconfig: {e}"))?;
-
-  if !output.status.success() {
-    return Err(format!("ifconfig command failed for {interface}"));
-  }
-
-  let output_str = String::from_utf8(output.stdout)
-    .map_err(|e| format!("Failed to parse output: {e}"))?;
-
-  let subnets = output_str
-    .lines()
-    .filter_map(|line| {
-      let trimmed = line.trim();
-      if !trimmed.starts_with("inet ") {
-        return None;
-      }
-
-      let parts: Vec<&str> = trimmed.split_whitespace().collect();
-      if parts.len() < 4 || parts[2] != "netmask" {
-        return None;
-      }
-
-      let ip = parts.get(1)?;
-      let netmask = parts.get(3)?;
-      calculate_subnet(ip, netmask)
-    })
-    .collect();
-
-  Ok(subnets)
 }
 
 fn calculate_subnet(ip: &str, netmask: &str) -> Option<String> {
