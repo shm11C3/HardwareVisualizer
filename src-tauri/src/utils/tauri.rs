@@ -18,9 +18,7 @@ static CONFIG: OnceLock<Config> = OnceLock::new();
 /// Note: Subsequent calls after the first initialization will be ignored.
 #[cfg(target_os = "macos")]
 pub fn init_config(config: Config) {
-  CONFIG
-    .set(config)
-    .expect("Config already initialized");
+  CONFIG.set(config).expect("Config already initialized");
 }
 
 ///

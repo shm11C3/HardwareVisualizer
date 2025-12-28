@@ -16,12 +16,12 @@ pub fn get_network_interfaces() -> Result<Vec<String>, String> {
   let mut interfaces = Vec::new();
   for line in output_str.lines() {
     let trimmed_line = line.trim();
-    if let Some((key, device)) = trimmed_line.split_once(':') {
-      if key.trim() == "Device" {
-        let device_name = device.trim().to_string();
-        if !device_name.is_empty() {
-          interfaces.push(device_name);
-        }
+    if let Some((key, device)) = trimmed_line.split_once(':')
+      && key.trim() == "Device"
+    {
+      let device_name = device.trim().to_string();
+      if !device_name.is_empty() {
+        interfaces.push(device_name);
       }
     }
   }
@@ -65,12 +65,11 @@ pub fn get_interface_info(
           ipv4_addresses.push(ip.to_string());
 
           // Parse subnet information inline
-          if parts.len() >= 4 {
-            if let (Some(&"netmask"), Some(&netmask)) = (parts.get(2), parts.get(3)) {
-              if let Some(subnet) = calculate_subnet(ip, netmask) {
-                ip_subnet.push(subnet);
-              }
-            }
+          if parts.len() >= 4
+            && let (Some(&"netmask"), Some(&netmask)) = (parts.get(2), parts.get(3))
+            && let Some(subnet) = calculate_subnet(ip, netmask)
+          {
+            ip_subnet.push(subnet);
           }
         }
       }
