@@ -11,7 +11,7 @@ mod tests {
     let settings = models::settings::Settings::default();
 
     let expected = models::settings::Settings {
-      version: utils::tauri::get_app_version(&utils::tauri::get_config()),
+      version: utils::tauri::get_app_version(),
       language: language_service::get_default_language(),
       theme: enums::settings::Theme::System,
       display_targets: vec![

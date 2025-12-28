@@ -84,7 +84,7 @@ pub struct ClientSettings {
 impl Default for Settings {
   fn default() -> Self {
     Self {
-      version: utils::tauri::get_app_version(&utils::tauri::get_config()),
+      version: utils::tauri::get_app_version(),
       language: services::language_service::get_default_language().to_string(),
       theme: enums::settings::Theme::System,
       display_targets: vec![

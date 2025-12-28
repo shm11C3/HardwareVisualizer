@@ -1,19 +1,33 @@
-use tauri::Config;
+use std::sync::OnceLock;
 
-///
-/// Get the Config structure
-///
-pub fn get_config() -> Config {
-  let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
-  context.config().clone()
+use serde_json::Value;
+
+fn tauri_conf() -> &'static Value {
+  static CONF: OnceLock<Value> = OnceLock::new();
+  CONF.get_or_init(|| {
+    let raw = include_str!("../../tauri.conf.json");
+    serde_json::from_str(raw).unwrap_or(Value::Null)
+  })
 }
 
 ///
-/// Get application version from Config structure
+/// Get Tauri bundle identifier from `src-tauri/tauri.conf.json`.
 ///
-pub fn get_app_version(config: &Config) -> String {
-  config
-    .version
-    .clone()
-    .unwrap_or_else(|| "unknown".to_string())
+pub fn get_identifier() -> String {
+  tauri_conf()
+    .get("identifier")
+    .and_then(|v| v.as_str())
+    .unwrap_or("HardwareVisualizer")
+    .to_string()
+}
+
+///
+/// Get application version from `src-tauri/tauri.conf.json`.
+///
+pub fn get_app_version() -> String {
+  tauri_conf()
+    .get("version")
+    .and_then(|v| v.as_str())
+    .unwrap_or(env!("CARGO_PKG_VERSION"))
+    .to_string()
 }
