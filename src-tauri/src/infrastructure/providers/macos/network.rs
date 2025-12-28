@@ -15,10 +15,13 @@ pub fn get_network_interfaces() -> Result<Vec<String>, String> {
 
   let mut interfaces = Vec::new();
   for line in output_str.lines() {
-    if let Some(("Device", device)) = line.split_once(':') {
-      let device_name = device.trim().to_string();
-      if !device_name.is_empty() {
-        interfaces.push(device_name);
+    let trimmed_line = line.trim();
+    if let Some((key, device)) = trimmed_line.split_once(':') {
+      if key.trim() == "Device" {
+        let device_name = device.trim().to_string();
+        if !device_name.is_empty() {
+          interfaces.push(device_name);
+        }
       }
     }
   }
