@@ -39,6 +39,10 @@ impl SystemMonitorController {
         {
           monitoring_service::sample_system(&resources);
         }
+        #[cfg(target_os = "macos")]
+        {
+          monitoring_service::sample_system(&resources);
+        }
 
         loop {
           tokio::select! {
