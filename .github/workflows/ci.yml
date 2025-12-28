@@ -104,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        platform: ["windows-latest", "ubuntu-22.04"]
         include:
           - platform: "macos-latest"
             allow-failure: true  # macOS support is experimental/in-progress
