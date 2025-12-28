@@ -62,9 +62,11 @@ pub fn get_interface_info(
           ipv4_addresses.push(ip.to_string());
 
           // Parse subnet information inline
-          if parts.len() >= 4 && parts[2] == "netmask" {
-            if let Some(subnet) = calculate_subnet(parts[1], parts[3]) {
-              ip_subnet.push(subnet);
+          if parts.len() >= 4 {
+            if let (Some(&"netmask"), Some(&netmask)) = (parts.get(2), parts.get(3)) {
+              if let Some(subnet) = calculate_subnet(ip, netmask) {
+                ip_subnet.push(subnet);
+              }
             }
           }
         }
