@@ -51,18 +51,17 @@ pub fn get_interface_info(
 
   for line in output_str.lines() {
     let trimmed = line.trim();
-    let mut it = trimmed.split_whitespace();
+    let parts: Vec<&str> = trimmed.split_whitespace().collect();
 
-    match it.next() {
-      Some("ether") => {
-        mac_address = it.next().map(ToString::to_string);
+    match parts.first() {
+      Some(&"ether") => {
+        mac_address = parts.get(1).map(|s| s.to_string());
       }
-      Some("inet") => {
-        if let Some(ip) = it.next() {
+      Some(&"inet") => {
+        if let Some(&ip) = parts.get(1) {
           ipv4_addresses.push(ip.to_string());
 
           // Parse subnet information inline
-          let parts: Vec<&str> = trimmed.split_whitespace().collect();
           if parts.len() >= 4 && parts[2] == "netmask" {
             if let Some(subnet) = calculate_subnet(parts[1], parts[3]) {
               ip_subnet.push(subnet);
@@ -70,8 +69,8 @@ pub fn get_interface_info(
           }
         }
       }
-      Some("inet6") => {
-        if let Some(ip) = it.next() {
+      Some(&"inet6") => {
+        if let Some(&ip) = parts.get(1) {
           let ip_str = ip.to_string();
           if ip_str.starts_with("fe80:") {
             link_local_ipv6.push(ip_str);
