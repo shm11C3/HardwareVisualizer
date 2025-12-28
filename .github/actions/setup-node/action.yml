@@ -19,6 +19,60 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
 
+    - name: Resolve safe-chain version (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+
+        $apiUrl = 'https://api.github.com/repos/AikidoSec/safe-chain/releases/latest'
+        $headers = @{
+          Accept = 'application/vnd.github+json'
+          'X-GitHub-Api-Version' = '2022-11-28'
+        }
+        if ($env:GITHUB_TOKEN) {
+          $headers.Authorization = "Bearer $env:GITHUB_TOKEN"
+        }
+
+        $resp = Invoke-RestMethod -Uri $apiUrl -Headers $headers
+        if (-not $resp.tag_name) {
+          throw 'Failed to resolve SAFE_CHAIN_VERSION from GitHub API response.'
+        }
+
+        "SAFE_CHAIN_VERSION=$($resp.tag_name)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: Resolve safe-chain version (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+
+        api_url='https://api.github.com/repos/AikidoSec/safe-chain/releases/latest'
+        headers=(
+          -H 'Accept: application/vnd.github+json'
+          -H 'X-GitHub-Api-Version: 2022-11-28'
+        )
+
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+          headers+=( -H "Authorization: Bearer ${GITHUB_TOKEN}" )
+        fi
+
+        SAFE_CHAIN_VERSION="$(
+          curl -fsSL "${headers[@]}" "$api_url" |
+            python3 -c 'import sys, json; print(json.load(sys.stdin)["tag_name"])'
+        )"
+
+        if [ -z "${SAFE_CHAIN_VERSION}" ]; then
+          echo 'Failed to resolve SAFE_CHAIN_VERSION from GitHub API response.' >&2
+          exit 1
+        fi
+
+        echo "SAFE_CHAIN_VERSION=${SAFE_CHAIN_VERSION}" >> "$GITHUB_ENV"
+
     - name: Setup safe-chain (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
