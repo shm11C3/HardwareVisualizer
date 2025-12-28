@@ -30,7 +30,7 @@ pub fn init_config(config: Config) {
 pub fn get_config() -> Config {
   #[cfg(test)]
   {
-    // テスト環境ではデフォルトのConfigを返す
+    // Return default Config in test environment
     if CONFIG.get().is_none() {
       return Config::default();
     }
