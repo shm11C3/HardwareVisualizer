@@ -27,7 +27,9 @@ async fn get_memory_info_impl() -> Result<MemoryInfo, String> {
     clock,
     clock_unit,
     memory_count,
-    total_slots: memory_count, // On macOS, accurate slot count retrieval is difficult, so we use the module count instead
+    // On macOS (especially with unified/soldered memory), reliable physical slot counts are not available.
+    // Use 0 to indicate "not applicable/unknown" rather than assuming all modules correspond to distinct slots.
+    total_slots: 0,
     memory_type,
     is_detailed: true,
   })
