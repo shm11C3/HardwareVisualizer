@@ -1,0 +1,66 @@
+
+
+name: Auto update npm lockfile
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Monday 09:15 JST (00:15 UTC)
+    - cron: "15 0 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-update-npm
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      # This is the key: it tends to refresh indirect dependencies inside the semver ranges
+      # and rewrites package-lock.json accordingly.
+      - name: Update dependencies within semver ranges
+        run: npm update
+
+      # Normalize lockfile to avoid weird diffs (especially if npm version changes)
+      - name: Ensure lockfile is up-to-date
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: "chore(deps): npm update (lockfile)"
+          title: "chore(deps): npm update (lockfile)"
+          body: |
+            This PR was created automatically.
+
+            - Ran `npm update` to refresh transitive dependencies within existing semver ranges
+            - Regenerated `package-lock.json`
+
+            Notes:
+            - This is intentionally different from Dependabot: it can move transitive deps even when direct deps are unchanged.
+          branch: chore/auto-npm-update
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+          signoff: false

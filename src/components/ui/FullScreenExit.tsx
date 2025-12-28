@@ -26,7 +26,7 @@ export const FullscreenExitButton = ({
 
   return (
     !isDecorated && (
-      <div className="-translate-x-1/2 fixed top-0 left-1/2 z-10 flex h-20 w-1/4 items-start justify-center">
+      <div className="fixed top-0 left-1/2 z-10 flex h-20 w-1/4 -translate-x-1/2 items-start justify-center">
         <div
           className={cn(
             "mt-2 transition-opacity duration-300",
