@@ -1,0 +1,115 @@
+name: Auto update safe-chain version
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Monday 09:30 JST (00:30 UTC)
+    - cron: "30 0 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-update-safe-chain
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Resolve latest safe-chain release tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          api_url='https://api.github.com/repos/AikidoSec/safe-chain/releases/latest'
+          latest_tag="$(
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "$api_url" \
+              | node -e 'let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{console.log(JSON.parse(s).tag_name)})'
+          )"
+
+          if [ -z "$latest_tag" ]; then
+            echo 'Failed to resolve latest safe-chain tag.' >&2
+            exit 1
+          fi
+
+          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Update pinned safe-chain version
+        env:
+          LATEST_TAG: ${{ steps.resolve.outputs.latest_tag }}
+        run: |
+          set -euo pipefail
+
+          file='.github/actions/setup-safe-chain/action.yml'
+
+          if ! grep -q '^  safe-chain-version:' "$file"; then
+            echo "Expected 'safe-chain-version' input not found in $file" >&2
+            exit 1
+          fi
+
+          current="$(
+            node -e 'const fs=require("fs"); const y=fs.readFileSync(process.argv[1],"utf8"); const m=y.match(/^\s*safe-chain-version:\n(?:.|\n)*?^\s*default:\s*"([^"]+)"/m); console.log(m?m[1]:"")' "$file"
+          )"
+
+          if [ -z "$current" ]; then
+            echo "Failed to parse current pinned version from $file" >&2
+            exit 1
+          fi
+
+          if [ "$current" = "$LATEST_TAG" ]; then
+            echo "Already up-to-date: $current"
+            exit 0
+          fi
+
+          node -e '
+            const fs=require("fs");
+            const file=process.argv[1];
+            const latest=process.argv[2];
+            const text=fs.readFileSync(file,"utf8");
+            const updated=text.replace(
+              /(\n\s*safe-chain-version:\n(?:.|\n)*?\n\s*default:\s*")([^"]+)("\s*\n)/m,
+              `$1${latest}$3`
+            );
+            if (updated===text) process.exit(2);
+            fs.writeFileSync(file,updated);
+          ' "$file" "$LATEST_TAG"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: "chore(ci): bump safe-chain"
+          title: "chore(ci): bump safe-chain"
+          body: |
+            This PR was created automatically.
+
+            - Updates pinned safe-chain version in `.github/actions/setup-safe-chain/action.yml`
+            - Schedule: weekly
+          branch: chore/auto-safe-chain-bump
+          add-paths: |
+            .github/actions/setup-safe-chain/action.yml
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+          signoff: false

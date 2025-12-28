@@ -1,0 +1,61 @@
+name: "Setup safe-chain"
+description: "Install pinned safe-chain with caching"
+inputs:
+  safe-chain-version:
+    description: "safe-chain version to install (pinned by default)"
+    required: false
+    default: "1.3.3"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache safe-chain (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.USERPROFILE }}\\.safe-chain\\bin
+        key: safe-chain-${{ runner.os }}-${{ runner.arch }}-${{ inputs.safe-chain-version }}
+
+    - name: Cache safe-chain (Unix)
+      if: runner.os != 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ~/.safe-chain/bin
+        key: safe-chain-${{ runner.os }}-${{ runner.arch }}-${{ inputs.safe-chain-version }}
+
+    - name: Add safe-chain to PATH (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        "$env:USERPROFILE\\.safe-chain\\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+    - name: Add safe-chain to PATH (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        echo "$HOME/.safe-chain/bin" >> "$GITHUB_PATH"
+
+    - name: Setup safe-chain (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+
+        $version = '${{ inputs.safe-chain-version }}'
+        $env:SAFE_CHAIN_VERSION = $version
+
+        $installScriptUrl = "https://raw.githubusercontent.com/AikidoSec/safe-chain/$version/install-scripts/install-safe-chain.ps1"
+        $scriptPath = Join-Path $env:RUNNER_TEMP 'install-safe-chain.ps1'
+
+        Invoke-WebRequest -Uri $installScriptUrl -OutFile $scriptPath -UseBasicParsing
+        & $scriptPath -ci
+
+    - name: Setup safe-chain (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        SAFE_CHAIN_VERSION: ${{ inputs.safe-chain-version }}
+      run: |
+        set -euo pipefail
+
+        curl -fsSL "https://raw.githubusercontent.com/AikidoSec/safe-chain/${{ inputs.safe-chain-version }}/install-scripts/install-safe-chain.sh" | sh -s -- --ci
