@@ -105,11 +105,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["windows-latest", "ubuntu-22.04"]
-        include:
-          - platform: "macos-latest"
-            allow-failure: true  # macOS support is experimental/in-progress
     runs-on: ${{ matrix.platform }}
-    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
