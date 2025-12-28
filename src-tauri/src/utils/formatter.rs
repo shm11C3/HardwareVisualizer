@@ -84,6 +84,7 @@ pub fn round(num: f64, precision: u32) -> f64 {
 ///
 /// ## Convert bytes to string with unit
 ///
+#[allow(dead_code)]
 pub fn format_size(bytes: u64, precision: u32) -> String {
   if bytes >= GIGABYTE {
     format!(
