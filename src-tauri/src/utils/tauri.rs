@@ -6,7 +6,7 @@ fn tauri_conf() -> &'static Value {
   static CONF: OnceLock<Value> = OnceLock::new();
   CONF.get_or_init(|| {
     let raw = include_str!("../../tauri.conf.json");
-    serde_json::from_str(raw).unwrap_or(Value::Null)
+    serde_json::from_str(raw).expect("Failed to parse embedded tauri.conf.json")
   })
 }
 
