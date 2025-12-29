@@ -1,8 +1,8 @@
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { type PluginOption, defineConfig } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
+import { defineConfig, type PluginOption } from "vite";
 
 const platform = process.env.TAURI_ENV_PLATFORM;
 
@@ -89,11 +89,12 @@ export default defineConfig(async ({ mode }) => ({
       },
       plugins: [
         // Enable `npx vite build --mode analyze`
-        mode === 'analyze' && visualizer({
-          open: true,
-          gzipSize: true,
-          brotliSize: true,
-        }),
+        mode === "analyze" &&
+          visualizer({
+            open: true,
+            gzipSize: true,
+            brotliSize: true,
+          }),
       ],
     },
   },
