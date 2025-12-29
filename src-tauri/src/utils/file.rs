@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use tauri::generate_context;
 
 #[cfg(test)]
 use mockall::automock;
@@ -29,10 +28,8 @@ pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
 
 #[cfg(target_os = "windows")]
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
-  let context: tauri::Context<tauri::Wry> = generate_context!();
-
   // Create directory based on identifier from tauri.conf.json
-  let identifier = context.config().identifier.clone();
+  let identifier = crate::utils::tauri::get_identifier();
 
   let app_data = PathBuf::from(env.get_var("APPDATA").unwrap());
   app_data.join(identifier).join(sub_item)
@@ -50,8 +47,7 @@ pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
   use std::path::Path;
 
-  let context: tauri::Context<tauri::Wry> = generate_context!();
-  let identifier = context.config().identifier.clone();
+  let identifier = crate::utils::tauri::get_identifier();
 
   let home = env.get_var("HOME").unwrap_or_else(|_| ".".to_string());
   Path::new(&home)
