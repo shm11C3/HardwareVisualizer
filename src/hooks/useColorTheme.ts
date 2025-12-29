@@ -1,11 +1,15 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { atom, useAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { darkClasses } from "@/consts/style";
 import type { Theme } from "@/rspc/bindings";
 
 const defaultTheme = ["dark", "light"];
 
+export const currentThemeAtom = atom<Exclude<Theme, "system"> | null>(null);
+
 export const useColorTheme = (theme: Theme) => {
+  const [, setCurrentTheme] = useAtom(currentThemeAtom);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">("light");
 
   const listenTheme = useCallback(async () => {
@@ -31,27 +35,35 @@ export const useColorTheme = (theme: Theme) => {
     };
   }, [listenTheme]);
 
+  const applyTheme = useCallback(
+    (theme: Exclude<Theme, "system">) => {
+      document.documentElement.classList.add(theme);
+      setCurrentTheme(theme);
+    },
+    [setCurrentTheme],
+  );
+
   useEffect(() => {
     document.documentElement.classList.remove(...defaultTheme);
     document.documentElement.dataset.theme = "";
 
+    // Apply System Theme
     if (theme === "system") {
-      if (systemTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.add("light");
-      }
-    }
-
-    if (defaultTheme.includes(theme)) {
-      document.documentElement.classList.add(theme);
+      applyTheme(systemTheme);
       return;
     }
 
+    // Apply Dark / Light Theme
+    if (defaultTheme.includes(theme)) {
+      applyTheme(theme);
+      return;
+    }
+
+    // Apply Other Theme
     if (darkClasses.includes(theme)) {
-      document.documentElement.classList.add("dark");
+      applyTheme("dark");
     }
 
     document.documentElement.dataset.theme = theme;
-  }, [theme, systemTheme]);
+  }, [theme, systemTheme, applyTheme]);
 };
