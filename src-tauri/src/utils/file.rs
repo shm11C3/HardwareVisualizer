@@ -29,7 +29,7 @@ pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
 #[cfg(target_os = "windows")]
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
   // Create directory based on identifier from tauri.conf.json
-  let identifier = tauri_utils::get_identifier();
+  let identifier = crate::utils::tauri::get_identifier();
 
   let app_data = PathBuf::from(env.get_var("APPDATA").unwrap());
   app_data.join(identifier).join(sub_item)
