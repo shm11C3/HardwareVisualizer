@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use crate::utils::tauri as tauri_utils;
-
 #[cfg(test)]
 use mockall::automock;
 
@@ -49,7 +47,7 @@ pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
   use std::path::Path;
 
-  let identifier = tauri_utils::get_identifier();
+  let identifier = crate::utils::tauri::get_identifier();
 
   let home = env.get_var("HOME").unwrap_or_else(|_| ".".to_string());
   Path::new(&home)
