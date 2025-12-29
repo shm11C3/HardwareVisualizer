@@ -8,7 +8,6 @@ function updateTauriConfig(args) {
   const configPath = "src-tauri/tauri.conf.json";
 
   const signCommand = args[0];
-  const pubkey = args[1];
 
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
