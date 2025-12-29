@@ -1,5 +1,11 @@
 import fs from "node:fs";
 
+type LicensesJsonEntry = {
+  licenses: string;
+};
+
+type LicensesJson = Record<string, LicensesJsonEntry>;
+
 const licensesFile = process.argv[2];
 if (!licensesFile) {
   console.error("Usage: ts-node check-licenses.ts <licenses.json>");
@@ -18,7 +24,9 @@ const allowedLicenses = new Set([
   "CC-BY-4.0",
 ]);
 
-const licenses = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
+const licenses: LicensesJson = JSON.parse(
+  fs.readFileSync(licensesFile, "utf-8"),
+);
 let errorCount = 0;
 
 const normalize = (
@@ -33,7 +41,7 @@ const normalize = (
   return { type: "SINGLE", values: [raw.trim()] };
 };
 
-for (const [pkg, info] of Object.entries<any>(licenses)) {
+for (const [pkg, info] of Object.entries(licenses)) {
   // Skip checking itself
   if (pkg.split("@")[0] === "hardware-visualizer") {
     continue;
