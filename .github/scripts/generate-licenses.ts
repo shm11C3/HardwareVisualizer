@@ -18,6 +18,21 @@ type CargoLicenseInfo = {
   description?: string;
 };
 
+type CargoMetadata = {
+  packages: CargoPackage[];
+};
+
+type CargoPackage = {
+  name: string;
+  version: string;
+  manifest_path: string;
+  targets: CargoTarget[];
+};
+
+type CargoTarget = {
+  kind: string[];
+};
+
 // ==========================
 // Argument processing
 // ==========================
@@ -112,12 +127,12 @@ try {
     encoding: "utf8",
     maxBuffer: 100 * 1024 * 1024,
   });
-  const metadata = JSON.parse(metadataJson);
+  const metadata: CargoMetadata = JSON.parse(metadataJson);
 
   // Keep only crates required at runtime
   const runtimeCrates = new Set<string>();
   for (const pkg of metadata.packages) {
-    const kinds = pkg.targets.flatMap((t: any) => t.kind);
+    const kinds = pkg.targets.flatMap((t) => t.kind);
     const isBuildOnly = kinds.includes("custom-build"); // build.rs only
     const isTestOnly = kinds.includes("test") || kinds.includes("example"); // dev only
 

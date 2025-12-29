@@ -32,7 +32,7 @@ tauri-build = { version = "2.5.0", features = [] }
 
 
 [dependencies]
-serde_json = "1.0.145"
+serde_json = "1.0.147"
 serde = { version = "1.0.228", features = ["derive"] }
 tauri = { version = "2.9.5", features = [] }
 sysinfo = "0.37.2"
@@ -43,7 +43,7 @@ tokio = { version = "1.48.0", features = [
     "time",
     "fs",
 ] }
-tracing = "0.1.43"
+tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", default-features = false, features = [
     "env-filter",
     "fmt",
@@ -55,7 +55,7 @@ tauri-plugin-store = "2.4.1"
 base64 = "0.22"
 image = { version = "0.25.9", default-features = false, features = ["png"] }
 regex = "1.12.2"
-tempfile = "3.23.0"
+tempfile = "3.24.0"
 sys-locale = "0.3.2"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 specta-typescript = "0.0.9"
