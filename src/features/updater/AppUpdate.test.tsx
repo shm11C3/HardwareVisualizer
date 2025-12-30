@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockInstall = vi.fn();
 const mockUseUpdater = vi.fn();
 
-vi.mock("@/features/updater/useAppUpdate", () => ({
+vi.mock("./hooks/useAppUpdate", () => ({
   useUpdater: () => mockUseUpdater(),
 }));
 
@@ -36,7 +36,7 @@ vi.mock("@/components/shared/System", () => ({
 }));
 
 // Mock UpdateTopBar component
-vi.mock("@/features/updater/UpdateBar", () => ({
+vi.mock("./components/UpdateBar", () => ({
   UpdateTopBar: ({
     percent,
     transferredBytes,
@@ -57,7 +57,7 @@ vi.mock("@/features/updater/UpdateBar", () => ({
   ),
 }));
 
-import { AppUpdate } from "@/features/updater/ConfirmUpdate";
+import { AppUpdate } from "@/features/updater/AppUpdate";
 
 describe("AppUpdate", () => {
   beforeEach(() => {

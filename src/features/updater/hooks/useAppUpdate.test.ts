@@ -15,7 +15,7 @@ vi.mock("@/rspc/bindings", () => ({
   },
 }));
 
-import { useUpdater } from "@/features/updater/useAppUpdate";
+import { useUpdater } from "@/features/updater/hooks/useAppUpdate";
 import { commands } from "@/rspc/bindings";
 
 type TestDownloadEvent =

@@ -34,7 +34,7 @@ import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
-import { AppUpdate } from "./features/updater/ConfirmUpdate";
+import { AppUpdate } from "./features/updater/AppUpdate";
 import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";

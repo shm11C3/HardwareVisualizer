@@ -7,7 +7,7 @@ vi.mock("@/components/ui/progress", () => ({
   ),
 }));
 
-import { UpdateTopBar } from "@/features/updater/UpdateBar";
+import { UpdateTopBar } from "@/features/updater/components/UpdateBar";
 
 describe("UpdateTopBar", () => {
   afterEach(() => {
