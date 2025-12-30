@@ -53,7 +53,7 @@ export const App = () => {
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
   const { t, i18n } = useTranslation();
-  const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
+  const [isDecorated, setDecorated] = useTauriStore("window_decorated", true);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);

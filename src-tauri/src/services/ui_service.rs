@@ -10,13 +10,17 @@ pub fn apply_saved_window_decoration(app: &AppHandle) -> Result<(), String> {
     .store(STORE_FILENAME)
     .map_err(|e| format!("Failed to open store: {e}"))?;
 
+  let Some(window) = app.get_webview_window("main") else {
+    return Err("Main window not found".to_string());
+  };
+
   if let Some(is_decorated) = store.get(KEY_WINDOW_DECORATED).and_then(|v| v.as_bool()) {
-    if let Some(window) = app.get_webview_window("main") {
-      set_window_decoration(&window, is_decorated)?;
-    } else {
-      return Err("Main window not found".into());
-    }
+    set_window_decoration(&window, is_decorated)?;
+  } else {
+    // When no saved state, default to decorated
+    set_window_decoration(&window, true)?;
   }
+
   Ok(())
 }
 
