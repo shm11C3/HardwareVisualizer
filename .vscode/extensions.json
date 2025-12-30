@@ -3,6 +3,7 @@
     "biomejs.biome",
     "rust-lang.rust-analyzer",
     "tamasfe.even-better-toml",
-    "streetsidesoftware.code-spell-checker"
+    "streetsidesoftware.code-spell-checker",
+    "vadimcn.vscode-lldb"
   ]
 }
