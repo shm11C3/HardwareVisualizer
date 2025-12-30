@@ -108,6 +108,7 @@ jobs:
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
       - name: Cache WiX Toolset (wix314)
+        id: tauri_tools
         if: ${{ matrix.platform == 'windows-latest' }}
         uses: actions/cache@v5
         with:
