@@ -14,7 +14,7 @@ describe("UpdateTopBar", () => {
     cleanup();
   });
 
-  it("percent を 0..100 にクランプし、表示%と Progress value に反映する", () => {
+  it("Clamps percent to 0..100 and reflects it in the displayed % and Progress value", () => {
     const { rerender } = render(<UpdateTopBar percent={-10} />);
     expect(screen.getByText("0%")).toBeInTheDocument();
     expect(screen.getByTestId("progress").getAttribute("data-value")).toBe("0");
@@ -26,7 +26,7 @@ describe("UpdateTopBar", () => {
     );
   });
 
-  it("表示%は Math.round 後の値になる", () => {
+  it("Shows the rounded percentage (Math.round)", () => {
     const { rerender } = render(<UpdateTopBar percent={33.4} />);
     expect(screen.getByText("33%")).toBeInTheDocument();
 
@@ -34,7 +34,7 @@ describe("UpdateTopBar", () => {
     expect(screen.getByText("34%")).toBeInTheDocument();
   });
 
-  it("transferredBytes と totalBytes が揃っている時だけサイズ表記を出す", () => {
+  it("Shows the size text only when both transferredBytes and totalBytes are provided", () => {
     const { rerender } = render(
       <UpdateTopBar percent={10} transferredBytes={1024n} totalBytes={2048n} />,
     );
@@ -49,7 +49,7 @@ describe("UpdateTopBar", () => {
     expect(screen.queryByText("1.0 KB / 2.0 KB")).not.toBeInTheDocument();
   });
 
-  it("基本文言を表示する", () => {
+  it("Renders the base label", () => {
     render(<UpdateTopBar percent={0} />);
     expect(screen.getByText("Downloading update…")).toBeInTheDocument();
   });
