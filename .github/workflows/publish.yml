@@ -118,33 +118,41 @@ jobs:
         if: ${{ matrix.platform == 'windows-latest' }}
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
+          $wixDir = "${{ steps.tauri_tools.outputs.wix_dir }}"
+          New-Item -ItemType Directory -Force -Path $wixDir | Out-Null
 
-          $dest = Join-Path $env:LOCALAPPDATA "tauri\WixTools314"
-          if (Test-Path $dest) {
-            Write-Host "WiX already cached: $dest"
+          $candle = Join-Path $wixDir "candle.exe"
+          $light  = Join-Path $wixDir "light.exe"
+
+          if ((Test-Path $candle) -and (Test-Path $light)) {
+            Write-Host "WiX already present: $wixDir"
             exit 0
           }
 
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-
           $url = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
-          $zip = Join-Path $env:TEMP "wix314-binaries.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "wix314-binaries.zip"
+          $tmp = Join-Path $env:RUNNER_TEMP "wix314-extract"
 
-          # curl.exe の方が retry が強い
-          for ($i = 1; $i -le 5; $i++) {
-            try {
-              Write-Host "Downloading WiX ($i/5): $url"
-              & curl.exe -fL --retry 5 --retry-delay 2 --retry-all-errors -o $zip $url
-              break
-            } catch {
-              if ($i -eq 5) { throw }
-              Start-Sleep -Seconds (3 * $i)
-            }
-          }
+          Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 
-          Expand-Archive -Force $zip $dest
-          Write-Host "Extracted WiX to: $dest"
+          Write-Host "Downloading WiX: $url"
+          curl.exe -L --retry 6 --retry-all-errors --connect-timeout 20 --max-time 600 -o $zip $url
+          Expand-Archive -Path $zip -DestinationPath $tmp -Force
+
+          $found = Get-ChildItem -Path $tmp -Recurse -Filter "candle.exe" | Select-Object -First 1
+          if (-not $found) { throw "candle.exe not found in extracted archive. Download might be corrupted." }
+
+          $root = $found.Directory.FullName
+          Write-Host "Detected WiX root: $root"
+
+          Copy-Item -Path (Join-Path $root "*") -Destination $wixDir -Recurse -Force
+
+          if (-not (Test-Path $candle)) { throw "candle.exe still missing at $wixDir (structure mismatch)" }
+          if (-not (Test-Path $light))  { throw "light.exe still missing at $wixDir (structure mismatch)" }
+
+          Write-Host "WiX prepared at: $wixDir"
+          Get-ChildItem $wixDir | Select-Object Name | Format-Table -AutoSize
 
       - uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
