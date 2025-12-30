@@ -39,7 +39,7 @@ pub mod app_updates {
     }
   }
   #[derive(Clone, Serialize, specta::Type)]
-  #[serde(tag = "event", content = "data")]
+  #[serde(tag = "event", content = "data", rename_all = "camelCase")]
   pub enum DownloadEvent {
     #[serde(rename_all = "camelCase")]
     Started {

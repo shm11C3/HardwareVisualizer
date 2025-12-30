@@ -219,6 +219,7 @@ pub fn run() {
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
+    .manage(app_updates::PendingUpdate(Mutex::new(None)))
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
