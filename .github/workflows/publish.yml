@@ -107,8 +107,16 @@ jobs:
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
-      - name: Cache WiX Toolset (wix314)
+      - name: Resolve Tauri tool dirs (WixTools314)
+        if: ${{ matrix.platform == 'windows-latest' }}
         id: tauri_tools
+        shell: pwsh
+        run: |
+          $wixDir = Join-Path $env:LOCALAPPDATA "tauri\WixTools314"
+          "wix_dir=$wixDir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "wix_dir=$wixDir"
+
+      - name: Cache WiX Toolset (wix314)
         if: ${{ matrix.platform == 'windows-latest' }}
         uses: actions/cache@v5
         with:
