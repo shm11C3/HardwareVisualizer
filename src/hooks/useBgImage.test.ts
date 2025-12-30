@@ -1,4 +1,4 @@
-// src/test/unit/hooks/useBgImage.test.ts
+// src/hooks/useBgImage.test.ts
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
