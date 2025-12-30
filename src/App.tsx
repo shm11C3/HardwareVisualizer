@@ -34,6 +34,7 @@ import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
+import { AppUpdate } from "./features/updater/ConfirmUpdate";
 import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";
@@ -69,6 +70,7 @@ export const App = () => {
 
   useEffect(() => {
     i18n.changeLanguage(settings.language);
+    document.documentElement.lang = settings.language;
   }, [settings.language, i18n]);
 
   useEffect(() => {
@@ -189,6 +191,7 @@ export const App = () => {
               />
             )}
           </Suspense>
+          <AppUpdate />
         </div>
       </div>
       <FullscreenExitButton

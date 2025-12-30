@@ -20,6 +20,7 @@ use commands::hardware;
 use commands::settings;
 use commands::system;
 use commands::ui;
+use commands::updater::app_updates;
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
@@ -61,6 +62,8 @@ pub fn run() {
   let migrations = infrastructure::database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+    app_updates::fetch_update,
+    app_updates::install_update,
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
@@ -123,7 +126,6 @@ pub fn run() {
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
       let path_resolver = app.path();
-      let handle = app.handle().clone();
 
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
@@ -132,14 +134,6 @@ pub fn run() {
       commands::ui::init(app);
 
       builder.mount_events(app);
-
-      // Check updates
-      tauri::async_runtime::spawn(async move {
-        if let Err(e) = workers::updater::update(handle).await {
-          log_error!("Update process failed", "lib.run", Some(e.to_string()));
-          eprintln!("Update process failed: {e:?}");
-        }
-      });
 
       let monitor = workers::system_monitor::SystemMonitorController::setup(
         models::hardware_archive::MonitorResources {
@@ -225,6 +219,7 @@ pub fn run() {
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
+    .manage(app_updates::PendingUpdate(Mutex::new(None)))
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
