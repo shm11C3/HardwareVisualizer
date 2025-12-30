@@ -1,5 +1,11 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 type NpmLicenseInfo = {
@@ -179,11 +185,39 @@ try {
   console.error("❌ Failed to collect Rust licenses:", e);
 }
 
+const manualDir = path.resolve("./docs/THIRD_PARTY_NOTICES/manual");
+
+/**
+ * Append manual notices from the manual directory.
+ *
+ * @returns {string} A string containing the concatenated manual notices, or an empty string if none exist.
+ */
+const appendManualNotices = () => {
+  if (!existsSync(manualDir)) return "";
+
+  const files = readdirSync(manualDir)
+    .filter((f) => f.endsWith(".md"))
+    .sort();
+
+  if (files.length === 0) return "";
+
+  let s = "";
+  for (const f of files) {
+    const p = path.join(manualDir, f);
+    const content = readFileSync(p, "utf8").trim();
+    s += `${content}\n\n`;
+  }
+  return s;
+};
+
 // ==========================
 // Output
 // ==========================
 if (!existsSync(outputDir)) {
   mkdirSync(outputDir, { recursive: true });
 }
+
+output += appendManualNotices();
+
 writeFileSync(outputPath, output, "utf8");
 console.log(`✅ Combined license file written to ${outputPath}`);
