@@ -143,6 +143,9 @@ jobs:
           Write-Host "WiX prepared at: $wixDir"
           Get-ChildItem $wixDir | Select-Object Name | Format-Table -AutoSize
 
+      - name: test
+        run: npm run tauri build
+
       - uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
