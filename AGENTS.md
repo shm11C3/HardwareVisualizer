@@ -81,7 +81,7 @@ Frontend ↔ backend communication is done via **Tauri commands**; TypeScript bi
 
 - **Unit Tests**: Vitest for frontend, Cargo test for Rust
 - **Coverage**: Aim for comprehensive test coverage
-- **Test Location**: `src/test/unit/` for frontend, `src-tauri/src/_tests/` for Rust
+- **Test Location**: Co-located under `src/**` (e.g. `*.test.ts(x)`), `src-tauri/src/_tests/` for Rust
 
 ### TypeScript Configuration
 

@@ -1,4 +1,4 @@
-// src/test/unit/hooks/useUsageAndHardwareUpdater.test.ts
+// src/features/hardware/hooks/useHardwareData.test.ts
 import { renderHook, waitFor } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";

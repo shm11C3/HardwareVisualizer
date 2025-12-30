@@ -1,4 +1,4 @@
-// src/test/unit/useColorTheme.test.ts
+// src/hooks/useColorTheme.test.ts
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useColorTheme } from "@/hooks/useColorTheme";
