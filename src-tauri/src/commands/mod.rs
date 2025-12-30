@@ -3,3 +3,4 @@ pub mod hardware;
 pub mod settings;
 pub mod system;
 pub mod ui;
+pub mod updater;

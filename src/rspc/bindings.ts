@@ -7,6 +7,30 @@
 
 export const commands = {
 /**
+ * Fetch available update metadata
+ * 
+ */
+async fetchUpdate() : Promise<Result<UpdateMetadata | null, UpdaterError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("fetch_update") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Install the pending update
+ * 
+ */
+async installUpdate(onEvent: TAURI_CHANNEL<DownloadEvent>) : Promise<Result<null, UpdaterError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_update", { onEvent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * ## Get process list
  * 
  */
@@ -477,6 +501,7 @@ export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive"
 export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings; burnInShift: boolean; burnInShiftMode: BurnInShiftMode; burnInShiftPreset: BurnInShiftPreset; burnInShiftIdleOnly: boolean; burnInShiftOptions: BurnInShiftOptions | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
+export type DownloadEvent = { event: "Started"; data: { contentLength: string | null } } | { event: "Progress"; data: { chunkLength: string } } | { event: "Finished" }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
@@ -510,8 +535,11 @@ memoryUsage: number }
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
+export type TAURI_CHANNEL<TSend> = null
 export type TemperatureUnit = "C" | "F"
 export type Theme = "system" | "light" | "dark" | "darkPlus" | "ocean" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso"
+export type UpdateMetadata = { version: string; currentVersion: string; notes: string | null; pubDate: string | null }
+export type UpdaterError = "NoPendingUpdate" | { Updater: string }
 
 /** tauri-specta globals **/
 
