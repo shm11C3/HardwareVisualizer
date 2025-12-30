@@ -4,13 +4,14 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "jsdom",
-    setupFiles: ["src/test/setup.ts"],
-    include: ["src/test/unit/**/*.test.ts", "src/test/unit/**/*.test.tsx"],
+    setupFiles: ["src/setupVitest.ts"],
+    include: ["src/**/*.{test,spec}.ts", "src/**/*.{test,spec}.tsx"],
     coverage: {
       include: ["src/**/*.ts"],
       exclude: [
         "src/rspc/**",
-        "src/test/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*",
         "src/**/*.d.ts",
         "src/**/types/**",
       ],

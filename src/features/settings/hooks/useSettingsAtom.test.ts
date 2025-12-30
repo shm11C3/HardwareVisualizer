@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
-// src/test/unit/useSettingsAtom.test.ts
+// src/features/settings/hooks/useSettingsAtom.test.ts
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 /**
