@@ -260,6 +260,18 @@
         "applicationLicense": "Application License",
         "thirdPartyLicenses": "Third-Party Licenses"
       }
+    },
+    "updater": {
+      "title": "New Version Available !!",
+      "description": "A new version v{{version}} is available. Do you want to update now?",
+      "releaseNotes": "Release Notes",
+      "releaseNotesDescription": "For details of the update, please see the release notes : {{releaseNotesUrl}}",
+      "currentVersion": "Current Version: v{{currentVersion}}",
+      "later": "Update Later",
+      "updateAndRestart": "Update Now",
+      "downloadingUpdate": "Downloading Update...",
+      "installingUpdate": "Installing Update...",
+      "needRestart": "Please restart the application to complete the update."
     }
   },
 

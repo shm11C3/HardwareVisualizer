@@ -33,3 +33,21 @@ export const formatDuration = (seconds: number, locale: "ja-JP" | "en-US") => {
 
   return `${d > 0 ? `${d}${t.day} ` : ""}${h > 0 ? `${h}${t.hour} ` : ""}${m > 0 ? `${m}${t.minute} ` : ""}${s}${t.second}`.trim();
 };
+
+export function formatBytesBigint(bytes?: bigint) {
+  if (bytes == null) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"] as const;
+
+  let unit = 0n;
+  let base = 1n;
+  while (bytes >= base * 1024n && Number(unit) < units.length - 1) {
+    base *= 1024n;
+    unit += 1n;
+  }
+
+  const scaled = (bytes * 10n) / base;
+  const intPart = scaled / 10n;
+  const frac = scaled % 10n;
+
+  return `${intPart.toString()}.${frac.toString()} ${units[Number(unit)]}`;
+}

@@ -17,9 +17,11 @@ import {
 export const NeedRestart = ({
   alertOpen,
   setAlertOpen,
+  description,
 }: {
   alertOpen: boolean;
   setAlertOpen: Dispatch<SetStateAction<boolean>>;
+  description?: string;
 }) => {
   const { t } = useTranslation();
   const setIsRequiredRestart = useSetAtom(settingAtoms.isRequiredRestart);
@@ -32,7 +34,8 @@ export const NeedRestart = ({
             {t("pages.settings.insights.needRestart.title")}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {t("pages.settings.insights.needRestart.description")}
+            {description ??
+              t("pages.settings.insights.needRestart.description")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
