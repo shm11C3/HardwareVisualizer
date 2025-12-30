@@ -11,8 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UpdateTopBar } from "./UpdateBar";
-import { useUpdater } from "./useAppUpdate";
+import { UpdateTopBar } from "./components/UpdateBar";
+import { useUpdater } from "./hooks/useAppUpdate";
 
 export function AppUpdate() {
   const { meta, installing, percent, downloaded, total, install, isFinished } =
