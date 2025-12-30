@@ -64,8 +64,6 @@ Web: <https://hardviz.com/>
   - [FAQ](#faq)
   - [License](#license)
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_large)
-
 ## Installation Guide
 
 ### Download
