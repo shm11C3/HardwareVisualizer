@@ -84,28 +84,8 @@ jobs:
         with:
           components: ""
 
-      - name: Generate licenses.json
-        run: npx license-checker --production --json > licenses.json
-
-      - name: Check licenses
-        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
-
-      - name: Update tauri.conf.json using Node.js script
-        run: node .github/scripts/updateTauriConfig.cjs "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
-
-      - name: Setup Azure Code Signing
-        run: cargo install trusted-signing-cli
-
       - name: install frontend dependencies
         run: npm ci # change this to npm, pnpm or bun depending on which one you use.
-
-      # Generate THIRD_PARTY_LICENSES file
-      # Generate here to include in Tauri build bundle
-      - name: Install cargo-license
-        run: cargo install cargo-license
-
-      - name: Generate THIRD_PARTY_NOTICES
-        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
       - name: Resolve Tauri tool dirs (WixTools314)
         if: ${{ matrix.platform == 'windows-latest' }}
@@ -166,9 +146,6 @@ jobs:
       - uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -178,31 +155,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-
-      - if: ${{ matrix.platform == 'windows-latest' }}
-        name: Bundle Offline Installer
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-        run: npm run tauri bundle -- --config src-tauri/tauri.microsoftstore.conf.json
-        shell: bash
-
-      - if: ${{ matrix.platform == 'windows-latest' }}
-        name: Rename Offline Installer
-        run: |
-          mkdir -p dist/offline
-          cp src-tauri/target/release/bundle/msi/*.msi "dist/offline/HardwareVisualizer_${{ needs.check-version.outputs.version }}_x64_en-US_offline.msi"
-
-      - if: ${{ matrix.platform == 'windows-latest' }}
-        name: Upload MSI via gh CLI
-        run: gh release upload "v${{ needs.check-version.outputs.version }}" dist/offline/*.msi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
 
       - name: Upload THIRD_PARTY_NOTICES.md
         run: |
