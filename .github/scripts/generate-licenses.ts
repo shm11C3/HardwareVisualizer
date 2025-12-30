@@ -190,7 +190,7 @@ const manualDir = path.resolve("./docs/THIRD_PARTY_NOTICES/manual");
 /**
  * Append manual notices from the manual directory.
  *
- * @returns
+ * @returns {string} A string containing the concatenated manual notices, or an empty string if none exist.
  */
 const appendManualNotices = () => {
   if (!existsSync(manualDir)) return "";
