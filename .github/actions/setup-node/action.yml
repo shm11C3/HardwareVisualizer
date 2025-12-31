@@ -10,7 +10,7 @@ inputs:
     required: false
     default: "true"
   setup-safe-chain:
-    description: "Whether to setup AikidoSec/safe-chain"
+    description: "Whether to setup and configure AikidoSec/safe-chain for secure package installation"
     required: false
     default: "true"
 
