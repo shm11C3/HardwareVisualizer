@@ -9,6 +9,10 @@ inputs:
     description: "Whether to install dependencies"
     required: false
     default: "true"
+  setup-safe-chain:
+    description: "Whether to setup AikidoSec/safe-chain"
+    required: false
+    default: "true"
 
 runs:
   using: "composite"
