@@ -10,6 +10,7 @@ Licensed under the MIT License. See THIRD_PARTY_NOTICES.md for the full text.
 */
 
 pub mod app_updates {
+  use crate::{log_debug, log_error, log_info, log_internal};
   use serde::Serialize;
   use specta;
   use std::sync::Mutex;
@@ -52,7 +53,7 @@ pub mod app_updates {
     Finished,
   }
 
-  #[derive(Serialize, specta::Type)]
+  #[derive(Debug, Serialize, specta::Type)]
   #[serde(rename_all = "camelCase")]
   pub struct UpdateMetadata {
     version: String,
@@ -81,6 +82,12 @@ pub mod app_updates {
       pub_date: u.date.map(|d| d.to_string()),
     });
 
+    log_debug!(
+      "get metadata",
+      "fetch_update",
+      meta.as_ref().map(|m| format!("{:?}", m)).as_deref()
+    );
+
     *pending.0.lock().unwrap() = update;
     Ok(meta)
   }
@@ -94,7 +101,10 @@ pub mod app_updates {
     pending_update: tauri::State<'_, PendingUpdate>,
     on_event: tauri::ipc::Channel<DownloadEvent>,
   ) -> Result<(), UpdaterError> {
+    log_info!("start", "install_update", None::<&str>);
+
     let Some(update) = pending_update.0.lock().unwrap().take() else {
+      log_error!("no_pending_update", "install_update", None::<&str>);
       return Err(UpdaterError::NoPendingUpdate);
     };
 
@@ -104,6 +114,12 @@ pub mod app_updates {
       .download_and_install(
         |chunk_length, content_length| {
           if !started {
+            log_info!(
+              "started",
+              "install_update",
+              content_length.map(|c| c.to_string())
+            );
+
             let _ = on_event.send(DownloadEvent::Started {
               content_length: content_length.map(|c| c.to_string()), // Specta does not support u64
             });
@@ -115,6 +131,7 @@ pub mod app_updates {
           });
         },
         || {
+          log_info!("finished", "install_update", None::<&str>);
           let _ = on_event.send(DownloadEvent::Finished);
         },
       )
