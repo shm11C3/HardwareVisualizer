@@ -66,7 +66,7 @@
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0OTdGNThBQTc0MTNFQ0UKUldUT1BrR25pdldYMU9tK2NCakpSRjdJaFhibDhDVzNnSW9RMmNoZzZpVGducGs5Y2xJbDdGMWEK",
       "endpoints": [
-        "https://github.com/shm11C3/HardwareVisualizer/releases/download/v1.5.0-2/latest.json"
+        "https://github.com/shm11C3/HardwareVisualizer/releases/download/v1.5.0-3/latest.json"
       ],
       "windows": {
         "install_mode": "passive"
