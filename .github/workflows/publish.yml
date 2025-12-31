@@ -107,45 +107,6 @@ jobs:
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
-      - name: Cache WiX Toolset (wix314)
-        if: ${{ matrix.platform == 'windows-latest' }}
-        uses: actions/cache@v5
-        with:
-          path: ~\AppData\Local\tauri\WixTools314
-          key: wix314-${{ runner.os }}-wix3141rtm-v1
-
-      - name: Preload WiX Toolset (wix314)
-        if: ${{ matrix.platform == 'windows-latest' }}
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $dest = Join-Path $env:LOCALAPPDATA "tauri\WixTools314"
-          if (Test-Path $dest) {
-            Write-Host "WiX already cached: $dest"
-            exit 0
-          }
-
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-
-          $url = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
-          $zip = Join-Path $env:TEMP "wix314-binaries.zip"
-
-          # curl.exe の方が retry が強い
-          for ($i = 1; $i -le 5; $i++) {
-            try {
-              Write-Host "Downloading WiX ($i/5): $url"
-              & curl.exe -fL --retry 5 --retry-delay 2 --retry-all-errors -o $zip $url
-              break
-            } catch {
-              if ($i -eq 5) { throw }
-              Start-Sleep -Seconds (3 * $i)
-            }
-          }
-
-          Expand-Archive -Force $zip $dest
-          Write-Host "Extracted WiX to: $dest"
-
       - uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
