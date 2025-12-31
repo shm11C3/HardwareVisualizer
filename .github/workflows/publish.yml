@@ -47,7 +47,7 @@ jobs:
       matrix:
         include:
           - platform: "windows-latest"
-            args: "-- --debug"
+            args: "--debug"
             os-name: "windows"
           - platform: "ubuntu-22.04"
             args: ""
