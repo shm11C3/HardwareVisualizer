@@ -24,6 +24,7 @@ runs:
         cache: "npm"
 
     - name: Setup safe-chain
+      if: inputs.setup-safe-chain == 'true'
       uses: ./.github/actions/setup-safe-chain
 
     - name: Install dependencies
