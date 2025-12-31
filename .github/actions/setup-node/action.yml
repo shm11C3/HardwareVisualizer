@@ -19,9 +19,6 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
 
-    - name: Setup safe-chain
-      uses: ./.github/actions/setup-safe-chain
-
     - name: Install dependencies
       if: inputs.install-deps == 'true'
       run: npm ci
