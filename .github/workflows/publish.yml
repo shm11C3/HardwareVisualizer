@@ -77,7 +77,7 @@ jobs:
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
         with:
-          install-deps: false
+          setup-safe-chain: false
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -95,9 +95,6 @@ jobs:
 
       - name: Setup Azure Code Signing
         run: cargo install trusted-signing-cli
-
-      - name: install frontend dependencies
-        run: npm ci # change this to npm, pnpm or bun depending on which one you use.
 
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
