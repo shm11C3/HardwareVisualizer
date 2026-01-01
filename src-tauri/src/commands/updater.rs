@@ -82,7 +82,7 @@ pub mod app_updates {
       pub_date: u.date.map(|d| d.to_string()),
     });
 
-    log_debug!(
+    log_info!(
       "get metadata",
       "fetch_update",
       meta.as_ref().map(|m| format!("{:?}", m)).as_deref()

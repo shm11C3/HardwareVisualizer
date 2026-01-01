@@ -47,10 +47,10 @@ jobs:
       matrix:
         include:
           - platform: "windows-latest"
-            args: "--debug"
+            args: ""
             os-name: "windows"
           - platform: "ubuntu-22.04"
-            args: "--debug"
+            args: ""
             os-name: "linux"
 
     runs-on: ${{ matrix.platform }}
