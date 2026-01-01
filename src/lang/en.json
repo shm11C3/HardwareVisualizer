@@ -267,6 +267,7 @@
       "releaseNotes": "Release Notes",
       "releaseNotesDescription": "For details of the update, please see the release notes : {{releaseNotesUrl}}",
       "currentVersion": "Current Version: v{{currentVersion}}",
+      "newVersion": "New Version: v{{newVersion}}",
       "later": "Update Later",
       "updateAndRestart": "Update Now",
       "downloadingUpdate": "Downloading Update...",
