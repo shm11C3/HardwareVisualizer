@@ -1,4 +1,4 @@
-/// プラットフォーム判定エラー
+/// Platform detection error
 #[derive(Debug, Clone)]
 pub enum PlatformError {
   InitializationFailed(String),
@@ -16,16 +16,16 @@ impl std::fmt::Display for PlatformError {
 
 impl std::error::Error for PlatformError {}
 
-/// Platform インスタンスを生成する Factory
+/// Factory that creates Platform instances
 pub struct PlatformFactory;
 
 impl PlatformFactory {
-  /// 現在のプラットフォームに適した Platform trait object を作成
+  /// Create a Platform trait object suitable for the current platform
   pub fn create() -> Result<Box<dyn crate::platform::traits::Platform>, PlatformError> {
     Self::create_platform()
   }
 
-  /// 現在のプラットフォームに適した Platform trait object を作成
+  /// Create a Platform trait object suitable for the current platform
   pub fn create_platform()
   -> Result<Box<dyn crate::platform::traits::Platform>, PlatformError> {
     #[cfg(target_os = "windows")]

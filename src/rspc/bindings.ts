@@ -7,24 +7,48 @@
 
 export const commands = {
 /**
- * ## プロセスリストを取得
+ * Fetch available update metadata
+ * 
+ */
+async fetchUpdate() : Promise<Result<UpdateMetadata | null, UpdaterError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("fetch_update") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Install the pending update
+ * 
+ */
+async installUpdate(onEvent: TAURI_CHANNEL<DownloadEvent>) : Promise<Result<null, UpdaterError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_update", { onEvent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * ## Get process list
  * 
  */
 async getProcessList() : Promise<ProcessInfo[]> {
     return await TAURI_INVOKE("get_process_list");
 },
 /**
- * ## CPU使用率（%）を取得
+ * ## Get CPU usage (%)
  * 
- * - pram state: `tauri::State<AppState>` アプリケーションの状態
- * - return: `i32` CPU使用率（%）
+ * - param state: `tauri::State<AppState>` Application state
+ * - return: `i32` CPU usage (%)
  * 
  */
 async getCpuUsage() : Promise<number> {
     return await TAURI_INVOKE("get_cpu_usage");
 },
 /**
- * ## システム情報を取得
+ * ## Get system information
  * 
  */
 async getHardwareInfo() : Promise<Result<SysInfo, string>> {
@@ -36,9 +60,9 @@ async getHardwareInfo() : Promise<Result<SysInfo, string>> {
 }
 },
 /**
- * ## 詳細なメモリ情報を取得
+ * ## Get detailed memory information
  * 
- * - return: `models::hardware::MemoryInfo` 詳細なメモリ情報
+ * - return: `models::hardware::MemoryInfo` Detailed memory information
  * 
  */
 async getMemoryInfoDetail() : Promise<Result<MemoryInfo, string>> {
@@ -50,20 +74,20 @@ async getMemoryInfoDetail() : Promise<Result<MemoryInfo, string>> {
 }
 },
 /**
- * ## メモリ使用率（%）を取得
+ * ## Get memory usage (%)
  * 
- * - pram state: `tauri::State<AppState>` アプリケーションの状態
- * - return: `i32` メモリ使用率（%）
+ * - param state: `tauri::State<AppState>` Application state
+ * - return: `i32` Memory usage (%)
  * 
  */
 async getMemoryUsage() : Promise<number> {
     return await TAURI_INVOKE("get_memory_usage");
 },
 /**
- * ## GPU使用率（%）を取得
+ * ## Get GPU usage (%)
  * 
- * - param state: `tauri::State<AppState>` アプリケーションの状態
- * - return: `i32` GPU使用率（%）
+ * - param state: `tauri::State<AppState>` Application state
+ * - return: `i32` GPU usage (%)
  * 
  */
 async getGpuUsage() : Promise<Result<number, string>> {
@@ -78,7 +102,7 @@ async getProcessorsUsage() : Promise<number[]> {
     return await TAURI_INVOKE("get_processors_usage");
 },
 /**
- * ## GPU温度を取得
+ * ## Get GPU temperature
  * 
  */
 async getGpuTemperature() : Promise<Result<NameValue[], string>> {
@@ -90,7 +114,7 @@ async getGpuTemperature() : Promise<Result<NameValue[], string>> {
 }
 },
 /**
- * ## GPUのファン回転数を取得
+ * ## Get GPU fan speed
  * 
  */
 async getNvidiaGpuCooler() : Promise<Result<NameValue[], string>> {
@@ -102,37 +126,37 @@ async getNvidiaGpuCooler() : Promise<Result<NameValue[], string>> {
 }
 },
 /**
- * ## CPU使用率の履歴を取得
+ * ## Get CPU usage history
  * 
- * - param state: `tauri::State<AppState>` アプリケーションの状態
- * - param seconds: `u32` 取得する秒数
+ * - param state: `tauri::State<AppState>` Application state
+ * - param seconds: `u32` Number of seconds to retrieve
  * 
  */
 async getCpuUsageHistory(seconds: number) : Promise<number[]> {
     return await TAURI_INVOKE("get_cpu_usage_history", { seconds });
 },
 /**
- * ## メモリ使用率の履歴を取得
+ * ## Get memory usage history
  * 
- * - param state: `tauri::State<AppState>` アプリケーションの状態
- * - param seconds: `u32` 取得する秒数
+ * - param state: `tauri::State<AppState>` Application state
+ * - param seconds: `u32` Number of seconds to retrieve
  * 
  */
 async getMemoryUsageHistory(seconds: number) : Promise<number[]> {
     return await TAURI_INVOKE("get_memory_usage_history", { seconds });
 },
 /**
- * ## GPU使用率の履歴を取得
+ * ## Get GPU usage history
  * 
- * - param state: `tauri::State<AppState>` アプリケーションの状態
- * - param seconds: `u32` 取得する秒数
+ * - param state: `tauri::State<AppState>` Application state
+ * - param seconds: `u32` Number of seconds to retrieve
  * 
  */
 async getGpuUsageHistory(seconds: number) : Promise<number[]> {
     return await TAURI_INVOKE("get_gpu_usage_history", { seconds });
 },
 /**
- * ## ネットワーク情報を取得
+ * ## Get network information
  * 
  */
 async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
@@ -360,9 +384,9 @@ async openLicenseFilePath() : Promise<Result<null, string>> {
 }
 },
 /**
- * 背景画像を取得
+ * Get background image
  * 
- * - `file_id`: 画像ファイルID
+ * - `file_id`: Image file ID
  * 
  */
 async getBackgroundImage(fileId: string) : Promise<Result<string, string>> {
@@ -374,7 +398,7 @@ async getBackgroundImage(fileId: string) : Promise<Result<string, string>> {
 }
 },
 /**
- * BG_IMG_DIR_NAME ディレクトリ内の背景画像一覧を取得
+ * Get list of background images in BG_IMG_DIR_NAME directory
  * 
  */
 async getBackgroundImages() : Promise<Result<BackgroundImage[], string>> {
@@ -386,14 +410,14 @@ async getBackgroundImages() : Promise<Result<BackgroundImage[], string>> {
 }
 },
 /**
- * 背景画像を保存
+ * Save background image
  * 
- * - `image_data`: 画像データのBase64文字列
+ * - `image_data`: Base64 string of image data
  * - returns: `file_id`
  * 
  * ### TODO
- * - JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html を使用する
- * - specta での型定義が難しかったため一旦 Base64 で実装
+ * - Use JsImage https://docs.rs/tauri/2.1.1/tauri/image/enum.JsImage.html
+ * - Implemented with Base64 for now as type definition with specta was difficult
  * 
  * 
  */
@@ -406,8 +430,8 @@ async saveBackgroundImage(imageData: string) : Promise<Result<string, string>> {
 }
 },
 /**
- * 背景画像を削除
- * - `file_id`: 画像ファイルID
+ * Delete background image
+ * - `file_id`: Image file ID
  * 
  */
 async deleteBackgroundImage(fileId: string) : Promise<Result<null, string>> {
@@ -419,7 +443,7 @@ async deleteBackgroundImage(fileId: string) : Promise<Result<null, string>> {
 }
 },
 /**
- * ウィンドウの装飾状態を設定
+ * Set window decoration state
  * 
  */
 async setDecoration(isDecorated: boolean) : Promise<Result<null, string>> {
@@ -431,7 +455,7 @@ async setDecoration(isDecorated: boolean) : Promise<Result<null, string>> {
 }
 },
 /**
- * アプリケーションを再起動する
+ * Restart the application
  */
 async restartApp() : Promise<void> {
     await TAURI_INVOKE("restart_app");
@@ -450,8 +474,8 @@ async restartApp() : Promise<void> {
 
 export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "memoryInfoNotAvailable" | "graphicInfoNotAvailable" | "networkInfoNotAvailable" | "networkUsageNotAvailable" | "unexpectedError"
 /**
- * - `file_id` : 画像ファイルID
- * - `image_data` : 画像データのBase64文字列
+ * - `file_id` : Image file ID
+ * - `image_data` : Base64 string of image data
  * 
  */
 export type BackgroundImage = { fileId: string; imageData: string }
@@ -477,12 +501,13 @@ export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive"
 export type ClientSettings = { version: string; language: string; theme: Theme; displayTargets: HardwareType[]; graphSize: GraphSize; lineGraphType: LineGraphType; lineGraphBorder: boolean; lineGraphFill: boolean; lineGraphColor: LineGraphColorStringSettings; lineGraphMix: boolean; lineGraphShowLegend: boolean; lineGraphShowScale: boolean; lineGraphShowTooltip: boolean; backgroundImgOpacity: number; selectedBackgroundImg: string | null; temperatureUnit: TemperatureUnit; hardwareArchive: HardwareArchiveSettings; burnInShift: boolean; burnInShiftMode: BurnInShiftMode; burnInShiftPreset: BurnInShiftPreset; burnInShiftIdleOnly: boolean; burnInShiftOptions: BurnInShiftOptions | null }
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
+export type DownloadEvent = { event: "started"; data: { contentLength: string | null } } | { event: "progress"; data: { chunkLength: string } } | { event: "finished" }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**
- * クライアントに送信する設定の構造体
+ * Structure of settings to send to client
  * 
  */
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
@@ -492,26 +517,29 @@ export type NameValue = { name: string; value: number }
 export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }
 export type ProcessInfo = { 
 /**
- * プロセスID
+ * Process ID
  */
 pid: number; 
 /**
- * プロセス名
+ * Process name
  */
 name: string; 
 /**
- * CPU 使用率
+ * CPU usage
  */
 cpuUsage: number; 
 /**
- * メモリ使用量
+ * Memory usage
  */
 memoryUsage: number }
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
 export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
+export type TAURI_CHANNEL<TSend> = null
 export type TemperatureUnit = "C" | "F"
 export type Theme = "system" | "light" | "dark" | "darkPlus" | "ocean" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso"
+export type UpdateMetadata = { version: string; currentVersion: string; notes: string | null; pubDate: string | null }
+export type UpdaterError = "NoPendingUpdate" | { Updater: string }
 
 /** tauri-specta globals **/
 

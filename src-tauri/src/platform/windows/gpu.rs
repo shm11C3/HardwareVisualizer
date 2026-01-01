@@ -4,7 +4,7 @@ use crate::utils;
 use crate::{log_error, log_internal};
 
 pub async fn get_gpu_usage() -> Result<f32, String> {
-  // NVAPI から取得できた場合は NVAPI 優先
+  // If available from NVAPI, prioritize NVAPI
   if let Ok(usage) =
     infrastructure::providers::nvapi_provider::get_nvidia_gpu_usage().await
   {

@@ -1,10 +1,10 @@
 use crate::models::hardware::HardwareMonitorState;
 
 ///
-/// ## 全体 CPU 使用率 (%) を返す
+/// ## Return overall CPU usage (%)
 ///
-/// sysinfo が保持する直近サンプルの各コア usage を平均し四捨五入。
-/// CPU が 0 個 (異常系) の場合は 0 を返す。
+/// Average the usage of each core from sysinfo's recent sample and round.
+/// Returns 0 if CPU count is 0 (error case).
 ///
 pub fn overall_cpu_usage(state: &HardwareMonitorState) -> i32 {
   let system = state.system.lock().unwrap();
@@ -17,9 +17,9 @@ pub fn overall_cpu_usage(state: &HardwareMonitorState) -> i32 {
 }
 
 ///
-/// ## 各プロセッサの CPU 使用率 (%) のベクタを返す
+/// ## Return vector of CPU usage (%) for each processor
 ///
-/// 取得した値は丸めず生の f32 (sysinfo 提供値) を返す。
+/// Return raw f32 values (sysinfo provided values) without rounding.
 ///
 pub fn per_cpu_usage(state: &HardwareMonitorState) -> Vec<f32> {
   let system = state.system.lock().unwrap();

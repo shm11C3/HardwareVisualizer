@@ -1,0 +1,25 @@
+name: auto-merge
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: (github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]' || github.event.pull_request.user.login == 'dependabot[bot]') && github.repository == 'shm11C3/HardwareVisualizer'
+    steps:
+      - name: Dependabot metadata
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        id: metadata
+        uses: dependabot/fetch-metadata@08eff52bf64351f401fb50d4972fa95b9f2c2d1b
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Enable auto-merge for Bot PRs
+        if: github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]' || (github.event.pull_request.user.login == 'dependabot[bot]' && steps.metadata.outputs.update-type == 'version-update:semver-patch')
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

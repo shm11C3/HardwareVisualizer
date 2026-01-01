@@ -1,16 +1,15 @@
 use std::path::PathBuf;
-use tauri::generate_context;
 
 #[cfg(test)]
 use mockall::automock;
 
-// 環境変数アクセスを抽象化するトレイト
+// Trait to abstract environment variable access
 #[cfg_attr(test, automock)]
 pub trait EnvProvider {
   fn get_var(&self, key: &str) -> Result<String, std::env::VarError>;
 }
 
-// 実際の環境変数アクセス
+// Actual environment variable access
 pub struct RealEnvProvider;
 
 impl EnvProvider for RealEnvProvider {
@@ -20,7 +19,7 @@ impl EnvProvider for RealEnvProvider {
 }
 
 ///
-/// `AppData/Roaming` 配下のディレクトリ名を取得
+/// Get directory name under `AppData/Roaming`
 ///
 #[cfg(target_os = "windows")]
 pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
@@ -29,17 +28,15 @@ pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
 
 #[cfg(target_os = "windows")]
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
-  let context: tauri::Context<tauri::Wry> = generate_context!();
-
-  // tauri.conf.json の identifier に基づいてディレクトリを作成
-  let identifier = context.config().identifier.clone();
+  // Create directory based on identifier from tauri.conf.json
+  let identifier = crate::utils::tauri::get_identifier();
 
   let app_data = PathBuf::from(env.get_var("APPDATA").unwrap());
   app_data.join(identifier).join(sub_item)
 }
 
 ///
-/// `~/.config/<identifier>` 配下のディレクトリ名を取得（Linux / macOS）
+/// Get directory name under `~/.config/<identifier>` (Linux / macOS)
 ///
 #[cfg(not(target_os = "windows"))]
 pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
@@ -50,8 +47,7 @@ pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
   use std::path::Path;
 
-  let context: tauri::Context<tauri::Wry> = generate_context!();
-  let identifier = context.config().identifier.clone();
+  let identifier = crate::utils::tauri::get_identifier();
 
   let home = env.get_var("HOME").unwrap_or_else(|_| ".".to_string());
   Path::new(&home)

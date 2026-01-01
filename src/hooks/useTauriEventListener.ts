@@ -3,7 +3,7 @@ import { message } from "@tauri-apps/plugin-dialog";
 import { useEffect } from "react";
 
 /**
- * バックエンド側のエラーイベントをリッスンして、エラーダイヤログを表示する
+ * Listen for error events from the backend and display error dialogs
  */
 export const useErrorModalListener = () => {
   useEffect(() => {

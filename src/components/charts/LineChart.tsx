@@ -1,4 +1,5 @@
 import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
+import { useAtom } from "jotai";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -18,8 +19,9 @@ import {
   isChartDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { currentThemeAtom } from "@/hooks/useColorTheme";
 import { cn } from "@/lib/utils";
-import type { LineGraphType } from "@/rspc/bindings";
+import type { LineGraphType, Theme } from "@/rspc/bindings";
 import { CustomLegend, type LegendItem } from "./CustomLegend";
 
 type ChartProps = {
@@ -100,6 +102,7 @@ export const SingleLineChart = ({
   className?: string;
 }) => {
   const { settings } = useSettingsAtom();
+  const [currentTheme] = useAtom(currentThemeAtom);
 
   const data = labels.map((label, index) => ({
     name: label,
@@ -131,7 +134,7 @@ export const SingleLineChart = ({
     },
   };
 
-  // [TODO] 選択した範囲を横に移動できるようにする
+  // [TODO] Allow horizontally dragging the selected range
   return (
     <div className={cn(graphVariants({ size }), className)}>
       <ChartContainer
@@ -149,12 +152,10 @@ export const SingleLineChart = ({
             domain={range}
             hide={!lineGraphShowScale}
             tick={{
-              fill: darkClasses.includes(settings.theme) ? "#fff" : "#77777",
+              fill: isDark(currentTheme) ? "#fff" : "#77777",
             }}
             stroke={
-              darkClasses.includes(settings.theme)
-                ? "rgba(255, 255, 255, 0.2)"
-                : "#77777"
+              isDark(currentTheme) ? "rgba(255, 255, 255, 0.2)" : "#77777"
             }
             tickCount={12}
           />
@@ -193,6 +194,7 @@ const MixLineChart = ({
   size,
 }: MultiChartProps & { chartConfig: ChartConfig }) => {
   const { settings } = useSettingsAtom();
+  const [currentTheme] = useAtom(currentThemeAtom);
 
   const displayOrder = ["cpu", "memory", "gpu"];
 
@@ -241,12 +243,10 @@ const MixLineChart = ({
             domain={[0, 100]}
             hide={!settings.lineGraphShowScale}
             tick={{
-              fill: darkClasses.includes(settings.theme) ? "#fff" : "#77777",
+              fill: isDark(currentTheme) ? "#fff" : "#77777",
             }}
             stroke={
-              darkClasses.includes(settings.theme)
-                ? "rgba(255, 255, 255, 0.2)"
-                : "#77777"
+              isDark(currentTheme) ? "rgba(255, 255, 255, 0.2)" : "#77777"
             }
             tickCount={12}
           />
@@ -282,8 +282,8 @@ const MixLineChart = ({
 };
 
 /**
- * @todo `type="monotone"` を変更できるようにする
- * @todo tooltip の表示/非表示を変更できるようにする
+ * @todo Allow changing `type="monotone"`
+ * @todo Allow toggling tooltip visibility
  */
 
 export const LineChartComponent = (
@@ -324,3 +324,7 @@ export const LineChartComponent = (
     />
   );
 };
+
+function isDark(currentTheme: Exclude<Theme, "system"> | null) {
+  return currentTheme && darkClasses.includes(currentTheme);
+}

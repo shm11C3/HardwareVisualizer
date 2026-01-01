@@ -29,8 +29,8 @@ export const ProcessBubbleChart = ({
           const rawZ = (d.avg_cpu_usage ?? 0) * d.total_execution_sec;
 
           return {
-            x: d.total_execution_sec / 60, // 実行時間（分）
-            y: d.avg_cpu_usage, // CPU使用率
+            x: d.total_execution_sec / 60, // Execution time (minutes)
+            y: d.avg_cpu_usage, // CPU usage
             z: Math.sqrt(rawZ),
             name: d.process_name,
             pid: d.pid,

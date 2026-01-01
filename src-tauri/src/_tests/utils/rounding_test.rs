@@ -6,7 +6,7 @@ mod tests {
   fn test_round1_positive_numbers() {
     assert_eq!(round1(1.23), 1.2);
     assert_eq!(round1(1.27), 1.3);
-    assert_eq!(round1(1.25), 1.3); // 四捨五入
+    assert_eq!(round1(1.25), 1.3); // Rounding
     assert_eq!(round1(1.24), 1.2);
     assert_eq!(round1(1.26), 1.3);
   }
@@ -30,15 +30,15 @@ mod tests {
 
   #[test]
   fn test_round1_edge_cases() {
-    // 既に小数第1位の値
+    // Value already at first decimal place
     assert_eq!(round1(1.1), 1.1);
     assert_eq!(round1(1.9), 1.9);
 
-    // 小数点以下が0の場合
+    // When decimal part is 0
     assert_eq!(round1(5.05), 5.1);
     assert_eq!(round1(5.04), 5.0);
 
-    // 非常に小さい値
+    // Very small values
     assert_eq!(round1(0.01), 0.0);
     assert_eq!(round1(0.05), 0.1);
     assert_eq!(round1(0.09), 0.1);
@@ -53,7 +53,7 @@ mod tests {
 
   #[test]
   fn test_round1_precision() {
-    // 精度テスト：結果が正確に小数第1位まで表現されていることを確認
+    // Precision test: verify that the result is accurately represented to the first decimal place
     let result = round1(1.234567);
     assert!((result * 10.0).fract().abs() < f32::EPSILON);
   }

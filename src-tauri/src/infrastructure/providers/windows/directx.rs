@@ -5,21 +5,21 @@ use dxgi::Factory;
 use dxgi::adapter::AdapterDesc;
 use tokio::task::spawn_blocking;
 
-/// Intel GPU情報を取得する
+/// Get Intel GPU information
 pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_intel_gpu_info", None::<&str>);
 
-    // DXGIファクトリのインスタンスを作成
+    // Create DXGI factory instance
     let factory = Factory::new().expect("Failed to create DXGI Factory");
     let mut gpu_info_list = Vec::new();
 
-    // アダプタの列挙
+    // Enumerate adapters
     for adapter in factory.adapters() {
-      // get_desc() の結果をアンラップしてエラーハンドリング
+      // Unwrap get_desc() result and handle errors
       let desc: AdapterDesc = adapter.get_desc();
 
-      // Intel GPU の場合のみ追加
+      // Add only Intel GPUs
       let gpu_name = desc.description();
       if gpu_name.contains("Intel") {
         let memory_size_dedicated = desc.dedicated_video_memory() / 1024 / 1024;
@@ -29,7 +29,7 @@ pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
           id: desc.device_id().to_string(),
           name: gpu_name.trim_end_matches('\0').to_string(),
           vendor_name: "Intel".to_string(),
-          clock: 0, // Intelのクロック周波数取得が難しいため0を設定
+          clock: 0, // Set to 0 because Intel clock frequency is difficult to obtain
           memory_size: format!("{memory_size_shared} MB"),
           memory_size_dedicated: format!("{memory_size_dedicated} MB"),
         };
@@ -48,21 +48,21 @@ pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   })?
 }
 
-/// AMD GPU情報を取得する
+/// Get AMD GPU information
 pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
   let handle = spawn_blocking(|| {
     log_debug!("start", "get_amd_gpu_info", None::<&str>);
 
-    // DXGIファクトリのインスタンスを作成
+    // Create DXGI factory instance
     let factory = Factory::new().expect("Failed to create DXGI Factory");
     let mut gpu_info_list = Vec::new();
 
-    // アダプタの列挙
+    // Enumerate adapters
     for adapter in factory.adapters() {
-      // get_desc() の結果をアンラップしてエラーハンドリング
+      // Unwrap get_desc() result and handle errors
       let desc: AdapterDesc = adapter.get_desc();
 
-      // GPU 名の取得
+      // Get GPU name
       let gpu_name = desc.description();
       if gpu_name.contains("AMD") || gpu_name.contains("Radeon") {
         let memory_size_dedicated = desc.dedicated_video_memory() / 1024 / 1024;
@@ -72,7 +72,7 @@ pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
           id: desc.device_id().to_string(),
           name: gpu_name.trim_end_matches('\0').to_string(),
           vendor_name: "AMD".to_string(),
-          clock: 0, // クロック取得が難しいため 0 に設定
+          clock: 0, // Set to 0 because clock frequency is difficult to obtain
           memory_size: format!("{memory_size_shared} MB"),
           memory_size_dedicated: format!("{memory_size_dedicated} MB"),
         };

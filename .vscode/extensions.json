@@ -2,6 +2,8 @@
   "recommendations": [
     "biomejs.biome",
     "rust-lang.rust-analyzer",
-    "esbenp.prettier-vscode"
+    "tamasfe.even-better-toml",
+    "streetsidesoftware.code-spell-checker",
+    "vadimcn.vscode-lldb"
   ]
 }

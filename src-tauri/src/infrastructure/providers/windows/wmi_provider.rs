@@ -10,7 +10,7 @@ use std::error::Error;
 use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
-use wmi::{COMLibrary, WMIConnection};
+use wmi::WMIConnection;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -28,7 +28,7 @@ struct Win32PhysicalMemoryArray {
 }
 
 ///
-/// ## メモリ情報を取得
+/// ## Get memory information
 ///
 pub async fn query_memory_info() -> Result<MemoryInfo, String> {
   let physical_memory: Vec<Win32PhysicalMemory> = wmi_query_in_thread(
@@ -75,12 +75,12 @@ struct GpuEngineLoadInfo {
 }
 
 ///
-/// 指定したGPUエンジンの使用率を取得する（WMIを使用）
+/// Get GPU engine usage for specified engine type (using WMI)
 ///
 pub async fn query_gpu_usage_by_device_and_engine(
   engine_type: &str,
 ) -> Result<f32, Box<dyn Error>> {
-  // GPUエンジン情報を取得
+  // Get GPU engine information
   let results: Vec<GpuEngineLoadInfo>  = wmi_query_in_thread(
       "SELECT Name, UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine".to_string(),
   )?;
@@ -91,7 +91,7 @@ pub async fn query_gpu_usage_by_device_and_engine(
     None::<&str>
   );
 
-  // 正規表現で `engtype_xxx` の部分を抽出
+  // Extract `engtype_xxx` part using regex
   let re = Regex::new(r"engtype_(\w+)").unwrap();
 
   results
@@ -141,30 +141,30 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
   let network_info: Result<Vec<NetworkInfo>, String> = results
     .into_iter()
     .map(|adapter| -> Result<NetworkInfo, String> {
-      // IPv4とIPv6を分ける
+      // Separate IPv4 and IPv6
       let (ipv4, ipv6): (Vec<_>, Vec<_>) = adapter
         .ip_address
         .unwrap_or_default()
         .into_iter()
         .filter_map(|ip| ip.parse::<IpAddr>().ok())
-        .partition(|ip| matches!(ip, IpAddr::V4(_))); // IPv4とIPv6に分ける
+        .partition(|ip| matches!(ip, IpAddr::V4(_))); // Separate IPv4 and IPv6
 
-      // IPv6を分割する
+      // Split IPv6 addresses
       let (link_local_ipv6, normal_ipv6): (Vec<_>, Vec<_>) =
         ipv6.into_iter().partition(|ip| match ip {
-          IpAddr::V6(v6) if utils::ip::is_unicast_link_local(v6) => true, // リンクローカル
+          IpAddr::V6(v6) if utils::ip::is_unicast_link_local(v6) => true, // Link-local
           _ => false,
         });
 
-      // IPv4サブネットを取得
+      // Get IPv4 subnet
       let ipv4_subnet: Vec<String> = adapter
         .ip_subnet
         .unwrap_or_default()
         .into_iter()
-        .filter(|subnet| subnet.contains('.')) // IPv4形式を確認
+        .filter(|subnet| subnet.contains('.')) // Verify IPv4 format
         .collect();
 
-      // IPv4とIPv6のデフォルトゲートウェイを分割する
+      // Split default gateways into IPv4 and IPv6
       let (default_ipv4_gateway, default_ipv6_gateway): (Vec<_>, Vec<_>) = adapter
         .default_ip_gateway
         .unwrap_or_default()
@@ -198,7 +198,7 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
 }
 
 ///
-/// ## 別スレッドでWMIクエリ実行する
+/// ## Execute WMI query in separate thread
 ///
 fn wmi_query_in_thread<T>(query: String) -> Result<Vec<T>, String>
 where
@@ -210,15 +210,13 @@ where
 
   let (tx, rx): (SenderChannel<T>, ReceiverChannel<T>) = channel();
 
-  // 別スレッドを起動してWMIクエリを実行
+  // Spawn separate thread to execute WMI query
   thread::spawn(move || {
     let result = (|| {
-      let com_con = COMLibrary::new()
-        .map_err(|e| format!("Failed to initialize COM Library: {e:?}"))?;
-      let wmi_con = WMIConnection::new(com_con)
+      let wmi_con = WMIConnection::new()
         .map_err(|e| format!("Failed to create WMI connection: {e:?}"))?;
 
-      // WMIクエリを実行してメモリ情報を取得
+      // Execute WMI query to get memory information
       let results: Vec<T> = wmi_con
         .raw_query(query)
         .map_err(|e| format!("Failed to execute query: {e:?}"))?;
@@ -226,7 +224,7 @@ where
       Ok(results)
     })();
 
-    // メインスレッドに結果を送信
+    // Send result to main thread
     if let Err(err) = tx.send(result) {
       log_error!(
         "Failed to send data from thread",
@@ -236,13 +234,13 @@ where
     }
   });
 
-  // メインスレッドで結果を受信
+  // Receive result in main thread
   rx.recv()
     .map_err(|_| "Failed to receive data from thread".to_string())?
 }
 
 ///
-/// ## MemoryTypeの値に対応するメモリの種類を文字列で返す
+/// ## Return memory type as string for MemoryType value
 ///
 fn describe_memory_type(memory_type: Option<u16>) -> String {
   log_debug!(
@@ -284,7 +282,7 @@ fn describe_memory_type(memory_type: Option<u16>) -> String {
 }
 
 ///
-/// ## MemoryType もしくは SMBIOSMemoryType からメモリの種類を取得
+/// ## Get memory type from MemoryType or SMBIOSMemoryType
 ///
 fn describe_memory_type_with_fallback(
   memory_type: Option<u16>,

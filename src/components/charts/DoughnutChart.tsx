@@ -114,7 +114,7 @@ export const DoughnutChart = ({
             }
 
             return dataType === "temp" && settings.temperatureUnit === "F"
-              ? ((chartValue - 32) / 1.8) * 3.6 // 華氏から摂氏に換算し、100を最大値としてスケール
+              ? ((chartValue - 32) / 1.8) * 3.6 // Convert Fahrenheit to Celsius and scale to 100 max
               : chartValue * 3.6;
           })()}
           innerRadius={isXl ? 50 : 35}
@@ -143,7 +143,7 @@ export const DoughnutChart = ({
                 if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                   return (
                     <g>
-                      {/* メインの値表示 */}
+                      {/* Display main value */}
                       <text
                         x={viewBox.cx}
                         y={viewBox.cy}
@@ -153,7 +153,7 @@ export const DoughnutChart = ({
                       >
                         {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
                       </text>
-                      {/* ラベルとアイコンの表示 */}
+                      {/* Display label and icon */}
                       <foreignObject
                         x={(viewBox.cx || 0) - (isXl ? 42 : 38)}
                         y={(viewBox.cy || 0) + (isXl ? 25 : 15)}

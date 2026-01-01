@@ -20,6 +20,7 @@ use commands::hardware;
 use commands::settings;
 use commands::system;
 use commands::ui;
+use commands::updater::app_updates;
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
@@ -61,6 +62,8 @@ pub fn run() {
   let migrations = infrastructure::database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+    app_updates::fetch_update,
+    app_updates::install_update,
     hardware::get_process_list,
     hardware::get_cpu_usage,
     hardware::get_hardware_info,
@@ -113,7 +116,7 @@ pub fn run() {
   #[cfg(debug_assertions)]
   builder
     .export(
-      Typescript::default().header("// @ts-nocheck\n"), // TODO 未使用なimportを削除して型エラーをなくす
+      Typescript::default().header("// @ts-nocheck\n"), // TODO Remove unused imports to eliminate type errors
       //.formatter(specta_typescript::formatter::biome),
       "../src/rspc/bindings.ts",
     )
@@ -123,23 +126,14 @@ pub fn run() {
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
       let path_resolver = app.path();
-      let handle = app.handle().clone();
 
-      // ロガーの初期化
+      // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
-      // UIの初期化
+      // Initialize UI
       commands::ui::init(app);
 
       builder.mount_events(app);
-
-      // Check updates
-      tauri::async_runtime::spawn(async move {
-        if let Err(e) = workers::updater::update(handle).await {
-          log_error!("Update process failed", "lib.run", Some(e.to_string()));
-          eprintln!("Update process failed: {e:?}");
-        }
-      });
 
       let monitor = workers::system_monitor::SystemMonitorController::setup(
         models::hardware_archive::MonitorResources {
@@ -160,7 +154,7 @@ pub fn run() {
         ws.monitor.lock().unwrap().replace(monitor);
       }
 
-      // ハードウェアアーカイブサービスの開始
+      // Start hardware archive service
       if settings.hardware_archive.enabled {
         let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
           models::hardware_archive::MonitorResources {
@@ -182,7 +176,7 @@ pub fn run() {
         }
       }
 
-      // スケジュールされたデータ削除の開始
+      // Start scheduled data deletion
       if settings.hardware_archive.scheduled_data_deletion {
         tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
           settings.hardware_archive.refresh_interval_days,
@@ -197,7 +191,7 @@ pub fn run() {
         let app = win.app_handle().clone();
 
         tauri::async_runtime::spawn(async move {
-          // バックグラウンド処理を全て停止
+          // Stop all background processing
           let ws = app.state::<workers::WorkersState>();
           ws.terminate_all().await;
 
@@ -225,6 +219,7 @@ pub fn run() {
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
+    .manage(app_updates::PendingUpdate(Mutex::new(None)))
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

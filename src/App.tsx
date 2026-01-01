@@ -34,9 +34,11 @@ import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
+import { AppUpdate } from "./features/updater/AppUpdate";
 import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";
+import { useTitleIconVisualSelector } from "./hooks/useTitleIconVisualSelector";
 
 const onError = (error: Error, info: ErrorInfo) => {
   console.error("error.message", error.message);
@@ -52,7 +54,7 @@ export const App = () => {
   const { backgroundImage: nextImage, initBackgroundImage } =
     useBackgroundImage();
   const { t, i18n } = useTranslation();
-  const [isDecorated, setDecorated] = useTauriStore("window_decorated", false);
+  const [isDecorated, setDecorated] = useTauriStore("window_decorated", true);
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
@@ -68,6 +70,7 @@ export const App = () => {
 
   useEffect(() => {
     i18n.changeLanguage(settings.language);
+    document.documentElement.lang = settings.language;
   }, [settings.language, i18n]);
 
   useEffect(() => {
@@ -87,14 +90,24 @@ export const App = () => {
 
   const [displayTarget] = useAtom(displayTargetAtom);
 
+  const { visibleTypes } = useTitleIconVisualSelector();
+
   useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
   const { isFullScreen, toggleFullScreen } = useFullScreenMode();
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
       <ScreenTemplate
-        icon={<SquaresFourIcon size={32} />}
-        title={t("pages.dashboard.name")}
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <SquaresFourIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("pages.dashboard.name")
+            : undefined
+        }
         enabledBurnInShift
       >
         <Dashboard />
@@ -103,8 +116,14 @@ export const App = () => {
     usage: <ChartTemplate />,
     cpuDetail: (
       <ScreenTemplate
-        icon={<CpuIcon size={32} />}
-        title={hardwareInfo.cpu?.name || "CPU"}
+        icon={
+          visibleTypes.includes("cpuDetail") ? <CpuIcon size={32} /> : undefined
+        }
+        title={
+          visibleTypes.includes("cpuDetail")
+            ? hardwareInfo.cpu?.name || "CPU"
+            : undefined
+        }
         enabledBurnInShift
       >
         <CpuUsages />
@@ -112,8 +131,16 @@ export const App = () => {
     ),
     insights: (
       <ScreenTemplate
-        icon={<ChartLineIcon size={32} />}
-        title={t("pages.insights.name")}
+        icon={
+          visibleTypes.includes("insights") ? (
+            <ChartLineIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("insights")
+            ? t("pages.insights.name")
+            : undefined
+        }
         enabledBurnInShift
       >
         <Insights />
@@ -121,8 +148,14 @@ export const App = () => {
     ),
     settings: (
       <ScreenTemplate
-        icon={<GearIcon size={32} />}
-        title={t("pages.settings.name")}
+        icon={
+          visibleTypes.includes("settings") ? <GearIcon size={32} /> : undefined
+        }
+        title={
+          visibleTypes.includes("settings")
+            ? t("pages.settings.name")
+            : undefined
+        }
       >
         <Settings />
       </ScreenTemplate>
@@ -158,6 +191,7 @@ export const App = () => {
               />
             )}
           </Suspense>
+          <AppUpdate />
         </div>
       </div>
       <FullscreenExitButton

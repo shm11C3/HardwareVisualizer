@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           
-          # バリデーション関数
+          # Validation function
           validate_release_notes() {
             local file="$1"
             
@@ -90,7 +90,7 @@ jobs:
             return 0
           }
           
-          # フォールバック機能付きリリースノート生成
+          # Generate release notes with fallback
           generate_fallback_notes() {
             echo "🔄 Generating fallback release notes..."
             
@@ -140,11 +140,11 @@ jobs:
           EOF
           }
           
-          # リリースノート生成実行
+          # Execute release notes generation
           echo "📝 Generating release notes..."
           generate_fallback_notes
           
-          # バリデーション実行
+          # Execute validation
           if validate_release_notes "RELEASE_NOTES.md"; then
             NOTES_SOURCE="github_api"
             NOTES_LENGTH=$(wc -l < RELEASE_NOTES.md)
@@ -227,7 +227,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload release notes as artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-notes-${{ github.event.release.tag_name }}
           path: |

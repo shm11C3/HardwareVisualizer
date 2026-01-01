@@ -1,5 +1,11 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 type NpmLicenseInfo = {
@@ -18,8 +24,23 @@ type CargoLicenseInfo = {
   description?: string;
 };
 
+type CargoMetadata = {
+  packages: CargoPackage[];
+};
+
+type CargoPackage = {
+  name: string;
+  version: string;
+  manifest_path: string;
+  targets: CargoTarget[];
+};
+
+type CargoTarget = {
+  kind: string[];
+};
+
 // ==========================
-// 引数処理
+// Argument processing
 // ==========================
 const target = process.argv[2]; // "linux" or "windows"
 if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
@@ -29,7 +50,7 @@ if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
   process.exit(1);
 }
 
-// 出力先をOS毎に切り替える
+// Switch output directory based on OS
 const outputDir =
   target === "tmp"
     ? path.resolve("./tmp")
@@ -81,7 +102,7 @@ try {
       info.email,
     );
 
-    // ライセンスファイルの中身を取得する
+    // Get the contents of the license file
     if (info.licenseFile) {
       const licenseContent = readFileSync(info.licenseFile, {
         encoding: "utf8",
@@ -112,14 +133,14 @@ try {
     encoding: "utf8",
     maxBuffer: 100 * 1024 * 1024,
   });
-  const metadata = JSON.parse(metadataJson);
+  const metadata: CargoMetadata = JSON.parse(metadataJson);
 
-  // runtime に必要な crate のみ残す
+  // Keep only crates required at runtime
   const runtimeCrates = new Set<string>();
   for (const pkg of metadata.packages) {
-    const kinds = pkg.targets.flatMap((t: any) => t.kind);
-    const isBuildOnly = kinds.includes("custom-build"); // build.rs専用
-    const isTestOnly = kinds.includes("test") || kinds.includes("example"); // dev専用
+    const kinds = pkg.targets.flatMap((t) => t.kind);
+    const isBuildOnly = kinds.includes("custom-build"); // build.rs only
+    const isTestOnly = kinds.includes("test") || kinds.includes("example"); // dev only
 
     if (!isBuildOnly && !isTestOnly) {
       runtimeCrates.add(`${pkg.name}@${pkg.version}`);
@@ -135,11 +156,11 @@ try {
 
   for (const crate of cargoData) {
     const crateKey = `${crate.name}@${crate.version}`;
-    if (!runtimeCrates.has(crateKey)) continue; // build/test専用は除外
+    if (!runtimeCrates.has(crateKey)) continue; // Exclude build/test only crates
 
     output += generateLicenseTxt(crate.name, crate.license, crate.repository);
 
-    // LICENSEファイルを探して内容を追加
+    // Find LICENSE file and add its contents
     const cratePath = packageMap[crateKey];
     if (cratePath) {
       const licenseFiles = [
@@ -164,11 +185,39 @@ try {
   console.error("❌ Failed to collect Rust licenses:", e);
 }
 
+const manualDir = path.resolve("./docs/THIRD_PARTY_NOTICES/manual");
+
+/**
+ * Append manual notices from the manual directory.
+ *
+ * @returns {string} A string containing the concatenated manual notices, or an empty string if none exist.
+ */
+const appendManualNotices = () => {
+  if (!existsSync(manualDir)) return "";
+
+  const files = readdirSync(manualDir)
+    .filter((f) => f.endsWith(".md"))
+    .sort();
+
+  if (files.length === 0) return "";
+
+  let s = "";
+  for (const f of files) {
+    const p = path.join(manualDir, f);
+    const content = readFileSync(p, "utf8").trim();
+    s += `${content}\n\n`;
+  }
+  return s;
+};
+
 // ==========================
-// 出力
+// Output
 // ==========================
 if (!existsSync(outputDir)) {
   mkdirSync(outputDir, { recursive: true });
 }
+
+output += appendManualNotices();
+
 writeFileSync(outputPath, output, "utf8");
 console.log(`✅ Combined license file written to ${outputPath}`);

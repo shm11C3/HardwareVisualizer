@@ -7,7 +7,7 @@ use std::sync::MutexGuard;
 use sysinfo::{Disks, System};
 
 ///
-/// ## CPU情報を取得
+/// ## Get CPU information
 ///
 pub fn get_cpu_info(
   system: MutexGuard<'_, System>,
@@ -18,7 +18,7 @@ pub fn get_cpu_info(
     return Err("CPU information not available".to_string());
   }
 
-  // CPU情報を収集
+  // Collect CPU information
   let cpu_info = models::hardware::CpuInfo {
     name: cpus[0].brand().to_string(),
     vendor: utils::formatter::format_vendor_name(cpus[0].vendor_id()),

@@ -2,7 +2,7 @@ import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 
 export const chartConfig = {
   /**
-   * グラフの履歴の長さ（秒）
+   * Length of graph history (in seconds)
    */
   historyLengthSec: 60,
   archiveUpdateIntervalMilSec: 60000,
@@ -23,7 +23,7 @@ export const defaultColorRGB: Record<ChartDataType, string> = {
 };
 
 /**
- * インサイト機能の表示期間
+ * Display period for insight feature
  */
 export const archivePeriods = [
   10, 30, 60, 180, 720, 1440, 10080, 20160, 43200,

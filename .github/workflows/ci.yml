@@ -27,7 +27,7 @@ jobs:
       backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check changed files
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -40,19 +40,23 @@ jobs:
               - 'vite.config.ts'
               - 'tsconfig*.json'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
             backend:
               - 'src-tauri/**'
               - 'Cargo.*'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
             frontend-deps:
               - 'package*.json'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
             backend-deps:
               - 'Cargo.*'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/scripts/**'
 
   #
@@ -66,11 +70,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["windows-latest", "ubuntu-22.04"]
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        include:
+          - platform: "macos-latest"
+            allow-failure: true  # macOS support is experimental/in-progress
     runs-on: ${{ matrix.platform }}
+    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -96,11 +104,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["windows-latest", "ubuntu-22.04"]
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        include:
+          - platform: "macos-latest"
+            # macOS support is experimental/in-progress
+            allow-failure: true
     runs-on: ${{ matrix.platform }}
+    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -127,11 +140,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["windows-latest", "ubuntu-22.04"]
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        include:
+          - platform: "macos-latest"
+            allow-failure: true  # macOS support is experimental/in-progress
     runs-on: ${{ matrix.platform }}
+    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -149,6 +166,41 @@ jobs:
           unset GTK_PATH
           unset LD_LIBRARY_PATH
 
+      - name: Cache AppRun binary
+        if: runner.os == 'Linux'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/tauri/AppRun-x86_64
+          key: tauri-apprun-x86_64
+
+      - name: Pre-download AppRun if not cached
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p ~/.cache/tauri
+          if [ ! -f ~/.cache/tauri/AppRun-x86_64 ]; then
+            curl -L https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64 -o ~/.cache/tauri/AppRun-x86_64
+            chmod +x ~/.cache/tauri/AppRun-x86_64
+          fi
+
+      - name: Cache WiX binary
+        if: runner.os == 'Windows'
+        uses: actions/cache@v5
+        with:
+          path: ~\AppData\Local\tauri\WixTools
+          key: tauri-wix-314
+
+      - name: Pre-download WiX if not cached
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $wixDir = "$env:LOCALAPPDATA\tauri\WixTools"
+          if (-not (Test-Path $wixDir)) {
+            New-Item -ItemType Directory -Force -Path $wixDir
+            Invoke-WebRequest -Uri https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip -OutFile "$wixDir\wix314.zip"
+            Expand-Archive -Path "$wixDir\wix314.zip" -DestinationPath $wixDir -Force
+            Remove-Item "$wixDir\wix314.zip"
+          }
+
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
 
@@ -164,17 +216,19 @@ jobs:
 
       - name: Build with Tauri (CI optimized for PR)
         if: github.event_name == 'pull_request'
-        uses: tauri-apps/tauri-action@3b50ac4d4512105f96edbaa78a6e2f9392805589 # v0.5.24
+        uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: -- --profile ci
+          args: --no-bundle -- --profile ci
 
       - name: Build with Tauri (Release profile for push)
         if: github.event_name != 'pull_request'
-        uses: tauri-apps/tauri-action@3b50ac4d4512105f96edbaa78a6e2f9392805589 # v0.5.24
+        uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --no-bundle
 
   #
   # Frontend Lint
@@ -187,7 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
@@ -207,16 +261,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
 
       - name: Run frontend tests with coverage
-        run: npm run test:unit-cov
+        run: npm test
 
       - name: Report coverage
-        uses: davelosert/vitest-coverage-report-action@8ab049ff5a2c6e78f78af446329379b318544a1a # v2.8.3
+        uses: davelosert/vitest-coverage-report-action@5b6122e3a819a3be7b27fc961b7faafb3bf00e4d # v2.9.0
         with:
           json-summary-path: coverage/coverage-summary.json
 
@@ -231,7 +285,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
@@ -250,13 +304,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
 
       - name: Generate licenses.json
-        run: npx license-checker --production --json > licenses.json
+        run: npm run license-checker
 
       - name: Check licenses
         run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
@@ -272,11 +326,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["windows-latest", "ubuntu-22.04"]
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        include:
+          - platform: "macos-latest"
+            allow-failure: true  # macOS support is experimental/in-progress; failures do not block CI
     runs-on: ${{ matrix.platform }}
+    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'

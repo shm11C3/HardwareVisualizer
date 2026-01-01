@@ -15,7 +15,7 @@ pub struct CardInfo {
 }
 
 ///
-/// `/sys/class/drm/` に存在する `card*` をすべて列挙して card ID を返す
+/// Enumerate all `card*` in `/sys/class/drm/` and return card IDs
 ///
 pub async fn get_card_ids() -> Result<Vec<CardInfo>, String> {
   use tokio::task::JoinSet;
@@ -65,7 +65,7 @@ pub async fn get_amd_gpu_usage(card_id: u32) -> Result<f64, String> {
 
 pub async fn get_intel_gpu_usage() -> Result<f64, String> {
   let output = Command::new("intel_gpu_top")
-    .args(["-J", "-s", "1000"]) // JSON出力で1秒だけ取得
+    .args(["-J", "-s", "1000"]) // JSON output, get only 1 second
     .output()
     .map_err(|e| format!("Failed to run intel_gpu_top: {e}"))?;
 
@@ -86,7 +86,7 @@ pub async fn get_intel_gpu_usage() -> Result<f64, String> {
   Err("Could not parse intel_gpu_top output".to_string())
 }
 
-/// `/sys/class/drm/` に存在する `card*` をすべて列挙して card ID を返す
+/// Enumerate all `card*` in `/sys/class/drm/` and return card IDs
 pub fn get_all_card_ids() -> Vec<u8> {
   use regex::Regex;
   use std::path::Path;

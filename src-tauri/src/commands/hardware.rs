@@ -5,7 +5,7 @@ use crate::models::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, Sy
 use tauri::command;
 
 ///
-/// ## プロセスリストを取得
+/// ## Get process list
 ///
 #[command]
 #[specta::specta]
@@ -18,10 +18,10 @@ pub fn get_process_list(
 }
 
 ///
-/// ## CPU使用率（%）を取得
+/// ## Get CPU usage (%)
 ///
-/// - pram state: `tauri::State<AppState>` アプリケーションの状態
-/// - return: `i32` CPU使用率（%）
+/// - param state: `tauri::State<AppState>` Application state
+/// - return: `i32` CPU usage (%)
 ///
 #[command]
 #[specta::specta]
@@ -40,7 +40,7 @@ pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Ve
 }
 
 ///
-/// ## システム情報を取得
+/// ## Get system information
 ///
 #[command]
 #[specta::specta]
@@ -53,9 +53,9 @@ pub async fn get_hardware_info(
 }
 
 ///
-/// ## 詳細なメモリ情報を取得
+/// ## Get detailed memory information
 ///
-/// - return: `models::hardware::MemoryInfo` 詳細なメモリ情報
+/// - return: `models::hardware::MemoryInfo` Detailed memory information
 ///
 #[command]
 #[specta::specta]
@@ -66,10 +66,10 @@ pub async fn get_memory_info_detail() -> Result<models::hardware::MemoryInfo, St
 }
 
 ///
-/// ## メモリ使用率（%）を取得
+/// ## Get memory usage (%)
 ///
-/// - pram state: `tauri::State<AppState>` アプリケーションの状態
-/// - return: `i32` メモリ使用率（%）
+/// - param state: `tauri::State<AppState>` Application state
+/// - return: `i32` Memory usage (%)
 ///
 #[command]
 #[specta::specta]
@@ -80,10 +80,10 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 }
 
 ///
-/// ## GPU使用率（%）を取得
+/// ## Get GPU usage (%)
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - return: `i32` GPU使用率（%）
+/// - param state: `tauri::State<AppState>` Application state
+/// - return: `i32` GPU usage (%)
 ///
 #[command]
 #[specta::specta]
@@ -94,7 +94,7 @@ pub async fn get_gpu_usage() -> Result<i32, String> {
 }
 
 ///
-/// ## GPU温度を取得
+/// ## Get GPU temperature
 ///
 #[command]
 #[specta::specta]
@@ -112,7 +112,7 @@ pub async fn get_gpu_temperature(
 }
 
 ///
-/// ## GPUのファン回転数を取得
+/// ## Get GPU fan speed
 ///
 #[command]
 #[specta::specta]
@@ -123,10 +123,10 @@ pub async fn get_nvidia_gpu_cooler() -> Result<Vec<models::hardware::NameValue>,
 }
 
 ///
-/// ## CPU使用率の履歴を取得
+/// ## Get CPU usage history
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - param seconds: `u32` 取得する秒数
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
@@ -140,10 +140,10 @@ pub fn get_cpu_usage_history(
 }
 
 ///
-/// ## メモリ使用率の履歴を取得
+/// ## Get memory usage history
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - param seconds: `u32` 取得する秒数
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
@@ -157,10 +157,10 @@ pub fn get_memory_usage_history(
 }
 
 ///
-/// ## GPU使用率の履歴を取得
+/// ## Get GPU usage history
 ///
-/// - param state: `tauri::State<AppState>` アプリケーションの状態
-/// - param seconds: `u32` 取得する秒数
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
@@ -174,7 +174,7 @@ pub fn get_gpu_usage_history(
 }
 
 ///
-/// ## ネットワーク情報を取得
+/// ## Get network information
 ///
 #[command]
 #[specta::specta]

@@ -7,10 +7,10 @@ pub fn init(log_dir: PathBuf) {
     fs::create_dir_all(&log_dir).expect("failed to create log directory");
   }
 
-  // --- ログ保持期間（日数）を定数で指定（3か月 = 90日） ---
+  // --- Log retention period (days) specified as constant (3 months = 90 days) ---
   const LOG_RETENTION_DAYS: i64 = 90;
 
-  // 古いログファイルを削除
+  // Delete old log files
   if let Ok(entries) = fs::read_dir(&log_dir) {
     let now = chrono::Local::now();
     for entry in entries.flatten() {
@@ -36,7 +36,7 @@ pub fn init(log_dir: PathBuf) {
     }
   }
 
-  // ログファイル名を作成
+  // Create log filename
   let now = Local::now();
   let formatted_date = now.format("%Y-%m-%d_%H-%M-%S").to_string();
   let log_filename = format!("app_log_{formatted_date}.log");
@@ -45,10 +45,10 @@ pub fn init(log_dir: PathBuf) {
   log_file.push(log_filename);
 
   let env_filter = if cfg!(debug_assertions) {
-    // 開発環境 (デバッグビルド) の場合
+    // Development environment (debug build)
     EnvFilter::new("debug")
   } else {
-    // リリース環境の場合
+    // Release environment
     EnvFilter::new("info")
   };
 

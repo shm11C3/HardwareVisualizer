@@ -23,7 +23,7 @@ mod tests {
       ("\"cpu\"", HardwareType::Cpu),
       ("\"memory\"", HardwareType::Memory),
       ("\"gpu\"", HardwareType::Gpu),
-      ("\"CPU\"", HardwareType::Cpu), // 大文字でも処理できることを確認
+      ("\"CPU\"", HardwareType::Cpu), // Verify that uppercase is also handled
       ("\"MEMORY\"", HardwareType::Memory),
       ("\"GPU\"", HardwareType::Gpu),
     ];
@@ -111,10 +111,10 @@ mod tests {
 
   #[test]
   fn test_all_hardware_types_covered() {
-    // すべてのHardwareTypeバリアントがテストされていることを確認
+    // Verify that all HardwareType variants are tested
     let all_types = vec![HardwareType::Cpu, HardwareType::Memory, HardwareType::Gpu];
 
-    // 各タイプがシリアライズ可能であることを確認
+    // Verify that each type can be serialized
     for hardware_type in all_types {
       assert!(serde_json::to_string(&hardware_type).is_ok());
     }
@@ -122,10 +122,10 @@ mod tests {
 
   #[test]
   fn test_all_disk_kinds_covered() {
-    // すべてのDiskKindバリアントがテストされていることを確認
+    // Verify that all DiskKind variants are tested
     let all_kinds = vec![DiskKind::Hdd, DiskKind::Ssd, DiskKind::Unknown];
 
-    // 各タイプがシリアライズ可能であることを確認
+    // Verify that each type can be serialized
     for disk_kind in all_kinds {
       assert!(serde_json::to_string(&disk_kind).is_ok());
     }

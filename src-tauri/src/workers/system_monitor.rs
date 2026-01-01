@@ -8,17 +8,17 @@ pub struct SystemMonitorController {
 }
 
 ///
-/// システム情報の更新頻度（秒）
+/// System information update frequency (seconds)
 ///
 const SYSTEM_INFO_INIT_INTERVAL: u64 = 1; // TODO move to constants.rs
 
 impl SystemMonitorController {
   ///
-  /// ## システム情報の初期化
+  /// ## Initialize system information
   ///
-  /// - param system: `Arc<Mutex<System>>` システム情報
+  /// - param system: `Arc<Mutex<System>>` System information
   ///
-  /// - `SYSTEM_INFO_INIT_INTERVAL` 秒ごとにCPU使用率とメモリ使用率を更新
+  /// - Updates CPU usage and memory usage every `SYSTEM_INFO_INIT_INTERVAL` seconds
   ///
   pub fn setup(resources: models::hardware_archive::MonitorResources) -> Self {
     let (tx, mut rx) = tokio::sync::watch::channel(false);
@@ -36,6 +36,10 @@ impl SystemMonitorController {
           monitoring_service::sample_gpu(&resources);
         }
         #[cfg(target_os = "linux")]
+        {
+          monitoring_service::sample_system(&resources);
+        }
+        #[cfg(target_os = "macos")]
         {
           monitoring_service::sample_system(&resources);
         }

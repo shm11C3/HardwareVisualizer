@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
@@ -56,7 +56,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -77,7 +77,7 @@ jobs:
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
         with:
-          install-deps: false
+          setup-safe-chain: false
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -96,18 +96,15 @@ jobs:
       - name: Setup Azure Code Signing
         run: cargo install trusted-signing-cli
 
-      - name: install frontend dependencies
-        run: npm ci # change this to npm, pnpm or bun depending on which one you use.
-
-      # THIRD_PARTY_LICENSES ファイルを生成
-      # Tauri のビルド時のバンドルに含めるためここで生成する
+      # Generate THIRD_PARTY_LICENSES file
+      # Generate here to include in Tauri build bundle
       - name: Install cargo-license
         run: cargo install cargo-license
 
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
-      - uses: tauri-apps/tauri-action@3b50ac4d4512105f96edbaa78a6e2f9392805589 # v0.5.24
+      - uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}

@@ -4,9 +4,13 @@ inputs:
   node-version:
     description: "Node.js version to install"
     required: false
-    default: "lts/*"
+    default: "24"
   install-deps:
     description: "Whether to install dependencies"
+    required: false
+    default: "true"
+  setup-safe-chain:
+    description: "Whether to setup and configure AikidoSec/safe-chain for secure package installation"
     required: false
     default: "true"
 
@@ -14,10 +18,14 @@ runs:
   using: "composite"
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
+
+    - name: Setup safe-chain
+      if: inputs.setup-safe-chain == 'true'
+      uses: ./.github/actions/setup-safe-chain
 
     - name: Install dependencies
       if: inputs.install-deps == 'true'

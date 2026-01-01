@@ -214,7 +214,7 @@ const ChartTooltipContent = React.forwardRef<
         )}
       >
         {!nestLabel ? tooltipLabel : null}
-        {/* 合算値を表示 */}
+        {/* Display total value */}
         {showTotalValue && (
           <div
             className={cn(

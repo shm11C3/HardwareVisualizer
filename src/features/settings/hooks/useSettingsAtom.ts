@@ -122,10 +122,10 @@ export const useSettingsAtom = () => {
   };
 
   /**
-   * カラーコードを更新する
+   * Update color code
    *
    * @param key
-   * @param value 16進数形式のカラーコード
+   * @param value Color code in hexadecimal format
    */
   const updateLineGraphColorAtom = async (
     key: keyof Settings["lineGraphColor"],

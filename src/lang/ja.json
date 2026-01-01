@@ -102,12 +102,15 @@
     "fullscreen": {
       "enter": "フルスクリーン",
       "exit": "フルスクリーンを終了"
-    }
+    },
+    "title": "タイトル"
   },
 
   "pages": {
     "dashboard": {
-      "name": "ダッシュボード"
+      "name": "ダッシュボード",
+      "visibleItems": "表示項目",
+      "selectItems": "表示する項目を選択してください"
     },
     "usage": {
       "name": "ハードウェア使用率"
@@ -257,6 +260,19 @@
         "applicationLicense": "アプリケーションライセンス",
         "thirdPartyLicenses": "サードパーティライセンス"
       }
+    },
+    "updater": {
+      "title": "新しいバージョンが利用可能です！",
+      "description": "新しいバージョン v{{version}} が利用可能です。 今すぐ更新しますか？",
+      "releaseNotes": "リリースノート",
+      "releaseNotesDescription": "アップデートの詳細は、 {{releaseNotesUrl}} のリリースノートをご覧ください。",
+      "currentVersion": "現在のバージョン：v{{currentVersion}}",
+      "newVersion": "新しいバージョン：v{{newVersion}}",
+      "later": "今は更新しない",
+      "updateAndRestart": "更新する",
+      "downloadingUpdate": "アップデートをダウンロード中...",
+      "installingUpdate": "アップデートをインストール中...",
+      "needRestart": "アップデートを完了するためにアプリケーションを再起動してください。"
     }
   },
 

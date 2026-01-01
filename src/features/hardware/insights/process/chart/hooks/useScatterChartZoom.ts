@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
-/** クリックとドラッグを判別するためのピクセル距離の閾値 */
+/** Pixel distance threshold to distinguish click from drag */
 const CLICK_THRESHOLD = 5;
 
-/** ズーム係数 */
+/** Zoom factor */
 const ZOOM_FACTOR = 0.7;
 
 export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
@@ -26,10 +26,10 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
     const rawStart = Math.round(domain[0]);
     const rawEnd = Math.round(domain[1]);
 
-    const originalWidth = Math.max(1, rawEnd - rawStart); // 移動前の幅を記録
+    const originalWidth = Math.max(1, rawEnd - rawStart); // Record width before move
 
     const start = Math.max(0, rawStart);
-    const end = start + originalWidth; // 常に固定幅を維持
+    const end = start + originalWidth; // Always maintain fixed width
 
     _setXDomain([start, end]);
   }, []);
@@ -40,7 +40,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
 
     const range = rawEnd - rawStart;
     const maxStart = 100 - range;
-    const start = Math.min(Math.max(0, rawStart), maxStart); // 0以上かつ上限を超えない
+    const start = Math.min(Math.max(0, rawStart), maxStart); // At least 0 and not exceeding upper limit
     const end = start + range;
 
     _setYDomain([start, end]);
@@ -80,7 +80,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
     (e: React.MouseEvent) => {
       setIsDragging(false);
 
-      // ドラッグが発生した場合はズームを無効にする
+      // Disable zoom if drag occurred
       if (!dragStart.current || moved.current) {
         dragStart.current = null;
         moved.current = false;
@@ -89,7 +89,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
 
       if (!containerRef.current) return;
 
-      // ズーム処理
+      // Zoom processing
       const rect = containerRef.current.getBoundingClientRect();
       const clickXRatio = (e.clientX - rect.left) / rect.width;
       const clickYRatio = 1 - (e.clientY - rect.top) / rect.height;
