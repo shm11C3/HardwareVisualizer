@@ -71,11 +71,18 @@ function AppUpdateModal({
               "https://github.com/shm11C3/HardwareVisualizer/releases/latest",
           })}
         </p>
-        <p className="text-neutral-700 text-sm dark:text-neutral-200">
-          {t("pages.updater.currentVersion", {
-            currentVersion: meta?.currentVersion,
-          })}
-        </p>
+        <div>
+          <p className="text-neutral-700 text-sm dark:text-neutral-200">
+            {t("pages.updater.currentVersion", {
+              currentVersion: meta?.currentVersion,
+            })}
+          </p>
+          <p className="text-neutral-700 text-sm dark:text-neutral-200">
+            {t("pages.updater.newVersion", {
+              newVersion: meta?.version,
+            })}
+          </p>
+        </div>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setOpen(false)}>
             {t("pages.updater.later")}

@@ -267,6 +267,7 @@
       "releaseNotes": "リリースノート",
       "releaseNotesDescription": "アップデートの詳細は、 {{releaseNotesUrl}} のリリースノートをご覧ください。",
       "currentVersion": "現在のバージョン：v{{currentVersion}}",
+      "newVersion": "新しいバージョン：v{{newVersion}}",
       "later": "今は更新しない",
       "updateAndRestart": "更新する",
       "downloadingUpdate": "アップデートをダウンロード中...",
