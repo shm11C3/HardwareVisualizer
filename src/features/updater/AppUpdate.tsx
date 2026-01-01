@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeedRestart } from "@/components/shared/System";
 import {
@@ -43,10 +43,16 @@ function AppUpdateModal({
   install: ReturnType<typeof useUpdater>["install"];
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(!!meta);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (meta) {
+      setOpen(true);
+    }
+  }, [meta]);
 
   return (
-    <AlertDialog open={open}>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogContent className="text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-foreground">
