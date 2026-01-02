@@ -1,0 +1,17 @@
+changelog:
+  exclude:
+    labels: [ignore-for-release, no-release-notes]
+    authors:
+      - dependabot[bot]
+      - dependabot
+      - hardwarevisualizerappmanager[bot]
+
+  categories:
+    - title: Added
+      labels: [feature, enhancement]
+    - title: Fixed
+      labels: [bug]
+    - title: Maintenance
+      labels: [ci, docs, dependencies, configuration]
+    - title: Other Changes
+      labels: ["*"]

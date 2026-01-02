@@ -1,0 +1,45 @@
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/**"
+          - "index.html"
+          - "package.json"
+
+tauri:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/**"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/actions/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Cargo.lock"
+          - "package-lock.json"
+
+configuration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tsconfig*.json"
+          - "vite.config.*"
+          - "vitest.config.*"
+          - "Cargo.toml"
+          - "**/Cargo.toml"
+          - "*.conf.json"
+
+feature:
+  - head-branch: ["^feat/.*", "^feature/.*"]
+
+bug:
+  - head-branch: ["^fix/.*"]
