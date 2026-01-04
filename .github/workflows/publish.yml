@@ -126,3 +126,80 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
+
+  publish-tauri-macos:
+    if: ${{ contains(github.ref_name, '-alpha') }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest' # for Arm based macs (M1 and above).
+            args: '--target aarch64-apple-darwin'
+            os-name: 'macos-aarch64'
+          - platform: 'macos-latest' # for Intel based macs.
+            args: '--target x86_64-apple-darwin'
+            os-name: 'macos-x64'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          setup-safe-chain: false
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+
+      - name: Generate licenses.json
+        run: npx license-checker --production --json > licenses.json
+
+      - name: Check licenses
+        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
+
+      - name: Update tauri.conf.json using Node.js script
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"      # v1.x.x
+          VERSION="${TAG#v}"            # 1.x.x
+
+          node .github/scripts/updateTauriConfig.ts \
+          --version "$VERSION" \
+          --sign ""
+
+      # Generate THIRD_PARTY_LICENSES file
+      # Generate here to include in Tauri build bundle
+      - name: Install cargo-license
+        run: cargo install cargo-license
+
+      - name: Generate THIRD_PARTY_NOTICES
+        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
+
+      - uses: tauri-apps/tauri-action@19b93bb55601e3e373a93cfb6eb4242e45f5af20 # v0.6.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: true
+          args: ${{ matrix.args }}
+
+      - name: Upload THIRD_PARTY_NOTICES.md
+        run: |
+          mv ./tmp/THIRD_PARTY_NOTICES.md ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
+          gh release upload "${{ github.ref_name }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
