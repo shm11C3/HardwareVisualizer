@@ -70,15 +70,15 @@ function tagToTauriVersion(tag: string): string {
 function main(args: string[]) {
   const configPath = "src-tauri/tauri.conf.json";
 
-  const version = getArg(args, "--version");
+  const tag = getArg(args, "--tag");
   const signCommand = getArg(args, "--sign");
 
-  if (!version) {
-    console.error("--version is required");
+  if (!tag) {
+    console.error("--tag is required");
     process.exit(1);
   }
 
-  const tauriVersion = tagToTauriVersion(version);
+  const tauriVersion = tagToTauriVersion(tag);
 
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
   config.version = tauriVersion;
