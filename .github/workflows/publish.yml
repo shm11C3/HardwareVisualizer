@@ -26,15 +26,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Validate tag format
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([\-+].*)?$ ]]; then
-            echo "Invalid tag: $TAG"
-            exit 1
-          fi
-
       - name: Setup Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         uses: ./.github/actions/setup-linux-deps
@@ -73,7 +64,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
           VERSION="${TAG#v}"            # 1.x.x
 
-          node .github/scripts/updateTauriConfig.cjs \
+          node .github/scripts/updateTauriConfig.ts \
           --version "$VERSION" \
           --sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
@@ -97,10 +88,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
-          releaseName: "v__VERSION__"
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
 
       - if: ${{ matrix.platform == 'windows-latest' }}
