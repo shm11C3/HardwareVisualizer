@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
-          VERSION="${TAG#v}"            # 1.x.x
+
 
           node .github/scripts/update-tauri-config.ts \
           --tag "$TAG" \
@@ -167,7 +167,7 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
-          VERSION="${TAG#v}"            # 1.x.x
+
 
           node .github/scripts/update-tauri-config.ts \
           --tag "$TAG" \
