@@ -65,7 +65,7 @@ function tagToTauriVersion(tag: string): string {
 /**
  * Update `tauri.conf.json` for release
  *
- * @param {string[]} args
+ * @param args - CLI arguments
  */
 function main(args: string[]) {
   const configPath = "src-tauri/tauri.conf.json";
