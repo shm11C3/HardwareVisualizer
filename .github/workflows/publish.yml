@@ -186,7 +186,7 @@ jobs:
       # Generate here to include in Tauri build bundle
       - name: Cache cargo-license binary
         id: cache-cargo-license
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-license
           key: cargo-license-${{ runner.os }}-v1
