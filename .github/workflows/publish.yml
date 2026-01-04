@@ -175,7 +175,15 @@ jobs:
 
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
+      - name: Cache cargo-license binary
+        id: cache-cargo-license
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-license
+          key: cargo-license-${{ runner.os }}-v1
+
       - name: Install cargo-license
+        if: steps.cache-cargo-license.outputs.cache-hit != 'true'
         run: cargo install cargo-license
 
       - name: Generate THIRD_PARTY_NOTICES
