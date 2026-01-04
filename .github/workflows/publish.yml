@@ -62,10 +62,10 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
-          VERSION="${TAG#v}"            # 1.x.x
 
-          node .github/scripts/updateTauriConfig.ts \
-          --version "$VERSION" \
+
+          node .github/scripts/update-tauri-config.ts \
+          --tag "$TAG" \
           --sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
 
       - name: Setup Azure Code Signing
@@ -167,10 +167,10 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
-          VERSION="${TAG#v}"            # 1.x.x
 
-          node .github/scripts/updateTauriConfig.ts \
-          --version "$VERSION" \
+
+          node .github/scripts/update-tauri-config.ts \
+          --tag "$TAG" \
           --sign ""
 
       # Generate THIRD_PARTY_LICENSES file
