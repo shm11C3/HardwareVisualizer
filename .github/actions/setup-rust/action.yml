@@ -28,3 +28,10 @@ runs:
       if: inputs.components != ''
       run: rustup component add ${{ inputs.components }}
       shell: bash
+
+    - name: Ensure Rust targets
+      if: inputs.targets != ''
+      run: |
+        rustup target add ${{ inputs.targets }}
+        rustup target list --installed
+      shell: bash

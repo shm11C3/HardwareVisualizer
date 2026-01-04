@@ -58,6 +58,11 @@ jobs:
       - name: Check licenses
         run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
 
+      - name: Export VERSION for later steps
+        shell: bash
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Update tauri.conf.json using Node.js script
         shell: bash
         run: |
@@ -155,7 +160,7 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: "aarch64-apple-darwin x86_64-apple-darwin"
 
       - name: Generate licenses.json
         run: npx license-checker --production --json > licenses.json
@@ -163,11 +168,15 @@ jobs:
       - name: Check licenses
         run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
 
+      - name: Export VERSION for later steps
+        shell: bash
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Update tauri.conf.json using Node.js script
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
-
 
           node .github/scripts/update-tauri-config.ts \
           --tag "$TAG" \
