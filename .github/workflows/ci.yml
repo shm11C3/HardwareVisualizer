@@ -91,7 +91,7 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 
       - name: Check Rust clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+        run: cargo tauri-lint
 
   #
   # Backend tests
@@ -125,7 +125,7 @@ jobs:
           components: ""
 
       - name: Run backend tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
+        run: cargo tauri-test
 
   #
   # Build test
