@@ -7,10 +7,9 @@ HardwareVisualizer is an open-source project, and we welcome improvements from t
 
 ## How to Contribute
 
-For new feature additions, please create an Issue before submitting a Pull Request.  
-For minor fixes or refactoring, an Issue is not always required.
-
-When submitting a Pull Request (PR), please ensure that:
+- **New features:** Please create an Issue before opening a Pull Request.
+- **Small fixes / refactoring:** An Issue is optional.
+- **Bug reports and ideas:** Opening an Issue is also a great contribution.
 
 ### Bug Report
 
@@ -25,16 +24,16 @@ When submitting a Pull Request (PR), please ensure that:
 HardwareVisualizer automatically assigns labels based on the branch name.  
 Branch naming convention:
 
-- Features: `feat/<short-description or issue-number>`
-- Bug fixes: `fix/<short-description or issue-number>`
-- Documentation: `docs/<short-description or issue-number>`
-- Refactoring: `refactor/<short-description or issue-number>`
-- Other: `chore/<short-description or issue-number>`
+- Features: `feat/<short-description-or-issue-number>`
+- Bug fixes: `fix/<short-description-or-issue-number>`
+- Documentation: `docs/<short-description-or-issue-number>`
+- Refactoring: `refactor/<short-description-or-issue-number>`
+- Other: `chore/<short-description-or-issue-number>`
 
 When submitting a Pull Request (PR), please:
 
 - Provide a concise description of the change
-- Link any related Issue
+- Link any related Issue (if applicable)
 - Ensure CI checks pass
 
 ## Development Guide
@@ -43,14 +42,11 @@ When submitting a Pull Request (PR), please:
 
 Development requires the following tools:
 
-- [Node.js v24](https://nodejs.org/)
+- [Node.js (LTS recommended)](https://nodejs.org/)
 - [Rust Stable](https://www.rust-lang.org/)
 
-If you are using Linux, you may need to install additional dependencies:
-
-```bash
-sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-```
+In addition, you will need the [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#system-dependencies).
+Please make sure to install these as well.
 
 Next, install the dependencies:
 
@@ -90,6 +86,8 @@ cargo tauri-fmt
 cargo tauri-lint
 cargo tauri-test
 ```
+
+> Note: We use Cargo aliases defined at the project root (`.cargo/config.toml`).
 
 ## Security
 
