@@ -188,7 +188,7 @@ Webサイト: <https://hardviz.com/>
 
 ## コントリビューション
 
-詳細は [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
+詳細は [CONTRIBUTING.md](../CONTRIBUTING.md) をご覧ください。
 
 ## よくある質問 (FAQ)
 
