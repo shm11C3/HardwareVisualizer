@@ -7,92 +7,81 @@
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](../LICENSE)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
 ![image](https://github.com/user-attachments/assets/c474a132-5768-4046-9703-766e74ee3e66)
 
-HardwareVisualizer は、コンピューターのハードウェアパフォーマンスをリアルタイムで監視するツールです。直感的なダッシュボード、詳細な使用状況グラフ、カスタマイズ可能な設定により、システムの重要な統計情報を追跡できます。
+HardwareVisualizer は、コンピュータのハードウェアパフォーマンスをリアルタイムで監視するためのツールです。直感的なダッシュボード、詳細な使用率グラフ、カスタマイズ可能な設定を備えており、システムの重要な統計情報を把握するのに役立ちます。
 
-Web: <https://hardviz.com/>
+Webサイト: <https://hardviz.com/>
 
 > [!NOTE]
 >
-> ## 公式ダウンロード＆セキュリティに関する注意事項
+> ## 公式ダウンロードとセキュリティに関する注意
 >
-> HardwareVisualizer は、以下のチャネル**のみ**で公式配布されています：
+> HardwareVisualizerは、以下のチャネルを通じて**のみ**公式に配布されています。
 >
 > - GitHub Releases: https://github.com/shm11C3/HardwareVisualizer/releases
 > - 公式ウェブサイト: https://hardviz.com/
 >
-> その他の配布元（例：サードパーティのミラーや SourceForge などのダウンロードサイト）は、
-> このプロジェクトとは**関係ありません**。
+> その他の配布元（例：サードパーティのミラーサイトやSourceForgeなどのダウンロードサイトの掲載）は、本プロジェクトとは**一切関係ありません**。
 >
-> 特に、SourceForge の `Hardware Visualizer` プロジェクト
-> (`https://sourceforge.net/projects/hardware-visualizer/`) は、私の関与なく作成されました。
-> そこで公開されている ZIP アーカイブの真正性や安全性を確認することはできません。
-> 使用する場合は自己責任でお願いします。
+> 特に、SourceForge上の `Hardware Visualizer` (`https://sourceforge.net/projects/hardware-visualizer/`) というプロジェクトは、開発者の関与なしに作成されたものです。そこで公開されているZIPアーカイブの真正性や安全性については確認が取れていません。利用される場合は自己責任でお願いいたします。
 
 ## 目次
 
 - [HardwareVisualizer](#hardwarevisualizer)
   - [目次](#目次)
-  - [インストール方法](#インストール方法)
+  - [インストールガイド](#インストールガイド)
     - [ダウンロード](#ダウンロード)
-    - [Windows へのインストール](#windows-へのインストール)
-    - [Linux へのインストール](#linux-へのインストール)
+    - [Windowsへのインストール](#windowsへのインストール)
+    - [Linuxへのインストール](#linuxへのインストール)
     - [初期設定](#初期設定)
-  - [機能](#機能)
-  - [対応 OS](#対応-os)
+  - [機能一覧](#機能一覧)
+  - [サポートOS](#サポートos)
   - [スクリーンショット](#スクリーンショット)
     - [ダッシュボード](#ダッシュボード)
-    - [使用状況グラフ](#使用状況グラフ)
-    - [Insight](#insight)
+    - [使用率グラフ](#使用率グラフ)
+    - [インサイト](#インサイト)
     - [カスタムグラフ](#カスタムグラフ)
     - [背景画像](#背景画像)
-  - [開発をはじめる](#開発をはじめる)
-    - [前提条件](#前提条件)
-    - [Linux ビルド依存関係](#linux-ビルド依存関係)
-    - [ビルド＆実行](#ビルド実行)
-    - [本番ビルド](#本番ビルド)
-    - [共通スクリプト](#共通スクリプト)
-  - [権限とセキュリティに関する注意事項](#権限とセキュリティに関する注意事項)
+  - [権限とセキュリティについて](#権限とセキュリティについて)
   - [ロードマップ（抜粋）](#ロードマップ抜粋)
-  - [貢献](#貢献)
-    - [バグ報告](#バグ報告)
-    - [機能リクエスト](#機能リクエスト)
-  - [FAQ](#faq)
+  - [コントリビューション](#コントリビューション)
+  - [よくある質問 (FAQ)](#よくある質問-faq)
   - [ライセンス](#ライセンス)
 
-## インストール方法
+## インストールガイド
 
 ### ダウンロード
 
-プラットフォームを選択して、最新のインストーラーをダウンロードしてください：
+お使いのプラットフォームに合わせて、最新のインストーラーをダウンロードしてください。
 
 - **公式ウェブサイト**: [hardviz.com/#download](https://hardviz.com/#download)
-- **GitHub Releases**: [最新リリース](https://github.com/shm11C3/HardwareVisualizer/releases/latest) > Assets セクション
+- **GitHub Releases**: [最新リリース](https://github.com/shm11C3/HardwareVisualizer/releases/latest) > Assetsセクション
 
-### Windows へのインストール
+### Windowsへのインストール
 
-1. ダウンロードページから `HardwareVisualizer_x.x.x_x64-setup_windows.exe` または `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` をダウンロード
-2. インストーラー（`.exe` または `.msi` ファイル）を実行
-3. インストールウィザードの指示に従う
-4. スタートメニューまたはデスクトップショートカットから **HardwareVisualizer** を起動
+1. ダウンロードページから `HardwareVisualizer_x.x.x_x64-setup_windows.exe` または `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` をダウンロードします。
+2. インストーラー（`.exe` または `.msi` ファイル）を実行します。
+3. インストールウィザードの指示に従います。
+4. スタートメニューまたはデスクトップのショートカットから **HardwareVisualizer** を起動します。
 
 > [!NOTE]
-> Windows では追加の権限は必要ありません
+> Windowsでは追加の権限は必要ありません。
 
-### Linux へのインストール
+### Linuxへのインストール
 
-1. ダウンロードページから `hardware-visualizer_x.x.x_amd64.deb` をダウンロード
-2. パッケージマネージャー経由でインストール：
+1. ダウンロードページから `hardware-visualizer_x.x.x_amd64.deb` をダウンロードします。
+2. パッケージマネージャー経由でインストールします。
 
    ```bash
    sudo dpkg -i hardware-visualizer_*.deb
    sudo apt-get install -f  # 必要に応じて依存関係をインストール
    ```
 
-3. アプリケーションメニューまたはターミナルから起動：
+3. アプリケーションメニューまたはターミナルから起動します。
 
    ```bash
    hardware-visualizer
@@ -100,9 +89,9 @@ Web: <https://hardviz.com/>
 
 > [!TIP]
 >
-> ### ハードウェア情報が取得できない場合
+> ### ハードウェアデータが表示されない場合
 >
-> 一部のメトリクスには管理者権限が必要です。完全なハードウェアアクセスのために sudo で再起動してください：
+> 一部のメトリクスには管理者権限が必要です。すべてのハードウェア情報にアクセスするには、sudoで再起動してください。
 >
 > ```bash
 > sudo hardware-visualizer
@@ -110,68 +99,68 @@ Web: <https://hardviz.com/>
 
 ### 初期設定
 
-アプリを起動したら：
+アプリ起動後の手順：
 
-1. **設定**（サイドバーの ⚙️ アイコン）に移動
-2. お好みの**テーマ**と**言語**を選択
-3. （オプション）カスタム**背景画像**を設定
+1. **設定**（サイドバーの⚙️アイコン）へ移動します。
+2. お好みの**テーマ**と**言語**を選択します。
+3. （任意）カスタムの**背景画像**を設定します。
 
-## 機能
+## 機能一覧
 
-| カテゴリ                | ステータス | 備考                         |
-| ----------------------- | ---------- | ---------------------------- |
-| CPU / RAM 使用率        | ✅         | リアルタイム + 履歴          |
-| GPU 使用率              | ✅         | NVIDIA フル / その他部分対応 |
-| GPU 温度                | ✅         | NVIDIA フル / その他部分対応 |
-| ファン監視              | ⏳         | 計画中                       |
-| ストレージ監視          | ✅         | デバイス概要                 |
-| ネットワーク監視        | ✅         | 基本的なインターフェース     |
-| カスタムグラフテーマ    | ✅         | 永続化                       |
-| ダッシュボードカスタム  | ✅         | レイアウト編集部分対応       |
-| 背景画像                | ✅         | ローカル画像                 |
-| 履歴インサイト          | ✅         | デフォルト最大 30 日間       |
-| GPU Insight (非 NVIDIA) | ⚠️         | 現在限定的                   |
+| カテゴリ | ステータス | 備考 |
+| ------------------------ | ------ | -------------------------------- |
+| CPU / RAM 使用率 | ✅ | リアルタイム + 履歴 |
+| GPU 使用率 | ✅ | NVIDIAは完全対応 / その他は一部対応 |
+| GPU 温度 | ✅ | NVIDIAは完全対応 / その他は一部対応 |
+| ファン監視 | ⏳ | 計画中 |
+| ストレージ監視 | ✅ | デバイスの概要 |
+| ネットワーク監視 | ✅ | 基本的なインターフェース / 使用量は計画中 |
+| カスタムグラフテーマ | ✅ | 設定保存可能 |
+| ダッシュボードのカスタマイズ | ✅ | レイアウト編集は一部対応 |
+| 背景画像 | ✅ | ローカル画像を使用可能 |
+| 履歴インサイト | ✅ | デフォルトで最大30日間 |
+| GPU インサイト (NVIDIA以外) | ⚠️ | 現在は制限あり |
 
-## 対応 OS
+## サポートOS
 
-| OS      | ステータス | ダウンロード                                  |
-| ------- | ---------- | --------------------------------------------- |
-| Windows | ✅         | [ダウンロード](https://hardviz.com/#download) |
-| Linux   | ✅         | [ダウンロード](https://hardviz.com/#download) |
-| macOS   | 🔒         | 計画中（v2）                                  |
+| OS | ステータス | ダウンロード |
+| ------- | ------ | ----------------------------------------- |
+| Windows | ✅ | [ダウンロード](https://hardviz.com/#download) |
+| Linux | ✅ | [ダウンロード](https://hardviz.com/#download) |
+| macOS | 🔒 | 計画中 (v2) |
 
 ## スクリーンショット
 
 ### ダッシュボード
 
-ハードウェアの現在のステータスを一目で確認できます。
+ハードウェアの現在の状態を一目で確認できます。
 
 ![image](https://github.com/user-attachments/assets/a578909a-5b85-4d3a-98cb-a885dc10eaec)
 
-### 使用状況グラフ
+### 使用率グラフ
 
-直近 1 分間のリソース使用率を確認できます。
+直近1分間のリソース使用状況を確認できます。
 
 ![image](https://github.com/user-attachments/assets/ef3e1630-e567-47a1-a437-f9a3981dd587)
 
 ![image](https://github.com/user-attachments/assets/7b786e00-12c0-4627-8b2a-cc3482072eb7)
 
-### Insight
+### インサイト
 
-過去最大 30 日間のリソース使用率を表示します。
-使用率は 1 分単位で計算されます。
+過去最大30日間のリソース使用状況を表示します。
+使用率は1分単位で計算されます。
 
 ![image](https://github.com/user-attachments/assets/dd849d54-37a0-4f00-bec8-9c7f994d49fa)
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU Insight は Nvidia GPU のみで利用可能です。
+\*GPUインサイトは、現在はNVIDIA製GPUのみ対応しています。
 
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
 ### カスタムグラフ
 
-柔軟なグラフカスタマイズが可能です。
+柔軟なグラフのカスタマイズが可能です。
 
 ![image](https://github.com/user-attachments/assets/b6b2436b-c4c7-4252-9654-c5f2ca89e499)
 
@@ -179,102 +168,36 @@ Web: <https://hardviz.com/>
 
 ![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
 
-## 開発をはじめる
+## 権限とセキュリティについて
 
-[![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat&logo=biome)](https://biomejs.dev)
-
-### 前提条件
-
-[Node.js v22](https://nodejs.org/)
-
-```bash
-$ node -v
-v22.16.0
-```
-
-[Rust](https://www.rust-lang.org/)
-
-```bash
-$ rustc -V
-rustc 1.xx.x
-```
-
-### Linux ビルド依存関係
-
-```bash
-sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-```
-
-### ビルド＆実行
-
-```bash
-npm ci
-npm run tauri dev
-```
-
-### 本番ビルド
-
-```bash
-npm run tauri build
-```
-
-### 共通スクリプト
-
-```bash
-npm run lint
-npm run format
-npm test
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
-```
-
-## 権限とセキュリティに関する注意事項
-
-| コンテキスト       | 理由                                                |
-| ------------------ | --------------------------------------------------- |
-| Linux sudo         | 特定のデバイスファイル（GPU、センサー）へのアクセス |
-| Windows WMI        | GPU/メモリの拡張メトリクス                          |
-| 外部テレメトリなし | テレメトリなし。アプリは外部にデータを送信しません  |
+| 項目 | 理由 |
+| --------------------- | ------------------------------------------------------- |
+| Linuxのsudo権限 | 特定のデバイスファイル（GPU、センサー）へのアクセス |
+| WindowsのWMI | GPU/メモリの詳細なメトリクス取得 |
+| 外部送信なし | テレメトリなし。アプリは外部へデータを一切送信しません |
 
 ## ロードマップ（抜粋）
 
-| 項目                             | 目標 |
-| -------------------------------- | ---- |
-| macOS サポート                   | v2   |
-| 統一プラットフォーム抽象化       | v1.x |
-| ファン / 温度フルクロスベンダー  | v1.x |
+| 項目 | 目標 |
+| ---------------------------- | ------ |
+| macOS サポート | v2 |
+| 統合プラットフォーム抽象化 | v1.x |
+| 各ベンダーのファン/温度の完全対応 | v1.x |
 | ダッシュボードレイアウトエディタ | v2.x |
-| 消費電力推定                     | v2.x |
+| 消費電力の推定機能 | v2.x |
 
-## 貢献
+## コントリビューション
 
-1. フォーク＆ブランチ（`feat/...` または `fix/...`）
-2. lint とテストを実行
-3. 簡潔な説明で PR を開く
-4. 関連する issue をリンク
+詳細は [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
 
-スタイル：
+## よくある質問 (FAQ)
 
-- Rust: `cargo fmt`（CI で強制される場合）
-- TS: Biome のデフォルト設定
+**Q: なぜLinuxでsudoが必要なのですか？**
+センサーなどの特権が必要なハードウェアインターフェースにアクセスするためです。
 
-### バグ報告
-
-[Issue を作成](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D)
-
-### 機能リクエスト
-
-[Issue を作成](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=shm11C3&labels=enhancement&projects=&template=feature_request.md&title=%5BFeature+request%5D)
-
-## FAQ
-
-**Q: Linux で sudo が必要な理由は？**
-センサー用の特権ハードウェアインターフェースへのアクセスのためです。
-
-**Q: NVIDIA のみ GPU 履歴グラフが使える理由は？**
-ベンダー API が異なるため。拡張を計画中です。
+**Q: GPU履歴チャートがNVIDIAだけなのはなぜですか？**
+ベンダーごとにAPIが異なるためです。今後拡大予定です。
 
 ## ライセンス
 
-[MIT License](../LICENSE)
+[MIT License](LICENSE)

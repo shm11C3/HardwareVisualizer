@@ -50,17 +50,9 @@ Web: <https://hardviz.com/>
     - [Insight](#insight)
     - [Custom Graph](#custom-graph)
     - [Background Image](#background-image)
-  - [Development](#development)
-    - [Prerequisites](#prerequisites)
-    - [Linux Build Dependencies](#linux-build-dependencies)
-    - [Build \& Run](#build--run)
-    - [Production Build](#production-build)
-    - [Common scripts](#common-scripts)
   - [Permissions \& Security Notes](#permissions--security-notes)
   - [Roadmap (Excerpt)](#roadmap-excerpt)
   - [Contributing](#contributing)
-    - [Bug Report](#bug-report)
-    - [Feature Request](#feature-request)
   - [FAQ](#faq)
   - [License](#license)
 
@@ -180,56 +172,6 @@ Flexible graph customization available.
 
 ![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
 
-## Development
-
-[![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat&logo=biome)](https://biomejs.dev)
-
-### Prerequisites
-
-[Node.js v22](https://nodejs.org/)
-
-```bash
-$ node -v
-v22.16.0
-```
-
-[Rust](https://www.rust-lang.org/)
-
-```bash
-$ rustc -V
-rustc 1.xx.x
-```
-
-### Linux Build Dependencies
-
-```bash
-sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-```
-
-### Build & Run
-
-```bash
-npm ci
-npm run tauri dev
-```
-
-### Production Build
-
-```bash
-npm run tauri build
-```
-
-### Common scripts
-
-```bash
-npm run lint
-npm run format
-npm test
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
-```
-
 ## Permissions & Security Notes
 
 | Context               | Reason                                                  |
@@ -250,23 +192,7 @@ cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture
 
 ## Contributing
 
-1. Fork & branch (`feat/...` or `fix/...`)
-2. Run lint & tests
-3. Open PR with concise description
-4. Link related issue
-
-Style:
-
-- Rust: `cargo fmt` (enforced by CI if added)
-- TS: Biome config defaults
-
-### Bug Report
-
-[Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D)
-
-### Feature Request
-
-[Create Issue](https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=shm11C3&labels=enhancement&projects=&template=feature_request.md&title=%5BFeature+request%5D)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## FAQ
 

@@ -12,6 +12,7 @@
   "rust-analyzer.check.command": "clippy",
   "cSpell.words": [
     "burnin",
+    "clippy",
     "consts",
     "cpus",
     "directx",

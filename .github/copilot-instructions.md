@@ -32,9 +32,9 @@
 - Frontend lint/format: `npm run lint` / `npm run format` (Biome; primarily targets `./src`)
 - Frontend tests: `npm test` (Vitest; config in `vitest.config.ts` / setup in `src/test/setup.ts`)
 - Rust checks (CI parity):
-  - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
-  - `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings`
-  - `cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture`
+  - `cargo tauri-fmt`
+  - `cargo tauri-lint`
+  - `cargo tauri-test`
 
 ## Project conventions
 - Import alias: `@` → `src` (`vite.config.ts` / `vitest.config.ts`).
