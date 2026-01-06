@@ -25,16 +25,16 @@
 - Backend emits `error_event`; frontend shows a modal via `useErrorModalListener` (see `src/hooks/useTauriEventListener.ts`).
 
 ## Dev workflows (repo-specific)
-- Prereqs: Node.js v22 (per README) + Rust (toolchain in `rust-toolchain.toml`).
+- Prereqs: Node.js v24 (per README) + Rust (toolchain in `rust-toolchain.toml`).
 - Linux build deps: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf` (see CI/README). Some metrics require sudo.
 - Web UI only: `npm run dev` (React DevTools + Vite). Vite port is fixed to `1520` (`vite.config.ts`).
 - Desktop (Tauri): `npm run tauri dev`
 - Frontend lint/format: `npm run lint` / `npm run format` (Biome; primarily targets `./src`)
 - Frontend tests: `npm test` (Vitest; config in `vitest.config.ts` / setup in `src/test/setup.ts`)
 - Rust checks (CI parity):
-  - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
-  - `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings`
-  - `cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture`
+  - `cargo tauri-fmt`
+  - `cargo tauri-lint`
+  - `cargo tauri-test`
 
 ## Project conventions
 - Import alias: `@` → `src` (`vite.config.ts` / `vitest.config.ts`).
