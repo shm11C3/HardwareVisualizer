@@ -2,15 +2,9 @@ name: "CI"
 
 on:
   pull_request:
-    branches:
-      - master
-      - develop
-      - release/**
-      - develop-v*
   push:
     branches:
       - develop
-      - develop-v*
 
 jobs:
   #
@@ -19,8 +13,9 @@ jobs:
   change-detection:
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     outputs:
+      is-push: ${{ steps.meta.outputs.is_push }}
       frontend-changed: ${{ steps.changes.outputs.frontend }}
       backend-changed: ${{ steps.changes.outputs.backend }}
       frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
@@ -28,6 +23,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - id: meta
+        run: echo "is_push=${{ github.event_name == 'push' }}" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Check changed files
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -64,7 +63,7 @@ jobs:
   #
   lint-backend:
     needs: change-detection
-    if: needs.change-detection.outputs.backend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -98,7 +97,7 @@ jobs:
   #
   test-backend:
     needs: change-detection
-    if: needs.change-detection.outputs.backend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -134,7 +133,7 @@ jobs:
     needs: change-detection
     # When updating npm packages related to tauri, build errors may occur.
     # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
-    if: needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -235,7 +234,7 @@ jobs:
   #
   lint-frontend:
     needs: change-detection
-    if: needs.change-detection.outputs.frontend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -254,7 +253,7 @@ jobs:
   #
   test-frontend:
     needs: change-detection
-    if: needs.change-detection.outputs.frontend-changed == 'true'
+    if:  needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
@@ -279,7 +278,7 @@ jobs:
   #
   build-frontend:
     needs: change-detection
-    if: needs.change-detection.outputs.frontend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -294,11 +293,11 @@ jobs:
         run: npm run build
 
   #
-  # License checks (only on PR)
+  # License checks
   #
   license-check-npm:
     needs: change-detection
-    if: github.event_name == 'pull_request' && needs.change-detection.outputs.frontend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -320,7 +319,7 @@ jobs:
 
   license-check-cargo:
     needs: change-detection
-    if: github.event_name == 'pull_request' && needs.change-detection.outputs.backend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
     permissions:
       contents: read
     strategy:
@@ -358,6 +357,10 @@ jobs:
   merge-gate:
     name: Merge Gate
     if: ${{ always() }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-slim
+
     needs:
       - change-detection
       - lint-backend
@@ -368,79 +371,13 @@ jobs:
       - build-frontend
       - license-check-npm
       - license-check-cargo
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    env:
-      # Change detection outputs
-      BACKEND_CHANGED: ${{ needs.change-detection.outputs.backend-changed }}
-      FRONTEND_CHANGED: ${{ needs.change-detection.outputs.frontend-changed }}
-      BACKEND_DEPS_CHANGED: ${{ needs.change-detection.outputs.backend-deps-changed }}
-      FRONTEND_DEPS_CHANGED: ${{ needs.change-detection.outputs.frontend-deps-changed }}
-
-      # Job results (success/failure/cancelled/skipped/timed_out etc.)
-      RES_LINT_BACKEND: ${{ needs.lint-backend.result }}
-      RES_TEST_BACKEND: ${{ needs.test-backend.result }}
-      RES_TEST_BUILD: ${{ needs.test-build.result }}
-      RES_LINT_FRONTEND: ${{ needs.lint-frontend.result }}
-      RES_TEST_FRONTEND: ${{ needs.test-frontend.result }}
-      RES_BUILD_FRONTEND: ${{ needs.build-frontend.result }}
-      RES_LICENSE_NPM: ${{ needs.license-check-npm.result }}
-      RES_LICENSE_CARGO: ${{ needs.license-check-cargo.result }}
     steps:
-      - name: Print matrix results (debug)
-        run: |
-          echo "lint-backend:      $RES_LINT_BACKEND"
-          echo "test-backend:      $RES_TEST_BACKEND"
-          echo "test-build:        $RES_TEST_BUILD"
-          echo "lint-frontend:     $RES_LINT_FRONTEND"
-          echo "test-frontend:     $RES_TEST_FRONTEND"
-          echo "build-frontend:    $RES_BUILD_FRONTEND"
-          echo "license-check-npm: $RES_LICENSE_NPM"
-          echo "license-cargo:     $RES_LICENSE_CARGO"
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
 
-      - name: Enforce dynamic required checks
-        run: |
-          set -euo pipefail
-
-          fail() { echo "::error::$1"; exit 1; }
-
-          # helper: require success if needed, skipped if not needed
-          must_be() {
-            local when="$1"  # "true" or "false"
-            local result="$2"
-            local name="$3"
-            if [ "$when" = "true" ]; then
-              [ "$result" = "success" ] || fail "$name must be success when required, but was '$result'"
-            else
-              # Strictly require skipped when not needed (don't allow cancelled/neutral)
-              [ "$result" = "skipped" ] || fail "$name must be skipped when not required, but was '$result'"
-            fi
-          }
-
-          # Apply change-based rules
-          must_be "$BACKEND_CHANGED"      "$RES_LINT_BACKEND"   "lint-backend"
-          must_be "$BACKEND_CHANGED"      "$RES_TEST_BACKEND"   "test-backend"
-
-          # test-build is required when backend changed OR frontend deps changed
-          if [ "$BACKEND_CHANGED" = "true" ] || [ "$FRONTEND_DEPS_CHANGED" = "true" ]; then
-            [ "$RES_TEST_BUILD" = "success" ] || fail "test-build must be success when backend changed or frontend deps changed, but was '$RES_TEST_BUILD'"
-          else
-            [ "$RES_TEST_BUILD" = "skipped" ] || fail "test-build must be skipped when not required, but was '$RES_TEST_BUILD'"
-          fi
-
-          must_be "$FRONTEND_CHANGED"     "$RES_LINT_FRONTEND"  "lint-frontend"
-          must_be "$FRONTEND_CHANGED"     "$RES_TEST_FRONTEND"  "test-frontend"
-          must_be "$FRONTEND_CHANGED"     "$RES_BUILD_FRONTEND" "build-frontend"
-
-          # License checks run only on PR with dependency changes
-          # For push events, they should be skipped regardless of dependency changes
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            must_be "$FRONTEND_DEPS_CHANGED" "$RES_LICENSE_NPM"   "license-check-npm"
-            must_be "$BACKEND_DEPS_CHANGED"  "$RES_LICENSE_CARGO" "license-check-cargo"
-          else
-            [ "$RES_LICENSE_NPM" = "skipped" ] || fail "license-check-npm must be skipped on push events, but was '$RES_LICENSE_NPM'"
-            [ "$RES_LICENSE_CARGO" = "skipped" ] || fail "license-check-cargo must be skipped on push events, but was '$RES_LICENSE_CARGO'"
-          fi
-
-          echo "All dynamic checks satisfied."
+      - name: Gate (fail on failure/cancelled)
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: node .github/scripts/merge-gate.ts
