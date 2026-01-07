@@ -253,7 +253,7 @@ jobs:
   #
   test-frontend:
     needs: change-detection
-    if:  needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
