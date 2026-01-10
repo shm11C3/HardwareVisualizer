@@ -1,9 +1,10 @@
 use crate::enums::error::BackendError;
 use crate::enums::settings::TemperatureUnit;
-use crate::models::hardware::{GraphicInfo, MemoryInfo};
+use crate::models::hardware::{GraphicInfo, MemoryInfo, NetworkInfo};
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use std::future::Future;
 use std::pin::Pin;
+pub mod network;
 
 /// macOS platform implementation (dummy)
 pub struct MacOSPlatform;
@@ -71,11 +72,8 @@ impl GpuPlatform for MacOSPlatform {
 }
 
 impl NetworkPlatform for MacOSPlatform {
-  fn get_network_info(
-    &self,
-  ) -> Result<Vec<crate::models::hardware::NetworkInfo>, BackendError> {
-    // macOS is not supported yet (build-only stub)
-    Err(BackendError::NetworkInfoNotAvailable)
+  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
+    network::get_network_info()
   }
 }
 

@@ -1843,6 +1843,7 @@ dependencies = [
  "dxgi",
  "image",
  "ipnet",
+ "libc",
  "mockall",
  "nvapi",
  "regex",

@@ -3,6 +3,7 @@ use std::net::IpAddr;
 ///
 /// ## Determine if IP is a unicast link-local address
 ///
+#[allow(dead_code)]
 pub fn is_unicast_link_local<T>(ip: &T) -> bool
 where
   T: Into<IpAddr> + Clone,
