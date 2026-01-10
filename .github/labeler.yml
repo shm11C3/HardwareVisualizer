@@ -5,12 +5,12 @@ frontend:
           - "index.html"
           - "package.json"
 
-tauri:
+rust:
   - changed-files:
       - any-glob-to-any-file:
           - "src-tauri/**"
 
-ci:
+github_actions:
   - changed-files:
       - any-glob-to-any-file:
           - ".github/workflows/**"
