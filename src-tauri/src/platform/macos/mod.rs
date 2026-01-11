@@ -4,9 +4,10 @@ use crate::models::hardware::{GraphicInfo, MemoryInfo, NetworkInfo};
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use std::future::Future;
 use std::pin::Pin;
+use tauri::async_runtime;
+pub mod memory;
 pub mod network;
 
-/// macOS platform implementation (dummy)
 pub struct MacOSPlatform;
 
 impl MacOSPlatform {
@@ -20,8 +21,9 @@ impl MemoryPlatform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
     Box::pin(async {
-      // macOS is not supported yet (build-only stub)
-      Err("get_memory_info is not implemented for MacOSPlatform".to_string())
+      async_runtime::spawn_blocking(memory::get_memory_info)
+        .await
+        .map_err(|e| format!("Failed to join memory task: {e}"))?
     })
   }
 

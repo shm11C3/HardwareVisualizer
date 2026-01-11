@@ -136,6 +136,7 @@ export const MemoryInfo = () => {
   const { t } = useTranslation();
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
+  const os = platform();
 
   const {
     memoryCurrentUsage,
@@ -197,10 +198,18 @@ export const MemoryInfo = () => {
                 ? {
                     [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
                     [t("shared.totalMemory")]: hardwareInfo.memory.size,
-                    [t("shared.memoryCount")]:
-                      `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
-                    [t("shared.memoryClockSpeed")]:
-                      `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
+                    ...(hardwareInfo.memory.totalSlots > 0
+                      ? {
+                          [t("shared.memoryCount")]:
+                            `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
+                        }
+                      : {}),
+                    ...(hardwareInfo.memory.clock > 0
+                      ? {
+                          [t("shared.memoryClockSpeed")]:
+                            `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
+                        }
+                      : {}),
                   }
                 : {
                     [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
@@ -209,7 +218,9 @@ export const MemoryInfo = () => {
             }
           />
           <div className="flex justify-end">
-            {!hardwareInfo.memory.isDetailed && <FetchDetailButton />}
+            {!hardwareInfo.memory.isDetailed && os !== "macos" && (
+              <FetchDetailButton />
+            )}
           </div>
         </div>
       ) : (
