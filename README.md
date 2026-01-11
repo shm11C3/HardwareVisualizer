@@ -51,7 +51,7 @@ Web: <https://hardviz.com/>
     - [Custom Graph](#custom-graph)
     - [Background Image](#background-image)
   - [Permissions \& Security Notes](#permissions--security-notes)
-  - [Roadmap (Excerpt)](#roadmap-excerpt)
+  - [Roadmap](#roadmap)
   - [Contributing](#contributing)
   - [FAQ](#faq)
   - [License](#license)
@@ -127,11 +127,11 @@ After launching the app:
 
 ## Supported OS
 
-| OS      | Status | Download                                  |
-| ------- | ------ | ----------------------------------------- |
-| Windows | ✅     | [Download](https://hardviz.com/#download) |
-| Linux   | ✅     | [Download](https://hardviz.com/#download) |
-| macOS   | 🔒     | Planned (v2)                              |
+| OS      | Status | Download                                                                              |
+| ------- | ------ | ------------------------------------------------------------------------------------- |
+| Windows | ✅     | [Download](https://hardviz.com/#download)                                             |
+| Linux   | ✅     | [Download](https://hardviz.com/#download)                                             |
+| macOS   | 🚧     | WIP (beta: [GitHub Releases](https://github.com/shm11C3/HardwareVisualizer/releases)) |
 
 ## Screenshots
 
@@ -180,15 +180,16 @@ Flexible graph customization available.
 | Windows WMI           | GPU/memory extended metrics                             |
 | No outbound telemetry | No telemetry; the app does not send any data externally |
 
-## Roadmap (Excerpt)
+## Roadmap
 
-| Item                         | Target |
-| ---------------------------- | ------ |
-| macOS Support                | v2     |
-| Unified Platform Abstraction | v1.x   |
-| Fan / Temp Full Cross Vendor | v1.x   |
-| Dashboard Layout Editor      | v2.x   |
-| Power Consumption Estimation | v2.x   |
+| Item                         | Target      |
+| ---------------------------- | ----------- |
+| macOS Support                | In Progress |
+| AMD compatible               | Research    |
+| Fan / Temp Full Cross Vendor | Research    |
+| Game Mode                    | Planned     |
+| Power Consumption Estimation | Idea        |
+| Plugin System                | Idea        |
 
 ## Contributing
 

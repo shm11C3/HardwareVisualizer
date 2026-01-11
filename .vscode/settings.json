@@ -9,6 +9,12 @@
     "editor.formatOnSave": true,
     "editor.inlayHints.enabled": "off"
   },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+  },
   "rust-analyzer.check.command": "clippy",
   "cSpell.words": [
     "burnin",
