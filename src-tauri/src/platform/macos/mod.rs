@@ -8,7 +8,7 @@ use tauri::async_runtime;
 pub mod memory;
 pub mod network;
 
-/// macOS platform implementation (dummy)
+/// macOS platform implementation (memory & network implemented; GPU and detailed metrics are stubs)
 pub struct MacOSPlatform;
 
 impl MacOSPlatform {
