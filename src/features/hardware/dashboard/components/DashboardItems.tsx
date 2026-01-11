@@ -136,7 +136,7 @@ export const MemoryInfo = () => {
   const { t } = useTranslation();
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
-  const os = useMemo(() => platform(), []);
+  const os = platform();
 
   const {
     memoryCurrentUsage,
