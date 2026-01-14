@@ -50,8 +50,8 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
 ] }
 chrono = "0.4.42"
 rust_decimal = "1.39.0"
-tauri-plugin-dialog = "2.4.2"
-tauri-plugin-store = "2.4.1"
+tauri-plugin-dialog = "2.5.0"
+tauri-plugin-store = "2.4.2"
 base64 = "0.22"
 image = { version = "0.25.9", default-features = false, features = ["png"] }
 regex = "1.12.2"
@@ -60,7 +60,7 @@ sys-locale = "0.3.2"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 specta-typescript = "0.0.9"
 specta = "=2.0.0-rc.22"
-tauri-plugin-shell = "2"
+tauri-plugin-shell = "2.3.4"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 sqlx = { version = "0.8.6", features = [
     "sqlite",
