@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type archivePeriods,
   chartConfig,
@@ -98,24 +98,27 @@ export const useInsightChart = (
 
   const [data, setData] = useState<Array<SingleDataArchive>>([]);
 
-  const step =
-    {
-      10: 1,
-      30: 1,
-      60: 1,
-      180: 1,
-      720: 10,
-      1440: 30,
-      10080: 60,
-      20160: 180,
-      43200: 720,
-    }[period] * chartConfig.archiveUpdateIntervalMilSec;
+  const prevOffsetRef = useRef(offset);
+  const activeRequestIdRef = useRef(0);
+  const scheduledTimeoutIdRef = useRef<number | null>(null);
 
-  const endAt = useMemo(() => {
-    return new Date(Date.now() - offset * step);
-  }, [offset, step]);
+  const stepMultiplierMap: Record<(typeof archivePeriods)[number], number> = {
+    10: 1,
+    30: 1,
+    60: 1,
+    180: 1,
+    720: 10,
+    1440: 30,
+    10080: 60,
+    20160: 180,
+    43200: 720,
+  };
+
+  const step =
+    (stepMultiplierMap[period] ?? 1) * chartConfig.archiveUpdateIntervalMilSec;
 
   const getData = useCallback(async (): Promise<SingleDataArchive[]> => {
+    const endAt = new Date(Date.now() - offset * step);
     const adjustedEndAt = new Date(
       endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
     );
@@ -141,7 +144,7 @@ export const useInsightChart = (
     })();
 
     return await (await sqlitePromise).load(sql);
-  }, [endAt, hardwareType, period, dataStats, gpuName, dataType]);
+  }, [hardwareType, period, dataStats, gpuName, dataType, offset, step]);
 
   const formatValue = useCallback(
     (value: number | null) => {
@@ -164,24 +167,75 @@ export const useInsightChart = (
   );
 
   useEffect(() => {
-    const updateData = () => {
-      getData().then((data) =>
-        setData(data.map((V) => ({ ...V, value: formatValue(V.value) }))),
-      );
+    const isOffsetChanged = prevOffsetRef.current !== offset;
+    prevOffsetRef.current = offset;
+
+    // Offset is updated every 100ms while pressing arrows in Insights.
+    // Debounce DB reads to avoid spamming when scrubbing.
+    const debounceMs = isOffsetChanged ? 250 : 0;
+
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
+
+    const run = async () => {
+      try {
+        const rows = await getData();
+        if (activeRequestIdRef.current !== requestId) {
+          return;
+        }
+        setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
+      } catch (e) {
+        console.error(e);
+      }
     };
 
-    updateData();
+    if (scheduledTimeoutIdRef.current != null) {
+      clearTimeout(scheduledTimeoutIdRef.current);
+    }
 
-    const intervalId = setInterval(
-      updateData,
-      chartConfig.archiveUpdateIntervalMilSec,
-    );
+    scheduledTimeoutIdRef.current = window.setTimeout(run, debounceMs);
+
+    return () => {
+      if (scheduledTimeoutIdRef.current != null) {
+        clearTimeout(scheduledTimeoutIdRef.current);
+        scheduledTimeoutIdRef.current = null;
+      }
+    };
+  }, [getData, formatValue, offset]);
+
+  useEffect(() => {
+    // Only auto-refresh the "current" window.
+    if (offset !== 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const requestId = activeRequestIdRef.current + 1;
+      activeRequestIdRef.current = requestId;
+
+      void getData()
+        .then((rows) => {
+          if (activeRequestIdRef.current !== requestId) {
+            return;
+          }
+          setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
+        })
+        .catch((e) => {
+          console.error(e);
+        });
+    }, chartConfig.archiveUpdateIntervalMilSec);
+
     return () => clearInterval(intervalId);
-  }, [getData, formatValue]);
+  }, [getData, formatValue, offset]);
+
+  const endAtForBucket = useMemo(
+    () => new Date(Date.now() - offset * step),
+    [offset, step],
+  );
 
   const startTime = useMemo(
-    () => new Date(endAt.getTime() - period * 60 * 1000),
-    [endAt, period],
+    () => new Date(endAtForBucket.getTime() - period * 60 * 1000),
+    [endAtForBucket, period],
   );
 
   const startBucket =
@@ -190,7 +244,8 @@ export const useInsightChart = (
     ) * step;
   const endBucket =
     Math.ceil(
-      (endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) / step,
+      (endAtForBucket.getTime() - chartConfig.archiveUpdateIntervalMilSec) /
+        step,
     ) * step;
 
   const bucketedData = useMemo(() => {
@@ -246,7 +301,10 @@ export const useInsightChart = (
     for (let t = startBucket; t <= endBucket; t += step) {
       const bucketData = bucketedData[t];
       if (!bucketData || bucketData.length <= 0) {
-        if (t <= endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec) {
+        if (
+          t <=
+          endAtForBucket.getTime() - chartConfig.archiveUpdateIntervalMilSec
+        ) {
           filledChartData.push(null);
           filledLabels.push(dateFormatter.format(new Date(t)));
         }
@@ -264,7 +322,7 @@ export const useInsightChart = (
     aggregateFn,
     bucketedData,
     endBucket,
-    endAt,
+    endAtForBucket,
     startBucket,
     step,
     dateFormatter,
