@@ -2444,7 +2444,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-dialog@2.4.2
+## @tauri-apps/plugin-dialog@2.5.0
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -2500,7 +2500,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-shell@2.3.3
+## @tauri-apps/plugin-shell@2.3.4
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -2556,7 +2556,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-store@2.4.1
+## @tauri-apps/plugin-store@2.4.2
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -2902,7 +2902,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.2.7
+## @types/react@19.2.8
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -4598,7 +4598,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.7.3
+## i18next@25.7.4
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -5021,7 +5021,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-error-boundary@6.0.1
+## react-error-boundary@6.0.3
 
 - License: MIT
 - Repository: [https://github.com/bvaughn/react-error-boundary](https://github.com/bvaughn/react-error-boundary)
@@ -5082,7 +5082,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@16.5.1
+## react-i18next@16.5.2
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -7621,11 +7621,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## dispatch2
-
-- License: Apache-2.0 OR MIT OR Zlib
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
 
 ## dispatch2
 
