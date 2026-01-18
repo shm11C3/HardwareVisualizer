@@ -6,9 +6,6 @@ Copyright (c) 2024 vladkens
 Licensed under the MIT License. See THIRD_PARTY_NOTICES.md for the full text.
 */
 
-#![allow(non_camel_case_types)]
-#![allow(dead_code)]
-
 use std::{mem::MaybeUninit, ptr::null, time::Instant};
 
 use core_foundation::{
@@ -30,6 +27,7 @@ pub struct IOReportSubscription {
 }
 pub type IOReportSubscriptionRef = *const IOReportSubscription;
 
+#[allow(dead_code)]
 #[link(name = "IOReport", kind = "dylib")]
 unsafe extern "C" {
   fn IOReportCopyChannelsInGroup(
@@ -203,7 +201,6 @@ impl GpuUsageIOReport {
     // Build delta (difference).
     let delta = unsafe { IOReportCreateSamplesDelta(prev.0, next.0, null()) };
     unsafe { CFRelease(prev.0 as _) };
-    let _elapsed_ms = next.1.duration_since(prev.1).as_millis().max(1) as u64;
 
     // Keep for the next call.
     self.prev = Some(next);
@@ -287,8 +284,4 @@ fn is_idle_state(name: &str) -> bool {
   }
 
   false
-}
-
-fn zero_div(n: f64, d: f64) -> f64 {
-  if d == 0.0 { 0.0 } else { n / d }
 }
