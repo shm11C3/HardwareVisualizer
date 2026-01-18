@@ -26,23 +26,26 @@ pub fn init_gpu_usage_sampler_thread() -> Result<(), String> {
     .set(())
     .map_err(|_| "GPU sampler already started".to_string())?;
 
-  std::thread::spawn(|| {
-    // Dedicated thread: keep `GpuUsageIOReport` confined here.
-    let mut sampler = match GpuUsageIOReport::new() {
-      Ok(x) => x,
-      Err(_) => return, // Failed to start; add logging if needed.
-    };
+  std::thread::Builder::new()
+    .name("gpu-usage-sampler".to_string())
+    .spawn(|| {
+      // Dedicated thread: keep `GpuUsageIOReport` confined here.
+      let mut sampler = match GpuUsageIOReport::new() {
+        Ok(x) => x,
+        Err(_) => return, // Failed to start; add logging if needed.
+      };
 
-    loop {
-      std::thread::sleep(Duration::from_millis(1000));
+      loop {
+        std::thread::sleep(Duration::from_millis(1000));
 
-      if let Ok(usage) = sampler.sample_usage()
-        && let Some(a) = GPU_USAGE_BITS.get()
-      {
-        a.store(usage.to_bits(), Ordering::Relaxed);
+        if let Ok(usage) = sampler.sample_usage()
+          && let Some(a) = GPU_USAGE_BITS.get()
+        {
+          a.store(usage.to_bits(), Ordering::Relaxed);
+        }
       }
-    }
-  });
+    })
+    .expect("failed to spawn gpu-usage-sampler thread");
 
   Ok(())
 }
