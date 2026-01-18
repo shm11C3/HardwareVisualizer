@@ -36,12 +36,10 @@ pub fn init_gpu_usage_sampler_thread() -> Result<(), String> {
     loop {
       std::thread::sleep(Duration::from_millis(1000));
 
-      if let Ok(usage) = sampler.sample_usage() {
-        // Clamp to 0.0..=1.0 and store.
-        let usage = usage.clamp(0.0, 1.0);
-        if let Some(a) = GPU_USAGE_BITS.get() {
-          a.store(usage.to_bits(), Ordering::Relaxed);
-        }
+      if let Ok(usage) = sampler.sample_usage()
+        && let Some(a) = GPU_USAGE_BITS.get()
+      {
+        a.store(usage.to_bits(), Ordering::Relaxed);
       }
     }
   });
