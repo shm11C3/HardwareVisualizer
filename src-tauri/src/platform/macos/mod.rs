@@ -5,6 +5,8 @@ use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Plat
 use std::future::Future;
 use std::pin::Pin;
 use tauri::async_runtime;
+
+mod gpu;
 pub mod memory;
 pub mod network;
 
@@ -41,10 +43,7 @@ impl GpuPlatform for MacOSPlatform {
   fn get_gpu_usage(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
-    Box::pin(async {
-      // macOS is not supported yet (build-only stub)
-      Err("get_gpu_usage is not implemented for MacOSPlatform".to_string())
-    })
+    Box::pin(async { gpu::get_gpu_usage().await })
   }
 
   fn get_gpu_temperature(
