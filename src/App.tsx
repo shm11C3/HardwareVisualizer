@@ -40,8 +40,11 @@ import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";
 import { useTitleIconVisualSelector } from "./hooks/useTitleIconVisualSelector";
 
-const onError = (error: Error, info: ErrorInfo) => {
-  console.error("error.message", error.message);
+const onError = (error: unknown, info: ErrorInfo) => {
+  console.error(
+    "error.message",
+    error instanceof Error ? error.message : String(error),
+  );
   console.error(
     "info.componentStack:",
     info.componentStack ?? "No stack trace available",

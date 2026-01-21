@@ -4,7 +4,7 @@ function ErrorFallback({ error }: FallbackProps) {
   return (
     <div>
       <h2>An unexpected error has occurred.</h2>
-      <pre>{error.message}</pre>
+      <pre>{error instanceof Error ? error.message : String(error)}</pre>
     </div>
   );
 }
