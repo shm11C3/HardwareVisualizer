@@ -1,5 +1,3 @@
-use rust_decimal::Decimal;
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
@@ -76,9 +74,8 @@ impl fmt::Display for RoundedKibibytes {
 /// ## Round decimal to specified precision (rounding)
 ///
 pub fn round(num: f64, precision: u32) -> f64 {
-  Decimal::from_f64(num)
-    .map(|d| d.round_dp(precision).to_f64().unwrap_or(0.0))
-    .unwrap_or(0.0)
+  let factor = 10f64.powi(precision as i32);
+  (num * factor).round() / factor
 }
 
 ///
