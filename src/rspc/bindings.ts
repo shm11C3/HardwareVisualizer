@@ -167,6 +167,37 @@ async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * ## Get realtime GPU memory usage (best-effort)
+ * 
+ * This command attempts to retrieve current GPU memory usage information
+ * on a best-effort, platform-dependent basis.
+ * 
+ * - **Platform support**: Currently implemented only on macOS. On other
+ * platforms, or where the underlying APIs are not available, this will
+ * return `Ok(None)` instead of failing.
+ * - **Best-effort behavior**: If the GPU memory metrics cannot be queried
+ * (e.g. unsupported hardware, missing permissions, or transient errors),
+ * the function returns `Ok(None)` to indicate that the data is not
+ * available, rather than treating this as a hard error.
+ * - **Return format**: When successful, the `GpuMemoryUsage` fields contain
+ * human-readable, formatted size strings (for example, `"1.5 GB"`) rather
+ * than raw byte counts.
+ * 
+ * Returns:
+ * - `Ok(Some(GpuMemoryUsage))` when GPU memory usage data is available.
+ * - `Ok(None)` when the metric is unsupported or currently unavailable.
+ * - `Err(String)` only for unexpected internal failures.
+ * 
+ */
+async getGpuMemoryUsage() : Promise<Result<GpuMemoryUsage | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_gpu_memory_usage") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSettings() : Promise<Result<ClientSettings, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_settings") };
@@ -502,8 +533,9 @@ export type ClientSettings = { version: string; language: string; theme: Theme; 
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type DownloadEvent = { event: "started"; data: { contentLength: string | null } } | { event: "progress"; data: { chunkLength: string } } | { event: "finished" }
+export type GpuMemoryUsage = { inUseBytes: string | null; allocBytes: string | null }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
-export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
+export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**

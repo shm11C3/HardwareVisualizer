@@ -1,6 +1,7 @@
 use crate::infrastructure;
 use crate::models::hardware::{HardwareMonitorState, SysInfo};
 use crate::platform::factory::PlatformFactory;
+use crate::{log_error, log_internal};
 
 ///
 /// Collect hardware information in aggregate
@@ -26,8 +27,21 @@ pub async fn collect_hardware_info(
       infrastructure::providers::sysinfo_provider::get_storage_info()
     });
 
-  let gpus = gpus_res.ok();
-  let memory = memory_res.ok();
+  let gpus = match gpus_res {
+    Ok(v) => Some(v),
+    Err(e) => {
+      log_error!("gpu_info_failed", "collect_hardware_info", Some(e));
+      None
+    }
+  };
+
+  let memory = match memory_res {
+    Ok(v) => Some(v),
+    Err(e) => {
+      log_error!("memory_info_failed", "collect_hardware_info", Some(e));
+      None
+    }
+  };
   let storage = storage_res.map_err(|e| format!("Failed to get storage info: {e}"))?;
 
   if cpu.is_none() && gpus.is_none() && memory.is_none() {

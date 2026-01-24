@@ -39,6 +39,14 @@ pub struct GraphicInfo {
   pub clock: u32,
   pub memory_size: String,
   pub memory_size_dedicated: String,
+  pub core_count: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuMemoryUsage {
+  pub in_use_bytes: Option<String>,
+  pub alloc_bytes: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Type)]

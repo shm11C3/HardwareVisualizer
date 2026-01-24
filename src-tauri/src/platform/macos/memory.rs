@@ -13,9 +13,9 @@ pub fn get_memory_info() -> Result<MemoryInfo, String> {
   // Total physical memory bytes.
   let total_bytes = providers::sysctl::sysctl_u64("hw.memsize")?;
 
-  let details = providers::system_profiler::get_raw_spmemory_json()
+  let details = providers::system_profiler_memory::get_raw_spmemory_json()
     .ok()
-    .and_then(|raw| providers::system_profiler::parse_spmemory_json(&raw).ok());
+    .and_then(|raw| providers::system_profiler_memory::parse_spmemory_json(&raw).ok());
 
   let clock = details
     .as_ref()
