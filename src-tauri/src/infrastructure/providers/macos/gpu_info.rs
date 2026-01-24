@@ -226,10 +226,10 @@ fn vendor_name_from_string(s: &str) -> String {
     "Intel".to_string()
   } else if x.contains("apple")
     || x.contains("agx")
-    || x.contains(" m1")
-    || x.contains(" m2")
-    || x.contains(" m3")
-    || x.contains(" m4")
+    || x.contains("m1")
+    || x.contains("m2")
+    || x.contains("m3")
+    || x.contains("m4")
   {
     "Apple".to_string()
   } else {
