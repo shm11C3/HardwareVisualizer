@@ -74,8 +74,34 @@ impl fmt::Display for RoundedKibibytes {
 /// ## Round decimal to specified precision (rounding)
 ///
 pub fn round(num: f64, precision: u32) -> f64 {
-  let factor = 10f64.powi(precision as i32);
-  (num * factor).round() / factor
+  // If the input is NaN or infinite, return it unchanged to avoid propagating
+  // additional rounding / overflow artifacts.
+  if !num.is_finite() {
+    return num;
+  }
+
+  // Limit precision to a reasonable maximum to avoid overflow in 10f64.powi
+  // and to keep the i32 cast safe.
+  const MAX_SAFE_PRECISION: u32 = 308;
+  let effective_precision = if precision > MAX_SAFE_PRECISION {
+    MAX_SAFE_PRECISION
+  } else {
+    precision
+  };
+
+  let factor = 10f64.powi(effective_precision as i32);
+  if !factor.is_finite() {
+    // If computing the factor overflows, fall back to the original number.
+    return num;
+  }
+
+  let scaled = num * factor;
+  if !scaled.is_finite() {
+    // Guard against overflow when scaling before rounding.
+    return num;
+  }
+
+  scaled.round() / factor
 }
 
 ///
