@@ -58,7 +58,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
         }
 
         if info.memory_size == "N/A"
-          && let Some(v) = sp.vram_shared.clone().or_else(|| sp.vram.clone())
+          && let Some(v) = sp.vram_shared.as_ref().or(sp.vram.as_ref()).cloned()
         {
           info.memory_size = v;
         }
