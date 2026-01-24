@@ -111,11 +111,11 @@ mod tests {
       let path_str = result.to_string_lossy();
       assert!(path_str.contains("test_subdirectory"));
 
-        #[cfg(target_os = "macos")]
-        assert!(path_str.contains("Library/Application Support"));
+      #[cfg(target_os = "macos")]
+      assert!(path_str.contains("Library/Application Support"));
 
-        #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-        assert!(path_str.contains(".config"));
+      #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+      assert!(path_str.contains(".config"));
     }
   }
 
