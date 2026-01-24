@@ -133,7 +133,7 @@ jobs:
         shell: bash
 
   publish-tauri-macos:
-    if: ${{ contains(github.ref_name, '-alpha') }}
+    if: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
     permissions:
       contents: write
     strategy:
