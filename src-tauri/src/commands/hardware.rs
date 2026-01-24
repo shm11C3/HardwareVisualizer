@@ -114,6 +114,25 @@ pub async fn get_gpu_temperature(
 ///
 /// ## Get realtime GPU memory usage (best-effort)
 ///
+/// This command attempts to retrieve current GPU memory usage information
+/// on a best-effort, platform-dependent basis.
+///
+/// - **Platform support**: Currently implemented only on macOS. On other
+///   platforms, or where the underlying APIs are not available, this will
+///   return `Ok(None)` instead of failing.
+/// - **Best-effort behavior**: If the GPU memory metrics cannot be queried
+///   (e.g. unsupported hardware, missing permissions, or transient errors),
+///   the function returns `Ok(None)` to indicate that the data is not
+///   available, rather than treating this as a hard error.
+/// - **Return format**: When successful, the `GpuMemoryUsage` fields contain
+///   human-readable, formatted size strings (for example, `"1.5 GB"`) rather
+///   than raw byte counts.
+///
+/// Returns:
+/// - `Ok(Some(GpuMemoryUsage))` when GPU memory usage data is available.
+/// - `Ok(None)` when the metric is unsupported or currently unavailable.
+/// - `Err(String)` only for unexpected internal failures.
+///
 #[command]
 #[specta::specta]
 pub async fn get_gpu_memory_usage()
