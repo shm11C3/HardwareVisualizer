@@ -230,6 +230,7 @@ fn vendor_name_from_string(s: &str) -> String {
     || x.contains("m2")
     || x.contains("m3")
     || x.contains("m4")
+    || x.contains("m5")
   {
     "Apple".to_string()
   } else {
