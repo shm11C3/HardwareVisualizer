@@ -3,7 +3,12 @@ use sqlx::sqlite::SqlitePool;
 
 pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
   let dir_path = utils::file::get_app_data_dir("hv-database.db");
-  let database_url = format!("sqlite:{dir_path}", dir_path = dir_path.to_str().unwrap());
+  if let Some(parent) = dir_path.parent() {
+    tokio::fs::create_dir_all(parent)
+      .await
+      .map_err(sqlx::Error::Io)?;
+  }
+  let database_url = format!("sqlite:{}", dir_path.to_string_lossy());
 
   let pool = SqlitePool::connect(&database_url).await?;
 
