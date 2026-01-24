@@ -4,6 +4,7 @@ use crate::infrastructure::providers::macos::{
 use crate::models;
 use crate::utils::formatter;
 use crate::{log_error, log_internal};
+use std::collections::HashMap;
 use tauri::async_runtime;
 
 pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
@@ -37,6 +38,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
 
     // Best-effort enrichment (optional): use system_profiler to fill vendor/memory strings.
     // This still keeps IOKit as the primary source (IDs stay registry-id based).
+    // NOTE: We match by normalized GPU name because IOKit/SP order is not guaranteed.
     if !mapped.is_empty()
       && let Ok(Ok(sp_list)) = async_runtime::spawn_blocking(|| {
         let raw = system_profiler_displays::get_raw_spdisplays_json()?;
@@ -44,9 +46,19 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
       })
       .await
     {
-      for (i, sp) in sp_list.into_iter().enumerate() {
-        let Some(info) = mapped.get_mut(i) else {
-          break;
+      let mut sp_by_name: HashMap<String, system_profiler_displays::SpDisplayGpu> =
+        HashMap::new();
+      for sp in sp_list.into_iter() {
+        if let Some(name) = sp.name.as_deref() {
+          let key = normalize_gpu_name(name);
+          sp_by_name.entry(key).or_insert(sp);
+        }
+      }
+
+      for info in &mut mapped {
+        let key = normalize_gpu_name(&info.name);
+        let Some(sp) = sp_by_name.get(&key) else {
+          continue;
         };
 
         if info.vendor_name == "Unknown" {
@@ -64,7 +76,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
         }
 
         if info.memory_size_dedicated == "N/A"
-          && let Some(v) = sp.vram
+          && let Some(v) = sp.vram.as_ref().cloned()
         {
           info.memory_size_dedicated = v;
         }
@@ -225,9 +237,21 @@ fn vendor_name_from_string(s: &str) -> String {
   } else if x.contains("intel") {
     "Intel".to_string()
   } else if x.contains("apple")
-  } else if x.contains("apple") || x.contains("agx") {
+    || x.contains("agx")
+    || x.contains(" m1")
+    || x.contains(" m2")
+    || x.contains(" m3")
+    || x.contains(" m4")
+  {
     "Apple".to_string()
   } else {
     "Unknown".to_string()
   }
+}
+
+fn normalize_gpu_name(name: &str) -> String {
+  name
+    .to_ascii_lowercase()
+    .replace(['\u{00a0}', ' '], "")
+    .replace('-', "")
 }
