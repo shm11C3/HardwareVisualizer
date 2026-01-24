@@ -36,14 +36,36 @@ pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> Pat
 }
 
 ///
-/// Get directory name under `~/.config/<identifier>` (Linux / macOS)
+/// Get directory name under platform-appropriate app data location.
 ///
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
   get_app_data_dir_with_env(&RealEnvProvider, sub_item)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
+  use std::path::Path;
+
+  let identifier = crate::utils::tauri::get_identifier();
+
+  let home = env.get_var("HOME").unwrap_or_else(|_| ".".to_string());
+  Path::new(&home)
+    .join("Library")
+    .join("Application Support")
+    .join(identifier)
+    .join(sub_item)
+}
+
+///
+/// Get directory name under `~/.config/<identifier>` (Linux)
+///
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+pub fn get_app_data_dir(sub_item: &str) -> PathBuf {
+  get_app_data_dir_with_env(&RealEnvProvider, sub_item)
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
 pub fn get_app_data_dir_with_env<E: EnvProvider>(env: &E, sub_item: &str) -> PathBuf {
   use std::path::Path;
 
@@ -83,11 +105,17 @@ mod tests {
       mock_env
         .expect_get_var()
         .with(eq("HOME"))
-        .return_const(Ok("/home/test".to_string()));
+        .return_const(Ok("/Users/test".to_string()));
 
       let result = get_app_data_dir_with_env(&mock_env, "test_subdirectory");
       let path_str = result.to_string_lossy();
       assert!(path_str.contains("test_subdirectory"));
+
+        #[cfg(target_os = "macos")]
+        assert!(path_str.contains("Library/Application Support"));
+
+        #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+        assert!(path_str.contains(".config"));
     }
   }
 
@@ -121,12 +149,12 @@ mod tests {
       mock_env1
         .expect_get_var()
         .with(eq("HOME"))
-        .return_const(Ok("/home/test".to_string()));
+        .return_const(Ok("/Users/test".to_string()));
 
       mock_env2
         .expect_get_var()
         .with(eq("HOME"))
-        .return_const(Ok("/home/test".to_string()));
+        .return_const(Ok("/Users/test".to_string()));
 
       let result1 = get_app_data_dir_with_env(&mock_env1, "logs");
       let result2 = get_app_data_dir_with_env(&mock_env2, "cache");
@@ -229,7 +257,7 @@ mod tests {
     assert!(result.is_err());
   }
 
-  #[cfg(not(target_os = "windows"))]
+  #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
   #[test]
   fn test_get_app_data_dir_unix_with_home() {
     let mut mock_env = MockEnvProvider::new();
@@ -248,7 +276,7 @@ mod tests {
     assert!(path_str.contains("testuser") || path_str.contains("/home"));
   }
 
-  #[cfg(not(target_os = "windows"))]
+  #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
   #[test]
   fn test_get_app_data_dir_unix_without_home() {
     let mut mock_env = MockEnvProvider::new();
@@ -264,6 +292,43 @@ mod tests {
     assert!(!path_str.is_empty());
     assert!(path_str.contains("test"));
     assert!(path_str.contains(".config"));
+  }
+
+  #[cfg(target_os = "macos")]
+  #[test]
+  fn test_get_app_data_dir_macos_with_home() {
+    let mut mock_env = MockEnvProvider::new();
+
+    mock_env
+      .expect_get_var()
+      .with(eq("HOME"))
+      .return_const(Ok("/Users/testuser".to_string()));
+
+    let result = get_app_data_dir_with_env(&mock_env, "test");
+    let path_str = result.to_string_lossy();
+
+    assert!(!path_str.is_empty());
+    assert!(path_str.contains("test"));
+    assert!(path_str.contains("Library/Application Support"));
+    assert!(path_str.contains("testuser") || path_str.contains("/Users"));
+  }
+
+  #[cfg(target_os = "macos")]
+  #[test]
+  fn test_get_app_data_dir_macos_without_home() {
+    let mut mock_env = MockEnvProvider::new();
+
+    mock_env
+      .expect_get_var()
+      .with(eq("HOME"))
+      .return_const(Err(std::env::VarError::NotPresent));
+
+    let result = get_app_data_dir_with_env(&mock_env, "test");
+    let path_str = result.to_string_lossy();
+
+    assert!(!path_str.is_empty());
+    assert!(path_str.contains("test"));
+    assert!(path_str.contains("Library/Application Support"));
   }
 
   #[test]
