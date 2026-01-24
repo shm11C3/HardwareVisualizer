@@ -6,7 +6,7 @@ pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
   if let Some(parent) = dir_path.parent() {
     std::fs::create_dir_all(parent).map_err(sqlx::Error::Io)?;
   }
-  let database_url = format!("sqlite:{dir_path}", dir_path = dir_path.to_str().unwrap());
+  let database_url = format!("sqlite:{}", dir_path.to_string_lossy());
 
   let pool = SqlitePool::connect(&database_url).await?;
 
