@@ -112,6 +112,18 @@ pub async fn get_gpu_temperature(
 }
 
 ///
+/// ## Get realtime GPU memory usage (best-effort)
+///
+#[command]
+#[specta::specta]
+pub async fn get_gpu_memory_usage()
+-> Result<Option<models::hardware::GpuMemoryUsage>, String> {
+  use crate::services::gpu_service;
+
+  gpu_service::fetch_gpu_memory_usage().await
+}
+
+///
 /// ## Get GPU fan speed
 ///
 #[command]

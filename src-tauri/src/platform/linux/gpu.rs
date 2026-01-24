@@ -81,6 +81,7 @@ async fn get_amd_graphic_info(
     clock,
     memory_size: crate::utils::formatter::format_size(memory_total, 1),
     memory_size_dedicated: crate::utils::formatter::format_size(memory_total, 1),
+    core_count: None,
   })
 }
 
@@ -94,5 +95,6 @@ pub async fn get_intel_graphic_info(
     clock: 0, // Difficult to obtain. Set to 0 as unsupported
     memory_size: "N/A".into(),
     memory_size_dedicated: "N/A".into(),
+    core_count: None,
   })
 }

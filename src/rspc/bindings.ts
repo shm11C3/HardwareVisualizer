@@ -167,6 +167,18 @@ async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * ## Get realtime GPU memory usage (best-effort)
+ * 
+ */
+async getGpuMemoryUsage() : Promise<Result<GpuMemoryUsage | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_gpu_memory_usage") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getSettings() : Promise<Result<ClientSettings, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_settings") };
@@ -502,8 +514,9 @@ export type ClientSettings = { version: string; language: string; theme: Theme; 
 export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: number; clockUnit: string; cpuName: string }
 export type DiskKind = "hdd" | "ssd" | "other"
 export type DownloadEvent = { event: "started"; data: { contentLength: string | null } } | { event: "progress"; data: { chunkLength: string } } | { event: "finished" }
+export type GpuMemoryUsage = { inUseBytes: string | null; allocBytes: string | null }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
-export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string }
+export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**

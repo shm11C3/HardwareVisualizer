@@ -1,6 +1,6 @@
 use crate::enums::error::BackendError;
 use crate::enums::settings::TemperatureUnit;
-use crate::models::hardware::{GraphicInfo, MemoryInfo, NetworkInfo};
+use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo};
 use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
 use std::future::Future;
 use std::pin::Pin;
@@ -65,10 +65,14 @@ impl GpuPlatform for MacOSPlatform {
   fn get_gpu_info(
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
-    Box::pin(async {
-      // macOS is not supported yet (build-only stub)
-      Err("get_gpu_info is not implemented for MacOSPlatform".to_string())
-    })
+    Box::pin(async { gpu::get_gpu_info().await })
+  }
+
+  fn get_gpu_memory_usage(
+    &self,
+  ) -> Pin<Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, String>> + Send + '_>>
+  {
+    Box::pin(async { gpu::get_gpu_memory_usage().await })
   }
 }
 

@@ -46,6 +46,17 @@ pub trait GpuPlatform: Send + Sync {
       dyn Future<Output = Result<Vec<models::hardware::GraphicInfo>, String>> + Send + '_,
     >,
   >;
+
+  /// Get realtime GPU memory usage (best-effort)
+  fn get_gpu_memory_usage(
+    &self,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<Option<models::hardware::GpuMemoryUsage>, String>>
+        + Send
+        + '_,
+    >,
+  >;
 }
 
 /// Trait that defines platform-specific network operations

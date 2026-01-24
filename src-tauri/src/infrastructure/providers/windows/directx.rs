@@ -32,6 +32,7 @@ pub async fn get_intel_gpu_info() -> Result<Vec<GraphicInfo>, String> {
           clock: 0, // Set to 0 because Intel clock frequency is difficult to obtain
           memory_size: format!("{memory_size_shared} MB"),
           memory_size_dedicated: format!("{memory_size_dedicated} MB"),
+          core_count: None,
         };
 
         gpu_info_list.push(gpu_info);
@@ -75,6 +76,7 @@ pub async fn get_amd_gpu_info() -> Result<Vec<GraphicInfo>, String> {
           clock: 0, // Set to 0 because clock frequency is difficult to obtain
           memory_size: format!("{memory_size_shared} MB"),
           memory_size_dedicated: format!("{memory_size_dedicated} MB"),
+          core_count: None,
         };
 
         gpu_info_list.push(gpu_info);

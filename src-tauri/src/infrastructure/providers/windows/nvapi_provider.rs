@@ -207,6 +207,7 @@ pub async fn get_nvidia_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>,
           precision: 1,
         }
         .to_string(),
+        core_count: None,
       };
 
       gpu_info_list.push(gpu_info);

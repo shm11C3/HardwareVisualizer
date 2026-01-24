@@ -1,5 +1,5 @@
 use crate::enums;
-use crate::models::hardware::NameValue;
+use crate::models::hardware::{GpuMemoryUsage, NameValue};
 use crate::platform::factory::PlatformFactory;
 
 ///
@@ -35,4 +35,14 @@ pub async fn fetch_gpu_temperature(
 ///
 pub async fn fetch_nvidia_gpu_cooler() -> Result<Vec<NameValue>, String> {
   Err("Failed to get GPU cooler status: This function is not implemented".to_string())
+}
+
+///
+/// Get realtime GPU memory usage (best-effort)
+///
+pub async fn fetch_gpu_memory_usage() -> Result<Option<GpuMemoryUsage>, String> {
+  let platform =
+    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+
+  platform.get_gpu_memory_usage().await
 }
