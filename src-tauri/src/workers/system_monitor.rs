@@ -58,6 +58,10 @@ impl SystemMonitorController {
               {
                 monitoring_service::sample_system(&resources);
               }
+              #[cfg(target_os = "macos")]
+              {
+                monitoring_service::sample_system(&resources);
+              }
 
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL) {
