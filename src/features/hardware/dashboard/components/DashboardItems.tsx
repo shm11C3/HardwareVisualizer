@@ -30,7 +30,12 @@ import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
-import type { StorageInfo } from "@/rspc/bindings";
+import {
+  commands,
+  type GpuMemoryUsage,
+  type StorageInfo,
+} from "@/rspc/bindings";
+import { isError } from "@/types/result";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 import { MiniLineChart } from "./MiniLineChart";
 
@@ -77,6 +82,34 @@ export const GPUInfo = () => {
   const [gpuTemp] = useAtom(gpuTempAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
+  const [gpuMemoryUsage, setGpuMemoryUsage] = useState<GpuMemoryUsage | null>(
+    null,
+  );
+  const os = useMemo(() => platform(), []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchGpuMemoryUsage = async () => {
+      const result = await commands.getGpuMemoryUsage();
+      if (isError(result)) {
+        console.error("Failed to fetch GPU memory usage:", result);
+        return;
+      }
+
+      if (isMounted) {
+        setGpuMemoryUsage(result.data);
+      }
+    };
+
+    fetchGpuMemoryUsage();
+    const intervalId = setInterval(fetchGpuMemoryUsage, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const getTargetInfo = (data: NameValues) => {
     return data.find(
@@ -115,14 +148,40 @@ export const GPUInfo = () => {
             className={index !== 0 ? "py-3" : arr.length > 1 ? "pb-3" : ""}
             key={`${gpu.name}${index}`}
           >
-            <InfoTable
-              data={{
-                [t("shared.name")]: gpu.name,
-                [t("shared.vendor")]: gpu.vendorName,
-                [t("shared.memorySize")]: gpu.memorySize,
-                [t("shared.memorySizeDedicated")]: gpu.memorySizeDedicated,
-              }}
-            />
+            {(() => {
+              const hasMemorySize = gpu.memorySize !== "N/A";
+              const hasMemoryUsage = Boolean(gpuMemoryUsage?.inUseBytes);
+              const memorySizeDisplay = hasMemorySize
+                ? gpu.memorySize
+                : hasMemoryUsage
+                  ? (gpuMemoryUsage?.inUseBytes ?? "N/A")
+                  : "N/A";
+              const memorySizeLabel = hasMemorySize
+                ? t("shared.memorySize")
+                : hasMemoryUsage
+                  ? t("shared.memorySizeSharedUsage")
+                  : t("shared.memorySize");
+
+              const showCoreCount =
+                gpu.memorySizeDedicated === "N/A" && os === "macos";
+              const dedicatedMemoryDisplay = showCoreCount
+                ? (gpu.coreCount ?? "N/A")
+                : gpu.memorySizeDedicated;
+              const dedicatedMemoryLabel = showCoreCount
+                ? t("shared.coreCount")
+                : t("shared.memorySizeDedicated");
+
+              return (
+                <InfoTable
+                  data={{
+                    [t("shared.name")]: gpu.name,
+                    [t("shared.vendor")]: gpu.vendorName,
+                    [memorySizeLabel]: memorySizeDisplay,
+                    [dedicatedMemoryLabel]: dedicatedMemoryDisplay,
+                  }}
+                />
+              );
+            })()}
           </div>
         ))
       ) : (
