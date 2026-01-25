@@ -2,7 +2,6 @@ frontend:
   - changed-files:
       - any-glob-to-any-file:
           - "src/**"
-          - "!src/rspc/bindings.ts"
           - "index.html"
           - "package.json"
 
