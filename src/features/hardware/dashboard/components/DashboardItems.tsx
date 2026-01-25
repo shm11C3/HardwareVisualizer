@@ -150,7 +150,7 @@ export const GPUInfo = () => {
           >
             {(() => {
               const hasMemorySize = gpu.memorySize !== "N/A";
-              const hasMemoryUsage = Boolean(gpuMemoryUsage?.inUseBytes);
+              const hasMemoryUsage = gpuMemoryUsage?.inUseBytes != null;
               const memorySizeDisplay = hasMemorySize
                 ? gpu.memorySize
                 : hasMemoryUsage
