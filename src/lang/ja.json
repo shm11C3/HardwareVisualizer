@@ -21,7 +21,7 @@
     "memorySize": "メモリ容量",
     "memorySizeShared": "メモリ容量（共有）",
     "memorySizeDedicated": "メモリ容量（専用）",
-    "memorySizeSharedUsage": "共有GPUメモリ使用量",
+    "memorySizeSharedUsage": "メモリ使用量",
     "memorySizeDedicatedUsage": "専用GPUメモリ使用量",
     "loadDetailedInfo": "より詳細なデータを読み込む",
     "memoryType": "メモリタイプ",
