@@ -106,6 +106,21 @@
     "title": "タイトル"
   },
 
+  "errorBoundary": {
+    "title": "予期しないエラーが発生しました",
+    "description": "UI と設定をリセットするか、問題が続く場合は報告してください。",
+    "resetButton": "UI と設定をリセット",
+    "reportButton": "問題を報告",
+    "errorDetails": "エラー詳細",
+    "settingsJsonHint": "問題が続く場合は、アプリのデータフォルダにある settings.json を削除して再起動してください。",
+    "settingsJsonLocations": {
+      "title": "settings.json の場所",
+      "windows": "Windows: AppData\\Roaming\\HardwareVisualizer\\settings.json",
+      "macos": "macOS: ~/Library/Application Support/HardwareVisualizer/settings.json",
+      "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
+    }
+  },
+
   "pages": {
     "dashboard": {
       "name": "ダッシュボード",

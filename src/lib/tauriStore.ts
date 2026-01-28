@@ -8,3 +8,8 @@ export const getStoreInstance = async () => {
   }
   return storeInstance;
 };
+
+export const clearTauriStore = async () => {
+  const store = await getStoreInstance();
+  await store.reset();
+};

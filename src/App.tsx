@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import {
   ChartTemplate,
   CpuUsages,
@@ -9,12 +9,13 @@ import {
 import "./index.css";
 import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
+import ErrorFallback from "@/components/ErrorFallback";
+import { RootErrorFallback } from "@/components/RootErrorFallback";
 import {
   useHardwareUpdater,
   useUsageUpdater,
 } from "@/features/hardware/hooks/useHardwareData";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
-import ErrorFallback from "./components/ErrorFallback";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
@@ -30,6 +31,7 @@ import {
 } from "@phosphor-icons/react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { clearTauriStore } from "@/lib/tauriStore";
 import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
@@ -39,6 +41,17 @@ import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
 import { useTauriStore } from "./hooks/useTauriStore";
 import { useTitleIconVisualSelector } from "./hooks/useTitleIconVisualSelector";
+
+const onRootError = (error: unknown, info: ErrorInfo) => {
+  console.error(
+    "root.error.message",
+    error instanceof Error ? error.message : String(error),
+  );
+  console.error(
+    "root.info.componentStack:",
+    info.componentStack ?? "No stack trace available",
+  );
+};
 
 const onError = (error: unknown, info: ErrorInfo) => {
   console.error(
@@ -51,7 +64,17 @@ const onError = (error: unknown, info: ErrorInfo) => {
   );
 };
 
+/** Outer wrapper to catch initialization errors */
 export const App = () => {
+  return (
+    <ErrorBoundary FallbackComponent={RootErrorFallback} onError={onRootError}>
+      <AppContent />
+    </ErrorBoundary>
+  );
+};
+
+/** Main app content with reset-capable error boundary */
+const AppContent = () => {
   const { settings, loadSettings } = useSettingsAtom();
   useColorTheme(settings.theme);
   const { backgroundImage: nextImage, initBackgroundImage } =
@@ -97,6 +120,16 @@ export const App = () => {
 
   useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
   const { isFullScreen, toggleFullScreen } = useFullScreenMode();
+
+  const handleReset = useCallback(async () => {
+    try {
+      await clearTauriStore();
+      await loadSettings();
+      await initBackgroundImage();
+    } catch (error) {
+      console.error("Failed to reset app state:", error);
+    }
+  }, [initBackgroundImage, loadSettings]);
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (
@@ -166,7 +199,11 @@ export const App = () => {
   };
 
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onError={onError}>
+    <ErrorBoundary
+      FallbackComponent={ErrorFallback}
+      onError={onError}
+      onReset={handleReset}
+    >
       <div
         className="min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out"
         style={{ backgroundImage: "var(--background-gradient)" }}
