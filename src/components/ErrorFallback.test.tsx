@@ -1,6 +1,31 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import ErrorFallback from "@/components/ErrorFallback";
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        "errorBoundary.title": "An unexpected error has occurred.",
+        "errorBoundary.description":
+          "Reset the UI and settings, or report this issue if it persists.",
+        "errorBoundary.resetButton": "Reset UI and settings",
+        "errorBoundary.reportButton": "Report this issue",
+        "errorBoundary.errorDetails": "Error details",
+        "errorBoundary.settingsJsonHint":
+          "If the issue persists, delete settings.json in the app data folder and restart the app.",
+        "errorBoundary.settingsJsonLocations.title": "settings.json locations",
+        "errorBoundary.settingsJsonLocations.windows":
+          "Windows: AppData\\Roaming\\HardwareVisualizer\\settings.json",
+        "errorBoundary.settingsJsonLocations.macos":
+          "macOS: ~/Library/Application Support/HardwareVisualizer/settings.json",
+        "errorBoundary.settingsJsonLocations.linux":
+          "Linux: ~/.config/HardwareVisualizer/settings.json",
+      };
+      return translations[key] || key;
+    },
+  }),
+}));
 
 describe("ErrorFallback", () => {
   it("should render error message when error occurs", () => {
