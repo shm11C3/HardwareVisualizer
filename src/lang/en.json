@@ -106,6 +106,21 @@
     "title": "Title"
   },
 
+  "errorBoundary": {
+    "title": "An unexpected error has occurred",
+    "description": "Reset the UI and settings, or report this issue if it persists.",
+    "resetButton": "Reset UI and settings",
+    "reportButton": "Report this issue",
+    "errorDetails": "Error details",
+    "settingsJsonHint": "If the issue persists, delete settings.json in the app data folder and restart the app.",
+    "settingsJsonLocations": {
+      "title": "settings.json locations",
+      "windows": "Windows: AppData\\Roaming\\HardwareVisualizer\\settings.json",
+      "macos": "macOS: ~/Library/Application Support/HardwareVisualizer/settings.json",
+      "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
+    }
+  },
+
   "pages": {
     "dashboard": {
       "name": "Dashboard",

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { getStoreInstance } from "@/lib/tauriStore";
+import { clearTauriStore, getStoreInstance } from "@/lib/tauriStore";
 
 // Mock @tauri-apps/plugin-store
 vi.mock("@tauri-apps/plugin-store", () => ({
@@ -16,6 +16,7 @@ describe("tauriStore", () => {
       get: vi.fn(),
       set: vi.fn(),
       save: vi.fn(),
+      reset: vi.fn(),
     };
     const { load } = await vi.importMock("@tauri-apps/plugin-store");
     (load as Mock).mockResolvedValueOnce(mockStore);
@@ -44,5 +45,14 @@ describe("tauriStore", () => {
     expect(store).toHaveProperty("get");
     expect(store).toHaveProperty("set");
     expect(store).toHaveProperty("save");
+  });
+
+  it("should call store.reset when clearTauriStore is called", async () => {
+    const store = await getStoreInstance();
+    const resetSpy = vi.spyOn(store, "reset").mockResolvedValueOnce(undefined);
+
+    await clearTauriStore();
+
+    expect(resetSpy).toHaveBeenCalledOnce();
   });
 });
