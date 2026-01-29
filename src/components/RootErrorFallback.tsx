@@ -17,13 +17,13 @@ export function RootErrorFallback({ error }: FallbackProps) {
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-(--primary) px-4 py-2 font-medium text-(--primary-foreground) text-sm"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 font-medium text-[var(--primary-foreground)] text-sm"
             onClick={() => window.location.reload()}
           >
             Reload
           </button>
           <a
-            className="inline-flex h-10 items-center justify-center rounded-md border border-(--border) bg-(--background) px-4 py-2 font-medium text-sm"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--background)] px-4 py-2 font-medium text-sm"
             href="https://github.com/shm11C3/HardwareVisualizer/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D"
             target="_blank"
             rel="noopener noreferrer"
@@ -39,7 +39,7 @@ export function RootErrorFallback({ error }: FallbackProps) {
             settings.json locations
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-4">
-            <li>Windows: %APPDATA%\HardwareVisualizer\settings.json</li>
+            <li>Windows: AppData\Roaming\HardwareVisualizer\settings.json</li>
             <li>
               macOS: ~/Library/Application
               Support/HardwareVisualizer/settings.json
