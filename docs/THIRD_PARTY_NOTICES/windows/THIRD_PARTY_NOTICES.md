@@ -2,7 +2,7 @@
 
 This application includes third-party libraries licensed under their respective licenses.
 
-## @babel/code-frame@7.28.6
+## @babel/code-frame@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -33,7 +33,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/compat-data@7.28.6
+## @babel/compat-data@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -64,7 +64,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/core@7.28.6
+## @babel/core@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -95,7 +95,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/generator@7.28.6
+## @babel/generator@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -375,7 +375,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/parser@7.28.6
+## @babel/parser@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -465,7 +465,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/traverse@7.28.6
+## @babel/traverse@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -496,7 +496,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/types@7.28.6
+## @babel/types@7.29.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -647,7 +647,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @floating-ui/core@1.7.3
+## @floating-ui/core@1.7.4
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -676,7 +676,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/dom@1.7.4
+## @floating-ui/dom@1.7.5
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -705,7 +705,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/react-dom@2.1.6
+## @floating-ui/react-dom@2.1.7
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -2902,7 +2902,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.2.9
+## @types/react@19.2.10
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -2991,7 +2991,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## baseline-browser-mapping@2.9.18
+## baseline-browser-mapping@2.9.19
 
 - License: Apache-2.0
 - Repository: [https://github.com/web-platform-dx/baseline-browser-mapping](https://github.com/web-platform-dx/baseline-browser-mapping)
@@ -4262,7 +4262,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## electron-to-chromium@1.5.278
+## electron-to-chromium@1.5.283
 
 - License: ISC
 - Repository: [https://github.com/kilian/electron-to-chromium](https://github.com/kilian/electron-to-chromium)
@@ -4713,7 +4713,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-## jotai@2.16.2
+## jotai@2.17.0
 
 - License: MIT
 - Repository: [https://github.com/pmndrs/jotai](https://github.com/pmndrs/jotai)
@@ -4992,7 +4992,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## react-dom@19.2.3
+## react-dom@19.2.4
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -5082,7 +5082,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@16.5.3
+## react-i18next@16.5.4
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -5113,7 +5113,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-is@19.2.3
+## react-is@19.2.4
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -5296,7 +5296,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react@19.2.3
+## react@19.2.4
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -10825,6 +10825,11 @@ DEALINGS IN THE SOFTWARE.
 - License: Apache-2.0 OR MIT OR Zlib
 - Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
 
+## objc2-core-foundation
+
+- License: Apache-2.0 OR MIT OR Zlib
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
 ## objc2-core-graphics
 
 - License: Apache-2.0 OR MIT OR Zlib
@@ -10838,11 +10843,6 @@ DEALINGS IN THE SOFTWARE.
 ## objc2-encode
 
 - License: MIT
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
-
-## objc2-io-kit
-
-- License: Apache-2.0 OR MIT OR Zlib
 - Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
 
 ## objc2-io-surface
@@ -13187,33 +13187,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## time
-
-- License: Apache-2.0 OR MIT
-- Repository: [https://github.com/time-rs/time](https://github.com/time-rs/time)
-
-```LICENSE
-Copyright (c) Jacob Pratt et al.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ## time-core
 
 - License: Apache-2.0 OR MIT
@@ -13770,39 +13743,6 @@ DEALINGS IN THE SOFTWARE.
 ```LICENSE
 Copyright (c) 2014 The Rust Project Developers
 Copyright (c) 2018 Ashley Mannix, Christopher Armstrong, Dylan DPC, Hunar Roop Kahlon
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
-## uuid-macro-internal
-
-- License: Apache-2.0 OR MIT
-- Repository: [https://github.com/uuid-rs/uuid](https://github.com/uuid-rs/uuid)
-
-```LICENSE
-Copyright (c) 2021 The Uuid Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
