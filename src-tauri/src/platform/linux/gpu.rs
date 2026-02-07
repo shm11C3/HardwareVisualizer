@@ -1,5 +1,7 @@
+use crate::enums;
 use crate::infrastructure;
 use crate::models;
+use crate::utils;
 
 pub async fn get_gpu_usage() -> Result<f32, String> {
   let cards = infrastructure::providers::drm_sys::get_card_ids().await?;
@@ -97,4 +99,41 @@ pub async fn get_intel_graphic_info(
     memory_size_dedicated: "N/A".into(),
     core_count: None,
   })
+}
+
+pub async fn get_gpu_temperature(
+  temperature_unit: enums::settings::TemperatureUnit,
+) -> Result<Vec<models::hardware::NameValue>, String> {
+  let cards = infrastructure::providers::drm_sys::get_all_card_ids();
+  let mut all_temps: Vec<models::hardware::NameValue> = Vec::new();
+
+  for card_id in cards {
+    // Only read hwmon for AMD GPUs (vendor 0x1002)
+    if infrastructure::providers::drm_sys::detect_gpu_vendor(card_id)
+      != infrastructure::providers::drm_sys::GpuVendor::Amd
+    {
+      continue;
+    }
+
+    if let Ok(temps) = infrastructure::providers::hwmon::read_hwmon_temperatures(card_id)
+    {
+      for temp in temps {
+        let value = utils::formatter::format_temperature(
+          enums::settings::TemperatureUnit::Celsius,
+          temperature_unit.clone(),
+          temp.value,
+        );
+        all_temps.push(models::hardware::NameValue {
+          name: temp.name,
+          value,
+        });
+      }
+    }
+  }
+
+  if all_temps.is_empty() {
+    Err("No GPU temperature sensors found on Linux".to_string())
+  } else {
+    Ok(all_temps)
+  }
 }

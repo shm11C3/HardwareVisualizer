@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
 
-#[cfg(target_os = "windows")]
 use crate::enums;
 
 #[cfg(target_os = "windows")]
@@ -189,7 +188,6 @@ pub fn format_vendor_name(vendor_id: &str) -> String {
   }
 }
 
-#[cfg(target_os = "windows")]
 pub fn format_temperature(
   current_unit: enums::settings::TemperatureUnit,
   unit: enums::settings::TemperatureUnit,
@@ -212,7 +210,6 @@ pub fn format_temperature(
 mod tests {
   use super::*;
 
-  #[cfg(target_os = "windows")]
   use crate::enums;
   #[cfg(target_os = "windows")]
   use nvapi::Kibibytes;
@@ -302,7 +299,6 @@ mod tests {
   }
 
   #[test]
-  #[cfg(target_os = "windows")]
   fn test_celsius_to_fahrenheit() {
     let value = 100;
     let result = format_temperature(
@@ -314,7 +310,6 @@ mod tests {
   }
 
   #[test]
-  #[cfg(target_os = "windows")]
   fn test_fahrenheit_to_celsius() {
     let value = 212;
     let result = format_temperature(
@@ -326,7 +321,6 @@ mod tests {
   }
 
   #[test]
-  #[cfg(target_os = "windows")]
   fn test_celsius_to_fahrenheit_negative() {
     let value = -40;
     let result = format_temperature(
@@ -338,7 +332,6 @@ mod tests {
   }
 
   #[test]
-  #[cfg(target_os = "windows")]
   fn test_fahrenheit_to_celsius_negative() {
     let value = -40;
     let result = format_temperature(
@@ -350,7 +343,6 @@ mod tests {
   }
 
   #[test]
-  #[cfg(target_os = "windows")]
   fn test_no_conversion() {
     let value = 25;
     let result = format_temperature(
