@@ -188,6 +188,7 @@ pub fn format_vendor_name(vendor_id: &str) -> String {
   }
 }
 
+#[allow(dead_code)]
 pub fn format_temperature(
   current_unit: enums::settings::TemperatureUnit,
   unit: enums::settings::TemperatureUnit,
