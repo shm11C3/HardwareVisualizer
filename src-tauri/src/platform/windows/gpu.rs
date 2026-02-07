@@ -13,8 +13,7 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
 
   // 2. ADL (AMD) – dedicated API for AMD GPUs
   if infrastructure::providers::adl_provider::is_available() {
-    if let Ok(usage) =
-      infrastructure::providers::adl_provider::get_amd_gpu_usage().await
+    if let Ok(usage) = infrastructure::providers::adl_provider::get_amd_gpu_usage().await
     {
       return Ok(usage.round());
     }

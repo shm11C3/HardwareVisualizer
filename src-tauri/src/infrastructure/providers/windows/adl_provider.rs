@@ -446,8 +446,10 @@ fn determine_overdrive_level(adl: &AdlLibrary, adapter_index: i32) -> (i32, bool
 
     // Fallback: try OD5 parameters
     if let Some(od5_fn) = adl.adl2_overdrive5_od_parameters_get {
-      let mut params = AdlOdParameters::default();
-      params.size = std::mem::size_of::<AdlOdParameters>() as i32;
+      let mut params = AdlOdParameters {
+        size: std::mem::size_of::<AdlOdParameters>() as i32,
+        ..Default::default()
+      };
       let rc = od5_fn(adl.context, adapter_index, &mut params);
       if rc == ADL_OK && params.activity_reporting_supported > 0 {
         return (5, true);
@@ -465,8 +467,10 @@ fn determine_overdrive_level(adl: &AdlLibrary, adapter_index: i32) -> (i32, bool
 /// OD5 temperature (GPU Core only, millidegrees → degrees).
 fn read_od5_temperature(adl: &AdlLibrary, adapter_index: i32) -> Option<i32> {
   let func = adl.adl2_overdrive5_temperature_get?;
-  let mut temp = AdlTemperature::default();
-  temp.size = std::mem::size_of::<AdlTemperature>() as i32;
+  let mut temp = AdlTemperature {
+    size: std::mem::size_of::<AdlTemperature>() as i32,
+    ..Default::default()
+  };
   let rc = unsafe { func(adl.context, adapter_index, 0, &mut temp) };
   if rc == ADL_OK {
     Some((temp.temperature as f32 * 0.001) as i32) // millidegrees → °C
@@ -509,8 +513,10 @@ fn read_od8_sensor_value(
   sensor_id: u32,
 ) -> Option<i32> {
   let func = adl.adl2_new_query_pm_log_data_get?;
-  let mut output = AdlPmLogDataOutput2::default();
-  output.size = std::mem::size_of::<AdlPmLogDataOutput2>() as i32;
+  let mut output = AdlPmLogDataOutput2 {
+    size: std::mem::size_of::<AdlPmLogDataOutput2>() as i32,
+    ..Default::default()
+  };
   let rc = unsafe { func(adl.context, adapter_index, &mut output) };
   if rc != ADL_OK {
     return None;
@@ -531,8 +537,10 @@ fn read_od8_sensor_value(
 /// OD5 GPU core usage (%).
 fn read_od5_activity(adl: &AdlLibrary, adapter_index: i32) -> Option<f32> {
   let func = adl.adl2_overdrive5_current_activity_get?;
-  let mut activity = AdlPmActivity::default();
-  activity.size = std::mem::size_of::<AdlPmActivity>() as i32;
+  let mut activity = AdlPmActivity {
+    size: std::mem::size_of::<AdlPmActivity>() as i32,
+    ..Default::default()
+  };
   let rc = unsafe { func(adl.context, adapter_index, &mut activity) };
   if rc == ADL_OK {
     let usage = activity.activity_percent.min(100); // clamp to 100
@@ -773,11 +781,11 @@ pub async fn get_amd_gpu_usage() -> Result<f32, String> {
       }
 
       // Phase 2: OD8/PMLog override (OD ≥ 8 or !supported)
-      if adapter.overdrive_level >= 8 || !adapter.overdrive_supported {
-        if let Some(v) = read_od8_usage(adl, idx) {
-          usage = Some(v);
-        }
-        // reset=false → keep OD5 value if OD8 fails
+      // reset=false → keep OD5 value if OD8 fails
+      if (adapter.overdrive_level >= 8 || !adapter.overdrive_supported)
+        && let Some(v) = read_od8_usage(adl, idx)
+      {
+        usage = Some(v);
       }
 
       if let Some(u) = usage {
