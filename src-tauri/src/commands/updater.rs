@@ -73,6 +73,13 @@ pub mod app_updates {
     app: tauri::AppHandle,
     pending: tauri::State<'_, PendingUpdate>,
   ) -> Result<Option<UpdateMetadata>, UpdaterError> {
+    // Avoid updater popups/noise during development.
+    // In debug builds we skip the updater check entirely.
+    if cfg!(debug_assertions) {
+      *pending.0.lock().unwrap() = None;
+      return Ok(None);
+    }
+
     let update = app.updater()?.check().await?;
 
     let meta = update.as_ref().map(|u| UpdateMetadata {
