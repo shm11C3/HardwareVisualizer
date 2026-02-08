@@ -8,6 +8,7 @@ const hardInfoAtom = atom<SysInfo>({
   memory: null,
   gpus: null,
   storage: [],
+  motherboard: null,
 });
 
 const networkInfoAtom = atom<NetworkInfo[]>([]);

@@ -1,4 +1,4 @@
-use crate::models::hardware::{MemoryInfo, NetworkInfo};
+use crate::models::hardware::{MemoryInfo, MotherboardInfo, NetworkInfo};
 use crate::utils;
 use crate::utils::formatter;
 use crate::{log_debug, log_error, log_internal};
@@ -195,6 +195,69 @@ pub fn query_network_info() -> Result<Vec<NetworkInfo>, String> {
     .collect();
 
   network_info
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Win32BaseBoard {
+  manufacturer: Option<String>,
+  product: Option<String>,
+  version: Option<String>,
+  serial_number: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Win32Bios {
+  manufacturer: Option<String>,
+  #[serde(rename = "SMBIOSBIOSVersion")]
+  smbios_bios_version: Option<String>,
+  release_date: Option<String>,
+}
+
+///
+/// ## Get motherboard and BIOS information
+///
+pub fn query_motherboard_info() -> Result<MotherboardInfo, String> {
+  let baseboards: Vec<Win32BaseBoard> = wmi_query_in_thread(
+    "SELECT Manufacturer, Product, Version, SerialNumber FROM Win32_BaseBoard"
+      .to_string(),
+  )?;
+
+  let bios_list: Vec<Win32Bios> = wmi_query_in_thread(
+    "SELECT Manufacturer, SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS".to_string(),
+  )?;
+
+  let board = baseboards
+    .into_iter()
+    .next()
+    .ok_or("No baseboard info found")?;
+  let bios = bios_list.into_iter().next().ok_or("No BIOS info found")?;
+
+  let bios_release_date = bios
+    .release_date
+    .as_deref()
+    .and_then(format_wmi_datetime)
+    .unwrap_or_default();
+
+  Ok(MotherboardInfo {
+    manufacturer: board.manufacturer.unwrap_or_default(),
+    product: board.product.unwrap_or_default(),
+    version: board.version.unwrap_or_default(),
+    serial_number: board.serial_number.unwrap_or_default(),
+    bios_vendor: bios.manufacturer.unwrap_or_default(),
+    bios_version: bios.smbios_bios_version.unwrap_or_default(),
+    bios_release_date,
+  })
+}
+
+/// Format WMI datetime string (e.g. "20230101000000.000000+000") to "YYYY-MM-DD"
+fn format_wmi_datetime(s: &str) -> Option<String> {
+  if s.len() >= 8 {
+    Some(format!("{}-{}-{}", &s[0..4], &s[4..6], &s[6..8]))
+  } else {
+    None
+  }
 }
 
 ///

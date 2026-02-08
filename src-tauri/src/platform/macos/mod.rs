@@ -1,7 +1,9 @@
 use crate::enums::error::BackendError;
 use crate::enums::settings::TemperatureUnit;
 use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo};
-use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
+use crate::platform::traits::{
+  GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+};
 use std::future::Future;
 use std::pin::Pin;
 use tauri::async_runtime;
@@ -79,6 +81,22 @@ impl GpuPlatform for MacOSPlatform {
 impl NetworkPlatform for MacOSPlatform {
   fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
     network::get_network_info()
+  }
+}
+
+impl MotherboardPlatform for MacOSPlatform {
+  fn get_motherboard_info(
+    &self,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<crate::models::hardware::MotherboardInfo, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    Box::pin(async {
+      Err("get_motherboard_info is not implemented for MacOSPlatform".to_string())
+    })
   }
 }
 

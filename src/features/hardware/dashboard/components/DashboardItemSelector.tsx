@@ -32,6 +32,7 @@ export const DashboardItemSelector = ({
     storage: t("shared.storage"),
     process: t("shared.process"),
     network: t("shared.network"),
+    motherboard: t("shared.motherboard"),
   };
 
   const items: DashboardSelectItemType[] = ["title", ...dashBoardItems];

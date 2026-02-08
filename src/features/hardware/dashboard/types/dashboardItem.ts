@@ -5,6 +5,7 @@ export const dashBoardItems = [
   "storage",
   "process",
   "network",
+  "motherboard",
 ] as const;
 
 export type DashboardItemType = (typeof dashBoardItems)[number];

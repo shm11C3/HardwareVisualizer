@@ -99,6 +99,14 @@
     "other": "その他",
     "back": "戻る",
     "showInExplorer": "エクスプローラで表示",
+    "motherboard": "マザーボード",
+    "manufacturer": "製造元",
+    "product": "製品名",
+    "version": "バージョン",
+    "serialNumber": "シリアル番号",
+    "biosVendor": "BIOSベンダー",
+    "biosVersion": "BIOSバージョン",
+    "biosReleaseDate": "BIOSリリース日",
     "fullscreen": {
       "enter": "フルスクリーン",
       "exit": "フルスクリーンを終了"
