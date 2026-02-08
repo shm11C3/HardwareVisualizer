@@ -46,7 +46,7 @@ pub fn read_hwmon_temperatures(card_id: u8) -> Result<Vec<NameValue>, String> {
     let celsius = (millideg / 1000) as i32;
 
     // Basic sanity check – reject clearly out-of-range values
-    if celsius < -40 || celsius > 256 {
+    if !(-40..=256).contains(&celsius) {
       continue;
     }
 
