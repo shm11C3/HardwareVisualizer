@@ -9,7 +9,15 @@ export const useSortableDashboard = () => {
   const { init } = useHardwareInfoAtom();
   const [dashboardItemMap, setDashboardItemMap] = useTauriStore<
     DashboardItemType[]
-  >("dashboardItem", ["cpu", "gpu", "memory", "storage", "network", "process"]);
+  >("dashboardItem", [
+    "cpu",
+    "gpu",
+    "memory",
+    "storage",
+    "network",
+    "process",
+    "motherboard",
+  ]);
 
   const handleDragOver = (event: DragEndEvent) => {
     const { active, over } = event;

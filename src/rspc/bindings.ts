@@ -545,6 +545,7 @@ export type HardwareType = "cpu" | "memory" | "gpu"
 export type LineGraphColorStringSettings = { cpu: string; memory: string; gpu: string }
 export type LineGraphType = "default" | "step" | "linear" | "basis"
 export type MemoryInfo = { size: string; clock: number; clockUnit: string; memoryCount: number; totalSlots: number; memoryType: string; isDetailed: boolean }
+export type MotherboardInfo = { manufacturer: string; product: string; version: string; serialNumber: string; biosVendor: string; biosVersion: string; biosReleaseDate: string }
 export type NameValue = { name: string; value: number }
 export type NetworkInfo = { description: string | null; macAddress: string | null; ipv4: string[]; ipv6: string[]; linkLocalIpv6: string[]; ipSubnet: string[]; defaultIpv4Gateway: string[]; defaultIpv6Gateway: string[] }
 export type ProcessInfo = { 
@@ -566,7 +567,7 @@ cpuUsage: number;
 memoryUsage: number }
 export type SizeUnit = "B" | "KB" | "MB" | "GB"
 export type StorageInfo = { name: string; size: number; sizeUnit: SizeUnit; free: number; freeUnit: SizeUnit; storageType: DiskKind; fileSystem: string }
-export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[] }
+export type SysInfo = { cpu: CpuInfo | null; memory: MemoryInfo | null; gpus: GraphicInfo[] | null; storage: StorageInfo[]; motherboard: MotherboardInfo | null }
 export type TAURI_CHANNEL<TSend> = null
 export type TemperatureUnit = "C" | "F"
 export type Theme = "system" | "light" | "dark" | "darkPlus" | "ocean" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso"

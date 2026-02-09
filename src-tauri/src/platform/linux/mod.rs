@@ -1,7 +1,9 @@
 use crate::enums;
 use crate::enums::error::BackendError;
 use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, NetworkInfo};
-use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
+use crate::platform::traits::{
+  GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+};
 use std::future::Future;
 use std::pin::Pin;
 
@@ -81,6 +83,22 @@ impl GpuPlatform for LinuxPlatform {
 impl NetworkPlatform for LinuxPlatform {
   fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
     network::get_network_info()
+  }
+}
+
+impl MotherboardPlatform for LinuxPlatform {
+  fn get_motherboard_info(
+    &self,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<crate::models::hardware::MotherboardInfo, String>>
+        + Send
+        + '_,
+    >,
+  > {
+    Box::pin(async {
+      Err("get_motherboard_info is not implemented for LinuxPlatform".to_string())
+    })
   }
 }
 

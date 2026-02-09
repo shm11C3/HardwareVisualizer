@@ -99,6 +99,14 @@
     "loading": "Loading...",
     "back": "Back",
     "showInExplorer": "Show in Explorer",
+    "motherboard": "Motherboard",
+    "manufacturer": "Manufacturer",
+    "product": "Product",
+    "version": "Version",
+    "serialNumber": "Serial Number",
+    "biosVendor": "BIOS Vendor",
+    "biosVersion": "BIOS Version",
+    "biosReleaseDate": "BIOS Release Date",
     "fullscreen": {
       "enter": "Enter Fullscreen",
       "exit": "Exit Fullscreen"

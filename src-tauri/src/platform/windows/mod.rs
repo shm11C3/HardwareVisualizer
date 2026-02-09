@@ -1,13 +1,18 @@
 use crate::enums::error::BackendError;
 use crate::enums::settings::TemperatureUnit;
-use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, NetworkInfo};
-use crate::platform::traits::{GpuPlatform, MemoryPlatform, NetworkPlatform, Platform};
+use crate::models::hardware::{
+  GpuMemoryUsage, GraphicInfo, MotherboardInfo, NetworkInfo,
+};
+use crate::platform::traits::{
+  GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+};
 
 use std::future::Future;
 use std::pin::Pin;
 
 pub mod gpu;
 pub mod memory;
+pub mod motherboard;
 pub mod network;
 
 pub struct WindowsPlatform;
@@ -81,6 +86,14 @@ impl GpuPlatform for WindowsPlatform {
 impl NetworkPlatform for WindowsPlatform {
   fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
     network::get_network_info()
+  }
+}
+
+impl MotherboardPlatform for WindowsPlatform {
+  fn get_motherboard_info(
+    &self,
+  ) -> Pin<Box<dyn Future<Output = Result<MotherboardInfo, String>> + Send + '_>> {
+    motherboard::get_motherboard_info()
   }
 }
 
