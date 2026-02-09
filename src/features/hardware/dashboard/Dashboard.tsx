@@ -104,7 +104,7 @@ export const Dashboard = () => {
     },
     motherboard: {
       icon: <DesktopIcon size={24} color="oklch(70% 0.14 150)" />,
-      component: hardwareInfo.motherboard ? <MotherboardDataInfo /> : null,
+      component: <MotherboardDataInfo />,
     },
   };
 
