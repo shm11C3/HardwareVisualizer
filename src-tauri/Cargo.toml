@@ -28,7 +28,7 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.5.0", features = [] }
+tauri-build = { version = "2.5.4", features = [] }
 
 
 [dependencies]
@@ -53,7 +53,7 @@ tauri-plugin-dialog = "2.6.0"
 tauri-plugin-store = "2.4.2"
 base64 = "0.22"
 image = { version = "0.25.9", default-features = false, features = ["png"] }
-regex = "1.12.2"
+regex = "1.12.3"
 tempfile = "3.24.0"
 sys-locale = "0.3.2"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
@@ -87,7 +87,7 @@ features = [
 custom-protocol = ["tauri/custom-protocol"]
 
 [target.'cfg(windows)'.dependencies]
-wmi = "0.18.0"
+wmi = "0.18.1"
 dxgi = "0.1.7"
 winapi = { version = "0.3", features = ["dxgi"] }
 windows = { version = "0.62.2", features = [
