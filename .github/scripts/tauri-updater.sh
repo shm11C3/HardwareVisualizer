@@ -34,7 +34,7 @@ fi
 echo "[3/4] update cargo deps (Cargo.toml + Cargo.lock)"
 pushd src-tauri >/dev/null
 
-cargo upgrade -p tauri -p tauri-build -p tauri-specta || true
+cargo upgrade -p tauri -p tauri-build || true
 
 # Update tauri-plugin-*
 mapfile -t PLUGINS < <(grep -oE 'tauri-plugin-[a-zA-Z0-9_-]+' Cargo.toml | sort -u || true)
