@@ -45,7 +45,7 @@ if [ ${#PLUGINS[@]} -gt 0 ]; then
 fi
 
 # Update lockfile entries to latest compatible versions
-TAURI_UPDATE_ARGS=(-p tauri -p tauri-build -p tauri-specta)
+TAURI_UPDATE_ARGS=(-p tauri -p tauri-build)
 for p in "${PLUGINS[@]}"; do
   TAURI_UPDATE_ARGS+=(-p "$p")
 done
