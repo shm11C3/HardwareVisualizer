@@ -6,7 +6,7 @@ command -v npm >/dev/null
 command -v cargo >/dev/null
 command -v cargo-upgrade >/dev/null || { echo "cargo-edit (cargo upgrade) not found. Run: cargo install cargo-edit"; exit 1; }
 command -v rg >/dev/null || { echo "ripgrep (rg) not found"; exit 1; }
-command -v jq >/dev/null || { echo "jq not found (recommended)"; exit 1; }
+command -v jq >/dev/null || { echo "jq not found. Please install jq (required for this script)."; exit 1; }
 
 test -f package.json || { echo "package.json not found. Run from repo root."; exit 1; }
 test -d src-tauri || { echo "src-tauri not found."; exit 1; }
