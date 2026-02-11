@@ -37,19 +37,19 @@ pushd src-tauri >/dev/null
 cargo upgrade -p tauri -p tauri-build || true
 
 # Update tauri-plugin-*
-mapfile -t PLUGINS < <(grep -oP 'tauri-plugin-[a-zA-Z0-9_-]+' Cargo.toml | sort -u || true)
+mapfile -t PLUGINS < <(grep -oE 'tauri-plugin-[a-zA-Z0-9_-]+' Cargo.toml | sort -u || true)
 if [ ${#PLUGINS[@]} -gt 0 ]; then
   for p in "${PLUGINS[@]}"; do
     cargo upgrade -p "$p" || true
   done
 fi
 
-cargo update -p tauri -p tauri-build || true
-if [ ${#PLUGINS[@]} -gt 0 ]; then
-  for p in "${PLUGINS[@]}"; do
-    cargo update -p "$p" || true
-  done
-fi
+# Update lockfile entries to latest compatible versions
+TAURI_UPDATE_ARGS=(-p tauri -p tauri-build)
+for p in "${PLUGINS[@]}"; do
+  TAURI_UPDATE_ARGS+=(-p "$p")
+done
+cargo update "${TAURI_UPDATE_ARGS[@]}" || true
 
 # Update lock file
 popd >/dev/null
