@@ -15,7 +15,7 @@ echo "[2/4] update npm packages (@tauri-apps/*)"
 # =========================================================
 # npm update for @tauri-apps/* packages
 # =========================================================
-OUTDATED_JSON="$(npm outdated --json || true)"
+OUTDATED_JSON="$(npm outdated --json 2>/dev/null | sed -n '/^{/,/^}/p' || true)"
 if [ -n "${OUTDATED_JSON}" ] && [ "${OUTDATED_JSON}" != "null" ]; then
   mapfile -t PKGS < <(echo "$OUTDATED_JSON" | node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const k of Object.keys(JSON.parse(s)))console.log(k)})' | grep '^@tauri-apps/' || true)
 
@@ -37,9 +37,9 @@ pushd src-tauri >/dev/null
 cargo upgrade -p tauri -p tauri-build || true
 
 # Update tauri-plugin-*
-PLUGINS=$(grep -oP 'tauri-plugin-[a-zA-Z0-9_-]+' Cargo.toml | sort -u || true)
-if [ -n "${PLUGINS}" ]; then
-  for p in ${PLUGINS}; do
+mapfile -t PLUGINS < <(grep -oP 'tauri-plugin-[a-zA-Z0-9_-]+' Cargo.toml | sort -u || true)
+if [ ${#PLUGINS[@]} -gt 0 ]; then
+  for p in "${PLUGINS[@]}"; do
     cargo upgrade -p "$p" || true
   done
 fi
