@@ -133,7 +133,11 @@
     "dashboard": {
       "name": "ダッシュボード",
       "visibleItems": "表示項目",
-      "selectItems": "表示する項目を選択してください"
+      "selectItems": "表示する項目を選択してください",
+      "widgetError": {
+        "title": "データの読み込みに失敗しました",
+        "retry": "再試行"
+      }
     },
     "usage": {
       "name": "ハードウェア使用率"

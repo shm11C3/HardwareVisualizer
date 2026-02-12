@@ -1,6 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import {
@@ -18,7 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
-import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import {
+  useFetchMemoryInfoDetail,
+  useHardwareInfoSuspense,
+  useNetworkInfoSuspense,
+} from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuUsageHistoryAtom,
   gpuTempAtom,
@@ -42,7 +46,7 @@ import { MiniLineChart } from "./MiniLineChart";
 export const CPUInfo = () => {
   const { t } = useTranslation();
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const hardwareInfo = useHardwareInfoSuspense();
   const processes = useProcessInfo();
   const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
 
@@ -57,21 +61,18 @@ export const CPUInfo = () => {
         <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
       </div>
 
-      {hardwareInfo.cpu ? (
-        <InfoTable
-          data={{
-            [t("shared.name")]: hardwareInfo.cpu.name,
-            [t("shared.vendor")]: hardwareInfo.cpu.vendor,
-            [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
-            [t("shared.threadCount")]: processorsUsageHistory[0]?.length || 0,
-            [t("shared.defaultClockSpeed")]:
-              `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
-            [t("shared.processCount")]: processes.length,
-          }}
-        />
-      ) : (
-        <Skeleton className="h-[188px] w-full rounded-md" />
-      )}
+      <InfoTable
+        data={{
+          [t("shared.name")]: hardwareInfo.cpu?.name ?? "N/A",
+          [t("shared.vendor")]: hardwareInfo.cpu?.vendor ?? "N/A",
+          [t("shared.coreCount")]: hardwareInfo.cpu?.coreCount ?? "N/A",
+          [t("shared.threadCount")]: processorsUsageHistory[0]?.length || 0,
+          [t("shared.defaultClockSpeed")]: hardwareInfo.cpu
+            ? `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`
+            : "N/A",
+          [t("shared.processCount")]: processes.length,
+        }}
+      />
     </>
   );
 };
@@ -80,7 +81,7 @@ export const GPUInfo = () => {
   const { t } = useTranslation();
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const hardwareInfo = useHardwareInfoSuspense();
   const { isBreak } = useWindowSize();
   const [gpuMemoryUsage, setGpuMemoryUsage] = useState<GpuMemoryUsage | null>(
     null,
@@ -194,7 +195,7 @@ export const GPUInfo = () => {
 export const MemoryInfo = () => {
   const { t } = useTranslation();
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const hardwareInfo = useHardwareInfoSuspense();
   const os = platform();
 
   const {
@@ -291,17 +292,17 @@ export const MemoryInfo = () => {
 
 export const FetchDetailButton = () => {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
-  const { fetchMemoryInfoDetail } = useHardwareInfoAtom();
+  const [isPending, startTransition] = useTransition();
+  const fetchDetail = useFetchMemoryInfoDetail();
 
-  const handleLoadDetail = async () => {
-    setLoading(true);
-    await fetchMemoryInfoDetail();
-    setLoading(false);
+  const handleLoadDetail = () => {
+    startTransition(async () => {
+      await fetchDetail();
+    });
   };
 
   return (
-    <Button onClick={handleLoadDetail} disabled={loading}>
+    <Button onClick={handleLoadDetail} disabled={isPending}>
       {t("shared.loadDetailedInfo")}
     </Button>
   );
@@ -319,7 +320,7 @@ const storageDataInfoGridVariants = tv({
 
 export const StorageDataInfo = () => {
   const { t } = useTranslation();
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const hardwareInfo = useHardwareInfoSuspense();
   const os = useMemo(() => platform(), []);
 
   // Sort by drive name
@@ -398,7 +399,7 @@ export const StorageDataInfo = () => {
 
 export const MotherboardDataInfo = () => {
   const { t } = useTranslation();
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const hardwareInfo = useHardwareInfoSuspense();
 
   if (!hardwareInfo.motherboard) {
     return <Skeleton className="h-[188px] w-full rounded-md" />;
@@ -424,12 +425,7 @@ export const MotherboardDataInfo = () => {
 export const NetworkInfo = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { networkInfo, initNetwork } = useHardwareInfoAtom();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `initNetwork` is a stable function
-  useEffect(() => {
-    initNetwork();
-  }, []);
+  const networkInfo = useNetworkInfoSuspense();
 
   return (
     <>

@@ -15,13 +15,15 @@ import {
   NetworkIcon,
 } from "@phosphor-icons/react";
 import type { JSX } from "react";
+import { Suspense } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardItemSelector } from "@/features/hardware/dashboard/components/DashboardItemSelector";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
-import { useHardwareInfoAtom } from "../hooks/useHardwareInfoAtom";
+import { useRefreshHardwareInfo } from "../hooks/useHardwareInfoAtom";
 import {
   CPUInfo,
   GPUInfo,
@@ -32,6 +34,7 @@ import {
 } from "./components/DashboardItems";
 import { ExportHardwareInfo } from "./components/ExportHardwareInfo";
 import { SortableItem } from "./components/SortableItem";
+import { WidgetErrorFallback } from "./components/WidgetErrorFallback";
 import { useDashboardSelector } from "./hooks/useDashboardSelector";
 import { useSortableDashboard } from "./hooks/useSortableDashboard";
 import type { DashboardItemType } from "./types/dashboardItem";
@@ -46,12 +49,12 @@ type DataTypeKey =
   | "motherboard";
 
 export const Dashboard = () => {
-  const { hardwareInfo } = useHardwareInfoAtom();
   const { dashboardItemMap, handleDragOver } = useSortableDashboard();
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
   const sensors = useSensors(useSensor(PointerSensor));
   const { visibleItems, toggleItem } = useDashboardSelector();
+  const refreshHardwareInfo = useRefreshHardwareInfo();
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -77,10 +80,7 @@ export const Dashboard = () => {
           color={`rgb(${settings.lineGraphColor.gpu})`}
         />
       ),
-      component:
-        hardwareInfo.gpus != null && hardwareInfo.gpus.length > 0 ? (
-          <GPUInfo />
-        ) : null,
+      component: <GPUInfo />,
     },
     memory: {
       icon: (
@@ -153,7 +153,18 @@ export const Dashboard = () => {
                       title={dataAreaKey2Title[key]}
                       icon={dashboardItemKeyToItems[key].icon}
                     >
-                      {dashboardItemKeyToItems[key].component}
+                      <ErrorBoundary
+                        FallbackComponent={WidgetErrorFallback}
+                        onReset={refreshHardwareInfo}
+                      >
+                        <Suspense
+                          fallback={
+                            <Skeleton className="h-[188px] w-full rounded-md" />
+                          }
+                        >
+                          {dashboardItemKeyToItems[key].component}
+                        </Suspense>
+                      </ErrorBoundary>
                     </DataArea>
                   ) : (
                     <div className="p-4">

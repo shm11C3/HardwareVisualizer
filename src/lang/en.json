@@ -133,7 +133,11 @@
     "dashboard": {
       "name": "Dashboard",
       "visibleItems": "Visible Items",
-      "selectItems": "Select items to display on the dashboard"
+      "selectItems": "Select items to display on the dashboard",
+      "widgetError": {
+        "title": "Failed to load data",
+        "retry": "Retry"
+      }
     },
     "usage": {
       "name": "Usage"
