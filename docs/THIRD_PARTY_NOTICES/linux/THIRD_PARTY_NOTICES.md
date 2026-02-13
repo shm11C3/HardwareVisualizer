@@ -2902,7 +2902,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.2.10
+## @types/react@19.2.13
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -4598,7 +4598,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.8.0
+## i18next@25.8.4
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4713,7 +4713,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-## jotai@2.17.0
+## jotai@2.17.1
 
 - License: MIT
 - Repository: [https://github.com/pmndrs/jotai](https://github.com/pmndrs/jotai)
