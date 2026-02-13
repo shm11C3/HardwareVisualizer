@@ -14,6 +14,7 @@ import {
   MemoryIcon,
   NetworkIcon,
 } from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +53,7 @@ export const Dashboard = () => {
   const { t } = useTranslation();
   const sensors = useSensors(useSensor(PointerSensor));
   const { visibleItems, toggleItem } = useDashboardSelector();
+  const os = platform();
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -104,7 +106,7 @@ export const Dashboard = () => {
     },
     motherboard: {
       icon: <DesktopIcon size={24} color="oklch(70% 0.14 150)" />,
-      component: <MotherboardDataInfo />,
+      component: os === "windows" ? <MotherboardDataInfo /> : null,
     },
   };
 
