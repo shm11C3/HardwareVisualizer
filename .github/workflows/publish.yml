@@ -71,14 +71,13 @@ jobs:
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
 
           if [ "${{ env.ENABLE_WINDOWS_SIGNING }}" = "true" ] && [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            SIGN_ARG='--sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"'
+            node .github/scripts/update-tauri-config.ts \
+            --tag "$TAG" \
+            --sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
           else
-            SIGN_ARG='--sign ""'
+            node .github/scripts/update-tauri-config.ts \
+            --tag "$TAG"
           fi
-
-          node .github/scripts/update-tauri-config.ts \
-          --tag "$TAG" \
-          $SIGN_ARG
 
       - name: Setup Azure Code Signing
         if: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' }}
