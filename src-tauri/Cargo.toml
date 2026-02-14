@@ -5,10 +5,12 @@ overflow-checks = true
 lto = false
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 debug = false
 overflow-checks = true
 lto = true
+strip = true
+codegen-units = 1
 
 [profile.ci]
 inherits = "release"
