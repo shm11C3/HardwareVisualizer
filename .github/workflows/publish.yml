@@ -187,9 +187,11 @@ jobs:
         run: |
           KEY_DIR="${RUNNER_TEMP}/private_keys"
           mkdir -p "$KEY_DIR"
-          printf '%s' "${{ secrets.APPLE_API_KEY_CONTENT }}" > "$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
-          chmod 600 "$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
-          echo "APPLE_API_KEY_PATH=$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8" >> "$GITHUB_ENV"
+          APPLE_API_KEY_PATH="$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
+          printf '%s' "${{ secrets.APPLE_API_KEY_CONTENT }}" > "$APPLE_API_KEY_PATH"
+          chmod 600 "$APPLE_API_KEY_PATH"
+          echo "::add-mask::$APPLE_API_KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$APPLE_API_KEY_PATH" >> "$GITHUB_ENV"
 
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
