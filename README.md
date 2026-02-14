@@ -4,8 +4,7 @@
 
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
-![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
-![Platforms](https://img.shields.io/badge/platform-MacOS%20(beta)-orange)
+![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20MacOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
@@ -132,7 +131,7 @@ After launching the app:
 | ------- | ------ | ------------------------------------------------------------------------------------- |
 | Windows | ✅     | [Download](https://hardviz.com/#download)                                             |
 | Linux   | ✅     | [Download](https://hardviz.com/#download)                                             |
-| macOS   | 🚧     | WIP (beta: [GitHub Releases](https://github.com/shm11C3/HardwareVisualizer/releases)) |
+| macOS   | ✅     | [Download](https://hardviz.com/#download)                                             |
 
 ## Screenshots
 
@@ -185,7 +184,7 @@ Flexible graph customization available.
 
 | Item                         | Target      |
 | ---------------------------- | ----------- |
-| macOS Support                | In Progress |
+| macOS Support                | ✅ Done      |
 | AMD compatible               | Research    |
 | Fan / Temp Full Cross Vendor | Research    |
 | Game Mode                    | Planned     |
