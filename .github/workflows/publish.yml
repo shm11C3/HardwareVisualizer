@@ -95,9 +95,9 @@ jobs:
       - uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AZURE_CLIENT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && secrets.AZURE_CLIENT_ID || '' }}
-          AZURE_CLIENT_SECRET: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && secrets.AZURE_CLIENT_SECRET || '' }}
-          AZURE_TENANT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && secrets.AZURE_TENANT_ID || '' }}
+          AZURE_CLIENT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_SECRET || '' }}
+          AZURE_TENANT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_TENANT_ID || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
