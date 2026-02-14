@@ -141,10 +141,10 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest' # for Arm based macs (M1 and above).
-            args: '--target aarch64-apple-darwin'
+            args: '--target aarch64-apple-darwin --skip-stapling'
             os-name: 'macos-aarch64'
           - platform: 'macos-latest' # for Intel based macs.
-            args: '--target x86_64-apple-darwin'
+            args: '--target x86_64-apple-darwin --skip-stapling'
             os-name: 'macos-x64'
 
     runs-on: ${{ matrix.platform }}
