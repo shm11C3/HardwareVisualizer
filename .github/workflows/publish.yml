@@ -185,9 +185,11 @@ jobs:
       - name: Setup Apple API Key for notarization
         shell: bash
         run: |
-          mkdir -p ~/private_keys
-          printf '%s' "${{ secrets.APPLE_API_KEY_CONTENT }}" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
-          chmod 600 ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          KEY_DIR="${RUNNER_TEMP}/private_keys"
+          mkdir -p "$KEY_DIR"
+          printf '%s' "${{ secrets.APPLE_API_KEY_CONTENT }}" > "$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
+          chmod 600 "$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
+          echo "APPLE_API_KEY_PATH=$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8" >> "$GITHUB_ENV"
 
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
@@ -215,7 +217,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_PATH: ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
