@@ -233,3 +233,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
+
+      - name: Cleanup Apple API Key
+        if: always()
+        shell: bash
+        run: rm -rf "${RUNNER_TEMP}/private_keys"
