@@ -186,7 +186,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/private_keys
-          echo "${{ secrets.APPLE_API_KEY_CONTENT }}" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          printf '%s' "${{ secrets.APPLE_API_KEY_CONTENT }}" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          chmod 600 ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
 
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
