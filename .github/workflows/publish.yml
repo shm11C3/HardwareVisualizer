@@ -182,6 +182,12 @@ jobs:
           --tag "$TAG" \
           --sign ""
 
+      - name: Setup Apple API Key for notarization
+        shell: bash
+        run: |
+          mkdir -p ~/private_keys
+          echo "${{ secrets.APPLE_API_KEY_CONTENT }}" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
       - name: Cache cargo-license binary
@@ -203,6 +209,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
         with:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
