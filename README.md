@@ -54,6 +54,7 @@ Web: <https://hardviz.com/>
   - [Roadmap](#roadmap)
   - [Contributing](#contributing)
   - [FAQ](#faq)
+  - [Code Signing Policy](#code-signing-policy)
   - [License](#license)
 
 ## Installation Guide
@@ -127,11 +128,11 @@ After launching the app:
 
 ## Supported OS
 
-| OS      | Status | Download                                                                              |
-| ------- | ------ | ------------------------------------------------------------------------------------- |
-| Windows | ✅     | [Download](https://hardviz.com/#download)                                             |
-| Linux   | ✅     | [Download](https://hardviz.com/#download)                                             |
-| macOS   | ✅     | [Download](https://hardviz.com/#download)                                             |
+| OS      | Status | Download                                  |
+| ------- | ------ | ----------------------------------------- |
+| Windows | ✅     | [Download](https://hardviz.com/#download) |
+| Linux   | ✅     | [Download](https://hardviz.com/#download) |
+| macOS   | ✅     | [Download](https://hardviz.com/#download) |
 
 ## Screenshots
 
@@ -182,14 +183,14 @@ Flexible graph customization available.
 
 ## Roadmap
 
-| Item                         | Target      |
-| ---------------------------- | ----------- |
-| macOS Support                | ✅ Done      |
-| AMD compatible               | Research    |
-| Fan / Temp Full Cross Vendor | Research    |
-| Game Mode                    | Planned     |
-| Power Consumption Estimation | Idea        |
-| Plugin System                | Idea        |
+| Item                         | Target   |
+| ---------------------------- | -------- |
+| macOS Support                | ✅ Done  |
+| AMD compatible               | Research |
+| Fan / Temp Full Cross Vendor | Research |
+| Game Mode                    | Planned  |
+| Power Consumption Estimation | Idea     |
+| Plugin System                | Idea     |
 
 ## Contributing
 
@@ -202,6 +203,10 @@ Access to privileged hardware interfaces for sensors.
 
 **Q: NVIDIA only historic GPU charts?**  
 Vendor APIs differ; expansion planned.
+
+## Code Signing Policy
+
+See [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for details.
 
 ## License
 
