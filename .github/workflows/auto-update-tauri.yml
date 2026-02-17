@@ -1,0 +1,71 @@
+name: Auto update Tauri dependencies
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Wednesday 09:00 JST (00:00 UTC)
+    - cron: "0 0 * * 3"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-update-tauri
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+
+      - name: Install cargo-binstall
+        run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install cargo-edit
+        run: cargo binstall cargo-edit --no-confirm
+
+      - name: Run Tauri dependency updater
+        run: bash .github/scripts/tauri-updater.sh
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: "chore(deps): update tauri dependencies"
+          title: "chore(deps-tauri): update tauri dependencies"
+          body: |
+            This PR was created automatically by the Tauri dependency updater.
+
+            - Updated `@tauri-apps/*` npm packages to latest
+            - Updated `tauri`, `tauri-build`, and `tauri-plugin-*` Cargo crates
+            - Regenerated lockfiles
+
+            > This workflow runs weekly (Wed 09:00 JST) and is separate from Dependabot,
+            > which ignores Tauri-related packages.
+          branch: chore/auto-tauri-update
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+            tauri
+          signoff: false

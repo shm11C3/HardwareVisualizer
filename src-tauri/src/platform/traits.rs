@@ -68,5 +68,20 @@ pub trait NetworkPlatform: Send + Sync {
   ) -> Result<Vec<crate::models::hardware::NetworkInfo>, BackendError>;
 }
 
+/// Trait that defines platform-specific motherboard operations
+pub trait MotherboardPlatform: Send + Sync {
+  /// Get motherboard and BIOS information
+  fn get_motherboard_info(
+    &self,
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<models::hardware::MotherboardInfo, String>> + Send + '_,
+    >,
+  >;
+}
+
 /// Trait that integrates all platform functionality
-pub trait Platform: MemoryPlatform + GpuPlatform + NetworkPlatform {}
+pub trait Platform:
+  MemoryPlatform + GpuPlatform + NetworkPlatform + MotherboardPlatform
+{
+}

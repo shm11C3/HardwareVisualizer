@@ -38,6 +38,7 @@
   ],
   "terminal.integrated.env.linux": {
     "GTK_PATH": "",
-    "LD_LIBRARY_PATH": ""
+    "LD_LIBRARY_PATH": "",
+    "GIO_MODULE_DIR": ""
   }
 }

@@ -88,6 +88,7 @@ describe("useHardwareInfoAtom", () => {
       memory: null,
       gpus: null,
       storage: [],
+      motherboard: null,
     });
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();

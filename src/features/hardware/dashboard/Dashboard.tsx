@@ -8,11 +8,13 @@ import {
 import { rectSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import {
   CpuIcon,
+  DesktopIcon,
   GraphicsCardIcon,
   HardDrivesIcon,
   MemoryIcon,
   NetworkIcon,
 } from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +27,7 @@ import {
   CPUInfo,
   GPUInfo,
   MemoryInfo,
+  MotherboardDataInfo,
   NetworkInfo,
   StorageDataInfo,
 } from "./components/DashboardItems";
@@ -34,7 +37,14 @@ import { useDashboardSelector } from "./hooks/useDashboardSelector";
 import { useSortableDashboard } from "./hooks/useSortableDashboard";
 import type { DashboardItemType } from "./types/dashboardItem";
 
-type DataTypeKey = "cpu" | "memory" | "storage" | "gpu" | "network" | "process";
+type DataTypeKey =
+  | "cpu"
+  | "memory"
+  | "storage"
+  | "gpu"
+  | "network"
+  | "process"
+  | "motherboard";
 
 export const Dashboard = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
@@ -43,6 +53,7 @@ export const Dashboard = () => {
   const { t } = useTranslation();
   const sensors = useSensors(useSensor(PointerSensor));
   const { visibleItems, toggleItem } = useDashboardSelector();
+  const os = platform();
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
     cpu: "CPU",
@@ -50,6 +61,7 @@ export const Dashboard = () => {
     storage: t("shared.storage"),
     gpu: "GPU",
     network: t("shared.network"),
+    motherboard: t("shared.motherboard"),
   };
 
   const dashboardItemKeyToItems: Record<
@@ -91,6 +103,10 @@ export const Dashboard = () => {
     network: {
       icon: <NetworkIcon size={24} color="oklch(74.6% 0.16 232.661)" />,
       component: <NetworkInfo />,
+    },
+    motherboard: {
+      icon: <DesktopIcon size={24} color="oklch(70% 0.14 150)" />,
+      component: os === "windows" ? <MotherboardDataInfo /> : null,
     },
   };
 

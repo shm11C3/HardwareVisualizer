@@ -101,11 +101,24 @@ pub struct ProcessInfo {
 
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct MotherboardInfo {
+  pub manufacturer: String,
+  pub product: String,
+  pub version: String,
+  pub serial_number: String,
+  pub bios_vendor: String,
+  pub bios_version: String,
+  pub bios_release_date: String,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct SysInfo {
   pub cpu: Option<CpuInfo>,
   pub memory: Option<MemoryInfo>,
   pub gpus: Option<Vec<GraphicInfo>>,
   pub storage: Vec<StorageInfo>,
+  pub motherboard: Option<MotherboardInfo>,
 }
 
 #[derive(Serialize, Deserialize, Type)]

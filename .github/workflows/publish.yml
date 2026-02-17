@@ -10,6 +10,8 @@ jobs:
   publish-tauri:
     permissions:
       contents: write
+    env:
+      ENABLE_WINDOWS_SIGNING: false
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +22,14 @@ jobs:
           - platform: "ubuntu-22.04"
             args: ""
             os-name: "linux"
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin --skip-stapling"
+            os-name: "macos-aarch64"
+            rust-targets: "aarch64-apple-darwin x86_64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin --skip-stapling"
+            os-name: "macos-x64"
+            rust-targets: "aarch64-apple-darwin x86_64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -51,6 +61,7 @@ jobs:
         uses: ./.github/actions/setup-rust
         with:
           components: ""
+          targets: ${{ matrix.rust-targets || '' }}
 
       - name: Generate licenses.json
         run: npx license-checker --production --json > licenses.json
@@ -68,13 +79,33 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
 
-
-          node .github/scripts/update-tauri-config.ts \
-          --tag "$TAG" \
-          --sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
+          if [ "${{ env.ENABLE_WINDOWS_SIGNING }}" = "true" ] && [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            node .github/scripts/update-tauri-config.ts \
+            --tag "$TAG" \
+            --sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            node .github/scripts/update-tauri-config.ts \
+            --tag "$TAG" \
+            --sign ""
+          else
+            node .github/scripts/update-tauri-config.ts \
+            --tag "$TAG"
+          fi
 
       - name: Setup Azure Code Signing
+        if: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' }}
         run: cargo install trusted-signing-cli
+
+      - name: Setup Apple API Key for notarization
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          KEY_DIR="${RUNNER_TEMP}/private_keys"
+          mkdir -p "$KEY_DIR"
+          APPLE_API_KEY_PATH="$KEY_DIR/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
+          printf '%s' "${{ secrets.APPLE_API_KEY_CONTENT }}" > "$APPLE_API_KEY_PATH"
+          chmod 600 "$APPLE_API_KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$APPLE_API_KEY_PATH" >> "$GITHUB_ENV"
 
       # Generate THIRD_PARTY_LICENSES file
       # Generate here to include in Tauri build bundle
@@ -87,11 +118,17 @@ jobs:
       - uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_SECRET || '' }}
+          AZURE_TENANT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_TENANT_ID || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
@@ -102,9 +139,9 @@ jobs:
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Bundle Offline Installer
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && secrets.AZURE_CLIENT_SECRET || '' }}
+          AZURE_TENANT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && secrets.AZURE_TENANT_ID || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
@@ -132,88 +169,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
 
-  publish-tauri-macos:
-    if: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'macos-latest' # for Arm based macs (M1 and above).
-            args: '--target aarch64-apple-darwin'
-            os-name: 'macos-aarch64'
-          - platform: 'macos-latest' # for Intel based macs.
-            args: '--target x86_64-apple-darwin'
-            os-name: 'macos-x64'
-
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: ./.github/actions/setup-node
-        with:
-          setup-safe-chain: false
-
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          targets: "aarch64-apple-darwin x86_64-apple-darwin"
-
-      - name: Generate licenses.json
-        run: npx license-checker --production --json > licenses.json
-
-      - name: Check licenses
-        run: node --experimental-strip-types .github/scripts/check-licenses.ts licenses.json
-
-      - name: Export VERSION for later steps
+      - name: Cleanup Apple API Key
+        if: ${{ always() && runner.os == 'macOS' }}
         shell: bash
-        run: |
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
-
-      - name: Update tauri.conf.json using Node.js script
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF_NAME}"      # v1.x.x
-
-          node .github/scripts/update-tauri-config.ts \
-          --tag "$TAG" \
-          --sign ""
-
-      # Generate THIRD_PARTY_LICENSES file
-      # Generate here to include in Tauri build bundle
-      - name: Cache cargo-license binary
-        id: cache-cargo-license
-        uses: actions/cache@v5
-        with:
-          path: ~/.cargo/bin/cargo-license
-          key: cargo-license-${{ runner.os }}-v1
-
-      - name: Install cargo-license
-        if: steps.cache-cargo-license.outputs.cache-hit != 'true'
-        run: cargo install cargo-license
-
-      - name: Generate THIRD_PARTY_NOTICES
-        run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
-
-      - uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: true
-          args: ${{ matrix.args }}
-
-      - name: Upload THIRD_PARTY_NOTICES.md
-        run: |
-          mv ./tmp/THIRD_PARTY_NOTICES.md ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
-          gh release upload "${{ github.ref_name }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
+        run: rm -rf "${RUNNER_TEMP}/private_keys"

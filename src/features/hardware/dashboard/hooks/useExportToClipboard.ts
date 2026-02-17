@@ -118,9 +118,52 @@ export const useExportToClipboard = () => {
         .join("\n");
     });
 
-    return [cpuInfo, memoryInfo, gpuInfo, storageInfo, networkInfoText].join(
-      "\n\n",
-    );
+    const motherboardInfoText = hardwareInfo.motherboard
+      ? [
+          {
+            key: t("shared.manufacturer"),
+            value: hardwareInfo.motherboard.manufacturer,
+          },
+          { key: t("shared.product"), value: hardwareInfo.motherboard.product },
+          ...(hardwareInfo.motherboard.version
+            ? [
+                {
+                  key: t("shared.version"),
+                  value: hardwareInfo.motherboard.version,
+                },
+              ]
+            : []),
+          {
+            key: t("shared.serialNumber"),
+            value: hardwareInfo.motherboard.serialNumber,
+          },
+          {
+            key: t("shared.biosVendor"),
+            value: hardwareInfo.motherboard.biosVendor,
+          },
+          {
+            key: t("shared.biosVersion"),
+            value: hardwareInfo.motherboard.biosVersion,
+          },
+          {
+            key: t("shared.biosReleaseDate"),
+            value: hardwareInfo.motherboard.biosReleaseDate,
+          },
+        ]
+          .map(({ key, value }) => `${key}: ${value}`)
+          .join("\n")
+      : "";
+
+    return [
+      cpuInfo,
+      memoryInfo,
+      gpuInfo,
+      storageInfo,
+      networkInfoText,
+      motherboardInfoText,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }, [hardwareInfo, processorsUsageHistory, processes, networkInfo, t]);
 
   const exportToClipboard = async () => {

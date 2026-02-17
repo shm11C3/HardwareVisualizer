@@ -396,6 +396,31 @@ export const StorageDataInfo = () => {
   );
 };
 
+export const MotherboardDataInfo = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+
+  if (!hardwareInfo.motherboard) {
+    return <Skeleton className="h-[188px] w-full rounded-md" />;
+  }
+
+  const mb = hardwareInfo.motherboard;
+
+  return (
+    <InfoTable
+      data={{
+        [t("shared.manufacturer")]: mb.manufacturer,
+        [t("shared.product")]: mb.product,
+        ...(mb.version ? { [t("shared.version")]: mb.version } : {}),
+        [t("shared.serialNumber")]: mb.serialNumber,
+        [t("shared.biosVendor")]: mb.biosVendor,
+        [t("shared.biosVersion")]: mb.biosVersion,
+        [t("shared.biosReleaseDate")]: mb.biosReleaseDate,
+      }}
+    />
+  );
+};
+
 export const NetworkInfo = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();

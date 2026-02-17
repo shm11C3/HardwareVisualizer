@@ -259,14 +259,6 @@ pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
 7. **Scalability**: Easy addition of new platforms and hardware features
 8. **Flexibility**: Runtime platform switching and configuration
 
-## Platform Support Matrix
-
-| Platform | Memory | GPU | Network | Status |
-|----------|---------|-----|---------|--------|
-| Windows  | ✅ Full | ✅ Full | ✅ Full | Supported |
-| Linux    | ✅ Full | ✅ Full | ✅ Full | Supported |
-| macOS    | 🔒 Planned | 🔒 Planned | 🔒 Planned | Future |
-
 ## Performance Considerations
 
 - **Async Operations**: Platform operations use async/await for non-blocking calls

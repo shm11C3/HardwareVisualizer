@@ -70,11 +70,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
-        include:
-          - platform: "macos-latest"
-            allow-failure: true  # macOS support is experimental/in-progress
     runs-on: ${{ matrix.platform }}
-    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -104,12 +100,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
-        include:
-          - platform: "macos-latest"
-            # macOS support is experimental/in-progress
-            allow-failure: true
     runs-on: ${{ matrix.platform }}
-    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -140,11 +131,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
-        include:
-          - platform: "macos-latest"
-            allow-failure: true  # macOS support is experimental/in-progress
     runs-on: ${{ matrix.platform }}
-    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -269,7 +256,7 @@ jobs:
         run: npm test
 
       - name: Report coverage
-        uses: davelosert/vitest-coverage-report-action@5b6122e3a819a3be7b27fc961b7faafb3bf00e4d # v2.9.0
+        uses: davelosert/vitest-coverage-report-action@15b5b41bb7d36796d89f4bf482b09529c53f3446 # v2.9.2
         with:
           json-summary-path: coverage/coverage-summary.json
 
@@ -326,11 +313,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
-        include:
-          - platform: "macos-latest"
-            allow-failure: true  # macOS support is experimental/in-progress; failures do not block CI
     runs-on: ${{ matrix.platform }}
-    continue-on-error: ${{ matrix.allow-failure == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

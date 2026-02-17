@@ -1,4 +1,5 @@
 import { FunnelIcon } from "@phosphor-icons/react";
+import { platform } from "@tauri-apps/plugin-os";
 import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
@@ -21,6 +22,7 @@ export const DashboardItemSelector = ({
   toggleItem: (item: DashboardSelectItemType) => void;
 }) => {
   const { t } = useTranslation();
+  const os = platform();
 
   if (!visibleItems) return null;
 
@@ -32,9 +34,15 @@ export const DashboardItemSelector = ({
     storage: t("shared.storage"),
     process: t("shared.process"),
     network: t("shared.network"),
+    motherboard: t("shared.motherboard"),
   };
 
-  const items: DashboardSelectItemType[] = ["title", ...dashBoardItems];
+  const items: DashboardSelectItemType[] = [
+    "title",
+    ...dashBoardItems.filter(
+      (item) => item !== "motherboard" || os === "windows",
+    ),
+  ];
 
   return (
     <DropdownMenu>

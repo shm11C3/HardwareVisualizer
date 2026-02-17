@@ -17,6 +17,9 @@ updates:
     assignees:
       - "shm11C3"
 
+    ignore:
+      - dependency-name: "@tauri-apps/*"
+
     groups:
       default:
         patterns:
@@ -28,9 +31,6 @@ updates:
           - "react*"
           - "@types/react*"
           - "typescript"
-      tauri:
-        patterns:
-          - "tauri"
           - "@tauri-apps/*"
       react:
         patterns:
@@ -52,6 +52,11 @@ updates:
     open-pull-requests-limit: 40
     assignees:
       - "shm11C3"
+    ignore:
+      - dependency-name: "tauri"
+      - dependency-name: "tauri-build"
+      - dependency-name: "tauri-plugin-*"
+      - dependency-name: "tauri-specta"
 
   - package-ecosystem: "rust-toolchain"
     directory: "/"
