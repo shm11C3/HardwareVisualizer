@@ -32,6 +32,14 @@ vi.mock("@/rspc/bindings", () => ({
     setSelectedBackgroundImg: vi.fn(),
     setTemperatureUnit: vi.fn(),
     setLineGraphColor: vi.fn(),
+    setBurnInShift: vi.fn(),
+    setBurnInShiftPreset: vi.fn(),
+    setBurnInShiftMode: vi.fn(),
+    setBurnInShiftIdleOnly: vi.fn(),
+    setBurnInShiftOptions: vi.fn(),
+    setHardwareArchiveEnabled: vi.fn(),
+    setHardwareArchiveInterval: vi.fn(),
+    setHardwareArchiveScheduledDataDeletion: vi.fn(),
   },
 }));
 
@@ -232,5 +240,110 @@ describe("useSettingsAtom", () => {
     });
 
     expect(result.current.settings.theme).toEqual("system");
+  });
+
+  it("toggleHardwareArchiveAtom: hardwareArchive.enabled is updated on success", async () => {
+    (commands.setHardwareArchiveEnabled as Mock).mockResolvedValue({
+      data: null,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    await act(async () => {
+      await result.current.toggleHardwareArchiveAtom(false);
+    });
+    expect(result.current.settings.hardwareArchive.enabled).toBe(false);
+  });
+
+  it("toggleHardwareArchiveAtom: error() is called on error and hardwareArchive is not updated", async () => {
+    const errorMsg = "Failed to toggle archive";
+    (commands.setHardwareArchiveEnabled as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialEnabled = result.current.settings.hardwareArchive.enabled;
+    await act(async () => {
+      await result.current.toggleHardwareArchiveAtom(!initialEnabled);
+    });
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.settings.hardwareArchive.enabled).toBe(
+      initialEnabled,
+    );
+  });
+
+  it("setHardwareArchiveRefreshIntervalDays: refreshIntervalDays is updated on success", async () => {
+    (commands.setHardwareArchiveInterval as Mock).mockResolvedValue({
+      data: null,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    await act(async () => {
+      await result.current.setHardwareArchiveRefreshIntervalDays(7);
+    });
+    expect(result.current.settings.hardwareArchive.refreshIntervalDays).toBe(7);
+  });
+
+  it("setHardwareArchiveRefreshIntervalDays: error() is called on error and refreshIntervalDays is not updated", async () => {
+    const errorMsg = "Failed to set archive interval";
+    (commands.setHardwareArchiveInterval as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialDays =
+      result.current.settings.hardwareArchive.refreshIntervalDays;
+    await act(async () => {
+      await result.current.setHardwareArchiveRefreshIntervalDays(7);
+    });
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.settings.hardwareArchive.refreshIntervalDays).toBe(
+      initialDays,
+    );
+  });
+
+  it("setScheduledDataDeletion: scheduledDataDeletion is updated on success", async () => {
+    (
+      commands.setHardwareArchiveScheduledDataDeletion as Mock
+    ).mockResolvedValue({ data: null });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    await act(async () => {
+      await result.current.setScheduledDataDeletion(false);
+    });
+    expect(result.current.settings.hardwareArchive.scheduledDataDeletion).toBe(
+      false,
+    );
+  });
+
+  it("setScheduledDataDeletion: error() is called on error and scheduledDataDeletion is not updated", async () => {
+    const errorMsg = "Failed to set scheduled deletion";
+    (
+      commands.setHardwareArchiveScheduledDataDeletion as Mock
+    ).mockResolvedValue({ status: "error", error: errorMsg });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialValue =
+      result.current.settings.hardwareArchive.scheduledDataDeletion;
+    await act(async () => {
+      await result.current.setScheduledDataDeletion(!initialValue);
+    });
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.settings.hardwareArchive.scheduledDataDeletion).toBe(
+      initialValue,
+    );
   });
 });
