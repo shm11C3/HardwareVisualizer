@@ -7,10 +7,7 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
-network:
-  allowed:
-    - defaults
-    - github
+network: defaults
 imports:
   - github/gh-aw/.github/workflows/shared/mood.md@852cb06ad52958b402ed982b69957ffc57ca0619
 safe-outputs:
@@ -42,6 +39,7 @@ tools:
     - if [ -d .github/workflows ]; then find .github/workflows -maxdepth 1 -type f \( -name '*.md' -o -name '*.yml' -o -name '*.yaml' \) -print; fi
     - if [ -f README.md ]; then sed -n '1,220p' README.md; fi
     - if [ -f README.ja.md ]; then sed -n '1,220p' README.ja.md; fi
+    - if [ -f docs/README.ja.md ]; then sed -n '1,220p' docs/README.ja.md; fi
     - if [ -f CONTRIBUTING.md ]; then sed -n '1,220p' CONTRIBUTING.md; fi
     - if [ -f docs/README.md ]; then sed -n '1,220p' docs/README.md; fi
     - git
