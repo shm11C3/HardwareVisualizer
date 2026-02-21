@@ -1,7 +1,7 @@
 ---
 on:
   schedule:
-  - cron: daily
+    - cron: "0 0 * * 1"
   workflow_dispatch: null
 permissions:
   contents: read
@@ -9,20 +9,20 @@ permissions:
   pull-requests: read
 network:
   allowed:
-  - defaults
-  - github
+    - defaults
+    - github
 imports:
-- github/gh-aw/.github/workflows/shared/mood.md@852cb06ad52958b402ed982b69957ffc57ca0619
+  - github/gh-aw/.github/workflows/shared/mood.md@852cb06ad52958b402ed982b69957ffc57ca0619
 safe-outputs:
   create-pull-request:
-    auto-merge: true
+    auto-merge: false
     draft: false
-    expires: 1d
+    expires: 7d
     labels:
-    - documentation
-    - automation
+      - documentation
+      - automation
     reviewers:
-    - copilot
+      - shm11C3
     title-prefix: "[docs] "
 description: Automatically reviews and updates documentation to ensure accuracy and completeness
 engine: copilot
@@ -32,16 +32,24 @@ strict: true
 timeout-minutes: 45
 tools:
   bash:
-  - find docs -name '*.md' -o -name '*.mdx'
-  - find docs -maxdepth 1 -ls
-  - find docs -name '*.md' -exec cat {} +
-  - grep -r '*' docs
-  - git
+    - ls -la
+    - find . -maxdepth 4 -type f \( -iname 'README*.md' -o -iname 'CONTRIBUTING*.md' -o -path './docs/*' -o -path './.github/*' -o -path './src-tauri/*' \) | head -n 250
+    - find . -maxdepth 5 -type f \( -iname 'README*.md' -o -iname '*.md' -o -iname '*.mdx' \) \( -path './docs/*' -o -path './.github/*' \) | head -n 450
+    - if [ -d docs ]; then find docs -type f \( -name '*.md' -o -name '*.mdx' \) -print; fi
+    - if [ -d .github ]; then find .github -type f \( -name '*.md' -o -name '*.mdx' \) -print; fi
+    - if [ -d .github/instructions ]; then find .github/instructions -type f -print; fi
+    - if [ -d .github/aw ]; then find .github/aw -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.yml' -o -name '*.yaml' \) -print; fi
+    - if [ -d .github/workflows ]; then find .github/workflows -maxdepth 1 -type f \( -name '*.md' -o -name '*.yml' -o -name '*.yaml' \) -print; fi
+    - if [ -f README.md ]; then sed -n '1,220p' README.md; fi
+    - if [ -f README.ja.md ]; then sed -n '1,220p' README.ja.md; fi
+    - if [ -f CONTRIBUTING.md ]; then sed -n '1,220p' CONTRIBUTING.md; fi
+    - if [ -f docs/README.md ]; then sed -n '1,220p' docs/README.md; fi
+    - git
   cache-memory: true
   edit: null
   github:
     toolsets:
-    - default
+      - default
 tracker-id: daily-doc-updater
 ---
 
@@ -53,18 +61,19 @@ You are an AI documentation agent that automatically updates the project documen
 
 ## Your Mission
 
-Scan the repository for merged pull requests and code changes from the last 24 hours, identify new features or changes that should be documented, and update the documentation accordingly.
+Scan the repository for merged pull requests and code changes from the last 7 days, identify new features or changes that should be documented (including AI-facing docs), and update the documentation accordingly.
 
 ## Task Steps
 
-### 1. Scan Recent Activity (Last 24 Hours)
+### 1. Scan Recent Activity (Last 7 Days)
 
-First, search for merged pull requests from the last 24 hours.
+First, search for merged pull requests from the last 7 days.
 
 Use the GitHub tools to:
-- Search for pull requests merged in the last 24 hours using `search_pull_requests` with a query like: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD` (replace YYYY-MM-DD with yesterday's date)
+
+- Search for pull requests merged in the last 7 days using `search_pull_requests` with a query like: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD` (replace YYYY-MM-DD with the date 7 days ago)
 - Get details of each merged PR using `pull_request_read`
-- Review commits from the last 24 hours using `list_commits`
+- Review commits from the last 7 days using `list_commits`
 - Get detailed commit information using `get_commit` for significant changes
 
 ### 2. Analyze Changes
@@ -88,57 +97,80 @@ cat .github/instructions/documentation.instructions.md
 ```
 
 The documentation follows the **Diátaxis framework** with four distinct types:
+
 - **Tutorials** (Learning-Oriented): Guide beginners through achieving specific outcomes
 - **How-to Guides** (Goal-Oriented): Solve specific real-world problems
 - **Reference** (Information-Oriented): Provide accurate technical descriptions
 - **Explanation** (Understanding-Oriented): Clarify and illuminate topics
 
 Pay special attention to:
+
 - The tone and voice guidelines (neutral, technical, not promotional)
 - Proper use of headings (markdown syntax, not bold text)
 - Code samples with appropriate language tags (use `aw` for agentic workflows)
 - Astro Starlight syntax for callouts, tabs, and cards
 - Minimal use of components (prefer standard markdown)
 
-### 4. Identify Documentation Gaps
+### 4. Identify Documentation Gaps (HardwareVisualizer)
 
-Review the documentation in the `docs/src/content/docs/` directory:
+HardwareVisualizer’s user-facing documentation is primarily:
 
-- Check if new features are already documented
-- Identify which documentation files need updates
-- Determine the appropriate documentation type (tutorial, how-to, reference, explanation)
-- Find the best location for new content
+- `README.md` (main user guide)
+- `README.ja.md` (Japanese guide, if present)
+- `docs/**` (if present)
+- Contributor docs: `CONTRIBUTING.md`, Issue/PR templates, `.github/**`
+- AI-facing docs: `.github/instructions/**`, Agentic Workflows: `.github/workflows/*.md` and related `*.lock.yml` files
 
-Use bash commands to explore documentation structure:
+Identify what needs updates based on the last 7 days of merged PRs:
+
+- Installation / Update instructions (Windows/macOS/Linux)
+- Supported platforms and any prerequisites (drivers, permissions)
+- New/changed settings (UI, updater, dashboards)
+- Sensor support changes (CPU/GPU/RAM/etc.)
+- Packaging / distribution notes (MSI/MSIX/AppImage/deb/rpm, etc. if present in docs)
+- Troubleshooting and known limitations
+
+Use bash commands to discover what documentation exists in THIS repository:
 
 ```bash
-find docs/src/content/docs -name '*.md' -o -name '*.mdx'
+# Top-level docs
+ls -la
+
+# Find markdown documentation
+find . -maxdepth 4 -type f \( -iname 'README*.md' -o -iname 'CONTRIBUTING*.md' -o -iname '*.md' -o -iname '*.mdx' \) \
+  \( -path './docs/*' -o -path './.github/*' \)
 ```
 
-### 5. Update Documentation
+### 5. Update Documentation (HardwareVisualizer)
 
-For each missing or incomplete feature documentation:
+Update documentation ONLY within this repository.
 
-1. **Determine the correct file** based on the feature type:
-   - CLI commands → `docs/src/content/docs/setup/cli.md`
-   - Workflow reference → `docs/src/content/docs/reference/`
-   - How-to guides → `docs/src/content/docs/guides/`
-   - Samples → `docs/src/content/docs/samples/`
+1. Prefer updating the most user-visible docs first:
+   - `README.md`
+   - `README.ja.md` (if present)
 
-2. **Follow documentation guidelines** from `.github/instructions/documentation.instructions.md`
+2. If a `docs/` directory exists, update the most appropriate page there.
 
-3. **Update the appropriate file(s)** using the edit tool:
-   - Add new sections for new features
-   - Update existing sections for modified features
-   - Add deprecation notices for removed features
-   - Include code examples with proper syntax highlighting
-   - Use appropriate Astro Starlight components (callouts, tabs, cards) sparingly
+2.5. Also keep AI-facing documentation in sync when relevant:
 
-4. **Maintain consistency** with existing documentation style:
-   - Use the same tone and voice
-   - Follow the same structure
-   - Use similar examples
-   - Match the level of detail
+- Update `.github/instructions/**` when rules or conventions change
+- Update agentic workflow markdown (`.github/workflows/*.md`) when repo structure or expectations change
+
+3. When writing:
+   - Be factual and precise. Avoid marketing language.
+   - Include concrete steps, exact menu paths, and exact CLI commands.
+   - If you are not fully sure about behavior, cross-check by reading the merged PR diff or relevant code.
+
+4. Bilingual rule:
+   - If the repo contains `README.ja.md`, keep `README.md` and `README.ja.md` consistent at least for headings / feature lists.
+   - If you add content only in one language due to uncertainty, mention that in the PR description.
+
+5. Typical mappings for HardwareVisualizer:
+   - New setting / UI change → `README.md` (and `README.ja.md` if present), possibly a `docs/` page if it exists
+   - Breaking change / behavior change → add a clear note under a “Notes” / “Breaking changes” / “Compatibility” section
+   - New platform caveat (Linux permissions, driver requirements, etc.) → installation / troubleshooting sections
+
+Use the edit tool to make small, focused changes.
 
 ### 6. Create Pull Request
 
@@ -160,10 +192,11 @@ If you made any documentation changes:
 **PR Title Format**: `[docs] Update documentation for features from [date]`
 
 **PR Description Template**:
+
 ```markdown
 ## Documentation Updates - [Date]
 
-This PR updates the documentation based on features merged in the last 24 hours.
+This PR updates the documentation based on features merged in the last 7 days.
 
 ### Features Documented
 
@@ -187,7 +220,7 @@ This PR updates the documentation based on features merged in the last 24 hours.
 
 ### 7. Handle Edge Cases
 
-- **No recent changes**: If there are no merged PRs in the last 24 hours, exit gracefully without creating a PR
+- **No recent changes**: If there are no merged PRs in the last 7 days, exit gracefully without creating a PR
 - **Already documented**: If all features are already documented, exit gracefully
 - **Unclear features**: If a feature is complex and needs human review, note it in the PR description but don't skip documentation entirely
 
