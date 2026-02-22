@@ -4,6 +4,9 @@ use crate::models;
 use std::future::Future;
 use std::pin::Pin;
 
+/// Return type for [`GpuPlatform::get_gpu_usage`]: `(percentage, source_name)`.
+pub type GpuUsageRaw = (f32, String);
+
 /// Trait that defines platform-specific memory operations
 pub trait MemoryPlatform: Send + Sync {
   /// Get basic memory information
@@ -22,11 +25,12 @@ pub trait MemoryPlatform: Send + Sync {
 }
 
 /// Trait that defines platform-specific GPU operations
+#[allow(clippy::type_complexity)]
 pub trait GpuPlatform: Send + Sync {
-  /// Get GPU usage
+  /// Get GPU usage together with the data-source name
   fn get_gpu_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>>;
+  ) -> Pin<Box<dyn Future<Output = Result<GpuUsageRaw, String>> + Send + '_>>;
 
   /// Get GPU temperature
   fn get_gpu_temperature(

@@ -52,7 +52,8 @@ impl MemoryPlatform for WindowsPlatform {
 impl GpuPlatform for WindowsPlatform {
   fn get_gpu_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
+  ) -> Pin<Box<dyn Future<Output = Result<super::traits::GpuUsageRaw, String>> + Send + '_>>
+  {
     Box::pin(gpu::get_gpu_usage())
   }
 

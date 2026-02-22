@@ -49,13 +49,14 @@ impl MemoryPlatform for LinuxPlatform {
 impl GpuPlatform for LinuxPlatform {
   fn get_gpu_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>> {
+  ) -> Pin<Box<dyn Future<Output = Result<super::traits::GpuUsageRaw, String>> + Send + '_>>
+  {
     Box::pin(gpu::get_gpu_usage())
   }
 
   fn get_gpu_temperature(
     &self,
-    _temperature_unit: enums::settings::TemperatureUnit,
+    temperature_unit: enums::settings::TemperatureUnit,
   ) -> Pin<
     Box<
       dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, String>>
@@ -63,7 +64,7 @@ impl GpuPlatform for LinuxPlatform {
         + '_,
     >,
   > {
-    Box::pin(async { Err("Not implemented".to_string()) })
+    Box::pin(gpu::get_gpu_temperature(temperature_unit))
   }
 
   fn get_gpu_info(

@@ -282,6 +282,11 @@
       "license": {
         "applicationLicense": "Application License",
         "thirdPartyLicenses": "Third-Party Licenses"
+      },
+      "advanced": {
+        "name": "Advanced",
+        "showGpuUsageSource": "Show GPU Usage Source",
+        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard."
       }
     },
     "updater": {

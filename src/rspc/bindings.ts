@@ -86,11 +86,11 @@ async getMemoryUsage() : Promise<number> {
 /**
  * ## Get GPU usage (%)
  * 
- * - param state: `tauri::State<AppState>` Application state
- * - return: `i32` GPU usage (%)
+ * Returns the GPU usage percentage together with the data-source
+ * identifier (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit").
  * 
  */
-async getGpuUsage() : Promise<Result<number, string>> {
+async getGpuUsage() : Promise<Result<GpuUsageResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_gpu_usage") };
 } catch (e) {
@@ -534,6 +534,11 @@ export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: 
 export type DiskKind = "hdd" | "ssd" | "other"
 export type DownloadEvent = { event: "started"; data: { contentLength: string | null } } | { event: "progress"; data: { chunkLength: string } } | { event: "finished" }
 export type GpuMemoryUsage = { inUseBytes: string | null; allocBytes: string | null }
+/**
+ * GPU usage percentage together with the data-source identifier
+ * (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit")
+ */
+export type GpuUsageResult = { usage: number; source: string }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }

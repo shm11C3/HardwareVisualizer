@@ -7,6 +7,7 @@ import {
   cpuUsageHistoryAtom,
   gpuFanSpeedAtom,
   gpuTempAtom,
+  gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
@@ -15,7 +16,12 @@ import type {
   ChartDataHardwareType,
   ChartDataType,
 } from "@/features/hardware/types/hardwareDataType";
-import { commands, type NameValue, type Result } from "@/rspc/bindings";
+import {
+  commands,
+  type GpuUsageResult,
+  type NameValue,
+  type Result,
+} from "@/rspc/bindings";
 import { isError, isOk, isResult } from "@/types/result";
 
 /**
@@ -27,8 +33,11 @@ export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
     action: () =>
       | Promise<number>
       | Promise<Result<number, string>>
+      | Promise<Result<GpuUsageResult, string>>
       | Promise<number[]>;
   };
+
+  const setGpuUsageSource = useSetAtom(gpuUsageSourceAtom);
 
   const mapping: Record<ChartDataHardwareType, AtomActionMapping> = {
     cpu: {
@@ -56,13 +65,33 @@ export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
     const fetchAndUpdate = async () => {
       const result = await getUsage();
 
-      if (isResult(result) && isError(result)) return;
-      const usage = isResult(result) ? result.data : result;
+      if (isResult(result) && isError(result as Result<unknown, string>))
+        return;
+      const rawData = isResult(result)
+        ? (result as Result<unknown, string> & { status: "ok" }).data
+        : result;
+
+      // Extract usage value from GpuUsageResult and store source
+      let usage: number | number[];
+      if (
+        dataType === "gpu" &&
+        rawData != null &&
+        typeof rawData === "object" &&
+        !Array.isArray(rawData) &&
+        "usage" in rawData &&
+        "source" in rawData
+      ) {
+        const gpuResult = rawData as GpuUsageResult;
+        usage = gpuResult.usage;
+        setGpuUsageSource(gpuResult.source);
+      } else {
+        usage = rawData as number | number[];
+      }
 
       // CPU and GPU usage may be returned as array
       if (Array.isArray(usage)) {
         setHistory((prev: number[][]) => {
-          const newHistory = [...prev, usage];
+          const newHistory = [...prev, usage as number[]];
           return newHistory.slice(-chartConfig.historyLengthSec);
         });
         return;
@@ -70,7 +99,7 @@ export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
 
       // Add directly to history if single number
       setHistory((prev: number[]) => {
-        const newHistory = [...prev, usage];
+        const newHistory = [...prev, usage as number];
 
         // Pad with 0 if not enough history
         const paddedHistory = Array(
@@ -86,7 +115,7 @@ export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
     const intervalId = setInterval(fetchAndUpdate, 1000);
 
     return () => clearInterval(intervalId);
-  }, [setHistory, getUsage]);
+  }, [setHistory, getUsage, dataType, setGpuUsageSource]);
 };
 
 export const useHardwareUpdater = (

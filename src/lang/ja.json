@@ -282,6 +282,11 @@
       "license": {
         "applicationLicense": "アプリケーションライセンス",
         "thirdPartyLicenses": "サードパーティライセンス"
+      },
+      "advanced": {
+        "name": "高度な設定",
+        "showGpuUsageSource": "GPU使用率の取得ソースを表示",
+        "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。"
       }
     },
     "updater": {

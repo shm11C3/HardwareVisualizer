@@ -82,12 +82,12 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 ///
 /// ## Get GPU usage (%)
 ///
-/// - param state: `tauri::State<AppState>` Application state
-/// - return: `i32` GPU usage (%)
+/// Returns the GPU usage percentage together with the data-source
+/// identifier (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit").
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_usage() -> Result<i32, String> {
+pub async fn get_gpu_usage() -> Result<models::hardware::GpuUsageResult, String> {
   use crate::services::gpu_service;
 
   gpu_service::fetch_gpu_usage().await

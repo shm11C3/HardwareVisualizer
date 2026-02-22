@@ -22,12 +22,14 @@ import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAt
 import {
   cpuUsageHistoryAtom,
   gpuTempAtom,
+  gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useTauriStore } from "@/hooks/useTauriStore";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 import {
@@ -80,8 +82,10 @@ export const GPUInfo = () => {
   const { t } = useTranslation();
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
+  const [gpuUsageSource] = useAtom(gpuUsageSourceAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
+  const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
   const [gpuMemoryUsage, setGpuMemoryUsage] = useState<GpuMemoryUsage | null>(
     null,
   );
@@ -121,24 +125,31 @@ export const GPUInfo = () => {
 
   return (
     <>
-      <div
-        className={cn(
-          "flex justify-around",
-          !isBreak("md") && targetTemperature
-            ? "h-[150px] lg:h-[100px] xl:h-[200px]"
-            : "h-[100px] xl:h-[200px]",
-        )}
-      >
-        <DoughnutChart
-          chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
-          dataType={"usage"}
-        />
-        {targetTemperature && (
+      <div className="relative">
+        <div
+          className={cn(
+            "flex justify-around",
+            !isBreak("md") && targetTemperature
+              ? "h-[150px] lg:h-[100px] xl:h-[200px]"
+              : "h-[100px] xl:h-[200px]",
+          )}
+        >
           <DoughnutChart
-            chartValue={targetTemperature}
-            dataType={"temp"}
-            className={!isBreak("md") ? "mt-12" : ""}
+            chartValue={graphicUsageHistory[graphicUsageHistory.length - 1]}
+            dataType={"usage"}
           />
+          {targetTemperature && (
+            <DoughnutChart
+              chartValue={targetTemperature}
+              dataType={"temp"}
+              className={!isBreak("md") ? "mt-12" : ""}
+            />
+          )}
+        </div>
+        {showGpuUsageSource && gpuUsageSource && (
+          <span className="absolute top-0 right-0 rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            {gpuUsageSource}
+          </span>
         )}
       </div>
 

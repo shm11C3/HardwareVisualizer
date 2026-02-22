@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AboutSection } from "@/features/settings/components/about/AboutSection";
+import { AdvancedSettings } from "@/features/settings/components/advanced/AdvancedSettings";
 import { GeneralSettings } from "@/features/settings/components/general/GeneralSettings";
 import { GraphSettings } from "@/features/settings/components/graph/GraphSettings";
 import { InsightsSettings } from "@/features/settings/components/insights/InsightsSettings";
@@ -19,6 +20,7 @@ export const Settings = () => {
       <GeneralSettings />
       <GraphSettings />
       <InsightsSettings />
+      <AdvancedSettings />
 
       <div className="p-4">
         <h3 className="py-3 font-bold text-2xl">
