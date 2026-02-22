@@ -113,4 +113,75 @@ describe("useBurnInShift (Behavior)", () => {
     expect(el.style.getPropertyValue("--shift-x")).toBe("-2px");
     expect(el.style.getPropertyValue("--shift-y")).toBe("-2px");
   });
+
+  it("cleanup: removes event listeners and clears timers on unmount with idleOnly=true", () => {
+    const el = document.createElement("div");
+    const ref: RefObject<HTMLElement | null> = { current: el };
+
+    (useSettingsAtomMocked as Mock).mockReturnValue({
+      settings: {
+        burnInShift: true,
+        burnInShiftMode: "jump",
+        burnInShiftPreset: "balanced",
+        burnInShiftIdleOnly: true,
+      },
+    });
+
+    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+
+    const { unmount } = renderHook(() =>
+      useBurnInShift(ref, true, {
+        intervalMs: 5000,
+        amplitudePx: [2, 2],
+        idleThresholdMs: 100,
+        driftDurationSec: 10,
+      }),
+    );
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "mousemove",
+      expect.any(Function),
+    );
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "keydown",
+      expect.any(Function),
+    );
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "wheel",
+      expect.any(Function),
+    );
+
+    removeEventListenerSpy.mockRestore();
+  });
+
+  it("cleanup: clears interval on unmount in jump mode", () => {
+    const el = document.createElement("div");
+    const ref: RefObject<HTMLElement | null> = { current: el };
+
+    (useSettingsAtomMocked as Mock).mockReturnValue({
+      settings: {
+        burnInShift: true,
+        burnInShiftMode: "jump",
+        burnInShiftPreset: "balanced",
+        burnInShiftIdleOnly: false,
+      },
+    });
+
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+
+    const { unmount } = renderHook(() =>
+      useBurnInShift(ref, true, {
+        intervalMs: 5000,
+        amplitudePx: [2, 2],
+        driftDurationSec: 10,
+      }),
+    );
+
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
+    clearIntervalSpy.mockRestore();
+  });
 });

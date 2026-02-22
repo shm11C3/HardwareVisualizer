@@ -1,5 +1,5 @@
 // src/features/hardware/hooks/useHardwareData.test.ts
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
@@ -15,6 +15,7 @@ import {
   gpuTempAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 
 // Commands (mock targets)
@@ -28,6 +29,7 @@ vi.mock("@/rspc/bindings", () => ({
     getCpuUsage: vi.fn(),
     getMemoryUsage: vi.fn(),
     getGpuUsage: vi.fn(),
+    getProcessorsUsage: vi.fn(),
     getNvidiaGpuCooler: vi.fn(),
     getGpuTemperature: vi.fn(),
   },
@@ -154,6 +156,81 @@ describe("useHardwareUpdater", () => {
 
     await waitFor(() => {
       expect(result.current).toEqual([{ name: "test2", value: 70 }]);
+    });
+  });
+
+  it("cpu temp: does not update atom (not implemented)", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(
+      () => {
+        useHardwareUpdater("cpu", "temp");
+        const [data] = useAtom(gpuTempAtom);
+        return data;
+      },
+      { wrapper: Provider },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // atom should remain empty since cpu temp is not implemented
+    expect(result.current).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Not implemented");
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("cpu fan: does not update atom (not implemented)", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(
+      () => {
+        useHardwareUpdater("cpu", "fan");
+        const [data] = useAtom(gpuFanSpeedAtom);
+        return data;
+      },
+      { wrapper: Provider },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Not implemented");
+    consoleErrorSpy.mockRestore();
+  });
+});
+
+describe("useUsageUpdater processors", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("processors usage history is updated with array data", async () => {
+    (commands.getProcessorsUsage as Mock).mockResolvedValue([
+      [30, 40],
+      [50, 60],
+    ]);
+
+    const { result } = renderHook(
+      () => {
+        useUsageUpdater("processors");
+        const [history] = useAtom(processorsUsageHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    await waitFor(() => {
+      const history = result.current;
+      expect(history.length).toBeGreaterThan(0);
+      expect(Array.isArray(history[history.length - 1])).toBe(true);
     });
   });
 });
