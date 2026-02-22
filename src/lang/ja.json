@@ -151,7 +151,8 @@
       },
       "snapshot": {
         "title": "スナップショット"
-      }
+      },
+      "noDataForPeriod": "選択された期間のデータは見つかりませんでした"
     },
     "settings": {
       "name": "設定",

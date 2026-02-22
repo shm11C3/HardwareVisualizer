@@ -7,6 +7,10 @@ use crate::constants::{
 use crate::models::hardware::HardwareMonitorState;
 use crate::models::hardware_archive::MonitorResources;
 
+/// A single GPU sample: (name, usage%, temperature°C, dedicated_memory_usage%).
+/// `None` means the metric is unavailable for this GPU vendor/platform.
+type GpuSample = (String, Option<f32>, Option<f32>, Option<f32>);
+
 /// System sampling for one cycle (CPU/memory/process)
 pub fn sample_system(resources: &MonitorResources) {
   if let Some((cpu_usage, memory_usage, process_metrics)) =
@@ -76,7 +80,7 @@ pub async fn sample_gpu(resources: &MonitorResources) {
   use crate::infrastructure::providers::nvapi_provider;
   use nvapi::PhysicalGpu;
 
-  let mut gpu_metrics: Vec<(String, f32, f32, f32)> = Vec::new();
+  let mut gpu_metrics: Vec<GpuSample> = Vec::new();
 
   // ── NVIDIA GPUs via NVAPI ──
   if let Some(nvapi_metrics) = PhysicalGpu::enumerate().ok().map(|gpus| {
@@ -89,7 +93,7 @@ pub async fn sample_gpu(resources: &MonitorResources) {
           nvapi_provider::get_gpu_temperature_from_physical_gpu(gpu) as f32;
         let memory_usage =
           nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
-        (name, usage, temperature, memory_usage)
+        (name, Some(usage), Some(temperature), Some(memory_usage))
       })
       .collect::<Vec<_>>()
   }) {
@@ -107,9 +111,9 @@ pub async fn sample_gpu(resources: &MonitorResources) {
 }
 
 /// Collect AMD GPU usage and temperature via ADL.
-/// VRAM usage is out of scope for now.
+/// VRAM usage is not available via ADL.
 #[cfg(target_os = "windows")]
-async fn sample_amd_gpu(gpu_metrics: &mut Vec<(String, f32, f32, f32)>) {
+async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   use crate::infrastructure::providers::adl_provider;
 
   // Usage per adapter
@@ -127,9 +131,9 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<(String, f32, f32, f32)>) {
     temps.iter().map(|(n, t)| (n.as_str(), *t)).collect();
 
   for (name, usage) in &usages {
-    let temperature = temp_map.get(name.as_str()).copied().unwrap_or(0.0);
-    // VRAM usage is not available via ADL; default to 0
-    gpu_metrics.push((name.clone(), *usage, temperature, 0.0));
+    let temperature = temp_map.get(name.as_str()).copied();
+    // VRAM usage is not available via ADL
+    gpu_metrics.push((name.clone(), Some(*usage), temperature, None));
   }
 }
 
@@ -145,11 +149,11 @@ pub async fn sample_gpu(resources: &MonitorResources) {
 /// Collect GPU metrics on Linux using the existing platform layer
 /// (DRM/sysfs for AMD, DRM for Intel).
 #[cfg(target_os = "linux")]
-async fn collect_linux_gpu_metrics() -> Vec<(String, f32, f32, f32)> {
+async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
   use crate::infrastructure::providers::drm_sys;
   use crate::infrastructure::providers::hwmon;
 
-  let mut metrics: Vec<(String, f32, f32, f32)> = Vec::new();
+  let mut metrics: Vec<GpuSample> = Vec::new();
   let card_ids = drm_sys::get_all_card_ids();
 
   for card_id in card_ids {
@@ -165,34 +169,30 @@ async fn collect_linux_gpu_metrics() -> Vec<(String, f32, f32, f32)> {
         let usage = drm_sys::get_amd_gpu_usage(card_id as u32)
           .await
           .map(|u| (u * 100.0) as f32)
-          .unwrap_or(0.0);
+          .ok();
         let temperature = hwmon::read_hwmon_temperatures(card_id)
           .ok()
-          .and_then(|temps| temps.first().map(|t| t.value as f32))
-          .unwrap_or(0.0);
+          .and_then(|temps| temps.first().map(|t| t.value as f32));
         (name, usage, temperature)
       }
       drm_sys::GpuVendor::Intel => {
         let usage = drm_sys::get_intel_gpu_usage()
           .await
           .map(|u| (u * 100.0) as f32)
-          .unwrap_or(0.0);
-        (format!("Intel GPU (card{})", card_id), usage, 0.0)
+          .ok();
+        (format!("Intel GPU (card{})", card_id), usage, None)
       }
       _ => continue,
     };
 
-    // VRAM usage is out of scope for now
-    metrics.push((name, usage, temperature, 0.0));
+    // VRAM usage is not available on Linux
+    metrics.push((name, usage, temperature, None));
   }
 
   metrics
 }
 
-fn update_gpu_histories(
-  resources: &MonitorResources,
-  gpu_metrics: &[(String, f32, f32, f32)],
-) {
+fn update_gpu_histories(resources: &MonitorResources, gpu_metrics: &[GpuSample]) {
   let mut usage_histories = resources.gpu_usage_histories.lock().unwrap();
   let mut temp_histories = resources.gpu_temperature_histories.lock().unwrap();
   let mut mem_histories = resources.gpu_dedicated_memory_histories.lock().unwrap();
@@ -200,21 +200,27 @@ fn update_gpu_histories(
   gpu_metrics
     .iter()
     .for_each(|(name, usage, temperature, memory_usage)| {
-      let usage_history = usage_histories.entry(name.clone()).or_default();
-      if usage_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
-        usage_history.pop_front();
+      if let Some(usage) = usage {
+        let usage_history = usage_histories.entry(name.clone()).or_default();
+        if usage_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+          usage_history.pop_front();
+        }
+        usage_history.push_back(*usage);
       }
-      usage_history.push_back(*usage);
-      let temp_history = temp_histories.entry(name.clone()).or_default();
-      if temp_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
-        temp_history.pop_front();
+      if let Some(temperature) = temperature {
+        let temp_history = temp_histories.entry(name.clone()).or_default();
+        if temp_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+          temp_history.pop_front();
+        }
+        temp_history.push_back(*temperature as i32);
       }
-      temp_history.push_back(*temperature as i32);
-      let mem_history = mem_histories.entry(name.clone()).or_default();
-      if mem_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
-        mem_history.pop_front();
+      if let Some(memory_usage) = memory_usage {
+        let mem_history = mem_histories.entry(name.clone()).or_default();
+        if mem_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
+          mem_history.pop_front();
+        }
+        mem_history.push_back(*memory_usage as i32);
       }
-      mem_history.push_back(*memory_usage as i32);
     });
 }
 
