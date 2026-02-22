@@ -23,6 +23,14 @@ const ADL_PMLOG_MAX_SENSORS: usize = 256;
 #[allow(dead_code)]
 const ADL_SENSOR_MAXTYPES: u32 = 46; // Sentinel in PMLog sensor array
 
+/// Known AMD vendor IDs returned by ADL's `AdlAdapterInfo.vendor_id`.
+///
+/// - `0x1002`: Standard PCI Vendor ID for AMD/ATI (discrete GPUs).
+/// - `0x03EA`: Reported by some AMD APU/iGPU drivers (e.g. Renoir, Lucienne,
+///   Barcelo integrated Radeon Graphics) where ADL returns a subsystem-related
+///   value instead of the PCI Vendor ID.
+const AMD_VENDOR_IDS: [i32; 2] = [0x1002, 0x03EA];
+
 // OverdriveN temperature types
 const ODNT_EDGE: i32 = 1;
 const ODNT_MEM: i32 = 2;
@@ -399,8 +407,17 @@ fn enumerate_adapters(adl: &AdlLibrary) -> Vec<AdapterState> {
     let mut result = Vec::new();
 
     for info in &infos {
-      // Skip non-AMD adapters (vendor 1002h)
-      if info.vendor_id != 0x1002 {
+      // Skip non-AMD adapters.
+      // Check known AMD vendor IDs first, then fall back to adapter name
+      // for drivers that report an unexpected vendor_id.
+      let is_amd_vendor = AMD_VENDOR_IDS.contains(&info.vendor_id);
+      let adapter_name_raw = String::from_utf8_lossy(&info.adapter_name)
+        .trim_end_matches('\0')
+        .to_string();
+      let is_amd_name =
+        adapter_name_raw.contains("AMD") || adapter_name_raw.contains("Radeon");
+
+      if !is_amd_vendor && !is_amd_name {
         continue;
       }
 
@@ -419,9 +436,8 @@ fn enumerate_adapters(adl: &AdlLibrary) -> Vec<AdapterState> {
         continue;
       }
 
-      let adapter_name = String::from_utf8_lossy(&info.adapter_name)
-        .trim_end_matches('\0')
-        .to_string();
+      // Reuse the adapter name already parsed above.
+      let adapter_name = adapter_name_raw;
 
       // Determine Overdrive level
       let (od_level, od_supported) = determine_overdrive_level(adl, info.adapter_index);
@@ -661,7 +677,13 @@ pub async fn get_amd_gpu_temperatures() -> Result<Vec<NameValue>, String> {
         }
       }
 
-      // ── Phase 3: PMLog / OD8 override (OD ≥ 8 or !supported) ──
+      // ── Phase 3: PMLog / OD8 supplement ──
+      // Always try PMLog when the API is available.  This covers:
+      //   - OD ≥ 8 discrete GPUs (original path)
+      //   - APU/iGPUs that report OD5-supported but fail OD5 temp queries
+      //   - Any adapter where earlier phases left gaps
+      // PMLog values only *override* if a reading is returned;
+      // they never clear a value already obtained from OD5/ODN.
       struct PmlogSensorSpec {
         pmlog_id: u32,
         odn_index: Option<usize>, // index into odn_sensors / temp_values
@@ -714,7 +736,11 @@ pub async fn get_amd_gpu_temperatures() -> Result<Vec<NameValue>, String> {
       // SoC temperature (PMLog-only, not in odn_sensors)
       let mut soc_temp: Option<i32> = None;
 
-      if adapter.overdrive_level >= 8 || !adapter.overdrive_supported {
+      // Determine whether PMLog should be attempted.
+      // Always try when OD ≥ 8, overdrive unsupported, or earlier phases
+      // left gaps (e.g. APU where OD5 temp returns rc=-100).
+      let has_temp_gaps = temp_values.iter().all(|v| v.is_none());
+      if adapter.overdrive_level >= 8 || !adapter.overdrive_supported || has_temp_gaps {
         for spec in &pmlog_sensors {
           let value = read_od8_sensor_value(adl, idx, spec.pmlog_id);
           match spec.odn_index {
@@ -794,9 +820,11 @@ pub async fn get_amd_gpu_usage() -> Result<f32, String> {
         usage = read_od5_activity(adl, idx);
       }
 
-      // Phase 2: OD8/PMLog override (OD ≥ 8 or !supported)
-      // reset=false → keep OD5 value if OD8 fails
-      if (adapter.overdrive_level >= 8 || !adapter.overdrive_supported)
+      // Phase 2: OD8/PMLog supplement
+      // Always try PMLog when OD ≥ 8, overdrive unsupported, or OD5
+      // didn't return a value (e.g. APU where OD5 activity succeeds but
+      // we still want the more accurate PMLog reading, or OD5 failed).
+      if (adapter.overdrive_level >= 8 || !adapter.overdrive_supported || usage.is_none())
         && let Some(v) = read_od8_usage(adl, idx)
       {
         usage = Some(v);
