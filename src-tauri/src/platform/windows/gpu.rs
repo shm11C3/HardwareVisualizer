@@ -3,19 +3,19 @@ use crate::infrastructure;
 use crate::utils;
 use crate::{log_error, log_internal, log_warn};
 
-pub async fn get_gpu_usage() -> Result<f32, String> {
+pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   // 1. NVAPI (NVIDIA)
   if let Ok(usage) =
     infrastructure::providers::nvapi_provider::get_nvidia_gpu_usage().await
   {
-    return Ok((usage * 100.0).round());
+    return Ok(((usage * 100.0).round(), "NVAPI".to_string()));
   }
 
   // 2. ADL (AMD) – dedicated API for AMD GPUs
   if infrastructure::providers::adl_provider::is_available() {
     if let Ok(usage) = infrastructure::providers::adl_provider::get_amd_gpu_usage().await
     {
-      return Ok(usage.round());
+      return Ok((usage.round(), "ADL".to_string()));
     }
     log_warn!(
       "adl_fallback",
@@ -30,7 +30,7 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
   )
   .await
   {
-    Ok(usage) => Ok((usage * 100.0).round()),
+    Ok(usage) => Ok(((usage * 100.0).round(), "WMI".to_string())),
     Err(e) => Err(format!(
       "Failed to get GPU usage from NVIDIA API, AMD ADL, and WMI: {e:?}"
     )),

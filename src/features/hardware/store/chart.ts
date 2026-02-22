@@ -5,6 +5,7 @@ export const cpuUsageHistoryAtom = atom<number[]>([]);
 export const processorsUsageHistoryAtom = atom<number[][]>([]);
 export const memoryUsageHistoryAtom = atom<number[]>([]);
 export const graphicUsageHistoryAtom = atom<number[]>([]);
+export const gpuUsageSourceAtom = atom<string | null>(null);
 export const cpuTempAtom = atom<NameValues>([]);
 export const cpuFanSpeedAtom = atom<NameValues>([]);
 export const gpuTempAtom = atom<NameValues>([]);

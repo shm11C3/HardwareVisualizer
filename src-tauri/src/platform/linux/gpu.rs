@@ -3,7 +3,7 @@ use crate::infrastructure;
 use crate::models;
 use crate::utils;
 
-pub async fn get_gpu_usage() -> Result<f32, String> {
+pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   let cards = infrastructure::providers::drm_sys::get_card_ids().await?;
 
   for card in cards {
@@ -13,13 +13,13 @@ pub async fn get_gpu_usage() -> Result<f32, String> {
         if let Ok(usage) =
           infrastructure::providers::drm_sys::get_amd_gpu_usage(card.id).await
         {
-          return Ok((usage * 100.0) as f32);
+          return Ok(((usage * 100.0) as f32, "DRM (AMD)".to_string()));
         }
       }
       "0x8086" => {
         if let Ok(usage) = infrastructure::providers::drm_sys::get_intel_gpu_usage().await
         {
-          return Ok((usage * 100.0) as f32);
+          return Ok(((usage * 100.0) as f32, "DRM (Intel)".to_string()));
         }
       }
       _ => {}

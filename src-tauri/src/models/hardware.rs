@@ -49,6 +49,15 @@ pub struct GpuMemoryUsage {
   pub alloc_bytes: Option<String>,
 }
 
+/// GPU usage percentage together with the data-source identifier
+/// (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit")
+#[derive(Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuUsageResult {
+  pub usage: i32,
+  pub source: String,
+}
+
 #[derive(Debug, Clone, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NameValue {
