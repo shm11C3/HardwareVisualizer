@@ -195,9 +195,23 @@ impl Default for AdlPmLogDataOutput2 {
 type AdlMainMallocCallback = unsafe extern "C" fn(i32) -> *mut c_void;
 
 /// ADL requires a malloc callback; we use Rust's global allocator.
+///
+/// This function must not panic or unwind across the `extern "C"` boundary.
+/// It returns a null pointer for invalid or zero sizes, or if a valid
+/// allocation layout cannot be constructed.
 unsafe extern "C" fn adl_malloc(size: i32) -> *mut c_void {
-  let layout = std::alloc::Layout::from_size_align(size as usize, 8)
-    .expect("Invalid allocation layout");
+  // Reject non-positive sizes to avoid absurd allocations and zero-sized layouts.
+  if size <= 0 {
+    return std::ptr::null_mut();
+  }
+
+  // Construct a layout; return null if the layout is invalid instead of panicking.
+  let layout = match std::alloc::Layout::from_size_align(size as usize, 8) {
+    Ok(layout) => layout,
+    Err(_) => return std::ptr::null_mut(),
+  };
+
+  // `alloc` may return null on OOM; propagate that as-is.
   unsafe { std::alloc::alloc(layout) as *mut c_void }
 }
 
