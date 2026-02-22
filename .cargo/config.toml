@@ -1,4 +1,5 @@
 [alias]
-tauri-test = "llvm-cov --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture"
+tauri-test = "test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture"
+tauri-test-cov = "llvm-cov --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture"
 tauri-lint = "clippy --manifest-path src-tauri/Cargo.toml -- -D warnings"
 tauri-fmt = "fmt --manifest-path src-tauri/Cargo.toml"
