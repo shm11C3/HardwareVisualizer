@@ -11,9 +11,9 @@ pub struct MonitorResources {
   pub memory_history: Arc<Mutex<VecDeque<f32>>>,
   pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
   pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-  pub nv_gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  pub gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+  pub gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  pub gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]

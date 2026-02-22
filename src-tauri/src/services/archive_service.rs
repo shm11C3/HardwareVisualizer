@@ -70,9 +70,9 @@ impl ArchiveService {
   ) {
     let hardware_data = Self::collect_hardware_metrics(resources);
     let gpu_data = GpuMetricsCollector::new(
-      &resources.nv_gpu_usage_histories,
-      &resources.nv_gpu_temperature_histories,
-      &resources.nv_gpu_dedicated_memory_histories,
+      &resources.gpu_usage_histories,
+      &resources.gpu_temperature_histories,
+      &resources.gpu_dedicated_memory_histories,
     )
     .collect_all();
     let process_stats = ProcessStatsCollector::new(
@@ -230,9 +230,9 @@ impl<'a> GpuMetricsCollector<'a> {
     &self,
     gpu_name: &str,
   ) -> models::hardware_archive::GpuData {
-    let usage_stats = self.calculate_usage_stats();
-    let temperature_stats = self.calculate_temperature_stats();
-    let memory_stats = self.calculate_memory_stats();
+    let usage_stats = self.calculate_usage_stats(gpu_name);
+    let temperature_stats = self.calculate_temperature_stats(gpu_name);
+    let memory_stats = self.calculate_memory_stats(gpu_name);
 
     models::hardware_archive::GpuData {
       gpu_name: gpu_name.to_string(),
@@ -248,46 +248,55 @@ impl<'a> GpuMetricsCollector<'a> {
     }
   }
 
-  fn calculate_usage_stats(&self) -> (Option<f32>, Option<f32>, Option<f32>) {
-    let values = self.flatten_f32_histories(self.usage_histories);
+  fn calculate_usage_stats(
+    &self,
+    gpu_name: &str,
+  ) -> (Option<f32>, Option<f32>, Option<f32>) {
+    let values = self.get_f32_history_for_gpu(self.usage_histories, gpu_name);
     StatsCalculator::compute_f32_aggregates(&values)
   }
 
-  fn calculate_temperature_stats(&self) -> (Option<f32>, Option<i32>, Option<i32>) {
-    let values = self.flatten_i32_histories(self.temperature_histories);
+  fn calculate_temperature_stats(
+    &self,
+    gpu_name: &str,
+  ) -> (Option<f32>, Option<i32>, Option<i32>) {
+    let values = self.get_i32_history_for_gpu(self.temperature_histories, gpu_name);
     StatsCalculator::compute_i32_aggregates(&values)
   }
 
-  fn calculate_memory_stats(&self) -> (Option<i32>, Option<i32>, Option<i32>) {
-    let values = self.flatten_i32_histories(self.memory_histories);
+  fn calculate_memory_stats(
+    &self,
+    gpu_name: &str,
+  ) -> (Option<i32>, Option<i32>, Option<i32>) {
+    let values = self.get_i32_history_for_gpu(self.memory_histories, gpu_name);
     let (avg_f32, max, min) = StatsCalculator::compute_i32_aggregates(&values);
     (avg_f32.map(|v| v as i32), max, min)
   }
 
-  fn flatten_f32_histories(
+  fn get_f32_history_for_gpu(
     &self,
     histories: &Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+    gpu_name: &str,
   ) -> Vec<f32> {
     histories
       .lock()
       .unwrap()
-      .values()
-      .flat_map(|v| v.iter())
-      .cloned()
-      .collect()
+      .get(gpu_name)
+      .map(|v| v.iter().cloned().collect())
+      .unwrap_or_default()
   }
 
-  fn flatten_i32_histories(
+  fn get_i32_history_for_gpu(
     &self,
     histories: &Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+    gpu_name: &str,
   ) -> Vec<i32> {
     histories
       .lock()
       .unwrap()
-      .values()
-      .flat_map(|v| v.iter())
-      .cloned()
-      .collect()
+      .get(gpu_name)
+      .map(|v| v.iter().cloned().collect())
+      .unwrap_or_default()
   }
 }
 

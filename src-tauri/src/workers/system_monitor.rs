@@ -33,11 +33,12 @@ impl SystemMonitorController {
         #[cfg(target_os = "windows")]
         {
           monitoring_service::sample_system(&resources);
-          monitoring_service::sample_gpu(&resources);
+          monitoring_service::sample_gpu(&resources).await;
         }
         #[cfg(target_os = "linux")]
         {
           monitoring_service::sample_system(&resources);
+          monitoring_service::sample_gpu(&resources).await;
         }
         #[cfg(target_os = "macos")]
         {
@@ -52,11 +53,12 @@ impl SystemMonitorController {
               #[cfg(target_os = "windows")]
               {
                 monitoring_service::sample_system(&resources);
-                monitoring_service::sample_gpu(&resources);
+                monitoring_service::sample_gpu(&resources).await;
               }
               #[cfg(target_os = "linux")]
               {
                 monitoring_service::sample_system(&resources);
+                monitoring_service::sample_gpu(&resources).await;
               }
               #[cfg(target_os = "macos")]
               {

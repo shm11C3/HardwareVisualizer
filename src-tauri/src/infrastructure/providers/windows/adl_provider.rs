@@ -857,3 +857,116 @@ pub async fn get_amd_gpu_usage() -> Result<f32, String> {
 pub fn is_available() -> bool {
   get_adl().is_some()
 }
+
+/// Get per-adapter GPU core usage for monitoring/archiving.
+///
+/// Returns `(adapter_name, usage%)` for each active AMD adapter.
+pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<(String, f32)>, String> {
+  spawn_blocking(|| {
+    let adl = get_adl().ok_or("AMD ADL library not available")?;
+    let adapters = enumerate_adapters(adl);
+
+    if adapters.is_empty() {
+      return Err("No active AMD GPU adapters found".to_string());
+    }
+
+    let mut results: Vec<(String, f32)> = Vec::new();
+
+    for adapter in &adapters {
+      let idx = adapter.adapter_index;
+      let mut usage: Option<f32> = None;
+
+      if adapter.overdrive_supported {
+        usage = read_od5_activity(adl, idx);
+      }
+
+      if (adapter.overdrive_level >= 8 || !adapter.overdrive_supported || usage.is_none())
+        && let Some(v) = read_od8_usage(adl, idx)
+      {
+        usage = Some(v);
+      }
+
+      if let Some(u) = usage {
+        results.push((adapter.adapter_name.clone(), u));
+      }
+    }
+
+    if results.is_empty() {
+      Err("AMD ADL: no per-adapter usage data collected".to_string())
+    } else {
+      Ok(results)
+    }
+  })
+  .await
+  .map_err(|e| {
+    log_error!(
+      "join_error",
+      "adl_provider::get_amd_gpu_usage_per_adapter",
+      Some(e.to_string())
+    );
+    "AMD GPU per-adapter usage retrieval failed".to_string()
+  })?
+}
+
+/// Get per-adapter GPU core temperature for monitoring/archiving.
+///
+/// Returns `(adapter_name, temperature_celsius)` for each active AMD adapter,
+/// using the best available temperature source (Core/Edge sensor).
+pub async fn get_amd_gpu_temperatures_per_adapter() -> Result<Vec<(String, f32)>, String>
+{
+  spawn_blocking(|| {
+    let adl = get_adl().ok_or("AMD ADL library not available")?;
+    let adapters = enumerate_adapters(adl);
+
+    if adapters.is_empty() {
+      return Err("No active AMD GPU adapters found".to_string());
+    }
+
+    let mut results: Vec<(String, f32)> = Vec::new();
+
+    for adapter in &adapters {
+      let idx = adapter.adapter_index;
+      let mut temp: Option<i32> = None;
+
+      // Phase 1: OD5 baseline (Core temperature)
+      if adapter.overdrive_supported {
+        temp = read_od5_temperature(adl, idx);
+      }
+
+      // Phase 2: ODN override (OD ≥ 7) — Edge sensor
+      if adapter.overdrive_supported
+        && adapter.overdrive_level >= 7
+        && let Some(v) = read_odn_temperature(adl, idx, ODNT_EDGE)
+      {
+        temp = Some(v);
+      }
+
+      // Phase 3: PMLog / OD8 supplement
+      let has_gap = temp.is_none();
+      if (adapter.overdrive_level >= 8 || !adapter.overdrive_supported || has_gap)
+        && let Some(v) = read_od8_sensor_value(adl, idx, PMLOG_TEMPERATURE_EDGE)
+      {
+        temp = Some(v);
+      }
+
+      if let Some(t) = temp {
+        results.push((adapter.adapter_name.clone(), t as f32));
+      }
+    }
+
+    if results.is_empty() {
+      Err("AMD ADL: no per-adapter temperature data collected".to_string())
+    } else {
+      Ok(results)
+    }
+  })
+  .await
+  .map_err(|e| {
+    log_error!(
+      "join_error",
+      "adl_provider::get_amd_gpu_temperatures_per_adapter",
+      Some(e.to_string())
+    );
+    "AMD GPU per-adapter temperature retrieval failed".to_string()
+  })?
+}

@@ -72,11 +72,14 @@ fn update_process_histories(
 }
 
 #[cfg(target_os = "windows")]
-pub fn sample_gpu(resources: &MonitorResources) {
+pub async fn sample_gpu(resources: &MonitorResources) {
   use crate::infrastructure::providers::nvapi_provider;
   use nvapi::PhysicalGpu;
 
-  if let Some(gpu_metrics) = PhysicalGpu::enumerate().ok().map(|gpus| {
+  let mut gpu_metrics: Vec<(String, f32, f32, f32)> = Vec::new();
+
+  // ── NVIDIA GPUs via NVAPI ──
+  if let Some(nvapi_metrics) = PhysicalGpu::enumerate().ok().map(|gpus| {
     gpus
       .iter()
       .map(|gpu| {
@@ -90,18 +93,109 @@ pub fn sample_gpu(resources: &MonitorResources) {
       })
       .collect::<Vec<_>>()
   }) {
+    gpu_metrics.extend(nvapi_metrics);
+  }
+
+  // ── AMD GPUs via ADL ──
+  if crate::infrastructure::providers::adl_provider::is_available() {
+    sample_amd_gpu(&mut gpu_metrics).await;
+  }
+
+  if !gpu_metrics.is_empty() {
     update_gpu_histories(resources, &gpu_metrics);
   }
 }
 
+/// Collect AMD GPU usage and temperature via ADL.
+/// VRAM usage is out of scope for now.
 #[cfg(target_os = "windows")]
+async fn sample_amd_gpu(gpu_metrics: &mut Vec<(String, f32, f32, f32)>) {
+  use crate::infrastructure::providers::adl_provider;
+
+  // Usage per adapter
+  let usages: Vec<(String, f32)> = adl_provider::get_amd_gpu_usage_per_adapter()
+    .await
+    .unwrap_or_default();
+
+  // Temperature per adapter
+  let temps: Vec<(String, f32)> = adl_provider::get_amd_gpu_temperatures_per_adapter()
+    .await
+    .unwrap_or_default();
+
+  // Build a temp lookup by adapter name
+  let temp_map: std::collections::HashMap<&str, f32> =
+    temps.iter().map(|(n, t)| (n.as_str(), *t)).collect();
+
+  for (name, usage) in &usages {
+    let temperature = temp_map.get(name.as_str()).copied().unwrap_or(0.0);
+    // VRAM usage is not available via ADL; default to 0
+    gpu_metrics.push((name.clone(), *usage, temperature, 0.0));
+  }
+}
+
+#[cfg(target_os = "linux")]
+pub async fn sample_gpu(resources: &MonitorResources) {
+  let gpu_metrics = collect_linux_gpu_metrics().await;
+
+  if !gpu_metrics.is_empty() {
+    update_gpu_histories(resources, &gpu_metrics);
+  }
+}
+
+/// Collect GPU metrics on Linux using the existing platform layer
+/// (DRM/sysfs for AMD, DRM for Intel).
+#[cfg(target_os = "linux")]
+async fn collect_linux_gpu_metrics() -> Vec<(String, f32, f32, f32)> {
+  use crate::infrastructure::providers::drm_sys;
+  use crate::infrastructure::providers::hwmon;
+
+  let mut metrics: Vec<(String, f32, f32, f32)> = Vec::new();
+  let card_ids = drm_sys::get_all_card_ids();
+
+  for card_id in card_ids {
+    let vendor = drm_sys::detect_gpu_vendor(card_id);
+
+    let (name, usage, temperature) = match vendor {
+      drm_sys::GpuVendor::Amd => {
+        let name =
+          crate::infrastructure::providers::lspci::get_gpu_name_from_lspci_by_vendor_id(
+            "1002",
+          )
+          .unwrap_or_else(|| format!("AMD GPU (card{})", card_id));
+        let usage = drm_sys::get_amd_gpu_usage(card_id as u32)
+          .await
+          .map(|u| (u * 100.0) as f32)
+          .unwrap_or(0.0);
+        let temperature = hwmon::read_hwmon_temperatures(card_id)
+          .ok()
+          .and_then(|temps| temps.first().map(|t| t.value as f32))
+          .unwrap_or(0.0);
+        (name, usage, temperature)
+      }
+      drm_sys::GpuVendor::Intel => {
+        let usage = drm_sys::get_intel_gpu_usage()
+          .await
+          .map(|u| (u * 100.0) as f32)
+          .unwrap_or(0.0);
+        (format!("Intel GPU (card{})", card_id), usage, 0.0)
+      }
+      _ => continue,
+    };
+
+    // VRAM usage is out of scope for now
+    metrics.push((name, usage, temperature, 0.0));
+  }
+
+  metrics
+}
+
 fn update_gpu_histories(
   resources: &MonitorResources,
   gpu_metrics: &[(String, f32, f32, f32)],
 ) {
-  let mut usage_histories = resources.nv_gpu_usage_histories.lock().unwrap();
-  let mut temp_histories = resources.nv_gpu_temperature_histories.lock().unwrap();
-  let mut mem_histories = resources.nv_gpu_dedicated_memory_histories.lock().unwrap();
+  let mut usage_histories = resources.gpu_usage_histories.lock().unwrap();
+  let mut temp_histories = resources.gpu_temperature_histories.lock().unwrap();
+  let mut mem_histories = resources.gpu_dedicated_memory_histories.lock().unwrap();
 
   gpu_metrics
     .iter()
