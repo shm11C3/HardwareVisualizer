@@ -73,7 +73,7 @@ struct AdlAdapterInfo {
 impl Default for AdlAdapterInfo {
   fn default() -> Self {
     Self {
-      size: 0,
+      size: std::mem::size_of::<AdlAdapterInfo>() as i32,
       adapter_index: 0,
       udid: [0u8; ADL_MAX_PATH],
       bus_number: 0,
