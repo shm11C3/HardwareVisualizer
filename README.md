@@ -186,7 +186,7 @@ Flexible graph customization available.
 | Item                         | Target   |
 | ---------------------------- | -------- |
 | macOS Support                | ✅ Done  |
-| AMD compatible               | Research |
+| AMD GPU compatible               | WIP (Preview) |
 | Fan / Temp Full Cross Vendor | Research |
 | Game Mode                    | Planned  |
 | Power Consumption Estimation | Idea     |
