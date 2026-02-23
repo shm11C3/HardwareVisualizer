@@ -12,11 +12,12 @@ vi.mock("@/hooks/useTauriDialog", () => ({
   }),
 }));
 
-// Mock getHardwareInfo, getNetworkInfo in commands
+// Mock getHardwareInfo, getNetworkInfo, getMemoryInfoDetail in commands
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     getHardwareInfo: vi.fn(),
     getNetworkInfo: vi.fn(),
+    getMemoryInfoDetail: vi.fn(),
   },
 }));
 
@@ -130,6 +131,48 @@ describe("useHardwareInfoAtom", () => {
 
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     expect(result.current.networkInfo).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("fetchMemoryInfoDetail: memory is updated on success", async () => {
+    const memoryData = { size: "32GB", memoryType: "DDR5", isDetailed: true };
+    (commands.getMemoryInfoDetail as Mock).mockResolvedValue({
+      status: "ok",
+      data: memoryData,
+    });
+
+    const { result } = renderHook(() => useHardwareInfoAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.fetchMemoryInfoDetail();
+    });
+
+    expect(result.current.hardwareInfo.memory).toEqual(memoryData);
+  });
+
+  it("fetchMemoryInfoDetail: error() is called on error and memory is restored", async () => {
+    const errorMsg = "Failed to fetch memory info detail";
+    (commands.getMemoryInfoDetail as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useHardwareInfoAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.fetchMemoryInfoDetail();
+    });
+
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
