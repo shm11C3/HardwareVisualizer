@@ -9,6 +9,7 @@ use crate::models::hardware_archive::MonitorResources;
 
 /// A single GPU sample: (name, usage%, temperature°C, dedicated_memory_usage%).
 /// `None` means the metric is unavailable for this GPU vendor/platform.
+#[cfg(not(target_os = "macos"))]
 type GpuSample = (String, Option<f32>, Option<f32>, Option<f32>);
 
 /// System sampling for one cycle (CPU/memory/process)
@@ -192,6 +193,7 @@ async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
   metrics
 }
 
+#[cfg(target_os = "windows")]
 fn update_gpu_histories(resources: &MonitorResources, gpu_metrics: &[GpuSample]) {
   let mut usage_histories = resources.gpu_usage_histories.lock().unwrap();
   let mut temp_histories = resources.gpu_temperature_histories.lock().unwrap();
