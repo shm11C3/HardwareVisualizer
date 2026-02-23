@@ -328,5 +328,7 @@ export const useInsightChart = (
     dateFormatter,
   ]);
 
-  return { labels: filledLabels, chartData: filledChartData };
+  const hasData = filledChartData.some((v) => v != null);
+
+  return { labels: filledLabels, chartData: filledChartData, hasData };
 };

@@ -13,9 +13,9 @@ pub struct HardwareMonitorState {
   pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
   pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
   #[allow(dead_code)]
-  pub nv_gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+  pub gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   #[allow(dead_code)]
-  pub nv_gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  pub gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone)]

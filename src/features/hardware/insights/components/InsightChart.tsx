@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -74,17 +74,19 @@ export const GpuInsightChart = ({
   dataStats,
   offset,
   gpuName,
+  onDataAvailabilityChange,
 }: {
   dataType: GpuDataType;
   period: (typeof archivePeriods)[number];
   dataStats: DataStats;
   offset: number;
   gpuName: string;
+  onDataAvailabilityChange?: (hasData: boolean) => void;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { labels, chartData } = useInsightChart({
+  const { labels, chartData, hasData } = useInsightChart({
     hardwareType: "gpu",
     dataStats,
     dataType,
@@ -92,6 +94,10 @@ export const GpuInsightChart = ({
     offset,
     gpuName,
   });
+
+  useEffect(() => {
+    onDataAvailabilityChange?.(hasData);
+  }, [hasData, onDataAvailabilityChange]);
 
   const chartConfig: Record<GpuDataType, { label: string; color: string }> = {
     usage: {
@@ -139,6 +145,16 @@ export const GpuInsightChart = ({
     // Round up the maximum value to the nearest integer to ensure proper grid alignment in the chart.
     return Math.ceil(max);
   }, [hardwareInfo.gpus]);
+
+  if (chartData.every((v) => v == null)) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <span className="text-muted-foreground">
+          {t("pages.insights.noDataForPeriod")}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full">
