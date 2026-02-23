@@ -193,7 +193,7 @@ async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
   metrics
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(not(target_os = "macos"))]
 fn update_gpu_histories(resources: &MonitorResources, gpu_metrics: &[GpuSample]) {
   let mut usage_histories = resources.gpu_usage_histories.lock().unwrap();
   let mut temp_histories = resources.gpu_temperature_histories.lock().unwrap();
