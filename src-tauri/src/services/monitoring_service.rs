@@ -9,7 +9,6 @@ use crate::models::hardware_archive::MonitorResources;
 
 /// A single GPU sample: (name, usage%, temperature°C, dedicated_memory_usage%).
 /// `None` means the metric is unavailable for this GPU vendor/platform.
-#[cfg(not(target_os = "macos"))]
 type GpuSample = (String, Option<f32>, Option<f32>, Option<f32>);
 
 /// System sampling for one cycle (CPU/memory/process)
@@ -147,6 +146,47 @@ pub async fn sample_gpu(resources: &MonitorResources) {
   }
 }
 
+#[cfg(target_os = "macos")]
+pub async fn sample_gpu(resources: &MonitorResources) {
+  use crate::infrastructure::providers::macos::io_kit::iokit_info;
+  use crate::infrastructure::providers::macos::{gpu, gpu_info};
+
+  static CACHED_GPU_NAME: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
+
+  // IOKit usage sampler スレッドを起動（初回のみ）
+  let _ = gpu::init_gpu_usage_sampler_thread();
+
+  // GPU 名をキャッシュ（初回のみ IOKit + system_profiler で取得）
+  let gpu_name = CACHED_GPU_NAME
+    .get_or_init(|| async {
+      gpu_info::get_gpu_info()
+        .await
+        .ok()
+        .and_then(|list| list.into_iter().next())
+        .map(|info| info.name)
+        .unwrap_or_else(|| "Apple GPU".to_string())
+    })
+    .await;
+
+  // GPU 使用率（IOKit IOReport のキャッシュ値、0.0-1.0 → 0-100%）
+  let usage = gpu::read_gpu_usage_cached().map(|v| v * 100.0);
+
+  // 温度: macOS では取得不可 → None
+  let temperature: Option<f32> = None;
+
+  // メモリ使用量: IOKit から bytes → KB に変換（Windows NVAPI と同じ単位）
+  let memory_kb: Option<f32> =
+    tauri::async_runtime::spawn_blocking(iokit_info::get_gpu_memory_usage_from_iokit)
+      .await
+      .ok()
+      .flatten()
+      .and_then(|mem| mem.in_use_bytes)
+      .map(|bytes| (bytes / 1024) as f32);
+
+  let gpu_metrics = vec![(gpu_name.clone(), usage, temperature, memory_kb)];
+  update_gpu_histories(resources, &gpu_metrics);
+}
+
 /// Collect GPU metrics on Linux using the existing platform layer
 /// (DRM/sysfs for AMD, DRM for Intel).
 #[cfg(target_os = "linux")]
@@ -193,7 +233,6 @@ async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
   metrics
 }
 
-#[cfg(not(target_os = "macos"))]
 fn update_gpu_histories(resources: &MonitorResources, gpu_metrics: &[GpuSample]) {
   let mut usage_histories = resources.gpu_usage_histories.lock().unwrap();
   let mut temp_histories = resources.gpu_temperature_histories.lock().unwrap();

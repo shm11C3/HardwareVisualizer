@@ -30,40 +30,16 @@ impl SystemMonitorController {
         ));
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        #[cfg(target_os = "windows")]
-        {
-          monitoring_service::sample_system(&resources);
-          monitoring_service::sample_gpu(&resources).await;
-        }
-        #[cfg(target_os = "linux")]
-        {
-          monitoring_service::sample_system(&resources);
-          monitoring_service::sample_gpu(&resources).await;
-        }
-        #[cfg(target_os = "macos")]
-        {
-          monitoring_service::sample_system(&resources);
-        }
+        monitoring_service::sample_system(&resources);
+        monitoring_service::sample_gpu(&resources).await;
 
         loop {
           tokio::select! {
             _ = ticker.tick() =>  {
               let start = std::time::Instant::now();
 
-              #[cfg(target_os = "windows")]
-              {
-                monitoring_service::sample_system(&resources);
-                monitoring_service::sample_gpu(&resources).await;
-              }
-              #[cfg(target_os = "linux")]
-              {
-                monitoring_service::sample_system(&resources);
-                monitoring_service::sample_gpu(&resources).await;
-              }
-              #[cfg(target_os = "macos")]
-              {
-                monitoring_service::sample_system(&resources);
-              }
+              monitoring_service::sample_system(&resources);
+              monitoring_service::sample_gpu(&resources).await;
 
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL) {
