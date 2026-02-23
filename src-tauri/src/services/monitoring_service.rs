@@ -154,10 +154,10 @@ pub async fn sample_gpu(resources: &MonitorResources) {
   static CACHED_GPU_NAME: tokio::sync::OnceCell<String> =
     tokio::sync::OnceCell::const_new();
 
-  // IOKit usage sampler スレッドを起動（初回のみ）
+  // Start the IOKit usage sampler thread (first call only)
   let _ = gpu::init_gpu_usage_sampler_thread();
 
-  // GPU 名をキャッシュ（初回のみ IOKit + system_profiler で取得）
+  // Cache GPU name (fetched via IOKit + system_profiler on first call)
   let gpu_name = CACHED_GPU_NAME
     .get_or_init(|| async {
       gpu_info::get_gpu_info()
@@ -169,13 +169,13 @@ pub async fn sample_gpu(resources: &MonitorResources) {
     })
     .await;
 
-  // GPU 使用率（IOKit IOReport のキャッシュ値、0.0-1.0 → 0-100%）
+  // GPU usage (cached IOKit IOReport value, 0.0-1.0 → 0-100%)
   let usage = gpu::read_gpu_usage_cached().map(|v| v * 100.0);
 
-  // 温度: macOS では取得不可 → None
+  // Temperature: not available on macOS
   let temperature: Option<f32> = None;
 
-  // メモリ使用量: IOKit から bytes → KB に変換（Windows NVAPI と同じ単位）
+  // Memory usage: convert IOKit bytes → KB (same unit as Windows NVAPI)
   let memory_kb: Option<f32> =
     tauri::async_runtime::spawn_blocking(iokit_info::get_gpu_memory_usage_from_iokit)
       .await
