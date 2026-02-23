@@ -151,7 +151,8 @@ pub async fn sample_gpu(resources: &MonitorResources) {
   use crate::infrastructure::providers::macos::io_kit::iokit_info;
   use crate::infrastructure::providers::macos::{gpu, gpu_info};
 
-  static CACHED_GPU_NAME: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
+  static CACHED_GPU_NAME: tokio::sync::OnceCell<String> =
+    tokio::sync::OnceCell::const_new();
 
   // IOKit usage sampler スレッドを起動（初回のみ）
   let _ = gpu::init_gpu_usage_sampler_thread();
