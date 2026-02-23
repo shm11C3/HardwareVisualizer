@@ -171,13 +171,14 @@ describe("useBurnInShift (Behavior)", () => {
 
     const clearIntervalSpy = vi.spyOn(window, "clearInterval");
 
-    const { unmount } = renderHook(() =>
-      useBurnInShift(ref, true, {
-        intervalMs: 5000,
-        amplitudePx: [2, 2],
-        driftDurationSec: 10,
-      }),
-    );
+    const options: Parameters<typeof useBurnInShift>[2] = {
+      intervalMs: 5000,
+      amplitudePx: [2, 2],
+      driftDurationSec: 10,
+      idleThresholdMs: null,
+    };
+
+    const { unmount } = renderHook(() => useBurnInShift(ref, true, options));
 
     unmount();
 
