@@ -33,7 +33,7 @@ safe-outputs:
     target: "*"
     hide-older-comments: true
   create-pull-request:
-    github-token-for-extra-empty-commit: app
+    # github-token-for-extra-empty-commit: app
     draft: false
     title-prefix: "[Test Improver] "
     labels: [automation, testing]
@@ -57,9 +57,9 @@ tools:
   repo-memory: true
   github:
     toolsets: [repos, issues, pull_requests]
-    app:
-      app-id: ${{ secrets.APP_ID }}
-      private-key: ${{ secrets.APP_PRIVATE_KEY }}
+    # app:
+    #   app-id: ${{ secrets.APP_ID }}
+    #   private-key: ${{ secrets.APP_PRIVATE_KEY }}
 ---
 
 # Daily Test Improver

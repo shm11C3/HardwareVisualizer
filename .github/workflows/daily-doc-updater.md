@@ -23,7 +23,7 @@ network:
 
 safe-outputs:
   create-pull-request:
-    github-token-for-extra-empty-commit: app
+    # github-token-for-extra-empty-commit: app
     expires: 1d
     title-prefix: "[docs] "
     labels: [documentation, automation]
@@ -35,9 +35,9 @@ tools:
   cache-memory: true
   github:
     toolsets: [default]
-    app:
-      app-id: ${{ secrets.APP_ID }}
-      private-key: ${{ secrets.APP_PRIVATE_KEY }}
+    # app:
+    #   app-id: ${{ secrets.APP_ID }}
+    #   private-key: ${{ secrets.APP_PRIVATE_KEY }}
   edit:
   bash:
     - "find docs -name '*.md' -o -name '*.mdx'"
