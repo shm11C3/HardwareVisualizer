@@ -19,7 +19,7 @@ network:
 
 safe-outputs:
   create-pull-request:
-    github-token-for-extra-empty-commit: app
+    # github-token-for-extra-empty-commit: app
     expires: 2d
     title-prefix: "[instructions] "
     labels: [documentation, automation, instructions]
@@ -29,9 +29,9 @@ tools:
   cache-memory: true
   github:
     toolsets: [default]
-    app:
-      app-id: ${{ secrets.APP_ID }}
-      private-key: ${{ secrets.APP_PRIVATE_KEY }}
+    # app:
+    #   app-id: ${{ secrets.APP_ID }}
+    #   private-key: ${{ secrets.APP_PRIVATE_KEY }}
   edit:
   bash:
     - "cat .github/aw/github-agentic-workflows.md"
