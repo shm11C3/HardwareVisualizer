@@ -56,7 +56,7 @@ tools:
   bash: true
   repo-memory: true
   github:
-    toolsets: [all]
+    toolsets: [repos, issues, pull_requests]
     app:
       app-id: ${{ secrets.APP_ID }}
       private-key: ${{ secrets.APP_PRIVATE_KEY }}
