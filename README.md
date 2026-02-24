@@ -115,8 +115,8 @@ After launching the app:
 | Category                 | Status | Notes                            |
 | ------------------------ | ------ | -------------------------------- |
 | CPU / RAM Usage          | ✅     | Realtime + history               |
-| GPU Usage                | ✅     | NVIDIA full / others partial     |
-| GPU Temperature          | ✅     | NVIDIA full / others partial     |
+| GPU Usage                | ✅     | NVIDIA, AMD, Linux; macOS (usage + memory) |
+| GPU Temperature          | ✅     | NVIDIA, AMD (Windows/Linux); not available on macOS |
 | Fan Monitoring           | ⏳     | Planned                          |
 | Storage Monitoring       | ✅     | Device summary                   |
 | Network Monitoring       | ✅     | Basic interfaces / Usage planned |
@@ -124,7 +124,7 @@ After launching the app:
 | Dashboard Customization  | ✅     | Layout editing partial           |
 | Background Image         | ✅     | Local assets                     |
 | Historical Insights      | ✅     | Default Up to 30 days            |
-| GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
+| GPU Insight (non-NVIDIA) | ✅     | AMD (Windows/Linux), macOS (Apple GPU) |
 
 ## Supported OS
 
@@ -159,7 +159,7 @@ Usage rates are calculated on a minute-by-minute basis.
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU Insight is available on Nvidia GPU only.
+\*GPU Insight is available for NVIDIA, AMD (Windows/Linux), and macOS (Apple GPU). Temperature data is not available on macOS.
 
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
@@ -186,7 +186,7 @@ Flexible graph customization available.
 | Item                         | Target   |
 | ---------------------------- | -------- |
 | macOS Support                | ✅ Done  |
-| AMD GPU compatible               | WIP (Preview) |
+| AMD GPU compatible               | ✅ Done       |
 | Fan / Temp Full Cross Vendor | Research |
 | Game Mode                    | Planned  |
 | Power Consumption Estimation | Idea     |
@@ -201,8 +201,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 **Q: Why sudo on Linux?**  
 Access to privileged hardware interfaces for sensors.
 
-**Q: NVIDIA only historic GPU charts?**  
-Vendor APIs differ; expansion planned.
+**Q: Which GPUs are supported for historic charts (Insights)?**
+GPU Insights are available for NVIDIA, AMD (Windows/Linux), and macOS (Apple GPU). Some metrics (e.g., temperature on macOS) may not be available depending on vendor and platform.
 
 ## Code Signing Policy
 

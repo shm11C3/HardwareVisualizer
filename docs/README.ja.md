@@ -4,7 +4,7 @@
 
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
-![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
+![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20macOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](../LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
@@ -111,8 +111,8 @@ Web サイト: <https://hardviz.com/>
 | カテゴリ                     | ステータス | 備考                                      |
 | ---------------------------- | ---------- | ----------------------------------------- |
 | CPU / RAM 使用率             | ✅         | リアルタイム + 履歴                       |
-| GPU 使用率                   | ✅         | NVIDIA は完全対応 / その他は一部対応      |
-| GPU 温度                     | ✅         | NVIDIA は完全対応 / その他は一部対応      |
+| GPU 使用率                   | ✅         | NVIDIA、AMD、Linux 対応; macOS は使用率・メモリのみ |
+| GPU 温度                     | ✅         | NVIDIA、AMD (Windows/Linux) 対応; macOS は非対応    |
 | ファン監視                   | ⏳         | 計画中                                    |
 | ストレージ監視               | ✅         | デバイスの概要                            |
 | ネットワーク監視             | ✅         | 基本的なインターフェース / 使用量は計画中 |
@@ -120,7 +120,7 @@ Web サイト: <https://hardviz.com/>
 | ダッシュボードのカスタマイズ | ✅         | レイアウト編集は一部対応                  |
 | 背景画像                     | ✅         | ローカル画像を使用可能                    |
 | 履歴インサイト               | ✅         | デフォルトで最大 30 日間                  |
-| GPU インサイト (NVIDIA 以外) | ⚠️         | 現在は制限あり                            |
+| GPU インサイト (NVIDIA 以外) | ✅         | AMD (Windows/Linux)、macOS (Apple GPU) 対応 |
 
 ## サポート OS
 
@@ -128,7 +128,7 @@ Web サイト: <https://hardviz.com/>
 | ------- | ----------- | -------------------------------------------------------------------------------------------- |
 | Windows | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
 | Linux   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
-| macOS   | 🚧 準備中   | 開発中 (ベータ版: [GitHub リリース](https://github.com/shm11C3/HardwareVisualizer/releases)) |
+| macOS   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
 
 ## スクリーンショット
 
@@ -155,7 +155,7 @@ Web サイト: <https://hardviz.com/>
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU インサイトは、現在は NVIDIA 製 GPU のみ対応しています。
+\*GPU インサイトは NVIDIA、AMD (Windows/Linux)、macOS (Apple GPU) に対応しています。macOS では温度情報は利用できません。
 
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
@@ -181,8 +181,8 @@ Web サイト: <https://hardviz.com/>
 
 | 項目                             | ステータス |
 | -------------------------------- | ---------- |
-| macOS への対応                   | 進行中     |
-| AMD 製品への対応                 | 調査中     |
+| macOS への対応                   | ✅ 完了    |
+| AMD 製品への対応                 | ✅ 完了    |
 | 全ベンダー共通のファン・温度制御 | 調査中     |
 | ゲームモード                     | 計画中     |
 | 消費電力の推定機能               | 検討中     |
@@ -197,8 +197,8 @@ Web サイト: <https://hardviz.com/>
 **Q: なぜ Linux で sudo が必要なのですか？**
 センサーなどの特権が必要なハードウェアインターフェースにアクセスするためです。
 
-**Q: GPU 履歴チャートが NVIDIA だけなのはなぜですか？**
-ベンダーごとに API が異なるためです。今後拡大予定です。
+**Q: GPU 履歴チャート (インサイト) はどのベンダーに対応していますか？**
+NVIDIA、AMD (Windows/Linux)、macOS (Apple GPU) に対応しています。macOS では温度情報は取得できません。
 
 ## コード署名ポリシー（英語版のみ）
 
