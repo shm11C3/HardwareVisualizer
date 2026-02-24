@@ -120,7 +120,8 @@ Web サイト: <https://hardviz.com/>
 | ダッシュボードのカスタマイズ | ✅         | レイアウト編集は一部対応                  |
 | 背景画像                     | ✅         | ローカル画像を使用可能                    |
 | 履歴インサイト               | ✅         | デフォルトで最大 30 日間                  |
-| GPU インサイト (NVIDIA 以外) | ⚠️         | 現在は制限あり                            |
+| GPU インサイト (AMD/Linux)   | ✅         | AMD (Windows/Linux) 対応済み             |
+| GPU インサイト (macOS)       | ✅         | IOKit 経由で使用率・メモリ取得可能        |
 
 ## サポート OS
 
@@ -128,7 +129,7 @@ Web サイト: <https://hardviz.com/>
 | ------- | ----------- | -------------------------------------------------------------------------------------------- |
 | Windows | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
 | Linux   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
-| macOS   | 🚧 準備中   | 開発中 (ベータ版: [GitHub リリース](https://github.com/shm11C3/HardwareVisualizer/releases)) |
+| macOS   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
 
 ## スクリーンショット
 
@@ -155,7 +156,7 @@ Web サイト: <https://hardviz.com/>
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU インサイトは、現在は NVIDIA 製 GPU のみ対応しています。
+\*GPU インサイトは NVIDIA (Windows)、AMD (Windows/Linux)、Apple GPU (macOS、IOKit 経由) に対応しています。macOS では GPU 温度は取得できません。
 
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
@@ -182,7 +183,8 @@ Web サイト: <https://hardviz.com/>
 | 項目                             | ステータス |
 | -------------------------------- | ---------- |
 | macOS への対応                   | 進行中     |
-| AMD 製品への対応                 | 調査中     |
+| AMD GPU（インサイト）対応        | ✅ 完了    |
+| macOS GPU モニタリング           | ✅ 完了    |
 | 全ベンダー共通のファン・温度制御 | 調査中     |
 | ゲームモード                     | 計画中     |
 | 消費電力の推定機能               | 検討中     |
@@ -197,8 +199,8 @@ Web サイト: <https://hardviz.com/>
 **Q: なぜ Linux で sudo が必要なのですか？**
 センサーなどの特権が必要なハードウェアインターフェースにアクセスするためです。
 
-**Q: GPU 履歴チャートが NVIDIA だけなのはなぜですか？**
-ベンダーごとに API が異なるためです。今後拡大予定です。
+**Q: GPU 履歴チャート（インサイト）はどの GPU に対応していますか？**
+NVIDIA (Windows)、AMD (Windows は ADL 経由、Linux は DRM/sysfs 経由)、Apple GPU (macOS は IOKit 経由) に対応しています。macOS では GPU 温度は取得できません。Linux 上の Intel GPU にも対応しています。
 
 ## コード署名ポリシー（英語版のみ）
 

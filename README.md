@@ -124,7 +124,8 @@ After launching the app:
 | Dashboard Customization  | ✅     | Layout editing partial           |
 | Background Image         | ✅     | Local assets                     |
 | Historical Insights      | ✅     | Default Up to 30 days            |
-| GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
+| GPU Insight (AMD/Linux)  | ✅     | AMD (Windows/Linux) supported    |
+| GPU Insight (macOS)      | ✅     | Usage + memory via IOKit         |
 
 ## Supported OS
 
@@ -159,7 +160,7 @@ Usage rates are calculated on a minute-by-minute basis.
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU Insight is available on Nvidia GPU only.
+\*GPU Insight supports NVIDIA (Windows), AMD (Windows/Linux), and Apple GPU (macOS via IOKit). GPU temperature is not available on macOS.
 
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
@@ -186,7 +187,8 @@ Flexible graph customization available.
 | Item                         | Target   |
 | ---------------------------- | -------- |
 | macOS Support                | ✅ Done  |
-| AMD GPU compatible               | WIP (Preview) |
+| AMD GPU (Insights)           | ✅ Done  |
+| macOS GPU Monitoring         | ✅ Done  |
 | Fan / Temp Full Cross Vendor | Research |
 | Game Mode                    | Planned  |
 | Power Consumption Estimation | Idea     |
@@ -201,8 +203,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 **Q: Why sudo on Linux?**  
 Access to privileged hardware interfaces for sensors.
 
-**Q: NVIDIA only historic GPU charts?**  
-Vendor APIs differ; expansion planned.
+**Q: Which GPUs support historic GPU charts (Insight)?**
+NVIDIA (Windows), AMD (Windows/Linux via ADL and DRM/sysfs), and Apple GPU (macOS via IOKit) are now supported. GPU temperature is not available on macOS. Intel GPU support on Linux is also included.
 
 ## Code Signing Policy
 
