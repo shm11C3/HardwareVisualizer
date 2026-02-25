@@ -1,11 +1,26 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 import { useInsightChart } from "@/features/hardware/insights/hooks/useInsightChart";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { sqlitePromise } from "@/lib/sqlite";
 
 vi.mock("@/lib/sqlite", () => ({
   sqlitePromise: Promise.resolve({
     load: vi.fn().mockResolvedValue([]),
+  }),
+}));
+
+vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+  useSettingsAtom: vi.fn().mockReturnValue({
+    settings: { temperatureUnit: "C" },
   }),
 }));
 
@@ -195,5 +210,168 @@ describe("useInsightChart", () => {
     });
 
     expect(result.current.labels.length).toBeGreaterThan(0);
+  });
+});
+
+describe("useInsightChart – formatValue branches", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useSettingsAtom).mockReturnValue({
+      settings: { temperatureUnit: "C" },
+    } as ReturnType<typeof useSettingsAtom>);
+  });
+
+  it("should propagate null values from sqlite as null chart data", async () => {
+    ((await sqlitePromise).load as Mock).mockResolvedValue([
+      { value: null, timestamp: "2023-01-01T00:01:00Z" },
+    ]);
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    // null values must remain null in chartData (not coerced to a number)
+    expect(result.current.chartData.some((v) => v === null)).toBe(true);
+    expect(result.current.hasData).toBe(false);
+  });
+
+  it("should convert temperature from Celsius to Fahrenheit when unit is F", async () => {
+    vi.mocked(useSettingsAtom).mockReturnValue({
+      settings: { temperatureUnit: "F" },
+    } as ReturnType<typeof useSettingsAtom>);
+    ((await sqlitePromise).load as Mock).mockResolvedValue([
+      { value: 100, timestamp: "2023-01-01T00:01:00Z" },
+    ]);
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "gpu",
+        dataStats: "avg",
+        dataType: "temp",
+        period: 10,
+        offset: 0,
+        gpuName: "NVIDIA",
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    // 100°C → 212°F
+    expect(result.current.chartData).toContain(212);
+  });
+
+  it("should convert dedicatedMemory values from KB to GB", async () => {
+    ((await sqlitePromise).load as Mock).mockResolvedValue([
+      { value: 1048576, timestamp: "2023-01-01T00:01:00Z" }, // 1 GiB in KiB
+    ]);
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "gpu",
+        dataStats: "avg",
+        dataType: "dedicatedMemory",
+        period: 10,
+        offset: 0,
+        gpuName: "NVIDIA",
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    // 1 048 576 KiB / 1 024 / 1 024 = 1.0 GB
+    expect(result.current.chartData).toContain(1.0);
+  });
+});
+
+describe("useInsightChart – auto-refresh interval", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+    vi.mocked(useSettingsAtom).mockReturnValue({
+      settings: { temperatureUnit: "C" },
+    } as ReturnType<typeof useSettingsAtom>);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("should poll getData via interval when offset is 0", async () => {
+    const loadMock = (await sqlitePromise).load as Mock;
+    loadMock.mockResolvedValue([
+      { value: 50, timestamp: "2023-01-01T00:01:00Z" },
+    ]);
+
+    renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    // Fire the initial debounced fetch (setTimeout 0)
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    const callsAfterMount = loadMock.mock.calls.length;
+
+    // Advance past archiveUpdateIntervalMilSec (60 000 ms) to trigger interval
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
+
+    expect(loadMock.mock.calls.length).toBeGreaterThan(callsAfterMount);
+  });
+
+  it("should not start auto-refresh when offset is non-zero", async () => {
+    const loadMock = (await sqlitePromise).load as Mock;
+    loadMock.mockResolvedValue([]);
+
+    renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 5,
+      }),
+    );
+
+    // Fire initial fetch
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    const callsAfterMount = loadMock.mock.calls.length;
+
+    // Advance well past the interval – should NOT trigger additional fetches
+    await act(async () => {
+      vi.advanceTimersByTime(120000);
+      await Promise.resolve();
+    });
+
+    expect(loadMock.mock.calls.length).toBe(callsAfterMount);
   });
 });
