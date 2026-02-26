@@ -1,7 +1,15 @@
 // src/features/hardware/hooks/useHardwareData.test.ts
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
-import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 
 import { chartConfig } from "@/features/hardware/consts/chart";
 // Hook groups to test
@@ -13,6 +21,7 @@ import {
   cpuUsageHistoryAtom,
   gpuFanSpeedAtom,
   gpuTempAtom,
+  gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
@@ -232,5 +241,101 @@ describe("useUsageUpdater processors", () => {
       expect(history.length).toBeGreaterThan(0);
       expect(Array.isArray(history[history.length - 1])).toBe(true);
     });
+  });
+});
+
+describe("useUsageUpdater – error and GpuUsageResult branches", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("early-returns without updating atom when result is an error", async () => {
+    // Covers line 69: isResult(result) && isError(result) → return
+    (commands.getGpuUsage as Mock).mockResolvedValue({
+      status: "error",
+      error: "gpu not found",
+    });
+
+    const { result } = renderHook(
+      () => {
+        useUsageUpdater("gpu");
+        const [history] = useAtom(graphicUsageHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Atom should stay empty because early return prevented any update
+    expect(result.current).toEqual([]);
+  });
+
+  it("extracts usage and source from GpuUsageResult object", async () => {
+    // Covers lines 84-86: rawData is { usage, source } object
+    (commands.getGpuUsage as Mock).mockResolvedValue({
+      status: "ok",
+      data: { usage: 60, source: "nvidia_smi" },
+    });
+
+    const { result } = renderHook(
+      () => {
+        useUsageUpdater("gpu");
+        const [history] = useAtom(graphicUsageHistoryAtom);
+        const [source] = useAtom(gpuUsageSourceAtom);
+        return { history, source };
+      },
+      { wrapper: Provider },
+    );
+
+    await waitFor(() => {
+      const { history, source } = result.current;
+      expect(history[history.length - 1]).toEqual(60);
+      expect(source).toEqual("nvidia_smi");
+    });
+  });
+});
+
+describe("useHardwareUpdater – interval re-fetch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("re-fetches gpu fan data after interval tick", async () => {
+    // Covers line 177: the setInterval callback inside useHardwareUpdater
+    (commands.getNvidiaGpuCooler as Mock).mockResolvedValue({
+      status: "ok",
+      data: [{ name: "fan1", value: 1200 }],
+    });
+
+    renderHook(
+      () => {
+        useHardwareUpdater("gpu", "fan");
+        return useAtom(gpuFanSpeedAtom);
+      },
+      { wrapper: Provider },
+    );
+
+    // Initial fetch
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(commands.getNvidiaGpuCooler).toHaveBeenCalledTimes(1);
+
+    // Advance by interval (10 s) to trigger re-fetch
+    await act(async () => {
+      vi.advanceTimersByTime(10000);
+      await Promise.resolve();
+    });
+
+    expect(commands.getNvidiaGpuCooler).toHaveBeenCalledTimes(2);
   });
 });
