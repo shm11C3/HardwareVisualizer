@@ -1,5 +1,5 @@
 // src/hooks/useColorTheme.test.ts
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useColorTheme } from "@/hooks/useColorTheme";
 import type { Theme } from "@/rspc/bindings";
@@ -96,5 +96,67 @@ describe("useColorTheme", () => {
       expect(document.documentElement.classList.contains("dark")).toBe(true);
     });
     expect(document.documentElement.classList.contains("light")).toBe(false);
+  });
+
+  it("Applies 'dark' class when onThemeChanged fires with 'dark' payload", async () => {
+    let capturedCallback: ((event: { payload: string }) => void) | undefined;
+    mockOnThemeChanged.mockImplementation(async (cb) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
+    renderHook(() => useColorTheme("system"));
+
+    await waitFor(() => {
+      expect(mockOnThemeChanged).toHaveBeenCalled();
+    });
+
+    act(() => {
+      capturedCallback?.({ payload: "dark" });
+    });
+
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+    });
+  });
+
+  it("Applies 'light' class when onThemeChanged fires with non-dark payload", async () => {
+    mockTheme.mockResolvedValue("dark");
+    let capturedCallback: ((event: { payload: string }) => void) | undefined;
+    mockOnThemeChanged.mockImplementation(async (cb) => {
+      capturedCallback = cb;
+      return () => {};
+    });
+
+    renderHook(() => useColorTheme("system"));
+
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+    });
+
+    act(() => {
+      capturedCallback?.({ payload: "light" });
+    });
+
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("light")).toBe(true);
+    });
+  });
+
+  it("Calls unlisten when the hook unmounts", async () => {
+    const mockUnlisten = vi.fn();
+    mockOnThemeChanged.mockImplementation(async () => mockUnlisten);
+
+    const { unmount } = renderHook(() => useColorTheme("light"));
+
+    await waitFor(() => {
+      expect(mockOnThemeChanged).toHaveBeenCalled();
+    });
+
+    unmount();
+
+    await waitFor(() => {
+      expect(mockUnlisten).toHaveBeenCalled();
+    });
   });
 });
