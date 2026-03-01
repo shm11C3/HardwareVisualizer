@@ -11,13 +11,14 @@
 use crate::{log_debug, log_error, log_internal};
 use std::collections::HashMap;
 use std::error::Error;
+use std::mem::{self, MaybeUninit};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 use tokio::task::spawn_blocking;
 use windows::Win32::System::Performance::{
-  PDH_FMT_COUNTERVALUE_ITEM_W, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
-  PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
-  PdhGetFormattedCounterArrayW, PdhOpenQueryW,
+  PDH_CSTATUS_NEW_DATA, PDH_CSTATUS_VALID_DATA, PDH_FMT_COUNTERVALUE_ITEM_W,
+  PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY, PdhAddEnglishCounterW, PdhCloseQuery,
+  PdhCollectQueryData, PdhGetFormattedCounterArrayW, PdhOpenQueryW,
 };
 use windows::core::PCWSTR;
 
@@ -79,15 +80,9 @@ struct PdhState {
   query: PDH_HQUERY,
   counter: PDH_HCOUNTER,
   /// Reusable buffer for `PdhGetFormattedCounterArrayW`.
-  /// Uses `u64` instead of `u8` to guarantee 8-byte alignment, which
-  /// `PDH_FMT_COUNTERVALUE_ITEM_W` (contains pointers and `f64`) requires.
-  buf: Vec<u64>,
-  /// Whether at least one successful collect has been performed.
-  /// The first collect after `AddCounter` is a baseline; we need a
-  /// second one for meaningful data from rate-based counters.
-  /// GPU Utilisation Percentage is a gauge, but some drivers still
-  /// return 0 on the very first sample, so we prime on init.
-  primed: bool,
+  /// Typed as `MaybeUninit<PDH_FMT_COUNTERVALUE_ITEM_W>` to guarantee
+  /// correct alignment regardless of the struct's actual `align_of`.
+  buf: Vec<MaybeUninit<PDH_FMT_COUNTERVALUE_ITEM_W>>,
   /// Per-engine-type max utilisation (0.0–1.0) from the last collect.
   /// Populated for *all* known engine types in a single pass so that
   /// concurrent queries for different engine types don't each trigger a
@@ -109,8 +104,10 @@ impl Drop for PdhState {
   }
 }
 
-/// Lazy-initialised global state.
-static PDH_STATE: OnceLock<Mutex<PdhState>> = OnceLock::new();
+/// Lazy-initialised global state.  Stores `Err(message)` if PDH
+/// initialisation failed so subsequent calls return the error instead of
+/// panicking.
+static PDH_STATE: OnceLock<Result<Mutex<PdhState>, String>> = OnceLock::new();
 
 /// Initialise the persistent query (called once under the lock).
 fn init_pdh_state() -> Result<PdhState, Box<dyn Error + Send>> {
@@ -136,12 +133,23 @@ fn init_pdh_state() -> Result<PdhState, Box<dyn Error + Send>> {
       )));
     }
 
-    // Prime: first collect establishes the baseline.
+    // Prime: collect baseline → sleep → collect again so rate-based
+    // counters and drivers that return 0 on the first sample are ready.
     let status = PdhCollectQueryData(query);
     if status != 0 {
       PdhCloseQuery(query);
       return Err(pdh_err(format!(
-        "PdhCollectQueryData (prime) failed: 0x{status:08X}"
+        "PdhCollectQueryData (prime 1) failed: 0x{status:08X}"
+      )));
+    }
+
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
+    let status = PdhCollectQueryData(query);
+    if status != 0 {
+      PdhCloseQuery(query);
+      return Err(pdh_err(format!(
+        "PdhCollectQueryData (prime 2) failed: 0x{status:08X}"
       )));
     }
 
@@ -149,7 +157,6 @@ fn init_pdh_state() -> Result<PdhState, Box<dyn Error + Send>> {
       query,
       counter,
       buf: Vec::new(),
-      primed: false,
       cache: HashMap::new(),
       cache_time: Instant::now(),
     })
@@ -184,18 +191,23 @@ pub async fn query_gpu_usage_by_device_and_engine(
 // ---------------------------------------------------------------------------
 
 fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + Send>> {
-  let mut guard = PDH_STATE
-    .get_or_init(|| match init_pdh_state() {
-      Ok(state) => Mutex::new(state),
-      Err(e) => {
-        log_error!(
-          "init_error",
-          "pdh_provider::collect_and_read",
-          Some(e.to_string())
-        );
-        panic!("Failed to initialize PDH state: {}", e);
-      }
-    })
+  let init_result = PDH_STATE.get_or_init(|| match init_pdh_state() {
+    Ok(state) => Ok(Mutex::new(state)),
+    Err(e) => {
+      log_error!(
+        "init_error",
+        "pdh_provider::collect_and_read",
+        Some(e.to_string())
+      );
+      Err(e.to_string())
+    }
+  });
+
+  let mtx = init_result
+    .as_ref()
+    .map_err(|e| pdh_err(format!("PDH init failed: {e}")))?;
+
+  let mut guard = mtx
     .lock()
     .map_err(|e| pdh_err(format!("PDH_STATE lock poisoned: {e}")))?;
 
@@ -206,13 +218,6 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
     && let Some(&v) = state.cache.get(&engine_type)
   {
     return Ok(v);
-  }
-
-  // If this is the first real poll after init, sleep briefly so the
-  // second collect gives a non-trivial delta for any smoothed counters.
-  if !state.primed {
-    std::thread::sleep(std::time::Duration::from_millis(200));
-    state.primed = true;
   }
 
   unsafe {
@@ -241,10 +246,11 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
       )));
     }
 
-    // Grow reusable buffer if necessary (convert byte count → u64 count, round up)
-    let needed = (buf_size as usize).div_ceil(8);
+    // Grow reusable buffer if necessary (convert byte count → item count, round up)
+    let item_size = mem::size_of::<PDH_FMT_COUNTERVALUE_ITEM_W>();
+    let needed = (buf_size as usize).div_ceil(item_size);
     if needed > state.buf.len() {
-      state.buf.resize(needed, 0u64);
+      state.buf.resize_with(needed, MaybeUninit::uninit);
     }
 
     // --- fetch data into aligned buffer ---
@@ -253,7 +259,7 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
       PDH_FMT_DOUBLE,
       &mut buf_size,
       &mut item_count,
-      Some(state.buf.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W),
+      Some(state.buf.as_mut_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>()),
     );
     if status != 0 {
       return Err(pdh_err(format!(
@@ -263,7 +269,7 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
 
     // --- walk all instances, build per-engine-type cache ---
     let items = std::slice::from_raw_parts(
-      state.buf.as_ptr() as *const PDH_FMT_COUNTERVALUE_ITEM_W,
+      state.buf.as_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>(),
       item_count as usize,
     );
 
@@ -271,11 +277,25 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
     let engtype_tag = "engtype_";
 
     for item in items {
+      // Skip items with invalid CStatus.
+      let cstatus = item.FmtValue.CStatus;
+      if cstatus != PDH_CSTATUS_VALID_DATA && cstatus != PDH_CSTATUS_NEW_DATA {
+        continue;
+      }
+
+      let raw = item.FmtValue.Anonymous.doubleValue;
+
+      // Skip non-finite or out-of-range values.
+      if !raw.is_finite() || !(0.0..=100.0).contains(&raw) {
+        continue;
+      }
+
       let name = pwstr_to_string(item.szName.0);
-      if let Some(pos) = name.find(engtype_tag) {
-        let suffix = &name[pos + engtype_tag.len()..];
+      if let Some(pos) = name.rfind(engtype_tag) {
+        let mut suffix = &name[pos + engtype_tag.len()..];
+        suffix = suffix.split('_').next().unwrap_or(suffix);
         if let Some(etype) = GpuEngineType::from_pdh_suffix(suffix) {
-          let value = item.FmtValue.Anonymous.doubleValue as f32 / 100.0;
+          let value = (raw as f32 / 100.0).clamp(0.0, 1.0);
           let entry = state.cache.entry(etype).or_insert(0.0f32);
           if value > *entry {
             *entry = value;
