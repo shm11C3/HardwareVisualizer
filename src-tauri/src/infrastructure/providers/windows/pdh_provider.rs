@@ -187,6 +187,47 @@ pub async fn query_gpu_usage_by_device_and_engine(
 }
 
 // ---------------------------------------------------------------------------
+// Pure helper functions (testable without PDH handles)
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when `raw` is finite and within the 0–100 range expected
+/// from PDH utilisation counters.
+fn is_valid_pdh_value(raw: f64) -> bool {
+  raw.is_finite() && (0.0..=100.0).contains(&raw)
+}
+
+/// Extract the [`GpuEngineType`] from a PDH instance name such as
+/// `pid_1234_luid_0x00_0x0000_phys_0_eng_1_engtype_3D`.
+///
+/// Uses `rfind` so that only the **last** `engtype_` tag is considered.
+fn parse_engine_type_from_instance(name: &str) -> Option<GpuEngineType> {
+  let engtype_tag = "engtype_";
+  let pos = name.rfind(engtype_tag)?;
+  let suffix = &name[pos + engtype_tag.len()..];
+  let suffix = suffix.split('_').next().unwrap_or(suffix);
+  GpuEngineType::from_pdh_suffix(suffix)
+}
+
+/// Aggregate a slice of `(engine_type, raw_percentage)` pairs into `cache`.
+///
+/// For each engine type the **maximum** raw value is kept, normalised from
+/// the 0–100 PDH range to 0.0–1.0.  The cache is cleared before aggregation
+/// so stale entries from a previous collection do not leak through.
+fn aggregate_engine_usage(
+  cache: &mut HashMap<GpuEngineType, f32>,
+  entries: &[(GpuEngineType, f64)],
+) {
+  cache.clear();
+  for &(etype, raw) in entries {
+    let value = (raw as f32 / 100.0).clamp(0.0, 1.0);
+    let entry = cache.entry(etype).or_insert(0.0f32);
+    if value > *entry {
+      *entry = value;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Core collection logic (runs inside `spawn_blocking`)
 // ---------------------------------------------------------------------------
 
@@ -273,36 +314,22 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
       item_count as usize,
     );
 
-    state.cache.clear();
-    let engtype_tag = "engtype_";
-
+    let mut valid_entries: Vec<(GpuEngineType, f64)> = Vec::new();
     for item in items {
-      // Skip items with invalid CStatus.
       let cstatus = item.FmtValue.CStatus;
       if cstatus != PDH_CSTATUS_VALID_DATA && cstatus != PDH_CSTATUS_NEW_DATA {
         continue;
       }
-
       let raw = item.FmtValue.Anonymous.doubleValue;
-
-      // Skip non-finite or out-of-range values.
-      if !raw.is_finite() || !(0.0..=100.0).contains(&raw) {
+      if !is_valid_pdh_value(raw) {
         continue;
       }
-
       let name = pwstr_to_string(item.szName.0);
-      if let Some(pos) = name.rfind(engtype_tag) {
-        let mut suffix = &name[pos + engtype_tag.len()..];
-        suffix = suffix.split('_').next().unwrap_or(suffix);
-        if let Some(etype) = GpuEngineType::from_pdh_suffix(suffix) {
-          let value = (raw as f32 / 100.0).clamp(0.0, 1.0);
-          let entry = state.cache.entry(etype).or_insert(0.0f32);
-          if value > *entry {
-            *entry = value;
-          }
-        }
+      if let Some(etype) = parse_engine_type_from_instance(&name) {
+        valid_entries.push((etype, raw));
       }
     }
+    aggregate_engine_usage(&mut state.cache, &valid_entries);
 
     state.cache_time = Instant::now();
   }
@@ -347,4 +374,327 @@ unsafe fn pwstr_to_string(ptr: *const u16) -> String {
 
 fn pdh_err(msg: String) -> Box<dyn Error + Send> {
   Box::new(std::io::Error::other(msg))
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // -----------------------------------------------------------------------
+  // GpuEngineType::as_pdh_suffix
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn as_pdh_suffix_graphics3d() {
+    assert_eq!(GpuEngineType::Graphics3D.as_pdh_suffix(), "3D");
+  }
+
+  #[test]
+  fn as_pdh_suffix_copy() {
+    assert_eq!(GpuEngineType::Copy.as_pdh_suffix(), "Copy");
+  }
+
+  #[test]
+  fn as_pdh_suffix_video_decode() {
+    assert_eq!(GpuEngineType::VideoDecode.as_pdh_suffix(), "VideoDecode");
+  }
+
+  #[test]
+  fn as_pdh_suffix_video_encode() {
+    assert_eq!(GpuEngineType::VideoEncode.as_pdh_suffix(), "VideoEncode");
+  }
+
+  #[test]
+  fn as_pdh_suffix_video_processing() {
+    assert_eq!(
+      GpuEngineType::VideoProcessing.as_pdh_suffix(),
+      "VideoProcessing"
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // GpuEngineType::from_pdh_suffix
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn from_pdh_suffix_3d() {
+    assert_eq!(
+      GpuEngineType::from_pdh_suffix("3D"),
+      Some(GpuEngineType::Graphics3D)
+    );
+  }
+
+  #[test]
+  fn from_pdh_suffix_copy() {
+    assert_eq!(
+      GpuEngineType::from_pdh_suffix("Copy"),
+      Some(GpuEngineType::Copy)
+    );
+  }
+
+  #[test]
+  fn from_pdh_suffix_video_decode() {
+    assert_eq!(
+      GpuEngineType::from_pdh_suffix("VideoDecode"),
+      Some(GpuEngineType::VideoDecode)
+    );
+  }
+
+  #[test]
+  fn from_pdh_suffix_video_encode() {
+    assert_eq!(
+      GpuEngineType::from_pdh_suffix("VideoEncode"),
+      Some(GpuEngineType::VideoEncode)
+    );
+  }
+
+  #[test]
+  fn from_pdh_suffix_video_processing() {
+    assert_eq!(
+      GpuEngineType::from_pdh_suffix("VideoProcessing"),
+      Some(GpuEngineType::VideoProcessing)
+    );
+  }
+
+  #[test]
+  fn from_pdh_suffix_unknown_returns_none() {
+    assert_eq!(GpuEngineType::from_pdh_suffix("Compute"), None);
+  }
+
+  #[test]
+  fn from_pdh_suffix_empty_returns_none() {
+    assert_eq!(GpuEngineType::from_pdh_suffix(""), None);
+  }
+
+  #[test]
+  fn from_pdh_suffix_wrong_case_returns_none() {
+    assert_eq!(GpuEngineType::from_pdh_suffix("3d"), None);
+    assert_eq!(GpuEngineType::from_pdh_suffix("copy"), None);
+  }
+
+  // -----------------------------------------------------------------------
+  // Roundtrip: as_pdh_suffix → from_pdh_suffix
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn roundtrip_all_variants() {
+    let variants = [
+      GpuEngineType::Graphics3D,
+      GpuEngineType::Copy,
+      GpuEngineType::VideoDecode,
+      GpuEngineType::VideoEncode,
+      GpuEngineType::VideoProcessing,
+    ];
+    for variant in variants {
+      assert_eq!(
+        GpuEngineType::from_pdh_suffix(variant.as_pdh_suffix()),
+        Some(variant),
+        "roundtrip failed for {variant:?}"
+      );
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // is_valid_pdh_value
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn valid_pdh_value_zero() {
+    assert!(is_valid_pdh_value(0.0));
+  }
+
+  #[test]
+  fn valid_pdh_value_mid() {
+    assert!(is_valid_pdh_value(50.0));
+  }
+
+  #[test]
+  fn valid_pdh_value_hundred() {
+    assert!(is_valid_pdh_value(100.0));
+  }
+
+  #[test]
+  fn invalid_pdh_value_below_range() {
+    assert!(!is_valid_pdh_value(-0.001));
+  }
+
+  #[test]
+  fn invalid_pdh_value_above_range() {
+    assert!(!is_valid_pdh_value(100.001));
+  }
+
+  #[test]
+  fn invalid_pdh_value_nan() {
+    assert!(!is_valid_pdh_value(f64::NAN));
+  }
+
+  #[test]
+  fn invalid_pdh_value_infinity() {
+    assert!(!is_valid_pdh_value(f64::INFINITY));
+    assert!(!is_valid_pdh_value(f64::NEG_INFINITY));
+  }
+
+  // -----------------------------------------------------------------------
+  // parse_engine_type_from_instance
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn parse_instance_3d() {
+    let name = "pid_1234_luid_0x00_0x0000_phys_0_eng_0_engtype_3D";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::Graphics3D)
+    );
+  }
+
+  #[test]
+  fn parse_instance_copy() {
+    let name = "pid_5678_luid_0x00_0x0001_phys_0_eng_1_engtype_Copy";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::Copy)
+    );
+  }
+
+  #[test]
+  fn parse_instance_video_decode() {
+    let name = "pid_9999_luid_0x00_0x0002_phys_0_eng_2_engtype_VideoDecode";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::VideoDecode)
+    );
+  }
+
+  #[test]
+  fn parse_instance_video_encode() {
+    let name = "pid_1111_luid_0x00_0x0003_phys_0_eng_3_engtype_VideoEncode";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::VideoEncode)
+    );
+  }
+
+  #[test]
+  fn parse_instance_video_processing() {
+    let name = "pid_2222_luid_0x00_0x0004_phys_0_eng_4_engtype_VideoProcessing";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::VideoProcessing)
+    );
+  }
+
+  #[test]
+  fn parse_instance_no_engtype_tag() {
+    assert_eq!(parse_engine_type_from_instance("pid_1234_luid_0x00"), None);
+  }
+
+  #[test]
+  fn parse_instance_empty_string() {
+    assert_eq!(parse_engine_type_from_instance(""), None);
+  }
+
+  #[test]
+  fn parse_instance_unknown_engine_type() {
+    let name = "pid_1234_luid_0x00_phys_0_eng_0_engtype_Compute";
+    assert_eq!(parse_engine_type_from_instance(name), None);
+  }
+
+  #[test]
+  fn parse_instance_with_trailing_suffix() {
+    // engtype_ followed by additional underscore-separated parts
+    let name = "pid_1234_luid_0x00_phys_0_eng_0_engtype_3D_extra";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::Graphics3D)
+    );
+  }
+
+  #[test]
+  fn parse_instance_multiple_engtype_uses_last() {
+    // Two engtype_ tags — rfind should pick the last one
+    let name = "engtype_Copy_something_engtype_VideoDecode";
+    assert_eq!(
+      parse_engine_type_from_instance(name),
+      Some(GpuEngineType::VideoDecode)
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // aggregate_engine_usage
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn aggregate_empty_input() {
+    let mut cache = HashMap::new();
+    aggregate_engine_usage(&mut cache, &[]);
+    assert!(cache.is_empty());
+  }
+
+  #[test]
+  fn aggregate_single_entry() {
+    let mut cache = HashMap::new();
+    let entries = [(GpuEngineType::Graphics3D, 50.0)];
+    aggregate_engine_usage(&mut cache, &entries);
+    assert_eq!(cache.get(&GpuEngineType::Graphics3D), Some(&0.5));
+  }
+
+  #[test]
+  fn aggregate_same_engine_keeps_max() {
+    let mut cache = HashMap::new();
+    let entries = [
+      (GpuEngineType::Copy, 20.0),
+      (GpuEngineType::Copy, 80.0),
+      (GpuEngineType::Copy, 50.0),
+    ];
+    aggregate_engine_usage(&mut cache, &entries);
+    assert_eq!(cache.get(&GpuEngineType::Copy), Some(&0.8));
+  }
+
+  #[test]
+  fn aggregate_multiple_engine_types() {
+    let mut cache = HashMap::new();
+    let entries = [
+      (GpuEngineType::Graphics3D, 60.0),
+      (GpuEngineType::VideoDecode, 30.0),
+    ];
+    aggregate_engine_usage(&mut cache, &entries);
+    assert_eq!(cache.len(), 2);
+    assert_eq!(cache.get(&GpuEngineType::Graphics3D), Some(&0.6));
+    assert_eq!(cache.get(&GpuEngineType::VideoDecode), Some(&0.3));
+  }
+
+  #[test]
+  fn aggregate_normalizes_hundred_to_one() {
+    let mut cache = HashMap::new();
+    let entries = [(GpuEngineType::VideoEncode, 100.0)];
+    aggregate_engine_usage(&mut cache, &entries);
+    assert_eq!(cache.get(&GpuEngineType::VideoEncode), Some(&1.0));
+  }
+
+  #[test]
+  fn aggregate_normalizes_zero_to_zero() {
+    let mut cache = HashMap::new();
+    let entries = [(GpuEngineType::VideoProcessing, 0.0)];
+    aggregate_engine_usage(&mut cache, &entries);
+    assert_eq!(cache.get(&GpuEngineType::VideoProcessing), Some(&0.0));
+  }
+
+  #[test]
+  fn aggregate_clears_existing_cache() {
+    let mut cache = HashMap::new();
+    cache.insert(GpuEngineType::Graphics3D, 0.99);
+    cache.insert(GpuEngineType::Copy, 0.5);
+
+    let entries = [(GpuEngineType::VideoDecode, 40.0)];
+    aggregate_engine_usage(&mut cache, &entries);
+
+    assert_eq!(cache.len(), 1);
+    assert!(!cache.contains_key(&GpuEngineType::Graphics3D));
+    assert!(!cache.contains_key(&GpuEngineType::Copy));
+    assert_eq!(cache.get(&GpuEngineType::VideoDecode), Some(&0.4));
+  }
 }
