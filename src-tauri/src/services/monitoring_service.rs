@@ -507,12 +507,17 @@ mod tests {
   #[test]
   fn update_gpu_histories_none_metrics_skipped() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> =
-      vec![("NoData".to_string(), None, None, None)];
+    let samples: Vec<GpuSample> = vec![("NoData".to_string(), None, None, None)];
     update_gpu_histories(&resources, &samples);
 
     assert!(resources.gpu_usage_histories.lock().unwrap().is_empty());
-    assert!(resources.gpu_temperature_histories.lock().unwrap().is_empty());
+    assert!(
+      resources
+        .gpu_temperature_histories
+        .lock()
+        .unwrap()
+        .is_empty()
+    );
     assert!(
       resources
         .gpu_dedicated_memory_histories
@@ -525,15 +530,17 @@ mod tests {
   #[test]
   fn update_gpu_histories_partial_metrics() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> =
-      vec![("Partial".to_string(), Some(80.0), None, None)];
+    let samples: Vec<GpuSample> = vec![("Partial".to_string(), Some(80.0), None, None)];
     update_gpu_histories(&resources, &samples);
 
-    assert_eq!(
-      resources.gpu_usage_histories.lock().unwrap().len(),
-      1
+    assert_eq!(resources.gpu_usage_histories.lock().unwrap().len(), 1);
+    assert!(
+      resources
+        .gpu_temperature_histories
+        .lock()
+        .unwrap()
+        .is_empty()
     );
-    assert!(resources.gpu_temperature_histories.lock().unwrap().is_empty());
     assert!(
       resources
         .gpu_dedicated_memory_histories
@@ -563,13 +570,11 @@ mod tests {
     let resources = create_test_resources();
     // Fill to capacity
     for i in 0..HARDWARE_HISTORY_BUFFER_SIZE {
-      let samples: Vec<GpuSample> =
-        vec![("GPU".to_string(), Some(i as f32), None, None)];
+      let samples: Vec<GpuSample> = vec![("GPU".to_string(), Some(i as f32), None, None)];
       update_gpu_histories(&resources, &samples);
     }
     // Add one more
-    let samples: Vec<GpuSample> =
-      vec![("GPU".to_string(), Some(999.0), None, None)];
+    let samples: Vec<GpuSample> = vec![("GPU".to_string(), Some(999.0), None, None)];
     update_gpu_histories(&resources, &samples);
 
     let usage = resources.gpu_usage_histories.lock().unwrap();

@@ -482,10 +482,7 @@ mod tests {
 
   #[test]
   fn fallback_memory_type_zero_with_smbios_ddr() {
-    assert_eq!(
-      describe_memory_type_with_fallback(Some(0), Some(20)),
-      "DDR"
-    );
+    assert_eq!(describe_memory_type_with_fallback(Some(0), Some(20)), "DDR");
   }
 
   #[test]
@@ -498,10 +495,7 @@ mod tests {
 
   #[test]
   fn fallback_memory_type_zero_with_no_smbios() {
-    assert_eq!(
-      describe_memory_type_with_fallback(Some(0), None),
-      "Unknown"
-    );
+    assert_eq!(describe_memory_type_with_fallback(Some(0), None), "Unknown");
   }
 
   #[test]

@@ -586,8 +586,7 @@ mod tests {
   fn calculate_process_averages_both_empty_returns_none() {
     let (cpu_h, mem_h) = dummy_process_collector();
     let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
-    let result =
-      collector.calculate_process_averages(&VecDeque::new(), &VecDeque::new());
+    let result = collector.calculate_process_averages(&VecDeque::new(), &VecDeque::new());
     assert!(result.is_none());
   }
 
@@ -595,8 +594,8 @@ mod tests {
   fn calculate_process_averages_cpu_empty_returns_none() {
     let (cpu_h, mem_h) = dummy_process_collector();
     let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
-    let result = collector
-      .calculate_process_averages(&VecDeque::new(), &VecDeque::from([1.0]));
+    let result =
+      collector.calculate_process_averages(&VecDeque::new(), &VecDeque::from([1.0]));
     assert!(result.is_none());
   }
 
@@ -604,8 +603,8 @@ mod tests {
   fn calculate_process_averages_mem_empty_returns_none() {
     let (cpu_h, mem_h) = dummy_process_collector();
     let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
-    let result = collector
-      .calculate_process_averages(&VecDeque::from([1.0]), &VecDeque::new());
+    let result =
+      collector.calculate_process_averages(&VecDeque::from([1.0]), &VecDeque::new());
     assert!(result.is_none());
   }
 
@@ -707,8 +706,7 @@ mod tests {
       make_process_stat(2, 20.0, 200, 180),
       make_process_stat(3, 30.0, 300, 120),
     ];
-    let sorted =
-      collector.sort_by_metric(stats, ProcessRankingMetric::ExecutionTime);
+    let sorted = collector.sort_by_metric(stats, ProcessRankingMetric::ExecutionTime);
     assert_eq!(sorted[0].execution_sec, 180);
     assert_eq!(sorted[1].execution_sec, 120);
     assert_eq!(sorted[2].execution_sec, 60);

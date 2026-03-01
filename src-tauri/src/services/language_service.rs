@@ -28,8 +28,7 @@ fn extract_language_code(locale: &str) -> &str {
 /// Get system locale (language setting)
 ///
 fn get_os_language() -> Option<String> {
-  sys_locale::get_locale()
-    .map(|locale| extract_language_code(&locale).to_string())
+  sys_locale::get_locale().map(|locale| extract_language_code(&locale).to_string())
 }
 
 #[cfg(test)]
