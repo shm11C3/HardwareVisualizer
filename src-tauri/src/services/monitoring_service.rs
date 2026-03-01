@@ -309,3 +309,316 @@ fn push_history(history: &Arc<Mutex<VecDeque<f32>>>, value: f32) {
   }
   h.push_back(value);
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::collections::HashMap;
+
+  // ── Helpers ──
+
+  fn create_test_state(history_data: Vec<f32>) -> HardwareMonitorState {
+    let history: VecDeque<f32> = history_data.into();
+    HardwareMonitorState {
+      system: Arc::new(Mutex::new(sysinfo::System::new())),
+      cpu_history: Arc::new(Mutex::new(history.clone())),
+      memory_history: Arc::new(Mutex::new(history.clone())),
+      gpu_history: Arc::new(Mutex::new(history)),
+      process_cpu_histories: Arc::new(Mutex::new(HashMap::new())),
+      process_memory_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_usage_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
+    }
+  }
+
+  fn create_test_resources() -> MonitorResources {
+    MonitorResources {
+      system: Arc::new(Mutex::new(sysinfo::System::new())),
+      cpu_history: Arc::new(Mutex::new(VecDeque::new())),
+      memory_history: Arc::new(Mutex::new(VecDeque::new())),
+      process_cpu_histories: Arc::new(Mutex::new(HashMap::new())),
+      process_memory_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_usage_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_dedicated_memory_histories: Arc::new(Mutex::new(HashMap::new())),
+    }
+  }
+
+  // ── calculate_memory_usage_percentage ──
+
+  #[test]
+  fn memory_usage_percentage_total_zero() {
+    assert_eq!(calculate_memory_usage_percentage(1000, 0), 0.0);
+  }
+
+  #[test]
+  fn memory_usage_percentage_half_used() {
+    assert_eq!(calculate_memory_usage_percentage(500, 1000), 50.0);
+  }
+
+  #[test]
+  fn memory_usage_percentage_fully_used() {
+    assert_eq!(calculate_memory_usage_percentage(1000, 1000), 100.0);
+  }
+
+  #[test]
+  fn memory_usage_percentage_zero_used() {
+    assert_eq!(calculate_memory_usage_percentage(0, 1000), 0.0);
+  }
+
+  #[test]
+  fn memory_usage_percentage_rounding() {
+    assert_eq!(calculate_memory_usage_percentage(333, 1000), 33.0);
+  }
+
+  #[test]
+  fn memory_usage_percentage_large_values() {
+    assert_eq!(
+      calculate_memory_usage_percentage(16_000_000_000, 32_000_000_000),
+      50.0
+    );
+  }
+
+  // ── push_history ──
+
+  #[test]
+  fn push_history_to_empty() {
+    let history = Arc::new(Mutex::new(VecDeque::new()));
+    push_history(&history, 1.0);
+    let h = history.lock().unwrap();
+    assert_eq!(h.len(), 1);
+    assert_eq!(h[0], 1.0);
+  }
+
+  #[test]
+  fn push_history_under_capacity() {
+    let history = Arc::new(Mutex::new(VecDeque::from(vec![0.0; 10])));
+    push_history(&history, 1.0);
+    assert_eq!(history.lock().unwrap().len(), 11);
+  }
+
+  #[test]
+  fn push_history_at_capacity_evicts_oldest() {
+    let initial: VecDeque<f32> = (0..HARDWARE_HISTORY_BUFFER_SIZE)
+      .map(|i| i as f32)
+      .collect();
+    let history = Arc::new(Mutex::new(initial));
+    push_history(&history, 999.0);
+
+    let h = history.lock().unwrap();
+    assert_eq!(h.len(), HARDWARE_HISTORY_BUFFER_SIZE);
+    assert_eq!(*h.front().unwrap(), 1.0); // 0.0 was evicted
+    assert_eq!(*h.back().unwrap(), 999.0);
+  }
+
+  #[test]
+  fn push_history_preserves_order() {
+    let history = Arc::new(Mutex::new(VecDeque::new()));
+    push_history(&history, 1.0);
+    push_history(&history, 2.0);
+    push_history(&history, 3.0);
+    let h = history.lock().unwrap();
+    assert_eq!(h.iter().cloned().collect::<Vec<_>>(), vec![1.0, 2.0, 3.0]);
+  }
+
+  // ── cpu_usage_history ──
+
+  #[test]
+  fn cpu_usage_history_returns_last_n_reversed() {
+    let state = create_test_state(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    let result = cpu_usage_history(&state, 3);
+    assert_eq!(result, vec![5.0, 4.0, 3.0]);
+  }
+
+  #[test]
+  fn cpu_usage_history_clamped_to_available() {
+    let state = create_test_state(vec![1.0, 2.0]);
+    let result = cpu_usage_history(&state, 10);
+    assert_eq!(result, vec![2.0, 1.0]);
+  }
+
+  #[test]
+  fn cpu_usage_history_clamped_to_max_duration() {
+    let data: Vec<f32> = (0..5000).map(|i| i as f32).collect();
+    let state = create_test_state(data);
+    let result = cpu_usage_history(&state, u32::MAX);
+    assert_eq!(result.len(), MAX_HISTORY_QUERY_DURATION_SECONDS as usize);
+  }
+
+  #[test]
+  fn cpu_usage_history_empty() {
+    let state = create_test_state(vec![]);
+    let result = cpu_usage_history(&state, 5);
+    assert!(result.is_empty());
+  }
+
+  // ── memory_usage_history ──
+
+  #[test]
+  fn memory_usage_history_returns_last_n_reversed() {
+    let state = create_test_state(vec![10.0, 20.0, 30.0]);
+    let result = memory_usage_history(&state, 2);
+    assert_eq!(result, vec![30.0, 20.0]);
+  }
+
+  #[test]
+  fn memory_usage_history_empty() {
+    let state = create_test_state(vec![]);
+    let result = memory_usage_history(&state, 5);
+    assert!(result.is_empty());
+  }
+
+  // ── gpu_usage_history ──
+
+  #[test]
+  fn gpu_usage_history_returns_last_n_reversed() {
+    let state = create_test_state(vec![40.0, 50.0, 60.0, 70.0]);
+    let result = gpu_usage_history(&state, 3);
+    assert_eq!(result, vec![70.0, 60.0, 50.0]);
+  }
+
+  #[test]
+  fn gpu_usage_history_empty() {
+    let state = create_test_state(vec![]);
+    let result = gpu_usage_history(&state, 5);
+    assert!(result.is_empty());
+  }
+
+  // ── update_gpu_histories ──
+
+  #[test]
+  fn update_gpu_histories_adds_new_gpu() {
+    let resources = create_test_resources();
+    let samples: Vec<GpuSample> =
+      vec![("TestGPU".to_string(), Some(50.0), Some(70.0), Some(1024.0))];
+    update_gpu_histories(&resources, &samples);
+
+    let usage = resources.gpu_usage_histories.lock().unwrap();
+    assert_eq!(usage.get("TestGPU").unwrap().len(), 1);
+    assert_eq!(*usage.get("TestGPU").unwrap().back().unwrap(), 50.0);
+
+    let temp = resources.gpu_temperature_histories.lock().unwrap();
+    assert_eq!(*temp.get("TestGPU").unwrap().back().unwrap(), 70);
+
+    let mem = resources.gpu_dedicated_memory_histories.lock().unwrap();
+    assert_eq!(*mem.get("TestGPU").unwrap().back().unwrap(), 1024);
+  }
+
+  #[test]
+  fn update_gpu_histories_none_metrics_skipped() {
+    let resources = create_test_resources();
+    let samples: Vec<GpuSample> =
+      vec![("NoData".to_string(), None, None, None)];
+    update_gpu_histories(&resources, &samples);
+
+    assert!(resources.gpu_usage_histories.lock().unwrap().is_empty());
+    assert!(resources.gpu_temperature_histories.lock().unwrap().is_empty());
+    assert!(
+      resources
+        .gpu_dedicated_memory_histories
+        .lock()
+        .unwrap()
+        .is_empty()
+    );
+  }
+
+  #[test]
+  fn update_gpu_histories_partial_metrics() {
+    let resources = create_test_resources();
+    let samples: Vec<GpuSample> =
+      vec![("Partial".to_string(), Some(80.0), None, None)];
+    update_gpu_histories(&resources, &samples);
+
+    assert_eq!(
+      resources.gpu_usage_histories.lock().unwrap().len(),
+      1
+    );
+    assert!(resources.gpu_temperature_histories.lock().unwrap().is_empty());
+    assert!(
+      resources
+        .gpu_dedicated_memory_histories
+        .lock()
+        .unwrap()
+        .is_empty()
+    );
+  }
+
+  #[test]
+  fn update_gpu_histories_multiple_gpus() {
+    let resources = create_test_resources();
+    let samples: Vec<GpuSample> = vec![
+      ("GPU_A".to_string(), Some(10.0), None, None),
+      ("GPU_B".to_string(), Some(90.0), None, None),
+    ];
+    update_gpu_histories(&resources, &samples);
+
+    let usage = resources.gpu_usage_histories.lock().unwrap();
+    assert_eq!(usage.len(), 2);
+    assert!(usage.contains_key("GPU_A"));
+    assert!(usage.contains_key("GPU_B"));
+  }
+
+  #[test]
+  fn update_gpu_histories_respects_buffer_cap() {
+    let resources = create_test_resources();
+    // Fill to capacity
+    for i in 0..HARDWARE_HISTORY_BUFFER_SIZE {
+      let samples: Vec<GpuSample> =
+        vec![("GPU".to_string(), Some(i as f32), None, None)];
+      update_gpu_histories(&resources, &samples);
+    }
+    // Add one more
+    let samples: Vec<GpuSample> =
+      vec![("GPU".to_string(), Some(999.0), None, None)];
+    update_gpu_histories(&resources, &samples);
+
+    let usage = resources.gpu_usage_histories.lock().unwrap();
+    let history = usage.get("GPU").unwrap();
+    assert_eq!(history.len(), HARDWARE_HISTORY_BUFFER_SIZE);
+    assert_eq!(*history.back().unwrap(), 999.0);
+    assert_eq!(*history.front().unwrap(), 1.0); // 0.0 was evicted
+  }
+
+  // ── update_process_histories ──
+
+  #[test]
+  fn update_process_histories_new_process() {
+    let resources = create_test_resources();
+    let pid = sysinfo::Pid::from_u32(100);
+    let metrics = vec![(pid, 50.0_f32, 256.0_f32)];
+    update_process_histories(&resources, &metrics);
+
+    let cpu_h = resources.process_cpu_histories.lock().unwrap();
+    assert_eq!(cpu_h.get(&pid).unwrap().len(), 1);
+    assert_eq!(*cpu_h.get(&pid).unwrap().back().unwrap(), 50.0);
+
+    let mem_h = resources.process_memory_histories.lock().unwrap();
+    assert_eq!(*mem_h.get(&pid).unwrap().back().unwrap(), 256.0);
+  }
+
+  #[test]
+  fn update_process_histories_existing_process() {
+    let resources = create_test_resources();
+    let pid = sysinfo::Pid::from_u32(200);
+    let metrics = vec![(pid, 10.0_f32, 128.0_f32)];
+    update_process_histories(&resources, &metrics);
+    let metrics2 = vec![(pid, 20.0_f32, 256.0_f32)];
+    update_process_histories(&resources, &metrics2);
+
+    let cpu_h = resources.process_cpu_histories.lock().unwrap();
+    assert_eq!(cpu_h.get(&pid).unwrap().len(), 2);
+  }
+
+  #[test]
+  fn update_process_histories_respects_buffer_cap() {
+    let resources = create_test_resources();
+    let pid = sysinfo::Pid::from_u32(300);
+    for i in 0..HARDWARE_HISTORY_BUFFER_SIZE + 5 {
+      let metrics = vec![(pid, i as f32, i as f32)];
+      update_process_histories(&resources, &metrics);
+    }
+
+    let cpu_h = resources.process_cpu_histories.lock().unwrap();
+    assert_eq!(cpu_h.get(&pid).unwrap().len(), HARDWARE_HISTORY_BUFFER_SIZE);
+  }
+}
