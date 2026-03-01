@@ -365,3 +365,154 @@ fn describe_memory_type_with_fallback(
     None => "Unknown".to_string(),
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // ── format_wmi_datetime ──
+
+  #[test]
+  fn format_wmi_datetime_typical() {
+    let result = format_wmi_datetime("20230101000000.000000+000");
+    assert_eq!(result, Some("2023-01-01".to_string()));
+  }
+
+  #[test]
+  fn format_wmi_datetime_exact_8_chars() {
+    let result = format_wmi_datetime("20240315");
+    assert_eq!(result, Some("2024-03-15".to_string()));
+  }
+
+  #[test]
+  fn format_wmi_datetime_too_short() {
+    let result = format_wmi_datetime("2023");
+    assert!(result.is_none());
+  }
+
+  #[test]
+  fn format_wmi_datetime_empty() {
+    let result = format_wmi_datetime("");
+    assert!(result.is_none());
+  }
+
+  // ── describe_memory_type ──
+
+  #[test]
+  fn describe_memory_type_ddr4() {
+    assert_eq!(describe_memory_type(Some(26)), "DDR4");
+  }
+
+  #[test]
+  fn describe_memory_type_ddr3() {
+    assert_eq!(describe_memory_type(Some(24)), "DDR3");
+  }
+
+  #[test]
+  fn describe_memory_type_ddr2() {
+    assert_eq!(describe_memory_type(Some(21)), "DDR2");
+  }
+
+  #[test]
+  fn describe_memory_type_ddr() {
+    assert_eq!(describe_memory_type(Some(20)), "DDR");
+  }
+
+  #[test]
+  fn describe_memory_type_sdram() {
+    assert_eq!(describe_memory_type(Some(17)), "SDRAM");
+  }
+
+  #[test]
+  fn describe_memory_type_unknown_zero() {
+    assert_eq!(describe_memory_type(Some(0)), "Unknown or Unsupported");
+  }
+
+  #[test]
+  fn describe_memory_type_none() {
+    assert_eq!(describe_memory_type(None), "Unknown");
+  }
+
+  #[test]
+  fn describe_memory_type_unrecognized_value() {
+    assert_eq!(
+      describe_memory_type(Some(99)),
+      "Other or Unknown Memory Type (99)"
+    );
+  }
+
+  // ── describe_memory_type_with_fallback ──
+
+  #[test]
+  fn fallback_memory_type_none_returns_unknown() {
+    assert_eq!(describe_memory_type_with_fallback(None, None), "Unknown");
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_smbios_ddr5() {
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(0), Some(34)),
+      "DDR5"
+    );
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_smbios_ddr4() {
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(0), Some(26)),
+      "DDR4"
+    );
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_smbios_ddr3() {
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(0), Some(24)),
+      "DDR3"
+    );
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_smbios_ddr2() {
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(0), Some(21)),
+      "DDR2"
+    );
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_smbios_ddr() {
+    assert_eq!(describe_memory_type_with_fallback(Some(0), Some(20)), "DDR");
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_unknown_smbios() {
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(0), Some(50)),
+      "Other SMBIOS Memory Type (50)"
+    );
+  }
+
+  #[test]
+  fn fallback_memory_type_zero_with_no_smbios() {
+    assert_eq!(describe_memory_type_with_fallback(Some(0), None), "Unknown");
+  }
+
+  #[test]
+  fn fallback_memory_type_nonzero_uses_primary() {
+    // When memory_type is non-zero, it should use describe_memory_type directly
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(26), Some(34)),
+      "DDR4"
+    );
+  }
+
+  #[test]
+  fn fallback_memory_type_nonzero_ignores_smbios() {
+    // memory_type=24 (DDR3) should be used, not smbios_memory_type=34 (DDR5)
+    assert_eq!(
+      describe_memory_type_with_fallback(Some(24), Some(34)),
+      "DDR3"
+    );
+  }
+}

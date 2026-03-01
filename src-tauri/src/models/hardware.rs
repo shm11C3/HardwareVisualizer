@@ -151,3 +151,113 @@ where
     s.serialize_str(&format!("{x:.1}")) // Up to 1 decimal place
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn make_process_info(cpu: f32, mem: f32) -> ProcessInfo {
+    ProcessInfo {
+      pid: 1,
+      name: "test".to_string(),
+      cpu_usage: cpu,
+      memory_usage: mem,
+    }
+  }
+
+  // ── serialize_usage via ProcessInfo JSON serialization ──
+
+  #[test]
+  fn serialize_usage_integer_values() {
+    let info = make_process_info(50.0, 100.0);
+    let json = serde_json::to_value(&info).unwrap();
+    assert_eq!(json["cpuUsage"], "50");
+    assert_eq!(json["memoryUsage"], "100");
+  }
+
+  #[test]
+  fn serialize_usage_fractional_values() {
+    let info = make_process_info(12.5, 33.3);
+    let json = serde_json::to_value(&info).unwrap();
+    assert_eq!(json["cpuUsage"], "12.5");
+    assert_eq!(json["memoryUsage"], "33.3");
+  }
+
+  #[test]
+  fn serialize_usage_zero() {
+    let info = make_process_info(0.0, 0.0);
+    let json = serde_json::to_value(&info).unwrap();
+    assert_eq!(json["cpuUsage"], "0");
+    assert_eq!(json["memoryUsage"], "0");
+  }
+
+  #[test]
+  fn serialize_usage_small_fraction() {
+    let info = make_process_info(0.1, 0.9);
+    let json = serde_json::to_value(&info).unwrap();
+    assert_eq!(json["cpuUsage"], "0.1");
+    assert_eq!(json["memoryUsage"], "0.9");
+  }
+
+  // ── ProcessInfo camelCase serialization ──
+
+  #[test]
+  fn process_info_camel_case_keys() {
+    let info = make_process_info(1.0, 2.0);
+    let json = serde_json::to_value(&info).unwrap();
+    assert!(json.get("cpuUsage").is_some());
+    assert!(json.get("memoryUsage").is_some());
+    assert!(json.get("pid").is_some());
+    assert!(json.get("name").is_some());
+  }
+
+  // ── NameValue serialization ──
+
+  #[test]
+  fn name_value_serialization() {
+    let nv = NameValue {
+      name: "GPU0".to_string(),
+      value: 72,
+    };
+    let json = serde_json::to_value(&nv).unwrap();
+    assert_eq!(json["name"], "GPU0");
+    assert_eq!(json["value"], 72);
+  }
+
+  // ── GpuUsageResult serialization ──
+
+  #[test]
+  fn gpu_usage_result_serialization() {
+    let result = GpuUsageResult {
+      usage: 85,
+      source: "NVAPI".to_string(),
+    };
+    let json = serde_json::to_value(&result).unwrap();
+    assert_eq!(json["usage"], 85);
+    assert_eq!(json["source"], "NVAPI");
+  }
+
+  // ── GpuMemoryUsage serialization ──
+
+  #[test]
+  fn gpu_memory_usage_with_none_fields() {
+    let mem = GpuMemoryUsage {
+      in_use_bytes: None,
+      alloc_bytes: None,
+    };
+    let json = serde_json::to_value(&mem).unwrap();
+    assert!(json["inUseBytes"].is_null());
+    assert!(json["allocBytes"].is_null());
+  }
+
+  #[test]
+  fn gpu_memory_usage_with_values() {
+    let mem = GpuMemoryUsage {
+      in_use_bytes: Some("1048576".to_string()),
+      alloc_bytes: Some("2097152".to_string()),
+    };
+    let json = serde_json::to_value(&mem).unwrap();
+    assert_eq!(json["inUseBytes"], "1048576");
+    assert_eq!(json["allocBytes"], "2097152");
+  }
+}
