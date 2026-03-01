@@ -16,6 +16,13 @@ describe("formatBytes", () => {
     expect(formatBytes(1024 ** 2)).toEqual([1, "MB"]);
     expect(formatBytes(1024 ** 3)).toEqual([1, "GB"]);
   });
+
+  it("should clamp negative decimals to 0", () => {
+    // decimals < 0 branch: should behave as decimals = 0
+    const [value] = formatBytes(1024, -1);
+    expect(Number.isInteger(value)).toBe(true);
+    expect(value).toBe(1);
+  });
 });
 
 describe("formatDuration", () => {
@@ -25,6 +32,21 @@ describe("formatDuration", () => {
 
   it("should format duration in Japanese", () => {
     expect(formatDuration(90061, "ja-JP")).toBe("1日 1時間 1分 1秒");
+  });
+
+  it("should omit zero hours and minutes", () => {
+    // h = 0, m = 0 — only seconds
+    expect(formatDuration(45, "en-US")).toBe("45second");
+  });
+
+  it("should omit zero hours when only minutes and seconds", () => {
+    // h = 0, m > 0
+    expect(formatDuration(125, "en-US")).toBe("2minute 5second");
+  });
+
+  it("should format days without hours in English", () => {
+    // d > 0, h = 0, m = 0
+    expect(formatDuration(86400, "en-US")).toBe("1day 0second");
   });
 });
 
