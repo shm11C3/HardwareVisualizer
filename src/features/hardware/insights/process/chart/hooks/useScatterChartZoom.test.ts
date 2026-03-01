@@ -188,4 +188,126 @@ describe("useScatterChartZoom", () => {
     // Y domain should clamp to [0,70] (range 70 kept from [15,85])
     expect(result.current.yDomain).toEqual([0, 70]);
   });
+
+  it("handleMouseMove returns early when not zoomed", () => {
+    const { result } = renderHook(() => useScatterChartZoom(data));
+
+    // No zoom; handleMouseMove should be a no-op
+    act(() => {
+      result.current.handleMouseDown({
+        clientX: 100,
+        clientY: 100,
+      } as React.MouseEvent);
+      result.current.handleMouseMove({
+        clientX: 200,
+        clientY: 150,
+      } as React.MouseEvent);
+    });
+
+    expect(result.current.xDomain).toEqual([0, "auto"]);
+    expect(result.current.yDomain).toEqual([0, 100]);
+  });
+
+  it("handleMouseMove does not pan when movement is within click threshold", () => {
+    const { result } = renderHook(() => useScatterChartZoom(data));
+
+    (result.current.containerRef as RefObject<HTMLDivElement | null>).current =
+      {
+        getBoundingClientRect: () => rect,
+      } as HTMLDivElement;
+
+    // Zoom in first
+    act(() => {
+      result.current.handleMouseDown({
+        clientX: 500,
+        clientY: 250,
+      } as React.MouseEvent);
+      result.current.handleMouseUp({
+        clientX: 500,
+        clientY: 250,
+      } as React.MouseEvent);
+    });
+
+    const xDomainAfterZoom = result.current.xDomain;
+    const yDomainAfterZoom = result.current.yDomain;
+
+    // Move within CLICK_THRESHOLD (<=5 px) — should not pan
+    act(() => {
+      result.current.handleMouseDown({
+        clientX: 100,
+        clientY: 100,
+      } as React.MouseEvent);
+      result.current.handleMouseMove({
+        clientX: 103,
+        clientY: 102,
+      } as React.MouseEvent);
+    });
+
+    expect(result.current.xDomain).toEqual(xDomainAfterZoom);
+    expect(result.current.yDomain).toEqual(yDomainAfterZoom);
+  });
+
+  it("handleMouseUp returns early when containerRef is null after a clean mouseDown", () => {
+    const { result } = renderHook(() => useScatterChartZoom(data));
+
+    // containerRef.current is null (default); click without moving should hit the null guard
+    act(() => {
+      result.current.handleMouseDown({
+        clientX: 100,
+        clientY: 100,
+      } as React.MouseEvent);
+      result.current.handleMouseUp({
+        clientX: 100,
+        clientY: 100,
+      } as React.MouseEvent);
+    });
+
+    // isZoomed stays false because the null guard prevented zoom logic
+    expect(result.current.isZoomed).toBe(false);
+  });
+
+  it("pans using deltaScale fallback when containerRef getBoundingClientRect width is 0", () => {
+    const { result } = renderHook(() => useScatterChartZoom(data));
+
+    // Use a real-size rect to zoom in
+    (result.current.containerRef as RefObject<HTMLDivElement | null>).current =
+      {
+        getBoundingClientRect: () => rect,
+      } as HTMLDivElement;
+
+    act(() => {
+      result.current.handleMouseDown({
+        clientX: 500,
+        clientY: 250,
+      } as React.MouseEvent);
+      result.current.handleMouseUp({
+        clientX: 500,
+        clientY: 250,
+      } as React.MouseEvent);
+    });
+
+    expect(result.current.xDomain).toEqual([15, 85]);
+
+    // Now set width to 0 so pixelWidth is falsy → deltaScale fallback
+    (result.current.containerRef as RefObject<HTMLDivElement | null>).current =
+      {
+        getBoundingClientRect: () => ({ ...rect, width: 0 }),
+      } as HTMLDivElement;
+
+    // Drag 1000px right: deltaScale=0.0005, scale=70
+    // shift = 1000 * 0.0005 * 70 * 1 = 35 → [15-35, 85-35] = [-20, 50]
+    // setXDomain clamps: rawStart=-20 → start=max(0,-20)=0; width=70; end=70 → [0,70]
+    act(() => {
+      result.current.handleMouseDown({
+        clientX: 100,
+        clientY: 100,
+      } as React.MouseEvent);
+      result.current.handleMouseMove({
+        clientX: 1100,
+        clientY: 100,
+      } as React.MouseEvent);
+    });
+
+    expect(result.current.xDomain).toEqual([0, 70]);
+  });
 });
