@@ -441,3 +441,454 @@ impl<'a> ProcessStatsCollector<'a> {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use models::hardware_archive::ProcessStatData;
+
+  // ── Helpers ──
+
+  fn make_process_stat(pid: i32, cpu: f32, mem: i32, exec: i32) -> ProcessStatData {
+    ProcessStatData {
+      pid,
+      process_name: format!("process_{pid}"),
+      cpu_usage: cpu,
+      memory_usage: mem,
+      execution_sec: exec,
+    }
+  }
+
+  fn dummy_process_collector() -> (
+    Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+    Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+  ) {
+    (
+      Arc::new(Mutex::new(HashMap::new())),
+      Arc::new(Mutex::new(HashMap::new())),
+    )
+  }
+
+  // ── StatsCalculator::compute_stats ──
+
+  #[test]
+  fn compute_stats_empty_slice_returns_all_none() {
+    let result = StatsCalculator::compute_stats(&[]);
+    assert!(result.avg.is_none());
+    assert!(result.max.is_none());
+    assert!(result.min.is_none());
+  }
+
+  #[test]
+  fn compute_stats_single_element() {
+    let result = StatsCalculator::compute_stats(&[42.0]);
+    assert_eq!(result.avg, Some(42.0));
+    assert_eq!(result.max, Some(42.0));
+    assert_eq!(result.min, Some(42.0));
+  }
+
+  #[test]
+  fn compute_stats_multiple_elements() {
+    let result = StatsCalculator::compute_stats(&[10.0, 20.0, 30.0]);
+    assert_eq!(result.avg, Some(20.0));
+    assert_eq!(result.max, Some(30.0));
+    assert_eq!(result.min, Some(10.0));
+  }
+
+  #[test]
+  fn compute_stats_identical_values() {
+    let result = StatsCalculator::compute_stats(&[5.0, 5.0, 5.0]);
+    assert_eq!(result.avg, Some(5.0));
+    assert_eq!(result.max, Some(5.0));
+    assert_eq!(result.min, Some(5.0));
+  }
+
+  #[test]
+  fn compute_stats_with_negative_values() {
+    let result = StatsCalculator::compute_stats(&[-10.0, 0.0, 10.0]);
+    assert_eq!(result.avg, Some(0.0));
+    assert_eq!(result.max, Some(10.0));
+    assert_eq!(result.min, Some(-10.0));
+  }
+
+  #[test]
+  fn compute_stats_large_dataset() {
+    let values: Vec<f32> = (0..1000).map(|i| i as f32).collect();
+    let result = StatsCalculator::compute_stats(&values);
+    assert_eq!(result.avg, Some(499.5));
+    assert_eq!(result.max, Some(999.0));
+    assert_eq!(result.min, Some(0.0));
+  }
+
+  // ── StatsCalculator::compute_f32_aggregates ──
+
+  #[test]
+  fn compute_f32_aggregates_empty_returns_none_tuple() {
+    assert_eq!(
+      StatsCalculator::compute_f32_aggregates(&[]),
+      (None, None, None)
+    );
+  }
+
+  #[test]
+  fn compute_f32_aggregates_single_value() {
+    assert_eq!(
+      StatsCalculator::compute_f32_aggregates(&[7.5]),
+      (Some(7.5), Some(7.5), Some(7.5))
+    );
+  }
+
+  #[test]
+  fn compute_f32_aggregates_typical() {
+    assert_eq!(
+      StatsCalculator::compute_f32_aggregates(&[1.0, 2.0, 3.0, 4.0, 5.0]),
+      (Some(3.0), Some(5.0), Some(1.0))
+    );
+  }
+
+  // ── StatsCalculator::compute_i32_aggregates ──
+
+  #[test]
+  fn compute_i32_aggregates_empty_returns_none_tuple() {
+    assert_eq!(
+      StatsCalculator::compute_i32_aggregates(&[]),
+      (None, None, None)
+    );
+  }
+
+  #[test]
+  fn compute_i32_aggregates_single_value() {
+    assert_eq!(
+      StatsCalculator::compute_i32_aggregates(&[50]),
+      (Some(50.0), Some(50), Some(50))
+    );
+  }
+
+  #[test]
+  fn compute_i32_aggregates_typical() {
+    assert_eq!(
+      StatsCalculator::compute_i32_aggregates(&[10, 20, 30]),
+      (Some(20.0), Some(30), Some(10))
+    );
+  }
+
+  #[test]
+  fn compute_i32_aggregates_avg_fractional() {
+    let (avg, max, min) = StatsCalculator::compute_i32_aggregates(&[1, 2]);
+    assert_eq!(avg, Some(1.5));
+    assert_eq!(max, Some(2));
+    assert_eq!(min, Some(1));
+  }
+
+  // ── ProcessStatsCollector::calculate_process_averages ──
+
+  #[test]
+  fn calculate_process_averages_both_empty_returns_none() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let result = collector.calculate_process_averages(&VecDeque::new(), &VecDeque::new());
+    assert!(result.is_none());
+  }
+
+  #[test]
+  fn calculate_process_averages_cpu_empty_returns_none() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let result =
+      collector.calculate_process_averages(&VecDeque::new(), &VecDeque::from([1.0]));
+    assert!(result.is_none());
+  }
+
+  #[test]
+  fn calculate_process_averages_mem_empty_returns_none() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let result =
+      collector.calculate_process_averages(&VecDeque::from([1.0]), &VecDeque::new());
+    assert!(result.is_none());
+  }
+
+  #[test]
+  fn calculate_process_averages_single_values() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let result = collector
+      .calculate_process_averages(&VecDeque::from([50.0]), &VecDeque::from([1024.0]));
+    assert_eq!(result, Some((50.0, 1024.0)));
+  }
+
+  #[test]
+  fn calculate_process_averages_multiple_values() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let result = collector.calculate_process_averages(
+      &VecDeque::from([10.0, 20.0, 30.0]),
+      &VecDeque::from([100.0, 200.0, 300.0]),
+    );
+    assert_eq!(result, Some((20.0, 200.0)));
+  }
+
+  // ── ProcessStatsCollector::is_valid_execution_time ──
+
+  #[test]
+  fn is_valid_execution_time_zero() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    assert!(collector.is_valid_execution_time(0));
+  }
+
+  #[test]
+  fn is_valid_execution_time_max_boundary() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    assert!(collector.is_valid_execution_time(60 * 60 * 24 * 30));
+  }
+
+  #[test]
+  fn is_valid_execution_time_over_max() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    assert!(!collector.is_valid_execution_time(60 * 60 * 24 * 30 + 1));
+  }
+
+  #[test]
+  fn is_valid_execution_time_negative() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    assert!(!collector.is_valid_execution_time(-1));
+  }
+
+  #[test]
+  fn is_valid_execution_time_typical() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    assert!(collector.is_valid_execution_time(3600));
+  }
+
+  // ── ProcessStatsCollector::sort_by_metric ──
+
+  #[test]
+  fn sort_by_metric_cpu_descending() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let stats = vec![
+      make_process_stat(1, 10.0, 100, 60),
+      make_process_stat(2, 30.0, 200, 120),
+      make_process_stat(3, 20.0, 300, 180),
+    ];
+    let sorted = collector.sort_by_metric(stats, ProcessRankingMetric::Cpu);
+    assert_eq!(sorted[0].cpu_usage, 30.0);
+    assert_eq!(sorted[1].cpu_usage, 20.0);
+    assert_eq!(sorted[2].cpu_usage, 10.0);
+  }
+
+  #[test]
+  fn sort_by_metric_memory_descending() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let stats = vec![
+      make_process_stat(1, 10.0, 100, 60),
+      make_process_stat(2, 20.0, 300, 120),
+      make_process_stat(3, 30.0, 200, 180),
+    ];
+    let sorted = collector.sort_by_metric(stats, ProcessRankingMetric::Memory);
+    assert_eq!(sorted[0].memory_usage, 300);
+    assert_eq!(sorted[1].memory_usage, 200);
+    assert_eq!(sorted[2].memory_usage, 100);
+  }
+
+  #[test]
+  fn sort_by_metric_execution_time_descending() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let stats = vec![
+      make_process_stat(1, 10.0, 100, 60),
+      make_process_stat(2, 20.0, 200, 180),
+      make_process_stat(3, 30.0, 300, 120),
+    ];
+    let sorted = collector.sort_by_metric(stats, ProcessRankingMetric::ExecutionTime);
+    assert_eq!(sorted[0].execution_sec, 180);
+    assert_eq!(sorted[1].execution_sec, 120);
+    assert_eq!(sorted[2].execution_sec, 60);
+  }
+
+  #[test]
+  fn sort_by_metric_empty_vec() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let sorted = collector.sort_by_metric(vec![], ProcessRankingMetric::Cpu);
+    assert!(sorted.is_empty());
+  }
+
+  // ── ProcessStatsCollector::rank_and_filter_processes ──
+
+  #[test]
+  fn rank_and_filter_empty_input() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let result = collector.rank_and_filter_processes(vec![]);
+    assert!(result.is_empty());
+  }
+
+  #[test]
+  fn rank_and_filter_fewer_than_limit() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let stats = vec![
+      make_process_stat(1, 10.0, 100, 60),
+      make_process_stat(2, 20.0, 200, 120),
+      make_process_stat(3, 30.0, 300, 180),
+    ];
+    let result = collector.rank_and_filter_processes(stats);
+    // All 3 unique pids should appear (deduped across metric sorts)
+    let pids: HashSet<i32> = result.iter().map(|s| s.pid).collect();
+    assert_eq!(pids.len(), 3);
+    assert!(pids.contains(&1));
+    assert!(pids.contains(&2));
+    assert!(pids.contains(&3));
+  }
+
+  #[test]
+  fn rank_and_filter_deduplication() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    // Process 1 is top in all metrics — should appear only once
+    let stats = vec![
+      make_process_stat(1, 99.0, 999, 9999),
+      make_process_stat(2, 1.0, 1, 1),
+    ];
+    let result = collector.rank_and_filter_processes(stats);
+    let pid_1_count = result.iter().filter(|s| s.pid == 1).count();
+    assert_eq!(pid_1_count, 1);
+  }
+
+  #[test]
+  fn rank_and_filter_max_limit() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    // Create 20 unique processes
+    let stats: Vec<ProcessStatData> = (0..20)
+      .map(|i| make_process_stat(i, i as f32, i * 10, i * 60))
+      .collect();
+    let result = collector.rank_and_filter_processes(stats);
+    // Should be capped at PROCESS_RECORD_LIMIT * 3 = 15
+    assert!(result.len() <= PROCESS_RECORD_LIMIT * ProcessRankingMetric::ALL.len());
+  }
+
+  // ── ProcessStatsCollector::add_top_processes ──
+
+  #[test]
+  fn add_top_processes_respects_limit() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let sorted: Vec<ProcessStatData> =
+      (0..10).map(|i| make_process_stat(i, 0.0, 0, 0)).collect();
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+    collector.add_top_processes(&mut result, &mut seen, &sorted);
+    assert_eq!(result.len(), PROCESS_RECORD_LIMIT);
+  }
+
+  #[test]
+  fn add_top_processes_skips_seen_pids() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let sorted: Vec<ProcessStatData> =
+      (0..5).map(|i| make_process_stat(i, 0.0, 0, 0)).collect();
+    let mut result = Vec::new();
+    let mut seen = HashSet::from([0, 1]);
+    collector.add_top_processes(&mut result, &mut seen, &sorted);
+    assert_eq!(result.len(), 3);
+    assert!(result.iter().all(|s| s.pid != 0 && s.pid != 1));
+  }
+
+  #[test]
+  fn add_top_processes_empty_input() {
+    let (cpu_h, mem_h) = dummy_process_collector();
+    let collector = ProcessStatsCollector::new(&cpu_h, &mem_h);
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+    collector.add_top_processes(&mut result, &mut seen, &[]);
+    assert!(result.is_empty());
+  }
+
+  // ── GpuMetricsCollector ──
+
+  #[test]
+  fn gpu_metrics_collector_empty_histories() {
+    let usage = Arc::new(Mutex::new(HashMap::new()));
+    let temp = Arc::new(Mutex::new(HashMap::new()));
+    let mem = Arc::new(Mutex::new(HashMap::new()));
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem);
+    assert!(collector.collect_all().is_empty());
+  }
+
+  #[test]
+  fn gpu_metrics_collector_single_gpu() {
+    let mut usage_map: HashMap<String, VecDeque<f32>> = HashMap::new();
+    usage_map.insert("TestGPU".to_string(), VecDeque::from([50.0, 60.0]));
+    let mut temp_map: HashMap<String, VecDeque<i32>> = HashMap::new();
+    temp_map.insert("TestGPU".to_string(), VecDeque::from([70, 80]));
+    let mut mem_map: HashMap<String, VecDeque<i32>> = HashMap::new();
+    mem_map.insert("TestGPU".to_string(), VecDeque::from([1000, 2000]));
+
+    let usage = Arc::new(Mutex::new(usage_map));
+    let temp = Arc::new(Mutex::new(temp_map));
+    let mem = Arc::new(Mutex::new(mem_map));
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem);
+    let result = collector.collect_all();
+
+    assert_eq!(result.len(), 1);
+    let gpu = &result[0];
+    assert_eq!(gpu.gpu_name, "TestGPU");
+    assert_eq!(gpu.usage_avg, Some(55.0));
+    assert_eq!(gpu.usage_max, Some(60.0));
+    assert_eq!(gpu.usage_min, Some(50.0));
+    assert_eq!(gpu.temperature_avg, Some(75.0));
+    assert_eq!(gpu.temperature_max, Some(80));
+    assert_eq!(gpu.temperature_min, Some(70));
+    assert_eq!(gpu.dedicated_memory_avg, Some(1500));
+    assert_eq!(gpu.dedicated_memory_max, Some(2000));
+    assert_eq!(gpu.dedicated_memory_min, Some(1000));
+  }
+
+  #[test]
+  fn gpu_metrics_collector_multiple_gpus() {
+    let mut usage_map: HashMap<String, VecDeque<f32>> = HashMap::new();
+    usage_map.insert("GPU_A".to_string(), VecDeque::from([10.0]));
+    usage_map.insert("GPU_B".to_string(), VecDeque::from([90.0]));
+    let temp_map: HashMap<String, VecDeque<i32>> = HashMap::new();
+    let mem_map: HashMap<String, VecDeque<i32>> = HashMap::new();
+
+    let usage = Arc::new(Mutex::new(usage_map));
+    let temp = Arc::new(Mutex::new(temp_map));
+    let mem = Arc::new(Mutex::new(mem_map));
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem);
+    let result = collector.collect_all();
+
+    assert_eq!(result.len(), 2);
+    let names: HashSet<&str> = result.iter().map(|g| g.gpu_name.as_str()).collect();
+    assert!(names.contains("GPU_A"));
+    assert!(names.contains("GPU_B"));
+  }
+
+  // ── StatsCalculator::calculate_hardware_stats (integration with Arc<Mutex<VecDeque>>) ──
+
+  #[test]
+  fn calculate_hardware_stats_empty_history() {
+    let history = Arc::new(Mutex::new(VecDeque::new()));
+    let result = StatsCalculator::calculate_hardware_stats(&history);
+    assert!(result.avg.is_none());
+    assert!(result.max.is_none());
+    assert!(result.min.is_none());
+  }
+
+  #[test]
+  fn calculate_hardware_stats_with_data() {
+    let history = Arc::new(Mutex::new(VecDeque::from([25.0, 50.0, 75.0])));
+    let result = StatsCalculator::calculate_hardware_stats(&history);
+    assert_eq!(result.avg, Some(50.0));
+    assert_eq!(result.max, Some(75.0));
+    assert_eq!(result.min, Some(25.0));
+  }
+}
