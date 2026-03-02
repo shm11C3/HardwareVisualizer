@@ -20,19 +20,20 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
     log_warn!(
       "adl_fallback",
       "get_gpu_usage",
-      Some("ADL usage query failed, falling back to WMI")
+      Some("ADL usage query failed, falling back to PDH")
     );
   }
 
-  // 3. WMI (generic fallback)
-  match infrastructure::providers::wmi_provider::query_gpu_usage_by_device_and_engine(
-    "3D",
+  // 3. PDH (generic fallback using Windows Performance Counters)
+  use infrastructure::providers::pdh_provider::GpuEngineType;
+  match infrastructure::providers::pdh_provider::query_gpu_usage_by_device_and_engine(
+    GpuEngineType::Graphics3D,
   )
   .await
   {
-    Ok(usage) => Ok(((usage * 100.0).round(), "WMI".to_string())),
+    Ok(usage) => Ok(((usage * 100.0).round(), "PDH".to_string())),
     Err(e) => Err(format!(
-      "Failed to get GPU usage from NVIDIA API, AMD ADL, and WMI: {e:?}"
+      "Failed to get GPU usage from NVIDIA API, AMD ADL, and PDH: {e:?}"
     )),
   }
 }

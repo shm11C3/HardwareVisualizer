@@ -3,10 +3,8 @@ use crate::utils;
 use crate::utils::formatter;
 use crate::{log_debug, log_error, log_internal};
 
-use regex::Regex;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::error::Error;
 use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
@@ -65,52 +63,6 @@ pub async fn query_memory_info() -> Result<MemoryInfo, String> {
   };
 
   Ok(memory_info)
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "PascalCase")]
-struct GpuEngineLoadInfo {
-  name: String,
-  utilization_percentage: Option<u16>,
-}
-
-///
-/// Get GPU engine usage for specified engine type (using WMI)
-///
-pub async fn query_gpu_usage_by_device_and_engine(
-  engine_type: &str,
-) -> Result<f32, Box<dyn Error>> {
-  // Get GPU engine information
-  let results: Vec<GpuEngineLoadInfo>  = wmi_query_in_thread(
-      "SELECT Name, UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine".to_string(),
-  )?;
-
-  log_debug!(
-    &format!("GPU engine usage data: {results:?}"),
-    "get_gpu_usage_by_device_and_engine",
-    None::<&str>
-  );
-
-  // Extract `engtype_xxx` part using regex
-  let re = Regex::new(r"engtype_(\w+)").unwrap();
-
-  results
-    .iter()
-    .find_map(|engine| {
-      re.captures(&engine.name)
-        .and_then(|captures| captures.get(1))
-        .filter(|engine_name| engine_name.as_str() == engine_type)
-        .and_then(|_| {
-          engine
-            .utilization_percentage
-            .map(|load| load as f32 / 100.0)
-        })
-    })
-    .ok_or_else(|| {
-      let message = format!("No usage data available for engine type: {engine_type}");
-      Box::new(std::io::Error::new(std::io::ErrorKind::NotFound, message))
-        as Box<dyn Error>
-    })
 }
 
 #[derive(Deserialize, Debug)]
