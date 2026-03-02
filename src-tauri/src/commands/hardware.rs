@@ -83,7 +83,7 @@ pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
 /// ## Get GPU usage (%)
 ///
 /// Returns the GPU usage percentage together with the data-source
-/// identifier (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit").
+/// identifier (e.g. "NVAPI", "ADL", "PDH", "DRM (AMD)", "IOKit").
 ///
 #[command]
 #[specta::specta]
