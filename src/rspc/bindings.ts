@@ -87,7 +87,7 @@ async getMemoryUsage() : Promise<number> {
  * ## Get GPU usage (%)
  * 
  * Returns the GPU usage percentage together with the data-source
- * identifier (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit").
+ * identifier (e.g. "NVAPI", "ADL", "PDH", "DRM (AMD)", "IOKit").
  * 
  */
 async getGpuUsage() : Promise<Result<GpuUsageResult, string>> {
