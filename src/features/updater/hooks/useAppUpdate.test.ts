@@ -120,4 +120,65 @@ describe("useUpdater", () => {
     expect(result.current.total).toBeNull();
     expect(result.current.percent).toBeNull();
   });
+
+  it("percent: null when total is 0n", async () => {
+    // Edge case: started event sends contentLength "0", total becomes 0n
+    (commands.installUpdate as Mock).mockImplementation(async (ch: unknown) => {
+      const channel = ch as TestChannel;
+      channel.onmessage?.({ event: "started", data: { contentLength: "0" } });
+      channel.onmessage?.({ event: "finished", data: {} });
+      return { status: "ok", data: null };
+    });
+
+    const { result } = renderHook(() => useUpdater());
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    await waitFor(() => result.current.isFinished === true);
+    // total is 0n, so percent must be null (division by zero guard)
+    expect(result.current.percent).toBeNull();
+  });
+
+  it("install: total stays null when contentLength is absent", async () => {
+    // started event without contentLength → setTotal(null)
+    (commands.installUpdate as Mock).mockImplementation(async (ch: unknown) => {
+      const channel = ch as TestChannel;
+      channel.onmessage?.({
+        event: "started",
+        // contentLength omitted → falsy
+        data: { contentLength: "" },
+      });
+      channel.onmessage?.({ event: "progress", data: { chunkLength: "50" } });
+      channel.onmessage?.({ event: "finished", data: {} });
+      return { status: "ok", data: null };
+    });
+
+    const { result } = renderHook(() => useUpdater());
+
+    await act(async () => {
+      await result.current.install();
+    });
+
+    await waitFor(() => result.current.isFinished === true);
+    // total should remain null (unknown download size)
+    expect(result.current.total).toBeNull();
+    expect(result.current.percent).toBeNull();
+  });
+
+  it("fetchUpdate: meta stays null when result is not ok", async () => {
+    (commands.fetchUpdate as Mock).mockResolvedValue({
+      status: "error",
+      error: "network failure",
+    });
+
+    const { result } = renderHook(() => useUpdater());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(result.current.meta).toBeNull();
+  });
 });
