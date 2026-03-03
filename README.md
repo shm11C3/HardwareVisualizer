@@ -40,6 +40,8 @@ Web: <https://hardviz.com/>
   - [Installation Guide](#installation-guide)
     - [Download](#download)
     - [Windows Installation](#windows-installation)
+      - [Using the Installer](#using-the-installer)
+      - [Using Winget](#using-winget)
     - [Linux Installation](#linux-installation)
     - [First-time Setup](#first-time-setup)
   - [Features](#features)
@@ -68,10 +70,21 @@ Choose your platform and download the latest installer:
 
 ### Windows Installation
 
+#### Using the Installer
+
 1. Download `HardwareVisualizer_x.x.x_x64-setup_windows.exe` or `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` from the download page
 2. Run the installer (`.exe` or `.msi` file)
 3. Follow the installation wizard
 4. Launch **HardwareVisualizer** from Start Menu or Desktop shortcut
+
+#### Using Winget
+
+You can also install using Windows Package Manager (Winget).
+Run the following command in PowerShell or Command Prompt:
+
+```powershell
+winget install shm11C3.HardwareVisualizer
+```
 
 > [!NOTE]
 > No additional permissions required on Windows
@@ -184,14 +197,14 @@ Flexible graph customization available.
 
 ## Roadmap
 
-| Item                         | Target   |
-| ---------------------------- | -------- |
-| macOS Support                | ✅ Done  |
-| AMD GPU compatible               | WIP (Preview) |
-| Fan / Temp Full Cross Vendor | Research |
-| Game Mode                    | Planned  |
-| Power Consumption Estimation | Idea     |
-| Plugin System                | Idea     |
+| Item                         | Target        |
+| ---------------------------- | ------------- |
+| macOS Support                | ✅ Done       |
+| AMD GPU compatible           | WIP (Preview) |
+| Fan / Temp Full Cross Vendor | Research      |
+| Game Mode                    | Planned       |
+| Power Consumption Estimation | Idea          |
+| Plugin System                | Idea          |
 
 ## Contributing
 
