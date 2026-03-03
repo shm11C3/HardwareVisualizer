@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useTauriStore } from "@/hooks/useTauriStore";
 
 const mockSetMenuOpen = vi.fn();
 const mockSetDisplayTarget = vi.fn();
@@ -9,9 +10,9 @@ vi.mock("@/hooks/useTauriStore", () => ({
   useTauriStore: vi
     .fn()
     .mockImplementation((key: string, defaultValue: unknown) => {
-      if (key === "sideMenuOpen") return [defaultValue, mockSetMenuOpen];
-      if (key === "display") return [defaultValue, mockSetDisplayTarget];
-      return [defaultValue, vi.fn()];
+      if (key === "sideMenuOpen") return [defaultValue, mockSetMenuOpen, false];
+      if (key === "display") return [defaultValue, mockSetDisplayTarget, false];
+      return [defaultValue, vi.fn(), false];
     }),
 }));
 
@@ -20,6 +21,15 @@ import { useMenu } from "@/features/menu/hooks/useMenu";
 describe("useMenu", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi
+      .mocked(useTauriStore)
+      .mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === "sideMenuOpen")
+          return [defaultValue, mockSetMenuOpen, false];
+        if (key === "display")
+          return [defaultValue, mockSetDisplayTarget, false];
+        return [defaultValue, vi.fn(), false];
+      }) as unknown as typeof useTauriStore;
   });
 
   it("returns initial state with isOpen=false and displayTarget=dashboard", () => {
@@ -49,6 +59,17 @@ describe("useMenu", () => {
     });
 
     expect(mockSetDisplayTarget).toHaveBeenCalledWith("settings");
+  });
+
+  it("useEffect: does not call setDisplayTargetAtom when displayTarget is null", () => {
+    vi.mocked(useTauriStore).mockImplementation((key: string) => {
+      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false];
+      if (key === "display") return [null, mockSetDisplayTarget, true];
+      return [null, vi.fn(), true];
+    }) as unknown as typeof useTauriStore;
+    const { result } = renderHook(() => useMenu(), { wrapper: Provider });
+
+    expect(result.current.displayTarget).toBeNull();
   });
 
   it("handleMenuClick: can switch between different display targets", () => {
