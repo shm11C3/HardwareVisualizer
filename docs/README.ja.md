@@ -36,6 +36,8 @@ Web サイト: <https://hardviz.com/>
   - [インストールガイド](#インストールガイド)
     - [ダウンロード](#ダウンロード)
     - [Windows へのインストール](#windows-へのインストール)
+      - [インストーラを使用する](#インストーラを使用する)
+      - [Winget コマンドを使用する](#winget-コマンドを使用する)
     - [Linux へのインストール](#linux-へのインストール)
     - [初期設定](#初期設定)
   - [機能一覧](#機能一覧)
@@ -64,10 +66,21 @@ Web サイト: <https://hardviz.com/>
 
 ### Windows へのインストール
 
+#### インストーラを使用する
+
 1. ダウンロードページから `HardwareVisualizer_x.x.x_x64-setup_windows.exe` または `HardwareVisualizer_x.x.x_x64_en-US_windows.msi` をダウンロードします。
 2. インストーラー（`.exe` または `.msi` ファイル）を実行します。
 3. インストールウィザードの指示に従います。
 4. スタートメニューまたはデスクトップのショートカットから **HardwareVisualizer** を起動します。
+
+#### Winget コマンドを使用する
+
+Windows の場合、Windows Package Manager（Winget）を使用してインストールすることもできます。　　
+PowerShell またはコマンドプロンプトで以下のコマンドを実行してください。
+
+```powershell
+winget install shm11C3.HardwareVisualizer
+```
 
 > [!NOTE]
 > Windows では追加の権限は必要ありません。
