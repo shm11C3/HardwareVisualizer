@@ -178,7 +178,8 @@ Flexible graph customization available.
 | Context               | Reason                                                  |
 | --------------------- | ------------------------------------------------------- |
 | Linux sudo            | Access to certain device files (GPU, sensors)           |
-| Windows WMI           | GPU/memory extended metrics                             |
+| Windows WMI           | Memory and system extended metrics                      |
+| Windows PDH           | GPU engine utilization                                  |
 | No outbound telemetry | No telemetry; the app does not send any data externally |
 
 ## Roadmap
