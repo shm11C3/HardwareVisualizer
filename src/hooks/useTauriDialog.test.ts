@@ -81,6 +81,23 @@ describe("useTauriDialog", () => {
     expect(res).toBe(true);
   });
 
+  it("confirm: When title is not specified, title becomes undefined", async () => {
+    const { result } = renderHook(() => useTauriDialog());
+    (showConfirm as Mock).mockResolvedValue(false);
+
+    const dialog = result.current;
+    const res = await dialog.confirm({
+      message: "Continue?",
+      kind: "info",
+    });
+
+    expect(showConfirm).toHaveBeenCalledWith("Continue?", {
+      title: undefined,
+      kind: "info",
+    });
+    expect(res).toBe(false);
+  });
+
   it("message: When title is specified, calls showMessage with translated title", async () => {
     const { result } = renderHook(() => useTauriDialog());
     (showMessage as Mock).mockResolvedValue(undefined);
@@ -94,6 +111,22 @@ describe("useTauriDialog", () => {
 
     expect(showMessage).toHaveBeenCalledWith("Operation completed", {
       title: "error.title.success",
+      kind: "info",
+    });
+  });
+
+  it("message: When title is not specified, title becomes undefined", async () => {
+    const { result } = renderHook(() => useTauriDialog());
+    (showMessage as Mock).mockResolvedValue(undefined);
+
+    const dialog = result.current;
+    await dialog.message({
+      message: "Hello",
+      kind: "info",
+    });
+
+    expect(showMessage).toHaveBeenCalledWith("Hello", {
+      title: undefined,
       kind: "info",
     });
   });
