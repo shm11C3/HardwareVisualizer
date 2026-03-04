@@ -1,128 +1,128 @@
 {
   "shared": {
-    "usage": "Usage",
-    "usageValue": "Usage",
-    "cpuUsage": "CPU Usage",
-    "memoryUsage": "Memory Usage",
-    "avgCpuUsage": "Avg CPU Usage",
-    "memoryUsageValue": "Memory Usage",
-    "avgMemoryUsageValue": "Avg Memory Usage",
+    "usage": "Использование",
+    "usageValue": "Использование",
+    "cpuUsage": "Загрузка ЦП",
+    "memoryUsage": "Использование памяти",
+    "avgCpuUsage": "Средняя загрузка ЦП",
+    "memoryUsageValue": "Использование памяти",
+    "avgMemoryUsageValue": "Среднее использование памяти",
     "temperature": {
-      "full": "Temperature",
-      "abbrev": "Temp"
+      "full": "Температура",
+      "abbrev": "Темп."
     },
-    "name": "Name",
-    "vendor": "Vendor",
-    "coreCount": "Core Count",
-    "threadCount": "Thread Count",
-    "defaultClockSpeed": "Default Clock Speed",
-    "memory": "Memory",
-    "memorySize": "Memory Size",
-    "memorySizeShared": "Memory Size (Shared)",
-    "memorySizeDedicated": "Memory Size (Dedicated)",
-    "memorySizeSharedUsage": "Memory Usage",
-    "memorySizeDedicatedUsage": "Dedicated GPU Memory Usage",
-    "loadDetailedInfo": "Load detailed info",
-    "memoryType": "Memory Type",
-    "totalMemory": "Total Memory",
-    "memoryCount": "Memory Count",
-    "memoryClockSpeed": "Memory Clock",
-    "clock": "Clock",
-    "process": "Process",
-    "processCount": "Process Count",
-    "reset": "Reset",
-    "storage": "Storage",
-    "network": "Network",
-    "driveName": "Drive Name",
-    "driveType": "Drive Type",
-    "driveTotalSpace": "Drive Total Space",
-    "driveUsedSpace": "Drive Used Space",
-    "driveFreeSpace": "Drive Free Space",
-    "driveFileSystem": "Drive File System",
-    "macAddress": "MAC Address",
-    "subnetMask": "Subnet Mask",
-    "gateway": "Gateway",
-    "linkLocal": "Link Local",
+    "name": "Имя",
+    "vendor": "Производитель",
+    "coreCount": "Количество ядер",
+    "threadCount": "Количество потоков",
+    "defaultClockSpeed": "Базовая тактовая частота",
+    "memory": "Память",
+    "memorySize": "Объем памяти",
+    "memorySizeShared": "Объем памяти (Общая)",
+    "memorySizeDedicated": "Объем памяти (Выделенная)",
+    "memorySizeSharedUsage": "Использование памяти",
+    "memorySizeDedicatedUsage": "Использование выделенной видеопамяти",
+    "loadDetailedInfo": "Загрузить подробную информацию",
+    "memoryType": "Тип памяти",
+    "totalMemory": "Всего памяти",
+    "memoryCount": "Количество модулей памяти",
+    "memoryClockSpeed": "Частота памяти",
+    "clock": "Тактовая частота",
+    "process": "Процесс",
+    "processCount": "Количество процессов",
+    "reset": "Сбросить",
+    "storage": "Накопители",
+    "network": "Сеть",
+    "driveName": "Имя диска",
+    "driveType": "Тип диска",
+    "driveTotalSpace": "Общий объем диска",
+    "driveUsedSpace": "Занято на диске",
+    "driveFreeSpace": "Свободно на диске",
+    "driveFileSystem": "Файловая система",
+    "macAddress": "MAC-адрес",
+    "subnetMask": "Маска подсети",
+    "gateway": "Основной шлюз",
+    "linkLocal": "Link-local адрес",
     "ipv4": "IPv4",
     "ipv6": "IPv6",
-    "address": "Address",
-    "used": "Used",
-    "free": "Free",
+    "address": "Адрес",
+    "used": "Занято",
+    "free": "Свободно",
     "time": {
-      "seconds": "seconds",
-      "minutes": "minutes",
-      "hours": "hours",
-      "days": "days",
-      "weeks": "weeks",
-      "months": "months",
-      "years": "years"
+      "seconds": "секунд",
+      "minutes": "минут",
+      "hours": "часов",
+      "days": "дней",
+      "weeks": "недель",
+      "months": "месяцев",
+      "years": "лет"
     },
-    "avg": "Avg",
-    "min": "Min",
-    "max": "Max",
-    "select": "Select",
-    "total": "Total",
-    "execTime": "Execution Time",
-    "totalExecTime": "Total Execution Time",
-    "latestExecTime": "Latest Execution Time",
-    "processHistory": "Process History",
-    "processHistoryCount": "{{count}} items",
-    "noProcessDataFound": "No process data found for the selected period",
-    "maxProcessCount": "Max Process Count",
-    "selectProcessCount": "Select process count",
-    "processCountValue": "{{count}} processes",
-    "memoryRangeMax": "Memory Range Max",
-    "selectMemoryRangeMax": "Select memory range max",
-    "deviceCapacity": "Device Capacity",
+    "avg": "Ср.",
+    "min": "Мин",
+    "max": "Макс",
+    "select": "Выбрать",
+    "total": "Всего",
+    "execTime": "Время выполнения",
+    "totalExecTime": "Общее время выполнения",
+    "latestExecTime": "Последнее время выполнения",
+    "processHistory": "История процессов",
+    "processHistoryCount": "{{count}} элементов",
+    "noProcessDataFound": "Данные о процессах за выбранный период не найдены",
+    "maxProcessCount": "Максимальное количество процессов",
+    "selectProcessCount": "Выберите максимальное количество процессов",
+    "processCountValue": "{{count}} процессов",
+    "memoryRangeMax": "Максимальный объем памяти",
+    "selectMemoryRangeMax": "Выберите максимальный объем памяти",
+    "deviceCapacity": "Емкость устройства",
     "snapshot": {
-      "title": "Snapshot Analysis",
-      "description": "Analyze hardware usage for the specified time period",
-      "timeRange": "Time Range",
-      "dataType": "Data Type",
-      "filters": "Filters",
-      "cpuUsageFilter": "CPU Usage Filter",
-      "memoryUsageFilter": "Memory Usage Filter",
-      "cpuFilterTooltip": "Only show processes with CPU usage within the specified range",
-      "memoryFilterTooltip": "Only show processes with memory usage within the specified range",
-      "filtersSectionTitle": "Process Filters",
-      "filtersSectionDescription": "Filter processes by the conditions below and display results in the process list",
+      "title": "Анализ среза",
+      "description": "Анализ использования оборудования за указанный период времени",
+      "timeRange": "Временной диапазон",
+      "dataType": "Тип данных",
+      "filters": "Фильтры",
+      "cpuUsageFilter": "Фильтр по загрузке ЦП",
+      "memoryUsageFilter": "Фильтр по использованию памяти",
+      "cpuFilterTooltip": "Показывать только процессы с загрузкой ЦП в указанном диапазоне",
+      "memoryFilterTooltip": "Показывать только процессы с использованием памяти в указанном диапазоне",
+      "filtersSectionTitle": "Фильтры процессов",
+      "filtersSectionDescription": "Отфильтруйте процессы по условиям ниже и отобразите результаты в списке процессов",
       "quickPeriods": {
-        "1h": "1 Hour",
-        "6h": "6 Hours",
-        "24h": "24 Hours",
-        "7d": "7 Days"
+        "1h": "1 час",
+        "6h": "6 часов",
+        "24h": "24 часа",
+        "7d": "7 дней"
       },
-      "noDataMessage": "No processes found matching the specified criteria",
-      "adjustFiltersHint": "Try adjusting the filter conditions"
+      "noDataMessage": "Не найдено процессов, соответствующих заданным критериям",
+      "adjustFiltersHint": "Попробуйте изменить условия фильтрации"
     },
-    "other": "Other",
-    "loading": "Loading...",
-    "back": "Back",
-    "showInExplorer": "Show in Explorer",
-    "motherboard": "Motherboard",
-    "manufacturer": "Manufacturer",
-    "product": "Product",
-    "version": "Version",
-    "serialNumber": "Serial Number",
-    "biosVendor": "BIOS Vendor",
-    "biosVersion": "BIOS Version",
-    "biosReleaseDate": "BIOS Release Date",
+    "other": "Другое",
+    "loading": "Загрузка...",
+    "back": "Назад",
+    "showInExplorer": "Показать в проводнике",
+    "motherboard": "Материнская плата",
+    "manufacturer": "Производитель",
+    "product": "Модель",
+    "version": "Версия",
+    "serialNumber": "Серийный номер",
+    "biosVendor": "Производитель BIOS",
+    "biosVersion": "Версия BIOS",
+    "biosReleaseDate": "Дата выпуска BIOS",
     "fullscreen": {
-      "enter": "Enter Fullscreen",
-      "exit": "Exit Fullscreen"
+      "enter": "Войти в полноэкранный режим",
+      "exit": "Выйти из полноэкранного режима"
     },
-    "title": "Title"
+    "title": "Заголовок"
   },
 
   "errorBoundary": {
-    "title": "An unexpected error has occurred",
-    "description": "Reset the UI and settings, or report this issue if it persists.",
-    "resetButton": "Reset UI and settings",
-    "reportButton": "Report this issue",
-    "errorDetails": "Error details",
-    "settingsJsonHint": "If the issue persists, delete settings.json in the app data folder and restart the app.",
+    "title": "Произошла непредвиденная ошибка",
+    "description": "Сбросьте интерфейс и настройки или сообщите о проблеме, если она повторяется.",
+    "resetButton": "Сбросить интерфейс и настройки",
+    "reportButton": "Сообщить о проблеме",
+    "errorDetails": "Детали ошибки",
+    "settingsJsonHint": "Если проблема не исчезает, удалите файл settings.json в папке данных приложения и перезапустите приложение.",
     "settingsJsonLocations": {
-      "title": "settings.json locations",
+      "title": "Расположение settings.json",
       "windows": "Windows: AppData\\Roaming\\HardwareVisualizer\\settings.json",
       "macos": "macOS: ~/Library/Application Support/HardwareVisualizer/settings.json",
       "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
@@ -131,193 +131,193 @@
 
   "pages": {
     "dashboard": {
-      "name": "Dashboard",
-      "visibleItems": "Visible Items",
-      "selectItems": "Select items to display on the dashboard"
+      "name": "Главная",
+      "visibleItems": "Видимые элементы",
+      "selectItems": "Выберите элементы для отображения на главной панели"
     },
     "usage": {
-      "name": "Usage"
+      "name": "Использование"
     },
     "insights": {
-      "name": "Insights",
+      "name": "Статистика",
       "main": {
-        "title": "CPU / Memory"
+        "title": "ЦП / Память"
       },
       "gpu": {
-        "title": "GPU"
+        "title": "ГП"
       },
       "process": {
-        "title": "Process"
+        "title": "Процессы"
       },
       "snapshot": {
-        "title": "Snapshot"
+        "title": "Срез"
       },
-      "noDataForPeriod": "No data found for the selected period"
+      "noDataForPeriod": "Данные за выбранный период не найдены"
     },
     "settings": {
-      "name": "Settings",
+      "name": "Настройки",
       "general": {
-        "name": "General",
-        "language": "Language",
+        "name": "Общие",
+        "language": "Язык",
         "colorMode": {
-          "name": "Color Mode",
-          "system": "System Default",
-          "light": "Light",
-          "dark": "Dark",
+          "name": "Цветовая схема",
+          "system": "Системная",
+          "light": "Светлая",
+          "dark": "Темная",
           "darkPlus": "Dark+",
-          "sky": "Sky",
-          "grove": "Grove",
-          "sunset": "Sunset",
-          "nebula": "Nebula",
-          "orbit": "Orbit",
-          "cappuccino": "Cappuccino",
-          "espresso": "Espresso"
+          "sky": "Небесная",
+          "grove": "Лесная",
+          "sunset": "Закат",
+          "nebula": "Туманность",
+          "orbit": "Орбита",
+          "cappuccino": "Капучино",
+          "espresso": "Эспрессо"
         },
-        "hardwareType": "Hardware Type",
+        "hardwareType": "Тип оборудования",
         "temperatureUnit": {
-          "name": "Temperature Unit",
-          "celsius": "Celsius (°C)",
-          "fahrenheit": "Fahrenheit (°F)"
+          "name": "Единица измерения температуры",
+          "celsius": "Цельсий (°C)",
+          "fahrenheit": "Фаренгейт (°F)"
         },
         "autostart": {
-          "name": "Automatic startup at OS startup"
+          "name": "Автоматический запуск при старте ОС"
         },
         "burnInShift": {
-          "name": "Burn-In Protection",
-          "description": "Enable to prevent screen burn-in by periodically shifting the app position.",
-          "detailSettings": "Detail Settings",
+          "name": "Защита от выгорания экрана",
+          "description": "Включите, чтобы предотвратить выгорание экрана путем периодического смещения положения окна приложения.",
+          "detailSettings": "Детальные настройки",
           "mode": {
-            "name": "Shift Mode",
-            "jump": "Jump (Interval-based shifts)",
-            "drift": "Drift (Smooth animation)"
+            "name": "Режим смещения",
+            "jump": "Скачок (смещение через интервалы)",
+            "drift": "Плавное (плавная анимация)"
           },
           "preset": {
-            "name": "Shift Preset",
-            "gentle": "Gentle",
-            "balanced": "Balanced",
-            "aggressive": "Aggressive"
+            "name": "Пресет смещения",
+            "gentle": "Мягкий",
+            "balanced": "Сбалансированный",
+            "aggressive": "Агрессивный"
           },
           "idleOnly": {
-            "name": "Idle Only",
-            "description": "Enable to shift the app position only when there is no user activity (mouse/keyboard input) for a certain period."
+            "name": "Только в простое",
+            "description": "Включает смещение окна только при отсутствии активности пользователя (ввод с мыши/клавиатуры) в течение определенного времени."
           },
           "override": {
-            "name": "Override Burn-In Setting",
+            "name": "Переопределить настройки защиты",
             "options": {
-              "intervalMs": "Shift Interval (ms)",
-              "amplitudePx": "Shift Amplitude (px)",
-              "amplitudePxX": "Shift Amplitude X (px)",
-              "amplitudePxY": "Shift Amplitude Y (px)",
-              "idleThresholdMs": "Idle Threshold (ms)",
-              "driftDurationSec": "Drift Duration (sec)"
+              "intervalMs": "Интервал смещения (мс)",
+              "amplitudePx": "Амплитуда смещения (пикс)",
+              "amplitudePxX": "Амплитуда смещения X (пикс)",
+              "amplitudePxY": "Амплитуда смещения Y (пикс)",
+              "idleThresholdMs": "Порог простоя (мс)",
+              "driftDurationSec": "Длительность плавного смещения (сек)"
             }
           },
           "tooltip": {
-            "jump": "The app will shift its position at regular intervals to prevent screen burn-in.",
-            "drift": "The app will smoothly drift around the screen to prevent screen burn-in."
+            "jump": "Приложение будет периодически смещать свое положение для предотвращения выгорания экрана.",
+            "drift": "Приложение будет плавно перемещаться по экрану для предотвращения выгорания экрана."
           }
         }
       },
       "customTheme": {
-        "name": "Custom Theme",
-        "preview": "Preview",
-        "lineColor": "Line Color",
+        "name": "Пользовательская тема",
+        "preview": "Предпросмотр",
+        "lineColor": "Цвет линии",
         "graphStyle": {
-          "name": "Graph Style",
-          "lineGraphBorder": "Graph Border",
-          "lineGraphFill": "Graph Fill",
-          "lineGraphMix": "Graph Mix",
-          "lineGraphShowLegend": "Legend",
-          "lineGraphShowScale": "Scale",
-          "lineGraphShowTooltip": "Tooltip",
-          "size": "Graph Size",
-          "lineType": "Line Graph Style"
+          "name": "Стиль графика",
+          "lineGraphBorder": "Граница графика",
+          "lineGraphFill": "Заливка графика",
+          "lineGraphMix": "Смешанный график",
+          "lineGraphShowLegend": "Легенда",
+          "lineGraphShowScale": "Шкала",
+          "lineGraphShowTooltip": "Подсказка",
+          "size": "Размер графика",
+          "lineType": "Стиль линии графика"
         }
       },
       "backgroundImage": {
-        "name": "Background Image",
+        "name": "Фоновое изображение",
         "upload": {
-          "name": "Upload",
-          "pleaseSelectAFile": "Please select a file",
+          "name": "Загрузить",
+          "pleaseSelectAFile": "Пожалуйста, выберите файл",
           "errors": {
-            "format": "Please select an image in JPEG or PNG format",
-            "notSelected": "Please select a file"
+            "format": "Пожалуйста, выберите изображение в формате JPEG или PNG",
+            "notSelected": "Пожалуйста, выберите файл"
           },
-          "confirm": "Confirm",
-          "description": "The file will only be saved on your device"
+          "confirm": "Подтвердить",
+          "description": "Файл будет сохранен только на вашем устройстве"
         },
-        "opacity": "Opacity"
+        "opacity": "Прозрачность"
       },
       "insights": {
-        "name": "Insights",
+        "name": "Статистика",
         "about": {
-          "title": "About Insights",
-          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month. \nWe recommend that the n-insight feature be enabled unless there are capacity or other issues."
+          "title": "О функции 'Статистика'",
+          "description": "Статистика предоставляет полезную информацию о вашем оборудовании и системе. Она помогает понять текущее состояние системы и принимать более обоснованные решения.\nФункция статистики использует от 1 до 2 МБ дискового пространства в месяц.\nРекомендуется оставлять функцию сбора статистики включенной, если только нет проблем с объемом накопителя или другими ограничениями."
         },
-        "enable": "Start Recording Insights",
-        "disable": "Stop recording insights",
+        "enable": "Начать запись статистики",
+        "disable": "Остановить запись статистики",
         "needRestart": {
-          "title": "Restart Required",
-          "description": "You need to restart the app to apply the changes.",
-          "restart": "Restart",
-          "cancel": "Restart later"
+          "title": "Требуется перезапуск",
+          "description": "Для применения изменений необходимо перезапустить приложение.",
+          "restart": "Перезапустить",
+          "cancel": "Перезапустить позже"
         },
-        "reset": "Reset Data",
-        "resetDescription": "This will delete all the data collected by the Insights feature. This action cannot be undone.",
-        "scheduledDataDeletion": "Scheduled Data Deletion",
-        "scheduledDataDeletionButton": "Scheduled Data Deletion Settings",
+        "reset": "Сбросить данные",
+        "resetDescription": "Это удалит все данные, собранные функцией статистики. Это действие необратимо.",
+        "scheduledDataDeletion": "Автоматическое удаление данных",
+        "scheduledDataDeletionButton": "Настройки автоматического удаления",
         "holdingPeriod": {
-          "title": "Data Holding Period (Days)",
-          "placeHolder": "Select Days",
-          "description": "Data collected by the Insight function is stored for an arbitrary number of days.If periodic deletion is enabled, data will be deleted automatically after a number of days."
+          "title": "Срок хранения данных (дней)",
+          "placeHolder": "Выберите количество дней",
+          "description": "Данные, собранные функцией статистики, хранятся в течение указанного количества дней. Если периодическое удаление включено, данные будут автоматически удаляться по истечении этого срока."
         }
       },
       "about": {
-        "name": "About",
-        "version": "Version: {{version}}",
-        "license": "License",
-        "checkGitHub": "Check GitHub",
-        "checkLatestVersion": "Check Latest Version",
-        "author": "Author: {{author}}"
+        "name": "О программе",
+        "version": "Версия: {{version}}",
+        "license": "Лицензия",
+        "checkGitHub": "Посмотреть на GitHub",
+        "checkLatestVersion": "Проверить последнюю версию",
+        "author": "Автор: {{author}}"
       },
       "license": {
-        "applicationLicense": "Application License",
-        "thirdPartyLicenses": "Third-Party Licenses"
+        "applicationLicense": "Лицензия приложения",
+        "thirdPartyLicenses": "Лицензии стороннего ПО"
       },
       "advanced": {
-        "name": "Advanced",
-        "showGpuUsageSource": "Show GPU Usage Source",
-        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard."
+        "name": "Расширенные",
+        "showGpuUsageSource": "Показывать источник данных ГП",
+        "showGpuUsageSourceDescription": "Отображать на главной панели источник данных (NVAPI, ADL, WMI и т.д.), используемый для получения информации о загрузке ГП."
       }
     },
     "updater": {
-      "title": "New Version Available !!",
-      "description": "A new version v{{version}} is available. Do you want to update now?",
-      "releaseNotes": "Release Notes",
-      "releaseNotesDescription": "For details of the update, please see the release notes : {{releaseNotesUrl}}",
-      "currentVersion": "Current Version: v{{currentVersion}}",
-      "newVersion": "New Version: v{{newVersion}}",
-      "later": "Update Later",
-      "updateAndRestart": "Update Now",
-      "downloadingUpdate": "Downloading Update...",
-      "installingUpdate": "Installing Update...",
-      "needRestart": "Please restart the application to complete the update."
+      "title": "Доступна новая версия!",
+      "description": "Доступна новая версия v{{version}}. Обновить сейчас?",
+      "releaseNotes": "Примечания к выпуску",
+      "releaseNotesDescription": "Подробности обновления смотрите в примечаниях к выпуску: {{releaseNotesUrl}}",
+      "currentVersion": "Текущая версия: v{{currentVersion}}",
+      "newVersion": "Новая версия: v{{newVersion}}",
+      "later": "Обновить позже",
+      "updateAndRestart": "Обновить сейчас",
+      "downloadingUpdate": "Загрузка обновления...",
+      "installingUpdate": "Установка обновления...",
+      "needRestart": "Перезапустите приложение для завершения обновления."
     }
   },
 
   "error": {
     "title": {
-      "info": "Info",
-      "confirm": "Confirm",
-      "warning": "Warning",
-      "error": "Error",
-      "success": "Success",
-      "unexpected": "Unexpected Error"
+      "info": "Информация",
+      "confirm": "Подтверждение",
+      "warning": "Предупреждение",
+      "error": "Ошибка",
+      "success": "Успех",
+      "unexpected": "Непредвиденная ошибка"
     }
   },
   "lang": {
-    "en": "English",
-    "ja": "Japanese"
-    "ru": "Russian"
+    "en": "Английский",
+    "ja": "Японский",
+    "ru": "Русский"
   }
 }
