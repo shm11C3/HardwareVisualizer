@@ -1,0 +1,323 @@
+{
+  "shared": {
+    "usage": "Usage",
+    "usageValue": "Usage",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "avgCpuUsage": "Avg CPU Usage",
+    "memoryUsageValue": "Memory Usage",
+    "avgMemoryUsageValue": "Avg Memory Usage",
+    "temperature": {
+      "full": "Temperature",
+      "abbrev": "Temp"
+    },
+    "name": "Name",
+    "vendor": "Vendor",
+    "coreCount": "Core Count",
+    "threadCount": "Thread Count",
+    "defaultClockSpeed": "Default Clock Speed",
+    "memory": "Memory",
+    "memorySize": "Memory Size",
+    "memorySizeShared": "Memory Size (Shared)",
+    "memorySizeDedicated": "Memory Size (Dedicated)",
+    "memorySizeSharedUsage": "Memory Usage",
+    "memorySizeDedicatedUsage": "Dedicated GPU Memory Usage",
+    "loadDetailedInfo": "Load detailed info",
+    "memoryType": "Memory Type",
+    "totalMemory": "Total Memory",
+    "memoryCount": "Memory Count",
+    "memoryClockSpeed": "Memory Clock",
+    "clock": "Clock",
+    "process": "Process",
+    "processCount": "Process Count",
+    "reset": "Reset",
+    "storage": "Storage",
+    "network": "Network",
+    "driveName": "Drive Name",
+    "driveType": "Drive Type",
+    "driveTotalSpace": "Drive Total Space",
+    "driveUsedSpace": "Drive Used Space",
+    "driveFreeSpace": "Drive Free Space",
+    "driveFileSystem": "Drive File System",
+    "macAddress": "MAC Address",
+    "subnetMask": "Subnet Mask",
+    "gateway": "Gateway",
+    "linkLocal": "Link Local",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "address": "Address",
+    "used": "Used",
+    "free": "Free",
+    "time": {
+      "seconds": "seconds",
+      "minutes": "minutes",
+      "hours": "hours",
+      "days": "days",
+      "weeks": "weeks",
+      "months": "months",
+      "years": "years"
+    },
+    "avg": "Avg",
+    "min": "Min",
+    "max": "Max",
+    "select": "Select",
+    "total": "Total",
+    "execTime": "Execution Time",
+    "totalExecTime": "Total Execution Time",
+    "latestExecTime": "Latest Execution Time",
+    "processHistory": "Process History",
+    "processHistoryCount": "{{count}} items",
+    "noProcessDataFound": "No process data found for the selected period",
+    "maxProcessCount": "Max Process Count",
+    "selectProcessCount": "Select process count",
+    "processCountValue": "{{count}} processes",
+    "memoryRangeMax": "Memory Range Max",
+    "selectMemoryRangeMax": "Select memory range max",
+    "deviceCapacity": "Device Capacity",
+    "snapshot": {
+      "title": "Snapshot Analysis",
+      "description": "Analyze hardware usage for the specified time period",
+      "timeRange": "Time Range",
+      "dataType": "Data Type",
+      "filters": "Filters",
+      "cpuUsageFilter": "CPU Usage Filter",
+      "memoryUsageFilter": "Memory Usage Filter",
+      "cpuFilterTooltip": "Only show processes with CPU usage within the specified range",
+      "memoryFilterTooltip": "Only show processes with memory usage within the specified range",
+      "filtersSectionTitle": "Process Filters",
+      "filtersSectionDescription": "Filter processes by the conditions below and display results in the process list",
+      "quickPeriods": {
+        "1h": "1 Hour",
+        "6h": "6 Hours",
+        "24h": "24 Hours",
+        "7d": "7 Days"
+      },
+      "noDataMessage": "No processes found matching the specified criteria",
+      "adjustFiltersHint": "Try adjusting the filter conditions"
+    },
+    "other": "Other",
+    "loading": "Loading...",
+    "back": "Back",
+    "showInExplorer": "Show in Explorer",
+    "motherboard": "Motherboard",
+    "manufacturer": "Manufacturer",
+    "product": "Product",
+    "version": "Version",
+    "serialNumber": "Serial Number",
+    "biosVendor": "BIOS Vendor",
+    "biosVersion": "BIOS Version",
+    "biosReleaseDate": "BIOS Release Date",
+    "fullscreen": {
+      "enter": "Enter Fullscreen",
+      "exit": "Exit Fullscreen"
+    },
+    "title": "Title"
+  },
+
+  "errorBoundary": {
+    "title": "An unexpected error has occurred",
+    "description": "Reset the UI and settings, or report this issue if it persists.",
+    "resetButton": "Reset UI and settings",
+    "reportButton": "Report this issue",
+    "errorDetails": "Error details",
+    "settingsJsonHint": "If the issue persists, delete settings.json in the app data folder and restart the app.",
+    "settingsJsonLocations": {
+      "title": "settings.json locations",
+      "windows": "Windows: AppData\\Roaming\\HardwareVisualizer\\settings.json",
+      "macos": "macOS: ~/Library/Application Support/HardwareVisualizer/settings.json",
+      "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
+    }
+  },
+
+  "pages": {
+    "dashboard": {
+      "name": "Dashboard",
+      "visibleItems": "Visible Items",
+      "selectItems": "Select items to display on the dashboard"
+    },
+    "usage": {
+      "name": "Usage"
+    },
+    "insights": {
+      "name": "Insights",
+      "main": {
+        "title": "CPU / Memory"
+      },
+      "gpu": {
+        "title": "GPU"
+      },
+      "process": {
+        "title": "Process"
+      },
+      "snapshot": {
+        "title": "Snapshot"
+      },
+      "noDataForPeriod": "No data found for the selected period"
+    },
+    "settings": {
+      "name": "Settings",
+      "general": {
+        "name": "General",
+        "language": "Language",
+        "colorMode": {
+          "name": "Color Mode",
+          "system": "System Default",
+          "light": "Light",
+          "dark": "Dark",
+          "darkPlus": "Dark+",
+          "sky": "Sky",
+          "grove": "Grove",
+          "sunset": "Sunset",
+          "nebula": "Nebula",
+          "orbit": "Orbit",
+          "cappuccino": "Cappuccino",
+          "espresso": "Espresso"
+        },
+        "hardwareType": "Hardware Type",
+        "temperatureUnit": {
+          "name": "Temperature Unit",
+          "celsius": "Celsius (°C)",
+          "fahrenheit": "Fahrenheit (°F)"
+        },
+        "autostart": {
+          "name": "Automatic startup at OS startup"
+        },
+        "burnInShift": {
+          "name": "Burn-In Protection",
+          "description": "Enable to prevent screen burn-in by periodically shifting the app position.",
+          "detailSettings": "Detail Settings",
+          "mode": {
+            "name": "Shift Mode",
+            "jump": "Jump (Interval-based shifts)",
+            "drift": "Drift (Smooth animation)"
+          },
+          "preset": {
+            "name": "Shift Preset",
+            "gentle": "Gentle",
+            "balanced": "Balanced",
+            "aggressive": "Aggressive"
+          },
+          "idleOnly": {
+            "name": "Idle Only",
+            "description": "Enable to shift the app position only when there is no user activity (mouse/keyboard input) for a certain period."
+          },
+          "override": {
+            "name": "Override Burn-In Setting",
+            "options": {
+              "intervalMs": "Shift Interval (ms)",
+              "amplitudePx": "Shift Amplitude (px)",
+              "amplitudePxX": "Shift Amplitude X (px)",
+              "amplitudePxY": "Shift Amplitude Y (px)",
+              "idleThresholdMs": "Idle Threshold (ms)",
+              "driftDurationSec": "Drift Duration (sec)"
+            }
+          },
+          "tooltip": {
+            "jump": "The app will shift its position at regular intervals to prevent screen burn-in.",
+            "drift": "The app will smoothly drift around the screen to prevent screen burn-in."
+          }
+        }
+      },
+      "customTheme": {
+        "name": "Custom Theme",
+        "preview": "Preview",
+        "lineColor": "Line Color",
+        "graphStyle": {
+          "name": "Graph Style",
+          "lineGraphBorder": "Graph Border",
+          "lineGraphFill": "Graph Fill",
+          "lineGraphMix": "Graph Mix",
+          "lineGraphShowLegend": "Legend",
+          "lineGraphShowScale": "Scale",
+          "lineGraphShowTooltip": "Tooltip",
+          "size": "Graph Size",
+          "lineType": "Line Graph Style"
+        }
+      },
+      "backgroundImage": {
+        "name": "Background Image",
+        "upload": {
+          "name": "Upload",
+          "pleaseSelectAFile": "Please select a file",
+          "errors": {
+            "format": "Please select an image in JPEG or PNG format",
+            "notSelected": "Please select a file"
+          },
+          "confirm": "Confirm",
+          "description": "The file will only be saved on your device"
+        },
+        "opacity": "Opacity"
+      },
+      "insights": {
+        "name": "Insights",
+        "about": {
+          "title": "About Insights",
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month. \nWe recommend that the n-insight feature be enabled unless there are capacity or other issues."
+        },
+        "enable": "Start Recording Insights",
+        "disable": "Stop recording insights",
+        "needRestart": {
+          "title": "Restart Required",
+          "description": "You need to restart the app to apply the changes.",
+          "restart": "Restart",
+          "cancel": "Restart later"
+        },
+        "reset": "Reset Data",
+        "resetDescription": "This will delete all the data collected by the Insights feature. This action cannot be undone.",
+        "scheduledDataDeletion": "Scheduled Data Deletion",
+        "scheduledDataDeletionButton": "Scheduled Data Deletion Settings",
+        "holdingPeriod": {
+          "title": "Data Holding Period (Days)",
+          "placeHolder": "Select Days",
+          "description": "Data collected by the Insight function is stored for an arbitrary number of days.If periodic deletion is enabled, data will be deleted automatically after a number of days."
+        }
+      },
+      "about": {
+        "name": "About",
+        "version": "Version: {{version}}",
+        "license": "License",
+        "checkGitHub": "Check GitHub",
+        "checkLatestVersion": "Check Latest Version",
+        "author": "Author: {{author}}"
+      },
+      "license": {
+        "applicationLicense": "Application License",
+        "thirdPartyLicenses": "Third-Party Licenses"
+      },
+      "advanced": {
+        "name": "Advanced",
+        "showGpuUsageSource": "Show GPU Usage Source",
+        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard."
+      }
+    },
+    "updater": {
+      "title": "New Version Available !!",
+      "description": "A new version v{{version}} is available. Do you want to update now?",
+      "releaseNotes": "Release Notes",
+      "releaseNotesDescription": "For details of the update, please see the release notes : {{releaseNotesUrl}}",
+      "currentVersion": "Current Version: v{{currentVersion}}",
+      "newVersion": "New Version: v{{newVersion}}",
+      "later": "Update Later",
+      "updateAndRestart": "Update Now",
+      "downloadingUpdate": "Downloading Update...",
+      "installingUpdate": "Installing Update...",
+      "needRestart": "Please restart the application to complete the update."
+    }
+  },
+
+  "error": {
+    "title": {
+      "info": "Info",
+      "confirm": "Confirm",
+      "warning": "Warning",
+      "error": "Error",
+      "success": "Success",
+      "unexpected": "Unexpected Error"
+    }
+  },
+  "lang": {
+    "en": "English",
+    "ja": "Japanese"
+    "ru": "Russian"
+  }
+}
