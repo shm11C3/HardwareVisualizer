@@ -21,6 +21,7 @@ vi.mock("@/hooks/useTauriStore", () => ({
     .mockImplementation((_key: string, defaultValue: DashboardItemType[]) => [
       defaultValue,
       mockSetDashboardItemMap,
+      false,
     ]),
 }));
 
@@ -109,6 +110,7 @@ describe("useSortableDashboard", () => {
     vi.mocked(useTauriStore).mockReturnValueOnce([
       null,
       mockSetDashboardItemMap,
+      true,
     ]);
 
     const { result } = renderHook(() => useSortableDashboard(), {
