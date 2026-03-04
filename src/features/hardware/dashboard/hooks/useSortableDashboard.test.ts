@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useTauriStore } from "@/hooks/useTauriStore";
 import type { DashboardItemType } from "../types/dashboardItem";
 
 const mockInit = vi.fn();
@@ -20,6 +21,7 @@ vi.mock("@/hooks/useTauriStore", () => ({
     .mockImplementation((_key: string, defaultValue: DashboardItemType[]) => [
       defaultValue,
       mockSetDashboardItemMap,
+      false,
     ]),
 }));
 
@@ -97,6 +99,28 @@ describe("useSortableDashboard", () => {
       result.current.handleDragOver({
         active: { id: "cpu" },
         over: { id: "cpu" },
+      } as never);
+    });
+
+    expect(mockSetDashboardItemMap).not.toHaveBeenCalled();
+  });
+
+  it("handleDragOver: does nothing when dashboardItemMap is null (store not yet loaded)", () => {
+    // Simulate the pending state where the Tauri store hasn't loaded yet
+    vi.mocked(useTauriStore).mockReturnValueOnce([
+      null,
+      mockSetDashboardItemMap,
+      true,
+    ]);
+
+    const { result } = renderHook(() => useSortableDashboard(), {
+      wrapper: Provider,
+    });
+
+    act(() => {
+      result.current.handleDragOver({
+        active: { id: "cpu" },
+        over: { id: "gpu" },
       } as never);
     });
 
