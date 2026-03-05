@@ -129,4 +129,48 @@ describe("useUploadImage", () => {
     expect(result.current.isSubmitting).toBe(false);
     consoleErrorSpy.mockRestore();
   });
+
+  it("form validation rejects files with unsupported type (e.g. image/gif)", async () => {
+    const gifFile = new File(["dummy content"], "test.gif", {
+      type: "image/gif",
+    });
+    const { result } = renderHook(() => useUploadImage());
+    const submitCallback = vi.fn();
+
+    act(() => {
+      result.current.form.setValue("picture", gifFile);
+    });
+
+    // handleSubmit runs validation; because refine rejects gif, submitCallback
+    // must NOT be called (invalid form state).
+    await act(async () => {
+      await result.current.form.handleSubmit(submitCallback)();
+    });
+
+    expect(submitCallback).not.toHaveBeenCalled();
+    expect(saveBackgroundImageMock).not.toHaveBeenCalled();
+  });
+
+  it("onSubmit returns early (no-op) when a submission is already in progress", async () => {
+    const fakeFile = new File(["dummy content"], "test.png", {
+      type: "image/png",
+    });
+    // Make saveBackgroundImage never resolve so isSubmitting stays true.
+    saveBackgroundImageMock.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useUploadImage());
+
+    // Start first submission (isSubmitting becomes true)
+    act(() => {
+      result.current.onSubmit({ picture: fakeFile });
+    });
+
+    // Call onSubmit a second time while the first is still in-flight.
+    await act(async () => {
+      await result.current.onSubmit({ picture: fakeFile });
+    });
+
+    // saveBackgroundImage must have been called exactly once (first call only).
+    expect(saveBackgroundImageMock).toHaveBeenCalledTimes(1);
+  });
 });
