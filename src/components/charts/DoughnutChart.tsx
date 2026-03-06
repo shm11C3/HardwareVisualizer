@@ -140,6 +140,8 @@ export const DoughnutChart = ({
           <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
             <Label
               content={({ viewBox }) => {
+                const label = chartConfig[dataType].label;
+
                 if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                   return (
                     <g>
@@ -162,7 +164,7 @@ export const DoughnutChart = ({
                       >
                         <div className="flex items-center justify-center text-xs">
                           {dataTypeIcons[dataType]}
-                          {isXl && <span>{chartConfig[dataType].label}</span>}
+                          {isXl && label.length <= 5 && <span>{label}</span>}
                         </div>
                       </foreignObject>
                     </g>
