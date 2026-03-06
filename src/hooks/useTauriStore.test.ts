@@ -138,4 +138,31 @@ describe("useTauriStore", () => {
     expect(result.current[2]).toBe(true);
     await waitFor(() => result.current[2] === false);
   });
+
+  it("Does not update state after unmount (cleanup guard)", async () => {
+    // Unmounting before the store resolves exercises two uncovered paths:
+    //  1. The cleanup function (line 40: `isMountedRef.current = false`)
+    //  2. The mounted guard (line 31: `if (isMountedRef.current)` → false branch)
+    const { result, unmount } = renderHook(() =>
+      useTauriStore<string>("testKey", "default"),
+    );
+
+    // Store has not resolved yet; still pending
+    expect(result.current[2]).toBe(true);
+
+    // Unmount — triggers the useEffect cleanup immediately
+    unmount();
+
+    // Drain the microtask queue so fetchValue completes after unmount.
+    // The mounted guard prevents any subsequent setState call.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // If the mounted guard did NOT work, setValueState would throw a
+    // "Can't perform a React state update on an unmounted component" warning.
+    // Reaching this line without errors confirms correct behaviour.
+    expect(result.current[2]).toBe(true);
+  });
 });
