@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useStickyObserver } from "@/hooks/useStickyObserver";
 
@@ -81,5 +82,38 @@ describe("useStickyObserver", () => {
       );
     });
     expect(result.current.isStuck).toBe(false);
+  });
+
+  it("calls observe when sentinelRef is attached to a DOM element", () => {
+    // Render a wrapper component that assigns sentinelRef to a real element,
+    // triggering the `if (el) observer.observe(el)` branch (lines 19-20).
+    const el = document.createElement("div");
+
+    // Override the constructor so sentinelRef.current is set before useEffect fires
+    global.IntersectionObserver = class MockIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        capturedCallback = callback;
+      }
+      observe = mockObserve;
+      unobserve = mockUnobserve;
+      disconnect = mockDisconnect;
+    } as unknown as typeof IntersectionObserver;
+
+    const { unmount } = renderHook(() => {
+      const hook = useStickyObserver();
+      // Manually point the ref at a real element before the effect runs
+      // (useRef object is mutable so we can set .current directly)
+      (hook.sentinelRef as React.MutableRefObject<HTMLDivElement>).current = el;
+      return hook;
+    });
+
+    // Force the effect to re-run by unmounting and remounting isn't needed –
+    // the initial render's useEffect runs after the ref is set.
+    // We verify observe was called with the element.
+    expect(mockObserve).toHaveBeenCalledWith(el);
+
+    unmount();
+    // unobserve should be called during cleanup
+    expect(mockUnobserve).toHaveBeenCalledWith(el);
   });
 });
