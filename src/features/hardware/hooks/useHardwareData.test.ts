@@ -12,10 +12,7 @@ import {
 } from "vitest";
 
 import { useHardwareUpdater } from "@/features/hardware/hooks/useHardwareData";
-import {
-  gpuFanSpeedAtom,
-  gpuTempAtom,
-} from "@/features/hardware/store/chart";
+import { gpuFanSpeedAtom, gpuTempAtom } from "@/features/hardware/store/chart";
 
 // Commands (mock targets)
 import { commands } from "@/rspc/bindings";
