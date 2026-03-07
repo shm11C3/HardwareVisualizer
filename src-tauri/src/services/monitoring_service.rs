@@ -26,8 +26,7 @@ pub fn sample_system(resources: &MonitorResources) -> Option<SystemSample> {
       let cpu_usage = calculate_average_cpu_usage(sys.cpus());
       let memory_usage =
         calculate_memory_usage_percentage(sys.used_memory(), sys.total_memory());
-      let processors_usage: Vec<f32> =
-        sys.cpus().iter().map(|c| c.cpu_usage()).collect();
+      let processors_usage: Vec<f32> = sys.cpus().iter().map(|c| c.cpu_usage()).collect();
 
       let process_metrics: Vec<_> = sys
         .processes()
@@ -108,7 +107,13 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
           nvapi_provider::get_gpu_temperature_from_physical_gpu(gpu) as f32;
         let memory_usage =
           nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
-        (name, Some(usage), Some(temperature), Some(memory_usage), "NVAPI".to_string())
+        (
+          name,
+          Some(usage),
+          Some(temperature),
+          Some(memory_usage),
+          "NVAPI".to_string(),
+        )
       })
       .collect::<Vec<_>>()
   }) {
@@ -150,7 +155,13 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   for (name, usage) in &usages {
     let temperature = temp_map.get(name.as_str()).copied();
     // VRAM usage is not available via ADL
-    gpu_metrics.push((name.clone(), Some(*usage), temperature, None, "ADL".to_string()));
+    gpu_metrics.push((
+      name.clone(),
+      Some(*usage),
+      temperature,
+      None,
+      "ADL".to_string(),
+    ));
   }
 }
 
@@ -203,7 +214,13 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
       .and_then(|mem| mem.in_use_bytes)
       .map(|bytes| (bytes / 1024) as f32);
 
-  let gpu_metrics = vec![(gpu_name.clone(), usage, temperature, memory_kb, "IOKit".to_string())];
+  let gpu_metrics = vec![(
+    gpu_name.clone(),
+    usage,
+    temperature,
+    memory_kb,
+    "IOKit".to_string(),
+  )];
   update_gpu_histories(resources, &gpu_metrics);
 
   gpu_metrics
@@ -243,7 +260,12 @@ async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
           .await
           .map(|u| (u * 100.0) as f32)
           .ok();
-        (format!("Intel GPU (card{})", card_id), usage, None, "DRM (Intel)".to_string())
+        (
+          format!("Intel GPU (card{})", card_id),
+          usage,
+          None,
+          "DRM (Intel)".to_string(),
+        )
       }
       _ => continue,
     };
@@ -510,8 +532,13 @@ mod tests {
   #[test]
   fn update_gpu_histories_adds_new_gpu() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> =
-      vec![("TestGPU".to_string(), Some(50.0), Some(70.0), Some(1024.0), "Test".to_string())];
+    let samples: Vec<GpuSample> = vec![(
+      "TestGPU".to_string(),
+      Some(50.0),
+      Some(70.0),
+      Some(1024.0),
+      "Test".to_string(),
+    )];
     update_gpu_histories(&resources, &samples);
 
     let usage = resources.gpu_usage_histories.lock().unwrap();
@@ -528,7 +555,8 @@ mod tests {
   #[test]
   fn update_gpu_histories_none_metrics_skipped() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> = vec![("NoData".to_string(), None, None, None, "Test".to_string())];
+    let samples: Vec<GpuSample> =
+      vec![("NoData".to_string(), None, None, None, "Test".to_string())];
     update_gpu_histories(&resources, &samples);
 
     assert!(resources.gpu_usage_histories.lock().unwrap().is_empty());
@@ -551,7 +579,13 @@ mod tests {
   #[test]
   fn update_gpu_histories_partial_metrics() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> = vec![("Partial".to_string(), Some(80.0), None, None, "Test".to_string())];
+    let samples: Vec<GpuSample> = vec![(
+      "Partial".to_string(),
+      Some(80.0),
+      None,
+      None,
+      "Test".to_string(),
+    )];
     update_gpu_histories(&resources, &samples);
 
     assert_eq!(resources.gpu_usage_histories.lock().unwrap().len(), 1);
@@ -575,8 +609,20 @@ mod tests {
   fn update_gpu_histories_multiple_gpus() {
     let resources = create_test_resources();
     let samples: Vec<GpuSample> = vec![
-      ("GPU_A".to_string(), Some(10.0), None, None, "Test".to_string()),
-      ("GPU_B".to_string(), Some(90.0), None, None, "Test".to_string()),
+      (
+        "GPU_A".to_string(),
+        Some(10.0),
+        None,
+        None,
+        "Test".to_string(),
+      ),
+      (
+        "GPU_B".to_string(),
+        Some(90.0),
+        None,
+        None,
+        "Test".to_string(),
+      ),
     ];
     update_gpu_histories(&resources, &samples);
 
@@ -591,11 +637,23 @@ mod tests {
     let resources = create_test_resources();
     // Fill to capacity
     for i in 0..HARDWARE_HISTORY_BUFFER_SIZE {
-      let samples: Vec<GpuSample> = vec![("GPU".to_string(), Some(i as f32), None, None, "Test".to_string())];
+      let samples: Vec<GpuSample> = vec![(
+        "GPU".to_string(),
+        Some(i as f32),
+        None,
+        None,
+        "Test".to_string(),
+      )];
       update_gpu_histories(&resources, &samples);
     }
     // Add one more
-    let samples: Vec<GpuSample> = vec![("GPU".to_string(), Some(999.0), None, None, "Test".to_string())];
+    let samples: Vec<GpuSample> = vec![(
+      "GPU".to_string(),
+      Some(999.0),
+      None,
+      None,
+      "Test".to_string(),
+    )];
     update_gpu_histories(&resources, &samples);
 
     let usage = resources.gpu_usage_histories.lock().unwrap();
