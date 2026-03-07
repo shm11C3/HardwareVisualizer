@@ -227,4 +227,25 @@ describe("useDashboardSelector", () => {
       false,
     );
   });
+
+  it("toggleItem returns early without modifying the store when visibleItems is null", async () => {
+    // Replace has() with a never-resolving Promise so useTauriStore keeps
+    // visibleItems as null (still pending) for the duration of this test.
+    fakeStore.has = vi.fn(() => new Promise<boolean>(() => {}));
+
+    const { result } = renderHook(() => useDashboardSelector(), {
+      wrapper: Provider,
+    });
+
+    // Store has not loaded yet; visibleItems must be null.
+    expect(result.current.visibleItems).toBeNull();
+
+    // Call toggleItem while loading – the null guard should fire and return early.
+    await act(async () => {
+      await result.current.toggleItem("cpu");
+    });
+
+    // Neither the initialisation path nor toggleItem should have called store.set.
+    expect(fakeStore.set).not.toHaveBeenCalled();
+  });
 });
