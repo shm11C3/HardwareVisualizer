@@ -24,7 +24,7 @@ use commands::updater::app_updates;
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_specta::{Builder, collect_commands};
+use tauri_specta::{Builder, collect_commands, collect_events};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -61,7 +61,11 @@ pub fn run() {
 
   let migrations = infrastructure::database::migration::get_migrations();
 
-  let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+  let builder = Builder::<tauri::Wry>::new()
+    .events(collect_events![
+      models::hardware::HardwareMonitorUpdate,
+    ])
+    .commands(collect_commands![
     app_updates::fetch_update,
     app_updates::install_update,
     hardware::get_process_list,
@@ -147,6 +151,7 @@ pub fn run() {
           gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
           gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
         },
+        app.handle().clone(),
       );
       {
         let ws = app.state::<workers::WorkersState>();

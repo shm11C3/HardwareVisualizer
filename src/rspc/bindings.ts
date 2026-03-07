@@ -496,6 +496,11 @@ async restartApp() : Promise<void> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+hardwareMonitorUpdate: HardwareMonitorUpdate
+}>({
+hardwareMonitorUpdate: "hardware-monitor-update"
+})
 
 /** user-defined constants **/
 
@@ -542,6 +547,7 @@ export type GpuUsageResult = { usage: number; source: string }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
+export type HardwareMonitorUpdate = { cpuUsage: number; memoryUsage: number; gpuUsage: number | null; gpuSource: string | null; processorsUsage: number[] }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**
  * Structure of settings to send to client

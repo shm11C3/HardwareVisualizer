@@ -1,6 +1,8 @@
 use crate::models;
+use crate::models::hardware::HardwareMonitorUpdate;
 use crate::services::monitoring_service;
 use crate::{log_internal, log_warn};
+use tauri_specta::Event as _;
 
 pub struct SystemMonitorController {
   handle: tauri::async_runtime::JoinHandle<()>,
@@ -12,6 +14,30 @@ pub struct SystemMonitorController {
 ///
 const SYSTEM_INFO_INIT_INTERVAL: u64 = 1; // TODO move to constants.rs
 
+fn emit_hardware_update(
+  app_handle: &tauri::AppHandle,
+  system_sample: Option<&monitoring_service::SystemSample>,
+  gpu_samples: &[monitoring_service::GpuSample],
+) {
+  if let Some(sys) = system_sample {
+    let (gpu_usage, gpu_source) = gpu_samples
+      .first()
+      .and_then(|(_, usage, _, _, source)| {
+        usage.map(|u| (Some(u), Some(source.clone())))
+      })
+      .unwrap_or((None, None));
+
+    let payload = HardwareMonitorUpdate {
+      cpu_usage: sys.cpu_usage,
+      memory_usage: sys.memory_usage,
+      gpu_usage,
+      gpu_source,
+      processors_usage: sys.processors_usage.clone(),
+    };
+    let _ = payload.emit(app_handle);
+  }
+}
+
 impl SystemMonitorController {
   ///
   /// ## Initialize system information
@@ -20,7 +46,10 @@ impl SystemMonitorController {
   ///
   /// - Updates CPU usage and memory usage every `SYSTEM_INFO_INIT_INTERVAL` seconds
   ///
-  pub fn setup(resources: models::hardware_archive::MonitorResources) -> Self {
+  pub fn setup(
+    resources: models::hardware_archive::MonitorResources,
+    app_handle: tauri::AppHandle,
+  ) -> Self {
     let (tx, mut rx) = tokio::sync::watch::channel(false);
 
     let handle: tauri::async_runtime::JoinHandle<()> =
@@ -30,16 +59,18 @@ impl SystemMonitorController {
         ));
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        monitoring_service::sample_system(&resources);
-        monitoring_service::sample_gpu(&resources).await;
+        let system_sample = monitoring_service::sample_system(&resources);
+        let gpu_samples = monitoring_service::sample_gpu(&resources).await;
+        emit_hardware_update(&app_handle, system_sample.as_ref(), &gpu_samples);
 
         loop {
           tokio::select! {
             _ = ticker.tick() =>  {
               let start = std::time::Instant::now();
 
-              monitoring_service::sample_system(&resources);
-              monitoring_service::sample_gpu(&resources).await;
+              let system_sample = monitoring_service::sample_system(&resources);
+              let gpu_samples = monitoring_service::sample_gpu(&resources).await;
+              emit_hardware_update(&app_handle, system_sample.as_ref(), &gpu_samples);
 
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL) {

@@ -11,20 +11,10 @@ import {
   vi,
 } from "vitest";
 
-import { chartConfig } from "@/features/hardware/consts/chart";
-// Hook groups to test
+import { useHardwareUpdater } from "@/features/hardware/hooks/useHardwareData";
 import {
-  useHardwareUpdater,
-  useUsageUpdater,
-} from "@/features/hardware/hooks/useHardwareData";
-import {
-  cpuUsageHistoryAtom,
   gpuFanSpeedAtom,
   gpuTempAtom,
-  gpuUsageSourceAtom,
-  graphicUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 
 // Commands (mock targets)
@@ -35,10 +25,6 @@ import { commands } from "@/rspc/bindings";
 // ------
 vi.mock("@/rspc/bindings", () => ({
   commands: {
-    getCpuUsage: vi.fn(),
-    getMemoryUsage: vi.fn(),
-    getGpuUsage: vi.fn(),
-    getProcessorsUsage: vi.fn(),
     getNvidiaGpuCooler: vi.fn(),
     getGpuTemperature: vi.fn(),
   },
@@ -47,81 +33,6 @@ vi.mock("@/rspc/bindings", () => ({
 // ------
 // Test body
 // ------
-
-describe("useUsageUpdater", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("CPU usage history is updated", async () => {
-    // simulate: commands.getCpuUsage returns number 50
-    (commands.getCpuUsage as Mock).mockResolvedValue(50);
-
-    const { result } = renderHook(
-      () => {
-        // Call CPU usage history update hook and get atom value simultaneously
-        useUsageUpdater("cpu");
-        const [history] = useAtom(cpuUsageHistoryAtom);
-        return history;
-      },
-      { wrapper: Provider },
-    );
-
-    // useUsageUpdater calls fetchAndUpdate immediately on mount, so
-    // verify atom update state with waitFor
-    await waitFor(() => {
-      const history = result.current;
-      expect(history.length).toEqual(chartConfig.historyLengthSec);
-      expect(history[history.length - 1]).toEqual(50);
-    });
-  });
-
-  it("GPU usage history is updated", async () => {
-    // simulate: commands.getGpuUsage returns { data: 75 }
-    (commands.getGpuUsage as Mock).mockResolvedValue({
-      status: "ok",
-      data: 75,
-    });
-
-    const { result } = renderHook(
-      () => {
-        useUsageUpdater("gpu");
-        const [history] = useAtom(graphicUsageHistoryAtom);
-        return history;
-      },
-      { wrapper: Provider },
-    );
-
-    await waitFor(() => {
-      const history = result.current;
-      expect(history.length).toEqual(chartConfig.historyLengthSec);
-      expect(history[history.length - 1]).toEqual(75);
-    });
-  });
-
-  it("RAM usage history is updated", async () => {
-    // simulate: commands.getMemoryUsage returns number 50
-    (commands.getMemoryUsage as Mock).mockResolvedValue(50);
-
-    const { result } = renderHook(
-      () => {
-        // Call memory usage history update hook and get atom value simultaneously
-        useUsageUpdater("memory");
-        const [history] = useAtom(memoryUsageHistoryAtom);
-        return history;
-      },
-      { wrapper: Provider },
-    );
-
-    // useUsageUpdater calls fetchAndUpdate immediately on mount, so
-    // verify atom update state with waitFor
-    await waitFor(() => {
-      const history = result.current;
-      expect(history.length).toEqual(chartConfig.historyLengthSec);
-      expect(history[history.length - 1]).toEqual(50);
-    });
-  });
-});
 
 describe("useHardwareUpdater", () => {
   beforeEach(() => {
@@ -213,88 +124,6 @@ describe("useHardwareUpdater", () => {
     expect(result.current).toEqual([]);
     expect(consoleErrorSpy).toHaveBeenCalledWith("Not implemented");
     consoleErrorSpy.mockRestore();
-  });
-});
-
-describe("useUsageUpdater processors", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("processors usage history is updated with array data", async () => {
-    (commands.getProcessorsUsage as Mock).mockResolvedValue([
-      [30, 40],
-      [50, 60],
-    ]);
-
-    const { result } = renderHook(
-      () => {
-        useUsageUpdater("processors");
-        const [history] = useAtom(processorsUsageHistoryAtom);
-        return history;
-      },
-      { wrapper: Provider },
-    );
-
-    await waitFor(() => {
-      const history = result.current;
-      expect(history.length).toBeGreaterThan(0);
-      expect(Array.isArray(history[history.length - 1])).toBe(true);
-    });
-  });
-});
-
-describe("useUsageUpdater – error and GpuUsageResult branches", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("early-returns without updating atom when result is an error", async () => {
-    // Covers line 69: isResult(result) && isError(result) → return
-    (commands.getGpuUsage as Mock).mockResolvedValue({
-      status: "error",
-      error: "gpu not found",
-    });
-
-    const { result } = renderHook(
-      () => {
-        useUsageUpdater("gpu");
-        const [history] = useAtom(graphicUsageHistoryAtom);
-        return history;
-      },
-      { wrapper: Provider },
-    );
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    // Atom should stay empty because early return prevented any update
-    expect(result.current).toEqual([]);
-  });
-
-  it("extracts usage and source from GpuUsageResult object", async () => {
-    // Covers lines 84-86: rawData is { usage, source } object
-    (commands.getGpuUsage as Mock).mockResolvedValue({
-      status: "ok",
-      data: { usage: 60, source: "nvidia_smi" },
-    });
-
-    const { result } = renderHook(
-      () => {
-        useUsageUpdater("gpu");
-        const [history] = useAtom(graphicUsageHistoryAtom);
-        const [source] = useAtom(gpuUsageSourceAtom);
-        return { history, source };
-      },
-      { wrapper: Provider },
-    );
-
-    await waitFor(() => {
-      const { history, source } = result.current;
-      expect(history[history.length - 1]).toEqual(60);
-      expect(source).toEqual("nvidia_smi");
-    });
   });
 });
 

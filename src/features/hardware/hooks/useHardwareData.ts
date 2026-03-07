@@ -1,122 +1,14 @@
 import { type PrimitiveAtom, useSetAtom } from "jotai";
 import { useEffect } from "react";
-import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuFanSpeedAtom,
   cpuTempAtom,
-  cpuUsageHistoryAtom,
   gpuFanSpeedAtom,
   gpuTempAtom,
-  gpuUsageSourceAtom,
-  graphicUsageHistoryAtom,
-  memoryUsageHistoryAtom,
-  processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import type {
-  ChartDataHardwareType,
-  ChartDataType,
-} from "@/features/hardware/types/hardwareDataType";
-import {
-  commands,
-  type GpuUsageResult,
-  type NameValue,
-  type Result,
-} from "@/rspc/bindings";
-import { isError, isOk, isResult } from "@/types/result";
-
-/**
- * Update hardware usage history
- */
-export const useUsageUpdater = (dataType: ChartDataHardwareType) => {
-  type AtomActionMapping = {
-    atom: PrimitiveAtom<number[]> | PrimitiveAtom<number[][]>;
-    action: () =>
-      | Promise<number>
-      | Promise<Result<number, string>>
-      | Promise<Result<GpuUsageResult, string>>
-      | Promise<number[]>;
-  };
-
-  const setGpuUsageSource = useSetAtom(gpuUsageSourceAtom);
-
-  const mapping: Record<ChartDataHardwareType, AtomActionMapping> = {
-    cpu: {
-      atom: cpuUsageHistoryAtom,
-      action: commands.getCpuUsage,
-    },
-    memory: {
-      atom: memoryUsageHistoryAtom,
-      action: commands.getMemoryUsage,
-    },
-    gpu: {
-      atom: graphicUsageHistoryAtom,
-      action: commands.getGpuUsage,
-    },
-    processors: {
-      atom: processorsUsageHistoryAtom,
-      action: commands.getProcessorsUsage,
-    },
-  };
-
-  const setHistory = useSetAtom(mapping[dataType].atom);
-  const getUsage = mapping[dataType].action;
-
-  useEffect(() => {
-    const fetchAndUpdate = async () => {
-      const result = await getUsage();
-
-      if (isResult(result) && isError(result as Result<unknown, string>))
-        return;
-      const rawData = isResult(result)
-        ? (result as Result<unknown, string> & { status: "ok" }).data
-        : result;
-
-      // Extract usage value from GpuUsageResult and store source
-      let usage: number | number[];
-      if (
-        dataType === "gpu" &&
-        rawData != null &&
-        typeof rawData === "object" &&
-        !Array.isArray(rawData) &&
-        "usage" in rawData &&
-        "source" in rawData
-      ) {
-        const gpuResult = rawData as GpuUsageResult;
-        usage = gpuResult.usage;
-        setGpuUsageSource(gpuResult.source);
-      } else {
-        usage = rawData as number | number[];
-      }
-
-      // CPU and GPU usage may be returned as array
-      if (Array.isArray(usage)) {
-        setHistory((prev: number[][]) => {
-          const newHistory = [...prev, usage as number[]];
-          return newHistory.slice(-chartConfig.historyLengthSec);
-        });
-        return;
-      }
-
-      // Add directly to history if single number
-      setHistory((prev: number[]) => {
-        const newHistory = [...prev, usage as number];
-
-        // Pad with 0 if not enough history
-        const paddedHistory = Array(
-          Math.max(chartConfig.historyLengthSec - newHistory.length, 0),
-        )
-          .fill(null)
-          .concat(newHistory);
-        return paddedHistory.slice(-chartConfig.historyLengthSec);
-      });
-    };
-
-    fetchAndUpdate();
-    const intervalId = setInterval(fetchAndUpdate, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [setHistory, getUsage, dataType, setGpuUsageSource]);
-};
+import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
+import { commands, type NameValue, type Result } from "@/rspc/bindings";
+import { isOk } from "@/types/result";
 
 export const useHardwareUpdater = (
   hardType: Exclude<ChartDataType, "memory">,
