@@ -6,6 +6,8 @@ use std::{
 
 const PROCESS_RECORD_LIMIT: usize = 5;
 
+type ProcessHistory = Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>;
+
 #[derive(Debug, Clone, Copy)]
 enum ProcessRankingMetric {
   Cpu,
@@ -32,8 +34,8 @@ struct GpuMetricsCollector<'a> {
 
 /// Process statistics collector and ranker
 struct ProcessStatsCollector<'a> {
-  cpu_histories: &'a Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  memory_histories: &'a Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+  cpu_histories: &'a ProcessHistory,
+  memory_histories: &'a ProcessHistory,
 }
 
 impl ArchiveService {
@@ -302,8 +304,8 @@ impl<'a> GpuMetricsCollector<'a> {
 
 impl<'a> ProcessStatsCollector<'a> {
   fn new(
-    cpu_histories: &'a Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-    memory_histories: &'a Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+    cpu_histories: &'a ProcessHistory,
+    memory_histories: &'a ProcessHistory,
   ) -> Self {
     Self {
       cpu_histories,
@@ -459,10 +461,7 @@ mod tests {
     }
   }
 
-  fn dummy_process_collector() -> (
-    Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-    Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  ) {
+  fn dummy_process_collector() -> (ProcessHistory, ProcessHistory) {
     (
       Arc::new(Mutex::new(HashMap::new())),
       Arc::new(Mutex::new(HashMap::new())),
