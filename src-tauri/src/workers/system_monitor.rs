@@ -23,7 +23,7 @@ fn emit_hardware_update(
     let (gpu_usage, gpu_source) = gpu_samples
       .first()
       .and_then(|(_, usage, _, _, source)| {
-        usage.map(|u| (Some(u), Some(source.clone())))
+        usage.map(|u| (Some(u.round()), Some(source.clone())))
       })
       .unwrap_or((None, None));
 
