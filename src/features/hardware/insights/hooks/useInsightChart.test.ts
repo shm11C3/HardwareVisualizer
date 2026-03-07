@@ -374,4 +374,59 @@ describe("useInsightChart – auto-refresh interval", () => {
 
     expect(loadMock.mock.calls.length).toBe(callsAfterMount);
   });
+
+  it("cleanup: cancels pending debounce timeout on unmount", () => {
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+
+    const { unmount } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    // The debounce setTimeout(0) is still pending (timers not advanced).
+    // Unmounting should trigger cleanup and cancel it.
+    unmount();
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("handles getData rejection in interval and logs error", async () => {
+    const loadMock = (await sqlitePromise).load as Mock;
+    loadMock.mockResolvedValue([]);
+
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    // Fire initial debounce
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    // Make load reject on the next call (inside the interval tick)
+    loadMock.mockRejectedValueOnce(new Error("DB error"));
+
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
 });

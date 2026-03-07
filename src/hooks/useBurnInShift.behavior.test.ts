@@ -185,4 +185,74 @@ describe("useBurnInShift (Behavior)", () => {
     expect(clearIntervalSpy).toHaveBeenCalled();
     clearIntervalSpy.mockRestore();
   });
+
+  it("non-jump mode: no interval is started, CSS vars still applied", () => {
+    const el = document.createElement("div");
+    const ref: RefObject<HTMLElement | null> = { current: el };
+
+    (useSettingsAtomMocked as Mock).mockReturnValue({
+      settings: {
+        burnInShift: true,
+        burnInShiftMode: "drift",
+        burnInShiftPreset: "balanced",
+        burnInShiftIdleOnly: false,
+      },
+    });
+
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+
+    const { unmount } = renderHook(() =>
+      useBurnInShift(ref, true, {
+        intervalMs: 100,
+        amplitudePx: [3, 3],
+        driftDurationSec: 10,
+        idleThresholdMs: null,
+      }),
+    );
+
+    // CSS drift vars should be set even in non-jump mode
+    expect(el.style.getPropertyValue("--drift-duration")).toBe("10s");
+
+    // No jump-var updates even after advancing time
+    vi.advanceTimersByTime(500);
+    expect(el.style.getPropertyValue("--shift-x")).toBe("");
+
+    unmount();
+
+    // clearInterval should NOT be called since no interval was set
+    expect(clearIntervalSpy).not.toHaveBeenCalled();
+    clearIntervalSpy.mockRestore();
+  });
+
+  it("re-arms idle timer when input fires while timer is already pending", () => {
+    const el = document.createElement("div");
+    const ref: RefObject<HTMLElement | null> = { current: el };
+
+    (useSettingsAtomMocked as Mock).mockReturnValue({
+      settings: {
+        burnInShift: true,
+        burnInShiftMode: "jump",
+        burnInShiftPreset: "balanced",
+        burnInShiftIdleOnly: true,
+      },
+    });
+
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+
+    renderHook(() =>
+      useBurnInShift(ref, true, {
+        intervalMs: 100,
+        amplitudePx: [2, 2],
+        idleThresholdMs: 500,
+        driftDurationSec: 10,
+      }),
+    );
+
+    // Initial armIdle has set the idle timer; a mousemove fires onInput → armIdle
+    // again, which should clear the existing timer before setting a new one.
+    window.dispatchEvent(new Event("mousemove"));
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
 });
