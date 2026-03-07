@@ -429,4 +429,34 @@ describe("useInsightChart – auto-refresh interval", () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
+
+  it("handles getData rejection in debounce run and logs error", async () => {
+    // Covers line 188: catch(e) { console.error(e) } inside the debounce run function
+    const loadMock = (await sqlitePromise).load as Mock;
+    loadMock.mockRejectedValueOnce(new Error("debounce DB error"));
+
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpu",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    // Fire the initial debounce (setTimeout 0) which calls getData → rejects
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "debounce DB error" }),
+    );
+    consoleErrorSpy.mockRestore();
+  });
 });

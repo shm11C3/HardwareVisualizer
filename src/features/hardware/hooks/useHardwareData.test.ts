@@ -338,4 +338,58 @@ describe("useHardwareUpdater – interval re-fetch", () => {
 
     expect(commands.getNvidiaGpuCooler).toHaveBeenCalledTimes(2);
   });
+
+  it("cleanup: cancels interval on unmount (useHardwareUpdater)", async () => {
+    // Covers the () => clearInterval(intervalId) cleanup in useHardwareUpdater
+    (commands.getNvidiaGpuCooler as Mock).mockResolvedValue({
+      status: "ok",
+      data: [{ name: "fan1", value: 1200 }],
+    });
+
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+
+    const { unmount } = renderHook(() => useHardwareUpdater("gpu", "fan"), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
+    clearIntervalSpy.mockRestore();
+  });
+});
+
+describe("useUsageUpdater – cleanup", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("cleanup: cancels interval on unmount (useUsageUpdater)", async () => {
+    // Covers the () => clearInterval(intervalId) cleanup in useUsageUpdater
+    (commands.getCpuUsage as Mock).mockResolvedValue(50);
+
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+
+    const { unmount } = renderHook(() => useUsageUpdater("cpu"), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
+    clearIntervalSpy.mockRestore();
+  });
 });
