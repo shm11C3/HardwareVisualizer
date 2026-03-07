@@ -1,5 +1,5 @@
 // src/hooks/useBgImage.test.ts
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
@@ -253,6 +253,44 @@ describe("useBackgroundImage", () => {
       });
 
       expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    });
+
+    it("Removes deleted file from backgroundImageList via filter callback", async () => {
+      // Populate the list via the hook's own auto-init effect so the filter
+      // callback `(v) => v.fileId !== fileId` is invoked during deletion.
+      (commands.getBackgroundImages as Mock).mockResolvedValue({
+        status: "ok",
+        data: [
+          { fileId: "keep", imageData: "dataA" },
+          { fileId: "remove", imageData: "dataB" },
+        ],
+      });
+      (commands.deleteBackgroundImage as Mock).mockResolvedValue({});
+
+      // Render both hooks under the same Provider so they share the same atom store.
+      const { result } = renderHook(
+        () => ({
+          bg: useBackgroundImage(),
+          list: useBackgroundImageList(),
+        }),
+        { wrapper: Provider },
+      );
+
+      // Wait for the auto-init effect to populate the list (2 items)
+      await act(async () => {
+        await waitFor(
+          () => result.current.list.backgroundImageList.length === 2,
+        );
+      });
+
+      // Delete one item — exercises the filter callback at line 68 of useBgImage.ts
+      await act(async () => {
+        await result.current.bg.deleteBackgroundImage("remove");
+      });
+
+      expect(result.current.list.backgroundImageList).toEqual([
+        { fileId: "keep", imageData: "data:image/png;base64,dataA" },
+      ]);
     });
   });
 });
