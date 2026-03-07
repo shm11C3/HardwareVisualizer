@@ -13,11 +13,22 @@ export const LanguageSelect = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const { t, i18n } = useTranslation();
 
-  const supported = Object.keys(i18n.services.resourceStore.data);
-  const displaySupported: Record<string, string> = {
-    en: t("lang.en"),
-    ja: t("lang.ja"),
-  };
+  const supported = Object.keys(i18n.services.resourceStore.data).sort((a, b) =>
+    a.localeCompare(b, "en"),
+  );
+
+  const displaySupported: Record<string, string> = supported.reduce(
+    (acc, lang) => {
+      const translated = t(`lang.${lang}` as never);
+      const native = i18n.t(`lang.${lang}` as never, { lng: lang });
+      acc[lang] =
+        native && native !== translated
+          ? `${translated} (${native})`
+          : translated;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   const changeLanguage = async (value: string) => {
     await updateSettingAtom("language", value);
