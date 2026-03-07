@@ -138,6 +138,7 @@ After launching the app:
 | Background Image         | ✅     | Local assets                     |
 | Historical Insights      | ✅     | Default Up to 30 days            |
 | GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
+| Language Support         | ✅     | English, Japanese, Russian       |
 
 ## Supported OS
 

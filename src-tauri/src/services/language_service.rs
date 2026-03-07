@@ -1,7 +1,7 @@
 use sys_locale;
 
 // List of languages currently supported by the app
-pub const SUPPORTED_LANGUAGES: [&str; 2] = ["en", "ja"];
+pub const SUPPORTED_LANGUAGES: [&str; 3] = ["en", "ja", "ru"];
 
 ///
 /// Get default language setting
@@ -105,5 +105,10 @@ mod tests {
   #[test]
   fn supported_languages_contains_ja() {
     assert!(SUPPORTED_LANGUAGES.contains(&"ja"));
+  }
+
+  #[test]
+  fn supported_languages_contains_ru() {
+    assert!(SUPPORTED_LANGUAGES.contains(&"ru"));
   }
 }
