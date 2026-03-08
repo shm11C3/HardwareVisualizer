@@ -52,7 +52,6 @@ pub trait GpuPlatform: Send + Sync {
   >;
 
   /// Get realtime GPU memory usage (best-effort)
-  #[allow(dead_code)]
   fn get_gpu_memory_usage(
     &self,
   ) -> Pin<
