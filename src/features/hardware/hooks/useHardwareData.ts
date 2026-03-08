@@ -4,7 +4,6 @@ import {
   cpuFanSpeedAtom,
   cpuTempAtom,
   gpuFanSpeedAtom,
-  gpuTempAtom,
 } from "@/features/hardware/store/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import { commands, type NameValue, type Result } from "@/rspc/bindings";
@@ -19,35 +18,25 @@ export const useHardwareUpdater = (
     action: () => Promise<Result<NameValue[], string>>;
   };
 
+  const notImplemented = () => {
+    console.error("Not implemented");
+    return Promise.resolve({
+      status: "error" as const,
+      error: "Not implemented",
+    });
+  };
+
   const mapping: Record<
     Exclude<ChartDataType, "memory">,
     Record<"temp" | "fan", AtomActionMapping>
   > = {
     cpu: {
-      temp: {
-        atom: cpuTempAtom,
-        action: () => {
-          console.error("Not implemented");
-          return Promise.resolve({ status: "error", error: "Not implemented" });
-        },
-      },
-      fan: {
-        atom: cpuFanSpeedAtom,
-        action: () => {
-          console.error("Not implemented");
-          return Promise.resolve({ status: "error", error: "Not implemented" });
-        },
-      },
+      temp: { atom: cpuTempAtom, action: notImplemented },
+      fan: { atom: cpuFanSpeedAtom, action: notImplemented },
     },
     gpu: {
-      fan: {
-        atom: gpuFanSpeedAtom,
-        action: commands.getNvidiaGpuCooler,
-      },
-      temp: {
-        atom: gpuTempAtom,
-        action: commands.getGpuTemperature,
-      },
+      fan: { atom: gpuFanSpeedAtom, action: commands.getNvidiaGpuCooler },
+      temp: { atom: cpuTempAtom, action: notImplemented },
     },
   };
 

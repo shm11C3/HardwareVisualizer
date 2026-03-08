@@ -6,6 +6,7 @@ import { chartConfig } from "@/features/hardware/consts/chart";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
   cpuUsageHistoryAtom,
+  gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
@@ -44,6 +45,8 @@ const makePayload = (
   cpuUsage: 50,
   memoryUsage: 60,
   gpuUsage: 70,
+  gpuName: "TestGPU",
+  gpuTemperature: 65,
   gpuSource: "IOKit",
   processorsUsage: [40, 50],
   ...overrides,
@@ -192,6 +195,38 @@ describe("useHardwareEventListener", () => {
     );
 
     act(() => emit(makePayload({ gpuUsage: null })));
+
+    expect(result.current).toEqual([]);
+  });
+
+  // ── GPU temperature ──
+
+  it("updates gpuTempAtom as NameValue[] when gpuName and gpuTemperature are present", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [temp] = useAtom(gpuTempAtom);
+        return temp;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ gpuName: "RTX 4090", gpuTemperature: 72 })));
+
+    expect(result.current).toEqual([{ name: "RTX 4090", value: 72 }]);
+  });
+
+  it("does not update gpuTempAtom when gpuTemperature is null", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [temp] = useAtom(gpuTempAtom);
+        return temp;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ gpuTemperature: null })));
 
     expect(result.current).toEqual([]);
   });

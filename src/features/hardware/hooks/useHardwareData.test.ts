@@ -12,7 +12,7 @@ import {
 } from "vitest";
 
 import { useHardwareUpdater } from "@/features/hardware/hooks/useHardwareData";
-import { gpuFanSpeedAtom, gpuTempAtom } from "@/features/hardware/store/chart";
+import { cpuTempAtom, gpuFanSpeedAtom } from "@/features/hardware/store/chart";
 
 // Commands (mock targets)
 import { commands } from "@/rspc/bindings";
@@ -23,7 +23,6 @@ import { commands } from "@/rspc/bindings";
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     getNvidiaGpuCooler: vi.fn(),
-    getGpuTemperature: vi.fn(),
   },
 }));
 
@@ -56,26 +55,6 @@ describe("useHardwareUpdater", () => {
     });
   });
 
-  it("gpuTempAtom is updated when 'gpu', 'temp'", async () => {
-    (commands.getGpuTemperature as Mock).mockResolvedValue({
-      status: "ok",
-      data: [{ name: "test2", value: 70 }],
-    });
-
-    const { result } = renderHook(
-      () => {
-        useHardwareUpdater("gpu", "temp");
-        const [data] = useAtom(gpuTempAtom);
-        return data;
-      },
-      { wrapper: Provider },
-    );
-
-    await waitFor(() => {
-      expect(result.current).toEqual([{ name: "test2", value: 70 }]);
-    });
-  });
-
   it("cpu temp: does not update atom (not implemented)", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
@@ -84,7 +63,7 @@ describe("useHardwareUpdater", () => {
     const { result } = renderHook(
       () => {
         useHardwareUpdater("cpu", "temp");
-        const [data] = useAtom(gpuTempAtom);
+        const [data] = useAtom(cpuTempAtom);
         return data;
       },
       { wrapper: Provider },

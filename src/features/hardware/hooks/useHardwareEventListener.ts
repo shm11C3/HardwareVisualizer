@@ -3,6 +3,7 @@ import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuUsageHistoryAtom,
+  gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
@@ -26,6 +27,7 @@ export const useHardwareEventListener = () => {
   const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
   const setGpuHistory = useSetAtom(graphicUsageHistoryAtom);
   const setProcessorsHistory = useSetAtom(processorsUsageHistoryAtom);
+  const setGpuTemp = useSetAtom(gpuTempAtom);
   const setGpuUsageSource = useSetAtom(gpuUsageSourceAtom);
 
   const handleHardwareUpdate = useCallback(
@@ -34,12 +36,21 @@ export const useHardwareEventListener = () => {
         cpuUsage: number;
         memoryUsage: number;
         gpuUsage: number | null;
+        gpuName: string | null;
+        gpuTemperature: number | null;
         gpuSource: string | null;
         processorsUsage: number[];
       };
     }) => {
-      const { cpuUsage, memoryUsage, gpuUsage, gpuSource, processorsUsage } =
-        event.payload;
+      const {
+        cpuUsage,
+        memoryUsage,
+        gpuUsage,
+        gpuName,
+        gpuTemperature,
+        gpuSource,
+        processorsUsage,
+      } = event.payload;
 
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
       setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
@@ -48,6 +59,9 @@ export const useHardwareEventListener = () => {
         setGpuHistory((prev) => padHistory([...prev, gpuUsage]));
       }
 
+      if (gpuName != null && gpuTemperature != null) {
+        setGpuTemp([{ name: gpuName, value: gpuTemperature }]);
+      }
       setGpuUsageSource(gpuSource);
 
       setProcessorsHistory((prev) => {
@@ -59,6 +73,7 @@ export const useHardwareEventListener = () => {
       setCpuHistory,
       setMemoryHistory,
       setGpuHistory,
+      setGpuTemp,
       setProcessorsHistory,
       setGpuUsageSource,
     ],

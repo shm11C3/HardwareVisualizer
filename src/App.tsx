@@ -85,7 +85,6 @@ const AppContent = () => {
 
   useErrorModalListener();
   useHardwareEventListener();
-  useHardwareUpdater("gpu", "temp");
   useHardwareUpdater("gpu", "fan");
   const { hardwareInfo } = useHardwareInfoAtom();
 

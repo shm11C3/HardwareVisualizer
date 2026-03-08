@@ -1,7 +1,10 @@
+use crate::commands::settings;
+use crate::enums::settings::TemperatureUnit;
 use crate::models::hardware::HardwareMonitorUpdate;
 use crate::services::monitoring_service;
 use crate::{log_error, models};
 use crate::{log_internal, log_warn};
+use tauri::Manager as _;
 use tauri_specta::Event as _;
 
 pub struct SystemMonitorController {
@@ -20,17 +23,36 @@ fn emit_hardware_update(
   gpu_samples: &[monitoring_service::GpuSample],
 ) {
   if let Some(sys) = system_sample {
-    let (gpu_usage, gpu_source) = gpu_samples
+    let (gpu_name, gpu_usage, gpu_temperature, gpu_source) = gpu_samples
       .first()
-      .and_then(|(_, usage, _, _, source)| {
-        usage.map(|u| (Some(u.round()), Some(source.clone())))
+      .map(|(name, usage, temperature, _, source)| {
+        (
+          Some(name.clone()),
+          usage.map(|u| u.round()),
+          *temperature,
+          Some(source.clone()),
+        )
       })
-      .unwrap_or((None, None));
+      .unwrap_or((None, None, None, None));
+
+    let gpu_temperature = gpu_temperature.map(|t| {
+      let unit = app_handle
+        .try_state::<settings::AppState>()
+        .map(|state| state.settings.lock().unwrap().temperature_unit.clone())
+        .unwrap_or(TemperatureUnit::Celsius);
+
+      match unit {
+        TemperatureUnit::Celsius => t.round(),
+        TemperatureUnit::Fahrenheit => (t * 9.0 / 5.0 + 32.0).round(),
+      }
+    });
 
     let payload = HardwareMonitorUpdate {
       cpu_usage: sys.cpu_usage,
       memory_usage: sys.memory_usage,
       gpu_usage,
+      gpu_name,
+      gpu_temperature,
       gpu_source,
       processors_usage: sys.processors_usage.clone(),
     };
