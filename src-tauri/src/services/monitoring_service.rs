@@ -7,7 +7,7 @@ use crate::constants::{
 use crate::models::hardware::HardwareMonitorState;
 use crate::models::hardware_archive::MonitorResources;
 
-/// A single GPU sample: (name, usage%, temperature°C, dedicated_memory_usage%, source).
+/// A single GPU sample: (name, usage%, temperature°C, dedicated_memory_used (absolute, platform-dependent units), source).
 /// `None` means the metric is unavailable for this GPU vendor/platform.
 pub type GpuSample = (String, Option<f32>, Option<f32>, Option<f32>, String);
 
