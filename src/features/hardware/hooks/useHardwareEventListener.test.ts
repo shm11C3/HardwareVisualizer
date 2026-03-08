@@ -57,7 +57,7 @@ describe("useHardwareEventListener", () => {
     capturedCallback = null;
   });
 
-  // ── リスナー登録 / クリーンアップ ──
+  // ── Listener registration / cleanup ──
 
   it("registers event listener on mount", () => {
     renderHook(() => useHardwareEventListener(), { wrapper: Provider });
@@ -78,7 +78,7 @@ describe("useHardwareEventListener", () => {
     expect(mockUnlisten).toHaveBeenCalledTimes(1);
   });
 
-  // ── CPU 履歴 ──
+  // ── CPU history ──
 
   it("appends cpuUsage to cpuUsageHistoryAtom", () => {
     const { result } = renderHook(
@@ -97,7 +97,7 @@ describe("useHardwareEventListener", () => {
     expect(history[history.length - 1]).toBe(42);
   });
 
-  // ── Memory 履歴 ──
+  // ── Memory history ──
 
   it("appends memoryUsage to memoryUsageHistoryAtom", () => {
     const { result } = renderHook(
@@ -116,7 +116,7 @@ describe("useHardwareEventListener", () => {
     expect(history[history.length - 1]).toBe(75);
   });
 
-  // ── パディング ──
+  // ── Padding ──
 
   it("pads history with null when shorter than historyLengthSec", () => {
     const { result } = renderHook(
@@ -137,7 +137,7 @@ describe("useHardwareEventListener", () => {
     expect(history[history.length - 1]).toBe(10);
   });
 
-  // ── 履歴上限 ──
+  // ── History limit ──
 
   it("trims history exceeding historyLengthSec", () => {
     const { result } = renderHook(
@@ -163,7 +163,7 @@ describe("useHardwareEventListener", () => {
     expect(history[history.length - 1]).toBe(chartConfig.historyLengthSec + 4);
   });
 
-  // ── GPU 使用率 ──
+  // ── GPU usage ──
 
   it("appends gpuUsage to graphicUsageHistoryAtom when not null", () => {
     const { result } = renderHook(
@@ -196,7 +196,7 @@ describe("useHardwareEventListener", () => {
     expect(result.current).toEqual([]);
   });
 
-  // ── GPU ソース ──
+  // ── GPU source ──
 
   it("updates gpuUsageSourceAtom when gpuSource is not null", () => {
     const { result } = renderHook(
@@ -228,7 +228,7 @@ describe("useHardwareEventListener", () => {
     expect(result.current).toBeNull();
   });
 
-  // ── プロセッサ使用率 ──
+  // ── Processor usage ──
 
   it("appends processorsUsage to processorsUsageHistoryAtom", () => {
     const { result } = renderHook(
@@ -268,7 +268,7 @@ describe("useHardwareEventListener", () => {
     expect(history[0]).toEqual([3, 4]);
   });
 
-  // ── 連続イベント ──
+  // ── Consecutive events ──
 
   it("accumulates values across multiple events", () => {
     const { result } = renderHook(
