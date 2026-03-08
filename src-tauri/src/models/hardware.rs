@@ -15,6 +15,8 @@ pub struct HardwareMonitorUpdate {
   pub gpu_temperature: Option<f32>,
   pub gpu_source: Option<String>,
   pub processors_usage: Vec<f32>,
+  pub gpu_dedicated_memory_usage_kb: Option<f32>,
+  pub gpu_cooler_level: Option<u32>,
 }
 
 pub struct HardwareMonitorState {

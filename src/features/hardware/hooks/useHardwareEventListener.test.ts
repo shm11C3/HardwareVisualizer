@@ -6,6 +6,8 @@ import { chartConfig } from "@/features/hardware/consts/chart";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
   cpuUsageHistoryAtom,
+  gpuDedicatedMemoryKbAtom,
+  gpuFanSpeedAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
@@ -49,6 +51,8 @@ const makePayload = (
   gpuTemperature: 65,
   gpuSource: "IOKit",
   processorsUsage: [40, 50],
+  gpuDedicatedMemoryUsageKb: null,
+  gpuCoolerLevel: null,
   ...overrides,
 });
 
@@ -301,6 +305,70 @@ describe("useHardwareEventListener", () => {
     const history = result.current;
     expect(history).toHaveLength(chartConfig.historyLengthSec);
     expect(history[0]).toEqual([3, 4]);
+  });
+
+  // ── GPU dedicated memory ──
+
+  it("updates gpuDedicatedMemoryKbAtom when gpuDedicatedMemoryUsageKb is not null", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [mem] = useAtom(gpuDedicatedMemoryKbAtom);
+        return mem;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ gpuDedicatedMemoryUsageKb: 4096 })));
+
+    expect(result.current).toBe(4096);
+  });
+
+  it("does not update gpuDedicatedMemoryKbAtom when gpuDedicatedMemoryUsageKb is null", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [mem] = useAtom(gpuDedicatedMemoryKbAtom);
+        return mem;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ gpuDedicatedMemoryUsageKb: null })));
+
+    expect(result.current).toBeNull();
+  });
+
+  // ── GPU fan speed (cooler) ──
+
+  it("updates gpuFanSpeedAtom when gpuCoolerLevel and gpuName are present", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [fan] = useAtom(gpuFanSpeedAtom);
+        return fan;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ gpuName: "RTX 4090", gpuCoolerLevel: 55 })));
+
+    expect(result.current).toEqual([{ name: "RTX 4090", value: 55 }]);
+  });
+
+  it("does not update gpuFanSpeedAtom when gpuCoolerLevel is null", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [fan] = useAtom(gpuFanSpeedAtom);
+        return fan;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ gpuCoolerLevel: null })));
+
+    expect(result.current).toEqual([]);
   });
 
   // ── Consecutive events ──

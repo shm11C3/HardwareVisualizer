@@ -12,6 +12,11 @@ pub struct SystemMonitorController {
   stop_tx: tokio::sync::watch::Sender<bool>,
 }
 
+struct GpuCapabilities {
+  has_dedicated_memory: bool,
+  has_cooler: bool,
+}
+
 ///
 /// System information update frequency (seconds)
 ///
@@ -21,16 +26,18 @@ fn emit_hardware_update(
   app_handle: &tauri::AppHandle,
   system_sample: Option<&monitoring_service::SystemSample>,
   gpu_samples: &[monitoring_service::GpuSample],
+  capabilities: &GpuCapabilities,
 ) {
   if let Some(sys) = system_sample {
-    let (gpu_name, gpu_usage, gpu_temperature, gpu_source) = gpu_samples
-      .first()
-      .map(|(name, usage, temperature, _, source)| {
+    let first_gpu = gpu_samples.first();
+
+    let (gpu_name, gpu_usage, gpu_temperature, gpu_source) = first_gpu
+      .map(|s| {
         (
-          Some(name.clone()),
-          usage.map(|u| u.round()),
-          *temperature,
-          Some(source.clone()),
+          Some(s.name.clone()),
+          s.usage.map(|u| u.round()),
+          s.temperature,
+          Some(s.source.clone()),
         )
       })
       .unwrap_or((None, None, None, None));
@@ -47,6 +54,18 @@ fn emit_hardware_update(
       }
     });
 
+    let gpu_dedicated_memory_usage_kb = if capabilities.has_dedicated_memory {
+      first_gpu.and_then(|s| s.dedicated_memory_kb)
+    } else {
+      None
+    };
+
+    let gpu_cooler_level = if capabilities.has_cooler {
+      first_gpu.and_then(|s| s.cooler_level)
+    } else {
+      None
+    };
+
     let payload = HardwareMonitorUpdate {
       cpu_usage: sys.cpu_usage,
       memory_usage: sys.memory_usage,
@@ -55,6 +74,8 @@ fn emit_hardware_update(
       gpu_temperature,
       gpu_source,
       processors_usage: sys.processors_usage.clone(),
+      gpu_dedicated_memory_usage_kb,
+      gpu_cooler_level,
     };
     if let Err(e) = payload.emit(app_handle) {
       log_error!(
@@ -80,8 +101,8 @@ impl SystemMonitorController {
   ) -> Self {
     let (tx, mut rx) = tokio::sync::watch::channel(false);
 
-    let handle: tauri::async_runtime::JoinHandle<()> =
-      tauri::async_runtime::spawn(async move {
+    let handle: tauri::async_runtime::JoinHandle<()> = tauri::async_runtime::spawn(
+      async move {
         let mut ticker = tokio::time::interval(tokio::time::Duration::from_secs(
           SYSTEM_INFO_INIT_INTERVAL,
         ));
@@ -89,7 +110,22 @@ impl SystemMonitorController {
 
         let system_sample = monitoring_service::sample_system(&resources);
         let gpu_samples = monitoring_service::sample_gpu(&resources).await;
-        emit_hardware_update(&app_handle, system_sample.as_ref(), &gpu_samples);
+
+        let gpu_capabilities = GpuCapabilities {
+          has_dedicated_memory: gpu_samples
+            .first()
+            .is_some_and(|s| s.dedicated_memory_kb.is_some()),
+          has_cooler: gpu_samples
+            .first()
+            .is_some_and(|s| s.cooler_level.is_some()),
+        };
+
+        emit_hardware_update(
+          &app_handle,
+          system_sample.as_ref(),
+          &gpu_samples,
+          &gpu_capabilities,
+        );
 
         loop {
           tokio::select! {
@@ -98,7 +134,7 @@ impl SystemMonitorController {
 
               let system_sample = monitoring_service::sample_system(&resources);
               let gpu_samples = monitoring_service::sample_gpu(&resources).await;
-              emit_hardware_update(&app_handle, system_sample.as_ref(), &gpu_samples);
+              emit_hardware_update(&app_handle, system_sample.as_ref(), &gpu_samples, &gpu_capabilities);
 
               let elapsed = start.elapsed();
               if elapsed > tokio::time::Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL) {
@@ -117,7 +153,8 @@ impl SystemMonitorController {
             }
           }
         }
-      });
+      },
+    );
 
     Self {
       stop_tx: tx,

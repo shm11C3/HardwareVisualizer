@@ -3,6 +3,8 @@ import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuUsageHistoryAtom,
+  gpuDedicatedMemoryKbAtom,
+  gpuFanSpeedAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
@@ -29,6 +31,8 @@ export const useHardwareEventListener = () => {
   const setProcessorsHistory = useSetAtom(processorsUsageHistoryAtom);
   const setGpuTemp = useSetAtom(gpuTempAtom);
   const setGpuUsageSource = useSetAtom(gpuUsageSourceAtom);
+  const setGpuDedicatedMemory = useSetAtom(gpuDedicatedMemoryKbAtom);
+  const setGpuFanSpeed = useSetAtom(gpuFanSpeedAtom);
 
   const handleHardwareUpdate = useCallback(
     (event: {
@@ -40,6 +44,8 @@ export const useHardwareEventListener = () => {
         gpuTemperature: number | null;
         gpuSource: string | null;
         processorsUsage: number[];
+        gpuDedicatedMemoryUsageKb: number | null;
+        gpuCoolerLevel: number | null;
       };
     }) => {
       const {
@@ -50,6 +56,8 @@ export const useHardwareEventListener = () => {
         gpuTemperature,
         gpuSource,
         processorsUsage,
+        gpuDedicatedMemoryUsageKb,
+        gpuCoolerLevel,
       } = event.payload;
 
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
@@ -64,6 +72,14 @@ export const useHardwareEventListener = () => {
       }
       setGpuUsageSource(gpuSource);
 
+      if (gpuDedicatedMemoryUsageKb != null) {
+        setGpuDedicatedMemory(gpuDedicatedMemoryUsageKb);
+      }
+
+      if (gpuName != null && gpuCoolerLevel != null) {
+        setGpuFanSpeed([{ name: gpuName, value: gpuCoolerLevel }]);
+      }
+
       setProcessorsHistory((prev) => {
         const next = [...prev, processorsUsage];
         return next.slice(-chartConfig.historyLengthSec);
@@ -76,6 +92,8 @@ export const useHardwareEventListener = () => {
       setGpuTemp,
       setProcessorsHistory,
       setGpuUsageSource,
+      setGpuDedicatedMemory,
+      setGpuFanSpeed,
     ],
   );
   useEffect(() => {
