@@ -1,6 +1,8 @@
 use crate::enums::error::BackendError;
 use crate::enums::settings::TemperatureUnit;
-use crate::models::hardware::{GraphicInfo, MotherboardInfo, NetworkInfo};
+use crate::models::hardware::{
+  GpuMemoryUsage, GraphicInfo, MotherboardInfo, NetworkInfo,
+};
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
 };
@@ -72,6 +74,13 @@ impl GpuPlatform for WindowsPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
     Box::pin(gpu::get_gpu_info())
+  }
+
+  fn get_gpu_memory_usage(
+    &self,
+  ) -> Pin<Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, String>> + Send + '_>>
+  {
+    Box::pin(async { Ok(None) })
   }
 }
 
