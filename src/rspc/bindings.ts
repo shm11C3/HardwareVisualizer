@@ -114,22 +114,10 @@ async getGpuTemperature() : Promise<Result<NameValue[], string>> {
 }
 },
 /**
- * ## Get GPU fan speed
+ * ## Get realtime GPU memory usage (best-effort)
  * 
- */
-async getNvidiaGpuCooler() : Promise<Result<NameValue[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_nvidia_gpu_cooler") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * ## Get CPU usage history
- * 
- * - param state: `tauri::State<AppState>` Application state
- * - param seconds: `u32` Number of seconds to retrieve
+ * This command attempts to retrieve current GPU memory usage information
+ * on a best-effort, platform-dependent basis.
  * 
  */
 async getCpuUsageHistory(seconds: number) : Promise<number[]> {
@@ -168,11 +156,10 @@ async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
 }
 },
 /**
- * ## Get realtime GPU memory usage (best-effort)
+ * ## Get CPU usage history
  * 
- * This command attempts to retrieve current GPU memory usage information
- * on a best-effort, platform-dependent basis.
- * 
+ * - param state: `tauri::State<AppState>` Application state
+ * - param seconds: `u32` Number of seconds to retrieve
  * - **Platform support**: Currently implemented only on macOS. On other
  * platforms, or where the underlying APIs are not available, this will
  * return `Ok(None)` instead of failing.
@@ -496,6 +483,11 @@ async restartApp() : Promise<void> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+hardwareMonitorUpdate: HardwareMonitorUpdate
+}>({
+hardwareMonitorUpdate: "hardware-monitor-update"
+})
 
 /** user-defined constants **/
 
@@ -542,6 +534,7 @@ export type GpuUsageResult = { usage: number; source: string }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
+export type HardwareMonitorUpdate = { cpuUsage: number; memoryUsage: number; gpuUsage: number | null; gpuName: string | null; gpuTemperature: number | null; gpuSource: string | null; processorsUsage: number[]; gpuDedicatedMemoryUsageKb: number | null; gpuCoolerLevel: number | null }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**
  * Structure of settings to send to client

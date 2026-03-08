@@ -265,6 +265,23 @@ pub fn get_gpu_temperature_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> i32 {
 }
 
 ///
+/// Get GPU cooler level (fan speed %) from `PhysicalGpu`
+///
+pub fn get_gpu_cooler_level_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> Option<u32> {
+  match gpu.cooler_settings(None) {
+    Ok(coolers) => coolers.first().map(|c| c.current_level.0),
+    Err(e) => {
+      log_debug!(
+        "cooler_settings_failed",
+        "get_gpu_cooler_level",
+        Some(&format!("{e:?}"))
+      );
+      None
+    }
+  }
+}
+
+///
 /// Get GPU memory usage from `PhysicalGpu`
 ///
 pub fn get_gpu_dedicated_memory_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> u32 {

@@ -112,11 +112,10 @@ pub async fn get_gpu_temperature(
 }
 
 ///
-/// ## Get realtime GPU memory usage (best-effort)
+/// ## Get CPU usage history
 ///
-/// This command attempts to retrieve current GPU memory usage information
-/// on a best-effort, platform-dependent basis.
-///
+/// - param state: `tauri::State<AppState>` Application state
+/// - param seconds: `u32` Number of seconds to retrieve
 /// - **Platform support**: Currently implemented only on macOS. On other
 ///   platforms, or where the underlying APIs are not available, this will
 ///   return `Ok(None)` instead of failing.
@@ -143,21 +142,10 @@ pub async fn get_gpu_memory_usage()
 }
 
 ///
-/// ## Get GPU fan speed
+/// ## Get realtime GPU memory usage (best-effort)
 ///
-#[command]
-#[specta::specta]
-pub async fn get_nvidia_gpu_cooler() -> Result<Vec<models::hardware::NameValue>, String> {
-  use crate::services::gpu_service;
-
-  gpu_service::fetch_nvidia_gpu_cooler().await
-}
-
-///
-/// ## Get CPU usage history
-///
-/// - param state: `tauri::State<AppState>` Application state
-/// - param seconds: `u32` Number of seconds to retrieve
+/// This command attempts to retrieve current GPU memory usage information
+/// on a best-effort, platform-dependent basis.
 ///
 #[command]
 #[specta::specta]

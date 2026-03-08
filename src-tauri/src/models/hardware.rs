@@ -5,6 +5,20 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use sysinfo;
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareMonitorUpdate {
+  pub cpu_usage: f32,
+  pub memory_usage: f32,
+  pub gpu_usage: Option<f32>,
+  pub gpu_name: Option<String>,
+  pub gpu_temperature: Option<f32>,
+  pub gpu_source: Option<String>,
+  pub processors_usage: Vec<f32>,
+  pub gpu_dedicated_memory_usage_kb: Option<f32>,
+  pub gpu_cooler_level: Option<u32>,
+}
+
 pub struct HardwareMonitorState {
   pub system: Arc<Mutex<sysinfo::System>>,
   pub cpu_history: Arc<Mutex<VecDeque<f32>>>,

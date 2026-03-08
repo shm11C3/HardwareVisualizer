@@ -10,3 +10,4 @@ export const cpuTempAtom = atom<NameValues>([]);
 export const cpuFanSpeedAtom = atom<NameValues>([]);
 export const gpuTempAtom = atom<NameValues>([]);
 export const gpuFanSpeedAtom = atom<NameValues>([]);
+export const gpuDedicatedMemoryKbAtom = atom<number | null>(null);

@@ -11,10 +11,7 @@ import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
-import {
-  useHardwareUpdater,
-  useUsageUpdater,
-} from "@/features/hardware/hooks/useHardwareData";
+import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
@@ -86,12 +83,7 @@ const AppContent = () => {
   const [opacity, setOpacity] = useState(1);
 
   useErrorModalListener();
-  useUsageUpdater("cpu");
-  useUsageUpdater("memory");
-  useUsageUpdater("gpu");
-  useUsageUpdater("processors");
-  useHardwareUpdater("gpu", "temp");
-  useHardwareUpdater("gpu", "fan");
+  useHardwareEventListener();
   const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {
