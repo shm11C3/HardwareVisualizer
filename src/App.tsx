@@ -11,7 +11,6 @@ import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
-import { useHardwareUpdater } from "@/features/hardware/hooks/useHardwareData";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
@@ -85,7 +84,6 @@ const AppContent = () => {
 
   useErrorModalListener();
   useHardwareEventListener();
-  useHardwareUpdater("gpu", "fan");
   const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {

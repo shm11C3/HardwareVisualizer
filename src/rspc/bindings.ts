@@ -114,18 +114,6 @@ async getGpuTemperature() : Promise<Result<NameValue[], string>> {
 }
 },
 /**
- * ## Get GPU fan speed
- * 
- */
-async getNvidiaGpuCooler() : Promise<Result<NameValue[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_nvidia_gpu_cooler") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
  * ## Get CPU usage history
  * 
  * - param state: `tauri::State<AppState>` Application state

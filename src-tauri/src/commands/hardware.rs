@@ -143,17 +143,6 @@ pub async fn get_gpu_memory_usage()
 }
 
 ///
-/// ## Get GPU fan speed
-///
-#[command]
-#[specta::specta]
-pub async fn get_nvidia_gpu_cooler() -> Result<Vec<models::hardware::NameValue>, String> {
-  use crate::services::gpu_service;
-
-  gpu_service::fetch_nvidia_gpu_cooler().await
-}
-
-///
 /// ## Get CPU usage history
 ///
 /// - param state: `tauri::State<AppState>` Application state

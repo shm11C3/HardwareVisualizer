@@ -33,14 +33,6 @@ pub async fn fetch_gpu_temperature(
 }
 
 ///
-/// Get NVIDIA GPU fan speed (not implemented)
-/// Always returns Err as planned for future implementation
-///
-pub async fn fetch_nvidia_gpu_cooler() -> Result<Vec<NameValue>, String> {
-  Err("Failed to get GPU cooler status: This function is not implemented".to_string())
-}
-
-///
 /// Get realtime GPU memory usage (best-effort).
 ///
 /// "Best-effort" means that this function will try to query GPU memory
