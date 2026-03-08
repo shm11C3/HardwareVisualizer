@@ -26,7 +26,7 @@ export const useHardwareEventListener = () => {
       const { cpuUsage, memoryUsage, gpuUsage, gpuSource, processorsUsage } =
         event.payload;
 
-      const pad = (arr: number[]) => {
+      const pad = (arr: (number | null)[]) => {
         const padded = Array(
           Math.max(chartConfig.historyLengthSec - arr.length, 0),
         )
