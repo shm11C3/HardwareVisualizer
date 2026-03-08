@@ -52,9 +52,7 @@ export const useHardwareEventListener = () => {
         });
       }
 
-      if (gpuSource != null) {
-        setGpuUsageSource(gpuSource);
-      }
+      setGpuUsageSource(gpuSource);
 
       setProcessorsHistory((prev) => {
         const next = [...prev, processorsUsage];
