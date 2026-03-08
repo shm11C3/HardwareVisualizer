@@ -1,6 +1,6 @@
-use crate::models;
 use crate::models::hardware::HardwareMonitorUpdate;
 use crate::services::monitoring_service;
+use crate::{log_error, models};
 use crate::{log_internal, log_warn};
 use tauri_specta::Event as _;
 
@@ -34,7 +34,13 @@ fn emit_hardware_update(
       gpu_source,
       processors_usage: sys.processors_usage.clone(),
     };
-    let _ = payload.emit(app_handle);
+    if let Err(e) = payload.emit(app_handle) {
+      log_error!(
+        &format!("failed to emit HardwareMonitorUpdate event: {}", e),
+        "system_monitor",
+        None::<&str>
+      );
+    }
   }
 }
 
