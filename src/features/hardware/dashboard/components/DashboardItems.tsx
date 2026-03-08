@@ -21,6 +21,7 @@ import { minOpacity } from "@/consts/style";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuUsageHistoryAtom,
+  gpuDedicatedMemoryKbAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
@@ -31,13 +32,9 @@ import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { useWindowSize } from "@/hooks/useWindowSize";
+import { formatBytes } from "@/lib/formatter";
 import { cn } from "@/lib/utils";
-import {
-  commands,
-  type GpuMemoryUsage,
-  type StorageInfo,
-} from "@/rspc/bindings";
-import { isError } from "@/types/result";
+import type { StorageInfo } from "@/rspc/bindings";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 import { MiniLineChart } from "./MiniLineChart";
 
@@ -86,34 +83,8 @@ export const GPUInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
-  const [gpuMemoryUsage, setGpuMemoryUsage] = useState<GpuMemoryUsage | null>(
-    null,
-  );
+  const [gpuDedicatedMemoryKb] = useAtom(gpuDedicatedMemoryKbAtom);
   const os = useMemo(() => platform(), []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchGpuMemoryUsage = async () => {
-      const result = await commands.getGpuMemoryUsage();
-      if (isError(result)) {
-        console.error("Failed to fetch GPU memory usage:", result);
-        return;
-      }
-
-      if (isMounted) {
-        setGpuMemoryUsage(result.data);
-      }
-    };
-
-    fetchGpuMemoryUsage();
-    const intervalId = setInterval(fetchGpuMemoryUsage, 3000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, []);
 
   const getTargetInfo = (data: NameValues) => {
     return data.find(
@@ -161,11 +132,19 @@ export const GPUInfo = () => {
           >
             {(() => {
               const hasMemorySize = gpu.memorySize !== "N/A";
-              const hasMemoryUsage = gpuMemoryUsage?.inUseBytes != null;
+              const hasMemoryUsage = gpuDedicatedMemoryKb != null;
+              const formattedMemoryUsage = hasMemoryUsage
+                ? (() => {
+                    const [value, unit] = formatBytes(
+                      gpuDedicatedMemoryKb * 1024,
+                    );
+                    return `${value} ${unit}`;
+                  })()
+                : null;
               const memorySizeDisplay = hasMemorySize
                 ? gpu.memorySize
                 : hasMemoryUsage
-                  ? (gpuMemoryUsage?.inUseBytes ?? "N/A")
+                  ? (formattedMemoryUsage ?? "N/A")
                   : "N/A";
               const memorySizeLabel = hasMemorySize
                 ? t("shared.memorySize")

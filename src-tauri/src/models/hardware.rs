@@ -58,6 +58,7 @@ pub struct GraphicInfo {
 
 #[derive(Serialize, Deserialize, Type, Clone)]
 #[serde(rename_all = "camelCase")]
+#[cfg(target_os = "macos")]
 pub struct GpuMemoryUsage {
   pub in_use_bytes: Option<String>,
   pub alloc_bytes: Option<String>,
@@ -253,7 +254,7 @@ mod tests {
 
   // ── GpuMemoryUsage serialization ──
 
-  #[test]
+  #[cfg(all(test, target_os = "macos"))]
   fn gpu_memory_usage_with_none_fields() {
     let mem = GpuMemoryUsage {
       in_use_bytes: None,
@@ -264,7 +265,7 @@ mod tests {
     assert!(json["allocBytes"].is_null());
   }
 
-  #[test]
+  #[cfg(all(test, target_os = "macos"))]
   fn gpu_memory_usage_with_values() {
     let mem = GpuMemoryUsage {
       in_use_bytes: Some("1048576".to_string()),
