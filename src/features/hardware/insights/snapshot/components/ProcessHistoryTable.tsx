@@ -229,9 +229,9 @@ const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
 
   return (
     <tbody>
-      {processes.map((process, i) => {
+      {processes.map((process) => {
         return (
-          <tr key={`${process.pid}-${i}`} className="border-gray-700 border-b">
+          <tr key={process.pid} className="border-gray-700 border-b">
             <td className="py-2">{process.pid}</td>
             <td className="max-w-48 truncate py-2" title={process.process_name}>
               {process.process_name}

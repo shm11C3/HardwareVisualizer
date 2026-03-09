@@ -128,7 +128,7 @@ export const GPUInfo = () => {
         hardwareInfo.gpus.map((gpu, index, arr) => (
           <div
             className={index !== 0 ? "py-3" : arr.length > 1 ? "pb-3" : ""}
-            key={`${gpu.name}${index}`}
+            key={gpu.id}
           >
             {(() => {
               const hasMemorySize = gpu.memorySize !== "N/A";
