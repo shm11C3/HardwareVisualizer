@@ -647,7 +647,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @floating-ui/core@1.7.4
+## @floating-ui/core@1.7.5
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -676,7 +676,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/dom@1.7.5
+## @floating-ui/dom@1.7.6
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -705,7 +705,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/react-dom@2.1.7
+## @floating-ui/react-dom@2.1.8
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -734,7 +734,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @floating-ui/utils@0.2.10
+## @floating-ui/utils@0.2.11
 
 - License: MIT
 - Repository: [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -3230,7 +3230,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## caniuse-lite@1.0.30001775
+## caniuse-lite@1.0.30001777
 
 - License: CC-BY-4.0
 - Repository: [https://github.com/browserslist/caniuse-lite](https://github.com/browserslist/caniuse-lite)
@@ -4262,7 +4262,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## electron-to-chromium@1.5.302
+## electron-to-chromium@1.5.307
 
 - License: ISC
 - Repository: [https://github.com/kilian/electron-to-chromium](https://github.com/kilian/electron-to-chromium)
@@ -4276,7 +4276,7 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## es-toolkit@1.44.0
+## es-toolkit@1.45.1
 
 - License: MIT
 - Repository: [https://github.com/toss/es-toolkit](https://github.com/toss/es-toolkit)
@@ -4413,7 +4413,7 @@ SOFTWARE.
 ```LICENSE
 MIT License
 
-Copyright (c) 2025 shm
+Copyright (c) 2024-2026 shm11C3 and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4598,7 +4598,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@25.8.13
+## i18next@25.8.14
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4860,7 +4860,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@0.575.0
+## lucide-react@0.577.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -4937,7 +4937,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## node-releases@2.0.27
+## node-releases@2.0.36
 
 - License: MIT
 - Repository: [https://github.com/chicoxyzzy/node-releases](https://github.com/chicoxyzzy/node-releases)
@@ -5082,7 +5082,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@16.5.4
+## react-i18next@16.5.6
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -5325,7 +5325,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## recharts@3.7.0
+## recharts@3.8.0
 
 - License: MIT
 - Repository: [https://github.com/recharts/recharts](https://github.com/recharts/recharts)
@@ -10831,22 +10831,7 @@ DEALINGS IN THE SOFTWARE.
 - License: MIT
 - Repository: [https://github.com/arcnmx/nvapi-rs](https://github.com/arcnmx/nvapi-rs)
 
-## objc2-cloud-kit
-
-- License: Apache-2.0 OR MIT OR Zlib
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
-
-## objc2-core-data
-
-- License: Apache-2.0 OR MIT OR Zlib
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
-
 ## objc2-core-graphics
-
-- License: Apache-2.0 OR MIT OR Zlib
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
-
-## objc2-core-image
 
 - License: Apache-2.0 OR MIT OR Zlib
 - Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
@@ -10874,16 +10859,6 @@ DEALINGS IN THE SOFTWARE.
 ## objc2-quartz-core
 
 - License: MIT
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
-
-## objc2-quartz-core
-
-- License: Apache-2.0 OR MIT OR Zlib
-- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
-
-## objc2-security
-
-- License: Apache-2.0 OR MIT OR Zlib
 - Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
 
 ## objc2-ui-kit
