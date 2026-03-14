@@ -7,7 +7,6 @@ These instructions are used by automated documentation workflows.
 - Prefer updating `README.md` / `README.ja.md` first.
 - Only touch `docs/**` and `.github/**` when the change clearly belongs there (e.g., contributor docs, templates, or structured docs pages).
 - Maintain AI-facing docs as first-class docs: `.github/instructions/**`
-- Maintain agentic workflow docs: `.github/workflows/*.md` (and generated `*.lock.yml` where applicable)
 
 ## Scope
 
@@ -19,7 +18,6 @@ Primary docs targets:
 - `README.ja.md` (if present)
 - `docs/**` (if present)
 - AI instructions: `.github/instructions/**`
-- Agentic workflows: `.github/workflows/*.md` and related `*.lock.yml`
 - Contributor docs such as `CONTRIBUTING.md` and `.github/**` templates
 
 Do NOT edit external websites or other repositories.
@@ -42,7 +40,6 @@ Document user-facing changes only:
 - Sensor support changes (CPU/GPU/RAM/etc.)
 - Platform-specific caveats (Windows/macOS/Linux)
 - Troubleshooting / known limitations
-- AI workflow behavior changes (agentic workflows / instruction files)
 
 Skip internal refactors unless they affect users.
 
