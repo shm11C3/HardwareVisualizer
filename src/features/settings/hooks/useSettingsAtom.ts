@@ -38,6 +38,7 @@ const settingsAtom = atom<ClientSettings>({
   burnInShiftMode: "jump",
   burnInShiftIdleOnly: false,
   burnInShiftOptions: null,
+  textSelectable: false,
 });
 
 export const useSettingsAtom = () => {
@@ -67,6 +68,7 @@ export const useSettingsAtom = () => {
     burnInShiftMode: commands.setBurnInShiftMode,
     burnInShiftIdleOnly: commands.setBurnInShiftIdleOnly,
     burnInShiftOptions: commands.setBurnInShiftOptions,
+    textSelectable: commands.setTextSelectable,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);

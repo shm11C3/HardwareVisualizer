@@ -179,6 +179,9 @@
           "celsius": "摂氏（℃）",
           "fahrenheit": "華氏（℉）"
         },
+        "textSelection": {
+          "name": "テキスト選択を有効にする"
+        },
         "autostart": {
           "name": "OS起動時に自動起動"
         },

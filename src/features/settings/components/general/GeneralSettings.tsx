@@ -3,6 +3,7 @@ import { AutoStartToggle } from "./AutoStartToggle";
 import { BurnInShiftSettings } from "./BurnInShiftSettings";
 import { LanguageSelect } from "./LanguageSelect";
 import { TemperatureUnitSelect } from "./TemperatureUnitSelect";
+import { TextSelectionToggle } from "./TextSelectionToggle";
 import { ThemeSelect } from "./ThemeSelect";
 
 export const GeneralSettings = () => {
@@ -17,6 +18,7 @@ export const GeneralSettings = () => {
         <LanguageSelect />
         <ThemeSelect />
         <TemperatureUnitSelect />
+        <TextSelectionToggle />
         <AutoStartToggle />
         <BurnInShiftSettings />
       </div>

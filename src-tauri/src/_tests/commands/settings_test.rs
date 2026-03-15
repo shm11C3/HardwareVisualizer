@@ -45,6 +45,7 @@ mod tests {
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
+      text_selectable: false,
     };
 
     assert_eq!(settings.version, expected.version,);
