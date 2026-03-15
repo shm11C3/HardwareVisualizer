@@ -54,7 +54,7 @@ chrono = "0.4.44"
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-store = "2.4.2"
 base64 = "0.22"
-image = { version = "0.25.9", default-features = false, features = ["png"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
 regex = "1.12.3"
 tempfile = "3.26.0"
 sys-locale = "0.3.2"
