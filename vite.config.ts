@@ -1,4 +1,5 @@
 import path from "node:path";
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
@@ -39,7 +40,7 @@ const reactDevTools = (): PluginOption => {
 export default defineConfig(async ({ mode }) => ({
   plugins: [
     react(),
-    reactCompilerPreset(),
+    babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
     reactDevTools(),
   ],
@@ -50,12 +51,24 @@ export default defineConfig(async ({ mode }) => ({
       output: {
         codeSplitting: {
           groups: [
-            { name: "vendor-react", test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/ },
-            { name: "vendor-i18n", test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/ },
+            {
+              name: "vendor-react",
+              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+            },
+            {
+              name: "vendor-i18n",
+              test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/,
+            },
             { name: "vendor-state", test: /[\\/]node_modules[\\/]jotai[\\/]/ },
             { name: "vendor-dnd", test: /[\\/]node_modules[\\/]@dnd-kit[\\/]/ },
-            { name: "vendor-radix", test: /[\\/]node_modules[\\/]@radix-ui[\\/]/ },
-            { name: "vendor-tauri", test: /[\\/]node_modules[\\/]@tauri-apps[\\/]/ },
+            {
+              name: "vendor-radix",
+              test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+            },
+            {
+              name: "vendor-tauri",
+              test: /[\\/]node_modules[\\/]@tauri-apps[\\/]/,
+            },
           ],
         },
       },
