@@ -1,6 +1,7 @@
 import path from "node:path";
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, type PluginOption } from "vite";
 
@@ -38,52 +39,36 @@ const reactDevTools = (): PluginOption => {
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => ({
   plugins: [
-    react({
-      babel: {
-        plugins: [["babel-plugin-react-compiler"]],
-      },
-    }),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
     reactDevTools(),
   ],
 
   build: {
     target: target,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom"],
-          "vendor-i18n": ["i18next", "react-i18next"],
-          "vendor-state": ["jotai"],
-          "vendor-dnd": ["@dnd-kit/core", "@dnd-kit/sortable"],
-          "vendor-radix": [
-            "@radix-ui/react-accordion",
-            "@radix-ui/react-alert-dialog",
-            "@radix-ui/react-checkbox",
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-label",
-            "@radix-ui/react-radio-group",
-            "@radix-ui/react-scroll-area",
-            "@radix-ui/react-select",
-            "@radix-ui/react-slider",
-            "@radix-ui/react-slot",
-            "@radix-ui/react-switch",
-            "@radix-ui/react-tabs",
-            "@radix-ui/react-tooltip",
-            "@radix-ui/react-visually-hidden",
-          ],
-          "vendor-icons": ["@phosphor-icons/react", "lucide-react"],
-          "vendor-charts": ["recharts"],
-          "vendor-tauri": [
-            "@tauri-apps/api",
-            "@tauri-apps/plugin-autostart",
-            "@tauri-apps/plugin-clipboard-manager",
-            "@tauri-apps/plugin-dialog",
-            "@tauri-apps/plugin-os",
-            "@tauri-apps/plugin-shell",
-            "@tauri-apps/plugin-sql",
-            "@tauri-apps/plugin-store",
-            "@tauri-apps/plugin-updater",
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor-react",
+              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+            },
+            {
+              name: "vendor-i18n",
+              test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/,
+            },
+            { name: "vendor-state", test: /[\\/]node_modules[\\/]jotai[\\/]/ },
+            { name: "vendor-dnd", test: /[\\/]node_modules[\\/]@dnd-kit[\\/]/ },
+            {
+              name: "vendor-radix",
+              test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+            },
+            {
+              name: "vendor-tauri",
+              test: /[\\/]node_modules[\\/]@tauri-apps[\\/]/,
+            },
           ],
         },
       },
@@ -96,12 +81,6 @@ export default defineConfig(async ({ mode }) => ({
             brotliSize: true,
           }),
       ],
-    },
-  },
-
-  optimizeDeps: {
-    esbuildOptions: {
-      target: target,
     },
   },
 
