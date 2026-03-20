@@ -141,7 +141,7 @@ impl models::settings::Settings {
         log_error!(
           "Settings file must be a JSON object",
           "merge_from_json_str",
-          None
+          None::<&str>
         );
         return Err(msg);
       }

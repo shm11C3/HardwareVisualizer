@@ -136,6 +136,7 @@ impl Default for Settings {
 }
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(default, rename_all = "camelCase")]
+#[derive(Default)]
 pub struct BurnInShiftOptions {
   /// Override interval (ms) for jump
   interval_ms: Option<u32>,
@@ -145,17 +146,6 @@ pub struct BurnInShiftOptions {
   idle_threshold_ms: Option<u32>,
   /// Drift cycle duration (sec)
   drift_duration_sec: Option<u32>,
-}
-
-impl Default for BurnInShiftOptions {
-  fn default() -> Self {
-    Self {
-      interval_ms: None,
-      amplitude_px: None,
-      idle_threshold_ms: None,
-      drift_duration_sec: None,
-    }
-  }
 }
 
 #[cfg(test)]
@@ -381,10 +371,7 @@ mod tests {
     let defaults = Settings::default();
     assert_eq!(settings.burn_in_shift, defaults.burn_in_shift);
     assert_eq!(settings.burn_in_shift_mode, defaults.burn_in_shift_mode);
-    assert_eq!(
-      settings.burn_in_shift_preset,
-      defaults.burn_in_shift_preset
-    );
+    assert_eq!(settings.burn_in_shift_preset, defaults.burn_in_shift_preset);
     assert_eq!(
       settings.burn_in_shift_idle_only,
       defaults.burn_in_shift_idle_only
