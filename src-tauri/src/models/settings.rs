@@ -41,6 +41,7 @@ pub struct Settings {
   pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
   pub burn_in_shift_idle_only: bool,
   pub burn_in_shift_options: Option<BurnInShiftOptions>,
+  pub text_selectable: bool,
 }
 
 ///
@@ -79,6 +80,7 @@ pub struct ClientSettings {
   pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
   pub burn_in_shift_idle_only: bool,
   pub burn_in_shift_options: Option<BurnInShiftOptions>,
+  pub text_selectable: bool,
 }
 
 impl Default for Settings {
@@ -118,6 +120,7 @@ impl Default for Settings {
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
+      text_selectable: false,
     }
   }
 }
@@ -257,6 +260,7 @@ mod tests {
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
+      text_selectable: false,
     };
 
     let cloned = client_settings.clone();

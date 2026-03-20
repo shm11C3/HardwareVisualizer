@@ -193,6 +193,11 @@
   input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     @apply hidden;
   }
+
+  html:not(.user-select-none) ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
 }
 
 @layer base {
@@ -520,4 +525,16 @@
 
     --chart-base: oklch(30% 0.03 55 / 50%);
   }
+}
+
+html.user-select-none,
+html.user-select-none * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.user-select-none input,
+html.user-select-none textarea,
+html.user-select-none [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
 }

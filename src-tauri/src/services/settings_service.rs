@@ -340,4 +340,9 @@ impl models::settings::Settings {
     self.burn_in_shift_options = new_value;
     self.write_file()
   }
+
+  pub fn set_text_selectable(&mut self, new_value: bool) -> Result<(), String> {
+    self.text_selectable = new_value;
+    self.write_file()
+  }
 }

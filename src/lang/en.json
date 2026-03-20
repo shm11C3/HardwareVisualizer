@@ -179,6 +179,9 @@
           "celsius": "Celsius (°C)",
           "fahrenheit": "Fahrenheit (°F)"
         },
+        "textSelection": {
+          "name": "Enable text selection"
+        },
         "autostart": {
           "name": "Automatic startup at OS startup"
         },
