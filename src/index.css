@@ -527,14 +527,14 @@
   }
 }
 
-.user-select-none,
-.user-select-none * {
-  -webkit-user-select: none !important;
-  user-select: none !important;
+html.user-select-none,
+html.user-select-none * {
+  -webkit-user-select: none;
+  user-select: none;
 }
-.user-select-none input,
-.user-select-none textarea,
-.user-select-none [contenteditable] {
-  -webkit-user-select: text !important;
-  user-select: text !important;
+html.user-select-none input,
+html.user-select-none textarea,
+html.user-select-none [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
 }

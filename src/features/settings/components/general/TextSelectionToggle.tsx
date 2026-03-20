@@ -18,9 +18,7 @@ export const TextSelectionToggle = () => {
       <Switch
         id="textSelection"
         checked={settings.textSelectable}
-        onCheckedChange={(value) =>
-          updateSettingAtom("textSelectable", value)
-        }
+        onCheckedChange={(value) => updateSettingAtom("textSelectable", value)}
       />
     </div>
   );
