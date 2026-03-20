@@ -125,10 +125,25 @@ impl models::settings::Settings {
   /// Parses JSON field-by-field, applying only the fields that
   /// deserialize successfully and leaving the rest at their defaults.
   pub(crate) fn merge_from_json_str(&mut self, input: &str) -> Result<(), String> {
-    let map = match serde_json::from_str::<serde_json::Value>(input) {
-      Ok(serde_json::Value::Object(map)) => map,
+    let value = serde_json::from_str::<serde_json::Value>(input).map_err(|e| {
+      log_error!(
+        "Settings file is not valid JSON",
+        "merge_from_json_str",
+        Some(e.to_string())
+      );
+      format!("Settings file is not valid JSON: {e}")
+    })?;
+
+    let map = match value {
+      serde_json::Value::Object(map) => map,
       _ => {
-        return Err("Settings file is not valid JSON".to_string());
+        let msg = "Settings file must be a JSON object".to_string();
+        log_error!(
+          "Settings file must be a JSON object",
+          "merge_from_json_str",
+          None
+        );
+        return Err(msg);
       }
     };
 
