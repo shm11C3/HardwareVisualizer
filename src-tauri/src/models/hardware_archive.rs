@@ -17,11 +17,21 @@ pub struct MonitorResources {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct HardwareArchiveSettings {
   pub enabled: bool,
   pub scheduled_data_deletion: bool,
   pub refresh_interval_days: u32,
+}
+
+impl Default for HardwareArchiveSettings {
+  fn default() -> Self {
+    Self {
+      enabled: true,
+      refresh_interval_days: 30,
+      scheduled_data_deletion: true,
+    }
+  }
 }
 
 #[derive(Serialize, Deserialize, Debug)]

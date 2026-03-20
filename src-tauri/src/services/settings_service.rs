@@ -93,34 +93,89 @@ impl SettingActions for models::settings::Settings {
   fn read_file(&mut self) -> Result<(), String> {
     let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
 
-    match std::fs::read_to_string(config_file) {
-      Ok(input) => match serde_json::from_str::<Self>(&input) {
-        Ok(deserialized) => {
-          *self = deserialized;
-          Ok(())
-        }
-        Err(e) => {
-          log_error!(
-            "Failed to deserialize settings",
-            "read_file",
-            Some(e.to_string())
-          );
-          Err(format!("Failed to deserialize settings: {e}"))
-        }
-      },
+    let input = std::fs::read_to_string(config_file).map_err(|e| {
+      log_error!(
+        "Failed to read settings file",
+        "read_file",
+        Some(e.to_string())
+      );
+      format!("Failed to read settings file: {e}")
+    })?;
+
+    // Try full deserialization first
+    match serde_json::from_str::<Self>(&input) {
+      Ok(deserialized) => {
+        *self = deserialized;
+        Ok(())
+      }
       Err(e) => {
         log_error!(
-          "Failed to deserialize settings",
+          "Failed to deserialize settings, attempting field-level recovery",
           "read_file",
           Some(e.to_string())
         );
-        Err(format!("Failed to read settings file: {e}"))
+        // Fall back to field-by-field recovery
+        self.merge_from_json_str(&input)
       }
     }
   }
 }
 
 impl models::settings::Settings {
+  /// Parses JSON field-by-field, applying only the fields that
+  /// deserialize successfully and leaving the rest at their defaults.
+  pub(crate) fn merge_from_json_str(&mut self, input: &str) -> Result<(), String> {
+    let map = match serde_json::from_str::<serde_json::Value>(input) {
+      Ok(serde_json::Value::Object(map)) => map,
+      _ => {
+        return Err("Settings file is not valid JSON".to_string());
+      }
+    };
+
+    macro_rules! try_field {
+      ($field:ident, $key:expr) => {
+        if let Some(v) = map.get($key) {
+          match serde_json::from_value(v.clone()) {
+            Ok(val) => self.$field = val,
+            Err(e) => {
+              log_error!(
+                concat!("Failed to deserialize field: ", $key),
+                "merge_from_json_str",
+                Some(e.to_string())
+              );
+            }
+          }
+        }
+      };
+    }
+
+    try_field!(version, "version");
+    try_field!(language, "language");
+    try_field!(theme, "theme");
+    try_field!(display_targets, "displayTargets");
+    try_field!(graph_size, "graphSize");
+    try_field!(line_graph_type, "lineGraphType");
+    try_field!(line_graph_border, "lineGraphBorder");
+    try_field!(line_graph_fill, "lineGraphFill");
+    try_field!(line_graph_color, "lineGraphColor");
+    try_field!(line_graph_mix, "lineGraphMix");
+    try_field!(line_graph_show_legend, "lineGraphShowLegend");
+    try_field!(line_graph_show_scale, "lineGraphShowScale");
+    try_field!(line_graph_show_tooltip, "lineGraphShowTooltip");
+    try_field!(background_img_opacity, "backgroundImgOpacity");
+    try_field!(selected_background_img, "selectedBackgroundImg");
+    try_field!(temperature_unit, "temperatureUnit");
+    try_field!(hardware_archive, "hardwareArchive");
+    try_field!(burn_in_shift, "burnInShift");
+    try_field!(burn_in_shift_mode, "burnInShiftMode");
+    try_field!(burn_in_shift_preset, "burnInShiftPreset");
+    try_field!(burn_in_shift_idle_only, "burnInShiftIdleOnly");
+    try_field!(burn_in_shift_options, "burnInShiftOptions");
+    try_field!(text_selectable, "textSelectable");
+
+    Ok(())
+  }
+
   pub fn new() -> Self {
     let config_file = utils::file::get_app_data_dir(SETTINGS_FILENAME);
 
@@ -132,6 +187,20 @@ impl models::settings::Settings {
 
     if let Err(e) = settings.read_file() {
       log_error!("read_config_failed", "read_file", Some(e.to_string()));
+      return settings;
+    }
+
+    // Update version and persist new fields added by app updates
+    let current_version = utils::tauri::get_app_version();
+    if settings.version != current_version {
+      settings.version = current_version;
+      if let Err(e) = settings.write_file() {
+        log_error!(
+          "Failed to update settings file after version change",
+          "new",
+          Some(e.to_string())
+        );
+      }
     }
 
     settings

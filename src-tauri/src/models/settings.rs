@@ -6,18 +6,28 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct LineGraphColorSettings {
   pub cpu: [u8; 3],
   pub memory: [u8; 3],
   pub gpu: [u8; 3],
 }
 
+impl Default for LineGraphColorSettings {
+  fn default() -> Self {
+    Self {
+      cpu: [75, 192, 192],
+      memory: [255, 99, 132],
+      gpu: [255, 206, 86],
+    }
+  }
+}
+
 ///
 /// ## JSON structure stored in settings.json
 ///
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct Settings {
   pub version: String,
   pub language: String,
@@ -125,7 +135,7 @@ impl Default for Settings {
   }
 }
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct BurnInShiftOptions {
   /// Override interval (ms) for jump
   interval_ms: Option<u32>,
@@ -135,6 +145,17 @@ pub struct BurnInShiftOptions {
   idle_threshold_ms: Option<u32>,
   /// Drift cycle duration (sec)
   drift_duration_sec: Option<u32>,
+}
+
+impl Default for BurnInShiftOptions {
+  fn default() -> Self {
+    Self {
+      interval_ms: None,
+      amplitude_px: None,
+      idle_threshold_ms: None,
+      drift_duration_sec: None,
+    }
+  }
 }
 
 #[cfg(test)]
@@ -310,5 +331,141 @@ mod tests {
     assert_eq!(color_settings.cpu, [0, 255, 128]);
     assert_eq!(color_settings.memory, [255, 0, 255]);
     assert_eq!(color_settings.gpu, [128, 128, 128]);
+  }
+
+  #[test]
+  fn test_settings_deserialization_with_missing_fields() {
+    // Simulate an old settings.json that lacks fields added in newer versions
+    // (e.g., burnInShift*, textSelectable). With #[serde(default)], missing
+    // fields should fall back to their defaults instead of failing entirely.
+    let old_json = r#"{
+      "version": "0.1.0",
+      "language": "en",
+      "theme": "dark",
+      "displayTargets": ["cpu", "memory"],
+      "graphSize": "xl",
+      "lineGraphType": "default",
+      "lineGraphBorder": true,
+      "lineGraphFill": false,
+      "lineGraphColor": { "cpu": [10,20,30], "memory": [40,50,60], "gpu": [70,80,90] },
+      "lineGraphMix": false,
+      "lineGraphShowLegend": false,
+      "lineGraphShowScale": true,
+      "lineGraphShowTooltip": false,
+      "backgroundImgOpacity": 80,
+      "selectedBackgroundImg": null,
+      "temperatureUnit": "F",
+      "hardwareArchive": { "enabled": false, "scheduledDataDeletion": false, "refreshIntervalDays": 7 }
+    }"#;
+
+    let settings: Settings = serde_json::from_str(old_json).unwrap();
+
+    // Existing fields should be preserved
+    assert_eq!(settings.version, "0.1.0");
+    assert_eq!(settings.language, "en");
+    assert_eq!(settings.theme, enums::settings::Theme::Dark);
+    assert_eq!(settings.display_targets.len(), 2);
+    assert!(!settings.line_graph_fill);
+    assert_eq!(settings.line_graph_color.cpu, [10, 20, 30]);
+    assert!(!settings.line_graph_mix);
+    assert!(settings.line_graph_show_scale);
+    assert_eq!(settings.background_img_opacity, 80);
+    assert_eq!(
+      settings.temperature_unit,
+      enums::settings::TemperatureUnit::Fahrenheit
+    );
+    assert!(!settings.hardware_archive.enabled);
+    assert_eq!(settings.hardware_archive.refresh_interval_days, 7);
+
+    // Missing fields should have default values
+    let defaults = Settings::default();
+    assert_eq!(settings.burn_in_shift, defaults.burn_in_shift);
+    assert_eq!(settings.burn_in_shift_mode, defaults.burn_in_shift_mode);
+    assert_eq!(
+      settings.burn_in_shift_preset,
+      defaults.burn_in_shift_preset
+    );
+    assert_eq!(
+      settings.burn_in_shift_idle_only,
+      defaults.burn_in_shift_idle_only
+    );
+    assert!(settings.burn_in_shift_options.is_none());
+    assert_eq!(settings.text_selectable, defaults.text_selectable);
+  }
+
+  #[test]
+  fn test_settings_deserialization_minimal_json() {
+    // Even an empty JSON object should deserialize using all defaults
+    let minimal_json = "{}";
+    let settings: Settings = serde_json::from_str(minimal_json).unwrap();
+    let defaults = Settings::default();
+
+    assert_eq!(settings.theme, defaults.theme);
+    assert_eq!(settings.graph_size, defaults.graph_size);
+    assert_eq!(settings.line_graph_border, defaults.line_graph_border);
+    assert_eq!(settings.burn_in_shift, defaults.burn_in_shift);
+    assert_eq!(settings.text_selectable, defaults.text_selectable);
+  }
+
+  #[test]
+  fn test_hardware_archive_settings_missing_fields() {
+    // HardwareArchiveSettings with missing fields should use defaults
+    let json = r#"{"enabled": false}"#;
+    let settings: crate::models::hardware_archive::HardwareArchiveSettings =
+      serde_json::from_str(json).unwrap();
+
+    assert!(!settings.enabled);
+    // Missing fields should use defaults
+    assert!(settings.scheduled_data_deletion);
+    assert_eq!(settings.refresh_interval_days, 30);
+  }
+
+  #[test]
+  fn test_merge_from_json_str_recovers_valid_fields() {
+    // JSON with an invalid theme value — full deserialization would fail,
+    // but field-level recovery should preserve all other valid fields.
+    let json_with_invalid_theme = r#"{
+      "version": "0.5.0",
+      "language": "ja",
+      "theme": "nonexistent_theme",
+      "graphSize": "lg",
+      "lineGraphBorder": false,
+      "lineGraphFill": false,
+      "backgroundImgOpacity": 90,
+      "temperatureUnit": "F",
+      "burnInShift": true
+    }"#;
+
+    let mut settings = Settings::default();
+    let result = settings.merge_from_json_str(json_with_invalid_theme);
+    assert!(result.is_ok());
+
+    // Valid fields should be recovered
+    assert_eq!(settings.version, "0.5.0");
+    assert_eq!(settings.language, "ja");
+    assert_eq!(settings.graph_size, enums::settings::GraphSize::LG);
+    assert!(!settings.line_graph_border);
+    assert!(!settings.line_graph_fill);
+    assert_eq!(settings.background_img_opacity, 90);
+    assert_eq!(
+      settings.temperature_unit,
+      enums::settings::TemperatureUnit::Fahrenheit
+    );
+    assert!(settings.burn_in_shift);
+
+    // Invalid theme should fall back to default
+    let defaults = Settings::default();
+    assert_eq!(settings.theme, defaults.theme);
+
+    // Missing fields should remain at defaults
+    assert_eq!(settings.line_graph_mix, defaults.line_graph_mix);
+    assert_eq!(settings.text_selectable, defaults.text_selectable);
+  }
+
+  #[test]
+  fn test_merge_from_json_str_invalid_json() {
+    let mut settings = Settings::default();
+    let result = settings.merge_from_json_str("not valid json {{{");
+    assert!(result.is_err());
   }
 }
