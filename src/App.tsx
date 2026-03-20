@@ -92,6 +92,13 @@ const AppContent = () => {
   }, [settings.language, i18n]);
 
   useEffect(() => {
+    document.documentElement.classList.toggle(
+      "user-select-none",
+      !settings.textSelectable,
+    );
+  }, [settings.textSelectable]);
+
+  useEffect(() => {
     setOpacity(0);
     const fadeOutTimeout = setTimeout(() => {
       setCurrentImage(nextImage);
