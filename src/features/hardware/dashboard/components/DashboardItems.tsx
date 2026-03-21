@@ -93,13 +93,17 @@ export const GPUInfo = () => {
       data.length === 0
     )
       return undefined;
-    // Exact match first; fall back to first entry as a safety net
-    // (the backend resolves ADL names to DXGI names via PCI BDF,
-    // so exact match should always succeed).
-    return (
-      data.find((x) => x.name === hardwareInfo.gpus?.[0]?.name)?.value ??
-      data[0]?.value
+    // Prefer an exact name match for the primary GPU.
+    const matched = data.find(
+      (x) => x.name === hardwareInfo.gpus?.[0]?.name,
     );
+    if (matched) return matched.value;
+    // If there is exactly one GPU and one metric entry, allow a safe fallback.
+    if (hardwareInfo.gpus.length === 1 && data.length === 1) {
+      return data[0]?.value;
+    }
+    // Otherwise, avoid showing potentially incorrect metrics.
+    return undefined;
   };
 
   const targetTemperature = getTargetInfo(gpuTemp);
