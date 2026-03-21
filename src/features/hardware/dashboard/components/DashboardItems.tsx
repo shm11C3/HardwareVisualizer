@@ -87,7 +87,11 @@ export const GPUInfo = () => {
   const os = useMemo(() => platform(), []);
 
   const getTargetInfo = (data: NameValues) => {
-    if (!hardwareInfo.gpus || hardwareInfo.gpus.length === 0 || data.length === 0)
+    if (
+      !hardwareInfo.gpus ||
+      hardwareInfo.gpus.length === 0 ||
+      data.length === 0
+    )
       return undefined;
     // Exact match first; fall back to first entry as a safety net
     // (the backend resolves ADL names to DXGI names via PCI BDF,
