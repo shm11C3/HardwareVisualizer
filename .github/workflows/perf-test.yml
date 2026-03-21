@@ -1,0 +1,152 @@
+name: "Performance Test"
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # Daily at 03:00 JST (18:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  perf-test:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - windows-latest
+          - ubuntu-22.04
+          - macos-latest
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Linux dependencies
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup-linux-deps
+        with:
+          extra-packages: xvfb
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+
+      - name: Cache perf-monitor target
+        uses: actions/cache@v5
+        with:
+          path: perf-monitor/target
+          key: perf-monitor-${{ runner.os }}-${{ hashFiles('perf-monitor/Cargo.toml') }}
+          restore-keys: |
+            perf-monitor-${{ runner.os }}-
+
+      - name: Build perf-monitor
+        run: cargo build --release --manifest-path perf-monitor/Cargo.toml
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --no-bundle -- --profile ci
+
+      - name: Run performance test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run --auto-servernum \
+            ./perf-monitor/target/release/perf-monitor \
+              --binary src-tauri/target/ci/hardware-visualizer \
+              --config perf-thresholds.toml \
+              --output json \
+            | tee perf-results.json
+
+      - name: Run performance test (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./perf-monitor/target/release/perf-monitor \
+            --binary src-tauri/target/ci/hardware-visualizer \
+            --config perf-thresholds.toml \
+            --output json \
+          | tee perf-results.json
+
+      - name: Run performance test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ./perf-monitor/target/release/perf-monitor.exe \
+            --binary src-tauri/target/ci/hardware-visualizer.exe \
+            --config perf-thresholds.toml \
+            --output json \
+          | tee perf-results.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-results-${{ matrix.platform }}
+          path: perf-results.json
+
+  notify:
+    needs: perf-test
+    if: failure()
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+    steps:
+      - name: Create or update issue
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const label = 'performance-regression';
+            const title = 'Performance test threshold exceeded';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // Ensure label exists
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+                color: 'e11d48',
+                description: 'Automated performance test detected a threshold violation',
+              });
+            }
+
+            // Check for existing open issue
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open',
+              per_page: 1,
+            });
+
+            const body = `Performance test failed on ${new Date().toISOString().split('T')[0]}.\n\n` +
+              `**Workflow run:** ${runUrl}\n\n` +
+              `Download the \`perf-results-*\` artifacts from the workflow run for details.`;
+
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: [label],
+              });
+            }

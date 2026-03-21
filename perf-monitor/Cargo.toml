@@ -1,0 +1,11 @@
+[package]
+name = "perf-monitor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sysinfo = "0.38.4"
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }

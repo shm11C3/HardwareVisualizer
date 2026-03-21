@@ -1,0 +1,20 @@
+[thresholds]
+max_avg_cpu_percent = 5.0
+max_p95_cpu_percent = 10.0
+max_avg_memory_mb = 100.0
+max_p95_memory_mb = 100.0
+max_memory_growth_mb = 50.0
+
+[timing]
+warmup_seconds = 10
+measurement_seconds = 30
+sample_interval_ms = 1000
+
+[platforms.windows]
+max_avg_memory_mb = 70.0
+
+[platforms.linux]
+max_avg_memory_mb = 70.0
+
+[platforms.macos]
+max_avg_memory_mb = 70.0
