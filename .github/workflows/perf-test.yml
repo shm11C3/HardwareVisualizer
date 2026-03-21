@@ -61,7 +61,7 @@ jobs:
               --binary src-tauri/target/ci/hardware-visualizer \
               --config perf-thresholds.toml \
               --output json \
-            | tee perf-results.json
+            > perf-results.json
 
       - name: Run performance test (macOS)
         if: runner.os == 'macOS'
@@ -70,7 +70,7 @@ jobs:
             --binary src-tauri/target/ci/hardware-visualizer \
             --config perf-thresholds.toml \
             --output json \
-          | tee perf-results.json
+          > perf-results.json
 
       - name: Run performance test (Windows)
         if: runner.os == 'Windows'
@@ -80,7 +80,7 @@ jobs:
             --binary src-tauri/target/ci/hardware-visualizer.exe \
             --config perf-thresholds.toml \
             --output json \
-          | tee perf-results.json
+          > perf-results.json
 
       - name: Upload results
         if: always()

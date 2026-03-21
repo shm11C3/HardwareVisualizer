@@ -175,8 +175,11 @@ fn print_json_report(
     passed: check.all_passed,
   };
 
-  println!(
-    "{}",
-    serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string())
-  );
+  match serde_json::to_string_pretty(&report) {
+    Ok(json) => println!("{json}"),
+    Err(e) => {
+      eprintln!("Error: failed to serialize report: {e}");
+      std::process::exit(1);
+    }
+  }
 }

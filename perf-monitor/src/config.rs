@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::path::Path;
 
 use serde::Deserialize;
@@ -39,6 +40,17 @@ pub struct PlatformOverride {
   pub max_memory_growth_mb: Option<f64>,
 }
 
+#[derive(Debug)]
+pub struct ValidationError(String);
+
+impl fmt::Display for ValidationError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl std::error::Error for ValidationError {}
+
 impl Default for Timing {
   fn default() -> Self {
     Self {
@@ -53,7 +65,26 @@ impl Config {
   pub fn load(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
     let content = std::fs::read_to_string(path)?;
     let config: Config = toml::from_str(&content)?;
+    config.validate()?;
     Ok(config)
+  }
+
+  fn validate(&self) -> Result<(), ValidationError> {
+    if self.timing.sample_interval_ms == 0 {
+      return Err(ValidationError(
+        "sample_interval_ms must be greater than 0".to_string(),
+      ));
+    }
+
+    let total_ms = self.timing.measurement_seconds * 1000;
+    if total_ms < self.timing.sample_interval_ms {
+      return Err(ValidationError(format!(
+        "measurement_seconds ({}s) must be >= sample_interval_ms ({}ms)",
+        self.timing.measurement_seconds, self.timing.sample_interval_ms
+      )));
+    }
+
+    Ok(())
   }
 
   pub fn effective_thresholds(&self) -> Thresholds {
