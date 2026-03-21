@@ -4,7 +4,7 @@
 
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
-![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux-blue)
+![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20macOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](../LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
@@ -51,7 +51,6 @@ Web サイト: <https://hardviz.com/>
   - [権限とセキュリティについて](#権限とセキュリティについて)
   - [ロードマップ](#ロードマップ)
   - [コントリビューション](#コントリビューション)
-  - [よくある質問 (FAQ)](#よくある質問-faq)
   - [コード署名ポリシー（英語版のみ）](#コード署名ポリシー英語版のみ)
   - [ライセンス](#ライセンス)
 
@@ -133,7 +132,7 @@ winget install shm11C3.HardwareVisualizer
 | ダッシュボードのカスタマイズ | ✅         | レイアウト編集は一部対応                  |
 | 背景画像                     | ✅         | ローカル画像を使用可能                    |
 | 履歴インサイト               | ✅         | デフォルトで最大 30 日間                  |
-| GPU インサイト (NVIDIA 以外) | ⚠️         | 現在は制限あり                            |
+| GPU インサイト               | ✅         | NVIDIA は完全対応 / その他は一部対応      |
 | 言語サポート                 | ✅         | 英語、日本語、ロシア語                    |
 
 ## サポート OS
@@ -142,7 +141,7 @@ winget install shm11C3.HardwareVisualizer
 | ------- | ----------- | -------------------------------------------------------------------------------------------- |
 | Windows | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
 | Linux   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
-| macOS   | 🚧 準備中   | 開発中 (ベータ版: [GitHub リリース](https://github.com/shm11C3/HardwareVisualizer/releases)) |
+| macOS   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
 
 ## スクリーンショット
 
@@ -169,8 +168,6 @@ winget install shm11C3.HardwareVisualizer
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU インサイトは、現在は NVIDIA 製 GPU のみ対応しています。
-
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
 ### カスタムグラフ
@@ -196,8 +193,8 @@ winget install shm11C3.HardwareVisualizer
 
 | 項目                             | ステータス |
 | -------------------------------- | ---------- |
-| macOS への対応                   | 進行中     |
-| AMD 製品への対応                 | 調査中     |
+| macOS への対応                   | ✅ 完了    |
+| AMD GPU への対応                 | ✅ 完了    |
 | 全ベンダー共通のファン・温度制御 | 調査中     |
 | ゲームモード                     | 計画中     |
 | 消費電力の推定機能               | 検討中     |
@@ -206,14 +203,6 @@ winget install shm11C3.HardwareVisualizer
 ## コントリビューション
 
 詳細は [CONTRIBUTING.md](../CONTRIBUTING.md) をご覧ください。
-
-## よくある質問 (FAQ)
-
-**Q: なぜ Linux で sudo が必要なのですか？**
-センサーなどの特権が必要なハードウェアインターフェースにアクセスするためです。
-
-**Q: GPU 履歴チャートが NVIDIA だけなのはなぜですか？**
-ベンダーごとに API が異なるためです。今後拡大予定です。
 
 ## コード署名ポリシー（英語版のみ）
 
