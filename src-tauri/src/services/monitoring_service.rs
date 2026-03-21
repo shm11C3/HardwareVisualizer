@@ -210,6 +210,10 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
     .await
     .unwrap_or_default();
 
+  if usages.is_empty() {
+    // No usage metrics; skip temperature queries and SetupDi enumeration
+    return;
+  }
   // Temperature per adapter (with BDF)
   let temps = adl_provider::get_amd_gpu_temperatures_per_adapter()
     .await
