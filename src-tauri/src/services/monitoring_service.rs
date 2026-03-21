@@ -145,28 +145,38 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
 /// canonical GPU name used by `get_gpu_info` / `GraphicInfo`).
 ///
 /// The table is computed once via SetupDi and cached for the lifetime of
-/// the process.
+/// the process.  Because SetupDi calls are blocking Win32 APIs, the first
+/// invocation offloads them to the Tokio blocking thread pool so we never
+/// stall an async worker thread.
 #[cfg(target_os = "windows")]
-fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32), String> {
+async fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32), String>
+{
   use crate::infrastructure::providers::setupdi_provider;
 
-  static MAP: std::sync::OnceLock<std::collections::HashMap<(i32, i32, i32), String>> =
-    std::sync::OnceLock::new();
+  static MAP: tokio::sync::OnceCell<std::collections::HashMap<(i32, i32, i32), String>> =
+    tokio::sync::OnceCell::const_new();
 
-  MAP.get_or_init(|| {
-    let adapters = setupdi_provider::enumerate_display_adapters();
-    adapters
-      .into_iter()
-      .map(|a| ((a.bus, a.device, a.function), a.description))
-      .collect()
-  })
+  MAP
+    .get_or_init(|| async {
+      tokio::task::spawn_blocking(|| {
+        let adapters = setupdi_provider::enumerate_display_adapters();
+        adapters
+          .into_iter()
+          .map(|a| ((a.bus, a.device, a.function), a.description))
+          .collect()
+      })
+      .await
+      .unwrap_or_default()
+    })
+    .await
 }
 
 /// Resolve the canonical (DXGI) name for an ADL adapter via its PCI BDF.
 /// Falls back to the ADL adapter name when no SetupDi entry matches.
 #[cfg(target_os = "windows")]
-fn resolve_gpu_name(adl_name: &str, bus: i32, device: i32, function: i32) -> String {
+async fn resolve_gpu_name(adl_name: &str, bus: i32, device: i32, function: i32) -> String {
   bdf_to_dxgi_name()
+    .await
     .get(&(bus, device, function))
     .cloned()
     .unwrap_or_else(|| adl_name.to_string())
@@ -202,7 +212,8 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
       metric.bus,
       metric.device,
       metric.function,
-    );
+    )
+    .await;
     // VRAM usage is not available via ADL
     gpu_metrics.push(GpuSample {
       name,

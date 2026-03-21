@@ -25,6 +25,8 @@ pub struct DisplayAdapterBdf {
 pub fn enumerate_display_adapters() -> Vec<DisplayAdapterBdf> {
   use winapi::shared::devguid::GUID_DEVCLASS_DISPLAY;
   use winapi::shared::minwindef::{BYTE, DWORD, FALSE};
+  use winapi::shared::winerror::ERROR_NO_MORE_ITEMS;
+  use winapi::um::errhandlingapi::GetLastError;
   use winapi::um::setupapi::{
     DIGCF_PRESENT, SP_DEVINFO_DATA, SPDRP_ADDRESS, SPDRP_BUSNUMBER, SPDRP_DEVICEDESC,
     SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
@@ -56,32 +58,32 @@ pub fn enumerate_display_adapters() -> Vec<DisplayAdapterBdf> {
       dev_info_data.cbSize = std::mem::size_of::<SP_DEVINFO_DATA>() as DWORD;
 
       if SetupDiEnumDeviceInfo(dev_info, index, &mut dev_info_data) == FALSE {
+        let err = GetLastError();
+        if err != ERROR_NO_MORE_ITEMS {
+          log_debug!(
+            &format!("SetupDiEnumDeviceInfo failed at index {index}: error {err}"),
+            "setupdi_provider",
+            None::<&str>
+          );
+        }
         break;
       }
       index += 1;
 
       // --- Device description (= DXGI adapter name) ---
-      let mut desc_buf = [0u16; 256];
-      let mut reg_type: DWORD = 0;
-      let mut required_size: DWORD = 0;
-      if SetupDiGetDeviceRegistryPropertyW(
+      let description = match read_registry_string(
         dev_info,
         &mut dev_info_data,
         SPDRP_DEVICEDESC,
-        &mut reg_type,
-        desc_buf.as_mut_ptr() as *mut BYTE,
-        (desc_buf.len() * std::mem::size_of::<u16>()) as DWORD,
-        &mut required_size,
-      ) == FALSE
-      {
-        continue;
-      }
-      let description = String::from_utf16_lossy(&desc_buf)
-        .trim_end_matches('\0')
-        .to_string();
+      ) {
+        Some(s) => s,
+        None => continue,
+      };
 
       // --- PCI bus number ---
       let mut bus: DWORD = 0;
+      let mut reg_type: DWORD = 0;
+      let mut required_size: DWORD = 0;
       if SetupDiGetDeviceRegistryPropertyW(
         dev_info,
         &mut dev_info_data,
@@ -131,4 +133,64 @@ pub fn enumerate_display_adapters() -> Vec<DisplayAdapterBdf> {
 
     result
   }
+}
+
+/// Read a REG_SZ registry property from a SetupDi device, dynamically
+/// allocating a buffer based on `required_size` when the initial attempt
+/// with a stack buffer fails due to insufficient space.
+unsafe fn read_registry_string(
+  dev_info: winapi::um::setupapi::HDEVINFO,
+  dev_info_data: &mut winapi::um::setupapi::SP_DEVINFO_DATA,
+  property: winapi::shared::minwindef::DWORD,
+) -> Option<String> {
+  use winapi::shared::minwindef::{BYTE, DWORD, FALSE};
+  use winapi::shared::winerror::ERROR_INSUFFICIENT_BUFFER;
+  use winapi::um::errhandlingapi::GetLastError;
+  use winapi::um::setupapi::SetupDiGetDeviceRegistryPropertyW;
+
+  let mut reg_type: DWORD = 0;
+  let mut required_size: DWORD = 0;
+
+  // First attempt: stack buffer (covers almost all device descriptions).
+  let mut buf = [0u16; 256];
+  if SetupDiGetDeviceRegistryPropertyW(
+    dev_info,
+    dev_info_data,
+    property,
+    &mut reg_type,
+    buf.as_mut_ptr() as *mut BYTE,
+    (buf.len() * std::mem::size_of::<u16>()) as DWORD,
+    &mut required_size,
+  ) != FALSE
+  {
+    let s = String::from_utf16_lossy(&buf)
+      .trim_end_matches('\0')
+      .to_string();
+    return Some(s);
+  }
+
+  // Retry with a dynamically sized buffer if the stack buffer was too small.
+  if GetLastError() != ERROR_INSUFFICIENT_BUFFER || required_size == 0 {
+    return None;
+  }
+
+  let elements = (required_size as usize + 1) / std::mem::size_of::<u16>();
+  let mut dyn_buf = vec![0u16; elements];
+  if SetupDiGetDeviceRegistryPropertyW(
+    dev_info,
+    dev_info_data,
+    property,
+    &mut reg_type,
+    dyn_buf.as_mut_ptr() as *mut BYTE,
+    required_size,
+    std::ptr::null_mut(),
+  ) == FALSE
+  {
+    return None;
+  }
+
+  let s = String::from_utf16_lossy(&dyn_buf)
+    .trim_end_matches('\0')
+    .to_string();
+  Some(s)
 }
