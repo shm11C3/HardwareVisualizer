@@ -150,15 +150,18 @@ unsafe fn read_registry_string(
 
   // First attempt: stack buffer (covers almost all device descriptions).
   let mut buf = [0u16; 256];
-  if SetupDiGetDeviceRegistryPropertyW(
-    dev_info,
-    dev_info_data,
-    property,
-    &mut reg_type,
-    buf.as_mut_ptr() as *mut BYTE,
-    (buf.len() * std::mem::size_of::<u16>()) as DWORD,
-    &mut required_size,
-  ) != FALSE
+  // SAFETY: All pointers are valid and lifetimes are bounded by this function.
+  if unsafe {
+    SetupDiGetDeviceRegistryPropertyW(
+      dev_info,
+      dev_info_data,
+      property,
+      &mut reg_type,
+      buf.as_mut_ptr() as *mut BYTE,
+      (buf.len() * std::mem::size_of::<u16>()) as DWORD,
+      &mut required_size,
+    )
+  } != FALSE
   {
     let s = String::from_utf16_lossy(&buf)
       .trim_end_matches('\0')
@@ -167,21 +170,25 @@ unsafe fn read_registry_string(
   }
 
   // Retry with a dynamically sized buffer if the stack buffer was too small.
-  if GetLastError() != ERROR_INSUFFICIENT_BUFFER || required_size == 0 {
+  // SAFETY: No preconditions beyond being called after a Win32 API call.
+  if unsafe { GetLastError() } != ERROR_INSUFFICIENT_BUFFER || required_size == 0 {
     return None;
   }
 
   let elements = (required_size as usize + 1) / std::mem::size_of::<u16>();
   let mut dyn_buf = vec![0u16; elements];
-  if SetupDiGetDeviceRegistryPropertyW(
-    dev_info,
-    dev_info_data,
-    property,
-    &mut reg_type,
-    dyn_buf.as_mut_ptr() as *mut BYTE,
-    required_size,
-    std::ptr::null_mut(),
-  ) == FALSE
+  // SAFETY: `dyn_buf` is large enough for `required_size` bytes.
+  if unsafe {
+    SetupDiGetDeviceRegistryPropertyW(
+      dev_info,
+      dev_info_data,
+      property,
+      &mut reg_type,
+      dyn_buf.as_mut_ptr() as *mut BYTE,
+      required_size,
+      std::ptr::null_mut(),
+    )
+  } == FALSE
   {
     return None;
   }
