@@ -169,6 +169,7 @@ async fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32
 {
   use crate::infrastructure::providers::setupdi_provider;
   use crate::log_error;
+  use crate::log_internal;
 
   static MAP: tokio::sync::OnceCell<std::collections::HashMap<(i32, i32, i32), String>> =
     tokio::sync::OnceCell::const_new();
