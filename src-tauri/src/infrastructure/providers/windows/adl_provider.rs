@@ -933,8 +933,8 @@ pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<AdlAdapterMetric>, St
 ///
 /// Returns [`AdlAdapterMetric`] (name + BDF + temperature_celsius) for each
 /// active AMD adapter, using the best available temperature source (Core/Edge sensor).
-pub async fn get_amd_gpu_temperatures_per_adapter() -> Result<Vec<AdlAdapterMetric>, String>
-{
+pub async fn get_amd_gpu_temperatures_per_adapter()
+-> Result<Vec<AdlAdapterMetric>, String> {
   spawn_blocking(|| {
     let adl = get_adl().ok_or("AMD ADL library not available")?;
     let adapters = enumerate_adapters(adl);

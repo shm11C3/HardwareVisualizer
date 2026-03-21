@@ -197,7 +197,12 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   for metric in &usages {
     let bdf = (metric.bus, metric.device, metric.function);
     let temperature = temp_map.get(&bdf).copied();
-    let name = resolve_gpu_name(&metric.adapter_name, metric.bus, metric.device, metric.function);
+    let name = resolve_gpu_name(
+      &metric.adapter_name,
+      metric.bus,
+      metric.device,
+      metric.function,
+    );
     // VRAM usage is not available via ADL
     gpu_metrics.push(GpuSample {
       name,

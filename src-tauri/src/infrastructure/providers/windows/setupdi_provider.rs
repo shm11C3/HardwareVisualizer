@@ -26,9 +26,9 @@ pub fn enumerate_display_adapters() -> Vec<DisplayAdapterBdf> {
   use winapi::shared::devguid::GUID_DEVCLASS_DISPLAY;
   use winapi::shared::minwindef::{BYTE, DWORD, FALSE};
   use winapi::um::setupapi::{
+    DIGCF_PRESENT, SP_DEVINFO_DATA, SPDRP_ADDRESS, SPDRP_BUSNUMBER, SPDRP_DEVICEDESC,
     SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
-    SetupDiGetDeviceRegistryPropertyW, DIGCF_PRESENT, SPDRP_ADDRESS, SPDRP_BUSNUMBER,
-    SPDRP_DEVICEDESC, SP_DEVINFO_DATA,
+    SetupDiGetDeviceRegistryPropertyW,
   };
 
   unsafe {
@@ -40,7 +40,11 @@ pub fn enumerate_display_adapters() -> Vec<DisplayAdapterBdf> {
     );
 
     if dev_info.is_null() || dev_info == winapi::um::handleapi::INVALID_HANDLE_VALUE {
-      log_debug!("SetupDiGetClassDevsW failed", "setupdi_provider", None::<&str>);
+      log_debug!(
+        "SetupDiGetClassDevsW failed",
+        "setupdi_provider",
+        None::<&str>
+      );
       return Vec::new();
     }
 
