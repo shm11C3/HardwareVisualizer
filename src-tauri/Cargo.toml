@@ -91,7 +91,7 @@ custom-protocol = ["tauri/custom-protocol"]
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.3"
 dxgi = "0.1.7"
-winapi = { version = "0.3", features = ["dxgi"] }
+winapi = { version = "0.3", features = ["dxgi", "setupapi", "devguid"] }
 windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
     "Win32_Foundation",

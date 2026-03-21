@@ -378,6 +378,9 @@ fn get_adl() -> Option<&'static AdlLibrary> {
 struct AdapterState {
   adapter_index: i32,
   adapter_name: String,
+  bus_number: i32,
+  device_number: i32,
+  function_number: i32,
   overdrive_level: i32, // 5, 6, 7, 8, or -1
   overdrive_supported: bool,
 }
@@ -445,6 +448,9 @@ fn enumerate_adapters(adl: &AdlLibrary) -> Vec<AdapterState> {
       result.push(AdapterState {
         adapter_index: info.adapter_index,
         adapter_name,
+        bus_number: info.bus_number,
+        device_number: info.device_number,
+        function_number: info.function_number,
         overdrive_level: od_level,
         overdrive_supported: od_supported,
       });
@@ -858,10 +864,19 @@ pub fn is_available() -> bool {
   get_adl().is_some()
 }
 
+/// Per-adapter metric with PCI BDF for cross-API GPU identification.
+pub struct AdlAdapterMetric {
+  pub adapter_name: String,
+  pub bus: i32,
+  pub device: i32,
+  pub function: i32,
+  pub value: f32,
+}
+
 /// Get per-adapter GPU core usage for monitoring/archiving.
 ///
-/// Returns `(adapter_name, usage%)` for each active AMD adapter.
-pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<(String, f32)>, String> {
+/// Returns [`AdlAdapterMetric`] (name + BDF + usage%) for each active AMD adapter.
+pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<AdlAdapterMetric>, String> {
   spawn_blocking(|| {
     let adl = get_adl().ok_or("AMD ADL library not available")?;
     let adapters = enumerate_adapters(adl);
@@ -870,7 +885,7 @@ pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<(String, f32)>, Strin
       return Err("No active AMD GPU adapters found".to_string());
     }
 
-    let mut results: Vec<(String, f32)> = Vec::new();
+    let mut results: Vec<AdlAdapterMetric> = Vec::new();
 
     for adapter in &adapters {
       let idx = adapter.adapter_index;
@@ -887,7 +902,13 @@ pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<(String, f32)>, Strin
       }
 
       if let Some(u) = usage {
-        results.push((adapter.adapter_name.clone(), u));
+        results.push(AdlAdapterMetric {
+          adapter_name: adapter.adapter_name.clone(),
+          bus: adapter.bus_number,
+          device: adapter.device_number,
+          function: adapter.function_number,
+          value: u,
+        });
       }
     }
 
@@ -910,9 +931,9 @@ pub async fn get_amd_gpu_usage_per_adapter() -> Result<Vec<(String, f32)>, Strin
 
 /// Get per-adapter GPU core temperature for monitoring/archiving.
 ///
-/// Returns `(adapter_name, temperature_celsius)` for each active AMD adapter,
-/// using the best available temperature source (Core/Edge sensor).
-pub async fn get_amd_gpu_temperatures_per_adapter() -> Result<Vec<(String, f32)>, String>
+/// Returns [`AdlAdapterMetric`] (name + BDF + temperature_celsius) for each
+/// active AMD adapter, using the best available temperature source (Core/Edge sensor).
+pub async fn get_amd_gpu_temperatures_per_adapter() -> Result<Vec<AdlAdapterMetric>, String>
 {
   spawn_blocking(|| {
     let adl = get_adl().ok_or("AMD ADL library not available")?;
@@ -922,7 +943,7 @@ pub async fn get_amd_gpu_temperatures_per_adapter() -> Result<Vec<(String, f32)>
       return Err("No active AMD GPU adapters found".to_string());
     }
 
-    let mut results: Vec<(String, f32)> = Vec::new();
+    let mut results: Vec<AdlAdapterMetric> = Vec::new();
 
     for adapter in &adapters {
       let idx = adapter.adapter_index;
@@ -950,7 +971,13 @@ pub async fn get_amd_gpu_temperatures_per_adapter() -> Result<Vec<(String, f32)>
       }
 
       if let Some(t) = temp {
-        results.push((adapter.adapter_name.clone(), t as f32));
+        results.push(AdlAdapterMetric {
+          adapter_name: adapter.adapter_name.clone(),
+          bus: adapter.bus_number,
+          device: adapter.device_number,
+          function: adapter.function_number,
+          value: t as f32,
+        });
       }
     }
 

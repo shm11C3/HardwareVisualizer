@@ -141,32 +141,67 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
   gpu_metrics
 }
 
+/// Build a lookup table that maps PCI BDF → DXGI device description (= the
+/// canonical GPU name used by `get_gpu_info` / `GraphicInfo`).
+///
+/// The table is computed once via SetupDi and cached for the lifetime of
+/// the process.
+#[cfg(target_os = "windows")]
+fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32), String> {
+  use crate::infrastructure::providers::setupdi_provider;
+
+  static MAP: std::sync::OnceLock<std::collections::HashMap<(i32, i32, i32), String>> =
+    std::sync::OnceLock::new();
+
+  MAP.get_or_init(|| {
+    let adapters = setupdi_provider::enumerate_display_adapters();
+    adapters
+      .into_iter()
+      .map(|a| ((a.bus, a.device, a.function), a.description))
+      .collect()
+  })
+}
+
+/// Resolve the canonical (DXGI) name for an ADL adapter via its PCI BDF.
+/// Falls back to the ADL adapter name when no SetupDi entry matches.
+#[cfg(target_os = "windows")]
+fn resolve_gpu_name(adl_name: &str, bus: i32, device: i32, function: i32) -> String {
+  bdf_to_dxgi_name()
+    .get(&(bus, device, function))
+    .cloned()
+    .unwrap_or_else(|| adl_name.to_string())
+}
+
 /// Collect AMD GPU usage and temperature via ADL.
 /// VRAM usage is not available via ADL.
 #[cfg(target_os = "windows")]
 async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   use crate::infrastructure::providers::adl_provider;
 
-  // Usage per adapter
-  let usages: Vec<(String, f32)> = adl_provider::get_amd_gpu_usage_per_adapter()
+  // Usage per adapter (with BDF)
+  let usages = adl_provider::get_amd_gpu_usage_per_adapter()
     .await
     .unwrap_or_default();
 
-  // Temperature per adapter
-  let temps: Vec<(String, f32)> = adl_provider::get_amd_gpu_temperatures_per_adapter()
+  // Temperature per adapter (with BDF)
+  let temps = adl_provider::get_amd_gpu_temperatures_per_adapter()
     .await
     .unwrap_or_default();
 
-  // Build a temp lookup by adapter name
-  let temp_map: std::collections::HashMap<&str, f32> =
-    temps.iter().map(|(n, t)| (n.as_str(), *t)).collect();
+  // Build a temp lookup by BDF (more reliable than name matching)
+  let temp_map: std::collections::HashMap<(i32, i32, i32), f32> = temps
+    .iter()
+    .map(|m| ((m.bus, m.device, m.function), m.value))
+    .collect();
 
-  for (name, usage) in &usages {
-    let temperature = temp_map.get(name.as_str()).copied();
+  for metric in &usages {
+    let bdf = (metric.bus, metric.device, metric.function);
+    let temperature = temp_map.get(&bdf).copied();
+    let name = resolve_gpu_name(&metric.adapter_name, metric.bus, metric.device, metric.function);
     // VRAM usage is not available via ADL
     gpu_metrics.push(GpuSample {
-      name: name.clone(),
-      usage: Some(*usage),
+      name,
+      usage: Some(metric.value),
       temperature,
       dedicated_memory_kb: None,
       cooler_level: None,

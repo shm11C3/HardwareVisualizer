@@ -87,9 +87,14 @@ export const GPUInfo = () => {
   const os = useMemo(() => platform(), []);
 
   const getTargetInfo = (data: NameValues) => {
-    return data.find(
-      (x) => hardwareInfo.gpus && x.name === hardwareInfo.gpus[0].name,
-    )?.value;
+    if (!hardwareInfo.gpus || data.length === 0) return undefined;
+    // Exact match first; fall back to first entry as a safety net
+    // (the backend resolves ADL names to DXGI names via PCI BDF,
+    // so exact match should always succeed).
+    return (
+      data.find((x) => x.name === hardwareInfo.gpus?.[0].name)?.value ??
+      data[0]?.value
+    );
   };
 
   const targetTemperature = getTargetInfo(gpuTemp);
