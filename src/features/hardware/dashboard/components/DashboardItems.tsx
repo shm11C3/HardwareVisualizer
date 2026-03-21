@@ -87,9 +87,21 @@ export const GPUInfo = () => {
   const os = useMemo(() => platform(), []);
 
   const getTargetInfo = (data: NameValues) => {
-    return data.find(
-      (x) => hardwareInfo.gpus && x.name === hardwareInfo.gpus[0].name,
-    )?.value;
+    if (
+      !hardwareInfo.gpus ||
+      hardwareInfo.gpus.length === 0 ||
+      data.length === 0
+    )
+      return undefined;
+    // Prefer an exact name match for the primary GPU.
+    const matched = data.find((x) => x.name === hardwareInfo.gpus?.[0]?.name);
+    if (matched) return matched.value;
+    // If there is exactly one GPU and one metric entry, allow a safe fallback.
+    if (hardwareInfo.gpus.length === 1 && data.length === 1) {
+      return data[0]?.value;
+    }
+    // Otherwise, avoid showing potentially incorrect metrics.
+    return undefined;
   };
 
   const targetTemperature = getTargetInfo(gpuTemp);

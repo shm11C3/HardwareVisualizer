@@ -141,32 +141,107 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
   gpu_metrics
 }
 
+/// Resolve a GPU's canonical name using a pre-built BDF→name lookup table.
+/// Returns the mapped name on hit, or the original `adl_name` on miss.
+#[cfg(any(target_os = "windows", test))]
+fn resolve_gpu_name_from_map(
+  bdf_map: &std::collections::HashMap<(i32, i32, i32), String>,
+  adl_name: &str,
+  bus: i32,
+  device: i32,
+  function: i32,
+) -> String {
+  bdf_map
+    .get(&(bus, device, function))
+    .cloned()
+    .unwrap_or_else(|| adl_name.to_string())
+}
+
+/// Build a lookup table that maps PCI BDF → DXGI device description (= the
+/// canonical GPU name used by `get_gpu_info` / `GraphicInfo`).
+///
+/// The table is computed once via SetupDi and cached for the lifetime of
+/// the process.  Because SetupDi calls are blocking Win32 APIs, the first
+/// invocation offloads them to the Tokio blocking thread pool so we never
+/// stall an async worker thread.
+#[cfg(target_os = "windows")]
+async fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32), String>
+{
+  use crate::infrastructure::providers::setupdi_provider;
+  use crate::log_error;
+  use crate::log_internal;
+
+  static MAP: tokio::sync::OnceCell<std::collections::HashMap<(i32, i32, i32), String>> =
+    tokio::sync::OnceCell::const_new();
+
+  MAP
+    .get_or_init(|| async {
+      match tokio::task::spawn_blocking(|| {
+        let adapters = setupdi_provider::enumerate_display_adapters();
+        adapters
+          .into_iter()
+          .map(|a| ((a.bus, a.device, a.function), a.description))
+          .collect()
+      })
+      .await
+      {
+        Ok(map) => map,
+        Err(e) => {
+          log_error!(
+            &format!("SetupDi enumeration task failed: {e}"),
+            "monitoring_service::bdf_to_dxgi_name",
+            None::<&str>
+          );
+          std::collections::HashMap::new()
+        }
+      }
+    })
+    .await
+}
+
 /// Collect AMD GPU usage and temperature via ADL.
 /// VRAM usage is not available via ADL.
 #[cfg(target_os = "windows")]
 async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   use crate::infrastructure::providers::adl_provider;
 
-  // Usage per adapter
-  let usages: Vec<(String, f32)> = adl_provider::get_amd_gpu_usage_per_adapter()
+  // Usage per adapter (with BDF)
+  let usages = adl_provider::get_amd_gpu_usage_per_adapter()
     .await
     .unwrap_or_default();
 
-  // Temperature per adapter
-  let temps: Vec<(String, f32)> = adl_provider::get_amd_gpu_temperatures_per_adapter()
+  if usages.is_empty() {
+    // No usage metrics; skip temperature queries and SetupDi enumeration
+    return;
+  }
+  // Temperature per adapter (with BDF)
+  let temps = adl_provider::get_amd_gpu_temperatures_per_adapter()
     .await
     .unwrap_or_default();
 
-  // Build a temp lookup by adapter name
-  let temp_map: std::collections::HashMap<&str, f32> =
-    temps.iter().map(|(n, t)| (n.as_str(), *t)).collect();
+  // Build a temp lookup by BDF (more reliable than name matching)
+  let temp_map: std::collections::HashMap<(i32, i32, i32), f32> = temps
+    .iter()
+    .map(|m| ((m.bus, m.device, m.function), m.value))
+    .collect();
 
-  for (name, usage) in &usages {
-    let temperature = temp_map.get(name.as_str()).copied();
+  // Fetch the BDF→DXGI name map once, not per-adapter
+  let bdf_map = bdf_to_dxgi_name().await;
+
+  for metric in &usages {
+    let bdf = (metric.bus, metric.device, metric.function);
+    let temperature = temp_map.get(&bdf).copied();
+    let name = resolve_gpu_name_from_map(
+      bdf_map,
+      &metric.adapter_name,
+      metric.bus,
+      metric.device,
+      metric.function,
+    );
     // VRAM usage is not available via ADL
     gpu_metrics.push(GpuSample {
-      name: name.clone(),
-      usage: Some(*usage),
+      name,
+      usage: Some(metric.value),
       temperature,
       dedicated_memory_kb: None,
       cooler_level: None,
@@ -732,5 +807,55 @@ mod tests {
 
     let cpu_h = resources.process_cpu_histories.lock().unwrap();
     assert_eq!(cpu_h.get(&pid).unwrap().len(), HARDWARE_HISTORY_BUFFER_SIZE);
+  }
+
+  // ── resolve_gpu_name_from_map ──
+
+  #[test]
+  fn resolve_gpu_name_returns_dxgi_name_on_bdf_hit() {
+    let mut map = HashMap::new();
+    map.insert((3, 0, 0), "AMD Radeon RX 7900 XTX".to_string());
+    let result = resolve_gpu_name_from_map(&map, "Radeon RX 7900 XTX", 3, 0, 0);
+    assert_eq!(result, "AMD Radeon RX 7900 XTX");
+  }
+
+  #[test]
+  fn resolve_gpu_name_falls_back_to_adl_name_on_miss() {
+    let map = HashMap::new(); // empty map
+    let result = resolve_gpu_name_from_map(&map, "Radeon RX 7900 XTX", 3, 0, 0);
+    assert_eq!(result, "Radeon RX 7900 XTX");
+  }
+
+  #[test]
+  fn resolve_gpu_name_distinguishes_by_bdf() {
+    let mut map = HashMap::new();
+    map.insert((3, 0, 0), "GPU on bus 3".to_string());
+    map.insert((6, 0, 0), "GPU on bus 6".to_string());
+
+    assert_eq!(
+      resolve_gpu_name_from_map(&map, "fallback", 3, 0, 0),
+      "GPU on bus 3"
+    );
+    assert_eq!(
+      resolve_gpu_name_from_map(&map, "fallback", 6, 0, 0),
+      "GPU on bus 6"
+    );
+    // Different BDF not in map → fallback
+    assert_eq!(
+      resolve_gpu_name_from_map(&map, "fallback", 9, 0, 0),
+      "fallback"
+    );
+  }
+
+  #[test]
+  fn resolve_gpu_name_handles_duplicate_bdf() {
+    let mut map = HashMap::new();
+    // Last insert wins (HashMap behavior)
+    map.insert((3, 0, 0), "First".to_string());
+    map.insert((3, 0, 0), "Second".to_string());
+    assert_eq!(
+      resolve_gpu_name_from_map(&map, "fallback", 3, 0, 0),
+      "Second"
+    );
   }
 }
