@@ -137,7 +137,7 @@ After launching the app:
 | Dashboard Customization  | ✅     | Layout editing partial           |
 | Background Image         | ✅     | Local assets                     |
 | Historical Insights      | ✅     | Default Up to 30 days            |
-| GPU Insight (non-NVIDIA) | ⚠️     | Limited now                      |
+| GPU Insight              | ✅     | NVIDIA full / others partial     |
 | Language Support         | ✅     | English, Japanese, Russian       |
 
 ## Supported OS
@@ -173,8 +173,6 @@ Usage rates are calculated on a minute-by-minute basis.
 
 ![image](https://github.com/user-attachments/assets/7c3f9ddd-37c1-45b1-9c3a-9f661817e797)
 
-\*GPU Insight is available on Nvidia GPU only.
-
 ![image](https://github.com/user-attachments/assets/2d3d2045-ccc0-46ee-9a3a-6cde3e13981e)
 
 ### Custom Graph
@@ -201,7 +199,7 @@ Flexible graph customization available.
 | Item                         | Target        |
 | ---------------------------- | ------------- |
 | macOS Support                | ✅ Done       |
-| AMD GPU compatible           | WIP (Preview) |
+| AMD GPU compatible           | ✅ Done       |
 | Fan / Temp Full Cross Vendor | Research      |
 | Game Mode                    | Planned       |
 | Power Consumption Estimation | Idea          |
@@ -210,14 +208,6 @@ Flexible graph customization available.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## FAQ
-
-**Q: Why sudo on Linux?**  
-Access to privileged hardware interfaces for sensors.
-
-**Q: NVIDIA only historic GPU charts?**  
-Vendor APIs differ; expansion planned.
 
 ## Code Signing Policy
 
