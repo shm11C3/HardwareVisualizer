@@ -94,9 +94,7 @@ export const GPUInfo = () => {
     )
       return undefined;
     // Prefer an exact name match for the primary GPU.
-    const matched = data.find(
-      (x) => x.name === hardwareInfo.gpus?.[0]?.name,
-    );
+    const matched = data.find((x) => x.name === hardwareInfo.gpus?.[0]?.name);
     if (matched) return matched.value;
     // If there is exactly one GPU and one metric entry, allow a safe fallback.
     if (hardwareInfo.gpus.length === 1 && data.length === 1) {
