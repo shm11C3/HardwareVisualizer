@@ -71,14 +71,11 @@ pub fn enumerate_display_adapters() -> Vec<DisplayAdapterBdf> {
       index += 1;
 
       // --- Device description (= DXGI adapter name) ---
-      let description = match read_registry_string(
-        dev_info,
-        &mut dev_info_data,
-        SPDRP_DEVICEDESC,
-      ) {
-        Some(s) => s,
-        None => continue,
-      };
+      let description =
+        match read_registry_string(dev_info, &mut dev_info_data, SPDRP_DEVICEDESC) {
+          Some(s) => s,
+          None => continue,
+        };
 
       // --- PCI bus number ---
       let mut bus: DWORD = 0;

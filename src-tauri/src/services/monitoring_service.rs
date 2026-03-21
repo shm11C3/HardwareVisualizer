@@ -174,7 +174,12 @@ async fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32
 /// Resolve the canonical (DXGI) name for an ADL adapter via its PCI BDF.
 /// Falls back to the ADL adapter name when no SetupDi entry matches.
 #[cfg(target_os = "windows")]
-async fn resolve_gpu_name(adl_name: &str, bus: i32, device: i32, function: i32) -> String {
+async fn resolve_gpu_name(
+  adl_name: &str,
+  bus: i32,
+  device: i32,
+  function: i32,
+) -> String {
   bdf_to_dxgi_name()
     .await
     .get(&(bus, device, function))
