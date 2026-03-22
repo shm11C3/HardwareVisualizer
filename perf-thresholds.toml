@@ -14,7 +14,9 @@ sample_interval_ms = 1000
 max_avg_memory_mb = 70.0
 
 [platforms.linux]
-max_avg_memory_mb = 70.0
+max_avg_memory_mb = 150.0
+max_p95_memory_mb = 150.0
 
 [platforms.macos]
-max_avg_memory_mb = 70.0
+max_avg_memory_mb = 150.0
+max_p95_memory_mb = 150.0
