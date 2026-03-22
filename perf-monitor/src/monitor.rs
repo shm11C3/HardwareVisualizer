@@ -1,5 +1,6 @@
+use std::io::Read as _;
 use std::path::Path;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
@@ -59,7 +60,7 @@ pub fn run_monitor(
   for _ in 0..timing.warmup_seconds {
     thread::sleep(Duration::from_secs(1));
     if guard.0.try_wait()?.is_some() {
-      return Err("Process exited during warmup".into());
+      return Err(format_exit_error(&mut guard, "warmup"));
     }
     system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
   }
@@ -78,7 +79,7 @@ pub fn run_monitor(
     thread::sleep(interval);
 
     if guard.0.try_wait()?.is_some() {
-      return Err("Process exited during measurement".into());
+      return Err(format_exit_error(&mut guard, "measurement"));
     }
 
     system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
@@ -111,9 +112,36 @@ pub fn run_monitor(
 }
 
 fn launch_process(binary_path: &Path) -> Result<Child, Box<dyn std::error::Error>> {
-  let child = Command::new(binary_path).spawn()?;
+  let child = Command::new(binary_path)
+    .stderr(Stdio::piped())
+    .spawn()?;
   eprintln!("Launched process with PID: {}", child.id());
   Ok(child)
+}
+
+fn format_exit_error(
+  guard: &mut ProcessGuard,
+  phase: &str,
+) -> Box<dyn std::error::Error> {
+  let status = guard.0.try_wait().ok().flatten();
+  let stderr = guard
+    .0
+    .stderr
+    .take()
+    .and_then(|mut s| {
+      let mut buf = String::new();
+      s.read_to_string(&mut buf).ok()?;
+      if buf.is_empty() { None } else { Some(buf) }
+    });
+
+  let mut msg = format!("Process exited during {phase}");
+  if let Some(st) = status {
+    msg.push_str(&format!(" (exit status: {st})"));
+  }
+  if let Some(err) = stderr {
+    msg.push_str(&format!("\n--- process stderr ---\n{err}"));
+  }
+  msg.into()
 }
 
 fn compute_result(
