@@ -35,7 +35,7 @@
     "@vitest/coverage-v8": "^4.0.17",
     "babel-plugin-react-compiler": "^1.0.0",
     "concurrently": "^9.2.1",
-    "jsdom": "^28.0.0",
+    "jsdom": "^29.0.0",
     "license-checker": "^25.0.1",
     "rollup-plugin-visualizer": "^7.0.0",
     "shadcn": "^4.0.0",
