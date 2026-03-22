@@ -115,7 +115,7 @@ jobs:
       - name: Generate THIRD_PARTY_NOTICES
         run: node --experimental-strip-types .github/scripts/generate-licenses.ts tmp
 
-      - uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AZURE_CLIENT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_ID || '' }}
