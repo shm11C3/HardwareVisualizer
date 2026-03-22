@@ -77,8 +77,8 @@ jobs:
         run: |
           ./perf-monitor/target/release/perf-monitor \
             --binary "src-tauri/target/ci/bundle/macos/HardwareVisualizer.app/Contents/MacOS/hardware-visualizer" \
-
-             \
+            --config perf-thresholds.toml \
+            --output json \
           > perf-results.json
 
       - name: Run performance test (Windows)
@@ -90,6 +90,10 @@ jobs:
             --config perf-thresholds.toml \
             --output json \
           > perf-results.json
+
+      - name: Show results
+        if: always()
+        run: cat perf-results.json 2>/dev/null || echo "No results file"
 
       - name: Upload results
         if: always()
