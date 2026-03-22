@@ -93,6 +93,7 @@ jobs:
 
       - name: Show results
         if: always()
+        shell: bash
         run: cat perf-results.json 2>/dev/null || echo "No results file"
 
       - name: Upload results
