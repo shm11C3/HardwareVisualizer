@@ -46,7 +46,16 @@ jobs:
       - name: Build perf-monitor
         run: cargo build --release --manifest-path perf-monitor/Cargo.toml
 
+      - name: Build Tauri app (macOS)
+        if: runner.os == 'macOS'
+        uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --bundles app -- --profile ci
+
       - name: Build Tauri app
+        if: runner.os != 'macOS'
         uses: tauri-apps/tauri-action@73fb865345c54760d875b94642314f8c0c894afa # v0.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,7 +76,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           ./perf-monitor/target/release/perf-monitor \
-            --binary src-tauri/target/ci/hardware-visualizer \
+            --binary "src-tauri/target/ci/bundle/macos/HardwareVisualizer.app/Contents/MacOS/hardware-visualizer" \
             --config perf-thresholds.toml \
             --output json \
           > perf-results.json
@@ -81,6 +90,10 @@ jobs:
             --config perf-thresholds.toml \
             --output json \
           > perf-results.json
+
+      - name: Show results
+        if: always()
+        run: cat perf-results.json 2>/dev/null || echo "No results file"
 
       - name: Upload results
         if: always()
