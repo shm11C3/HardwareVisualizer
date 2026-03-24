@@ -26,7 +26,7 @@ export const useWindowSize = () => {
   const [breakpoint, setBreakpoint] = useState<BreakpointSize>(getBreakpoint());
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const handleResize = () => {
       clearTimeout(timeoutId);

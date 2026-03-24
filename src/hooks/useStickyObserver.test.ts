@@ -9,7 +9,7 @@ const mockUnobserve = vi.fn();
 const mockDisconnect = vi.fn();
 let capturedCallback: IntersectionObserverCallback | null = null;
 
-global.IntersectionObserver = class MockIntersectionObserver {
+globalThis.IntersectionObserver = class MockIntersectionObserver {
   constructor(callback: IntersectionObserverCallback) {
     capturedCallback = callback;
   }
@@ -90,7 +90,7 @@ describe("useStickyObserver", () => {
     const el = document.createElement("div");
 
     // Override the constructor so sentinelRef.current is set before useEffect fires
-    global.IntersectionObserver = class MockIntersectionObserver {
+    globalThis.IntersectionObserver = class MockIntersectionObserver {
       constructor(callback: IntersectionObserverCallback) {
         capturedCallback = callback;
       }
