@@ -308,7 +308,9 @@ const ChartArea = (data: {
   const { type, stats, period, options } = data;
   const [periodData, setPeriodData] = period;
   const [offset, setOffset] = useState(0);
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const [intervalId, setIntervalId] = useState<ReturnType<
+    typeof setInterval
+  > | null>(null);
   const { t } = useTranslation();
 
   const handleMouseDown = (increment: number) => {
@@ -398,7 +400,9 @@ const GpuChartArea = (data: {
 
   const [periodData, setPeriodData] = period;
   const [offset, setOffset] = useState(0);
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const [intervalId, setIntervalId] = useState<ReturnType<
+    typeof setInterval
+  > | null>(null);
   const { t } = useTranslation();
 
   const handleMouseDown = (increment: number) => {
