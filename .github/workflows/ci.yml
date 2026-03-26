@@ -20,6 +20,7 @@ jobs:
       backend-changed: ${{ steps.changes.outputs.backend }}
       frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
       backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
+      actions-changed: ${{ steps.changes.outputs.actions }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -57,6 +58,31 @@ jobs:
               - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
+            actions:
+              - '.github/workflows/**'
+              - '.github/actions/**'
+
+  #
+  # GitHub Actions lint
+  #
+  lint-actions:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.actions-changed == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download actionlint
+        id: get_actionlint
+        run: bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.11
+        shell: bash
+
+      - name: Run actionlint
+        run: ${{ steps.get_actionlint.outputs.executable }} -color
+        shell: bash
 
   #
   # Backend lint and clippy
@@ -232,7 +258,7 @@ jobs:
       - name: Optimize Windows build environment
         if: matrix.platform == 'windows-latest'
         run: |
-          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
 
       - name: Build with Tauri (CI optimized for PR)
         if: github.event_name == 'pull_request'
@@ -380,6 +406,7 @@ jobs:
 
     needs:
       - change-detection
+      - lint-actions
       - lint-backend
       - test-backend
       - test-build
