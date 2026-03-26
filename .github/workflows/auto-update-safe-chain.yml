@@ -81,6 +81,7 @@ jobs:
             exit 0
           fi
 
+          # shellcheck disable=SC2016
           node -e '
             const fs=require("fs");
             const file=process.argv[1];
