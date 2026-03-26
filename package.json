@@ -38,7 +38,6 @@
     "jsdom": "^29.0.1",
     "license-checker": "^25.0.1",
     "rollup-plugin-visualizer": "^7.0.0",
-    "shadcn": "^4.0.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^6.0.2",
     "vite": "^8.0.1",
