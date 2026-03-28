@@ -45,6 +45,8 @@ unsafe extern "C" {
     plane: CFStringRef,
     parent: *mut IoRegistryEntry,
   ) -> KernReturn;
+
+  fn IORegistryEntryGetName(entry: IoRegistryEntry, name: *mut i8) -> KernReturn;
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
@@ -470,4 +472,92 @@ fn cfdata_to_string(d: CFTypeRef) -> String {
   let bytes = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
   let end = bytes.iter().position(|b| *b == 0).unwrap_or(bytes.len());
   String::from_utf8_lossy(&bytes[..end]).to_string()
+}
+
+/// Read GPU DVFS frequency table from the PMGR IOKit node.
+///
+/// Returns the full list of frequencies in MHz (index 0 = OFF/idle state,
+/// index 1 = P1, index 2 = P2, …).
+/// Returns `None` if the PMGR node or `voltage-states9` property is not found.
+pub fn read_gpu_dvfs_freqs_mhz() -> Option<Vec<u32>> {
+  let class_cstr = CString::new("AppleARMIODevice").ok()?;
+
+  // IOServiceGetMatchingServices consumes the matching dictionary.
+  let matching = unsafe { IOServiceMatching(class_cstr.as_ptr()) };
+  if matching.is_null() {
+    return None;
+  }
+
+  let mut iter: IoIterator = 0;
+  let kr =
+    unsafe { IOServiceGetMatchingServices(K_IOMASTER_PORT_DEFAULT, matching, &mut iter) };
+  if kr != KERN_SUCCESS {
+    return None;
+  }
+
+  let mut result: Option<Vec<u32>> = None;
+  loop {
+    let entry = unsafe { IOIteratorNext(iter) };
+    if entry == 0 {
+      break;
+    }
+
+    let mut name_buf = [0i8; 128];
+    if unsafe { IORegistryEntryGetName(entry, name_buf.as_mut_ptr()) } != KERN_SUCCESS {
+      unsafe { IOObjectRelease(entry) };
+      continue;
+    }
+    let name = unsafe { std::ffi::CStr::from_ptr(name_buf.as_ptr()) }.to_string_lossy();
+    if name != "pmgr" {
+      unsafe { IOObjectRelease(entry) };
+      continue;
+    }
+
+    // Read "voltage-states9" (GPU DVFS table).
+    // Packed as 8-byte entries: 4-byte freq (LE, Hz) + 4-byte voltage (LE).
+    let key = CFString::new("voltage-states9");
+    let prop = unsafe {
+      IORegistryEntryCreateCFProperty(
+        entry,
+        key.as_concrete_TypeRef(),
+        kCFAllocatorDefault,
+        0,
+      )
+    };
+    unsafe { IOObjectRelease(entry) };
+
+    if prop.is_null() {
+      continue;
+    }
+
+    let type_id = unsafe { CFGetTypeID(prop) };
+    if type_id != unsafe { CFDataGetTypeID() } {
+      unsafe { CFRelease(prop as _) };
+      continue;
+    }
+
+    let len = unsafe { CFDataGetLength(prop) } as usize;
+    let ptr = unsafe { CFDataGetBytePtr(prop) };
+
+    // Guard against null pointer, empty data, and truncated records.
+    if ptr.is_null() || len == 0 || !len.is_multiple_of(8) {
+      unsafe { CFRelease(prop as _) };
+      continue;
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+
+    let mut freqs = Vec::with_capacity(len / 8);
+    for chunk in bytes.chunks_exact(8) {
+      let freq_hz = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+      freqs.push(freq_hz / 1_000_000); // Hz → MHz
+    }
+
+    unsafe { CFRelease(prop as _) };
+    result = Some(freqs);
+    break;
+  }
+
+  unsafe { IOObjectRelease(iter) };
+  result
 }

@@ -1,6 +1,7 @@
 /*
 Inspired by macmon (MIT): https://github.com/vladkens/macmon
-Referenced for IOReport sampling. No code copied.
+Referenced for IOReport sampling and frequency-weighted GPU usage calculation.
+No code copied; independently reimplemented from the same Apple APIs (private/unstable).
 
 Copyright (c) 2024 vladkens
 Licensed under the MIT License. See THIRD_PARTY_NOTICES.md for the full text.
@@ -167,16 +168,34 @@ pub struct GpuUsageIOReport {
   subs: IOReportSubscriptionRef,
   chan: CFMutableDictionaryRef,
   prev: Option<(CFDictionaryRef, Instant)>,
+  /// GPU DVFS frequencies for active P-states (P1, P2, …, PN) in MHz.
+  /// Empty if the frequency table could not be read from PMGR.
+  gpu_freqs: Vec<u32>,
 }
 
 impl GpuUsageIOReport {
   pub fn new() -> WithError<Self> {
     let chan = build_channels_gpu_only()?;
     let subs = create_subscription(chan)?;
+
+    // Read the GPU frequency table from the PMGR IOKit node.
+    // The first entry (index 0) is the OFF/idle state — skip it so that
+    // gpu_freqs[0] = P1 frequency, gpu_freqs[1] = P2 frequency, etc.
+    let gpu_freqs = super::iokit_info::read_gpu_dvfs_freqs_mhz()
+      .map(|f| {
+        if f.len() > 1 {
+          f[1..].to_vec()
+        } else {
+          Vec::new()
+        }
+      })
+      .unwrap_or_default();
+
     Ok(Self {
       subs,
       chan,
       prev: None,
+      gpu_freqs,
     })
   }
 
@@ -206,7 +225,7 @@ impl GpuUsageIOReport {
     self.prev = Some(next);
 
     // Find GPU Perf States in the delta dictionary and compute usage.
-    let usage = compute_gpu_usage_from_delta(delta)?;
+    let usage = compute_gpu_usage_from_delta(delta, &self.gpu_freqs)?;
     unsafe { CFRelease(delta as _) };
     Ok(usage)
   }
@@ -224,7 +243,19 @@ impl Drop for GpuUsageIOReport {
   }
 }
 
-fn compute_gpu_usage_from_delta(delta: CFDictionaryRef) -> WithError<f32> {
+/// Compute GPU usage from the GPUPH channel in the IOReport delta.
+///
+/// When a GPU frequency table is available, the usage is computed as:
+///   `(avg_active_freq × active_ratio) / max_freq`
+/// This weights lower P-states (e.g. P1 at minimum frequency for display
+/// compositing) proportionally less than higher P-states, matching the
+/// approach used by macmon.
+///
+/// Without frequencies, falls back to simple active-time ratio.
+fn compute_gpu_usage_from_delta(
+  delta: CFDictionaryRef,
+  gpu_freqs: &[u32],
+) -> WithError<f32> {
   let arr = dict_get(delta, "IOReportChannels").ok_or("delta has no IOReportChannels")?
     as CFArrayRef;
 
@@ -247,25 +278,78 @@ fn compute_gpu_usage_from_delta(delta: CFDictionaryRef) -> WithError<f32> {
       return Ok(0.0);
     }
 
-    let mut total: i64 = 0;
-    let mut idle: i64 = 0;
-    for (name, v) in &resid {
-      if *v <= 0 {
-        continue;
-      }
-      total += *v;
-      if is_idle_state(name) {
-        idle += *v;
-      }
+    if gpu_freqs.is_empty() {
+      return compute_usage_unweighted(&resid);
     }
-    if total <= 0 {
-      return Ok(0.0);
-    }
-    let usage = ((total - idle) as f32) / (total as f32);
-    return Ok(usage.clamp(0.0, 1.0));
+    return compute_usage_freq_weighted(&resid, gpu_freqs);
   }
 
   Err("GPU Performance States channel not found".into())
+}
+
+/// Frequency-weighted GPU usage (matches macmon's approach).
+///
+/// Formula: `usage = (avg_active_freq × active_ratio) / max_freq`
+/// where `avg_active_freq` is the time-weighted average of active P-state
+/// frequencies, and `active_ratio` is the fraction of total time spent
+/// in any active state.
+fn compute_usage_freq_weighted(resid: &[(String, i64)], freqs: &[u32]) -> WithError<f32> {
+  // Find the first active (non-idle) state index.
+  let offset = resid
+    .iter()
+    .position(|(name, _)| !is_idle_state(name))
+    .ok_or("no active P-states found")?;
+
+  let total: f64 = resid.iter().map(|(_, v)| *v as f64).sum();
+  if total <= 0.0 {
+    return Ok(0.0);
+  }
+
+  // Only consider P-states that have a matching frequency entry so that
+  // active and avg_freq are computed over the same set of states.
+  let count = freqs.len().min(resid.len() - offset);
+  let mut active = 0.0_f64;
+  let mut weighted_freq = 0.0_f64;
+  for i in 0..count {
+    let r = resid[i + offset].1 as f64;
+    active += r;
+    weighted_freq += r * freqs[i] as f64;
+  }
+
+  if active <= 0.0 {
+    return Ok(0.0);
+  }
+
+  let avg_freq = weighted_freq / active;
+  let active_ratio = active / total;
+  let min_freq = *freqs.first().unwrap_or(&1) as f64;
+  let max_freq = *freqs.last().unwrap_or(&1) as f64;
+  if max_freq <= 0.0 {
+    return Ok(0.0);
+  }
+
+  let usage = (avg_freq.max(min_freq) * active_ratio) / max_freq;
+  Ok((usage as f32).clamp(0.0, 1.0))
+}
+
+/// Simple unweighted fallback: fraction of time in any active P-state.
+fn compute_usage_unweighted(resid: &[(String, i64)]) -> WithError<f32> {
+  let mut total: i64 = 0;
+  let mut idle: i64 = 0;
+  for (name, v) in resid {
+    if *v <= 0 {
+      continue;
+    }
+    total += *v;
+    if is_idle_state(name) {
+      idle += *v;
+    }
+  }
+  if total <= 0 {
+    return Ok(0.0);
+  }
+  let usage = ((total - idle) as f32) / (total as f32);
+  Ok(usage.clamp(0.0, 1.0))
 }
 
 fn is_idle_state(name: &str) -> bool {
@@ -284,4 +368,133 @@ fn is_idle_state(name: &str) -> bool {
   }
 
   false
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // ── is_idle_state ──
+
+  #[test]
+  fn is_idle_state_classification() {
+    // Idle states (OFF observed on M4; IDLE/DOWN on M2/M3 Max per macmon)
+    for name in [
+      "OFF", "off", "IDLE", "idle", "IDLE_OFF", "DOWN", "down", "  OFF  ",
+    ] {
+      assert!(is_idle_state(name), "{name:?} should be idle");
+    }
+    // Active P-states
+    for name in ["P1", "P15", "PERF"] {
+      assert!(!is_idle_state(name), "{name:?} should not be idle");
+    }
+  }
+
+  // ── compute_usage_unweighted ──
+
+  #[test]
+  fn unweighted_all_off() {
+    let resid = vec![("OFF".into(), 1000i64)];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  #[test]
+  fn unweighted_all_active() {
+    let resid = vec![("OFF".into(), 0i64), ("P1".into(), 1000)];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert!((usage - 1.0).abs() < 1e-6);
+  }
+
+  #[test]
+  fn unweighted_half_active() {
+    let resid = vec![("OFF".into(), 500i64), ("P1".into(), 500)];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert!((usage - 0.5).abs() < 1e-6);
+  }
+
+  #[test]
+  fn unweighted_empty_returns_zero() {
+    let resid: Vec<(String, i64)> = vec![];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  // ── compute_usage_freq_weighted ──
+
+  fn m4_resid(off: i64, p1: i64, p2: i64, p3: i64) -> Vec<(String, i64)> {
+    vec![
+      ("OFF".into(), off),
+      ("P1".into(), p1),
+      ("P2".into(), p2),
+      ("P3".into(), p3),
+    ]
+  }
+
+  // Frequencies in MHz: P1=396, P2=720, P3=1398
+  fn m4_freqs() -> Vec<u32> {
+    vec![396, 720, 1398]
+  }
+
+  #[test]
+  fn freq_weighted_all_off() {
+    let resid = m4_resid(1000, 0, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  #[test]
+  fn freq_weighted_all_p1() {
+    // 100% active at P1 (396 MHz), max = 1398 MHz
+    // usage = (396 * 1.0) / 1398 ≈ 0.283
+    let resid = m4_resid(0, 1000, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    assert!((usage - 396.0 / 1398.0).abs() < 0.01);
+  }
+
+  #[test]
+  fn freq_weighted_all_max() {
+    // 100% active at P3 (1398 MHz) → usage = 1.0
+    let resid = m4_resid(0, 0, 0, 1000);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    assert!((usage - 1.0).abs() < 0.01);
+  }
+
+  #[test]
+  fn freq_weighted_half_off_half_p1() {
+    // 50% active at P1 (396 MHz)
+    // usage = (396 * 0.5) / 1398 ≈ 0.142
+    let resid = m4_resid(500, 500, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    let expected = (396.0 * 0.5) / 1398.0;
+    assert!((usage - expected as f32).abs() < 0.01);
+  }
+
+  #[test]
+  fn freq_weighted_realistic_idle_desktop() {
+    // Typical idle: OFF=10M, P1=13M, P2=0.5M, P3=0.5M
+    let resid = m4_resid(10_000_000, 13_000_000, 500_000, 500_000);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    // Should be in the 10-20% range, not 50-60%
+    assert!(usage > 0.05 && usage < 0.25, "usage={usage}");
+  }
+
+  #[test]
+  fn freq_weighted_empty_freqs_returns_zero() {
+    let resid = m4_resid(500, 500, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &[]).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  #[test]
+  fn freq_weighted_result_never_exceeds_one() {
+    // Two active states but only one freq entry → matched count is 1.
+    // P1 freq (2000) > max_freq (2000), active_ratio = 0.5 (P2 unmatched).
+    // raw = 2000 * 0.5 / 2000 = 0.5, so clamp doesn't fire here but
+    // the contract (usage ≤ 1.0) still holds.
+    let resid = vec![("OFF".into(), 0i64), ("P1".into(), 500), ("P2".into(), 500)];
+    let freqs = vec![2000];
+    let usage = compute_usage_freq_weighted(&resid, &freqs).unwrap();
+    assert!(usage <= 1.0, "usage={usage}");
+  }
 }
