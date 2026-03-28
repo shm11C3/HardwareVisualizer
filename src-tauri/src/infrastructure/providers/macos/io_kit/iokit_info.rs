@@ -538,6 +538,13 @@ pub fn read_gpu_dvfs_freqs_mhz() -> Option<Vec<u32>> {
 
     let len = unsafe { CFDataGetLength(prop) } as usize;
     let ptr = unsafe { CFDataGetBytePtr(prop) };
+
+    // Guard against null pointer, empty data, and truncated records.
+    if ptr.is_null() || len == 0 || !len.is_multiple_of(8) {
+      unsafe { CFRelease(prop as _) };
+      continue;
+    }
+
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
 
     let mut freqs = Vec::with_capacity(len / 8);

@@ -1,7 +1,7 @@
 /*
 Inspired by macmon (MIT): https://github.com/vladkens/macmon
 Referenced for IOReport sampling and frequency-weighted GPU usage calculation.
-No code copied; independently reimplemented from the same public Apple APIs.
+No code copied; independently reimplemented from the same Apple APIs (private/unstable).
 
 Copyright (c) 2024 vladkens
 Licensed under the MIT License. See THIRD_PARTY_NOTICES.md for the full text.
@@ -301,20 +301,26 @@ fn compute_usage_freq_weighted(resid: &[(String, i64)], freqs: &[u32]) -> WithEr
     .ok_or("no active P-states found")?;
 
   let total: f64 = resid.iter().map(|(_, v)| *v as f64).sum();
-  let active: f64 = resid.iter().skip(offset).map(|(_, v)| *v as f64).sum();
-
-  if total <= 0.0 || active <= 0.0 {
+  if total <= 0.0 {
     return Ok(0.0);
   }
 
-  // Compute the time-weighted average frequency across active P-states.
+  // Only consider P-states that have a matching frequency entry so that
+  // active and avg_freq are computed over the same set of states.
   let count = freqs.len().min(resid.len() - offset);
-  let mut avg_freq = 0.0_f64;
+  let mut active = 0.0_f64;
+  let mut weighted_freq = 0.0_f64;
   for i in 0..count {
-    let frac = resid[i + offset].1 as f64 / active;
-    avg_freq += frac * freqs[i] as f64;
+    let r = resid[i + offset].1 as f64;
+    active += r;
+    weighted_freq += r * freqs[i] as f64;
   }
 
+  if active <= 0.0 {
+    return Ok(0.0);
+  }
+
+  let avg_freq = weighted_freq / active;
   let active_ratio = active / total;
   let min_freq = *freqs.first().unwrap_or(&1) as f64;
   let max_freq = *freqs.last().unwrap_or(&1) as f64;
