@@ -256,8 +256,8 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
 /// Cached Intel GPU LUID information, computed once via DXGI and reused for
 /// the lifetime of the process.
 #[cfg(target_os = "windows")]
-async fn cached_intel_gpu_info(
-) -> &'static Vec<crate::infrastructure::providers::directx::GpuLuidInfo> {
+async fn cached_intel_gpu_info()
+-> &'static Vec<crate::infrastructure::providers::directx::GpuLuidInfo> {
   static INFO: tokio::sync::OnceCell<
     Vec<crate::infrastructure::providers::directx::GpuLuidInfo>,
   > = tokio::sync::OnceCell::const_new();
