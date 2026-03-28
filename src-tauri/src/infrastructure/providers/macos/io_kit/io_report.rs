@@ -182,7 +182,13 @@ impl GpuUsageIOReport {
     // The first entry (index 0) is the OFF/idle state — skip it so that
     // gpu_freqs[0] = P1 frequency, gpu_freqs[1] = P2 frequency, etc.
     let gpu_freqs = super::iokit_info::read_gpu_dvfs_freqs_mhz()
-      .map(|f| if f.len() > 1 { f[1..].to_vec() } else { Vec::new() })
+      .map(|f| {
+        if f.len() > 1 {
+          f[1..].to_vec()
+        } else {
+          Vec::new()
+        }
+      })
       .unwrap_or_default();
 
     Ok(Self {
@@ -287,10 +293,7 @@ fn compute_gpu_usage_from_delta(
 /// where `avg_active_freq` is the time-weighted average of active P-state
 /// frequencies, and `active_ratio` is the fraction of total time spent
 /// in any active state.
-fn compute_usage_freq_weighted(
-  resid: &[(String, i64)],
-  freqs: &[u32],
-) -> WithError<f32> {
+fn compute_usage_freq_weighted(resid: &[(String, i64)], freqs: &[u32]) -> WithError<f32> {
   // Find the first active (non-idle) state index.
   let offset = resid
     .iter()

@@ -489,9 +489,8 @@ pub fn read_gpu_dvfs_freqs_mhz() -> Option<Vec<u32>> {
   }
 
   let mut iter: IoIterator = 0;
-  let kr = unsafe {
-    IOServiceGetMatchingServices(K_IOMASTER_PORT_DEFAULT, matching, &mut iter)
-  };
+  let kr =
+    unsafe { IOServiceGetMatchingServices(K_IOMASTER_PORT_DEFAULT, matching, &mut iter) };
   if kr != KERN_SUCCESS {
     return None;
   }
@@ -518,7 +517,12 @@ pub fn read_gpu_dvfs_freqs_mhz() -> Option<Vec<u32>> {
     // Packed as 8-byte entries: 4-byte freq (LE, Hz) + 4-byte voltage (LE).
     let key = CFString::new("voltage-states9");
     let prop = unsafe {
-      IORegistryEntryCreateCFProperty(entry, key.as_concrete_TypeRef(), kCFAllocatorDefault, 0)
+      IORegistryEntryCreateCFProperty(
+        entry,
+        key.as_concrete_TypeRef(),
+        kCFAllocatorDefault,
+        0,
+      )
     };
     unsafe { IOObjectRelease(entry) };
 
