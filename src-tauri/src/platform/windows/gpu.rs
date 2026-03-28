@@ -4,6 +4,8 @@ use crate::utils;
 use crate::{log_error, log_internal, log_warn};
 
 pub async fn get_gpu_usage() -> Result<(f32, String), String> {
+  use infrastructure::providers::pdh_provider::GpuEngineType;
+
   // 1. NVAPI (NVIDIA)
   if let Ok(usage) =
     infrastructure::providers::nvapi_provider::get_nvidia_gpu_usage().await
@@ -24,8 +26,21 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
     );
   }
 
-  // 3. PDH (generic fallback using Windows Performance Counters)
-  use infrastructure::providers::pdh_provider::GpuEngineType;
+  // 3. Intel via PDH + DXGI LUID
+  if let Ok(gpus) = infrastructure::providers::directx::get_intel_gpu_luid_info().await
+    && let Some(gpu) = gpus.first()
+    && let Ok(usage) =
+      infrastructure::providers::pdh_provider::query_gpu_usage_by_luid_and_engine(
+        gpu.luid_high,
+        gpu.luid_low,
+        GpuEngineType::Graphics3D,
+      )
+      .await
+  {
+    return Ok(((usage * 100.0).round(), "PDH (Intel)".to_string()));
+  }
+
+  // 4. PDH (generic fallback using Windows Performance Counters)
   match infrastructure::providers::pdh_provider::query_gpu_usage_by_device_and_engine(
     GpuEngineType::Graphics3D,
   )
