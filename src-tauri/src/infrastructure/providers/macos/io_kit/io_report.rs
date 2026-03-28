@@ -480,21 +480,21 @@ mod tests {
   }
 
   #[test]
-  fn freq_weighted_empty_freqs_returns_err() {
+  fn freq_weighted_empty_freqs_returns_zero() {
     let resid = m4_resid(500, 500, 0, 0);
-    // Empty freqs → no active P-states to match
-    let result = compute_usage_freq_weighted(&resid, &[]);
-    // offset finds P1, but count = min(0, 3) = 0, so avg_freq stays 0
-    // max_freq from empty slice is 1 (unwrap_or(&1)), so usage ≈ 0
-    assert!(result.is_ok());
+    let usage = compute_usage_freq_weighted(&resid, &[]).unwrap();
+    assert_eq!(usage, 0.0);
   }
 
   #[test]
-  fn freq_weighted_clamped_to_one() {
-    // Edge case: should never exceed 1.0
-    let resid = vec![("OFF".into(), 0i64), ("P1".into(), 1000)];
-    let freqs = vec![2000]; // freq > max_freq (they're the same here)
+  fn freq_weighted_result_never_exceeds_one() {
+    // Two active states but only one freq entry → matched count is 1.
+    // P1 freq (2000) > max_freq (2000), active_ratio = 0.5 (P2 unmatched).
+    // raw = 2000 * 0.5 / 2000 = 0.5, so clamp doesn't fire here but
+    // the contract (usage ≤ 1.0) still holds.
+    let resid = vec![("OFF".into(), 0i64), ("P1".into(), 500), ("P2".into(), 500)];
+    let freqs = vec![2000];
     let usage = compute_usage_freq_weighted(&resid, &freqs).unwrap();
-    assert!(usage <= 1.0);
+    assert!(usage <= 1.0, "usage={usage}");
   }
 }
