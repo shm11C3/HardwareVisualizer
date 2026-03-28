@@ -24,7 +24,6 @@ licenses.json
 *.njsproj
 *.sln
 *.sw?
-.claude
 .mcp.json
 
 # Rust files

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; echo $f | grep -qE '\\.rs$' || exit 0; cargo fmt --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings; }",
+            "timeout": 120,
+            "statusMessage": "Running cargo fmt & clippy..."
+          }
+        ]
+      }
+    ]
+  }
+}
