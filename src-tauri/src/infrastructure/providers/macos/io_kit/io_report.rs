@@ -373,7 +373,9 @@ mod tests {
   #[test]
   fn is_idle_state_classification() {
     // Idle states (OFF observed on M4; IDLE/DOWN on M2/M3 Max per macmon)
-    for name in ["OFF", "off", "IDLE", "idle", "IDLE_OFF", "DOWN", "down", "  OFF  "] {
+    for name in [
+      "OFF", "off", "IDLE", "idle", "IDLE_OFF", "DOWN", "down", "  OFF  ",
+    ] {
       assert!(is_idle_state(name), "{name:?} should be idle");
     }
     // Active P-states
