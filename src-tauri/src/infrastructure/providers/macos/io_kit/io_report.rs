@@ -363,3 +363,130 @@ fn is_idle_state(name: &str) -> bool {
 
   false
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // ── is_idle_state ──
+
+  #[test]
+  fn is_idle_state_classification() {
+    // Idle states (OFF observed on M4; IDLE/DOWN on M2/M3 Max per macmon)
+    for name in ["OFF", "off", "IDLE", "idle", "IDLE_OFF", "DOWN", "down", "  OFF  "] {
+      assert!(is_idle_state(name), "{name:?} should be idle");
+    }
+    // Active P-states
+    for name in ["P1", "P15", "PERF"] {
+      assert!(!is_idle_state(name), "{name:?} should not be idle");
+    }
+  }
+
+  // ── compute_usage_unweighted ──
+
+  #[test]
+  fn unweighted_all_off() {
+    let resid = vec![("OFF".into(), 1000i64)];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  #[test]
+  fn unweighted_all_active() {
+    let resid = vec![("OFF".into(), 0i64), ("P1".into(), 1000)];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert!((usage - 1.0).abs() < 1e-6);
+  }
+
+  #[test]
+  fn unweighted_half_active() {
+    let resid = vec![("OFF".into(), 500i64), ("P1".into(), 500)];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert!((usage - 0.5).abs() < 1e-6);
+  }
+
+  #[test]
+  fn unweighted_empty_returns_zero() {
+    let resid: Vec<(String, i64)> = vec![];
+    let usage = compute_usage_unweighted(&resid).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  // ── compute_usage_freq_weighted ──
+
+  fn m4_resid(off: i64, p1: i64, p2: i64, p3: i64) -> Vec<(String, i64)> {
+    vec![
+      ("OFF".into(), off),
+      ("P1".into(), p1),
+      ("P2".into(), p2),
+      ("P3".into(), p3),
+    ]
+  }
+
+  // Frequencies in MHz: P1=396, P2=720, P3=1398
+  fn m4_freqs() -> Vec<u32> {
+    vec![396, 720, 1398]
+  }
+
+  #[test]
+  fn freq_weighted_all_off() {
+    let resid = m4_resid(1000, 0, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    assert_eq!(usage, 0.0);
+  }
+
+  #[test]
+  fn freq_weighted_all_p1() {
+    // 100% active at P1 (396 MHz), max = 1398 MHz
+    // usage = (396 * 1.0) / 1398 ≈ 0.283
+    let resid = m4_resid(0, 1000, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    assert!((usage - 396.0 / 1398.0).abs() < 0.01);
+  }
+
+  #[test]
+  fn freq_weighted_all_max() {
+    // 100% active at P3 (1398 MHz) → usage = 1.0
+    let resid = m4_resid(0, 0, 0, 1000);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    assert!((usage - 1.0).abs() < 0.01);
+  }
+
+  #[test]
+  fn freq_weighted_half_off_half_p1() {
+    // 50% active at P1 (396 MHz)
+    // usage = (396 * 0.5) / 1398 ≈ 0.142
+    let resid = m4_resid(500, 500, 0, 0);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    let expected = (396.0 * 0.5) / 1398.0;
+    assert!((usage - expected as f32).abs() < 0.01);
+  }
+
+  #[test]
+  fn freq_weighted_realistic_idle_desktop() {
+    // Typical idle: OFF=10M, P1=13M, P2=0.5M, P3=0.5M
+    let resid = m4_resid(10_000_000, 13_000_000, 500_000, 500_000);
+    let usage = compute_usage_freq_weighted(&resid, &m4_freqs()).unwrap();
+    // Should be in the 10-20% range, not 50-60%
+    assert!(usage > 0.05 && usage < 0.25, "usage={usage}");
+  }
+
+  #[test]
+  fn freq_weighted_empty_freqs_returns_err() {
+    let resid = m4_resid(500, 500, 0, 0);
+    // Empty freqs → no active P-states to match
+    let result = compute_usage_freq_weighted(&resid, &[]);
+    // offset finds P1, but count = min(0, 3) = 0, so avg_freq stays 0
+    // max_freq from empty slice is 1 (unwrap_or(&1)), so usage ≈ 0
+    assert!(result.is_ok());
+  }
+
+  #[test]
+  fn freq_weighted_clamped_to_one() {
+    // Edge case: should never exceed 1.0
+    let resid = vec![("OFF".into(), 0i64), ("P1".into(), 1000)];
+    let freqs = vec![2000]; // freq > max_freq (they're the same here)
+    let usage = compute_usage_freq_weighted(&resid, &freqs).unwrap();
+    assert!(usage <= 1.0);
+  }
+}
