@@ -26,9 +26,10 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
     );
   }
 
-  // 3. Intel via PDH + DXGI LUID
-  if let Ok(gpus) = infrastructure::providers::directx::get_intel_gpu_luid_info().await
-    && let Some(gpu) = gpus.first()
+  // 3. Intel via PDH + DXGI LUID (cached)
+  let intel_gpus =
+    infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
+  if let Some(gpu) = intel_gpus.first()
     && let Ok(usage) =
       infrastructure::providers::pdh_provider::query_gpu_usage_by_luid_and_engine(
         gpu.luid_high,

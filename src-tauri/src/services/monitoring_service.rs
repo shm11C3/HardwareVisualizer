@@ -253,30 +253,13 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   }
 }
 
-/// Cached Intel GPU LUID information, computed once via DXGI and reused for
-/// the lifetime of the process.
-#[cfg(target_os = "windows")]
-async fn cached_intel_gpu_info()
--> &'static Vec<crate::infrastructure::providers::directx::GpuLuidInfo> {
-  static INFO: tokio::sync::OnceCell<
-    Vec<crate::infrastructure::providers::directx::GpuLuidInfo>,
-  > = tokio::sync::OnceCell::const_new();
-
-  INFO
-    .get_or_init(|| async {
-      crate::infrastructure::providers::directx::get_intel_gpu_luid_info()
-        .await
-        .unwrap_or_default()
-    })
-    .await
-}
-
 /// Collect Intel GPU usage via PDH performance counters, filtered by LUID.
 #[cfg(target_os = "windows")]
 async fn sample_intel_gpu(gpu_metrics: &mut Vec<GpuSample>) {
   use crate::infrastructure::providers::pdh_provider::{self, GpuEngineType};
 
-  let intel_gpus = cached_intel_gpu_info().await;
+  let intel_gpus =
+    crate::infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
   if intel_gpus.is_empty() {
     return;
   }

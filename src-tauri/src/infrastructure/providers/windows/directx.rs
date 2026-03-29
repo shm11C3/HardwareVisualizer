@@ -15,7 +15,8 @@ pub struct GpuLuidInfo {
 /// Get Intel GPU LUID information for matching with PDH performance counters.
 pub async fn get_intel_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
   let handle = spawn_blocking(|| {
-    let factory = Factory::new().expect("Failed to create DXGI Factory");
+    let factory =
+      Factory::new().map_err(|e| format!("Failed to create DXGI Factory: {e:?}"))?;
     let mut result = Vec::new();
 
     for adapter in factory.adapters() {
@@ -38,6 +39,17 @@ pub async fn get_intel_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
     log_error!("join_error", "get_intel_gpu_luid_info", Some(e.to_string()));
     "Intel GPU LUID info retrieval failed".to_string()
   })?
+}
+
+/// Get Intel GPU LUID information, cached for the process lifetime.
+/// Returns an empty slice if the initial query fails.
+pub async fn get_intel_gpu_luid_info_cached() -> &'static [GpuLuidInfo] {
+  static INFO: tokio::sync::OnceCell<Vec<GpuLuidInfo>> =
+    tokio::sync::OnceCell::const_new();
+
+  INFO
+    .get_or_init(|| async { get_intel_gpu_luid_info().await.unwrap_or_default() })
+    .await
 }
 
 /// Get Intel GPU information

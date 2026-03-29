@@ -329,6 +329,11 @@ fn acquire_pdh_state()
 
 /// Collect fresh PDH data if the cache has expired, populating both the
 /// global engine cache and the per-LUID cache.
+///
+/// If the cache is still within its TTL, this is a no-op even if a particular
+/// engine type or LUID is absent from the cache.  This is intentional: PDH
+/// collects *all* GPU engine counters in a single call, so re-collecting
+/// within the TTL window would produce the same result set.
 fn ensure_fresh_data(state: &mut PdhState) -> Result<(), Box<dyn Error + Send>> {
   if state.cache_time.elapsed() < CACHE_TTL {
     return Ok(());
