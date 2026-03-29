@@ -32,7 +32,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/coverage-v8": "^4.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "concurrently": "^9.2.1",
     "jsdom": "^29.0.1",
@@ -40,7 +40,7 @@
     "rollup-plugin-visualizer": "^7.0.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^6.0.2",
-    "vite": "^8.0.1",
+    "vite": "^8.0.2",
     "vitest": "^4.0.8"
   },
   "dependencies": {
@@ -76,7 +76,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^25.10.9",
-    "jotai": "^2.17.1",
+    "jotai": "^2.19.0",
     "lucide-react": "^0.577.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
