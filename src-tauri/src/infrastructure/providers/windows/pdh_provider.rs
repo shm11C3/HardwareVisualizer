@@ -163,7 +163,7 @@ fn init_pdh_state() -> Result<PdhState, Box<dyn Error + Send>> {
       buf: Vec::new(),
       cache: HashMap::new(),
       luid_cache: HashMap::new(),
-      cache_time: Instant::now(),
+      cache_time: Instant::now() - CACHE_TTL,
     })
   }
 }
@@ -248,13 +248,13 @@ fn parse_luid_from_instance(name: &str) -> Option<(i32, u32)> {
   let high_str = parts.next()?;
   let low_str = parts.next()?;
 
-  let high = i32::from_str_radix(
+  let high = u32::from_str_radix(
     high_str
       .strip_prefix("0x")
       .or(high_str.strip_prefix("0X"))?,
     16,
   )
-  .ok()?;
+  .ok()? as i32;
   let low = u32::from_str_radix(
     low_str.strip_prefix("0x").or(low_str.strip_prefix("0X"))?,
     16,
@@ -830,6 +830,19 @@ mod tests {
   fn parse_luid_nonzero_high() {
     let name = "pid_1234_luid_0x01_0x0000ABCD_phys_0_eng_0_engtype_3D";
     assert_eq!(parse_luid_from_instance(name), Some((1, 0xABCD)));
+  }
+
+  #[test]
+  fn parse_luid_high_part_negative() {
+    // HighPart >= 0x80000000 wraps to negative i32
+    let name = "pid_1234_luid_0xFFFFFFFF_0x00001234_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((-1, 0x1234)));
+  }
+
+  #[test]
+  fn parse_luid_uppercase_prefix() {
+    let name = "pid_1234_luid_0X00_0X0000C61F_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((0, 0x0000C61F)));
   }
 
   #[test]
