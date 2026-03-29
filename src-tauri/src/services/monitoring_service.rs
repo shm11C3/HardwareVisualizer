@@ -362,10 +362,10 @@ async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
 
     let (name, usage, temperature, source) = match vendor {
       drm_sys::GpuVendor::Amd => {
-        let name =
-          crate::infrastructure::providers::lspci::get_gpu_name_from_lspci_by_vendor_id(
-            "1002",
-          )
+        let name = drm_sys::get_card_bdf(card_id)
+          .and_then(|bdf| {
+            crate::infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&bdf)
+          })
           .unwrap_or_else(|| format!("AMD GPU (card{})", card_id));
         let usage = drm_sys::get_amd_gpu_usage(card_id as u32)
           .await
@@ -842,6 +842,44 @@ mod tests {
 
     let cpu_h = resources.process_cpu_histories.lock().unwrap();
     assert_eq!(cpu_h.get(&pid).unwrap().len(), HARDWARE_HISTORY_BUFFER_SIZE);
+  }
+
+  // ── resolve_gpu_name_from_map ──
+
+  // ── update_gpu_histories: multi-AMD GPU name collision regression ──
+
+  #[test]
+  fn update_gpu_histories_two_amd_gpus_separate_entries() {
+    let resources = create_test_resources();
+    let samples = vec![
+      GpuSample {
+        name: "06:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 31 [Radeon RX 7900 XTX] [1002:744c]".to_string(),
+        usage: Some(80.0),
+        temperature: Some(65.0),
+        dedicated_memory_kb: None,
+        cooler_level: None,
+        source: "DRM (AMD)".to_string(),
+      },
+      GpuSample {
+        name: "0a:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Renoir [Radeon Vega Series] [1002:1636]".to_string(),
+        usage: Some(15.0),
+        temperature: Some(45.0),
+        dedicated_memory_kb: None,
+        cooler_level: None,
+        source: "DRM (AMD)".to_string(),
+      },
+    ];
+    update_gpu_histories(&resources, &samples);
+
+    let usage = resources.gpu_usage_histories.lock().unwrap();
+    assert_eq!(
+      usage.len(),
+      2,
+      "Two AMD GPUs must have separate history entries"
+    );
+
+    let temp = resources.gpu_temperature_histories.lock().unwrap();
+    assert_eq!(temp.len(), 2);
   }
 
   // ── resolve_gpu_name_from_map ──

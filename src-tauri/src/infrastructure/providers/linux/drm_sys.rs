@@ -130,3 +130,82 @@ pub fn detect_gpu_vendor(card_id: u8) -> GpuVendor {
     Err(_) => GpuVendor::Unknown,
   }
 }
+
+/// Read the PCI BDF (bus:device.function) for a DRM card by following the
+/// `/sys/class/drm/card{N}/device` symlink.
+///
+/// Returns e.g. `"03:00.0"`.
+pub fn get_card_bdf(card_id: u8) -> Option<String> {
+  let link = fs::read_link(format!("/sys/class/drm/card{card_id}/device")).ok()?;
+  let target = link.to_string_lossy().to_string();
+  parse_bdf_from_device_link(&target)
+}
+
+/// Pure parsing function: extract the BDF portion (e.g. `"03:00.0"`) from a
+/// sysfs device symlink target like `"../../0000:03:00.0"` or an absolute path
+/// like `"/sys/devices/pci0000:00/0000:00:08.1/0000:0a:00.0"`.
+#[cfg(any(target_os = "linux", test))]
+pub fn parse_bdf_from_device_link(symlink_target: &str) -> Option<String> {
+  // PCI address format: DDDD:BB:DD.F (e.g. "0000:03:00.0")
+  // Extract the last path segment, then strip the domain prefix.
+  let segment = symlink_target.rsplit('/').next().unwrap_or(symlink_target);
+
+  // Expect "DDDD:BB:DD.F" — split on first ':' to remove domain
+  let (_, bdf) = segment.split_once(':')?;
+
+  // Validate BDF looks like "XX:XX.X"
+  if !bdf.contains(':') || !bdf.contains('.') {
+    return None;
+  }
+
+  Some(bdf.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // ── parse_bdf_from_device_link ──
+
+  #[test]
+  fn parse_bdf_standard_pci_address() {
+    assert_eq!(
+      parse_bdf_from_device_link("../../0000:03:00.0"),
+      Some("03:00.0".to_string())
+    );
+  }
+
+  #[test]
+  fn parse_bdf_different_domain() {
+    assert_eq!(
+      parse_bdf_from_device_link("../../0001:0a:00.0"),
+      Some("0a:00.0".to_string())
+    );
+  }
+
+  #[test]
+  fn parse_bdf_non_zero_function() {
+    assert_eq!(
+      parse_bdf_from_device_link("../../0000:06:00.1"),
+      Some("06:00.1".to_string())
+    );
+  }
+
+  #[test]
+  fn parse_bdf_absolute_path() {
+    assert_eq!(
+      parse_bdf_from_device_link("/sys/devices/pci0000:00/0000:00:08.1/0000:0a:00.0"),
+      Some("0a:00.0".to_string())
+    );
+  }
+
+  #[test]
+  fn parse_bdf_empty_string() {
+    assert!(parse_bdf_from_device_link("").is_none());
+  }
+
+  #[test]
+  fn parse_bdf_invalid_format() {
+    assert!(parse_bdf_from_device_link("../../invalid").is_none());
+  }
+}
