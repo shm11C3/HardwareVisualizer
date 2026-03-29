@@ -88,6 +88,10 @@ struct PdhState {
   /// concurrent queries for different engine types don't each trigger a
   /// PDH collect.
   cache: HashMap<GpuEngineType, f32>,
+  /// Per-LUID per-engine-type max utilisation (0.0–1.0) from the last
+  /// collect.  Keyed by `(luid_high, luid_low, engine_type)` so that
+  /// callers can query a specific GPU device (e.g. Intel iGPU).
+  luid_cache: HashMap<(i32, u32, GpuEngineType), f32>,
   /// When `cache` was last populated.
   cache_time: Instant,
 }
@@ -158,7 +162,8 @@ fn init_pdh_state() -> Result<PdhState, Box<dyn Error + Send>> {
       counter,
       buf: Vec::new(),
       cache: HashMap::new(),
-      cache_time: Instant::now(),
+      luid_cache: HashMap::new(),
+      cache_time: Instant::now() - CACHE_TTL,
     })
   }
 }
@@ -186,6 +191,27 @@ pub async fn query_gpu_usage_by_device_and_engine(
     })?
 }
 
+/// Query GPU engine utilization for a specific GPU identified by its LUID.
+///
+/// Returns the **maximum** utilisation percentage (as 0.0–1.0) across all
+/// instances matching the given LUID and engine type.
+pub async fn query_gpu_usage_by_luid_and_engine(
+  luid_high: i32,
+  luid_low: u32,
+  engine_type: GpuEngineType,
+) -> Result<f32, Box<dyn Error + Send>> {
+  spawn_blocking(move || collect_and_read_by_luid(luid_high, luid_low, engine_type))
+    .await
+    .map_err(|e| {
+      log_error!(
+        "join_error",
+        "pdh_provider::query_gpu_usage_by_luid_and_engine",
+        Some(e.to_string())
+      );
+      pdh_err("PDH LUID query task panicked".to_string())
+    })?
+}
+
 // ---------------------------------------------------------------------------
 // Pure helper functions (testable without PDH handles)
 // ---------------------------------------------------------------------------
@@ -208,6 +234,35 @@ fn parse_engine_type_from_instance(name: &str) -> Option<GpuEngineType> {
   GpuEngineType::from_pdh_suffix(suffix)
 }
 
+/// Extract the LUID `(HighPart, LowPart)` from a PDH instance name such as
+/// `pid_1234_luid_0x00_0x0000C61F_phys_0_eng_0_engtype_3D`.
+///
+/// The LUID is encoded as two hex values: `luid_0x<high>_0x<low>`.
+fn parse_luid_from_instance(name: &str) -> Option<(i32, u32)> {
+  let luid_tag = "luid_";
+  let pos = name.find(luid_tag)?;
+  let after = &name[pos + luid_tag.len()..];
+
+  // Split remaining by '_' and take the two hex parts: "0xHH" and "0xLL"
+  let mut parts = after.split('_');
+  let high_str = parts.next()?;
+  let low_str = parts.next()?;
+
+  let high = u32::from_str_radix(
+    high_str
+      .strip_prefix("0x")
+      .or(high_str.strip_prefix("0X"))?,
+    16,
+  )
+  .ok()? as i32;
+  let low = u32::from_str_radix(
+    low_str.strip_prefix("0x").or(low_str.strip_prefix("0X"))?,
+    16,
+  )
+  .ok()?;
+  Some((high, low))
+}
+
 /// Aggregate a slice of `(engine_type, raw_percentage)` pairs into `cache`.
 ///
 /// For each engine type the **maximum** raw value is kept, normalised from
@@ -227,17 +282,36 @@ fn aggregate_engine_usage(
   }
 }
 
+/// Aggregate a slice of `(luid, engine_type, raw_percentage)` triples into
+/// `luid_cache`.  For each `(luid, engine_type)` pair the **maximum** raw
+/// value is kept, normalised from the 0–100 PDH range to 0.0–1.0.
+fn aggregate_engine_usage_per_luid(
+  luid_cache: &mut HashMap<(i32, u32, GpuEngineType), f32>,
+  entries: &[((i32, u32), GpuEngineType, f64)],
+) {
+  luid_cache.clear();
+  for &((high, low), etype, raw) in entries {
+    let value = (raw as f32 / 100.0).clamp(0.0, 1.0);
+    let entry = luid_cache.entry((high, low, etype)).or_insert(0.0f32);
+    if value > *entry {
+      *entry = value;
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Core collection logic (runs inside `spawn_blocking`)
 // ---------------------------------------------------------------------------
 
-fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + Send>> {
+/// Acquire the global PDH state, returning a locked guard.
+fn acquire_pdh_state()
+-> Result<std::sync::MutexGuard<'static, PdhState>, Box<dyn Error + Send>> {
   let init_result = PDH_STATE.get_or_init(|| match init_pdh_state() {
     Ok(state) => Ok(Mutex::new(state)),
     Err(e) => {
       log_error!(
         "init_error",
-        "pdh_provider::collect_and_read",
+        "pdh_provider::acquire_pdh_state",
         Some(e.to_string())
       );
       Err(e.to_string())
@@ -248,17 +322,21 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
     .as_ref()
     .map_err(|e| pdh_err(format!("PDH init failed: {e}")))?;
 
-  let mut guard = mtx
+  mtx
     .lock()
-    .map_err(|e| pdh_err(format!("PDH_STATE lock poisoned: {e}")))?;
+    .map_err(|e| pdh_err(format!("PDH_STATE lock poisoned: {e}")))
+}
 
-  let state = &mut *guard;
-
-  // Return cached value if the last collect is recent enough.
-  if state.cache_time.elapsed() < CACHE_TTL
-    && let Some(&v) = state.cache.get(&engine_type)
-  {
-    return Ok(v);
+/// Collect fresh PDH data if the cache has expired, populating both the
+/// global engine cache and the per-LUID cache.
+///
+/// If the cache is still within its TTL, this is a no-op even if a particular
+/// engine type or LUID is absent from the cache.  This is intentional: PDH
+/// collects *all* GPU engine counters in a single call, so re-collecting
+/// within the TTL window would produce the same result set.
+fn ensure_fresh_data(state: &mut PdhState) -> Result<(), Box<dyn Error + Send>> {
+  if state.cache_time.elapsed() < CACHE_TTL {
+    return Ok(());
   }
 
   unsafe {
@@ -308,13 +386,14 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
       )));
     }
 
-    // --- walk all instances, build per-engine-type cache ---
+    // --- walk all instances, build caches ---
     let items = std::slice::from_raw_parts(
       state.buf.as_ptr().cast::<PDH_FMT_COUNTERVALUE_ITEM_W>(),
       item_count as usize,
     );
 
-    let mut valid_entries: Vec<(GpuEngineType, f64)> = Vec::new();
+    let mut global_entries: Vec<(GpuEngineType, f64)> = Vec::new();
+    let mut luid_entries: Vec<((i32, u32), GpuEngineType, f64)> = Vec::new();
     for item in items {
       let cstatus = item.FmtValue.CStatus;
       if cstatus != PDH_CSTATUS_VALID_DATA && cstatus != PDH_CSTATUS_NEW_DATA {
@@ -326,13 +405,26 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
       }
       let name = pwstr_to_string(item.szName.0);
       if let Some(etype) = parse_engine_type_from_instance(&name) {
-        valid_entries.push((etype, raw));
+        global_entries.push((etype, raw));
+        if let Some(luid) = parse_luid_from_instance(&name) {
+          luid_entries.push((luid, etype, raw));
+        }
       }
     }
-    aggregate_engine_usage(&mut state.cache, &valid_entries);
+    aggregate_engine_usage(&mut state.cache, &global_entries);
+    aggregate_engine_usage_per_luid(&mut state.luid_cache, &luid_entries);
 
     state.cache_time = Instant::now();
   }
+
+  Ok(())
+}
+
+fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + Send>> {
+  let mut guard = acquire_pdh_state()?;
+  let state = &mut *guard;
+
+  ensure_fresh_data(state)?;
 
   let suffix = engine_type.as_pdh_suffix();
   match state.cache.get(&engine_type) {
@@ -346,6 +438,26 @@ fn collect_and_read(engine_type: GpuEngineType) -> Result<f32, Box<dyn Error + S
     }
     None => Err(pdh_err(format!(
       "No PDH GPU engine data for engtype_{suffix}"
+    ))),
+  }
+}
+
+fn collect_and_read_by_luid(
+  luid_high: i32,
+  luid_low: u32,
+  engine_type: GpuEngineType,
+) -> Result<f32, Box<dyn Error + Send>> {
+  let mut guard = acquire_pdh_state()?;
+  let state = &mut *guard;
+
+  ensure_fresh_data(state)?;
+
+  let key = (luid_high, luid_low, engine_type);
+  match state.luid_cache.get(&key) {
+    Some(&v) => Ok(v),
+    None => Err(pdh_err(format!(
+      "No PDH GPU engine data for LUID 0x{luid_high:02X}_0x{luid_low:08X} engtype_{suffix}",
+      suffix = engine_type.as_pdh_suffix()
     ))),
   }
 }
@@ -696,5 +808,110 @@ mod tests {
     assert!(!cache.contains_key(&GpuEngineType::Graphics3D));
     assert!(!cache.contains_key(&GpuEngineType::Copy));
     assert_eq!(cache.get(&GpuEngineType::VideoDecode), Some(&0.4));
+  }
+
+  // -----------------------------------------------------------------------
+  // parse_luid_from_instance
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn parse_luid_standard() {
+    let name = "pid_1234_luid_0x00_0x0000C61F_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((0, 0x0000C61F)));
+  }
+
+  #[test]
+  fn parse_luid_zero() {
+    let name = "pid_1234_luid_0x00_0x0000_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((0, 0)));
+  }
+
+  #[test]
+  fn parse_luid_nonzero_high() {
+    let name = "pid_1234_luid_0x01_0x0000ABCD_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((1, 0xABCD)));
+  }
+
+  #[test]
+  fn parse_luid_high_part_negative() {
+    // HighPart >= 0x80000000 wraps to negative i32
+    let name = "pid_1234_luid_0xFFFFFFFF_0x00001234_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((-1, 0x1234)));
+  }
+
+  #[test]
+  fn parse_luid_uppercase_prefix() {
+    let name = "pid_1234_luid_0X00_0X0000C61F_phys_0_eng_0_engtype_3D";
+    assert_eq!(parse_luid_from_instance(name), Some((0, 0x0000C61F)));
+  }
+
+  #[test]
+  fn parse_luid_no_tag() {
+    assert_eq!(parse_luid_from_instance("pid_1234_phys_0_eng_0"), None);
+  }
+
+  #[test]
+  fn parse_luid_empty() {
+    assert_eq!(parse_luid_from_instance(""), None);
+  }
+
+  #[test]
+  fn parse_luid_truncated() {
+    // Only one hex part after luid_
+    assert_eq!(parse_luid_from_instance("luid_0x00"), None);
+  }
+
+  // -----------------------------------------------------------------------
+  // aggregate_engine_usage_per_luid
+  // -----------------------------------------------------------------------
+
+  #[test]
+  fn aggregate_per_luid_empty() {
+    let mut cache = HashMap::new();
+    aggregate_engine_usage_per_luid(&mut cache, &[]);
+    assert!(cache.is_empty());
+  }
+
+  #[test]
+  fn aggregate_per_luid_single() {
+    let mut cache = HashMap::new();
+    let entries = [((0i32, 0xC61Fu32), GpuEngineType::Graphics3D, 50.0)];
+    aggregate_engine_usage_per_luid(&mut cache, &entries);
+    assert_eq!(
+      cache.get(&(0, 0xC61F, GpuEngineType::Graphics3D)),
+      Some(&0.5)
+    );
+  }
+
+  #[test]
+  fn aggregate_per_luid_different_gpus() {
+    let mut cache = HashMap::new();
+    let entries = [
+      ((0, 0xAAAA), GpuEngineType::Graphics3D, 60.0),
+      ((0, 0xBBBB), GpuEngineType::Graphics3D, 30.0),
+    ];
+    aggregate_engine_usage_per_luid(&mut cache, &entries);
+    assert_eq!(
+      cache.get(&(0, 0xAAAA, GpuEngineType::Graphics3D)),
+      Some(&0.6)
+    );
+    assert_eq!(
+      cache.get(&(0, 0xBBBB, GpuEngineType::Graphics3D)),
+      Some(&0.3)
+    );
+  }
+
+  #[test]
+  fn aggregate_per_luid_same_gpu_keeps_max() {
+    let mut cache = HashMap::new();
+    let entries = [
+      ((0, 0xAAAA), GpuEngineType::Graphics3D, 20.0),
+      ((0, 0xAAAA), GpuEngineType::Graphics3D, 80.0),
+    ];
+    aggregate_engine_usage_per_luid(&mut cache, &entries);
+    assert_eq!(
+      cache.get(&(0, 0xAAAA, GpuEngineType::Graphics3D)),
+      Some(&0.8)
+    );
   }
 }

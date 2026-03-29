@@ -134,6 +134,9 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
     sample_amd_gpu(&mut gpu_metrics).await;
   }
 
+  // ── Intel GPUs via PDH + DXGI ──
+  sample_intel_gpu(&mut gpu_metrics).await;
+
   if !gpu_metrics.is_empty() {
     update_gpu_histories(resources, &gpu_metrics);
   }
@@ -246,6 +249,38 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
       dedicated_memory_kb: None,
       cooler_level: None,
       source: "ADL".to_string(),
+    });
+  }
+}
+
+/// Collect Intel GPU usage via PDH performance counters, filtered by LUID.
+#[cfg(target_os = "windows")]
+async fn sample_intel_gpu(gpu_metrics: &mut Vec<GpuSample>) {
+  use crate::infrastructure::providers::pdh_provider::{self, GpuEngineType};
+
+  let intel_gpus =
+    crate::infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
+  if intel_gpus.is_empty() {
+    return;
+  }
+
+  for gpu in intel_gpus {
+    let usage = pdh_provider::query_gpu_usage_by_luid_and_engine(
+      gpu.luid_high,
+      gpu.luid_low,
+      GpuEngineType::Graphics3D,
+    )
+    .await
+    .ok()
+    .map(|v| (v * 100.0).round());
+
+    gpu_metrics.push(GpuSample {
+      name: gpu.name.clone(),
+      usage,
+      temperature: None,
+      dedicated_memory_kb: None,
+      cooler_level: None,
+      source: "PDH".to_string(),
     });
   }
 }
