@@ -66,11 +66,11 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
 async fn get_amd_graphic_info(
   card_id: u8,
 ) -> Result<models::hardware::GraphicInfo, String> {
-  const VENDOR_ID: &str = "1002";
-
-  let name =
-    infrastructure::providers::lspci::get_gpu_name_from_lspci_by_vendor_id(VENDOR_ID)
-      .unwrap_or_else(|| "Unknown AMD GPU".to_string());
+  let name = infrastructure::providers::drm_sys::get_card_bdf(card_id)
+    .and_then(|bdf| {
+      infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&bdf)
+    })
+    .unwrap_or_else(|| format!("AMD GPU (card{})", card_id));
 
   let clock = infrastructure::providers::kernel::read_pm_info_sclk(card_id).unwrap_or(0);
   let memory_total =
