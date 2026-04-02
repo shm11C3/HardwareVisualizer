@@ -1,0 +1,87 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+reason = "rsa is an optional dep of sqlx-mysql, not compiled (Cargo.lock v4 lists unactivated optional deps)"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2022-0004"
+reason = "rustc-serialize is a transitive dep of dxgi (Windows-only); no external JSON input reaches this code path"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0413"
+reason = "atk (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0416"
+reason = "atk-sys (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0057"
+reason = "fxhash - unmaintained; transitive dep of Tauri runtime, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0412"
+reason = "gdk (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0418"
+reason = "gdk-sys (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0411"
+reason = "gdkwayland-sys (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0417"
+reason = "gdkx11 (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0414"
+reason = "gdkx11-sys (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0415"
+reason = "gtk (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0420"
+reason = "gtk-sys (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0419"
+reason = "gtk3-macros (GTK3 binding) - unmaintained; pulled by Tauri runtime for Linux, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste - unmaintained; compile-time proc-macro only, no runtime security risk; dep of specta/tauri-specta"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+reason = "proc-macro-error - unmaintained; compile-time proc-macro only, no runtime security risk"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0025"
+reason = "rustc-serialize - unmaintained; transitive dep of dxgi (Windows-only), no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0081"
+reason = "unic-char-property - unmaintained; transitive dep of Tauri runtime, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0075"
+reason = "unic-char-range - unmaintained; transitive dep of Tauri runtime, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0080"
+reason = "unic-common - unmaintained; transitive dep of Tauri runtime, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0100"
+reason = "unic-ucd-ident - unmaintained; transitive dep of Tauri runtime, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0098"
+reason = "unic-ucd-version - unmaintained; transitive dep of Tauri runtime, no fix available upstream"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+reason = "glib VariantStrIter unsoundness - pulled by Tauri runtime for Linux GTK3; not used directly in this project"
