@@ -5,10 +5,10 @@ on:
     - cron: "0 18 * * *" # Daily at 03:00 JST (18:00 UTC)
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   perf-test:
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:

@@ -8,9 +8,7 @@ on:
     # Every Monday 09:15 JST (00:15 UTC)
     - cron: "15 0 * * 1"
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: read-all
 
 concurrency:
   group: auto-update-npm
@@ -19,6 +17,9 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/create-github-app-token@v3

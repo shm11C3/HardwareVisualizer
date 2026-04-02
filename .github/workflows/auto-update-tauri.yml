@@ -6,9 +6,7 @@ on:
     # Every Wednesday 09:00 JST (00:00 UTC)
     - cron: "0 0 * * 3"
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: read-all
 
 concurrency:
   group: auto-update-tauri
@@ -17,6 +15,9 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/create-github-app-token@v3
