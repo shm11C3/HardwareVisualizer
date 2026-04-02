@@ -17,9 +17,6 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - uses: actions/create-github-app-token@v3
