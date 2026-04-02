@@ -6,13 +6,13 @@ on:
     branches:
       - develop
 
+permissions: read-all
+
 jobs:
   #
   # Checks to see what changed
   #
   change-detection:
-    permissions:
-      contents: read
     runs-on: ubuntu-slim
     outputs:
       is-push: ${{ steps.meta.outputs.is_push }}
@@ -68,8 +68,6 @@ jobs:
   lint-actions:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.actions-changed == 'true'
-    permissions:
-      contents: read
     runs-on: ubuntu-slim
     steps:
       - name: Checkout repository
@@ -90,8 +88,6 @@ jobs:
   lint-backend:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -185,8 +181,6 @@ jobs:
     # When updating npm packages related to tauri, build errors may occur.
     # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -282,8 +276,6 @@ jobs:
   lint-frontend:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
-    permissions:
-      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -326,8 +318,6 @@ jobs:
   build-frontend:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
-    permissions:
-      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -345,8 +335,6 @@ jobs:
   license-check-npm:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
-    permissions:
-      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -367,8 +355,6 @@ jobs:
   license-check-cargo:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -400,8 +386,6 @@ jobs:
   merge-gate:
     name: Merge Gate
     if: ${{ always() }}
-    permissions:
-      contents: read
     runs-on: ubuntu-slim
 
     needs:
