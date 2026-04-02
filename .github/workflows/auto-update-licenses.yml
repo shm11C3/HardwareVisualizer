@@ -5,10 +5,10 @@ on:
     - cron: "0 3 * * 5"
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   generate-licenses:
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -51,9 +51,6 @@ jobs:
 
   merge-and-create-pr:
     needs: generate-licenses
-    permissions:
-      contents: write
-      pull-requests: write
     runs-on: ubuntu-latest
 
     steps:
