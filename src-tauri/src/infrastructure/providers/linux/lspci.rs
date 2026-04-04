@@ -1,7 +1,5 @@
-/// Look up a GPU name from `lspci -nn` output by PCI BDF (bus:device.function).
-///
-/// Returns the full lspci line for the VGA/Display controller at the given slot.
-pub fn get_gpu_name_from_lspci_by_bdf(bdf: &str) -> Option<String> {
+/// Run `lspci -nn` and return the raw stdout.
+pub fn get_lspci_nn_output() -> Option<String> {
   use std::process::Command;
 
   let output = Command::new("lspci").arg("-nn").output().ok()?;
@@ -10,7 +8,16 @@ pub fn get_gpu_name_from_lspci_by_bdf(bdf: &str) -> Option<String> {
     return None;
   }
 
-  let stdout = String::from_utf8_lossy(&output.stdout);
+  Some(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Look up a GPU name from `lspci -nn` output by PCI BDF (bus:device.function).
+///
+/// Returns the full lspci line for the VGA/Display controller at the given slot.
+/// Note: forks `lspci` on each call. For hot loops, prefer calling
+/// [`get_lspci_nn_output`] once and then [`parse_gpu_name_by_bdf`] per card.
+pub fn get_gpu_name_from_lspci_by_bdf(bdf: &str) -> Option<String> {
+  let stdout = get_lspci_nn_output()?;
   parse_gpu_name_by_bdf(&stdout, bdf)
 }
 
