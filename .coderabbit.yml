@@ -1,0 +1,10 @@
+reviews:
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "develop"
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "github-actions[bot]"
+      - hardwarevisualizerappmanager[bot]
