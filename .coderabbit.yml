@@ -8,3 +8,5 @@ reviews:
       - "dependabot[bot]"
       - "github-actions[bot]"
       - hardwarevisualizerappmanager[bot]
+
+  request_changes_workflow: true
