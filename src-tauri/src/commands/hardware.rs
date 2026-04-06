@@ -185,11 +185,12 @@ pub fn get_memory_usage_history(
 #[specta::specta]
 pub fn get_gpu_usage_history(
   state: tauri::State<'_, HardwareMonitorState>,
+  gpu_id: String,
   seconds: u32,
 ) -> Vec<f32> {
   use crate::services::monitoring_service;
 
-  monitoring_service::gpu_usage_history(&state, seconds)
+  monitoring_service::gpu_usage_history(&state, &gpu_id, seconds)
 }
 
 ///

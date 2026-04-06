@@ -5,28 +5,33 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use sysinfo;
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuMonitorData {
+  pub gpu_id: String,
+  pub gpu_name: String,
+  pub gpu_usage: Option<f32>,
+  pub gpu_temperature: Option<f32>,
+  pub gpu_source: String,
+  pub gpu_dedicated_memory_usage_kb: Option<f32>,
+  pub gpu_cooler_level: Option<u32>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
 #[serde(rename_all = "camelCase")]
 pub struct HardwareMonitorUpdate {
   pub cpu_usage: f32,
   pub memory_usage: f32,
-  pub gpu_usage: Option<f32>,
-  pub gpu_name: Option<String>,
-  pub gpu_temperature: Option<f32>,
-  pub gpu_source: Option<String>,
+  pub gpus: Vec<GpuMonitorData>,
   pub processors_usage: Vec<f32>,
-  pub gpu_dedicated_memory_usage_kb: Option<f32>,
-  pub gpu_cooler_level: Option<u32>,
 }
 
 pub struct HardwareMonitorState {
   pub system: Arc<Mutex<sysinfo::System>>,
   pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
   pub memory_history: Arc<Mutex<VecDeque<f32>>>,
-  pub gpu_history: Arc<Mutex<VecDeque<f32>>>,
   pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
   pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  #[allow(dead_code)]
   pub gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   #[allow(dead_code)]
   pub gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
@@ -177,6 +182,117 @@ mod tests {
       cpu_usage: cpu,
       memory_usage: mem,
     }
+  }
+
+  fn make_gpu_monitor_data(gpu_id: &str, name: &str) -> GpuMonitorData {
+    GpuMonitorData {
+      gpu_id: gpu_id.to_string(),
+      gpu_name: name.to_string(),
+      gpu_usage: Some(75.0),
+      gpu_temperature: Some(65.0),
+      gpu_source: "NVAPI".to_string(),
+      gpu_dedicated_memory_usage_kb: Some(4096.0),
+      gpu_cooler_level: Some(60),
+    }
+  }
+
+  // ── GpuMonitorData serialization ──
+
+  #[test]
+  fn gpu_monitor_data_serialization_camel_case() {
+    let data = make_gpu_monitor_data("pci:0:2.0", "RTX 4090");
+    let json = serde_json::to_value(&data).unwrap();
+    assert!(json.get("gpuId").is_some());
+    assert!(json.get("gpuName").is_some());
+    assert!(json.get("gpuUsage").is_some());
+    assert!(json.get("gpuTemperature").is_some());
+    assert!(json.get("gpuSource").is_some());
+    assert!(json.get("gpuDedicatedMemoryUsageKb").is_some());
+    assert!(json.get("gpuCoolerLevel").is_some());
+  }
+
+  #[test]
+  fn gpu_monitor_data_with_all_fields() {
+    let data = make_gpu_monitor_data("pci:0:2.0", "RTX 4090");
+    let json = serde_json::to_value(&data).unwrap();
+    assert_eq!(json["gpuId"], "pci:0:2.0");
+    assert_eq!(json["gpuName"], "RTX 4090");
+    assert_eq!(json["gpuUsage"], 75.0);
+    assert_eq!(json["gpuTemperature"], 65.0);
+    assert_eq!(json["gpuSource"], "NVAPI");
+    assert_eq!(json["gpuDedicatedMemoryUsageKb"], 4096.0);
+    assert_eq!(json["gpuCoolerLevel"], 60);
+  }
+
+  #[test]
+  fn gpu_monitor_data_with_none_optionals() {
+    let data = GpuMonitorData {
+      gpu_id: "gpu:0".to_string(),
+      gpu_name: "Intel GPU".to_string(),
+      gpu_usage: None,
+      gpu_temperature: None,
+      gpu_source: "PDH".to_string(),
+      gpu_dedicated_memory_usage_kb: None,
+      gpu_cooler_level: None,
+    };
+    let json = serde_json::to_value(&data).unwrap();
+    assert!(json["gpuUsage"].is_null());
+    assert!(json["gpuTemperature"].is_null());
+    assert!(json["gpuDedicatedMemoryUsageKb"].is_null());
+    assert!(json["gpuCoolerLevel"].is_null());
+  }
+
+  #[test]
+  fn gpu_monitor_data_clone() {
+    let data = make_gpu_monitor_data("gpu:0", "GPU");
+    let cloned = data.clone();
+    assert_eq!(cloned.gpu_id, data.gpu_id);
+    assert_eq!(cloned.gpu_name, data.gpu_name);
+  }
+
+  // ── HardwareMonitorUpdate serialization ──
+
+  #[test]
+  fn hardware_monitor_update_empty_gpus() {
+    let update = HardwareMonitorUpdate {
+      cpu_usage: 50.0,
+      memory_usage: 60.0,
+      gpus: vec![],
+      processors_usage: vec![25.0, 75.0],
+    };
+    let json = serde_json::to_value(&update).unwrap();
+    assert_eq!(json["gpus"].as_array().unwrap().len(), 0);
+  }
+
+  #[test]
+  fn hardware_monitor_update_single_gpu() {
+    let update = HardwareMonitorUpdate {
+      cpu_usage: 50.0,
+      memory_usage: 60.0,
+      gpus: vec![make_gpu_monitor_data("gpu:0", "RTX 4090")],
+      processors_usage: vec![],
+    };
+    let json = serde_json::to_value(&update).unwrap();
+    assert_eq!(json["gpus"].as_array().unwrap().len(), 1);
+    assert_eq!(json["gpus"][0]["gpuName"], "RTX 4090");
+  }
+
+  #[test]
+  fn hardware_monitor_update_multiple_gpus() {
+    let update = HardwareMonitorUpdate {
+      cpu_usage: 50.0,
+      memory_usage: 60.0,
+      gpus: vec![
+        make_gpu_monitor_data("pci:0:2.0", "RTX 4090"),
+        make_gpu_monitor_data("pci:0:3.0", "RX 7900 XTX"),
+      ],
+      processors_usage: vec![],
+    };
+    let json = serde_json::to_value(&update).unwrap();
+    let gpus = json["gpus"].as_array().unwrap();
+    assert_eq!(gpus.len(), 2);
+    assert_eq!(gpus[0]["gpuId"], "pci:0:2.0");
+    assert_eq!(gpus[1]["gpuId"], "pci:0:3.0");
   }
 
   // ── serialize_usage via ProcessInfo JSON serialization ──

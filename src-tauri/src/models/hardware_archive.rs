@@ -14,6 +14,8 @@ pub struct MonitorResources {
   pub gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   pub gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
   pub gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  /// Maps gpu_id → gpu_name for archive persistence
+  pub gpu_name_map: Arc<Mutex<HashMap<String, String>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
@@ -43,6 +45,7 @@ pub struct HardwareData {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GpuData {
+  pub gpu_id: Option<String>,
   pub gpu_name: String,
   pub usage_avg: Option<f32>,
   pub usage_max: Option<f32>,

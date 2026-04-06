@@ -30,6 +30,7 @@ struct GpuMetricsCollector<'a> {
   usage_histories: &'a Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
   temperature_histories: &'a Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
   memory_histories: &'a Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  name_map: &'a Arc<Mutex<HashMap<String, String>>>,
 }
 
 /// Process statistics collector and ranker
@@ -75,6 +76,7 @@ impl ArchiveService {
       &resources.gpu_usage_histories,
       &resources.gpu_temperature_histories,
       &resources.gpu_dedicated_memory_histories,
+      &resources.gpu_name_map,
     )
     .collect_all();
     let process_stats = ProcessStatsCollector::new(
@@ -202,23 +204,25 @@ impl<'a> GpuMetricsCollector<'a> {
     usage_histories: &'a Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
     temperature_histories: &'a Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
     memory_histories: &'a Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+    name_map: &'a Arc<Mutex<HashMap<String, String>>>,
   ) -> Self {
     Self {
       usage_histories,
       temperature_histories,
       memory_histories,
+      name_map,
     }
   }
 
   fn collect_all(&self) -> Vec<models::hardware_archive::GpuData> {
     self
-      .get_gpu_names()
+      .get_gpu_ids()
       .into_iter()
-      .map(|name| self.collect_single_gpu_metrics(&name))
+      .map(|gpu_id| self.collect_single_gpu_metrics(&gpu_id))
       .collect()
   }
 
-  fn get_gpu_names(&self) -> Vec<String> {
+  fn get_gpu_ids(&self) -> Vec<String> {
     self
       .usage_histories
       .lock()
@@ -230,14 +234,23 @@ impl<'a> GpuMetricsCollector<'a> {
 
   fn collect_single_gpu_metrics(
     &self,
-    gpu_name: &str,
+    gpu_id: &str,
   ) -> models::hardware_archive::GpuData {
-    let usage_stats = self.calculate_usage_stats(gpu_name);
-    let temperature_stats = self.calculate_temperature_stats(gpu_name);
-    let memory_stats = self.calculate_memory_stats(gpu_name);
+    let usage_stats = self.calculate_usage_stats(gpu_id);
+    let temperature_stats = self.calculate_temperature_stats(gpu_id);
+    let memory_stats = self.calculate_memory_stats(gpu_id);
+
+    let gpu_name = self
+      .name_map
+      .lock()
+      .unwrap()
+      .get(gpu_id)
+      .cloned()
+      .unwrap_or_else(|| gpu_id.to_string());
 
     models::hardware_archive::GpuData {
-      gpu_name: gpu_name.to_string(),
+      gpu_id: Some(gpu_id.to_string()),
+      gpu_name,
       usage_avg: usage_stats.0,
       usage_max: usage_stats.1,
       usage_min: usage_stats.2,
@@ -252,25 +265,25 @@ impl<'a> GpuMetricsCollector<'a> {
 
   fn calculate_usage_stats(
     &self,
-    gpu_name: &str,
+    gpu_id: &str,
   ) -> (Option<f32>, Option<f32>, Option<f32>) {
-    let values = self.get_f32_history_for_gpu(self.usage_histories, gpu_name);
+    let values = self.get_f32_history_for_gpu(self.usage_histories, gpu_id);
     StatsCalculator::compute_f32_aggregates(&values)
   }
 
   fn calculate_temperature_stats(
     &self,
-    gpu_name: &str,
+    gpu_id: &str,
   ) -> (Option<f32>, Option<i32>, Option<i32>) {
-    let values = self.get_i32_history_for_gpu(self.temperature_histories, gpu_name);
+    let values = self.get_i32_history_for_gpu(self.temperature_histories, gpu_id);
     StatsCalculator::compute_i32_aggregates(&values)
   }
 
   fn calculate_memory_stats(
     &self,
-    gpu_name: &str,
+    gpu_id: &str,
   ) -> (Option<i32>, Option<i32>, Option<i32>) {
-    let values = self.get_i32_history_for_gpu(self.memory_histories, gpu_name);
+    let values = self.get_i32_history_for_gpu(self.memory_histories, gpu_id);
     let (avg_f32, max, min) = StatsCalculator::compute_i32_aggregates(&values);
     (avg_f32.map(|v| v as i32), max, min)
   }
@@ -278,12 +291,12 @@ impl<'a> GpuMetricsCollector<'a> {
   fn get_f32_history_for_gpu(
     &self,
     histories: &Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-    gpu_name: &str,
+    gpu_id: &str,
   ) -> Vec<f32> {
     histories
       .lock()
       .unwrap()
-      .get(gpu_name)
+      .get(gpu_id)
       .map(|v| v.iter().cloned().collect())
       .unwrap_or_default()
   }
@@ -291,12 +304,12 @@ impl<'a> GpuMetricsCollector<'a> {
   fn get_i32_history_for_gpu(
     &self,
     histories: &Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-    gpu_name: &str,
+    gpu_id: &str,
   ) -> Vec<i32> {
     histories
       .lock()
       .unwrap()
-      .get(gpu_name)
+      .get(gpu_id)
       .map(|v| v.iter().cloned().collect())
       .unwrap_or_default()
   }
@@ -818,27 +831,32 @@ mod tests {
     let usage = Arc::new(Mutex::new(HashMap::new()));
     let temp = Arc::new(Mutex::new(HashMap::new()));
     let mem = Arc::new(Mutex::new(HashMap::new()));
-    let collector = GpuMetricsCollector::new(&usage, &temp, &mem);
+    let names = Arc::new(Mutex::new(HashMap::new()));
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem, &names);
     assert!(collector.collect_all().is_empty());
   }
 
   #[test]
   fn gpu_metrics_collector_single_gpu() {
     let mut usage_map: HashMap<String, VecDeque<f32>> = HashMap::new();
-    usage_map.insert("TestGPU".to_string(), VecDeque::from([50.0, 60.0]));
+    usage_map.insert("gpu:0".to_string(), VecDeque::from([50.0, 60.0]));
     let mut temp_map: HashMap<String, VecDeque<i32>> = HashMap::new();
-    temp_map.insert("TestGPU".to_string(), VecDeque::from([70, 80]));
+    temp_map.insert("gpu:0".to_string(), VecDeque::from([70, 80]));
     let mut mem_map: HashMap<String, VecDeque<i32>> = HashMap::new();
-    mem_map.insert("TestGPU".to_string(), VecDeque::from([1000, 2000]));
+    mem_map.insert("gpu:0".to_string(), VecDeque::from([1000, 2000]));
+    let mut name_map: HashMap<String, String> = HashMap::new();
+    name_map.insert("gpu:0".to_string(), "TestGPU".to_string());
 
     let usage = Arc::new(Mutex::new(usage_map));
     let temp = Arc::new(Mutex::new(temp_map));
     let mem = Arc::new(Mutex::new(mem_map));
-    let collector = GpuMetricsCollector::new(&usage, &temp, &mem);
+    let names = Arc::new(Mutex::new(name_map));
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem, &names);
     let result = collector.collect_all();
 
     assert_eq!(result.len(), 1);
     let gpu = &result[0];
+    assert_eq!(gpu.gpu_id, Some("gpu:0".to_string()));
     assert_eq!(gpu.gpu_name, "TestGPU");
     assert_eq!(gpu.usage_avg, Some(55.0));
     assert_eq!(gpu.usage_max, Some(60.0));
@@ -854,21 +872,47 @@ mod tests {
   #[test]
   fn gpu_metrics_collector_multiple_gpus() {
     let mut usage_map: HashMap<String, VecDeque<f32>> = HashMap::new();
-    usage_map.insert("GPU_A".to_string(), VecDeque::from([10.0]));
-    usage_map.insert("GPU_B".to_string(), VecDeque::from([90.0]));
+    usage_map.insert("pci:0:2.0".to_string(), VecDeque::from([10.0]));
+    usage_map.insert("pci:0:3.0".to_string(), VecDeque::from([90.0]));
     let temp_map: HashMap<String, VecDeque<i32>> = HashMap::new();
     let mem_map: HashMap<String, VecDeque<i32>> = HashMap::new();
+    let mut name_map: HashMap<String, String> = HashMap::new();
+    name_map.insert("pci:0:2.0".to_string(), "GPU_A".to_string());
+    name_map.insert("pci:0:3.0".to_string(), "GPU_B".to_string());
 
     let usage = Arc::new(Mutex::new(usage_map));
     let temp = Arc::new(Mutex::new(temp_map));
     let mem = Arc::new(Mutex::new(mem_map));
-    let collector = GpuMetricsCollector::new(&usage, &temp, &mem);
+    let names = Arc::new(Mutex::new(name_map));
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem, &names);
     let result = collector.collect_all();
 
     assert_eq!(result.len(), 2);
-    let names: HashSet<&str> = result.iter().map(|g| g.gpu_name.as_str()).collect();
-    assert!(names.contains("GPU_A"));
-    assert!(names.contains("GPU_B"));
+    let gpu_names: HashSet<&str> = result.iter().map(|g| g.gpu_name.as_str()).collect();
+    assert!(gpu_names.contains("GPU_A"));
+    assert!(gpu_names.contains("GPU_B"));
+    let gpu_ids: HashSet<&str> = result
+      .iter()
+      .map(|g| g.gpu_id.as_deref().unwrap())
+      .collect();
+    assert!(gpu_ids.contains("pci:0:2.0"));
+    assert!(gpu_ids.contains("pci:0:3.0"));
+  }
+
+  #[test]
+  fn gpu_metrics_collector_name_map_fallback() {
+    let mut usage_map: HashMap<String, VecDeque<f32>> = HashMap::new();
+    usage_map.insert("unknown:0".to_string(), VecDeque::from([50.0]));
+
+    let usage = Arc::new(Mutex::new(usage_map));
+    let temp = Arc::new(Mutex::new(HashMap::new()));
+    let mem = Arc::new(Mutex::new(HashMap::new()));
+    let names = Arc::new(Mutex::new(HashMap::new())); // empty name map
+    let collector = GpuMetricsCollector::new(&usage, &temp, &mem, &names);
+    let result = collector.collect_all();
+
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].gpu_name, "unknown:0"); // falls back to gpu_id
   }
 
   // ── StatsCalculator::calculate_hardware_stats (integration with Arc<Mutex<VecDeque>>) ──
