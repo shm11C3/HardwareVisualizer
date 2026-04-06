@@ -357,18 +357,26 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
 async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
   use crate::infrastructure::providers::drm_sys;
   use crate::infrastructure::providers::hwmon;
+  use crate::infrastructure::providers::lspci;
 
   let mut metrics: Vec<GpuSample> = Vec::new();
   let card_ids = drm_sys::get_all_card_ids();
+
+  // Lazily fetched on first AMD card (avoids forking lspci on Intel-only systems
+  // while still fetching only once when multiple AMD cards are present)
+  let mut lspci_output: Option<Option<String>> = None;
 
   for card_id in card_ids {
     let vendor = drm_sys::detect_gpu_vendor(card_id);
 
     let (name, usage, temperature, source) = match vendor {
       drm_sys::GpuVendor::Amd => {
+        let cached = lspci_output.get_or_insert_with(lspci::get_lspci_nn_output);
         let name = drm_sys::get_card_bdf(card_id)
           .and_then(|bdf| {
-            crate::infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&bdf)
+            cached
+              .as_deref()
+              .and_then(|out| lspci::parse_gpu_name_by_bdf(out, &bdf))
           })
           .unwrap_or_else(|| format!("AMD GPU (card{})", card_id));
         let usage = drm_sys::get_amd_gpu_usage(card_id as u32)
