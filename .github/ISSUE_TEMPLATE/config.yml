@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: GitHub Community Support
-    url: https://github.com/orgs/community/discussions
-    about: Please ask and answer questions here.
+    url: https://github.com/shm11C3/HardwareVisualizer/discussions
+    about: Feel free to ask questions, share ideas, or drop your feedback here.
   - name: Security Vulnerability
     url: mailto:m11c3.sh@gmail.com
     about: Do not open a public issue for security vulnerabilities. Contact the maintainer directly.
