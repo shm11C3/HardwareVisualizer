@@ -117,7 +117,7 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
           nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
         let cooler_level = nvapi_provider::get_gpu_cooler_level_from_physical_gpu(gpu);
         GpuSample {
-          gpu_id: format!("nvapi:{}", name),
+          gpu_id: format!("nvapi:{}", gpu.gpu_id().unwrap_or(0)),
           name,
           usage: Some(usage),
           temperature: Some(temperature),
