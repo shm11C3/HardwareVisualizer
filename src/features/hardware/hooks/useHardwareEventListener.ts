@@ -39,45 +39,41 @@ export const useHardwareEventListener = () => {
       payload: {
         cpuUsage: number;
         memoryUsage: number;
-        gpuUsage: number | null;
-        gpuName: string | null;
-        gpuTemperature: number | null;
-        gpuSource: string | null;
+        gpus: {
+          gpuId: string;
+          gpuName: string;
+          gpuUsage: number | null;
+          gpuTemperature: number | null;
+          gpuSource: string;
+          gpuDedicatedMemoryUsageKb: number | null;
+          gpuCoolerLevel: number | null;
+        }[];
         processorsUsage: number[];
-        gpuDedicatedMemoryUsageKb: number | null;
-        gpuCoolerLevel: number | null;
       };
     }) => {
-      const {
-        cpuUsage,
-        memoryUsage,
-        gpuUsage,
-        gpuName,
-        gpuTemperature,
-        gpuSource,
-        processorsUsage,
-        gpuDedicatedMemoryUsageKb,
-        gpuCoolerLevel,
-      } = event.payload;
+      const { cpuUsage, memoryUsage, gpus, processorsUsage } = event.payload;
+
+      // TODO: Multi-GPU support (#1299) — for now use the first GPU
+      const gpu = gpus[0] ?? null;
 
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
       setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
 
-      if (gpuUsage != null) {
-        setGpuHistory((prev) => padHistory([...prev, gpuUsage]));
+      if (gpu?.gpuUsage != null) {
+        setGpuHistory((prev) => padHistory([...prev, gpu.gpuUsage as number]));
       }
 
-      if (gpuName != null && gpuTemperature != null) {
-        setGpuTemp([{ name: gpuName, value: gpuTemperature }]);
+      if (gpu?.gpuName != null && gpu.gpuTemperature != null) {
+        setGpuTemp([{ name: gpu.gpuName, value: gpu.gpuTemperature }]);
       }
-      setGpuUsageSource(gpuSource);
+      setGpuUsageSource(gpu?.gpuSource ?? null);
 
-      if (gpuDedicatedMemoryUsageKb != null) {
-        setGpuDedicatedMemory(gpuDedicatedMemoryUsageKb);
+      if (gpu?.gpuDedicatedMemoryUsageKb != null) {
+        setGpuDedicatedMemory(gpu.gpuDedicatedMemoryUsageKb);
       }
 
-      if (gpuName != null && gpuCoolerLevel != null) {
-        setGpuFanSpeed([{ name: gpuName, value: gpuCoolerLevel }]);
+      if (gpu?.gpuName != null && gpu.gpuCoolerLevel != null) {
+        setGpuFanSpeed([{ name: gpu.gpuName, value: gpu.gpuCoolerLevel }]);
       }
 
       setProcessorsHistory((prev) => {
