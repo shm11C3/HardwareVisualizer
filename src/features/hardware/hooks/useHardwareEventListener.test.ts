@@ -7,12 +7,18 @@ import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareE
 import {
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbAtom,
+  gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedAtom,
+  gpuFanSpeedMapAtom,
   gpuTempAtom,
+  gpuTempMapAtom,
+  gpuUsageHistoriesAtom,
   gpuUsageSourceAtom,
+  gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
+  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import type { GpuMonitorData, HardwareMonitorUpdate } from "@/rspc/bindings";
 
@@ -429,5 +435,302 @@ describe("useHardwareEventListener", () => {
     expect(cpu).toHaveLength(chartConfig.historyLengthSec);
     expect(cpu.slice(-3)).toEqual([10, 30, 50]);
     expect(mem.slice(-3)).toEqual([20, 40, 60]);
+  });
+
+  // ── Multi-GPU ──
+
+  describe("multi-GPU support", () => {
+    it("tracks separate usage histories per GPU", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [histories] = useAtom(gpuUsageHistoriesAtom);
+          return histories;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({ gpuId: "nvapi:0", gpuUsage: 50 }),
+              makeGpu({ gpuId: "nvapi:1", gpuUsage: 80 }),
+            ],
+          }),
+        ),
+      );
+
+      const histories = result.current;
+      expect(histories["nvapi:0"][histories["nvapi:0"].length - 1]).toBe(50);
+      expect(histories["nvapi:1"][histories["nvapi:1"].length - 1]).toBe(80);
+    });
+
+    it("auto-selects first GPU ID when selectedGpuIdAtom is null", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [id] = useAtom(selectedGpuIdAtom);
+          return id;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({ gpuId: "nvapi:0" }),
+              makeGpu({ gpuId: "nvapi:1" }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toBe("nvapi:0");
+    });
+
+    it("does not change selectedGpuIdAtom once set", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [id] = useAtom(selectedGpuIdAtom);
+          return id;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() => {
+        emit(makePayload({ gpus: [makeGpu({ gpuId: "nvapi:0" })] }));
+        emit(makePayload({ gpus: [makeGpu({ gpuId: "nvapi:1" })] }));
+      });
+
+      expect(result.current).toBe("nvapi:0");
+    });
+
+    it("graphicUsageHistoryAtom resolves to selected GPU history", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [history] = useAtom(graphicUsageHistoryAtom);
+          return history;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({ gpuId: "nvapi:0", gpuUsage: 42 }),
+              makeGpu({ gpuId: "nvapi:1", gpuUsage: 99 }),
+            ],
+          }),
+        ),
+      );
+
+      const history = result.current;
+      expect(history[history.length - 1]).toBe(42);
+    });
+
+    it("stores temperature per GPU in gpuTempMapAtom", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [map] = useAtom(gpuTempMapAtom);
+          return map;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuTemperature: 60,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuName: "GPU B",
+                gpuTemperature: 75,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:0": { name: "GPU A", value: 60 },
+        "nvapi:1": { name: "GPU B", value: 75 },
+      });
+    });
+
+    it("derives gpuTempAtom as NameValues from all GPUs", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [temp] = useAtom(gpuTempAtom);
+          return temp;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuTemperature: 60,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuName: "GPU B",
+                gpuTemperature: 75,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual([
+        { name: "GPU A", value: 60 },
+        { name: "GPU B", value: 75 },
+      ]);
+    });
+
+    it("stores fan speed per GPU in gpuFanSpeedMapAtom", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [map] = useAtom(gpuFanSpeedMapAtom);
+          return map;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuCoolerLevel: 40,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuName: "GPU B",
+                gpuCoolerLevel: 65,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:0": { name: "GPU A", value: 40 },
+        "nvapi:1": { name: "GPU B", value: 65 },
+      });
+    });
+
+    it("derives gpuFanSpeedAtom as NameValues from all GPUs", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [fan] = useAtom(gpuFanSpeedAtom);
+          return fan;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuCoolerLevel: 40,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuName: "GPU B",
+                gpuCoolerLevel: 65,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual([
+        { name: "GPU A", value: 40 },
+        { name: "GPU B", value: 65 },
+      ]);
+    });
+
+    it("tracks usage sources for all GPUs", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [sources] = useAtom(gpuUsageSourcesAtom);
+          return sources;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({ gpuId: "nvapi:0", gpuSource: "NVAPI" }),
+              makeGpu({ gpuId: "nvapi:1", gpuSource: "D3DKMT" }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:0": "NVAPI",
+        "nvapi:1": "D3DKMT",
+      });
+    });
+
+    it("tracks dedicated memory for all GPUs", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [map] = useAtom(gpuDedicatedMemoryKbMapAtom);
+          return map;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuDedicatedMemoryUsageKb: 2048,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuDedicatedMemoryUsageKb: 4096,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:0": 2048,
+        "nvapi:1": 4096,
+      });
+    });
   });
 });

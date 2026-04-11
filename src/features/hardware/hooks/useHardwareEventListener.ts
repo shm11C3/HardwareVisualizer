@@ -3,13 +3,14 @@ import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuUsageHistoryAtom,
-  gpuDedicatedMemoryKbAtom,
-  gpuFanSpeedAtom,
-  gpuTempAtom,
-  gpuUsageSourceAtom,
-  graphicUsageHistoryAtom,
+  gpuDedicatedMemoryKbMapAtom,
+  gpuFanSpeedMapAtom,
+  gpuTempMapAtom,
+  gpuUsageHistoriesAtom,
+  gpuUsageSourcesAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
+  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { events } from "@/rspc/bindings";
 
@@ -27,12 +28,13 @@ const padHistory = (arr: (number | null)[]): number[] => {
 export const useHardwareEventListener = () => {
   const setCpuHistory = useSetAtom(cpuUsageHistoryAtom);
   const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
-  const setGpuHistory = useSetAtom(graphicUsageHistoryAtom);
+  const setGpuHistories = useSetAtom(gpuUsageHistoriesAtom);
   const setProcessorsHistory = useSetAtom(processorsUsageHistoryAtom);
-  const setGpuTemp = useSetAtom(gpuTempAtom);
-  const setGpuUsageSource = useSetAtom(gpuUsageSourceAtom);
-  const setGpuDedicatedMemory = useSetAtom(gpuDedicatedMemoryKbAtom);
-  const setGpuFanSpeed = useSetAtom(gpuFanSpeedAtom);
+  const setGpuTempMap = useSetAtom(gpuTempMapAtom);
+  const setGpuSources = useSetAtom(gpuUsageSourcesAtom);
+  const setGpuMemoryMap = useSetAtom(gpuDedicatedMemoryKbMapAtom);
+  const setGpuFanSpeedMap = useSetAtom(gpuFanSpeedMapAtom);
+  const setSelectedGpuId = useSetAtom(selectedGpuIdAtom);
 
   const handleHardwareUpdate = useCallback(
     (event: {
@@ -53,28 +55,77 @@ export const useHardwareEventListener = () => {
     }) => {
       const { cpuUsage, memoryUsage, gpus, processorsUsage } = event.payload;
 
-      // TODO: Multi-GPU support (#1299) — for now use the first GPU
-      const gpu = gpus[0] ?? null;
-
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
       setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
 
-      if (gpu?.gpuUsage != null) {
-        setGpuHistory((prev) => padHistory([...prev, gpu.gpuUsage as number]));
-      }
+      // Per-GPU usage histories
+      setGpuHistories((prev) =>
+        gpus.reduce(
+          (acc, gpu) => {
+            if (gpu.gpuUsage != null) {
+              acc[gpu.gpuId] = padHistory([
+                ...(acc[gpu.gpuId] ?? []),
+                gpu.gpuUsage,
+              ]);
+            }
+            return acc;
+          },
+          { ...prev },
+        ),
+      );
 
-      if (gpu?.gpuName != null && gpu.gpuTemperature != null) {
-        setGpuTemp([{ name: gpu.gpuName, value: gpu.gpuTemperature }]);
-      }
-      setGpuUsageSource(gpu?.gpuSource ?? null);
+      // Temperature from all GPUs
+      setGpuTempMap(
+        Object.fromEntries(
+          gpus
+            .filter(
+              (g): g is typeof g & { gpuTemperature: number } =>
+                g.gpuTemperature != null,
+            )
+            .map((g) => [
+              g.gpuId,
+              { name: g.gpuName, value: g.gpuTemperature },
+            ]),
+        ),
+      );
 
-      if (gpu?.gpuDedicatedMemoryUsageKb != null) {
-        setGpuDedicatedMemory(gpu.gpuDedicatedMemoryUsageKb);
-      }
+      // Usage sources from all GPUs
+      setGpuSources(
+        Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuSource])),
+      );
 
-      if (gpu?.gpuName != null && gpu.gpuCoolerLevel != null) {
-        setGpuFanSpeed([{ name: gpu.gpuName, value: gpu.gpuCoolerLevel }]);
-      }
+      // Dedicated memory from all GPUs (only update when not null)
+      setGpuMemoryMap((prev) =>
+        gpus.reduce(
+          (acc, gpu) => {
+            if (gpu.gpuDedicatedMemoryUsageKb != null) {
+              acc[gpu.gpuId] = gpu.gpuDedicatedMemoryUsageKb;
+            }
+            return acc;
+          },
+          { ...prev },
+        ),
+      );
+
+      // Fan speed from all GPUs
+      setGpuFanSpeedMap(
+        Object.fromEntries(
+          gpus
+            .filter(
+              (g): g is typeof g & { gpuCoolerLevel: number } =>
+                g.gpuCoolerLevel != null,
+            )
+            .map((g) => [
+              g.gpuId,
+              { name: g.gpuName, value: g.gpuCoolerLevel },
+            ]),
+        ),
+      );
+
+      // Auto-select first GPU if none selected
+      setSelectedGpuId((prev) =>
+        prev != null ? prev : gpus.length > 0 ? gpus[0].gpuId : null,
+      );
 
       setProcessorsHistory((prev) => {
         const next = [...prev, processorsUsage];
@@ -84,12 +135,13 @@ export const useHardwareEventListener = () => {
     [
       setCpuHistory,
       setMemoryHistory,
-      setGpuHistory,
-      setGpuTemp,
+      setGpuHistories,
+      setGpuTempMap,
       setProcessorsHistory,
-      setGpuUsageSource,
-      setGpuDedicatedMemory,
-      setGpuFanSpeed,
+      setGpuSources,
+      setGpuMemoryMap,
+      setGpuFanSpeedMap,
+      setSelectedGpuId,
     ],
   );
   useEffect(() => {
