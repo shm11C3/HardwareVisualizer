@@ -1,5 +1,14 @@
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+pub fn get_max_migration_version() -> i64 {
+  get_migrations()
+    .iter()
+    .filter(|m| matches!(m.kind, MigrationKind::Up))
+    .map(|m| m.version)
+    .max()
+    .unwrap_or(0)
+}
+
 pub fn get_migrations() -> Vec<Migration> {
   vec![
     // Up Migrations
@@ -60,6 +69,11 @@ mod tests {
       .expect("Version 5 up migration must exist");
     assert!(v5.sql.contains("gpu_id TEXT"));
     assert!(v5.sql.contains("GPU_DATA_ARCHIVE"));
+  }
+
+  #[test]
+  fn max_migration_version() {
+    assert_eq!(get_max_migration_version(), 5);
   }
 
   #[test]
