@@ -14,10 +14,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import type {
-  GpuMonitorData,
-  HardwareMonitorUpdate,
-} from "@/rspc/bindings";
+import type { GpuMonitorData, HardwareMonitorUpdate } from "@/rspc/bindings";
 
 // ── Mock ──
 
@@ -44,9 +41,7 @@ const emit = (payload: HardwareMonitorUpdate) => {
   capturedCallback({ payload });
 };
 
-const makeGpu = (
-  overrides: Partial<GpuMonitorData> = {},
-): GpuMonitorData => ({
+const makeGpu = (overrides: Partial<GpuMonitorData> = {}): GpuMonitorData => ({
   gpuId: "nvapi:0",
   gpuName: "TestGPU",
   gpuUsage: 70,
@@ -252,9 +247,7 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() =>
-      emit(makePayload({ gpus: [makeGpu({ gpuTemperature: null })] })),
-    );
+    act(() => emit(makePayload({ gpus: [makeGpu({ gpuTemperature: null })] })));
 
     expect(result.current).toEqual([]);
   });
@@ -271,9 +264,7 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() =>
-      emit(makePayload({ gpus: [makeGpu({ gpuSource: "NVAPI" })] })),
-    );
+    act(() => emit(makePayload({ gpus: [makeGpu({ gpuSource: "NVAPI" })] })));
 
     expect(result.current).toBe("NVAPI");
   });
@@ -410,9 +401,7 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() =>
-      emit(makePayload({ gpus: [makeGpu({ gpuCoolerLevel: null })] })),
-    );
+    act(() => emit(makePayload({ gpus: [makeGpu({ gpuCoolerLevel: null })] })));
 
     expect(result.current).toEqual([]);
   });
