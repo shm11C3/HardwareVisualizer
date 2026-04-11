@@ -4,8 +4,8 @@ import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedAtom,
-  gpuTempAtom,
+  gpuFanSpeedMapAtom,
+  gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   gpuUsageSourcesAtom,
   memoryUsageHistoryAtom,
@@ -30,10 +30,10 @@ export const useHardwareEventListener = () => {
   const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
   const setGpuHistories = useSetAtom(gpuUsageHistoriesAtom);
   const setProcessorsHistory = useSetAtom(processorsUsageHistoryAtom);
-  const setGpuTemp = useSetAtom(gpuTempAtom);
+  const setGpuTempMap = useSetAtom(gpuTempMapAtom);
   const setGpuSources = useSetAtom(gpuUsageSourcesAtom);
   const setGpuMemoryMap = useSetAtom(gpuDedicatedMemoryKbMapAtom);
-  const setGpuFanSpeed = useSetAtom(gpuFanSpeedAtom);
+  const setGpuFanSpeedMap = useSetAtom(gpuFanSpeedMapAtom);
   const setSelectedGpuId = useSetAtom(selectedGpuIdAtom);
 
   const handleHardwareUpdate = useCallback(
@@ -75,13 +75,18 @@ export const useHardwareEventListener = () => {
       );
 
       // Temperature from all GPUs
-      setGpuTemp(
-        gpus
-          .filter(
-            (g): g is typeof g & { gpuTemperature: number } =>
-              g.gpuTemperature != null,
-          )
-          .map((g) => ({ name: g.gpuName, value: g.gpuTemperature })),
+      setGpuTempMap(
+        Object.fromEntries(
+          gpus
+            .filter(
+              (g): g is typeof g & { gpuTemperature: number } =>
+                g.gpuTemperature != null,
+            )
+            .map((g) => [
+              g.gpuId,
+              { name: g.gpuName, value: g.gpuTemperature },
+            ]),
+        ),
       );
 
       // Usage sources from all GPUs
@@ -103,13 +108,18 @@ export const useHardwareEventListener = () => {
       );
 
       // Fan speed from all GPUs
-      setGpuFanSpeed(
-        gpus
-          .filter(
-            (g): g is typeof g & { gpuCoolerLevel: number } =>
-              g.gpuCoolerLevel != null,
-          )
-          .map((g) => ({ name: g.gpuName, value: g.gpuCoolerLevel })),
+      setGpuFanSpeedMap(
+        Object.fromEntries(
+          gpus
+            .filter(
+              (g): g is typeof g & { gpuCoolerLevel: number } =>
+                g.gpuCoolerLevel != null,
+            )
+            .map((g) => [
+              g.gpuId,
+              { name: g.gpuName, value: g.gpuCoolerLevel },
+            ]),
+        ),
       );
 
       // Auto-select first GPU if none selected
@@ -126,11 +136,11 @@ export const useHardwareEventListener = () => {
       setCpuHistory,
       setMemoryHistory,
       setGpuHistories,
-      setGpuTemp,
+      setGpuTempMap,
       setProcessorsHistory,
       setGpuSources,
       setGpuMemoryMap,
-      setGpuFanSpeed,
+      setGpuFanSpeedMap,
       setSelectedGpuId,
     ],
   );

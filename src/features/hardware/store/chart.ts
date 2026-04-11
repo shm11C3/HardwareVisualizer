@@ -21,10 +21,31 @@ export const gpuDedicatedMemoryKbMapAtom = atom<Record<string, number | null>>(
   {},
 );
 
+/** Per-GPU temperature keyed by gpuId */
+export const gpuTempMapAtom = atom<
+  Record<string, { name: string; value: number }>
+>({});
+
+/** Per-GPU fan speed keyed by gpuId */
+export const gpuFanSpeedMapAtom = atom<
+  Record<string, { name: string; value: number }>
+>({});
+
 export const cpuTempAtom = atom<NameValues>([]);
 export const cpuFanSpeedAtom = atom<NameValues>([]);
-export const gpuTempAtom = atom<NameValues>([]);
-export const gpuFanSpeedAtom = atom<NameValues>([]);
+
+/** All GPUs temperature as NameValues (read-write: write clears the map) */
+export const gpuTempAtom = atom<NameValues, [NameValues], void>(
+  (get) => Object.values(get(gpuTempMapAtom)),
+  (_get, set, _update) => {
+    set(gpuTempMapAtom, {});
+  },
+);
+
+/** All GPUs fan speed as NameValues */
+export const gpuFanSpeedAtom = atom<NameValues>((get) =>
+  Object.values(get(gpuFanSpeedMapAtom)),
+);
 
 // ── Derived atoms for backward compatibility ──
 

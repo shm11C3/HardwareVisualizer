@@ -9,7 +9,9 @@ import {
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedAtom,
+  gpuFanSpeedMapAtom,
   gpuTempAtom,
+  gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   gpuUsageSourceAtom,
   gpuUsageSourcesAtom,
@@ -531,7 +533,42 @@ describe("useHardwareEventListener", () => {
       expect(history[history.length - 1]).toBe(42);
     });
 
-    it("collects temperature from all GPUs", () => {
+    it("stores temperature per GPU in gpuTempMapAtom", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [map] = useAtom(gpuTempMapAtom);
+          return map;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuTemperature: 60,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuName: "GPU B",
+                gpuTemperature: 75,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:0": { name: "GPU A", value: 60 },
+        "nvapi:1": { name: "GPU B", value: 75 },
+      });
+    });
+
+    it("derives gpuTempAtom as NameValues from all GPUs", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
@@ -566,7 +603,42 @@ describe("useHardwareEventListener", () => {
       ]);
     });
 
-    it("collects fan speed from all GPUs", () => {
+    it("stores fan speed per GPU in gpuFanSpeedMapAtom", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [map] = useAtom(gpuFanSpeedMapAtom);
+          return map;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuCoolerLevel: 40,
+              }),
+              makeGpu({
+                gpuId: "nvapi:1",
+                gpuName: "GPU B",
+                gpuCoolerLevel: 65,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:0": { name: "GPU A", value: 40 },
+        "nvapi:1": { name: "GPU B", value: 65 },
+      });
+    });
+
+    it("derives gpuFanSpeedAtom as NameValues from all GPUs", () => {
       const { result } = renderHook(
         () => {
           useHardwareEventListener();
