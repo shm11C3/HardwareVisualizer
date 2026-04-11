@@ -10,6 +10,7 @@ use crate::models::hardware_archive::MonitorResources;
 /// A single GPU sample collected per physical GPU.
 /// `None` means the metric is unavailable for this GPU vendor/platform.
 pub struct GpuSample {
+  pub gpu_id: String,
   pub name: String,
   pub usage: Option<f32>,
   pub temperature: Option<f32>,
@@ -116,6 +117,7 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
           nvapi_provider::get_gpu_dedicated_memory_usage_from_physical_gpu(gpu) as f32;
         let cooler_level = nvapi_provider::get_gpu_cooler_level_from_physical_gpu(gpu);
         GpuSample {
+          gpu_id: format!("nvapi:{}", gpu.gpu_id().unwrap_or(0)),
           name,
           usage: Some(usage),
           temperature: Some(temperature),
@@ -241,8 +243,8 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
       metric.device,
       metric.function,
     );
-    // VRAM usage is not available via ADL
     gpu_metrics.push(GpuSample {
+      gpu_id: format!("pci:{}:{}:{}", metric.bus, metric.device, metric.function),
       name,
       usage: Some(metric.value),
       temperature,
@@ -275,6 +277,7 @@ async fn sample_intel_gpu(gpu_metrics: &mut Vec<GpuSample>) {
     .map(|v| (v * 100.0).round());
 
     gpu_metrics.push(GpuSample {
+      gpu_id: format!("pdh:{}", gpu.name),
       name: gpu.name.clone(),
       usage,
       temperature: None,
@@ -335,6 +338,7 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
       .map(|bytes| (bytes / 1024) as f32);
 
   let gpu_metrics = vec![GpuSample {
+    gpu_id: format!("iokit:{}", gpu_name),
     name: gpu_name.clone(),
     usage,
     temperature,
@@ -399,8 +403,13 @@ async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
       _ => continue,
     };
 
+    let gpu_id = drm_sys::get_card_bdf(card_id)
+      .map(|bdf| format!("pci:{bdf}"))
+      .unwrap_or_else(|| format!("drm:card{card_id}"));
+
     // VRAM usage is not available on Linux
     metrics.push(GpuSample {
+      gpu_id,
       name,
       usage,
       temperature,
@@ -417,24 +426,27 @@ fn update_gpu_histories(resources: &MonitorResources, gpu_metrics: &[GpuSample])
   let mut usage_histories = resources.gpu_usage_histories.lock().unwrap();
   let mut temp_histories = resources.gpu_temperature_histories.lock().unwrap();
   let mut mem_histories = resources.gpu_dedicated_memory_histories.lock().unwrap();
+  let mut name_map = resources.gpu_name_map.lock().unwrap();
 
   gpu_metrics.iter().for_each(|sample| {
+    name_map.insert(sample.gpu_id.clone(), sample.name.clone());
+
     if let Some(usage) = sample.usage {
-      let usage_history = usage_histories.entry(sample.name.clone()).or_default();
+      let usage_history = usage_histories.entry(sample.gpu_id.clone()).or_default();
       if usage_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
         usage_history.pop_front();
       }
       usage_history.push_back(usage);
     }
     if let Some(temperature) = sample.temperature {
-      let temp_history = temp_histories.entry(sample.name.clone()).or_default();
+      let temp_history = temp_histories.entry(sample.gpu_id.clone()).or_default();
       if temp_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
         temp_history.pop_front();
       }
       temp_history.push_back(temperature as i32);
     }
     if let Some(memory_usage) = sample.dedicated_memory_kb {
-      let mem_history = mem_histories.entry(sample.name.clone()).or_default();
+      let mem_history = mem_histories.entry(sample.gpu_id.clone()).or_default();
       if mem_history.len() >= HARDWARE_HISTORY_BUFFER_SIZE {
         mem_history.pop_front();
       }
@@ -470,13 +482,21 @@ pub fn memory_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f
 ///
 /// ## GPU usage history
 ///
-/// (Last `seconds` from newest, max MAX_HISTORY_QUERY_DURATION_SECONDS) collected in reverse order
+/// Returns the last `seconds` entries (newest first, max MAX_HISTORY_QUERY_DURATION_SECONDS)
+/// for the GPU identified by `gpu_id`.
 ///
-pub fn gpu_usage_history(state: &HardwareMonitorState, seconds: u32) -> Vec<f32> {
-  let history = state.gpu_history.lock().unwrap();
+pub fn gpu_usage_history(
+  state: &HardwareMonitorState,
+  gpu_id: &str,
+  seconds: u32,
+) -> Vec<f32> {
+  let histories = state.gpu_usage_histories.lock().unwrap();
   let take_n = seconds.min(MAX_HISTORY_QUERY_DURATION_SECONDS) as usize;
 
-  history.iter().rev().take(take_n).cloned().collect()
+  histories
+    .get(gpu_id)
+    .map(|h| h.iter().rev().take(take_n).cloned().collect())
+    .unwrap_or_default()
 }
 
 fn push_history(history: &Arc<Mutex<VecDeque<f32>>>, value: f32) {
@@ -499,11 +519,27 @@ mod tests {
     HardwareMonitorState {
       system: Arc::new(Mutex::new(sysinfo::System::new())),
       cpu_history: Arc::new(Mutex::new(history.clone())),
-      memory_history: Arc::new(Mutex::new(history.clone())),
-      gpu_history: Arc::new(Mutex::new(history)),
+      memory_history: Arc::new(Mutex::new(history)),
       process_cpu_histories: Arc::new(Mutex::new(HashMap::new())),
       process_memory_histories: Arc::new(Mutex::new(HashMap::new())),
       gpu_usage_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
+    }
+  }
+
+  fn create_test_state_with_gpu_history(
+    gpu_id: &str,
+    gpu_data: Vec<f32>,
+  ) -> HardwareMonitorState {
+    let mut gpu_histories = HashMap::new();
+    gpu_histories.insert(gpu_id.to_string(), VecDeque::from(gpu_data));
+    HardwareMonitorState {
+      system: Arc::new(Mutex::new(sysinfo::System::new())),
+      cpu_history: Arc::new(Mutex::new(VecDeque::new())),
+      memory_history: Arc::new(Mutex::new(VecDeque::new())),
+      process_cpu_histories: Arc::new(Mutex::new(HashMap::new())),
+      process_memory_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_usage_histories: Arc::new(Mutex::new(gpu_histories)),
       gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
     }
   }
@@ -518,6 +554,7 @@ mod tests {
       gpu_usage_histories: Arc::new(Mutex::new(HashMap::new())),
       gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
       gpu_dedicated_memory_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_name_map: Arc::new(Mutex::new(HashMap::new())),
     }
   }
 
@@ -649,55 +686,105 @@ mod tests {
 
   #[test]
   fn gpu_usage_history_returns_last_n_reversed() {
-    let state = create_test_state(vec![40.0, 50.0, 60.0, 70.0]);
-    let result = gpu_usage_history(&state, 3);
+    let state = create_test_state_with_gpu_history("gpu:0", vec![40.0, 50.0, 60.0, 70.0]);
+    let result = gpu_usage_history(&state, "gpu:0", 3);
     assert_eq!(result, vec![70.0, 60.0, 50.0]);
   }
 
   #[test]
   fn gpu_usage_history_empty() {
     let state = create_test_state(vec![]);
-    let result = gpu_usage_history(&state, 5);
+    let result = gpu_usage_history(&state, "gpu:0", 5);
     assert!(result.is_empty());
+  }
+
+  #[test]
+  fn gpu_usage_history_unknown_gpu_id_returns_empty() {
+    let state = create_test_state_with_gpu_history("gpu:0", vec![10.0, 20.0]);
+    let result = gpu_usage_history(&state, "gpu:nonexistent", 5);
+    assert!(result.is_empty());
+  }
+
+  #[test]
+  fn gpu_usage_history_by_gpu_id() {
+    let mut gpu_histories = HashMap::new();
+    gpu_histories.insert("gpu:0".to_string(), VecDeque::from(vec![10.0, 20.0]));
+    gpu_histories.insert("gpu:1".to_string(), VecDeque::from(vec![90.0, 80.0]));
+    let state = HardwareMonitorState {
+      system: Arc::new(Mutex::new(sysinfo::System::new())),
+      cpu_history: Arc::new(Mutex::new(VecDeque::new())),
+      memory_history: Arc::new(Mutex::new(VecDeque::new())),
+      process_cpu_histories: Arc::new(Mutex::new(HashMap::new())),
+      process_memory_histories: Arc::new(Mutex::new(HashMap::new())),
+      gpu_usage_histories: Arc::new(Mutex::new(gpu_histories)),
+      gpu_temperature_histories: Arc::new(Mutex::new(HashMap::new())),
+    };
+    assert_eq!(gpu_usage_history(&state, "gpu:0", 5), vec![20.0, 10.0]);
+    assert_eq!(gpu_usage_history(&state, "gpu:1", 5), vec![80.0, 90.0]);
+  }
+
+  #[test]
+  fn gpu_usage_history_clamped_to_max_duration() {
+    let data: Vec<f32> = (0..5000).map(|i| i as f32).collect();
+    let state = create_test_state_with_gpu_history("gpu:0", data);
+    let result = gpu_usage_history(&state, "gpu:0", u32::MAX);
+    assert_eq!(result.len(), MAX_HISTORY_QUERY_DURATION_SECONDS as usize);
   }
 
   // ── update_gpu_histories ──
 
+  fn make_gpu_sample(
+    gpu_id: &str,
+    name: &str,
+    usage: Option<f32>,
+    temperature: Option<f32>,
+    dedicated_memory_kb: Option<f32>,
+  ) -> GpuSample {
+    GpuSample {
+      gpu_id: gpu_id.to_string(),
+      name: name.to_string(),
+      usage,
+      temperature,
+      dedicated_memory_kb,
+      cooler_level: None,
+      source: "Test".to_string(),
+    }
+  }
+
+  #[test]
+  fn gpu_sample_has_gpu_id_field() {
+    let sample = make_gpu_sample("pci:0:2.0", "TestGPU", Some(50.0), None, None);
+    assert_eq!(sample.gpu_id, "pci:0:2.0");
+    assert_eq!(sample.name, "TestGPU");
+  }
+
   #[test]
   fn update_gpu_histories_adds_new_gpu() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> = vec![GpuSample {
-      name: "TestGPU".to_string(),
-      usage: Some(50.0),
-      temperature: Some(70.0),
-      dedicated_memory_kb: Some(1024.0),
-      cooler_level: None,
-      source: "Test".to_string(),
-    }];
+    let samples = vec![make_gpu_sample(
+      "gpu:0",
+      "TestGPU",
+      Some(50.0),
+      Some(70.0),
+      Some(1024.0),
+    )];
     update_gpu_histories(&resources, &samples);
 
     let usage = resources.gpu_usage_histories.lock().unwrap();
-    assert_eq!(usage.get("TestGPU").unwrap().len(), 1);
-    assert_eq!(*usage.get("TestGPU").unwrap().back().unwrap(), 50.0);
+    assert_eq!(usage.get("gpu:0").unwrap().len(), 1);
+    assert_eq!(*usage.get("gpu:0").unwrap().back().unwrap(), 50.0);
 
     let temp = resources.gpu_temperature_histories.lock().unwrap();
-    assert_eq!(*temp.get("TestGPU").unwrap().back().unwrap(), 70);
+    assert_eq!(*temp.get("gpu:0").unwrap().back().unwrap(), 70);
 
     let mem = resources.gpu_dedicated_memory_histories.lock().unwrap();
-    assert_eq!(*mem.get("TestGPU").unwrap().back().unwrap(), 1024);
+    assert_eq!(*mem.get("gpu:0").unwrap().back().unwrap(), 1024);
   }
 
   #[test]
   fn update_gpu_histories_none_metrics_skipped() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> = vec![GpuSample {
-      name: "NoData".to_string(),
-      usage: None,
-      temperature: None,
-      dedicated_memory_kb: None,
-      cooler_level: None,
-      source: "Test".to_string(),
-    }];
+    let samples = vec![make_gpu_sample("gpu:0", "NoData", None, None, None)];
     update_gpu_histories(&resources, &samples);
 
     assert!(resources.gpu_usage_histories.lock().unwrap().is_empty());
@@ -720,14 +807,7 @@ mod tests {
   #[test]
   fn update_gpu_histories_partial_metrics() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> = vec![GpuSample {
-      name: "Partial".to_string(),
-      usage: Some(80.0),
-      temperature: None,
-      dedicated_memory_kb: None,
-      cooler_level: None,
-      source: "Test".to_string(),
-    }];
+    let samples = vec![make_gpu_sample("gpu:0", "Partial", Some(80.0), None, None)];
     update_gpu_histories(&resources, &samples);
 
     assert_eq!(resources.gpu_usage_histories.lock().unwrap().len(), 1);
@@ -750,30 +830,31 @@ mod tests {
   #[test]
   fn update_gpu_histories_multiple_gpus() {
     let resources = create_test_resources();
-    let samples: Vec<GpuSample> = vec![
-      GpuSample {
-        name: "GPU_A".to_string(),
-        usage: Some(10.0),
-        temperature: None,
-        dedicated_memory_kb: None,
-        cooler_level: None,
-        source: "Test".to_string(),
-      },
-      GpuSample {
-        name: "GPU_B".to_string(),
-        usage: Some(90.0),
-        temperature: None,
-        dedicated_memory_kb: None,
-        cooler_level: None,
-        source: "Test".to_string(),
-      },
+    let samples = vec![
+      make_gpu_sample("pci:0:2.0", "GPU_A", Some(10.0), None, None),
+      make_gpu_sample("pci:0:3.0", "GPU_B", Some(90.0), None, None),
     ];
     update_gpu_histories(&resources, &samples);
 
     let usage = resources.gpu_usage_histories.lock().unwrap();
     assert_eq!(usage.len(), 2);
-    assert!(usage.contains_key("GPU_A"));
-    assert!(usage.contains_key("GPU_B"));
+    assert!(usage.contains_key("pci:0:2.0"));
+    assert!(usage.contains_key("pci:0:3.0"));
+  }
+
+  #[test]
+  fn update_gpu_histories_same_name_different_id() {
+    let resources = create_test_resources();
+    let samples = vec![
+      make_gpu_sample("pci:0:2.0", "NVIDIA RTX 4090", Some(30.0), None, None),
+      make_gpu_sample("pci:0:3.0", "NVIDIA RTX 4090", Some(70.0), None, None),
+    ];
+    update_gpu_histories(&resources, &samples);
+
+    let usage = resources.gpu_usage_histories.lock().unwrap();
+    assert_eq!(usage.len(), 2);
+    assert_eq!(*usage.get("pci:0:2.0").unwrap().back().unwrap(), 30.0);
+    assert_eq!(*usage.get("pci:0:3.0").unwrap().back().unwrap(), 70.0);
   }
 
   #[test]
@@ -781,32 +862,32 @@ mod tests {
     let resources = create_test_resources();
     // Fill to capacity
     for i in 0..HARDWARE_HISTORY_BUFFER_SIZE {
-      let samples: Vec<GpuSample> = vec![GpuSample {
-        name: "GPU".to_string(),
-        usage: Some(i as f32),
-        temperature: None,
-        dedicated_memory_kb: None,
-        cooler_level: None,
-        source: "Test".to_string(),
-      }];
+      let samples = vec![make_gpu_sample("gpu:0", "GPU", Some(i as f32), None, None)];
       update_gpu_histories(&resources, &samples);
     }
     // Add one more
-    let samples: Vec<GpuSample> = vec![GpuSample {
-      name: "GPU".to_string(),
-      usage: Some(999.0),
-      temperature: None,
-      dedicated_memory_kb: None,
-      cooler_level: None,
-      source: "Test".to_string(),
-    }];
+    let samples = vec![make_gpu_sample("gpu:0", "GPU", Some(999.0), None, None)];
     update_gpu_histories(&resources, &samples);
 
     let usage = resources.gpu_usage_histories.lock().unwrap();
-    let history = usage.get("GPU").unwrap();
+    let history = usage.get("gpu:0").unwrap();
     assert_eq!(history.len(), HARDWARE_HISTORY_BUFFER_SIZE);
     assert_eq!(*history.back().unwrap(), 999.0);
     assert_eq!(*history.front().unwrap(), 1.0); // 0.0 was evicted
+  }
+
+  #[test]
+  fn update_gpu_histories_populates_name_map() {
+    let resources = create_test_resources();
+    let samples = vec![
+      make_gpu_sample("pci:0:2.0", "RTX 4090", Some(50.0), None, None),
+      make_gpu_sample("pci:0:3.0", "RX 7900 XTX", Some(80.0), None, None),
+    ];
+    update_gpu_histories(&resources, &samples);
+
+    let name_map = resources.gpu_name_map.lock().unwrap();
+    assert_eq!(name_map.get("pci:0:2.0").unwrap(), "RTX 4090");
+    assert_eq!(name_map.get("pci:0:3.0").unwrap(), "RX 7900 XTX");
   }
 
   // ── update_process_histories ──
@@ -861,6 +942,7 @@ mod tests {
     let resources = create_test_resources();
     let samples = vec![
       GpuSample {
+        gpu_id: "pci:06:00.0".to_string(),
         name: "06:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 31 [Radeon RX 7900 XTX] [1002:744c]".to_string(),
         usage: Some(80.0),
         temperature: Some(65.0),
@@ -869,6 +951,7 @@ mod tests {
         source: "DRM (AMD)".to_string(),
       },
       GpuSample {
+        gpu_id: "pci:0a:00.0".to_string(),
         name: "0a:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Renoir [Radeon Vega Series] [1002:1636]".to_string(),
         usage: Some(15.0),
         temperature: Some(45.0),

@@ -136,12 +136,13 @@ async getMemoryUsageHistory(seconds: number) : Promise<number[]> {
 /**
  * ## Get GPU usage history
  * 
- * - param state: `tauri::State<AppState>` Application state
+ * - param state: `tauri::State<HardwareMonitorState>` Application state
+ * - param gpu_id: `String` GPU identifier (e.g. "nvapi:0")
  * - param seconds: `u32` Number of seconds to retrieve
  * 
  */
-async getGpuUsageHistory(seconds: number) : Promise<number[]> {
-    return await TAURI_INVOKE("get_gpu_usage_history", { seconds });
+async getGpuUsageHistory(gpuId: string, seconds: number) : Promise<number[]> {
+    return await TAURI_INVOKE("get_gpu_usage_history", { gpuId, seconds });
 },
 /**
  * ## Get network information
@@ -534,6 +535,7 @@ export type CpuInfo = { name: string; vendor: string; coreCount: number; clock: 
 export type DiskKind = "hdd" | "ssd" | "other"
 export type DownloadEvent = { event: "started"; data: { contentLength: string | null } } | { event: "progress"; data: { chunkLength: string } } | { event: "finished" }
 export type GpuMemoryUsage = { inUseBytes: string | null; allocBytes: string | null }
+export type GpuMonitorData = { gpuId: string; gpuName: string; gpuUsage: number | null; gpuTemperature: number | null; gpuSource: string; gpuDedicatedMemoryUsageKb: number | null; gpuCoolerLevel: number | null }
 /**
  * GPU usage percentage together with the data-source identifier
  * (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit")
@@ -542,7 +544,7 @@ export type GpuUsageResult = { usage: number; source: string }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
-export type HardwareMonitorUpdate = { cpuUsage: number; memoryUsage: number; gpuUsage: number | null; gpuName: string | null; gpuTemperature: number | null; gpuSource: string | null; processorsUsage: number[]; gpuDedicatedMemoryUsageKb: number | null; gpuCoolerLevel: number | null }
+export type HardwareMonitorUpdate = { cpuUsage: number; memoryUsage: number; gpus: GpuMonitorData[]; processorsUsage: number[] }
 export type HardwareType = "cpu" | "memory" | "gpu"
 /**
  * Structure of settings to send to client

@@ -31,6 +31,12 @@ pub fn get_migrations() -> Vec<Migration> {
       sql: "CREATE TABLE PROCESS_STATS (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL, process_name TEXT NOT NULL,  cpu_usage REAL NOT NULL,  memory_usage INTEGER NOT NULL, execution_sec INTEGER NOT NULL, timestamp DATETIME NOT NULL);",
       kind: MigrationKind::Up,
     },
+    Migration {
+      version: 5,
+      description: "add_gpu_id_column",
+      sql: "ALTER TABLE GPU_DATA_ARCHIVE ADD COLUMN gpu_id TEXT;",
+      kind: MigrationKind::Up,
+    },
     // Down Migrations
     Migration {
       version: 4,
@@ -39,4 +45,43 @@ pub fn get_migrations() -> Vec<Migration> {
       kind: MigrationKind::Down,
     },
   ]
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn migration_v5_adds_gpu_id_column() {
+    let migrations = get_migrations();
+    let v5 = migrations
+      .iter()
+      .find(|m| m.version == 5 && matches!(m.kind, MigrationKind::Up))
+      .expect("Version 5 up migration must exist");
+    assert!(v5.sql.contains("gpu_id TEXT"));
+    assert!(v5.sql.contains("GPU_DATA_ARCHIVE"));
+  }
+
+  #[test]
+  fn migration_count() {
+    let migrations = get_migrations();
+    let up_count = migrations
+      .iter()
+      .filter(|m| matches!(m.kind, MigrationKind::Up))
+      .count();
+    assert_eq!(up_count, 5);
+  }
+
+  #[test]
+  fn migration_up_versions_sequential() {
+    let migrations = get_migrations();
+    let mut up_versions: Vec<_> = migrations
+      .iter()
+      .filter(|m| matches!(m.kind, MigrationKind::Up))
+      .map(|m| m.version)
+      .collect();
+    up_versions.sort();
+    let expected: Vec<i64> = (1..=up_versions.len() as i64).collect();
+    assert_eq!(up_versions, expected);
+  }
 }
