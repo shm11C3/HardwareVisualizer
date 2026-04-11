@@ -51,7 +51,7 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
     "fmt",
 ] }
 chrono = "0.4.44"
-tauri-plugin-dialog = "2.6.0"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-store = "2.4.2"
 base64 = "0.22"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
@@ -62,7 +62,7 @@ tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 specta-typescript = "0.0.9"
 specta = "=2.0.0-rc.22"
 tauri-plugin-shell = "2.3.5"
-tauri-plugin-sql = { version = "2.3.2", features = ["sqlite"] }
+tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }
 sqlx = { version = "0.8.6", features = [
     "sqlite",
     "runtime-tokio-rustls",
@@ -121,4 +121,4 @@ mockall = "0.14"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2.5.1"
-tauri-plugin-updater = "2.10.0"
+tauri-plugin-updater = "2.10.1"
