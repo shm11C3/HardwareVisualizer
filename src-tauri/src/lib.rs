@@ -58,6 +58,9 @@ pub fn run() {
 
   let settings = app_state.settings.lock().unwrap().clone();
 
+  let db_error = infrastructure::database::preflight::check_db_compatibility();
+  let is_db_ok = db_error.is_none();
+
   let migrations = infrastructure::database::migration::get_migrations();
 
   let builder = Builder::<tauri::Wry>::new()
@@ -124,7 +127,7 @@ pub fn run() {
     )
     .expect("Failed to export typescript bindings");
 
-  tauri::Builder::<Wry>::default()
+  let mut tauri_builder = tauri::Builder::<Wry>::default()
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
       let path_resolver = app.path();
@@ -132,9 +135,8 @@ pub fn run() {
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
-      // Initialize UI
+      // Initialize UI and real-time monitoring (independent of DB)
       commands::ui::init(app);
-
       builder.mount_events(app);
 
       let monitor = workers::system_monitor::SystemMonitorController::setup(
@@ -156,32 +158,57 @@ pub fn run() {
         ws.monitor.lock().unwrap().replace(monitor);
       }
 
-      // Start hardware archive service
-      if settings.hardware_archive.enabled {
-        let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
-          models::hardware_archive::MonitorResources {
-            system: Arc::clone(&system),
-            cpu_history: Arc::clone(&cpu_history),
-            memory_history: Arc::clone(&memory_history),
-            process_cpu_histories: Arc::clone(&process_cpu_histories),
-            process_memory_histories: Arc::clone(&process_memory_histories),
-            gpu_usage_histories: Arc::clone(&gpu_usage_histories),
-            gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
-            gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
-            gpu_name_map: Arc::clone(&gpu_name_map),
-          },
-        );
-        {
-          let ws = app.state::<workers::WorkersState>();
-          ws.hw_archive.lock().unwrap().replace(hw_archive);
+      if is_db_ok {
+        // Start DB-dependent archive services
+        if settings.hardware_archive.enabled {
+          let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
+            models::hardware_archive::MonitorResources {
+              system: Arc::clone(&system),
+              cpu_history: Arc::clone(&cpu_history),
+              memory_history: Arc::clone(&memory_history),
+              process_cpu_histories: Arc::clone(&process_cpu_histories),
+              process_memory_histories: Arc::clone(&process_memory_histories),
+              gpu_usage_histories: Arc::clone(&gpu_usage_histories),
+              gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
+              gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
+              gpu_name_map: Arc::clone(&gpu_name_map),
+            },
+          );
+          {
+            let ws = app.state::<workers::WorkersState>();
+            ws.hw_archive.lock().unwrap().replace(hw_archive);
+          }
         }
-      }
 
-      // Start scheduled data deletion
-      if settings.hardware_archive.scheduled_data_deletion {
-        tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
-          settings.hardware_archive.refresh_interval_days,
-        ));
+        if settings.hardware_archive.scheduled_data_deletion {
+          tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
+            settings.hardware_archive.refresh_interval_days,
+          ));
+        }
+      } else {
+        // Database schema is incompatible — show error dialog
+        // Hide window while dialog is shown, then restore based on user choice
+        if let Some(window) = app.get_webview_window("main") {
+          let _ = window.hide();
+        }
+
+        let handle = app.handle().clone();
+        let db_err = db_error.expect("db_error must be Some when is_db_ok is false");
+        std::thread::spawn(move || {
+          use services::db_startup_service::{self, StartupErrorAction};
+          match db_startup_service::prompt_startup_error(&handle, db_err) {
+            StartupErrorAction::ResetAndRestart => {
+              db_startup_service::reset_database_and_restart(&handle);
+            }
+            StartupErrorAction::ContinueAnyway => {
+              // Show the main window — app runs without DB-backed features
+              if let Some(window) = handle.get_webview_window("main") {
+                let _ = window.show();
+              }
+            }
+            StartupErrorAction::Exit => handle.exit(1),
+          }
+        });
       }
 
       Ok(())
@@ -205,11 +232,6 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_shell::init())
-    .plugin(
-      tauri_plugin_sql::Builder::new()
-        .add_migrations("sqlite:hv-database.db", migrations)
-        .build(),
-    )
     .plugin(tauri_plugin_autostart::init(
       MacosLauncher::LaunchAgent,
       Some(vec![]),
@@ -220,7 +242,17 @@ pub fn run() {
     .manage(state)
     .manage(app_state)
     .manage(workers::WorkersState::default())
-    .manage(app_updates::PendingUpdate(Mutex::new(None)))
+    .manage(app_updates::PendingUpdate(Mutex::new(None)));
+
+  if is_db_ok {
+    tauri_builder = tauri_builder.plugin(
+      tauri_plugin_sql::Builder::new()
+        .add_migrations("sqlite:hv-database.db", migrations)
+        .build(),
+    );
+  }
+
+  tauri_builder
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
