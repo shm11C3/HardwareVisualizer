@@ -77,8 +77,11 @@ export const useHardwareEventListener = () => {
       // Temperature from all GPUs
       setGpuTemp(
         gpus
-          .filter((g) => g.gpuName != null && g.gpuTemperature != null)
-          .map((g) => ({ name: g.gpuName, value: g.gpuTemperature as number })),
+          .filter(
+            (g): g is typeof g & { gpuTemperature: number } =>
+              g.gpuTemperature != null,
+          )
+          .map((g) => ({ name: g.gpuName, value: g.gpuTemperature })),
       );
 
       // Usage sources from all GPUs
@@ -102,8 +105,11 @@ export const useHardwareEventListener = () => {
       // Fan speed from all GPUs
       setGpuFanSpeed(
         gpus
-          .filter((g) => g.gpuName != null && g.gpuCoolerLevel != null)
-          .map((g) => ({ name: g.gpuName, value: g.gpuCoolerLevel as number })),
+          .filter(
+            (g): g is typeof g & { gpuCoolerLevel: number } =>
+              g.gpuCoolerLevel != null,
+          )
+          .map((g) => ({ name: g.gpuName, value: g.gpuCoolerLevel })),
       );
 
       // Auto-select first GPU if none selected
