@@ -14,7 +14,10 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
-import type { HardwareMonitorUpdate } from "@/rspc/bindings";
+import type {
+  GpuMonitorData,
+  HardwareMonitorUpdate,
+} from "@/rspc/bindings";
 
 // ── Mock ──
 
@@ -41,20 +44,33 @@ const emit = (payload: HardwareMonitorUpdate) => {
   capturedCallback({ payload });
 };
 
-const makePayload = (
-  overrides: Partial<HardwareMonitorUpdate> = {},
-): HardwareMonitorUpdate => ({
-  cpuUsage: 50,
-  memoryUsage: 60,
-  gpuUsage: 70,
+const makeGpu = (
+  overrides: Partial<GpuMonitorData> = {},
+): GpuMonitorData => ({
+  gpuId: "nvapi:0",
   gpuName: "TestGPU",
+  gpuUsage: 70,
   gpuTemperature: 65,
   gpuSource: "IOKit",
-  processorsUsage: [40, 50],
   gpuDedicatedMemoryUsageKb: null,
   gpuCoolerLevel: null,
   ...overrides,
 });
+
+const makePayload = (
+  overrides: Partial<Omit<HardwareMonitorUpdate, "gpus">> & {
+    gpus?: GpuMonitorData[];
+  } = {},
+): HardwareMonitorUpdate => {
+  const { gpus, ...rest } = overrides;
+  return {
+    cpuUsage: 50,
+    memoryUsage: 60,
+    gpus: gpus ?? [makeGpu()],
+    processorsUsage: [40, 50],
+    ...rest,
+  };
+};
 
 // ── Tests ──
 
@@ -182,7 +198,7 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuUsage: 85 })));
+    act(() => emit(makePayload({ gpus: [makeGpu({ gpuUsage: 85 })] })));
 
     const history = result.current;
     expect(history[history.length - 1]).toBe(85);
@@ -198,7 +214,7 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuUsage: null })));
+    act(() => emit(makePayload({ gpus: [makeGpu({ gpuUsage: null })] })));
 
     expect(result.current).toEqual([]);
   });
@@ -215,7 +231,13 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuName: "RTX 4090", gpuTemperature: 72 })));
+    act(() =>
+      emit(
+        makePayload({
+          gpus: [makeGpu({ gpuName: "RTX 4090", gpuTemperature: 72 })],
+        }),
+      ),
+    );
 
     expect(result.current).toEqual([{ name: "RTX 4090", value: 72 }]);
   });
@@ -230,7 +252,9 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuTemperature: null })));
+    act(() =>
+      emit(makePayload({ gpus: [makeGpu({ gpuTemperature: null })] })),
+    );
 
     expect(result.current).toEqual([]);
   });
@@ -247,12 +271,14 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuSource: "NVAPI" })));
+    act(() =>
+      emit(makePayload({ gpus: [makeGpu({ gpuSource: "NVAPI" })] })),
+    );
 
     expect(result.current).toBe("NVAPI");
   });
 
-  it("does not update gpuUsageSourceAtom when gpuSource is null", () => {
+  it("sets gpuUsageSourceAtom to null when no GPUs are present", () => {
     const { result } = renderHook(
       () => {
         useHardwareEventListener();
@@ -262,7 +288,7 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuSource: null })));
+    act(() => emit(makePayload({ gpus: [] })));
 
     expect(result.current).toBeNull();
   });
@@ -319,7 +345,13 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuDedicatedMemoryUsageKb: 4096 })));
+    act(() =>
+      emit(
+        makePayload({
+          gpus: [makeGpu({ gpuDedicatedMemoryUsageKb: 4096 })],
+        }),
+      ),
+    );
 
     expect(result.current).toBe(4096);
   });
@@ -334,7 +366,13 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuDedicatedMemoryUsageKb: null })));
+    act(() =>
+      emit(
+        makePayload({
+          gpus: [makeGpu({ gpuDedicatedMemoryUsageKb: null })],
+        }),
+      ),
+    );
 
     expect(result.current).toBeNull();
   });
@@ -351,7 +389,13 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuName: "RTX 4090", gpuCoolerLevel: 55 })));
+    act(() =>
+      emit(
+        makePayload({
+          gpus: [makeGpu({ gpuName: "RTX 4090", gpuCoolerLevel: 55 })],
+        }),
+      ),
+    );
 
     expect(result.current).toEqual([{ name: "RTX 4090", value: 55 }]);
   });
@@ -366,7 +410,9 @@ describe("useHardwareEventListener", () => {
       { wrapper: Provider },
     );
 
-    act(() => emit(makePayload({ gpuCoolerLevel: null })));
+    act(() =>
+      emit(makePayload({ gpus: [makeGpu({ gpuCoolerLevel: null })] })),
+    );
 
     expect(result.current).toEqual([]);
   });
