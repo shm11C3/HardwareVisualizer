@@ -104,7 +104,7 @@ export const DoughnutChart = ({
       config={chartConfig}
       className={cn("aspect-square max-h-[100px] xl:max-h-[200px]", className)}
     >
-      {chartData[0].value != null ? (
+      {chartValue != null ? (
         <RadialBarChart
           data={chartData}
           startAngle={0}
