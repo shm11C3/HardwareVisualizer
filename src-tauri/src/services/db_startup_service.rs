@@ -56,24 +56,29 @@ pub fn prompt_startup_error(
 pub fn reset_database_and_restart(handle: &tauri::AppHandle) {
   let db_path = utils::file::get_app_data_dir("hv-database.db");
   if let Err(e) = delete_database_files(&db_path) {
-    handle
-      .dialog()
-      .message(format!("Failed to delete database file: {e}"))
-      .title("Error")
-      .kind(MessageDialogKind::Error)
-      .buttons(MessageDialogButtons::Ok)
-      .blocking_show();
+    show_error_dialog(handle, &format!("Failed to delete database file: {e}"));
     handle.exit(1);
     return;
   }
 
-  let exe_path = std::env::current_exe().expect("Failed to obtain executable path");
+  let exe_path = match std::env::current_exe() {
+    Ok(path) => path,
+    Err(e) => {
+      show_error_dialog(handle, &format!("Failed to obtain executable path: {e}"));
+      handle.exit(1);
+      return;
+    }
+  };
   let args: Vec<String> = std::env::args().collect();
   #[allow(clippy::zombie_processes)]
-  std::process::Command::new(exe_path)
+  if let Err(e) = std::process::Command::new(exe_path)
     .args(&args[1..])
     .spawn()
-    .expect("Failed to restart process");
+  {
+    show_error_dialog(handle, &format!("Failed to restart process: {e}"));
+    handle.exit(1);
+    return;
+  }
   handle.exit(0);
 }
 
@@ -88,6 +93,16 @@ pub(crate) fn delete_database_files(db_path: &Path) -> std::io::Result<()> {
   let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
   let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
   Ok(())
+}
+
+fn show_error_dialog(handle: &tauri::AppHandle, message: &str) {
+  handle
+    .dialog()
+    .message(message.to_string())
+    .title("Error")
+    .kind(MessageDialogKind::Error)
+    .buttons(MessageDialogButtons::Ok)
+    .blocking_show();
 }
 
 fn build_message(error: &DbStartupError) -> String {

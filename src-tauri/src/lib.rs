@@ -135,32 +135,31 @@ pub fn run() {
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
+      // Initialize UI and real-time monitoring (independent of DB)
+      commands::ui::init(app);
+      builder.mount_events(app);
+
+      let monitor = workers::system_monitor::SystemMonitorController::setup(
+        models::hardware_archive::MonitorResources {
+          system: Arc::clone(&system),
+          cpu_history: Arc::clone(&cpu_history),
+          memory_history: Arc::clone(&memory_history),
+          process_cpu_histories: Arc::clone(&process_cpu_histories),
+          process_memory_histories: Arc::clone(&process_memory_histories),
+          gpu_usage_histories: Arc::clone(&gpu_usage_histories),
+          gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
+          gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
+          gpu_name_map: Arc::clone(&gpu_name_map),
+        },
+        app.handle().clone(),
+      );
+      {
+        let ws = app.state::<workers::WorkersState>();
+        ws.monitor.lock().unwrap().replace(monitor);
+      }
+
       if is_db_ok {
-        // Initialize UI
-        commands::ui::init(app);
-
-        builder.mount_events(app);
-
-        let monitor = workers::system_monitor::SystemMonitorController::setup(
-          models::hardware_archive::MonitorResources {
-            system: Arc::clone(&system),
-            cpu_history: Arc::clone(&cpu_history),
-            memory_history: Arc::clone(&memory_history),
-            process_cpu_histories: Arc::clone(&process_cpu_histories),
-            process_memory_histories: Arc::clone(&process_memory_histories),
-            gpu_usage_histories: Arc::clone(&gpu_usage_histories),
-            gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
-            gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
-            gpu_name_map: Arc::clone(&gpu_name_map),
-          },
-          app.handle().clone(),
-        );
-        {
-          let ws = app.state::<workers::WorkersState>();
-          ws.monitor.lock().unwrap().replace(monitor);
-        }
-
-        // Start hardware archive service
+        // Start DB-dependent archive services
         if settings.hardware_archive.enabled {
           let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
             models::hardware_archive::MonitorResources {
@@ -181,7 +180,6 @@ pub fn run() {
           }
         }
 
-        // Start scheduled data deletion
         if settings.hardware_archive.scheduled_data_deletion {
           tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
             settings.hardware_archive.refresh_interval_days,
@@ -189,6 +187,7 @@ pub fn run() {
         }
       } else {
         // Database schema is incompatible — show error dialog
+        // Hide window while dialog is shown, then restore based on user choice
         if let Some(window) = app.get_webview_window("main") {
           let _ = window.hide();
         }
@@ -201,7 +200,12 @@ pub fn run() {
             StartupErrorAction::ResetAndRestart => {
               db_startup_service::reset_database_and_restart(&handle);
             }
-            StartupErrorAction::ContinueAnyway => {}
+            StartupErrorAction::ContinueAnyway => {
+              // Show the main window — app runs without DB-backed features
+              if let Some(window) = handle.get_webview_window("main") {
+                let _ = window.show();
+              }
+            }
             StartupErrorAction::Exit => handle.exit(1),
           }
         });
