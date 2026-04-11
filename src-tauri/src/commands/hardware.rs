@@ -178,7 +178,8 @@ pub fn get_memory_usage_history(
 ///
 /// ## Get GPU usage history
 ///
-/// - param state: `tauri::State<AppState>` Application state
+/// - param state: `tauri::State<HardwareMonitorState>` Application state
+/// - param gpu_id: `String` GPU identifier (e.g. "nvapi:0")
 /// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
