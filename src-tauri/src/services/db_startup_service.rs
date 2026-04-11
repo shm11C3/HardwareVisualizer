@@ -1,7 +1,9 @@
 use crate::infrastructure::database::preflight::DbStartupError;
 use crate::utils;
 use std::path::Path;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult};
+use tauri_plugin_dialog::{
+  DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult,
+};
 
 const RESET_LABEL: &str = "Reset and Restart";
 const CONTINUE_LABEL: &str = "Continue Anyway";
@@ -36,8 +38,8 @@ pub fn prompt_startup_error(
     ))
     .blocking_show_with_result();
 
-  let is_reset =
-    result == MessageDialogResult::Yes || result == MessageDialogResult::Custom(RESET_LABEL.into());
+  let is_reset = result == MessageDialogResult::Yes
+    || result == MessageDialogResult::Custom(RESET_LABEL.into());
   let is_continue = result == MessageDialogResult::No
     || result == MessageDialogResult::Custom(CONTINUE_LABEL.into());
 

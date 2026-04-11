@@ -22,7 +22,10 @@ pub fn check_db_compatibility() -> Option<DbStartupError> {
   check_db_compatibility_at(&db_path, app_max_version)
 }
 
-fn check_db_compatibility_at(db_path: &Path, app_max_version: i64) -> Option<DbStartupError> {
+fn check_db_compatibility_at(
+  db_path: &Path,
+  app_max_version: i64,
+) -> Option<DbStartupError> {
   if !db_path.exists() {
     return None;
   }
