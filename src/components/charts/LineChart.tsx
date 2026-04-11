@@ -36,9 +36,9 @@ type SingleChartProps = {
 } & ChartProps;
 
 type MultiChartProps = {
-  cpuData: number[];
-  memoryData: number[];
-  gpuData: number[];
+  cpuData: (number | null)[];
+  memoryData: (number | null)[];
+  gpuData: (number | null)[];
   lineGraphMix: true;
 } & ChartProps;
 

@@ -214,7 +214,7 @@ export const MemoryInfo = () => {
     const current = memoryUsageHistory[memoryUsageHistory.length - 1];
     const [total, unit] = hardwareInfo.memory?.size.split(" ") || [null, null];
 
-    if (total === null || unit === null) {
+    if (total === null || unit === null || current == null) {
       return {
         memoryCurrentUsage: null,
         memoryCurrentUsageUnit: null,
@@ -235,7 +235,9 @@ export const MemoryInfo = () => {
         {memoryCurrentUsage ? (
           <DoughnutChart
             chartValue={memoryCurrentUsage}
-            usagePercentage={memoryUsageHistory[memoryUsageHistory.length - 1]}
+            usagePercentage={
+              memoryUsageHistory[memoryUsageHistory.length - 1] ?? 0
+            }
             dataType={"memoryUsageValue"}
             unit={memoryCurrentUsageUnit}
           />

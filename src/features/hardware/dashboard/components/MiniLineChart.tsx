@@ -24,7 +24,7 @@ export const MiniLineChart = memo(
     usage,
   }: {
     hardwareType: ChartDataType;
-    usage: number[];
+    usage: (number | null)[];
   }) => {
     const { settings } = useSettingsAtom();
     const { t } = useTranslation();

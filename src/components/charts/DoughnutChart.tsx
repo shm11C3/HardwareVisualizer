@@ -24,13 +24,13 @@ import { cn } from "@/lib/utils";
 
 type DoughnutChartProps =
   | {
-      chartValue: number;
+      chartValue: number | null;
       usagePercentage: number;
       dataType: "memoryUsageValue";
       unit: string;
     }
   | {
-      chartValue: number;
+      chartValue: number | null;
       dataType: Exclude<HardwareDataType, "memoryUsageValue">;
       unit?: never;
       usagePercentage?: never;
@@ -104,7 +104,7 @@ export const DoughnutChart = ({
       config={chartConfig}
       className={cn("aspect-square max-h-[100px] xl:max-h-[200px]", className)}
     >
-      {chartData[0].value != null ? (
+      {chartValue != null ? (
         <RadialBarChart
           data={chartData}
           startAngle={0}
