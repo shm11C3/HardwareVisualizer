@@ -14,7 +14,7 @@ import {
 } from "@/features/hardware/store/chart";
 import { events } from "@/rspc/bindings";
 
-const padHistory = (arr: (number | null)[]): number[] => {
+const padHistory = (arr: (number | null)[]): (number | null)[] => {
   const padded = Array(Math.max(chartConfig.historyLengthSec - arr.length, 0))
     .fill(null)
     .concat(arr);

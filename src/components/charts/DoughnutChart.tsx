@@ -24,13 +24,13 @@ import { cn } from "@/lib/utils";
 
 type DoughnutChartProps =
   | {
-      chartValue: number;
+      chartValue: number | null;
       usagePercentage: number;
       dataType: "memoryUsageValue";
       unit: string;
     }
   | {
-      chartValue: number;
+      chartValue: number | null;
       dataType: Exclude<HardwareDataType, "memoryUsageValue">;
       unit?: never;
       usagePercentage?: never;

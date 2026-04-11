@@ -1,14 +1,16 @@
 import { atom } from "jotai";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 
-export const cpuUsageHistoryAtom = atom<number[]>([]);
+export const cpuUsageHistoryAtom = atom<(number | null)[]>([]);
 export const processorsUsageHistoryAtom = atom<number[][]>([]);
-export const memoryUsageHistoryAtom = atom<number[]>([]);
+export const memoryUsageHistoryAtom = atom<(number | null)[]>([]);
 
 // ── Multi-GPU state ──
 
 /** Per-GPU usage histories keyed by gpuId */
-export const gpuUsageHistoriesAtom = atom<Record<string, number[]>>({});
+export const gpuUsageHistoriesAtom = atom<Record<string, (number | null)[]>>(
+  {},
+);
 
 /** Currently selected GPU ID for dashboard/usage view */
 export const selectedGpuIdAtom = atom<string | null>(null);
@@ -50,7 +52,7 @@ export const gpuFanSpeedAtom = atom<NameValues>((get) =>
 // ── Derived atoms for backward compatibility ──
 
 /** Resolves to the selected (or first) GPU's usage history */
-export const graphicUsageHistoryAtom = atom<number[]>((get) => {
+export const graphicUsageHistoryAtom = atom<(number | null)[]>((get) => {
   const selected = get(selectedGpuIdAtom);
   const histories = get(gpuUsageHistoriesAtom);
   if (selected && histories[selected]) return histories[selected];
