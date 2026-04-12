@@ -138,7 +138,7 @@ jobs:
           components: ""
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@f92912fad184299a31e22ad070a5059fd07d4f59 # v2.68.7
+        uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
         with:
           tool: cargo-llvm-cov
 
