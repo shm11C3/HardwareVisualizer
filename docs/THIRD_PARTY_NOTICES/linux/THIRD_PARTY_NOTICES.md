@@ -4598,7 +4598,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@26.0.3
+## i18next@26.0.4
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4713,7 +4713,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-## jotai@2.19.0
+## jotai@2.19.1
 
 - License: MIT
 - Repository: [https://github.com/pmndrs/jotai](https://github.com/pmndrs/jotai)
@@ -4860,7 +4860,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@1.7.0
+## lucide-react@1.8.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -4996,7 +4996,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## react-dom@19.2.4
+## react-dom@19.2.5
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -5300,7 +5300,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react@19.2.4
+## react@19.2.5
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
