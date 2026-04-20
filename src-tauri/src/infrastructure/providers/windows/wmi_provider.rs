@@ -51,7 +51,7 @@ pub async fn query_memory_info() -> Result<MemoryInfo, String> {
 
   let memory_info = MemoryInfo {
     size: formatter::format_size(physical_memory.iter().map(|mem| mem.capacity).sum(), 1),
-    clock: physical_memory[0].speed as u32,
+    clock: physical_memory[0].speed,
     clock_unit: "MHz".to_string(),
     memory_count: physical_memory.len() as u32,
     total_slots: physical_memory_array[0].memory_devices.unwrap_or(0),
