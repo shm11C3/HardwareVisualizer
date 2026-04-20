@@ -434,10 +434,10 @@ impl<'a> ProcessStatsCollector<'a> {
         stats.sort_by(|a, b| b.cpu_usage.total_cmp(&a.cpu_usage));
       }
       ProcessRankingMetric::Memory => {
-        stats.sort_by(|a, b| b.memory_usage.cmp(&a.memory_usage));
+        stats.sort_by_key(|s| std::cmp::Reverse(s.memory_usage));
       }
       ProcessRankingMetric::ExecutionTime => {
-        stats.sort_by(|a, b| b.execution_sec.cmp(&a.execution_sec));
+        stats.sort_by_key(|s| std::cmp::Reverse(s.execution_sec));
       }
     }
     stats
