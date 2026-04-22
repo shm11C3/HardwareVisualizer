@@ -16,14 +16,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { minOpacity } from "@/consts/style";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
@@ -117,27 +116,39 @@ export const GPUInfo = () => {
   return (
     <>
       {hasMultipleGpus && targetGpu && (
-        <div className="mb-3 flex justify-end">
-          <Select
-            value={targetGpu.id}
-            onValueChange={(value) => setSelectedGpuId(value)}
+        <TooltipProvider>
+          <div
+            role="tablist"
+            aria-label={t("pages.dashboard.gpuSelector.label")}
+            className="mb-3 flex justify-end gap-1"
           >
-            <SelectTrigger
-              size="sm"
-              className="max-w-full text-xs"
-              aria-label={t("pages.dashboard.gpuSelector.label")}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {gpus.map((gpu) => (
-                <SelectItem key={gpu.id} value={gpu.id} className="text-xs">
-                  {gpu.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            {gpus.map((gpu, i) => {
+              const isSelected = gpu.id === targetGpu.id;
+              return (
+                <Tooltip key={gpu.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      aria-label={gpu.name}
+                      onClick={() => setSelectedGpuId(gpu.id)}
+                      className={cn(
+                        "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-transparent text-muted-foreground hover:bg-muted",
+                      )}
+                    >
+                      #{i + 1}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{gpu.name}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
       <div className="relative">
         <div
@@ -173,6 +184,20 @@ export const GPUInfo = () => {
             className={index !== 0 ? "py-3" : arr.length > 1 ? "pb-3" : ""}
             key={gpu.id}
           >
+            {hasMultipleGpus && (
+              <div className="mb-1 flex items-center px-4">
+                <span
+                  className={cn(
+                    "rounded-md px-2 py-0.5 font-mono text-xs",
+                    gpu.id === targetGpu?.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  #{index + 1}
+                </span>
+              </div>
+            )}
             {(() => {
               const dedicatedMemoryKb = gpuDedicatedMemoryKbMap[gpu.id] ?? null;
               const hasMemorySize = gpu.memorySize !== "N/A";
