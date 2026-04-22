@@ -12,6 +12,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
+import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
@@ -84,6 +85,7 @@ const AppContent = () => {
 
   useErrorModalListener();
   useHardwareEventListener();
+  useSelectedGpuPersistence();
   const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {
