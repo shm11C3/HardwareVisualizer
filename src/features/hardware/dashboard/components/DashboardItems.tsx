@@ -16,17 +16,25 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuUsageHistoryAtom,
-  gpuDedicatedMemoryKbAtom,
+  gpuDedicatedMemoryKbMapAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
+  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
@@ -80,24 +88,24 @@ export const GPUInfo = () => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
   const [gpuUsageSource] = useAtom(gpuUsageSourceAtom);
+  const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
-  const [gpuDedicatedMemoryKb] = useAtom(gpuDedicatedMemoryKbAtom);
+  const [gpuDedicatedMemoryKbMap] = useAtom(gpuDedicatedMemoryKbMapAtom);
   const os = useMemo(() => platform(), []);
 
+  const gpus = hardwareInfo.gpus ?? [];
+  const targetGpu = gpus.find((g) => g.id === selectedGpuId) ?? gpus[0] ?? null;
+  const hasMultipleGpus = gpus.length > 1;
+
   const getTargetInfo = (data: NameValues) => {
-    if (
-      !hardwareInfo.gpus ||
-      hardwareInfo.gpus.length === 0 ||
-      data.length === 0
-    )
-      return undefined;
-    // Prefer an exact name match for the primary GPU.
-    const matched = data.find((x) => x.name === hardwareInfo.gpus?.[0]?.name);
+    if (!targetGpu || data.length === 0) return undefined;
+    // Prefer an exact name match for the currently selected GPU.
+    const matched = data.find((x) => x.name === targetGpu.name);
     if (matched) return matched.value;
     // If there is exactly one GPU and one metric entry, allow a safe fallback.
-    if (hardwareInfo.gpus.length === 1 && data.length === 1) {
+    if (gpus.length === 1 && data.length === 1) {
       return data[0]?.value;
     }
     // Otherwise, avoid showing potentially incorrect metrics.
@@ -108,6 +116,29 @@ export const GPUInfo = () => {
 
   return (
     <>
+      {hasMultipleGpus && targetGpu && (
+        <div className="mb-3 flex justify-end">
+          <Select
+            value={targetGpu.id}
+            onValueChange={(value) => setSelectedGpuId(value)}
+          >
+            <SelectTrigger
+              size="sm"
+              className="max-w-full text-xs"
+              aria-label={t("pages.dashboard.gpuSelector.label")}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gpus.map((gpu) => (
+                <SelectItem key={gpu.id} value={gpu.id} className="text-xs">
+                  {gpu.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="relative">
         <div
           className={cn(
@@ -143,13 +174,12 @@ export const GPUInfo = () => {
             key={gpu.id}
           >
             {(() => {
+              const dedicatedMemoryKb = gpuDedicatedMemoryKbMap[gpu.id] ?? null;
               const hasMemorySize = gpu.memorySize !== "N/A";
-              const hasMemoryUsage = gpuDedicatedMemoryKb != null;
+              const hasMemoryUsage = dedicatedMemoryKb != null;
               const formattedMemoryUsage = hasMemoryUsage
                 ? (() => {
-                    const [value, unit] = formatBytes(
-                      gpuDedicatedMemoryKb * 1024,
-                    );
+                    const [value, unit] = formatBytes(dedicatedMemoryKb * 1024);
                     return `${value} ${unit}`;
                   })()
                 : null;
