@@ -133,7 +133,10 @@
     "dashboard": {
       "name": "Dashboard",
       "visibleItems": "Visible Items",
-      "selectItems": "Select items to display on the dashboard"
+      "selectItems": "Select items to display on the dashboard",
+      "gpuSelector": {
+        "label": "Select GPU"
+      }
     },
     "usage": {
       "name": "Usage"

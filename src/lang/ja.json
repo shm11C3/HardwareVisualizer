@@ -133,7 +133,10 @@
     "dashboard": {
       "name": "ダッシュボード",
       "visibleItems": "表示項目",
-      "selectItems": "表示する項目を選択してください"
+      "selectItems": "表示する項目を選択してください",
+      "gpuSelector": {
+        "label": "GPU を選択"
+      }
     },
     "usage": {
       "name": "ハードウェア使用率"
