@@ -1,38 +1,77 @@
 name: auto-merge
-on: pull_request
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 permissions: read-all
 
 jobs:
   auto-merge:
+    name: Approve and enable auto-merge
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
       pull-requests: write
-    if: (github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]' || github.event.pull_request.user.login == 'dependabot[bot]') && github.repository == 'shm11C3/HardwareVisualizer'
-    steps:
-      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
-        id: generate-token
-        with:
-          client-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Dependabot metadata
+    if: >
+      github.repository == 'shm11C3/HardwareVisualizer' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false &&
+      (
+        github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]' ||
+        github.event.pull_request.user.login == 'dependabot[bot]'
+      )
+
+    steps:
+      - name: Fetch Dependabot metadata
         if: github.event.pull_request.user.login == 'dependabot[bot]'
         id: metadata
         uses: dependabot/fetch-metadata@ffa630c65fa7e0ecfa0625b5ceda64399aea1b36
         with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          github-token: ${{ github.token }}
+
+      - name: Check auto-merge eligibility
+        id: eligibility
+        shell: bash
+        run: |
+          if [[ "${PR_AUTHOR}" == "hardwarevisualizerappmanager[bot]" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${PR_AUTHOR}" == "dependabot[bot]" && "${DEPENDABOT_UPDATE_TYPE}" == "version-update:semver-patch" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          DEPENDABOT_UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+
+      - name: Generate GitHub App token
+        if: steps.eligibility.outputs.enabled == 'true'
+        id: generate-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Approve PR
-        if: github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]' || (github.event.pull_request.user.login == 'dependabot[bot]' && steps.metadata.outputs.update-type == 'version-update:semver-patch')
+        if: steps.eligibility.outputs.enabled == 'true'
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
 
-      - name: Enable auto-merge for Bot PRs
-        if: github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]' || (github.event.pull_request.user.login == 'dependabot[bot]' && steps.metadata.outputs.update-type == 'version-update:semver-patch')
+      - name: Enable auto-merge
+        if: steps.eligibility.outputs.enabled == 'true'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
