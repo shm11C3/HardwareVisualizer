@@ -5,11 +5,21 @@
 //! (with `specta::Type` for tauri-specta TypeScript bindings) live in
 //! `src-tauri`; commands and services convert between the two via `From`
 //! impls at the boundary.
+//!
+//! Most types derive `Serialize` / `Deserialize` because the Linux
+//! platform layer caches some of them to disk via
+//! `crate::platform::linux::cache` (JSON round-trip).
+
+use serde::{Deserialize, Serialize};
 
 use crate::enums::hardware::DiskKind;
 use crate::utils::formatter::SizeUnit;
 
-#[derive(Debug, Clone, PartialEq)]
+/// `#[serde(rename_all = "camelCase")]` matches the format the Linux
+/// platform layer wrote to its on-disk cache before this type moved
+/// into Core, so existing cache files stay readable.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemoryInfo {
   pub size: String,
   pub clock: u32,

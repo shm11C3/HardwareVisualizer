@@ -1,9 +1,9 @@
 use crate::infrastructure::providers;
+use crate::log_warn;
 use crate::models;
 use crate::models::hardware::MemoryInfo;
 use crate::platform::linux;
 use crate::utils;
-use crate::{log_internal, log_warn};
 use std;
 
 pub fn get_memory_info() -> std::pin::Pin<

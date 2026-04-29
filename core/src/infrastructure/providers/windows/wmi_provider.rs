@@ -1,7 +1,7 @@
 use crate::models::hardware::{MemoryInfo, MotherboardInfo, NetworkInfo};
 use crate::utils;
 use crate::utils::formatter;
-use crate::{log_debug, log_error, log_internal};
+use crate::{log_debug, log_error};
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;

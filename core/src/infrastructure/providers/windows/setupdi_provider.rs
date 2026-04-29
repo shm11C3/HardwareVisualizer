@@ -8,7 +8,7 @@
 /// string reported by DXGI (`DXGI_ADAPTER_DESC.Description`), so the
 /// result can be used to correlate DXGI names with ADL names via BDF.
 ///
-use crate::{log_debug, log_internal};
+use crate::log_debug;
 
 /// PCI Bus/Device/Function together with the Windows device description
 /// (which matches the DXGI adapter name).

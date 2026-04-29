@@ -8,7 +8,7 @@
 ///   OD5 → ODN (OD ≥ 7) → PMLog / OD8 (OD ≥ 8 or !supported)
 ///
 use crate::models::hardware::NameValue;
-use crate::{log_debug, log_error, log_internal};
+use crate::{log_debug, log_error};
 use std::ffi::c_void;
 use std::sync::OnceLock;
 use tokio::task::spawn_blocking;

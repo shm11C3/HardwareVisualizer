@@ -1,12 +1,13 @@
 //! Structured logging macros that wrap `tracing`.
 //!
 //! These macros are exported via `#[macro_export]` so any crate that
-//! depends on `hwviz-core` can `use hwviz_core::{log_debug, log_internal};`
-//! and emit log records without taking a direct dependency on `tracing`.
+//! depends on `hwviz-core` can `use hwviz_core::log_debug;` and emit log
+//! records without taking a direct dependency on `tracing`.
 //!
-//! `log_internal!` must be imported alongside the convenience macros
-//! (`log_debug!`, `log_info!`, `log_warn!`, `log_error!`) because the
-//! convenience macros expand to a call to `log_internal!`.
+//! The level-named macros (`log_debug!`, `log_info!`, `log_warn!`,
+//! `log_error!`) expand to `$crate::log_internal!(...)`, so callers
+//! don't need a separate `log_internal` import. Only files that invoke
+//! `log_internal!(...)` directly need to import it.
 
 #[macro_export]
 macro_rules! log_internal {

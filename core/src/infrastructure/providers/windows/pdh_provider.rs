@@ -8,7 +8,7 @@
 /// call) and reused across subsequent polls so that only `CollectQueryData` +
 /// `GetFormattedCounterArrayW` run on each tick.
 ///
-use crate::{log_debug, log_error, log_internal};
+use crate::{log_debug, log_error};
 use std::collections::HashMap;
 use std::error::Error;
 use std::mem::{self, MaybeUninit};
