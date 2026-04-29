@@ -113,8 +113,17 @@ impl HistoryStore {
     &self,
     process_metrics: &[(sysinfo::Pid, f32, f32)],
   ) {
+    // Drop history for PIDs that no longer exist so the maps don't grow
+    // for the lifetime of the app, and so a recycled PID can't inherit a
+    // previous process's rolling samples.
+    let active_pids: std::collections::HashSet<sysinfo::Pid> =
+      process_metrics.iter().map(|(pid, _, _)| *pid).collect();
+
     let mut cpu_histories = self.inner.process_cpu_histories.lock().unwrap();
     let mut mem_histories = self.inner.process_memory_histories.lock().unwrap();
+
+    cpu_histories.retain(|pid, _| active_pids.contains(pid));
+    mem_histories.retain(|pid, _| active_pids.contains(pid));
 
     for (pid, cpu_usage, memory_mb) in process_metrics {
       let cpu_history = cpu_histories.entry(*pid).or_default();
@@ -225,25 +234,30 @@ impl HistoryStore {
           })
           .unwrap_or(0.0);
 
-        let memory_usage = process_memory_histories
+        // The frontend's `ProcessTable` displays this value as MB.
+        // Stored samples are KB (`process.memory()` is bytes; `sample_system`
+        // pushes `bytes / 1024` into the history). Both the averaged-history
+        // and the fallback paths must produce MB, so divide by 1024 once
+        // more here. Previously the fallback was off by 1024× the first
+        // tick of any new process.
+        let memory_usage_mb = process_memory_histories
           .get(&pid)
           .map(|hist| {
             let len = hist.len().min(PROCESS_AVG_WINDOW);
             if len == 0 {
-              return process.memory() as f32 / 1024.0;
+              return (process.memory() as f32 / 1024.0) / 1024.0;
             }
-            let sum: f32 = hist.iter().rev().take(len).sum();
-            let avg_kb = sum / len as f32;
-            let avg_mb = avg_kb / 1024.0;
-            rounding::round1(avg_mb)
+            let sum_kb: f32 = hist.iter().rev().take(len).sum();
+            let avg_kb = sum_kb / len as f32;
+            rounding::round1(avg_kb / 1024.0)
           })
-          .unwrap_or_else(|| process.memory() as f32 / 1024.0);
+          .unwrap_or_else(|| (process.memory() as f32 / 1024.0) / 1024.0);
 
         ProcessInfo {
           pid: pid.as_u32() as i32,
           name: process.name().to_string_lossy().into_owned(),
           cpu_usage,
-          memory_usage,
+          memory_usage: memory_usage_mb,
         }
       })
       .collect()

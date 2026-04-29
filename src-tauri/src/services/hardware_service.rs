@@ -43,11 +43,16 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
       None
     }
   };
-  let storage: Vec<crate::models::hardware::StorageInfo> = storage_res
-    .map_err(|e| format!("Failed to get storage info: {e}"))?
-    .into_iter()
-    .map(Into::into)
-    .collect();
+  // Storage info follows the same "log and continue" rule as the GPU
+  // and memory branches above; the doc-comment on this function
+  // promises partial results.
+  let storage: Vec<crate::models::hardware::StorageInfo> = match storage_res {
+    Ok(v) => v.into_iter().map(Into::into).collect(),
+    Err(e) => {
+      log_error!("storage_info_failed", "collect_hardware_info", Some(e));
+      Vec::new()
+    }
+  };
 
   let motherboard = match motherboard_res {
     Ok(v) => Some(v),

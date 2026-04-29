@@ -70,12 +70,19 @@ fn emit_snapshot(app_handle: &tauri::AppHandle, snapshot: MetricsSnapshot) {
 }
 
 /// Read the user's preferred temperature unit from `settings::AppState`.
-/// Defaults to Celsius if the state hasn't been registered yet (only
-/// possible during early startup).
+/// Defaults to Celsius if the state hasn't been registered yet (early
+/// startup) or if the settings mutex is poisoned. We don't want a
+/// poisoned lock to bring down the entire snapshot-forwarding loop.
 fn current_temperature_unit(app_handle: &tauri::AppHandle) -> TemperatureUnit {
   app_handle
     .try_state::<settings::AppState>()
-    .map(|state| state.settings.lock().unwrap().temperature_unit.clone())
+    .and_then(|state| {
+      state
+        .settings
+        .lock()
+        .ok()
+        .map(|s| s.temperature_unit.clone())
+    })
     .unwrap_or(TemperatureUnit::Celsius)
 }
 
