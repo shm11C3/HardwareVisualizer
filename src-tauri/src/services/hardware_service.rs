@@ -1,8 +1,8 @@
-use crate::infrastructure;
+use crate::log_error;
 use crate::models::hardware::{HardwareMonitorState, SysInfo};
-use crate::platform::factory::PlatformFactory;
 use crate::services::motherboard_service;
-use crate::{log_error, log_internal};
+use hwviz_core::infrastructure::providers::sysinfo_provider;
+use hwviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Collect hardware information in aggregate
@@ -14,10 +14,9 @@ use crate::{log_error, log_internal};
 pub async fn collect_hardware_info(
   state: &HardwareMonitorState,
 ) -> Result<SysInfo, String> {
-  let cpu = infrastructure::providers::sysinfo_provider::get_cpu_info(
-    state.system.lock().unwrap(),
-  )
-  .ok();
+  let cpu = sysinfo_provider::get_cpu_info(state.system.lock().unwrap())
+    .ok()
+    .map(Into::into);
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
@@ -26,12 +25,12 @@ pub async fn collect_hardware_info(
   let (gpus_res, memory_res, storage_res, motherboard_res) = tokio::join!(
     platform.get_gpu_info(),
     platform.get_memory_info(),
-    async { infrastructure::providers::sysinfo_provider::get_storage_info() },
+    async { sysinfo_provider::get_storage_info() },
     motherboard_service::fetch_motherboard_info(),
   );
 
   let gpus = match gpus_res {
-    Ok(v) => Some(v),
+    Ok(v) => Some(v.into_iter().map(Into::into).collect()),
     Err(e) => {
       log_error!("gpu_info_failed", "collect_hardware_info", Some(e));
       None
@@ -39,13 +38,17 @@ pub async fn collect_hardware_info(
   };
 
   let memory = match memory_res {
-    Ok(v) => Some(v),
+    Ok(v) => Some(v.into()),
     Err(e) => {
       log_error!("memory_info_failed", "collect_hardware_info", Some(e));
       None
     }
   };
-  let storage = storage_res.map_err(|e| format!("Failed to get storage info: {e}"))?;
+  let storage: Vec<crate::models::hardware::StorageInfo> = storage_res
+    .map_err(|e| format!("Failed to get storage info: {e}"))?
+    .into_iter()
+    .map(Into::into)
+    .collect();
 
   let motherboard = match motherboard_res {
     Ok(v) => Some(v),

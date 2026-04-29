@@ -5,13 +5,13 @@ use crate::models;
 use crate::utils::formatter;
 use crate::{log_error, log_internal};
 use std::collections::HashMap;
-use tauri::async_runtime;
+use tokio::task;
 
 pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
   log_internal!(debug, "start", "macos_get_gpu_info", None::<&str>);
 
   // Primary: IOKit (blocking)
-  let iokit_res = async_runtime::spawn_blocking(iokit_info::get_gpus_from_iokit)
+  let iokit_res = task::spawn_blocking(iokit_info::get_gpus_from_iokit)
     .await
     .map_err(|e| format!("Failed to join IOKit GPU task: {e}"))?;
 
@@ -40,7 +40,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
     // This still keeps IOKit as the primary source (IDs stay registry-id based).
     // NOTE: We match by normalized GPU name because IOKit/SP order is not guaranteed.
     if !mapped.is_empty()
-      && let Ok(Ok(sp_list)) = async_runtime::spawn_blocking(|| {
+      && let Ok(Ok(sp_list)) = task::spawn_blocking(|| {
         let raw = system_profiler_displays::get_raw_spdisplays_json()?;
         system_profiler_displays::parse_spdisplays_json(&raw)
       })
@@ -113,7 +113,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
   }
 
   // Fallback: system_profiler SPDisplaysDataType (blocking)
-  let sp_res = async_runtime::spawn_blocking(|| {
+  let sp_res = task::spawn_blocking(|| {
     let raw = system_profiler_displays::get_raw_spdisplays_json()?;
     system_profiler_displays::parse_spdisplays_json(&raw)
   })
@@ -190,7 +190,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
 
 pub async fn get_gpu_memory_usage()
 -> Result<Option<models::hardware::GpuMemoryUsage>, String> {
-  let res = async_runtime::spawn_blocking(iokit_info::get_gpu_memory_usage_from_iokit)
+  let res = task::spawn_blocking(iokit_info::get_gpu_memory_usage_from_iokit)
     .await
     .map_err(|e| format!("Failed to join IOKit GPU memory task: {e}"))?;
 

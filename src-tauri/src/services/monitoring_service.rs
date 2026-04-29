@@ -99,7 +99,7 @@ fn update_process_histories(
 
 #[cfg(target_os = "windows")]
 pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
-  use crate::infrastructure::providers::nvapi_provider;
+  use hwviz_core::infrastructure::providers::nvapi_provider;
   use nvapi::PhysicalGpu;
 
   let mut gpu_metrics: Vec<GpuSample> = Vec::new();
@@ -132,7 +132,7 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
   }
 
   // ── AMD GPUs via ADL ──
-  if crate::infrastructure::providers::adl_provider::is_available() {
+  if hwviz_core::infrastructure::providers::adl_provider::is_available() {
     sample_amd_gpu(&mut gpu_metrics).await;
   }
 
@@ -172,9 +172,8 @@ fn resolve_gpu_name_from_map(
 #[cfg(target_os = "windows")]
 async fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32), String>
 {
-  use crate::infrastructure::providers::setupdi_provider;
+  use hwviz_core::infrastructure::providers::setupdi_provider;
   use crate::log_error;
-  use crate::log_internal;
 
   static MAP: tokio::sync::OnceCell<std::collections::HashMap<(i32, i32, i32), String>> =
     tokio::sync::OnceCell::const_new();
@@ -208,7 +207,7 @@ async fn bdf_to_dxgi_name() -> &'static std::collections::HashMap<(i32, i32, i32
 /// VRAM usage is not available via ADL.
 #[cfg(target_os = "windows")]
 async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
-  use crate::infrastructure::providers::adl_provider;
+  use hwviz_core::infrastructure::providers::adl_provider;
 
   // Usage per adapter (with BDF)
   let usages = adl_provider::get_amd_gpu_usage_per_adapter()
@@ -258,10 +257,10 @@ async fn sample_amd_gpu(gpu_metrics: &mut Vec<GpuSample>) {
 /// Collect Intel GPU usage via PDH performance counters, filtered by LUID.
 #[cfg(target_os = "windows")]
 async fn sample_intel_gpu(gpu_metrics: &mut Vec<GpuSample>) {
-  use crate::infrastructure::providers::pdh_provider::{self, GpuEngineType};
+  use hwviz_core::infrastructure::providers::pdh_provider::{self, GpuEngineType};
 
   let intel_gpus =
-    crate::infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
+    hwviz_core::infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
   if intel_gpus.is_empty() {
     return;
   }
@@ -301,8 +300,8 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
 
 #[cfg(target_os = "macos")]
 pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
-  use crate::infrastructure::providers::macos::io_kit::iokit_info;
-  use crate::infrastructure::providers::macos::{gpu, gpu_info};
+  use hwviz_core::infrastructure::providers::macos::io_kit::iokit_info;
+  use hwviz_core::infrastructure::providers::macos::{gpu, gpu_info};
 
   static CACHED_GPU_NAME: tokio::sync::OnceCell<String> =
     tokio::sync::OnceCell::const_new();
@@ -355,9 +354,9 @@ pub async fn sample_gpu(resources: &MonitorResources) -> Vec<GpuSample> {
 /// (DRM/sysfs for AMD, DRM for Intel).
 #[cfg(target_os = "linux")]
 async fn collect_linux_gpu_metrics() -> Vec<GpuSample> {
-  use crate::infrastructure::providers::drm_sys;
-  use crate::infrastructure::providers::hwmon;
-  use crate::infrastructure::providers::lspci;
+  use hwviz_core::infrastructure::providers::drm_sys;
+  use hwviz_core::infrastructure::providers::hwmon;
+  use hwviz_core::infrastructure::providers::lspci;
 
   let mut metrics: Vec<GpuSample> = Vec::new();
   let card_ids = drm_sys::get_all_card_ids();

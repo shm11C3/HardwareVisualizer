@@ -1,4 +1,5 @@
 use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
+use hwviz_core::models::hardware as core_hw;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::{HashMap, VecDeque};
@@ -168,6 +169,146 @@ where
     s.serialize_str(&format!("{x:.0}")) // Integer only
   } else {
     s.serialize_str(&format!("{x:.1}")) // Up to 1 decimal place
+  }
+}
+
+// ── Core POJO ↔ wire conversions ──
+//
+// Field-by-field copies. Wire types derive `specta::Type` for tauri-specta;
+// the Core POJOs in `hwviz_core::models::hardware` are returned by the
+// platform sensor layer.
+
+impl From<core_hw::MemoryInfo> for MemoryInfo {
+  fn from(src: core_hw::MemoryInfo) -> Self {
+    Self {
+      size: src.size,
+      clock: src.clock,
+      clock_unit: src.clock_unit,
+      memory_count: src.memory_count,
+      total_slots: src.total_slots,
+      memory_type: src.memory_type,
+      is_detailed: src.is_detailed,
+    }
+  }
+}
+
+impl From<core_hw::GraphicInfo> for GraphicInfo {
+  fn from(src: core_hw::GraphicInfo) -> Self {
+    Self {
+      id: src.id,
+      name: src.name,
+      vendor_name: src.vendor_name,
+      clock: src.clock,
+      memory_size: src.memory_size,
+      memory_size_dedicated: src.memory_size_dedicated,
+      core_count: src.core_count,
+    }
+  }
+}
+
+impl From<core_hw::GpuMemoryUsage> for GpuMemoryUsage {
+  fn from(src: core_hw::GpuMemoryUsage) -> Self {
+    Self {
+      in_use_bytes: src.in_use_bytes,
+      alloc_bytes: src.alloc_bytes,
+    }
+  }
+}
+
+impl From<core_hw::GpuUsageResult> for GpuUsageResult {
+  fn from(src: core_hw::GpuUsageResult) -> Self {
+    Self {
+      usage: src.usage,
+      source: src.source,
+    }
+  }
+}
+
+impl From<core_hw::NameValue> for NameValue {
+  fn from(src: core_hw::NameValue) -> Self {
+    Self {
+      name: src.name,
+      value: src.value,
+    }
+  }
+}
+
+impl From<core_hw::StorageInfo> for StorageInfo {
+  fn from(src: core_hw::StorageInfo) -> Self {
+    Self {
+      name: src.name,
+      size: src.size,
+      size_unit: src.size_unit.into(),
+      free: src.free,
+      free_unit: src.free_unit.into(),
+      storage_type: src.storage_type.into(),
+      file_system: src.file_system,
+    }
+  }
+}
+
+impl From<core_hw::NetworkInfo> for NetworkInfo {
+  fn from(src: core_hw::NetworkInfo) -> Self {
+    Self {
+      description: src.description,
+      mac_address: src.mac_address,
+      ipv4: src.ipv4,
+      ipv6: src.ipv6,
+      link_local_ipv6: src.link_local_ipv6,
+      ip_subnet: src.ip_subnet,
+      default_ipv4_gateway: src.default_ipv4_gateway,
+      default_ipv6_gateway: src.default_ipv6_gateway,
+    }
+  }
+}
+
+impl From<core_hw::ProcessInfo> for ProcessInfo {
+  fn from(src: core_hw::ProcessInfo) -> Self {
+    Self {
+      pid: src.pid,
+      name: src.name,
+      cpu_usage: src.cpu_usage,
+      memory_usage: src.memory_usage,
+    }
+  }
+}
+
+impl From<core_hw::MotherboardInfo> for MotherboardInfo {
+  fn from(src: core_hw::MotherboardInfo) -> Self {
+    Self {
+      manufacturer: src.manufacturer,
+      product: src.product,
+      version: src.version,
+      serial_number: src.serial_number,
+      bios_vendor: src.bios_vendor,
+      bios_version: src.bios_version,
+      bios_release_date: src.bios_release_date,
+    }
+  }
+}
+
+impl From<core_hw::CpuInfo> for CpuInfo {
+  fn from(src: core_hw::CpuInfo) -> Self {
+    Self {
+      name: src.name,
+      vendor: src.vendor,
+      core_count: src.core_count,
+      clock: src.clock,
+      clock_unit: src.clock_unit,
+      cpu_name: src.cpu_name,
+    }
+  }
+}
+
+impl From<core_hw::SysInfo> for SysInfo {
+  fn from(src: core_hw::SysInfo) -> Self {
+    Self {
+      cpu: src.cpu.map(Into::into),
+      memory: src.memory.map(Into::into),
+      gpus: src.gpus.map(|v| v.into_iter().map(Into::into).collect()),
+      storage: src.storage.into_iter().map(Into::into).collect(),
+      motherboard: src.motherboard.map(Into::into),
+    }
   }
 }
 

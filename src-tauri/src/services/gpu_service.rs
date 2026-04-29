@@ -1,6 +1,6 @@
 use crate::enums;
 use crate::models::hardware::{GpuMemoryUsage, GpuUsageResult, NameValue};
-use crate::platform::factory::PlatformFactory;
+use hwviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Get GPU usage (%) together with the data-source name
@@ -26,10 +26,12 @@ pub async fn fetch_gpu_temperature(
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
-  platform
-    .get_gpu_temperature(temperature_unit)
+  let core_temps = platform
+    .get_gpu_temperature(temperature_unit.into())
     .await
-    .map_err(|e| format!("Failed to get GPU temperature: {e:?}"))
+    .map_err(|e| format!("Failed to get GPU temperature: {e:?}"))?;
+
+  Ok(core_temps.into_iter().map(NameValue::from).collect())
 }
 
 ///
@@ -54,5 +56,6 @@ pub async fn fetch_gpu_memory_usage() -> Result<Option<GpuMemoryUsage>, String> 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
-  platform.get_gpu_memory_usage().await
+  let core_mem = platform.get_gpu_memory_usage().await?;
+  Ok(core_mem.map(GpuMemoryUsage::from))
 }

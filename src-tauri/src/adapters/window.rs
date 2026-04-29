@@ -2,8 +2,8 @@ use hwviz_core::models::{GpuMetric, MetricsSnapshot};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 use tokio::sync::watch;
 
+use crate::log_warn;
 use crate::models::hardware::{GpuMonitorData, HardwareMonitorUpdate};
-use crate::{log_internal, log_warn};
 use tauri_specta::Event as _;
 
 /// Subscribes to the in-process [`hwviz_core::event_bus::EventBus`] and

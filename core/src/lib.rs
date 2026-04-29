@@ -14,8 +14,12 @@ pub mod event_bus;
 
 pub mod settings {}
 
-pub mod platform {}
+pub mod platform;
 
-pub mod infrastructure {}
+pub mod infrastructure;
+
+pub mod enums;
 
 pub mod models;
+
+pub mod utils;

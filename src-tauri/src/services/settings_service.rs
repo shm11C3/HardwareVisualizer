@@ -1,7 +1,7 @@
 use crate::enums;
 use crate::models;
 use crate::utils;
-use crate::{log_error, log_info, log_internal};
+use crate::{log_error, log_info};
 use std::io::Write;
 
 pub const SETTINGS_FILENAME: &str = "settings.json";

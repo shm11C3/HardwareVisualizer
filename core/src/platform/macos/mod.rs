@@ -6,7 +6,7 @@ use crate::platform::traits::{
 };
 use std::future::Future;
 use std::pin::Pin;
-use tauri::async_runtime;
+use tokio::task;
 
 mod gpu;
 pub mod memory;
@@ -25,7 +25,7 @@ impl MemoryPlatform for MacOSPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>> {
     Box::pin(async {
-      async_runtime::spawn_blocking(memory::get_memory_info)
+      task::spawn_blocking(memory::get_memory_info)
         .await
         .map_err(|e| format!("Failed to join memory task: {e}"))?
     })

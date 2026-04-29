@@ -1,6 +1,6 @@
 use crate::enums;
 use crate::models::hardware::NetworkInfo;
-use crate::platform::factory::PlatformFactory;
+use hwviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Get network interface information
@@ -9,7 +9,8 @@ use crate::platform::factory::PlatformFactory;
 pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, enums::error::BackendError> {
   let platform =
     PlatformFactory::create().map_err(|_| enums::error::BackendError::UnexpectedError)?;
-  platform
+  let core_list = platform
     .get_network_info()
-    .map_err(|_| enums::error::BackendError::UnexpectedError)
+    .map_err(|_| enums::error::BackendError::UnexpectedError)?;
+  Ok(core_list.into_iter().map(NetworkInfo::from).collect())
 }

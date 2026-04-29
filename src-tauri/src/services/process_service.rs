@@ -16,7 +16,7 @@ const PROCESS_AVG_WINDOW: usize = 5;
 /// Return value: `Vec<ProcessInfo>` (use current value/0 if no history)
 ///
 pub fn collect_process_list(state: &HardwareMonitorState) -> Vec<ProcessInfo> {
-  use crate::utils::rounding;
+  use hwviz_core::utils::rounding;
 
   let mut system = state.system.lock().unwrap();
   let process_cpu_histories = state.process_cpu_histories.lock().unwrap();

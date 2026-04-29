@@ -1,3 +1,4 @@
+use hwviz_core::enums::error as core_err;
 use serde::{Serialize, Serializer};
 use specta::Type;
 
@@ -13,6 +14,20 @@ pub enum BackendError {
   NetworkUsageNotAvailable,
   UnexpectedError,
   // SystemError(String),
+}
+
+impl From<core_err::BackendError> for BackendError {
+  fn from(src: core_err::BackendError) -> Self {
+    match src {
+      core_err::BackendError::CpuInfoNotAvailable => Self::CpuInfoNotAvailable,
+      core_err::BackendError::StorageInfoNotAvailable => Self::StorageInfoNotAvailable,
+      core_err::BackendError::MemoryInfoNotAvailable => Self::MemoryInfoNotAvailable,
+      core_err::BackendError::GraphicInfoNotAvailable => Self::GraphicInfoNotAvailable,
+      core_err::BackendError::NetworkInfoNotAvailable => Self::NetworkInfoNotAvailable,
+      core_err::BackendError::NetworkUsageNotAvailable => Self::NetworkUsageNotAvailable,
+      core_err::BackendError::UnexpectedError => Self::UnexpectedError,
+    }
+  }
 }
 
 impl Serialize for BackendError {

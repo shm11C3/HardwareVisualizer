@@ -1,7 +1,7 @@
 use crate::commands::settings;
 use crate::enums::settings::TemperatureUnit;
+use crate::log_warn;
 use crate::services::monitoring_service;
-use crate::{log_internal, log_warn};
 use hwviz_core::event_bus::EventBus;
 use hwviz_core::models::{GpuMetric, MetricsSnapshot};
 use tauri::Manager as _;

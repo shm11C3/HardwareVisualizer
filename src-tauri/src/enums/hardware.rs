@@ -1,3 +1,4 @@
+use hwviz_core::enums::hardware as core_hw;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
 use std::fmt;
@@ -73,6 +74,16 @@ impl fmt::Display for DiskKind {
       DiskKind::Ssd => "SSD",
       _ => "Other",
     })
+  }
+}
+
+impl From<core_hw::DiskKind> for DiskKind {
+  fn from(src: core_hw::DiskKind) -> Self {
+    match src {
+      core_hw::DiskKind::Hdd => Self::Hdd,
+      core_hw::DiskKind::Ssd => Self::Ssd,
+      core_hw::DiskKind::Unknown => Self::Unknown,
+    }
   }
 }
 

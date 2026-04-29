@@ -1,7 +1,7 @@
 use crate::constants::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
+use crate::log_warn;
 use crate::models;
 use crate::services::archive_service::ArchiveService;
-use crate::{log_internal, log_warn};
 
 pub struct HardwareArchiveController {
   handle: tauri::async_runtime::JoinHandle<()>,

@@ -1,5 +1,5 @@
 use crate::models::hardware::{HardwareMonitorState, MemoryInfo};
-use crate::platform::factory::PlatformFactory;
+use hwviz_core::platform::factory::PlatformFactory;
 
 ///
 /// ## Return memory usage (%). Round used / total * 100
@@ -24,5 +24,5 @@ pub fn memory_usage_percent(state: &HardwareMonitorState) -> i32 {
 pub async fn fetch_memory_detail() -> Result<MemoryInfo, String> {
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
-  platform.get_memory_info_detail().await
+  Ok(platform.get_memory_info_detail().await?.into())
 }

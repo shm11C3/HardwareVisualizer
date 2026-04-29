@@ -2,13 +2,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
+// Re-export the logging macros from `hwviz_core` so existing
+// `use crate::{log_internal, log_warn};` sites keep compiling. The macros
+// themselves expand to `tracing::*` calls and live in `hwviz_core::utils::logger`.
+pub use hwviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
+
 mod adapters;
 mod commands;
 mod constants;
 mod enums;
 mod infrastructure;
 mod models;
-mod platform;
 mod services;
 mod utils;
 mod workers;
