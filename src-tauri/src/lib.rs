@@ -2,8 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
+mod app;
 mod commands;
 mod constants;
+mod core;
 mod enums;
 mod infrastructure;
 mod models;

@@ -83,6 +83,33 @@ jobs:
         shell: bash
 
   #
+  # Enforce Core/App split: no `tauri::*` imports under src-tauri/src/core/
+  # See #1402.
+  #
+  check-core-no-tauri:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Ensure no `tauri::*` references under src-tauri/src/core/
+        run: |
+          if [ ! -d src-tauri/src/core ]; then
+            echo "::error::Expected directory src-tauri/src/core/ to exist"
+            exit 1
+          fi
+          # Match `tauri::` (e.g. `use tauri::Manager`, `tauri::Wry`).
+          # `tauri_plugin_*` and `tauri_specta::` use `_` and are not matched.
+          if grep -rn --include='*.rs' 'tauri::' src-tauri/src/core/; then
+            echo "::error::Files under src-tauri/src/core/ must not reference tauri::* (Core stays Tauri-independent — see #1402)"
+            exit 1
+          fi
+          echo "OK: no tauri::* references under src-tauri/src/core/"
+        shell: bash
+
+  #
   # Backend lint and clippy
   #
   lint-backend:
@@ -391,6 +418,7 @@ jobs:
     needs:
       - change-detection
       - lint-actions
+      - check-core-no-tauri
       - lint-backend
       - test-backend
       - test-build
