@@ -13,9 +13,27 @@ use hwviz_core::platform::factory::PlatformFactory;
 /// - Return Err if all of CPU / GPU / Memory cannot be obtained
 ///
 pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, String> {
-  let cpu = sysinfo_provider::get_cpu_info(store.system().lock().unwrap())
-    .ok()
-    .map(Into::into);
+  // CPU follows the same "log and continue" rule as the GPU / memory /
+  // motherboard branches below: a poisoned `HistoryStore::system` mutex
+  // or a provider failure is logged and produces `None` instead of
+  // aborting the whole call.
+  let cpu = match store.system().lock() {
+    Ok(system) => match sysinfo_provider::get_cpu_info(system) {
+      Ok(v) => Some(v.into()),
+      Err(e) => {
+        log_error!("cpu_info_failed", "collect_hardware_info", Some(e));
+        None
+      }
+    },
+    Err(e) => {
+      log_error!(
+        "cpu_info_failed",
+        "collect_hardware_info",
+        Some(format!("HistoryStore.system lock poisoned: {e}"))
+      );
+      None
+    }
+  };
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;

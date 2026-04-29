@@ -220,19 +220,24 @@ impl HistoryStore {
       .map(|process| {
         let pid = process.pid();
 
+        // For freshly started processes (no history yet), fall through
+        // to the just-refreshed sysinfo sample instead of pretending the
+        // CPU usage is 0.0. Mirrors the memory branch below.
+        let core_divisor = num_cores.max(1.0);
+        let fresh_cpu = || rounding::round1(process.cpu_usage() / core_divisor);
         let cpu_usage = process_cpu_histories
           .get(&pid)
           .map(|hist| {
             let len = hist.len().min(PROCESS_AVG_WINDOW);
             if len == 0 {
-              return 0.0;
+              return fresh_cpu();
             }
             let sum: f32 = hist.iter().rev().take(len).sum();
             let avg = sum / len as f32;
             let normalized = avg / num_cores;
             rounding::round1(normalized)
           })
-          .unwrap_or(0.0);
+          .unwrap_or_else(fresh_cpu);
 
         // The frontend's `ProcessTable` displays this value as MB.
         // Stored samples are KB (`process.memory()` is bytes; `sample_system`
