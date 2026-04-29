@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
-mod app;
+mod adapters;
 mod commands;
 mod constants;
 mod enums;
@@ -140,6 +140,12 @@ pub fn run() {
       commands::ui::init(app);
       builder.mount_events(app);
 
+      // Real-time pipeline: collector publishes MetricsSnapshot to the
+      // EventBus, WindowAdapter subscribes and emits HardwareMonitorUpdate.
+      let bus = hwviz_core::event_bus::EventBus::new();
+      let window_adapter =
+        adapters::window::WindowAdapter::setup(app.handle().clone(), bus.subscribe());
+
       let monitor = workers::system_monitor::SystemMonitorController::setup(
         models::hardware_archive::MonitorResources {
           system: Arc::clone(&system),
@@ -153,10 +159,12 @@ pub fn run() {
           gpu_name_map: Arc::clone(&gpu_name_map),
         },
         app.handle().clone(),
+        bus,
       );
       {
         let ws = app.state::<workers::WorkersState>();
         ws.monitor.lock().unwrap().replace(monitor);
+        ws.window_adapter.lock().unwrap().replace(window_adapter);
       }
 
       if is_db_ok {
