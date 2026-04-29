@@ -1,0 +1,16 @@
+[package]
+name = "hwviz-core"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Tauri-independent core for HardwareVisualizer (sensor collection, persistence, event bus)"
+authors = ["@shm11C3"]
+
+# Intentionally has no `tauri` dependency. The Cargo dependency graph enforces
+# that no `use tauri::*;` can appear under `core/src/`.
+
+[lib]
+name = "hwviz_core"
+path = "src/lib.rs"
+
+[dependencies]
