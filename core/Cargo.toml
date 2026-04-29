@@ -14,3 +14,7 @@ name = "hwviz_core"
 path = "src/lib.rs"
 
 [dependencies]
+tokio = { version = "1.52.1", features = ["sync"] }
+
+[dev-dependencies]
+tokio = { version = "1.52.1", features = ["macros", "rt"] }
