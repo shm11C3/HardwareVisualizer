@@ -1,6 +1,7 @@
 use crate::log_error;
-use crate::models::hardware::{HardwareMonitorState, SysInfo};
+use crate::models::hardware::SysInfo;
 use crate::services::motherboard_service;
+use hwviz_core::collector::HistoryStore;
 use hwviz_core::infrastructure::providers::sysinfo_provider;
 use hwviz_core::platform::factory::PlatformFactory;
 
@@ -11,10 +12,8 @@ use hwviz_core::platform::factory::PlatformFactory;
 /// - Continue with None (or empty) for individual failures
 /// - Return Err if all of CPU / GPU / Memory cannot be obtained
 ///
-pub async fn collect_hardware_info(
-  state: &HardwareMonitorState,
-) -> Result<SysInfo, String> {
-  let cpu = sysinfo_provider::get_cpu_info(state.system.lock().unwrap())
+pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, String> {
+  let cpu = sysinfo_provider::get_cpu_info(store.system().lock().unwrap())
     .ok()
     .map(Into::into);
 

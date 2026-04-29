@@ -2,9 +2,6 @@ use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
 use hwviz_core::models::hardware as core_hw;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
-use sysinfo;
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -25,17 +22,6 @@ pub struct HardwareMonitorUpdate {
   pub memory_usage: f32,
   pub gpus: Vec<GpuMonitorData>,
   pub processors_usage: Vec<f32>,
-}
-
-pub struct HardwareMonitorState {
-  pub system: Arc<Mutex<sysinfo::System>>,
-  pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub memory_history: Arc<Mutex<VecDeque<f32>>>,
-  pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  #[allow(dead_code)]
-  pub gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone)]

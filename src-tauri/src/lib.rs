@@ -26,14 +26,12 @@ use commands::settings;
 use commands::system;
 use commands::ui;
 use commands::updater::app_updates;
+use hwviz_core::collector::HistoryStore;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tauri::Wry;
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_specta::{Builder, collect_commands, collect_events};
-
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
-use sysinfo::System;
 
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
@@ -41,25 +39,11 @@ use specta_typescript::Typescript;
 pub fn run() {
   let app_state = settings::AppState::new();
 
-  let system = Arc::new(Mutex::new(System::new_all()));
-  let cpu_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
-  let memory_history = Arc::new(Mutex::new(VecDeque::with_capacity(60)));
-  let process_cpu_histories = Arc::new(Mutex::new(HashMap::new()));
-  let process_memory_histories = Arc::new(Mutex::new(HashMap::new()));
-  let gpu_usage_histories = Arc::new(Mutex::new(HashMap::new()));
-  let gpu_temperature_histories = Arc::new(Mutex::new(HashMap::new()));
-  let gpu_dedicated_memory_histories = Arc::new(Mutex::new(HashMap::new()));
-  let gpu_name_map = Arc::new(Mutex::new(HashMap::new()));
-
-  let state = models::hardware::HardwareMonitorState {
-    system: Arc::clone(&system),
-    cpu_history: Arc::clone(&cpu_history),
-    memory_history: Arc::clone(&memory_history),
-    process_cpu_histories: Arc::clone(&process_cpu_histories),
-    process_memory_histories: Arc::clone(&process_memory_histories),
-    gpu_usage_histories: Arc::clone(&gpu_usage_histories),
-    gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
-  };
+  // Core-owned shared sensor history. App-side commands and the collector
+  // loop read/write through this store. The (Phase-3-transitional) archive
+  // worker shares the same `Arc<Mutex<...>>`s via `store.arc_handles()`
+  // until Phase 4 replaces `MonitorResources` with an EventBus subscription.
+  let history_store = Arc::new(HistoryStore::new());
 
   let settings = app_state.settings.lock().unwrap().clone();
 
@@ -132,6 +116,8 @@ pub fn run() {
     )
     .expect("Failed to export typescript bindings");
 
+  let store_for_setup = Arc::clone(&history_store);
+
   let mut tauri_builder = tauri::Builder::<Wry>::default()
     .invoke_handler(builder.invoke_handler())
     .setup(move |app| {
@@ -150,20 +136,13 @@ pub fn run() {
       let window_adapter =
         adapters::window::WindowAdapter::setup(app.handle().clone(), bus.subscribe());
 
-      let monitor = workers::system_monitor::SystemMonitorController::setup(
-        models::hardware_archive::MonitorResources {
-          system: Arc::clone(&system),
-          cpu_history: Arc::clone(&cpu_history),
-          memory_history: Arc::clone(&memory_history),
-          process_cpu_histories: Arc::clone(&process_cpu_histories),
-          process_memory_histories: Arc::clone(&process_memory_histories),
-          gpu_usage_histories: Arc::clone(&gpu_usage_histories),
-          gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
-          gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
-          gpu_name_map: Arc::clone(&gpu_name_map),
-        },
-        app.handle().clone(),
+      // Run the Core collector on Tauri's tokio runtime. Core has no
+      // `tauri` dep, so it can't reach Tauri's static runtime directly —
+      // we hand it the inner `tokio::runtime::Handle`.
+      let monitor = hwviz_core::collector::SystemMonitorController::setup(
+        Arc::clone(&store_for_setup),
         bus,
+        tauri::async_runtime::handle().inner().clone(),
       );
       {
         let ws = app.state::<workers::WorkersState>();
@@ -174,17 +153,17 @@ pub fn run() {
       if is_db_ok {
         // Start DB-dependent archive services
         if settings.hardware_archive.enabled {
+          let handles = store_for_setup.arc_handles();
           let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
             models::hardware_archive::MonitorResources {
-              system: Arc::clone(&system),
-              cpu_history: Arc::clone(&cpu_history),
-              memory_history: Arc::clone(&memory_history),
-              process_cpu_histories: Arc::clone(&process_cpu_histories),
-              process_memory_histories: Arc::clone(&process_memory_histories),
-              gpu_usage_histories: Arc::clone(&gpu_usage_histories),
-              gpu_temperature_histories: Arc::clone(&gpu_temperature_histories),
-              gpu_dedicated_memory_histories: Arc::clone(&gpu_dedicated_memory_histories),
-              gpu_name_map: Arc::clone(&gpu_name_map),
+              cpu_history: handles.cpu_history,
+              memory_history: handles.memory_history,
+              process_cpu_histories: handles.process_cpu_histories,
+              process_memory_histories: handles.process_memory_histories,
+              gpu_usage_histories: handles.gpu_usage_histories,
+              gpu_temperature_histories: handles.gpu_temperature_histories,
+              gpu_dedicated_memory_histories: handles.gpu_dedicated_memory_histories,
+              gpu_name_map: handles.gpu_name_map,
             },
           );
           {
@@ -252,7 +231,7 @@ pub fn run() {
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_os::init())
     .plugin(tauri_plugin_opener::init())
-    .manage(state)
+    .manage(history_store)
     .manage(app_state)
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));

@@ -1,15 +1,12 @@
 pub mod archive_service;
 pub mod background_image_service;
-pub mod cpu_service;
 pub mod db_startup_service;
 pub mod gpu_service;
 pub mod hardware_service;
 pub mod language_service;
 pub mod memory_service;
-pub mod monitoring_service;
 pub mod motherboard_service;
 pub mod network_service;
-pub mod process_service;
 pub mod settings_service;
 pub mod system_service;
 pub mod ui_service;

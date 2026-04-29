@@ -40,8 +40,8 @@ async getProcessList() : Promise<ProcessInfo[]> {
 /**
  * ## Get CPU usage (%)
  * 
- * - param state: `tauri::State<AppState>` Application state
- * - return: `i32` CPU usage (%)
+ * - param state: shared `HistoryStore` from the Core collector.
+ * - return: `i32` overall CPU usage (%)
  * 
  */
 async getCpuUsage() : Promise<number> {
@@ -76,7 +76,7 @@ async getMemoryInfoDetail() : Promise<Result<MemoryInfo, string>> {
 /**
  * ## Get memory usage (%)
  * 
- * - param state: `tauri::State<AppState>` Application state
+ * - param state: shared `HistoryStore`.
  * - return: `i32` Memory usage (%)
  * 
  */
@@ -114,10 +114,10 @@ async getGpuTemperature() : Promise<Result<NameValue[], string>> {
 }
 },
 /**
- * ## Get realtime GPU memory usage (best-effort)
+ * ## Get CPU usage history
  * 
- * This command attempts to retrieve current GPU memory usage information
- * on a best-effort, platform-dependent basis.
+ * - param state: shared `HistoryStore`.
+ * - param seconds: `u32` Number of seconds to retrieve
  * 
  */
 async getCpuUsageHistory(seconds: number) : Promise<number[]> {
@@ -126,7 +126,7 @@ async getCpuUsageHistory(seconds: number) : Promise<number[]> {
 /**
  * ## Get memory usage history
  * 
- * - param state: `tauri::State<AppState>` Application state
+ * - param state: shared `HistoryStore`.
  * - param seconds: `u32` Number of seconds to retrieve
  * 
  */
@@ -136,7 +136,7 @@ async getMemoryUsageHistory(seconds: number) : Promise<number[]> {
 /**
  * ## Get GPU usage history
  * 
- * - param state: `tauri::State<HardwareMonitorState>` Application state
+ * - param state: shared `HistoryStore`.
  * - param gpu_id: `String` GPU identifier (e.g. "nvapi:0")
  * - param seconds: `u32` Number of seconds to retrieve
  * 
@@ -157,25 +157,11 @@ async getNetworkInfo() : Promise<Result<NetworkInfo[], BackendError>> {
 }
 },
 /**
- * ## Get CPU usage history
+ * ## Get realtime GPU memory usage (best-effort)
  * 
- * - param state: `tauri::State<AppState>` Application state
- * - param seconds: `u32` Number of seconds to retrieve
- * - **Platform support**: Currently implemented only on macOS. On other
+ * **Platform support**: Currently implemented only on macOS. On other
  * platforms, or where the underlying APIs are not available, this will
  * return `Ok(None)` instead of failing.
- * - **Best-effort behavior**: If the GPU memory metrics cannot be queried
- * (e.g. unsupported hardware, missing permissions, or transient errors),
- * the function returns `Ok(None)` to indicate that the data is not
- * available, rather than treating this as a hard error.
- * - **Return format**: When successful, the `GpuMemoryUsage` fields contain
- * human-readable, formatted size strings (for example, `"1.5 GB"`) rather
- * than raw byte counts.
- * 
- * Returns:
- * - `Ok(Some(GpuMemoryUsage))` when GPU memory usage data is available.
- * - `Ok(None)` when the metric is unsupported or currently unavailable.
- * - `Err(String)` only for unexpected internal failures.
  * 
  */
 async getGpuMemoryUsage() : Promise<Result<GpuMemoryUsage | null, string>> {
