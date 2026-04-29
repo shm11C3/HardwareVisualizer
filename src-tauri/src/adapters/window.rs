@@ -27,10 +27,9 @@ impl WindowAdapter {
             Err(RecvError::Lagged(skipped)) => {
               log_warn!(
                 &format!("WindowAdapter lagged, dropped {skipped} snapshot(s)"),
-                "app::adapters::window",
+                "adapters::window",
                 None::<&str>
               );
-              continue;
             }
             Err(RecvError::Closed) => break,
           },
@@ -57,7 +56,7 @@ fn emit_snapshot(app_handle: &tauri::AppHandle, snapshot: MetricsSnapshot) {
   if let Err(e) = payload.emit(app_handle) {
     log_warn!(
       &format!("failed to emit HardwareMonitorUpdate event: {e}"),
-      "app::adapters::window",
+      "adapters::window",
       None::<&str>
     );
   }

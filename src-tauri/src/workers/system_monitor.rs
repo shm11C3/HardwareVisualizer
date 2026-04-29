@@ -73,7 +73,7 @@ impl SystemMonitorController {
   ///   `temperature_unit` from `settings::AppState`. The collector no
   ///   longer emits Tauri events directly — snapshots are published to
   ///   `bus` and translated to `HardwareMonitorUpdate` by
-  ///   `app::adapters::window::WindowAdapter`. Phase 3 removes the
+  ///   `crate::adapters::window::WindowAdapter`. Phase 3 removes the
   ///   `app_handle` parameter when the collector relocates into Core.
   /// - param bus: in-process [`EventBus`] for `MetricsSnapshot` fan-out.
   ///

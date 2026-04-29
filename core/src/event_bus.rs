@@ -24,7 +24,18 @@ impl EventBus {
         Self::with_capacity(DEFAULT_CAPACITY)
     }
 
+    /// Create an event bus with the given broadcast channel capacity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `capacity` is zero. (`tokio::sync::broadcast::channel`
+    /// itself panics in that case; this assertion just gives a clearer
+    /// message at the source-of-truth boundary.)
     pub fn with_capacity(capacity: usize) -> Self {
+        assert!(
+            capacity > 0,
+            "EventBus::with_capacity requires a non-zero capacity"
+        );
         let (tx, _rx) = broadcast::channel(capacity);
         Self { tx }
     }
@@ -111,6 +122,12 @@ mod tests {
         let bus = EventBus::new();
         bus.publish(snapshot(42.0));
         assert_eq!(bus.subscriber_count(), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "non-zero capacity")]
+    fn with_capacity_zero_panics() {
+        let _ = EventBus::with_capacity(0);
     }
 
     #[tokio::test(flavor = "current_thread")]
