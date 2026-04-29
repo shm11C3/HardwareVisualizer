@@ -105,7 +105,7 @@ jobs:
         uses: ./.github/actions/setup-rust
 
       - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+        run: cargo fmt --all -- --check
 
       - name: Check Rust clippy
         run: cargo tauri-lint
@@ -143,7 +143,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Run backend tests with coverage
-        run: cargo llvm-cov --manifest-path src-tauri/Cargo.toml --no-report -- --test-threads=1 --nocapture
+        run: cargo llvm-cov --workspace --no-report -- --test-threads=1 --nocapture
 
       - name: Generate coverage report
         if: matrix.platform == 'ubuntu-22.04'
@@ -151,7 +151,7 @@ jobs:
         run: |
           {
             echo 'REPORT<<EOF'
-            cargo llvm-cov report --manifest-path src-tauri/Cargo.toml 2>&1
+            cargo llvm-cov report 2>&1
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
         shell: bash

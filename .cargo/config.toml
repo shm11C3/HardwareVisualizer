@@ -1,6 +1,6 @@
 [alias]
-tauri-test = "test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture"
-tauri-test-cov = "llvm-cov --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture"
-tauri-lint = "clippy --manifest-path src-tauri/Cargo.toml -- -D warnings"
-tauri-fmt = "fmt --manifest-path src-tauri/Cargo.toml"
+tauri-test = "test --workspace -- --test-threads=1 --nocapture"
+tauri-test-cov = "llvm-cov --workspace -- --test-threads=1 --nocapture"
+tauri-lint = "clippy --workspace -- -D warnings"
+tauri-fmt = "fmt --all"
 perf-test = "run --release --manifest-path perf-monitor/Cargo.toml"
