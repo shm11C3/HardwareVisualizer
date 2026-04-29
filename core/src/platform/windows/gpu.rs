@@ -1,7 +1,7 @@
 use crate::enums;
 use crate::infrastructure;
 use crate::utils;
-use crate::{log_error, log_internal, log_warn};
+use crate::{log_error, log_warn};
 
 pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   use infrastructure::providers::pdh_provider::GpuEngineType;

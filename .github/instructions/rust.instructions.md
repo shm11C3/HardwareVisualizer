@@ -1,29 +1,61 @@
 # Rust coding instructions (HardwareVisualizer)
 
-These instructions apply to all Rust code under `src-tauri/`.
+These instructions apply to Rust code in both crates of the workspace:
+the Tauri-aware `src-tauri/` and the Tauri-independent `hwviz-core` at
+`core/`.
 
-## Macro imports — `log_internal` is required
+## Logging macros
 
-The logging macros (`log_debug!`, `log_info!`, `log_warn!`, `log_error!`) are defined in `src-tauri/src/utils/logger.rs` and internally expand to `log_internal!`.
+The logging macros (`log_debug!`, `log_info!`, `log_warn!`, `log_error!`,
+`log_internal!`) live in `core/src/utils/logger.rs` and are re-exported
+from `src-tauri/src/lib.rs` so existing `use crate::{log_warn, ...};`
+sites in `src-tauri` keep working unchanged.
 
-Because `log_internal!` is a `#[macro_export]` macro, any file that uses one of the convenience macros **must** import it:
+The convenience macros expand to `$crate::log_internal!(...)`, so callers
+that only use `log_debug!` / `log_info!` / `log_warn!` / `log_error!` no
+longer need a parallel `log_internal` import.
 
 ```rust
-use crate::{log_debug, log_internal};
+// In either crate:
+use crate::log_warn;
+
+log_warn!("something happened", "my_function", None::<&str>);
 ```
 
-`log_internal` will appear unused to the compiler and linters (including `clippy`), but removing it causes a compilation error. **Do not remove `log_internal` imports.**
+If you call `log_internal!(...)` directly (rare — prefer the level-named
+macros), import it alongside.
 
-## Backend architecture
+## Backend architecture (workspace split)
 
-Follow the one-way dependency chain: **Commands → Services → Platform (Factory) → Infrastructure / OS APIs**.
+The backend is split across two crates:
 
-- `src-tauri/src/commands/` — Tauri command handlers (UI boundary)
-- `src-tauri/src/services/` — Business logic
-- `src-tauri/src/platform/` — OS-specific trait implementations
-- `src-tauri/src/infrastructure/` — Providers (GPU APIs, DB, WMI, etc.)
+- **`hwviz-core`** at `core/` — Tauri-independent. No `tauri` dep is
+  allowed (enforced at compile time by the Cargo dependency graph). Owns:
+  the sensor collector and per-sensor history (`core::collector`), the
+  in-process `EventBus` for `MetricsSnapshot` fan-out
+  (`core::event_bus`), the platform abstraction (`core::platform`),
+  OS-specific providers (`core::infrastructure::providers`), and POJO
+  data types (`core::models`, `core::enums`).
+- **`hardware_visualizer`** at `src-tauri/` — Tauri-aware. Depends on
+  `hwviz-core` via path. Owns: Tauri command handlers
+  (`src-tauri/src/commands/`), thin services (`src-tauri/src/services/`)
+  that call into Core, adapters that translate Core events into Tauri
+  events (`src-tauri/src/adapters/`), wire-format models with
+  `specta::Type` derives (`src-tauri/src/models/`), and persistence /
+  database access (`src-tauri/src/infrastructure/database/` — moves to
+  Core in a future phase).
 
-See `docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md` for details.
+Dependency direction: **Commands → Services → `hwviz_core::platform` →
+`hwviz_core::infrastructure` / OS APIs**, with the EventBus carrying
+real-time snapshots from Core to App-side adapters.
+
+Do not add a `tauri` dependency to `core/Cargo.toml`, and do not write
+`use tauri::*;` under `core/src/`. `specta` and `tauri_specta` derives
+stay in the `src-tauri` crate; Core uses POJO mirrors and `From`
+conversions handle the boundary.
+
+See `docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md` for the longer-form
+architecture doc.
 
 ## Platform-conditional code
 

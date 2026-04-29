@@ -1,5 +1,4 @@
 pub mod hardware_archive;
-pub mod system_monitor;
 
 use std::sync::{Mutex, atomic::AtomicBool};
 
@@ -7,7 +6,7 @@ use crate::adapters::window::WindowAdapter;
 
 #[derive(Default)]
 pub struct WorkersState {
-  pub monitor: Mutex<Option<system_monitor::SystemMonitorController>>,
+  pub monitor: Mutex<Option<hwviz_core::collector::SystemMonitorController>>,
   pub window_adapter: Mutex<Option<WindowAdapter>>,
   pub hw_archive: Mutex<Option<hardware_archive::HardwareArchiveController>>,
   pub shutting_down: AtomicBool,

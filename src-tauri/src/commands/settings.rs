@@ -1,8 +1,8 @@
 use crate::enums;
+use crate::log_error;
 use crate::models;
 use crate::services;
 use crate::utils;
-use crate::{log_error, log_internal};
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Debug)]

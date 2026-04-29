@@ -10,7 +10,7 @@ Licensed under the MIT License. See THIRD_PARTY_NOTICES.md for the full text.
 */
 
 pub mod app_updates {
-  use crate::{log_debug, log_error, log_info, log_internal};
+  use crate::{log_debug, log_error, log_info};
   use serde::Serialize;
   use specta;
   use std::sync::Mutex;

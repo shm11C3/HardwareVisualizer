@@ -4,7 +4,7 @@
 //! The Cargo dependency graph enforces "no `tauri::*` under `core/src/`"
 //! at compile time.
 
-pub mod collector {}
+pub mod collector;
 
 pub mod persistence {}
 
@@ -14,8 +14,12 @@ pub mod event_bus;
 
 pub mod settings {}
 
-pub mod platform {}
+pub mod platform;
 
-pub mod infrastructure {}
+pub mod infrastructure;
+
+pub mod enums;
 
 pub mod models;
+
+pub mod utils;

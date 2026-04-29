@@ -1,5 +1,5 @@
 use crate::models::hardware::GraphicInfo;
-use crate::{log_debug, log_error, log_internal};
+use crate::{log_debug, log_error};
 
 use dxgi::Factory;
 use dxgi::adapter::AdapterDesc;

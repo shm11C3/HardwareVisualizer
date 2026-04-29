@@ -1,8 +1,9 @@
-use crate::infrastructure;
-use crate::models::hardware::{HardwareMonitorState, SysInfo};
-use crate::platform::factory::PlatformFactory;
+use crate::log_error;
+use crate::models::hardware::SysInfo;
 use crate::services::motherboard_service;
-use crate::{log_error, log_internal};
+use hwviz_core::collector::HistoryStore;
+use hwviz_core::infrastructure::providers::sysinfo_provider;
+use hwviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Collect hardware information in aggregate
@@ -11,13 +12,28 @@ use crate::{log_error, log_internal};
 /// - Continue with None (or empty) for individual failures
 /// - Return Err if all of CPU / GPU / Memory cannot be obtained
 ///
-pub async fn collect_hardware_info(
-  state: &HardwareMonitorState,
-) -> Result<SysInfo, String> {
-  let cpu = infrastructure::providers::sysinfo_provider::get_cpu_info(
-    state.system.lock().unwrap(),
-  )
-  .ok();
+pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, String> {
+  // CPU follows the same "log and continue" rule as the GPU / memory /
+  // motherboard branches below: a poisoned `HistoryStore::system` mutex
+  // or a provider failure is logged and produces `None` instead of
+  // aborting the whole call.
+  let cpu = match store.system().lock() {
+    Ok(system) => match sysinfo_provider::get_cpu_info(system) {
+      Ok(v) => Some(v.into()),
+      Err(e) => {
+        log_error!("cpu_info_failed", "collect_hardware_info", Some(e));
+        None
+      }
+    },
+    Err(e) => {
+      log_error!(
+        "cpu_info_failed",
+        "collect_hardware_info",
+        Some(format!("HistoryStore.system lock poisoned: {e}"))
+      );
+      None
+    }
+  };
 
   let platform =
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
@@ -26,12 +42,12 @@ pub async fn collect_hardware_info(
   let (gpus_res, memory_res, storage_res, motherboard_res) = tokio::join!(
     platform.get_gpu_info(),
     platform.get_memory_info(),
-    async { infrastructure::providers::sysinfo_provider::get_storage_info() },
+    async { sysinfo_provider::get_storage_info() },
     motherboard_service::fetch_motherboard_info(),
   );
 
   let gpus = match gpus_res {
-    Ok(v) => Some(v),
+    Ok(v) => Some(v.into_iter().map(Into::into).collect()),
     Err(e) => {
       log_error!("gpu_info_failed", "collect_hardware_info", Some(e));
       None
@@ -39,13 +55,22 @@ pub async fn collect_hardware_info(
   };
 
   let memory = match memory_res {
-    Ok(v) => Some(v),
+    Ok(v) => Some(v.into()),
     Err(e) => {
       log_error!("memory_info_failed", "collect_hardware_info", Some(e));
       None
     }
   };
-  let storage = storage_res.map_err(|e| format!("Failed to get storage info: {e}"))?;
+  // Storage info follows the same "log and continue" rule as the GPU
+  // and memory branches above; the doc-comment on this function
+  // promises partial results.
+  let storage: Vec<crate::models::hardware::StorageInfo> = match storage_res {
+    Ok(v) => v.into_iter().map(Into::into).collect(),
+    Err(e) => {
+      log_error!("storage_info_failed", "collect_hardware_info", Some(e));
+      Vec::new()
+    }
+  };
 
   let motherboard = match motherboard_res {
     Ok(v) => Some(v),

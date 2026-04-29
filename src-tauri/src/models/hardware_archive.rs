@@ -6,7 +6,6 @@ use std::{
 };
 
 pub struct MonitorResources {
-  pub system: Arc<Mutex<sysinfo::System>>,
   pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
   pub memory_history: Arc<Mutex<VecDeque<f32>>>,
   pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,

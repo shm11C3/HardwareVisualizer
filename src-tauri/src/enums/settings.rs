@@ -1,3 +1,4 @@
+use hwviz_core::enums::settings as core_settings;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
 
@@ -157,6 +158,24 @@ impl<'de> Deserialize<'de> for TemperatureUnit {
       "F" => Ok(TemperatureUnit::Fahrenheit),
       "f" => Ok(TemperatureUnit::Fahrenheit),
       _ => Err(serde::de::Error::unknown_variant(&s, &["C", "F"])),
+    }
+  }
+}
+
+impl From<core_settings::TemperatureUnit> for TemperatureUnit {
+  fn from(src: core_settings::TemperatureUnit) -> Self {
+    match src {
+      core_settings::TemperatureUnit::Celsius => Self::Celsius,
+      core_settings::TemperatureUnit::Fahrenheit => Self::Fahrenheit,
+    }
+  }
+}
+
+impl From<TemperatureUnit> for core_settings::TemperatureUnit {
+  fn from(src: TemperatureUnit) -> Self {
+    match src {
+      TemperatureUnit::Celsius => Self::Celsius,
+      TemperatureUnit::Fahrenheit => Self::Fahrenheit,
     }
   }
 }

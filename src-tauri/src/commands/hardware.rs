@@ -1,7 +1,9 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::models;
-use crate::models::hardware::{HardwareMonitorState, NetworkInfo, ProcessInfo, SysInfo};
+use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
+use hwviz_core::collector::HistoryStore;
+use std::sync::Arc;
 use tauri::command;
 
 ///
@@ -9,34 +11,30 @@ use tauri::command;
 ///
 #[command]
 #[specta::specta]
-pub fn get_process_list(
-  state: tauri::State<'_, HardwareMonitorState>,
-) -> Vec<ProcessInfo> {
-  use crate::services::process_service;
-
-  process_service::collect_process_list(&state)
+pub fn get_process_list(state: tauri::State<'_, Arc<HistoryStore>>) -> Vec<ProcessInfo> {
+  state
+    .process_list()
+    .into_iter()
+    .map(ProcessInfo::from)
+    .collect()
 }
 
 ///
 /// ## Get CPU usage (%)
 ///
-/// - param state: `tauri::State<AppState>` Application state
-/// - return: `i32` CPU usage (%)
+/// - param state: shared `HistoryStore` from the Core collector.
+/// - return: `i32` overall CPU usage (%)
 ///
 #[command]
 #[specta::specta]
-pub fn get_cpu_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
-  use crate::services::cpu_service;
-
-  cpu_service::overall_cpu_usage(&state)
+pub fn get_cpu_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> i32 {
+  state.current_cpu_usage_overall()
 }
 
 #[command]
 #[specta::specta]
-pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Vec<f32> {
-  use crate::services::cpu_service;
-
-  cpu_service::per_cpu_usage(&state)
+pub fn get_processors_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> Vec<f32> {
+  state.current_cpu_usage_per_processor()
 }
 
 ///
@@ -45,11 +43,11 @@ pub fn get_processors_usage(state: tauri::State<'_, HardwareMonitorState>) -> Ve
 #[command]
 #[specta::specta]
 pub async fn get_hardware_info(
-  state: tauri::State<'_, HardwareMonitorState>,
+  state: tauri::State<'_, Arc<HistoryStore>>,
 ) -> Result<SysInfo, String> {
   use crate::services::hardware_service;
 
-  hardware_service::collect_hardware_info(state.inner()).await
+  hardware_service::collect_hardware_info(state.inner().as_ref()).await
 }
 
 ///
@@ -68,15 +66,13 @@ pub async fn get_memory_info_detail() -> Result<models::hardware::MemoryInfo, St
 ///
 /// ## Get memory usage (%)
 ///
-/// - param state: `tauri::State<AppState>` Application state
+/// - param state: shared `HistoryStore`.
 /// - return: `i32` Memory usage (%)
 ///
 #[command]
 #[specta::specta]
-pub fn get_memory_usage(state: tauri::State<'_, HardwareMonitorState>) -> i32 {
-  use crate::services::memory_service;
-
-  memory_service::memory_usage_percent(&state)
+pub fn get_memory_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> i32 {
+  state.current_memory_usage_percent()
 }
 
 ///
@@ -112,25 +108,11 @@ pub async fn get_gpu_temperature(
 }
 
 ///
-/// ## Get CPU usage history
+/// ## Get realtime GPU memory usage (best-effort)
 ///
-/// - param state: `tauri::State<AppState>` Application state
-/// - param seconds: `u32` Number of seconds to retrieve
-/// - **Platform support**: Currently implemented only on macOS. On other
-///   platforms, or where the underlying APIs are not available, this will
-///   return `Ok(None)` instead of failing.
-/// - **Best-effort behavior**: If the GPU memory metrics cannot be queried
-///   (e.g. unsupported hardware, missing permissions, or transient errors),
-///   the function returns `Ok(None)` to indicate that the data is not
-///   available, rather than treating this as a hard error.
-/// - **Return format**: When successful, the `GpuMemoryUsage` fields contain
-///   human-readable, formatted size strings (for example, `"1.5 GB"`) rather
-///   than raw byte counts.
-///
-/// Returns:
-/// - `Ok(Some(GpuMemoryUsage))` when GPU memory usage data is available.
-/// - `Ok(None)` when the metric is unsupported or currently unavailable.
-/// - `Err(String)` only for unexpected internal failures.
+/// **Platform support**: Currently implemented only on macOS. On other
+/// platforms, or where the underlying APIs are not available, this will
+/// return `Ok(None)` instead of failing.
 ///
 #[command]
 #[specta::specta]
@@ -142,56 +124,50 @@ pub async fn get_gpu_memory_usage()
 }
 
 ///
-/// ## Get realtime GPU memory usage (best-effort)
+/// ## Get CPU usage history
 ///
-/// This command attempts to retrieve current GPU memory usage information
-/// on a best-effort, platform-dependent basis.
+/// - param state: shared `HistoryStore`.
+/// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
 pub fn get_cpu_usage_history(
-  state: tauri::State<'_, HardwareMonitorState>,
+  state: tauri::State<'_, Arc<HistoryStore>>,
   seconds: u32,
 ) -> Vec<f32> {
-  use crate::services::monitoring_service;
-
-  monitoring_service::cpu_usage_history(&state, seconds)
+  state.cpu_history(seconds)
 }
 
 ///
 /// ## Get memory usage history
 ///
-/// - param state: `tauri::State<AppState>` Application state
+/// - param state: shared `HistoryStore`.
 /// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
 pub fn get_memory_usage_history(
-  state: tauri::State<'_, HardwareMonitorState>,
+  state: tauri::State<'_, Arc<HistoryStore>>,
   seconds: u32,
 ) -> Vec<f32> {
-  use crate::services::monitoring_service;
-
-  monitoring_service::memory_usage_history(&state, seconds)
+  state.memory_history(seconds)
 }
 
 ///
 /// ## Get GPU usage history
 ///
-/// - param state: `tauri::State<HardwareMonitorState>` Application state
+/// - param state: shared `HistoryStore`.
 /// - param gpu_id: `String` GPU identifier (e.g. "nvapi:0")
 /// - param seconds: `u32` Number of seconds to retrieve
 ///
 #[command]
 #[specta::specta]
 pub fn get_gpu_usage_history(
-  state: tauri::State<'_, HardwareMonitorState>,
+  state: tauri::State<'_, Arc<HistoryStore>>,
   gpu_id: String,
   seconds: u32,
 ) -> Vec<f32> {
-  use crate::services::monitoring_service;
-
-  monitoring_service::gpu_usage_history(&state, &gpu_id, seconds)
+  state.gpu_history(&gpu_id, seconds)
 }
 
 ///
