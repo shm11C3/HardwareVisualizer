@@ -12,6 +12,7 @@ mod app;
 mod commands;
 mod enums;
 mod infrastructure;
+mod lifecycle;
 mod models;
 mod services;
 mod utils;
@@ -114,6 +115,7 @@ pub fn run() {
       background_image::delete_background_image,
       ui::set_decoration,
       system::restart_app,
+      system::quit_app,
     ]);
 
   // TS bindings
@@ -216,16 +218,11 @@ pub fn run() {
     })
     .on_window_event(|win, ev| {
       if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+        // Always prevent the default close so lifecycle picks the
+        // outcome (hide vs. quit) deterministically — see
+        // `lifecycle::handle_close_request` for the policy.
         api.prevent_close();
-        let app = win.app_handle().clone();
-
-        tauri::async_runtime::spawn(async move {
-          // Stop all background processing
-          let ws = app.state::<workers::WorkersState>();
-          ws.terminate_all().await;
-
-          app.exit(0);
-        });
+        lifecycle::on_close_requested(win);
       }
     })
     .plugin(tauri_plugin_updater::Builder::new().build())

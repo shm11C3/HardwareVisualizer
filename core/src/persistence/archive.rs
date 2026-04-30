@@ -114,6 +114,15 @@ impl ArchiveController {
           },
         }
       }
+
+      // Phase 5 (#1408): write a final summary on shutdown so samples
+      // accumulated since the last 60s tick are not lost when the user
+      // explicitly quits. `is_dirty()` skips the flush when nothing has
+      // been ingested since the previous write — common when shutdown
+      // lands within a fraction of a second after a scheduled tick.
+      if tracker.is_dirty() {
+        tracker.write_archive().await;
+      }
     });
 
     Self { handle, stop_tx }
@@ -204,6 +213,11 @@ struct ArchiveTracker {
   /// Number of CPU cores observed in the most recent snapshot. Used to
   /// normalize sysinfo's per-core CPU values to a 0-100 percentage.
   cores: f32,
+  /// Set on every `ingest`; cleared by `write_archive`. Drives the
+  /// shutdown-time final flush so we skip the write when nothing has
+  /// been ingested since the previous tick (e.g. shutdown lands within
+  /// a fraction of a second after a scheduled write).
+  dirty: bool,
 }
 
 impl ArchiveTracker {
@@ -211,7 +225,12 @@ impl ArchiveTracker {
     Self::default()
   }
 
+  fn is_dirty(&self) -> bool {
+    self.dirty
+  }
+
   fn ingest(&mut self, snapshot: MetricsSnapshot) {
+    self.dirty = true;
     self.tick_counter = self.tick_counter.saturating_add(1);
     push_capped(&mut self.cpu_history, snapshot.cpu_usage);
     push_capped(&mut self.memory_history, snapshot.memory_usage);
@@ -296,9 +315,11 @@ impl ArchiveTracker {
     }
   }
 
-  async fn write_archive(&self) {
+  async fn write_archive(&mut self) {
     use crate::infrastructure::database;
     use crate::log_error;
+
+    self.dirty = false;
 
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
     let memory = StatsCalculator::compute_stats(self.memory_history.iter().copied());
@@ -618,6 +639,25 @@ mod tests {
       vec![50.0, 60.0]
     );
     assert_eq!(t.cores, 4.0);
+  }
+
+  #[test]
+  fn fresh_tracker_is_not_dirty() {
+    let t = ArchiveTracker::new();
+    assert!(
+      !t.is_dirty(),
+      "an unused tracker must not trigger a shutdown flush"
+    );
+  }
+
+  #[test]
+  fn ingest_marks_tracker_dirty() {
+    let mut t = ArchiveTracker::new();
+    t.ingest(make_snapshot(10.0, 50.0, 1));
+    assert!(
+      t.is_dirty(),
+      "ingest must set the dirty flag so shutdown writes a final summary"
+    );
   }
 
   #[test]
