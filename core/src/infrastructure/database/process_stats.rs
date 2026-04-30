@@ -1,9 +1,7 @@
 use super::db;
-use crate::models;
+use crate::persistence::archive_data::ProcessStatData;
 
-pub async fn insert(
-  processes: Vec<models::hardware_archive::ProcessStatData>,
-) -> Result<(), sqlx::Error> {
+pub async fn insert(processes: Vec<ProcessStatData>) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
 
   for proc in processes {

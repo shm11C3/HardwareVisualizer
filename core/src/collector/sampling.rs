@@ -8,7 +8,7 @@
 //! Tauri `HardwareMonitorUpdate` event.
 
 use crate::collector::HistoryStore;
-use crate::models::{GpuMetric, MetricsSnapshot};
+use crate::models::{GpuMetric, MetricsSnapshot, ProcessSample};
 
 /// One GPU sample collected per physical GPU. `None` means the metric is
 /// unavailable for this GPU vendor / platform.
@@ -26,6 +26,7 @@ pub struct SystemSample {
   pub cpu_usage: f32,
   pub memory_usage: f32,
   pub processors_usage: Vec<f32>,
+  pub processes: Vec<ProcessSample>,
 }
 
 /// Run one CPU / memory / process refresh and append samples to the
@@ -39,25 +40,44 @@ pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
       calculate_memory_usage_percentage(sys.used_memory(), sys.total_memory());
     let processors_usage: Vec<f32> = sys.cpus().iter().map(|c| c.cpu_usage()).collect();
 
-    let process_metrics: Vec<_> = sys
+    let processes: Vec<ProcessSample> = sys
       .processes()
       .iter()
-      .map(|(pid, process)| (*pid, process.cpu_usage(), process.memory() as f32 / 1024.0))
+      .map(|(pid, process)| ProcessSample {
+        pid: pid.as_u32(),
+        name: process.name().to_string_lossy().into_owned(),
+        cpu_usage: process.cpu_usage(),
+        memory_kb: process.memory() as f32 / 1024.0,
+        run_time_secs: process.run_time(),
+      })
       .collect();
 
-    (cpu_usage, memory_usage, processors_usage, process_metrics)
+    let process_history_input: Vec<_> = processes
+      .iter()
+      .map(|p| (sysinfo::Pid::from_u32(p.pid), p.cpu_usage, p.memory_kb))
+      .collect();
+
+    (
+      cpu_usage,
+      memory_usage,
+      processors_usage,
+      processes,
+      process_history_input,
+    )
   });
 
-  let (cpu_usage, memory_usage, processors_usage, process_metrics) = result?;
+  let (cpu_usage, memory_usage, processors_usage, processes, process_history_input) =
+    result?;
 
   store.push_cpu_history(cpu_usage);
   store.push_memory_history(memory_usage);
-  store.update_process_histories(&process_metrics);
+  store.update_process_histories(&process_history_input);
 
   Some(SystemSample {
     cpu_usage,
     memory_usage,
     processors_usage,
+    processes,
   })
 }
 
@@ -413,6 +433,7 @@ pub fn build_metrics_snapshot(
     memory_usage: system_sample.memory_usage,
     processors_usage: system_sample.processors_usage.clone(),
     gpus: build_gpu_metrics(gpu_samples),
+    processes: system_sample.processes.clone(),
   }
 }
 
@@ -535,6 +556,13 @@ mod tests {
       cpu_usage: 12.5,
       memory_usage: 67.0,
       processors_usage: vec![10.0, 20.0, 30.0, 40.0],
+      processes: vec![ProcessSample {
+        pid: 1,
+        name: "init".into(),
+        cpu_usage: 0.0,
+        memory_kb: 1024.0,
+        run_time_secs: 60,
+      }],
     };
     let gpus = vec![make_sample("gpu:0", "RTX 4090", Some(50.0), Some(70.0))];
     let snap = build_metrics_snapshot(&sys, &gpus);
@@ -543,6 +571,9 @@ mod tests {
     assert_eq!(snap.processors_usage, vec![10.0, 20.0, 30.0, 40.0]);
     assert_eq!(snap.gpus.len(), 1);
     assert_eq!(snap.gpus[0].gpu_id, "gpu:0");
+    assert_eq!(snap.processes.len(), 1);
+    assert_eq!(snap.processes[0].pid, 1);
+    assert_eq!(snap.processes[0].name, "init");
   }
 
   // ── resolve_gpu_name_from_map ──

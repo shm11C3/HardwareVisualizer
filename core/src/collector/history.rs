@@ -9,9 +9,10 @@
 //! - per-GPU usage / temperature / dedicated-memory ring buffers,
 //! - a `gpu_id → gpu_name` map populated during sampling.
 //!
-//! All fields are kept behind `Arc<Mutex<...>>` so the collector loop and
-//! the (still-Tauri-resident) archive worker can share state until Phase 4
-//! replaces `MonitorResources` with an EventBus subscription.
+//! Each field is kept behind `Arc<Mutex<...>>` so the collector loop and
+//! the on-demand history readers (`commands::hardware::*`) can interleave
+//! without holding a single coarse lock. After Phase 4, persistence does
+//! not share this store — the archive worker subscribes to the EventBus.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -25,21 +26,19 @@ pub const HARDWARE_HISTORY_BUFFER_SIZE: usize = 60;
 pub const MAX_HISTORY_QUERY_DURATION_SECONDS: u32 = 3600;
 const PROCESS_AVG_WINDOW: usize = 5;
 
-/// All-the-`Arc`s shared between the collector and (during Phase 3) the
-/// archive worker. `lib.rs` uses this to construct the legacy
-/// `MonitorResources` struct without re-allocating any state. Phase 4
-/// will delete this struct in favor of an EventBus-driven archive.
-#[derive(Clone)]
-pub struct HistoryArcHandles {
-  pub system: Arc<Mutex<System>>,
-  pub cpu_history: Arc<Mutex<VecDeque<f32>>>,
-  pub memory_history: Arc<Mutex<VecDeque<f32>>>,
-  pub process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
-  pub gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
-  pub gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-  pub gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
-  pub gpu_name_map: Arc<Mutex<HashMap<String, String>>>,
+/// Backing storage for [`HistoryStore`]. Each ring is wrapped in
+/// `Arc<Mutex<...>>` so the collector loop and history readers can
+/// interleave under a fine-grained lock.
+struct HistoryStoreInner {
+  system: Arc<Mutex<System>>,
+  cpu_history: Arc<Mutex<VecDeque<f32>>>,
+  memory_history: Arc<Mutex<VecDeque<f32>>>,
+  process_cpu_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+  process_memory_histories: Arc<Mutex<HashMap<sysinfo::Pid, VecDeque<f32>>>>,
+  gpu_usage_histories: Arc<Mutex<HashMap<String, VecDeque<f32>>>>,
+  gpu_temperature_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  gpu_dedicated_memory_histories: Arc<Mutex<HashMap<String, VecDeque<i32>>>>,
+  gpu_name_map: Arc<Mutex<HashMap<String, String>>>,
 }
 
 /// In-process owner of every sensor history series.
@@ -49,13 +48,13 @@ pub struct HistoryArcHandles {
 /// module.
 #[derive(Clone)]
 pub struct HistoryStore {
-  inner: Arc<HistoryArcHandles>,
+  inner: Arc<HistoryStoreInner>,
 }
 
 impl HistoryStore {
   pub fn new() -> Self {
     Self {
-      inner: Arc::new(HistoryArcHandles {
+      inner: Arc::new(HistoryStoreInner {
         system: Arc::new(Mutex::new(System::new_all())),
         cpu_history: Arc::new(Mutex::new(VecDeque::with_capacity(
           HARDWARE_HISTORY_BUFFER_SIZE,
@@ -70,25 +69,6 @@ impl HistoryStore {
         gpu_dedicated_memory_histories: Arc::new(Mutex::new(HashMap::new())),
         gpu_name_map: Arc::new(Mutex::new(HashMap::new())),
       }),
-    }
-  }
-
-  /// Phase-3 transitional accessor: hand the underlying `Arc<Mutex<...>>`
-  /// values to the App-side archive worker so it can keep populating the
-  /// existing `MonitorResources` struct. Phase 4 deletes this method.
-  pub fn arc_handles(&self) -> HistoryArcHandles {
-    HistoryArcHandles {
-      system: Arc::clone(&self.inner.system),
-      cpu_history: Arc::clone(&self.inner.cpu_history),
-      memory_history: Arc::clone(&self.inner.memory_history),
-      process_cpu_histories: Arc::clone(&self.inner.process_cpu_histories),
-      process_memory_histories: Arc::clone(&self.inner.process_memory_histories),
-      gpu_usage_histories: Arc::clone(&self.inner.gpu_usage_histories),
-      gpu_temperature_histories: Arc::clone(&self.inner.gpu_temperature_histories),
-      gpu_dedicated_memory_histories: Arc::clone(
-        &self.inner.gpu_dedicated_memory_histories,
-      ),
-      gpu_name_map: Arc::clone(&self.inner.gpu_name_map),
     }
   }
 

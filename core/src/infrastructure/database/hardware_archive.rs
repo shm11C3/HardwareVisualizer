@@ -1,10 +1,7 @@
 use super::db;
-use crate::models;
+use crate::persistence::archive_data::HardwareData;
 
-pub async fn insert(
-  cpu: models::hardware_archive::HardwareData,
-  ram: models::hardware_archive::HardwareData,
-) -> Result<(), sqlx::Error> {
+pub async fn insert(cpu: HardwareData, ram: HardwareData) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
 
   sqlx::query(
