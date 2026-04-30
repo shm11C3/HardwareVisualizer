@@ -146,16 +146,25 @@ pub async fn cleanup_old_data(retention_days: u32) {
 
 // ── Internal: per-snapshot accumulator ────────────────────────────────
 
-/// Snapshot of cached process info accumulated from EventBus payloads.
-/// `name` and `run_time_secs` come from the most recent snapshot; the
-/// CPU and memory rings are 60-sample windows used to compute averages
-/// on the archive tick.
+/// How long a vanished process is kept around before it's evicted from
+/// [`ArchiveTracker::processes`]. Sized to the archive interval so a
+/// short-lived process that exits within the active window still
+/// appears in the next archive row, then drops on the following tick.
+const PROCESS_GRACE_TICKS: u64 = HARDWARE_ARCHIVE_INTERVAL_SECONDS;
+
+/// Cached process info accumulated from EventBus payloads. `name` and
+/// `run_time_secs` come from the most recent snapshot; the CPU and
+/// memory rings are 60-sample windows used to compute averages on the
+/// archive tick. `last_seen_tick` lets the tracker keep a process
+/// around for one full archive window after it disappears so a
+/// short-lived offender that exits late in the window is still archived.
 #[derive(Default)]
 struct ProcessAccumulator {
   name: String,
   run_time_secs: u64,
   cpu_history: VecDeque<f32>,
   memory_kb_history: VecDeque<f32>,
+  last_seen_tick: u64,
 }
 
 #[derive(Default)]
@@ -167,6 +176,9 @@ struct ArchiveTracker {
   gpu_dedicated_memory_histories: HashMap<String, VecDeque<i32>>,
   gpu_name_map: HashMap<String, String>,
   processes: HashMap<u32, ProcessAccumulator>,
+  /// Monotonic counter incremented on every `ingest` call. Used to age
+  /// out vanished processes via [`PROCESS_GRACE_TICKS`].
+  tick_counter: u64,
   /// Number of CPU cores observed in the most recent snapshot. Used to
   /// normalize sysinfo's per-core CPU values to a 0-100 percentage.
   cores: f32,
@@ -178,6 +190,7 @@ impl ArchiveTracker {
   }
 
   fn ingest(&mut self, snapshot: MetricsSnapshot) {
+    self.tick_counter = self.tick_counter.saturating_add(1);
     push_capped(&mut self.cpu_history, snapshot.cpu_usage);
     push_capped(&mut self.memory_history, snapshot.memory_usage);
 
@@ -220,15 +233,32 @@ impl ArchiveTracker {
   }
 
   fn update_process_accumulators(&mut self, samples: Vec<ProcessSample>) {
-    // Drop bookkeeping for processes that disappeared between snapshots
-    // so the map doesn't grow unbounded for the lifetime of the worker.
-    let active: HashSet<u32> = samples.iter().map(|p| p.pid).collect();
-    self.processes.retain(|pid, _| active.contains(pid));
+    let now = self.tick_counter;
+
+    // Age out accumulators that haven't been refreshed within the
+    // grace window. Evicting on every snapshot (the previous behavior)
+    // dropped processes that exited just before the archive tick — a
+    // short-lived offender that burned CPU for most of the minute and
+    // then exited would never appear in the archive row. Keeping
+    // entries for [`PROCESS_GRACE_TICKS`] solves that without letting
+    // the map grow unbounded.
+    self
+      .processes
+      .retain(|_pid, acc| now.saturating_sub(acc.last_seen_tick) <= PROCESS_GRACE_TICKS);
 
     for sample in samples {
       let entry = self.processes.entry(sample.pid).or_default();
+      // PID was reused after a gap → assume a different process and
+      // reset the rings so we don't mix samples across distinct
+      // processes that happened to inherit the same PID.
+      let absent_ticks = now.saturating_sub(entry.last_seen_tick);
+      if entry.last_seen_tick != 0 && absent_ticks > 1 {
+        entry.cpu_history.clear();
+        entry.memory_kb_history.clear();
+      }
       entry.name = sample.name;
       entry.run_time_secs = sample.run_time_secs;
+      entry.last_seen_tick = now;
       push_capped(&mut entry.cpu_history, sample.cpu_usage);
       push_capped(&mut entry.memory_kb_history, sample.memory_kb);
     }
@@ -272,9 +302,19 @@ impl ArchiveTracker {
   }
 
   fn collect_gpu_data(&self) -> Vec<GpuData> {
-    self
+    // Walk the union of every GPU history map so adapters that report
+    // only temperature or only dedicated memory (e.g. Linux DRM, ADL
+    // without VRAM, Apple IOKit without thermals) still produce a row
+    // — iterating `gpu_usage_histories` alone would silently drop them.
+    let gpu_ids: HashSet<&String> = self
       .gpu_usage_histories
       .keys()
+      .chain(self.gpu_temperature_histories.keys())
+      .chain(self.gpu_dedicated_memory_histories.keys())
+      .collect();
+
+    gpu_ids
+      .into_iter()
       .map(|gpu_id| {
         let (usage_avg, usage_max, usage_min) = StatsCalculator::compute_f32_aggregates(
           self
@@ -448,7 +488,12 @@ impl StatsCalculator {
     if values.is_empty() {
       return (None, None, None);
     }
-    let avg = Some(values.iter().sum::<i32>() as f32 / values.len() as f32);
+    // Sum in i64: dedicated GPU memory is reported in KB, so 60 samples
+    // from a high-VRAM card (e.g. 80 GB ≈ 8.4×10⁷ KB) easily exceed
+    // i32::MAX. An i32 accumulator panics in debug and silently wraps
+    // in release.
+    let sum: i64 = values.iter().map(|&v| v as i64).sum();
+    let avg = Some(sum as f32 / values.len() as f32);
     let max = values.iter().copied().max();
     let min = values.iter().copied().min();
     (avg, max, min)
@@ -580,39 +625,66 @@ mod tests {
     );
   }
 
-  #[test]
-  fn ingest_drops_processes_no_longer_present() {
-    let mut t = ArchiveTracker::new();
-    let snap_one = MetricsSnapshot {
+  fn snap_with_pid(pid: u32, name: &str) -> MetricsSnapshot {
+    MetricsSnapshot {
       cpu_usage: 0.0,
       memory_usage: 0.0,
       processors_usage: vec![0.0],
       gpus: vec![],
       processes: vec![ProcessSample {
-        pid: 100,
-        name: "a".into(),
+        pid,
+        name: name.into(),
         cpu_usage: 10.0,
         memory_kb: 1024.0,
         run_time_secs: 60,
       }],
-    };
-    let snap_two = MetricsSnapshot {
-      cpu_usage: 0.0,
-      memory_usage: 0.0,
-      processors_usage: vec![0.0],
-      gpus: vec![],
-      processes: vec![ProcessSample {
-        pid: 200,
-        name: "b".into(),
-        cpu_usage: 20.0,
-        memory_kb: 2048.0,
-        run_time_secs: 120,
-      }],
-    };
-    t.ingest(snap_one);
-    t.ingest(snap_two);
+    }
+  }
+
+  #[test]
+  fn ingest_keeps_recently_vanished_processes_within_grace_window() {
+    let mut t = ArchiveTracker::new();
+    t.ingest(snap_with_pid(100, "short_lived"));
+    // Drive a few snapshots without PID 100 (well under the grace window).
+    for _ in 0..5 {
+      t.ingest(snap_with_pid(200, "alive"));
+    }
+    assert!(
+      t.processes.contains_key(&100),
+      "PID 100 must persist long enough to be archived in the next tick"
+    );
+    assert!(t.processes.contains_key(&200));
+  }
+
+  #[test]
+  fn ingest_evicts_processes_absent_past_grace_window() {
+    let mut t = ArchiveTracker::new();
+    t.ingest(snap_with_pid(100, "short_lived"));
+    // Push past the grace window with snapshots that don't include PID 100.
+    for _ in 0..PROCESS_GRACE_TICKS + 1 {
+      t.ingest(snap_with_pid(200, "alive"));
+    }
     assert!(!t.processes.contains_key(&100));
     assert!(t.processes.contains_key(&200));
+  }
+
+  #[test]
+  fn ingest_resets_rings_on_pid_reuse_after_gap() {
+    let mut t = ArchiveTracker::new();
+    t.ingest(snap_with_pid(42, "victim"));
+    // Drive several ticks without PID 42 — it stays in the map (still
+    // within grace) but we don't push to its rings.
+    for _ in 0..3 {
+      t.ingest(snap_with_pid(99, "filler"));
+    }
+    // PID 42 reappears, presumably as a different process with the
+    // same recycled PID. We should not blend its old rings with the
+    // new samples.
+    t.ingest(snap_with_pid(42, "fresh"));
+    let acc = t.processes.get(&42).unwrap();
+    assert_eq!(acc.cpu_history.len(), 1);
+    assert_eq!(acc.memory_kb_history.len(), 1);
+    assert_eq!(acc.name, "fresh");
   }
 
   // ── collect_process_stats / rank_top_processes ──

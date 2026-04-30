@@ -9,11 +9,17 @@ use sqlx::sqlite::SqlitePool;
 /// configuration — so the path must be threaded in from App.
 static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-/// Configure the SQLite file used by every persistence writer. Should be
-/// called once at startup, before any archive worker runs. Subsequent
-/// calls are silently ignored so re-initialization in tests is harmless.
-pub fn init(path: PathBuf) {
-  let _ = DB_PATH.set(path);
+/// Configure the SQLite file used by every persistence writer. Should
+/// be called once at startup, before any archive worker runs.
+///
+/// Returns `true` if this call set the process-wide database path,
+/// `false` if it was already set by an earlier call. The path is held
+/// in a [`OnceLock`], so a second call with a different path does
+/// **not** replace the original — callers that need to know whether
+/// their requested path actually took effect should check the return
+/// value (e.g. test fixtures running in the same process).
+pub fn init(path: PathBuf) -> bool {
+  DB_PATH.set(path).is_ok()
 }
 
 /// Read the configured DB path. Panics if [`init`] hasn't been called —

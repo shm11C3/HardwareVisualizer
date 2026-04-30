@@ -47,10 +47,13 @@ pub fn run() {
   let core_settings = app_state.core_settings.lock().unwrap().clone();
 
   let db_path = utils::file::get_app_data_dir("hv-database.db");
-  // Initialize Core's DB pool location once. Core can't resolve the
-  // bundle identifier on its own, so App owns path resolution and
-  // hands the file path to `hwviz_core::infrastructure::database::db`.
-  hwviz_core::infrastructure::database::db::init(db_path.clone());
+  // Initialize Core's DB pool location once at process start. Core
+  // can't resolve the bundle identifier on its own, so App owns path
+  // resolution and hands the file path to
+  // `hwviz_core::infrastructure::database::db`. We don't care about
+  // the return value here: this is the first and only caller during
+  // App startup.
+  let _ = hwviz_core::infrastructure::database::db::init(db_path.clone());
 
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
   let db_error =
