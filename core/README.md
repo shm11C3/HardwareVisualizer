@@ -17,13 +17,17 @@ not need a Tauri context lives here, and the Tauri app crate
 - Publish each tick as a `MetricsSnapshot` on a single in-process broadcast bus
   that any number of subscribers (window, future tray / overlay / alerts) can
   fan out from.
-- Persist hardware archive summaries to SQLite as a separate task subscribed to
-  the same bus, so a slow DB write never stalls sensor polling.
 - Run a SQLite schema-version preflight check before the App brings up the
   Tauri SQL plugin.
 - Hold the subset of on-disk settings whose values change Core behavior.
 - Expose the platform abstraction (Windows / Linux / macOS) and the
   infrastructure-level providers (sysinfo, NVAPI, WMI, procfs, …) used by it.
+
+> **Planned (not yet in Core).** The hardware archive writer
+> (`src-tauri/src/services/archive_service.rs` +
+> `src-tauri/src/workers/hardware_archive.rs`) is still App-side today.
+> Phase 4 of #1402 will move it into Core as an `EventBus` subscriber so
+> that a slow DB write never stalls sensor polling.
 
 ## Design rules
 
@@ -35,9 +39,11 @@ These rules are enforced by structure, not by review:
 2. **No `window.emit(...)` in Core.** Core publishes `MetricsSnapshot` to
    `EventBus`. Translating a snapshot into a Tauri event is an App-side
    concern (`src-tauri/src/adapters/window.rs`).
-3. **Persistence does not share state with the collector.** The archive worker
-   subscribes to `EventBus` rather than reaching into the collector's history
-   bag, so the two run as independent tasks.
+3. **Persistence does not share state with the collector.** Once the archive
+   writer moves into Core (Phase 4 of #1402), it will subscribe to `EventBus`
+   rather than reaching into the collector's history bag, so the two run as
+   independent tasks. Until then, the App-side worker reads through the
+   `HistoryStore` public API only.
 4. **Settings split by consumer.** `CoreSettings` deserializes only the keys
    that affect Core (currently `hardwareArchive`). UI-only keys (`theme`,
    `language`, `lineGraph*`, `temperatureUnit`, …) stay App-side. Both crates
@@ -48,7 +54,7 @@ These rules are enforced by structure, not by review:
 
 ## Module layout
 
-```
+```text
 core/src/
 ├── lib.rs
 ├── event_bus.rs           ← tokio broadcast<MetricsSnapshot> fan-out
@@ -57,9 +63,7 @@ core/src/
 │   ├── sampling.rs          sample_system / sample_gpu cycle
 │   └── system_monitor.rs    SystemMonitorController (drives the tokio task)
 ├── persistence/           ← Core-owned storage primitives
-│   ├── preflight.rs         DB schema-version compatibility check
-│   ├── archive.rs           ArchiveController (subscribes to EventBus)
-│   └── archive_data.rs
+│   └── preflight.rs         DB schema-version compatibility check
 ├── settings/              ← Core-consumed settings (subset of settings.json)
 │   ├── mod.rs               CoreSettings (load / save with App-key merge)
 │   └── hardware_archive.rs  HardwareArchiveSettings
@@ -68,15 +72,16 @@ core/src/
 │   ├── factory.rs           PlatformFactory (compile-time OS selection)
 │   ├── windows/  linux/  macos/
 ├── infrastructure/        ← External I/O backing the platform layer
-│   ├── database/            SQLite pool + writers (gpu/hardware/process_stats)
 │   └── providers/           sysinfo / NVAPI / WMI / procfs / DRM / …
 ├── models/                ← Shared data types (MetricsSnapshot, GpuMetric, …)
 ├── enums/                 ← Cross-cutting enums (errors, hardware, settings)
 └── utils/                 ← Logger macros, formatters, IP / rounding helpers
 ```
 
-The `monitoring` module is reserved for the `Running` / `Paused` / `Stopped`
-state machine introduced in Phase 5 of #1402; it is currently empty.
+Phase 4 of #1402 will introduce `persistence/archive.rs` (the SQLite writer)
+and `infrastructure/database/` (pool + writers); both are currently App-side.
+The `monitoring` module reserved for the `Running` / `Paused` / `Stopped`
+state machine (Phase 5) is also not yet present.
 
 ## Build & test
 
@@ -96,11 +101,11 @@ Core is also covered by the workspace-wide `cargo tauri-fmt` /
 
 ## Relationship to the App crate
 
-```
+```text
 hwviz-core (this crate)
     │  ├─ publishes MetricsSnapshot on EventBus
     │  ├─ exposes HistoryStore read API
-    │  └─ exposes ArchiveController / SystemMonitorController
+    │  └─ exposes SystemMonitorController
     ▼
 src-tauri/ (App)
     ├─ adapters::window   ─ subscribes to EventBus, emits HardwareMonitorUpdate

@@ -29,7 +29,7 @@ lives here; everything else belongs in `hwviz-core`.
 
 ## Module layout
 
-```
+```text
 src-tauri/src/
 ├── lib.rs                ← run() — Tauri builder, command registration, setup hook
 ├── main.rs               ← thin binary entry point
@@ -71,7 +71,7 @@ These rules are inherited from #1402 and apply across the App crate:
 3. **App lifecycle is App-owned.** Window creation, plugin wiring, shutdown,
    and any process-restart logic stay under `src-tauri/`. Core lifecycle is
    driven by App-side controllers (`SystemMonitorController`,
-   `ArchiveController`, `WindowAdapter`) held in `WorkersState`.
+   `HardwareArchiveController`, `WindowAdapter`) held in `WorkersState`.
 4. **UI-only settings stay App-side.** Theme, language, line graph styling,
    burn-in shift, `temperatureUnit`, and similar fields are owned here.
    Presentation conversions (e.g. °C → °F) happen in App, not in Core.
@@ -83,7 +83,7 @@ These rules are inherited from #1402 and apply across the App crate:
 Within the App crate, the layering follows the existing
 [`docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md`](../docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md):
 
-```
+```text
 Commands → Services → (Core API)         ─ App-owned
                     ↘ (Core: Platform → Infrastructure → OS APIs)
 ```
