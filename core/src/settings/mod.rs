@@ -84,12 +84,22 @@ impl CoreSettings {
         .map_err(|e| format!("Failed to create configuration directory: {e}"))?;
     }
 
+    // Refuse to silently overwrite a corrupted settings file — App-owned
+    // keys live under the same JSON object, so a "best-effort" reset
+    // would drop them. Bail out and let the caller surface the error.
     let mut document = match fs::read_to_string(path) {
-      Ok(input) => match serde_json::from_str::<serde_json::Value>(&input) {
-        Ok(serde_json::Value::Object(map)) => map,
-        _ => serde_json::Map::new(),
-      },
-      Err(_) => serde_json::Map::new(),
+      Ok(input) => {
+        let parsed: serde_json::Value = serde_json::from_str(&input)
+          .map_err(|e| format!("Existing settings file is invalid JSON: {e}"))?;
+        match parsed {
+          serde_json::Value::Object(map) => map,
+          _ => {
+            return Err("Existing settings file must be a JSON object".to_string());
+          }
+        }
+      }
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => serde_json::Map::new(),
+      Err(e) => return Err(format!("Failed to read existing settings file: {e}")),
     };
 
     document.insert(
@@ -211,6 +221,35 @@ mod tests {
       hw.get("refreshIntervalDays").and_then(|v| v.as_u64()),
       Some(90)
     );
+  }
+
+  #[test]
+  fn save_refuses_to_overwrite_corrupted_existing_file() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, "this is not json").unwrap();
+
+    let s = CoreSettings::default();
+    let err = s.save_to_path(&path).expect_err("must refuse to overwrite");
+    assert!(err.contains("invalid JSON"), "unexpected error: {err}");
+
+    // The on-disk content must be left untouched so a human can inspect /
+    // recover it instead of losing App-owned keys to a silent reset.
+    assert_eq!(fs::read_to_string(&path).unwrap(), "this is not json");
+  }
+
+  #[test]
+  fn save_refuses_when_existing_file_is_not_an_object() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, "[1, 2, 3]").unwrap();
+
+    let s = CoreSettings::default();
+    let err = s
+      .save_to_path(&path)
+      .expect_err("must refuse non-object root");
+    assert!(err.contains("JSON object"), "unexpected error: {err}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), "[1, 2, 3]");
   }
 
   #[test]

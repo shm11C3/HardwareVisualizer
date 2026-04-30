@@ -381,6 +381,12 @@ pub mod commands {
   /// Apply a mutation to `CoreSettings` and persist via the Core
   /// storage helper (which merges into the shared `settings.json` so
   /// App-owned keys are preserved).
+  ///
+  /// The mutation is applied to a clone first; the in-memory state is
+  /// only swapped in after the on-disk write succeeds. This keeps the
+  /// process from advertising a value the disk hasn't accepted (e.g.
+  /// when the existing file is corrupted and `save_to_path` refuses to
+  /// overwrite it).
   fn update_core_settings<F>(
     state: &tauri::State<'_, AppState>,
     mutate: F,
@@ -389,10 +395,13 @@ pub mod commands {
     F: FnOnce(&mut CoreSettings),
   {
     let mut core_settings = state.core_settings.lock().unwrap();
-    mutate(&mut core_settings);
+    let mut next = core_settings.clone();
+    mutate(&mut next);
     let path =
       utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
-    core_settings.save_to_path(&path)
+    next.save_to_path(&path)?;
+    *core_settings = next;
+    Ok(())
   }
 
   #[tauri::command]
@@ -418,6 +427,12 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_interval: u32,
   ) -> Result<(), String> {
+    // Reject 0: zero retention would mean "delete every record
+    // immediately" via the scheduled cleanup path, which is never what
+    // a user means by entering a refresh interval.
+    if new_interval == 0 {
+      return Err("refresh_interval_days must be greater than 0".to_string());
+    }
     if let Err(e) = update_core_settings(&state, |s| {
       s.hardware_archive.refresh_interval_days = new_interval
     }) {
