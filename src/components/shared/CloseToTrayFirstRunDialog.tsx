@@ -14,34 +14,67 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { setCloseToTrayPreference } from "@/hooks/useCloseToTrayPreference";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 
 const EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED = "close-to-tray-choice-requested";
 
 export const CloseToTrayFirstRunDialog = () => {
   const { t } = useTranslation();
+  const { error } = useTauriDialog();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const unlisten = listen(EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED, () => {
-      setOpen(true);
-    });
+    let off: (() => void) | undefined;
+    let isCancelled = false;
+
+    const setupListener = async () => {
+      try {
+        const unlisten = await listen(
+          EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED,
+          () => {
+            setOpen(true);
+          },
+        );
+
+        if (isCancelled) {
+          unlisten();
+        } else {
+          off = unlisten;
+        }
+      } catch (err) {
+        console.error("Failed to register close-to-tray dialog listener:", err);
+      }
+    };
+
+    setupListener();
 
     return () => {
-      unlisten.then((off) => off());
+      isCancelled = true;
+      off?.();
     };
   }, []);
 
   const continueInBackground = async () => {
-    await setCloseToTrayPreference(true);
-    setOpen(false);
-    await getCurrentWindow().hide();
+    try {
+      await setCloseToTrayPreference(true);
+      await getCurrentWindow().hide();
+      setOpen(false);
+    } catch (err) {
+      console.error("Failed to continue in background:", err);
+      await error(t("closeToTray.errors.continueInBackground"));
+    }
   };
 
   const quitApp = async () => {
-    await setCloseToTrayPreference(false);
-    setOpen(false);
-    await commands.quitApp();
+    try {
+      await setCloseToTrayPreference(false);
+      setOpen(false);
+      await commands.quitApp();
+    } catch (err) {
+      console.error("Failed to quit from close-to-tray dialog:", err);
+      await error(t("closeToTray.errors.quitApp"));
+    }
   };
 
   return (

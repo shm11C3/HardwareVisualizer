@@ -21,18 +21,27 @@ export const useCloseToTrayPreference = () => {
     isMountedRef.current = true;
 
     const loadPreference = async () => {
-      const store = await getStoreInstance();
-      const storedCloseToTray = (await store.has(KEY_CLOSE_TO_TRAY))
-        ? await store.get<boolean>(KEY_CLOSE_TO_TRAY)
-        : undefined;
-      const storedChoiceMade = (await store.has(KEY_CLOSE_TO_TRAY_CHOICE_MADE))
-        ? await store.get<boolean>(KEY_CLOSE_TO_TRAY_CHOICE_MADE)
-        : undefined;
+      try {
+        const store = await getStoreInstance();
+        const storedCloseToTray = (await store.has(KEY_CLOSE_TO_TRAY))
+          ? await store.get<boolean>(KEY_CLOSE_TO_TRAY)
+          : undefined;
+        const storedChoiceMade = (await store.has(
+          KEY_CLOSE_TO_TRAY_CHOICE_MADE,
+        ))
+          ? await store.get<boolean>(KEY_CLOSE_TO_TRAY_CHOICE_MADE)
+          : undefined;
 
-      if (isMountedRef.current) {
-        setCloseToTrayState(storedCloseToTray ?? false);
-        setChoiceMade(storedChoiceMade ?? false);
-        setIsPending(false);
+        if (isMountedRef.current) {
+          setCloseToTrayState(storedCloseToTray ?? false);
+          setChoiceMade(storedChoiceMade ?? false);
+        }
+      } catch (error) {
+        console.error("Failed to load close-to-tray preference:", error);
+      } finally {
+        if (isMountedRef.current) {
+          setIsPending(false);
+        }
       }
     };
 
@@ -43,11 +52,20 @@ export const useCloseToTrayPreference = () => {
     };
   }, []);
 
-  const setCloseToTray = useCallback(async (value: boolean) => {
-    await setCloseToTrayPreference(value);
-    setCloseToTrayState(value);
-    setChoiceMade(true);
-  }, []);
+  const setCloseToTray = useCallback(
+    async (value: boolean): Promise<boolean> => {
+      try {
+        await setCloseToTrayPreference(value);
+        setCloseToTrayState(value);
+        setChoiceMade(true);
+        return true;
+      } catch (error) {
+        console.error("Failed to save close-to-tray preference:", error);
+        return false;
+      }
+    },
+    [],
+  );
 
   return {
     closeToTray,

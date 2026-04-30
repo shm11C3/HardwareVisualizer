@@ -136,6 +136,12 @@
       "continueInBackground": "Continue in background",
       "quitApp": "Quit app",
       "close": "Close dialog"
+    },
+    "errors": {
+      "continueInBackground": "Failed to keep the app running in the background.",
+      "quitApp": "Failed to quit the app.",
+      "availability": "Failed to check whether the system tray is available.",
+      "savePreference": "Failed to save the close-to-tray setting."
     }
   },
 

@@ -97,6 +97,7 @@ async fn handle_close_request(app: AppHandle, window: Window) {
           "lifecycle::handle_close_request",
           None::<&str>
         );
+        request_quit(app).await;
       }
     }
     Ok(settings) if settings.close_to_tray => hide_window_on_close(&window),

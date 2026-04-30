@@ -4,19 +4,50 @@ import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCloseToTrayPreference } from "@/hooks/useCloseToTrayPreference";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
 export const CloseToTrayToggle = () => {
   const { t } = useTranslation();
+  const { error } = useTauriDialog();
   const { closeToTray, isPending, setCloseToTray } = useCloseToTrayPreference();
   const [isAvailable, setIsAvailable] = useState(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Availability is checked once when the settings row mounts.
   useEffect(() => {
-    commands
-      .isCloseToTrayAvailable()
-      .then(setIsAvailable)
-      .catch(() => setIsAvailable(true));
+    const checkAvailability = async () => {
+      try {
+        const result = await commands.isCloseToTrayAvailable();
+
+        if (isError(result)) {
+          setIsAvailable(false);
+          console.error(
+            "Failed to check close-to-tray availability:",
+            result.error,
+          );
+          await error(t("closeToTray.errors.availability"));
+          return;
+        }
+
+        setIsAvailable(result.data);
+      } catch (err) {
+        setIsAvailable(false);
+        console.error("Failed to check close-to-tray availability:", err);
+        await error(t("closeToTray.errors.availability"));
+      }
+    };
+
+    checkAvailability();
   }, []);
+
+  const updateCloseToTray = async (value: boolean) => {
+    const saved = await setCloseToTray(value);
+
+    if (!saved) {
+      await error(t("closeToTray.errors.savePreference"));
+    }
+  };
 
   return (
     <div className="space-y-3 py-6 xl:w-1/2">
@@ -34,7 +65,7 @@ export const CloseToTrayToggle = () => {
           id="closeToTray"
           checked={isAvailable && closeToTray}
           disabled={isPending || !isAvailable}
-          onCheckedChange={setCloseToTray}
+          onCheckedChange={updateCloseToTray}
         />
       </div>
 

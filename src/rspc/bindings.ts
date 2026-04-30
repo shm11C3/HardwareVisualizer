@@ -488,8 +488,13 @@ async quitApp() : Promise<void> {
 /**
  * Returns whether close-to-tray can safely be enabled in this session.
  */
-async isCloseToTrayAvailable() : Promise<boolean> {
-    return await TAURI_INVOKE("is_close_to_tray_available");
+async isCloseToTrayAvailable() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_close_to_tray_available") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
