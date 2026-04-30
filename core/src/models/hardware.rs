@@ -55,9 +55,9 @@ pub struct GpuUsageResult {
   pub source: String,
 }
 
-/// Generic `(name, integer)` pair. Used by the GPU temperature API.
-/// `value` is whatever unit the producer chose — currently temperature
-/// in the unit requested by the caller (°C or °F) — so don't assume °C.
+/// Generic `(name, integer)` pair. Used by the GPU temperature API,
+/// where `value` is always in raw degrees Celsius — presentation
+/// conversion (Celsius/Fahrenheit) lives at the App-side boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NameValue {
   pub name: String,

@@ -529,6 +529,14 @@ export type GpuMonitorData = { gpuId: string; gpuName: string; gpuUsage: number 
 export type GpuUsageResult = { usage: number; source: string }
 export type GraphSize = "sm" | "md" | "lg" | "xl" | "2xl"
 export type GraphicInfo = { id: string; name: string; vendorName: string; clock: number; memorySize: string; memorySizeDedicated: string; coreCount: string | null }
+/**
+ * Wire-format mirror of [`hwviz_core::settings::HardwareArchiveSettings`].
+ * 
+ * The canonical definition lives in `hwviz_core::settings` so the
+ * archive worker (and any future Core consumer) doesn't need to know
+ * about Tauri or specta. This App-side struct exists only because the
+ * frontend wire format requires `specta::Type`.
+ */
 export type HardwareArchiveSettings = { enabled: boolean; scheduledDataDeletion: boolean; refreshIntervalDays: number }
 export type HardwareMonitorUpdate = { cpuUsage: number; memoryUsage: number; gpus: GpuMonitorData[]; processorsUsage: number[] }
 export type HardwareType = "cpu" | "memory" | "gpu"

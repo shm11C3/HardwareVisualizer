@@ -2086,6 +2086,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "sqlx",
  "sysinfo",
  "tempfile",
  "tokio",

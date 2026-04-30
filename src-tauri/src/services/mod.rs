@@ -1,6 +1,5 @@
 pub mod archive_service;
 pub mod background_image_service;
-pub mod db_startup_service;
 pub mod gpu_service;
 pub mod hardware_service;
 pub mod language_service;

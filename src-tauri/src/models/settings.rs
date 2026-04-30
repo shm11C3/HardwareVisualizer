@@ -24,7 +24,12 @@ impl Default for LineGraphColorSettings {
 }
 
 ///
-/// ## JSON structure stored in settings.json
+/// ## App-owned settings persisted in `settings.json`.
+///
+/// Core-owned fields (currently `hardwareArchive`) live in
+/// [`hwviz_core::settings::CoreSettings`] and are persisted to the same
+/// file under their own keys — they are intentionally absent here so
+/// App-side setters never touch Core fields.
 ///
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default, rename_all = "camelCase")]
@@ -45,7 +50,6 @@ pub struct Settings {
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
   pub temperature_unit: enums::settings::TemperatureUnit,
-  pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
   pub burn_in_shift: bool,
   pub burn_in_shift_mode: enums::settings::BurnInShiftMode,
   pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
@@ -120,11 +124,6 @@ impl Default for Settings {
       background_img_opacity: 50,
       selected_background_img: None,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
-      hardware_archive: models::hardware_archive::HardwareArchiveSettings {
-        enabled: true,
-        refresh_interval_days: 30,
-        scheduled_data_deletion: true,
-      },
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
@@ -261,11 +260,8 @@ mod tests {
       background_img_opacity: 75,
       selected_background_img: Some("test.png".to_string()),
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
-      hardware_archive: crate::models::hardware_archive::HardwareArchiveSettings {
-        enabled: true,
-        refresh_interval_days: 30,
-        scheduled_data_deletion: true,
-      },
+      hardware_archive: crate::models::hardware_archive::HardwareArchiveSettings::default(
+      ),
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,
@@ -328,6 +324,9 @@ mod tests {
     // Simulate an old settings.json that lacks fields added in newer versions
     // (e.g., burnInShift*, textSelectable). With #[serde(default)], missing
     // fields should fall back to their defaults instead of failing entirely.
+    // The `hardwareArchive` key here is a Core-owned key; the App-side
+    // Settings struct ignores it via `#[serde(deny_unknown_fields)]`-free
+    // defaults — this asserts we don't break when both buckets share a file.
     let old_json = r#"{
       "version": "0.1.0",
       "language": "en",
@@ -364,8 +363,6 @@ mod tests {
       settings.temperature_unit,
       enums::settings::TemperatureUnit::Fahrenheit
     );
-    assert!(!settings.hardware_archive.enabled);
-    assert_eq!(settings.hardware_archive.refresh_interval_days, 7);
 
     // Missing fields should have default values
     let defaults = Settings::default();
@@ -392,19 +389,6 @@ mod tests {
     assert_eq!(settings.line_graph_border, defaults.line_graph_border);
     assert_eq!(settings.burn_in_shift, defaults.burn_in_shift);
     assert_eq!(settings.text_selectable, defaults.text_selectable);
-  }
-
-  #[test]
-  fn test_hardware_archive_settings_missing_fields() {
-    // HardwareArchiveSettings with missing fields should use defaults
-    let json = r#"{"enabled": false}"#;
-    let settings: crate::models::hardware_archive::HardwareArchiveSettings =
-      serde_json::from_str(json).unwrap();
-
-    assert!(!settings.enabled);
-    // Missing fields should use defaults
-    assert!(settings.scheduled_data_deletion);
-    assert_eq!(settings.refresh_interval_days, 30);
   }
 
   #[test]

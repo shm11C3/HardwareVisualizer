@@ -8,6 +8,7 @@
 pub use hwviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
 
 mod adapters;
+mod app;
 mod commands;
 mod constants;
 mod enums;
@@ -45,9 +46,12 @@ pub fn run() {
   // until Phase 4 replaces `MonitorResources` with an EventBus subscription.
   let history_store = Arc::new(HistoryStore::new());
 
-  let settings = app_state.settings.lock().unwrap().clone();
+  let core_settings = app_state.core_settings.lock().unwrap().clone();
 
-  let db_error = infrastructure::database::preflight::check_db_compatibility();
+  let db_path = utils::file::get_app_data_dir("hv-database.db");
+  let app_max_version = infrastructure::database::migration::get_max_migration_version();
+  let db_error =
+    hwviz_core::persistence::preflight::check_db_compatibility(&db_path, app_max_version);
   let is_db_ok = db_error.is_none();
 
   let migrations = infrastructure::database::migration::get_migrations();
@@ -152,7 +156,7 @@ pub fn run() {
 
       if is_db_ok {
         // Start DB-dependent archive services
-        if settings.hardware_archive.enabled {
+        if core_settings.hardware_archive.enabled {
           let handles = store_for_setup.arc_handles();
           let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
             models::hardware_archive::MonitorResources {
@@ -172,9 +176,9 @@ pub fn run() {
           }
         }
 
-        if settings.hardware_archive.scheduled_data_deletion {
+        if core_settings.hardware_archive.scheduled_data_deletion {
           tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
-            settings.hardware_archive.refresh_interval_days,
+            core_settings.hardware_archive.refresh_interval_days,
           ));
         }
       } else {
@@ -187,10 +191,10 @@ pub fn run() {
         let handle = app.handle().clone();
         let db_err = db_error.expect("db_error must be Some when is_db_ok is false");
         std::thread::spawn(move || {
-          use services::db_startup_service::{self, StartupErrorAction};
-          match db_startup_service::prompt_startup_error(&handle, db_err) {
+          use app::startup::{self, StartupErrorAction};
+          match startup::prompt_startup_error(&handle, db_err) {
             StartupErrorAction::ResetAndRestart => {
-              db_startup_service::reset_database_and_restart(&handle);
+              startup::reset_database_and_restart(&handle);
             }
             StartupErrorAction::ContinueAnyway => {
               // Show the main window — app runs without DB-backed features

@@ -6,13 +6,13 @@
 
 pub mod collector;
 
-pub mod persistence {}
+pub mod persistence;
 
 pub mod monitoring {}
 
 pub mod event_bus;
 
-pub mod settings {}
+pub mod settings;
 
 pub mod platform;
 
