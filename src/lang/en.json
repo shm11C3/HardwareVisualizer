@@ -129,6 +129,15 @@
     }
   },
 
+  "closeToTray": {
+    "firstRunDialog": {
+      "title": "Keep HardwareVisualizer running?",
+      "description": "HardwareVisualizer can keep monitoring in the background after you close the main window. You can change this later in Settings.",
+      "continueInBackground": "Continue in background",
+      "quitApp": "Quit app"
+    }
+  },
+
   "pages": {
     "dashboard": {
       "name": "Dashboard",
@@ -184,6 +193,11 @@
         },
         "textSelection": {
           "name": "Enable text selection"
+        },
+        "closeToTray": {
+          "name": "Close to tray instead of quitting",
+          "description": "Keep monitoring running when the main window is closed.",
+          "unavailable": "The system tray is not available in this desktop environment, so closing the window will quit the app for this session."
         },
         "autostart": {
           "name": "Automatic startup at OS startup"

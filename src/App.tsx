@@ -11,6 +11,7 @@ import type { ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
+import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
@@ -233,6 +234,7 @@ const AppContent = () => {
             )}
           </Suspense>
           <AppUpdate />
+          <CloseToTrayFirstRunDialog />
         </div>
       </div>
       <FullscreenExitButton

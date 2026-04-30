@@ -116,6 +116,7 @@ pub fn run() {
       ui::set_decoration,
       system::restart_app,
       system::quit_app,
+      system::is_close_to_tray_available,
     ]);
 
   // TS bindings
@@ -172,11 +173,12 @@ pub fn run() {
           ws.tray.lock().unwrap().replace(tray);
         }
         Err(e) => {
+          app
+            .state::<lifecycle::CloseToTrayRuntimeState>()
+            .disable_for_session();
           // Linux desktops without an indicator implementation, or any
-          // other tray failure: log and continue. `Quit` from the
-          // in-process command path still works, so the user is not
-          // stranded once the close-to-tray setting (#1423) lands and
-          // can fall back to "quit on close" when the tray is missing.
+          // other tray failure: log and continue. Close-to-tray is
+          // disabled for this session so the close button still quits.
           log_warn!(
             &format!("tray icon setup failed; continuing without tray: {e}"),
             "lib::setup",
@@ -261,6 +263,7 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .manage(history_store)
     .manage(app_state)
+    .manage(lifecycle::CloseToTrayRuntimeState::default())
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));
 

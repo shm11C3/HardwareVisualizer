@@ -7,10 +7,9 @@
 //! the Pause / Resume entries belong to #1424.
 //!
 //! ## Visibility policy
-//! The tray is registered unconditionally on app startup. Whether it
-//! should appear conditionally — only in close-to-tray mode, or driven
-//! by a persisted user setting — is a UX call owned by #1423; the
-//! adapter itself stays policy-free.
+//! The tray is registered unconditionally on app startup. The persisted
+//! close-to-tray preference is handled by `crate::lifecycle`; this
+//! adapter stays policy-free.
 //!
 //! ## Platform notes
 //! - **Windows / macOS**: left-clicking the icon restores the window;
@@ -23,9 +22,8 @@
 //!   `Quit` through the menu always works. Environments without an
 //!   indicator implementation may fail to register the tray entirely;
 //!   when that happens [`TrayAdapter::setup`] returns the error to the
-//!   caller, which logs and continues without a tray. The close-to-
-//!   tray fallback that handles "no tray, no way back to the window"
-//!   for affected users lands with #1423.
+//!   caller, which logs, disables close-to-tray for the current
+//!   session, and continues without a tray.
 
 use tauri::{
   AppHandle, Manager,

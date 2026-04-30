@@ -484,6 +484,12 @@ async restartApp() : Promise<void> {
  */
 async quitApp() : Promise<void> {
     await TAURI_INVOKE("quit_app");
+},
+/**
+ * Returns whether close-to-tray can safely be enabled in this session.
+ */
+async isCloseToTrayAvailable() : Promise<boolean> {
+    return await TAURI_INVOKE("is_close_to_tray_available");
 }
 }
 

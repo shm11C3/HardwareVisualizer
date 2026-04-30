@@ -17,3 +17,10 @@ pub async fn restart_app(app_handle: tauri::AppHandle) {
 pub async fn quit_app(app_handle: tauri::AppHandle) {
   crate::lifecycle::request_quit(app_handle).await;
 }
+
+/// Returns whether close-to-tray can safely be enabled in this session.
+#[tauri::command]
+#[specta::specta]
+pub fn is_close_to_tray_available(app_handle: tauri::AppHandle) -> bool {
+  crate::lifecycle::is_close_to_tray_available(&app_handle)
+}
