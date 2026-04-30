@@ -68,6 +68,15 @@ impl ArchiveController {
       ticker.tick().await;
 
       loop {
+        // `biased;` makes `tokio::select!` poll branches top-to-bottom
+        // deterministically. Order matters: shutdown stays at the top
+        // so a stop signal is never delayed; the periodic archive
+        // ticker comes next so a continuously-ready snapshot stream
+        // (e.g. when the collector temporarily out-paces us, or after
+        // a `Lagged` recovery) cannot starve the 60-second write;
+        // `rx.recv()` is last and may shed a snapshot in favor of an
+        // overdue write — which is fine because the tracker only ever
+        // computes aggregates over its 60-sample rings.
         tokio::select! {
           biased;
           changed = stop_rx.changed() => {
@@ -78,6 +87,18 @@ impl ArchiveController {
                 None::<&str>
               );
               break;
+            }
+          }
+          _ = ticker.tick() => {
+            let start = std::time::Instant::now();
+            tracker.write_archive().await;
+            let elapsed = start.elapsed();
+            if elapsed > Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS) {
+              log_warn!(
+                &format!("overrun {:?} (> {}s)", elapsed, HARDWARE_ARCHIVE_INTERVAL_SECONDS),
+                "persistence::archive",
+                None::<&str>
+              );
             }
           }
           received = rx.recv() => match received {
@@ -91,18 +112,6 @@ impl ArchiveController {
             }
             Err(RecvError::Closed) => break,
           },
-          _ = ticker.tick() => {
-            let start = std::time::Instant::now();
-            tracker.write_archive().await;
-            let elapsed = start.elapsed();
-            if elapsed > Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS) {
-              log_warn!(
-                &format!("overrun {:?} (> {}s)", elapsed, HARDWARE_ARCHIVE_INTERVAL_SECONDS),
-                "persistence::archive",
-                None::<&str>
-              );
-            }
-          }
         }
       }
     });
