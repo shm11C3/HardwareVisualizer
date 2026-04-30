@@ -176,6 +176,11 @@ pub fn run() {
           }
         }
 
+        // Retention cleanup runs once per process boot — the pre-Phase-4
+        // `batch_delete_old_data` wrapper had the same one-shot semantics.
+        // The setting name `scheduled_data_deletion` is historical; the
+        // refresh trigger is "next app launch", not a recurring schedule.
+        // See `hwviz_core::persistence::cleanup_old_data` doc comment.
         if core_settings.hardware_archive.scheduled_data_deletion {
           tauri::async_runtime::spawn(hwviz_core::persistence::cleanup_old_data(
             core_settings.hardware_archive.refresh_interval_days,
