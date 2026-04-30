@@ -54,9 +54,10 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   }
 }
 
-pub async fn get_gpu_temperature(
-  temperature_unit: enums::settings::TemperatureUnit,
-) -> Result<Vec<crate::models::hardware::NameValue>, String> {
+/// Always returns raw degrees Celsius. Presentation conversion lives at
+/// the App-side boundary.
+pub async fn get_gpu_temperature()
+-> Result<Vec<crate::models::hardware::NameValue>, String> {
   let mut all_temps: Vec<crate::models::hardware::NameValue> = Vec::new();
 
   // 1. NVAPI (NVIDIA)
@@ -66,11 +67,7 @@ pub async fn get_gpu_temperature(
     for temp in &nvidia_temps {
       all_temps.push(crate::models::hardware::NameValue {
         name: temp.name.clone(),
-        value: utils::formatter::format_temperature(
-          enums::settings::TemperatureUnit::Celsius,
-          temperature_unit.clone(),
-          temp.value,
-        ),
+        value: temp.value,
       });
     }
   }
@@ -82,11 +79,7 @@ pub async fn get_gpu_temperature(
     for temp in &amd_temps {
       all_temps.push(crate::models::hardware::NameValue {
         name: temp.name.clone(),
-        value: utils::formatter::format_temperature(
-          enums::settings::TemperatureUnit::Celsius,
-          temperature_unit.clone(),
-          temp.value,
-        ),
+        value: temp.value,
       });
     }
   }

@@ -101,9 +101,9 @@ pub async fn get_intel_graphic_info(
   })
 }
 
-pub async fn get_gpu_temperature(
-  temperature_unit: enums::settings::TemperatureUnit,
-) -> Result<Vec<models::hardware::NameValue>, String> {
+/// Always returns raw degrees Celsius. Presentation conversion lives at
+/// the App-side boundary.
+pub async fn get_gpu_temperature() -> Result<Vec<models::hardware::NameValue>, String> {
   let cards = infrastructure::providers::drm_sys::get_all_card_ids();
   let mut all_temps: Vec<models::hardware::NameValue> = Vec::new();
 
@@ -118,14 +118,9 @@ pub async fn get_gpu_temperature(
     if let Ok(temps) = infrastructure::providers::hwmon::read_hwmon_temperatures(card_id)
     {
       for temp in temps {
-        let value = utils::formatter::format_temperature(
-          enums::settings::TemperatureUnit::Celsius,
-          temperature_unit.clone(),
-          temp.value,
-        );
         all_temps.push(models::hardware::NameValue {
           name: temp.name,
-          value,
+          value: temp.value,
         });
       }
     }

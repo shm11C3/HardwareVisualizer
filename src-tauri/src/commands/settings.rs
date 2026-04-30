@@ -3,17 +3,35 @@ use crate::log_error;
 use crate::models;
 use crate::services;
 use crate::utils;
+use hwviz_core::settings::CoreSettings;
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Debug)]
 pub struct AppState {
   pub settings: std::sync::Mutex<models::settings::Settings>,
+  /// Core-owned settings (currently `hardwareArchive`). Loaded from the
+  /// same `settings.json` as the App-side `Settings`, but each side only
+  /// (de)serializes its own keys so writes don't clobber each other.
+  pub core_settings: std::sync::Mutex<CoreSettings>,
 }
 
 impl AppState {
   pub fn new() -> Self {
+    let settings_path =
+      utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
+    let core_settings =
+      CoreSettings::load_from_path(&settings_path).unwrap_or_else(|e| {
+        log_error!(
+          "Failed to load core settings",
+          "AppState::new",
+          Some(e.to_string())
+        );
+        CoreSettings::default()
+      });
+
     Self {
       settings: std::sync::Mutex::from(models::settings::Settings::new()),
+      core_settings: std::sync::Mutex::from(core_settings),
     }
   }
 }
@@ -59,6 +77,7 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
   ) -> Result<models::settings::ClientSettings, String> {
     let settings = state.settings.lock().unwrap().clone();
+    let core_settings = state.core_settings.lock().unwrap().clone();
 
     // Convert to comma-separated string for easier handling in frontend
     let color_strings = models::settings::LineGraphColorStringSettings {
@@ -102,7 +121,7 @@ pub mod commands {
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
       temperature_unit: settings.temperature_unit,
-      hardware_archive: settings.hardware_archive,
+      hardware_archive: core_settings.hardware_archive.into(),
       burn_in_shift: settings.burn_in_shift,
       burn_in_shift_mode: settings.burn_in_shift_mode,
       burn_in_shift_preset: settings.burn_in_shift_preset,
@@ -359,6 +378,23 @@ pub mod commands {
     Ok(())
   }
 
+  /// Apply a mutation to `CoreSettings` and persist via the Core
+  /// storage helper (which merges into the shared `settings.json` so
+  /// App-owned keys are preserved).
+  fn update_core_settings<F>(
+    state: &tauri::State<'_, AppState>,
+    mutate: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&mut CoreSettings),
+  {
+    let mut core_settings = state.core_settings.lock().unwrap();
+    mutate(&mut core_settings);
+    let path =
+      utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
+    core_settings.save_to_path(&path)
+  }
+
   #[tauri::command]
   #[specta::specta]
   pub async fn set_hardware_archive_enabled(
@@ -366,9 +402,9 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: bool,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_hardware_archive_enabled(new_value) {
+    if let Err(e) =
+      update_core_settings(&state, |s| s.hardware_archive.enabled = new_value)
+    {
       emit_error(&window)?;
       return Err(e);
     }
@@ -382,9 +418,9 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_interval: u32,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_hardware_archive_interval(new_interval) {
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.hardware_archive.refresh_interval_days = new_interval
+    }) {
       emit_error(&window)?;
       return Err(e);
     }
@@ -398,9 +434,9 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: bool,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-
-    if let Err(e) = settings.set_hardware_archive_scheduled_data_deletion(new_value) {
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.hardware_archive.scheduled_data_deletion = new_value
+    }) {
       emit_error(&window)?;
       return Err(e);
     }

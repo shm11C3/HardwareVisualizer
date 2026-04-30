@@ -17,8 +17,10 @@ pub async fn fetch_gpu_usage() -> Result<GpuUsageResult, String> {
 }
 
 ///
-/// Get list of GPU temperatures
-/// `temperature_unit` assumes user setting (Celsius/Fahrenheit etc.)
+/// Get list of GPU temperatures.
+///
+/// Core always returns raw °C; this layer formats into the user's
+/// preferred unit so Core's API stays decoupled from UI preferences.
 ///
 pub async fn fetch_gpu_temperature(
   temperature_unit: enums::settings::TemperatureUnit,
@@ -27,11 +29,24 @@ pub async fn fetch_gpu_temperature(
     PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
 
   let core_temps = platform
-    .get_gpu_temperature(temperature_unit.into())
+    .get_gpu_temperature()
     .await
     .map_err(|e| format!("Failed to get GPU temperature: {e:?}"))?;
 
-  Ok(core_temps.into_iter().map(NameValue::from).collect())
+  let unit: hwviz_core::enums::settings::TemperatureUnit = temperature_unit.into();
+  Ok(
+    core_temps
+      .into_iter()
+      .map(|t| NameValue {
+        name: t.name,
+        value: hwviz_core::utils::formatter::format_temperature(
+          hwviz_core::enums::settings::TemperatureUnit::Celsius,
+          unit.clone(),
+          t.value,
+        ),
+      })
+      .collect(),
+  )
 }
 
 ///

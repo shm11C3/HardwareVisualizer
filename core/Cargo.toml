@@ -30,6 +30,12 @@ regex = "1.12.3"
 async-trait = "0.1"
 sysinfo = "0.38.4"
 tempfile = "3.27.0"
+sqlx = { version = "0.8.6", features = [
+    "sqlite",
+    "runtime-tokio-rustls",
+    "macros",
+    "chrono",
+] }
 
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"

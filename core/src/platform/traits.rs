@@ -1,4 +1,3 @@
-use crate::enums;
 use crate::enums::error::BackendError;
 use crate::models;
 use std::future::Future;
@@ -32,10 +31,13 @@ pub trait GpuPlatform: Send + Sync {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<GpuUsageRaw, String>> + Send + '_>>;
 
-  /// Get GPU temperature
+  /// Get GPU temperatures, always in raw degrees Celsius.
+  ///
+  /// Presentation conversion (Celsius/Fahrenheit) is the App's
+  /// responsibility — Core never reads the user's preferred unit so the
+  /// trait stays decoupled from UI preferences.
   fn get_gpu_temperature(
     &self,
-    temperature_unit: enums::settings::TemperatureUnit,
   ) -> Pin<
     Box<
       dyn Future<Output = Result<Vec<models::hardware::NameValue>, String>> + Send + '_,

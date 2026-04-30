@@ -56,7 +56,6 @@ impl GpuPlatform for LinuxPlatform {
 
   fn get_gpu_temperature(
     &self,
-    temperature_unit: enums::settings::TemperatureUnit,
   ) -> Pin<
     Box<
       dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, String>>
@@ -64,7 +63,7 @@ impl GpuPlatform for LinuxPlatform {
         + '_,
     >,
   > {
-    Box::pin(gpu::get_gpu_temperature(temperature_unit))
+    Box::pin(gpu::get_gpu_temperature())
   }
 
   fn get_gpu_info(

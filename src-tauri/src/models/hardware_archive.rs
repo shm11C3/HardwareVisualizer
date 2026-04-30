@@ -1,3 +1,4 @@
+use hwviz_core::settings::HardwareArchiveSettings as CoreHardwareArchiveSettings;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{
@@ -17,6 +18,12 @@ pub struct MonitorResources {
   pub gpu_name_map: Arc<Mutex<HashMap<String, String>>>,
 }
 
+/// Wire-format mirror of [`hwviz_core::settings::HardwareArchiveSettings`].
+///
+/// The canonical definition lives in `hwviz_core::settings` so the
+/// archive worker (and any future Core consumer) doesn't need to know
+/// about Tauri or specta. This App-side struct exists only because the
+/// frontend wire format requires `specta::Type`.
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(default, rename_all = "camelCase")]
 pub struct HardwareArchiveSettings {
@@ -27,10 +34,26 @@ pub struct HardwareArchiveSettings {
 
 impl Default for HardwareArchiveSettings {
   fn default() -> Self {
+    CoreHardwareArchiveSettings::default().into()
+  }
+}
+
+impl From<CoreHardwareArchiveSettings> for HardwareArchiveSettings {
+  fn from(value: CoreHardwareArchiveSettings) -> Self {
     Self {
-      enabled: true,
-      refresh_interval_days: 30,
-      scheduled_data_deletion: true,
+      enabled: value.enabled,
+      scheduled_data_deletion: value.scheduled_data_deletion,
+      refresh_interval_days: value.refresh_interval_days,
+    }
+  }
+}
+
+impl From<HardwareArchiveSettings> for CoreHardwareArchiveSettings {
+  fn from(value: HardwareArchiveSettings) -> Self {
+    Self {
+      enabled: value.enabled,
+      scheduled_data_deletion: value.scheduled_data_deletion,
+      refresh_interval_days: value.refresh_interval_days,
     }
   }
 }

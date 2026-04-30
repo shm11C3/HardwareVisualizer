@@ -35,11 +35,6 @@ mod tests {
       background_img_opacity: 50,
       selected_background_img: None,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
-      hardware_archive: models::hardware_archive::HardwareArchiveSettings {
-        enabled: true,
-        refresh_interval_days: 30,
-        scheduled_data_deletion: true,
-      },
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,

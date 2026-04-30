@@ -1,4 +1,3 @@
-use crate::utils;
 use sqlx::Row;
 use sqlx::sqlite::SqlitePool;
 use std::path::Path;
@@ -12,17 +11,16 @@ pub enum DbStartupError {
   Other(String),
 }
 
-/// Check if the database schema is compatible with this app version.
+/// Decide whether the on-disk SQLite database is compatible with the
+/// running app's migration set.
 ///
-/// Returns `None` if the database is compatible or doesn't exist yet.
-/// Returns `Some(DbStartupError)` if the database schema is incompatible.
-pub fn check_db_compatibility() -> Option<DbStartupError> {
-  let db_path = utils::file::get_app_data_dir("hv-database.db");
-  let app_max_version = super::migration::get_max_migration_version();
-  check_db_compatibility_at(&db_path, app_max_version)
-}
-
-fn check_db_compatibility_at(
+/// Returns `None` when the database is compatible (or doesn't exist /
+/// hasn't been migrated yet) and `Some(DbStartupError)` otherwise.
+///
+/// This function is intentionally Tauri-independent: callers in the App
+/// crate pass the resolved DB path and the highest migration version
+/// the binary is built with.
+pub fn check_db_compatibility(
   db_path: &Path,
   app_max_version: i64,
 ) -> Option<DbStartupError> {
@@ -32,9 +30,23 @@ fn check_db_compatibility_at(
 
   let database_url = format!("sqlite:{}", db_path.to_string_lossy());
 
-  let result = tauri::async_runtime::block_on(async {
-    query_max_migration_version(&database_url).await
-  });
+  // Core has no Tauri runtime, so spin up a single-threaded tokio
+  // runtime for this synchronous one-shot query. This function runs
+  // before the Tauri builder starts, so there is no enclosing runtime
+  // to clash with.
+  let runtime = match tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+  {
+    Ok(rt) => rt,
+    Err(e) => {
+      return Some(DbStartupError::Other(format!(
+        "Failed to build runtime for DB preflight: {e}"
+      )));
+    }
+  };
+
+  let result = runtime.block_on(query_max_migration_version(&database_url));
 
   match result {
     Ok(Some(db_max_version)) if db_max_version > app_max_version => {
@@ -46,7 +58,8 @@ fn check_db_compatibility_at(
     Ok(_) => None,
     Err(e) => {
       let err_msg = e.to_string();
-      // Table doesn't exist yet — first migration hasn't run
+      // The first migration hasn't run yet — the table simply doesn't exist
+      // in this database. That's compatible.
       if err_msg.contains("no such table") {
         None
       } else {
@@ -111,94 +124,108 @@ mod tests {
     .unwrap();
   }
 
-  #[tokio::test]
-  async fn query_returns_none_when_no_migration_table() {
+  fn run<F: std::future::Future<Output = T>, T>(f: F) -> T {
+    tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(f)
+  }
+
+  #[test]
+  fn query_returns_err_when_no_migration_table() {
     let tmp = NamedTempFile::new().unwrap();
     let url = format!("sqlite:{}", tmp.path().to_string_lossy());
-    // Create an empty DB (no _sqlx_migrations table)
-    let _pool = SqlitePool::connect(&url).await.unwrap();
+    run(async {
+      let _pool = SqlitePool::connect(&url).await.unwrap();
+    });
 
-    let result = query_max_migration_version(&url).await;
+    let result = run(query_max_migration_version(&url));
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("no such table"));
   }
 
-  #[tokio::test]
-  async fn query_returns_none_when_table_empty() {
+  #[test]
+  fn query_returns_none_when_table_empty() {
     let tmp = NamedTempFile::new().unwrap();
-    let pool = create_test_db(tmp.path()).await;
-    pool.close().await;
+    run(async {
+      let pool = create_test_db(tmp.path()).await;
+      pool.close().await;
+    });
 
     let url = format!("sqlite:{}", tmp.path().to_string_lossy());
-    let result = query_max_migration_version(&url).await.unwrap();
-    // MAX() on empty table returns NULL → None
+    let result = run(query_max_migration_version(&url)).unwrap();
     assert_eq!(result, None);
   }
 
-  #[tokio::test]
-  async fn query_returns_max_successful_version() {
+  #[test]
+  fn query_returns_max_successful_version() {
     let tmp = NamedTempFile::new().unwrap();
-    let pool = create_test_db(tmp.path()).await;
-    insert_migration(&pool, 1, true).await;
-    insert_migration(&pool, 2, true).await;
-    insert_migration(&pool, 3, true).await;
-    pool.close().await;
+    run(async {
+      let pool = create_test_db(tmp.path()).await;
+      insert_migration(&pool, 1, true).await;
+      insert_migration(&pool, 2, true).await;
+      insert_migration(&pool, 3, true).await;
+      pool.close().await;
+    });
 
     let url = format!("sqlite:{}", tmp.path().to_string_lossy());
-    let result = query_max_migration_version(&url).await.unwrap();
+    let result = run(query_max_migration_version(&url)).unwrap();
     assert_eq!(result, Some(3));
   }
 
-  #[tokio::test]
-  async fn query_ignores_failed_migrations() {
+  #[test]
+  fn query_ignores_failed_migrations() {
     let tmp = NamedTempFile::new().unwrap();
-    let pool = create_test_db(tmp.path()).await;
-    insert_migration(&pool, 1, true).await;
-    insert_migration(&pool, 2, true).await;
-    insert_migration(&pool, 3, false).await; // failed
-    pool.close().await;
+    run(async {
+      let pool = create_test_db(tmp.path()).await;
+      insert_migration(&pool, 1, true).await;
+      insert_migration(&pool, 2, true).await;
+      insert_migration(&pool, 3, false).await;
+      pool.close().await;
+    });
 
     let url = format!("sqlite:{}", tmp.path().to_string_lossy());
-    let result = query_max_migration_version(&url).await.unwrap();
+    let result = run(query_max_migration_version(&url)).unwrap();
     assert_eq!(result, Some(2));
   }
 
   #[test]
   fn compatible_when_db_file_does_not_exist() {
     let path = Path::new("/nonexistent/path/to/db.sqlite");
-    assert_eq!(check_db_compatibility_at(path, 5), None);
+    assert_eq!(check_db_compatibility(path, 5), None);
   }
 
   #[test]
   fn compatible_when_db_version_equals_app_version() {
     let tmp = NamedTempFile::new().unwrap();
-    tauri::async_runtime::block_on(async {
+    run(async {
       let pool = create_test_db(tmp.path()).await;
       insert_migration(&pool, 1, true).await;
       insert_migration(&pool, 5, true).await;
       pool.close().await;
     });
 
-    assert_eq!(check_db_compatibility_at(tmp.path(), 5), None);
+    assert_eq!(check_db_compatibility(tmp.path(), 5), None);
   }
 
   #[test]
   fn compatible_when_db_version_lower_than_app() {
     let tmp = NamedTempFile::new().unwrap();
-    tauri::async_runtime::block_on(async {
+    run(async {
       let pool = create_test_db(tmp.path()).await;
       insert_migration(&pool, 1, true).await;
       insert_migration(&pool, 3, true).await;
       pool.close().await;
     });
 
-    assert_eq!(check_db_compatibility_at(tmp.path(), 5), None);
+    assert_eq!(check_db_compatibility(tmp.path(), 5), None);
   }
 
   #[test]
   fn incompatible_when_db_version_higher_than_app() {
     let tmp = NamedTempFile::new().unwrap();
-    tauri::async_runtime::block_on(async {
+    run(async {
       let pool = create_test_db(tmp.path()).await;
       insert_migration(&pool, 1, true).await;
       insert_migration(&pool, 6, true).await;
@@ -206,7 +233,7 @@ mod tests {
     });
 
     assert_eq!(
-      check_db_compatibility_at(tmp.path(), 5),
+      check_db_compatibility(tmp.path(), 5),
       Some(DbStartupError::IncompatibleVersion {
         db_max_version: 6,
         app_max_version: 5,
@@ -217,22 +244,22 @@ mod tests {
   #[test]
   fn compatible_when_no_migration_table() {
     let tmp = NamedTempFile::new().unwrap();
-    tauri::async_runtime::block_on(async {
+    run(async {
       let url = format!("sqlite:{}", tmp.path().to_string_lossy());
       let _pool = SqlitePool::connect(&url).await.unwrap();
     });
 
-    assert_eq!(check_db_compatibility_at(tmp.path(), 5), None);
+    assert_eq!(check_db_compatibility(tmp.path(), 5), None);
   }
 
   #[test]
   fn compatible_when_migration_table_empty() {
     let tmp = NamedTempFile::new().unwrap();
-    tauri::async_runtime::block_on(async {
+    run(async {
       let pool = create_test_db(tmp.path()).await;
       pool.close().await;
     });
 
-    assert_eq!(check_db_compatibility_at(tmp.path(), 5), None);
+    assert_eq!(check_db_compatibility(tmp.path(), 5), None);
   }
 }

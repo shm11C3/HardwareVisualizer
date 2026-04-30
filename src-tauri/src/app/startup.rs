@@ -1,5 +1,5 @@
-use crate::infrastructure::database::preflight::DbStartupError;
 use crate::utils;
+use hwviz_core::persistence::preflight::DbStartupError;
 use std::path::Path;
 use tauri_plugin_dialog::{
   DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult,

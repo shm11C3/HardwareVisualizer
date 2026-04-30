@@ -180,7 +180,6 @@ impl models::settings::Settings {
     try_field!(background_img_opacity, "backgroundImgOpacity");
     try_field!(selected_background_img, "selectedBackgroundImg");
     try_field!(temperature_unit, "temperatureUnit");
-    try_field!(hardware_archive, "hardwareArchive");
     try_field!(burn_in_shift, "burnInShift");
     try_field!(burn_in_shift_mode, "burnInShiftMode");
     try_field!(burn_in_shift_preset, "burnInShiftPreset");
@@ -367,27 +366,6 @@ impl models::settings::Settings {
     new_unit: enums::settings::TemperatureUnit,
   ) -> Result<(), String> {
     self.temperature_unit = new_unit;
-    self.write_file()
-  }
-
-  pub fn set_hardware_archive_enabled(&mut self, new_value: bool) -> Result<(), String> {
-    self.hardware_archive.enabled = new_value;
-    self.write_file()
-  }
-
-  pub fn set_hardware_archive_interval(
-    &mut self,
-    new_interval: u32,
-  ) -> Result<(), String> {
-    self.hardware_archive.refresh_interval_days = new_interval;
-    self.write_file()
-  }
-
-  pub fn set_hardware_archive_scheduled_data_deletion(
-    &mut self,
-    new_value: bool,
-  ) -> Result<(), String> {
-    self.hardware_archive.scheduled_data_deletion = new_value;
     self.write_file()
   }
 
