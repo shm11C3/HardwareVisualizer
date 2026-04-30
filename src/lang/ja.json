@@ -141,7 +141,8 @@
       "continueInBackground": "アプリをバックグラウンドで継続できませんでした。",
       "quitApp": "アプリを終了できませんでした。",
       "availability": "システムトレイを利用できるか確認できませんでした。",
-      "savePreference": "トレイ格納設定を保存できませんでした。"
+      "savePreference": "トレイ格納設定を保存できませんでした。",
+      "listenerReady": "トレイ格納ダイアログを初期化できませんでした。"
     }
   },
 

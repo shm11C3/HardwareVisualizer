@@ -75,8 +75,9 @@ describe("useCloseToTrayPreference", () => {
   });
 
   it("persists both preference keys from the direct setter", async () => {
-    await setCloseToTrayPreference(true);
+    const saved = await setCloseToTrayPreference(true);
 
+    expect(saved).toBe(true);
     expect(fakeStore.set).toHaveBeenCalledWith("closeToTray", true);
     expect(fakeStore.set).toHaveBeenCalledWith("closeToTrayChoiceMade", true);
     expect(fakeStore.save).toHaveBeenCalledOnce();

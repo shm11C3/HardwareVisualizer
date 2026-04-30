@@ -24,3 +24,12 @@ pub async fn quit_app(app_handle: tauri::AppHandle) {
 pub fn is_close_to_tray_available(app_handle: tauri::AppHandle) -> Result<bool, String> {
   Ok(crate::lifecycle::is_close_to_tray_available(&app_handle))
 }
+
+/// Mark the frontend close-to-tray dialog listener as ready.
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_close_to_tray_listener_ready(
+  app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+  crate::lifecycle::mark_close_to_tray_listener_ready(app_handle).await
+}

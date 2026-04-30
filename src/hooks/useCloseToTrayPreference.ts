@@ -4,11 +4,19 @@ import { getStoreInstance } from "@/lib/tauriStore";
 const KEY_CLOSE_TO_TRAY = "closeToTray";
 const KEY_CLOSE_TO_TRAY_CHOICE_MADE = "closeToTrayChoiceMade";
 
-export const setCloseToTrayPreference = async (value: boolean) => {
-  const store = await getStoreInstance();
-  await store.set(KEY_CLOSE_TO_TRAY, value);
-  await store.set(KEY_CLOSE_TO_TRAY_CHOICE_MADE, true);
-  await store.save();
+export const setCloseToTrayPreference = async (
+  value: boolean,
+): Promise<boolean> => {
+  try {
+    const store = await getStoreInstance();
+    await store.set(KEY_CLOSE_TO_TRAY, value);
+    await store.set(KEY_CLOSE_TO_TRAY_CHOICE_MADE, true);
+    await store.save();
+    return true;
+  } catch (error) {
+    console.error("Failed to save close-to-tray preference:", error);
+    return false;
+  }
 };
 
 export const useCloseToTrayPreference = () => {
@@ -54,15 +62,15 @@ export const useCloseToTrayPreference = () => {
 
   const setCloseToTray = useCallback(
     async (value: boolean): Promise<boolean> => {
-      try {
-        await setCloseToTrayPreference(value);
-        setCloseToTrayState(value);
-        setChoiceMade(true);
-        return true;
-      } catch (error) {
-        console.error("Failed to save close-to-tray preference:", error);
+      const saved = await setCloseToTrayPreference(value);
+
+      if (!saved) {
         return false;
       }
+
+      setCloseToTrayState(value);
+      setChoiceMade(true);
+      return true;
     },
     [],
   );

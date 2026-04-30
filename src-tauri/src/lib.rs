@@ -119,6 +119,7 @@ pub fn run() {
       system::restart_app,
       system::quit_app,
       system::is_close_to_tray_available,
+      system::mark_close_to_tray_listener_ready,
     ]);
 
   // TS bindings
