@@ -166,16 +166,16 @@ pub async fn mark_close_to_tray_listener_ready(app: AppHandle) -> Result<(), Str
   let state = app.state::<CloseToTrayRuntimeState>();
   state.mark_listener_ready();
 
-  if state.take_choice_request_pending() {
-    if let Err(e) = emit_close_to_tray_choice_request(&app) {
-      log_warn!(
-        &format!("failed to emit pending close-to-tray choice request: {e}"),
-        "lifecycle::mark_close_to_tray_listener_ready",
-        None::<&str>
-      );
-      request_quit(app).await;
-      return Err(e);
-    }
+  if state.take_choice_request_pending()
+    && let Err(e) = emit_close_to_tray_choice_request(&app)
+  {
+    log_warn!(
+      &format!("failed to emit pending close-to-tray choice request: {e}"),
+      "lifecycle::mark_close_to_tray_listener_ready",
+      None::<&str>
+    );
+    request_quit(app).await;
+    return Err(e);
   }
 
   Ok(())
