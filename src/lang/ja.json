@@ -134,7 +134,8 @@
       "title": "HardwareVisualizer を起動したままにしますか？",
       "description": "メインウィンドウを閉じたあとも、HardwareVisualizer はバックグラウンドで監視を続けられます。この設定はあとから設定画面で変更できます。",
       "continueInBackground": "バックグラウンドで継続",
-      "quitApp": "アプリを終了"
+      "quitApp": "アプリを終了",
+      "close": "ダイアログを閉じる"
     }
   },
 

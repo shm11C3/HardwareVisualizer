@@ -134,7 +134,8 @@
       "title": "Keep HardwareVisualizer running?",
       "description": "HardwareVisualizer can keep monitoring in the background after you close the main window. You can change this later in Settings.",
       "continueInBackground": "Continue in background",
-      "quitApp": "Quit app"
+      "quitApp": "Quit app",
+      "close": "Close dialog"
     }
   },
 

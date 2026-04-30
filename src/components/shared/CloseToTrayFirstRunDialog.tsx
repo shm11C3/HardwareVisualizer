@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -46,6 +47,16 @@ export const CloseToTrayFirstRunDialog = () => {
   return (
     <AlertDialog open={open}>
       <AlertDialogContent className="text-foreground">
+        <AlertDialogCancel
+          aria-label={t("closeToTray.firstRunDialog.close")}
+          className="absolute top-4 right-4 h-8 w-8 border-0 bg-transparent p-0 opacity-70 hover:bg-muted hover:opacity-100"
+          onClick={() => setOpen(false)}
+        >
+          <XIcon className="size-4" />
+          <span className="sr-only">
+            {t("closeToTray.firstRunDialog.close")}
+          </span>
+        </AlertDialogCancel>
         <AlertDialogHeader>
           <AlertDialogTitle>
             {t("closeToTray.firstRunDialog.title")}
