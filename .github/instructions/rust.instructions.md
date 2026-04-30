@@ -1,7 +1,7 @@
 # Rust coding instructions (HardwareVisualizer)
 
 These instructions apply to Rust code in both crates of the workspace:
-the Tauri-aware `src-tauri/` and the Tauri-independent `hwviz-core` at
+the Tauri-aware `src-tauri/` and the Tauri-independent `hardviz-core` at
 `core/`.
 
 ## Logging macros
@@ -29,7 +29,7 @@ macros), import it alongside.
 
 The backend is split across two crates:
 
-- **`hwviz-core`** at `core/` — Tauri-independent. No `tauri` dep is
+- **`hardviz-core`** at `core/` — Tauri-independent. No `tauri` dep is
   allowed (enforced at compile time by the Cargo dependency graph). Owns:
   the sensor collector and per-sensor history (`core::collector`), the
   in-process `EventBus` for `MetricsSnapshot` fan-out
@@ -37,7 +37,7 @@ The backend is split across two crates:
   OS-specific providers (`core::infrastructure::providers`), and POJO
   data types (`core::models`, `core::enums`).
 - **`hardware_visualizer`** at `src-tauri/` — Tauri-aware. Depends on
-  `hwviz-core` via path. Owns: Tauri command handlers
+  `hardviz-core` via path. Owns: Tauri command handlers
   (`src-tauri/src/commands/`), thin services (`src-tauri/src/services/`)
   that call into Core, adapters that translate Core events into Tauri
   events (`src-tauri/src/adapters/`), wire-format models with
@@ -45,8 +45,8 @@ The backend is split across two crates:
   database access (`src-tauri/src/infrastructure/database/` — moves to
   Core in a future phase).
 
-Dependency direction: **Commands → Services → `hwviz_core::platform` →
-`hwviz_core::infrastructure` / OS APIs**, with the EventBus carrying
+Dependency direction: **Commands → Services → `hardviz_core::platform` →
+`hardviz_core::infrastructure` / OS APIs**, with the EventBus carrying
 real-time snapshots from Core to App-side adapters.
 
 Do not add a `tauri` dependency to `core/Cargo.toml`, and do not write

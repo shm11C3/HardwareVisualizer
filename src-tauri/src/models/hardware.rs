@@ -1,5 +1,5 @@
 use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
-use hwviz_core::models::hardware as core_hw;
+use hardviz_core::models::hardware as core_hw;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -161,7 +161,7 @@ where
 // ── Core POJO ↔ wire conversions ──
 //
 // Field-by-field copies. Wire types derive `specta::Type` for tauri-specta;
-// the Core POJOs in `hwviz_core::models::hardware` are returned by the
+// the Core POJOs in `hardviz_core::models::hardware` are returned by the
 // platform sensor layer.
 
 impl From<core_hw::MemoryInfo> for MemoryInfo {

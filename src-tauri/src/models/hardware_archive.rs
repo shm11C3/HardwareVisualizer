@@ -1,10 +1,10 @@
-use hwviz_core::settings::HardwareArchiveSettings as CoreHardwareArchiveSettings;
+use hardviz_core::settings::HardwareArchiveSettings as CoreHardwareArchiveSettings;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// Wire-format mirror of [`hwviz_core::settings::HardwareArchiveSettings`].
+/// Wire-format mirror of [`hardviz_core::settings::HardwareArchiveSettings`].
 ///
-/// The canonical definition lives in `hwviz_core::settings` so the
+/// The canonical definition lives in `hardviz_core::settings` so the
 /// archive worker (and any future Core consumer) doesn't need to know
 /// about Tauri or specta. This App-side struct exists only because the
 /// frontend wire format requires `specta::Type`.

@@ -2,10 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![macro_use]
 
-// Re-export the logging macros from `hwviz_core` so existing
+// Re-export the logging macros from `hardviz_core` so existing
 // `use crate::{log_internal, log_warn};` sites keep compiling. The macros
-// themselves expand to `tracing::*` calls and live in `hwviz_core::utils::logger`.
-pub use hwviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
+// themselves expand to `tracing::*` calls and live in `hardviz_core::utils::logger`.
+pub use hardviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
 
 mod adapters;
 mod app;
@@ -27,7 +27,7 @@ use commands::settings;
 use commands::system;
 use commands::ui;
 use commands::updater::app_updates;
-use hwviz_core::collector::HistoryStore;
+use hardviz_core::collector::HistoryStore;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tauri::Wry;
@@ -51,14 +51,16 @@ pub fn run() {
   // Initialize Core's DB pool location once at process start. Core
   // can't resolve the bundle identifier on its own, so App owns path
   // resolution and hands the file path to
-  // `hwviz_core::infrastructure::database::db`. We don't care about
+  // `hardviz_core::infrastructure::database::db`. We don't care about
   // the return value here: this is the first and only caller during
   // App startup.
-  let _ = hwviz_core::infrastructure::database::db::init(db_path.clone());
+  let _ = hardviz_core::infrastructure::database::db::init(db_path.clone());
 
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
-  let db_error =
-    hwviz_core::persistence::preflight::check_db_compatibility(&db_path, app_max_version);
+  let db_error = hardviz_core::persistence::preflight::check_db_compatibility(
+    &db_path,
+    app_max_version,
+  );
   let is_db_ok = db_error.is_none();
 
   let migrations = infrastructure::database::migration::get_migrations();
@@ -145,7 +147,7 @@ pub fn run() {
 
       // Real-time pipeline: collector publishes MetricsSnapshot to the
       // EventBus, WindowAdapter subscribes and emits HardwareMonitorUpdate.
-      let bus = hwviz_core::event_bus::EventBus::new();
+      let bus = hardviz_core::event_bus::EventBus::new();
       let window_adapter =
         adapters::window::WindowAdapter::setup(app.handle().clone(), bus.subscribe());
 
@@ -153,7 +155,7 @@ pub fn run() {
       // `tauri` dep, so it can't reach Tauri's static runtime directly —
       // we hand it the inner `tokio::runtime::Handle`.
       let runtime_handle = tauri::async_runtime::handle().inner().clone();
-      let monitor = hwviz_core::collector::SystemMonitorController::setup(
+      let monitor = hardviz_core::collector::SystemMonitorController::setup(
         Arc::clone(&store_for_setup),
         bus.clone(),
         runtime_handle.clone(),
@@ -192,7 +194,7 @@ pub fn run() {
         // the EventBus so a slow DB write can't back-pressure the
         // collector cadence (#1407).
         if core_settings.hardware_archive.enabled {
-          let hw_archive = hwviz_core::persistence::ArchiveController::setup(
+          let hw_archive = hardviz_core::persistence::ArchiveController::setup(
             &bus,
             runtime_handle.clone(),
           );
@@ -206,9 +208,9 @@ pub fn run() {
         // `batch_delete_old_data` wrapper had the same one-shot semantics.
         // The setting name `scheduled_data_deletion` is historical; the
         // refresh trigger is "next app launch", not a recurring schedule.
-        // See `hwviz_core::persistence::cleanup_old_data` doc comment.
+        // See `hardviz_core::persistence::cleanup_old_data` doc comment.
         if core_settings.hardware_archive.scheduled_data_deletion {
-          tauri::async_runtime::spawn(hwviz_core::persistence::cleanup_old_data(
+          tauri::async_runtime::spawn(hardviz_core::persistence::cleanup_old_data(
             core_settings.hardware_archive.refresh_interval_days,
           ));
         }

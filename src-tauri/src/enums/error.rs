@@ -1,4 +1,4 @@
-use hwviz_core::enums::error as core_err;
+use hardviz_core::enums::error as core_err;
 use serde::{Serialize, Serializer};
 use specta::Type;
 
