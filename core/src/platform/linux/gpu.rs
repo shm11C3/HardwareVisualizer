@@ -1,7 +1,5 @@
-use crate::enums;
 use crate::infrastructure;
 use crate::models;
-use crate::utils;
 
 pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   let cards = infrastructure::providers::drm_sys::get_card_ids().await?;
