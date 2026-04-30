@@ -48,15 +48,11 @@ impl From<CoreHardwareArchiveSettings> for HardwareArchiveSettings {
   }
 }
 
-impl From<HardwareArchiveSettings> for CoreHardwareArchiveSettings {
-  fn from(value: HardwareArchiveSettings) -> Self {
-    Self {
-      enabled: value.enabled,
-      scheduled_data_deletion: value.scheduled_data_deletion,
-      refresh_interval_days: value.refresh_interval_days,
-    }
-  }
-}
+// Only the Core → App direction has a real consumer (the
+// `ClientSettings` response). The reverse direction is unnecessary
+// because mutation goes through `commands::settings::update_core_settings`
+// which operates on `CoreSettings` directly, never converting from the
+// wire mirror back into the Core type.
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HardwareData {
