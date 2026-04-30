@@ -270,11 +270,21 @@ impl ArchiveTracker {
 
     for sample in samples {
       let entry = self.processes.entry(sample.pid).or_default();
-      // PID was reused after a gap → assume a different process and
-      // reset the rings so we don't mix samples across distinct
-      // processes that happened to inherit the same PID.
-      let absent_ticks = now.saturating_sub(entry.last_seen_tick);
-      if entry.last_seen_tick != 0 && absent_ticks > 1 {
+      // Detect PID reuse via name change rather than absence length.
+      // Brief gaps (broadcast lag, a transient sysinfo miss) shouldn't
+      // throw away rolling history, but a recycled PID running a
+      // *different* binary should not inherit the prior process's
+      // samples. Comparing against the cached name catches the latter
+      // without penalising the former.
+      //
+      // Trade-off: a recycled PID running the same binary name is
+      // indistinguishable from the original here and will continue
+      // accumulating into the existing rings. That's a rare and
+      // benign case — the values stay representative of a process
+      // with that name on that PID slot.
+      let pid_reused =
+        entry.last_seen_tick != 0 && !entry.name.is_empty() && entry.name != sample.name;
+      if pid_reused {
         entry.cpu_history.clear();
         entry.memory_kb_history.clear();
       }
@@ -691,7 +701,7 @@ mod tests {
   }
 
   #[test]
-  fn ingest_resets_rings_on_pid_reuse_after_gap() {
+  fn ingest_resets_rings_on_pid_reuse_with_different_name() {
     let mut t = ArchiveTracker::new();
     t.ingest(snap_with_pid(42, "victim"));
     // Drive several ticks without PID 42 — it stays in the map (still
@@ -699,14 +709,38 @@ mod tests {
     for _ in 0..3 {
       t.ingest(snap_with_pid(99, "filler"));
     }
-    // PID 42 reappears, presumably as a different process with the
-    // same recycled PID. We should not blend its old rings with the
-    // new samples.
+    // PID 42 reappears running a different binary. PID reuse is
+    // detected via the name change, so the prior rings must not blend
+    // into the new process's samples.
     t.ingest(snap_with_pid(42, "fresh"));
     let acc = t.processes.get(&42).unwrap();
     assert_eq!(acc.cpu_history.len(), 1);
     assert_eq!(acc.memory_kb_history.len(), 1);
     assert_eq!(acc.name, "fresh");
+  }
+
+  #[test]
+  fn ingest_preserves_rings_on_brief_snapshot_gap() {
+    let mut t = ArchiveTracker::new();
+    // Build up a few samples for PID 42.
+    for _ in 0..4 {
+      t.ingest(snap_with_pid(42, "victim"));
+    }
+    let len_before = t.processes.get(&42).unwrap().cpu_history.len();
+    assert_eq!(len_before, 4);
+
+    // Skip 3 ticks (transient sysinfo miss / broadcast lag, well under
+    // the grace window). PID 42 reappears with the same name.
+    for _ in 0..3 {
+      t.ingest(snap_with_pid(99, "filler"));
+    }
+    t.ingest(snap_with_pid(42, "victim"));
+
+    let acc = t.processes.get(&42).unwrap();
+    // The brief gap must not wipe the rolling history — only the new
+    // sample is appended.
+    assert_eq!(acc.cpu_history.len(), len_before + 1);
+    assert_eq!(acc.memory_kb_history.len(), len_before + 1);
   }
 
   // ── collect_process_stats / rank_top_processes ──
