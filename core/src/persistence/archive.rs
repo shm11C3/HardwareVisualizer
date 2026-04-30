@@ -19,9 +19,9 @@ use tokio::task::JoinHandle;
 use tokio::time::{Duration, MissedTickBehavior, interval};
 
 use crate::event_bus::EventBus;
-use crate::log_warn;
 use crate::models::{MetricsSnapshot, ProcessSample};
 use crate::persistence::archive_data::{GpuData, HardwareData, ProcessStatData};
+use crate::{log_info, log_warn};
 
 /// Interval between archive writes. Matches the 60-sample history
 /// buffer the collector keeps, so each archive row summarizes one
@@ -72,7 +72,11 @@ impl ArchiveController {
           biased;
           changed = stop_rx.changed() => {
             if changed.is_err() || *stop_rx.borrow() {
-              eprintln!("[hardware-archive] shutdown signal received");
+              log_info!(
+                "archive worker shutdown signal received",
+                "persistence::archive",
+                None::<&str>
+              );
               break;
             }
           }
