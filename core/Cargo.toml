@@ -1,5 +1,5 @@
 [package]
-name = "hwviz-core"
+name = "hardviz-core"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
@@ -10,7 +10,7 @@ authors = ["@shm11C3"]
 # that no `use tauri::*;` can appear under `core/src/`.
 
 [lib]
-name = "hwviz_core"
+name = "hardviz_core"
 path = "src/lib.rs"
 
 [dependencies]

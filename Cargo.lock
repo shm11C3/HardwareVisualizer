@@ -1876,6 +1876,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "hardviz-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "core-foundation",
+ "dirs 6.0.0",
+ "dxgi",
+ "ipnet",
+ "libc",
+ "libloading 0.9.0",
+ "nvapi",
+ "regex",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "sysinfo",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "winapi",
+ "windows 0.62.2",
+ "wmi",
+]
+
+[[package]]
 name = "hardware_visualizer"
 version = "1.0.0"
 dependencies = [
@@ -1885,7 +1911,7 @@ dependencies = [
  "core-foundation",
  "dirs 6.0.0",
  "dxgi",
- "hwviz-core",
+ "hardviz-core",
  "image",
  "ipnet",
  "libc",
@@ -2069,32 +2095,6 @@ name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
-
-[[package]]
-name = "hwviz-core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "core-foundation",
- "dirs 6.0.0",
- "dxgi",
- "ipnet",
- "libc",
- "libloading 0.9.0",
- "nvapi",
- "regex",
- "serde",
- "serde_json",
- "sqlx",
- "sysinfo",
- "tempfile",
- "tokio",
- "tracing",
- "winapi",
- "windows 0.62.2",
- "wmi",
-]
 
 [[package]]
 name = "hyper"

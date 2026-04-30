@@ -1,7 +1,7 @@
 //! Structured logging macros that wrap `tracing`.
 //!
 //! These macros are exported via `#[macro_export]` so any crate that
-//! depends on `hwviz-core` can `use hwviz_core::log_debug;` and emit log
+//! depends on `hardviz-core` can `use hardviz_core::log_debug;` and emit log
 //! records without taking a direct dependency on `tracing`.
 //!
 //! The level-named macros (`log_debug!`, `log_info!`, `log_warn!`,

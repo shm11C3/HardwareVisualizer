@@ -1,12 +1,12 @@
 //! Wire-format `SizeUnit` for tauri-specta.
 //!
 //! The runtime helpers (`format_size`, `format_size_with_unit`, `format_vendor_name`,
-//! `format_temperature`, `RoundedKibibytes`) live in `hwviz_core::utils::formatter`.
+//! `format_temperature`, `RoundedKibibytes`) live in `hardviz_core::utils::formatter`.
 //! This module keeps only the specta-derived enum that is embedded in
 //! `crate::models::hardware::StorageInfo` (a Tauri command return) plus
 //! conversions between the wire enum and the Core POJO mirror.
 
-use hwviz_core::utils::formatter as core_formatter;
+use hardviz_core::utils::formatter as core_formatter;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;

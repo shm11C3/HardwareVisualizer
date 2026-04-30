@@ -29,7 +29,7 @@ fn db_path() -> &'static Path {
   DB_PATH
     .get()
     .expect(
-      "hwviz_core::infrastructure::database::db::init must be called before get_pool",
+      "hardviz_core::infrastructure::database::db::init must be called before get_pool",
     )
     .as_path()
 }

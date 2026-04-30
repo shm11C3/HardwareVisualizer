@@ -1,8 +1,8 @@
-# hwviz-core
+# hardviz-core
 
 Tauri-independent core crate for HardwareVisualizer.
 
-`hwviz-core` (library name `hwviz_core`) owns sensor collection, persistence,
+`hardviz-core` (library name `hardviz_core`) owns sensor collection, persistence,
 the in-process event bus, and Core-consumed settings. It is the lower half of
 the Core / App split introduced by [#1402][issue-1402]: everything that does
 not need a Tauri context lives here, and the Tauri app crate
@@ -85,14 +85,14 @@ state machine (Phase 5) is also not yet present.
 
 ## Build & test
 
-`hwviz-core` is a workspace member. From the repository root:
+`hardviz-core` is a workspace member. From the repository root:
 
 ```bash
 # Build only the core crate
-cargo build -p hwviz-core
+cargo build -p hardviz-core
 
 # Run Core tests without spinning up a Tauri runtime
-cargo test -p hwviz-core
+cargo test -p hardviz-core
 ```
 
 Core is also covered by the workspace-wide `cargo tauri-fmt` /
@@ -102,7 +102,7 @@ Core is also covered by the workspace-wide `cargo tauri-fmt` /
 ## Relationship to the App crate
 
 ```text
-hwviz-core (this crate)
+hardviz-core (this crate)
     │  ├─ publishes MetricsSnapshot on EventBus
     │  ├─ exposes HistoryStore read API
     │  └─ exposes SystemMonitorController

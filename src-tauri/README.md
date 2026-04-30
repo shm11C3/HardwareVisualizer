@@ -3,10 +3,10 @@
 Tauri-aware app crate for HardwareVisualizer.
 
 This crate is the upper half of the Core / App split introduced by
-[#1402][issue-1402]. It depends on [`hwviz-core`](../core) via a workspace
+[#1402][issue-1402]. It depends on [`hardviz-core`](../core) via a workspace
 path dependency and is the only crate in the workspace that links against
 `tauri`. Everything that requires an `AppHandle`, a window, or a Tauri plugin
-lives here; everything else belongs in `hwviz-core`.
+lives here; everything else belongs in `hardviz-core`.
 
 [issue-1402]: https://github.com/shm11C3/HardwareVisualizer/issues/1402
 
@@ -63,7 +63,7 @@ src-tauri/src/
 
 These rules are inherited from #1402 and apply across the App crate:
 
-1. **`hwviz-core` is the source of truth for sensor state.** Commands read
+1. **`hardviz-core` is the source of truth for sensor state.** Commands read
    through Core APIs (`HistoryStore`, `MetricsSnapshot`) — never through a
    `Mutex` reached out of Core internals.
 2. **All `MetricsSnapshot → window.emit(...)` translation lives under
@@ -122,7 +122,7 @@ cargo tauri-test
 ```
 
 The `cargo tauri-*` aliases are defined in `.cargo/config.toml` at the
-workspace root and operate on the full workspace, including `hwviz-core`.
+workspace root and operate on the full workspace, including `hardviz-core`.
 
 ## References
 

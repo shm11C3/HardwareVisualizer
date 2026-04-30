@@ -3,7 +3,7 @@ use crate::log_error;
 use crate::models;
 use crate::services;
 use crate::utils;
-use hwviz_core::settings::CoreSettings;
+use hardviz_core::settings::CoreSettings;
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Debug)]
