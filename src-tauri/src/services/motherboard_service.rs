@@ -1,5 +1,5 @@
 use crate::models::hardware::MotherboardInfo;
-use hwviz_core::platform::factory::PlatformFactory;
+use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Fetch motherboard and BIOS information

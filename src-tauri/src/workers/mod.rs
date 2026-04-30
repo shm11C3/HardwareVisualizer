@@ -1,14 +1,14 @@
 use std::sync::{Mutex, atomic::AtomicBool};
 
-use hwviz_core::monitoring::MonitoringState;
+use hardviz_core::monitoring::MonitoringState;
 
 use crate::adapters::window::WindowAdapter;
 
 #[derive(Default)]
 pub struct WorkersState {
-  pub monitor: Mutex<Option<hwviz_core::collector::SystemMonitorController>>,
+  pub monitor: Mutex<Option<hardviz_core::collector::SystemMonitorController>>,
   pub window_adapter: Mutex<Option<WindowAdapter>>,
-  pub hw_archive: Mutex<Option<hwviz_core::persistence::ArchiveController>>,
+  pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
   pub shutting_down: AtomicBool,
   /// Lifecycle state of sensor collection. Owned here because the
   /// lifecycle module already locks workers on quit; colocating the

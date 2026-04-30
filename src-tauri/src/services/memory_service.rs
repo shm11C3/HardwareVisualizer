@@ -1,5 +1,5 @@
 use crate::models::hardware::MemoryInfo;
-use hwviz_core::platform::factory::PlatformFactory;
+use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// ## Get detailed memory information via Platform

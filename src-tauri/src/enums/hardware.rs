@@ -1,4 +1,4 @@
-use hwviz_core::enums::hardware as core_hw;
+use hardviz_core::enums::hardware as core_hw;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
 use std::fmt;

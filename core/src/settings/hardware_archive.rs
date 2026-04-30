@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// Core-owned hardware archive settings.
 ///
 /// Persisted as the `hardwareArchive` key in the shared `settings.json`.
-/// The struct intentionally lives in `hwviz_core` (not the App crate) so
+/// The struct intentionally lives in `hardviz_core` (not the App crate) so
 /// that the archive worker and any future Core consumer can read these
 /// values without depending on Tauri.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

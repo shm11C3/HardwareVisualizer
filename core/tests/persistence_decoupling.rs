@@ -10,8 +10,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use hwviz_core::event_bus::EventBus;
-use hwviz_core::models::MetricsSnapshot;
+use hardviz_core::event_bus::EventBus;
+use hardviz_core::models::MetricsSnapshot;
 
 fn snapshot(value: f32) -> MetricsSnapshot {
   MetricsSnapshot {

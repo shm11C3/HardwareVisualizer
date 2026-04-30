@@ -1,4 +1,4 @@
-use hwviz_core::models::{GpuMetric, MetricsSnapshot};
+use hardviz_core::models::{GpuMetric, MetricsSnapshot};
 use tauri::Manager as _;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 use tokio::sync::watch;
@@ -9,7 +9,7 @@ use crate::log_warn;
 use crate::models::hardware::{GpuMonitorData, HardwareMonitorUpdate};
 use tauri_specta::Event as _;
 
-/// Subscribes to the in-process [`hwviz_core::event_bus::EventBus`] and
+/// Subscribes to the in-process [`hardviz_core::event_bus::EventBus`] and
 /// forwards each [`MetricsSnapshot`] to the main window as the existing
 /// [`HardwareMonitorUpdate`] Tauri event. This is the only place that
 /// translates Core events into a Tauri emit. It also applies the user's

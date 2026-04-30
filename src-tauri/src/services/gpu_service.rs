@@ -1,6 +1,6 @@
 use crate::enums;
 use crate::models::hardware::{GpuMemoryUsage, GpuUsageResult, NameValue};
-use hwviz_core::platform::factory::PlatformFactory;
+use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Get GPU usage (%) together with the data-source name
@@ -33,14 +33,14 @@ pub async fn fetch_gpu_temperature(
     .await
     .map_err(|e| format!("Failed to get GPU temperature: {e:?}"))?;
 
-  let unit: hwviz_core::enums::settings::TemperatureUnit = temperature_unit.into();
+  let unit: hardviz_core::enums::settings::TemperatureUnit = temperature_unit.into();
   Ok(
     core_temps
       .into_iter()
       .map(|t| NameValue {
         name: t.name,
-        value: hwviz_core::utils::formatter::format_temperature(
-          hwviz_core::enums::settings::TemperatureUnit::Celsius,
+        value: hardviz_core::utils::formatter::format_temperature(
+          hardviz_core::enums::settings::TemperatureUnit::Celsius,
           unit.clone(),
           t.value,
         ),

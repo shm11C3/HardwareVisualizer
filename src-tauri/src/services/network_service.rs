@@ -1,6 +1,6 @@
 use crate::enums;
 use crate::models::hardware::NetworkInfo;
-use hwviz_core::platform::factory::PlatformFactory;
+use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Get network interface information.

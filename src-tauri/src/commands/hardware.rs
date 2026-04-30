@@ -2,7 +2,7 @@ use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::models;
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
-use hwviz_core::collector::HistoryStore;
+use hardviz_core::collector::HistoryStore;
 use std::sync::Arc;
 use tauri::command;
 

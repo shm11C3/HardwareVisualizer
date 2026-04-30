@@ -1,9 +1,9 @@
 use crate::log_error;
 use crate::models::hardware::SysInfo;
 use crate::services::motherboard_service;
-use hwviz_core::collector::HistoryStore;
-use hwviz_core::infrastructure::providers::sysinfo_provider;
-use hwviz_core::platform::factory::PlatformFactory;
+use hardviz_core::collector::HistoryStore;
+use hardviz_core::infrastructure::providers::sysinfo_provider;
+use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Collect hardware information in aggregate

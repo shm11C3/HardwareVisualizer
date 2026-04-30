@@ -1,4 +1,4 @@
-use hwviz_core::enums::settings as core_settings;
+use hardviz_core::enums::settings as core_settings;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specta::Type;
 
