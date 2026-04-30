@@ -472,6 +472,18 @@ async setDecoration(isDecorated: boolean) : Promise<Result<null, string>> {
  */
 async restartApp() : Promise<void> {
     await TAURI_INVOKE("restart_app");
+},
+/**
+ * Stop monitoring and exit the process.
+ * 
+ * Phase 5 (#1408): the explicit Quit path. Keep it gated to the
+ * internal callers that the lifecycle module owns — Phase 6's tray
+ * menu and the future "Quit" UX from #1275. Until those land, this
+ * command is reachable only from devtools / tauri-specta-generated
+ * bindings, which is enough to validate the cleanup ordering.
+ */
+async quitApp() : Promise<void> {
+    await TAURI_INVOKE("quit_app");
 }
 }
 

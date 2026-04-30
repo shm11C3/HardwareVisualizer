@@ -8,7 +8,7 @@ pub mod collector;
 
 pub mod persistence;
 
-pub mod monitoring {}
+pub mod monitoring;
 
 pub mod event_bus;
 
