@@ -163,6 +163,32 @@ pub fn run() {
         ws.window_adapter.lock().unwrap().replace(window_adapter);
       }
 
+      // Phase 6 (#1409): register the tray icon only when the close-to-
+      // background path is active. Without that, closing the window
+      // still quits the process, and a tray icon would point at a
+      // running app that the user has no way of reaching otherwise. The
+      // user-facing toggle (and an always-on tray once #1275 ships)
+      // arrives with the persisted setting in #1275.
+      if lifecycle::should_close_to_background() {
+        match adapters::tray::TrayAdapter::setup(app) {
+          Ok(tray) => {
+            let ws = app.state::<workers::WorkersState>();
+            ws.tray.lock().unwrap().replace(tray);
+          }
+          Err(e) => {
+            // Linux desktops without an indicator implementation, or
+            // any other tray failure: log and continue. `Quit` from
+            // the in-process command path still works, so the user is
+            // not stranded — just without a visible tray entry point.
+            log_warn!(
+              &format!("tray icon setup failed; continuing without tray: {e}"),
+              "lib::setup",
+              None::<&str>
+            );
+          }
+        }
+      }
+
       if is_db_ok {
         // Start DB-dependent archive services. Persistence subscribes to
         // the EventBus so a slow DB write can't back-pressure the
