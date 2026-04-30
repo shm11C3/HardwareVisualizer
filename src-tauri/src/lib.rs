@@ -10,7 +10,6 @@ pub use hwviz_core::{log_debug, log_error, log_info, log_internal, log_warn};
 mod adapters;
 mod app;
 mod commands;
-mod constants;
 mod enums;
 mod infrastructure;
 mod models;
@@ -41,14 +40,21 @@ pub fn run() {
   let app_state = settings::AppState::new();
 
   // Core-owned shared sensor history. App-side commands and the collector
-  // loop read/write through this store. The (Phase-3-transitional) archive
-  // worker shares the same `Arc<Mutex<...>>`s via `store.arc_handles()`
-  // until Phase 4 replaces `MonitorResources` with an EventBus subscription.
+  // loop read/write through this store. Persistence no longer shares it —
+  // the archive worker subscribes to the EventBus instead (#1407).
   let history_store = Arc::new(HistoryStore::new());
 
   let core_settings = app_state.core_settings.lock().unwrap().clone();
 
   let db_path = utils::file::get_app_data_dir("hv-database.db");
+  // Initialize Core's DB pool location once at process start. Core
+  // can't resolve the bundle identifier on its own, so App owns path
+  // resolution and hands the file path to
+  // `hwviz_core::infrastructure::database::db`. We don't care about
+  // the return value here: this is the first and only caller during
+  // App startup.
+  let _ = hwviz_core::infrastructure::database::db::init(db_path.clone());
+
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
   let db_error =
     hwviz_core::persistence::preflight::check_db_compatibility(&db_path, app_max_version);
@@ -143,10 +149,11 @@ pub fn run() {
       // Run the Core collector on Tauri's tokio runtime. Core has no
       // `tauri` dep, so it can't reach Tauri's static runtime directly —
       // we hand it the inner `tokio::runtime::Handle`.
+      let runtime_handle = tauri::async_runtime::handle().inner().clone();
       let monitor = hwviz_core::collector::SystemMonitorController::setup(
         Arc::clone(&store_for_setup),
-        bus,
-        tauri::async_runtime::handle().inner().clone(),
+        bus.clone(),
+        runtime_handle.clone(),
       );
       {
         let ws = app.state::<workers::WorkersState>();
@@ -155,20 +162,13 @@ pub fn run() {
       }
 
       if is_db_ok {
-        // Start DB-dependent archive services
+        // Start DB-dependent archive services. Persistence subscribes to
+        // the EventBus so a slow DB write can't back-pressure the
+        // collector cadence (#1407).
         if core_settings.hardware_archive.enabled {
-          let handles = store_for_setup.arc_handles();
-          let hw_archive = workers::hardware_archive::HardwareArchiveController::setup(
-            models::hardware_archive::MonitorResources {
-              cpu_history: handles.cpu_history,
-              memory_history: handles.memory_history,
-              process_cpu_histories: handles.process_cpu_histories,
-              process_memory_histories: handles.process_memory_histories,
-              gpu_usage_histories: handles.gpu_usage_histories,
-              gpu_temperature_histories: handles.gpu_temperature_histories,
-              gpu_dedicated_memory_histories: handles.gpu_dedicated_memory_histories,
-              gpu_name_map: handles.gpu_name_map,
-            },
+          let hw_archive = hwviz_core::persistence::ArchiveController::setup(
+            &bus,
+            runtime_handle.clone(),
           );
           {
             let ws = app.state::<workers::WorkersState>();
@@ -176,8 +176,13 @@ pub fn run() {
           }
         }
 
+        // Retention cleanup runs once per process boot — the pre-Phase-4
+        // `batch_delete_old_data` wrapper had the same one-shot semantics.
+        // The setting name `scheduled_data_deletion` is historical; the
+        // refresh trigger is "next app launch", not a recurring schedule.
+        // See `hwviz_core::persistence::cleanup_old_data` doc comment.
         if core_settings.hardware_archive.scheduled_data_deletion {
-          tauri::async_runtime::spawn(workers::hardware_archive::batch_delete_old_data(
+          tauri::async_runtime::spawn(hwviz_core::persistence::cleanup_old_data(
             core_settings.hardware_archive.refresh_interval_days,
           ));
         }

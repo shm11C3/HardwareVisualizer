@@ -145,6 +145,7 @@ mod tests {
       memory_usage: 67.0,
       processors_usage: vec![10.0, 20.0, 30.0, 40.0],
       gpus: vec![],
+      processes: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_usage, 12.5);
@@ -163,6 +164,7 @@ mod tests {
         make_metric("pci:0:2.0", "RTX 4090"),
         make_metric("pci:0:3.0", "RX 7900 XTX"),
       ],
+      processes: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus.len(), 2);
@@ -191,6 +193,7 @@ mod tests {
         gpu_dedicated_memory_usage_kb: None,
         gpu_cooler_level: None,
       }],
+      processes: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.gpus[0].gpu_temperature, Some(212.0));
@@ -211,6 +214,7 @@ mod tests {
         gpu_dedicated_memory_usage_kb: None,
         gpu_cooler_level: None,
       }],
+      processes: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus[0].gpu_temperature, Some(66.0));
@@ -231,6 +235,7 @@ mod tests {
         gpu_dedicated_memory_usage_kb: None,
         gpu_cooler_level: None,
       }],
+      processes: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert!(update.gpus[0].gpu_usage.is_none());

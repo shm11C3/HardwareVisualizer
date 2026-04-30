@@ -10,7 +10,7 @@ use tokio::time::{Duration, MissedTickBehavior, interval};
 
 use crate::collector::{HistoryStore, sampling};
 use crate::event_bus::EventBus;
-use crate::log_warn;
+use crate::{log_info, log_warn};
 
 /// Cadence of the collector loop in seconds.
 const SYSTEM_INFO_INIT_INTERVAL: u64 = 1; // TODO move to a shared constants module
@@ -73,7 +73,11 @@ impl SystemMonitorController {
           }
           result = stop_rx.changed() => {
             if result.is_err() || *stop_rx.borrow() {
-              eprintln!("[system-monitor] shutdown signal received");
+              log_info!(
+                "system monitor shutdown signal received",
+                "collector::system_monitor",
+                None::<&str>
+              );
               break;
             }
           }

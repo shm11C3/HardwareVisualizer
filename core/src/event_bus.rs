@@ -76,6 +76,7 @@ mod tests {
       memory_usage: 0.0,
       processors_usage: vec![],
       gpus: vec![],
+      processes: vec![],
     }
   }
 
@@ -147,6 +148,7 @@ mod tests {
         gpu_dedicated_memory_usage_kb: Some(2048.0),
         gpu_cooler_level: Some(50),
       }],
+      processes: vec![],
     });
 
     let received = rx.recv().await.expect("receive snapshot");
