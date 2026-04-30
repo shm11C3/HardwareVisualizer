@@ -163,6 +163,28 @@ pub fn run() {
         ws.window_adapter.lock().unwrap().replace(window_adapter);
       }
 
+      // #1422: register the tray unconditionally. The visibility
+      // policy (always-on vs persisted user setting) is a UX call owned
+      // by #1423 and lives outside the adapter.
+      match adapters::tray::TrayAdapter::setup(app) {
+        Ok(tray) => {
+          let ws = app.state::<workers::WorkersState>();
+          ws.tray.lock().unwrap().replace(tray);
+        }
+        Err(e) => {
+          // Linux desktops without an indicator implementation, or any
+          // other tray failure: log and continue. `Quit` from the
+          // in-process command path still works, so the user is not
+          // stranded once the close-to-tray setting (#1423) lands and
+          // can fall back to "quit on close" when the tray is missing.
+          log_warn!(
+            &format!("tray icon setup failed; continuing without tray: {e}"),
+            "lib::setup",
+            None::<&str>
+          );
+        }
+      }
+
       if is_db_ok {
         // Start DB-dependent archive services. Persistence subscribes to
         // the EventBus so a slow DB write can't back-pressure the
