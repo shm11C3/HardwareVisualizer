@@ -2,6 +2,7 @@ use std::sync::{Mutex, atomic::AtomicBool};
 
 use hardviz_core::monitoring::MonitoringState;
 
+use crate::adapters::tray::TrayAdapter;
 use crate::adapters::window::WindowAdapter;
 
 #[derive(Default)]
@@ -9,6 +10,12 @@ pub struct WorkersState {
   pub monitor: Mutex<Option<hardviz_core::collector::SystemMonitorController>>,
   pub window_adapter: Mutex<Option<WindowAdapter>>,
   pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
+
+  /// Holds the tray icon for as long as the process should display it.
+  /// Dropping this releases the OS handle and removes the icon, so it
+  /// stays here until shutdown rather than living in the setup
+  /// closure's scope.
+  pub tray: Mutex<Option<TrayAdapter>>,
   pub shutting_down: AtomicBool,
   /// Lifecycle state of sensor collection. Owned here because the
   /// lifecycle module already locks workers on quit; colocating the
