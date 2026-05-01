@@ -18,6 +18,8 @@ jobs:
       is-push: ${{ steps.meta.outputs.is_push }}
       frontend-changed: ${{ steps.changes.outputs.frontend }}
       backend-changed: ${{ steps.changes.outputs.backend }}
+      core-changed: ${{ steps.changes.outputs.core }}
+      tauri-changed: ${{ steps.changes.outputs.tauri }}
       frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
       backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
       actions-changed: ${{ steps.changes.outputs.actions }}
@@ -43,8 +45,24 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
             backend:
+              - 'core/**'
               - 'src-tauri/**'
               - 'Cargo.*'
+              - '.cargo/**'
+              - '.github/workflows/**'
+              - '.github/actions/**'
+              - '.github/scripts/**'
+            core:
+              - 'core/**'
+              - 'Cargo.*'
+              - '.cargo/**'
+              - '.github/workflows/**'
+              - '.github/actions/**'
+              - '.github/scripts/**'
+            tauri:
+              - 'src-tauri/**'
+              - 'Cargo.*'
+              - '.cargo/**'
               - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
@@ -54,7 +72,10 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
             backend-deps:
+              - 'core/Cargo.toml'
+              - 'src-tauri/Cargo.toml'
               - 'Cargo.*'
+              - '.cargo/**'
               - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
@@ -83,11 +104,30 @@ jobs:
         shell: bash
 
   #
-  # Backend lint and clippy
+  # Rust formatting
   #
-  lint-backend:
+  rust-format:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: rustfmt
+
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+
+  #
+  # Core lint and clippy
+  #
+  lint-core:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.core-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -104,18 +144,67 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
 
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
-
-      - name: Check Rust clippy
-        run: cargo tauri-lint
+      - name: Check Core clippy
+        run: cargo clippy -p hardviz-core --all-targets -- -D warnings
 
   #
-  # Backend tests
+  # Core tests
   #
-  test-backend:
+  test-core:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.core-changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+
+      - name: Run Core tests
+        run: cargo test -p hardviz-core -- --test-threads=1 --nocapture
+
+  #
+  # Tauri lint and clippy
+  #
+  lint-tauri:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Check Tauri clippy
+        run: cargo clippy -p hardware_visualizer --all-targets -- -D warnings
+
+  #
+  # Tauri tests
+  #
+  test-tauri:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
@@ -138,12 +227,18 @@ jobs:
           components: ""
 
       - name: Install cargo-llvm-cov
+        if: matrix.platform == 'ubuntu-22.04'
         uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with:
           tool: cargo-llvm-cov
 
-      - name: Run backend tests with coverage
-        run: cargo llvm-cov --workspace --no-report -- --test-threads=1 --nocapture
+      - name: Run Tauri tests with coverage
+        if: matrix.platform == 'ubuntu-22.04'
+        run: cargo llvm-cov -p hardware_visualizer --no-report -- --test-threads=1 --nocapture
+
+      - name: Run Tauri tests
+        if: matrix.platform != 'ubuntu-22.04'
+        run: cargo test -p hardware_visualizer -- --test-threads=1 --nocapture
 
       - name: Generate coverage report
         if: matrix.platform == 'ubuntu-22.04'
@@ -162,7 +257,7 @@ jobs:
         with:
           header: rust-coverage
           message: |
-            ## Rust Backend Coverage Report
+            ## Rust Tauri Coverage Report
 
             <details>
             <summary>Coverage Details</summary>
@@ -174,13 +269,35 @@ jobs:
             </details>
 
   #
+  # Core-to-Tauri integration check
+  #
+  check-core-tauri-integration:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push != 'true' && needs.change-detection.outputs.core-changed == 'true' && needs.change-detection.outputs.tauri-changed != 'true' && needs.change-detection.outputs.backend-deps-changed != 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Linux dependencies
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+
+      - name: Check Tauri crate against changed Core API
+        run: cargo check -p hardware_visualizer --all-targets
+
+  #
   # Build test
   #
   test-build:
     needs: change-detection
     # When updating npm packages related to tauri, build errors may occur.
-    # Therefore, checks should be performed during backend updates and when updating frontend dependencies.
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
+    # Therefore, checks should be performed during Tauri updates, Rust dependency updates, and frontend dependency updates.
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -377,8 +494,7 @@ jobs:
         run: cargo install cargo-deny
 
       - name: Check Rust licenses
-        working-directory: src-tauri
-        run: cargo deny check licenses
+        run: cargo deny --manifest-path Cargo.toml check --config src-tauri/deny.toml licenses
 
   #
   # Final merge gate: Strict checks for required jobs = success, unnecessary jobs = skipped
@@ -391,8 +507,12 @@ jobs:
     needs:
       - change-detection
       - lint-actions
-      - lint-backend
-      - test-backend
+      - rust-format
+      - lint-core
+      - test-core
+      - lint-tauri
+      - test-tauri
+      - check-core-tauri-integration
       - test-build
       - lint-frontend
       - test-frontend

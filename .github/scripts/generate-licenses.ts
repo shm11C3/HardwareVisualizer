@@ -123,13 +123,11 @@ try {
 //
 try {
   const cargoJson = execSync("cargo license --json", {
-    cwd: "src-tauri",
     encoding: "utf8",
   });
   const cargoData: CargoLicenseInfo[] = JSON.parse(cargoJson);
 
   const metadataJson = execSync("cargo metadata --format-version 1", {
-    cwd: "src-tauri",
     encoding: "utf8",
     maxBuffer: 100 * 1024 * 1024,
   });

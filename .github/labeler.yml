@@ -5,7 +5,12 @@ frontend:
           - "index.html"
           - "package.json"
 
-rust:
+hardviz_core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "core/**"
+
+hardviz_tauri:
   - changed-files:
       - any-glob-to-any-file:
           - "src-tauri/**"
