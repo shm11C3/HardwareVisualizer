@@ -1,15 +1,17 @@
 //! App-side lifecycle wiring for Core start/stop.
 //!
-//! Phase 5 (#1408) decouples the process lifetime from the main
-//! window. Closing the window no longer terminates the collector and
-//! exits the process; that path is now reached only by an explicit
-//! Quit action. The user-visible "close to tray" UX (tray menu, first-
-//! run dialog, persisted setting) lands with #1275, so for now the
-//! new background-mode path is gated by an env var.
+//! Closing the main window is user-configurable: the app can either
+//! hide to the tray and keep monitoring, or stop workers and exit. The
+//! transitional env-var override from #1408 remains available for tests
+//! and debug sessions.
 
-use std::env;
+use std::{
+  env,
+  sync::atomic::{AtomicBool, Ordering},
+};
 
-use tauri::{AppHandle, Manager, Window};
+use tauri::{AppHandle, Emitter, Manager, Window};
+use tauri_plugin_store::StoreExt;
 
 use crate::log_warn;
 use crate::workers::WorkersState;
@@ -19,6 +21,55 @@ use crate::workers::WorkersState;
 /// preserve the historical quit-on-close behavior until the
 /// user-facing UX in #1275 ships.
 pub const CLOSE_TO_BACKGROUND_ENV: &str = "HARDVIZ_CLOSE_TO_BACKGROUND";
+const STORE_FILENAME: &str = "store.json";
+const KEY_CLOSE_TO_TRAY: &str = "closeToTray";
+const KEY_CLOSE_TO_TRAY_CHOICE_MADE: &str = "closeToTrayChoiceMade";
+const EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED: &str = "close-to-tray-choice-requested";
+
+/// Session-only lifecycle capability. `tray_available` starts true and
+/// is flipped off when tray setup fails, so persisted preferences never
+/// hide the only window on platforms without a working tray.
+pub struct CloseToTrayRuntimeState {
+  tray_available: AtomicBool,
+  listener_ready: AtomicBool,
+  choice_request_pending: AtomicBool,
+}
+
+impl Default for CloseToTrayRuntimeState {
+  fn default() -> Self {
+    Self {
+      tray_available: AtomicBool::new(true),
+      listener_ready: AtomicBool::new(false),
+      choice_request_pending: AtomicBool::new(false),
+    }
+  }
+}
+
+impl CloseToTrayRuntimeState {
+  pub fn disable_for_session(&self) {
+    self.tray_available.store(false, Ordering::SeqCst);
+  }
+
+  pub fn is_available(&self) -> bool {
+    self.tray_available.load(Ordering::SeqCst)
+  }
+
+  fn mark_listener_ready(&self) {
+    self.listener_ready.store(true, Ordering::SeqCst);
+  }
+
+  fn is_listener_ready(&self) -> bool {
+    self.listener_ready.load(Ordering::SeqCst)
+  }
+
+  fn set_choice_request_pending(&self) {
+    self.choice_request_pending.store(true, Ordering::SeqCst);
+  }
+
+  fn take_choice_request_pending(&self) -> bool {
+    self.choice_request_pending.swap(false, Ordering::SeqCst)
+  }
+}
 
 /// `true` when the env var holds a truthy value (`1`, `true`, `yes`,
 /// case-insensitive). Anything else — unset, empty, or any other
@@ -46,25 +97,124 @@ pub fn on_close_requested(window: &Window) {
   });
 }
 
-/// Decide what closing the main window means in this build.
-///
-/// - With [`should_close_to_background`] on: hide the window. The
-///   collector, archive worker, and event bus stay alive.
-/// - Otherwise: fall back to the historical behavior — terminate
-///   workers and exit the process. The user-facing tray + setting
-///   that flips this default ships with #1275.
+/// Decide what closing the main window means.
 async fn handle_close_request(app: AppHandle, window: Window) {
   if should_close_to_background() {
-    if let Err(e) = window.hide() {
+    if let Err(e) = hide_window_on_close(&window) {
       log_warn!(
-        &format!("failed to hide main window on close: {e}"),
+        &format!(
+          "failed to hide main window on env override close; quitting instead: {e}"
+        ),
         "lifecycle::handle_close_request",
         None::<&str>
       );
+      request_quit(app).await;
     }
     return;
   }
-  request_quit(app).await;
+
+  if !is_close_to_tray_available(&app) {
+    request_quit(app).await;
+    return;
+  }
+
+  match read_close_to_tray_settings(&app) {
+    Ok(settings) if !settings.choice_made => {
+      let state = app.state::<CloseToTrayRuntimeState>();
+      state.set_choice_request_pending();
+
+      if state.is_listener_ready() && state.take_choice_request_pending() {
+        match emit_close_to_tray_choice_request(&app) {
+          Ok(()) => {}
+          Err(e) => {
+            log_warn!(
+              &format!("failed to emit close-to-tray choice request: {e}"),
+              "lifecycle::handle_close_request",
+              None::<&str>
+            );
+            request_quit(app).await;
+          }
+        }
+      }
+    }
+    Ok(settings) if settings.close_to_tray => {
+      if let Err(e) = hide_window_on_close(&window) {
+        log_warn!(
+          &format!("failed to hide main window on close; quitting instead: {e}"),
+          "lifecycle::handle_close_request",
+          None::<&str>
+        );
+        request_quit(app).await;
+      }
+    }
+    Ok(_) => request_quit(app).await,
+    Err(e) => {
+      log_warn!(
+        &format!("failed to read close-to-tray setting; quitting on close: {e}"),
+        "lifecycle::handle_close_request",
+        None::<&str>
+      );
+      request_quit(app).await;
+    }
+  }
+}
+
+pub async fn mark_close_to_tray_listener_ready(app: AppHandle) -> Result<(), String> {
+  let state = app.state::<CloseToTrayRuntimeState>();
+  state.mark_listener_ready();
+
+  if state.take_choice_request_pending()
+    && let Err(e) = emit_close_to_tray_choice_request(&app)
+  {
+    log_warn!(
+      &format!("failed to emit pending close-to-tray choice request: {e}"),
+      "lifecycle::mark_close_to_tray_listener_ready",
+      None::<&str>
+    );
+    request_quit(app).await;
+    return Err(e);
+  }
+
+  Ok(())
+}
+
+fn emit_close_to_tray_choice_request(app: &AppHandle) -> Result<(), String> {
+  app
+    .emit(EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED, ())
+    .map_err(|e| e.to_string())
+}
+
+pub fn is_close_to_tray_available(app: &AppHandle) -> bool {
+  app
+    .try_state::<CloseToTrayRuntimeState>()
+    .map(|state| state.is_available())
+    .unwrap_or(true)
+}
+
+fn hide_window_on_close(window: &Window) -> Result<(), tauri::Error> {
+  window.hide()
+}
+
+struct CloseToTraySettings {
+  close_to_tray: bool,
+  choice_made: bool,
+}
+
+fn read_close_to_tray_settings(app: &AppHandle) -> Result<CloseToTraySettings, String> {
+  let store = app
+    .store(STORE_FILENAME)
+    .map_err(|e| format!("failed to open store: {e}"))?;
+
+  Ok(CloseToTraySettings {
+    close_to_tray: store
+      .get(KEY_CLOSE_TO_TRAY)
+      .and_then(|value| value.as_bool())
+      .unwrap_or(false),
+    choice_made: store
+      .get(KEY_CLOSE_TO_TRAY_CHOICE_MADE)
+      .and_then(|value| value.as_bool())
+      .unwrap_or(false),
+  })
 }
 
 /// Stop Core cleanly and exit the process.

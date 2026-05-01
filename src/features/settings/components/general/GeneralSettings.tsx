@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { AutoStartToggle } from "./AutoStartToggle";
 import { BurnInShiftSettings } from "./BurnInShiftSettings";
+import { CloseToTrayToggle } from "./CloseToTrayToggle";
 import { LanguageSelect } from "./LanguageSelect";
 import { TemperatureUnitSelect } from "./TemperatureUnitSelect";
 import { TextSelectionToggle } from "./TextSelectionToggle";
@@ -19,6 +20,7 @@ export const GeneralSettings = () => {
         <ThemeSelect />
         <TemperatureUnitSelect />
         <TextSelectionToggle />
+        <CloseToTrayToggle />
         <AutoStartToggle />
         <BurnInShiftSettings />
       </div>

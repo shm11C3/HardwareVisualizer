@@ -129,6 +129,23 @@
     }
   },
 
+  "closeToTray": {
+    "firstRunDialog": {
+      "title": "HardwareVisualizer を起動したままにしますか？",
+      "description": "メインウィンドウを閉じたあとも、HardwareVisualizer はバックグラウンドで監視を続けられます。この設定はあとから設定画面で変更できます。",
+      "continueInBackground": "バックグラウンドで継続",
+      "quitApp": "アプリを終了",
+      "close": "ダイアログを閉じる"
+    },
+    "errors": {
+      "continueInBackground": "アプリをバックグラウンドで継続できませんでした。",
+      "quitApp": "アプリを終了できませんでした。",
+      "availability": "システムトレイを利用できるか確認できませんでした。",
+      "savePreference": "トレイ格納設定を保存できませんでした。",
+      "listenerReady": "トレイ格納ダイアログを初期化できませんでした。"
+    }
+  },
+
   "pages": {
     "dashboard": {
       "name": "ダッシュボード",
@@ -184,6 +201,11 @@
         },
         "textSelection": {
           "name": "テキスト選択を有効にする"
+        },
+        "closeToTray": {
+          "name": "閉じるボタンで終了せずトレイに格納する",
+          "description": "メインウィンドウを閉じても、監視をバックグラウンドで継続します。",
+          "unavailable": "このデスクトップ環境ではシステムトレイを利用できないため、このセッションではウィンドウを閉じるとアプリを終了します。"
         },
         "autostart": {
           "name": "OS起動時に自動起動"

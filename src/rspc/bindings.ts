@@ -484,6 +484,28 @@ async restartApp() : Promise<void> {
  */
 async quitApp() : Promise<void> {
     await TAURI_INVOKE("quit_app");
+},
+/**
+ * Returns whether close-to-tray can safely be enabled in this session.
+ */
+async isCloseToTrayAvailable() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_close_to_tray_available") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Mark the frontend close-to-tray dialog listener as ready.
+ */
+async markCloseToTrayListenerReady() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("mark_close_to_tray_listener_ready") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
