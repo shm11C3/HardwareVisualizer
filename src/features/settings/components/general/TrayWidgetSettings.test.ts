@@ -4,7 +4,7 @@ import {
   normalizeSettings,
   normalizeVisibleMetrics,
   type TrayWidgetStore,
-} from "./TrayWidgetSettings";
+} from "@/features/settings/components/general/TrayWidgetSettings";
 
 describe("TrayWidgetSettings normalization", () => {
   it("returns null for pending settings", () => {
@@ -55,14 +55,16 @@ describe("TrayWidgetSettings normalization", () => {
   });
 
   it("falls back to the default interval when persisted interval is invalid", () => {
-    const settings = normalizeSettings({
-      enabled: true,
-      metricOrder: ["gpu", "cpu"],
-      visibleMetrics: ["gpu"],
-      updateIntervalSecs: 99,
-    });
+    for (const updateIntervalSecs of [3, 4, 99]) {
+      const settings = normalizeSettings({
+        enabled: true,
+        metricOrder: ["gpu", "cpu"],
+        visibleMetrics: ["gpu"],
+        updateIntervalSecs,
+      });
 
-    expect(settings?.updateIntervalSecs).toBe(1);
+      expect(settings?.updateIntervalSecs).toBe(1);
+    }
   });
 
   it("falls back to metric order when visible metrics normalize to empty", () => {

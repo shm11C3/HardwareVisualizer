@@ -8,8 +8,7 @@ use crate::enums::settings::TemperatureUnit;
 pub const STORE_KEY_TRAY_WIDGET: &str = "trayWidget";
 
 const DEFAULT_UPDATE_INTERVAL_SECS: u64 = 1;
-const MIN_UPDATE_INTERVAL_SECS: u64 = 1;
-const MAX_UPDATE_INTERVAL_SECS: u64 = 5;
+const UPDATE_INTERVALS_SECS: [u64; 3] = [1, 2, 5];
 const CONFIGURABLE_METRICS: [TrayMetric; 2] = [TrayMetric::Cpu, TrayMetric::Gpu];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -62,9 +61,9 @@ impl TrayWidgetSettings {
     self.visible_metrics =
       normalize_visible_metrics(self.visible_metrics, &self.metric_order);
 
-    self.update_interval_secs = self
-      .update_interval_secs
-      .clamp(MIN_UPDATE_INTERVAL_SECS, MAX_UPDATE_INTERVAL_SECS);
+    if !UPDATE_INTERVALS_SECS.contains(&self.update_interval_secs) {
+      self.update_interval_secs = DEFAULT_UPDATE_INTERVAL_SECS;
+    }
 
     self
   }
@@ -468,7 +467,36 @@ mod tests {
       settings.visible_metrics,
       vec![TrayMetric::Cpu, TrayMetric::Gpu]
     );
-    assert_eq!(settings.update_interval_secs, 5);
+    assert_eq!(settings.update_interval_secs, 1);
+  }
+
+  #[test]
+  fn normalizes_discrete_update_intervals() {
+    for interval in [1, 2, 5] {
+      let settings = TrayWidgetSettings {
+        enabled: true,
+        metric_order: vec![],
+        visible_metrics: vec![],
+        update_interval_secs: interval,
+        legacy_metrics: vec![],
+      }
+      .normalized();
+
+      assert_eq!(settings.update_interval_secs, interval);
+    }
+
+    for interval in [0, 3, 4, 99] {
+      let settings = TrayWidgetSettings {
+        enabled: true,
+        metric_order: vec![],
+        visible_metrics: vec![],
+        update_interval_secs: interval,
+        legacy_metrics: vec![],
+      }
+      .normalized();
+
+      assert_eq!(settings.update_interval_secs, 1);
+    }
   }
 
   #[test]
