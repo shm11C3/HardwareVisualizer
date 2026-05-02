@@ -2,6 +2,7 @@ import {
   closestCenter,
   DndContext,
   type DragEndEvent,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -9,11 +10,13 @@ import {
 import {
   arrayMove,
   SortableContext,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVerticalIcon } from "lucide-react";
+import { AlertTriangleIcon, GripVerticalIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -26,16 +29,20 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useTauriStore } from "@/hooks/useTauriStore";
+import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
-type TrayMetric = "cpu" | "gpu" | "temp";
+export type TrayMetric = "cpu" | "gpu" | "temp";
 
-type TrayWidgetStore = {
+export type TrayWidgetStore = {
   enabled: boolean;
   metricOrder: TrayMetric[];
   visibleMetrics: TrayMetric[];
   updateIntervalSecs: number;
   metrics?: TrayMetric[];
 };
+
+type PersistedTrayWidgetStore = Partial<TrayWidgetStore>;
 
 const DEFAULT_TRAY_WIDGET_SETTINGS: TrayWidgetStore = {
   enabled: false,
@@ -49,12 +56,43 @@ const UPDATE_INTERVALS = [1, 2, 5] as const;
 
 export const TrayWidgetSettings = () => {
   const { t } = useTranslation();
-  const sensors = useSensors(useSensor(PointerSensor));
-  const [settings, setSettings, isPending] = useTauriStore<TrayWidgetStore>(
-    "trayWidget",
-    DEFAULT_TRAY_WIDGET_SETTINGS,
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
+  const [settings, setSettings, isPending] =
+    useTauriStore<PersistedTrayWidgetStore>(
+      "trayWidget",
+      DEFAULT_TRAY_WIDGET_SETTINGS,
+    );
+  const [isAvailable, setIsAvailable] = useState(true);
   const normalizedSettings = normalizeSettings(settings);
+
+  useEffect(() => {
+    const checkAvailability = async () => {
+      try {
+        const result = await commands.isCloseToTrayAvailable();
+
+        if (isError(result)) {
+          setIsAvailable(false);
+          console.error(
+            "Failed to check tray widget availability:",
+            result.error,
+          );
+          return;
+        }
+
+        setIsAvailable(result.data);
+      } catch (err) {
+        setIsAvailable(false);
+        console.error("Failed to check tray widget availability:", err);
+      }
+    };
+
+    checkAvailability();
+  }, []);
 
   const updateSettings = async (patch: Partial<TrayWidgetStore>) => {
     if (!normalizedSettings) {
@@ -114,7 +152,7 @@ export const TrayWidgetSettings = () => {
     });
   };
 
-  const enabled = normalizedSettings?.enabled ?? false;
+  const enabled = isAvailable && (normalizedSettings?.enabled ?? false);
   const metricOrder =
     normalizedSettings?.metricOrder ?? DEFAULT_TRAY_WIDGET_SETTINGS.metricOrder;
   const visibleMetrics =
@@ -136,10 +174,17 @@ export const TrayWidgetSettings = () => {
         <Switch
           id="trayWidgetEnabled"
           checked={enabled}
-          disabled={isPending}
+          disabled={isPending || !isAvailable}
           onCheckedChange={(value) => updateSettings({ enabled: value })}
         />
       </div>
+
+      {!isAvailable && (
+        <div className="flex items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
+          <p>{t("pages.settings.general.trayWidget.unavailable")}</p>
+        </div>
+      )}
 
       {enabled && (
         <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
@@ -268,8 +313,8 @@ const SortableMetricRow = ({
   );
 };
 
-const normalizeSettings = (
-  settings: TrayWidgetStore | null,
+export const normalizeSettings = (
+  settings: PersistedTrayWidgetStore | null,
 ): TrayWidgetStore | null => {
   if (!settings) {
     return null;
@@ -283,20 +328,23 @@ const normalizeSettings = (
     settings.visibleMetrics?.length ? settings.visibleMetrics : legacyMetrics,
     metricOrder,
   );
+  const updateIntervalSecs = settings.updateIntervalSecs;
 
   return {
-    enabled: settings.enabled,
+    enabled: settings.enabled ?? DEFAULT_TRAY_WIDGET_SETTINGS.enabled,
     metricOrder,
     visibleMetrics,
-    updateIntervalSecs: UPDATE_INTERVALS.includes(
-      settings.updateIntervalSecs as (typeof UPDATE_INTERVALS)[number],
-    )
-      ? settings.updateIntervalSecs
-      : DEFAULT_TRAY_WIDGET_SETTINGS.updateIntervalSecs,
+    updateIntervalSecs:
+      typeof updateIntervalSecs === "number" &&
+      UPDATE_INTERVALS.includes(
+        updateIntervalSecs as (typeof UPDATE_INTERVALS)[number],
+      )
+        ? updateIntervalSecs
+        : DEFAULT_TRAY_WIDGET_SETTINGS.updateIntervalSecs,
   };
 };
 
-const normalizeMetricOrder = (metrics: TrayMetric[]) => {
+export const normalizeMetricOrder = (metrics: TrayMetric[]) => {
   const metricOrder = normalizeMetricList(metrics);
 
   for (const metric of CONFIGURABLE_METRICS) {
@@ -308,7 +356,7 @@ const normalizeMetricOrder = (metrics: TrayMetric[]) => {
   return metricOrder;
 };
 
-const normalizeVisibleMetrics = (
+export const normalizeVisibleMetrics = (
   metrics: TrayMetric[],
   metricOrder: TrayMetric[],
 ) => {

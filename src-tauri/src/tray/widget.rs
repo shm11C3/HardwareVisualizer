@@ -23,11 +23,13 @@ pub enum TrayMetric {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrayWidgetSettings {
+  #[serde(default)]
   pub enabled: bool,
-  #[serde(default = "default_metric_vec")]
+  #[serde(default)]
   pub metric_order: Vec<TrayMetric>,
   #[serde(default)]
   pub visible_metrics: Vec<TrayMetric>,
+  #[serde(default)]
   pub update_interval_secs: u64,
   #[serde(default, rename = "metrics", skip_serializing)]
   legacy_metrics: Vec<TrayMetric>,
@@ -503,6 +505,26 @@ mod tests {
       vec![TrayMetric::Cpu, TrayMetric::Gpu]
     );
     assert_eq!(settings.visible_metrics, vec![TrayMetric::Cpu]);
+  }
+
+  #[test]
+  fn deserializes_partial_legacy_store_shape() {
+    let settings = serde_json::from_value::<TrayWidgetSettings>(serde_json::json!({
+      "metrics": ["gpu", "temp", "cpu"]
+    }))
+    .expect("partial legacy tray widget settings should deserialize")
+    .normalized();
+
+    assert!(!settings.enabled);
+    assert_eq!(settings.update_interval_secs, 1);
+    assert_eq!(
+      settings.metric_order,
+      vec![TrayMetric::Gpu, TrayMetric::Cpu]
+    );
+    assert_eq!(
+      settings.visible_metrics,
+      vec![TrayMetric::Gpu, TrayMetric::Cpu]
+    );
   }
 
   #[test]

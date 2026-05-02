@@ -210,6 +210,7 @@
         "trayWidget": {
           "name": "Tray widget",
           "description": "Show live hardware metrics in the system tray or menu bar.",
+          "unavailable": "The system tray is not available in this desktop environment, so the tray widget cannot be enabled for this session.",
           "metrics": "Metrics",
           "updateInterval": "Update interval",
           "seconds": "{{count}}s",
