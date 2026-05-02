@@ -15,6 +15,7 @@ mod infrastructure;
 mod lifecycle;
 mod models;
 mod services;
+mod tray;
 mod utils;
 mod workers;
 
@@ -170,7 +171,7 @@ pub fn run() {
       // #1422: register the tray unconditionally. The visibility
       // policy (always-on vs persisted user setting) is a UX call owned
       // by #1423 and lives outside the adapter.
-      match adapters::tray::TrayAdapter::setup(app) {
+      match adapters::tray::TrayAdapter::setup(app, bus.subscribe()) {
         Ok(tray) => {
           let ws = app.state::<workers::WorkersState>();
           ws.tray.lock().unwrap().replace(tray);

@@ -207,6 +207,19 @@
           "description": "メインウィンドウを閉じても、監視をバックグラウンドで継続します。",
           "unavailable": "このデスクトップ環境ではシステムトレイを利用できないため、このセッションではウィンドウを閉じるとアプリを終了します。"
         },
+        "trayWidget": {
+          "name": "トレイウィジェット",
+          "description": "システムトレイまたはメニューバーにライブメトリクスを表示します。",
+          "metrics": "メトリクス",
+          "updateInterval": "更新間隔",
+          "seconds": "{{count}}秒",
+          "dragMetric": "{{metric}}をドラッグ",
+          "metric": {
+            "cpu": "CPU使用率",
+            "gpu": "GPU使用率",
+            "temp": "温度"
+          }
+        },
         "autostart": {
           "name": "OS起動時に自動起動"
         },
