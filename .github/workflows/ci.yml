@@ -22,10 +22,13 @@ jobs:
       tauri-changed: ${{ steps.changes.outputs.tauri }}
       frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
       backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
+      tauri-deps-changed: ${{ steps.tauri-deps.outputs.changed }}
       actions-changed: ${{ steps.changes.outputs.actions }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 2
 
       - id: meta
         run: echo "is_push=${{ github.event_name == 'push' }}" >> "$GITHUB_OUTPUT"
@@ -82,6 +85,25 @@ jobs:
             actions:
               - '.github/workflows/**'
               - '.github/actions/**'
+              - '.github/scripts/**'
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          install-deps: "false"
+          setup-safe-chain: "false"
+
+      - name: Check Tauri dependency changes
+        id: tauri-deps
+        shell: bash
+        run: |
+          base_ref="HEAD^"
+          if ! git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          node .github/scripts/check-tauri-deps-changed.ts "$base_ref"
 
   #
   # GitHub Actions lint
@@ -295,9 +317,8 @@ jobs:
   #
   test-build:
     needs: change-detection
-    # When updating npm packages related to tauri, build errors may occur.
-    # Therefore, checks should be performed during Tauri updates, Rust dependency updates, and frontend dependency updates.
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
+    # Tauri dependency updates use the Tauri CLI build path to keep npm/Cargo version consistency checks.
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.tauri-deps-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -307,31 +328,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Setup Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Setup Linux dependencies (source-only PR)
+        if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' && matrix.platform == 'ubuntu-22.04' }}
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Linux dependencies (Tauri CLI build)
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
         uses: ./.github/actions/setup-linux-deps
         with:
           extra-packages: "libfuse2 libappindicator3-dev patchelf"
 
       - name: Fix linuxdeploy permissions
-        if: matrix.platform == 'ubuntu-22.04'
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
         run: chmod +x ./src-tauri/target/release/bundle/appimage/linuxdeploy-*.AppImage || true
 
       - name: Unset problematic env vars
-        if: matrix.platform == 'ubuntu-22.04'
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
         run: |
           unset GTK_PATH
           unset LD_LIBRARY_PATH
 
       - name: Cache AppRun binary
-        if: runner.os == 'Linux'
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Linux' }}
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/tauri/AppRun-x86_64
           key: tauri-apprun-x86_64
 
       - name: Pre-download AppRun if not cached
-        if: runner.os == 'Linux'
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Linux' }}
         run: |
           mkdir -p ~/.cache/tauri
           if [ ! -f ~/.cache/tauri/AppRun-x86_64 ]; then
@@ -340,14 +365,14 @@ jobs:
           fi
 
       - name: Cache WiX binary
-        if: runner.os == 'Windows'
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Windows' }}
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~\AppData\Local\tauri\WixTools
           key: tauri-wix-314
 
       - name: Pre-download WiX if not cached
-        if: runner.os == 'Windows'
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Windows' }}
         shell: pwsh
         run: |
           $wixDir = "$env:LOCALAPPDATA\tauri\WixTools"
@@ -359,6 +384,7 @@ jobs:
           }
 
       - name: Setup Node.js
+        if: ${{ github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true' }}
         uses: ./.github/actions/setup-node
 
       - name: Setup Rust
@@ -371,8 +397,12 @@ jobs:
         run: |
           echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
 
-      - name: Build with Tauri (CI optimized for PR)
-        if: github.event_name == 'pull_request'
+      - name: Build Tauri Rust crate (CI optimized for PR)
+        if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
+        run: cargo build -p hardware_visualizer --profile ci --features custom-protocol
+
+      - name: Build with Tauri (version consistency for Tauri dependency PR)
+        if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed == 'true' }}
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
