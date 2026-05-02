@@ -154,7 +154,7 @@ jobs:
         name: Rename Offline Installer
         run: |
           mkdir -p dist/offline
-          cp src-tauri/target/release/bundle/msi/*.msi "dist/offline/HardwareVisualizer_${VERSION}_x64_en-US_offline.msi"
+          cp target/release/bundle/msi/*.msi "dist/offline/HardwareVisualizer_${VERSION}_x64_en-US_offline.msi"
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Upload MSI via gh CLI
