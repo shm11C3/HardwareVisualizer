@@ -268,7 +268,7 @@ jobs:
         run: |
           {
             echo 'REPORT<<EOF'
-            cargo llvm-cov report 2>&1
+            cargo llvm-cov report -p hardware_visualizer 2>&1
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
         shell: bash
@@ -310,7 +310,7 @@ jobs:
           components: ""
 
       - name: Check Tauri crate against changed Core API
-        run: cargo check -p hardware_visualizer --all-targets
+        run: cargo check -p hardware_visualizer --all-targets --features custom-protocol
 
   #
   # Build test
