@@ -69,6 +69,11 @@ Frontend ↔ backend communication is done via **Tauri commands**; TypeScript bi
 - Write code comments and git commit messages in English.
 - In chat, match the language used in the user prompt.
 
+## Git Commit Guidelines
+
+- Follow the Conventional Commits format for commit subjects (for example, `feat: add dashboard presets`, `fix: handle missing GPU sensors`, `ci: split Tauri build checks`).
+- Prefer adding a commit body when the change is not self-evident. Describe why the change was made, notable implementation details, and validation performed.
+
 ## Code Quality Standards
 
 ### Linting & Formatting
