@@ -207,6 +207,20 @@
           "description": "Keep monitoring running when the main window is closed.",
           "unavailable": "The system tray is not available in this desktop environment, so closing the window will quit the app for this session."
         },
+        "trayWidget": {
+          "name": "Tray widget",
+          "description": "Show live hardware metrics in the system tray or menu bar.",
+          "unavailable": "The system tray is not available in this desktop environment, so the tray widget cannot be enabled for this session.",
+          "metrics": "Metrics",
+          "updateInterval": "Update interval",
+          "seconds": "{{count}}s",
+          "dragMetric": "Drag {{metric}}",
+          "metric": {
+            "cpu": "CPU usage",
+            "gpu": "GPU usage",
+            "temp": "Temperature"
+          }
+        },
         "autostart": {
           "name": "Automatic startup at OS startup"
         },

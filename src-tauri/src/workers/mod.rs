@@ -37,6 +37,7 @@ impl WorkersState {
     let monitor = self.monitor.lock().unwrap().take();
     let window_adapter = self.window_adapter.lock().unwrap().take();
     let hw_archive = self.hw_archive.lock().unwrap().take();
+    let tray = self.tray.lock().unwrap().take();
 
     // Stop the source first so no further snapshots are produced, then
     // drain the adapter, then shut down the archive worker.
@@ -46,6 +47,10 @@ impl WorkersState {
 
     if let Some(adapter) = window_adapter {
       adapter.terminate().await;
+    }
+
+    if let Some(tray) = tray {
+      tray.terminate().await;
     }
 
     if let Some(hw_archive) = hw_archive {

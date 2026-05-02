@@ -1,10 +1,12 @@
-//! System-tray menu adapter — #1422.
+//! System-tray menu adapter — #1422 / #1401.
 //!
 //! Provides a minimal `Open` / `Quit` menu plus a left-click that
 //! restores the main window. Calls [`crate::lifecycle::request_quit`]
 //! (shipped by Phase 5 of #1402) to drive the lifecycle state machine
-//! to `Stopped` on quit. Live metric rendering belongs to #1401, and
-//! the Pause / Resume entries belong to #1424.
+//! to `Stopped` on quit. Live metric rendering subscribes to the same
+//! Core event stream as the main window, so it keeps updating without
+//! involving React while the window is hidden. The Pause / Resume
+//! entries belong to #1424.
 //!
 //! ## Visibility policy
 //! The tray is registered unconditionally on app startup. The persisted
@@ -30,8 +32,19 @@ use tauri::{
   menu::{Menu, MenuEvent, MenuItem},
   tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
 };
+use tauri_plugin_store::StoreExt as _;
+use tokio::sync::broadcast::{Receiver, error::RecvError};
+use tokio::sync::watch;
 
 use crate::log_warn;
+use crate::tray::widget::{
+  STORE_KEY_TRAY_WIDGET, TrayFrame, TrayWidgetSettings, build_frame, should_skip_frame,
+};
+
+use hardviz_core::models::MetricsSnapshot;
+
+use crate::commands::settings;
+use crate::enums::settings::TemperatureUnit;
 
 const MENU_OPEN_ID: &str = "tray::open";
 const MENU_QUIT_ID: &str = "tray::quit";
@@ -41,6 +54,8 @@ const MENU_QUIT_ID: &str = "tray::quit";
 /// `lib.rs` stashes it in `WorkersState`.
 pub struct TrayAdapter {
   _tray: TrayIcon,
+  handle: tauri::async_runtime::JoinHandle<()>,
+  stop_tx: watch::Sender<bool>,
 }
 
 impl TrayAdapter {
@@ -49,7 +64,7 @@ impl TrayAdapter {
   /// The default window icon is reused as the tray icon — Phase 6
   /// keeps the visual minimal. A dedicated tray-tuned asset can land
   /// alongside #1401's live widget.
-  pub fn setup(app: &tauri::App) -> tauri::Result<Self> {
+  pub fn setup(app: &tauri::App, rx: Receiver<MetricsSnapshot>) -> tauri::Result<Self> {
     let open_item = MenuItem::with_id(app, MENU_OPEN_ID, "Open", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, MENU_QUIT_ID, "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
@@ -71,8 +86,117 @@ impl TrayAdapter {
       .on_tray_icon_event(handle_tray_event)
       .build(app)?;
 
-    Ok(Self { _tray: tray })
+    let (handle, stop_tx) = spawn_widget_updater(app.handle().clone(), tray.clone(), rx);
+
+    Ok(Self {
+      _tray: tray,
+      handle,
+      stop_tx,
+    })
   }
+
+  pub async fn terminate(self) {
+    let _ = self.stop_tx.send(true);
+    let _ = self.handle.await;
+  }
+}
+
+fn spawn_widget_updater(
+  app_handle: AppHandle,
+  tray: TrayIcon,
+  mut rx: Receiver<MetricsSnapshot>,
+) -> (tauri::async_runtime::JoinHandle<()>, watch::Sender<bool>) {
+  let (stop_tx, mut stop_rx) = watch::channel(false);
+
+  let handle = tauri::async_runtime::spawn(async move {
+    let mut previous_frame: Option<TrayFrame> = None;
+    let mut previous_update_at: Option<std::time::Instant> = None;
+
+    loop {
+      tokio::select! {
+        result = rx.recv() => match result {
+          Ok(snapshot) => {
+            let settings = current_widget_settings(&app_handle);
+            let temperature_unit = current_temperature_unit(&app_handle);
+            let next_frame = build_frame(&snapshot, &settings, &temperature_unit);
+            let now = std::time::Instant::now();
+            let elapsed = previous_update_at.map(|last| now.duration_since(last));
+
+            if should_skip_frame(
+              previous_frame.as_ref(),
+              &next_frame,
+              elapsed,
+              settings.update_interval(),
+            ) {
+              continue;
+            }
+
+            apply_frame(&tray, &next_frame);
+            previous_frame = Some(next_frame);
+            previous_update_at = Some(now);
+          }
+          Err(RecvError::Lagged(skipped)) => {
+            log_warn!(
+              &format!("TrayAdapter lagged, dropped {skipped} snapshot(s)"),
+              "adapters::tray",
+              None::<&str>
+            );
+          }
+          Err(RecvError::Closed) => break,
+        },
+        changed = stop_rx.changed() => {
+          if changed.is_err() || *stop_rx.borrow() {
+            break;
+          }
+        }
+      }
+    }
+  });
+
+  (handle, stop_tx)
+}
+
+fn apply_frame(tray: &TrayIcon, frame: &TrayFrame) {
+  // `None` is not a reliable clear operation on macOS in tray-icon
+  // 0.21, so use an empty title for disabled / unavailable frames.
+  if let Err(e) = tray.set_title(Some(frame.title.as_deref().unwrap_or(""))) {
+    log_warn!(
+      &format!("failed to update tray widget title: {e}"),
+      "adapters::tray::apply_frame",
+      None::<&str>
+    );
+  }
+
+  if let Err(e) = tray.set_tooltip(Some(frame.tooltip.as_str())) {
+    log_warn!(
+      &format!("failed to update tray widget tooltip: {e}"),
+      "adapters::tray::apply_frame",
+      None::<&str>
+    );
+  }
+}
+
+fn current_widget_settings(app_handle: &AppHandle) -> TrayWidgetSettings {
+  app_handle
+    .store("store.json")
+    .ok()
+    .and_then(|store| store.get(STORE_KEY_TRAY_WIDGET))
+    .and_then(|value| serde_json::from_value::<TrayWidgetSettings>(value).ok())
+    .unwrap_or_default()
+    .normalized()
+}
+
+fn current_temperature_unit(app_handle: &AppHandle) -> TemperatureUnit {
+  app_handle
+    .try_state::<settings::AppState>()
+    .and_then(|state| {
+      state
+        .settings
+        .lock()
+        .ok()
+        .map(|s| s.temperature_unit.clone())
+    })
+    .unwrap_or(TemperatureUnit::Celsius)
 }
 
 fn handle_menu_event(app: &AppHandle, event: MenuEvent) {

@@ -6,6 +6,7 @@ import { LanguageSelect } from "./LanguageSelect";
 import { TemperatureUnitSelect } from "./TemperatureUnitSelect";
 import { TextSelectionToggle } from "./TextSelectionToggle";
 import { ThemeSelect } from "./ThemeSelect";
+import { TrayWidgetSettings } from "./TrayWidgetSettings";
 
 export const GeneralSettings = () => {
   const { t } = useTranslation();
@@ -19,9 +20,10 @@ export const GeneralSettings = () => {
         <LanguageSelect />
         <ThemeSelect />
         <TemperatureUnitSelect />
-        <TextSelectionToggle />
         <CloseToTrayToggle />
+        <TrayWidgetSettings />
         <AutoStartToggle />
+        <TextSelectionToggle />
         <BurnInShiftSettings />
       </div>
     </div>
