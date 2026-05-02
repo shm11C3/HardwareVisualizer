@@ -27,16 +27,13 @@
 //!   caller, which logs, disables close-to-tray for the current
 //!   session, and continues without a tray.
 
-use tauri::{
-  AppHandle, Manager,
-  menu::{Menu, MenuEvent, MenuItem},
-  tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
-};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_store::StoreExt as _;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 use tokio::sync::watch;
 
 use crate::log_warn;
+use crate::tray::surface::{self, TraySurface};
 use crate::tray::widget::{
   STORE_KEY_TRAY_WIDGET, TrayFrame, TrayWidgetSettings, build_frame, should_skip_frame,
 };
@@ -46,14 +43,10 @@ use hardviz_core::models::MetricsSnapshot;
 use crate::commands::settings;
 use crate::enums::settings::TemperatureUnit;
 
-const MENU_OPEN_ID: &str = "tray::open";
-const MENU_QUIT_ID: &str = "tray::quit";
-
-/// Owns the [`TrayIcon`] handle. Dropping the adapter removes the
-/// icon, so it must live for as long as the tray should be visible —
-/// `lib.rs` stashes it in `WorkersState`.
+/// Owns the tray surface task. The surface itself lives inside the
+/// updater task so platform-specific handles stay alive until
+/// termination.
 pub struct TrayAdapter {
-  _tray: TrayIcon,
   handle: tauri::async_runtime::JoinHandle<()>,
   stop_tx: watch::Sender<bool>,
 }
@@ -65,34 +58,10 @@ impl TrayAdapter {
   /// keeps the visual minimal. A dedicated tray-tuned asset can land
   /// alongside #1401's live widget.
   pub fn setup(app: &tauri::App, rx: Receiver<MetricsSnapshot>) -> tauri::Result<Self> {
-    let open_item = MenuItem::with_id(app, MENU_OPEN_ID, "Open", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, MENU_QUIT_ID, "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
+    let surface = surface::create(app)?;
+    let (handle, stop_tx) = spawn_widget_updater(app.handle().clone(), surface, rx);
 
-    let icon = app
-      .default_window_icon()
-      .cloned()
-      .ok_or_else(|| tauri::Error::AssetNotFound("default_window_icon".into()))?;
-
-    let tray = TrayIconBuilder::new()
-      .icon(icon)
-      .menu(&menu)
-      // Without this, macOS pops the menu on left-click instead of
-      // forwarding the click event we use to restore the window.
-      // Windows defaults to false; setting it explicitly keeps the
-      // behavior consistent across platforms.
-      .show_menu_on_left_click(false)
-      .on_menu_event(handle_menu_event)
-      .on_tray_icon_event(handle_tray_event)
-      .build(app)?;
-
-    let (handle, stop_tx) = spawn_widget_updater(app.handle().clone(), tray.clone(), rx);
-
-    Ok(Self {
-      _tray: tray,
-      handle,
-      stop_tx,
-    })
+    Ok(Self { handle, stop_tx })
   }
 
   pub async fn terminate(self) {
@@ -103,7 +72,7 @@ impl TrayAdapter {
 
 fn spawn_widget_updater(
   app_handle: AppHandle,
-  tray: TrayIcon,
+  surface: Box<dyn TraySurface>,
   mut rx: Receiver<MetricsSnapshot>,
 ) -> (tauri::async_runtime::JoinHandle<()>, watch::Sender<bool>) {
   let (stop_tx, mut stop_rx) = watch::channel(false);
@@ -131,7 +100,7 @@ fn spawn_widget_updater(
               continue;
             }
 
-            apply_frame(&tray, &next_frame);
+            surface.apply_frame(&next_frame);
             previous_frame = Some(next_frame);
             previous_update_at = Some(now);
           }
@@ -151,29 +120,11 @@ fn spawn_widget_updater(
         }
       }
     }
+
+    surface.close();
   });
 
   (handle, stop_tx)
-}
-
-fn apply_frame(tray: &TrayIcon, frame: &TrayFrame) {
-  // `None` is not a reliable clear operation on macOS in tray-icon
-  // 0.21, so use an empty title for disabled / unavailable frames.
-  if let Err(e) = tray.set_title(Some(frame.title.as_deref().unwrap_or(""))) {
-    log_warn!(
-      &format!("failed to update tray widget title: {e}"),
-      "adapters::tray::apply_frame",
-      None::<&str>
-    );
-  }
-
-  if let Err(e) = tray.set_tooltip(Some(frame.tooltip.as_str())) {
-    log_warn!(
-      &format!("failed to update tray widget tooltip: {e}"),
-      "adapters::tray::apply_frame",
-      None::<&str>
-    );
-  }
 }
 
 fn current_widget_settings(app_handle: &AppHandle) -> TrayWidgetSettings {
@@ -199,35 +150,7 @@ fn current_temperature_unit(app_handle: &AppHandle) -> TemperatureUnit {
     .unwrap_or(TemperatureUnit::Celsius)
 }
 
-fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
-  match event.id.as_ref() {
-    MENU_OPEN_ID => restore_main_window(app),
-    MENU_QUIT_ID => spawn_quit(app.clone()),
-    other => {
-      log_warn!(
-        &format!("unhandled tray menu event: {other}"),
-        "adapters::tray::handle_menu_event",
-        None::<&str>
-      );
-    }
-  }
-}
-
-fn handle_tray_event(tray: &TrayIcon, event: TrayIconEvent) {
-  // Restore on a *released* left click. Filtering on `Up` matches the
-  // intuitive "click to focus" gesture and avoids firing twice on
-  // platforms that emit both press and release events.
-  if let TrayIconEvent::Click {
-    button: MouseButton::Left,
-    button_state: MouseButtonState::Up,
-    ..
-  } = event
-  {
-    restore_main_window(tray.app_handle());
-  }
-}
-
-fn restore_main_window(app: &AppHandle) {
+pub(crate) fn restore_main_window(app: &AppHandle) {
   let Some(window) = app.get_webview_window("main") else {
     log_warn!(
       "main window not found while handling tray Open",
@@ -263,7 +186,7 @@ fn restore_main_window(app: &AppHandle) {
   }
 }
 
-fn spawn_quit(app: AppHandle) {
+pub(crate) fn spawn_quit(app: AppHandle) {
   // `request_quit` is async (it awaits worker termination); the menu
   // callback runs on the main thread and must return promptly, so we
   // hand the work off to the tokio runtime.

@@ -87,9 +87,25 @@ pub struct TrayMetricSample {
   pub state: MetricState,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrayMetricIcon {
+  pub fallback_label: &'static str,
+  pub macos_symbol_name: &'static str,
+  pub accessibility_label: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrayFrameItem {
+  pub metric: TrayMetric,
+  pub icon: TrayMetricIcon,
+  pub value: String,
+  pub state: MetricState,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayFrame {
   pub title: Option<String>,
+  pub items: Vec<TrayFrameItem>,
   pub tooltip: String,
 }
 
@@ -101,6 +117,7 @@ pub fn build_frame(
   if !settings.enabled {
     return TrayFrame {
       title: None,
+      items: vec![],
       tooltip: "HardwareVisualizer".to_string(),
     };
   }
@@ -110,10 +127,15 @@ pub fn build_frame(
   if samples.is_empty() {
     return TrayFrame {
       title: None,
+      items: vec![],
       tooltip: "HardwareVisualizer: no tray metrics available".to_string(),
     };
   }
 
+  let items = samples
+    .iter()
+    .map(|sample| format_frame_item(sample, temperature_unit))
+    .collect::<Vec<_>>();
   let title = samples
     .iter()
     .map(|sample| format_title_sample(sample, temperature_unit))
@@ -128,6 +150,7 @@ pub fn build_frame(
 
   TrayFrame {
     title: Some(title),
+    items,
     tooltip,
   }
 }
@@ -256,17 +279,48 @@ fn format_title_sample(
   sample: &TrayMetricSample,
   temperature_unit: &TemperatureUnit,
 ) -> String {
-  let label = match sample.metric {
-    TrayMetric::Cpu => "C",
-    TrayMetric::Gpu => "G",
-    TrayMetric::Temp => "T",
-  };
-
   format!(
-    "{label} {}{}",
+    "{} {}{}",
+    metric_icon(sample.metric),
     format_value(sample.metric, sample.value, temperature_unit),
     state_suffix(sample.state)
   )
+}
+
+fn format_frame_item(
+  sample: &TrayMetricSample,
+  temperature_unit: &TemperatureUnit,
+) -> TrayFrameItem {
+  TrayFrameItem {
+    metric: sample.metric,
+    icon: metric_icon_config(sample.metric),
+    value: format_value(sample.metric, sample.value, temperature_unit),
+    state: sample.state,
+  }
+}
+
+fn metric_icon(metric: TrayMetric) -> &'static str {
+  metric_icon_config(metric).fallback_label
+}
+
+fn metric_icon_config(metric: TrayMetric) -> TrayMetricIcon {
+  match metric {
+    TrayMetric::Cpu => TrayMetricIcon {
+      fallback_label: "CPU",
+      macos_symbol_name: "cpu",
+      accessibility_label: "CPU usage",
+    },
+    TrayMetric::Gpu => TrayMetricIcon {
+      fallback_label: "GPU",
+      macos_symbol_name: "display",
+      accessibility_label: "GPU usage",
+    },
+    TrayMetric::Temp => TrayMetricIcon {
+      fallback_label: "TEMP",
+      macos_symbol_name: "thermometer",
+      accessibility_label: "Temperature",
+    },
+  }
 }
 
 fn format_tooltip_sample(
@@ -392,8 +446,62 @@ mod tests {
       &TemperatureUnit::Celsius,
     );
 
-    assert_eq!(frame.title, Some("C 42%  G 56%".to_string()));
+    assert_eq!(frame.title, Some("CPU 42%  GPU 56%".to_string()));
+    assert_eq!(
+      frame.items,
+      vec![
+        TrayFrameItem {
+          metric: TrayMetric::Cpu,
+          icon: metric_icon_config(TrayMetric::Cpu),
+          value: "42%".to_string(),
+          state: MetricState::Normal,
+        },
+        TrayFrameItem {
+          metric: TrayMetric::Gpu,
+          icon: metric_icon_config(TrayMetric::Gpu),
+          value: "56%".to_string(),
+          state: MetricState::Normal,
+        },
+      ]
+    );
     assert!(frame.tooltip.contains("CPU usage: 42% (normal)"));
+  }
+
+  #[test]
+  fn build_frame_includes_platform_icon_metadata_for_visible_metrics() {
+    let settings = TrayWidgetSettings {
+      enabled: true,
+      metric_order: vec![TrayMetric::Cpu, TrayMetric::Gpu],
+      visible_metrics: vec![TrayMetric::Cpu, TrayMetric::Gpu],
+      update_interval_secs: 1,
+      legacy_metrics: vec![],
+    };
+    let frame = build_frame(
+      &snapshot(42.4, vec![gpu(Some(55.8), Some(70.0))]),
+      &settings,
+      &TemperatureUnit::Celsius,
+    );
+
+    let icons = frame
+      .items
+      .iter()
+      .map(|item| {
+        (
+          item.metric,
+          item.icon.fallback_label,
+          item.icon.macos_symbol_name,
+          item.icon.accessibility_label,
+        )
+      })
+      .collect::<Vec<_>>();
+
+    assert_eq!(
+      icons,
+      vec![
+        (TrayMetric::Cpu, "CPU", "cpu", "CPU usage"),
+        (TrayMetric::Gpu, "GPU", "display", "GPU usage"),
+      ]
+    );
   }
 
   #[test]
@@ -409,9 +517,33 @@ mod tests {
   }
 
   #[test]
+  fn enabled_widget_without_available_metrics_keeps_empty_frame() {
+    let settings = TrayWidgetSettings {
+      enabled: true,
+      metric_order: vec![TrayMetric::Gpu],
+      visible_metrics: vec![TrayMetric::Gpu],
+      update_interval_secs: 1,
+      legacy_metrics: vec![],
+    };
+    let frame = build_frame(
+      &snapshot(42.4, vec![]),
+      &settings,
+      &TemperatureUnit::Celsius,
+    );
+
+    assert_eq!(frame.title, None);
+    assert_eq!(frame.items, vec![]);
+    assert_eq!(
+      frame.tooltip,
+      "HardwareVisualizer: no tray metrics available"
+    );
+  }
+
+  #[test]
   fn skips_identical_frame_before_throttle_check() {
     let frame = TrayFrame {
       title: Some("C 42%".to_string()),
+      items: vec![],
       tooltip: "CPU usage: 42% (normal)".to_string(),
     };
 
@@ -427,10 +559,12 @@ mod tests {
   fn skips_changed_frame_until_interval_elapses() {
     let previous = TrayFrame {
       title: Some("C 42%".to_string()),
+      items: vec![],
       tooltip: "CPU usage: 42% (normal)".to_string(),
     };
     let next = TrayFrame {
       title: Some("C 43%".to_string()),
+      items: vec![],
       tooltip: "CPU usage: 43% (normal)".to_string(),
     };
 
@@ -514,7 +648,7 @@ mod tests {
       &TemperatureUnit::Celsius,
     );
 
-    assert_eq!(frame.title, Some("C 42%  G 18%".to_string()));
+    assert_eq!(frame.title, Some("CPU 42%  GPU 18%".to_string()));
   }
 
   #[test]
