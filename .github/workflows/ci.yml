@@ -309,6 +309,12 @@ jobs:
         with:
           components: ""
 
+      - name: Prepare frontendDist placeholder
+        shell: bash
+        run: |
+          mkdir -p dist
+          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+
       - name: Check Tauri crate against changed Core API
         run: cargo check -p hardware_visualizer --all-targets --features custom-protocol
 
@@ -396,6 +402,13 @@ jobs:
         if: matrix.platform == 'windows-latest'
         run: |
           echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+
+      - name: Prepare frontendDist placeholder
+        if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p dist
+          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
 
       - name: Build Tauri Rust crate (CI optimized for PR)
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
