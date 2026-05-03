@@ -28,7 +28,7 @@ Separate AI review noise from useful feedback. Inspect review threads, classify 
    - If `gh` auth or network access fails, report the blocker and ask for re-authentication or permission instead of guessing from incomplete data.
 
 4. Classify each comment.
-   - `Required`: correctness bug, build failure, clippy/lint warning that reproduces, test failure, security/soundness issue, or behavior that conflicts with the user request.
+   - `Required`: correctness bug, build failure, clippy/lint warning that reproduces, test failure, security/soundness issue, or behavior that conflicts with the user request. Note: a comment may only be classified `Required` after verification (see Step 5); if verification is not feasible, classify as `Should Fix` with a 'needs verification' tag instead.
    - `Should Fix`: non-blocking but clearly correct feedback that removes misleading code, unrealistic tests, stale comments, fragile behavior, or likely reviewer follow-up.
    - `Worth Fixing`: small low-risk change that improves clarity, test realism, performance in a hot path, user-visible behavior, or future maintainability.
    - `Optional`: nitpick, style preference, docstring/coverage suggestion outside project requirements, or UX improvement with fallback already implemented.
@@ -38,9 +38,10 @@ Separate AI review noise from useful feedback. Inspect review threads, classify 
    - Reproduce claimed CI-impacting issues locally when feasible.
    - Inspect the referenced code, not only the bot wording.
    - If a bot says "warnings-as-errors" or similar, run the relevant check before treating it as required.
+   - Only mark Required if the issue is verifiable with reproduction/test evidence or deterministically verifiable from available data; if verification isn't possible, downgrade to Should Fix with a 'needs verification' tag (or Ignore if clearly stale/duplicate).
 
 6. Decide action.
-   - Treat `Required`, `Should Fix`, and `Worth Fixing` as fix targets by default.
+   - Treat `Required`, `Should Fix`, and `Worth Fixing` as fix targets by default. Note: fix targets assume verification feasibility has been assessed per Step 5.
    - If the user explicitly says "必須だけ" or "only required", implement only `Required` items and report the skipped `Should Fix` / `Worth Fixing` items.
    - Do not address `Optional` or `Ignore` items unless the user explicitly asks.
    - Do not post replies, resolve threads, or submit reviews on GitHub unless the user explicitly requests that write action.
