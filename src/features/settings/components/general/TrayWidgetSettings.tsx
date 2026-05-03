@@ -34,6 +34,7 @@ import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 export type TrayMetric = "cpu" | "gpu" | "gpu-temp";
+type PersistedTrayMetric = TrayMetric | "temp";
 
 export type TrayWidgetStore = {
   enabled: boolean;
@@ -43,7 +44,13 @@ export type TrayWidgetStore = {
   metrics?: TrayMetric[];
 };
 
-type PersistedTrayWidgetStore = Partial<TrayWidgetStore>;
+type PersistedTrayWidgetStore = Partial<
+  Omit<TrayWidgetStore, "metricOrder" | "visibleMetrics" | "metrics"> & {
+    metricOrder: PersistedTrayMetric[];
+    visibleMetrics: PersistedTrayMetric[];
+    metrics: PersistedTrayMetric[];
+  }
+>;
 
 const DEFAULT_TRAY_WIDGET_SETTINGS: TrayWidgetStore = {
   enabled: false,
@@ -352,7 +359,7 @@ export const normalizeSettings = (
 };
 
 export const normalizeMetricOrder = (
-  metrics: TrayMetric[],
+  metrics: PersistedTrayMetric[],
   unavailableMetrics: TrayMetric[] = [],
 ) => {
   const metricOrder = normalizeMetricList(metrics).filter(
@@ -369,7 +376,7 @@ export const normalizeMetricOrder = (
 };
 
 export const normalizeVisibleMetrics = (
-  metrics: TrayMetric[],
+  metrics: PersistedTrayMetric[],
   metricOrder: TrayMetric[],
   unavailableMetrics: TrayMetric[] = [],
 ) => {
@@ -384,10 +391,12 @@ export const normalizeVisibleMetrics = (
   return visibleMetrics.length > 0 ? visibleMetrics : fallbackMetrics;
 };
 
-const normalizeMetricList = (metrics: TrayMetric[]) => {
+const normalizeMetricList = (metrics: PersistedTrayMetric[]) => {
   const normalized: TrayMetric[] = [];
 
-  for (const metric of metrics) {
+  for (const persistedMetric of metrics) {
+    const metric = persistedMetric === "temp" ? "gpu-temp" : persistedMetric;
+
     if (CONFIGURABLE_METRICS.includes(metric) && !normalized.includes(metric)) {
       normalized.push(metric);
     }

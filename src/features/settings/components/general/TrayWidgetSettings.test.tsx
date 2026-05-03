@@ -244,6 +244,21 @@ describe("TrayWidgetSettings normalization", () => {
     });
   });
 
+  it("normalizes old temperature metric keys", () => {
+    const settings = normalizeSettings({
+      metricOrder: ["gpu", "temp", "cpu"],
+      visibleMetrics: ["temp", "gpu"],
+      updateIntervalSecs: 2,
+    });
+
+    expect(settings).toEqual({
+      enabled: false,
+      metricOrder: ["gpu", "gpu-temp", "cpu"],
+      visibleMetrics: ["gpu-temp", "gpu"],
+      updateIntervalSecs: 2,
+    });
+  });
+
   it("keeps metric order and filters visible metrics by that order", () => {
     const settings = normalizeSettings({
       enabled: true,
