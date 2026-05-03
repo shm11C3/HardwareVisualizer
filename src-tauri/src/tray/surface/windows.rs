@@ -811,7 +811,7 @@ mod tests {
       image
         .rgba()
         .chunks_exact(4)
-        .any(|pixel| &pixel[0..3] == &CRITICAL_COLOR.0[0..3] && pixel[3] > 0)
+        .any(|pixel| pixel[0..3] == CRITICAL_COLOR.0[0..3] && pixel[3] > 0)
     );
   }
 
@@ -829,7 +829,7 @@ mod tests {
       image
         .rgba()
         .chunks_exact(4)
-        .any(|pixel| &pixel[0..3] == &ICON_COLOR.0[0..3] && pixel[3] > 0)
+        .any(|pixel| pixel[0..3] == ICON_COLOR.0[0..3] && pixel[3] > 0)
     );
   }
 
