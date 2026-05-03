@@ -68,7 +68,14 @@ const onError = (error: unknown, info: ErrorInfo) => {
 /** Outer wrapper to catch initialization errors */
 export const App = () => {
   if (getCurrentWindowLabel() === "tray-widget-flyout") {
-    return <TrayWidgetFlyout />;
+    return (
+      <ErrorBoundary
+        FallbackComponent={RootErrorFallback}
+        onError={onRootError}
+      >
+        <TrayWidgetFlyout />
+      </ErrorBoundary>
+    );
   }
 
   return (

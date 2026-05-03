@@ -1,6 +1,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { Cpu, ExternalLink, Gpu, Thermometer, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const EVENT_TRAY_WIDGET_FRAME = "tray-widget-frame";
 const EVENT_TRAY_WIDGET_OPEN_MAIN_REQUESTED = "tray-widget-open-main-requested";
@@ -26,6 +27,7 @@ const INITIAL_FRAME: TrayWidgetFlyoutFrame = {
 };
 
 export const TrayWidgetFlyout = () => {
+  const { t } = useTranslation();
   const [frame, setFrame] = useState<TrayWidgetFlyoutFrame>(INITIAL_FRAME);
   const worstState = useMemo(() => getWorstState(frame.items), [frame.items]);
 
@@ -66,7 +68,7 @@ export const TrayWidgetFlyout = () => {
         </div>
         <div className="flex items-center gap-1">
           <button
-            aria-label="Open main window"
+            aria-label={t("trayWidgetFlyout.openMainWindow")}
             className="flex size-7 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-50"
             onClick={() => emit(EVENT_TRAY_WIDGET_OPEN_MAIN_REQUESTED)}
             type="button"
@@ -74,7 +76,7 @@ export const TrayWidgetFlyout = () => {
             <ExternalLink className="size-4" />
           </button>
           <button
-            aria-label="Close tray widget"
+            aria-label={t("trayWidgetFlyout.close")}
             className="flex size-7 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-50"
             onClick={() => emit(EVENT_TRAY_WIDGET_HIDE_REQUESTED)}
             type="button"
@@ -89,7 +91,7 @@ export const TrayWidgetFlyout = () => {
           frame.items.map((item) => <MetricRow item={item} key={item.metric} />)
         ) : (
           <p className="px-1 text-center text-sm text-zinc-400">
-            No tray metrics available
+            {t("trayWidgetFlyout.noMetrics")}
           </p>
         )}
       </section>
@@ -98,6 +100,7 @@ export const TrayWidgetFlyout = () => {
 };
 
 const MetricRow = ({ item }: { item: TrayWidgetFlyoutItem }) => {
+  const { t } = useTranslation();
   const Icon = metricIcon[item.metric];
 
   return (
@@ -106,7 +109,7 @@ const MetricRow = ({ item }: { item: TrayWidgetFlyoutItem }) => {
         <Icon className="size-4" />
       </div>
       <span className="truncate text-[13px] text-zinc-400">
-        {metricLabel[item.metric]}
+        {t(`trayWidgetFlyout.metric.${item.metric}`)}
       </span>
       <strong
         className={`font-semibold text-base tabular-nums leading-none ${stateTextClass[item.state]}`}
@@ -115,12 +118,6 @@ const MetricRow = ({ item }: { item: TrayWidgetFlyoutItem }) => {
       </strong>
     </div>
   );
-};
-
-const metricLabel: Record<TrayMetric, string> = {
-  cpu: "CPU",
-  gpu: "GPU",
-  temp: "Temp",
 };
 
 const metricIcon = {

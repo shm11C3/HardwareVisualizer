@@ -114,6 +114,17 @@
     "title": "Title"
   },
 
+  "trayWidgetFlyout": {
+    "openMainWindow": "Open main window",
+    "close": "Close tray widget",
+    "noMetrics": "No tray metrics available",
+    "metric": {
+      "cpu": "CPU usage",
+      "gpu": "GPU usage",
+      "temp": "Temperature"
+    }
+  },
+
   "errorBoundary": {
     "title": "An unexpected error has occurred",
     "description": "Reset the UI and settings, or report this issue if it persists.",

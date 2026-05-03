@@ -5,8 +5,8 @@ use std::{
 
 use serde::Serialize;
 use tauri::{
-  AppHandle, Emitter, Listener, Manager, PhysicalPosition, WebviewUrl, WebviewWindow,
-  WebviewWindowBuilder,
+  AppHandle, Emitter, Listener, Manager, Monitor, PhysicalPosition, PhysicalSize, Rect,
+  WebviewUrl, WebviewWindow, WebviewWindowBuilder,
   image::Image,
   menu::{Menu, MenuEvent, MenuItem},
   tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
@@ -169,19 +169,35 @@ fn handle_tray_event(
 ) {
   if let TrayIconEvent::Click {
     position,
+    rect,
     button: MouseButton::Left,
     button_state: MouseButtonState::Up,
     ..
   } = event
   {
-    toggle_flyout_window(app_handle, state, position)
+    if has_visible_flyout_frame(state) {
+      toggle_flyout_window(app_handle, state, position, rect);
+    } else {
+      hide_flyout_window(app_handle);
+      crate::adapters::tray::restore_main_window(app_handle);
+    }
   }
+}
+
+fn has_visible_flyout_frame(state: &WindowsTrayState) -> bool {
+  state
+    .latest_frame
+    .lock()
+    .unwrap()
+    .as_ref()
+    .is_some_and(|frame| !frame.items.is_empty())
 }
 
 fn toggle_flyout_window(
   app_handle: &AppHandle,
   state: &WindowsTrayState,
   click_position: PhysicalPosition<f64>,
+  tray_rect: Rect,
 ) {
   let Some(window) = app_handle.get_webview_window(TRAY_WIDGET_FLYOUT_LABEL) else {
     log_warn!(
@@ -203,7 +219,31 @@ fn toggle_flyout_window(
     return;
   }
 
-  if let Err(e) = window.set_position(flyout_position(click_position)) {
+  let monitor = match app_handle.monitor_from_point(click_position.x, click_position.y) {
+    Ok(monitor) => monitor,
+    Err(e) => {
+      log_warn!(
+        &format!("failed to resolve monitor for Windows tray flyout: {e}"),
+        "tray::surface::windows::toggle_flyout_window",
+        None::<&str>
+      );
+      None
+    }
+  };
+  let scale_factor = monitor
+    .as_ref()
+    .map(Monitor::scale_factor)
+    .unwrap_or_else(|| window.scale_factor().unwrap_or(1.0));
+  let flyout_size =
+    PhysicalSize::new(FLYOUT_WIDTH * scale_factor, FLYOUT_HEIGHT * scale_factor);
+  let position = flyout_position(
+    physical_rect_from_tauri_rect(tray_rect, scale_factor),
+    monitor.as_ref().map(monitor_work_area),
+    flyout_size,
+    FLYOUT_OFFSET * scale_factor,
+  );
+
+  if let Err(e) = window.set_position(position) {
     log_warn!(
       &format!("failed to position Windows tray flyout: {e}"),
       "tray::surface::windows::toggle_flyout_window",
@@ -244,11 +284,65 @@ fn hide_flyout_window(app_handle: &AppHandle) {
   }
 }
 
-fn flyout_position(click_position: PhysicalPosition<f64>) -> PhysicalPosition<f64> {
-  PhysicalPosition::new(
-    (click_position.x - FLYOUT_WIDTH + 28.0).max(0.0),
-    (click_position.y - FLYOUT_HEIGHT - FLYOUT_OFFSET).max(0.0),
-  )
+fn physical_rect_from_tauri_rect(rect: Rect, scale_factor: f64) -> PhysicalRectF {
+  let position = rect.position.to_physical::<f64>(scale_factor);
+  let size = rect.size.to_physical::<f64>(scale_factor);
+
+  PhysicalRectF {
+    x: position.x,
+    y: position.y,
+    width: size.width,
+    height: size.height,
+  }
+}
+
+fn monitor_work_area(monitor: &Monitor) -> PhysicalRectF {
+  let work_area = monitor.work_area();
+
+  PhysicalRectF {
+    x: work_area.position.x as f64,
+    y: work_area.position.y as f64,
+    width: work_area.size.width as f64,
+    height: work_area.size.height as f64,
+  }
+}
+
+fn flyout_position(
+  tray_rect: PhysicalRectF,
+  work_area: Option<PhysicalRectF>,
+  flyout_size: PhysicalSize<f64>,
+  offset: f64,
+) -> PhysicalPosition<f64> {
+  let mut x = tray_rect.right() - flyout_size.width;
+  let mut y = tray_rect.y - flyout_size.height - offset;
+
+  if let Some(work_area) = work_area {
+    if tray_rect.bottom() <= work_area.y {
+      x = tray_rect.center_x() - flyout_size.width / 2.0;
+      y = tray_rect.bottom() + offset;
+    } else if tray_rect.right() <= work_area.x {
+      x = tray_rect.right() + offset;
+      y = tray_rect.center_y() - flyout_size.height / 2.0;
+    } else if tray_rect.x >= work_area.right() {
+      x = tray_rect.x - flyout_size.width - offset;
+      y = tray_rect.center_y() - flyout_size.height / 2.0;
+    }
+
+    x = clamp_to_bounds(x, flyout_size.width, work_area.x, work_area.right());
+    y = clamp_to_bounds(y, flyout_size.height, work_area.y, work_area.bottom());
+  }
+
+  PhysicalPosition::new(x.round(), y.round())
+}
+
+fn clamp_to_bounds(value: f64, size: f64, min: f64, max: f64) -> f64 {
+  let max_start = max - size;
+
+  if max_start < min {
+    min
+  } else {
+    value.clamp(min, max_start)
+  }
 }
 
 fn emit_flyout_frame(app_handle: &AppHandle, frame: &WindowsFlyoutFrame) {
@@ -387,6 +481,32 @@ fn state_name(state: MetricState) -> &'static str {
     MetricState::Normal => "normal",
     MetricState::Warning => "warning",
     MetricState::Critical => "critical",
+  }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PhysicalRectF {
+  x: f64,
+  y: f64,
+  width: f64,
+  height: f64,
+}
+
+impl PhysicalRectF {
+  fn right(self) -> f64 {
+    self.x + self.width
+  }
+
+  fn bottom(self) -> f64 {
+    self.y + self.height
+  }
+
+  fn center_x(self) -> f64 {
+    self.x + self.width / 2.0
+  }
+
+  fn center_y(self) -> f64 {
+    self.y + self.height / 2.0
   }
 }
 
@@ -854,10 +974,66 @@ mod tests {
   }
 
   #[test]
-  fn flyout_position_opens_above_the_tray_click() {
-    let position = flyout_position(PhysicalPosition::new(1920.0, 1080.0));
+  fn flyout_position_opens_above_a_bottom_taskbar_tray_rect() {
+    let position = flyout_position(
+      PhysicalRectF {
+        x: 1880.0,
+        y: 1048.0,
+        width: 32.0,
+        height: 32.0,
+      },
+      Some(PhysicalRectF {
+        x: 0.0,
+        y: 0.0,
+        width: 1920.0,
+        height: 1040.0,
+      }),
+      PhysicalSize::new(300.0, 148.0),
+      12.0,
+    );
 
-    assert_eq!(position.x, 1648.0);
-    assert_eq!(position.y, 920.0);
+    assert_eq!(position.x, 1612.0);
+    assert_eq!(position.y, 888.0);
+  }
+
+  #[test]
+  fn flyout_position_does_not_clamp_unknown_monitor_to_zero() {
+    let position = flyout_position(
+      PhysicalRectF {
+        x: -80.0,
+        y: 1048.0,
+        width: 32.0,
+        height: 32.0,
+      },
+      None,
+      PhysicalSize::new(300.0, 148.0),
+      12.0,
+    );
+
+    assert_eq!(position.x, -348.0);
+    assert_eq!(position.y, 888.0);
+  }
+
+  #[test]
+  fn flyout_position_opens_below_a_top_taskbar_tray_rect() {
+    let position = flyout_position(
+      PhysicalRectF {
+        x: 944.0,
+        y: 0.0,
+        width: 32.0,
+        height: 32.0,
+      },
+      Some(PhysicalRectF {
+        x: 0.0,
+        y: 40.0,
+        width: 1920.0,
+        height: 1040.0,
+      }),
+      PhysicalSize::new(300.0, 148.0),
+      12.0,
+    );
+
+    assert_eq!(position.x, 810.0);
+    assert_eq!(position.y, 44.0);
   }
 }
