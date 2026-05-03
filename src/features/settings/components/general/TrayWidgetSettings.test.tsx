@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
         over: { id: string } | null;
       }) => Promise<void>)
     | undefined,
+  platform: vi.fn(() => "windows"),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -34,7 +35,7 @@ vi.mock("react-i18next", () => ({
         "pages.settings.general.trayWidget.updateInterval": "Update interval",
         "pages.settings.general.trayWidget.metric.cpu": "CPU",
         "pages.settings.general.trayWidget.metric.gpu": "GPU",
-        "pages.settings.general.trayWidget.metric.temp": "Temperature",
+        "pages.settings.general.trayWidget.metric.gpu-temp": "GPU temperature",
         "pages.settings.general.trayWidget.dragMetric": `Drag ${params?.metric}`,
         "pages.settings.general.trayWidget.seconds": `${params?.count}s`,
       };
@@ -46,6 +47,10 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("@/hooks/useTauriStore", () => ({
   useTauriStore: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: mocks.platform,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -227,14 +232,14 @@ describe("TrayWidgetSettings normalization", () => {
 
   it("normalizes legacy metrics into order and visibility", () => {
     const settings = normalizeSettings({
-      metrics: ["gpu", "temp", "cpu"],
+      metrics: ["gpu", "gpu-temp", "cpu"],
       updateIntervalSecs: 2,
     });
 
     expect(settings).toEqual({
       enabled: false,
-      metricOrder: ["gpu", "temp", "cpu"],
-      visibleMetrics: ["gpu", "temp", "cpu"],
+      metricOrder: ["gpu", "gpu-temp", "cpu"],
+      visibleMetrics: ["gpu", "gpu-temp", "cpu"],
       updateIntervalSecs: 2,
     });
   });
@@ -243,29 +248,57 @@ describe("TrayWidgetSettings normalization", () => {
     const settings = normalizeSettings({
       enabled: true,
       metricOrder: ["gpu", "cpu"],
-      visibleMetrics: ["cpu", "temp"],
+      visibleMetrics: ["cpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
 
     expect(settings).toEqual({
       enabled: true,
-      metricOrder: ["gpu", "cpu", "temp"],
-      visibleMetrics: ["cpu", "temp"],
+      metricOrder: ["gpu", "cpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu-temp"],
+      updateIntervalSecs: 1,
+    });
+  });
+
+  it("removes unavailable metrics from order and visibility", () => {
+    const settings = normalizeSettings(
+      {
+        enabled: true,
+        metricOrder: ["gpu-temp", "gpu", "cpu"],
+        visibleMetrics: ["gpu-temp", "gpu"],
+        updateIntervalSecs: 1,
+      },
+      ["gpu-temp"],
+    );
+
+    expect(settings).toEqual({
+      enabled: true,
+      metricOrder: ["gpu", "cpu"],
+      visibleMetrics: ["gpu"],
       updateIntervalSecs: 1,
     });
   });
 
   it("removes duplicate metrics from metric order", () => {
-    expect(normalizeMetricOrder(["gpu", "temp", "gpu", "cpu"])).toEqual([
+    expect(normalizeMetricOrder(["gpu", "gpu-temp", "gpu", "cpu"])).toEqual([
       "gpu",
-      "temp",
+      "gpu-temp",
       "cpu",
     ]);
   });
 
+  it("removes unavailable metrics from metric order", () => {
+    expect(
+      normalizeMetricOrder(["gpu", "gpu-temp", "cpu"], ["gpu-temp"]),
+    ).toEqual(["gpu", "cpu"]);
+  });
+
   it("removes duplicate and non-configurable visible metrics", () => {
     expect(
-      normalizeVisibleMetrics(["temp", "gpu", "gpu", "cpu"], ["cpu", "gpu"]),
+      normalizeVisibleMetrics(
+        ["gpu-temp", "gpu", "gpu", "cpu"],
+        ["cpu", "gpu"],
+      ),
     ).toEqual(["gpu", "cpu"]);
   });
 
@@ -283,7 +316,7 @@ describe("TrayWidgetSettings normalization", () => {
   });
 
   it("falls back to metric order when visible metrics normalize to empty", () => {
-    expect(normalizeVisibleMetrics(["temp"], ["gpu", "cpu"])).toEqual([
+    expect(normalizeVisibleMetrics(["gpu-temp"], ["gpu", "cpu"])).toEqual([
       "gpu",
       "cpu",
     ]);
@@ -294,8 +327,8 @@ describe("TrayWidgetSettings normalization", () => {
 
     expect(settings).toEqual({
       enabled: false,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
   });
@@ -305,11 +338,12 @@ describe("TrayWidgetSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.latestDragEnd = undefined;
+    mocks.platform.mockReturnValue("windows");
     mockAvailability(true);
     mockStore({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
   });
@@ -321,8 +355,8 @@ describe("TrayWidgetSettings", () => {
   it("hides metric controls while the tray widget is disabled", () => {
     mockStore({
       enabled: false,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
 
@@ -349,18 +383,31 @@ describe("TrayWidgetSettings", () => {
     expect(screen.getByText("Metrics")).toBeInTheDocument();
     expect(screen.getByLabelText("GPU")).toBeChecked();
     expect(screen.getByLabelText("CPU")).not.toBeChecked();
-    expect(screen.getByLabelText("Temperature")).not.toBeChecked();
+    expect(screen.getByLabelText("GPU temperature")).not.toBeChecked();
     expect(screen.getByLabelText("GPU")).toBeDisabled();
     expect(screen.getByLabelText("Update interval")).toHaveValue("2");
     expect(screen.getByRole("button", { name: "Drag GPU" })).toBeEnabled();
+  });
+
+  it("hides GPU temperature metric on macOS", () => {
+    mocks.platform.mockReturnValue("macos");
+
+    render(<TrayWidgetSettings />);
+
+    expect(screen.getByLabelText("CPU")).toBeChecked();
+    expect(screen.getByLabelText("GPU")).toBeChecked();
+    expect(screen.queryByLabelText("GPU temperature")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Drag GPU temperature" }),
+    ).not.toBeInTheDocument();
   });
 
   it("persists enabled changes", async () => {
     const user = userEvent.setup();
     mockStore({
       enabled: false,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
 
@@ -370,8 +417,8 @@ describe("TrayWidgetSettings", () => {
 
     expect(setSettings).toHaveBeenCalledWith({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
   });
@@ -385,8 +432,8 @@ describe("TrayWidgetSettings", () => {
 
     expect(setSettings).toHaveBeenCalledWith({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
 
@@ -394,7 +441,7 @@ describe("TrayWidgetSettings", () => {
     setSettings.mockClear();
     mockStore({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
       visibleMetrics: ["cpu"],
       updateIntervalSecs: 1,
     });
@@ -409,7 +456,7 @@ describe("TrayWidgetSettings", () => {
     const user = userEvent.setup();
     mockStore({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
       visibleMetrics: ["cpu"],
       updateIntervalSecs: 1,
     });
@@ -420,7 +467,7 @@ describe("TrayWidgetSettings", () => {
 
     expect(setSettings).toHaveBeenCalledWith({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
       visibleMetrics: ["cpu", "gpu"],
       updateIntervalSecs: 1,
     });
@@ -435,8 +482,8 @@ describe("TrayWidgetSettings", () => {
 
     expect(setSettings).toHaveBeenCalledWith({
       enabled: true,
-      metricOrder: ["cpu", "gpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 5,
     });
   });
@@ -452,8 +499,8 @@ describe("TrayWidgetSettings", () => {
 
     expect(setSettings).toHaveBeenCalledWith({
       enabled: true,
-      metricOrder: ["gpu", "cpu", "temp"],
-      visibleMetrics: ["cpu", "gpu", "temp"],
+      metricOrder: ["gpu", "cpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
   });

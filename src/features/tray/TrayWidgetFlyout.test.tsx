@@ -6,7 +6,7 @@ import { TrayWidgetFlyout } from "@/features/tray/TrayWidgetFlyout";
 type TrayWidgetFrameEvent = {
   payload: {
     items: Array<{
-      metric: "cpu" | "gpu" | "temp";
+      metric: "cpu" | "gpu" | "gpu-temp";
       value: string;
       state: "normal" | "warning" | "critical";
     }>;
@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
     "trayWidgetFlyout.noMetrics": "No tray metrics available",
     "trayWidgetFlyout.metric.cpu": "CPU usage",
     "trayWidgetFlyout.metric.gpu": "GPU usage",
-    "trayWidgetFlyout.metric.temp": "Temperature",
+    "trayWidgetFlyout.metric.gpu-temp": "GPU temperature",
   } as Record<string, string>,
 }));
 
@@ -77,7 +77,7 @@ describe("TrayWidgetFlyout", () => {
       payload: {
         items: [
           { metric: "cpu", value: "42%", state: "normal" },
-          { metric: "temp", value: "84C", state: "warning" },
+          { metric: "gpu-temp", value: "84C", state: "warning" },
         ],
         tooltip: "CPU usage: 42%",
       },
@@ -85,7 +85,7 @@ describe("TrayWidgetFlyout", () => {
 
     expect(screen.getByText("CPU usage")).toBeInTheDocument();
     expect(screen.getByText("42%")).toBeInTheDocument();
-    expect(screen.getByText("Temperature")).toBeInTheDocument();
+    expect(screen.getByText("GPU temperature")).toBeInTheDocument();
     expect(screen.getByText("84C")).toBeInTheDocument();
   });
 
