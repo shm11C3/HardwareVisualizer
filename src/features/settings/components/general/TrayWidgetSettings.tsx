@@ -46,12 +46,12 @@ type PersistedTrayWidgetStore = Partial<TrayWidgetStore>;
 
 const DEFAULT_TRAY_WIDGET_SETTINGS: TrayWidgetStore = {
   enabled: false,
-  metricOrder: ["cpu", "gpu"],
-  visibleMetrics: ["cpu", "gpu"],
+  metricOrder: ["cpu", "gpu", "temp"],
+  visibleMetrics: ["cpu", "gpu", "temp"],
   updateIntervalSecs: 1,
 };
 
-const CONFIGURABLE_METRICS: TrayMetric[] = ["cpu", "gpu"];
+const CONFIGURABLE_METRICS: TrayMetric[] = ["cpu", "gpu", "temp"];
 const UPDATE_INTERVALS = [1, 2, 5] as const;
 
 export const TrayWidgetSettings = () => {

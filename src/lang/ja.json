@@ -114,6 +114,17 @@
     "title": "タイトル"
   },
 
+  "trayWidgetFlyout": {
+    "openMainWindow": "メインウィンドウを開く",
+    "close": "トレイウィジェットを閉じる",
+    "noMetrics": "表示できるトレイメトリクスがありません",
+    "metric": {
+      "cpu": "CPU使用率",
+      "gpu": "GPU使用率",
+      "temp": "温度"
+    }
+  },
+
   "errorBoundary": {
     "title": "予期しないエラーが発生しました",
     "description": "UI と設定をリセットするか、問題が続く場合は報告してください。",

@@ -245,7 +245,23 @@ pub fn run() {
       Ok(())
     })
     .on_window_event(|win, ev| {
-      if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+      if win.label() == tray::TRAY_WIDGET_FLYOUT_LABEL {
+        match ev {
+          tauri::WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
+            let _ = win.hide();
+          }
+          tauri::WindowEvent::Focused(false) => {
+            let _ = win.hide();
+          }
+          _ => {}
+        }
+        return;
+      }
+
+      if win.label() == "main"
+        && let tauri::WindowEvent::CloseRequested { api, .. } = ev
+      {
         // Always prevent the default close so lifecycle picks the
         // outcome (hide vs. quit) deterministically — see
         // `lifecycle::handle_close_request` for the policy.

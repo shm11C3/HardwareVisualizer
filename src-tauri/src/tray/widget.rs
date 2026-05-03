@@ -9,7 +9,8 @@ pub const STORE_KEY_TRAY_WIDGET: &str = "trayWidget";
 
 const DEFAULT_UPDATE_INTERVAL_SECS: u64 = 1;
 const UPDATE_INTERVALS_SECS: [u64; 3] = [1, 2, 5];
-const CONFIGURABLE_METRICS: [TrayMetric; 2] = [TrayMetric::Cpu, TrayMetric::Gpu];
+const CONFIGURABLE_METRICS: [TrayMetric; 3] =
+  [TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::Temp];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,7 +74,7 @@ impl TrayWidgetSettings {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MetricState {
   Normal,
   Warning,
@@ -595,11 +596,11 @@ mod tests {
 
     assert_eq!(
       settings.metric_order,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu]
+      vec![TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::Temp]
     );
     assert_eq!(
       settings.visible_metrics,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu]
+      vec![TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::Temp]
     );
     assert_eq!(settings.update_interval_secs, 1);
   }
@@ -664,9 +665,12 @@ mod tests {
 
     assert_eq!(
       settings.metric_order,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu]
+      vec![TrayMetric::Temp, TrayMetric::Cpu, TrayMetric::Gpu]
     );
-    assert_eq!(settings.visible_metrics, vec![TrayMetric::Cpu]);
+    assert_eq!(
+      settings.visible_metrics,
+      vec![TrayMetric::Temp, TrayMetric::Cpu]
+    );
   }
 
   #[test]
@@ -681,16 +685,16 @@ mod tests {
     assert_eq!(settings.update_interval_secs, 1);
     assert_eq!(
       settings.metric_order,
-      vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      vec![TrayMetric::Gpu, TrayMetric::Temp, TrayMetric::Cpu]
     );
     assert_eq!(
       settings.visible_metrics,
-      vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      vec![TrayMetric::Gpu, TrayMetric::Temp, TrayMetric::Cpu]
     );
   }
 
   #[test]
-  fn normalizes_temperature_out_of_current_store_shape() {
+  fn keeps_temperature_in_current_store_shape() {
     let settings = TrayWidgetSettings {
       enabled: true,
       metric_order: vec![TrayMetric::Temp, TrayMetric::Gpu],
@@ -702,8 +706,11 @@ mod tests {
 
     assert_eq!(
       settings.metric_order,
-      vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      vec![TrayMetric::Temp, TrayMetric::Gpu, TrayMetric::Cpu]
     );
-    assert_eq!(settings.visible_metrics, vec![TrayMetric::Gpu]);
+    assert_eq!(
+      settings.visible_metrics,
+      vec![TrayMetric::Temp, TrayMetric::Gpu]
+    );
   }
 }
