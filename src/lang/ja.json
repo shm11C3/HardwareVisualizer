@@ -121,7 +121,7 @@
     "metric": {
       "cpu": "CPU使用率",
       "gpu": "GPU使用率",
-      "temp": "温度"
+      "gpu-temp": "GPU温度"
     }
   },
 
@@ -229,7 +229,7 @@
           "metric": {
             "cpu": "CPU使用率",
             "gpu": "GPU使用率",
-            "temp": "温度"
+            "gpu-temp": "GPU温度"
           }
         },
         "autostart": {

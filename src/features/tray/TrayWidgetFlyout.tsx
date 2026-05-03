@@ -7,7 +7,7 @@ const EVENT_TRAY_WIDGET_FRAME = "tray-widget-frame";
 const EVENT_TRAY_WIDGET_OPEN_MAIN_REQUESTED = "tray-widget-open-main-requested";
 const EVENT_TRAY_WIDGET_HIDE_REQUESTED = "tray-widget-hide-requested";
 
-type TrayMetric = "cpu" | "gpu" | "temp";
+type TrayMetric = "cpu" | "gpu" | "gpu-temp";
 type TrayMetricState = "normal" | "warning" | "critical";
 
 type TrayWidgetFlyoutItem = {
@@ -123,7 +123,7 @@ const MetricRow = ({ item }: { item: TrayWidgetFlyoutItem }) => {
 const metricIcon = {
   cpu: Cpu,
   gpu: Gpu,
-  temp: Thermometer,
+  "gpu-temp": Thermometer,
 };
 
 const stateTextClass: Record<TrayMetricState, string> = {

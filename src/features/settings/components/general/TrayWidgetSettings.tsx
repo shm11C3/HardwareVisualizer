@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { platform } from "@tauri-apps/plugin-os";
 import { AlertTriangleIcon, GripVerticalIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,7 +33,8 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
-export type TrayMetric = "cpu" | "gpu" | "temp";
+export type TrayMetric = "cpu" | "gpu" | "gpu-temp";
+type PersistedTrayMetric = TrayMetric | "temp";
 
 export type TrayWidgetStore = {
   enabled: boolean;
@@ -42,20 +44,29 @@ export type TrayWidgetStore = {
   metrics?: TrayMetric[];
 };
 
-type PersistedTrayWidgetStore = Partial<TrayWidgetStore>;
+type PersistedTrayWidgetStore = Partial<
+  Omit<TrayWidgetStore, "metricOrder" | "visibleMetrics" | "metrics"> & {
+    metricOrder: PersistedTrayMetric[];
+    visibleMetrics: PersistedTrayMetric[];
+    metrics: PersistedTrayMetric[];
+  }
+>;
 
 const DEFAULT_TRAY_WIDGET_SETTINGS: TrayWidgetStore = {
   enabled: false,
-  metricOrder: ["cpu", "gpu", "temp"],
-  visibleMetrics: ["cpu", "gpu", "temp"],
+  metricOrder: ["cpu", "gpu", "gpu-temp"],
+  visibleMetrics: ["cpu", "gpu", "gpu-temp"],
   updateIntervalSecs: 1,
 };
 
-const CONFIGURABLE_METRICS: TrayMetric[] = ["cpu", "gpu", "temp"];
+const CONFIGURABLE_METRICS: TrayMetric[] = ["cpu", "gpu", "gpu-temp"];
+const MACOS_UNAVAILABLE_METRICS: TrayMetric[] = ["gpu-temp"];
 const UPDATE_INTERVALS = [1, 2, 5] as const;
 
 export const TrayWidgetSettings = () => {
   const { t } = useTranslation();
+  const unavailableMetrics =
+    platform() === "macos" ? MACOS_UNAVAILABLE_METRICS : [];
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -68,7 +79,7 @@ export const TrayWidgetSettings = () => {
       DEFAULT_TRAY_WIDGET_SETTINGS,
     );
   const [isAvailable, setIsAvailable] = useState(true);
-  const normalizedSettings = normalizeSettings(settings);
+  const normalizedSettings = normalizeSettings(settings, unavailableMetrics);
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -315,6 +326,7 @@ const SortableMetricRow = ({
 
 export const normalizeSettings = (
   settings: PersistedTrayWidgetStore | null,
+  unavailableMetrics: TrayMetric[] = [],
 ): TrayWidgetStore | null => {
   if (!settings) {
     return null;
@@ -323,10 +335,12 @@ export const normalizeSettings = (
   const legacyMetrics = normalizeMetricList(settings.metrics ?? []);
   const metricOrder = normalizeMetricOrder(
     settings.metricOrder?.length ? settings.metricOrder : legacyMetrics,
+    unavailableMetrics,
   );
   const visibleMetrics = normalizeVisibleMetrics(
     settings.visibleMetrics?.length ? settings.visibleMetrics : legacyMetrics,
     metricOrder,
+    unavailableMetrics,
   );
   const updateIntervalSecs = settings.updateIntervalSecs;
 
@@ -344,11 +358,16 @@ export const normalizeSettings = (
   };
 };
 
-export const normalizeMetricOrder = (metrics: TrayMetric[]) => {
-  const metricOrder = normalizeMetricList(metrics);
+export const normalizeMetricOrder = (
+  metrics: PersistedTrayMetric[],
+  unavailableMetrics: TrayMetric[] = [],
+) => {
+  const metricOrder = normalizeMetricList(metrics).filter(
+    (metric) => !unavailableMetrics.includes(metric),
+  );
 
   for (const metric of CONFIGURABLE_METRICS) {
-    if (!metricOrder.includes(metric)) {
+    if (!unavailableMetrics.includes(metric) && !metricOrder.includes(metric)) {
       metricOrder.push(metric);
     }
   }
@@ -357,20 +376,27 @@ export const normalizeMetricOrder = (metrics: TrayMetric[]) => {
 };
 
 export const normalizeVisibleMetrics = (
-  metrics: TrayMetric[],
+  metrics: PersistedTrayMetric[],
   metricOrder: TrayMetric[],
+  unavailableMetrics: TrayMetric[] = [],
 ) => {
-  const visibleMetrics = normalizeMetricList(metrics).filter((metric) =>
-    metricOrder.includes(metric),
+  const visibleMetrics = normalizeMetricList(metrics).filter(
+    (metric) =>
+      metricOrder.includes(metric) && !unavailableMetrics.includes(metric),
+  );
+  const fallbackMetrics = metricOrder.filter(
+    (metric) => !unavailableMetrics.includes(metric),
   );
 
-  return visibleMetrics.length > 0 ? visibleMetrics : metricOrder;
+  return visibleMetrics.length > 0 ? visibleMetrics : fallbackMetrics;
 };
 
-const normalizeMetricList = (metrics: TrayMetric[]) => {
+const normalizeMetricList = (metrics: PersistedTrayMetric[]) => {
   const normalized: TrayMetric[] = [];
 
-  for (const metric of metrics) {
+  for (const persistedMetric of metrics) {
+    const metric = persistedMetric === "temp" ? "gpu-temp" : persistedMetric;
+
     if (CONFIGURABLE_METRICS.includes(metric) && !normalized.includes(metric)) {
       normalized.push(metric);
     }

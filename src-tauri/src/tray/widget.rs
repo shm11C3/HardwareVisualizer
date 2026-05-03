@@ -9,15 +9,20 @@ pub const STORE_KEY_TRAY_WIDGET: &str = "trayWidget";
 
 const DEFAULT_UPDATE_INTERVAL_SECS: u64 = 1;
 const UPDATE_INTERVALS_SECS: [u64; 3] = [1, 2, 5];
+
+#[cfg(target_os = "macos")]
+const CONFIGURABLE_METRICS: [TrayMetric; 2] = [TrayMetric::Cpu, TrayMetric::Gpu];
+#[cfg(not(target_os = "macos"))]
 const CONFIGURABLE_METRICS: [TrayMetric; 3] =
-  [TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::Temp];
+  [TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::GpuTemp];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub enum TrayMetric {
   Cpu,
   Gpu,
-  Temp,
+  #[serde(alias = "temp")]
+  GpuTemp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -173,7 +178,7 @@ pub fn collect_samples(
     .filter_map(|metric| match metric {
       TrayMetric::Cpu => Some((*metric, snapshot.cpu_usage)),
       TrayMetric::Gpu => max_gpu_usage(snapshot).map(|value| (*metric, value)),
-      TrayMetric::Temp => {
+      TrayMetric::GpuTemp => {
         hottest_temperature_celsius(snapshot).map(|value| (*metric, value))
       }
     })
@@ -233,7 +238,7 @@ pub fn classify_metric_state(metric: TrayMetric, value: f32) -> MetricState {
   match metric {
     TrayMetric::Cpu => classify(value, 70.0, 85.0),
     TrayMetric::Gpu => classify(value, 70.0, 90.0),
-    TrayMetric::Temp => classify(value, 70.0, 85.0),
+    TrayMetric::GpuTemp => classify(value, 70.0, 85.0),
   }
 }
 
@@ -316,10 +321,10 @@ fn metric_icon_config(metric: TrayMetric) -> TrayMetricIcon {
       macos_symbol_name: "display",
       accessibility_label: "GPU usage",
     },
-    TrayMetric::Temp => TrayMetricIcon {
+    TrayMetric::GpuTemp => TrayMetricIcon {
       fallback_label: "TEMP",
       macos_symbol_name: "thermometer",
-      accessibility_label: "Temperature",
+      accessibility_label: "GPU temperature",
     },
   }
 }
@@ -331,7 +336,7 @@ fn format_tooltip_sample(
   let label = match sample.metric {
     TrayMetric::Cpu => "CPU usage",
     TrayMetric::Gpu => "GPU usage",
-    TrayMetric::Temp => "Temperature",
+    TrayMetric::GpuTemp => "GPU temperature",
   };
 
   format!(
@@ -348,7 +353,7 @@ fn format_value(
 ) -> String {
   match metric {
     TrayMetric::Cpu | TrayMetric::Gpu => format!("{}%", value.round() as i32),
-    TrayMetric::Temp => {
+    TrayMetric::GpuTemp => {
       let (value, suffix) = match temperature_unit {
         TemperatureUnit::Celsius => (value, "C"),
         TemperatureUnit::Fahrenheit => (value * 9.0 / 5.0 + 32.0, "F"),
@@ -424,7 +429,7 @@ mod tests {
       MetricState::Critical
     );
     assert_eq!(
-      classify_metric_state(TrayMetric::Temp, 85.0),
+      classify_metric_state(TrayMetric::GpuTemp, 85.0),
       MetricState::Critical
     );
   }
@@ -594,14 +599,8 @@ mod tests {
     }
     .normalized();
 
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::Temp]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::Temp]
-    );
+    assert_eq!(settings.metric_order, CONFIGURABLE_METRICS.to_vec());
+    assert_eq!(settings.visible_metrics, CONFIGURABLE_METRICS.to_vec());
     assert_eq!(settings.update_interval_secs, 1);
   }
 
@@ -638,7 +637,7 @@ mod tests {
   fn filters_visible_metrics_by_metric_order() {
     let settings = TrayWidgetSettings {
       enabled: true,
-      metric_order: vec![TrayMetric::Temp, TrayMetric::Cpu, TrayMetric::Gpu],
+      metric_order: vec![TrayMetric::GpuTemp, TrayMetric::Cpu, TrayMetric::Gpu],
       visible_metrics: vec![TrayMetric::Gpu, TrayMetric::Cpu],
       update_interval_secs: 1,
       legacy_metrics: vec![],
@@ -659,58 +658,124 @@ mod tests {
       metric_order: vec![],
       visible_metrics: vec![],
       update_interval_secs: 2,
-      legacy_metrics: vec![TrayMetric::Temp, TrayMetric::Cpu],
+      legacy_metrics: vec![TrayMetric::GpuTemp, TrayMetric::Cpu],
     }
     .normalized();
 
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::Temp, TrayMetric::Cpu, TrayMetric::Gpu]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::Temp, TrayMetric::Cpu]
-    );
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Cpu, TrayMetric::Gpu]
+      );
+      assert_eq!(settings.visible_metrics, vec![TrayMetric::Cpu]);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::GpuTemp, TrayMetric::Cpu, TrayMetric::Gpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+    }
+  }
+
+  #[test]
+  fn deserializes_old_temperature_metric_key() {
+    let settings = serde_json::from_value::<TrayWidgetSettings>(serde_json::json!({
+      "metricOrder": ["gpu", "temp", "cpu"],
+      "visibleMetrics": ["temp", "gpu"]
+    }))
+    .expect("old tray widget temperature metric key should deserialize")
+    .normalized();
+
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(settings.visible_metrics, vec![TrayMetric::Gpu]);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::GpuTemp, TrayMetric::Gpu]
+      );
+    }
   }
 
   #[test]
   fn deserializes_partial_legacy_store_shape() {
     let settings = serde_json::from_value::<TrayWidgetSettings>(serde_json::json!({
-      "metrics": ["gpu", "temp", "cpu"]
+      "metrics": ["gpu", "gpu-temp", "cpu"]
     }))
     .expect("partial legacy tray widget settings should deserialize")
     .normalized();
 
     assert!(!settings.enabled);
     assert_eq!(settings.update_interval_secs, 1);
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::Gpu, TrayMetric::Temp, TrayMetric::Cpu]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::Gpu, TrayMetric::Temp, TrayMetric::Cpu]
-    );
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+    }
   }
 
   #[test]
   fn keeps_temperature_in_current_store_shape() {
     let settings = TrayWidgetSettings {
       enabled: true,
-      metric_order: vec![TrayMetric::Temp, TrayMetric::Gpu],
-      visible_metrics: vec![TrayMetric::Temp, TrayMetric::Gpu],
+      metric_order: vec![TrayMetric::GpuTemp, TrayMetric::Gpu],
+      visible_metrics: vec![TrayMetric::GpuTemp, TrayMetric::Gpu],
       update_interval_secs: 1,
       legacy_metrics: vec![],
     }
     .normalized();
 
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::Temp, TrayMetric::Gpu, TrayMetric::Cpu]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::Temp, TrayMetric::Gpu]
-    );
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(settings.visible_metrics, vec![TrayMetric::Gpu]);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::GpuTemp, TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::GpuTemp, TrayMetric::Gpu]
+      );
+    }
   }
 }
