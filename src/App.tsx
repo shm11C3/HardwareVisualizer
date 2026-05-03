@@ -28,6 +28,7 @@ import {
   GearIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { clearTauriStore } from "@/lib/tauriStore";
@@ -35,6 +36,7 @@ import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
 import { displayTargetAtom } from "./features/menu/hooks/useMenu";
+import { TrayWidgetFlyout } from "./features/tray/TrayWidgetFlyout";
 import { AppUpdate } from "./features/updater/AppUpdate";
 import { useFullScreenMode } from "./hooks/useFullScreenMode";
 import { useKeydown } from "./hooks/useInputListener";
@@ -65,11 +67,23 @@ const onError = (error: unknown, info: ErrorInfo) => {
 
 /** Outer wrapper to catch initialization errors */
 export const App = () => {
+  if (getCurrentWindowLabel() === "tray-widget-flyout") {
+    return <TrayWidgetFlyout />;
+  }
+
   return (
     <ErrorBoundary FallbackComponent={RootErrorFallback} onError={onRootError}>
       <AppContent />
     </ErrorBoundary>
   );
+};
+
+const getCurrentWindowLabel = () => {
+  try {
+    return getCurrentWindow().label;
+  } catch {
+    return "main";
+  }
 };
 
 /** Main app content with reset-capable error boundary */

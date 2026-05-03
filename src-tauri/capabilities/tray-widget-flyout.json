@@ -1,0 +1,7 @@
+{
+  "identifier": "tray-widget-flyout",
+  "description": "Capability for the Windows tray widget flyout",
+  "platforms": ["windows"],
+  "windows": ["tray-widget-flyout"],
+  "permissions": ["core:default"]
+}

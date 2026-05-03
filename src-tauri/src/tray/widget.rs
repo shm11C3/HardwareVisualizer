@@ -73,7 +73,7 @@ impl TrayWidgetSettings {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MetricState {
   Normal,
   Warning,
