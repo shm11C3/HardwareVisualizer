@@ -9,6 +9,10 @@ pub const STORE_KEY_TRAY_WIDGET: &str = "trayWidget";
 
 const DEFAULT_UPDATE_INTERVAL_SECS: u64 = 1;
 const UPDATE_INTERVALS_SECS: [u64; 3] = [1, 2, 5];
+
+#[cfg(target_os = "macos")]
+const CONFIGURABLE_METRICS: [TrayMetric; 2] = [TrayMetric::Cpu, TrayMetric::Gpu];
+#[cfg(not(target_os = "macos"))]
 const CONFIGURABLE_METRICS: [TrayMetric; 3] =
   [TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::GpuTemp];
 
@@ -17,6 +21,7 @@ const CONFIGURABLE_METRICS: [TrayMetric; 3] =
 pub enum TrayMetric {
   Cpu,
   Gpu,
+  #[serde(alias = "temp")]
   GpuTemp,
 }
 
@@ -594,14 +599,8 @@ mod tests {
     }
     .normalized();
 
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::GpuTemp]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::GpuTemp]
-    );
+    assert_eq!(settings.metric_order, CONFIGURABLE_METRICS.to_vec());
+    assert_eq!(settings.visible_metrics, CONFIGURABLE_METRICS.to_vec());
     assert_eq!(settings.update_interval_secs, 1);
   }
 
@@ -663,14 +662,55 @@ mod tests {
     }
     .normalized();
 
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::GpuTemp, TrayMetric::Cpu, TrayMetric::Gpu]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::GpuTemp, TrayMetric::Cpu]
-    );
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Cpu, TrayMetric::Gpu]
+      );
+      assert_eq!(settings.visible_metrics, vec![TrayMetric::Cpu]);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::GpuTemp, TrayMetric::Cpu, TrayMetric::Gpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+    }
+  }
+
+  #[test]
+  fn deserializes_old_temperature_metric_key() {
+    let settings = serde_json::from_value::<TrayWidgetSettings>(serde_json::json!({
+      "metricOrder": ["gpu", "temp", "cpu"],
+      "visibleMetrics": ["temp", "gpu"]
+    }))
+    .expect("old tray widget temperature metric key should deserialize")
+    .normalized();
+
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(settings.visible_metrics, vec![TrayMetric::Gpu]);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::GpuTemp, TrayMetric::Gpu]
+      );
+    }
   }
 
   #[test]
@@ -683,14 +723,28 @@ mod tests {
 
     assert!(!settings.enabled);
     assert_eq!(settings.update_interval_secs, 1);
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
-    );
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::Gpu, TrayMetric::GpuTemp, TrayMetric::Cpu]
+      );
+    }
   }
 
   #[test]
@@ -704,13 +758,24 @@ mod tests {
     }
     .normalized();
 
-    assert_eq!(
-      settings.metric_order,
-      vec![TrayMetric::GpuTemp, TrayMetric::Gpu, TrayMetric::Cpu]
-    );
-    assert_eq!(
-      settings.visible_metrics,
-      vec![TrayMetric::GpuTemp, TrayMetric::Gpu]
-    );
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(settings.visible_metrics, vec![TrayMetric::Gpu]);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      assert_eq!(
+        settings.metric_order,
+        vec![TrayMetric::GpuTemp, TrayMetric::Gpu, TrayMetric::Cpu]
+      );
+      assert_eq!(
+        settings.visible_metrics,
+        vec![TrayMetric::GpuTemp, TrayMetric::Gpu]
+      );
+    }
   }
 }
