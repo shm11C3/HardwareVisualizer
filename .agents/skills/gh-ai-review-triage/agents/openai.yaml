@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Review Triage"
+  short_description: "Triage AI PR reviews and useful fixes."
+  default_prompt: "Use $gh-ai-review-triage to review AI-generated PR comments, separate useful fixes from optional suggestions, and address required, should-fix, and worth-fixing feedback."
