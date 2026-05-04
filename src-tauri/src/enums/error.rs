@@ -1,9 +1,9 @@
 use hardviz_core::enums::error as core_err;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use specta::Type;
 
 #[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq, Clone, Type)]
+#[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendError {
   CpuInfoNotAvailable,
@@ -27,25 +27,6 @@ impl From<core_err::BackendError> for BackendError {
       core_err::BackendError::NetworkUsageNotAvailable => Self::NetworkUsageNotAvailable,
       core_err::BackendError::UnexpectedError => Self::UnexpectedError,
     }
-  }
-}
-
-impl Serialize for BackendError {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let s = match *self {
-      BackendError::CpuInfoNotAvailable => "cpuInfoNotAvailable",
-      BackendError::StorageInfoNotAvailable => "storageInfoNotAvailable",
-      BackendError::MemoryInfoNotAvailable => "memoryInfoNotAvailable",
-      BackendError::GraphicInfoNotAvailable => "graphicInfoNotAvailable",
-      BackendError::NetworkInfoNotAvailable => "networkInfoNotAvailable",
-      BackendError::NetworkUsageNotAvailable => "networkUsageNotAvailable",
-      BackendError::UnexpectedError => "unexpectedError",
-      //   BackendError::SystemError(ref e) => e,
-    };
-    serializer.serialize_str(s)
   }
 }
 

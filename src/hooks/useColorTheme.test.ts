@@ -64,7 +64,7 @@ describe("useColorTheme", () => {
   it("Themes not included in darkClasses do not add 'dark' class", () => {
     const nonDarkThemes: Theme[] = [
       "light",
-      "ocean",
+      "sky",
       "grove",
       "sunset",
       "orbit",

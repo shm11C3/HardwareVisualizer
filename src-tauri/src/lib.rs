@@ -126,11 +126,7 @@ pub fn run() {
   // TS bindings
   #[cfg(debug_assertions)]
   builder
-    .export(
-      Typescript::default().header("// @ts-nocheck\n"), // TODO Remove unused imports to eliminate type errors
-      //.formatter(specta_typescript::formatter::biome),
-      "../src/rspc/bindings.ts",
-    )
+    .export(Typescript::default(), "../src/rspc/bindings.ts")
     .expect("Failed to export typescript bindings");
 
   let store_for_setup = Arc::clone(&history_store);

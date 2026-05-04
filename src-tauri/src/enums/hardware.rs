@@ -1,9 +1,9 @@
 use hardviz_core::enums::hardware as core_hw;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Clone, Type)]
+#[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HardwareType {
   #[serde(rename = "cpu")]
@@ -11,20 +11,6 @@ pub enum HardwareType {
   Memory,
   #[serde(rename = "gpu")]
   Gpu,
-}
-
-impl Serialize for HardwareType {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let s = match *self {
-      HardwareType::Cpu => "cpu",
-      HardwareType::Memory => "memory",
-      HardwareType::Gpu => "gpu",
-    };
-    serializer.serialize_str(s)
-  }
 }
 
 impl<'de> Deserialize<'de> for HardwareType {

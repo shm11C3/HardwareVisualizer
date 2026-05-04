@@ -1,43 +1,21 @@
 use hardviz_core::enums::settings as core_settings;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 
-#[derive(Debug, PartialEq, Eq, Clone, Type)]
+#[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Theme {
   System,
   Light,
   Dark,
   DarkPlus,
-  Ocean,
+  Sky,
   Grove,
   Sunset,
   Nebula,
   Orbit,
   Cappuccino,
   Espresso,
-}
-
-impl Serialize for Theme {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let s = match *self {
-      Theme::System => "system",
-      Theme::Light => "light",
-      Theme::Dark => "dark",
-      Theme::DarkPlus => "darkPlus",
-      Theme::Ocean => "sky",
-      Theme::Grove => "grove",
-      Theme::Sunset => "sunset",
-      Theme::Nebula => "nebula",
-      Theme::Orbit => "orbit",
-      Theme::Cappuccino => "cappuccino",
-      Theme::Espresso => "espresso",
-    };
-    serializer.serialize_str(s)
-  }
 }
 
 impl<'de> Deserialize<'de> for Theme {
@@ -51,7 +29,7 @@ impl<'de> Deserialize<'de> for Theme {
       "light" => Ok(Theme::Light),
       "dark" => Ok(Theme::Dark),
       "darkplus" => Ok(Theme::DarkPlus),
-      "sky" => Ok(Theme::Ocean),
+      "sky" => Ok(Theme::Sky),
       "grove" => Ok(Theme::Grove),
       "sunset" => Ok(Theme::Sunset),
       "nebula" => Ok(Theme::Nebula),
@@ -78,31 +56,19 @@ impl<'de> Deserialize<'de> for Theme {
   }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Type)]
+#[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GraphSize {
+  #[serde(rename = "sm")]
   SM,
+  #[serde(rename = "md")]
   MD,
+  #[serde(rename = "lg")]
   LG,
+  #[serde(rename = "xl")]
   XL,
   #[serde(rename = "2xl")]
   _2XL,
-}
-
-impl Serialize for GraphSize {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let s = match *self {
-      GraphSize::SM => "sm",
-      GraphSize::MD => "md",
-      GraphSize::LG => "lg",
-      GraphSize::XL => "xl",
-      GraphSize::_2XL => "2xl",
-    };
-    serializer.serialize_str(s)
-  }
 }
 
 impl<'de> Deserialize<'de> for GraphSize {
@@ -125,25 +91,12 @@ impl<'de> Deserialize<'de> for GraphSize {
   }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Type)]
+#[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 pub enum TemperatureUnit {
   #[serde(rename = "C")]
   Celsius,
   #[serde(rename = "F")]
   Fahrenheit,
-}
-
-impl Serialize for TemperatureUnit {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let s = match *self {
-      TemperatureUnit::Celsius => "C",
-      TemperatureUnit::Fahrenheit => "F",
-    };
-    serializer.serialize_str(s)
-  }
 }
 
 impl<'de> Deserialize<'de> for TemperatureUnit {
@@ -216,7 +169,7 @@ mod tests {
       (Theme::Light, "light"),
       (Theme::Dark, "dark"),
       (Theme::DarkPlus, "darkPlus"),
-      (Theme::Ocean, "sky"),
+      (Theme::Sky, "sky"),
       (Theme::Grove, "grove"),
       (Theme::Sunset, "sunset"),
       (Theme::Nebula, "nebula"),
@@ -237,7 +190,7 @@ mod tests {
       ("\"light\"", Theme::Light),
       ("\"dark\"", Theme::Dark),
       ("\"darkplus\"", Theme::DarkPlus),
-      ("\"sky\"", Theme::Ocean),
+      ("\"sky\"", Theme::Sky),
       ("\"grove\"", Theme::Grove),
       ("\"sunset\"", Theme::Sunset),
       ("\"nebula\"", Theme::Nebula),
@@ -246,7 +199,7 @@ mod tests {
       ("\"espresso\"", Theme::Espresso),
       ("\"LIGHT\"", Theme::Light),
       ("\"DARK\"", Theme::Dark),
-      ("\"SKY\"", Theme::Ocean),
+      ("\"SKY\"", Theme::Sky),
     ];
 
     for (json_str, expected_theme) in test_cases {
@@ -450,7 +403,7 @@ mod tests {
       Theme::Light,
       Theme::Dark,
       Theme::DarkPlus,
-      Theme::Ocean,
+      Theme::Sky,
       Theme::Grove,
       Theme::Sunset,
       Theme::Nebula,
