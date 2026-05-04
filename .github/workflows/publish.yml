@@ -8,8 +8,63 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  prepare-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-slim
+    outputs:
+      release-id: ${{ steps.release.outputs.release_id }}
+    steps:
+      - name: Create or find draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            echo "This workflow must be run on a tag ref." >&2
+            exit 1
+          fi
+
+          release_tag="${GITHUB_REF_NAME}"
+          is_prerelease=false
+          if [[ "$release_tag" == *-* ]]; then
+            is_prerelease=true
+          fi
+
+          echo "Looking for release with tag ${release_tag}..."
+          release_id="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+              --jq ".[] | select(.tag_name == \"${release_tag}\") | .id" \
+              | head -n 1
+          )"
+
+          if [ -z "$release_id" ]; then
+            echo "No release found. Creating draft release ${release_tag}..."
+            release_id="$(
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
+                -f tag_name="$release_tag" \
+                -f name="$release_tag" \
+                -F draft=true \
+                -F prerelease="$is_prerelease" \
+                -F generate_release_notes=true \
+                --jq ".id"
+            )"
+          else
+            echo "Using existing release ${release_id}."
+          fi
+
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
   publish-tauri:
+    needs: prepare-release
     permissions:
       contents: write
     env:
@@ -132,10 +187,8 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
+          releaseId: ${{ needs.prepare-release.outputs.release-id }}
           tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
 
       - if: ${{ matrix.platform == 'windows-latest' }}
@@ -158,7 +211,7 @@ jobs:
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Upload MSI via gh CLI
-        run: gh release upload "${{ github.ref_name }}" dist/offline/*.msi
+        run: gh release upload "${{ github.ref_name }}" dist/offline/*.msi --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -166,7 +219,7 @@ jobs:
       - name: Upload THIRD_PARTY_NOTICES.md
         run: |
           mv ./tmp/THIRD_PARTY_NOTICES.md ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
-          gh release upload "${{ github.ref_name }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
+          gh release upload "${{ github.ref_name }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
