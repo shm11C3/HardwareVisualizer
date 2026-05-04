@@ -9,7 +9,53 @@ on:
 permissions: read-all
 
 jobs:
+  prepare-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-slim
+    outputs:
+      release-id: ${{ steps.release.outputs.release_id }}
+    steps:
+      - name: Create or find draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_tag="${GITHUB_REF_NAME}"
+          is_prerelease=false
+          if [[ "$release_tag" == *-* ]]; then
+            is_prerelease=true
+          fi
+
+          echo "Looking for draft release with tag ${release_tag}..."
+          draft_release_id="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+              --jq ".[] | select(.tag_name == \"${release_tag}\" and .draft == true) | .id" \
+              | head -n 1
+          )"
+
+          if [ -z "$draft_release_id" ]; then
+            echo "No draft release found. Creating ${release_tag}..."
+            draft_release_id="$(
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
+                -f tag_name="$release_tag" \
+                -f name="$release_tag" \
+                -F draft=true \
+                -F prerelease="$is_prerelease" \
+                -F generate_release_notes=true \
+                --jq ".id"
+            )"
+          else
+            echo "Using existing draft release ${draft_release_id}."
+          fi
+
+          echo "release_id=$draft_release_id" >> "$GITHUB_OUTPUT"
+
   publish-tauri:
+    needs: prepare-release
     permissions:
       contents: write
     env:
@@ -132,10 +178,8 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
+          releaseId: ${{ needs.prepare-release.outputs.release-id }}
           tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
 
       - if: ${{ matrix.platform == 'windows-latest' }}
