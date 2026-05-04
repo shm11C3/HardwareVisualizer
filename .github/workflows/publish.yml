@@ -8,6 +8,10 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   prepare-release:
     permissions:
@@ -24,22 +28,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            echo "This workflow must be run on a tag ref." >&2
+            exit 1
+          fi
+
           release_tag="${GITHUB_REF_NAME}"
           is_prerelease=false
           if [[ "$release_tag" == *-* ]]; then
             is_prerelease=true
           fi
 
-          echo "Looking for draft release with tag ${release_tag}..."
-          draft_release_id="$(
+          echo "Looking for release with tag ${release_tag}..."
+          release_id="$(
             gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
-              --jq ".[] | select(.tag_name == \"${release_tag}\" and .draft == true) | .id" \
+              --jq ".[] | select(.tag_name == \"${release_tag}\") | .id" \
               | head -n 1
           )"
 
-          if [ -z "$draft_release_id" ]; then
-            echo "No draft release found. Creating ${release_tag}..."
-            draft_release_id="$(
+          if [ -z "$release_id" ]; then
+            echo "No release found. Creating draft release ${release_tag}..."
+            release_id="$(
               gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
                 -f tag_name="$release_tag" \
                 -f name="$release_tag" \
@@ -49,10 +58,10 @@ jobs:
                 --jq ".id"
             )"
           else
-            echo "Using existing draft release ${draft_release_id}."
+            echo "Using existing release ${release_id}."
           fi
 
-          echo "release_id=$draft_release_id" >> "$GITHUB_OUTPUT"
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
 
   publish-tauri:
     needs: prepare-release
@@ -202,7 +211,7 @@ jobs:
 
       - if: ${{ matrix.platform == 'windows-latest' }}
         name: Upload MSI via gh CLI
-        run: gh release upload "${{ github.ref_name }}" dist/offline/*.msi
+        run: gh release upload "${{ github.ref_name }}" dist/offline/*.msi --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -210,7 +219,7 @@ jobs:
       - name: Upload THIRD_PARTY_NOTICES.md
         run: |
           mv ./tmp/THIRD_PARTY_NOTICES.md ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
-          gh release upload "${{ github.ref_name }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md
+          gh release upload "${{ github.ref_name }}" ./tmp/THIRD_PARTY_NOTICES_${{ matrix.os-name }}.md --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
