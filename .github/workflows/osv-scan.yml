@@ -1,0 +1,78 @@
+name: OSV dependency scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily 09:00 JST (00:00 UTC)
+    - cron: "0 0 * * *"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: osv-dependency-scan
+  cancel-in-progress: true
+
+jobs:
+  scan-default-branch:
+    name: Scan default branch
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    with:
+      ref: ${{ github.event.repository.default_branch }}
+      scan-args: |-
+        -r ./
+      matrix-property: default-branch-
+      results-file-name: osv-results.sarif
+      upload-sarif: true
+      fail-on-vuln: false
+
+  resolve-latest-release:
+    name: Resolve latest release
+    runs-on: ubuntu-slim
+    outputs:
+      latest-tag: ${{ steps.release.outputs.latest_tag }}
+    steps:
+      - name: Resolve latest release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_tag=""
+          if latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq ".tag_name" 2>/dev/null)"; then
+            if [ -n "$latest_tag" ]; then
+              echo "Latest release tag: $latest_tag"
+            else
+              echo "Latest release endpoint returned an empty tag."
+            fi
+          else
+            echo "No latest release found. Skipping latest release OSV scan."
+          fi
+
+          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+  scan-latest-release:
+    name: Scan latest release
+    needs: resolve-latest-release
+    if: needs.resolve-latest-release.outputs.latest-tag != ''
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    with:
+      ref: ${{ needs.resolve-latest-release.outputs.latest-tag }}
+      scan-args: |-
+        -r ./
+      matrix-property: latest-release-
+      results-file-name: osv-results.sarif
+      upload-sarif: true
+      fail-on-vuln: false
