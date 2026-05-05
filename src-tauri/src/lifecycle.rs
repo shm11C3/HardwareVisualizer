@@ -93,6 +93,11 @@ pub fn on_close_requested(window: &Window) {
   });
 }
 
+/// Hook into second launch attempts while this process is already running.
+pub fn on_second_instance(app: &tauri::AppHandle) {
+  restore_main_window(app);
+}
+
 /// Hook into app-level runtime events that affect the main window lifecycle.
 pub fn on_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
   #[cfg(target_os = "macos")]
