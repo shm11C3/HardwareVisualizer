@@ -96,7 +96,7 @@ pub struct NetworkInfo {
   pub default_ipv6_gateway: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
   /// Process ID
