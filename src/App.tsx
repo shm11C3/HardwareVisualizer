@@ -104,6 +104,7 @@ const AppContent = () => {
 
   const [currentImage, setCurrentImage] = useState(nextImage);
   const [opacity, setOpacity] = useState(1);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useErrorModalListener();
   useHardwareEventListener();
@@ -133,8 +134,30 @@ const AppContent = () => {
   }, [nextImage]);
 
   useEffect(() => {
-    loadSettings();
-    initBackgroundImage();
+    let isCancelled = false;
+
+    const initialize = async () => {
+      const [didLoadSettings, backgroundResult] = await Promise.allSettled([
+        loadSettings(),
+        initBackgroundImage(),
+      ]);
+
+      if (!isCancelled) {
+        setSettingsLoaded(
+          didLoadSettings.status === "fulfilled" && didLoadSettings.value,
+        );
+      }
+
+      if (backgroundResult.status === "rejected") {
+        throw backgroundResult.reason;
+      }
+    };
+
+    initialize();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [loadSettings, initBackgroundImage]);
 
   const [displayTarget] = useAtom(displayTargetAtom);
@@ -255,7 +278,10 @@ const AppContent = () => {
             )}
           </Suspense>
           <AppUpdate />
-          <CloseToTrayFirstRunDialog />
+          <CloseToTrayFirstRunDialog
+            closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
+            settingsLoaded={settingsLoaded}
+          />
         </div>
       </div>
       <FullscreenExitButton

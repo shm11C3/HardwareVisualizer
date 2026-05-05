@@ -90,15 +90,23 @@ export const useSettingsAtom = () => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
-    const setting = await commands.getSettings();
+    try {
+      const setting = await commands.getSettings();
 
-    if (isError(setting)) {
-      error(setting.error);
-      console.error("Failed to fetch settings:", setting.error);
-      return;
+      if (isError(setting)) {
+        await error(setting.error);
+        console.error("Failed to fetch settings:", setting.error);
+        return false;
+      }
+
+      setSettings(setting.data);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await error(message);
+      console.error("Failed to fetch settings:", err);
+      return false;
     }
-
-    setSettings(setting.data);
   }, [setSettings]);
 
   const updateSettingAtom = async <
@@ -220,22 +228,64 @@ export const useSettingsAtom = () => {
   const setCloseToTrayPreferenceAtom = async (value: boolean) => {
     const previousCloseToTray = settings.closeToTray;
     const previousChoiceMade = settings.closeToTrayChoiceMade;
+    const previousTrayWidget = settings.trayWidget;
 
     setSettings((prev) => ({
       ...prev,
       closeToTray: value,
       closeToTrayChoiceMade: true,
+      trayWidget: value
+        ? { ...prev.trayWidget, enabled: true }
+        : prev.trayWidget,
     }));
+
+    const shouldEnableTrayWidget = value && !previousTrayWidget.enabled;
+
+    if (shouldEnableTrayWidget) {
+      const nextTrayWidget = { ...previousTrayWidget, enabled: true };
+      const trayWidgetResult =
+        await commands.setTrayWidgetSettings(nextTrayWidget);
+
+      if (isError(trayWidgetResult)) {
+        error(trayWidgetResult.error);
+        console.error(trayWidgetResult.error);
+        setSettings((prev) => ({
+          ...prev,
+          closeToTray: previousCloseToTray,
+          closeToTrayChoiceMade: previousChoiceMade,
+          trayWidget: previousTrayWidget,
+        }));
+        return false;
+      }
+    }
 
     const result = await commands.setCloseToTrayPreference(value);
 
     if (isError(result)) {
-      error(result.error);
+      if (shouldEnableTrayWidget) {
+        const rollbackResult =
+          await commands.setTrayWidgetSettings(previousTrayWidget);
+
+        if (isError(rollbackResult)) {
+          await error(rollbackResult.error);
+          console.error(rollbackResult.error);
+          console.error(result.error);
+          setSettings((prev) => ({
+            ...prev,
+            closeToTray: previousCloseToTray,
+            closeToTrayChoiceMade: previousChoiceMade,
+          }));
+          return false;
+        }
+      }
+
+      await error(result.error);
       console.error(result.error);
       setSettings((prev) => ({
         ...prev,
         closeToTray: previousCloseToTray,
         closeToTrayChoiceMade: previousChoiceMade,
+        trayWidget: previousTrayWidget,
       }));
       return false;
     }

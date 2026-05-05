@@ -141,6 +141,12 @@
   },
 
   "closeToTray": {
+    "startupDialog": {
+      "title": "システムトレイで使ってみますか？",
+      "description": "HardwareVisualizer はメインウィンドウを閉じたあともシステムトレイに残り、監視とトレイメトリクスの表示を続けられます。ダッシュボードを開き続けなくても日常的にハードウェア状態を確認しやすくなります。この設定はあとから設定画面で変更できます。",
+      "enable": "トレイモードを使う",
+      "keepQuitOnClose": "閉じたら終了する"
+    },
     "firstRunDialog": {
       "title": "HardwareVisualizer を起動したままにしますか？",
       "description": "メインウィンドウを閉じたあとも、HardwareVisualizer はバックグラウンドで監視を続けられます。この設定はあとから設定画面で変更できます。",

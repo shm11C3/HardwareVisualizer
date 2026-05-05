@@ -141,6 +141,12 @@
   },
 
   "closeToTray": {
+    "startupDialog": {
+      "title": "Try system tray mode?",
+      "description": "HardwareVisualizer can stay available in the system tray after the main window is closed, so monitoring and tray metrics continue without keeping the dashboard open. This is useful for quick hardware checks throughout the day, and you can change it later in Settings.",
+      "enable": "Use tray mode",
+      "keepQuitOnClose": "Quit when closing"
+    },
     "firstRunDialog": {
       "title": "Keep HardwareVisualizer running?",
       "description": "HardwareVisualizer can keep monitoring in the background after you close the main window. You can change this later in Settings.",
