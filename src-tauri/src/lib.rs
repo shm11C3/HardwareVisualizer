@@ -309,6 +309,7 @@ pub fn run() {
   }
 
   tauri_builder
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(lifecycle::on_run_event);
 }

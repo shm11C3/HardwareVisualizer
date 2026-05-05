@@ -461,7 +461,7 @@ define_class!(
     fn perform(&self, _sender: Option<&AnyObject>) {
       match self.ivars().command {
         MacosTrayMenuCommand::Open => {
-          crate::adapters::tray::restore_main_window(&self.ivars().app_handle);
+          crate::lifecycle::restore_main_window(&self.ivars().app_handle);
         }
         MacosTrayMenuCommand::Quit => {
           crate::adapters::tray::spawn_quit(self.ivars().app_handle.clone());
@@ -522,7 +522,7 @@ define_class!(
     #[unsafe(method(mouseUp:))]
     fn mouse_up(&self, _event: &objc2_app_kit::NSEvent) {
       self.highlight(false);
-      crate::adapters::tray::restore_main_window(&self.ivars().app_handle);
+      crate::lifecycle::restore_main_window(&self.ivars().app_handle);
     }
 
     #[unsafe(method(rightMouseDown:))]

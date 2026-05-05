@@ -138,7 +138,7 @@ fn ensure_flyout_window(app_handle: &AppHandle) -> tauri::Result<WebviewWindow> 
 fn register_flyout_event_handlers(app_handle: &AppHandle) {
   let open_app = app_handle.clone();
   app_handle.listen_any(EVENT_TRAY_WIDGET_OPEN_MAIN_REQUESTED, move |_| {
-    crate::adapters::tray::restore_main_window(&open_app);
+    crate::lifecycle::restore_main_window(&open_app);
     hide_flyout_window(&open_app);
   });
 
@@ -150,7 +150,7 @@ fn register_flyout_event_handlers(app_handle: &AppHandle) {
 
 fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
   match event.id.as_ref() {
-    MENU_OPEN_ID => crate::adapters::tray::restore_main_window(app),
+    MENU_OPEN_ID => crate::lifecycle::restore_main_window(app),
     MENU_QUIT_ID => crate::adapters::tray::spawn_quit(app.clone()),
     other => {
       log_warn!(
@@ -179,7 +179,7 @@ fn handle_tray_event(
       toggle_flyout_window(app_handle, state, position, rect);
     } else {
       hide_flyout_window(app_handle);
-      crate::adapters::tray::restore_main_window(app_handle);
+      crate::lifecycle::restore_main_window(app_handle);
     }
   }
 }
