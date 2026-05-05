@@ -186,6 +186,9 @@ impl models::settings::Settings {
     try_field!(burn_in_shift_idle_only, "burnInShiftIdleOnly");
     try_field!(burn_in_shift_options, "burnInShiftOptions");
     try_field!(text_selectable, "textSelectable");
+    try_field!(close_to_tray, "closeToTray");
+    try_field!(close_to_tray_choice_made, "closeToTrayChoiceMade");
+    try_field!(tray_widget, "trayWidget");
 
     Ok(())
   }
@@ -405,6 +408,20 @@ impl models::settings::Settings {
 
   pub fn set_text_selectable(&mut self, new_value: bool) -> Result<(), String> {
     self.text_selectable = new_value;
+    self.write_file()
+  }
+
+  pub fn set_tray_widget_settings(
+    &mut self,
+    new_value: crate::tray::widget::TrayWidgetSettings,
+  ) -> Result<(), String> {
+    self.tray_widget = new_value.normalized();
+    self.write_file()
+  }
+
+  pub fn set_close_to_tray_preference(&mut self, new_value: bool) -> Result<(), String> {
+    self.close_to_tray = new_value;
+    self.close_to_tray_choice_made = true;
     self.write_file()
   }
 }

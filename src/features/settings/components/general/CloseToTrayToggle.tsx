@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useCloseToTrayPreference } from "@/hooks/useCloseToTrayPreference";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
@@ -11,7 +11,7 @@ import { isError } from "@/types/result";
 export const CloseToTrayToggle = () => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
-  const { closeToTray, isPending, setCloseToTray } = useCloseToTrayPreference();
+  const { settings, setCloseToTrayPreferenceAtom } = useSettingsAtom();
   const [isAvailable, setIsAvailable] = useState(true);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Availability is checked once when the settings row mounts.
@@ -42,7 +42,7 @@ export const CloseToTrayToggle = () => {
   }, []);
 
   const updateCloseToTray = async (value: boolean) => {
-    const saved = await setCloseToTray(value);
+    const saved = await setCloseToTrayPreferenceAtom(value);
 
     if (!saved) {
       await error(t("closeToTray.errors.savePreference"));
@@ -63,8 +63,8 @@ export const CloseToTrayToggle = () => {
 
         <Switch
           id="closeToTray"
-          checked={isAvailable && closeToTray}
-          disabled={isPending || !isAvailable}
+          checked={isAvailable && settings.closeToTray}
+          disabled={!isAvailable}
           onCheckedChange={updateCloseToTray}
         />
       </div>

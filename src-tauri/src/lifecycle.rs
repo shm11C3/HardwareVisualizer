@@ -11,7 +11,6 @@ use std::{
 };
 
 use tauri::{AppHandle, Emitter, Manager, Window};
-use tauri_plugin_store::StoreExt;
 
 use crate::log_warn;
 use crate::workers::WorkersState;
@@ -21,9 +20,6 @@ use crate::workers::WorkersState;
 /// preserve the historical quit-on-close behavior until the
 /// user-facing UX in #1275 ships.
 pub const CLOSE_TO_BACKGROUND_ENV: &str = "HARDVIZ_CLOSE_TO_BACKGROUND";
-const STORE_FILENAME: &str = "store.json";
-const KEY_CLOSE_TO_TRAY: &str = "closeToTray";
-const KEY_CLOSE_TO_TRAY_CHOICE_MADE: &str = "closeToTrayChoiceMade";
 const EVENT_CLOSE_TO_TRAY_CHOICE_REQUESTED: &str = "close-to-tray-choice-requested";
 
 /// Session-only lifecycle capability. `tray_available` starts true and
@@ -118,8 +114,10 @@ async fn handle_close_request(app: AppHandle, window: Window) {
     return;
   }
 
-  match read_close_to_tray_settings(&app) {
-    Ok(settings) if !settings.choice_made => {
+  let close_to_tray_settings = read_close_to_tray_settings(&app);
+
+  match close_to_tray_settings {
+    settings if !settings.choice_made => {
       let state = app.state::<CloseToTrayRuntimeState>();
       state.set_choice_request_pending();
 
@@ -137,7 +135,7 @@ async fn handle_close_request(app: AppHandle, window: Window) {
         }
       }
     }
-    Ok(settings) if settings.close_to_tray => {
+    settings if settings.close_to_tray => {
       if let Err(e) = hide_window_on_close(&window) {
         log_warn!(
           &format!("failed to hide main window on close; quitting instead: {e}"),
@@ -147,15 +145,7 @@ async fn handle_close_request(app: AppHandle, window: Window) {
         request_quit(app).await;
       }
     }
-    Ok(_) => request_quit(app).await,
-    Err(e) => {
-      log_warn!(
-        &format!("failed to read close-to-tray setting; quitting on close: {e}"),
-        "lifecycle::handle_close_request",
-        None::<&str>
-      );
-      request_quit(app).await;
-    }
+    _ => request_quit(app).await,
   }
 }
 
@@ -200,21 +190,23 @@ struct CloseToTraySettings {
   choice_made: bool,
 }
 
-fn read_close_to_tray_settings(app: &AppHandle) -> Result<CloseToTraySettings, String> {
-  let store = app
-    .store(STORE_FILENAME)
-    .map_err(|e| format!("failed to open store: {e}"))?;
-
-  Ok(CloseToTraySettings {
-    close_to_tray: store
-      .get(KEY_CLOSE_TO_TRAY)
-      .and_then(|value| value.as_bool())
-      .unwrap_or(false),
-    choice_made: store
-      .get(KEY_CLOSE_TO_TRAY_CHOICE_MADE)
-      .and_then(|value| value.as_bool())
-      .unwrap_or(false),
-  })
+fn read_close_to_tray_settings(app: &AppHandle) -> CloseToTraySettings {
+  app
+    .try_state::<crate::commands::settings::AppState>()
+    .and_then(|state| {
+      state
+        .settings
+        .lock()
+        .ok()
+        .map(|settings| CloseToTraySettings {
+          close_to_tray: settings.close_to_tray,
+          choice_made: settings.close_to_tray_choice_made,
+        })
+    })
+    .unwrap_or(CloseToTraySettings {
+      close_to_tray: false,
+      choice_made: false,
+    })
 }
 
 /// Stop Core cleanly and exit the process.

@@ -2,10 +2,9 @@ use std::time::Duration;
 
 use hardviz_core::models::MetricsSnapshot;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::enums::settings::TemperatureUnit;
-
-pub const STORE_KEY_TRAY_WIDGET: &str = "trayWidget";
 
 const DEFAULT_UPDATE_INTERVAL_SECS: u64 = 1;
 const UPDATE_INTERVALS_SECS: [u64; 3] = [1, 2, 5];
@@ -16,7 +15,7 @@ const CONFIGURABLE_METRICS: [TrayMetric; 2] = [TrayMetric::Cpu, TrayMetric::Gpu]
 const CONFIGURABLE_METRICS: [TrayMetric; 3] =
   [TrayMetric::Cpu, TrayMetric::Gpu, TrayMetric::GpuTemp];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum TrayMetric {
   Cpu,
@@ -25,7 +24,7 @@ pub enum TrayMetric {
   GpuTemp,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TrayWidgetSettings {
   #[serde(default)]

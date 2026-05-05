@@ -9,7 +9,7 @@ import {
   TrayWidgetSettings,
   type TrayWidgetStore,
 } from "@/features/settings/components/general/TrayWidgetSettings";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 const mocks = vi.hoisted(() => ({
@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
       }) => Promise<void>)
     | undefined,
   platform: vi.fn(() => "windows"),
+  setTrayWidgetSettingsAtom: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -45,10 +46,6 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useTauriStore", () => ({
-  useTauriStore: vi.fn(),
-}));
-
 vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
 }));
@@ -57,6 +54,10 @@ vi.mock("@/rspc/bindings", () => ({
   commands: {
     isCloseToTrayAvailable: vi.fn(),
   },
+}));
+
+vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+  useSettingsAtom: vi.fn(),
 }));
 
 vi.mock("@/components/ui/label", () => ({
@@ -205,17 +206,20 @@ vi.mock("@dnd-kit/utilities", () => ({
   },
 }));
 
-const setSettings = vi.fn();
+const setSettings = mocks.setTrayWidgetSettingsAtom;
 
-const mockStore = (
-  settings: Partial<TrayWidgetStore> | null,
-  isPending = false,
-) => {
-  vi.mocked(useTauriStore).mockReturnValue([
-    settings,
-    setSettings,
-    isPending,
-  ] as never);
+const mockStore = (settings: Partial<TrayWidgetStore> | null) => {
+  vi.mocked(useSettingsAtom).mockReturnValue({
+    settings: {
+      trayWidget: settings ?? {
+        enabled: false,
+        metricOrder: ["cpu", "gpu", "gpu-temp"],
+        visibleMetrics: ["cpu", "gpu", "gpu-temp"],
+        updateIntervalSecs: 1,
+      },
+    },
+    setTrayWidgetSettingsAtom: setSettings,
+  } as never);
 };
 
 const mockAvailability = (data: boolean) => {
@@ -367,7 +371,7 @@ describe("TrayWidgetSettings", () => {
     cleanup();
   });
 
-  it("hides metric controls while the tray widget is disabled", () => {
+  it("hides metric controls while the tray widget is disabled", async () => {
     mockStore({
       enabled: false,
       metricOrder: ["cpu", "gpu", "gpu-temp"],
@@ -377,6 +381,11 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Tray widget" }),
+      ).not.toBeDisabled(),
+    );
     expect(
       screen.getByRole("switch", { name: "Tray widget" }),
     ).not.toBeChecked();
@@ -384,7 +393,7 @@ describe("TrayWidgetSettings", () => {
     expect(screen.queryByLabelText("Update interval")).not.toBeInTheDocument();
   });
 
-  it("renders configurable metrics and the persisted update interval", () => {
+  it("renders configurable metrics and the persisted update interval", async () => {
     mockStore({
       enabled: true,
       metricOrder: ["gpu", "cpu"],
@@ -394,7 +403,9 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
-    expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked();
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     expect(screen.getByText("Metrics")).toBeInTheDocument();
     expect(screen.getByLabelText("GPU")).toBeChecked();
     expect(screen.getByLabelText("CPU")).not.toBeChecked();
@@ -404,11 +415,14 @@ describe("TrayWidgetSettings", () => {
     expect(screen.getByRole("button", { name: "Drag GPU" })).toBeEnabled();
   });
 
-  it("hides GPU temperature metric on macOS", () => {
+  it("hides GPU temperature metric on macOS", async () => {
     mocks.platform.mockReturnValue("macos");
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     expect(screen.getByLabelText("CPU")).toBeChecked();
     expect(screen.getByLabelText("GPU")).toBeChecked();
     expect(screen.queryByLabelText("GPU temperature")).not.toBeInTheDocument();
@@ -428,6 +442,11 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Tray widget" }),
+      ).not.toBeDisabled(),
+    );
     await user.click(screen.getByRole("switch", { name: "Tray widget" }));
 
     expect(setSettings).toHaveBeenCalledWith({
@@ -443,6 +462,9 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     await user.click(screen.getByLabelText("GPU"));
 
     expect(setSettings).toHaveBeenCalledWith({
@@ -463,6 +485,9 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     expect(screen.getByLabelText("CPU")).toBeDisabled();
     expect(screen.getByLabelText("GPU")).not.toBeChecked();
   });
@@ -478,6 +503,9 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     await user.click(screen.getByLabelText("GPU"));
 
     expect(setSettings).toHaveBeenCalledWith({
@@ -493,6 +521,9 @@ describe("TrayWidgetSettings", () => {
 
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     await user.selectOptions(screen.getByLabelText("Update interval"), "5");
 
     expect(setSettings).toHaveBeenCalledWith({
@@ -506,6 +537,9 @@ describe("TrayWidgetSettings", () => {
   it("persists metric order after drag end", async () => {
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     await waitFor(() => expect(mocks.latestDragEnd).toBeDefined());
     await mocks.latestDragEnd?.({
       active: { id: "gpu" },
@@ -523,6 +557,9 @@ describe("TrayWidgetSettings", () => {
   it("ignores drag end events without a valid target", async () => {
     render(<TrayWidgetSettings />);
 
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Tray widget" })).toBeChecked(),
+    );
     await waitFor(() => expect(mocks.latestDragEnd).toBeDefined());
     await mocks.latestDragEnd?.({
       active: { id: "gpu" },
@@ -599,27 +636,5 @@ describe("TrayWidgetSettings", () => {
       err,
     );
     consoleError.mockRestore();
-  });
-
-  it("does not persist changes while settings are pending", async () => {
-    const user = userEvent.setup();
-    mockStore(null, true);
-
-    render(<TrayWidgetSettings />);
-
-    await user.click(screen.getByRole("switch", { name: "Tray widget" }));
-
-    expect(setSettings).not.toHaveBeenCalled();
-  });
-
-  it("ignores enabled changes when settings have not loaded yet", async () => {
-    const user = userEvent.setup();
-    mockStore(null, false);
-
-    render(<TrayWidgetSettings />);
-
-    await user.click(screen.getByRole("switch", { name: "Tray widget" }));
-
-    expect(setSettings).not.toHaveBeenCalled();
   });
 });

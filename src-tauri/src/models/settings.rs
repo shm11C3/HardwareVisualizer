@@ -56,6 +56,9 @@ pub struct Settings {
   pub burn_in_shift_idle_only: bool,
   pub burn_in_shift_options: Option<BurnInShiftOptions>,
   pub text_selectable: bool,
+  pub close_to_tray: bool,
+  pub close_to_tray_choice_made: bool,
+  pub tray_widget: crate::tray::widget::TrayWidgetSettings,
 }
 
 ///
@@ -95,6 +98,9 @@ pub struct ClientSettings {
   pub burn_in_shift_idle_only: bool,
   pub burn_in_shift_options: Option<BurnInShiftOptions>,
   pub text_selectable: bool,
+  pub close_to_tray: bool,
+  pub close_to_tray_choice_made: bool,
+  pub tray_widget: crate::tray::widget::TrayWidgetSettings,
 }
 
 impl Default for Settings {
@@ -130,6 +136,9 @@ impl Default for Settings {
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
       text_selectable: false,
+      close_to_tray: false,
+      close_to_tray_choice_made: false,
+      tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     }
   }
 }
@@ -268,6 +277,9 @@ mod tests {
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
       text_selectable: false,
+      close_to_tray: false,
+      close_to_tray_choice_made: false,
+      tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
 
     let cloned = client_settings.clone();

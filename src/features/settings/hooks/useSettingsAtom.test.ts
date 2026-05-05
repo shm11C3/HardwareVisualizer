@@ -37,6 +37,8 @@ vi.mock("@/rspc/bindings", () => ({
     setBurnInShiftMode: vi.fn(),
     setBurnInShiftIdleOnly: vi.fn(),
     setBurnInShiftOptions: vi.fn(),
+    setCloseToTrayPreference: vi.fn(),
+    setTrayWidgetSettings: vi.fn(),
     setHardwareArchiveEnabled: vi.fn(),
     setHardwareArchiveInterval: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),

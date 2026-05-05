@@ -28,14 +28,13 @@
 //!   session, and continues without a tray.
 
 use tauri::{AppHandle, Manager};
-use tauri_plugin_store::StoreExt as _;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 use tokio::sync::watch;
 
 use crate::log_warn;
 use crate::tray::surface::{self, TraySurface};
 use crate::tray::widget::{
-  STORE_KEY_TRAY_WIDGET, TrayFrame, TrayWidgetSettings, build_frame, should_skip_frame,
+  TrayFrame, TrayWidgetSettings, build_frame, should_skip_frame,
 };
 
 use hardviz_core::models::MetricsSnapshot;
@@ -129,10 +128,14 @@ fn spawn_widget_updater(
 
 fn current_widget_settings(app_handle: &AppHandle) -> TrayWidgetSettings {
   app_handle
-    .store("store.json")
-    .ok()
-    .and_then(|store| store.get(STORE_KEY_TRAY_WIDGET))
-    .and_then(|value| serde_json::from_value::<TrayWidgetSettings>(value).ok())
+    .try_state::<settings::AppState>()
+    .and_then(|state| {
+      state
+        .settings
+        .lock()
+        .ok()
+        .map(|settings| settings.tray_widget.clone())
+    })
     .unwrap_or_default()
     .normalized()
 }

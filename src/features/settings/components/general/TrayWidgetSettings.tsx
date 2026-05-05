@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useTauriStore } from "@/hooks/useTauriStore";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
@@ -73,13 +73,12 @@ export const TrayWidgetSettings = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-  const [settings, setSettings, isPending] =
-    useTauriStore<PersistedTrayWidgetStore>(
-      "trayWidget",
-      DEFAULT_TRAY_WIDGET_SETTINGS,
-    );
+  const { settings, setTrayWidgetSettingsAtom } = useSettingsAtom();
   const [isAvailable, setIsAvailable] = useState(true);
-  const normalizedSettings = normalizeSettings(settings, unavailableMetrics);
+  const normalizedSettings = normalizeSettings(
+    settings.trayWidget,
+    unavailableMetrics,
+  );
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -110,7 +109,7 @@ export const TrayWidgetSettings = () => {
       return;
     }
 
-    await setSettings({ ...normalizedSettings, ...patch });
+    await setTrayWidgetSettingsAtom({ ...normalizedSettings, ...patch });
   };
 
   const toggleMetric = async (metric: TrayMetric, checked: boolean) => {
@@ -185,7 +184,7 @@ export const TrayWidgetSettings = () => {
         <Switch
           id="trayWidgetEnabled"
           checked={enabled}
-          disabled={isPending || !isAvailable}
+          disabled={!isAvailable}
           onCheckedChange={(value) => updateSettings({ enabled: value })}
         />
       </div>
@@ -217,7 +216,7 @@ export const TrayWidgetSettings = () => {
                   {metricOrder.map((metric) => (
                     <SortableMetricRow
                       checked={visibleMetrics.includes(metric)}
-                      disabled={isPending}
+                      disabled={false}
                       disableUncheck={
                         visibleMetrics.includes(metric) &&
                         visibleMetrics.length === 1
@@ -238,7 +237,7 @@ export const TrayWidgetSettings = () => {
                 {t("pages.settings.general.trayWidget.updateInterval")}
               </Label>
               <Select
-                disabled={isPending}
+                disabled={false}
                 onValueChange={(value) =>
                   updateSettings({ updateIntervalSecs: Number(value) })
                 }
