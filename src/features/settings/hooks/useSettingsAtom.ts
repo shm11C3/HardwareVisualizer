@@ -90,15 +90,23 @@ export const useSettingsAtom = () => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
-    const setting = await commands.getSettings();
+    try {
+      const setting = await commands.getSettings();
 
-    if (isError(setting)) {
-      error(setting.error);
-      console.error("Failed to fetch settings:", setting.error);
-      return;
+      if (isError(setting)) {
+        await error(setting.error);
+        console.error("Failed to fetch settings:", setting.error);
+        return false;
+      }
+
+      setSettings(setting.data);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await error(message);
+      console.error("Failed to fetch settings:", err);
+      return false;
     }
-
-    setSettings(setting.data);
   }, [setSettings]);
 
   const updateSettingAtom = async <
@@ -255,10 +263,23 @@ export const useSettingsAtom = () => {
 
     if (isError(result)) {
       if (shouldEnableTrayWidget) {
-        await commands.setTrayWidgetSettings(previousTrayWidget);
+        const rollbackResult =
+          await commands.setTrayWidgetSettings(previousTrayWidget);
+
+        if (isError(rollbackResult)) {
+          await error(rollbackResult.error);
+          console.error(rollbackResult.error);
+          console.error(result.error);
+          setSettings((prev) => ({
+            ...prev,
+            closeToTray: previousCloseToTray,
+            closeToTrayChoiceMade: previousChoiceMade,
+          }));
+          return false;
+        }
       }
 
-      error(result.error);
+      await error(result.error);
       console.error(result.error);
       setSettings((prev) => ({
         ...prev,

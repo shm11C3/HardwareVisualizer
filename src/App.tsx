@@ -137,12 +137,19 @@ const AppContent = () => {
     let isCancelled = false;
 
     const initialize = async () => {
-      try {
-        await Promise.all([loadSettings(), initBackgroundImage()]);
-      } finally {
-        if (!isCancelled) {
-          setSettingsLoaded(true);
-        }
+      const [didLoadSettings, backgroundResult] = await Promise.allSettled([
+        loadSettings(),
+        initBackgroundImage(),
+      ]);
+
+      if (!isCancelled) {
+        setSettingsLoaded(
+          didLoadSettings.status === "fulfilled" && didLoadSettings.value,
+        );
+      }
+
+      if (backgroundResult.status === "rejected") {
+        throw backgroundResult.reason;
       }
     };
 

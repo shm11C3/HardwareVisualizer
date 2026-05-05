@@ -125,7 +125,6 @@ export const CloseToTrayFirstRunDialog = ({
       const saved = await setCloseToTrayPreferenceAtom(true);
 
       if (!saved) {
-        await error(t("closeToTray.errors.continueInBackground"));
         return;
       }
 
@@ -145,13 +144,6 @@ export const CloseToTrayFirstRunDialog = ({
       const saved = await setCloseToTrayPreferenceAtom(false);
 
       if (!saved) {
-        await error(
-          t(
-            promptReason === "close"
-              ? "closeToTray.errors.quitApp"
-              : "closeToTray.errors.savePreference",
-          ),
-        );
         return;
       }
 
@@ -173,6 +165,9 @@ export const CloseToTrayFirstRunDialog = ({
   };
 
   const isStartupPrompt = promptReason === "startup";
+  const dismissPrompt = () => {
+    setPromptReason(null);
+  };
   const titleKey = isStartupPrompt
     ? "closeToTray.startupDialog.title"
     : "closeToTray.firstRunDialog.title";
@@ -195,7 +190,7 @@ export const CloseToTrayFirstRunDialog = ({
         <Button
           aria-label={t(closeButtonKey)}
           className="absolute top-4 right-4 h-8 w-8 border-0 bg-transparent p-0 opacity-70 hover:bg-muted hover:opacity-100"
-          onClick={rejectCloseToTray}
+          onClick={isStartupPrompt ? dismissPrompt : rejectCloseToTray}
           type="button"
           variant="outline"
         >

@@ -90,9 +90,11 @@ describe("useSettingsAtom", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,
     });
+    let loaded = false;
     await act(async () => {
-      await result.current.loadSettings();
+      loaded = await result.current.loadSettings();
     });
+    expect(loaded).toBe(true);
     expect(result.current.settings).toEqual(settingsData);
   });
 
@@ -108,9 +110,11 @@ describe("useSettingsAtom", () => {
     });
     // Save initial state before loadSettings
     const initialSettings = result.current.settings;
+    let loaded = true;
     await act(async () => {
-      await result.current.loadSettings();
+      loaded = await result.current.loadSettings();
     });
+    expect(loaded).toBe(false);
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     expect(result.current.settings).toEqual(initialSettings);
   });
@@ -409,5 +413,49 @@ describe("useSettingsAtom", () => {
     expect(result.current.settings.trayWidget).toEqual(
       initialSettings.trayWidget,
     );
+  });
+
+  it("setCloseToTrayPreferenceAtom: widget rollback failure keeps local widget state aligned with backend", async () => {
+    const preferenceError = "Failed to save close-to-tray";
+    const rollbackError = "Failed to roll back tray widget";
+    (commands.setTrayWidgetSettings as Mock)
+      .mockResolvedValueOnce({ data: null })
+      .mockResolvedValueOnce({
+        status: "error",
+        error: rollbackError,
+      });
+    (commands.setCloseToTrayPreference as Mock).mockResolvedValue({
+      status: "error",
+      error: preferenceError,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    const initialSettings = result.current.settings;
+    let saved = true;
+
+    await act(async () => {
+      saved = await result.current.setCloseToTrayPreferenceAtom(true);
+    });
+
+    expect(saved).toBe(false);
+    expect(commands.setTrayWidgetSettings).toHaveBeenNthCalledWith(1, {
+      ...initialSettings.trayWidget,
+      enabled: true,
+    });
+    expect(commands.setTrayWidgetSettings).toHaveBeenNthCalledWith(
+      2,
+      initialSettings.trayWidget,
+    );
+    expect(errorMock).toHaveBeenCalledWith(rollbackError);
+    expect(result.current.settings.closeToTray).toBe(
+      initialSettings.closeToTray,
+    );
+    expect(result.current.settings.closeToTrayChoiceMade).toBe(
+      initialSettings.closeToTrayChoiceMade,
+    );
+    expect(result.current.settings.trayWidget.enabled).toBe(true);
   });
 });
