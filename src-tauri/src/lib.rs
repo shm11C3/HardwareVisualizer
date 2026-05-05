@@ -150,6 +150,9 @@ pub fn run() {
 
   let mut tauri_builder = tauri::Builder::<Wry>::default()
     .invoke_handler(builder.invoke_handler())
+    .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+      lifecycle::on_second_instance(app);
+    }))
     .setup(move |app| {
       let path_resolver = app.path();
 
