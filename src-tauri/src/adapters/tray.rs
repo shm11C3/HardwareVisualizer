@@ -153,42 +153,6 @@ fn current_temperature_unit(app_handle: &AppHandle) -> TemperatureUnit {
     .unwrap_or(TemperatureUnit::Celsius)
 }
 
-pub(crate) fn restore_main_window(app: &AppHandle) {
-  let Some(window) = app.get_webview_window("main") else {
-    log_warn!(
-      "main window not found while handling tray Open",
-      "adapters::tray::restore_main_window",
-      None::<&str>
-    );
-    return;
-  };
-
-  // Best-effort: each call may legitimately fail (window already
-  // visible, already in the foreground, OS denying focus) without
-  // affecting the others. Logging keeps the trail without aborting.
-  if let Err(e) = window.show() {
-    log_warn!(
-      &format!("failed to show main window from tray: {e}"),
-      "adapters::tray::restore_main_window",
-      None::<&str>
-    );
-  }
-  if let Err(e) = window.unminimize() {
-    log_warn!(
-      &format!("failed to unminimize main window from tray: {e}"),
-      "adapters::tray::restore_main_window",
-      None::<&str>
-    );
-  }
-  if let Err(e) = window.set_focus() {
-    log_warn!(
-      &format!("failed to focus main window from tray: {e}"),
-      "adapters::tray::restore_main_window",
-      None::<&str>
-    );
-  }
-}
-
 pub(crate) fn spawn_quit(app: AppHandle) {
   // `request_quit` is async (it awaits worker termination); the menu
   // callback runs on the main thread and must return promptly, so we

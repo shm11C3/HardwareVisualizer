@@ -70,7 +70,7 @@ impl TraySurface for TauriTraySurface {
 
 fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
   match event.id.as_ref() {
-    MENU_OPEN_ID => crate::adapters::tray::restore_main_window(app),
+    MENU_OPEN_ID => crate::lifecycle::restore_main_window(app),
     MENU_QUIT_ID => crate::adapters::tray::spawn_quit(app.clone()),
     other => {
       log_warn!(
@@ -92,6 +92,6 @@ fn handle_tray_event(tray: &TrayIcon, event: TrayIconEvent) {
     ..
   } = event
   {
-    crate::adapters::tray::restore_main_window(tray.app_handle());
+    crate::lifecycle::restore_main_window(tray.app_handle());
   }
 }

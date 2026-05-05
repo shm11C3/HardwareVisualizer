@@ -93,6 +93,57 @@ pub fn on_close_requested(window: &Window) {
   });
 }
 
+/// Hook into app-level runtime events that affect the main window lifecycle.
+pub fn on_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
+  #[cfg(target_os = "macos")]
+  if let tauri::RunEvent::Reopen {
+    has_visible_windows: false,
+    ..
+  } = event
+  {
+    restore_main_window(app);
+  }
+
+  #[cfg(not(target_os = "macos"))]
+  let _ = (app, event);
+}
+
+pub fn restore_main_window(app: &AppHandle) {
+  let Some(window) = app.get_webview_window("main") else {
+    log_warn!(
+      "main window not found while restoring app window",
+      "lifecycle::restore_main_window",
+      None::<&str>
+    );
+    return;
+  };
+
+  // Best-effort: each call may legitimately fail (window already
+  // visible, already in the foreground, OS denying focus) without
+  // affecting the others. Logging keeps the trail without aborting.
+  if let Err(e) = window.show() {
+    log_warn!(
+      &format!("failed to show main window: {e}"),
+      "lifecycle::restore_main_window",
+      None::<&str>
+    );
+  }
+  if let Err(e) = window.unminimize() {
+    log_warn!(
+      &format!("failed to unminimize main window: {e}"),
+      "lifecycle::restore_main_window",
+      None::<&str>
+    );
+  }
+  if let Err(e) = window.set_focus() {
+    log_warn!(
+      &format!("failed to focus main window: {e}"),
+      "lifecycle::restore_main_window",
+      None::<&str>
+    );
+  }
+}
+
 /// Decide what closing the main window means.
 async fn handle_close_request(app: AppHandle, window: Window) {
   if should_close_to_background() {
