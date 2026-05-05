@@ -220,22 +220,51 @@ export const useSettingsAtom = () => {
   const setCloseToTrayPreferenceAtom = async (value: boolean) => {
     const previousCloseToTray = settings.closeToTray;
     const previousChoiceMade = settings.closeToTrayChoiceMade;
+    const previousTrayWidget = settings.trayWidget;
 
     setSettings((prev) => ({
       ...prev,
       closeToTray: value,
       closeToTrayChoiceMade: true,
+      trayWidget: value
+        ? { ...prev.trayWidget, enabled: true }
+        : prev.trayWidget,
     }));
+
+    const shouldEnableTrayWidget = value && !previousTrayWidget.enabled;
+
+    if (shouldEnableTrayWidget) {
+      const nextTrayWidget = { ...previousTrayWidget, enabled: true };
+      const trayWidgetResult =
+        await commands.setTrayWidgetSettings(nextTrayWidget);
+
+      if (isError(trayWidgetResult)) {
+        error(trayWidgetResult.error);
+        console.error(trayWidgetResult.error);
+        setSettings((prev) => ({
+          ...prev,
+          closeToTray: previousCloseToTray,
+          closeToTrayChoiceMade: previousChoiceMade,
+          trayWidget: previousTrayWidget,
+        }));
+        return false;
+      }
+    }
 
     const result = await commands.setCloseToTrayPreference(value);
 
     if (isError(result)) {
+      if (shouldEnableTrayWidget) {
+        await commands.setTrayWidgetSettings(previousTrayWidget);
+      }
+
       error(result.error);
       console.error(result.error);
       setSettings((prev) => ({
         ...prev,
         closeToTray: previousCloseToTray,
         closeToTrayChoiceMade: previousChoiceMade,
+        trayWidget: previousTrayWidget,
       }));
       return false;
     }

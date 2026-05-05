@@ -348,4 +348,66 @@ describe("useSettingsAtom", () => {
       initialValue,
     );
   });
+
+  it("setCloseToTrayPreferenceAtom: enabling close-to-tray also enables the tray widget", async () => {
+    (commands.setCloseToTrayPreference as Mock).mockResolvedValue({
+      data: null,
+    });
+    (commands.setTrayWidgetSettings as Mock).mockResolvedValue({
+      data: null,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.setCloseToTrayPreferenceAtom(true);
+    });
+
+    expect(commands.setCloseToTrayPreference).toHaveBeenCalledWith(true);
+    expect(commands.setTrayWidgetSettings).toHaveBeenCalledWith({
+      enabled: true,
+      metricOrder: ["cpu", "gpu", "gpu-temp"],
+      visibleMetrics: ["cpu", "gpu", "gpu-temp"],
+      updateIntervalSecs: 1,
+    });
+    expect(result.current.settings.closeToTray).toBe(true);
+    expect(result.current.settings.closeToTrayChoiceMade).toBe(true);
+    expect(result.current.settings.trayWidget.enabled).toBe(true);
+  });
+
+  it("setCloseToTrayPreferenceAtom: widget save failure reverts the optimistic tray-mode update", async () => {
+    const errorMsg = "Failed to enable tray widget";
+    (commands.setCloseToTrayPreference as Mock).mockResolvedValue({
+      data: null,
+    });
+    (commands.setTrayWidgetSettings as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    const initialSettings = result.current.settings;
+    let saved = true;
+
+    await act(async () => {
+      saved = await result.current.setCloseToTrayPreferenceAtom(true);
+    });
+
+    expect(saved).toBe(false);
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.settings.closeToTray).toBe(
+      initialSettings.closeToTray,
+    );
+    expect(result.current.settings.closeToTrayChoiceMade).toBe(
+      initialSettings.closeToTrayChoiceMade,
+    );
+    expect(result.current.settings.trayWidget).toEqual(
+      initialSettings.trayWidget,
+    );
+  });
 });
