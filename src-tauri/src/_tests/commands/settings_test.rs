@@ -41,6 +41,9 @@ mod tests {
       burn_in_shift_idle_only: true,
       burn_in_shift_options: None,
       text_selectable: false,
+      close_to_tray: false,
+      close_to_tray_choice_made: false,
+      tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
 
     assert_eq!(settings.version, expected.version,);

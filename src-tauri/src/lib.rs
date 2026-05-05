@@ -121,6 +121,8 @@ pub fn run() {
       settings::commands::set_burn_in_shift_idle_only,
       settings::commands::set_burn_in_shift_options,
       settings::commands::set_text_selectable,
+      settings::commands::set_tray_widget_settings,
+      settings::commands::set_close_to_tray_preference,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,
       settings::commands::open_license_file_path,

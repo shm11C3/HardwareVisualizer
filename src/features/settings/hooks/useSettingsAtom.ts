@@ -40,6 +40,14 @@ const settingsAtom = atom<ClientSettings>({
   burnInShiftIdleOnly: false,
   burnInShiftOptions: null,
   textSelectable: false,
+  closeToTray: false,
+  closeToTrayChoiceMade: false,
+  trayWidget: {
+    enabled: false,
+    metricOrder: ["cpu", "gpu", "gpu-temp"],
+    visibleMetrics: ["cpu", "gpu", "gpu-temp"],
+    updateIntervalSecs: 1,
+  },
 });
 
 export const useSettingsAtom = () => {
@@ -47,7 +55,13 @@ export const useSettingsAtom = () => {
   const mapSettingUpdater: {
     [K in keyof Omit<
       ClientSettings,
-      "state" | "lineGraphColor" | "version" | "hardwareArchive"
+      | "state"
+      | "lineGraphColor"
+      | "version"
+      | "hardwareArchive"
+      | "closeToTray"
+      | "closeToTrayChoiceMade"
+      | "trayWidget"
     >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
     theme: commands.setTheme,
@@ -90,7 +104,13 @@ export const useSettingsAtom = () => {
   const updateSettingAtom = async <
     K extends keyof Omit<
       ClientSettings,
-      "state" | "lineGraphColor" | "version" | "hardwareArchive"
+      | "state"
+      | "lineGraphColor"
+      | "version"
+      | "hardwareArchive"
+      | "closeToTray"
+      | "closeToTrayChoiceMade"
+      | "trayWidget"
     >,
   >(
     key: K,
@@ -197,6 +217,50 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  const setCloseToTrayPreferenceAtom = async (value: boolean) => {
+    const previousCloseToTray = settings.closeToTray;
+    const previousChoiceMade = settings.closeToTrayChoiceMade;
+
+    setSettings((prev) => ({
+      ...prev,
+      closeToTray: value,
+      closeToTrayChoiceMade: true,
+    }));
+
+    const result = await commands.setCloseToTrayPreference(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      setSettings((prev) => ({
+        ...prev,
+        closeToTray: previousCloseToTray,
+        closeToTrayChoiceMade: previousChoiceMade,
+      }));
+      return false;
+    }
+
+    return true;
+  };
+
+  const setTrayWidgetSettingsAtom = async (
+    value: ClientSettings["trayWidget"],
+  ) => {
+    const previousValue = settings.trayWidget;
+
+    setSettings((prev) => ({ ...prev, trayWidget: value }));
+    const result = await commands.setTrayWidgetSettings(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      setSettings((prev) => ({ ...prev, trayWidget: previousValue }));
+      return false;
+    }
+
+    return true;
+  };
+
   return {
     settings,
     loadSettings,
@@ -206,5 +270,7 @@ export const useSettingsAtom = () => {
     toggleHardwareArchiveAtom,
     setHardwareArchiveRefreshIntervalDays,
     setScheduledDataDeletion,
+    setCloseToTrayPreferenceAtom,
+    setTrayWidgetSettingsAtom,
   };
 };

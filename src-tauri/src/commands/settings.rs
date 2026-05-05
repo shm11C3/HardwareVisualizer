@@ -39,6 +39,7 @@ impl AppState {
 pub mod commands {
 
   use super::*;
+  use crate::tray::widget::TrayWidgetSettings;
   use serde_json::json;
   use tauri::{Emitter, EventTarget, Manager, Window};
 
@@ -128,6 +129,9 @@ pub mod commands {
       burn_in_shift_idle_only: settings.burn_in_shift_idle_only,
       burn_in_shift_options: settings.burn_in_shift_options,
       text_selectable: settings.text_selectable,
+      close_to_tray: settings.close_to_tray,
+      close_to_tray_choice_made: settings.close_to_tray_choice_made,
+      tray_widget: settings.tray_widget.normalized(),
     };
 
     Ok(client_settings)
@@ -551,6 +555,40 @@ pub mod commands {
       emit_error(&window)?;
       return Err(e);
     }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_tray_widget_settings(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: TrayWidgetSettings,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_tray_widget_settings(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_close_to_tray_preference(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_close_to_tray_preference(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
     Ok(())
   }
 

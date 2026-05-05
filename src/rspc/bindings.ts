@@ -83,7 +83,7 @@ export const commands = {
 	inUseBytes: string | null,
 	allocBytes: string | null,
 } | null, string>(__TAURI_INVOKE("get_gpu_memory_usage")),
-	getSettings: () => typedError<ClientSettings, string>(__TAURI_INVOKE("get_settings")),
+	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
 	setDisplayTargets: (newTargets: HardwareType[]) => typedError<null, string>(__TAURI_INVOKE("set_display_targets", { newTargets })),
@@ -117,6 +117,8 @@ export const commands = {
 	driftDurationSec?: number | null,
 } | null) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift_options", { newValue })),
 	setTextSelectable: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_text_selectable", { newValue })),
+	setTrayWidgetSettings: (newValue: TrayWidgetSettings_Deserialize) => typedError<null, string>(__TAURI_INVOKE("set_tray_widget_settings", { newValue })),
+	setCloseToTrayPreference: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_close_to_tray_preference", { newValue })),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
 	openLicenseFilePath: () => typedError<null, string>(__TAURI_INVOKE("open_license_file_path")),
@@ -197,7 +199,9 @@ export type BurnInShiftOptions = {
 
 export type BurnInShiftPreset = "gentle" | "balanced" | "aggressive";
 
-export type ClientSettings = {
+export type ClientSettings = ClientSettings_Serialize | ClientSettings_Deserialize;
+
+export type ClientSettings_Deserialize = {
 	version: string,
 	language: string,
 	theme: Theme,
@@ -221,6 +225,38 @@ export type ClientSettings = {
 	burnInShiftIdleOnly: boolean,
 	burnInShiftOptions: BurnInShiftOptions | null,
 	textSelectable: boolean,
+	closeToTray: boolean,
+	closeToTrayChoiceMade: boolean,
+	trayWidget: TrayWidgetSettings_Deserialize,
+};
+
+export type ClientSettings_Serialize = {
+	version: string,
+	language: string,
+	theme: Theme,
+	displayTargets: HardwareType[],
+	graphSize: GraphSize,
+	lineGraphType: LineGraphType,
+	lineGraphBorder: boolean,
+	lineGraphFill: boolean,
+	lineGraphColor: LineGraphColorStringSettings,
+	lineGraphMix: boolean,
+	lineGraphShowLegend: boolean,
+	lineGraphShowScale: boolean,
+	lineGraphShowTooltip: boolean,
+	backgroundImgOpacity: number,
+	selectedBackgroundImg: string | null,
+	temperatureUnit: TemperatureUnit,
+	hardwareArchive: HardwareArchiveSettings,
+	burnInShift: boolean,
+	burnInShiftMode: BurnInShiftMode,
+	burnInShiftPreset: BurnInShiftPreset,
+	burnInShiftIdleOnly: boolean,
+	burnInShiftOptions: BurnInShiftOptions | null,
+	textSelectable: boolean,
+	closeToTray: boolean,
+	closeToTrayChoiceMade: boolean,
+	trayWidget: TrayWidgetSettings_Serialize,
 };
 
 export type CpuInfo = {
@@ -391,6 +427,25 @@ export type SysInfo = {
 export type TemperatureUnit = "C" | "F";
 
 export type Theme = "system" | "light" | "dark" | "darkPlus" | "sky" | "grove" | "sunset" | "nebula" | "orbit" | "cappuccino" | "espresso";
+
+export type TrayMetric = "cpu" | "gpu" | "gpu-temp";
+
+export type TrayWidgetSettings = TrayWidgetSettings_Serialize | TrayWidgetSettings_Deserialize;
+
+export type TrayWidgetSettings_Deserialize = {
+	enabled?: boolean,
+	metricOrder?: TrayMetric[],
+	visibleMetrics?: TrayMetric[],
+	updateIntervalSecs?: number,
+	metrics?: TrayMetric[],
+};
+
+export type TrayWidgetSettings_Serialize = {
+	enabled: boolean,
+	metricOrder: TrayMetric[],
+	visibleMetrics: TrayMetric[],
+	updateIntervalSecs: number,
+};
 
 export type UpdateMetadata = {
 	version: string,
