@@ -32,16 +32,16 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
     "fmt",
 ] }
 chrono = "0.4.44"
-tauri-plugin-dialog = "2.7.0"
-tauri-plugin-store = "2.4.2"
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-store = "2.4.3"
 base64 = "0.22"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 regex = "1.12.3"
 tempfile = "3.27.0"
 sys-locale = "0.3.2"
-tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
-specta-typescript = "0.0.9"
-specta = "=2.0.0-rc.22"
+tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
+specta-typescript = "0.0.11"
+specta = "=2.0.0-rc.24"
 tauri-plugin-shell = "2.3.5"
 tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }
 sqlx = { version = "0.8.6", features = [
@@ -124,7 +124,7 @@ name = "hardware_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dev-dependencies]
-tauri = { version = "2.10.3", features = ["test"] }
+tauri = { version = "2.11.0", features = ["test"] }
 mockall = "0.14"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

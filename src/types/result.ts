@@ -1,6 +1,12 @@
-import type { Result } from "@/rspc/bindings";
+export type Result<T, E> =
+  | { status: "ok"; data: T }
+  | { status: "error"; error: E };
 
 export const isResult = <T, E>(unknown: unknown): unknown is Result<T, E> => {
+  if (typeof unknown !== "object" || unknown === null) {
+    return false;
+  }
+
   const result = unknown as Result<T, E>;
 
   return (

@@ -96,7 +96,7 @@ pub struct NetworkInfo {
   pub default_ipv6_gateway: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
   /// Process ID
@@ -107,10 +107,12 @@ pub struct ProcessInfo {
 
   /// CPU usage
   #[serde(serialize_with = "serialize_usage")]
+  #[specta(type = String)]
   pub cpu_usage: f32,
 
   /// Memory usage
   #[serde(serialize_with = "serialize_usage")]
+  #[specta(type = String)]
   pub memory_usage: f32,
 }
 

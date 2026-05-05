@@ -38,6 +38,18 @@ use tauri_specta::{Builder, collect_commands, collect_events};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 
+#[cfg(debug_assertions)]
+const TYPED_ERROR_IMPL: &str = r#"async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
+    void _assertTypedErrorFollowsContract;
+    try {
+        return { status: "ok", data: await result };
+    } catch (e) {
+        return { status: "error", error: e as E };
+    }
+}
+// @ts-expect-error tauri-specta's generated contract assertion leaves E unused under noUnusedLocals.
+"#;
+
 pub fn run() {
   let app_state = settings::AppState::new();
 
@@ -123,14 +135,13 @@ pub fn run() {
       system::mark_close_to_tray_listener_ready,
     ]);
 
+  #[cfg(debug_assertions)]
+  let builder = builder.typed_error_impl(TYPED_ERROR_IMPL);
+
   // TS bindings
   #[cfg(debug_assertions)]
   builder
-    .export(
-      Typescript::default().header("// @ts-nocheck\n"), // TODO Remove unused imports to eliminate type errors
-      //.formatter(specta_typescript::formatter::biome),
-      "../src/rspc/bindings.ts",
-    )
+    .export(Typescript::default(), "../src/rspc/bindings.ts")
     .expect("Failed to export typescript bindings");
 
   let store_for_setup = Arc::clone(&history_store);

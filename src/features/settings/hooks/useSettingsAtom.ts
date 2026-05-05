@@ -4,7 +4,8 @@ import { defaultColorRGB } from "@/features/hardware/consts/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import type { Settings } from "@/features/settings/types/settingsType";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type ClientSettings, commands, type Result } from "@/rspc/bindings";
+import { type ClientSettings, commands } from "@/rspc/bindings";
+import type { Result } from "@/types/result";
 import { isError } from "@/types/result";
 
 const settingsAtom = atom<ClientSettings>({
