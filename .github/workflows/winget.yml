@@ -32,6 +32,8 @@ jobs:
     runs-on: windows-latest
     env:
       PACKAGE_IDENTIFIER: shm11C3.HardwareVisualizer
+      WINGET_CREATE_VERSION: v1.12.8.0
+      WINGET_CREATE_SHA256: 8bd738851b524885410112678e3771b341c5c716de60fbbecb88ab0a363ed85d
       WINGET_CREATE_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
     steps:
       - name: Resolve release metadata
@@ -79,9 +81,18 @@ jobs:
         with:
           dotnet-version: 6.0.x
 
-      - name: Download winget-create
+      - name: Download and verify winget-create
         shell: pwsh
-        run: Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $downloadUrl = "https://github.com/microsoft/winget-create/releases/download/$env:WINGET_CREATE_VERSION/wingetcreate.exe"
+          Invoke-WebRequest $downloadUrl -OutFile wingetcreate.exe
+
+          $actualHash = (Get-FileHash wingetcreate.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $env:WINGET_CREATE_SHA256) {
+            throw "wingetcreate.exe SHA256 mismatch. Expected $env:WINGET_CREATE_SHA256, got $actualHash."
+          }
 
       - name: Update WinGet manifest
         env:
