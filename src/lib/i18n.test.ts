@@ -28,13 +28,14 @@ describe("i18n configuration", () => {
 
   it("should fall back to English for untranslated Russian keys", async () => {
     await i18n.changeLanguage("ru");
-
-    expect(i18n.t("pages.settings.general.trayWidget.name")).toBe(
-      "Tray widget",
-    );
-
-    // Reset to English for other tests
-    await i18n.changeLanguage("en");
+    try {
+      expect(i18n.t("pages.settings.general.trayWidget.name")).toBe(
+        "Tray widget",
+      );
+    } finally {
+      // Reset to English for other tests
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("should have escapeValue disabled for interpolation", () => {
