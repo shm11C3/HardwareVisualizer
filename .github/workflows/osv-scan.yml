@@ -90,7 +90,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      security-events: write
     with:
       ref: ${{ needs.resolve-latest-release.outputs.latest-tag }}
       download-artifact: default-branch-osv-config
@@ -98,5 +97,5 @@ jobs:
         -r ./
       matrix-property: latest-release-
       results-file-name: osv-results.sarif
-      upload-sarif: true
-      fail-on-vuln: false
+      upload-sarif: false
+      fail-on-vuln: true
