@@ -86,16 +86,52 @@ jobs:
       - resolve-latest-release
       - upload-default-branch-osv-config
     if: needs.resolve-latest-release.outputs.latest-tag != ''
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
-    with:
-      ref: ${{ needs.resolve-latest-release.outputs.latest-tag }}
-      download-artifact: default-branch-osv-config
-      scan-args: |-
-        -r ./
-      matrix-property: latest-release-
-      results-file-name: osv-results.sarif
-      upload-sarif: false
-      fail-on-vuln: true
+    steps:
+      - name: Checkout latest release
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+          ref: ${{ needs.resolve-latest-release.outputs.latest-tag }}
+
+      - name: Download default branch OSV config
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: default-branch-osv-config
+          path: ./
+
+      - name: Run OSV scanner
+        uses: google/osv-scanner-action/osv-scanner-action@7222d1c7ee4f96d71d883e0d3c603f1e1705eca9 # v2.3.5
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --output=latest-release-results.json
+            --format=json
+            -r ./
+
+      - name: Generate OSV SARIF report
+        id: osv-reporter
+        uses: google/osv-scanner-action/osv-reporter-action@7222d1c7ee4f96d71d883e0d3c603f1e1705eca9 # v2.3.5
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --output=latest-release-osv-results.sarif
+            --new=latest-release-results.json
+            --gh-annotations=false
+            --fail-on-vuln=true
+
+      - name: Upload latest release OSV SARIF artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: latest-release-OSV Scanner SARIF file
+          path: latest-release-osv-results.sarif
+          if-no-files-found: error
+          retention-days: 5
+
+      - name: Fail on latest release vulnerabilities
+        if: steps.osv-reporter.outcome == 'failure'
+        run: exit 1
