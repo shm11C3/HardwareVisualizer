@@ -37,7 +37,8 @@ jobs:
     permissions:
       contents: read
     outputs:
-      latest-tag: ${{ steps.release.outputs.latest_tag }}
+      latest_tag: ${{ steps.release.outputs.latest_tag }}
+      latest_sha: ${{ steps.release.outputs.latest_sha }}
     steps:
       - name: Resolve latest release tag
         id: release
@@ -59,6 +60,27 @@ jobs:
           fi
 
           echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+          latest_sha=""
+          if [ -n "$latest_tag" ]; then
+            tag_type="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${latest_tag}" --jq ".object.type")"
+            tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${latest_tag}" --jq ".object.sha")"
+
+            if [ "$tag_type" = "tag" ]; then
+              latest_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq ".object.sha")"
+            else
+              latest_sha="$tag_sha"
+            fi
+
+            if [ -z "$latest_sha" ] || [ "$latest_sha" = "null" ]; then
+              echo "Failed to resolve commit SHA for release tag: $latest_tag" >&2
+              exit 1
+            fi
+
+            echo "Latest release commit SHA: $latest_sha"
+          fi
+
+          echo "latest_sha=$latest_sha" >> "$GITHUB_OUTPUT"
 
   upload-default-branch-osv-config:
     name: Upload default branch OSV config
@@ -85,17 +107,18 @@ jobs:
     needs:
       - resolve-latest-release
       - upload-default-branch-osv-config
-    if: needs.resolve-latest-release.outputs.latest-tag != ''
+    if: needs.resolve-latest-release.outputs.latest_tag != '' && needs.resolve-latest-release.outputs.latest_sha != ''
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
+      security-events: write
     steps:
       - name: Checkout latest release
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-          ref: ${{ needs.resolve-latest-release.outputs.latest-tag }}
+          ref: ${{ needs.resolve-latest-release.outputs.latest_tag }}
 
       - name: Download default branch OSV config
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -131,6 +154,15 @@ jobs:
           path: latest-release-osv-results.sarif
           if-no-files-found: error
           retention-days: 5
+
+      - name: Upload latest release OSV SARIF to Code Scanning
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          sarif_file: latest-release-osv-results.sarif
+          category: osv-latest-release
+          ref: refs/tags/${{ needs.resolve-latest-release.outputs.latest_tag }}
+          sha: ${{ needs.resolve-latest-release.outputs.latest_sha }}
 
       - name: Fail on latest release vulnerabilities
         if: steps.osv-reporter.outcome == 'failure'
