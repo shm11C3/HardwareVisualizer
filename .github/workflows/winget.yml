@@ -126,6 +126,9 @@ jobs:
               throw 'WINGET_CREATE_GITHUB_TOKEN repository secret is required when submit is enabled.'
             }
             gh repo sync "$env:GITHUB_REPOSITORY_OWNER/winget-pkgs" --source microsoft/winget-pkgs --branch master
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Failed to sync the winget-pkgs fork. Ensure WINGET_CREATE_GITHUB_TOKEN has the public_repo and workflow scopes, or sync the fork manually before retrying.'
+            }
             $args += @('-t', $env:WINGET_CREATE_TOKEN, '--submit')
           }
 
