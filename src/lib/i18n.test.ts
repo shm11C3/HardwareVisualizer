@@ -26,8 +26,24 @@ describe("i18n configuration", () => {
     await i18n.changeLanguage("en");
   });
 
+  it("should fall back to English for untranslated Russian keys", async () => {
+    await i18n.changeLanguage("ru");
+    try {
+      expect(i18n.t("pages.settings.general.trayWidget.name")).toBe(
+        "Tray widget",
+      );
+    } finally {
+      // Reset to English for other tests
+      await i18n.changeLanguage("en");
+    }
+  });
+
   it("should have escapeValue disabled for interpolation", () => {
     expect(i18n.options.interpolation?.escapeValue).toBe(false);
+  });
+
+  it("should fall back to English for empty translations", () => {
+    expect(i18n.options.returnEmptyString).toBe(false);
   });
 
   it("should use react-i18next plugin", () => {
