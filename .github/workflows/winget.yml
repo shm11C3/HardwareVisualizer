@@ -52,7 +52,7 @@ jobs:
             $tag = $env:INPUT_TAG
           }
           if ([string]::IsNullOrWhiteSpace($tag)) {
-            $tag = gh release view --json tagName --jq '.tagName'
+            $tag = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq '.tagName'
           }
           if ([string]::IsNullOrWhiteSpace($tag)) {
             throw 'Could not resolve a release tag.'
@@ -70,7 +70,7 @@ jobs:
           }
           if ([string]::IsNullOrWhiteSpace($installerUrl)) {
             $assetName = "HardwareVisualizer_${version}_x64_en-US.msi"
-            $release = gh release view $tag --json assets | ConvertFrom-Json
+            $release = gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets | ConvertFrom-Json
             $asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
             if ($null -eq $asset) {
               throw "Release asset '$assetName' was not found on '$tag'."
