@@ -65,7 +65,9 @@ jobs:
             if ($null -eq $asset) {
               throw "Release asset '$assetName' was not found on '$tag'."
             }
-            $installerUrl = $asset.url
+            $encodedTag = [System.Uri]::EscapeDataString($tag)
+            $encodedAssetName = [System.Uri]::EscapeDataString($assetName)
+            $installerUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$encodedTag/$encodedAssetName"
           }
 
           "tag=$tag" >> $env:GITHUB_OUTPUT
