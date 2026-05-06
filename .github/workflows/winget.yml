@@ -60,6 +60,14 @@ jobs:
 
           $version = $tag -replace '^v', ''
           $installerUrl = $env:INPUT_INSTALLER_URL
+          if (-not [string]::IsNullOrWhiteSpace($installerUrl)) {
+            if ($installerUrl -notmatch '^https://') {
+              throw 'inputs.installer-url must be an https:// URL to an .msi installer.'
+            }
+            if ($installerUrl -notmatch '\.msi($|[?#])') {
+              throw 'inputs.installer-url must be an https:// URL to an .msi installer.'
+            }
+          }
           if ([string]::IsNullOrWhiteSpace($installerUrl)) {
             $assetName = "HardwareVisualizer_${version}_x64_en-US.msi"
             $release = gh release view $tag --json assets | ConvertFrom-Json
