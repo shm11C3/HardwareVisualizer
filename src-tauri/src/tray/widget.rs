@@ -335,13 +335,14 @@ fn format_tooltip_sample(
   let label = match sample.metric {
     TrayMetric::Cpu => "CPU usage",
     TrayMetric::Gpu => "GPU usage",
-    TrayMetric::GpuTemp => "GPU temperature",
+    TrayMetric::GpuTemp => "GPU temp",
   };
 
   format!(
-    "{label}: {} ({})",
+    "{}{}: {}",
+    format_state(sample.state),
+    label,
     format_value(sample.metric, sample.value, temperature_unit),
-    format_state(sample.state)
   )
 }
 
@@ -354,8 +355,8 @@ fn format_value(
     TrayMetric::Cpu | TrayMetric::Gpu => format!("{}%", value.round() as i32),
     TrayMetric::GpuTemp => {
       let (value, suffix) = match temperature_unit {
-        TemperatureUnit::Celsius => (value, "C"),
-        TemperatureUnit::Fahrenheit => (value * 9.0 / 5.0 + 32.0, "F"),
+        TemperatureUnit::Celsius => (value, "°C"),
+        TemperatureUnit::Fahrenheit => (value * 9.0 / 5.0 + 32.0, "°F"),
       };
       format!("{}{}", value.round() as i32, suffix)
     }
@@ -372,9 +373,9 @@ fn state_suffix(state: MetricState) -> &'static str {
 
 fn format_state(state: MetricState) -> &'static str {
   match state {
-    MetricState::Normal => "normal",
-    MetricState::Warning => "warning",
-    MetricState::Critical => "critical",
+    MetricState::Normal => "🟢",
+    MetricState::Warning => "🟡",
+    MetricState::Critical => "🔴",
   }
 }
 
@@ -469,7 +470,45 @@ mod tests {
         },
       ]
     );
-    assert!(frame.tooltip.contains("CPU usage: 42% (normal)"));
+    assert!(frame.tooltip.contains("🟢CPU usage: 42%"));
+  }
+
+  #[test]
+  fn builds_gpu_temperature_frame_with_state_emoji_and_temperature_unit() {
+    let settings = TrayWidgetSettings {
+      enabled: true,
+      metric_order: vec![TrayMetric::GpuTemp],
+      visible_metrics: vec![TrayMetric::GpuTemp],
+      update_interval_secs: 1,
+      legacy_metrics: vec![],
+    };
+
+    let celsius_frame = build_frame(
+      &snapshot(42.4, vec![gpu(None, Some(58.1)), gpu(None, Some(70.0))]),
+      &settings,
+      &TemperatureUnit::Celsius,
+    );
+
+    assert_eq!(celsius_frame.title, Some("TEMP 70°C!".to_string()));
+    assert_eq!(celsius_frame.tooltip, "🟡GPU temp: 70°C");
+    assert_eq!(
+      celsius_frame.items,
+      vec![TrayFrameItem {
+        metric: TrayMetric::GpuTemp,
+        icon: metric_icon_config(TrayMetric::GpuTemp),
+        value: "70°C".to_string(),
+        state: MetricState::Warning,
+      }]
+    );
+
+    let fahrenheit_frame = build_frame(
+      &snapshot(42.4, vec![gpu(None, Some(85.0))]),
+      &settings,
+      &TemperatureUnit::Fahrenheit,
+    );
+
+    assert_eq!(fahrenheit_frame.title, Some("TEMP 185°F!!".to_string()));
+    assert_eq!(fahrenheit_frame.tooltip, "🔴GPU temp: 185°F");
   }
 
   #[test]
@@ -549,7 +588,7 @@ mod tests {
     let frame = TrayFrame {
       title: Some("C 42%".to_string()),
       items: vec![],
-      tooltip: "CPU usage: 42% (normal)".to_string(),
+      tooltip: "🟢CPU usage: 42%".to_string(),
     };
 
     assert!(should_skip_frame(
@@ -565,12 +604,12 @@ mod tests {
     let previous = TrayFrame {
       title: Some("C 42%".to_string()),
       items: vec![],
-      tooltip: "CPU usage: 42% (normal)".to_string(),
+      tooltip: "🟢CPU usage: 42%".to_string(),
     };
     let next = TrayFrame {
       title: Some("C 43%".to_string()),
       items: vec![],
-      tooltip: "CPU usage: 43% (normal)".to_string(),
+      tooltip: "🟢CPU usage: 43%".to_string(),
     };
 
     assert!(should_skip_frame(
