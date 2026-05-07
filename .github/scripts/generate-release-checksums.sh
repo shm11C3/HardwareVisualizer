@@ -23,7 +23,7 @@ check_sha256sums() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum --check "$1"
   else
-    shasum -a 256 --check "$1"
+    shasum -a 256 -c "$1"
   fi
 }
 
