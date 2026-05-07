@@ -19,8 +19,8 @@
 
 ## SHA-256 チェックサム
 
-検証メタデータを含む v1.8.1-alpha.1 以降の GitHub Release では、リリース assets の
-正規チェックサム一覧として `SHA256SUMS.txt` が Assets セクションに含まれます。
+v1.8.1 以降の GitHub Release では、リリース assets の正規チェックサム一覧として
+`SHA256SUMS.txt` を Assets セクションに含める予定です。
 
 インストーラーと同じ GitHub Release から `SHA256SUMS.txt` をダウンロードし、
 対象ファイル名の SHA-256 値と照合してください。
@@ -43,12 +43,11 @@ Linux:
 sha256sum hardware-visualizer_x.x.x_amd64.deb
 ```
 
-v1.8.1-alpha.1 より前のリリースでは、`SHA256SUMS.txt` が提供されていない場合があります。
+v1.8.1 より前のリリースでは、`SHA256SUMS.txt` が提供されていない場合があります。
 
 ## GitHub Artifact Attestations
 
-検証メタデータを含む v1.8.1-alpha.1 以降のリリース assets では、GitHub Artifact
-Attestations が生成されます。
+v1.8.1 以降のリリース assets で GitHub Artifact Attestations を生成する予定です。
 
 これは高度な検証手順です。多くのユーザーはまず、ファイルの SHA-256 が
 `SHA256SUMS.txt` に記載された値と一致することを確認してください。
@@ -61,7 +60,7 @@ Attestations が生成されます。
 gh attestation verify ./HardwareVisualizer_x.x.x_x64_en-US.msi -R shm11C3/HardwareVisualizer
 ```
 
-v1.8.1-alpha.1 より前のリリースでは、GitHub Artifact Attestations が提供されていない場合があります。
+v1.8.1 より前のリリースでは、GitHub Artifact Attestations が提供されていない場合があります。
 
 ## macOS の署名と notarization
 
@@ -100,6 +99,5 @@ winget show shm11C3.HardwareVisualizer
 Winget はインストールチャネルです。Authenticode 署名、SHA-256 チェックサム、
 GitHub Artifact Attestations の代替ではありません。
 
-検証メタデータを含む v1.8.1-alpha.1 以降のリリースで Winget manifest を確認する場合は、
-`SHA256SUMS.txt` にある Windows インストーラーの SHA-256 値を `InstallerSha256`
-の入力または検証値として使用してください。
+v1.8.1 以降の Winget manifest を確認する場合は、`SHA256SUMS.txt` にある
+Windows インストーラーの SHA-256 値を `InstallerSha256` の入力または検証値として使用してください。

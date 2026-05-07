@@ -22,9 +22,9 @@ available.
 
 ## SHA-256 checksums
 
-For v1.8.1-alpha.1 and later releases that include verification metadata,
-GitHub Releases include `SHA256SUMS.txt` in the release Assets section as the
-canonical checksum list for release assets.
+GitHub Releases are planned to include `SHA256SUMS.txt` starting with v1.8.1
+in the release Assets section as the canonical checksum list for release
+assets.
 
 Download `SHA256SUMS.txt` from the same GitHub Release as your installer and
 compare the SHA-256 value for the matching filename.
@@ -47,12 +47,12 @@ Linux:
 sha256sum hardware-visualizer_x.x.x_amd64.deb
 ```
 
-For releases before v1.8.1-alpha.1, `SHA256SUMS.txt` may not be available.
+For releases before v1.8.1, `SHA256SUMS.txt` may not be available.
 
 ## GitHub Artifact Attestations
 
-For v1.8.1-alpha.1 and later releases that include verification metadata,
-GitHub Artifact Attestations are generated for release assets.
+GitHub Artifact Attestations are planned to be generated for release assets
+starting with v1.8.1.
 
 This is an advanced verification step. Most users should first verify that the
 file matches the SHA-256 value published in `SHA256SUMS.txt`.
@@ -65,8 +65,7 @@ command verifies the default SLSA provenance predicate for the local file.
 gh attestation verify ./HardwareVisualizer_x.x.x_x64_en-US.msi -R shm11C3/HardwareVisualizer
 ```
 
-For releases before v1.8.1-alpha.1, GitHub Artifact Attestations may not be
-available.
+For releases before v1.8.1, GitHub Artifact Attestations may not be available.
 
 ## macOS signature and notarization
 
@@ -106,6 +105,6 @@ winget show shm11C3.HardwareVisualizer
 Winget is an installation channel. It does not replace Authenticode signing,
 SHA-256 checksums, or GitHub Artifact Attestations.
 
-For Winget manifest checks on v1.8.1-alpha.1 and later releases that include
-verification metadata, use the SHA-256 value for the Windows installer from
-`SHA256SUMS.txt` to populate or verify `InstallerSha256`.
+For Winget manifest checks on v1.8.1 and later, use the SHA-256 value for the
+Windows installer from `SHA256SUMS.txt` to populate or verify
+`InstallerSha256`.

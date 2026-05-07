@@ -31,8 +31,8 @@ Windows Authenticode signing is currently pending. Until Windows code signing is
 available, use official distribution locations and verify GitHub Release
 downloads with SHA-256 checksums and GitHub Artifact Attestations.
 
-SHA-256 checksums and GitHub Artifact Attestations are available starting with
-v1.8.1-alpha.1 and later releases that include verification metadata.
+SHA-256 checksums and GitHub Artifact Attestations are planned to start with
+v1.8.1 and later releases that include verification metadata.
 
 Tauri updater signatures protect the in-app update path. They do not replace
 platform code signing, SHA-256 checksums, or GitHub Artifact Attestations.
@@ -111,8 +111,8 @@ release.
 
 ## Release integrity controls
 
-For v1.8.1-alpha.1 and later releases that include verification metadata, the
-release workflow provides two repository-generated verification layers:
+For v1.8.1 and later releases that include verification metadata, the release
+workflow is planned to provide two repository-generated verification layers:
 
 - `SHA256SUMS.txt` is attached to the GitHub Release and lists SHA-256 checksums
   for all release assets except itself.
