@@ -63,6 +63,9 @@ Web サイト: <https://hardviz.com/>
 - **公式ウェブサイト**: [hardviz.com/#download](https://hardviz.com/#download)
 - **GitHub Releases**: [最新リリース](https://github.com/shm11C3/HardwareVisualizer/releases/latest) > Assets セクション
 
+チェックサムと provenance の確認方法は、
+[ダウンロード検証ガイド](download-verification.ja.md) を参照してください。
+
 ### Windows へのインストール
 
 #### インストーラを使用する

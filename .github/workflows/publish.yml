@@ -228,3 +228,93 @@ jobs:
         if: ${{ always() && runner.os == 'macOS' }}
         shell: bash
         run: rm -rf "${RUNNER_TEMP}/private_keys"
+
+  release-provenance:
+    needs: publish-tauri
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf dist
+          mkdir -p dist
+
+          for attempt in 1 2 3 4 5; do
+            if gh release download "${{ github.ref_name }}" --dir dist --clobber; then
+              break
+            fi
+
+            if [ "${attempt}" -eq 5 ]; then
+              echo "Failed to download release assets after ${attempt} attempts." >&2
+              exit 1
+            fi
+
+            sleep "$((attempt * 5))"
+          done
+
+          rm -f dist/SHA256SUMS.txt
+
+      - name: Check release asset inventory
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release view "${{ github.ref_name }}" \
+            --json assets \
+            --jq '.assets[].name' \
+            | awk '$0 != "SHA256SUMS.txt"' \
+            | LC_ALL=C sort > "${RUNNER_TEMP}/expected-release-assets.txt"
+
+          find dist -maxdepth 1 -type f ! -name "SHA256SUMS.txt" -exec basename {} \; \
+            | LC_ALL=C sort > "${RUNNER_TEMP}/downloaded-release-assets.txt"
+
+          if [ ! -s "${RUNNER_TEMP}/expected-release-assets.txt" ]; then
+            echo "No release assets found on the draft release." >&2
+            exit 1
+          fi
+
+          if ! diff -u "${RUNNER_TEMP}/expected-release-assets.txt" "${RUNNER_TEMP}/downloaded-release-assets.txt"; then
+            echo "Downloaded assets do not match the draft release asset inventory." >&2
+            exit 1
+          fi
+
+      - name: Generate SHA256SUMS.txt
+        shell: bash
+        run: bash .github/scripts/generate-release-checksums.sh dist
+
+      - name: Check checksum coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sed -E 's/^[0-9a-f]{64}  //' dist/SHA256SUMS.txt \
+            | LC_ALL=C sort > "${RUNNER_TEMP}/checksummed-release-assets.txt"
+
+          if ! diff -u "${RUNNER_TEMP}/downloaded-release-assets.txt" "${RUNNER_TEMP}/checksummed-release-assets.txt"; then
+            echo "SHA256SUMS.txt does not cover every downloaded release asset." >&2
+            exit 1
+          fi
+
+      - name: Upload SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${{ github.ref_name }}" dist/SHA256SUMS.txt --clobber
+
+      - name: Generate build provenance attestations
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
+        with:
+          subject-path: dist/*
