@@ -90,8 +90,8 @@ as `.exe` and `.msi` files, published on GitHub Releases.
 Status: signed with Apple Developer ID and notarized by Apple.
 
 Users can verify macOS artifacts with Gatekeeper and code signing tools. See the
-[download verification guide](docs/download-verification.md)
-for copy-pasteable commands.
+[macOS signature and notarization section](docs/download-verification.md#macos-signature-and-notarization)
+of the download verification guide for copy-pasteable commands.
 
 ## Linux
 
