@@ -1,64 +1,143 @@
-# Code signing policy
+# Code signing and download authenticity policy
 
-This project signs and distributes release artifacts. The signing method differs by platform.
+HardwareVisualizer publishes release artifacts through GitHub Releases and the
+official website. The signing and verification status differs by platform.
 
-## Windows — SignPath Foundation (pending)
+## Official distribution and installation locations
 
-We are applying to the SignPath Foundation program.
+Official downloads and installations are available only from:
 
-Planned statement (required by the program, if approved):
-"Free code signing provided by SignPath.io, certificate by SignPath Foundation"
+- GitHub Releases: <https://github.com/shm11C3/HardwareVisualizer/releases>
+- Official website: <https://hardviz.com/>
+- Winget for Windows, where available
 
-Status: Pending approval.
+Third-party mirrors, download sites, file-sharing links, YouTube description
+links, shortened URLs, and password-protected archives are not official
+distribution channels.
 
-### What will be signed
+Fake sites impersonating official download pages are a real malware distribution
+risk. Users should verify the domain before downloading.
 
-- Windows installer packages (e.g. .exe, .msi) published on GitHub Releases.
+## Current signing status
 
-### Build and signing process
+| Platform      | Signing status        | Verification                 |
+| ------------- | --------------------- | ---------------------------- |
+| Windows       | Pending               | Winget, SHA-256, attestation |
+| macOS         | Signed and notarized  | Gatekeeper, codesign         |
+| Linux         | Unsigned              | SHA-256, attestation         |
+| Tauri updater | Signed updater assets | Update-path only             |
+
+Windows Authenticode signing is currently pending. Until Windows code signing is
+available, use official distribution locations and verify GitHub Release
+downloads with SHA-256 checksums and GitHub Artifact Attestations.
+
+SHA-256 checksums and GitHub Artifact Attestations are planned to start with
+v1.8.1 and later releases that include verification metadata.
+
+Tauri updater signatures protect the in-app update path. They do not replace
+platform code signing, SHA-256 checksums, or GitHub Artifact Attestations.
+
+## Windows
+
+Status: Authenticode code signing is pending.
+
+We are currently working on Windows Authenticode signing through SSL.com.
+
+Until Windows code signing is available, verify downloads using:
+
+- official distribution locations
+- SHA-256 checksums
+- GitHub Artifact Attestations
+
+Use Winget as the recommended Windows installation path where available:
+
+```powershell
+winget install shm11C3.HardwareVisualizer
+winget show shm11C3.HardwareVisualizer
+```
+
+Winget is an official installation path, but it is not a replacement for
+Authenticode signing, SHA-256 checksums, or GitHub Artifact Attestations.
+
+Windows SmartScreen may show a warning while Authenticode signing and reputation
+are not fully established.
+
+### Planned signing process
+
+The planned SSL.com signing process applies to Windows installer packages, such
+as `.exe` and `.msi` files, published on GitHub Releases.
 
 - Artifacts are built from this repository using CI.
-- Only CI-built artifacts will be submitted to SignPath for signing.
-- The private key is held by SignPath (HSM-backed). This project does not store the private key.
+- Only CI-built artifacts will be signed for release distribution.
+- Certificate material and signing access will be handled through the SSL.com
+  signing workflow.
 
-### Team roles (single-maintainer project)
+### Team roles
 
-- Authors (commit access, can modify the repository without additional reviews):
+- Authors, with commit access:
   - <https://github.com/shm11C3>
 
-- Reviewers (review required for changes proposed by non-committers, e.g. pull requests):
+- Reviewers, for changes proposed by non-committers:
   - <https://github.com/shm11C3>
-  - Policy: All external pull requests are reviewed by the maintainer before merge.
+  - Policy: external pull requests are reviewed by the maintainer before merge.
 
-- Approvers (approve each signing request):
+- Approvers, for each signing request:
   - <https://github.com/shm11C3>
-  - Policy: Each signing request requires explicit approval by the maintainer.
+  - Policy: each signing request requires explicit approval by the maintainer.
 
 ## macOS
 
-- Signed with Apple Developer ID and notarized by Apple.
+Status: signed with Apple Developer ID and notarized by Apple.
 
-## Linux (currently unsigned)
+Users can verify macOS artifacts with Gatekeeper and code signing tools. See the
+[download verification guide](docs/download-verification.md)
+for copy-pasteable commands.
 
-Status: Not implemented yet.
+## Linux
 
-### What is distributed
+Status: not cryptographically signed yet.
 
-- Linux artifacts (e.g. AppImage, .deb, .rpm) published on GitHub Releases.
+Linux artifacts, such as AppImage, `.deb`, and `.rpm` files, are published
+through GitHub Releases.
 
-### Verification
+Until Linux package signing is implemented, verify downloads using:
 
-- At this time, Linux artifacts are not cryptographically signed by this project.
-- Users should obtain artifacts only from the official GitHub Releases page.
+- official distribution locations
+- SHA-256 checksums
+- GitHub Artifact Attestations
 
-### Future plan (non-binding)
+We may add Linux artifact signing, such as Sigstore/cosign or GPG, in a future
+release.
 
-- We may add artifact signing (e.g. Sigstore/cosign or GPG) in a future release.
+## Release integrity controls
 
-## Distribution locations
+For v1.8.1 and later releases that include verification metadata, the release
+workflow is planned to provide two repository-generated verification layers:
 
-- <https://github.com/shm11C3/HardwareVisualizer/releases>
+- `SHA256SUMS.txt` is attached to the GitHub Release and lists SHA-256 checksums
+  for all release assets except itself.
+- GitHub Artifact Attestations are generated for release assets and
+  `SHA256SUMS.txt`. They are available through GitHub's attestation service and
+  can be verified with GitHub CLI.
 
-## Privacy policy
+`SHA256SUMS.txt` is the canonical checksum source for user documentation,
+website download metadata, and Winget manifest updates.
 
-This program will not transfer any information to other networked systems unless specifically requested by the user.
+For Winget, use the Windows installer entry from `SHA256SUMS.txt` to populate or
+verify `InstallerSha256`.
+
+The official website may also provide a browser-based verification page that
+computes SHA-256 locally without uploading the selected file.
+
+## Tauri updater signatures
+
+Tauri updater artifacts are signed using the Tauri updater signing mechanism.
+
+These signatures protect the application update path, but they are not a
+replacement for platform code signing, SHA-256 checksums, or GitHub Artifact
+Attestations.
+
+## Verification guide
+
+Users can verify release files by following the
+[download verification guide](docs/download-verification.md).

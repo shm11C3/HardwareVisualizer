@@ -129,20 +129,20 @@ After launching the app:
 
 ## Features
 
-| Category                 | Status | Notes                            |
-| ------------------------ | ------ | -------------------------------- |
-| CPU / RAM Usage          | ✅     | Realtime + history               |
-| GPU Usage                | ✅     | NVIDIA full / others partial     |
-| GPU Temperature          | ✅     | NVIDIA full / others partial     |
-| Fan Monitoring           | ⏳     | Planned                          |
-| Storage Monitoring       | ✅     | Device summary                   |
-| Network Monitoring       | ✅     | Basic interfaces / Usage planned |
-| Custom Graph Themes      | ✅     | Persistent                       |
-| Dashboard Customization  | ✅     | Layout editing partial           |
-| Background Image         | ✅     | Local assets                     |
-| Historical Insights      | ✅     | Default Up to 30 days            |
-| GPU Insight              | ✅     | NVIDIA full / others partial     |
-| Language Support         | ✅     | English, Japanese, Russian       |
+| Category                | Status | Notes                            |
+| ----------------------- | ------ | -------------------------------- |
+| CPU / RAM Usage         | ✅     | Realtime + history               |
+| GPU Usage               | ✅     | NVIDIA full / others partial     |
+| GPU Temperature         | ✅     | NVIDIA full / others partial     |
+| Fan Monitoring          | ⏳     | Planned                          |
+| Storage Monitoring      | ✅     | Device summary                   |
+| Network Monitoring      | ✅     | Basic interfaces / Usage planned |
+| Custom Graph Themes     | ✅     | Persistent                       |
+| Dashboard Customization | ✅     | Layout editing partial           |
+| Background Image        | ✅     | Local assets                     |
+| Historical Insights     | ✅     | Default Up to 30 days            |
+| GPU Insight             | ✅     | NVIDIA full / others partial     |
+| Language Support        | ✅     | English, Japanese, Russian       |
 
 ## Supported OS
 
@@ -200,14 +200,14 @@ Flexible graph customization available.
 
 ## Roadmap
 
-| Item                         | Target        |
-| ---------------------------- | ------------- |
-| macOS Support                | ✅ Done       |
-| AMD GPU compatible           | ✅ Done       |
-| Fan / Temp Full Cross Vendor | Research      |
-| Game Mode                    | Planned       |
-| Power Consumption Estimation | Idea          |
-| Plugin System                | Idea          |
+| Item                         | Target   |
+| ---------------------------- | -------- |
+| macOS Support                | ✅ Done  |
+| AMD GPU compatible           | ✅ Done  |
+| Fan / Temp Full Cross Vendor | Research |
+| Game Mode                    | Planned  |
+| Power Consumption Estimation | Idea     |
+| Plugin System                | Idea     |
 
 ## Contributing
 
@@ -215,7 +215,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Code Signing Policy
 
-See [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for details.
+See [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for signing status and the
+[download verification guide](docs/download-verification.md) for checksum and
+provenance checks.
 
 ## License
 
