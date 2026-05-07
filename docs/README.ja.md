@@ -140,11 +140,11 @@ winget install shm11C3.HardwareVisualizer
 
 ## サポート OS
 
-| OS      | ステータス  | ダウンロード                                                                                 |
-| ------- | ----------- | -------------------------------------------------------------------------------------------- |
-| Windows | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
-| Linux   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
-| macOS   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download)                                                |
+| OS      | ステータス  | ダウンロード                                  |
+| ------- | ----------- | --------------------------------------------- |
+| Windows | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download) |
+| Linux   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download) |
+| macOS   | ✅ 対応済み | [ダウンロード](https://hardviz.com/#download) |
 
 ## スクリーンショット
 
@@ -209,7 +209,8 @@ winget install shm11C3.HardwareVisualizer
 
 ## コード署名ポリシー（英語版のみ）
 
-詳細は [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md) をご覧ください。
+署名状況の詳細は [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md) をご覧ください。
+チェックサムと provenance の確認方法は [ダウンロード検証ガイド](download-verification.ja.md) を参照してください。
 
 ## ライセンス
 

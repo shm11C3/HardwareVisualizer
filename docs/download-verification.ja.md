@@ -13,14 +13,14 @@
 - Windows の Winget（利用可能な場合）
 
 サードパーティのミラーサイト、ダウンロードサイト、ファイル共有リンク、YouTube の説明欄のリンク、
-パスワード付きアーカイブは公式配布チャネルではありません。
+短縮 URL、パスワード付きアーカイブは公式配布チャネルではありません。
 また、公式ダウンロードページを装った偽サイトから悪意のあるインストーラーを配布する攻撃も確認されています。
 ダウンロード前にドメインを慎重に確認し、利用可能な場合は以下の方法で GitHub Release の assets を検証してください。
 
 ## SHA-256 チェックサム
 
-v1.8.1 以降の GitHub Release には、リリース assets の正規チェックサム一覧として
-`SHA256SUMS.txt` が Assets セクションに含まれます。
+v1.8.1 以降の GitHub Release では、リリース assets の正規チェックサム一覧として
+`SHA256SUMS.txt` を Assets セクションに含める予定です。
 
 インストーラーと同じ GitHub Release から `SHA256SUMS.txt` をダウンロードし、
 対象ファイル名の SHA-256 値と照合してください。
@@ -45,9 +45,12 @@ sha256sum hardware-visualizer_x.x.x_amd64.deb
 
 v1.8.1 より前のリリースでは、`SHA256SUMS.txt` が提供されていない場合があります。
 
-## GitHub build provenance attestations
+## GitHub Artifact Attestations
 
-v1.8.1 以降のリリース assets には GitHub build provenance attestations も付与されます。
+v1.8.1 以降のリリース assets で GitHub Artifact Attestations を生成する予定です。
+
+この これは高度な検証手順です。多くのユーザーはまず、ファイルの SHA-256 が
+`SHA256SUMS.txt` に記載された値と一致することを確認してください。
 
 この確認には GitHub CLI と GitHub へのネットワークアクセスが必要です。`-R` フラグは、
 このリポジトリに関連付けられた attestation に検証範囲を限定します。このコマンドは、
@@ -57,7 +60,7 @@ v1.8.1 以降のリリース assets には GitHub build provenance attestations 
 gh attestation verify ./HardwareVisualizer_x.x.x_x64_en-US.msi -R shm11C3/HardwareVisualizer
 ```
 
-v1.8.1 より前のリリースでは、attestation が提供されていない場合があります。
+v1.8.1 より前のリリースでは、GitHub Artifact Attestations が提供されていない場合があります。
 
 ## Winget
 
@@ -69,7 +72,7 @@ winget show shm11C3.HardwareVisualizer
 ```
 
 Winget はインストールチャネルです。Authenticode 署名、SHA-256 チェックサム、
-GitHub build provenance attestations の代替ではありません。
+GitHub Artifact Attestations の代替ではありません。
 
 v1.8.1 以降の Winget manifest を確認する場合は、`SHA256SUMS.txt` にある
 Windows インストーラーの SHA-256 値を `InstallerSha256` の入力または検証値として使用してください。

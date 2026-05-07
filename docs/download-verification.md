@@ -22,8 +22,9 @@ available.
 
 ## SHA-256 checksums
 
-GitHub Releases starting with v1.8.1 include `SHA256SUMS.txt` in the release
-Assets section as the canonical checksum list for release assets.
+GitHub Releases starting with v1.8.1 are planned to include `SHA256SUMS.txt`
+in the release Assets section as the canonical checksum list for release
+assets.
 
 Download `SHA256SUMS.txt` from the same GitHub Release as your installer and
 compare the SHA-256 value for the matching filename.
@@ -48,10 +49,13 @@ sha256sum hardware-visualizer_x.x.x_amd64.deb
 
 For releases before v1.8.1, `SHA256SUMS.txt` may not be available.
 
-## GitHub build provenance attestations
+## GitHub Artifact Attestations
 
-Release assets starting with v1.8.1 also include GitHub build provenance
-attestations.
+GitHub Artifact Attestations are planned to be generated for release assets
+starting with v1.8.1.
+
+This is an advanced verification step. Most users should first verify that the
+file matches the SHA-256 value published in `SHA256SUMS.txt`.
 
 This check requires the GitHub CLI and network access to GitHub. The `-R` flag
 scopes verification to attestations associated with this repository, and the
@@ -61,7 +65,7 @@ command verifies the default SLSA provenance predicate for the local file.
 gh attestation verify ./HardwareVisualizer_x.x.x_x64_en-US.msi -R shm11C3/HardwareVisualizer
 ```
 
-For releases before v1.8.1, attestations may not be available.
+For releases before v1.8.1, GitHub Artifact Attestations may not be available.
 
 ## Winget
 
