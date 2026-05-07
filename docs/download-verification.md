@@ -103,7 +103,7 @@ winget show shm11C3.HardwareVisualizer
 ```
 
 Winget is an installation channel. It does not replace Authenticode signing,
-SHA-256 checksums, or GitHub Artifact Attestations.
+SHA-256 checksums, or GitHub build provenance attestations.
 
 For Winget manifest checks on v1.8.1 and later, use the SHA-256 value for the
 Windows installer from `SHA256SUMS.txt` to populate or verify
