@@ -69,6 +69,9 @@ Choose your platform and download the latest installer:
 - **Official Website**: [hardviz.com/#download](https://hardviz.com/#download)
 - **GitHub Releases**: [Latest Release](https://github.com/shm11C3/HardwareVisualizer/releases/latest) > Assets section
 
+For checksum and provenance checks, see the
+[download verification guide](docs/download-verification.md).
+
 ### Windows Installation
 
 #### Using the Installer
