@@ -20,7 +20,7 @@
     "gen:licenses:tmp": "node --experimental-strip-types .github/scripts/generate-licenses.ts tmp"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.13",
+    "@biomejs/biome": "2.4.14",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.2.4",
     "@tauri-apps/cli": "^2.11.0",
@@ -87,6 +87,6 @@
     "tailwind-merge": "^3.4.0",
     "tailwind-variants": "^3.1.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.4.1"
+    "zod": "^4.4.2"
   }
 }
