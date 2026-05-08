@@ -2328,7 +2328,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tauri-apps/api@2.10.1
+## @tauri-apps/api@2.11.0
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
@@ -2444,7 +2444,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-dialog@2.7.0
+## @tauri-apps/plugin-dialog@2.7.1
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -2556,7 +2556,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## @tauri-apps/plugin-store@2.4.2
+## @tauri-apps/plugin-store@2.4.3
 
 - License: MIT OR Apache-2.0
 - Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -4860,7 +4860,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@1.11.0
+## lucide-react@1.14.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -5086,7 +5086,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@17.0.4
+## react-i18next@17.0.6
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -5993,7 +5993,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## zod@4.3.6
+## zod@4.4.2
 
 - License: MIT
 - Repository: [https://github.com/colinhacks/zod](https://github.com/colinhacks/zod)
@@ -7804,6 +7804,19 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
+## ctor-proc-macro
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/mmastrac/rust-ctor](https://github.com/mmastrac/rust-ctor)
+
+```LICENSE
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ## darling_core
 
 - License: MIT
@@ -8692,6 +8705,32 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
+```
+
+## dtor
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/mmastrac/rust-ctor](https://github.com/mmastrac/rust-ctor)
+
+```LICENSE
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## dtor-proc-macro
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/mmastrac/rust-ctor](https://github.com/mmastrac/rust-ctor)
+
+```LICENSE
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## dunce
@@ -10990,11 +11029,6 @@ SOFTWARE.
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/rust-mobile/ndk](https://github.com/rust-mobile/ndk)
 
-## ndk-context
-
-- License: Apache-2.0 OR MIT
-- Repository: [https://github.com/rust-windowing/android-ndk-rs](https://github.com/rust-windowing/android-ndk-rs)
-
 ## ndk-sys
 
 - License: Apache-2.0 OR MIT
@@ -13152,25 +13186,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## specta
-
-- License: MIT
-- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
-
 ## specta-macros
 
 - License: MIT
-- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
+- Repository: [https://github.com/specta-rs/specta](https://github.com/specta-rs/specta)
 
 ## specta-serde
 
 - License: MIT
-- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
-
-## specta-typescript
-
-- License: MIT
-- Repository: [https://github.com/oscartbeaumont/specta](https://github.com/oscartbeaumont/specta)
+- Repository: [https://github.com/specta-rs/specta](https://github.com/specta-rs/specta)
 
 ## sqlx-core
 
@@ -13753,15 +13777,20 @@ DEALINGS IN THE SOFTWARE.
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 
+## tauri-plugin-single-instance
+
+- License: Apache-2.0 OR MIT
+- Repository: [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+
 ## tauri-specta
 
 - License: MIT
-- Repository: [https://github.com/oscartbeaumont/tauri-specta](https://github.com/oscartbeaumont/tauri-specta)
+- Repository: [https://github.com/specta-rs/tauri-specta](https://github.com/specta-rs/tauri-specta)
 
 ## tauri-specta-macros
 
 - License: MIT
-- Repository: [https://github.com/oscartbeaumont/tauri-specta](https://github.com/oscartbeaumont/tauri-specta)
+- Repository: [https://github.com/specta-rs/tauri-specta](https://github.com/specta-rs/tauri-specta)
 
 ## tauri-utils
 
