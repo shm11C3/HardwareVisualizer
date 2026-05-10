@@ -170,6 +170,14 @@
       "selectItems": "Select items to display on the dashboard",
       "gpuSelector": {
         "label": "Select GPU"
+      },
+      "storageHealth": {
+        "status": {
+          "good": "Good",
+          "warning": "Warning",
+          "critical": "Critical",
+          "unknown": "Unknown"
+        }
       }
     },
     "usage": {
