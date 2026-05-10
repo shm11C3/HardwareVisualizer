@@ -121,6 +121,8 @@ pub mod commands {
       line_graph_show_tooltip: settings.line_graph_show_tooltip,
       background_img_opacity: settings.background_img_opacity,
       selected_background_img: settings.selected_background_img,
+      transparent_ui: settings.transparent_ui,
+      window_opacity: settings.window_opacity,
       temperature_unit: settings.temperature_unit,
       hardware_archive: core_settings.hardware_archive.into(),
       burn_in_shift: settings.burn_in_shift,
@@ -360,6 +362,38 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_selected_background_img(file_id) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_transparent_ui(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_transparent_ui(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_window_opacity(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: u8,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_window_opacity(new_value) {
       emit_error(&window)?;
       return Err(e);
     }

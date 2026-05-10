@@ -30,6 +30,8 @@ vi.mock("@/rspc/bindings", () => ({
     setLineGraphShowTooltip: vi.fn(),
     setBackgroundImgOpacity: vi.fn(),
     setSelectedBackgroundImg: vi.fn(),
+    setTransparentUi: vi.fn(),
+    setWindowOpacity: vi.fn(),
     setTemperatureUnit: vi.fn(),
     setLineGraphColor: vi.fn(),
     setBurnInShift: vi.fn(),

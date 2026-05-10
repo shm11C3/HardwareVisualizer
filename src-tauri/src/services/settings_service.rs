@@ -179,6 +179,8 @@ impl models::settings::Settings {
     try_field!(line_graph_show_tooltip, "lineGraphShowTooltip");
     try_field!(background_img_opacity, "backgroundImgOpacity");
     try_field!(selected_background_img, "selectedBackgroundImg");
+    try_field!(transparent_ui, "transparentUi");
+    try_field!(window_opacity, "windowOpacity");
     try_field!(temperature_unit, "temperatureUnit");
     try_field!(burn_in_shift, "burnInShift");
     try_field!(burn_in_shift_mode, "burnInShiftMode");
@@ -361,6 +363,16 @@ impl models::settings::Settings {
     new_value: Option<String>,
   ) -> Result<(), String> {
     self.selected_background_img = new_value;
+    self.write_file()
+  }
+
+  pub fn set_transparent_ui(&mut self, new_value: bool) -> Result<(), String> {
+    self.transparent_ui = new_value;
+    self.write_file()
+  }
+
+  pub fn set_window_opacity(&mut self, new_value: u8) -> Result<(), String> {
+    self.window_opacity = new_value.clamp(20, 100);
     self.write_file()
   }
 

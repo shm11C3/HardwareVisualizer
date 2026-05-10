@@ -7,7 +7,7 @@ import {
   Settings,
 } from "./lazyScreens";
 import "./index.css";
-import type { ErrorInfo, JSX } from "react";
+import type { CSSProperties, ErrorInfo, JSX } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
@@ -32,6 +32,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { clearTauriStore } from "@/lib/tauriStore";
+import { cn } from "@/lib/utils";
 import { FullScreenButton } from "./components/ui/FullScreenButton";
 import { FullscreenExitButton } from "./components/ui/FullScreenExit";
 import { useHardwareInfoAtom } from "./features/hardware/hooks/useHardwareInfoAtom";
@@ -166,6 +167,13 @@ const AppContent = () => {
 
   useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
   const { isFullScreen, toggleFullScreen } = useFullScreenMode();
+  const windowOpacityRatio = settings.transparentUi
+    ? settings.windowOpacity / 100
+    : 1;
+  const transparentSurfaceOpacity = Math.min(
+    70,
+    Math.max(34, settings.windowOpacity * 0.64),
+  );
 
   const handleReset = useCallback(async () => {
     try {
@@ -251,9 +259,24 @@ const AppContent = () => {
       onReset={handleReset}
     >
       <div
-        className="min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out"
-        style={{ backgroundImage: "var(--background-gradient)" }}
+        className={cn(
+          "min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out",
+          settings.transparentUi && "transparent-ui",
+        )}
+        style={
+          {
+            "--window-opacity-percent": `${settings.windowOpacity}%`,
+            "--transparent-surface-opacity-percent": `${transparentSurfaceOpacity}%`,
+          } as CSSProperties
+        }
       >
+        <div
+          className="transparent-theme-backdrop fixed inset-0 bg-background bg-cover transition-opacity duration-300"
+          style={{
+            backgroundImage: "var(--background-gradient)",
+            opacity: windowOpacityRatio,
+          }}
+        />
         <div
           className="fixed inset-0 bg-center bg-cover transition-opacity duration-500"
           style={{
@@ -261,7 +284,9 @@ const AppContent = () => {
             backgroundAttachment: "fixed",
             backgroundSize: "cover",
             opacity: currentImage
-              ? opacity * (settings.backgroundImgOpacity / 100)
+              ? opacity *
+                (settings.backgroundImgOpacity / 100) *
+                windowOpacityRatio
               : 0,
           }}
         />
@@ -271,10 +296,7 @@ const AppContent = () => {
             {displayTarget ? (
               displayTargets[displayTarget]
             ) : (
-              <div
-                className="min-h-screen bg-background bg-cover text-foreground"
-                style={{ backgroundImage: "var(--background-gradient)" }}
-              />
+              <div className="min-h-screen text-foreground" />
             )}
           </Suspense>
           <AppUpdate />

@@ -75,10 +75,13 @@
     }
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "resizable": true,
         "title": "HardwareVisualizer",
+        "transparent": true,
+        "backgroundColor": "#00000000",
         "decorations": true
       }
     ],

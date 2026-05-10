@@ -527,6 +527,49 @@
   }
 }
 
+.transparent-ui {
+  --transparent-surface-alpha: var(--transparent-surface-opacity-percent, 55%);
+  --transparent-border-alpha: 52%;
+}
+
+.dark .transparent-ui {
+  --transparent-surface-alpha: var(--transparent-surface-opacity-percent, 44%);
+  --transparent-border-alpha: 58%;
+}
+
+.transparent-ui.bg-background {
+  background-color: transparent;
+}
+
+.transparent-ui .transparent-theme-backdrop {
+  background-color: color-mix(
+    in oklab,
+    var(--background) var(--window-opacity-percent),
+    transparent
+  );
+}
+
+.transparent-ui .bg-card,
+.transparent-ui .bg-card-overlay,
+.transparent-ui .bg-card-non-transparent,
+.transparent-ui .bg-accent,
+.transparent-ui .bg-modal,
+.transparent-ui .bg-popover {
+  border-color: color-mix(
+    in oklab,
+    var(--border) var(--transparent-border-alpha),
+    transparent
+  );
+  background-color: color-mix(
+    in oklab,
+    var(--card) var(--transparent-surface-alpha),
+    transparent
+  );
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 html.user-select-none,
 html.user-select-none * {
   -webkit-user-select: none;
