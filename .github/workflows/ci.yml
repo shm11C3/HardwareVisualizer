@@ -250,7 +250,7 @@ jobs:
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
-        uses: taiki-e/install-action@1329c298aa20c3257846c9b2e0e55967df3e3c37 # v2.75.25
+        uses: taiki-e/install-action@cca35edeb1d01366c2843b68fc3ca441446d73d3 # v2.77.1
         with:
           tool: cargo-llvm-cov
 
