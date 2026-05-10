@@ -36,6 +36,10 @@ const settingsAtom = atom<ClientSettings>({
     scheduledDataDeletion: true,
     refreshIntervalDays: 30,
   },
+  storageSmart: {
+    enabled: true,
+    retentionDays: 1095,
+  },
   burnInShift: false,
   burnInShiftPreset: "aggressive",
   burnInShiftMode: "jump",
@@ -61,6 +65,7 @@ export const useSettingsAtom = () => {
       | "lineGraphColor"
       | "version"
       | "hardwareArchive"
+      | "storageSmart"
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "trayWidget"
@@ -120,6 +125,7 @@ export const useSettingsAtom = () => {
       | "lineGraphColor"
       | "version"
       | "hardwareArchive"
+      | "storageSmart"
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "trayWidget"
@@ -229,6 +235,22 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  const setStorageSmartRetentionDays = async (value: number) => {
+    const result = await commands.setStorageSmartRetentionDays(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return false;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      storageSmart: { ...prev.storageSmart, retentionDays: value },
+    }));
+    return true;
+  };
+
   const setCloseToTrayPreferenceAtom = async (value: boolean) => {
     const previousCloseToTray = settings.closeToTray;
     const previousChoiceMade = settings.closeToTrayChoiceMade;
@@ -324,6 +346,7 @@ export const useSettingsAtom = () => {
     toggleHardwareArchiveAtom,
     setHardwareArchiveRefreshIntervalDays,
     setScheduledDataDeletion,
+    setStorageSmartRetentionDays,
     setCloseToTrayPreferenceAtom,
     setTrayWidgetSettingsAtom,
   };

@@ -117,6 +117,7 @@ pub fn run() {
       settings::commands::set_hardware_archive_enabled,
       settings::commands::set_hardware_archive_interval,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
+      settings::commands::set_storage_smart_retention_days,
       settings::commands::set_burn_in_shift,
       settings::commands::set_burn_in_shift_mode,
       settings::commands::set_burn_in_shift_preset,
@@ -221,6 +222,30 @@ pub fn run() {
           {
             let ws = app.state::<workers::WorkersState>();
             ws.hw_archive.lock().unwrap().replace(hw_archive);
+          }
+        }
+
+        if core_settings.storage_smart.enabled {
+          match core_settings.storage_smart_identity.hash_key_bytes() {
+            Ok(identity_hash_key) => {
+              let storage_smart =
+                hardviz_core::persistence::StorageSmartController::setup(
+                  runtime_handle.clone(),
+                  core_settings.storage_smart.retention_days,
+                  identity_hash_key,
+                );
+              {
+                let ws = app.state::<workers::WorkersState>();
+                ws.storage_smart.lock().unwrap().replace(storage_smart);
+              }
+            }
+            Err(e) => {
+              log_error!(
+                "Storage SMART worker was not started because the identity key is invalid",
+                "lib::run",
+                Some(e)
+              );
+            }
           }
         }
 

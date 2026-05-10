@@ -1,3 +1,4 @@
+pub mod smartctl;
 pub mod sysinfo_provider;
 
 #[cfg(target_os = "windows")]

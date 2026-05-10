@@ -44,6 +44,7 @@ vi.mock("@/rspc/bindings", () => ({
     setHardwareArchiveEnabled: vi.fn(),
     setHardwareArchiveInterval: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),
+    setStorageSmartRetentionDays: vi.fn(),
   },
 }));
 
@@ -352,6 +353,44 @@ describe("useSettingsAtom", () => {
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     expect(result.current.settings.hardwareArchive.scheduledDataDeletion).toBe(
       initialValue,
+    );
+  });
+
+  it("setStorageSmartRetentionDays: retentionDays is updated on success", async () => {
+    (commands.setStorageSmartRetentionDays as Mock).mockResolvedValue({
+      data: null,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    let saved = false;
+    await act(async () => {
+      saved = await result.current.setStorageSmartRetentionDays(730);
+    });
+    expect(saved).toBe(true);
+    expect(result.current.settings.storageSmart.retentionDays).toBe(730);
+  });
+
+  it("setStorageSmartRetentionDays: error() is called on error and retentionDays is not updated", async () => {
+    const errorMsg = "Failed to set SMART retention";
+    (commands.setStorageSmartRetentionDays as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialDays = result.current.settings.storageSmart.retentionDays;
+    let saved = true;
+    await act(async () => {
+      saved = await result.current.setStorageSmartRetentionDays(730);
+    });
+    expect(saved).toBe(false);
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.settings.storageSmart.retentionDays).toBe(
+      initialDays,
     );
   });
 

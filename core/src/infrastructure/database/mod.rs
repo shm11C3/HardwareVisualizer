@@ -10,3 +10,4 @@ pub mod db;
 pub mod gpu_archive;
 pub mod hardware_archive;
 pub mod process_stats;
+pub mod storage_smart;

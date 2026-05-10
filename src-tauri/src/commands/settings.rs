@@ -9,7 +9,7 @@ use tauri_plugin_opener::OpenerExt;
 #[derive(Debug)]
 pub struct AppState {
   pub settings: std::sync::Mutex<models::settings::Settings>,
-  /// Core-owned settings (currently `hardwareArchive`). Loaded from the
+  /// Core-owned settings. Loaded from the
   /// same `settings.json` as the App-side `Settings`, but each side only
   /// (de)serializes its own keys so writes don't clobber each other.
   pub core_settings: std::sync::Mutex<CoreSettings>,
@@ -19,7 +19,7 @@ impl AppState {
   pub fn new() -> Self {
     let settings_path =
       utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
-    let core_settings =
+    let mut core_settings =
       CoreSettings::load_from_path(&settings_path).unwrap_or_else(|e| {
         log_error!(
           "Failed to load core settings",
@@ -28,6 +28,26 @@ impl AppState {
         );
         CoreSettings::default()
       });
+    match core_settings.ensure_storage_smart_identity_key() {
+      Ok(true) => {
+        if let Err(e) = core_settings.save_to_path(&settings_path) {
+          log_error!(
+            "Failed to save storage SMART identity key",
+            "AppState::new",
+            Some(e.to_string())
+          );
+          core_settings.storage_smart_identity.hash_key.clear();
+        }
+      }
+      Ok(false) => {}
+      Err(e) => {
+        log_error!(
+          "Invalid storage SMART identity key",
+          "AppState::new",
+          Some(e.to_string())
+        );
+      }
+    }
 
     Self {
       settings: std::sync::Mutex::from(models::settings::Settings::new()),
@@ -125,6 +145,7 @@ pub mod commands {
       window_opacity: settings.window_opacity,
       temperature_unit: settings.temperature_unit,
       hardware_archive: core_settings.hardware_archive.into(),
+      storage_smart: core_settings.storage_smart.into(),
       burn_in_shift: settings.burn_in_shift,
       burn_in_shift_mode: settings.burn_in_shift_mode,
       burn_in_shift_preset: settings.burn_in_shift_preset,
@@ -489,6 +510,25 @@ pub mod commands {
   ) -> Result<(), String> {
     if let Err(e) = update_core_settings(&state, |s| {
       s.hardware_archive.scheduled_data_deletion = new_value
+    }) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_storage_smart_retention_days(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_retention_days: u32,
+  ) -> Result<(), String> {
+    if new_retention_days == 0 {
+      return Err("storage SMART retention days must be greater than 0".to_string());
+    }
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.storage_smart.retention_days = new_retention_days
     }) {
       emit_error(&window)?;
       return Err(e);

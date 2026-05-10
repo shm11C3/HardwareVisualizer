@@ -124,3 +124,113 @@ pub struct SysInfo {
   pub storage: Vec<StorageInfo>,
   pub motherboard: Option<MotherboardInfo>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SmartHealthStatus {
+  Passed,
+  Failed,
+  Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartAttribute {
+  pub id: Option<u32>,
+  pub name: String,
+  pub current: Option<u64>,
+  pub worst: Option<u64>,
+  pub threshold: Option<u64>,
+  pub raw_value: Option<String>,
+  pub when_failed: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartDiskInfo {
+  pub device_name: String,
+  pub device_type: Option<String>,
+  pub protocol: Option<String>,
+  pub model_name: Option<String>,
+  pub serial_number: Option<String>,
+  pub firmware_version: Option<String>,
+  pub capacity_bytes: Option<u64>,
+  pub health_status: SmartHealthStatus,
+  pub temperature_celsius: Option<i32>,
+  pub power_on_hours: Option<u64>,
+  pub power_cycle_count: Option<u64>,
+  pub attributes: Vec<SmartAttribute>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StorageHealthStatus {
+  Good,
+  Warning,
+  Critical,
+  Unknown,
+}
+
+impl StorageHealthStatus {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      StorageHealthStatus::Good => "good",
+      StorageHealthStatus::Warning => "warning",
+      StorageHealthStatus::Critical => "critical",
+      StorageHealthStatus::Unknown => "unknown",
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StorageWarningLevel {
+  None,
+  Warning,
+  Critical,
+  Unknown,
+}
+
+impl StorageWarningLevel {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      StorageWarningLevel::None => "none",
+      StorageWarningLevel::Warning => "warning",
+      StorageWarningLevel::Critical => "critical",
+      StorageWarningLevel::Unknown => "unknown",
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageHealthSnapshot {
+  pub device_id: String,
+  pub date: String,
+  pub health_status: StorageHealthStatus,
+  pub warning_level: StorageWarningLevel,
+  pub temperature_celsius: Option<f32>,
+  pub power_on_hours: Option<u64>,
+  pub percentage_used: Option<f32>,
+  pub available_spare_percent: Option<f32>,
+  pub reallocated_sector_count: Option<u64>,
+  pub current_pending_sector_count: Option<u64>,
+  pub offline_uncorrectable_count: Option<u64>,
+  pub media_errors: Option<u64>,
+  pub error_log_entries: Option<u64>,
+  pub unsafe_shutdown_count: Option<u64>,
+  pub warning_reasons: Vec<String>,
+  pub collected_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StorageDeviceRecord {
+  pub id: String,
+  pub display_name: String,
+  pub model: Option<String>,
+  pub serial_hash: Option<String>,
+  pub protocol: Option<String>,
+  pub capacity_bytes: Option<u64>,
+  pub first_seen_at: String,
+  pub last_seen_at: String,
+}
