@@ -224,6 +224,17 @@ pub fn run() {
           }
         }
 
+        if core_settings.storage_smart.enabled {
+          let storage_smart = hardviz_core::persistence::StorageSmartController::setup(
+            runtime_handle.clone(),
+            core_settings.storage_smart.retention_days,
+          );
+          {
+            let ws = app.state::<workers::WorkersState>();
+            ws.storage_smart.lock().unwrap().replace(storage_smart);
+          }
+        }
+
         // Retention cleanup runs once per process boot — the pre-Phase-4
         // `batch_delete_old_data` wrapper had the same one-shot semantics.
         // The setting name `scheduled_data_deletion` is historical; the

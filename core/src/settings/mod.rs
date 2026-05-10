@@ -1,7 +1,7 @@
 //! Core-owned settings.
 //!
 //! [`CoreSettings`] holds the fields whose values change Core behavior
-//! (currently the hardware archive worker's enabled/cadence/retention).
+//! (for example archive workers' enabled/cadence/retention).
 //! It is intentionally a strict subset of the on-disk `settings.json` —
 //! UI-only fields (`theme`, `language`, `lineGraph*`, `burnInShift*`,
 //! `temperatureUnit`, etc.) are owned by the App crate and stay
@@ -10,6 +10,7 @@
 //! object so App-owned keys are preserved.
 
 pub mod hardware_archive;
+pub mod storage_smart;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -17,9 +18,12 @@ use std::io::Write;
 use std::path::Path;
 
 pub use hardware_archive::HardwareArchiveSettings;
+pub use storage_smart::StorageSmartSettings;
 
 /// JSON key under which [`HardwareArchiveSettings`] is persisted.
 const HARDWARE_ARCHIVE_KEY: &str = "hardwareArchive";
+/// JSON key under which [`StorageSmartSettings`] is persisted.
+const STORAGE_SMART_KEY: &str = "storageSmart";
 
 /// Subset of the on-disk settings document that Core consumes.
 ///
@@ -30,6 +34,7 @@ const HARDWARE_ARCHIVE_KEY: &str = "hardwareArchive";
 #[serde(default, rename_all = "camelCase")]
 pub struct CoreSettings {
   pub hardware_archive: HardwareArchiveSettings,
+  pub storage_smart: StorageSmartSettings,
 }
 
 impl CoreSettings {
@@ -67,6 +72,11 @@ impl CoreSettings {
       && let Ok(parsed) = serde_json::from_value::<HardwareArchiveSettings>(v.clone())
     {
       settings.hardware_archive = parsed;
+    }
+    if let Some(v) = map.get(STORAGE_SMART_KEY)
+      && let Ok(parsed) = serde_json::from_value::<StorageSmartSettings>(v.clone())
+    {
+      settings.storage_smart = parsed;
     }
     Ok(settings)
   }
@@ -106,6 +116,11 @@ impl CoreSettings {
       HARDWARE_ARCHIVE_KEY.to_string(),
       serde_json::to_value(&self.hardware_archive)
         .map_err(|e| format!("Failed to serialize hardware archive settings: {e}"))?,
+    );
+    document.insert(
+      STORAGE_SMART_KEY.to_string(),
+      serde_json::to_value(&self.storage_smart)
+        .map_err(|e| format!("Failed to serialize storage SMART settings: {e}"))?,
     );
 
     let serialized = serde_json::to_string(&serde_json::Value::Object(document))
@@ -153,6 +168,10 @@ mod tests {
           "enabled": false,
           "refreshIntervalDays": 7,
           "scheduledDataDeletion": false
+        },
+        "storageSmart": {
+          "enabled": false,
+          "retentionDays": 730
         }
       }"#,
     )
@@ -162,6 +181,8 @@ mod tests {
     assert!(!s.hardware_archive.enabled);
     assert_eq!(s.hardware_archive.refresh_interval_days, 7);
     assert!(!s.hardware_archive.scheduled_data_deletion);
+    assert!(!s.storage_smart.enabled);
+    assert_eq!(s.storage_smart.retention_days, 730);
   }
 
   #[test]
@@ -174,7 +195,8 @@ mod tests {
       &path,
       r#"{
         "theme": "nonexistent_theme",
-        "hardwareArchive": {"enabled": false, "refreshIntervalDays": 14, "scheduledDataDeletion": true}
+        "hardwareArchive": {"enabled": false, "refreshIntervalDays": 14, "scheduledDataDeletion": true},
+        "storageSmart": {"enabled": true, "retentionDays": 3650}
       }"#,
     )
     .unwrap();
@@ -182,6 +204,8 @@ mod tests {
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
     assert_eq!(s.hardware_archive.refresh_interval_days, 14);
+    assert!(s.storage_smart.enabled);
+    assert_eq!(s.storage_smart.retention_days, 3650);
   }
 
   #[test]
@@ -201,7 +225,8 @@ mod tests {
       r#"{
         "language": "ja",
         "theme": "light",
-        "hardwareArchive": {"enabled": true, "refreshIntervalDays": 30, "scheduledDataDeletion": true}
+        "hardwareArchive": {"enabled": true, "refreshIntervalDays": 30, "scheduledDataDeletion": true},
+        "storageSmart": {"enabled": true, "retentionDays": 1825}
       }"#,
     )
     .unwrap();
@@ -209,6 +234,7 @@ mod tests {
     let mut s = CoreSettings::load_from_path(&path).unwrap();
     s.hardware_archive.enabled = false;
     s.hardware_archive.refresh_interval_days = 90;
+    s.storage_smart.retention_days = 3650;
     s.save_to_path(&path).unwrap();
 
     let written: serde_json::Value =
@@ -220,6 +246,11 @@ mod tests {
     assert_eq!(
       hw.get("refreshIntervalDays").and_then(|v| v.as_u64()),
       Some(90)
+    );
+    let storage = written.get("storageSmart").unwrap();
+    assert_eq!(
+      storage.get("retentionDays").and_then(|v| v.as_u64()),
+      Some(3650)
     );
   }
 
@@ -263,6 +294,7 @@ mod tests {
     let written: serde_json::Value =
       serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert!(written.get("hardwareArchive").is_some());
+    assert!(written.get("storageSmart").is_some());
   }
 
   #[test]
@@ -275,6 +307,10 @@ mod tests {
         enabled: false,
         scheduled_data_deletion: false,
         refresh_interval_days: 365,
+      },
+      storage_smart: StorageSmartSettings {
+        enabled: true,
+        retention_days: 3_650,
       },
     };
     s.save_to_path(&path).unwrap();

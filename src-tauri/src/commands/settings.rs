@@ -9,7 +9,7 @@ use tauri_plugin_opener::OpenerExt;
 #[derive(Debug)]
 pub struct AppState {
   pub settings: std::sync::Mutex<models::settings::Settings>,
-  /// Core-owned settings (currently `hardwareArchive`). Loaded from the
+  /// Core-owned settings. Loaded from the
   /// same `settings.json` as the App-side `Settings`, but each side only
   /// (de)serializes its own keys so writes don't clobber each other.
   pub core_settings: std::sync::Mutex<CoreSettings>,

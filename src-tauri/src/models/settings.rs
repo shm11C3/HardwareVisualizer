@@ -26,7 +26,7 @@ impl Default for LineGraphColorSettings {
 ///
 /// ## App-owned settings persisted in `settings.json`.
 ///
-/// Core-owned fields (currently `hardwareArchive`) live in
+/// Core-owned fields live in
 /// [`hardviz_core::settings::CoreSettings`] and are persisted to the same
 /// file under their own keys — they are intentionally absent here so
 /// App-side setters never touch Core fields.

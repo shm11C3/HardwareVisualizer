@@ -45,15 +45,15 @@ impl SettingActions for models::settings::Settings {
       })?;
     }
 
-    let serialized = match serde_json::to_string(self) {
+    let serialized = match serialize_preserving_unknown_settings(self, &config_file) {
       Ok(s) => s,
       Err(e) => {
         log_error!(
           "Failed to serialize settings",
           "write_file",
-          Some(e.to_string())
+          Some(e.clone())
         );
-        return Err(format!("Failed to serialize settings: {e}"));
+        return Err(e);
       }
     };
 
@@ -121,6 +121,33 @@ impl SettingActions for models::settings::Settings {
       }
     }
   }
+}
+
+fn serialize_preserving_unknown_settings(
+  settings: &models::settings::Settings,
+  config_file: &std::path::Path,
+) -> Result<String, String> {
+  let mut document = match std::fs::read_to_string(config_file) {
+    Ok(input) => match serde_json::from_str::<serde_json::Value>(&input) {
+      Ok(serde_json::Value::Object(map)) => map,
+      Ok(_) | Err(_) => serde_json::Map::new(),
+    },
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => serde_json::Map::new(),
+    Err(e) => return Err(format!("Failed to read existing settings file: {e}")),
+  };
+
+  let app_value = serde_json::to_value(settings)
+    .map_err(|e| format!("Failed to serialize settings: {e}"))?;
+  let serde_json::Value::Object(app_map) = app_value else {
+    return Err("Serialized settings must be a JSON object".to_string());
+  };
+
+  for (key, value) in app_map {
+    document.insert(key, value);
+  }
+
+  serde_json::to_string(&serde_json::Value::Object(document))
+    .map_err(|e| format!("Failed to serialize settings: {e}"))
 }
 
 impl models::settings::Settings {
@@ -440,5 +467,43 @@ impl models::settings::Settings {
     self.close_to_tray = new_value;
     self.close_to_tray_choice_made = true;
     self.write_file()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use tempfile::TempDir;
+
+  #[test]
+  fn serialize_preserving_unknown_settings_keeps_core_owned_keys() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    std::fs::write(
+      &path,
+      r#"{
+        "hardwareArchive": {"enabled": false, "refreshIntervalDays": 90, "scheduledDataDeletion": true},
+        "storageSmart": {"enabled": true, "retentionDays": 3650}
+      }"#,
+    )
+    .unwrap();
+
+    let settings = models::settings::Settings::default();
+    let serialized = serialize_preserving_unknown_settings(&settings, &path).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+
+    assert_eq!(
+      value
+        .pointer("/hardwareArchive/refreshIntervalDays")
+        .and_then(|v| v.as_u64()),
+      Some(90)
+    );
+    assert_eq!(
+      value
+        .pointer("/storageSmart/retentionDays")
+        .and_then(|v| v.as_u64()),
+      Some(3650)
+    );
+    assert!(value.get("language").is_some());
   }
 }
