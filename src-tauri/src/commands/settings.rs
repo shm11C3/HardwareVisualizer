@@ -19,7 +19,7 @@ impl AppState {
   pub fn new() -> Self {
     let settings_path =
       utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
-    let core_settings =
+    let mut core_settings =
       CoreSettings::load_from_path(&settings_path).unwrap_or_else(|e| {
         log_error!(
           "Failed to load core settings",
@@ -28,6 +28,26 @@ impl AppState {
         );
         CoreSettings::default()
       });
+    match core_settings.ensure_storage_smart_identity_key() {
+      Ok(true) => {
+        if let Err(e) = core_settings.save_to_path(&settings_path) {
+          log_error!(
+            "Failed to save storage SMART identity key",
+            "AppState::new",
+            Some(e.to_string())
+          );
+          core_settings.storage_smart_identity.hash_key.clear();
+        }
+      }
+      Ok(false) => {}
+      Err(e) => {
+        log_error!(
+          "Invalid storage SMART identity key",
+          "AppState::new",
+          Some(e.to_string())
+        );
+      }
+    }
 
     Self {
       settings: std::sync::Mutex::from(models::settings::Settings::new()),

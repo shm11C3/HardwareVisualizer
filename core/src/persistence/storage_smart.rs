@@ -1,5 +1,7 @@
 //! Daily SMART snapshot worker.
 
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use tokio::runtime::Handle;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -10,6 +12,7 @@ use crate::models::hardware::{
   SmartAttribute, SmartDiskInfo, SmartHealthStatus, StorageDeviceRecord,
   StorageHealthSnapshot, StorageHealthStatus, StorageWarningLevel,
 };
+use crate::settings::STORAGE_SMART_IDENTITY_HASH_KEY_BYTES;
 use crate::{log_error, log_info, log_warn};
 
 const STORAGE_SMART_CHECK_INTERVAL_SECONDS: u64 = 60;
@@ -26,12 +29,16 @@ pub struct StorageSmartController {
 }
 
 impl StorageSmartController {
-  pub fn setup(runtime: Handle, retention_days: u32) -> Self {
+  pub fn setup(
+    runtime: Handle,
+    retention_days: u32,
+    identity_hash_key: [u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+  ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
       let today = local_date_string();
-      run_daily_snapshot_for_date(retention_days, &today).await;
+      run_daily_snapshot_for_date(retention_days, &today, &identity_hash_key).await;
       let mut last_checked_date = Some(today);
 
       let mut ticker =
@@ -55,7 +62,7 @@ impl StorageSmartController {
           _ = ticker.tick() => {
             let today = local_date_string();
             if last_checked_date.as_deref() != Some(today.as_str()) {
-              run_daily_snapshot_for_date(retention_days, &today).await;
+              run_daily_snapshot_for_date(retention_days, &today, &identity_hash_key).await;
               last_checked_date = Some(today);
             }
           }
@@ -72,7 +79,11 @@ impl StorageSmartController {
   }
 }
 
-async fn run_daily_snapshot_for_date(retention_days: u32, date: &str) {
+async fn run_daily_snapshot_for_date(
+  retention_days: u32,
+  date: &str,
+  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+) {
   let collected_at = chrono::Utc::now().to_rfc3339();
   let disks = match tokio::task::spawn_blocking(collect_platform_smart_info).await {
     Ok(Ok(disks)) => disks,
@@ -96,7 +107,7 @@ async fn run_daily_snapshot_for_date(retention_days: u32, date: &str) {
 
   let (devices, snapshots): (Vec<_>, Vec<_>) = disks
     .iter()
-    .map(|disk| build_daily_snapshot(disk, &date, &collected_at))
+    .map(|disk| build_daily_snapshot(disk, &date, &collected_at, identity_hash_key))
     .unzip();
 
   if snapshots.is_empty() {
@@ -132,15 +143,17 @@ fn build_daily_snapshot(
   disk: &SmartDiskInfo,
   date: &str,
   collected_at: &str,
+  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
 ) -> (StorageDeviceRecord, StorageHealthSnapshot) {
-  let device_id = storage_device_id(disk);
+  let device_id = storage_device_id(disk, identity_hash_key);
   let display_name = disk
     .model_name
     .as_deref()
     .filter(|v| !v.trim().is_empty())
     .unwrap_or(&disk.device_name)
     .to_string();
-  let serial_hash = normalized_serial(disk).map(hash_identifier);
+  let serial_hash =
+    normalized_serial(disk).map(|serial| hash_identifier(serial, identity_hash_key));
 
   let temperature_celsius = disk.temperature_celsius.map(|v| v as f32);
   let percentage_used = attr_value_f32(disk, None, "Percentage Used");
@@ -298,7 +311,10 @@ fn warning_rank(level: &StorageWarningLevel) -> u8 {
   }
 }
 
-fn storage_device_id(disk: &SmartDiskInfo) -> String {
+fn storage_device_id(
+  disk: &SmartDiskInfo,
+  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+) -> String {
   let identity = if let Some(serial) = normalized_serial(disk) {
     format!("{}:{}", disk_protocol(disk), serial)
   } else {
@@ -311,7 +327,7 @@ fn storage_device_id(disk: &SmartDiskInfo) -> String {
     )
   };
 
-  format!("storage:{}", hash_identifier(&identity))
+  format!("storage:{}", hash_identifier(&identity, identity_hash_key))
 }
 
 fn normalized_serial(disk: &SmartDiskInfo) -> Option<&str> {
@@ -330,18 +346,25 @@ fn disk_protocol(disk: &SmartDiskInfo) -> &str {
     .unwrap_or("unknown")
 }
 
-fn hash_identifier(value: &str) -> String {
-  const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-  const FNV_PRIME: u64 = 0x100000001b3;
+fn hash_identifier(
+  value: &str,
+  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+) -> String {
+  let mut mac = Hmac::<Sha256>::new_from_slice(identity_hash_key)
+    .expect("HMAC-SHA-256 accepts any key length");
+  mac.update(value.trim().as_bytes());
+  let digest = mac.finalize().into_bytes();
+  format!("hmac-sha256:v1:{}", hex_encode(&digest))
+}
 
-  let hash = value
-    .trim()
-    .as_bytes()
-    .iter()
-    .fold(FNV_OFFSET, |acc, byte| {
-      (acc ^ (*byte as u64)).wrapping_mul(FNV_PRIME)
-    });
-  format!("{hash:016x}")
+fn hex_encode(bytes: &[u8]) -> String {
+  const HEX: &[u8; 16] = b"0123456789abcdef";
+  let mut output = String::with_capacity(bytes.len() * 2);
+  for byte in bytes {
+    output.push(HEX[(byte >> 4) as usize] as char);
+    output.push(HEX[(byte & 0x0f) as usize] as char);
+  }
+  output
 }
 
 fn attr_value_u64(disk: &SmartDiskInfo, id: Option<u32>, name: &str) -> Option<u64> {
@@ -412,6 +435,8 @@ fn collect_platform_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
 mod tests {
   use super::*;
 
+  const TEST_IDENTITY_HASH_KEY: [u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES] = [0x42; 32];
+
   fn disk(attributes: Vec<SmartAttribute>) -> SmartDiskInfo {
     SmartDiskInfo {
       device_name: "/dev/sda".to_string(),
@@ -449,11 +474,19 @@ mod tests {
       attr(Some(198), "Offline Uncorrectable Sector Count", "0"),
     ]);
 
-    let (device, snapshot) =
-      build_daily_snapshot(&input, "2026-05-10", "2026-05-10T00:00:00Z");
+    let (device, snapshot) = build_daily_snapshot(
+      &input,
+      "2026-05-10",
+      "2026-05-10T00:00:00Z",
+      &TEST_IDENTITY_HASH_KEY,
+    );
 
     assert!(device.id.starts_with("storage:"));
-    assert_eq!(device.serial_hash.as_deref(), Some("81b0d204d2475417"));
+    let expected_serial_hash = hash_identifier("SERIAL123", &TEST_IDENTITY_HASH_KEY);
+    assert_eq!(
+      device.serial_hash.as_deref(),
+      Some(expected_serial_hash.as_str())
+    );
     assert_eq!(snapshot.device_id, device.id);
     assert_eq!(snapshot.date, "2026-05-10");
     assert_eq!(snapshot.health_status, StorageHealthStatus::Warning);
@@ -471,6 +504,7 @@ mod tests {
       ]),
       "2026-05-10",
       "2026-05-10T00:00:00Z",
+      &TEST_IDENTITY_HASH_KEY,
     );
 
     assert_eq!(snapshot.health_status, StorageHealthStatus::Critical);
@@ -488,7 +522,10 @@ mod tests {
     let mut second = first.clone();
     second.device_name = "/dev/sdb".to_string();
 
-    assert_eq!(storage_device_id(&first), storage_device_id(&second));
+    assert_eq!(
+      storage_device_id(&first, &TEST_IDENTITY_HASH_KEY),
+      storage_device_id(&second, &TEST_IDENTITY_HASH_KEY)
+    );
   }
 
   #[test]
@@ -499,10 +536,18 @@ mod tests {
     let mut second = first.clone();
     second.device_name = "/dev/sdb".to_string();
 
-    let (device, _) = build_daily_snapshot(&first, "2026-05-10", "2026-05-10T00:00:00Z");
+    let (device, _) = build_daily_snapshot(
+      &first,
+      "2026-05-10",
+      "2026-05-10T00:00:00Z",
+      &TEST_IDENTITY_HASH_KEY,
+    );
 
     assert_eq!(device.serial_hash, None);
-    assert_ne!(storage_device_id(&first), storage_device_id(&second));
+    assert_ne!(
+      storage_device_id(&first, &TEST_IDENTITY_HASH_KEY),
+      storage_device_id(&second, &TEST_IDENTITY_HASH_KEY)
+    );
   }
 
   #[test]
@@ -511,9 +556,24 @@ mod tests {
     input.protocol = None;
     input.device_type = Some("nvme".to_string());
 
-    let expected = format!("storage:{}", hash_identifier("nvme:SERIAL123"));
+    let expected = format!(
+      "storage:{}",
+      hash_identifier("nvme:SERIAL123", &TEST_IDENTITY_HASH_KEY)
+    );
 
-    assert_eq!(storage_device_id(&input), expected);
+    assert_eq!(storage_device_id(&input, &TEST_IDENTITY_HASH_KEY), expected);
+  }
+
+  #[test]
+  fn hashed_identifiers_are_versioned_and_keyed() {
+    let first_key = [0x42; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES];
+    let second_key = [0x24; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES];
+
+    let first_hash = hash_identifier("SERIAL123", &first_key);
+    let second_hash = hash_identifier("SERIAL123", &second_key);
+
+    assert!(first_hash.starts_with("hmac-sha256:v1:"));
+    assert_ne!(first_hash, second_hash);
   }
 
   #[test]

@@ -18,12 +18,17 @@ use std::io::Write;
 use std::path::Path;
 
 pub use hardware_archive::HardwareArchiveSettings;
-pub use storage_smart::StorageSmartSettings;
+pub use storage_smart::{
+  STORAGE_SMART_IDENTITY_HASH_KEY_BYTES, StorageSmartIdentitySettings,
+  StorageSmartSettings,
+};
 
 /// JSON key under which [`HardwareArchiveSettings`] is persisted.
 const HARDWARE_ARCHIVE_KEY: &str = "hardwareArchive";
 /// JSON key under which [`StorageSmartSettings`] is persisted.
 const STORAGE_SMART_KEY: &str = "storageSmart";
+/// JSON key under which [`StorageSmartIdentitySettings`] is persisted.
+const STORAGE_SMART_IDENTITY_KEY: &str = "storageSmartIdentity";
 
 /// Subset of the on-disk settings document that Core consumes.
 ///
@@ -35,6 +40,7 @@ const STORAGE_SMART_KEY: &str = "storageSmart";
 pub struct CoreSettings {
   pub hardware_archive: HardwareArchiveSettings,
   pub storage_smart: StorageSmartSettings,
+  pub storage_smart_identity: StorageSmartIdentitySettings,
 }
 
 impl CoreSettings {
@@ -78,7 +84,17 @@ impl CoreSettings {
     {
       settings.storage_smart = parsed;
     }
+    if let Some(v) = map.get(STORAGE_SMART_IDENTITY_KEY)
+      && let Ok(parsed) =
+        serde_json::from_value::<StorageSmartIdentitySettings>(v.clone())
+    {
+      settings.storage_smart_identity = parsed;
+    }
     Ok(settings)
+  }
+
+  pub fn ensure_storage_smart_identity_key(&mut self) -> Result<bool, String> {
+    self.storage_smart_identity.ensure_hash_key()
   }
 
   /// Persist `CoreSettings` to disk, merging into any existing JSON
@@ -121,6 +137,12 @@ impl CoreSettings {
       STORAGE_SMART_KEY.to_string(),
       serde_json::to_value(&self.storage_smart)
         .map_err(|e| format!("Failed to serialize storage SMART settings: {e}"))?,
+    );
+    document.insert(
+      STORAGE_SMART_IDENTITY_KEY.to_string(),
+      serde_json::to_value(&self.storage_smart_identity).map_err(|e| {
+        format!("Failed to serialize storage SMART identity settings: {e}")
+      })?,
     );
 
     let serialized = serde_json::to_string(&serde_json::Value::Object(document))
@@ -295,6 +317,7 @@ mod tests {
       serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert!(written.get("hardwareArchive").is_some());
     assert!(written.get("storageSmart").is_some());
+    assert!(written.get("storageSmartIdentity").is_some());
   }
 
   #[test]
@@ -311,6 +334,10 @@ mod tests {
       storage_smart: StorageSmartSettings {
         enabled: true,
         retention_days: 3_650,
+      },
+      storage_smart_identity: StorageSmartIdentitySettings {
+        hash_key: "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+          .to_string(),
       },
     };
     s.save_to_path(&path).unwrap();

@@ -226,13 +226,26 @@ pub fn run() {
         }
 
         if core_settings.storage_smart.enabled {
-          let storage_smart = hardviz_core::persistence::StorageSmartController::setup(
-            runtime_handle.clone(),
-            core_settings.storage_smart.retention_days,
-          );
-          {
-            let ws = app.state::<workers::WorkersState>();
-            ws.storage_smart.lock().unwrap().replace(storage_smart);
+          match core_settings.storage_smart_identity.hash_key_bytes() {
+            Ok(identity_hash_key) => {
+              let storage_smart =
+                hardviz_core::persistence::StorageSmartController::setup(
+                  runtime_handle.clone(),
+                  core_settings.storage_smart.retention_days,
+                  identity_hash_key,
+                );
+              {
+                let ws = app.state::<workers::WorkersState>();
+                ws.storage_smart.lock().unwrap().replace(storage_smart);
+              }
+            }
+            Err(e) => {
+              log_error!(
+                "Storage SMART worker was not started because the identity key is invalid",
+                "lib::run",
+                Some(e)
+              );
+            }
           }
         }
 
