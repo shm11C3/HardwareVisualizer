@@ -124,3 +124,40 @@ pub struct SysInfo {
   pub storage: Vec<StorageInfo>,
   pub motherboard: Option<MotherboardInfo>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SmartHealthStatus {
+  Passed,
+  Failed,
+  Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartAttribute {
+  pub id: Option<u32>,
+  pub name: String,
+  pub current: Option<u64>,
+  pub worst: Option<u64>,
+  pub threshold: Option<u64>,
+  pub raw_value: Option<String>,
+  pub when_failed: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartDiskInfo {
+  pub device_name: String,
+  pub device_type: Option<String>,
+  pub protocol: Option<String>,
+  pub model_name: Option<String>,
+  pub serial_number: Option<String>,
+  pub firmware_version: Option<String>,
+  pub capacity_bytes: Option<u64>,
+  pub health_status: SmartHealthStatus,
+  pub temperature_celsius: Option<i32>,
+  pub power_on_hours: Option<u64>,
+  pub power_cycle_count: Option<u64>,
+  pub attributes: Vec<SmartAttribute>,
+}
