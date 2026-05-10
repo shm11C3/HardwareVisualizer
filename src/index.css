@@ -560,14 +560,57 @@
     var(--border) var(--transparent-border-alpha),
     transparent
   );
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.transparent-ui .bg-card {
   background-color: color-mix(
     in oklab,
     var(--card) var(--transparent-surface-alpha),
     transparent
   );
-  background-image: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+}
+
+.transparent-ui .bg-card-overlay {
+  background-color: color-mix(
+    in oklab,
+    var(--card-overlay, var(--card)) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-card-non-transparent {
+  background-color: color-mix(
+    in oklab,
+    var(--card-non-transparent) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-accent {
+  background-color: color-mix(
+    in oklab,
+    var(--accent) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-modal {
+  background-color: color-mix(
+    in oklab,
+    var(--modal) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-popover {
+  background-color: color-mix(
+    in oklab,
+    var(--popover) var(--transparent-surface-alpha),
+    transparent
+  );
 }
 
 html.user-select-none,

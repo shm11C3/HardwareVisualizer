@@ -464,6 +464,20 @@ mod tests {
   }
 
   #[test]
+  fn test_merge_from_json_str_clamps_window_opacity() {
+    let mut settings = Settings::default();
+    settings
+      .merge_from_json_str(r#"{"windowOpacity": 5}"#)
+      .unwrap();
+    assert_eq!(settings.window_opacity, 20);
+
+    settings
+      .merge_from_json_str(r#"{"windowOpacity": 150}"#)
+      .unwrap();
+    assert_eq!(settings.window_opacity, 100);
+  }
+
+  #[test]
   fn test_merge_from_json_str_invalid_json() {
     let mut settings = Settings::default();
     let result = settings.merge_from_json_str("not valid json {{{");

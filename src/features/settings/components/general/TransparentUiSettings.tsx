@@ -13,6 +13,7 @@ export const TransparentUiSettings = () => {
   const { settings, updateSettingAtom } = useSettingsAtom();
   const transparentUiId = useId();
   const windowOpacityId = useId();
+  const windowOpacityLabelId = `${windowOpacityId}-label`;
 
   const changeWindowOpacity = async (value: number[]) => {
     await updateSettingAtom("windowOpacity", value[0]);
@@ -40,7 +41,7 @@ export const TransparentUiSettings = () => {
       {settings.transparentUi && (
         <div className="w-full py-3 xl:w-1/3">
           <div className="mb-3 flex items-center justify-between">
-            <Label htmlFor={windowOpacityId} className="text-lg">
+            <Label id={windowOpacityLabelId} className="text-lg">
               {t("pages.settings.general.transparentUi.opacity")}
             </Label>
             <span className="font-medium text-muted-foreground text-sm tabular-nums">
@@ -49,6 +50,7 @@ export const TransparentUiSettings = () => {
           </div>
           <Slider
             id={windowOpacityId}
+            aria-labelledby={windowOpacityLabelId}
             min={minWindowOpacity}
             max={maxWindowOpacity}
             step={1}

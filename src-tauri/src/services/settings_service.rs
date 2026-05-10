@@ -5,6 +5,8 @@ use crate::{log_error, log_info};
 use std::io::Write;
 
 pub const SETTINGS_FILENAME: &str = "settings.json";
+const MIN_WINDOW_OPACITY: u8 = 20;
+const MAX_WINDOW_OPACITY: u8 = 100;
 
 pub trait SettingActions {
   fn write_file(&self) -> Result<(), String>;
@@ -181,6 +183,9 @@ impl models::settings::Settings {
     try_field!(selected_background_img, "selectedBackgroundImg");
     try_field!(transparent_ui, "transparentUi");
     try_field!(window_opacity, "windowOpacity");
+    self.window_opacity = self
+      .window_opacity
+      .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
     try_field!(temperature_unit, "temperatureUnit");
     try_field!(burn_in_shift, "burnInShift");
     try_field!(burn_in_shift_mode, "burnInShiftMode");
@@ -372,7 +377,7 @@ impl models::settings::Settings {
   }
 
   pub fn set_window_opacity(&mut self, new_value: u8) -> Result<(), String> {
-    self.window_opacity = new_value.clamp(20, 100);
+    self.window_opacity = new_value.clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
     self.write_file()
   }
 
