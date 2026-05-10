@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_STORAGE_SMART_RETENTION_DAYS: u32 = 1_825;
+pub const DEFAULT_STORAGE_SMART_RETENTION_DAYS: u32 = 365 * 3;
 
 /// Core-owned SMART daily snapshot settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,11 +24,11 @@ mod tests {
   use super::*;
 
   #[test]
-  fn defaults_are_longer_than_insight_defaults() {
+  fn defaults_to_three_year_retention() {
     let s = StorageSmartSettings::default();
     assert!(s.enabled);
     assert_eq!(s.retention_days, DEFAULT_STORAGE_SMART_RETENTION_DAYS);
-    assert!(s.retention_days > 365);
+    assert_eq!(s.retention_days, 1_095);
   }
 
   #[test]

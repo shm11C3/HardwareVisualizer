@@ -96,6 +96,7 @@ pub struct ClientSettings {
   pub window_opacity: u8,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
+  pub storage_smart: models::storage_smart::StorageSmartSettings,
   pub burn_in_shift: bool,
   pub burn_in_shift_mode: enums::settings::BurnInShiftMode,
   pub burn_in_shift_preset: enums::settings::BurnInShiftPreset,
@@ -279,6 +280,7 @@ mod tests {
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       hardware_archive: crate::models::hardware_archive::HardwareArchiveSettings::default(
       ),
+      storage_smart: crate::models::storage_smart::StorageSmartSettings::default(),
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
       burn_in_shift_preset: enums::settings::BurnInShiftPreset::Aggressive,

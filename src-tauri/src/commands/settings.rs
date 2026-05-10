@@ -125,6 +125,7 @@ pub mod commands {
       window_opacity: settings.window_opacity,
       temperature_unit: settings.temperature_unit,
       hardware_archive: core_settings.hardware_archive.into(),
+      storage_smart: core_settings.storage_smart.into(),
       burn_in_shift: settings.burn_in_shift,
       burn_in_shift_mode: settings.burn_in_shift_mode,
       burn_in_shift_preset: settings.burn_in_shift_preset,
@@ -489,6 +490,25 @@ pub mod commands {
   ) -> Result<(), String> {
     if let Err(e) = update_core_settings(&state, |s| {
       s.hardware_archive.scheduled_data_deletion = new_value
+    }) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_storage_smart_retention_days(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_retention_days: u32,
+  ) -> Result<(), String> {
+    if new_retention_days == 0 {
+      return Err("storage SMART retention days must be greater than 0".to_string());
+    }
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.storage_smart.retention_days = new_retention_days
     }) {
       emit_error(&window)?;
       return Err(e);

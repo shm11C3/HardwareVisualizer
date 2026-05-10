@@ -117,6 +117,7 @@ pub fn run() {
       settings::commands::set_hardware_archive_enabled,
       settings::commands::set_hardware_archive_interval,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
+      settings::commands::set_storage_smart_retention_days,
       settings::commands::set_burn_in_shift,
       settings::commands::set_burn_in_shift_mode,
       settings::commands::set_burn_in_shift_preset,

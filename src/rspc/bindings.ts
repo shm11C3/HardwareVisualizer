@@ -104,6 +104,7 @@ export const commands = {
 	setHardwareArchiveEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_enabled", { newValue })),
 	setHardwareArchiveInterval: (newInterval: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_interval", { newInterval })),
 	setHardwareArchiveScheduledDataDeletion: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue })),
+	setStorageSmartRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_storage_smart_retention_days", { newRetentionDays })),
 	setBurnInShift: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift", { newValue })),
 	setBurnInShiftMode: (newValue: BurnInShiftMode) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift_mode", { newValue })),
 	setBurnInShiftPreset: (newValue: BurnInShiftPreset) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift_preset", { newValue })),
@@ -223,6 +224,7 @@ export type ClientSettings_Deserialize = {
 	windowOpacity: number,
 	temperatureUnit: TemperatureUnit,
 	hardwareArchive: HardwareArchiveSettings,
+	storageSmart: StorageSmartSettings,
 	burnInShift: boolean,
 	burnInShiftMode: BurnInShiftMode,
 	burnInShiftPreset: BurnInShiftPreset,
@@ -254,6 +256,7 @@ export type ClientSettings_Serialize = {
 	windowOpacity: number,
 	temperatureUnit: TemperatureUnit,
 	hardwareArchive: HardwareArchiveSettings,
+	storageSmart: StorageSmartSettings,
 	burnInShift: boolean,
 	burnInShiftMode: BurnInShiftMode,
 	burnInShiftPreset: BurnInShiftPreset,
@@ -420,6 +423,16 @@ export type StorageInfo = {
 	freeUnit: SizeUnit,
 	storageType: DiskKind,
 	fileSystem: string,
+};
+
+/**
+ *  Wire-format mirror of [`hardviz_core::settings::StorageSmartSettings`]. The
+ *  canonical definition lives in `hardviz_core::settings` so the
+ *  SMART snapshot worker doesn't need to know about Tauri or specta.
+ */
+export type StorageSmartSettings = {
+	enabled?: boolean,
+	retentionDays?: number,
 };
 
 export type SysInfo = {
