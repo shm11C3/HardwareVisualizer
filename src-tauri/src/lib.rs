@@ -111,6 +111,8 @@ pub fn run() {
       settings::commands::set_line_graph_show_tooltip,
       settings::commands::set_background_img_opacity,
       settings::commands::set_selected_background_img,
+      settings::commands::set_transparent_ui,
+      settings::commands::set_window_opacity,
       settings::commands::set_temperature_unit,
       settings::commands::set_hardware_archive_enabled,
       settings::commands::set_hardware_archive_interval,

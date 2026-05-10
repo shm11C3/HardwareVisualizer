@@ -4,8 +4,10 @@ import type { ChartDataType } from "../../hardware/types/hardwareDataType";
 export type Settings = {
   language: string;
   theme:
+    | "system"
     | "light"
     | "dark"
+    | "darkPlus"
     | "sky"
     | "grove"
     | "sunset"
@@ -27,6 +29,8 @@ export type Settings = {
   lineGraphShowScale: boolean;
   backgroundImgOpacity: number;
   selectedBackgroundImg: string | null;
+  transparentUi: boolean;
+  windowOpacity: number;
   temperatureUnit: "C" | "F";
 };
 

@@ -34,6 +34,8 @@ mod tests {
       line_graph_show_tooltip: true,
       background_img_opacity: 50,
       selected_background_img: None,
+      transparent_ui: false,
+      window_opacity: 86,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
@@ -81,6 +83,8 @@ mod tests {
       settings.selected_background_img,
       expected.selected_background_img
     );
+    assert_eq!(settings.transparent_ui, expected.transparent_ui);
+    assert_eq!(settings.window_opacity, expected.window_opacity);
     assert_eq!(settings.temperature_unit, expected.temperature_unit);
   }
 

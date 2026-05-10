@@ -28,6 +28,8 @@ const settingsAtom = atom<ClientSettings>({
   lineGraphShowTooltip: true,
   backgroundImgOpacity: 50,
   selectedBackgroundImg: null,
+  transparentUi: false,
+  windowOpacity: 86,
   temperatureUnit: "C",
   hardwareArchive: {
     enabled: true,
@@ -77,6 +79,8 @@ export const useSettingsAtom = () => {
     lineGraphShowTooltip: commands.setLineGraphShowTooltip,
     backgroundImgOpacity: commands.setBackgroundImgOpacity,
     selectedBackgroundImg: commands.setSelectedBackgroundImg,
+    transparentUi: commands.setTransparentUi,
+    windowOpacity: commands.setWindowOpacity,
     temperatureUnit: commands.setTemperatureUnit,
     burnInShift: commands.setBurnInShift,
     burnInShiftPreset: commands.setBurnInShiftPreset,

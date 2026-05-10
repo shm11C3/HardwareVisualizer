@@ -219,6 +219,11 @@
         "textSelection": {
           "name": "Enable text selection"
         },
+        "transparentUi": {
+          "name": "Transparent UI",
+          "description": "Make the app background and panels transparent.",
+          "opacity": "Window opacity"
+        },
         "closeToTray": {
           "name": "Close to tray instead of quitting",
           "description": "Keep monitoring running when the main window is closed.",

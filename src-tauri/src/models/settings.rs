@@ -49,6 +49,8 @@ pub struct Settings {
   pub line_graph_show_tooltip: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
+  pub transparent_ui: bool,
+  pub window_opacity: u8,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub burn_in_shift: bool,
   pub burn_in_shift_mode: enums::settings::BurnInShiftMode,
@@ -90,6 +92,8 @@ pub struct ClientSettings {
   pub line_graph_show_tooltip: bool,
   pub background_img_opacity: u8,
   pub selected_background_img: Option<String>,
+  pub transparent_ui: bool,
+  pub window_opacity: u8,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
   pub burn_in_shift: bool,
@@ -129,6 +133,8 @@ impl Default for Settings {
       line_graph_show_tooltip: true,
       background_img_opacity: 50,
       selected_background_img: None,
+      transparent_ui: false,
+      window_opacity: 86,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
@@ -268,6 +274,8 @@ mod tests {
       line_graph_show_tooltip: true,
       background_img_opacity: 75,
       selected_background_img: Some("test.png".to_string()),
+      transparent_ui: false,
+      window_opacity: 86,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       hardware_archive: crate::models::hardware_archive::HardwareArchiveSettings::default(
       ),
@@ -301,6 +309,8 @@ mod tests {
     assert!(serialized.contains("\"lineGraphType\""));
     assert!(serialized.contains("\"lineGraphBorder\""));
     assert!(serialized.contains("\"backgroundImgOpacity\""));
+    assert!(serialized.contains("\"transparentUi\""));
+    assert!(serialized.contains("\"windowOpacity\""));
   }
 
   #[test]
@@ -387,6 +397,8 @@ mod tests {
     );
     assert!(settings.burn_in_shift_options.is_none());
     assert_eq!(settings.text_selectable, defaults.text_selectable);
+    assert_eq!(settings.transparent_ui, defaults.transparent_ui);
+    assert_eq!(settings.window_opacity, defaults.window_opacity);
   }
 
   #[test]
@@ -401,6 +413,8 @@ mod tests {
     assert_eq!(settings.line_graph_border, defaults.line_graph_border);
     assert_eq!(settings.burn_in_shift, defaults.burn_in_shift);
     assert_eq!(settings.text_selectable, defaults.text_selectable);
+    assert_eq!(settings.transparent_ui, defaults.transparent_ui);
+    assert_eq!(settings.window_opacity, defaults.window_opacity);
   }
 
   #[test]
@@ -415,6 +429,8 @@ mod tests {
       "lineGraphBorder": false,
       "lineGraphFill": false,
       "backgroundImgOpacity": 90,
+      "transparentUi": true,
+      "windowOpacity": 64,
       "temperatureUnit": "F",
       "burnInShift": true
     }"#;
@@ -430,6 +446,8 @@ mod tests {
     assert!(!settings.line_graph_border);
     assert!(!settings.line_graph_fill);
     assert_eq!(settings.background_img_opacity, 90);
+    assert!(settings.transparent_ui);
+    assert_eq!(settings.window_opacity, 64);
     assert_eq!(
       settings.temperature_unit,
       enums::settings::TemperatureUnit::Fahrenheit
@@ -443,6 +461,20 @@ mod tests {
     // Missing fields should remain at defaults
     assert_eq!(settings.line_graph_mix, defaults.line_graph_mix);
     assert_eq!(settings.text_selectable, defaults.text_selectable);
+  }
+
+  #[test]
+  fn test_merge_from_json_str_clamps_window_opacity() {
+    let mut settings = Settings::default();
+    settings
+      .merge_from_json_str(r#"{"windowOpacity": 5}"#)
+      .unwrap();
+    assert_eq!(settings.window_opacity, 20);
+
+    settings
+      .merge_from_json_str(r#"{"windowOpacity": 150}"#)
+      .unwrap();
+    assert_eq!(settings.window_opacity, 100);
   }
 
   #[test]
