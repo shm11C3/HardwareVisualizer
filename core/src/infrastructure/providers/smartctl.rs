@@ -183,13 +183,24 @@ where
 
 fn parse_scan_output(output: &Output) -> Result<Vec<SmartctlDevice>, String> {
   let stdout = String::from_utf8_lossy(&output.stdout);
-  let devices = parse_scan_json(&stdout)?;
+  let command_err = command_error(output);
 
-  if devices.is_empty() && !output.status.success() {
-    Err(command_error(output))
-  } else {
-    Ok(devices)
+  if stdout.trim().is_empty() {
+    return Err(command_err);
   }
+
+  if !output.status.success() {
+    let devices = parse_scan_json(&stdout)
+      .map_err(|parse_err| format!("{parse_err}; {command_err}"))?;
+
+    return if devices.is_empty() {
+      Err(command_err)
+    } else {
+      Ok(devices)
+    };
+  }
+
+  parse_scan_json(&stdout)
 }
 
 fn parse_scan_json(raw: &str) -> Result<Vec<SmartctlDevice>, String> {
@@ -223,7 +234,7 @@ fn parse_smartctl_value(value: &Value) -> Result<SmartDiskInfo, String> {
   let device = value.get("device");
   let device_name = string_at(device, &["name"])
     .or_else(|| string_at(device, &["info_name"]))
-    .or_else(|| string_at(value.get("smartctl"), &["argv", "3"]))
+    .or_else(|| last_smartctl_arg(value))
     .unwrap_or_else(|| "unknown".to_string());
 
   let attributes = parse_ata_attributes(value)
@@ -399,6 +410,17 @@ fn first_string(value: &Value, keys: &[&str]) -> Option<String> {
   })
 }
 
+fn last_smartctl_arg(value: &Value) -> Option<String> {
+  value
+    .pointer("/smartctl/argv")
+    .and_then(Value::as_array)
+    .and_then(|argv| argv.last())
+    .and_then(Value::as_str)
+    .map(str::trim)
+    .filter(|v| !v.is_empty())
+    .map(ToOwned::to_owned)
+}
+
 fn string_at(value: Option<&Value>, path: &[&str]) -> Option<String> {
   let mut current = value?;
   for key in path {
@@ -436,6 +458,28 @@ fn command_error(output: &Output) -> String {
 mod tests {
   use super::*;
 
+  #[cfg(unix)]
+  fn test_output(status_code: i32, stdout: &str, stderr: &str) -> Output {
+    use std::os::unix::process::ExitStatusExt;
+
+    Output {
+      status: std::process::ExitStatus::from_raw(status_code << 8),
+      stdout: stdout.as_bytes().to_vec(),
+      stderr: stderr.as_bytes().to_vec(),
+    }
+  }
+
+  #[cfg(windows)]
+  fn test_output(status_code: u32, stdout: &str, stderr: &str) -> Output {
+    use std::os::windows::process::ExitStatusExt;
+
+    Output {
+      status: std::process::ExitStatus::from_raw(status_code),
+      stdout: stdout.as_bytes().to_vec(),
+      stderr: stderr.as_bytes().to_vec(),
+    }
+  }
+
   #[test]
   fn parse_scan_json_extracts_devices() {
     let raw = r#"{
@@ -454,6 +498,28 @@ mod tests {
         SmartctlDevice::new("/dev/nvme0", Some("nvme".to_string())),
       ]
     );
+  }
+
+  #[test]
+  fn parse_scan_output_preserves_command_error_on_invalid_failure_output() {
+    let output = test_output(2, "not json", "smartctl permission denied");
+
+    let err = parse_scan_output(&output).expect_err("scan should fail");
+
+    assert!(err.contains("Failed to parse smartctl scan JSON"));
+    assert!(err.contains("smartctl permission denied"));
+  }
+
+  #[test]
+  fn parse_smartctl_json_uses_last_argv_as_device_name_fallback() {
+    let raw = r#"{
+      "smartctl": {"argv": ["smartctl", "-a", "-j", "-d", "sat", "/dev/sda"]},
+      "smart_status": {"passed": true}
+    }"#;
+
+    let disk = parse_smartctl_json(raw).expect("SMART JSON should parse");
+
+    assert_eq!(disk.device_name, "/dev/sda");
   }
 
   #[test]
