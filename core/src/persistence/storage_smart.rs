@@ -30,8 +30,10 @@ impl StorageSmartController {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
-      let mut last_checked_date = Some(local_date_string());
-      run_daily_snapshot_if_needed(retention_days).await;
+      let mut last_checked_date = None;
+      if run_daily_snapshot_if_needed(retention_days).await {
+        last_checked_date = Some(local_date_string());
+      }
 
       let mut ticker =
         interval(Duration::from_secs(STORAGE_SMART_CHECK_INTERVAL_SECONDS));
@@ -53,9 +55,10 @@ impl StorageSmartController {
           }
           _ = ticker.tick() => {
             let today = local_date_string();
-            if last_checked_date.as_deref() != Some(today.as_str()) {
+            if last_checked_date.as_deref() != Some(today.as_str())
+              && run_daily_snapshot_if_needed(retention_days).await
+            {
               last_checked_date = Some(today);
-              run_daily_snapshot_if_needed(retention_days).await;
             }
           }
         }
@@ -71,7 +74,7 @@ impl StorageSmartController {
   }
 }
 
-async fn run_daily_snapshot_if_needed(retention_days: u32) {
+async fn run_daily_snapshot_if_needed(retention_days: u32) -> bool {
   let date = local_date_string();
 
   match database::storage_smart::has_snapshot_for_date(&date).await {
@@ -82,8 +85,9 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
           "persistence::storage_smart::run_daily_snapshot_if_needed",
           Some(e.to_string())
         );
+        return false;
       }
-      return;
+      return true;
     }
     Ok(false) => {}
     Err(e) => {
@@ -92,7 +96,7 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
         "persistence::storage_smart::run_daily_snapshot_if_needed",
         Some(e.to_string())
       );
-      return;
+      return false;
     }
   }
 
@@ -105,7 +109,7 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
         "persistence::storage_smart::run_daily_snapshot_if_needed",
         Some(e)
       );
-      return;
+      return false;
     }
     Err(e) => {
       log_error!(
@@ -113,7 +117,7 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
         "persistence::storage_smart::run_daily_snapshot_if_needed",
         Some(e.to_string())
       );
-      return;
+      return false;
     }
   };
 
@@ -128,7 +132,7 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
       "persistence::storage_smart::run_daily_snapshot_if_needed",
       None::<&str>
     );
-    return;
+    return false;
   }
 
   if let Err(e) =
@@ -139,7 +143,7 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
       "persistence::storage_smart::run_daily_snapshot_if_needed",
       Some(e.to_string())
     );
-    return;
+    return false;
   }
 
   if let Err(e) = database::storage_smart::delete_old_data(retention_days).await {
@@ -148,7 +152,10 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) {
       "persistence::storage_smart::run_daily_snapshot_if_needed",
       Some(e.to_string())
     );
+    return false;
   }
+
+  true
 }
 
 fn build_daily_snapshot(
@@ -163,7 +170,7 @@ fn build_daily_snapshot(
     .filter(|v| !v.trim().is_empty())
     .unwrap_or(&disk.device_name)
     .to_string();
-  let serial_hash = disk.serial_number.as_deref().map(hash_identifier);
+  let serial_hash = normalized_serial(disk).map(hash_identifier);
 
   let temperature_celsius = disk.temperature_celsius.map(|v| v as f32);
   let percentage_used = attr_value_f32(disk, None, "Percentage Used");
@@ -322,16 +329,12 @@ fn warning_rank(level: &StorageWarningLevel) -> u8 {
 }
 
 fn storage_device_id(disk: &SmartDiskInfo) -> String {
-  let identity = if let Some(serial) = disk.serial_number.as_deref() {
-    format!(
-      "{}:{}",
-      disk.protocol.as_deref().unwrap_or("unknown"),
-      serial.trim()
-    )
+  let identity = if let Some(serial) = normalized_serial(disk) {
+    format!("{}:{}", disk_protocol(disk), serial)
   } else {
     format!(
       "{}:{}:{}:{:?}",
-      disk.protocol.as_deref().unwrap_or("unknown"),
+      disk_protocol(disk),
       disk.model_name.as_deref().unwrap_or("unknown"),
       disk.device_name,
       disk.capacity_bytes,
@@ -339,6 +342,22 @@ fn storage_device_id(disk: &SmartDiskInfo) -> String {
   };
 
   format!("storage:{}", hash_identifier(&identity))
+}
+
+fn normalized_serial(disk: &SmartDiskInfo) -> Option<&str> {
+  disk
+    .serial_number
+    .as_deref()
+    .map(str::trim)
+    .filter(|serial| !serial.is_empty())
+}
+
+fn disk_protocol(disk: &SmartDiskInfo) -> &str {
+  disk
+    .protocol
+    .as_deref()
+    .or(disk.device_type.as_deref())
+    .unwrap_or("unknown")
 }
 
 fn hash_identifier(value: &str) -> String {
@@ -380,10 +399,13 @@ fn find_attr<'a>(
   id: Option<u32>,
   name: &str,
 ) -> Option<&'a SmartAttribute> {
-  disk
-    .attributes
-    .iter()
-    .find(|attr| id.is_some() && attr.id == id || attr.name.eq_ignore_ascii_case(name))
+  match id {
+    Some(id) => disk.attributes.iter().find(|attr| attr.id == Some(id)),
+    None => disk
+      .attributes
+      .iter()
+      .find(|attr| attr.name.eq_ignore_ascii_case(name)),
+  }
 }
 
 fn parse_smart_u64(raw: &str) -> Option<u64> {
@@ -497,5 +519,53 @@ mod tests {
     second.device_name = "/dev/sdb".to_string();
 
     assert_eq!(storage_device_id(&first), storage_device_id(&second));
+  }
+
+  #[test]
+  fn blank_serial_is_treated_as_missing_identity() {
+    let mut first = disk(Vec::new());
+    first.serial_number = Some("   ".to_string());
+    first.device_name = "/dev/sda".to_string();
+    let mut second = first.clone();
+    second.device_name = "/dev/sdb".to_string();
+
+    let (device, _) = build_daily_snapshot(&first, "2026-05-10", "2026-05-10T00:00:00Z");
+
+    assert_eq!(device.serial_hash, None);
+    assert_ne!(storage_device_id(&first), storage_device_id(&second));
+  }
+
+  #[test]
+  fn device_id_uses_device_type_when_protocol_is_missing() {
+    let mut input = disk(Vec::new());
+    input.protocol = None;
+    input.device_type = Some("nvme".to_string());
+
+    let expected = format!("storage:{}", hash_identifier("nvme:SERIAL123"));
+
+    assert_eq!(storage_device_id(&input), expected);
+  }
+
+  #[test]
+  fn attr_lookup_uses_id_only_when_id_is_specified() {
+    let input = disk(vec![
+      attr(Some(9), "Reallocated Sector Count", "99"),
+      attr(Some(5), "Vendor Specific", "3"),
+    ]);
+
+    assert_eq!(
+      attr_value_u64(&input, Some(5), "Reallocated Sector Count"),
+      Some(3)
+    );
+  }
+
+  #[test]
+  fn attr_lookup_does_not_fallback_to_name_when_id_is_missing() {
+    let input = disk(vec![attr(None, "Reallocated Sector Count", "99")]);
+
+    assert_eq!(
+      attr_value_u64(&input, Some(5), "Reallocated Sector Count"),
+      None
+    );
   }
 }

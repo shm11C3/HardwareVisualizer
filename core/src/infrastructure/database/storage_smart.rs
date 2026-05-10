@@ -23,10 +23,6 @@ pub async fn insert_daily_snapshots(
   let pool = db::get_pool().await?;
   let mut tx = pool.begin().await?;
 
-  sqlx::query("UPDATE storage_devices SET is_active = 0")
-    .execute(&mut *tx)
-    .await?;
-
   for device in devices {
     sqlx::query(
       r#"
@@ -38,18 +34,16 @@ pub async fn insert_daily_snapshots(
         protocol,
         capacity_bytes,
         first_seen_at,
-        last_seen_at,
-        is_active
+        last_seen_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT(id) DO UPDATE SET
         display_name = excluded.display_name,
         model = excluded.model,
         serial_hash = COALESCE(excluded.serial_hash, storage_devices.serial_hash),
         protocol = excluded.protocol,
         capacity_bytes = excluded.capacity_bytes,
-        last_seen_at = excluded.last_seen_at,
-        is_active = 1
+        last_seen_at = excluded.last_seen_at
       "#,
     )
     .bind(device.id)

@@ -241,13 +241,14 @@ export const useSettingsAtom = () => {
     if (isError(result)) {
       error(result.error);
       console.error(result.error);
-      return;
+      return false;
     }
 
     setSettings((prev) => ({
       ...prev,
       storageSmart: { ...prev.storageSmart, retentionDays: value },
     }));
+    return true;
   };
 
   const setCloseToTrayPreferenceAtom = async (value: boolean) => {

@@ -130,7 +130,8 @@ fn serialize_preserving_unknown_settings(
   let mut document = match std::fs::read_to_string(config_file) {
     Ok(input) => match serde_json::from_str::<serde_json::Value>(&input) {
       Ok(serde_json::Value::Object(map)) => map,
-      Ok(_) | Err(_) => serde_json::Map::new(),
+      Ok(_) => return Err("Existing settings file must be a JSON object".to_string()),
+      Err(e) => return Err(format!("Failed to parse existing settings file: {e}")),
     },
     Err(e) if e.kind() == std::io::ErrorKind::NotFound => serde_json::Map::new(),
     Err(e) => return Err(format!("Failed to read existing settings file: {e}")),
@@ -505,5 +506,29 @@ mod tests {
       Some(3650)
     );
     assert!(value.get("language").is_some());
+  }
+
+  #[test]
+  fn serialize_preserving_unknown_settings_rejects_invalid_existing_json() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    std::fs::write(&path, "{invalid").unwrap();
+
+    let settings = models::settings::Settings::default();
+    let err = serialize_preserving_unknown_settings(&settings, &path).unwrap_err();
+
+    assert!(err.contains("Failed to parse existing settings file"));
+  }
+
+  #[test]
+  fn serialize_preserving_unknown_settings_rejects_non_object_existing_json() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    std::fs::write(&path, "[]").unwrap();
+
+    let settings = models::settings::Settings::default();
+    let err = serialize_preserving_unknown_settings(&settings, &path).unwrap_err();
+
+    assert_eq!(err, "Existing settings file must be a JSON object");
   }
 }

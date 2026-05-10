@@ -1,5 +1,5 @@
 import { useAtom } from "jotai";
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +37,15 @@ export const DataRetentionSettings = () => {
   const holdingPeriodId = useId();
   const scheduledDataDeletionId = useId();
   const storageSmartRetentionId = useId();
+  const storageSmartRetentionDays =
+    settings.storageSmart.retentionDays ?? 365 * 3;
+  const [storageSmartRetentionInput, setStorageSmartRetentionInput] = useState(
+    () => String(storageSmartRetentionDays),
+  );
+
+  useEffect(() => {
+    setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+  }, [storageSmartRetentionDays]);
 
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
@@ -49,11 +58,52 @@ export const DataRetentionSettings = () => {
   };
 
   const changeStorageSmartRetentionDays = async (value: number) => {
-    await setStorageSmartRetentionDays(value);
+    if (value === storageSmartRetentionDays) {
+      return true;
+    }
+
+    const saved = await setStorageSmartRetentionDays(value);
+    if (!saved) {
+      return false;
+    }
+
     setHasSettingChanged(true);
+    return true;
   };
 
-  const storageSmartRetentionDays = settings.storageSmart.retentionDays;
+  const parseStorageSmartRetentionDays = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return null;
+    }
+
+    return Math.trunc(parsed);
+  };
+
+  const commitStorageSmartRetentionInput = async () => {
+    const nextValue = parseStorageSmartRetentionDays(
+      storageSmartRetentionInput,
+    );
+    if (nextValue === null) {
+      setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+      return;
+    }
+
+    if (nextValue === storageSmartRetentionDays) {
+      setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+      return;
+    }
+
+    const saved = await changeStorageSmartRetentionDays(nextValue);
+    if (!saved) {
+      setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+    }
+  };
 
   return (
     <div className="py-4">
@@ -114,10 +164,16 @@ export const DataRetentionSettings = () => {
             placeholder={t(
               "pages.settings.insights.storageSmart.retention.placeHolder",
             )}
-            value={settings.storageSmart.retentionDays}
-            onChange={(e) =>
-              changeStorageSmartRetentionDays(Number(e.target.value))
-            }
+            value={storageSmartRetentionInput}
+            onChange={(e) => setStorageSmartRetentionInput(e.target.value)}
+            onBlur={() => {
+              void commitStorageSmartRetentionInput();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
             min={1}
             max={100000}
           />
@@ -134,7 +190,14 @@ export const DataRetentionSettings = () => {
                 size="sm"
                 variant={isSelected ? "default" : "outline"}
                 aria-pressed={isSelected}
-                onClick={() => changeStorageSmartRetentionDays(preset.value)}
+                onClick={async () => {
+                  const saved = await changeStorageSmartRetentionDays(
+                    preset.value,
+                  );
+                  if (saved) {
+                    setStorageSmartRetentionInput(String(preset.value));
+                  }
+                }}
               >
                 {t(
                   `pages.settings.insights.storageSmart.retention.presets.${preset.labelKey}`,

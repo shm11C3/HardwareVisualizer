@@ -364,9 +364,11 @@ describe("useSettingsAtom", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,
     });
+    let saved = false;
     await act(async () => {
-      await result.current.setStorageSmartRetentionDays(730);
+      saved = await result.current.setStorageSmartRetentionDays(730);
     });
+    expect(saved).toBe(true);
     expect(result.current.settings.storageSmart.retentionDays).toBe(730);
   });
 
@@ -381,9 +383,11 @@ describe("useSettingsAtom", () => {
       wrapper: Provider,
     });
     const initialDays = result.current.settings.storageSmart.retentionDays;
+    let saved = true;
     await act(async () => {
-      await result.current.setStorageSmartRetentionDays(730);
+      saved = await result.current.setStorageSmartRetentionDays(730);
     });
+    expect(saved).toBe(false);
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     expect(result.current.settings.storageSmart.retentionDays).toBe(
       initialDays,
