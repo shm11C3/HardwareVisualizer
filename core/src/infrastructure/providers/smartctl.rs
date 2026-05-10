@@ -1,3 +1,4 @@
+use crate::log_warn;
 use crate::models::hardware::{SmartAttribute, SmartDiskInfo, SmartHealthStatus};
 use serde_json::Value;
 use std::process::{Command, Output};
@@ -48,6 +49,13 @@ pub fn collect_smart_info_from_devices(
     };
     Err(format!("Failed to collect SMART info: {detail}"))
   } else {
+    if !errors.is_empty() {
+      log_warn!(
+        "Some SMART devices failed to collect",
+        "infrastructure::providers::smartctl::collect_smart_info_from_devices",
+        Some(errors.join("; "))
+      );
+    }
     Ok(disks)
   }
 }

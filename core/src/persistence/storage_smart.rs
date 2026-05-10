@@ -77,29 +77,6 @@ impl StorageSmartController {
 async fn run_daily_snapshot_if_needed(retention_days: u32) -> bool {
   let date = local_date_string();
 
-  match database::storage_smart::has_snapshot_for_date(&date).await {
-    Ok(true) => {
-      if let Err(e) = database::storage_smart::delete_old_data(retention_days).await {
-        log_error!(
-          "Failed to delete old storage SMART snapshots",
-          "persistence::storage_smart::run_daily_snapshot_if_needed",
-          Some(e.to_string())
-        );
-        return false;
-      }
-      return true;
-    }
-    Ok(false) => {}
-    Err(e) => {
-      log_error!(
-        "Failed to check storage SMART snapshot existence",
-        "persistence::storage_smart::run_daily_snapshot_if_needed",
-        Some(e.to_string())
-      );
-      return false;
-    }
-  }
-
   let collected_at = chrono::Utc::now().to_rfc3339();
   let disks = match tokio::task::spawn_blocking(collect_platform_smart_info).await {
     Ok(Ok(disks)) => disks,
