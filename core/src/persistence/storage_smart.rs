@@ -30,10 +30,9 @@ impl StorageSmartController {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
-      let mut last_checked_date = None;
-      if run_daily_snapshot_if_needed(retention_days).await {
-        last_checked_date = Some(local_date_string());
-      }
+      let today = local_date_string();
+      run_daily_snapshot_for_date(retention_days, &today).await;
+      let mut last_checked_date = Some(today);
 
       let mut ticker =
         interval(Duration::from_secs(STORAGE_SMART_CHECK_INTERVAL_SECONDS));
@@ -55,9 +54,8 @@ impl StorageSmartController {
           }
           _ = ticker.tick() => {
             let today = local_date_string();
-            if last_checked_date.as_deref() != Some(today.as_str())
-              && run_daily_snapshot_if_needed(retention_days).await
-            {
+            if last_checked_date.as_deref() != Some(today.as_str()) {
+              run_daily_snapshot_for_date(retention_days, &today).await;
               last_checked_date = Some(today);
             }
           }
@@ -74,27 +72,25 @@ impl StorageSmartController {
   }
 }
 
-async fn run_daily_snapshot_if_needed(retention_days: u32) -> bool {
-  let date = local_date_string();
-
+async fn run_daily_snapshot_for_date(retention_days: u32, date: &str) {
   let collected_at = chrono::Utc::now().to_rfc3339();
   let disks = match tokio::task::spawn_blocking(collect_platform_smart_info).await {
     Ok(Ok(disks)) => disks,
     Ok(Err(e)) => {
       log_error!(
         "Failed to collect storage SMART info",
-        "persistence::storage_smart::run_daily_snapshot_if_needed",
+        "persistence::storage_smart::run_daily_snapshot_for_date",
         Some(e)
       );
-      return false;
+      return;
     }
     Err(e) => {
       log_error!(
         "Failed to join storage SMART collection task",
-        "persistence::storage_smart::run_daily_snapshot_if_needed",
+        "persistence::storage_smart::run_daily_snapshot_for_date",
         Some(e.to_string())
       );
-      return false;
+      return;
     }
   };
 
@@ -106,10 +102,10 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) -> bool {
   if snapshots.is_empty() {
     log_warn!(
       "Storage SMART collection returned no disks",
-      "persistence::storage_smart::run_daily_snapshot_if_needed",
+      "persistence::storage_smart::run_daily_snapshot_for_date",
       None::<&str>
     );
-    return false;
+    return;
   }
 
   if let Err(e) =
@@ -117,22 +113,19 @@ async fn run_daily_snapshot_if_needed(retention_days: u32) -> bool {
   {
     log_error!(
       "Failed to insert storage SMART daily snapshots",
-      "persistence::storage_smart::run_daily_snapshot_if_needed",
+      "persistence::storage_smart::run_daily_snapshot_for_date",
       Some(e.to_string())
     );
-    return false;
+    return;
   }
 
   if let Err(e) = database::storage_smart::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old storage SMART snapshots",
-      "persistence::storage_smart::run_daily_snapshot_if_needed",
+      "persistence::storage_smart::run_daily_snapshot_for_date",
       Some(e.to_string())
     );
-    return false;
   }
-
-  true
 }
 
 fn build_daily_snapshot(
