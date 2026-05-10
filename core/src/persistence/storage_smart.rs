@@ -107,7 +107,7 @@ async fn run_daily_snapshot_for_date(
 
   let (devices, snapshots): (Vec<_>, Vec<_>) = disks
     .iter()
-    .map(|disk| build_daily_snapshot(disk, &date, &collected_at, identity_hash_key))
+    .map(|disk| build_daily_snapshot(disk, date, &collected_at, identity_hash_key))
     .unzip();
 
   if snapshots.is_empty() {
