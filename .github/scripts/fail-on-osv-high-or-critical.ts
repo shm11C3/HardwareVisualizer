@@ -1,8 +1,31 @@
 import fs from "node:fs";
 
+type JsonObject = Record<string, unknown>;
+type SeverityRank = 0 | 1 | 2 | 3 | 4;
+type SeverityInfo = {
+  label: string;
+  rank: SeverityRank;
+  score?: number;
+};
+type Signal = [value: unknown, type?: string];
+type Finding = {
+  id: string;
+  package: string;
+  rank: SeverityRank;
+  score: number | null;
+  severity: string;
+  source: string;
+};
+type StepSummaryInput = {
+  allFindings: Finding[];
+  blockingFindings: Finding[];
+  releaseTag: string;
+};
+
 const HIGH_OR_CRITICAL_SCORE = 7.0;
+const HIGH_SEVERITY_RANK = 3 satisfies SeverityRank;
 const SUMMARY_FINDING_LIMIT = 50;
-const severityRank = new Map([
+const severityRank = new Map<string, SeverityRank>([
   ["NONE", 0],
   ["UNKNOWN", 0],
   ["LOW", 1],
@@ -13,23 +36,23 @@ const severityRank = new Map([
   ["CRITICAL", 4],
 ]);
 
-function isObject(value) {
+function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function asObject(value) {
+function asObject(value: unknown): JsonObject {
   return isObject(value) ? value : {};
 }
 
-function asArray(value) {
+function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function cvssRoundUp(value) {
+function cvssRoundUp(value: number): number {
   return Math.ceil((value - 1e-10) * 10) / 10;
 }
 
-function parseVector(vector) {
+function parseVector(vector: string): Record<string, string> {
   return Object.fromEntries(
     vector
       .split("/")
@@ -38,20 +61,20 @@ function parseVector(vector) {
   );
 }
 
-function cvssV3Score(vector) {
+function cvssV3Score(vector: string): number | null {
   const metrics = parseVector(vector);
   const scope = metrics.S;
 
-  const av = { N: 0.85, A: 0.62, L: 0.55, P: 0.2 }[metrics.AV];
-  const ac = { L: 0.77, H: 0.44 }[metrics.AC];
+  const av = valueFor(metrics.AV, { N: 0.85, A: 0.62, L: 0.55, P: 0.2 });
+  const ac = valueFor(metrics.AC, { L: 0.77, H: 0.44 });
   const pr =
     scope === "C"
-      ? { N: 0.85, L: 0.68, H: 0.5 }[metrics.PR]
-      : { N: 0.85, L: 0.62, H: 0.27 }[metrics.PR];
-  const ui = { N: 0.85, R: 0.62 }[metrics.UI];
-  const c = { H: 0.56, L: 0.22, N: 0 }[metrics.C];
-  const i = { H: 0.56, L: 0.22, N: 0 }[metrics.I];
-  const a = { H: 0.56, L: 0.22, N: 0 }[metrics.A];
+      ? valueFor(metrics.PR, { N: 0.85, L: 0.68, H: 0.5 })
+      : valueFor(metrics.PR, { N: 0.85, L: 0.62, H: 0.27 });
+  const ui = valueFor(metrics.UI, { N: 0.85, R: 0.62 });
+  const c = valueFor(metrics.C, { H: 0.56, L: 0.22, N: 0 });
+  const i = valueFor(metrics.I, { H: 0.56, L: 0.22, N: 0 });
+  const a = valueFor(metrics.A, { H: 0.56, L: 0.22, N: 0 });
 
   if (
     [av, ac, pr, ui, c, i, a].some((metric) => typeof metric !== "number") ||
@@ -60,12 +83,21 @@ function cvssV3Score(vector) {
     return null;
   }
 
-  const impactSubScore = 1 - (1 - c) * (1 - i) * (1 - a);
+  const [avScore, acScore, prScore, uiScore, cScore, iScore, aScore] = [
+    av,
+    ac,
+    pr,
+    ui,
+    c,
+    i,
+    a,
+  ] as number[];
+  const impactSubScore = 1 - (1 - cScore) * (1 - iScore) * (1 - aScore);
   const impact =
     scope === "U"
       ? 6.42 * impactSubScore
       : 7.52 * (impactSubScore - 0.029) - 3.25 * (impactSubScore - 0.02) ** 15;
-  const exploitability = 8.22 * av * ac * pr * ui;
+  const exploitability = 8.22 * avScore * acScore * prScore * uiScore;
 
   if (impact <= 0) {
     return 0;
@@ -79,22 +111,34 @@ function cvssV3Score(vector) {
   return cvssRoundUp(rawScore);
 }
 
-function cvssV2Score(vector) {
+function valueFor(key: string | undefined, values: Record<string, number>) {
+  return key ? values[key] : undefined;
+}
+
+function cvssV2Score(vector: string): number | null {
   const metrics = parseVector(vector);
 
-  const av = { L: 0.395, A: 0.646, N: 1 }[metrics.AV];
-  const ac = { H: 0.35, M: 0.61, L: 0.71 }[metrics.AC];
-  const au = { M: 0.45, S: 0.56, N: 0.704 }[metrics.Au];
-  const c = { N: 0, P: 0.275, C: 0.66 }[metrics.C];
-  const i = { N: 0, P: 0.275, C: 0.66 }[metrics.I];
-  const a = { N: 0, P: 0.275, C: 0.66 }[metrics.A];
+  const av = valueFor(metrics.AV, { L: 0.395, A: 0.646, N: 1 });
+  const ac = valueFor(metrics.AC, { H: 0.35, M: 0.61, L: 0.71 });
+  const au = valueFor(metrics.Au, { M: 0.45, S: 0.56, N: 0.704 });
+  const c = valueFor(metrics.C, { N: 0, P: 0.275, C: 0.66 });
+  const i = valueFor(metrics.I, { N: 0, P: 0.275, C: 0.66 });
+  const a = valueFor(metrics.A, { N: 0, P: 0.275, C: 0.66 });
 
   if ([av, ac, au, c, i, a].some((metric) => typeof metric !== "number")) {
     return null;
   }
 
-  const impact = 10.41 * (1 - (1 - c) * (1 - i) * (1 - a));
-  const exploitability = 20 * av * ac * au;
+  const [avScore, acScore, auScore, cScore, iScore, aScore] = [
+    av,
+    ac,
+    au,
+    c,
+    i,
+    a,
+  ] as number[];
+  const impact = 10.41 * (1 - (1 - cScore) * (1 - iScore) * (1 - aScore));
+  const exploitability = 20 * avScore * acScore * auScore;
   const impactFactor = impact === 0 ? 0 : 1.176;
 
   return (
@@ -104,7 +148,7 @@ function cvssV2Score(vector) {
   );
 }
 
-function severityFromScore(score) {
+function severityFromScore(score: number): SeverityInfo {
   if (score >= 9.0) return { label: "CRITICAL", rank: 4, score };
   if (score >= HIGH_OR_CRITICAL_SCORE) return { label: "HIGH", rank: 3, score };
   if (score >= 4.0) return { label: "MEDIUM", rank: 2, score };
@@ -112,7 +156,7 @@ function severityFromScore(score) {
   return { label: "NONE", rank: 0, score };
 }
 
-function normalizeSeverityLabel(value) {
+function normalizeSeverityLabel(value: unknown): SeverityInfo | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -127,7 +171,7 @@ function normalizeSeverityLabel(value) {
   return rank === undefined ? null : { label, rank };
 }
 
-function severityFromSignal(value, type = "") {
+function severityFromSignal(value: unknown, type = ""): SeverityInfo | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return severityFromScore(value);
   }
@@ -164,8 +208,8 @@ function severityFromSignal(value, type = "") {
   return null;
 }
 
-function collectSeveritySignals(vulnerability) {
-  const signals = [];
+function collectSeveritySignals(vulnerability: JsonObject): Signal[] {
+  const signals: Signal[] = [];
   const databaseSpecific = asObject(vulnerability.database_specific);
   const ecosystemSpecific = asObject(vulnerability.ecosystem_specific);
   const cvss = asObject(databaseSpecific.cvss);
@@ -191,8 +235,8 @@ function collectSeveritySignals(vulnerability) {
   return signals;
 }
 
-function highestSeverity(vulnerability) {
-  let highest = null;
+function highestSeverity(vulnerability: JsonObject): SeverityInfo | null {
+  let highest: SeverityInfo | null = null;
 
   for (const [value, type = ""] of collectSeveritySignals(vulnerability)) {
     const severity = severityFromSignal(value, type);
@@ -208,7 +252,7 @@ function highestSeverity(vulnerability) {
   return highest;
 }
 
-function packageName(packageResult) {
+function packageName(packageResult: JsonObject): string {
   const metadata = asObject(packageResult.package ?? packageResult.Package);
   const name = metadata.name ?? metadata.Name ?? "(unknown package)";
   const version = metadata.version ?? metadata.Version;
@@ -216,12 +260,12 @@ function packageName(packageResult) {
   return version ? `${name}@${version}` : String(name);
 }
 
-function sourcePath(result) {
+function sourcePath(result: JsonObject): string {
   const source = asObject(result.source ?? result.packageSource);
   return typeof source.path === "string" ? source.path : "";
 }
 
-function vulnerabilityId(vulnerability) {
+function vulnerabilityId(vulnerability: JsonObject): string {
   if (typeof vulnerability.id === "string") {
     return vulnerability.id;
   }
@@ -233,11 +277,11 @@ function vulnerabilityId(vulnerability) {
   return alias ?? "(unknown advisory)";
 }
 
-function escapeMarkdownCell(value) {
+function escapeMarkdownCell(value: unknown): string {
   return String(value).replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
 }
 
-function advisoryMarkdown(id) {
+function advisoryMarkdown(id: string): string {
   const escaped = escapeMarkdownCell(id);
 
   if (id.startsWith("(")) {
@@ -247,15 +291,15 @@ function advisoryMarkdown(id) {
   return `[${escaped}](https://osv.dev/vulnerability/${encodeURIComponent(id)})`;
 }
 
-function severityLabel(severity) {
+function severityLabel(severity: SeverityInfo | null): string {
   return severity?.label ?? "UNKNOWN";
 }
 
-function severityScore(severity) {
+function severityScore(severity: SeverityInfo | null): number | null {
   return typeof severity?.score === "number" ? severity.score : null;
 }
 
-function compareFindings(a, b) {
+function compareFindings(a: Finding, b: Finding): number {
   const severityDiff = b.rank - a.rank;
   if (severityDiff !== 0) {
     return severityDiff;
@@ -269,8 +313,8 @@ function compareFindings(a, b) {
   return a.id.localeCompare(b.id);
 }
 
-function countBySeverity(findings) {
-  const counts = new Map();
+function countBySeverity(findings: Finding[]): [string, number][] {
+  const counts = new Map<string, number>();
 
   for (const finding of findings) {
     counts.set(finding.severity, (counts.get(finding.severity) ?? 0) + 1);
@@ -282,7 +326,7 @@ function countBySeverity(findings) {
   );
 }
 
-function summaryTable(findings) {
+function summaryTable(findings: Finding[]): string {
   const visibleFindings = findings.slice(0, SUMMARY_FINDING_LIMIT);
   const rows = visibleFindings.map((finding) => {
     const score =
@@ -304,7 +348,11 @@ function summaryTable(findings) {
   ].join("\n");
 }
 
-function writeStepSummary({ allFindings, blockingFindings, releaseTag }) {
+function writeStepSummary({
+  allFindings,
+  blockingFindings,
+  releaseTag,
+}: StepSummaryInput) {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (!summaryPath) {
     return;
@@ -347,16 +395,16 @@ function writeStepSummary({ allFindings, blockingFindings, releaseTag }) {
   fs.appendFileSync(summaryPath, `${lines.join("\n")}\n`);
 }
 
-function loadResults(path) {
+function loadResults(path: string): JsonObject {
   const raw = fs.readFileSync(path, "utf8");
-  return JSON.parse(raw);
+  return asObject(JSON.parse(raw));
 }
 
 function main() {
   const path = process.argv[2] ?? "latest-release-results.json";
   const data = loadResults(path);
-  const allFindings = [];
-  const blockingFindings = [];
+  const allFindings: Finding[] = [];
+  const blockingFindings: Finding[] = [];
   const releaseTag = process.env.OSV_RELEASE_TAG ?? "";
   let vulnerabilityCount = 0;
 
@@ -382,7 +430,7 @@ function main() {
 
         allFindings.push(finding);
 
-        if (finding.rank >= severityRank.get("HIGH")) {
+        if (finding.rank >= HIGH_SEVERITY_RANK) {
           blockingFindings.push(finding);
         }
       }

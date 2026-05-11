@@ -86,7 +86,7 @@ jobs:
           name: default-branch-osv-scan-assets
           path: |
             osv-scanner.toml
-            .github/scripts/fail-on-osv-high-or-critical.mjs
+            .github/scripts/fail-on-osv-high-or-critical.ts
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
@@ -143,6 +143,6 @@ jobs:
           retention-days: 5
 
       - name: Fail on High or Critical release vulnerabilities
-        run: node .github/scripts/fail-on-osv-high-or-critical.mjs release-results.json
+        run: node --experimental-strip-types .github/scripts/fail-on-osv-high-or-critical.ts release-results.json
         env:
           OSV_RELEASE_TAG: ${{ needs.resolve-release-tag.outputs.release-tag }}
