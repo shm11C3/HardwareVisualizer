@@ -14,8 +14,6 @@ updates:
     cooldown:
       default-days: 5
     open-pull-requests-limit: 40
-    assignees:
-      - "shm11C3"
 
     ignore:
       - dependency-name: "@tauri-apps/*"
@@ -50,8 +48,6 @@ updates:
     cooldown:
       default-days: 5
     open-pull-requests-limit: 40
-    assignees:
-      - "shm11C3"
     ignore:
       - dependency-name: "tauri"
       - dependency-name: "tauri-build"
@@ -79,5 +75,3 @@ updates:
       timezone: "Asia/Tokyo"
     cooldown:
       default-days: 5
-    assignees:
-      - "shm11C3"
