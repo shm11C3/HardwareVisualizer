@@ -142,6 +142,11 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+
       - name: Fail on High or Critical release vulnerabilities
         run: node --experimental-strip-types .github/scripts/fail-on-osv-high-or-critical.ts release-results.json
         env:
