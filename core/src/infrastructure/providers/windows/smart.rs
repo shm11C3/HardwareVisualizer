@@ -42,19 +42,63 @@ struct Win32DiskDrive {
   interface_type: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct MsftPhysicalDisk {
+  device_id: Option<String>,
+  friendly_name: Option<String>,
+  serial_number: Option<String>,
+  firmware_version: Option<String>,
+  size: Option<u64>,
+  bus_type: Option<u16>,
+  health_status: Option<u16>,
+  media_type: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct MsftStorageReliabilityCounter {
+  device_id: Option<String>,
+  temperature: Option<u8>,
+  temperature_max: Option<u8>,
+  read_errors_total: Option<u64>,
+  read_errors_corrected: Option<u64>,
+  read_errors_uncorrected: Option<u64>,
+  write_errors_total: Option<u64>,
+  write_errors_corrected: Option<u64>,
+  write_errors_uncorrected: Option<u64>,
+  start_stop_cycle_count: Option<u32>,
+  load_unload_cycle_count: Option<u32>,
+  wear: Option<u8>,
+  power_on_hours: Option<u16>,
+  read_latency_max: Option<u64>,
+  write_latency_max: Option<u64>,
+  flush_latency_max: Option<u64>,
+}
+
 pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
+  let mut errors = Vec::new();
+
   match query_wmi_smart_info() {
-    Ok(disks) if !disks.is_empty() => Ok(disks),
-    Ok(_) => smartctl::collect_smart_info_from_scan()
-      .map_err(|smartctl_error| {
-        format!("Windows WMI returned no SMART devices; smartctl fallback failed: {smartctl_error}")
-      }),
-    Err(wmi_error) => smartctl::collect_smart_info_from_scan().map_err(|smartctl_error| {
-      format!(
-        "Failed to collect SMART info from Windows WMI ({wmi_error}) and smartctl ({smartctl_error})"
-      )
-    }),
+    Ok(disks) if !disks.is_empty() => return Ok(disks),
+    Ok(_) => errors.push("legacy ROOT\\WMI returned no SMART devices".to_string()),
+    Err(e) => errors.push(format!("legacy ROOT\\WMI failed: {e}")),
   }
+
+  match query_storage_wmi_smart_info() {
+    Ok(disks) if !disks.is_empty() => return Ok(disks),
+    Ok(_) => errors
+      .push("ROOT\\Microsoft\\Windows\\Storage returned no physical disks".to_string()),
+    Err(e) => errors.push(format!("Storage WMI failed: {e}")),
+  }
+
+  smartctl::collect_smart_info_from_scan().map_err(|smartctl_error| {
+    errors.push(format!("smartctl failed: {smartctl_error}"));
+    format!(
+      "Failed to collect SMART info from Windows fallbacks: {}",
+      errors.join("; ")
+    )
+  })
 }
 
 fn query_wmi_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
@@ -133,6 +177,246 @@ fn query_wmi_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
       })
       .collect(),
   )
+}
+
+fn query_storage_wmi_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
+  let physical_disks: Vec<MsftPhysicalDisk> = wmi_query_in_namespace(
+    "ROOT\\Microsoft\\Windows\\Storage",
+    "SELECT * FROM MSFT_PhysicalDisk",
+  )?;
+
+  let reliability_counters: Vec<MsftStorageReliabilityCounter> = wmi_query_in_namespace(
+    "ROOT\\Microsoft\\Windows\\Storage",
+    "SELECT * FROM MSFT_StorageReliabilityCounter",
+  )
+  .unwrap_or_default();
+
+  let counters_by_device: HashMap<String, MsftStorageReliabilityCounter> =
+    reliability_counters
+      .into_iter()
+      .filter_map(|counter| {
+        let device_id = trimmed(counter.device_id.as_deref())?;
+        Some((normalize_identifier(&device_id), counter))
+      })
+      .collect();
+
+  Ok(
+    physical_disks
+      .iter()
+      .map(|disk| {
+        let counter_key =
+          trimmed(disk.device_id.as_deref()).map(|id| normalize_identifier(&id));
+        let counter = counter_key
+          .as_deref()
+          .and_then(|key| counters_by_device.get(key));
+
+        storage_wmi_disk_to_smart_info(disk, counter)
+      })
+      .collect(),
+  )
+}
+
+fn storage_wmi_disk_to_smart_info(
+  disk: &MsftPhysicalDisk,
+  counter: Option<&MsftStorageReliabilityCounter>,
+) -> SmartDiskInfo {
+  SmartDiskInfo {
+    device_name: trimmed(disk.device_id.as_deref())
+      .or_else(|| trimmed(disk.friendly_name.as_deref()))
+      .unwrap_or_else(|| "unknown".to_string()),
+    device_type: disk
+      .media_type
+      .and_then(storage_media_type_label)
+      .map(ToOwned::to_owned),
+    protocol: disk
+      .bus_type
+      .and_then(storage_bus_type_label)
+      .map(ToOwned::to_owned),
+    model_name: trimmed(disk.friendly_name.as_deref()),
+    serial_number: trimmed(disk.serial_number.as_deref()),
+    firmware_version: trimmed(disk.firmware_version.as_deref()),
+    capacity_bytes: disk.size,
+    health_status: storage_health_status(disk.health_status),
+    temperature_celsius: counter.and_then(|c| c.temperature).map(i32::from),
+    power_on_hours: counter.and_then(|c| c.power_on_hours).map(u64::from),
+    power_cycle_count: None,
+    attributes: storage_reliability_attributes(counter),
+  }
+}
+
+fn storage_health_status(value: Option<u16>) -> SmartHealthStatus {
+  match value {
+    Some(0) => SmartHealthStatus::Passed,
+    Some(1) => SmartHealthStatus::Warning,
+    Some(2) => SmartHealthStatus::Failed,
+    Some(5) | None => SmartHealthStatus::Unknown,
+    _ => SmartHealthStatus::Unknown,
+  }
+}
+
+fn storage_bus_type_label(value: u16) -> Option<&'static str> {
+  Some(match value {
+    0 => "Unknown",
+    1 => "SCSI",
+    2 => "ATAPI",
+    3 => "ATA",
+    4 => "IEEE 1394",
+    5 => "SSA",
+    6 => "Fibre Channel",
+    7 => "USB",
+    8 => "RAID",
+    9 => "iSCSI",
+    10 => "SAS",
+    11 => "SATA",
+    12 => "SD",
+    13 => "MMC",
+    15 => "File Backed Virtual",
+    16 => "Storage Spaces",
+    17 => "NVMe",
+    _ => return None,
+  })
+}
+
+fn storage_media_type_label(value: u16) -> Option<&'static str> {
+  Some(match value {
+    0 => "Unspecified",
+    3 => "HDD",
+    4 => "SSD",
+    5 => "SCM",
+    _ => return None,
+  })
+}
+
+fn storage_reliability_attributes(
+  counter: Option<&MsftStorageReliabilityCounter>,
+) -> Vec<SmartAttribute> {
+  let Some(counter) = counter else {
+    return Vec::new();
+  };
+
+  let mut attributes = Vec::new();
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Temperature",
+    counter.temperature.map(u64::from),
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Temperature Max",
+    counter.temperature_max.map(u64::from),
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Percentage Used",
+    counter.wear.map(u64::from),
+  );
+  push_storage_attribute(
+    &mut attributes,
+    Some(9),
+    "Power-On Hours",
+    counter.power_on_hours.map(u64::from),
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Read Errors Total",
+    counter.read_errors_total,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Read Errors Corrected",
+    counter.read_errors_corrected,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Read Errors Uncorrected",
+    counter.read_errors_uncorrected,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Write Errors Total",
+    counter.write_errors_total,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Write Errors Corrected",
+    counter.write_errors_corrected,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Write Errors Uncorrected",
+    counter.write_errors_uncorrected,
+  );
+
+  if counter.read_errors_uncorrected.is_some()
+    || counter.write_errors_uncorrected.is_some()
+  {
+    let media_errors = counter
+      .read_errors_uncorrected
+      .unwrap_or(0)
+      .saturating_add(counter.write_errors_uncorrected.unwrap_or(0));
+    push_storage_attribute(&mut attributes, None, "Media Errors", Some(media_errors));
+  }
+
+  push_storage_attribute(
+    &mut attributes,
+    Some(4),
+    "Start/Stop Count",
+    counter.start_stop_cycle_count.map(u64::from),
+  );
+  push_storage_attribute(
+    &mut attributes,
+    Some(193),
+    "Load/Unload Cycle Count",
+    counter.load_unload_cycle_count.map(u64::from),
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Read Latency Max",
+    counter.read_latency_max,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Write Latency Max",
+    counter.write_latency_max,
+  );
+  push_storage_attribute(
+    &mut attributes,
+    None,
+    "Flush Latency Max",
+    counter.flush_latency_max,
+  );
+
+  attributes
+}
+
+fn push_storage_attribute(
+  attributes: &mut Vec<SmartAttribute>,
+  id: Option<u32>,
+  name: &str,
+  value: Option<u64>,
+) {
+  if let Some(value) = value {
+    attributes.push(SmartAttribute {
+      id,
+      name: name.to_string(),
+      current: Some(value),
+      worst: None,
+      threshold: None,
+      raw_value: Some(value.to_string()),
+      when_failed: None,
+    });
+  }
 }
 
 fn parse_vendor_specific_attributes(
@@ -336,5 +620,75 @@ mod tests {
     }];
 
     assert_eq!(temperature_from_attributes(&attributes), Some(33));
+  }
+
+  #[test]
+  fn storage_wmi_disk_maps_physical_disk_and_reliability_counter() {
+    let disk = MsftPhysicalDisk {
+      device_id: Some("0".to_string()),
+      friendly_name: Some("Example NVMe".to_string()),
+      serial_number: Some(" SERIAL123 ".to_string()),
+      firmware_version: Some("1.2.3".to_string()),
+      size: Some(1_000_000_000),
+      bus_type: Some(17),
+      health_status: Some(1),
+      media_type: Some(4),
+    };
+    let counter = MsftStorageReliabilityCounter {
+      device_id: Some("0".to_string()),
+      temperature: Some(42),
+      temperature_max: Some(80),
+      read_errors_total: Some(10),
+      read_errors_corrected: Some(9),
+      read_errors_uncorrected: Some(1),
+      write_errors_total: Some(0),
+      write_errors_corrected: Some(0),
+      write_errors_uncorrected: Some(2),
+      start_stop_cycle_count: Some(3),
+      load_unload_cycle_count: Some(4),
+      wear: Some(12),
+      power_on_hours: Some(345),
+      read_latency_max: Some(6),
+      write_latency_max: Some(7),
+      flush_latency_max: Some(8),
+    };
+
+    let smart = storage_wmi_disk_to_smart_info(&disk, Some(&counter));
+
+    assert_eq!(smart.device_name, "0");
+    assert_eq!(smart.device_type.as_deref(), Some("SSD"));
+    assert_eq!(smart.protocol.as_deref(), Some("NVMe"));
+    assert_eq!(smart.model_name.as_deref(), Some("Example NVMe"));
+    assert_eq!(smart.serial_number.as_deref(), Some("SERIAL123"));
+    assert_eq!(smart.health_status, SmartHealthStatus::Warning);
+    assert_eq!(smart.temperature_celsius, Some(42));
+    assert_eq!(smart.power_on_hours, Some(345));
+    assert_eq!(raw_attribute_value(&smart.attributes, 9), Some(345));
+    assert_eq!(
+      smart
+        .attributes
+        .iter()
+        .find(|attr| attr.name == "Percentage Used")
+        .and_then(|attr| attr.raw_value.as_deref()),
+      Some("12")
+    );
+    assert_eq!(
+      smart
+        .attributes
+        .iter()
+        .find(|attr| attr.name == "Media Errors")
+        .and_then(|attr| attr.raw_value.as_deref()),
+      Some("3")
+    );
+  }
+
+  #[test]
+  fn storage_health_status_maps_known_values() {
+    assert_eq!(storage_health_status(Some(0)), SmartHealthStatus::Passed);
+    assert_eq!(storage_health_status(Some(1)), SmartHealthStatus::Warning);
+    assert_eq!(storage_health_status(Some(2)), SmartHealthStatus::Failed);
+    assert_eq!(storage_health_status(Some(5)), SmartHealthStatus::Unknown);
+    assert_eq!(storage_health_status(Some(99)), SmartHealthStatus::Unknown);
+    assert_eq!(storage_health_status(None), SmartHealthStatus::Unknown);
   }
 }

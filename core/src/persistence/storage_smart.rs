@@ -228,11 +228,15 @@ fn classify_snapshot_warnings(
 ) -> (StorageHealthStatus, StorageWarningLevel, Vec<String>) {
   let mut level = match signals.smart_health_status {
     SmartHealthStatus::Passed => StorageWarningLevel::None,
+    SmartHealthStatus::Warning => StorageWarningLevel::Warning,
     SmartHealthStatus::Failed => StorageWarningLevel::Critical,
     SmartHealthStatus::Unknown => StorageWarningLevel::Unknown,
   };
   let mut reasons = Vec::new();
 
+  if matches!(signals.smart_health_status, SmartHealthStatus::Warning) {
+    reasons.push("Storage health status reported a warning".to_string());
+  }
   if matches!(signals.smart_health_status, SmartHealthStatus::Failed) {
     reasons.push("SMART overall health check failed".to_string());
   }
@@ -513,6 +517,26 @@ mod tests {
     assert_eq!(snapshot.available_spare_percent, Some(5.0));
     assert_eq!(snapshot.media_errors, Some(1));
     assert!(!snapshot.warning_reasons.is_empty());
+  }
+
+  #[test]
+  fn classifies_storage_health_warning_as_warning() {
+    let mut input = disk(Vec::new());
+    input.health_status = SmartHealthStatus::Warning;
+
+    let (_, snapshot) = build_daily_snapshot(
+      &input,
+      "2026-05-10",
+      "2026-05-10T00:00:00Z",
+      &TEST_IDENTITY_HASH_KEY,
+    );
+
+    assert_eq!(snapshot.health_status, StorageHealthStatus::Warning);
+    assert_eq!(snapshot.warning_level, StorageWarningLevel::Warning);
+    assert_eq!(
+      snapshot.warning_reasons,
+      vec!["Storage health status reported a warning"]
+    );
   }
 
   #[test]

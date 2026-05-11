@@ -129,6 +129,7 @@ pub struct SysInfo {
 #[serde(rename_all = "camelCase")]
 pub enum SmartHealthStatus {
   Passed,
+  Warning,
   Failed,
   Unknown,
 }
