@@ -278,7 +278,10 @@ function vulnerabilityId(vulnerability: JsonObject): string {
 }
 
 function escapeMarkdownCell(value: unknown): string {
-  return String(value).replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, " ")
+    .replace(/\|/g, "\\|");
 }
 
 function advisoryMarkdown(id: string): string {
