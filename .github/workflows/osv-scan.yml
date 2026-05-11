@@ -104,7 +104,7 @@ jobs:
           path: ./
 
       - name: Run OSV scanner
-        uses: google/osv-scanner-action/osv-scanner-action@43f380b8fc43a816831a9f5ee6fc91170809c7e9 # v2.3.5
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         continue-on-error: true
         with:
           scan-args: |-
@@ -114,7 +114,7 @@ jobs:
 
       - name: Generate OSV SARIF report
         id: osv-reporter
-        uses: google/osv-scanner-action/osv-reporter-action@43f380b8fc43a816831a9f5ee6fc91170809c7e9 # v2.3.5
+        uses: google/osv-scanner-action/osv-reporter-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         continue-on-error: true
         with:
           scan-args: |-
