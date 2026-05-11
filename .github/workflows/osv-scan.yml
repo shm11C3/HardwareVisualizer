@@ -2,6 +2,11 @@ name: OSV dependency scan
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to scan. Defaults to the latest release."
+        required: false
+        type: string
   schedule:
     # Daily 09:00 JST (00:00 UTC)
     - cron: "0 0 * * *"
@@ -31,37 +36,40 @@ jobs:
       upload-sarif: true
       fail-on-vuln: false
 
-  resolve-latest-release:
-    name: Resolve latest release
+  resolve-release-tag:
+    name: Resolve release tag
     runs-on: ubuntu-slim
     permissions:
       contents: read
     outputs:
-      latest-tag: ${{ steps.release.outputs.latest_tag }}
+      release-tag: ${{ steps.release.outputs.release_tag }}
     steps:
-      - name: Resolve latest release tag
+      - name: Resolve release tag
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag || '' }}
         shell: bash
         run: |
           set -euo pipefail
 
-          latest_tag=""
-          if latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq ".tag_name" 2>/dev/null)"; then
-            if [ -n "$latest_tag" ]; then
-              echo "Latest release tag: $latest_tag"
+          release_tag="${REQUESTED_RELEASE_TAG}"
+          if [ -n "$release_tag" ]; then
+            echo "Requested release tag: $release_tag"
+          elif release_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq ".tag_name" 2>/dev/null)"; then
+            if [ -n "$release_tag" ]; then
+              echo "Latest release tag: $release_tag"
             else
               echo "Latest release endpoint returned an empty tag."
             fi
           else
-            echo "No latest release found. Skipping latest release OSV scan."
+            echo "No release tag found. Skipping release OSV scan."
           fi
 
-          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
 
-  upload-default-branch-osv-config:
-    name: Upload default branch OSV config
+  upload-default-branch-osv-assets:
+    name: Upload default branch OSV assets
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -72,66 +80,74 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
 
-      - name: Upload OSV config
+      - name: Upload OSV scan assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: default-branch-osv-config
-          path: osv-scanner.toml
+          name: default-branch-osv-scan-assets
+          path: |
+            osv-scanner.toml
+            .github/scripts/fail-on-osv-high-or-critical.ts
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
 
-  scan-latest-release:
-    name: Scan latest release
+  scan-release-tag:
+    name: Scan release tag
     needs:
-      - resolve-latest-release
-      - upload-default-branch-osv-config
-    if: needs.resolve-latest-release.outputs.latest-tag != ''
+      - resolve-release-tag
+      - upload-default-branch-osv-assets
+    if: needs.resolve-release-tag.outputs.release-tag != ''
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
     steps:
-      - name: Checkout latest release
+      - name: Checkout release tag
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
-          ref: ${{ needs.resolve-latest-release.outputs.latest-tag }}
+          ref: ${{ needs.resolve-release-tag.outputs.release-tag }}
 
-      - name: Download default branch OSV config
+      - name: Download default branch OSV scan assets
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: default-branch-osv-config
+          name: default-branch-osv-scan-assets
           path: ./
 
       - name: Run OSV scanner
-        uses: google/osv-scanner-action/osv-scanner-action@7222d1c7ee4f96d71d883e0d3c603f1e1705eca9 # v2.3.5
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         continue-on-error: true
         with:
           scan-args: |-
-            --output=latest-release-results.json
+            --output=release-results.json
             --format=json
             -r ./
 
       - name: Generate OSV SARIF report
         id: osv-reporter
-        uses: google/osv-scanner-action/osv-reporter-action@7222d1c7ee4f96d71d883e0d3c603f1e1705eca9 # v2.3.5
-        continue-on-error: true
+        uses: google/osv-scanner-action/osv-reporter-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         with:
           scan-args: |-
-            --output=latest-release-osv-results.sarif
-            --new=latest-release-results.json
+            --output=release-osv-results.sarif
+            --new=release-results.json
             --gh-annotations=false
-            --fail-on-vuln=true
+            --fail-on-vuln=false
 
-      - name: Upload latest release OSV SARIF artifact
+      - name: Upload release OSV SARIF artifact
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: latest-release-OSV Scanner SARIF file
-          path: latest-release-osv-results.sarif
+          name: release-OSV Scanner SARIF file
+          path: release-osv-results.sarif
           if-no-files-found: error
           retention-days: 5
 
-      - name: Fail on latest release vulnerabilities
-        if: steps.osv-reporter.outcome == 'failure'
-        run: exit 1
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+
+      - name: Fail on High or Critical release vulnerabilities
+        run: node --experimental-strip-types .github/scripts/fail-on-osv-high-or-critical.ts release-results.json
+        env:
+          OSV_RELEASE_TAG: ${{ needs.resolve-release-tag.outputs.release-tag }}

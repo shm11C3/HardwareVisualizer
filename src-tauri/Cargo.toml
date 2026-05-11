@@ -20,7 +20,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 tauri = { version = "2.11.0", features = ["macos-private-api", "tray-icon"] }
 sysinfo = "0.38.4"
 tauri-plugin-window-state = { version = "2.4.1" }
-tokio = { version = "1.52.1", features = [
+tokio = { version = "1.52.2", features = [
     "rt-multi-thread",
     "macros",
     "time",

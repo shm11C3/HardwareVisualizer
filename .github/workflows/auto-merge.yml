@@ -36,42 +36,52 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      - name: Check auto-merge eligibility
-        id: eligibility
+      - name: Check approval eligibility
+        id: approval
         shell: bash
         run: |
-          if [[ "${PR_AUTHOR}" == "hardwarevisualizerappmanager[bot]" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          if [[ "${PR_AUTHOR}" == "dependabot[bot]" && "${DEPENDABOT_UPDATE_TYPE}" =~ ^version-update:semver-(patch|minor)$ ]]; then
+            echo "approved=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          if [[ "${PR_AUTHOR}" == "dependabot[bot]" && "${DEPENDABOT_UPDATE_TYPE}" == "version-update:semver-patch" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          echo "approved=false" >> "$GITHUB_OUTPUT"
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           DEPENDABOT_UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
 
       - name: Generate GitHub App token
-        if: steps.eligibility.outputs.enabled == 'true'
         id: generate-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      # Temporary workaround: PRs created by hardwarevisualizerappmanager[bot] cannot be
+      # approved by the same GitHub App, so request a human review until a separate
+      # approver App is introduced.
+      - name: Request appmanager PR review
+        if: github.event.pull_request.user.login == 'hardwarevisualizerappmanager[bot]'
+        run: gh pr edit "$PR_URL" --add-reviewer shm11C3
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+
+      - name: Assign manual follow-up
+        if: steps.approval.outputs.approved != 'true'
+        run: gh pr edit "$PR_URL" --add-assignee shm11C3
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+
       - name: Approve PR
-        if: steps.eligibility.outputs.enabled == 'true'
+        if: steps.approval.outputs.approved == 'true'
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
 
       - name: Enable auto-merge
-        if: steps.eligibility.outputs.enabled == 'true'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

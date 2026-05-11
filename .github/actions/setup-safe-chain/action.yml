@@ -11,14 +11,14 @@ runs:
   steps:
     - name: Cache safe-chain (Windows)
       if: runner.os == 'Windows'
-      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ${{ env.USERPROFILE }}\\.safe-chain\\bin
         key: safe-chain-${{ runner.os }}-${{ runner.arch }}-${{ inputs.safe-chain-version }}
 
     - name: Cache safe-chain (Unix)
       if: runner.os != 'Windows'
-      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ~/.safe-chain/bin
         key: safe-chain-${{ runner.os }}-${{ runner.arch }}-${{ inputs.safe-chain-version }}
