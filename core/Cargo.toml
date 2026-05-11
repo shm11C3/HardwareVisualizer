@@ -30,7 +30,7 @@ regex = "1.12.3"
 async-trait = "0.1"
 sysinfo = "0.38.4"
 tempfile = "3.27.0"
-hmac = "0.12.1"
+hmac = "0.13.0"
 sha2 = "0.10.9"
 getrandom = "0.4.2"
 sqlx = { version = "0.8.6", features = [
