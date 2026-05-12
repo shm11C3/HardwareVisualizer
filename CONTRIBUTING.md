@@ -38,6 +38,10 @@ When submitting a Pull Request (PR), please:
 
 ## Development Guide
 
+Project documentation is indexed in [docs/README.md](docs/README.md).
+Use the [documentation guide](docs/documentation-guide.md) when adding or
+moving documentation.
+
 ### Setup
 
 Development requires the following tools:

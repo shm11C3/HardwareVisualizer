@@ -82,7 +82,7 @@ the Rust language service controls the default language fallback for first run.
 New officially supported languages must be registered in both frontend i18next
 resources and Rust `SUPPORTED_LANGUAGES`.
 
-See [`docs/DEVELOPMENT/add-language.md`](../docs/DEVELOPMENT/add-language.md)
+See [`docs/development/add-language.md`](../docs/development/add-language.md)
 for the full checklist.
 
 ## Styling And UI

@@ -101,7 +101,7 @@ services:
 ## Backend layering
 
 Within the App crate, the layering follows the existing
-[`docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md`](../docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md):
+[`docs/architecture/backend.md`](../docs/architecture/backend.md):
 
 ```text
 Commands → Services → (Core API)         ─ App-owned
@@ -149,6 +149,6 @@ workspace root and operate on the full workspace, including `hardviz-core`.
 
 - Epic: [#1402 — split backend into Tauri-independent Core and thin App
   adapters][issue-1402]
-- Backend architecture: [`docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md`](../docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md)
+- Backend architecture: [`docs/architecture/backend.md`](../docs/architecture/backend.md)
 - Core crate: [`core/README.md`](../core/README.md)
 - Top-level user-facing README: [`README.md`](../README.md)
