@@ -28,7 +28,7 @@
 - Prereqs: Node.js v24 (per README) + Rust (toolchain in `rust-toolchain.toml`).
 - Linux build deps: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf` (see CI/README). Some metrics require sudo.
 - Web UI only: `npm run dev` (React DevTools + Vite). Vite port is fixed to `1520` (`vite.config.ts`).
-- Desktop (Tauri): `npm run tauri dev`
+- Desktop (Tauri): `npm run tauri dev` (uses a separate dev app identity/data dir)
 - Frontend lint/format: `npm run lint` / `npm run format` (Biome; primarily targets `./src`)
 - Frontend tests: `npm test` (Vitest; config in `vitest.config.ts` / setup in `src/test/setup.ts`)
 - Rust checks (CI parity):
