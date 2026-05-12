@@ -77,11 +77,17 @@ Only the fields you specify are overridden; others inherit from `[thresholds]`.
 
 ### Metrics
 
-| Metric           | Description                                                |
-| ---------------- | ---------------------------------------------------------- |
-| CPU Avg / P95    | Process CPU usage normalized by logical CPU count (0-100%) |
-| Memory Avg / P95 | Resident Set Size (RSS) in MB                              |
-| Memory Growth    | Last sample minus first sample (detects obvious leaks)     |
+CPU and memory are aggregated across the target process **and all of its
+descendants** (children, grandchildren, ...). This matters for apps that
+spawn helper / renderer processes (e.g. Tauri's WebView2 host on Windows,
+Electron-style multi-process layouts) — measuring only the parent PID
+would miss the bulk of the actual resource usage.
+
+| Metric           | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| CPU Avg / P95    | Aggregated CPU usage normalized by logical CPU count (0-100%)            |
+| Memory Avg / P95 | Aggregated Resident Set Size (RSS) in MB across the process tree         |
+| Memory Growth    | Last sample minus first sample (detects obvious leaks)                   |
 
 ### Exit Code
 

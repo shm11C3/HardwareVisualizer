@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::io::Read as _;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -51,8 +52,10 @@ pub fn run_monitor(
 
   let mut system = System::new();
 
-  // Initial refresh to establish CPU baseline
-  system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+  // Initial refresh to establish CPU baseline. We refresh ALL processes
+  // because the target may spawn descendants at any time, and sysinfo
+  // computes CPU usage as a delta from the previous refresh of that PID.
+  system.refresh_processes(ProcessesToUpdate::All, true);
 
   eprintln!("Warming up for {} seconds...", timing.warmup_seconds);
 
@@ -62,7 +65,7 @@ pub fn run_monitor(
     if guard.0.try_wait()?.is_some() {
       return Err(format_exit_error(&mut guard, "warmup"));
     }
-    system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+    system.refresh_processes(ProcessesToUpdate::All, true);
   }
 
   eprintln!(
@@ -82,18 +85,11 @@ pub fn run_monitor(
       return Err(format_exit_error(&mut guard, "measurement"));
     }
 
-    system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+    system.refresh_processes(ProcessesToUpdate::All, true);
 
-    if let Some(process) = system.process(pid) {
-      let cpu_normalized = process.cpu_usage() / num_cpus;
-      let memory_mb = process.memory() as f64 / (1024.0 * 1024.0);
-
-      samples.push(ProcessMetrics {
-        cpu_usage: cpu_normalized,
-        memory_rss_mb: memory_mb,
-      });
-    } else {
-      return Err("Process disappeared during measurement".into());
+    match aggregate_descendants(&system, pid, num_cpus) {
+      Some(metrics) => samples.push(metrics),
+      None => return Err("Process disappeared during measurement".into()),
     }
   }
 
@@ -111,10 +107,64 @@ pub fn run_monitor(
   ))
 }
 
+/// Sums CPU and RSS across the root process and all of its descendants.
+/// Returns `None` if the root PID is no longer present in `system`.
+fn aggregate_descendants(
+  system: &System,
+  root_pid: Pid,
+  num_cpus: f32,
+) -> Option<ProcessMetrics> {
+  system.process(root_pid)?;
+
+  let mut children_map: HashMap<Pid, Vec<Pid>> = HashMap::new();
+  let mut metrics_map: HashMap<Pid, (f32, u64)> = HashMap::new();
+  for (pid, process) in system.processes() {
+    metrics_map.insert(*pid, (process.cpu_usage(), process.memory()));
+    if let Some(parent_pid) = process.parent() {
+      children_map.entry(parent_pid).or_default().push(*pid);
+    }
+  }
+
+  let (total_cpu, total_memory_bytes) =
+    sum_subtree(root_pid, &children_map, &metrics_map);
+
+  Some(ProcessMetrics {
+    cpu_usage: total_cpu / num_cpus,
+    memory_rss_mb: total_memory_bytes as f64 / (1024.0 * 1024.0),
+  })
+}
+
+/// Walks the subtree rooted at `root`, summing per-process CPU and memory.
+/// Guards against cycles in case the snapshot contains an inconsistent
+/// parent chain (e.g. PID reuse during sampling).
+fn sum_subtree(
+  root: Pid,
+  children: &HashMap<Pid, Vec<Pid>>,
+  metrics: &HashMap<Pid, (f32, u64)>,
+) -> (f32, u64) {
+  let mut visited: HashSet<Pid> = HashSet::new();
+  let mut stack: Vec<Pid> = vec![root];
+  let mut total_cpu = 0.0_f32;
+  let mut total_memory_bytes: u64 = 0;
+
+  while let Some(pid) = stack.pop() {
+    if !visited.insert(pid) {
+      continue;
+    }
+    if let Some(&(cpu, memory)) = metrics.get(&pid) {
+      total_cpu += cpu;
+      total_memory_bytes += memory;
+    }
+    if let Some(child_pids) = children.get(&pid) {
+      stack.extend(child_pids);
+    }
+  }
+
+  (total_cpu, total_memory_bytes)
+}
+
 fn launch_process(binary_path: &Path) -> Result<Child, Box<dyn std::error::Error>> {
-  let child = Command::new(binary_path)
-    .stderr(Stdio::piped())
-    .spawn()?;
+  let child = Command::new(binary_path).stderr(Stdio::piped()).spawn()?;
   eprintln!("Launched process with PID: {}", child.id());
   Ok(child)
 }
@@ -124,15 +174,11 @@ fn format_exit_error(
   phase: &str,
 ) -> Box<dyn std::error::Error> {
   let status = guard.0.try_wait().ok().flatten();
-  let stderr = guard
-    .0
-    .stderr
-    .take()
-    .and_then(|mut s| {
-      let mut buf = String::new();
-      s.read_to_string(&mut buf).ok()?;
-      if buf.is_empty() { None } else { Some(buf) }
-    });
+  let stderr = guard.0.stderr.take().and_then(|mut s| {
+    let mut buf = String::new();
+    s.read_to_string(&mut buf).ok()?;
+    if buf.is_empty() { None } else { Some(buf) }
+  });
 
   let mut msg = format!("Process exited during {phase}");
   if let Some(st) = status {
@@ -259,12 +305,99 @@ mod tests {
     assert_eq!(percentile_f64(&values, 95.0), 5.0);
   }
 
+  fn pid(n: usize) -> Pid {
+    Pid::from(n)
+  }
+
+  #[test]
+  fn sum_subtree_root_only() {
+    let mut metrics = HashMap::new();
+    metrics.insert(pid(1), (10.0, 1024));
+    let children = HashMap::new();
+
+    let (cpu, mem) = sum_subtree(pid(1), &children, &metrics);
+    assert!((cpu - 10.0).abs() < 0.01);
+    assert_eq!(mem, 1024);
+  }
+
+  #[test]
+  fn sum_subtree_aggregates_descendants() {
+    // Tree:  1
+    //       / \
+    //      2   3
+    //      |
+    //      4
+    let mut metrics = HashMap::new();
+    metrics.insert(pid(1), (10.0, 100));
+    metrics.insert(pid(2), (20.0, 200));
+    metrics.insert(pid(3), (30.0, 300));
+    metrics.insert(pid(4), (40.0, 400));
+
+    let mut children = HashMap::new();
+    children.insert(pid(1), vec![pid(2), pid(3)]);
+    children.insert(pid(2), vec![pid(4)]);
+
+    let (cpu, mem) = sum_subtree(pid(1), &children, &metrics);
+    assert!((cpu - 100.0).abs() < 0.01);
+    assert_eq!(mem, 1000);
+  }
+
+  #[test]
+  fn sum_subtree_ignores_siblings_outside_subtree() {
+    // 1 -> 2; 99 is a sibling unrelated to 1.
+    let mut metrics = HashMap::new();
+    metrics.insert(pid(1), (10.0, 100));
+    metrics.insert(pid(2), (20.0, 200));
+    metrics.insert(pid(99), (999.0, 9999));
+
+    let mut children = HashMap::new();
+    children.insert(pid(1), vec![pid(2)]);
+
+    let (cpu, mem) = sum_subtree(pid(1), &children, &metrics);
+    assert!((cpu - 30.0).abs() < 0.01);
+    assert_eq!(mem, 300);
+  }
+
+  #[test]
+  fn sum_subtree_handles_cycle_without_double_counting() {
+    // Pathological: 1 -> 2 -> 1 (cycle).
+    let mut metrics = HashMap::new();
+    metrics.insert(pid(1), (10.0, 100));
+    metrics.insert(pid(2), (20.0, 200));
+
+    let mut children = HashMap::new();
+    children.insert(pid(1), vec![pid(2)]);
+    children.insert(pid(2), vec![pid(1)]);
+
+    let (cpu, mem) = sum_subtree(pid(1), &children, &metrics);
+    assert!((cpu - 30.0).abs() < 0.01);
+    assert_eq!(mem, 300);
+  }
+
+  #[test]
+  fn sum_subtree_missing_root_returns_zero() {
+    let metrics = HashMap::new();
+    let children = HashMap::new();
+    let (cpu, mem) = sum_subtree(pid(1), &children, &metrics);
+    assert_eq!(cpu, 0.0);
+    assert_eq!(mem, 0);
+  }
+
   #[test]
   fn compute_result_basic_statistics() {
     let samples = vec![
-      ProcessMetrics { cpu_usage: 10.0, memory_rss_mb: 100.0 },
-      ProcessMetrics { cpu_usage: 20.0, memory_rss_mb: 200.0 },
-      ProcessMetrics { cpu_usage: 30.0, memory_rss_mb: 150.0 },
+      ProcessMetrics {
+        cpu_usage: 10.0,
+        memory_rss_mb: 100.0,
+      },
+      ProcessMetrics {
+        cpu_usage: 20.0,
+        memory_rss_mb: 200.0,
+      },
+      ProcessMetrics {
+        cpu_usage: 30.0,
+        memory_rss_mb: 150.0,
+      },
     ];
 
     let result = compute_result(samples, 3, 5);
