@@ -75,7 +75,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "i18next": "^26.0.9",
+    "i18next": "^26.0.10",
     "jotai": "^2.20.0",
     "lucide-react": "^1.14.0",
     "react": "19.2.5",
