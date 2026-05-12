@@ -37,7 +37,7 @@ cross-feature hooks in `hooks/`, and pure helpers in `lib/`.
 - Use generated commands from `src/rspc/bindings.ts`.
 - Do not edit `src/rspc/bindings.ts` by hand.
 - To expose a new backend command, add/register the Rust command in
-  `src-tauri`, run `npm run tauri dev`, then consume the regenerated binding.
+  `src-tauri`, run `npm run tauri:dev`, then consume the regenerated binding.
 - Command results use the typed `Result` shape from `src/types/result.ts`; check
   for errors before reading `data`.
 

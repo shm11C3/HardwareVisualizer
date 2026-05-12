@@ -19,7 +19,7 @@
   - Add code in `src-tauri/src/commands/*.rs` (UI boundary) → `src-tauri/src/services/*.rs` (business logic) → `src-tauri/src/platform/**` (OS-specific)
   - If OS APIs / DB / external I/O are involved, also add/change `src-tauri/src/infrastructure/**` (e.g. `infrastructure/providers/**`, `infrastructure/database/**`)
   - Register it in `collect_commands![ ... ]` inside `src-tauri/src/lib.rs` (this drives TS bindings generation)
-  - `src/rspc/bindings.ts` is exported from `src-tauri/src/lib.rs` in debug builds; regenerate via `npm run tauri dev`
+  - `src/rspc/bindings.ts` is exported from `src-tauri/src/lib.rs` in debug builds; regenerate via `npm run tauri:dev`
 
 ## Error/event conventions
 - Backend emits `error_event`; frontend shows a modal via `useErrorModalListener` (see `src/hooks/useTauriEventListener.ts`).
@@ -28,7 +28,7 @@
 - Prereqs: Node.js v24 (per README) + Rust (toolchain in `rust-toolchain.toml`).
 - Linux build deps: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf` (see CI/README). Some metrics require sudo.
 - Web UI only: `npm run dev` (React DevTools + Vite). Vite port is fixed to `1520` (`vite.config.ts`).
-- Desktop (Tauri): `npm run tauri dev` (uses a separate dev app identity/data dir)
+- Desktop (Tauri): `npm run tauri:dev` (uses a separate dev app identity/data dir)
 - Frontend lint/format: `npm run lint` / `npm run format` (Biome; primarily targets `./src`)
 - Frontend tests: `npm test` (Vitest; config in `vitest.config.ts` / setup in `src/test/setup.ts`)
 - Rust checks (CI parity):
