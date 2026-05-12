@@ -1,6 +1,5 @@
 {
   "productName": "HardwareVisualizerDev",
-  "mainBinaryName": "hardware-visualizer-dev",
   "identifier": "HardwareVisualizerDev",
   "app": {
     "windows": [

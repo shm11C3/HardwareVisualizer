@@ -3,9 +3,9 @@ use std::sync::OnceLock;
 use serde_json::Value;
 
 const RELEASE_IDENTIFIER: &str = "HardwareVisualizer";
+const RELEASE_PRODUCT_NAME: &str = "HardwareVisualizer";
 const DEV_IDENTIFIER: &str = "HardwareVisualizerDev";
 const DEV_PRODUCT_NAME: &str = "HardwareVisualizerDev";
-const DEV_BINARY_NAME: &str = "hardware-visualizer-dev";
 
 fn parse_tauri_conf(raw: &str) -> Value {
   serde_json::from_str(raw).unwrap_or(Value::Null)
@@ -62,10 +62,9 @@ pub fn apply_runtime_config(config: &mut tauri::Config) {
   if cfg!(debug_assertions) {
     config.identifier = DEV_IDENTIFIER.to_string();
     config.product_name = Some(DEV_PRODUCT_NAME.to_string());
-    config.main_binary_name = Some(DEV_BINARY_NAME.to_string());
 
     for window in &mut config.app.windows {
-      if window.title == RELEASE_IDENTIFIER {
+      if window.title == RELEASE_PRODUCT_NAME {
         window.title = DEV_PRODUCT_NAME.to_string();
       }
     }
@@ -126,7 +125,35 @@ mod tests {
     assert_eq!(get_identifier(), DEV_IDENTIFIER);
 
     #[cfg(not(debug_assertions))]
-    assert_eq!(get_identifier(), RELEASE_IDENTIFIER);
+    assert_eq!(get_identifier(), release_identifier_from(tauri_conf()));
+  }
+
+  #[test]
+  fn test_dev_identity_matches_tauri_dev_conf_json() {
+    let conf: serde_json::Value =
+      serde_json::from_str(include_str!("../../tauri.dev.conf.json")).unwrap();
+    let window_title = conf
+      .get("app")
+      .and_then(|app| app.get("windows"))
+      .and_then(|windows| windows.as_array())
+      .and_then(|windows| windows.first())
+      .and_then(|window| window.get("title"))
+      .and_then(|title| title.as_str())
+      .expect("tauri.dev.conf.json must contain app.windows[0].title");
+
+    assert_eq!(
+      conf.get("identifier").and_then(|v| v.as_str()),
+      Some(DEV_IDENTIFIER)
+    );
+    assert_eq!(
+      conf.get("productName").and_then(|v| v.as_str()),
+      Some(DEV_PRODUCT_NAME)
+    );
+    assert_eq!(window_title, DEV_PRODUCT_NAME);
+    assert!(
+      conf.get("mainBinaryName").is_none(),
+      "tauri.dev.conf.json should inherit the release mainBinaryName"
+    );
   }
 
   #[test]
