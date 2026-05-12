@@ -22,8 +22,8 @@ lives here; everything else belongs in `hardviz-core`.
   bring up Tauri plugins.
 - Own UI-only settings (theme, language, line graph styling, burn-in shift,
   temperature unit, background image, …) that have no effect on Core.
-- Own App-side services (background image, language, settings, system, UI)
-  that wrap Tauri plugins or App-only state.
+- Own App-side services for background images, language, settings, system
+  lifecycle, UI-local state, and App DTO conversion.
 - Hold worker handles (`WorkersState`) so the App can terminate Core
   controllers and adapters cleanly on quit.
 
@@ -42,19 +42,24 @@ src-tauri/src/
 │   └── updater.rs
 ├── services/             ← App-side business logic
 │   ├── background_image_service.rs
-│   ├── gpu_service.rs / memory_service.rs / network_service.rs / …
+│   ├── gpu_service.rs / memory_service.rs / motherboard_service.rs / network_service.rs / …
+│   ├── hardware_service.rs
 │   ├── language_service.rs
 │   ├── settings_service.rs
+│   ├── system_service.rs
 │   └── ui_service.rs
-├── adapters/             ← Core EventBus → Tauri event translation
-│   └── window.rs           subscribes to MetricsSnapshot, emits HardwareMonitorUpdate
+├── adapters/             ← Core EventBus → App outputs
+│   ├── window.rs           subscribes to MetricsSnapshot, emits HardwareMonitorUpdate
+│   └── tray.rs             subscribes to MetricsSnapshot, updates tray widget output
 ├── app/                  ← App lifecycle helpers
 │   └── startup.rs          DB preflight error dialog + reset-and-restart flow
-├── workers/              ← WorkersState — holds Core controller + adapter handles
+├── lifecycle.rs          ← close-to-tray, second instance, and run-event policy
+├── workers/              ← WorkersState — holds Core controller / adapter handles
+├── tray/                 ← tray widget windows, surface helpers, and UI policy
 ├── infrastructure/       ← App-only DB code
 │   └── database/migration.rs   SQL migration definitions for tauri-plugin-sql
-├── models/               ← App-side DTOs (HardwareMonitorUpdate, settings, …)
-├── enums/                ← App-side enums (TemperatureUnit, …)
+├── models/               ← App-side DTOs (HardwareMonitorUpdate, settings, SMART, …)
+├── enums/                ← App-side enums (TemperatureUnit, hardware, settings, …)
 ├── utils/                ← App-side helpers (file paths, color, Tauri-aware logger)
 └── _tests/               ← Unit and command-level tests
 ```
@@ -71,12 +76,27 @@ These rules are inherited from #1402 and apply across the App crate:
 3. **App lifecycle is App-owned.** Window creation, plugin wiring, shutdown,
    and any process-restart logic stay under `src-tauri/`. Core lifecycle is
    driven by App-side controllers (`SystemMonitorController`,
-   `HardwareArchiveController`, `WindowAdapter`) held in `WorkersState`.
+   `ArchiveController`, `StorageSmartController`, `WindowAdapter`,
+   `TrayAdapter`) held in `WorkersState`.
 4. **UI-only settings stay App-side.** Theme, language, line graph styling,
    burn-in shift, `temperatureUnit`, and similar fields are owned here.
    Presentation conversions (e.g. °C → °F) happen in App, not in Core.
 5. **No business logic in `commands/`.** Commands validate input, format
    output, and delegate to a service or to the Core API.
+
+## Service categories
+
+`src-tauri/src/services/` contains both thin Core wrappers and App-owned
+services:
+
+- `gpu_service`, `memory_service`, `motherboard_service`, and
+  `network_service` wrap Core platform APIs and convert results into App DTOs or
+  App error types.
+- `hardware_service` aggregates Core history, Core platform data, and provider
+  data into App-facing system information.
+- `settings_service`, `background_image_service`, `language_service`,
+  `system_service`, and `ui_service` own App-side behavior, Tauri-aware state,
+  or UI-local persistence.
 
 ## Backend layering
 

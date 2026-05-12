@@ -1,267 +1,300 @@
 # Backend Architecture
 
-## Layered Architecture Overview
+This document describes the current backend shape after the Core / App split.
+The backend is now split across two Rust crates:
 
-The HardwareVisualizer backend follows a strict layered architecture pattern with clear separation of concerns and unidirectional dependencies:
+- `core/` (`hardviz-core`): Tauri-independent hardware collection, platform
+  access, persistence primitives, settings consumed by Core, and shared data
+  models.
+- `src-tauri/` (`hardware_visualizer`): Tauri app boundary, commands, App-side
+  services, event adapters, UI-only settings, lifecycle, plugins, and Tauri
+  runtime wiring.
 
-```
-Commands → Services → Platform (via Factory) → OS APIs
+Use this document together with:
+
+- [`core/README.md`](../../core/README.md)
+- [`src-tauri/README.md`](../../src-tauri/README.md)
+
+## High-Level Flow
+
+The main dependency direction is:
+
+```text
+Frontend
+  -> Tauri commands (`src-tauri/src/commands`)
+  -> App services / Core APIs (`src-tauri/src/services`, `hardviz_core::*`)
+  -> Core collector / platform / persistence (`core/src/*`)
+  -> OS APIs, system providers, SQLite
 ```
 
-## Directory Structure
+Realtime sensor updates use a separate event flow:
 
+```text
+Core collector
+  -> `hardviz_core::event_bus::EventBus`
+  -> App adapters (`src-tauri/src/adapters`)
+  -> Tauri events
+  -> Frontend listeners
 ```
-src/
-├── commands/              # Application layer (Tauri interface)
-│   ├── background_image.rs
-│   ├── hardware.rs
-│   ├── mod.rs
-│   ├── settings.rs
-│   ├── system.rs
-│   └── ui.rs
-├── services/             # Business logic layer
-│   ├── cpu_service.rs
-│   ├── gpu_service.rs
-│   ├── hardware_service.rs
-│   ├── memory_service.rs
-│   ├── network_service.rs
-│   ├── process_service.rs
-│   ├── monitoring_service.rs
-│   ├── setting_service.rs
-│   └── language.rs
-├── platform/             # Platform abstraction layer
-│   ├── traits.rs         # Platform interfaces
-│   ├── factory.rs        # Platform instance creation
-│   ├── mod.rs
-│   ├── windows/          # Windows-specific implementations
-│   │   ├── gpu.rs
-│   │   ├── memory.rs
-│   │   ├── network.rs
-│   │   └── mod.rs
-│   ├── linux/            # Linux-specific implementations
-│   │   ├── gpu.rs
-│   │   ├── memory.rs
-│   │   ├── network.rs
-│   │   ├── cache.rs
-│   │   └── mod.rs
-│   └── macos/            # macOS-specific implementations
-│       └── mod.rs
-├── infrastructure/       # External resources layer
-│   ├── directx.rs        # DirectX interactions
-│   ├── dmidecode.rs      # Hardware detection
-│   ├── drm_sys.rs        # Linux DRM
-│   ├── kernel.rs         # Kernel interfaces
-│   ├── lspci.rs          # PCI device enumeration
-│   ├── net_sys.rs        # Network interfaces
-│   ├── nvapi.rs          # NVIDIA API
-│   ├── procfs.rs         # Linux proc filesystem
-│   ├── sysinfo_provider.rs
-│   └── wmi_provider.rs   # Windows WMI
-├── database/             # SQLite data layer
-│   ├── db.rs
-│   ├── gpu_archive.rs
-│   ├── hardware_archive.rs
-│   ├── migration.rs
-│   ├── mod.rs
-│   └── process_stats.rs
-├── structs/              # Shared data structures
-│   ├── hardware.rs
-│   ├── hardware_archive.rs
-│   ├── mod.rs
-│   └── settings.rs
-├── enums/                # Type definitions
-│   ├── error.rs
-│   ├── hardware.rs
-│   ├── mod.rs
-│   └── settings.rs
-├── utils/                # Utility functions
-│   ├── color.rs
-│   ├── file.rs
-│   ├── formatter.rs
-│   ├── ip.rs
-│   ├── logger.rs
-│   ├── mod.rs
-│   ├── rounding.rs
-│   └── tauri.rs
-├── backgrounds/          # Background services
-│   ├── hardware_archive.rs
-│   ├── mod.rs
-│   ├── system_monitor.rs
-│   └── updater.rs
-└── _tests/               # Test modules
-    ├── commands/
-    ├── services/
-    ├── utils/
-    └── mod.rs
+
+## Workspace Layout
+
+```text
+core/src/
+├── collector/             # Sampling loop, history store, monitor controller
+├── enums/                 # Core-level error, hardware, and settings enums
+├── event_bus.rs           # In-process broadcast bus for MetricsSnapshot
+├── infrastructure/
+│   ├── database/          # Core DB initialization and access
+│   └── providers/         # OS / vendor / system providers
+├── models/                # Core data models, including MetricsSnapshot
+├── monitoring/            # Monitoring state types
+├── persistence/           # Archive, preflight, cleanup, storage SMART workers
+├── platform/              # Platform traits, factory, and OS implementations
+├── settings/              # Core-consumed settings subset
+└── utils/                 # Core helpers and logging macros
+
+src-tauri/src/
+├── adapters/              # Core EventBus subscribers -> Tauri event/tray output
+├── app/                   # App startup helpers
+├── commands/              # Tauri command handlers and tauri-specta bindings
+├── enums/                 # App-side enums exposed at the Tauri boundary
+├── infrastructure/        # App-owned infrastructure, including SQL migrations
+├── lifecycle.rs           # Window close / second instance / run event handling
+├── models/                # App-side DTOs with specta/tauri-specta types
+├── services/              # App-side business logic and Core API wrappers
+├── tray/                  # Tray widget UI/runtime code
+├── utils/                 # Tauri-aware helpers
+└── workers/               # Handles for background controllers/adapters
 ```
+
+## Crate Responsibilities
+
+### `hardviz-core` (`core/`)
+
+Core owns code that does not need a Tauri context:
+
+- sampling CPU, memory, GPU, process, and related hardware metrics;
+- keeping realtime history in `collector::HistoryStore`;
+- publishing `MetricsSnapshot` values through `event_bus::EventBus`;
+- defining platform traits and OS-specific platform implementations;
+- using infrastructure providers for OS, vendor, kernel, and system data;
+- running persistence workers that do not need Tauri objects;
+- reading and writing settings that affect Core behavior.
+
+Core must not depend on Tauri. This boundary is enforced by
+`core/Cargo.toml`: adding `tauri` there is a design violation.
+
+### `hardware_visualizer` (`src-tauri/`)
+
+The App crate owns code that needs Tauri, frontend bindings, or UI-level state:
+
+- registering Tauri commands and generating TypeScript bindings through
+  `tauri-specta`;
+- holding Tauri `State`, `AppHandle`, windows, plugins, and lifecycle hooks;
+- converting Core events into frontend-visible Tauri events;
+- applying presentation settings at the App boundary, such as temperature unit
+  conversion;
+- owning UI-only settings such as theme, language, graph display options,
+  background image choices, tray widget settings, and close-to-tray behavior;
+- registering SQL migrations for the Tauri SQL plugin;
+- holding worker/controller handles so shutdown can terminate background work.
 
 ## Layer Responsibilities
 
-### Commands Layer (`src/commands/`)
+### Commands (`src-tauri/src/commands/`)
 
-- **Purpose**: Tauri command handlers providing UI interface
-- **Responsibilities**:
-  - Input validation and sanitization
-  - Output formatting for frontend consumption
-  - Error handling and user-friendly error messages
-  - Delegating business logic to services layer
-- **Dependencies**: Services layer only
-- **Example**: `get_memory_info` command delegates to `memory_service::fetch_memory_detail()`
+Commands are the frontend-facing IPC boundary.
 
-### Services Layer (`src/services/`)
+Responsibilities:
 
-- **Purpose**: Business logic and application orchestration
-- **Responsibilities**:
-  - Hardware data aggregation and processing
-  - Platform abstraction through Factory pattern
-  - Hardware monitoring state management
-  - Business rules enforcement and data formatting
-- **Dependencies**: Platform layer (via Factory)
-- **Key Services**:
-  - `memory_service`: Memory data processing and platform access
-  - `gpu_service`: GPU monitoring and thermal management
-  - `network_service`: Network interface information
-  - `hardware_service`: Overall hardware coordination
+- validate and normalize command inputs;
+- call App services or Core APIs;
+- return frontend-friendly DTOs and errors;
+- participate in `tauri-specta` command collection for generated TypeScript
+  bindings.
 
-### Platform Layer (`src/platform/`)
+Commands should not contain sensor collection logic, OS access, long-running
+worker logic, or database schema decisions.
 
-- **Purpose**: OS-specific hardware access implementations
-- **Responsibilities**:
-  - Cross-platform hardware access abstraction
-  - OS-specific API interactions
-  - Platform detection and automatic selection
-  - Hardware capability differences handling
-- **Dependencies**: OS APIs and infrastructure layer
-- **Components**:
-  - `traits.rs`: Platform interface definitions (`MemoryPlatform`, `GpuPlatform`, `NetworkPlatform`)
-  - `factory.rs`: Automatic platform instance creation
-  - Platform-specific modules: Windows, Linux, macOS implementations
+### App Services (`src-tauri/src/services/`)
 
-## Design Patterns
+App services coordinate command-level use cases.
 
-### Strategy Pattern
+Responsibilities:
 
-- **Purpose**: Unified interfaces for platform-specific implementations
-- **Benefits**:
-  - Runtime platform selection
-  - Platform differences encapsulation
-  - Clean trait-based abstraction
+- wrap Tauri plugins or App-only state;
+- call Core APIs where hardware data or persisted Core behavior is needed;
+- keep Tauri-specific DTO conversion out of Core;
+- handle UI-owned settings and presentation behavior.
+- contain a mix of thin Core wrappers and App-owned services. See
+  [`src-tauri/README.md`](../../src-tauri/README.md) for App crate details.
 
-```rust
-pub trait MemoryPlatform: Send + Sync {
-  fn get_memory_info(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
-  fn get_memory_info_detail(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
-}
+### App Adapters (`src-tauri/src/adapters/`)
 
-pub trait GpuPlatform: Send + Sync {
-  fn get_gpu_usage(&self) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>>;
-  fn get_gpu_temperature(&self, unit: TemperatureUnit) -> Pin<Box<dyn Future<Output = Result<Vec<NameValue>, String>> + Send + '_>>;
-  fn get_gpu_info(&self) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>>;
-}
+Adapters subscribe to Core outputs and translate them into App outputs.
 
-pub trait NetworkPlatform: Send + Sync {
-  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError>;
-}
+Known adapters:
 
-// Unified Platform trait combining all hardware access
-pub trait Platform: MemoryPlatform + GpuPlatform + NetworkPlatform {}
+- `window.rs`: receives `MetricsSnapshot` from `EventBus`, converts it into
+  `HardwareMonitorUpdate`, applies the user's temperature unit, and emits the
+  Tauri event.
+- `tray.rs`: subscribes to the same Core event bus for tray-related output.
+
+Core should publish data; adapters decide how that data is exposed to Tauri.
+
+### Core Collector (`core/src/collector/`)
+
+The collector owns realtime sampling and history.
+
+Responsibilities:
+
+- periodically sample system and GPU metrics;
+- update `HistoryStore`;
+- publish snapshots through `EventBus`;
+- run under a Tokio runtime handle supplied by the App crate.
+
+The collector does not emit Tauri events directly.
+
+### Core Platform (`core/src/platform/`)
+
+The platform layer abstracts OS-specific hardware access.
+
+Responsibilities:
+
+- define common hardware access traits in `traits.rs`;
+- create the current OS implementation through `PlatformFactory`;
+- keep OS-specific differences under `windows/`, `linux/`, and `macos/`;
+- call infrastructure providers or OS APIs as needed.
+
+Current platform traits include memory, GPU, network, and motherboard access.
+
+### Core Infrastructure (`core/src/infrastructure/`)
+
+Core infrastructure contains lower-level external access used by Core:
+
+- `database/`: Core database initialization and DB access used by persistence;
+- `providers/`: OS, vendor, and system data providers. See
+  [`core/README.md`](../../core/README.md) for Core-specific provider details.
+
+### Persistence (`core/src/persistence/`, `src-tauri/src/infrastructure/`)
+
+Persistence is split:
+
+- Core owns persistence workers and DB operations that are independent of Tauri.
+- App owns Tauri SQL plugin migrations and passes the resolved SQLite path to
+  Core during startup.
+
+Startup flow:
+
+1. App resolves the SQLite database path.
+2. App initializes Core's DB location.
+3. App checks schema compatibility through Core preflight.
+4. App registers Tauri SQL migrations when the DB is compatible.
+5. DB-dependent Core workers start only when startup preflight allows it.
+
+## Settings Ownership
+
+Settings are split by consumer:
+
+- Core settings affect sampling, persistence, retention, or other Core behavior.
+- App settings affect UI presentation, language/theme, graph options, tray
+  behavior, window behavior, and Tauri-only features.
+- Both sides share a single top-level `settings.json` object. Core deserializes
+  only Core-owned keys and ignores App-owned keys; App deserializes App-owned
+  keys and preserves existing unknown keys when writing.
+- Settings writes must merge into the existing JSON object so the writer does
+  not drop keys owned by the other crate.
+
+When adding a setting:
+
+1. Decide whether Core or App consumes the value.
+2. Persist user-facing preferences through the Rust settings service and typed
+   Tauri commands.
+3. Do not write user-facing application preferences directly from the frontend
+   through Tauri Store.
+4. Regenerate `src/rspc/bindings.ts` by running `npm run tauri dev` when command
+   types change.
+
+## Design Rules
+
+1. **Core has no Tauri dependency.** No `tauri` crate and no `use tauri::*`
+   under `core/src/`.
+2. **Commands stay thin.** Put business logic in App services or Core.
+3. **Core publishes snapshots, App emits events.** `window.emit(...)` belongs in
+   App adapters, not in Core.
+4. **Use `PlatformFactory` for platform access.** Do not instantiate OS platform
+   implementations directly from App command code.
+5. **Presentation stays in App.** Core stores raw values; UI-specific conversion
+   happens at the App boundary.
+6. **Generated bindings are not edited by hand.** Update Rust commands and
+   regenerate `src/rspc/bindings.ts`.
+7. **Respect settings ownership.** Core-owned and App-owned settings may share
+   the same file, but each side should preserve the other side's keys.
+
+## Common Change Paths
+
+### Add a New Frontend-Callable Backend Command
+
+1. Add or update the App service in `src-tauri/src/services/`.
+2. Add the command handler in `src-tauri/src/commands/`.
+3. Register the command in `collect_commands![...]` in `src-tauri/src/lib.rs`.
+4. Run `npm run tauri dev` to regenerate TypeScript bindings.
+5. Use the generated binding from frontend code.
+
+### Add a New Hardware Data Source
+
+1. Add or update the relevant Core platform trait if the capability is shared.
+2. Implement OS-specific behavior under `core/src/platform/{windows,linux,macos}`.
+3. Add provider code under `core/src/infrastructure/providers/` if low-level OS
+   or vendor access is needed.
+4. Surface the data through Core models and collector snapshots if it is
+   realtime.
+5. Translate Core data to App DTOs in `src-tauri/src/adapters/` or App services.
+
+Missing or unsupported sensor data should be treated as best-effort where the
+existing command/service contract allows it: prefer partial results, `None`, or
+empty lists over failing an aggregate response. Check the target service before
+choosing the fallback shape, because some commands still return an error for
+platform initialization or required provider failures.
+
+### Add or Change Persisted Data
+
+1. Keep Tauri SQL plugin migration definitions in
+   `src-tauri/src/infrastructure/database/`.
+2. Keep Tauri-independent persistence code in `core/src/persistence/` or
+   `core/src/infrastructure/database/`.
+3. Update startup compatibility checks if schema compatibility changes.
+4. Add tests for migration or preflight behavior where practical.
+
+## Testing
+
+Use the root Cargo aliases for CI parity:
+
+```bash
+cargo tauri-fmt
+cargo tauri-lint
+cargo tauri-test
 ```
 
-### Factory Pattern
+For Core-only checks:
 
-- **Purpose**: Creates appropriate platform instances automatically
-- **Benefits**:
-  - Automatic platform detection via conditional compilation
-  - Instance creation centralization
-  - Configuration complexity hiding
-
-```rust
-impl PlatformFactory {
-  pub fn create() -> Result<Box<dyn Platform>, PlatformError> {
-    #[cfg(target_os = "windows")]
-    {
-      let platform = WindowsPlatform::new()
-        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
-      Ok(Box::new(platform))
-    }
-    #[cfg(target_os = "linux")]
-    {
-      let platform = LinuxPlatform::new()
-        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
-      Ok(Box::new(platform))
-    }
-    #[cfg(target_os = "macos")]
-    {
-      let platform = MacOSPlatform::new()
-        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
-      Ok(Box::new(platform))
-    }
-  }
-}
+```bash
+cargo build -p hardviz-core
+cargo test -p hardviz-core
 ```
 
-### Service Layer Pattern
+Frontend and TypeScript checks are run from the repository root:
 
-- **Purpose**: Business logic abstraction from UI and platform concerns
-- **Benefits**:
-  - Clean separation between commands and platform access
-  - Centralized business logic
-  - Easy testing and mocking
-
-```rust
-// Services use Factory for platform access
-use crate::platform::factory::PlatformFactory;
-
-pub async fn fetch_memory_detail() -> Result<MemoryInfo, String> {
-  let platform = PlatformFactory::create()
-    .map_err(|e| format!("Failed to create platform: {e}"))?;
-  platform.get_memory_info_detail().await
-}
-
-pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  let platform = PlatformFactory::create()
-    .map_err(|_| BackendError::UnexpectedError)?;
-  platform.get_network_info()
-    .map_err(|_| BackendError::UnexpectedError)
-}
+```bash
+npm run lint
+npm test
 ```
 
-## Dependency Rules
+Test placement follows the ownership boundary:
 
-1. **Unidirectional Flow**: Commands → Services → Platform, no reverse dependencies
-2. **Factory Encapsulation**: Services use Factory for platform access, never direct platform instantiation
-3. **Trait Abstraction**: Platform traits provide clean interfaces hiding OS-specific complexity
-4. **Conditional Compilation**: Platform selection handled at compile time via `#[cfg(target_os)]`
-5. **Service Isolation**: Services handle business logic, platforms handle hardware access only
-
-## Error Handling Strategy
-
-- **Commands Layer**: User-friendly error messages and proper Tauri error responses
-- **Services Layer**: Business error validation and domain-specific errors
-- **Platform Layer**: OS-specific error translation to common error types
-- **Infrastructure Layer**: Low-level error handling and retry logic
-
-## Testing Strategy
-
-- **Unit Tests**: Each layer tested in isolation with mocked dependencies
-- **Integration Tests**: Cross-layer interaction testing
-- **Platform Tests**: Platform-specific implementation validation
-- **Test Location**: `src/_tests/` directory with layer-specific test modules
-
-## Architecture Benefits
-
-1. **Simplified Design**: Removed intermediate repository layer for cleaner data flow
-2. **Better Performance**: Fewer abstraction layers reduce overhead
-3. **Clear Separation**: Business logic in services, hardware access in platform layer
-4. **Automatic Platform Detection**: Factory handles OS detection transparently
-5. **Maintainability**: Clear separation of concerns and single responsibility
-6. **Testability**: Easy mocking and dependency injection through traits
-7. **Scalability**: Easy addition of new platforms and hardware features
-8. **Flexibility**: Runtime platform switching and configuration
-
-## Performance Considerations
-
-- **Async Operations**: Platform operations use async/await for non-blocking calls
-- **Caching**: Linux platform implements caching for expensive operations
-- **Memory Management**: Efficient data structures and minimal allocations
-- **Error Recovery**: Graceful degradation when hardware access fails
+- Core pure/helper tests should live near the Core module they exercise.
+- App command/service tests should live either next to the module or under
+  `src-tauri/src/_tests/` when they need shared App test setup.
+- Frontend tests should stay co-located under `src/**` with the component,
+  hook, or feature they cover.
