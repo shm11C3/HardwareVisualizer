@@ -1,12 +1,12 @@
 # HardwareVisualizer
 
-[English](../README.md) | [日本語](README.ja.md)
+[English](README.md) | [日本語](README.ja.md)
 
 [![Release](https://img.shields.io/github/v/release/shm11C3/HardwareVisualizer?&display_name=release)](https://github.com/shm11C3/HardwareVisualizer/releases)
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20macOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](../LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
@@ -64,7 +64,7 @@ Web サイト: <https://hardviz.com/>
 - **GitHub Releases**: [最新リリース](https://github.com/shm11C3/HardwareVisualizer/releases/latest) > Assets セクション
 
 チェックサムと provenance の確認方法は、
-[ダウンロード検証ガイド](download-verification.ja.md) を参照してください。
+[ダウンロード検証ガイド](docs/download-verification.ja.md) を参照してください。
 
 ### Windows へのインストール
 
@@ -205,13 +205,13 @@ winget install shm11C3.HardwareVisualizer
 
 ## コントリビューション
 
-詳細は [CONTRIBUTING.md](../CONTRIBUTING.md) をご覧ください。
+詳細は [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
 
 ## コード署名ポリシー（英語版のみ）
 
-署名状況の詳細は [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md) をご覧ください。
-チェックサムと provenance の確認方法は [ダウンロード検証ガイド](download-verification.ja.md) を参照してください。
+署名状況の詳細は [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) をご覧ください。
+チェックサムと provenance の確認方法は [ダウンロード検証ガイド](docs/download-verification.ja.md) を参照してください。
 
 ## ライセンス
 
-[MIT License](../LICENSE)
+[MIT License](LICENSE)
