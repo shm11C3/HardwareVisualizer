@@ -1,0 +1,16 @@
+{
+  "productName": "HardwareVisualizerDev",
+  "mainBinaryName": "hardware-visualizer-dev",
+  "identifier": "HardwareVisualizerDev",
+  "app": {
+    "windows": [
+      {
+        "resizable": true,
+        "title": "HardwareVisualizerDev",
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "decorations": true
+      }
+    ]
+  }
+}
