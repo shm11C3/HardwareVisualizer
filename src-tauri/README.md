@@ -78,6 +78,20 @@ These rules are inherited from #1402 and apply across the App crate:
 5. **No business logic in `commands/`.** Commands validate input, format
    output, and delegate to a service or to the Core API.
 
+## Service categories
+
+`src-tauri/src/services/` contains both thin Core wrappers and App-owned
+services:
+
+- `gpu_service`, `memory_service`, `motherboard_service`, and
+  `network_service` wrap Core platform APIs and convert results into App DTOs or
+  App error types.
+- `hardware_service` aggregates Core history, Core platform data, and provider
+  data into App-facing system information.
+- `settings_service`, `background_image_service`, `language_service`,
+  `system_service`, and `ui_service` own App-side behavior, Tauri-aware state,
+  or UI-local persistence.
+
 ## Backend layering
 
 Within the App crate, the layering follows the existing

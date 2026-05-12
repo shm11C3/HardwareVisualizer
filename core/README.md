@@ -17,17 +17,13 @@ not need a Tauri context lives here, and the Tauri app crate
 - Publish each tick as a `MetricsSnapshot` on a single in-process broadcast bus
   that any number of subscribers (window, future tray / overlay / alerts) can
   fan out from.
+- Run Core-owned persistence workers for hardware archive and storage SMART
+  snapshots.
 - Run a SQLite schema-version preflight check before the App brings up the
   Tauri SQL plugin.
 - Hold the subset of on-disk settings whose values change Core behavior.
 - Expose the platform abstraction (Windows / Linux / macOS) and the
   infrastructure-level providers (sysinfo, NVAPI, WMI, procfs, …) used by it.
-
-> **Planned (not yet in Core).** The hardware archive writer
-> (`src-tauri/src/services/archive_service.rs` +
-> `src-tauri/src/workers/hardware_archive.rs`) is still App-side today.
-> Phase 4 of #1402 will move it into Core as an `EventBus` subscriber so
-> that a slow DB write never stalls sensor polling.
 
 ## Design rules
 
@@ -39,11 +35,9 @@ These rules are enforced by structure, not by review:
 2. **No `window.emit(...)` in Core.** Core publishes `MetricsSnapshot` to
    `EventBus`. Translating a snapshot into a Tauri event is an App-side
    concern (`src-tauri/src/adapters/window.rs`).
-3. **Persistence does not share state with the collector.** Once the archive
-   writer moves into Core (Phase 4 of #1402), it will subscribe to `EventBus`
-   rather than reaching into the collector's history bag, so the two run as
-   independent tasks. Until then, the App-side worker reads through the
-   `HistoryStore` public API only.
+3. **Persistence does not share state with the collector.** Archive persistence
+   subscribes to `EventBus` rather than reaching into the collector's history
+   bag, so the two run as independent tasks.
 4. **Settings split by consumer.** `CoreSettings` deserializes only the keys
    that affect Core (currently `hardwareArchive`). UI-only keys (`theme`,
    `language`, `lineGraph*`, `temperatureUnit`, …) stay App-side. Both crates
@@ -62,8 +56,10 @@ core/src/
 │   ├── history.rs           HistoryStore (Arc<Mutex<...>> behind a read API)
 │   ├── sampling.rs          sample_system / sample_gpu cycle
 │   └── system_monitor.rs    SystemMonitorController (drives the tokio task)
-├── persistence/           ← Core-owned storage primitives
-│   └── preflight.rs         DB schema-version compatibility check
+├── persistence/           ← Core-owned persistence workers and primitives
+│   ├── archive.rs           Hardware archive writer and cleanup
+│   ├── preflight.rs         DB schema-version compatibility check
+│   └── storage_smart.rs     Storage SMART snapshot worker
 ├── settings/              ← Core-consumed settings (subset of settings.json)
 │   ├── mod.rs               CoreSettings (load / save with App-key merge)
 │   └── hardware_archive.rs  HardwareArchiveSettings
@@ -78,10 +74,57 @@ core/src/
 └── utils/                 ← Logger macros, formatters, IP / rounding helpers
 ```
 
-Phase 4 of #1402 will introduce `persistence/archive.rs` (the SQLite writer)
-and `infrastructure/database/` (pool + writers); both are currently App-side.
-The `monitoring` module reserved for the `Running` / `Paused` / `Stopped`
-state machine (Phase 5) is also not yet present.
+Core owns persistence workers that do not need Tauri objects. The App crate
+still owns Tauri-specific startup decisions: resolving the SQLite path,
+registering Tauri SQL migrations, and deciding whether DB-dependent workers can
+start after preflight.
+
+## Provider inventory
+
+`core/src/infrastructure/providers/` contains lower-level data access helpers
+used by the platform layer and Core services.
+
+Cross-platform providers:
+
+- `sysinfo_provider.rs` reads CPU and storage facts through `sysinfo`.
+- `smartctl.rs` wraps the external `smartctl` command and parses SMART data.
+
+Windows providers:
+
+- `windows/wmi_provider.rs` reads Windows WMI data for memory, motherboard, and
+  network-related facts.
+- `windows/nvapi_provider.rs` reads NVIDIA GPU data through NVAPI.
+- `windows/adl_provider.rs` reads AMD GPU sensors through AMD ADL.
+- `windows/pdh_provider.rs` reads GPU engine utilization through PDH.
+- `windows/directx.rs` reads DXGI adapter data.
+- `windows/setupdi_provider.rs` enumerates display adapters and PCI BDF
+  addresses through SetupDi.
+- `windows/smart.rs` reads SMART data through Windows WMI with `smartctl`
+  fallback.
+
+Linux providers:
+
+- `linux/procfs.rs` reads procfs data such as memory facts.
+- `linux/net_sys.rs` reads network interface facts from Linux system files and
+  commands.
+- `linux/drm_sys.rs`, `linux/hwmon.rs`, `linux/kernel.rs`, and
+  `linux/lspci.rs` read GPU-related data from DRM/sysfs/debugfs/lspci sources.
+- `linux/dmidecode.rs` reads DMI hardware facts through `dmidecode`.
+- `linux/smart.rs` reads SMART data through `smartctl`, including Linux device
+  candidate fallback.
+
+macOS providers:
+
+- `macos/sysctl.rs` reads low-level values through `sysctlbyname`.
+- `macos/system_profiler_displays.rs` and
+  `macos/system_profiler_memory.rs` parse `system_profiler` JSON output.
+- `macos/gpu.rs` and `macos/gpu_info.rs` read GPU usage and adapter facts.
+- `macos/net_sys.rs` reads network interface facts from macOS OS APIs.
+- `macos/smart.rs` reads SMART data through `smartctl`, including diskutil
+  candidate fallback.
+
+Provider modules should stay below Core. App code should call Core APIs or App
+services instead of reaching into providers directly.
 
 ## Build & test
 
