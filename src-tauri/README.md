@@ -130,6 +130,7 @@ From the repository root:
 
 ```bash
 # Desktop dev mode (regenerates TypeScript bindings)
+# Uses the HardwareVisualizerDev app identity and separate app data.
 npm run tauri dev
 
 # Production build
