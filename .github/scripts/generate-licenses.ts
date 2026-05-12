@@ -54,7 +54,7 @@ if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
 const outputDir =
   target === "tmp"
     ? path.resolve("./tmp")
-    : path.resolve(`./docs/THIRD_PARTY_NOTICES/${target}`);
+    : path.resolve(`./docs/third-party-notices/${target}`);
 const outputPath = path.join(outputDir, "THIRD_PARTY_NOTICES.md");
 
 const generateLicenseTxt = (
@@ -183,7 +183,7 @@ try {
   console.error("❌ Failed to collect Rust licenses:", e);
 }
 
-const manualDir = path.resolve("./docs/THIRD_PARTY_NOTICES/manual");
+const manualDir = path.resolve("./docs/third-party-notices/manual");
 
 /**
  * Append manual notices from the manual directory.

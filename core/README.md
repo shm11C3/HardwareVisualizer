@@ -166,5 +166,5 @@ src-tauri/ (App)
 
 - Epic: [#1402 — split backend into Tauri-independent Core and thin App
   adapters][issue-1402]
-- Architecture: [`docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md`](../docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md)
+- Architecture: [`docs/architecture/backend.md`](../docs/architecture/backend.md)
 - App crate: [`src-tauri/README.md`](../src-tauri/README.md)

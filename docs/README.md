@@ -8,11 +8,11 @@ documentation.
 
 ## Main Entry Points
 
-- [Backend architecture](ARCHITECTURE/BACKEND_ARCHITECTURE.md)
+- [Backend architecture](architecture/backend.md)
 - [Frontend architecture](../src/README.md)
 - [Core crate guide](../core/README.md)
 - [Tauri app crate guide](../src-tauri/README.md)
-- [Add a new language](DEVELOPMENT/add-language.md)
+- [Add a new language](development/add-language.md)
 - [Download verification](download-verification.md)
 - [Documentation guide](documentation-guide.md)
 
@@ -22,9 +22,9 @@ documentation.
 docs/
 ├── README.md                       # Documentation index
 ├── documentation-guide.md          # Documentation placement and naming rules
-├── ARCHITECTURE/                   # Architecture documents
-├── DEVELOPMENT/                    # Developer task guides
-├── THIRD_PARTY_NOTICES/            # Generated and manual third-party notices
+├── architecture/                   # Architecture documents
+├── development/                    # Developer task guides
+├── third-party-notices/            # Generated and manual third-party notices
 ├── download-verification.md        # Download verification guide
 ├── download-verification.ja.md     # Japanese download verification guide
 └── internal/                       # Maintainer/internal operations docs
@@ -35,12 +35,9 @@ docs/
 - The Japanese user-facing README lives at [`../README.ja.md`](../README.ja.md)
   beside the English root README. It is not a translation of this documentation
   index.
-- `docs/ARCHITECTURE/`, `docs/DEVELOPMENT/`, and
-  `docs/THIRD_PARTY_NOTICES/` still use legacy uppercase directory names.
-  New documentation should follow the naming rules in
-  [documentation-guide.md](documentation-guide.md). Renaming existing
-  directories should be handled separately because it affects links, workflows,
-  and generated files.
+- Documentation directories and handwritten Markdown files should use
+  lowercase kebab-case. Generated legal notice files named
+  `THIRD_PARTY_NOTICES.md` are the current exception.
 - `tmp/THIRD_PARTY_NOTICES.md` is tracked and used as the current Tauri bundled
   third-party notices resource. Although it lives under `tmp/`, it is not a
   disposable scratch file. Moving it to a clearer runtime resource location,

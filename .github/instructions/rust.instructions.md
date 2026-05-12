@@ -54,7 +54,7 @@ Do not add a `tauri` dependency to `core/Cargo.toml`, and do not write
 stay in the `src-tauri` crate; Core uses POJO mirrors and `From`
 conversions handle the boundary.
 
-See `docs/ARCHITECTURE/BACKEND_ARCHITECTURE.md` for the longer-form
+See `docs/architecture/backend.md` for the longer-form
 architecture doc.
 
 ## Platform-conditional code
