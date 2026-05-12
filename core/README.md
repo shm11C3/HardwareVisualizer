@@ -58,17 +58,21 @@ core/src/
 │   └── system_monitor.rs    SystemMonitorController (drives the tokio task)
 ├── persistence/           ← Core-owned persistence workers and primitives
 │   ├── archive.rs           Hardware archive writer and cleanup
+│   ├── archive_data.rs      Archive row mapping helpers
 │   ├── preflight.rs         DB schema-version compatibility check
 │   └── storage_smart.rs     Storage SMART snapshot worker
 ├── settings/              ← Core-consumed settings (subset of settings.json)
 │   ├── mod.rs               CoreSettings (load / save with App-key merge)
-│   └── hardware_archive.rs  HardwareArchiveSettings
+│   ├── hardware_archive.rs  HardwareArchiveSettings
+│   └── storage_smart.rs     Storage SMART settings and identity key
 ├── platform/              ← Cross-platform hardware access
-│   ├── traits.rs            MemoryPlatform / GpuPlatform / NetworkPlatform
+│   ├── traits.rs            Memory / GPU / Network / Motherboard traits
 │   ├── factory.rs           PlatformFactory (compile-time OS selection)
 │   ├── windows/  linux/  macos/
 ├── infrastructure/        ← External I/O backing the platform layer
+│   ├── database/            SQLite pool + archive / SMART writers
 │   └── providers/           sysinfo / NVAPI / WMI / procfs / DRM / …
+├── monitoring/            ← Monitoring state types
 ├── models/                ← Shared data types (MetricsSnapshot, GpuMetric, …)
 ├── enums/                 ← Cross-cutting enums (errors, hardware, settings)
 └── utils/                 ← Logger macros, formatters, IP / rounding helpers
@@ -152,9 +156,10 @@ hardviz-core (this crate)
     ▼
 src-tauri/ (App)
     ├─ adapters::window   ─ subscribes to EventBus, emits HardwareMonitorUpdate
+    ├─ adapters::tray     ─ subscribes to EventBus, updates tray widget output
     ├─ commands::*        ─ thin delegation to Core API + Tauri input/output
     ├─ app::startup       ─ wires Core setup + DB preflight error dialog flow
-    └─ workers::*         ─ owns the controller handles for graceful shutdown
+    └─ workers::*         ─ owns Core controller / adapter handles for shutdown
 ```
 
 ## References
