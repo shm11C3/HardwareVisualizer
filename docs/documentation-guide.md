@@ -40,8 +40,8 @@ Examples:
 ```text
 docs/architecture/backend.md
 docs/development/add-language.md
-docs/release/download-verification.md
-docs/release/download-verification.ja.md
+docs/download-verification.md
+docs/download-verification.ja.md
 ```
 
 ## Existing Exceptions
