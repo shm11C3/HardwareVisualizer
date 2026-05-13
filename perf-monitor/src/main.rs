@@ -72,7 +72,10 @@ fn main() -> ExitCode {
       }
     }
     Err(e) => {
-      eprintln!("Error: monitoring failed: {e}");
+      eprintln!();
+      eprintln!("=== Performance Test Failed ===");
+      eprintln!("Failure reason: monitoring aborted before metrics could be collected");
+      eprintln!("Details: {e}");
       ExitCode::FAILURE
     }
   }

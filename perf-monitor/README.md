@@ -89,6 +89,28 @@ would miss the bulk of the actual resource usage.
 | Memory Avg / P95 | Aggregated Resident Set Size (RSS) in MB across the process tree         |
 | Memory Growth    | Last sample minus first sample (detects obvious leaks)                   |
 
+### Report sections
+
+The text report (and the matching JSON output) is structured to make
+CI logs easy to scan:
+
+1. **Aggregated (process tree)** — avg / P95 / max across the parent +
+   descendants, with per-check `PASS` / `FAIL` against the configured
+   thresholds.
+2. **Per-Process Breakdown** — one block per observed PID showing the
+   process name, how many sample ticks it appeared in, and its own
+   avg / max / P95 for CPU and RSS. The root process is listed first and
+   marked `(root)`; descendants follow in descending order of average CPU.
+3. **Failure Reasons** — printed only when at least one threshold was
+   exceeded; enumerates exactly which checks failed and the offending
+   value vs. the threshold. The JSON output exposes the same list as a
+   `failure_reasons` array.
+
+If the measurement aborts before any samples are collected (binary
+crashed during warmup, etc.), the failure reason and the captured
+child stderr are printed under a `=== Performance Test Failed ===`
+banner so the cause is visible at the bottom of the CI log.
+
 ### Exit Code
 
 - `0` — All thresholds passed
