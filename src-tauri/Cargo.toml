@@ -18,7 +18,7 @@ hardviz-core = { path = "../core" }
 serde_json = "1.0.149"
 serde = { version = "1.0.228", features = ["derive"] }
 tauri = { version = "2.11.1", features = ["macos-private-api", "tray-icon"] }
-sysinfo = "0.38.4"
+sysinfo = "0.39.1"
 tauri-plugin-window-state = { version = "2.4.1" }
 tokio = { version = "1.52.2", features = [
     "rt-multi-thread",
