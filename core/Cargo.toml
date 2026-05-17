@@ -14,7 +14,7 @@ name = "hardviz_core"
 path = "src/lib.rs"
 
 [dependencies]
-tokio = { version = "1.52.2", features = [
+tokio = { version = "1.52.3", features = [
     "rt",
     "rt-multi-thread",
     "macros",
@@ -64,4 +64,4 @@ libc = "0.2"
 core-foundation = "0.10.1"
 
 [dev-dependencies]
-tokio = { version = "1.52.2", features = ["macros", "rt"] }
+tokio = { version = "1.52.3", features = ["macros", "rt"] }
