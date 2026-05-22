@@ -4598,7 +4598,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@26.0.10
+## i18next@26.2.0
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4860,7 +4860,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@1.14.0
+## lucide-react@1.16.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -5055,7 +5055,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.75.0
+## react-hook-form@7.76.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
@@ -5086,7 +5086,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@17.0.7
+## react-i18next@17.0.8
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -5501,7 +5501,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## tailwind-merge@3.5.0
+## tailwind-merge@3.6.0
 
 - License: MIT
 - Repository: [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
@@ -11232,6 +11232,11 @@ DEALINGS IN THE SOFTWARE.
 - Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
 
 ## objc2-io-surface
+
+- License: Apache-2.0 OR MIT OR Zlib
+- Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
+
+## objc2-open-directory
 
 - License: Apache-2.0 OR MIT OR Zlib
 - Repository: [https://github.com/madsmtm/objc2](https://github.com/madsmtm/objc2)
