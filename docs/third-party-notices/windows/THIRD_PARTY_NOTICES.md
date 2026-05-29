@@ -33,7 +33,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/compat-data@7.29.0
+## @babel/compat-data@7.29.3
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -375,7 +375,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/parser@7.29.2
+## @babel/parser@7.29.3
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -763,7 +763,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @hookform/resolvers@5.2.2
+## @hookform/resolvers@5.4.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/resolvers](https://github.com/react-hook-form/resolvers)
@@ -2237,7 +2237,7 @@ $ npm install @radix-ui/rect
 This is an internal utility, not intended for public usage.
 ```
 
-## @reduxjs/toolkit@2.11.2
+## @reduxjs/toolkit@2.12.0
 
 - License: MIT
 - Repository: [https://github.com/reduxjs/redux-toolkit](https://github.com/reduxjs/redux-toolkit)
@@ -2902,7 +2902,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.2.14
+## @types/react@19.2.15
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -2991,7 +2991,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## baseline-browser-mapping@2.10.12
+## baseline-browser-mapping@2.10.32
 
 - License: Apache-2.0
 - Repository: [https://github.com/web-platform-dx/baseline-browser-mapping](https://github.com/web-platform-dx/baseline-browser-mapping)
@@ -3200,17 +3200,17 @@ Apache License
    limitations under the License.
 ```
 
-## browserslist@4.28.1
+## browserslist@4.28.2
 
 - License: MIT
 - Repository: [https://github.com/browserslist/browserslist](https://github.com/browserslist/browserslist)
 - Publisher: Andrey Sitnik
-- Email: <andrey@sitnik.ru>
+- Email: <andrey@sitnik.es>
 
 ```LICENSE
 The MIT License (MIT)
 
-Copyright 2014 Andrey Sitnik <andrey@sitnik.ru> and other contributors
+Copyright 2014 Andrey Sitnik <andrey@sitnik.es> and other contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -3230,7 +3230,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## caniuse-lite@1.0.30001782
+## caniuse-lite@1.0.30001793
 
 - License: CC-BY-4.0
 - Repository: [https://github.com/browserslist/caniuse-lite](https://github.com/browserslist/caniuse-lite)
@@ -4262,7 +4262,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## electron-to-chromium@1.5.328
+## electron-to-chromium@1.5.361
 
 - License: ISC
 - Repository: [https://github.com/Kilian/electron-to-chromium](https://github.com/Kilian/electron-to-chromium)
@@ -4276,7 +4276,7 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## es-toolkit@1.45.1
+## es-toolkit@1.46.1
 
 - License: MIT
 - Repository: [https://github.com/toss/es-toolkit](https://github.com/toss/es-toolkit)
@@ -4660,7 +4660,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## immer@11.1.4
+## immer@11.1.8
 
 - License: MIT
 - Repository: [https://github.com/immerjs/immer](https://github.com/immerjs/immer)
@@ -4941,7 +4941,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## node-releases@2.0.36
+## node-releases@2.0.46
 
 - License: MIT
 - Repository: [https://github.com/chicoxyzzy/node-releases](https://github.com/chicoxyzzy/node-releases)
@@ -5055,7 +5055,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.76.0
+## react-hook-form@7.76.1
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
@@ -5117,7 +5117,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-is@19.2.4
+## react-is@19.2.6
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -5146,7 +5146,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-redux@9.2.0
+## react-redux@9.3.0
 
 - License: MIT
 - Repository: [https://github.com/reduxjs/react-redux](https://github.com/reduxjs/react-redux)
