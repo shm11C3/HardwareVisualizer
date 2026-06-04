@@ -21,7 +21,7 @@
     "gen:licenses:tmp": "node --experimental-strip-types .github/scripts/generate-licenses.ts tmp"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
+    "@biomejs/biome": "2.4.16",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.0",
     "@tauri-apps/cli": "^2.11.2",
@@ -78,7 +78,7 @@
     "clsx": "^2.1.1",
     "i18next": "^26.3.0",
     "jotai": "^2.20.0",
-    "lucide-react": "^1.16.0",
+    "lucide-react": "^1.17.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-error-boundary": "^6.1.2",
