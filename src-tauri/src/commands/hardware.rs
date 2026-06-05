@@ -180,3 +180,18 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
 
   network_service::fetch_network_info()
 }
+
+///
+/// ## Get latest Storage SMART snapshots for the dashboard
+///
+#[command]
+#[specta::specta]
+pub async fn get_storage_smart_latest_snapshots()
+-> Result<Vec<models::hardware::StorageSmartDashboardSnapshot>, String> {
+  use crate::services::hardware_service;
+
+  hardware_service::get_storage_smart_latest_snapshots()
+    .await
+    .map(|records| records.into_iter().map(Into::into).collect())
+    .map_err(|e| format!("Failed to fetch latest storage SMART snapshots: {e}"))
+}

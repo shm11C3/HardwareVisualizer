@@ -170,6 +170,17 @@
       "selectItems": "Select items to display on the dashboard",
       "gpuSelector": {
         "label": "Select GPU"
+      },
+      "storageHealth": {
+        "errors": {
+          "fetchLatest": "Failed to fetch storage health data."
+        },
+        "status": {
+          "good": "Good",
+          "warning": "Warning",
+          "critical": "Critical",
+          "unknown": "Unknown"
+        }
       }
     },
     "usage": {

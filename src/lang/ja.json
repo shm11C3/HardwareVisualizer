@@ -170,6 +170,17 @@
       "selectItems": "表示する項目を選択してください",
       "gpuSelector": {
         "label": "GPU を選択"
+      },
+      "storageHealth": {
+        "errors": {
+          "fetchLatest": "ストレージの健康状態データの取得に失敗しました。"
+        },
+        "status": {
+          "good": "正常",
+          "warning": "警告",
+          "critical": "重大",
+          "unknown": "不明"
+        }
       }
     },
     "usage": {

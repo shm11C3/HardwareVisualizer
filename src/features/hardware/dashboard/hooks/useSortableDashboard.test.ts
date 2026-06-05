@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTauriStore } from "@/hooks/useTauriStore";
-import type { DashboardItemType } from "../types/dashboardItem";
+import { type DashboardItemType, dashBoardItems } from "../types/dashboardItem";
 
 const mockInit = vi.fn();
 const mockSetDashboardItemMap = vi.fn();
@@ -49,15 +49,7 @@ describe("useSortableDashboard", () => {
     const { result } = renderHook(() => useSortableDashboard(), {
       wrapper: Provider,
     });
-    expect(result.current.dashboardItemMap).toEqual([
-      "cpu",
-      "gpu",
-      "memory",
-      "storage",
-      "network",
-      "process",
-      "motherboard",
-    ]);
+    expect(result.current.dashboardItemMap).toEqual([...dashBoardItems]);
   });
 
   it("handleDragOver: swaps items when active and over differ", () => {
