@@ -9,6 +9,7 @@ documentation.
 ## Main Entry Points
 
 - [Backend architecture](architecture/backend.md)
+- [Architecture decision records](adr/)
 - [Frontend architecture](../src/README.md)
 - [Core crate guide](../core/README.md)
 - [Tauri app crate guide](../src-tauri/README.md)
@@ -22,6 +23,7 @@ documentation.
 docs/
 ├── README.md                       # Documentation index
 ├── documentation-guide.md          # Documentation placement and naming rules
+├── adr/                            # Architecture decision records
 ├── architecture/                   # Architecture documents
 ├── development/                    # Developer task guides
 ├── third-party-notices/            # Generated and manual third-party notices
