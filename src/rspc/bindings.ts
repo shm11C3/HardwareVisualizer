@@ -83,6 +83,8 @@ export const commands = {
 	inUseBytes: string | null,
 	allocBytes: string | null,
 } | null, string>(__TAURI_INVOKE("get_gpu_memory_usage")),
+	// ## Get latest Storage SMART snapshots for the dashboard
+	getStorageSmartLatestSnapshots: () => typedError<StorageSmartDashboardSnapshot[], string>(__TAURI_INVOKE("get_storage_smart_latest_snapshots")),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -415,6 +417,8 @@ export type ProcessInfo_Serialize = {
 
 export type SizeUnit = "B" | "KB" | "MB" | "GB";
 
+export type StorageHealthStatus = "good" | "warning" | "critical" | "unknown";
+
 export type StorageInfo = {
 	name: string,
 	size: number,
@@ -423,6 +427,29 @@ export type StorageInfo = {
 	freeUnit: SizeUnit,
 	storageType: DiskKind,
 	fileSystem: string,
+};
+
+export type StorageSmartDashboardSnapshot = {
+	deviceId: string,
+	displayName: string,
+	model: string | null,
+	protocol: string | null,
+	capacityBytes: number | null,
+	date: string,
+	healthStatus: StorageHealthStatus,
+	warningLevel: StorageWarningLevel,
+	temperatureCelsius: number | null,
+	powerOnHours: number | null,
+	percentageUsed: number | null,
+	availableSparePercent: number | null,
+	reallocatedSectorCount: number | null,
+	currentPendingSectorCount: number | null,
+	offlineUncorrectableCount: number | null,
+	mediaErrors: number | null,
+	errorLogEntries: number | null,
+	unsafeShutdownCount: number | null,
+	warningReasons: string[],
+	collectedAt: string,
 };
 
 /**
@@ -434,6 +461,8 @@ export type StorageSmartSettings = {
 	enabled?: boolean,
 	retentionDays?: number,
 };
+
+export type StorageWarningLevel = "none" | "warning" | "critical" | "unknown";
 
 export type SysInfo = {
 	cpu: CpuInfo | null,

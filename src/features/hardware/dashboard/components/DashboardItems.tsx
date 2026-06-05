@@ -42,8 +42,15 @@ import { useWindowSize } from "@/hooks/useWindowSize";
 import { formatBytes } from "@/lib/formatter";
 import { cn } from "@/lib/utils";
 import type { StorageInfo } from "@/rspc/bindings";
+import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
+import {
+  buildStorageHealthSummary,
+  type StorageHealthDeviceViewModel,
+} from "../utils/storageHealthSummary";
 import { MiniLineChart } from "./MiniLineChart";
+import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
 
 export const CPUInfo = () => {
   const { t } = useTranslation();
@@ -380,6 +387,9 @@ export const StorageDataInfo = () => {
   const { t } = useTranslation();
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
+  const [storageHealthDevices, setStorageHealthDevices] = useState<
+    StorageHealthDeviceViewModel[]
+  >([]);
 
   // Sort by drive name
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
@@ -404,8 +414,37 @@ export const StorageDataInfo = () => {
       : [];
   }, [sortedStorage]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadStorageHealthDevices = async () => {
+      const result = await commands.getStorageSmartLatestSnapshots();
+      if (!isMounted) return;
+
+      if (isError(result)) {
+        console.error(
+          "Failed to fetch storage SMART dashboard snapshots",
+          result.error,
+        );
+        setStorageHealthDevices([]);
+        return;
+      }
+
+      setStorageHealthDevices(buildStorageHealthSummary(result.data).devices);
+    };
+
+    loadStorageHealthDevices();
+    const intervalId = window.setInterval(loadStorageHealthDevices, 60_000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   return (
     <div className="pt-2">
+      <StorageDeviceHealthOverview devices={storageHealthDevices} />
       <div
         className={storageDataInfoGridVariants({ isWindows: os === "windows" })}
       >
@@ -451,6 +490,33 @@ export const StorageDataInfo = () => {
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+const StorageDeviceHealthOverview = ({
+  devices,
+}: {
+  devices: StorageHealthDeviceViewModel[];
+}) => {
+  if (devices.length === 0) return null;
+
+  return (
+    <div className="mb-2 grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto border-border/60 border-b pb-2 sm:grid-cols-2">
+      {devices.map((device) => (
+        <div
+          key={device.deviceId}
+          className="grid min-h-6 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2"
+        >
+          <StorageHealthStatusIcon status={device.status} size={15} />
+          <span
+            className="truncate text-muted-foreground text-xs"
+            title={device.label}
+          >
+            {device.label}
+          </span>
+        </div>
+      ))}
     </div>
   );
 };
