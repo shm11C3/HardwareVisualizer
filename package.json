@@ -5,7 +5,9 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"npx react-devtools\" \"vite dev\"",
+    "dev": "vite dev",
+    "dev:react-devtools": "vite dev --mode react-devtools",
+    "react-devtools": "npx react-devtools",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run --coverage",
@@ -35,7 +37,6 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.7",
     "babel-plugin-react-compiler": "^1.0.0",
-    "concurrently": "^10.0.0",
     "jsdom": "^29.1.1",
     "license-checker": "^25.0.1",
     "rollup-plugin-visualizer": "^7.0.0",

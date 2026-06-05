@@ -42,7 +42,7 @@ export default defineConfig(async ({ mode }) => ({
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
-    reactDevTools(),
+    mode === "react-devtools" && reactDevTools(),
   ],
 
   build: {
