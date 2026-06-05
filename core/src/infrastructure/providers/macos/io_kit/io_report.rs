@@ -199,35 +199,50 @@ impl GpuUsageIOReport {
     })
   }
 
-  fn raw_sample(&self) -> (CFDictionaryRef, Instant) {
-    (
-      unsafe { IOReportCreateSamples(self.subs, self.chan, null()) },
-      Instant::now(),
-    )
+  fn raw_sample(&self) -> WithError<(CFDictionaryRef, Instant)> {
+    let sample = unsafe { IOReportCreateSamples(self.subs, self.chan, null()) };
+    if sample.is_null() {
+      return Err("IOReportCreateSamples returned null".into());
+    }
+    Ok((sample, Instant::now()))
   }
 
   /// Returns usage for the interval since the previous call (keeps prev, delta-based).
   pub fn sample_usage(&mut self) -> WithError<f32> {
-    // Initialize prev if needed.
+    // Initialize prev if needed. A null sample (transient IOReport failure,
+    // e.g. the GPU is power-gated) is surfaced as an error rather than stored.
     let prev = match self.prev.take() {
       Some(p) => p,
-      None => self.raw_sample(),
+      None => self.raw_sample()?,
     };
 
-    // Next sample.
-    let next = self.raw_sample();
+    // Next sample. If it fails, release `prev` and reset state so the next
+    // call re-initialises, rather than feeding a null pointer to
+    // IOReportCreateSamplesDelta / CFRelease (both crash on null).
+    let next = match self.raw_sample() {
+      Ok(next) => next,
+      Err(e) => {
+        unsafe { CFRelease(prev.0 as _) };
+        return Err(e);
+      }
+    };
 
-    // Build delta (difference).
+    // Build delta (difference). Both inputs are guaranteed non-null here.
     let delta = unsafe { IOReportCreateSamplesDelta(prev.0, next.0, null()) };
     unsafe { CFRelease(prev.0 as _) };
 
-    // Keep for the next call.
+    // Keep the latest sample for the next call.
     self.prev = Some(next);
 
-    // Find GPU Perf States in the delta dictionary and compute usage.
-    let usage = compute_gpu_usage_from_delta(delta, &self.gpu_freqs)?;
+    if delta.is_null() {
+      return Err("IOReportCreateSamplesDelta returned null".into());
+    }
+
+    // Compute usage, then release `delta` on every path (success or error) so
+    // a failed computation does not leak a CF dictionary on each sample tick.
+    let usage = compute_gpu_usage_from_delta(delta, &self.gpu_freqs);
     unsafe { CFRelease(delta as _) };
-    Ok(usage)
+    usage
   }
 }
 

@@ -49,15 +49,25 @@ pub async fn query_memory_info() -> Result<MemoryInfo, String> {
     None::<&str>
   );
 
+  // Win32_PhysicalMemory can come back empty (e.g. soldered RAM that WMI does
+  // not enumerate, or a transient WMI service failure). Return an error instead
+  // of indexing `[0]` and panicking.
+  let first_module = physical_memory
+    .first()
+    .ok_or_else(|| "Win32_PhysicalMemory returned no entries".to_string())?;
+
   let memory_info = MemoryInfo {
     size: formatter::format_size(physical_memory.iter().map(|mem| mem.capacity).sum(), 1),
-    clock: physical_memory[0].speed,
+    clock: first_module.speed,
     clock_unit: "MHz".to_string(),
     memory_count: physical_memory.len() as u32,
-    total_slots: physical_memory_array[0].memory_devices.unwrap_or(0),
+    total_slots: physical_memory_array
+      .first()
+      .and_then(|array| array.memory_devices)
+      .unwrap_or(0),
     memory_type: describe_memory_type_with_fallback(
-      physical_memory[0].memory_type,
-      physical_memory[0].smbios_memory_type,
+      first_module.memory_type,
+      first_module.smbios_memory_type,
     ),
     is_detailed: true,
   };
