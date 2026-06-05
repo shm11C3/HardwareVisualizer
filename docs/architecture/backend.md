@@ -100,6 +100,11 @@ The App crate owns code that needs Tauri, frontend bindings, or UI-level state:
 - registering SQL migrations for the Tauri SQL plugin;
 - holding worker/controller handles so shutdown can terminate background work.
 
+When Close to Tray is enabled, closing the main window and exiting the process
+are different lifecycle events. Code that starts, stops, flushes, or cleans up
+workers must key off the process/App shutdown path when it needs finalization,
+not merely the window-close path.
+
 ## Layer Responsibilities
 
 ### Commands (`src-tauri/src/commands/`)
@@ -193,6 +198,23 @@ Startup flow:
 4. App registers Tauri SQL migrations when the DB is compatible.
 5. DB-dependent Core workers start only when startup preflight allows it.
 
+The current Hardware Archive "scheduled data deletion" setting refers to a
+startup cleanup pass, not a continuously scheduled deletion task. This was a
+deliberate simplification from the period before close-to-tray/background
+execution was a supported app behavior, when the app was not expected to stay
+running continuously. Treat the setting name as historical when documenting or
+renaming retention behavior.
+
+Process Insight data is a sampled and ranked summary derived from realtime
+process observations. It is not a complete process audit log, and persistence
+code should preserve that expectation unless a new feature explicitly changes
+the product contract.
+
+Storage Health Snapshots are intentionally retained separately from the
+Hardware Archive. Dashboard display can use the latest snapshot and recent
+changes, while future historical views can keep following long-term storage
+health even if short-window utilization archive settings are reduced.
+
 ## Settings Ownership
 
 Settings are split by consumer:
@@ -257,6 +279,13 @@ existing command/service contract allows it: prefer partial results, `None`, or
 empty lists over failing an aggregate response. Check the target service before
 choosing the fallback shape, because some commands still return an error for
 platform initialization or required provider failures.
+
+For vendor- or OS-dependent metrics, absence is usually a data-availability
+condition rather than a fault. Preserve the distinction in new models and DTOs:
+use nullable fields for unavailable per-metric values, keep source information
+when it helps explain partial support, and avoid converting a partially
+available device into an all-or-nothing failure unless the caller cannot
+produce a useful result without that data.
 
 ### Add or Change Persisted Data
 
