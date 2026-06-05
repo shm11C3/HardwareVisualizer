@@ -14,7 +14,7 @@ name = "hardviz_core"
 path = "src/lib.rs"
 
 [dependencies]
-tokio = { version = "1.52.2", features = [
+tokio = { version = "1.52.3", features = [
     "rt",
     "rt-multi-thread",
     "macros",
@@ -23,12 +23,12 @@ tokio = { version = "1.52.2", features = [
     "fs",
 ] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 tracing = "0.1.44"
 chrono = "0.4.44"
 regex = "1.12.3"
 async-trait = "0.1"
-sysinfo = "0.38.4"
+sysinfo = "0.39.2"
 tempfile = "3.27.0"
 hmac = "0.12.1"
 sha2 = "0.10.9"
@@ -64,4 +64,4 @@ libc = "0.2"
 core-foundation = "0.10.1"
 
 [dev-dependencies]
-tokio = { version = "1.52.2", features = ["macros", "rt"] }
+tokio = { version = "1.52.3", features = ["macros", "rt"] }

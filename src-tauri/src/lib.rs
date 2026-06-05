@@ -339,8 +339,11 @@ pub fn run() {
     );
   }
 
+  let mut context = tauri::generate_context!();
+  utils::tauri::apply_runtime_config(context.config_mut());
+
   tauri_builder
-    .build(tauri::generate_context!())
+    .build(context)
     .expect("error while building tauri application")
     .run(lifecycle::on_run_event);
 }

@@ -250,7 +250,7 @@ jobs:
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
-        uses: taiki-e/install-action@cca35edeb1d01366c2843b68fc3ca441446d73d3 # v2.77.1
+        uses: taiki-e/install-action@8f531eaecd1898bc3da7d104ad91bee98d1b97bd # v2.79.9
         with:
           tool: cargo-llvm-cov
 
@@ -468,7 +468,7 @@ jobs:
         run: npm test
 
       - name: Report coverage
-        uses: davelosert/vitest-coverage-report-action@3c50566c523e04813df28de8f7c48dd97d663f1c # v2.11.2
+        uses: davelosert/vitest-coverage-report-action@02f3c2e641286b7fa308cd3e430783103ce6103b # v2.12.0
         with:
           json-summary-path: coverage/coverage-summary.json
 
