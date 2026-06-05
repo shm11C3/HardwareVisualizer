@@ -5,15 +5,7 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { type DashboardItemType, dashBoardItems } from "../types/dashboardItem";
 
-const DEFAULT_DASHBOARD_ITEMS: DashboardItemType[] = [
-  "cpu",
-  "gpu",
-  "memory",
-  "storage",
-  "network",
-  "process",
-  "motherboard",
-];
+const DEFAULT_DASHBOARD_ITEMS = [...dashBoardItems];
 
 export const useSortableDashboard = () => {
   const { init } = useHardwareInfoAtom();

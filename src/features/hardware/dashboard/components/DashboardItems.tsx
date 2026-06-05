@@ -1,6 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import {
@@ -37,6 +37,7 @@ import {
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { formatBytes } from "@/lib/formatter";
@@ -385,8 +386,10 @@ const storageDataInfoGridVariants = tv({
 
 export const StorageDataInfo = () => {
   const { t } = useTranslation();
+  const { error } = useTauriDialog();
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
+  const storageHealthErrorShownRef = useRef(false);
   const [storageHealthDevices, setStorageHealthDevices] = useState<
     StorageHealthDeviceViewModel[]
   >([]);
@@ -414,6 +417,7 @@ export const StorageDataInfo = () => {
       : [];
   }, [sortedStorage]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Polling is registered once for the Storage card lifetime.
   useEffect(() => {
     let isMounted = true;
 
@@ -427,9 +431,16 @@ export const StorageDataInfo = () => {
           result.error,
         );
         setStorageHealthDevices([]);
+        if (!storageHealthErrorShownRef.current) {
+          storageHealthErrorShownRef.current = true;
+          void error(
+            `${t("pages.dashboard.storageHealth.errors.fetchLatest")}\n${result.error}`,
+          );
+        }
         return;
       }
 
+      storageHealthErrorShownRef.current = false;
       setStorageHealthDevices(buildStorageHealthSummary(result.data).devices);
     };
 

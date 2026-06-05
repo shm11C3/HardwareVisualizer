@@ -182,9 +182,15 @@ const toLocalDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const parseDateKeyUtc = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return Number.NaN;
+  return Date.UTC(year, month - 1, day);
+};
+
 const daysBetweenDateKeys = (currentDate: string, snapshotDate: string) => {
-  const current = Date.parse(`${currentDate}T00:00:00`);
-  const snapshot = Date.parse(`${snapshotDate}T00:00:00`);
+  const current = parseDateKeyUtc(currentDate);
+  const snapshot = parseDateKeyUtc(snapshotDate);
   if (!Number.isFinite(current) || !Number.isFinite(snapshot)) {
     return Number.POSITIVE_INFINITY;
   }

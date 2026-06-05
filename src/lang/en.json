@@ -172,6 +172,9 @@
         "label": "Select GPU"
       },
       "storageHealth": {
+        "errors": {
+          "fetchLatest": "Failed to fetch storage health data."
+        },
         "status": {
           "good": "Good",
           "warning": "Warning",
