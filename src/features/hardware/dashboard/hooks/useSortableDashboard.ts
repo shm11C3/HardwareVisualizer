@@ -3,23 +3,21 @@ import { arraySwap } from "@dnd-kit/sortable";
 import { useEffect } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
-import { type DashboardItemType, dashBoardItems } from "../types/dashboardItem";
-
-const DEFAULT_DASHBOARD_ITEMS: DashboardItemType[] = [
-  "cpu",
-  "gpu",
-  "memory",
-  "storage",
-  "network",
-  "process",
-  "motherboard",
-];
+import type { DashboardItemType } from "../types/dashboardItem";
 
 export const useSortableDashboard = () => {
   const { init } = useHardwareInfoAtom();
   const [dashboardItemMap, setDashboardItemMap] = useTauriStore<
     DashboardItemType[]
-  >("dashboardItem", DEFAULT_DASHBOARD_ITEMS);
+  >("dashboardItem", [
+    "cpu",
+    "gpu",
+    "memory",
+    "storage",
+    "network",
+    "process",
+    "motherboard",
+  ]);
 
   const handleDragOver = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -35,25 +33,6 @@ export const useSortableDashboard = () => {
   useEffect(() => {
     init();
   }, [init]);
-
-  useEffect(() => {
-    if (!dashboardItemMap) return;
-
-    const knownItems = dashboardItemMap.filter((item) =>
-      dashBoardItems.includes(item),
-    );
-    const missingItems = DEFAULT_DASHBOARD_ITEMS.filter(
-      (item) => !knownItems.includes(item),
-    );
-    const normalizedItems = [...knownItems, ...missingItems];
-
-    if (
-      normalizedItems.length !== dashboardItemMap.length ||
-      normalizedItems.some((item, index) => item !== dashboardItemMap[index])
-    ) {
-      setDashboardItemMap(normalizedItems);
-    }
-  }, [dashboardItemMap, setDashboardItemMap]);
 
   return {
     dashboardItemMap,

@@ -1,9 +1,5 @@
 use super::db;
-use crate::models::hardware::{
-  StorageDeviceRecord, StorageHealthSnapshot, StorageHealthSnapshotRecord,
-  StorageHealthStatus, StorageWarningLevel,
-};
-use sqlx::Row;
+use crate::models::hardware::{StorageDeviceRecord, StorageHealthSnapshot};
 
 pub async fn insert_daily_snapshots(
   devices: Vec<StorageDeviceRecord>,
@@ -120,128 +116,15 @@ pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
   Ok(())
 }
 
-pub async fn latest_snapshot_records()
--> Result<Vec<StorageHealthSnapshotRecord>, sqlx::Error> {
-  let pool = db::get_pool().await?;
-  let rows = sqlx::query(
-    r#"
-    SELECT
-      s.device_id,
-      COALESCE(d.display_name, s.device_id) AS display_name,
-      d.model,
-      d.protocol,
-      d.capacity_bytes,
-      s.date,
-      s.health_status,
-      s.warning_level,
-      s.warning_reasons,
-      s.temperature_celsius,
-      s.power_on_hours,
-      s.percentage_used,
-      s.available_spare_percent,
-      s.reallocated_sector_count,
-      s.current_pending_sector_count,
-      s.offline_uncorrectable_count,
-      s.media_errors,
-      s.error_log_entries,
-      s.unsafe_shutdown_count,
-      s.collected_at
-    FROM storage_smart_daily_snapshots s
-    INNER JOIN (
-      SELECT device_id, MAX(date) AS date
-      FROM storage_smart_daily_snapshots
-      GROUP BY device_id
-    ) latest
-      ON latest.device_id = s.device_id
-      AND latest.date = s.date
-    LEFT JOIN storage_devices d ON d.id = s.device_id
-    ORDER BY
-      CASE s.warning_level
-        WHEN 'critical' THEN 0
-        WHEN 'warning' THEN 1
-        WHEN 'unknown' THEN 2
-        ELSE 3
-      END,
-      display_name COLLATE NOCASE
-    "#,
-  )
-  .fetch_all(&pool)
-  .await?;
-
-  rows
-    .into_iter()
-    .map(|row| {
-      let warning_reasons = row
-        .try_get::<Option<String>, _>("warning_reasons")?
-        .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
-        .unwrap_or_default();
-
-      Ok(StorageHealthSnapshotRecord {
-        device_id: row.try_get("device_id")?,
-        display_name: row.try_get("display_name")?,
-        model: row.try_get("model")?,
-        protocol: row.try_get("protocol")?,
-        capacity_bytes: from_i64(row.try_get("capacity_bytes")?),
-        date: row.try_get("date")?,
-        health_status: parse_health_status(&row.try_get::<String, _>("health_status")?),
-        warning_level: parse_warning_level(&row.try_get::<String, _>("warning_level")?),
-        temperature_celsius: row
-          .try_get::<Option<f64>, _>("temperature_celsius")?
-          .map(|value| value as f32),
-        power_on_hours: from_i64(row.try_get("power_on_hours")?),
-        percentage_used: row
-          .try_get::<Option<f64>, _>("percentage_used")?
-          .map(|value| value as f32),
-        available_spare_percent: row
-          .try_get::<Option<f64>, _>("available_spare_percent")?
-          .map(|value| value as f32),
-        reallocated_sector_count: from_i64(row.try_get("reallocated_sector_count")?),
-        current_pending_sector_count: from_i64(
-          row.try_get("current_pending_sector_count")?,
-        ),
-        offline_uncorrectable_count: from_i64(
-          row.try_get("offline_uncorrectable_count")?,
-        ),
-        media_errors: from_i64(row.try_get("media_errors")?),
-        error_log_entries: from_i64(row.try_get("error_log_entries")?),
-        unsafe_shutdown_count: from_i64(row.try_get("unsafe_shutdown_count")?),
-        warning_reasons,
-        collected_at: row.try_get("collected_at")?,
-      })
-    })
-    .collect()
-}
-
 fn to_i64(value: Option<u64>) -> Option<i64> {
   value.and_then(|v| i64::try_from(v).ok())
-}
-
-fn from_i64(value: Option<i64>) -> Option<u64> {
-  value.and_then(|v| u64::try_from(v).ok())
-}
-
-fn parse_health_status(value: &str) -> StorageHealthStatus {
-  match value {
-    "good" => StorageHealthStatus::Good,
-    "warning" => StorageHealthStatus::Warning,
-    "critical" => StorageHealthStatus::Critical,
-    _ => StorageHealthStatus::Unknown,
-  }
-}
-
-fn parse_warning_level(value: &str) -> StorageWarningLevel {
-  match value {
-    "none" => StorageWarningLevel::None,
-    "warning" => StorageWarningLevel::Warning,
-    "critical" => StorageWarningLevel::Critical,
-    _ => StorageWarningLevel::Unknown,
-  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
   use crate::infrastructure::database::db;
+  use crate::models::hardware::{StorageHealthStatus, StorageWarningLevel};
 
   async fn setup_test_db() -> tempfile::NamedTempFile {
     let file = tempfile::NamedTempFile::new().unwrap();
@@ -409,47 +292,5 @@ mod tests {
     assert_eq!(disk_b_active.0, 1);
     assert_eq!(disk_c_active.0, 1);
     assert_eq!(warning_reasons.0, r#"["test reason"]"#);
-
-    insert_daily_snapshots(
-      vec![device_record("disk-c")],
-      vec![StorageHealthSnapshot {
-        health_status: StorageHealthStatus::Critical,
-        warning_level: StorageWarningLevel::Critical,
-        current_pending_sector_count: Some(2),
-        warning_reasons: vec![
-          "Current pending sectors are present".to_string(),
-          "Offline uncorrectable sectors are present".to_string(),
-        ],
-        ..snapshot("disk-c", "2026-05-11")
-      }],
-    )
-    .await
-    .unwrap();
-
-    let latest = latest_snapshot_records().await.unwrap();
-    assert_eq!(latest.len(), 3);
-    assert_eq!(latest[0].device_id, "disk-c");
-    assert_eq!(latest[0].display_name, "Device disk-c");
-    assert_eq!(latest[0].date, "2026-05-11");
-    assert_eq!(latest[0].health_status, StorageHealthStatus::Critical);
-    assert_eq!(latest[0].warning_level, StorageWarningLevel::Critical);
-    assert_eq!(latest[0].current_pending_sector_count, Some(2));
-    assert_eq!(
-      latest[0].warning_reasons,
-      vec![
-        "Current pending sectors are present".to_string(),
-        "Offline uncorrectable sectors are present".to_string(),
-      ]
-    );
-    assert!(
-      latest
-        .iter()
-        .any(|record| record.device_id == "disk-a" && record.date == "2026-05-10")
-    );
-    assert!(
-      latest
-        .iter()
-        .any(|record| record.device_id == "disk-b" && record.date == "2026-05-10")
-    );
   }
 }
