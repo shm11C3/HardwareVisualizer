@@ -102,9 +102,16 @@ pub async fn get_nvidia_gpu_temperature()
         nvapi::Status::Error
       })?;
 
+      // Some GPUs (e.g. headless / virtual NVIDIA devices) expose no thermal
+      // sensors, so the Vec can be empty — fall back to 0 instead of panicking.
+      let value = thermal_settings
+        .first()
+        .map(|t| t.current_temperature.0)
+        .unwrap_or(0);
+
       temperatures.push(models::hardware::NameValue {
         name: gpu.full_name().unwrap_or("Unknown".to_string()),
-        value: thermal_settings[0].current_temperature.0,
+        value,
       });
     }
 
@@ -258,7 +265,11 @@ pub fn get_gpu_temperature_from_physical_gpu(gpu: &nvapi::PhysicalGpu) -> i32 {
   });
 
   if let Ok(thermal_settings) = thermal_settings {
-    return thermal_settings[0].current_temperature.0;
+    // GPUs with no thermal sensor return an empty Vec; avoid indexing panic.
+    return thermal_settings
+      .first()
+      .map(|t| t.current_temperature.0)
+      .unwrap_or(0);
   }
 
   0
@@ -293,5 +304,10 @@ pub fn get_gpu_dedicated_memory_usage_from_physical_gpu(gpu: &nvapi::PhysicalGpu
     }
   };
 
-  memory.dedicated.0 - memory.dedicated_available_current.0
+  // NVAPI may transiently report `available > dedicated`; saturating_sub
+  // avoids an unsigned underflow panic (debug) / wraparound (release).
+  memory
+    .dedicated
+    .0
+    .saturating_sub(memory.dedicated_available_current.0)
 }
