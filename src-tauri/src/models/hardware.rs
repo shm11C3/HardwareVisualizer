@@ -83,49 +83,6 @@ pub struct StorageInfo {
   pub file_system: String,
 }
 
-#[derive(Serialize, Deserialize, Type, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum StorageHealthStatus {
-  Good,
-  Warning,
-  Critical,
-  Unknown,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum StorageWarningLevel {
-  None,
-  Warning,
-  Critical,
-  Unknown,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageSmartDashboardSnapshot {
-  pub device_id: String,
-  pub display_name: String,
-  pub model: Option<String>,
-  pub protocol: Option<String>,
-  pub capacity_bytes: Option<u64>,
-  pub date: String,
-  pub health_status: StorageHealthStatus,
-  pub warning_level: StorageWarningLevel,
-  pub temperature_celsius: Option<f32>,
-  pub power_on_hours: Option<u64>,
-  pub percentage_used: Option<f32>,
-  pub available_spare_percent: Option<f32>,
-  pub reallocated_sector_count: Option<u64>,
-  pub current_pending_sector_count: Option<u64>,
-  pub offline_uncorrectable_count: Option<u64>,
-  pub media_errors: Option<u64>,
-  pub error_log_entries: Option<u64>,
-  pub unsafe_shutdown_count: Option<u64>,
-  pub warning_reasons: Vec<String>,
-  pub collected_at: String,
-}
-
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkInfo {
@@ -274,55 +231,6 @@ impl From<core_hw::StorageInfo> for StorageInfo {
       free_unit: src.free_unit.into(),
       storage_type: src.storage_type.into(),
       file_system: src.file_system,
-    }
-  }
-}
-
-impl From<core_hw::StorageHealthStatus> for StorageHealthStatus {
-  fn from(value: core_hw::StorageHealthStatus) -> Self {
-    match value {
-      core_hw::StorageHealthStatus::Good => Self::Good,
-      core_hw::StorageHealthStatus::Warning => Self::Warning,
-      core_hw::StorageHealthStatus::Critical => Self::Critical,
-      core_hw::StorageHealthStatus::Unknown => Self::Unknown,
-    }
-  }
-}
-
-impl From<core_hw::StorageWarningLevel> for StorageWarningLevel {
-  fn from(value: core_hw::StorageWarningLevel) -> Self {
-    match value {
-      core_hw::StorageWarningLevel::None => Self::None,
-      core_hw::StorageWarningLevel::Warning => Self::Warning,
-      core_hw::StorageWarningLevel::Critical => Self::Critical,
-      core_hw::StorageWarningLevel::Unknown => Self::Unknown,
-    }
-  }
-}
-
-impl From<core_hw::StorageHealthSnapshotRecord> for StorageSmartDashboardSnapshot {
-  fn from(src: core_hw::StorageHealthSnapshotRecord) -> Self {
-    Self {
-      device_id: src.device_id,
-      display_name: src.display_name,
-      model: src.model,
-      protocol: src.protocol,
-      capacity_bytes: src.capacity_bytes,
-      date: src.date,
-      health_status: src.health_status.into(),
-      warning_level: src.warning_level.into(),
-      temperature_celsius: src.temperature_celsius,
-      power_on_hours: src.power_on_hours,
-      percentage_used: src.percentage_used,
-      available_spare_percent: src.available_spare_percent,
-      reallocated_sector_count: src.reallocated_sector_count,
-      current_pending_sector_count: src.current_pending_sector_count,
-      offline_uncorrectable_count: src.offline_uncorrectable_count,
-      media_errors: src.media_errors,
-      error_log_entries: src.error_log_entries,
-      unsafe_shutdown_count: src.unsafe_shutdown_count,
-      warning_reasons: src.warning_reasons,
-      collected_at: src.collected_at,
     }
   }
 }

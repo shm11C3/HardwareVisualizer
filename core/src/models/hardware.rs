@@ -223,31 +223,6 @@ pub struct StorageHealthSnapshot {
   pub collected_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageHealthSnapshotRecord {
-  pub device_id: String,
-  pub display_name: String,
-  pub model: Option<String>,
-  pub protocol: Option<String>,
-  pub capacity_bytes: Option<u64>,
-  pub date: String,
-  pub health_status: StorageHealthStatus,
-  pub warning_level: StorageWarningLevel,
-  pub temperature_celsius: Option<f32>,
-  pub power_on_hours: Option<u64>,
-  pub percentage_used: Option<f32>,
-  pub available_spare_percent: Option<f32>,
-  pub reallocated_sector_count: Option<u64>,
-  pub current_pending_sector_count: Option<u64>,
-  pub offline_uncorrectable_count: Option<u64>,
-  pub media_errors: Option<u64>,
-  pub error_log_entries: Option<u64>,
-  pub unsafe_shutdown_count: Option<u64>,
-  pub warning_reasons: Vec<String>,
-  pub collected_at: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageDeviceRecord {
   pub id: String,
