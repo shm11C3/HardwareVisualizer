@@ -147,6 +147,27 @@ pub fn restore_main_window(app: &AppHandle) {
       None::<&str>
     );
   }
+
+  emit_latest_window_snapshot(app);
+}
+
+fn emit_latest_window_snapshot(app: &AppHandle) {
+  let Some(workers) = app.try_state::<WorkersState>() else {
+    return;
+  };
+
+  let Ok(adapter) = workers.window_adapter.lock() else {
+    log_warn!(
+      "failed to lock window adapter while restoring app window",
+      "lifecycle::emit_latest_window_snapshot",
+      None::<&str>
+    );
+    return;
+  };
+
+  if let Some(adapter) = adapter.as_ref() {
+    adapter.emit_latest_if_visible(app);
+  }
 }
 
 /// Decide what closing the main window means.

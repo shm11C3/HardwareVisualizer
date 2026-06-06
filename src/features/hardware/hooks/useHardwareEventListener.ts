@@ -53,6 +53,10 @@ export const useHardwareEventListener = () => {
         processorsUsage: number[];
       };
     }) => {
+      if (document.hidden) {
+        return;
+      }
+
       const { cpuUsage, memoryUsage, gpus, processorsUsage } = event.payload;
 
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));

@@ -20,6 +20,7 @@ import { SideMenu } from "./features/menu/SideMenu";
 import { useSettingsAtom } from "./features/settings/hooks/useSettingsAtom";
 import { useBackgroundImage } from "./hooks/useBgImage";
 import { useColorTheme } from "./hooks/useColorTheme";
+import { useDocumentVisibilityClass } from "./hooks/useDocumentVisibilityClass";
 import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
 import {
@@ -108,6 +109,7 @@ const AppContent = () => {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useErrorModalListener();
+  useDocumentVisibilityClass();
   useHardwareEventListener();
   useSelectedGpuPersistence();
   const { hardwareInfo } = useHardwareInfoAtom();
