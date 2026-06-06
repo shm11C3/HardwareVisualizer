@@ -346,11 +346,11 @@
           "placeHolder": "Select Days",
           "description": "Data collected by the Insight function is stored for an arbitrary number of days.If periodic deletion is enabled, data will be deleted automatically after a number of days."
         },
-        "storageSmart": {
+        "storageHealth": {
           "retention": {
             "title": "Storage Health History Holding Period (Days)",
             "placeHolder": "Select Days",
-            "description": "Storage health history uses SMART daily snapshots and is stored separately from Insight data. Snapshots older than this period are deleted automatically.",
+            "description": "Storage health records are stored separately from Insight data. Records older than this period are deleted automatically.",
             "presets": {
               "halfYear": "6 months",
               "oneYear": "1 year",

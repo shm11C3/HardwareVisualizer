@@ -75,7 +75,7 @@
     "memoryRangeMax": "メモリ範囲上限",
     "selectMemoryRangeMax": "メモリ上限を選択",
     "deviceCapacity": "デバイス容量",
-    "snapshot": {
+    "record": {
       "title": "スナップショット分析",
       "description": "指定した期間のハードウェア使用状況を分析します",
       "timeRange": "時間範囲",
@@ -197,7 +197,7 @@
       "process": {
         "title": "プロセス"
       },
-      "snapshot": {
+      "record": {
         "title": "スナップショット"
       },
       "noDataForPeriod": "選択された期間のデータは見つかりませんでした"
@@ -346,11 +346,11 @@
           "placeHolder": "日数を入力してください",
           "description": "インサイト機能によって収集されたデータは、任意の日数保存されます。\n定期削除が有効な場合、設定された日数が経過するとデータは自動的に削除されます。"
         },
-        "storageSmart": {
+        "storageHealth": {
           "retention": {
             "title": "ストレージヘルス履歴の保持期間（日数）",
             "placeHolder": "日数を入力してください",
-            "description": "ストレージヘルス履歴はSMARTの日次スナップショットとして、インサイトデータとは別に保存されます。保持期間を過ぎたスナップショットは自動的に削除されます。",
+            "description": "ストレージヘルス記録はインサイトデータとは別に保存されます。保持期間を過ぎた記録は自動的に削除されます。",
             "presets": {
               "halfYear": "半年",
               "oneYear": "1年",

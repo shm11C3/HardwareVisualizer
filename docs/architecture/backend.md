@@ -49,7 +49,7 @@ core/src/
 │   └── providers/         # OS / vendor / system providers
 ├── models/                # Core data models, including MetricsSnapshot
 ├── monitoring/            # Monitoring state types
-├── persistence/           # Archive, preflight, cleanup, storage SMART workers
+├── persistence/           # Archive, preflight, cleanup, storage health workers
 ├── platform/              # Platform traits, factory, and OS implementations
 ├── settings/              # Core-consumed settings subset
 └── utils/                 # Core helpers and logging macros
@@ -210,8 +210,8 @@ process observations. It is not a complete process audit log, and persistence
 code should preserve that expectation unless a new feature explicitly changes
 the product contract.
 
-Storage Health Snapshots are intentionally retained separately from the
-Hardware Archive. Dashboard display can use the latest snapshot and recent
+Storage Health Records are intentionally retained separately from the
+Hardware Archive. Dashboard display can use the latest record and recent
 changes, while future historical views can keep following long-term storage
 health even if short-window utilization archive settings are reduced.
 

@@ -204,7 +204,7 @@ impl StorageWarningLevel {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StorageHealthSnapshot {
+pub struct StorageHealthRecordDraft {
   pub device_id: String,
   pub date: String,
   pub health_status: StorageHealthStatus,
@@ -225,7 +225,7 @@ pub struct StorageHealthSnapshot {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StorageHealthSnapshotRecord {
+pub struct StorageHealthRecord {
   pub device_id: String,
   pub display_name: String,
   pub model: Option<String>,

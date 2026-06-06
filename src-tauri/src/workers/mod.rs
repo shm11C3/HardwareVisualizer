@@ -10,7 +10,7 @@ pub struct WorkersState {
   pub monitor: Mutex<Option<hardviz_core::collector::SystemMonitorController>>,
   pub window_adapter: Mutex<Option<WindowAdapter>>,
   pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
-  pub storage_smart: Mutex<Option<hardviz_core::persistence::StorageSmartController>>,
+  pub storage_health: Mutex<Option<hardviz_core::persistence::StorageHealthController>>,
 
   /// Holds the tray icon for as long as the process should display it.
   /// Dropping this releases the OS handle and removes the icon, so it
@@ -38,10 +38,10 @@ impl WorkersState {
     let monitor = self.monitor.lock().unwrap().take();
     let window_adapter = self.window_adapter.lock().unwrap().take();
     let hw_archive = self.hw_archive.lock().unwrap().take();
-    let storage_smart = self.storage_smart.lock().unwrap().take();
+    let storage_health = self.storage_health.lock().unwrap().take();
     let tray = self.tray.lock().unwrap().take();
 
-    // Stop the source first so no further snapshots are produced, then
+    // Stop the source first so no further realtime snapshots are produced, then
     // drain the adapter, then shut down the archive worker.
     if let Some(monitor) = monitor {
       monitor.terminate().await;
@@ -59,8 +59,8 @@ impl WorkersState {
       hw_archive.terminate().await;
     }
 
-    if let Some(storage_smart) = storage_smart {
-      storage_smart.terminate().await;
+    if let Some(storage_health) = storage_health {
+      storage_health.terminate().await;
     }
   }
 }

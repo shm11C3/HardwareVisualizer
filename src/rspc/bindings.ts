@@ -83,8 +83,8 @@ export const commands = {
 	inUseBytes: string | null,
 	allocBytes: string | null,
 } | null, string>(__TAURI_INVOKE("get_gpu_memory_usage")),
-	// ## Get latest Storage SMART snapshots for the dashboard
-	getStorageSmartLatestSnapshots: () => typedError<StorageSmartDashboardSnapshot[], string>(__TAURI_INVOKE("get_storage_smart_latest_snapshots")),
+	// ## Get latest Storage Health records for the dashboard
+	getStorageHealthLatestRecords: () => typedError<StorageHealthRecord[], string>(__TAURI_INVOKE("get_storage_health_latest_records")),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -106,7 +106,7 @@ export const commands = {
 	setHardwareArchiveEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_enabled", { newValue })),
 	setHardwareArchiveInterval: (newInterval: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_interval", { newInterval })),
 	setHardwareArchiveScheduledDataDeletion: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue })),
-	setStorageSmartRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_storage_smart_retention_days", { newRetentionDays })),
+	setStorageHealthRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_storage_health_retention_days", { newRetentionDays })),
 	setBurnInShift: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift", { newValue })),
 	setBurnInShiftMode: (newValue: BurnInShiftMode) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift_mode", { newValue })),
 	setBurnInShiftPreset: (newValue: BurnInShiftPreset) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift_preset", { newValue })),
@@ -226,7 +226,7 @@ export type ClientSettings_Deserialize = {
 	windowOpacity: number,
 	temperatureUnit: TemperatureUnit,
 	hardwareArchive: HardwareArchiveSettings,
-	storageSmart: StorageSmartSettings,
+	storageHealth: StorageHealthSettings,
 	burnInShift: boolean,
 	burnInShiftMode: BurnInShiftMode,
 	burnInShiftPreset: BurnInShiftPreset,
@@ -258,7 +258,7 @@ export type ClientSettings_Serialize = {
 	windowOpacity: number,
 	temperatureUnit: TemperatureUnit,
 	hardwareArchive: HardwareArchiveSettings,
-	storageSmart: StorageSmartSettings,
+	storageHealth: StorageHealthSettings,
 	burnInShift: boolean,
 	burnInShiftMode: BurnInShiftMode,
 	burnInShiftPreset: BurnInShiftPreset,
@@ -417,19 +417,7 @@ export type ProcessInfo_Serialize = {
 
 export type SizeUnit = "B" | "KB" | "MB" | "GB";
 
-export type StorageHealthStatus = "good" | "warning" | "critical" | "unknown";
-
-export type StorageInfo = {
-	name: string,
-	size: number,
-	sizeUnit: SizeUnit,
-	free: number,
-	freeUnit: SizeUnit,
-	storageType: DiskKind,
-	fileSystem: string,
-};
-
-export type StorageSmartDashboardSnapshot = {
+export type StorageHealthRecord = {
 	deviceId: string,
 	displayName: string,
 	model: string | null,
@@ -453,13 +441,25 @@ export type StorageSmartDashboardSnapshot = {
 };
 
 /**
- *  Wire-format mirror of [`hardviz_core::settings::StorageSmartSettings`]. The
+ *  Wire-format mirror of [`hardviz_core::settings::StorageHealthSettings`]. The
  *  canonical definition lives in `hardviz_core::settings` so the
- *  SMART snapshot worker doesn't need to know about Tauri or specta.
+ *  storage health record worker doesn't need to know about Tauri or specta.
  */
-export type StorageSmartSettings = {
+export type StorageHealthSettings = {
 	enabled?: boolean,
 	retentionDays?: number,
+};
+
+export type StorageHealthStatus = "good" | "warning" | "critical" | "unknown";
+
+export type StorageInfo = {
+	name: string,
+	size: number,
+	sizeUnit: SizeUnit,
+	free: number,
+	freeUnit: SizeUnit,
+	storageType: DiskKind,
+	fileSystem: string,
 };
 
 export type StorageWarningLevel = "none" | "warning" | "critical" | "unknown";

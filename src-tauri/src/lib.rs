@@ -96,7 +96,7 @@ pub fn run() {
       hardware::get_gpu_usage_history,
       hardware::get_network_info,
       hardware::get_gpu_memory_usage,
-      hardware::get_storage_smart_latest_snapshots,
+      hardware::get_storage_health_latest_records,
       settings::commands::get_settings,
       settings::commands::set_language,
       settings::commands::set_theme,
@@ -118,7 +118,7 @@ pub fn run() {
       settings::commands::set_hardware_archive_enabled,
       settings::commands::set_hardware_archive_interval,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
-      settings::commands::set_storage_smart_retention_days,
+      settings::commands::set_storage_health_retention_days,
       settings::commands::set_burn_in_shift,
       settings::commands::set_burn_in_shift_mode,
       settings::commands::set_burn_in_shift_preset,
@@ -226,23 +226,23 @@ pub fn run() {
           }
         }
 
-        if core_settings.storage_smart.enabled {
-          match core_settings.storage_smart_identity.hash_key_bytes() {
+        if core_settings.storage_health.enabled {
+          match core_settings.storage_health_identity.hash_key_bytes() {
             Ok(identity_hash_key) => {
-              let storage_smart =
-                hardviz_core::persistence::StorageSmartController::setup(
+              let storage_health =
+                hardviz_core::persistence::StorageHealthController::setup(
                   runtime_handle.clone(),
-                  core_settings.storage_smart.retention_days,
+                  core_settings.storage_health.retention_days,
                   identity_hash_key,
                 );
               {
                 let ws = app.state::<workers::WorkersState>();
-                ws.storage_smart.lock().unwrap().replace(storage_smart);
+                ws.storage_health.lock().unwrap().replace(storage_health);
               }
             }
             Err(e) => {
               log_error!(
-                "Storage SMART worker was not started because the identity key is invalid",
+                "Storage Health worker was not started because the identity key is invalid",
                 "lib::run",
                 Some(e)
               );

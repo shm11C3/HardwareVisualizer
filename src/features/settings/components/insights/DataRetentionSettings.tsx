@@ -15,7 +15,7 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 import { settingAtoms } from "@/store/ui";
 
-const storageSmartRetentionPresets = [
+const storageHealthRetentionPresets = [
   { labelKey: "halfYear", value: 183 },
   { labelKey: "oneYear", value: 365 },
   { labelKey: "threeYears", value: 365 * 3 },
@@ -27,7 +27,7 @@ export const DataRetentionSettings = () => {
     settings,
     setHardwareArchiveRefreshIntervalDays,
     setScheduledDataDeletion,
-    setStorageSmartRetentionDays,
+    setStorageHealthRetentionDays,
   } = useSettingsAtom();
   const { t } = useTranslation();
   const [hasSettingChanged, setHasSettingChanged] = useAtom(
@@ -36,16 +36,15 @@ export const DataRetentionSettings = () => {
 
   const holdingPeriodId = useId();
   const scheduledDataDeletionId = useId();
-  const storageSmartRetentionId = useId();
-  const storageSmartRetentionDays =
-    settings.storageSmart.retentionDays ?? 365 * 3;
-  const [storageSmartRetentionInput, setStorageSmartRetentionInput] = useState(
-    () => String(storageSmartRetentionDays),
-  );
+  const storageHealthRetentionId = useId();
+  const storageHealthRetentionDays =
+    settings.storageHealth.retentionDays ?? 365 * 3;
+  const [storageHealthRetentionInput, setStorageHealthRetentionInput] =
+    useState(() => String(storageHealthRetentionDays));
 
   useEffect(() => {
-    setStorageSmartRetentionInput(String(storageSmartRetentionDays));
-  }, [storageSmartRetentionDays]);
+    setStorageHealthRetentionInput(String(storageHealthRetentionDays));
+  }, [storageHealthRetentionDays]);
 
   const changeNumberOfDays = async (value: number) => {
     await setHardwareArchiveRefreshIntervalDays(value);
@@ -57,12 +56,12 @@ export const DataRetentionSettings = () => {
     setHasSettingChanged(true);
   };
 
-  const changeStorageSmartRetentionDays = async (value: number) => {
-    if (value === storageSmartRetentionDays) {
+  const changeStorageHealthRetentionDays = async (value: number) => {
+    if (value === storageHealthRetentionDays) {
       return true;
     }
 
-    const saved = await setStorageSmartRetentionDays(value);
+    const saved = await setStorageHealthRetentionDays(value);
     if (!saved) {
       return false;
     }
@@ -71,7 +70,7 @@ export const DataRetentionSettings = () => {
     return true;
   };
 
-  const parseStorageSmartRetentionDays = (value: string) => {
+  const parseStorageHealthRetentionDays = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
       return null;
@@ -85,23 +84,23 @@ export const DataRetentionSettings = () => {
     return Math.trunc(parsed);
   };
 
-  const commitStorageSmartRetentionInput = async () => {
-    const nextValue = parseStorageSmartRetentionDays(
-      storageSmartRetentionInput,
+  const commitStorageHealthRetentionInput = async () => {
+    const nextValue = parseStorageHealthRetentionDays(
+      storageHealthRetentionInput,
     );
     if (nextValue === null) {
-      setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+      setStorageHealthRetentionInput(String(storageHealthRetentionDays));
       return;
     }
 
-    if (nextValue === storageSmartRetentionDays) {
-      setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+    if (nextValue === storageHealthRetentionDays) {
+      setStorageHealthRetentionInput(String(storageHealthRetentionDays));
       return;
     }
 
-    const saved = await changeStorageSmartRetentionDays(nextValue);
+    const saved = await changeStorageHealthRetentionDays(nextValue);
     if (!saved) {
-      setStorageSmartRetentionInput(String(storageSmartRetentionDays));
+      setStorageHealthRetentionInput(String(storageHealthRetentionDays));
     }
   };
 
@@ -151,23 +150,23 @@ export const DataRetentionSettings = () => {
         </div>
       </div>
       <div className="py-4">
-        <Label className="my-4 text-lg" htmlFor={storageSmartRetentionId}>
-          {t("pages.settings.insights.storageSmart.retention.title")}
+        <Label className="my-4 text-lg" htmlFor={storageHealthRetentionId}>
+          {t("pages.settings.insights.storageHealth.retention.title")}
         </Label>
         <p className="mt-2 whitespace-pre-wrap text-sm">
-          {t("pages.settings.insights.storageSmart.retention.description")}
+          {t("pages.settings.insights.storageHealth.retention.description")}
         </p>
         <div className="mt-2 flex items-center">
           <Input
-            id={storageSmartRetentionId}
+            id={storageHealthRetentionId}
             type="number"
             placeholder={t(
-              "pages.settings.insights.storageSmart.retention.placeHolder",
+              "pages.settings.insights.storageHealth.retention.placeHolder",
             )}
-            value={storageSmartRetentionInput}
-            onChange={(e) => setStorageSmartRetentionInput(e.target.value)}
+            value={storageHealthRetentionInput}
+            onChange={(e) => setStorageHealthRetentionInput(e.target.value)}
             onBlur={() => {
-              void commitStorageSmartRetentionInput();
+              void commitStorageHealthRetentionInput();
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -180,8 +179,8 @@ export const DataRetentionSettings = () => {
           <span className="ml-2">{t("shared.time.days")}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {storageSmartRetentionPresets.map((preset) => {
-            const isSelected = storageSmartRetentionDays === preset.value;
+          {storageHealthRetentionPresets.map((preset) => {
+            const isSelected = storageHealthRetentionDays === preset.value;
 
             return (
               <Button
@@ -191,16 +190,16 @@ export const DataRetentionSettings = () => {
                 variant={isSelected ? "default" : "outline"}
                 aria-pressed={isSelected}
                 onClick={async () => {
-                  const saved = await changeStorageSmartRetentionDays(
+                  const saved = await changeStorageHealthRetentionDays(
                     preset.value,
                   );
                   if (saved) {
-                    setStorageSmartRetentionInput(String(preset.value));
+                    setStorageHealthRetentionInput(String(preset.value));
                   }
                 }}
               >
                 {t(
-                  `pages.settings.insights.storageSmart.retention.presets.${preset.labelKey}`,
+                  `pages.settings.insights.storageHealth.retention.presets.${preset.labelKey}`,
                 )}
               </Button>
             );

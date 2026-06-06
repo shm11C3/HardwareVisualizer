@@ -10,7 +10,7 @@
 //! object so App-owned keys are preserved.
 
 pub mod hardware_archive;
-pub mod storage_smart;
+pub mod storage_health;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -18,17 +18,21 @@ use std::io::Write;
 use std::path::Path;
 
 pub use hardware_archive::HardwareArchiveSettings;
-pub use storage_smart::{
-  STORAGE_SMART_IDENTITY_HASH_KEY_BYTES, StorageSmartIdentitySettings,
-  StorageSmartSettings,
+pub use storage_health::{
+  STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES, StorageHealthIdentitySettings,
+  StorageHealthSettings,
 };
 
 /// JSON key under which [`HardwareArchiveSettings`] is persisted.
 const HARDWARE_ARCHIVE_KEY: &str = "hardwareArchive";
-/// JSON key under which [`StorageSmartSettings`] is persisted.
-const STORAGE_SMART_KEY: &str = "storageSmart";
-/// JSON key under which [`StorageSmartIdentitySettings`] is persisted.
-const STORAGE_SMART_IDENTITY_KEY: &str = "storageSmartIdentity";
+/// JSON key under which [`StorageHealthSettings`] is persisted.
+const STORAGE_HEALTH_KEY: &str = "storageHealth";
+/// Legacy JSON key accepted for unreleased Storage Health development builds.
+const LEGACY_STORAGE_SMART_KEY: &str = "storageSmart";
+/// JSON key under which [`StorageHealthIdentitySettings`] is persisted.
+const STORAGE_HEALTH_IDENTITY_KEY: &str = "storageHealthIdentity";
+/// Legacy JSON key accepted for unreleased Storage Health development builds.
+const LEGACY_STORAGE_SMART_IDENTITY_KEY: &str = "storageSmartIdentity";
 
 /// Subset of the on-disk settings document that Core consumes.
 ///
@@ -39,8 +43,8 @@ const STORAGE_SMART_IDENTITY_KEY: &str = "storageSmartIdentity";
 #[serde(default, rename_all = "camelCase")]
 pub struct CoreSettings {
   pub hardware_archive: HardwareArchiveSettings,
-  pub storage_smart: StorageSmartSettings,
-  pub storage_smart_identity: StorageSmartIdentitySettings,
+  pub storage_health: StorageHealthSettings,
+  pub storage_health_identity: StorageHealthIdentitySettings,
 }
 
 impl CoreSettings {
@@ -62,10 +66,6 @@ impl CoreSettings {
   /// recovery when a strict deserialize fails so an unrelated invalid
   /// App-owned key doesn't poison the Core view.
   fn parse_with_recovery(input: &str) -> Result<Self, String> {
-    if let Ok(parsed) = serde_json::from_str::<Self>(input) {
-      return Ok(parsed);
-    }
-
     let value: serde_json::Value = serde_json::from_str(input)
       .map_err(|e| format!("Settings file is not valid JSON: {e}"))?;
     let map = match value {
@@ -79,22 +79,26 @@ impl CoreSettings {
     {
       settings.hardware_archive = parsed;
     }
-    if let Some(v) = map.get(STORAGE_SMART_KEY)
-      && let Ok(parsed) = serde_json::from_value::<StorageSmartSettings>(v.clone())
+    if let Some(v) = map
+      .get(STORAGE_HEALTH_KEY)
+      .or_else(|| map.get(LEGACY_STORAGE_SMART_KEY))
+      && let Ok(parsed) = serde_json::from_value::<StorageHealthSettings>(v.clone())
     {
-      settings.storage_smart = parsed;
+      settings.storage_health = parsed;
     }
-    if let Some(v) = map.get(STORAGE_SMART_IDENTITY_KEY)
+    if let Some(v) = map
+      .get(STORAGE_HEALTH_IDENTITY_KEY)
+      .or_else(|| map.get(LEGACY_STORAGE_SMART_IDENTITY_KEY))
       && let Ok(parsed) =
-        serde_json::from_value::<StorageSmartIdentitySettings>(v.clone())
+        serde_json::from_value::<StorageHealthIdentitySettings>(v.clone())
     {
-      settings.storage_smart_identity = parsed;
+      settings.storage_health_identity = parsed;
     }
     Ok(settings)
   }
 
-  pub fn ensure_storage_smart_identity_key(&mut self) -> Result<bool, String> {
-    self.storage_smart_identity.ensure_hash_key()
+  pub fn ensure_storage_health_identity_key(&mut self) -> Result<bool, String> {
+    self.storage_health_identity.ensure_hash_key()
   }
 
   /// Persist `CoreSettings` to disk, merging into any existing JSON
@@ -134,16 +138,18 @@ impl CoreSettings {
         .map_err(|e| format!("Failed to serialize hardware archive settings: {e}"))?,
     );
     document.insert(
-      STORAGE_SMART_KEY.to_string(),
-      serde_json::to_value(&self.storage_smart)
-        .map_err(|e| format!("Failed to serialize storage SMART settings: {e}"))?,
+      STORAGE_HEALTH_KEY.to_string(),
+      serde_json::to_value(&self.storage_health)
+        .map_err(|e| format!("Failed to serialize storage health settings: {e}"))?,
     );
     document.insert(
-      STORAGE_SMART_IDENTITY_KEY.to_string(),
-      serde_json::to_value(&self.storage_smart_identity).map_err(|e| {
-        format!("Failed to serialize storage SMART identity settings: {e}")
+      STORAGE_HEALTH_IDENTITY_KEY.to_string(),
+      serde_json::to_value(&self.storage_health_identity).map_err(|e| {
+        format!("Failed to serialize storage health identity settings: {e}")
       })?,
     );
+    document.remove(LEGACY_STORAGE_SMART_KEY);
+    document.remove(LEGACY_STORAGE_SMART_IDENTITY_KEY);
 
     let serialized = serde_json::to_string(&serde_json::Value::Object(document))
       .map_err(|e| format!("Failed to serialize settings: {e}"))?;
@@ -191,7 +197,7 @@ mod tests {
           "refreshIntervalDays": 7,
           "scheduledDataDeletion": false
         },
-        "storageSmart": {
+        "storageHealth": {
           "enabled": false,
           "retentionDays": 730
         }
@@ -203,8 +209,8 @@ mod tests {
     assert!(!s.hardware_archive.enabled);
     assert_eq!(s.hardware_archive.refresh_interval_days, 7);
     assert!(!s.hardware_archive.scheduled_data_deletion);
-    assert!(!s.storage_smart.enabled);
-    assert_eq!(s.storage_smart.retention_days, 730);
+    assert!(!s.storage_health.enabled);
+    assert_eq!(s.storage_health.retention_days, 730);
   }
 
   #[test]
@@ -218,7 +224,7 @@ mod tests {
       r#"{
         "theme": "nonexistent_theme",
         "hardwareArchive": {"enabled": false, "refreshIntervalDays": 14, "scheduledDataDeletion": true},
-        "storageSmart": {"enabled": true, "retentionDays": 3650}
+        "storageHealth": {"enabled": true, "retentionDays": 3650}
       }"#,
     )
     .unwrap();
@@ -226,8 +232,48 @@ mod tests {
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
     assert_eq!(s.hardware_archive.refresh_interval_days, 14);
-    assert!(s.storage_smart.enabled);
-    assert_eq!(s.storage_smart.retention_days, 3650);
+    assert!(s.storage_health.enabled);
+    assert_eq!(s.storage_health.retention_days, 3650);
+  }
+
+  #[test]
+  fn load_accepts_legacy_storage_smart_keys() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{
+        "storageSmart": {"enabled": false, "retentionDays": 730},
+        "storageSmartIdentity": {"hashKey": "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"}
+      }"#,
+    )
+    .unwrap();
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+    assert!(!s.storage_health.enabled);
+    assert_eq!(s.storage_health.retention_days, 730);
+    assert_eq!(
+      s.storage_health_identity.hash_key,
+      "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    );
+  }
+
+  #[test]
+  fn load_prefers_new_storage_health_keys_over_legacy_keys() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{
+        "storageHealth": {"enabled": true, "retentionDays": 3650},
+        "storageSmart": {"enabled": false, "retentionDays": 730}
+      }"#,
+    )
+    .unwrap();
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+    assert!(s.storage_health.enabled);
+    assert_eq!(s.storage_health.retention_days, 3650);
   }
 
   #[test]
@@ -248,7 +294,7 @@ mod tests {
         "language": "ja",
         "theme": "light",
         "hardwareArchive": {"enabled": true, "refreshIntervalDays": 30, "scheduledDataDeletion": true},
-        "storageSmart": {"enabled": true, "retentionDays": 1825}
+        "storageHealth": {"enabled": true, "retentionDays": 1825}
       }"#,
     )
     .unwrap();
@@ -256,7 +302,7 @@ mod tests {
     let mut s = CoreSettings::load_from_path(&path).unwrap();
     s.hardware_archive.enabled = false;
     s.hardware_archive.refresh_interval_days = 90;
-    s.storage_smart.retention_days = 3650;
+    s.storage_health.retention_days = 3650;
     s.save_to_path(&path).unwrap();
 
     let written: serde_json::Value =
@@ -269,11 +315,36 @@ mod tests {
       hw.get("refreshIntervalDays").and_then(|v| v.as_u64()),
       Some(90)
     );
-    let storage = written.get("storageSmart").unwrap();
+    let storage = written.get("storageHealth").unwrap();
     assert_eq!(
       storage.get("retentionDays").and_then(|v| v.as_u64()),
       Some(3650)
     );
+    assert!(written.get("storageSmart").is_none());
+  }
+
+  #[test]
+  fn save_removes_legacy_storage_smart_keys() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{
+        "storageSmart": {"enabled": false, "retentionDays": 730},
+        "storageSmartIdentity": {"hashKey": "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"}
+      }"#,
+    )
+    .unwrap();
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+    s.save_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(written.get("storageHealth").is_some());
+    assert!(written.get("storageHealthIdentity").is_some());
+    assert!(written.get("storageSmart").is_none());
+    assert!(written.get("storageSmartIdentity").is_none());
   }
 
   #[test]
@@ -316,8 +387,8 @@ mod tests {
     let written: serde_json::Value =
       serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert!(written.get("hardwareArchive").is_some());
-    assert!(written.get("storageSmart").is_some());
-    assert!(written.get("storageSmartIdentity").is_some());
+    assert!(written.get("storageHealth").is_some());
+    assert!(written.get("storageHealthIdentity").is_some());
   }
 
   #[test]
@@ -331,11 +402,11 @@ mod tests {
         scheduled_data_deletion: false,
         refresh_interval_days: 365,
       },
-      storage_smart: StorageSmartSettings {
+      storage_health: StorageHealthSettings {
         enabled: true,
         retention_days: 3_650,
       },
-      storage_smart_identity: StorageSmartIdentitySettings {
+      storage_health_identity: StorageHealthIdentitySettings {
         hash_key: "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
           .to_string(),
       },
