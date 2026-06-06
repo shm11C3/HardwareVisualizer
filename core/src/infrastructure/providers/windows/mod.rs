@@ -1,4 +1,5 @@
 pub mod adl_provider;
+pub mod device_io;
 pub mod directx;
 pub mod nvapi_provider;
 pub mod pdh_provider;

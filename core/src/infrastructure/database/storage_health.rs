@@ -78,7 +78,21 @@ pub async fn insert_daily_records(
         collected_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      ON CONFLICT(device_id, date) DO NOTHING
+      ON CONFLICT(device_id, date) DO UPDATE SET
+        health_status = excluded.health_status,
+        warning_level = excluded.warning_level,
+        warning_reasons = excluded.warning_reasons,
+        temperature_celsius = excluded.temperature_celsius,
+        power_on_hours = excluded.power_on_hours,
+        percentage_used = excluded.percentage_used,
+        available_spare_percent = excluded.available_spare_percent,
+        reallocated_sector_count = excluded.reallocated_sector_count,
+        current_pending_sector_count = excluded.current_pending_sector_count,
+        offline_uncorrectable_count = excluded.offline_uncorrectable_count,
+        media_errors = excluded.media_errors,
+        error_log_entries = excluded.error_log_entries,
+        unsafe_shutdown_count = excluded.unsafe_shutdown_count,
+        collected_at = excluded.collected_at
       "#,
     )
     .bind(record.device_id)
@@ -333,7 +347,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn insert_daily_records_deduplicates_and_preserves_active_flags() {
+  async fn insert_daily_records_refreshes_same_day_and_preserves_active_flags() {
     let _dir = setup_test_db().await;
     let pool = db::get_pool().await.unwrap();
 
@@ -351,12 +365,21 @@ mod tests {
     .await
     .unwrap();
 
+    // First collection of the day failed to read health data (e.g. all
+    // collectors fell back to minimal CIM data without elevation).
     insert_daily_records(
       vec![device_record("disk-a")],
-      vec![record("disk-a", "2026-05-10")],
+      vec![StorageHealthRecordDraft {
+        health_status: StorageHealthStatus::Unknown,
+        warning_level: StorageWarningLevel::Unknown,
+        temperature_celsius: None,
+        warning_reasons: Vec::new(),
+        ..record("disk-a", "2026-05-10")
+      }],
     )
     .await
     .unwrap();
+    // A later collection on the same day succeeded with full health data.
     insert_daily_records(
       vec![device_record("disk-a"), device_record("disk-b")],
       vec![
@@ -402,8 +425,20 @@ mod tests {
     .await
     .unwrap();
 
+    let disk_a_row: (String, Option<f64>) = sqlx::query_as(
+      "SELECT health_status, temperature_celsius FROM storage_health_daily_records WHERE device_id = $1 AND date = $2",
+    )
+    .bind("disk-a")
+    .bind("2026-05-10")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
     assert_eq!(total_for_date.0, 2);
     assert_eq!(disk_a_count.0, 1);
+    // The same-day record is refreshed with the latest collection result.
+    assert_eq!(disk_a_row.0, "good");
+    assert_eq!(disk_a_row.1, Some(38.0));
     assert_eq!(disk_b_active.0, 1);
     assert_eq!(disk_c_active.0, 1);
     assert_eq!(warning_reasons.0, r#"["test reason"]"#);
