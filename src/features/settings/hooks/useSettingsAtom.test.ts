@@ -42,7 +42,7 @@ vi.mock("@/rspc/bindings", () => ({
     setCloseToTrayPreference: vi.fn(),
     setTrayWidgetSettings: vi.fn(),
     setHardwareArchiveEnabled: vi.fn(),
-    setHardwareArchiveInterval: vi.fn(),
+    setHardwareArchiveRetentionDays: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),
     setStorageHealthRetentionDays: vi.fn(),
   },
@@ -285,8 +285,8 @@ describe("useSettingsAtom", () => {
     );
   });
 
-  it("setHardwareArchiveRefreshIntervalDays: refreshIntervalDays is updated on success", async () => {
-    (commands.setHardwareArchiveInterval as Mock).mockResolvedValue({
+  it("setHardwareArchiveRetentionDays: retentionDays is updated on success", async () => {
+    (commands.setHardwareArchiveRetentionDays as Mock).mockResolvedValue({
       data: null,
     });
 
@@ -294,14 +294,14 @@ describe("useSettingsAtom", () => {
       wrapper: Provider,
     });
     await act(async () => {
-      await result.current.setHardwareArchiveRefreshIntervalDays(7);
+      await result.current.setHardwareArchiveRetentionDays(7);
     });
-    expect(result.current.settings.hardwareArchive.refreshIntervalDays).toBe(7);
+    expect(result.current.settings.hardwareArchive.retentionDays).toBe(7);
   });
 
-  it("setHardwareArchiveRefreshIntervalDays: error() is called on error and refreshIntervalDays is not updated", async () => {
-    const errorMsg = "Failed to set archive interval";
-    (commands.setHardwareArchiveInterval as Mock).mockResolvedValue({
+  it("setHardwareArchiveRetentionDays: error() is called on error and retentionDays is not updated", async () => {
+    const errorMsg = "Failed to set archive retention";
+    (commands.setHardwareArchiveRetentionDays as Mock).mockResolvedValue({
       status: "error",
       error: errorMsg,
     });
@@ -309,13 +309,12 @@ describe("useSettingsAtom", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,
     });
-    const initialDays =
-      result.current.settings.hardwareArchive.refreshIntervalDays;
+    const initialDays = result.current.settings.hardwareArchive.retentionDays;
     await act(async () => {
-      await result.current.setHardwareArchiveRefreshIntervalDays(7);
+      await result.current.setHardwareArchiveRetentionDays(7);
     });
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
-    expect(result.current.settings.hardwareArchive.refreshIntervalDays).toBe(
+    expect(result.current.settings.hardwareArchive.retentionDays).toBe(
       initialDays,
     );
   });

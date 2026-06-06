@@ -483,7 +483,7 @@ mod tests {
     std::fs::write(
       &path,
       r#"{
-        "hardwareArchive": {"enabled": false, "refreshIntervalDays": 90, "scheduledDataDeletion": true},
+        "hardwareArchive": {"enabled": false, "retentionDays": 90, "scheduledDataDeletion": true},
         "storageHealth": {"enabled": true, "retentionDays": 3650},
         "storageHealthIdentity": {"hashKey": "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"}
       }"#,
@@ -496,7 +496,7 @@ mod tests {
 
     assert_eq!(
       value
-        .pointer("/hardwareArchive/refreshIntervalDays")
+        .pointer("/hardwareArchive/retentionDays")
         .and_then(|v| v.as_u64()),
       Some(90)
     );

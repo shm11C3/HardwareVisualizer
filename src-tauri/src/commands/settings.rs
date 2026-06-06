@@ -481,19 +481,18 @@ pub mod commands {
 
   #[tauri::command]
   #[specta::specta]
-  pub async fn set_hardware_archive_interval(
+  pub async fn set_hardware_archive_retention_days(
     window: Window,
     state: tauri::State<'_, AppState>,
-    new_interval: u32,
+    new_retention_days: u32,
   ) -> Result<(), String> {
     // Reject 0: zero retention would mean "delete every record
-    // immediately" via the scheduled cleanup path, which is never what
-    // a user means by entering a refresh interval.
-    if new_interval == 0 {
-      return Err("refresh_interval_days must be greater than 0".to_string());
+    // immediately" via the scheduled cleanup path.
+    if new_retention_days == 0 {
+      return Err("hardware archive retention days must be greater than 0".to_string());
     }
     if let Err(e) = update_core_settings(&state, |s| {
-      s.hardware_archive.refresh_interval_days = new_interval
+      s.hardware_archive.retention_days = new_retention_days
     }) {
       emit_error(&window)?;
       return Err(e);

@@ -116,7 +116,7 @@ pub fn run() {
       settings::commands::set_window_opacity,
       settings::commands::set_temperature_unit,
       settings::commands::set_hardware_archive_enabled,
-      settings::commands::set_hardware_archive_interval,
+      settings::commands::set_hardware_archive_retention_days,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
       settings::commands::set_storage_health_retention_days,
       settings::commands::set_burn_in_shift,
@@ -252,12 +252,12 @@ pub fn run() {
 
         // Retention cleanup runs once per process boot — the pre-Phase-4
         // `batch_delete_old_data` wrapper had the same one-shot semantics.
-        // The setting name `scheduled_data_deletion` is historical; the
-        // refresh trigger is "next app launch", not a recurring schedule.
+        // The `scheduled_data_deletion` flag still means startup cleanup,
+        // not a recurring background schedule.
         // See `hardviz_core::persistence::cleanup_old_data` doc comment.
         if core_settings.hardware_archive.scheduled_data_deletion {
           tauri::async_runtime::spawn(hardviz_core::persistence::cleanup_old_data(
-            core_settings.hardware_archive.refresh_interval_days,
+            core_settings.hardware_archive.retention_days,
           ));
         }
       } else {

@@ -368,7 +368,7 @@ mod tests {
       "backgroundImgOpacity": 80,
       "selectedBackgroundImg": null,
       "temperatureUnit": "F",
-      "hardwareArchive": { "enabled": false, "scheduledDataDeletion": false, "refreshIntervalDays": 7 }
+      "hardwareArchive": { "enabled": false, "scheduledDataDeletion": false, "retentionDays": 7 }
     }"#;
 
     let settings: Settings = serde_json::from_str(old_json).unwrap();
