@@ -14,8 +14,7 @@ jobs:
       matrix:
         platform:
           - windows-latest
-          # - ubuntu-22.04
-          # - macos-latest
+
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository

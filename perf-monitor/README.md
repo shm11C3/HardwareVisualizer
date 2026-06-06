@@ -32,6 +32,8 @@ cargo perf-test -- --binary path/to/hardware-visualizer --warmup 5 --duration 10
 cargo perf-test -- --binary path/to/hardware-visualizer --output json > results.json
 ```
 
+When `--output json` is used, machine-readable JSON is written to stdout and the normal text report is written to stderr. This keeps redirected JSON artifacts valid while still showing the full performance result in CI logs.
+
 ## Configuration
 
 Thresholds are defined in `perf-thresholds.toml` at the repository root.
@@ -40,9 +42,12 @@ Thresholds are defined in `perf-thresholds.toml` at the repository root.
 [thresholds]
 max_avg_cpu_percent = 5.0      # Average CPU (normalized 0-100%)
 max_p95_cpu_percent = 10.0     # 95th percentile CPU
-max_avg_memory_mb = 100.0      # Average RSS in MB
-max_p95_memory_mb = 100.0      # 95th percentile RSS in MB
-max_memory_growth_mb = 50.0    # Memory growth over measurement (leak detection)
+max_avg_app_memory_mb = 100.0  # Average launched app process RSS in MB
+max_p95_app_memory_mb = 100.0  # 95th percentile launched app process RSS in MB
+max_app_memory_growth_mb = 50.0 # App process memory growth over measurement
+max_avg_memory_mb = 450.0      # Average process-tree RSS in MB, including WebView
+max_p95_memory_mb = 500.0      # 95th percentile process-tree RSS in MB, including WebView
+max_memory_growth_mb = 50.0    # Process-tree memory growth over measurement
 
 [timing]
 warmup_seconds = 10            # Skip initial startup spike
@@ -56,44 +61,66 @@ Per-platform threshold overrides can be specified under `[platforms.<os>]`:
 
 ```toml
 [platforms.windows]
-max_avg_memory_mb = 70.0
+max_avg_app_memory_mb = 70.0
+max_p95_app_memory_mb = 100.0
+max_avg_memory_mb = 450.0
+max_p95_memory_mb = 500.0
 
 [platforms.linux]
-max_avg_memory_mb = 70.0
+max_avg_app_memory_mb = 150.0
+max_p95_app_memory_mb = 150.0
+max_avg_memory_mb = 450.0
+max_p95_memory_mb = 500.0
 
 [platforms.macos]
-max_avg_memory_mb = 70.0
+max_avg_app_memory_mb = 150.0
+max_p95_app_memory_mb = 150.0
+max_avg_memory_mb = 550.0
+max_p95_memory_mb = 600.0
 ```
 
 Only the fields you specify are overridden; others inherit from `[thresholds]`.
 
 ## How It Works
 
-1. **Launch** — Spawns the target binary as a subprocess
-2. **Warmup** — Waits for the app to stabilize (skips initialization spike)
-3. **Measure** — Samples CPU and memory at `sample_interval_ms` intervals using `sysinfo`
-4. **Terminate** — Kills the process (RAII guard ensures cleanup on errors)
-5. **Report** — Computes statistics (avg, max, P95, memory growth) and checks against thresholds
+1. **Launch** - Spawns the target binary as a subprocess
+2. **Warmup** - Waits for the app to stabilize (skips initialization spike)
+3. **Measure** - Samples CPU and process-tree RSS at `sample_interval_ms` intervals using `sysinfo`
+4. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
+5. **Report** - Computes statistics (avg, max, P95, memory growth) and checks against thresholds
+
+Memory samples track both the launched app process RSS and the total process-tree RSS that includes associated helper processes. Helpers are discovered by walking the `parent()` chain from the launched PID. Windows and macOS also include WebView helper processes that were created after launch and expose the target app identity in process metadata, because WebView helpers are not always reliably parented under the app PID.
 
 ### Metrics
 
-| Metric           | Description                                                |
-| ---------------- | ---------------------------------------------------------- |
-| CPU Avg / P95    | Process CPU usage normalized by logical CPU count (0-100%) |
-| Memory Avg / P95 | Resident Set Size (RSS) in MB                              |
-| Memory Growth    | Last sample minus first sample (detects obvious leaks)     |
+| Metric           | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| CPU Avg / P95    | Launched process CPU usage normalized by logical CPU count (0-100%)      |
+| App Memory Avg / P95 | Launched app process Resident Set Size (RSS) in MB                   |
+| Total Memory Avg / P95 | Total process-tree RSS in MB, including WebView                  |
+| Memory Growth    | Last RSS sample minus first sample for each memory budget                 |
+| Memory Breakdown | Parent, WebView, and other helper RSS breakdown in text and JSON reports |
 
 ### Exit Code
 
-- `0` — All thresholds passed
-- `1` — One or more thresholds exceeded, or an error occurred
+- `0` - All thresholds passed
+- `1` - One or more thresholds exceeded, or an error occurred
+
+### Troubleshooting
+
+If the monitor fails with `Process exited during warmup (exit status: exit code: 0)`, check for an already-running HardwareVisualizer instance. The app uses Tauri's single-instance plugin, so a second launch can hand off to the existing instance and exit before sampling begins.
+
+```powershell
+Get-Process hardware-visualizer -ErrorAction SilentlyContinue
+Stop-Process -Name hardware-visualizer
+```
 
 ## CI Integration
 
 The GitHub Actions workflow (`.github/workflows/perf-test.yml`) runs daily at 03:00 JST:
 
-- Builds the app and perf-monitor on Windows, Linux, and macOS
-- Runs performance tests on each platform (Linux uses `xvfb-run` for virtual display)
+- Builds the app and perf-monitor on the active performance matrix
+- Currently runs the performance gate on Windows only
 - Uploads JSON results as artifacts
 - Creates a GitHub Issue labeled `performance-regression` if any threshold is exceeded
 
