@@ -172,8 +172,23 @@
         "label": "GPU を選択"
       },
       "storageHealth": {
+        "title": "ストレージヘルス",
+        "stale": "古い",
+        "lastRecorded": "最終記録 {{date}}",
         "errors": {
           "fetchLatest": "ストレージの健康状態データの取得に失敗しました。"
+        },
+        "metrics": {
+          "temperature": "温度",
+          "wear": "消耗率",
+          "spare": "予備領域",
+          "powerOn": "電源投入",
+          "reallocatedSectors": "代替済み",
+          "pendingSectors": "保留中",
+          "uncorrectableSectors": "訂正不能",
+          "mediaErrors": "メディアエラー",
+          "errorLogEntries": "エラーログ",
+          "unsafeShutdowns": "異常シャットダウン"
         },
         "status": {
           "good": "正常",

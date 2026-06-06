@@ -172,8 +172,23 @@
         "label": "Select GPU"
       },
       "storageHealth": {
+        "title": "Storage Health",
+        "stale": "Stale",
+        "lastRecorded": "Last recorded {{date}}",
         "errors": {
           "fetchLatest": "Failed to fetch storage health data."
+        },
+        "metrics": {
+          "temperature": "Temp",
+          "wear": "Wear",
+          "spare": "Spare",
+          "powerOn": "Power-on",
+          "reallocatedSectors": "Reallocated",
+          "pendingSectors": "Pending",
+          "uncorrectableSectors": "Uncorrectable",
+          "mediaErrors": "Media errors",
+          "errorLogEntries": "Error log",
+          "unsafeShutdowns": "Unsafe shutdowns"
         },
         "status": {
           "good": "Good",

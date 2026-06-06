@@ -48,7 +48,10 @@ import { isError } from "@/types/result";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 import {
   buildStorageHealthSummary,
+  formatStorageHealthMetricValue,
   type StorageHealthDeviceViewModel,
+  type StorageHealthMetric,
+  type StorageHealthSummaryViewModel,
 } from "../utils/storageHealthSummary";
 import { MiniLineChart } from "./MiniLineChart";
 import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
@@ -390,9 +393,8 @@ export const StorageDataInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
   const storageHealthErrorShownRef = useRef(false);
-  const [storageHealthDevices, setStorageHealthDevices] = useState<
-    StorageHealthDeviceViewModel[]
-  >([]);
+  const [storageHealthSummary, setStorageHealthSummary] =
+    useState<StorageHealthSummaryViewModel | null>(null);
 
   // Sort by drive name
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
@@ -430,7 +432,7 @@ export const StorageDataInfo = () => {
           "Failed to fetch storage health dashboard records",
           result.error,
         );
-        setStorageHealthDevices([]);
+        setStorageHealthSummary(null);
         if (!storageHealthErrorShownRef.current) {
           storageHealthErrorShownRef.current = true;
           void error(
@@ -441,7 +443,7 @@ export const StorageDataInfo = () => {
       }
 
       storageHealthErrorShownRef.current = false;
-      setStorageHealthDevices(buildStorageHealthSummary(result.data).devices);
+      setStorageHealthSummary(buildStorageHealthSummary(result.data));
     };
 
     loadStorageHealthDevices();
@@ -455,7 +457,7 @@ export const StorageDataInfo = () => {
 
   return (
     <div className="pt-2">
-      <StorageDeviceHealthOverview devices={storageHealthDevices} />
+      <StorageHealthOverview summary={storageHealthSummary} />
       <div
         className={storageDataInfoGridVariants({ isWindows: os === "windows" })}
       >
@@ -505,6 +507,107 @@ export const StorageDataInfo = () => {
   );
 };
 
+const storageHealthMetricLabelKeys = {
+  temperatureCelsius: "pages.dashboard.storageHealth.metrics.temperature",
+  percentageUsed: "pages.dashboard.storageHealth.metrics.wear",
+  availableSparePercent: "pages.dashboard.storageHealth.metrics.spare",
+  powerOnHours: "pages.dashboard.storageHealth.metrics.powerOn",
+  reallocatedSectorCount:
+    "pages.dashboard.storageHealth.metrics.reallocatedSectors",
+  currentPendingSectorCount:
+    "pages.dashboard.storageHealth.metrics.pendingSectors",
+  offlineUncorrectableCount:
+    "pages.dashboard.storageHealth.metrics.uncorrectableSectors",
+  mediaErrors: "pages.dashboard.storageHealth.metrics.mediaErrors",
+  errorLogEntries: "pages.dashboard.storageHealth.metrics.errorLogEntries",
+  unsafeShutdownCount: "pages.dashboard.storageHealth.metrics.unsafeShutdowns",
+} as const satisfies Record<StorageHealthMetric["type"], string>;
+
+const StorageHealthOverview = ({
+  summary,
+}: {
+  summary: StorageHealthSummaryViewModel | null;
+}) => {
+  const { t } = useTranslation();
+
+  if (!summary || summary.driveCount === 0) return null;
+
+  const focusDeviceLabel =
+    summary.focusDevice?.model?.trim() ||
+    summary.focusDevice?.displayName ||
+    null;
+
+  return (
+    <div
+      className={cn(
+        "mb-3 space-y-2 border-border/60 border-b pb-3",
+        summary.isStale && "opacity-70",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <StorageHealthStatusIcon status={summary.status} size={17} />
+          <span className="shrink-0 font-medium text-sm">
+            {t("pages.dashboard.storageHealth.title")}
+          </span>
+          {focusDeviceLabel && (
+            <span
+              className="truncate text-muted-foreground text-xs"
+              title={focusDeviceLabel}
+            >
+              {focusDeviceLabel}
+            </span>
+          )}
+          {summary.isStale && (
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {t("pages.dashboard.storageHealth.stale")}
+            </span>
+          )}
+        </div>
+        {summary.latestDate && (
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {t("pages.dashboard.storageHealth.lastRecorded", {
+              date: summary.latestDate,
+            })}
+          </span>
+        )}
+      </div>
+
+      {summary.metrics.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {summary.metrics.map((metric) => (
+            <div
+              key={metric.type}
+              className="min-w-0 rounded-sm bg-muted/40 px-2 py-1"
+            >
+              <div className="truncate text-[10px] text-muted-foreground">
+                {t(storageHealthMetricLabelKeys[metric.type])}
+              </div>
+              <div className="truncate font-mono text-xs">
+                {formatStorageHealthMetricValue(metric)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {summary.reasons.length > 0 && (
+        <ul className="space-y-0.5 text-amber-600 text-xs dark:text-amber-400">
+          {summary.reasons.map((reason) => (
+            <li key={reason} className="truncate" title={reason}>
+              {reason}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {summary.devices.length > 1 && (
+        <StorageDeviceHealthOverview devices={summary.devices} />
+      )}
+    </div>
+  );
+};
+
 const StorageDeviceHealthOverview = ({
   devices,
 }: {
@@ -513,7 +616,7 @@ const StorageDeviceHealthOverview = ({
   if (devices.length === 0) return null;
 
   return (
-    <div className="mb-2 grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto border-border/60 border-b pb-2 sm:grid-cols-2">
+    <div className="grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
       {devices.map((device) => (
         <div
           key={device.deviceId}

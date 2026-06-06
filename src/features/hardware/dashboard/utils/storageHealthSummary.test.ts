@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { StorageHealthRecord } from "@/rspc/bindings";
-import { buildStorageHealthSummary } from "./storageHealthSummary";
+import {
+  buildStorageHealthSummary,
+  formatStorageHealthMetricValue,
+} from "./storageHealthSummary";
 
 const record = (
   overrides: Partial<StorageHealthRecord> = {},
@@ -103,13 +106,72 @@ describe("buildStorageHealthSummary", () => {
       "Temperature is elevated (47°C)",
     ]);
     expect(summary.metrics).toEqual([
-      { type: "percentageUsed", value: 82 },
       { type: "temperatureCelsius", value: 47 },
+      { type: "percentageUsed", value: 82 },
+      { type: "powerOnHours", value: 100 },
     ]);
     expect(summary.devices[0]).toEqual({
       deviceId: "disk-b",
       label: "Example SSD",
       status: "warning",
+    });
+  });
+
+  it("exposes healthy storage health metrics when values were collected", () => {
+    const summary = buildStorageHealthSummary(
+      [
+        record({
+          temperatureCelsius: 44,
+          percentageUsed: 0,
+          availableSparePercent: 100,
+          powerOnHours: 118,
+        }),
+      ],
+      new Date("2026-05-10T10:00:00"),
+    );
+
+    expect(summary.metrics).toEqual([
+      { type: "temperatureCelsius", value: 44 },
+      { type: "percentageUsed", value: 0 },
+      { type: "availableSparePercent", value: 100 },
+      { type: "powerOnHours", value: 118 },
+    ]);
+  });
+
+  it("only exposes nonzero storage health counter metrics", () => {
+    const summary = buildStorageHealthSummary(
+      [
+        record({
+          currentPendingSectorCount: 0,
+          offlineUncorrectableCount: 0,
+          reallocatedSectorCount: 2,
+          mediaErrors: 0,
+          errorLogEntries: 3,
+          unsafeShutdownCount: 6,
+        }),
+      ],
+      new Date("2026-05-10T10:00:00"),
+    );
+
+    expect(summary.metrics).toContainEqual({
+      type: "reallocatedSectorCount",
+      value: 2,
+    });
+    expect(summary.metrics).toContainEqual({
+      type: "errorLogEntries",
+      value: 3,
+    });
+    expect(summary.metrics).toContainEqual({
+      type: "unsafeShutdownCount",
+      value: 6,
+    });
+    expect(summary.metrics).not.toContainEqual({
+      type: "currentPendingSectorCount",
+      value: 0,
+    });
+    expect(summary.metrics).not.toContainEqual({
+      type: "mediaErrors",
+      value: 0,
     });
   });
 
@@ -194,5 +256,65 @@ describe("buildStorageHealthSummary", () => {
         status: "unknown",
       },
     ]);
+  });
+
+  it("excludes records from devices missing in the latest collection date", () => {
+    const summary = buildStorageHealthSummary(
+      [
+        record({
+          deviceId: "disk-a",
+          displayName: "Current Disk",
+          date: "2026-05-10",
+          healthStatus: "good",
+          warningLevel: "none",
+        }),
+        record({
+          deviceId: "disk-b",
+          displayName: "Removed Disk",
+          date: "2026-05-08",
+          healthStatus: "critical",
+          warningLevel: "critical",
+          warningReasons: ["Current pending sectors are present"],
+        }),
+      ],
+      new Date("2026-05-10T10:00:00"),
+    );
+
+    expect(summary.status).toBe("good");
+    expect(summary.driveCount).toBe(1);
+    expect(summary.focusDevice?.displayName).toBe("Current Disk");
+    expect(summary.devices).toEqual([
+      {
+        deviceId: "disk-a",
+        label: "Example SSD",
+        status: "good",
+      },
+    ]);
+  });
+});
+
+describe("formatStorageHealthMetricValue", () => {
+  it("formats dashboard storage health metric values with compact units", () => {
+    expect(
+      formatStorageHealthMetricValue({
+        type: "temperatureCelsius",
+        value: 44.4,
+      }),
+    ).toBe("44°C");
+    expect(
+      formatStorageHealthMetricValue({ type: "percentageUsed", value: 0 }),
+    ).toBe("0%");
+    expect(
+      formatStorageHealthMetricValue({
+        type: "availableSparePercent",
+        value: 99.6,
+      }),
+    ).toBe("100%");
+    expect(
+      formatStorageHealthMetricValue({ type: "powerOnHours", value: 118 }),
+    ).toBe("118 h");
+    expect(
+      formatStorageHealthMetricValue({ type: "mediaErrors", value: 3 }),
+    ).toBe("3");
   });
 });
