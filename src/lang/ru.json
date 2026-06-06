@@ -161,8 +161,23 @@
         "label": "Выберите ГП"
       },
       "storageHealth": {
+        "title": "Состояние накопителя",
+        "stale": "Устарело",
+        "lastRecorded": "Последняя запись {{date}}",
         "errors": {
           "fetchLatest": "Не удалось получить данные о состоянии накопителя."
+        },
+        "metrics": {
+          "temperature": "Темп.",
+          "wear": "Износ",
+          "spare": "Резерв",
+          "powerOn": "Время работы",
+          "reallocatedSectors": "Переназн.",
+          "pendingSectors": "Ожидают",
+          "uncorrectableSectors": "Неисправ.",
+          "mediaErrors": "Ошибки носителя",
+          "errorLogEntries": "Журнал ошибок",
+          "unsafeShutdowns": "Авар. выкл."
         },
         "status": {
           "good": "Хорошо",

@@ -98,6 +98,14 @@ _Avoid_: SMART display, dashboard health row
 A daily record of storage device health signals for one storage device on one local date.
 _Avoid_: Storage Health Snapshot, Hardware archive, raw SMART data, dashboard item
 
+**Storage Wear**:
+A storage health signal estimating how much of a storage device's expected lifetime has been consumed, distinct from capacity usage.
+_Avoid_: Used, disk usage, capacity used, storage utilization
+
 **Storage Health Display**:
 Presenting already available Storage Health Records in the user interface, including dashboard summaries and historical views.
 _Avoid_: SMART collection, storage health acquisition
+
+**Focus Storage Device**:
+The storage device surfaced first in a Storage Health Display because its health state most needs the user's attention.
+_Avoid_: Representative drive, selected disk, SMART target

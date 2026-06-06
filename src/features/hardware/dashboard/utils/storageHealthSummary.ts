@@ -3,13 +3,16 @@ import type { StorageHealthRecord, StorageHealthStatus } from "@/rspc/bindings";
 export const STORAGE_HEALTH_STALE_AFTER_DAYS = 2;
 
 export type StorageHealthMetric =
-  | { type: "percentageUsed"; value: number }
   | { type: "temperatureCelsius"; value: number }
+  | { type: "percentageUsed"; value: number }
   | { type: "availableSparePercent"; value: number }
+  | { type: "powerOnHours"; value: number }
   | { type: "reallocatedSectorCount"; value: number }
   | { type: "currentPendingSectorCount"; value: number }
   | { type: "offlineUncorrectableCount"; value: number }
-  | { type: "mediaErrors"; value: number };
+  | { type: "mediaErrors"; value: number }
+  | { type: "errorLogEntries"; value: number }
+  | { type: "unsafeShutdownCount"; value: number };
 
 export type StorageHealthDeviceViewModel = {
   deviceId: string;
@@ -60,13 +63,16 @@ export const buildStorageHealthSummary = (
     (latest, record) => (record.date > latest ? record.date : latest),
     records[0].date,
   );
-  const lastCollectedAt = records.reduce(
+  const recordsForDisplay = records.filter(
+    (record) => record.date === latestDate,
+  );
+  const lastCollectedAt = recordsForDisplay.reduce(
     (latest, record) =>
       record.collectedAt > latest ? record.collectedAt : latest,
-    records[0].collectedAt,
+    recordsForDisplay[0].collectedAt,
   );
   const maxTemperatureCelsius = maxNumber(
-    records.map((record) => record.temperatureCelsius),
+    recordsForDisplay.map((record) => record.temperatureCelsius),
   );
   const isStale =
     daysBetweenDateKeys(toLocalDateKey(now), latestDate) >
@@ -75,7 +81,7 @@ export const buildStorageHealthSummary = (
   if (isStale) {
     return {
       status: "unknown",
-      driveCount: records.length,
+      driveCount: recordsForDisplay.length,
       maxTemperatureCelsius,
       lastCollectedAt,
       latestDate,
@@ -83,11 +89,11 @@ export const buildStorageHealthSummary = (
       focusDevice: null,
       reasons: [],
       metrics: [],
-      devices: buildDeviceList(records, true),
+      devices: buildDeviceList(recordsForDisplay, true),
     };
   }
 
-  const orderedRecords = [...records].sort((a, b) => {
+  const orderedRecords = [...recordsForDisplay].sort((a, b) => {
     const rankDiff = healthRank[b.healthStatus] - healthRank[a.healthStatus];
     if (rankDiff !== 0) return rankDiff;
     return a.displayName.localeCompare(b.displayName);
@@ -96,16 +102,14 @@ export const buildStorageHealthSummary = (
 
   return {
     status: focusDevice?.healthStatus ?? "unknown",
-    driveCount: records.length,
+    driveCount: recordsForDisplay.length,
     maxTemperatureCelsius,
     lastCollectedAt,
     latestDate,
     isStale: false,
     focusDevice,
     reasons: focusDevice?.warningReasons.slice(0, 2) ?? [],
-    metrics: focusDevice
-      ? collectMetrics(focusDevice, maxTemperatureCelsius)
-      : [],
+    metrics: focusDevice ? collectMetrics(focusDevice) : [],
     devices: buildDeviceList(orderedRecords, false),
   };
 };
@@ -121,20 +125,17 @@ const buildDeviceList = (
   }));
 };
 
-const collectMetrics = (
-  record: StorageHealthRecord,
-  maxTemperatureCelsius: number | null,
-): StorageHealthMetric[] => {
+const collectMetrics = (record: StorageHealthRecord): StorageHealthMetric[] => {
   const metrics: StorageHealthMetric[] = [];
 
-  if (record.percentageUsed != null) {
-    metrics.push({ type: "percentageUsed", value: record.percentageUsed });
-  }
-  if (maxTemperatureCelsius != null) {
+  if (record.temperatureCelsius != null) {
     metrics.push({
       type: "temperatureCelsius",
-      value: maxTemperatureCelsius,
+      value: record.temperatureCelsius,
     });
+  }
+  if (record.percentageUsed != null) {
+    metrics.push({ type: "percentageUsed", value: record.percentageUsed });
   }
   if (record.availableSparePercent != null) {
     metrics.push({
@@ -142,29 +143,68 @@ const collectMetrics = (
       value: record.availableSparePercent,
     });
   }
-  if (record.currentPendingSectorCount != null) {
+  if (record.powerOnHours != null) {
+    metrics.push({
+      type: "powerOnHours",
+      value: record.powerOnHours,
+    });
+  }
+  if (hasCount(record.currentPendingSectorCount)) {
     metrics.push({
       type: "currentPendingSectorCount",
       value: record.currentPendingSectorCount,
     });
   }
-  if (record.offlineUncorrectableCount != null) {
+  if (hasCount(record.offlineUncorrectableCount)) {
     metrics.push({
       type: "offlineUncorrectableCount",
       value: record.offlineUncorrectableCount,
     });
   }
-  if (record.reallocatedSectorCount != null) {
+  if (hasCount(record.reallocatedSectorCount)) {
     metrics.push({
       type: "reallocatedSectorCount",
       value: record.reallocatedSectorCount,
     });
   }
-  if (record.mediaErrors != null) {
+  if (hasCount(record.mediaErrors)) {
     metrics.push({ type: "mediaErrors", value: record.mediaErrors });
   }
+  if (hasCount(record.errorLogEntries)) {
+    metrics.push({ type: "errorLogEntries", value: record.errorLogEntries });
+  }
+  if (hasCount(record.unsafeShutdownCount)) {
+    metrics.push({
+      type: "unsafeShutdownCount",
+      value: record.unsafeShutdownCount,
+    });
+  }
 
-  return metrics.slice(0, 2);
+  return metrics;
+};
+
+const hasCount = (value: number | null | undefined): value is number =>
+  value != null && value > 0;
+
+export const formatStorageHealthMetricValue = (
+  metric: StorageHealthMetric,
+): string => {
+  switch (metric.type) {
+    case "temperatureCelsius":
+      return `${Math.round(metric.value)}°C`;
+    case "percentageUsed":
+    case "availableSparePercent":
+      return `${Math.round(metric.value)}%`;
+    case "powerOnHours":
+      return `${Math.round(metric.value)} h`;
+    case "reallocatedSectorCount":
+    case "currentPendingSectorCount":
+    case "offlineUncorrectableCount":
+    case "mediaErrors":
+    case "errorLogEntries":
+    case "unsafeShutdownCount":
+      return `${Math.round(metric.value)}`;
+  }
 };
 
 const maxNumber = (values: Array<number | null | undefined>) => {
