@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use hardviz_core::models::{GpuMetric, MetricsSnapshot};
 use tauri::Manager as _;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
@@ -19,17 +21,41 @@ use tauri_specta::Event as _;
 pub struct WindowAdapter {
   handle: tauri::async_runtime::JoinHandle<()>,
   stop_tx: watch::Sender<bool>,
+  latest_snapshot: LatestWindowSnapshot,
+}
+
+#[derive(Clone, Default)]
+struct LatestWindowSnapshot {
+  inner: Arc<Mutex<Option<MetricsSnapshot>>>,
+}
+
+impl LatestWindowSnapshot {
+  fn store(&self, snapshot: MetricsSnapshot) {
+    if let Ok(mut latest) = self.inner.lock() {
+      latest.replace(snapshot);
+    }
+  }
+
+  fn load(&self) -> Option<MetricsSnapshot> {
+    self.inner.lock().ok().and_then(|latest| latest.clone())
+  }
 }
 
 impl WindowAdapter {
   pub fn setup(app_handle: tauri::AppHandle, mut rx: Receiver<MetricsSnapshot>) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
+    let latest_snapshot = LatestWindowSnapshot::default();
+    let latest_for_task = latest_snapshot.clone();
 
     let handle = tauri::async_runtime::spawn(async move {
       loop {
         tokio::select! {
           result = rx.recv() => match result {
-            Ok(snapshot) => emit_snapshot(&app_handle, snapshot),
+            Ok(snapshot) => {
+              let snapshot = to_window_snapshot(snapshot);
+              latest_for_task.store(snapshot.clone());
+              emit_snapshot(&app_handle, snapshot);
+            }
             Err(RecvError::Lagged(skipped)) => {
               log_warn!(
                 &format!("WindowAdapter lagged, dropped {skipped} snapshot(s)"),
@@ -48,7 +74,17 @@ impl WindowAdapter {
       }
     });
 
-    Self { handle, stop_tx }
+    Self {
+      handle,
+      stop_tx,
+      latest_snapshot,
+    }
+  }
+
+  pub fn emit_latest_if_visible(&self, app_handle: &tauri::AppHandle) {
+    if let Some(snapshot) = self.latest_snapshot.load() {
+      emit_snapshot(app_handle, snapshot);
+    }
   }
 
   pub async fn terminate(self) {
@@ -57,7 +93,16 @@ impl WindowAdapter {
   }
 }
 
+fn to_window_snapshot(mut snapshot: MetricsSnapshot) -> MetricsSnapshot {
+  snapshot.processes.clear();
+  snapshot
+}
+
 fn emit_snapshot(app_handle: &tauri::AppHandle, snapshot: MetricsSnapshot) {
+  if !should_emit_for_main_window(main_window_state(app_handle)) {
+    return;
+  }
+
   let temp_unit = current_temperature_unit(app_handle);
   let payload = to_hardware_monitor_update(snapshot, &temp_unit);
   if let Err(e) = payload.emit(app_handle) {
@@ -67,6 +112,24 @@ fn emit_snapshot(app_handle: &tauri::AppHandle, snapshot: MetricsSnapshot) {
       None::<&str>
     );
   }
+}
+
+#[derive(Clone, Copy)]
+struct MainWindowState {
+  is_visible: bool,
+  is_minimized: bool,
+}
+
+fn main_window_state(app_handle: &tauri::AppHandle) -> Option<MainWindowState> {
+  let window = app_handle.get_webview_window("main")?;
+  Some(MainWindowState {
+    is_visible: window.is_visible().ok()?,
+    is_minimized: window.is_minimized().ok()?,
+  })
+}
+
+fn should_emit_for_main_window(state: Option<MainWindowState>) -> bool {
+  state.is_some_and(|state| state.is_visible && !state.is_minimized)
 }
 
 /// Read the user's preferred temperature unit from `settings::AppState`.
@@ -135,6 +198,16 @@ mod tests {
       gpu_source: "Test".to_string(),
       gpu_dedicated_memory_usage_kb: Some(1024.0),
       gpu_cooler_level: Some(40),
+    }
+  }
+
+  fn make_snapshot(cpu_usage: f32) -> MetricsSnapshot {
+    MetricsSnapshot {
+      cpu_usage,
+      memory_usage: 67.0,
+      processors_usage: vec![10.0, 20.0],
+      gpus: vec![],
+      processes: vec![],
     }
   }
 
@@ -262,5 +335,51 @@ mod tests {
       convert_temperature(-40.0, &TemperatureUnit::Fahrenheit),
       -40.0
     );
+  }
+
+  #[test]
+  fn main_window_visibility_gates_emission() {
+    assert!(should_emit_for_main_window(Some(MainWindowState {
+      is_visible: true,
+      is_minimized: false,
+    })));
+    assert!(!should_emit_for_main_window(Some(MainWindowState {
+      is_visible: false,
+      is_minimized: false,
+    })));
+    assert!(!should_emit_for_main_window(Some(MainWindowState {
+      is_visible: true,
+      is_minimized: true,
+    })));
+    assert!(!should_emit_for_main_window(None));
+  }
+
+  #[test]
+  fn latest_window_snapshot_keeps_the_most_recent_snapshot() {
+    let latest = LatestWindowSnapshot::default();
+    assert!(latest.load().is_none());
+
+    latest.store(make_snapshot(1.0));
+    latest.store(make_snapshot(2.0));
+
+    assert_eq!(latest.load().unwrap().cpu_usage, 2.0);
+  }
+
+  #[test]
+  fn window_snapshot_omits_process_samples() {
+    let mut snapshot = make_snapshot(1.0);
+    snapshot
+      .processes
+      .push(hardviz_core::models::ProcessSample {
+        pid: 42,
+        name: "test-process".into(),
+        cpu_usage: 5.0,
+        memory_kb: 1024.0,
+        run_time_secs: 60,
+      });
+
+    let snapshot = to_window_snapshot(snapshot);
+
+    assert!(snapshot.processes.is_empty());
   }
 }

@@ -73,12 +73,20 @@ const makePayload = (
   };
 };
 
+const setDocumentHidden = (hidden: boolean) => {
+  Object.defineProperty(document, "hidden", {
+    configurable: true,
+    value: hidden,
+  });
+};
+
 // ── Tests ──
 
 describe("useHardwareEventListener", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedCallback = null;
+    setDocumentHidden(false);
   });
 
   // ── Listener registration / cleanup ──
@@ -119,6 +127,22 @@ describe("useHardwareEventListener", () => {
     const history = result.current;
     expect(history).toHaveLength(chartConfig.historyLengthSec);
     expect(history[history.length - 1]).toBe(42);
+  });
+
+  it("ignores hardware update events while the document is hidden", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [history] = useAtom(cpuUsageHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    setDocumentHidden(true);
+    act(() => emit(makePayload({ cpuUsage: 42 })));
+
+    expect(result.current).toEqual([]);
   });
 
   // ── Memory history ──
