@@ -89,7 +89,7 @@ Only the fields you specify are overridden; others inherit from `[thresholds]`.
 4. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
 5. **Report** - Computes statistics (avg, max, P95, memory growth) and checks against thresholds
 
-Memory samples track both the launched app process RSS and the total process-tree RSS that includes associated helper processes. Windows and Linux helpers are discovered by walking the `parent()` chain from the launched PID. Windows and macOS also include WebView helper processes created after launch, because WebView helpers are not always reliably parented under the app PID.
+Memory samples track both the launched app process RSS and the total process-tree RSS that includes associated helper processes. Helpers are discovered by walking the `parent()` chain from the launched PID. Windows and macOS also include WebView helper processes that were created after launch and expose the target app identity in process metadata, because WebView helpers are not always reliably parented under the app PID.
 
 ### Metrics
 
@@ -120,7 +120,7 @@ Stop-Process -Name hardware-visualizer
 The GitHub Actions workflow (`.github/workflows/perf-test.yml`) runs daily at 03:00 JST:
 
 - Builds the app and perf-monitor on the active performance matrix
-- Currently runs the performance gate on Windows; Linux and macOS commands are present in the workflow but their matrix entries are disabled
+- Currently runs the performance gate on Windows only
 - Uploads JSON results as artifacts
 - Creates a GitHub Issue labeled `performance-regression` if any threshold is exceeded
 

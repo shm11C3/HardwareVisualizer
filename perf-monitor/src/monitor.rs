@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
-use std::io::Read as _;
+use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::thread;
+use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use sysinfo::{Pid, Process, ProcessesToUpdate, System};
@@ -10,6 +11,8 @@ use sysinfo::{Pid, Process, ProcessesToUpdate, System};
 use crate::config::Timing;
 
 const BYTES_PER_MIB: f64 = 1024.0 * 1024.0;
+const STDERR_BUFFER_LIMIT_BYTES: usize = 64 * 1024;
+const STDERR_READ_CHUNK_BYTES: usize = 8 * 1024;
 const WEBVIEW_PROCESS_MARKERS: &[&str] = &[
   "msedgewebview2",
   "webkitwebprocess",
@@ -66,11 +69,11 @@ struct ProcessTracker {
   root_pid: Pid,
   #[cfg(any(target_os = "windows", target_os = "macos"))]
   preexisting_webview_pids: HashSet<Pid>,
-  #[cfg(target_os = "macos")]
+  #[cfg(any(target_os = "windows", target_os = "macos"))]
   app_identity: AppIdentity,
 }
 
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(any(test, target_os = "windows", target_os = "macos"))]
 #[derive(Debug)]
 struct AppIdentity {
   tokens: Vec<String>,
@@ -94,13 +97,91 @@ struct ProcessMemoryBreakdown {
 }
 
 /// RAII guard that ensures the child process is terminated on drop.
-struct ProcessGuard(Child);
+struct ProcessGuard {
+  child: Child,
+  stderr_buffer: StderrBuffer,
+  stderr_reader: Option<JoinHandle<()>>,
+}
+
+#[derive(Clone, Debug)]
+struct StderrBuffer {
+  inner: Arc<Mutex<Vec<u8>>>,
+  limit_bytes: usize,
+}
+
+impl StderrBuffer {
+  fn new(limit_bytes: usize) -> Self {
+    Self {
+      inner: Arc::new(Mutex::new(Vec::new())),
+      limit_bytes,
+    }
+  }
+
+  fn append(&self, bytes: &[u8]) {
+    if bytes.is_empty() || self.limit_bytes == 0 {
+      return;
+    }
+
+    let mut buffer = self
+      .inner
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if bytes.len() >= self.limit_bytes {
+      buffer.clear();
+      buffer.extend_from_slice(&bytes[bytes.len() - self.limit_bytes..]);
+      return;
+    }
+
+    let overflow = buffer
+      .len()
+      .saturating_add(bytes.len())
+      .saturating_sub(self.limit_bytes);
+    if overflow > 0 {
+      buffer.drain(..overflow);
+    }
+    buffer.extend_from_slice(bytes);
+  }
+
+  fn to_string_lossy(&self) -> Option<String> {
+    let buffer = self
+      .inner
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if buffer.is_empty() {
+      None
+    } else {
+      Some(String::from_utf8_lossy(&buffer).into_owned())
+    }
+  }
+}
+
+impl ProcessGuard {
+  fn new(mut child: Child) -> Self {
+    let stderr_buffer = StderrBuffer::new(STDERR_BUFFER_LIMIT_BYTES);
+    let stderr_reader = child
+      .stderr
+      .take()
+      .map(|stderr| spawn_stderr_reader(stderr, stderr_buffer.clone()));
+
+    Self {
+      child,
+      stderr_buffer,
+      stderr_reader,
+    }
+  }
+}
 
 impl Drop for ProcessGuard {
   fn drop(&mut self) {
     eprintln!("Terminating process...");
-    let _ = self.0.kill();
-    let _ = self.0.wait();
+    let _ = self.child.kill();
+    let _ = self.child.wait();
+
+    if let Some(reader) = self.stderr_reader.take() {
+      let _ = reader.join();
+    }
   }
 }
 
@@ -110,8 +191,8 @@ pub fn run_monitor(
 ) -> Result<MonitorResult, Box<dyn std::error::Error>> {
   let preexisting_webview_pids = collect_preexisting_webview_pids();
 
-  let mut guard = ProcessGuard(launch_process(binary_path)?);
-  let pid = Pid::from_u32(guard.0.id());
+  let mut guard = launch_process(binary_path)?;
+  let pid = Pid::from_u32(guard.child.id());
   let tracker = ProcessTracker::new(pid, binary_path, preexisting_webview_pids);
   let num_cpus = thread::available_parallelism()
     .map(|n| n.get() as f32)
@@ -127,7 +208,7 @@ pub fn run_monitor(
   // Warmup phase: wait for app to stabilize
   for _ in 0..timing.warmup_seconds {
     thread::sleep(Duration::from_secs(1));
-    if guard.0.try_wait()?.is_some() {
+    if guard.child.try_wait()?.is_some() {
       return Err(format_exit_error(&mut guard, "warmup", binary_path));
     }
     system.refresh_processes(ProcessesToUpdate::All, true);
@@ -146,7 +227,7 @@ pub fn run_monitor(
   for _ in 0..total_samples {
     thread::sleep(interval);
 
-    if guard.0.try_wait()?.is_some() {
+    if guard.child.try_wait()?.is_some() {
       return Err(format_exit_error(&mut guard, "measurement", binary_path));
     }
 
@@ -155,7 +236,7 @@ pub fn run_monitor(
     if let Some(sample) = tracker.sample(&system, num_cpus) {
       samples.push(sample);
     } else {
-      if guard.0.try_wait()?.is_some() {
+      if guard.child.try_wait()?.is_some() {
         return Err(format_exit_error(&mut guard, "measurement", binary_path));
       }
       return Err("Process disappeared during measurement".into());
@@ -193,10 +274,10 @@ impl ProcessTracker {
 
     #[cfg(target_os = "windows")]
     {
-      let _ = binary_path;
       Self {
         root_pid,
         preexisting_webview_pids,
+        app_identity: AppIdentity::from_binary_path(binary_path),
       }
     }
 
@@ -279,11 +360,16 @@ impl ProcessTracker {
 
   #[cfg(target_os = "windows")]
   fn is_associated_windows_webview(&self, pid: Pid, process: &ProcessSnapshot) -> bool {
-    is_associated_webview_snapshot(&self.preexisting_webview_pids, pid, process)
+    is_associated_webview_snapshot(
+      &self.preexisting_webview_pids,
+      Some(&self.app_identity),
+      pid,
+      process,
+    )
   }
 }
 
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(any(test, target_os = "windows", target_os = "macos"))]
 impl AppIdentity {
   fn from_binary_path(binary_path: &Path) -> Self {
     let mut tokens = Vec::new();
@@ -315,7 +401,7 @@ impl AppIdentity {
   }
 }
 
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(any(test, target_os = "windows", target_os = "macos"))]
 fn push_identity_token(tokens: &mut Vec<String>, token: &str) {
   let normalized = token.to_ascii_lowercase();
   if !normalized.is_empty() && !tokens.contains(&normalized) {
@@ -328,7 +414,7 @@ fn push_identity_token(tokens: &mut Vec<String>, token: &str) {
   }
 }
 
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(any(test, target_os = "windows", target_os = "macos"))]
 fn compact_token(token: &str) -> String {
   token
     .chars()
@@ -337,10 +423,28 @@ fn compact_token(token: &str) -> String {
     .collect()
 }
 
-fn launch_process(binary_path: &Path) -> Result<Child, Box<dyn std::error::Error>> {
+fn launch_process(
+  binary_path: &Path,
+) -> Result<ProcessGuard, Box<dyn std::error::Error>> {
   let child = Command::new(binary_path).stderr(Stdio::piped()).spawn()?;
   eprintln!("Launched process with PID: {}", child.id());
-  Ok(child)
+  Ok(ProcessGuard::new(child))
+}
+
+fn spawn_stderr_reader<R>(mut stderr: R, buffer: StderrBuffer) -> JoinHandle<()>
+where
+  R: Read + Send + 'static,
+{
+  thread::spawn(move || {
+    let mut chunk = [0; STDERR_READ_CHUNK_BYTES];
+    loop {
+      match stderr.read(&mut chunk) {
+        Ok(0) => break,
+        Ok(bytes_read) => buffer.append(&chunk[..bytes_read]),
+        Err(_) => break,
+      }
+    }
+  })
 }
 
 fn format_exit_error(
@@ -348,12 +452,8 @@ fn format_exit_error(
   phase: &str,
   binary_path: &Path,
 ) -> Box<dyn std::error::Error> {
-  let status = guard.0.try_wait().ok().flatten();
-  let stderr = guard.0.stderr.take().and_then(|mut s| {
-    let mut buf = String::new();
-    s.read_to_string(&mut buf).ok()?;
-    if buf.is_empty() { None } else { Some(buf) }
-  });
+  let status = guard.child.try_wait().ok().flatten();
+  let stderr = guard.stderr_buffer.to_string_lossy();
 
   format_exit_message(
     phase,
@@ -503,40 +603,23 @@ fn is_associated_macos_webview_snapshot(
   pid: Pid,
   process: &ProcessSnapshot,
 ) -> bool {
+  is_associated_webview_snapshot(preexisting_webview_pids, app_identity, pid, process)
+}
+
+#[cfg(any(test, target_os = "windows", target_os = "macos"))]
+fn is_associated_webview_snapshot(
+  preexisting_webview_pids: &HashSet<Pid>,
+  app_identity: Option<&AppIdentity>,
+  pid: Pid,
+  process: &ProcessSnapshot,
+) -> bool {
   if preexisting_webview_pids.contains(&pid)
     || !is_webview_process_text(&process.search_text)
   {
     return false;
   }
 
-  if app_identity.is_some_and(|identity| identity.matches_text(&process.search_text)) {
-    return true;
-  }
-
-  // sysinfo does not expose macOS responsibility metadata. The monitor runs in
-  // an isolated CI session, so newly-created WebKit helpers are treated as
-  // associated after excluding helpers that existed before launch.
-  true
-}
-
-#[cfg(any(test, target_os = "windows"))]
-fn is_associated_webview_snapshot(
-  preexisting_webview_pids: &HashSet<Pid>,
-  pid: Pid,
-  process: &ProcessSnapshot,
-) -> bool {
-  if preexisting_webview_pids.contains(&pid) {
-    return false;
-  }
-
-  // WebView2 helper processes are not always reported as descendants of the
-  // launched app process. In the isolated perf-monitor run, newly-created
-  // WebView helpers are part of the app footprint.
-  if !is_webview_process_text(&process.search_text) {
-    return false;
-  }
-
-  true
+  app_identity.is_some_and(|identity| identity.matches_text(&process.search_text))
 }
 
 fn process_search_text(process: &Process) -> String {
@@ -826,25 +909,41 @@ mod tests {
 
   #[test]
   fn webview_association_excludes_preexisting_helpers() {
+    let identity = AppIdentity::from_binary_path(Path::new("hardware-visualizer.exe"));
     let preexisting = HashSet::from([pid(42)]);
     let existing_webview = snapshot(None, 100, 0.0, "msedgewebview2.exe");
-    let new_webview = snapshot(None, 100, 0.0, "msedgewebview2.exe");
+    let new_webview_without_identity = snapshot(None, 100, 0.0, "msedgewebview2.exe");
+    let new_webview_with_identity = snapshot(
+      None,
+      100,
+      0.0,
+      r"msedgewebview2.exe --user-data-dir=C:\Users\ci\AppData\Local\HardwareVisualizer",
+    );
     let non_webview = snapshot(None, 100, 0.0, "hardware-visualizer.exe");
 
     assert!(!is_associated_webview_snapshot(
       &preexisting,
+      Some(&identity),
       pid(42),
       &existing_webview,
     ));
     assert!(!is_associated_webview_snapshot(
       &preexisting,
+      Some(&identity),
       pid(43),
       &non_webview,
     ));
+    assert!(!is_associated_webview_snapshot(
+      &preexisting,
+      Some(&identity),
+      pid(44),
+      &new_webview_without_identity,
+    ));
     assert!(is_associated_webview_snapshot(
       &preexisting,
-      pid(44),
-      &new_webview,
+      Some(&identity),
+      pid(45),
+      &new_webview_with_identity,
     ));
   }
 
@@ -853,7 +952,15 @@ mod tests {
   fn tracked_pids_include_new_windows_webview_helpers_without_parent_link() {
     let processes = HashMap::from([
       (pid(10), snapshot(None, 50, 20.0, "hardware-visualizer.exe")),
-      (pid(11), snapshot(None, 200, 0.0, "msedgewebview2.exe")),
+      (
+        pid(11),
+        snapshot(
+          None,
+          200,
+          0.0,
+          r"msedgewebview2.exe --user-data-dir=C:\Users\ci\AppData\Local\HardwareVisualizer",
+        ),
+      ),
       (pid(12), snapshot(None, 100, 0.0, "msedgewebview2.exe")),
     ]);
     let tracker = ProcessTracker::new(
@@ -874,7 +981,14 @@ mod tests {
     ));
     let preexisting = HashSet::from([pid(42)]);
     let existing_webkit = snapshot(None, 100, 0.0, "com.apple.WebKit.WebContent");
-    let new_webkit = snapshot(None, 100, 0.0, "com.apple.WebKit.WebContent");
+    let new_webkit_without_identity =
+      snapshot(None, 100, 0.0, "com.apple.WebKit.WebContent");
+    let new_webkit_with_identity = snapshot(
+      None,
+      100,
+      0.0,
+      "com.apple.WebKit.WebContent /Users/ci/Library/Application Support/HardwareVisualizer",
+    );
     let non_webkit = snapshot(None, 100, 0.0, "hardware-visualizer.exe");
 
     assert!(!is_associated_macos_webview_snapshot(
@@ -889,12 +1003,29 @@ mod tests {
       pid(43),
       &non_webkit,
     ));
-    assert!(is_associated_macos_webview_snapshot(
+    assert!(!is_associated_macos_webview_snapshot(
       &preexisting,
       Some(&identity),
       pid(44),
-      &new_webkit,
+      &new_webkit_without_identity,
     ));
+    assert!(is_associated_macos_webview_snapshot(
+      &preexisting,
+      Some(&identity),
+      pid(45),
+      &new_webkit_with_identity,
+    ));
+  }
+
+  #[test]
+  fn stderr_buffer_keeps_latest_bounded_output() {
+    let buffer = StderrBuffer::new(8);
+
+    buffer.append(b"abcdefghij");
+    assert_eq!(buffer.to_string_lossy().as_deref(), Some("cdefghij"));
+
+    buffer.append(b"kl");
+    assert_eq!(buffer.to_string_lossy().as_deref(), Some("efghijkl"));
   }
 
   #[test]
