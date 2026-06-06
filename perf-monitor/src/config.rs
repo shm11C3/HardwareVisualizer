@@ -19,6 +19,9 @@ pub struct Config {
 pub struct Thresholds {
   pub max_avg_cpu_percent: f32,
   pub max_p95_cpu_percent: f32,
+  pub max_avg_app_memory_mb: f64,
+  pub max_p95_app_memory_mb: f64,
+  pub max_app_memory_growth_mb: f64,
   pub max_avg_memory_mb: f64,
   pub max_p95_memory_mb: f64,
   pub max_memory_growth_mb: f64,
@@ -35,6 +38,9 @@ pub struct Timing {
 pub struct PlatformOverride {
   pub max_avg_cpu_percent: Option<f32>,
   pub max_p95_cpu_percent: Option<f32>,
+  pub max_avg_app_memory_mb: Option<f64>,
+  pub max_p95_app_memory_mb: Option<f64>,
+  pub max_app_memory_growth_mb: Option<f64>,
   pub max_avg_memory_mb: Option<f64>,
   pub max_p95_memory_mb: Option<f64>,
   pub max_memory_growth_mb: Option<f64>,
@@ -97,6 +103,15 @@ impl Config {
       }
       if let Some(v) = overrides.max_p95_cpu_percent {
         thresholds.max_p95_cpu_percent = v;
+      }
+      if let Some(v) = overrides.max_avg_app_memory_mb {
+        thresholds.max_avg_app_memory_mb = v;
+      }
+      if let Some(v) = overrides.max_p95_app_memory_mb {
+        thresholds.max_p95_app_memory_mb = v;
+      }
+      if let Some(v) = overrides.max_app_memory_growth_mb {
+        thresholds.max_app_memory_growth_mb = v;
       }
       if let Some(v) = overrides.max_avg_memory_mb {
         thresholds.max_avg_memory_mb = v;
