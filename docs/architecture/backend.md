@@ -198,12 +198,13 @@ Startup flow:
 4. App registers Tauri SQL migrations when the DB is compatible.
 5. DB-dependent Core workers start only when startup preflight allows it.
 
-The current Hardware Archive "scheduled data deletion" setting refers to a
-startup cleanup pass, not a continuously scheduled deletion task. This was a
-deliberate simplification from the period before close-to-tray/background
-execution was a supported app behavior, when the app was not expected to stay
-running continuously. Treat the setting name as historical when documenting or
-renaming retention behavior.
+The Hardware Archive Retention Period is controlled by
+`hardwareArchive.retentionDays`. The `scheduledDataDeletion` flag controls
+whether cleanup for records older than the Retention Period runs at startup; it
+does not create a continuously scheduled deletion task. This was a deliberate
+simplification from the period before close-to-tray/background execution was a
+supported app behavior, when the app was not expected to stay running
+continuously.
 
 Process Insight data is a sampled and ranked summary derived from realtime
 process observations. It is not a complete process audit log, and persistence

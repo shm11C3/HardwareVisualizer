@@ -34,7 +34,7 @@ const settingsAtom = atom<ClientSettings>({
   hardwareArchive: {
     enabled: true,
     scheduledDataDeletion: true,
-    refreshIntervalDays: 30,
+    retentionDays: 30,
   },
   storageSmart: {
     enabled: true,
@@ -201,8 +201,8 @@ export const useSettingsAtom = () => {
     }));
   };
 
-  const setHardwareArchiveRefreshIntervalDays = async (value: number) => {
-    const result = await commands.setHardwareArchiveInterval(value);
+  const setHardwareArchiveRetentionDays = async (value: number) => {
+    const result = await commands.setHardwareArchiveRetentionDays(value);
 
     if (isError(result)) {
       error(result.error);
@@ -212,7 +212,7 @@ export const useSettingsAtom = () => {
 
     setSettings((prev) => ({
       ...prev,
-      hardwareArchive: { ...prev.hardwareArchive, refreshIntervalDays: value },
+      hardwareArchive: { ...prev.hardwareArchive, retentionDays: value },
     }));
   };
 
@@ -344,7 +344,7 @@ export const useSettingsAtom = () => {
     updateSettingAtom,
     updateLineGraphColorAtom,
     toggleHardwareArchiveAtom,
-    setHardwareArchiveRefreshIntervalDays,
+    setHardwareArchiveRetentionDays,
     setScheduledDataDeletion,
     setStorageSmartRetentionDays,
     setCloseToTrayPreferenceAtom,

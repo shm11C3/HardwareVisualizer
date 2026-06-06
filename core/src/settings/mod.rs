@@ -188,7 +188,7 @@ mod tests {
         "temperatureUnit": "F",
         "hardwareArchive": {
           "enabled": false,
-          "refreshIntervalDays": 7,
+          "retentionDays": 7,
           "scheduledDataDeletion": false
         },
         "storageSmart": {
@@ -201,7 +201,7 @@ mod tests {
 
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
-    assert_eq!(s.hardware_archive.refresh_interval_days, 7);
+    assert_eq!(s.hardware_archive.retention_days, 7);
     assert!(!s.hardware_archive.scheduled_data_deletion);
     assert!(!s.storage_smart.enabled);
     assert_eq!(s.storage_smart.retention_days, 730);
@@ -217,7 +217,7 @@ mod tests {
       &path,
       r#"{
         "theme": "nonexistent_theme",
-        "hardwareArchive": {"enabled": false, "refreshIntervalDays": 14, "scheduledDataDeletion": true},
+        "hardwareArchive": {"enabled": false, "retentionDays": 14, "scheduledDataDeletion": true},
         "storageSmart": {"enabled": true, "retentionDays": 3650}
       }"#,
     )
@@ -225,9 +225,27 @@ mod tests {
 
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert!(!s.hardware_archive.enabled);
-    assert_eq!(s.hardware_archive.refresh_interval_days, 14);
+    assert_eq!(s.hardware_archive.retention_days, 14);
     assert!(s.storage_smart.enabled);
     assert_eq!(s.storage_smart.retention_days, 3650);
+  }
+
+  #[test]
+  fn load_accepts_legacy_hardware_archive_refresh_interval_days() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{
+        "hardwareArchive": {"enabled": false, "refreshIntervalDays": 21, "scheduledDataDeletion": true}
+      }"#,
+    )
+    .unwrap();
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+    assert!(!s.hardware_archive.enabled);
+    assert_eq!(s.hardware_archive.retention_days, 21);
+    assert!(s.hardware_archive.scheduled_data_deletion);
   }
 
   #[test]
@@ -255,7 +273,7 @@ mod tests {
 
     let mut s = CoreSettings::load_from_path(&path).unwrap();
     s.hardware_archive.enabled = false;
-    s.hardware_archive.refresh_interval_days = 90;
+    s.hardware_archive.retention_days = 90;
     s.storage_smart.retention_days = 3650;
     s.save_to_path(&path).unwrap();
 
@@ -265,10 +283,8 @@ mod tests {
     assert_eq!(written.get("theme").and_then(|v| v.as_str()), Some("light"));
     let hw = written.get("hardwareArchive").unwrap();
     assert_eq!(hw.get("enabled").and_then(|v| v.as_bool()), Some(false));
-    assert_eq!(
-      hw.get("refreshIntervalDays").and_then(|v| v.as_u64()),
-      Some(90)
-    );
+    assert_eq!(hw.get("retentionDays").and_then(|v| v.as_u64()), Some(90));
+    assert!(hw.get("refreshIntervalDays").is_none());
     let storage = written.get("storageSmart").unwrap();
     assert_eq!(
       storage.get("retentionDays").and_then(|v| v.as_u64()),
@@ -329,7 +345,7 @@ mod tests {
       hardware_archive: HardwareArchiveSettings {
         enabled: false,
         scheduled_data_deletion: false,
-        refresh_interval_days: 365,
+        retention_days: 365,
       },
       storage_smart: StorageSmartSettings {
         enabled: true,

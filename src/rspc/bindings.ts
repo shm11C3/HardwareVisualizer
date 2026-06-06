@@ -104,7 +104,7 @@ export const commands = {
 	setWindowOpacity: (newValue: number) => typedError<null, string>(__TAURI_INVOKE("set_window_opacity", { newValue })),
 	setTemperatureUnit: (newUnit: TemperatureUnit) => typedError<null, string>(__TAURI_INVOKE("set_temperature_unit", { newUnit })),
 	setHardwareArchiveEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_enabled", { newValue })),
-	setHardwareArchiveInterval: (newInterval: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_interval", { newInterval })),
+	setHardwareArchiveRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_retention_days", { newRetentionDays })),
 	setHardwareArchiveScheduledDataDeletion: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue })),
 	setStorageSmartRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_storage_smart_retention_days", { newRetentionDays })),
 	setBurnInShift: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_burn_in_shift", { newValue })),
@@ -334,7 +334,7 @@ export type GraphicInfo = {
 export type HardwareArchiveSettings = {
 	enabled?: boolean,
 	scheduledDataDeletion?: boolean,
-	refreshIntervalDays?: number,
+	retentionDays?: number,
 };
 
 export type HardwareMonitorUpdate = {

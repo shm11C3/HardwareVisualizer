@@ -12,11 +12,11 @@ pub async fn insert(data: GpuData) -> Result<(), sqlx::Error> {
   Ok(())
 }
 
-pub async fn delete_old_data(refresh_interval_days: u32) -> Result<(), sqlx::Error> {
+pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
 
   sqlx::query("DELETE FROM GPU_DATA_ARCHIVE WHERE timestamp < $1")
-    .bind(chrono::Utc::now() - chrono::Duration::days(refresh_interval_days as i64))
+    .bind(chrono::Utc::now() - chrono::Duration::days(retention_days as i64))
     .execute(&pool)
     .await?;
 
