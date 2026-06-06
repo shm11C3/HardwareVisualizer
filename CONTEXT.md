@@ -109,3 +109,11 @@ _Avoid_: SMART collection, storage health acquisition
 **Focus Storage Device**:
 The storage device surfaced first in a Storage Health Display because its health state most needs the user's attention.
 _Avoid_: Representative drive, selected disk, SMART target
+
+**Live Storage Health**:
+Current storage device health signals collected for immediate display and not retained as history, distinct from the daily Storage Health Record.
+_Avoid_: Storage Health Record, storage health snapshot, realtime SMART
+
+**Storage Device Refresh**:
+The user-initiated action that re-detects connected storage devices, collects current health signals, updates today's Storage Health Record, and reflects added or removed devices in displays.
+_Avoid_: Rescan, reload, auto-detection, live polling
