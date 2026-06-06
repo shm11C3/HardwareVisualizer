@@ -95,6 +95,12 @@ pub fn get_migrations() -> Vec<Migration> {
       "#,
       kind: MigrationKind::Up,
     },
+    Migration {
+      version: 8,
+      description: "add_process_stats_timestamp_index",
+      sql: "CREATE INDEX IF NOT EXISTS idx_process_stats_timestamp ON PROCESS_STATS(timestamp);",
+      kind: MigrationKind::Up,
+    },
     // Down Migrations
     Migration {
       version: 4,
@@ -118,6 +124,12 @@ pub fn get_migrations() -> Vec<Migration> {
         ALTER TABLE storage_health_daily_records
         RENAME TO storage_smart_daily_snapshots;
       "#,
+      kind: MigrationKind::Down,
+    },
+    Migration {
+      version: 8,
+      description: "drop_process_stats_timestamp_index",
+      sql: "DROP INDEX IF EXISTS idx_process_stats_timestamp;",
       kind: MigrationKind::Down,
     },
   ]
@@ -165,8 +177,20 @@ mod tests {
   }
 
   #[test]
+  fn migration_v8_adds_process_stats_timestamp_index() {
+    let migrations = get_migrations();
+    let v8 = migrations
+      .iter()
+      .find(|m| m.version == 8 && matches!(m.kind, MigrationKind::Up))
+      .expect("Version 8 up migration must exist");
+    assert!(v8.sql.contains("CREATE INDEX IF NOT EXISTS"));
+    assert!(v8.sql.contains("idx_process_stats_timestamp"));
+    assert!(v8.sql.contains("PROCESS_STATS(timestamp)"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 7);
+    assert_eq!(get_max_migration_version(), 8);
   }
 
   #[test]
@@ -176,7 +200,7 @@ mod tests {
       .iter()
       .filter(|m| matches!(m.kind, MigrationKind::Up))
       .count();
-    assert_eq!(up_count, 7);
+    assert_eq!(up_count, 8);
   }
 
   #[test]
