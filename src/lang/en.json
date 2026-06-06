@@ -346,11 +346,11 @@
           "placeHolder": "Select Days",
           "description": "Data collected by Insights is kept for the configured retention period. When deletion is enabled, data older than the retention period is removed automatically at startup."
         },
-        "storageSmart": {
+        "storageHealth": {
           "retention": {
             "title": "Storage Health History Holding Period (Days)",
             "placeHolder": "Select Days",
-            "description": "Storage health history uses SMART daily snapshots and is stored separately from Insight data. Snapshots older than this period are deleted automatically.",
+            "description": "Storage health records are stored separately from Insight data. Records older than this period are deleted automatically.",
             "presets": {
               "halfYear": "6 months",
               "oneYear": "1 year",

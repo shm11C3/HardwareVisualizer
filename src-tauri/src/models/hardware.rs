@@ -103,7 +103,7 @@ pub enum StorageWarningLevel {
 
 #[derive(Serialize, Deserialize, Type, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct StorageSmartDashboardSnapshot {
+pub struct StorageHealthRecord {
   pub device_id: String,
   pub display_name: String,
   pub model: Option<String>,
@@ -300,8 +300,8 @@ impl From<core_hw::StorageWarningLevel> for StorageWarningLevel {
   }
 }
 
-impl From<core_hw::StorageHealthSnapshotRecord> for StorageSmartDashboardSnapshot {
-  fn from(src: core_hw::StorageHealthSnapshotRecord) -> Self {
+impl From<core_hw::StorageHealthRecord> for StorageHealthRecord {
+  fn from(src: core_hw::StorageHealthRecord) -> Self {
     Self {
       device_id: src.device_id,
       display_name: src.display_name,

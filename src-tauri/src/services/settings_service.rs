@@ -484,8 +484,8 @@ mod tests {
       &path,
       r#"{
         "hardwareArchive": {"enabled": false, "retentionDays": 90, "scheduledDataDeletion": true},
-        "storageSmart": {"enabled": true, "retentionDays": 3650},
-        "storageSmartIdentity": {"hashKey": "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"}
+        "storageHealth": {"enabled": true, "retentionDays": 3650},
+        "storageHealthIdentity": {"hashKey": "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"}
       }"#,
     )
     .unwrap();
@@ -502,13 +502,13 @@ mod tests {
     );
     assert_eq!(
       value
-        .pointer("/storageSmart/retentionDays")
+        .pointer("/storageHealth/retentionDays")
         .and_then(|v| v.as_u64()),
       Some(3650)
     );
     assert_eq!(
       value
-        .pointer("/storageSmartIdentity/hashKey")
+        .pointer("/storageHealthIdentity/hashKey")
         .and_then(|v| v.as_str()),
       Some("v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
     );

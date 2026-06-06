@@ -2,7 +2,7 @@
 
 Status: proposed
 
-Storage Health Snapshots need to attach records to the same physical storage device over time, even when OS device paths change. During review of [#1483](https://github.com/shm11C3/HardwareVisualizer/pull/1483), the original unkeyed identifier hash was called out because structured hardware serial spaces can be brute-forced cheaply. We therefore identify storage devices with a locally keyed, versioned HMAC-derived identifier and store a keyed serial hash when a serial is available, instead of storing raw serial numbers or relying only on transient device paths.
+Storage Health Records need to attach records to the same physical storage device over time, even when OS device paths change. During review of [#1483](https://github.com/shm11C3/HardwareVisualizer/pull/1483), the original unkeyed identifier hash was called out because structured hardware serial spaces can be brute-forced cheaply. We therefore identify storage devices with a locally keyed, versioned HMAC-derived identifier and store a keyed serial hash when a serial is available, instead of storing raw serial numbers or relying only on transient device paths.
 
 The purpose of the identity is limited to tracking the health trend of the same physical storage device across dates on the local machine. It is not intended to identify users, support cross-device synchronization, provide an externally shareable device identity, or remain globally stable outside the local app installation.
 

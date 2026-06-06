@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { StorageSmartDashboardSnapshot } from "@/rspc/bindings";
+import type { StorageHealthRecord } from "@/rspc/bindings";
 import { buildStorageHealthSummary } from "./storageHealthSummary";
 
-const snapshot = (
-  overrides: Partial<StorageSmartDashboardSnapshot> = {},
-): StorageSmartDashboardSnapshot => ({
+const record = (
+  overrides: Partial<StorageHealthRecord> = {},
+): StorageHealthRecord => ({
   deviceId: "storage:disk-a",
   displayName: "Disk A",
   model: "Example SSD",
@@ -29,7 +29,7 @@ const snapshot = (
 });
 
 describe("buildStorageHealthSummary", () => {
-  it("returns unknown when no snapshots exist", () => {
+  it("returns unknown when no records exist", () => {
     const summary = buildStorageHealthSummary(
       [],
       new Date("2026-05-10T10:00:00"),
@@ -41,20 +41,20 @@ describe("buildStorageHealthSummary", () => {
     expect(summary.devices).toEqual([]);
   });
 
-  it("summarizes good snapshots with drive count and max temperature", () => {
+  it("summarizes good records with drive count and max temperature", () => {
     const summary = buildStorageHealthSummary(
       [
-        snapshot({
+        record({
           deviceId: "disk-a",
           displayName: "Disk A",
           temperatureCelsius: 38,
         }),
-        snapshot({
+        record({
           deviceId: "disk-b",
           displayName: "Disk B",
           temperatureCelsius: 47,
         }),
-        snapshot({
+        record({
           deviceId: "disk-c",
           displayName: "Disk C",
           temperatureCelsius: null,
@@ -78,8 +78,8 @@ describe("buildStorageHealthSummary", () => {
   it("selects warning devices and exposes reasons plus representative metrics", () => {
     const summary = buildStorageHealthSummary(
       [
-        snapshot({ deviceId: "disk-a", displayName: "Disk A" }),
-        snapshot({
+        record({ deviceId: "disk-a", displayName: "Disk A" }),
+        record({
           deviceId: "disk-b",
           displayName: "Samsung SSD 980 PRO",
           healthStatus: "warning",
@@ -116,7 +116,7 @@ describe("buildStorageHealthSummary", () => {
   it("uses display name when the product model is unavailable", () => {
     const summary = buildStorageHealthSummary(
       [
-        snapshot({
+        record({
           deviceId: "disk-a",
           displayName: "WDC WD40EZAZ",
           model: null,
@@ -131,13 +131,13 @@ describe("buildStorageHealthSummary", () => {
   it("critical outranks warning", () => {
     const summary = buildStorageHealthSummary(
       [
-        snapshot({
+        record({
           deviceId: "disk-a",
           displayName: "Warning Disk",
           healthStatus: "warning",
           warningLevel: "warning",
         }),
-        snapshot({
+        record({
           deviceId: "disk-b",
           displayName: "Critical Disk",
           healthStatus: "critical",
@@ -152,10 +152,10 @@ describe("buildStorageHealthSummary", () => {
     expect(summary.focusDevice?.displayName).toBe("Critical Disk");
   });
 
-  it("keeps indeterminate snapshots as unknown without treating them as missing", () => {
+  it("keeps indeterminate records as unknown without treating them as missing", () => {
     const summary = buildStorageHealthSummary(
       [
-        snapshot({
+        record({
           deviceId: "disk-a",
           displayName: "Unknown Disk",
           healthStatus: "unknown",
@@ -178,9 +178,9 @@ describe("buildStorageHealthSummary", () => {
     ]);
   });
 
-  it("marks old snapshots as unknown", () => {
+  it("marks old records as unknown", () => {
     const summary = buildStorageHealthSummary(
-      [snapshot({ date: "2026-05-07" })],
+      [record({ date: "2026-05-07" })],
       new Date("2026-05-10T10:00:00"),
     );
 

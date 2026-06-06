@@ -58,7 +58,7 @@ src-tauri/src/
 ├── tray/                 ← tray widget windows, surface helpers, and UI policy
 ├── infrastructure/       ← App-only DB code
 │   └── database/migration.rs   SQL migration definitions for tauri-plugin-sql
-├── models/               ← App-side DTOs (HardwareMonitorUpdate, settings, SMART, …)
+├── models/               ← App-side DTOs (HardwareMonitorUpdate, settings, storage health, …)
 ├── enums/                ← App-side enums (TemperatureUnit, hardware, settings, …)
 ├── utils/                ← App-side helpers (file paths, color, Tauri-aware logger)
 └── _tests/               ← Unit and command-level tests
@@ -76,7 +76,7 @@ These rules are inherited from #1402 and apply across the App crate:
 3. **App lifecycle is App-owned.** Window creation, plugin wiring, shutdown,
    and any process-restart logic stay under `src-tauri/`. Core lifecycle is
    driven by App-side controllers (`SystemMonitorController`,
-   `ArchiveController`, `StorageSmartController`, `WindowAdapter`,
+   `ArchiveController`, `StorageHealthController`, `WindowAdapter`,
    `TrayAdapter`) held in `WorkersState`.
 4. **UI-only settings stay App-side.** Theme, language, line graph styling,
    burn-in shift, `temperatureUnit`, and similar fields are owned here.

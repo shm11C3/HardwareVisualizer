@@ -1,4 +1,4 @@
-//! Daily SMART snapshot worker.
+//! Daily storage health record worker.
 
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -10,12 +10,12 @@ use tokio::time::{Duration, MissedTickBehavior, interval};
 use crate::infrastructure::database;
 use crate::models::hardware::{
   SmartAttribute, SmartDiskInfo, SmartHealthStatus, StorageDeviceRecord,
-  StorageHealthSnapshot, StorageHealthStatus, StorageWarningLevel,
+  StorageHealthRecordDraft, StorageHealthStatus, StorageWarningLevel,
 };
-use crate::settings::STORAGE_SMART_IDENTITY_HASH_KEY_BYTES;
+use crate::settings::STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES;
 use crate::{log_error, log_info, log_warn};
 
-const STORAGE_SMART_CHECK_INTERVAL_SECONDS: u64 = 60;
+const STORAGE_HEALTH_CHECK_INTERVAL_SECONDS: u64 = 60;
 const TEMPERATURE_WARNING_CELSIUS: f32 = 55.0;
 const TEMPERATURE_CRITICAL_CELSIUS: f32 = 70.0;
 const PERCENTAGE_USED_WARNING: f32 = 80.0;
@@ -23,26 +23,26 @@ const PERCENTAGE_USED_CRITICAL: f32 = 100.0;
 const AVAILABLE_SPARE_WARNING_PERCENT: f32 = 20.0;
 const AVAILABLE_SPARE_CRITICAL_PERCENT: f32 = 10.0;
 
-pub struct StorageSmartController {
+pub struct StorageHealthController {
   handle: JoinHandle<()>,
   stop_tx: watch::Sender<bool>,
 }
 
-impl StorageSmartController {
+impl StorageHealthController {
   pub fn setup(
     runtime: Handle,
     retention_days: u32,
-    identity_hash_key: [u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+    identity_hash_key: [u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
   ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
       let today = local_date_string();
-      run_daily_snapshot_for_date(retention_days, &today, &identity_hash_key).await;
+      run_daily_record_for_date(retention_days, &today, &identity_hash_key).await;
       let mut last_checked_date = Some(today);
 
       let mut ticker =
-        interval(Duration::from_secs(STORAGE_SMART_CHECK_INTERVAL_SECONDS));
+        interval(Duration::from_secs(STORAGE_HEALTH_CHECK_INTERVAL_SECONDS));
       ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
       ticker.tick().await;
 
@@ -52,8 +52,8 @@ impl StorageSmartController {
           changed = stop_rx.changed() => {
             if changed.is_err() || *stop_rx.borrow() {
               log_info!(
-                "storage SMART worker shutdown signal received",
-                "persistence::storage_smart",
+                "storage health worker shutdown signal received",
+                "persistence::storage_health",
                 None::<&str>
               );
               break;
@@ -62,7 +62,7 @@ impl StorageSmartController {
           _ = ticker.tick() => {
             let today = local_date_string();
             if last_checked_date.as_deref() != Some(today.as_str()) {
-              run_daily_snapshot_for_date(retention_days, &today, &identity_hash_key).await;
+              run_daily_record_for_date(retention_days, &today, &identity_hash_key).await;
               last_checked_date = Some(today);
             }
           }
@@ -79,72 +79,70 @@ impl StorageSmartController {
   }
 }
 
-async fn run_daily_snapshot_for_date(
+async fn run_daily_record_for_date(
   retention_days: u32,
   date: &str,
-  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+  identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
 ) {
   let collected_at = chrono::Utc::now().to_rfc3339();
   let disks = match tokio::task::spawn_blocking(collect_platform_smart_info).await {
     Ok(Ok(disks)) => disks,
     Ok(Err(e)) => {
       log_error!(
-        "Failed to collect storage SMART info",
-        "persistence::storage_smart::run_daily_snapshot_for_date",
+        "Failed to collect storage health info",
+        "persistence::storage_health::run_daily_record_for_date",
         Some(e)
       );
       return;
     }
     Err(e) => {
       log_error!(
-        "Failed to join storage SMART collection task",
-        "persistence::storage_smart::run_daily_snapshot_for_date",
+        "Failed to join storage health collection task",
+        "persistence::storage_health::run_daily_record_for_date",
         Some(e.to_string())
       );
       return;
     }
   };
 
-  let (devices, snapshots): (Vec<_>, Vec<_>) = disks
+  let (devices, records): (Vec<_>, Vec<_>) = disks
     .iter()
-    .map(|disk| build_daily_snapshot(disk, date, &collected_at, identity_hash_key))
+    .map(|disk| build_daily_record(disk, date, &collected_at, identity_hash_key))
     .unzip();
 
-  if snapshots.is_empty() {
+  if records.is_empty() {
     log_warn!(
-      "Storage SMART collection returned no disks",
-      "persistence::storage_smart::run_daily_snapshot_for_date",
+      "Storage Health collection returned no disks",
+      "persistence::storage_health::run_daily_record_for_date",
       None::<&str>
     );
     return;
   }
 
-  if let Err(e) =
-    database::storage_smart::insert_daily_snapshots(devices, snapshots).await
-  {
+  if let Err(e) = database::storage_health::insert_daily_records(devices, records).await {
     log_error!(
-      "Failed to insert storage SMART daily snapshots",
-      "persistence::storage_smart::run_daily_snapshot_for_date",
+      "Failed to insert storage health daily records",
+      "persistence::storage_health::run_daily_record_for_date",
       Some(e.to_string())
     );
     return;
   }
 
-  if let Err(e) = database::storage_smart::delete_old_data(retention_days).await {
+  if let Err(e) = database::storage_health::delete_old_data(retention_days).await {
     log_error!(
-      "Failed to delete old storage SMART snapshots",
-      "persistence::storage_smart::run_daily_snapshot_for_date",
+      "Failed to delete old storage health records",
+      "persistence::storage_health::run_daily_record_for_date",
       Some(e.to_string())
     );
   }
 }
 
-fn build_daily_snapshot(
+fn build_daily_record(
   disk: &SmartDiskInfo,
   date: &str,
   collected_at: &str,
-  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
-) -> (StorageDeviceRecord, StorageHealthSnapshot) {
+  identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
+) -> (StorageDeviceRecord, StorageHealthRecordDraft) {
   let device_id = storage_device_id(disk, identity_hash_key);
   let display_name = disk
     .model_name
@@ -169,7 +167,7 @@ fn build_daily_snapshot(
   let unsafe_shutdown_count = attr_value_u64(disk, None, "Unsafe Shutdowns");
 
   let (health_status, warning_level, warning_reasons) =
-    classify_snapshot_warnings(SnapshotSignals {
+    classify_record_warnings(RecordSignals {
       smart_health_status: &disk.health_status,
       temperature_celsius,
       percentage_used,
@@ -191,7 +189,7 @@ fn build_daily_snapshot(
       first_seen_at: collected_at.to_string(),
       last_seen_at: collected_at.to_string(),
     },
-    StorageHealthSnapshot {
+    StorageHealthRecordDraft {
       device_id,
       date: date.to_string(),
       health_status,
@@ -212,7 +210,7 @@ fn build_daily_snapshot(
   )
 }
 
-struct SnapshotSignals<'a> {
+struct RecordSignals<'a> {
   smart_health_status: &'a SmartHealthStatus,
   temperature_celsius: Option<f32>,
   percentage_used: Option<f32>,
@@ -223,8 +221,8 @@ struct SnapshotSignals<'a> {
   media_errors: Option<u64>,
 }
 
-fn classify_snapshot_warnings(
-  signals: SnapshotSignals<'_>,
+fn classify_record_warnings(
+  signals: RecordSignals<'_>,
 ) -> (StorageHealthStatus, StorageWarningLevel, Vec<String>) {
   let mut level = match signals.smart_health_status {
     SmartHealthStatus::Passed => StorageWarningLevel::None,
@@ -313,7 +311,7 @@ fn warning_rank(level: &StorageWarningLevel) -> u8 {
 
 fn storage_device_id(
   disk: &SmartDiskInfo,
-  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+  identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
 ) -> String {
   let identity = if let Some(serial) = normalized_serial(disk) {
     format!("{}:{}", disk_protocol(disk), serial)
@@ -348,7 +346,7 @@ fn disk_protocol(disk: &SmartDiskInfo) -> &str {
 
 fn hash_identifier(
   value: &str,
-  identity_hash_key: &[u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES],
+  identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
 ) -> String {
   let mut mac = Hmac::<Sha256>::new_from_slice(identity_hash_key)
     .expect("HMAC-SHA-256 accepts any key length");
@@ -435,7 +433,7 @@ fn collect_platform_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
 mod tests {
   use super::*;
 
-  const TEST_IDENTITY_HASH_KEY: [u8; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES] = [0x42; 32];
+  const TEST_IDENTITY_HASH_KEY: [u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES] = [0x42; 32];
 
   fn disk(attributes: Vec<SmartAttribute>) -> SmartDiskInfo {
     SmartDiskInfo {
@@ -467,14 +465,14 @@ mod tests {
   }
 
   #[test]
-  fn builds_snapshot_fields_from_smart_attributes() {
+  fn builds_record_fields_from_smart_attributes() {
     let input = disk(vec![
       attr(Some(5), "Reallocated Sector Count", "3"),
       attr(Some(197), "Current Pending Sector Count", "0"),
       attr(Some(198), "Offline Uncorrectable Sector Count", "0"),
     ]);
 
-    let (device, snapshot) = build_daily_snapshot(
+    let (device, record) = build_daily_record(
       &input,
       "2026-05-10",
       "2026-05-10T00:00:00Z",
@@ -487,16 +485,16 @@ mod tests {
       device.serial_hash.as_deref(),
       Some(expected_serial_hash.as_str())
     );
-    assert_eq!(snapshot.device_id, device.id);
-    assert_eq!(snapshot.date, "2026-05-10");
-    assert_eq!(snapshot.health_status, StorageHealthStatus::Warning);
-    assert_eq!(snapshot.warning_level, StorageWarningLevel::Warning);
-    assert_eq!(snapshot.reallocated_sector_count, Some(3));
+    assert_eq!(record.device_id, device.id);
+    assert_eq!(record.date, "2026-05-10");
+    assert_eq!(record.health_status, StorageHealthStatus::Warning);
+    assert_eq!(record.warning_level, StorageWarningLevel::Warning);
+    assert_eq!(record.reallocated_sector_count, Some(3));
   }
 
   #[test]
   fn classifies_critical_nvme_signals() {
-    let (_, snapshot) = build_daily_snapshot(
+    let (_, record) = build_daily_record(
       &disk(vec![
         attr(None, "Percentage Used", "101"),
         attr(None, "Available Spare", "5"),
@@ -507,12 +505,12 @@ mod tests {
       &TEST_IDENTITY_HASH_KEY,
     );
 
-    assert_eq!(snapshot.health_status, StorageHealthStatus::Critical);
-    assert_eq!(snapshot.warning_level, StorageWarningLevel::Critical);
-    assert_eq!(snapshot.percentage_used, Some(101.0));
-    assert_eq!(snapshot.available_spare_percent, Some(5.0));
-    assert_eq!(snapshot.media_errors, Some(1));
-    assert!(!snapshot.warning_reasons.is_empty());
+    assert_eq!(record.health_status, StorageHealthStatus::Critical);
+    assert_eq!(record.warning_level, StorageWarningLevel::Critical);
+    assert_eq!(record.percentage_used, Some(101.0));
+    assert_eq!(record.available_spare_percent, Some(5.0));
+    assert_eq!(record.media_errors, Some(1));
+    assert!(!record.warning_reasons.is_empty());
   }
 
   #[test]
@@ -536,7 +534,7 @@ mod tests {
     let mut second = first.clone();
     second.device_name = "/dev/sdb".to_string();
 
-    let (device, _) = build_daily_snapshot(
+    let (device, _) = build_daily_record(
       &first,
       "2026-05-10",
       "2026-05-10T00:00:00Z",
@@ -566,8 +564,8 @@ mod tests {
 
   #[test]
   fn hashed_identifiers_are_versioned_and_keyed() {
-    let first_key = [0x42; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES];
-    let second_key = [0x24; STORAGE_SMART_IDENTITY_HASH_KEY_BYTES];
+    let first_key = [0x42; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES];
+    let second_key = [0x24; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES];
 
     let first_hash = hash_identifier("SERIAL123", &first_key);
     let second_hash = hash_identifier("SERIAL123", &second_key);

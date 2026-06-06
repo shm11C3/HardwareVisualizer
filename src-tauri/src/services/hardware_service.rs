@@ -93,7 +93,7 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
   })
 }
 
-pub async fn get_storage_smart_latest_snapshots()
--> Result<Vec<hardviz_core::models::hardware::StorageHealthSnapshotRecord>, sqlx::Error> {
-  hardviz_core::infrastructure::database::storage_smart::latest_snapshot_records().await
+pub async fn get_storage_health_latest_records()
+-> Result<Vec<hardviz_core::models::hardware::StorageHealthRecord>, sqlx::Error> {
+  hardviz_core::infrastructure::database::storage_health::latest_records().await
 }

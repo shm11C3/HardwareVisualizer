@@ -12,3 +12,4 @@ implementation guidance belongs in the architecture documents.
 - [0002 Core / App Split](0002-core-app-split.md)
 - [0003 Storage Health Device Identity](0003-storage-health-device-identity.md)
 - [0004 Separate Storage Health History](0004-separate-storage-health-history.md)
+- [0005 Storage Health Naming](0005-storage-health-naming.md)
