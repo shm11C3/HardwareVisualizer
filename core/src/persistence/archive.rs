@@ -142,10 +142,8 @@ impl ArchiveController {
 /// the cutoff at the moment of the call and then returns. App calls it
 /// once at startup when `hardware_archive.scheduled_data_deletion` is
 /// enabled — that matches the pre-Phase-4 behavior of the previous
-/// `batch_delete_old_data` wrapper. The setting's name is historical;
-/// the current refresh trigger is "next process boot", not a recurring
-/// schedule. Adding a true periodic cleanup is left to the issue that
-/// revisits the retention UX rather than this Core/App split.
+/// `batch_delete_old_data` wrapper. The cleanup trigger is still
+/// "next process boot", not a recurring schedule.
 pub async fn cleanup_old_data(retention_days: u32) {
   use crate::infrastructure::database;
   use crate::log_error;

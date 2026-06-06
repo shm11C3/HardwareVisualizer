@@ -339,12 +339,12 @@
         },
         "reset": "データをリセット",
         "resetDescription": "インサイトのデータをリセットします。この操作は元に戻せません。",
-        "scheduledDataDeletion": "インサイトデータの定期削除",
-        "scheduledDataDeletionButton": "定期削除設定",
+        "scheduledDataDeletion": "インサイトデータの保持期間",
+        "scheduledDataDeletionButton": "保持期間を過ぎたデータを削除する",
         "holdingPeriod": {
           "title": "保持期間（日数）",
           "placeHolder": "日数を入力してください",
-          "description": "インサイト機能によって収集されたデータは、任意の日数保存されます。\n定期削除が有効な場合、設定された日数が経過するとデータは自動的に削除されます。"
+          "description": "インサイト機能によって収集されたデータは、設定した保持期間だけ保存されます。\n削除が有効な場合、保持期間を過ぎたデータは起動時に自動的に削除されます。"
         },
         "storageSmart": {
           "retention": {

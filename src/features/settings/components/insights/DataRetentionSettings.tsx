@@ -25,7 +25,7 @@ const storageSmartRetentionPresets = [
 export const DataRetentionSettings = () => {
   const {
     settings,
-    setHardwareArchiveRefreshIntervalDays,
+    setHardwareArchiveRetentionDays,
     setScheduledDataDeletion,
     setStorageSmartRetentionDays,
   } = useSettingsAtom();
@@ -48,7 +48,7 @@ export const DataRetentionSettings = () => {
   }, [storageSmartRetentionDays]);
 
   const changeNumberOfDays = async (value: number) => {
-    await setHardwareArchiveRefreshIntervalDays(value);
+    await setHardwareArchiveRetentionDays(value);
     setHasSettingChanged(true);
   };
 
@@ -127,7 +127,7 @@ export const DataRetentionSettings = () => {
               placeholder={t(
                 "pages.settings.insights.holdingPeriod.placeHolder",
               )}
-              value={settings.hardwareArchive.refreshIntervalDays}
+              value={settings.hardwareArchive.retentionDays}
               onChange={(e) => changeNumberOfDays(Number(e.target.value))}
               min={1}
               max={100000}

@@ -339,12 +339,12 @@
         },
         "reset": "Reset Data",
         "resetDescription": "This will delete all the data collected by the Insights feature. This action cannot be undone.",
-        "scheduledDataDeletion": "Scheduled Data Deletion",
-        "scheduledDataDeletionButton": "Scheduled Data Deletion Settings",
+        "scheduledDataDeletion": "Hardware Archive Retention Period",
+        "scheduledDataDeletionButton": "Delete Data Older Than Retention Period",
         "holdingPeriod": {
-          "title": "Data Holding Period (Days)",
+          "title": "Retention Period (Days)",
           "placeHolder": "Select Days",
-          "description": "Data collected by the Insight function is stored for an arbitrary number of days.If periodic deletion is enabled, data will be deleted automatically after a number of days."
+          "description": "Data collected by Insights is kept for the configured retention period. When deletion is enabled, data older than the retention period is removed automatically at startup."
         },
         "storageSmart": {
           "retention": {

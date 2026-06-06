@@ -13,7 +13,7 @@ use specta::Type;
 pub struct HardwareArchiveSettings {
   pub enabled: bool,
   pub scheduled_data_deletion: bool,
-  pub refresh_interval_days: u32,
+  pub retention_days: u32,
 }
 
 impl Default for HardwareArchiveSettings {
@@ -27,7 +27,7 @@ impl From<CoreHardwareArchiveSettings> for HardwareArchiveSettings {
     Self {
       enabled: value.enabled,
       scheduled_data_deletion: value.scheduled_data_deletion,
-      refresh_interval_days: value.refresh_interval_days,
+      retention_days: value.retention_days,
     }
   }
 }
