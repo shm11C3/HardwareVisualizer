@@ -98,6 +98,10 @@ _Avoid_: SMART display, dashboard health row
 A daily record of storage device health signals for one storage device on one local date.
 _Avoid_: Storage Health Snapshot, Hardware archive, raw SMART data, dashboard item
 
+**Storage Health Device Identity**:
+A local, app-installation-scoped identifier used only to associate Storage Health Records for the same physical storage device across dates.
+_Avoid_: User identity, cross-device sync identity, raw serial number, globally stable storage device ID, externally shareable device identity
+
 **Storage Health Display**:
 Presenting already available Storage Health Records in the user interface, including dashboard summaries and historical views.
 _Avoid_: SMART collection, storage health acquisition
