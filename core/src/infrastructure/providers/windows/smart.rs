@@ -1,4 +1,5 @@
 use crate::infrastructure::providers::smartctl;
+use crate::log_warn;
 use crate::models::hardware::{SmartAttribute, SmartDiskInfo, SmartHealthStatus};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -42,18 +43,104 @@ struct Win32DiskDrive {
   interface_type: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct MsftPhysicalDisk {
+  device_id: Option<String>,
+  friendly_name: Option<String>,
+  serial_number: Option<String>,
+  firmware_version: Option<String>,
+  size: Option<u64>,
+  health_status: Option<u16>,
+  bus_type: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct MsftStorageReliabilityCounter {
+  device_id: Option<String>,
+  temperature: Option<i64>,
+  wear: Option<u64>,
+  read_errors_total: Option<u64>,
+  write_errors_total: Option<u64>,
+}
+
 pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
-  match query_wmi_smart_info() {
-    Ok(disks) if !disks.is_empty() => Ok(disks),
-    Ok(_) => smartctl::collect_smart_info_from_scan()
-      .map_err(|smartctl_error| {
-        format!("Windows WMI returned no SMART devices; smartctl fallback failed: {smartctl_error}")
-      }),
-    Err(wmi_error) => smartctl::collect_smart_info_from_scan().map_err(|smartctl_error| {
-      format!(
-        "Failed to collect SMART info from Windows WMI ({wmi_error}) and smartctl ({smartctl_error})"
-      )
-    }),
+  collect_with_fallbacks(
+    super::device_io::get_smart_info,
+    query_wmi_smart_info,
+    smartctl::collect_smart_info_from_scan,
+    query_storage_management_cim_info,
+  )
+}
+
+fn collect_with_fallbacks<D, W, S, C>(
+  mut device_io: D,
+  mut wmi: W,
+  mut smartctl: S,
+  mut cim: C,
+) -> Result<Vec<SmartDiskInfo>, String>
+where
+  D: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+  W: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+  S: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+  C: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+{
+  let mut failures = Vec::new();
+
+  if let Some(disks) =
+    collect_from_source("DeviceIoControl", &mut device_io, &mut failures)
+  {
+    return Ok(disks);
+  }
+  if let Some(disks) = collect_from_source("Windows WMI", &mut wmi, &mut failures) {
+    return Ok(disks);
+  }
+  if let Some(disks) = collect_from_source("smartctl", &mut smartctl, &mut failures) {
+    return Ok(disks);
+  }
+  if let Some(disks) =
+    collect_from_source("Storage Management CIM", &mut cim, &mut failures)
+  {
+    return Ok(disks);
+  }
+
+  Err(format!(
+    "Failed to collect Windows storage health info: {}",
+    failures.join("; ")
+  ))
+}
+
+fn collect_from_source<F>(
+  label: &'static str,
+  source: &mut F,
+  failures: &mut Vec<String>,
+) -> Option<Vec<SmartDiskInfo>>
+where
+  F: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+{
+  match source() {
+    Ok(disks) if !disks.is_empty() => Some(disks),
+    Ok(_) => {
+      let detail = format!("{label} returned no SMART devices");
+      log_warn!(
+        "Windows Storage Health collection source returned no devices",
+        "infrastructure::providers::windows::smart::collect_from_source",
+        Some(detail.clone())
+      );
+      failures.push(detail);
+      None
+    }
+    Err(e) => {
+      let detail = format!("{label} failed: {e}");
+      log_warn!(
+        "Windows Storage Health collection source failed",
+        "infrastructure::providers::windows::smart::collect_from_source",
+        Some(detail.clone())
+      );
+      failures.push(detail);
+      None
+    }
   }
 }
 
@@ -133,6 +220,130 @@ fn query_wmi_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
       })
       .collect(),
   )
+}
+
+fn query_storage_management_cim_info() -> Result<Vec<SmartDiskInfo>, String> {
+  let physical_disks: Vec<MsftPhysicalDisk> = wmi_query_in_namespace(
+    "ROOT\\Microsoft\\Windows\\Storage",
+    "SELECT * FROM MSFT_PhysicalDisk",
+  )?;
+  // MSFT_StorageReliabilityCounter often returns no rows without elevation;
+  // continue with identity and health data only in that case.
+  let reliability_counters: Vec<MsftStorageReliabilityCounter> = wmi_query_in_namespace(
+    "ROOT\\Microsoft\\Windows\\Storage",
+    "SELECT * FROM MSFT_StorageReliabilityCounter",
+  )
+  .unwrap_or_else(|e| {
+    log_warn!(
+      "Failed to query MSFT_StorageReliabilityCounter; continuing without reliability data",
+      "infrastructure::providers::windows::smart::query_storage_management_cim_info",
+      Some(e)
+    );
+    Vec::new()
+  });
+  let counters_by_device_id: HashMap<String, MsftStorageReliabilityCounter> =
+    reliability_counters
+      .into_iter()
+      .filter_map(|counter| {
+        let device_id = trimmed(counter.device_id.as_deref())?;
+        Some((device_id, counter))
+      })
+      .collect();
+
+  Ok(
+    physical_disks
+      .into_iter()
+      .enumerate()
+      .map(|(index, disk)| {
+        let device_id = trimmed(disk.device_id.as_deref());
+        let reliability = device_id
+          .as_deref()
+          .and_then(|id| counters_by_device_id.get(id));
+        let temperature_celsius = reliability
+          .and_then(|counter| counter.temperature)
+          .and_then(|value| i32::try_from(value).ok());
+        let wear = reliability.and_then(|counter| counter.wear);
+        let media_errors = reliability.and_then(|counter| {
+          match (counter.read_errors_total, counter.write_errors_total) {
+            (Some(read), Some(write)) => read.checked_add(write),
+            (Some(read), None) => Some(read),
+            (None, Some(write)) => Some(write),
+            (None, None) => None,
+          }
+        });
+        let protocol = disk.bus_type.map(cim_bus_type_name);
+
+        SmartDiskInfo {
+          device_name: trimmed(disk.friendly_name.as_deref())
+            .or_else(|| device_id.clone())
+            .unwrap_or_else(|| format!("MSFT_PhysicalDisk#{index}")),
+          device_type: protocol.map(str::to_ascii_lowercase),
+          protocol: protocol.map(ToOwned::to_owned),
+          model_name: trimmed(disk.friendly_name.as_deref()),
+          serial_number: trimmed(disk.serial_number.as_deref()),
+          firmware_version: trimmed(disk.firmware_version.as_deref()),
+          capacity_bytes: disk.size,
+          health_status: cim_health_status(disk.health_status),
+          temperature_celsius,
+          power_on_hours: None,
+          power_cycle_count: None,
+          attributes: [
+            wear.map(|value| cim_attr("Percentage Used", value)),
+            media_errors.map(|value| cim_attr("Media Errors", value)),
+          ]
+          .into_iter()
+          .flatten()
+          .collect(),
+        }
+      })
+      .collect(),
+  )
+}
+
+fn cim_attr(name: &str, value: u64) -> SmartAttribute {
+  SmartAttribute {
+    id: None,
+    name: name.to_string(),
+    current: Some(value),
+    worst: None,
+    threshold: None,
+    raw_value: Some(value.to_string()),
+    when_failed: None,
+  }
+}
+
+fn cim_health_status(value: Option<u16>) -> SmartHealthStatus {
+  // MSFT_PhysicalDisk HealthStatus: 0 = Healthy, 1 = Warning, 2 = Unhealthy.
+  match value {
+    Some(0) => SmartHealthStatus::Passed,
+    Some(1 | 2) => SmartHealthStatus::Failed,
+    _ => SmartHealthStatus::Unknown,
+  }
+}
+
+fn cim_bus_type_name(value: u16) -> &'static str {
+  match value {
+    1 => "SCSI",
+    2 => "ATAPI",
+    3 => "ATA",
+    4 => "IEEE1394",
+    5 => "SSA",
+    6 => "Fibre",
+    7 => "USB",
+    8 => "RAID",
+    9 => "iSCSI",
+    10 => "SAS",
+    11 => "SATA",
+    12 => "SD",
+    13 => "MMC",
+    14 => "Virtual",
+    15 => "FileBackedVirtual",
+    16 => "StorageSpaces",
+    17 => "NVMe",
+    18 => "SCM",
+    19 => "UFS",
+    _ => "Unknown",
+  }
 }
 
 fn parse_vendor_specific_attributes(
@@ -297,6 +508,93 @@ where
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::cell::RefCell;
+
+  fn smart_disk(device_name: &str) -> SmartDiskInfo {
+    SmartDiskInfo {
+      device_name: device_name.to_string(),
+      device_type: None,
+      protocol: None,
+      model_name: None,
+      serial_number: None,
+      firmware_version: None,
+      capacity_bytes: None,
+      health_status: SmartHealthStatus::Passed,
+      temperature_celsius: None,
+      power_on_hours: None,
+      power_cycle_count: None,
+      attributes: Vec::new(),
+    }
+  }
+
+  #[test]
+  fn device_io_success_prevents_later_windows_storage_health_fallbacks() {
+    let calls = RefCell::new(Vec::new());
+
+    let disks = collect_with_fallbacks(
+      || {
+        calls.borrow_mut().push("device_io");
+        Ok(vec![smart_disk("device-io")])
+      },
+      || {
+        calls.borrow_mut().push("wmi");
+        Ok(vec![smart_disk("wmi")])
+      },
+      || {
+        calls.borrow_mut().push("smartctl");
+        Ok(vec![smart_disk("smartctl")])
+      },
+      || {
+        calls.borrow_mut().push("cim");
+        Ok(vec![smart_disk("cim")])
+      },
+    )
+    .expect("DeviceIoControl source should win");
+
+    assert_eq!(calls.into_inner(), vec!["device_io"]);
+    assert_eq!(disks[0].device_name, "device-io");
+  }
+
+  #[test]
+  fn storage_management_cim_is_used_after_device_io_wmi_and_smartctl_fail() {
+    let calls = RefCell::new(Vec::new());
+
+    let disks = collect_with_fallbacks(
+      || {
+        calls.borrow_mut().push("device_io");
+        Err("unsupported".to_string())
+      },
+      || {
+        calls.borrow_mut().push("wmi");
+        Ok(Vec::new())
+      },
+      || {
+        calls.borrow_mut().push("smartctl");
+        Err("smartctl is not installed".to_string())
+      },
+      || {
+        calls.borrow_mut().push("cim");
+        Ok(vec![smart_disk("cim")])
+      },
+    )
+    .expect("CIM should be the final fallback");
+
+    assert_eq!(
+      calls.into_inner(),
+      vec!["device_io", "wmi", "smartctl", "cim"]
+    );
+    assert_eq!(disks[0].device_name, "cim");
+  }
+
+  #[test]
+  fn cim_health_status_maps_msft_physical_disk_values() {
+    // MSFT_PhysicalDisk HealthStatus: 0 = Healthy, 1 = Warning, 2 = Unhealthy.
+    assert_eq!(cim_health_status(Some(0)), SmartHealthStatus::Passed);
+    assert_eq!(cim_health_status(Some(1)), SmartHealthStatus::Failed);
+    assert_eq!(cim_health_status(Some(2)), SmartHealthStatus::Failed);
+    assert_eq!(cim_health_status(Some(5)), SmartHealthStatus::Unknown);
+    assert_eq!(cim_health_status(None), SmartHealthStatus::Unknown);
+  }
 
   #[test]
   fn parses_vendor_specific_attributes() {
