@@ -373,7 +373,7 @@ describe("useSettingsAtom", () => {
   });
 
   it("setStorageHealthRetentionDays: error() is called on error and retentionDays is not updated", async () => {
-    const errorMsg = "Failed to set SMART retention";
+    const errorMsg = "Failed to set storage health retention";
     (commands.setStorageHealthRetentionDays as Mock).mockResolvedValue({
       status: "error",
       error: errorMsg,

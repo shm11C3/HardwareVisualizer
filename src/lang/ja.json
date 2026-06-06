@@ -75,7 +75,7 @@
     "memoryRangeMax": "メモリ範囲上限",
     "selectMemoryRangeMax": "メモリ上限を選択",
     "deviceCapacity": "デバイス容量",
-    "record": {
+    "snapshot": {
       "title": "スナップショット分析",
       "description": "指定した期間のハードウェア使用状況を分析します",
       "timeRange": "時間範囲",
@@ -197,7 +197,7 @@
       "process": {
         "title": "プロセス"
       },
-      "record": {
+      "snapshot": {
         "title": "スナップショット"
       },
       "noDataForPeriod": "選択された期間のデータは見つかりませんでした"

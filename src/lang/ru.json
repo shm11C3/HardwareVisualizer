@@ -74,7 +74,7 @@
     "memoryRangeMax": "Максимальный объем памяти",
     "selectMemoryRangeMax": "Выберите максимальный объем памяти",
     "deviceCapacity": "Емкость устройства",
-    "record": {
+    "snapshot": {
       "title": "Анализ среза",
       "description": "Анализ использования оборудования за указанный период времени",
       "timeRange": "Временной диапазон",
@@ -186,7 +186,7 @@
       "process": {
         "title": "Процессы"
       },
-      "record": {
+      "snapshot": {
         "title": "Срез"
       },
       "noDataForPeriod": "Данные за выбранный период не найдены"
