@@ -28,21 +28,21 @@ impl AppState {
         );
         CoreSettings::default()
       });
-    match core_settings.ensure_storage_smart_identity_key() {
+    match core_settings.ensure_storage_health_identity_key() {
       Ok(true) => {
         if let Err(e) = core_settings.save_to_path(&settings_path) {
           log_error!(
-            "Failed to save storage SMART identity key",
+            "Failed to save storage health identity key",
             "AppState::new",
             Some(e.to_string())
           );
-          core_settings.storage_smart_identity.hash_key.clear();
+          core_settings.storage_health_identity.hash_key.clear();
         }
       }
       Ok(false) => {}
       Err(e) => {
         log_error!(
-          "Invalid storage SMART identity key",
+          "Invalid storage health identity key",
           "AppState::new",
           Some(e.to_string())
         );
@@ -145,7 +145,7 @@ pub mod commands {
       window_opacity: settings.window_opacity,
       temperature_unit: settings.temperature_unit,
       hardware_archive: core_settings.hardware_archive.into(),
-      storage_smart: core_settings.storage_smart.into(),
+      storage_health: core_settings.storage_health.into(),
       burn_in_shift: settings.burn_in_shift,
       burn_in_shift_mode: settings.burn_in_shift_mode,
       burn_in_shift_preset: settings.burn_in_shift_preset,
@@ -518,16 +518,16 @@ pub mod commands {
 
   #[tauri::command]
   #[specta::specta]
-  pub async fn set_storage_smart_retention_days(
+  pub async fn set_storage_health_retention_days(
     window: Window,
     state: tauri::State<'_, AppState>,
     new_retention_days: u32,
   ) -> Result<(), String> {
     if new_retention_days == 0 {
-      return Err("storage SMART retention days must be greater than 0".to_string());
+      return Err("storage health retention days must be greater than 0".to_string());
     }
     if let Err(e) = update_core_settings(&state, |s| {
-      s.storage_smart.retention_days = new_retention_days
+      s.storage_health.retention_days = new_retention_days
     }) {
       emit_error(&window)?;
       return Err(e);

@@ -1,15 +1,15 @@
 use super::db;
 use crate::models::hardware::{
-  StorageDeviceRecord, StorageHealthSnapshot, StorageHealthSnapshotRecord,
+  StorageDeviceRecord, StorageHealthRecord, StorageHealthRecordDraft,
   StorageHealthStatus, StorageWarningLevel,
 };
 use sqlx::Row;
 
-pub async fn insert_daily_snapshots(
+pub async fn insert_daily_records(
   devices: Vec<StorageDeviceRecord>,
-  snapshots: Vec<StorageHealthSnapshot>,
+  records: Vec<StorageHealthRecordDraft>,
 ) -> Result<(), sqlx::Error> {
-  if devices.is_empty() || snapshots.is_empty() {
+  if devices.is_empty() || records.is_empty() {
     return Ok(());
   }
 
@@ -53,13 +53,13 @@ pub async fn insert_daily_snapshots(
     .await?;
   }
 
-  for snapshot in snapshots {
+  for record in records {
     let warning_reasons =
-      serde_json::to_string(&snapshot.warning_reasons).unwrap_or_else(|_| "[]".into());
+      serde_json::to_string(&record.warning_reasons).unwrap_or_else(|_| "[]".into());
 
     sqlx::query(
       r#"
-      INSERT INTO storage_smart_daily_snapshots (
+      INSERT INTO storage_health_daily_records (
         device_id,
         date,
         health_status,
@@ -81,22 +81,22 @@ pub async fn insert_daily_snapshots(
       ON CONFLICT(device_id, date) DO NOTHING
       "#,
     )
-    .bind(snapshot.device_id)
-    .bind(snapshot.date)
-    .bind(snapshot.health_status.as_str())
-    .bind(snapshot.warning_level.as_str())
+    .bind(record.device_id)
+    .bind(record.date)
+    .bind(record.health_status.as_str())
+    .bind(record.warning_level.as_str())
     .bind(warning_reasons)
-    .bind(snapshot.temperature_celsius.map(f64::from))
-    .bind(to_i64(snapshot.power_on_hours))
-    .bind(snapshot.percentage_used.map(f64::from))
-    .bind(snapshot.available_spare_percent.map(f64::from))
-    .bind(to_i64(snapshot.reallocated_sector_count))
-    .bind(to_i64(snapshot.current_pending_sector_count))
-    .bind(to_i64(snapshot.offline_uncorrectable_count))
-    .bind(to_i64(snapshot.media_errors))
-    .bind(to_i64(snapshot.error_log_entries))
-    .bind(to_i64(snapshot.unsafe_shutdown_count))
-    .bind(snapshot.collected_at)
+    .bind(record.temperature_celsius.map(f64::from))
+    .bind(to_i64(record.power_on_hours))
+    .bind(record.percentage_used.map(f64::from))
+    .bind(record.available_spare_percent.map(f64::from))
+    .bind(to_i64(record.reallocated_sector_count))
+    .bind(to_i64(record.current_pending_sector_count))
+    .bind(to_i64(record.offline_uncorrectable_count))
+    .bind(to_i64(record.media_errors))
+    .bind(to_i64(record.error_log_entries))
+    .bind(to_i64(record.unsafe_shutdown_count))
+    .bind(record.collected_at)
     .execute(&mut *tx)
     .await?;
   }
@@ -112,7 +112,7 @@ pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
   .format("%Y-%m-%d")
   .to_string();
 
-  sqlx::query("DELETE FROM storage_smart_daily_snapshots WHERE date < $1")
+  sqlx::query("DELETE FROM storage_health_daily_records WHERE date < $1")
     .bind(cutoff)
     .execute(&pool)
     .await?;
@@ -120,8 +120,7 @@ pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
   Ok(())
 }
 
-pub async fn latest_snapshot_records()
--> Result<Vec<StorageHealthSnapshotRecord>, sqlx::Error> {
+pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, sqlx::Error> {
   let pool = db::get_pool().await?;
   let rows = sqlx::query(
     r#"
@@ -146,10 +145,10 @@ pub async fn latest_snapshot_records()
       s.error_log_entries,
       s.unsafe_shutdown_count,
       s.collected_at
-    FROM storage_smart_daily_snapshots s
+    FROM storage_health_daily_records s
     INNER JOIN (
       SELECT device_id, MAX(date) AS date
-      FROM storage_smart_daily_snapshots
+      FROM storage_health_daily_records
       GROUP BY device_id
     ) latest
       ON latest.device_id = s.device_id
@@ -176,7 +175,7 @@ pub async fn latest_snapshot_records()
         .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
         .unwrap_or_default();
 
-      Ok(StorageHealthSnapshotRecord {
+      Ok(StorageHealthRecord {
         device_id: row.try_get("device_id")?,
         display_name: row.try_get("display_name")?,
         model: row.try_get("model")?,
@@ -269,7 +268,7 @@ mod tests {
 
     sqlx::query(
       r#"
-      CREATE TABLE storage_smart_daily_snapshots (
+      CREATE TABLE storage_health_daily_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         device_id TEXT NOT NULL,
         date TEXT NOT NULL,
@@ -312,8 +311,8 @@ mod tests {
     }
   }
 
-  fn snapshot(device_id: &str, date: &str) -> StorageHealthSnapshot {
-    StorageHealthSnapshot {
+  fn record(device_id: &str, date: &str) -> StorageHealthRecordDraft {
+    StorageHealthRecordDraft {
       device_id: device_id.to_string(),
       date: date.to_string(),
       health_status: StorageHealthStatus::Good,
@@ -334,7 +333,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn insert_daily_snapshots_deduplicates_and_preserves_active_flags() {
+  async fn insert_daily_records_deduplicates_and_preserves_active_flags() {
     let _dir = setup_test_db().await;
     let pool = db::get_pool().await.unwrap();
 
@@ -352,31 +351,30 @@ mod tests {
     .await
     .unwrap();
 
-    insert_daily_snapshots(
+    insert_daily_records(
       vec![device_record("disk-a")],
-      vec![snapshot("disk-a", "2026-05-10")],
+      vec![record("disk-a", "2026-05-10")],
     )
     .await
     .unwrap();
-    insert_daily_snapshots(
+    insert_daily_records(
       vec![device_record("disk-a"), device_record("disk-b")],
       vec![
-        snapshot("disk-a", "2026-05-10"),
-        snapshot("disk-b", "2026-05-10"),
+        record("disk-a", "2026-05-10"),
+        record("disk-b", "2026-05-10"),
       ],
     )
     .await
     .unwrap();
 
-    let total_for_date: (i64,) = sqlx::query_as(
-      "SELECT COUNT(1) FROM storage_smart_daily_snapshots WHERE date = $1",
-    )
-    .bind("2026-05-10")
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let total_for_date: (i64,) =
+      sqlx::query_as("SELECT COUNT(1) FROM storage_health_daily_records WHERE date = $1")
+        .bind("2026-05-10")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     let disk_a_count: (i64,) = sqlx::query_as(
-      "SELECT COUNT(1) FROM storage_smart_daily_snapshots WHERE device_id = $1 AND date = $2",
+      "SELECT COUNT(1) FROM storage_health_daily_records WHERE device_id = $1 AND date = $2",
     )
     .bind("disk-a")
     .bind("2026-05-10")
@@ -396,7 +394,7 @@ mod tests {
         .await
         .unwrap();
     let warning_reasons: (String,) = sqlx::query_as(
-      "SELECT warning_reasons FROM storage_smart_daily_snapshots WHERE device_id = $1 AND date = $2",
+      "SELECT warning_reasons FROM storage_health_daily_records WHERE device_id = $1 AND date = $2",
     )
     .bind("disk-b")
     .bind("2026-05-10")
@@ -410,9 +408,9 @@ mod tests {
     assert_eq!(disk_c_active.0, 1);
     assert_eq!(warning_reasons.0, r#"["test reason"]"#);
 
-    insert_daily_snapshots(
+    insert_daily_records(
       vec![device_record("disk-c")],
-      vec![StorageHealthSnapshot {
+      vec![StorageHealthRecordDraft {
         health_status: StorageHealthStatus::Critical,
         warning_level: StorageWarningLevel::Critical,
         current_pending_sector_count: Some(2),
@@ -420,13 +418,13 @@ mod tests {
           "Current pending sectors are present".to_string(),
           "Offline uncorrectable sectors are present".to_string(),
         ],
-        ..snapshot("disk-c", "2026-05-11")
+        ..record("disk-c", "2026-05-11")
       }],
     )
     .await
     .unwrap();
 
-    let latest = latest_snapshot_records().await.unwrap();
+    let latest = latest_records().await.unwrap();
     assert_eq!(latest.len(), 3);
     assert_eq!(latest[0].device_id, "disk-c");
     assert_eq!(latest[0].display_name, "Device disk-c");

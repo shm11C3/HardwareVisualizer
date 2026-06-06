@@ -86,6 +86,15 @@ pub fn get_migrations() -> Vec<Migration> {
       "#,
       kind: MigrationKind::Up,
     },
+    Migration {
+      version: 7,
+      description: "rename_storage_smart_daily_snapshots_to_storage_health_daily_records",
+      sql: r#"
+        ALTER TABLE storage_smart_daily_snapshots
+        RENAME TO storage_health_daily_records;
+      "#,
+      kind: MigrationKind::Up,
+    },
     // Down Migrations
     Migration {
       version: 4,
@@ -99,6 +108,15 @@ pub fn get_migrations() -> Vec<Migration> {
       sql: r#"
         DROP TABLE IF EXISTS storage_smart_daily_snapshots;
         DROP TABLE IF EXISTS storage_devices;
+      "#,
+      kind: MigrationKind::Down,
+    },
+    Migration {
+      version: 7,
+      description: "rename_storage_health_daily_records_to_storage_smart_daily_snapshots",
+      sql: r#"
+        ALTER TABLE storage_health_daily_records
+        RENAME TO storage_smart_daily_snapshots;
       "#,
       kind: MigrationKind::Down,
     },
@@ -136,8 +154,19 @@ mod tests {
   }
 
   #[test]
+  fn migration_v7_renames_storage_health_records_table() {
+    let migrations = get_migrations();
+    let v7 = migrations
+      .iter()
+      .find(|m| m.version == 7 && matches!(m.kind, MigrationKind::Up))
+      .expect("Version 7 up migration must exist");
+    assert!(v7.sql.contains("ALTER TABLE storage_smart_daily_snapshots"));
+    assert!(v7.sql.contains("RENAME TO storage_health_daily_records"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 6);
+    assert_eq!(get_max_migration_version(), 7);
   }
 
   #[test]
@@ -147,7 +176,7 @@ mod tests {
       .iter()
       .filter(|m| matches!(m.kind, MigrationKind::Up))
       .count();
-    assert_eq!(up_count, 6);
+    assert_eq!(up_count, 7);
   }
 
   #[test]

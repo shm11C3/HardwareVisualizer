@@ -91,13 +91,13 @@ Presenting current storage device capacity, free space, storage type, and filesy
 _Avoid_: Storage health, SMART status, storage archive
 
 **Storage Health Collection**:
-Obtaining storage device health signals so the application can retain a health snapshot for a device.
+Obtaining storage device health signals so the application can retain a health record for a device.
 _Avoid_: SMART display, dashboard health row
 
-**Storage Health Snapshot**:
-A dated record of storage device health signals for one device.
-_Avoid_: Hardware archive, raw SMART data, dashboard item
+**Storage Health Record**:
+A daily record of storage device health signals for one storage device on one local date.
+_Avoid_: Storage Health Snapshot, Hardware archive, raw SMART data, dashboard item
 
 **Storage Health Display**:
-Presenting already available Storage Health Snapshots in the user interface, including dashboard summaries and historical views.
+Presenting already available Storage Health Records in the user interface, including dashboard summaries and historical views.
 _Avoid_: SMART collection, storage health acquisition

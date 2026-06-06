@@ -422,12 +422,12 @@ export const StorageDataInfo = () => {
     let isMounted = true;
 
     const loadStorageHealthDevices = async () => {
-      const result = await commands.getStorageSmartLatestSnapshots();
+      const result = await commands.getStorageHealthLatestRecords();
       if (!isMounted) return;
 
       if (isError(result)) {
         console.error(
-          "Failed to fetch storage SMART dashboard snapshots",
+          "Failed to fetch storage health dashboard records",
           result.error,
         );
         setStorageHealthDevices([]);

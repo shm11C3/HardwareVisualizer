@@ -1,7 +1,4 @@
-import type {
-  StorageHealthStatus,
-  StorageSmartDashboardSnapshot,
-} from "@/rspc/bindings";
+import type { StorageHealthRecord, StorageHealthStatus } from "@/rspc/bindings";
 
 export const STORAGE_HEALTH_STALE_AFTER_DAYS = 2;
 
@@ -27,7 +24,7 @@ export type StorageHealthSummaryViewModel = {
   lastCollectedAt: string | null;
   latestDate: string | null;
   isStale: boolean;
-  focusDevice: StorageSmartDashboardSnapshot | null;
+  focusDevice: StorageHealthRecord | null;
   reasons: string[];
   metrics: StorageHealthMetric[];
   devices: StorageHealthDeviceViewModel[];
@@ -41,10 +38,10 @@ const healthRank: Record<StorageHealthStatus, number> = {
 };
 
 export const buildStorageHealthSummary = (
-  snapshots: StorageSmartDashboardSnapshot[],
+  records: StorageHealthRecord[],
   now: Date = new Date(),
 ): StorageHealthSummaryViewModel => {
-  if (snapshots.length === 0) {
+  if (records.length === 0) {
     return {
       status: "unknown",
       driveCount: 0,
@@ -59,17 +56,17 @@ export const buildStorageHealthSummary = (
     };
   }
 
-  const latestDate = snapshots.reduce(
-    (latest, snapshot) => (snapshot.date > latest ? snapshot.date : latest),
-    snapshots[0].date,
+  const latestDate = records.reduce(
+    (latest, record) => (record.date > latest ? record.date : latest),
+    records[0].date,
   );
-  const lastCollectedAt = snapshots.reduce(
-    (latest, snapshot) =>
-      snapshot.collectedAt > latest ? snapshot.collectedAt : latest,
-    snapshots[0].collectedAt,
+  const lastCollectedAt = records.reduce(
+    (latest, record) =>
+      record.collectedAt > latest ? record.collectedAt : latest,
+    records[0].collectedAt,
   );
   const maxTemperatureCelsius = maxNumber(
-    snapshots.map((snapshot) => snapshot.temperatureCelsius),
+    records.map((record) => record.temperatureCelsius),
   );
   const isStale =
     daysBetweenDateKeys(toLocalDateKey(now), latestDate) >
@@ -78,7 +75,7 @@ export const buildStorageHealthSummary = (
   if (isStale) {
     return {
       status: "unknown",
-      driveCount: snapshots.length,
+      driveCount: records.length,
       maxTemperatureCelsius,
       lastCollectedAt,
       latestDate,
@@ -86,20 +83,20 @@ export const buildStorageHealthSummary = (
       focusDevice: null,
       reasons: [],
       metrics: [],
-      devices: buildDeviceList(snapshots, true),
+      devices: buildDeviceList(records, true),
     };
   }
 
-  const orderedSnapshots = [...snapshots].sort((a, b) => {
+  const orderedRecords = [...records].sort((a, b) => {
     const rankDiff = healthRank[b.healthStatus] - healthRank[a.healthStatus];
     if (rankDiff !== 0) return rankDiff;
     return a.displayName.localeCompare(b.displayName);
   });
-  const focusDevice = orderedSnapshots[0] ?? null;
+  const focusDevice = orderedRecords[0] ?? null;
 
   return {
     status: focusDevice?.healthStatus ?? "unknown",
-    driveCount: snapshots.length,
+    driveCount: records.length,
     maxTemperatureCelsius,
     lastCollectedAt,
     latestDate,
@@ -109,29 +106,29 @@ export const buildStorageHealthSummary = (
     metrics: focusDevice
       ? collectMetrics(focusDevice, maxTemperatureCelsius)
       : [],
-    devices: buildDeviceList(orderedSnapshots, false),
+    devices: buildDeviceList(orderedRecords, false),
   };
 };
 
 const buildDeviceList = (
-  snapshots: StorageSmartDashboardSnapshot[],
+  records: StorageHealthRecord[],
   forceUnknown: boolean,
 ): StorageHealthDeviceViewModel[] => {
-  return snapshots.map((snapshot) => ({
-    deviceId: snapshot.deviceId,
-    label: snapshot.model?.trim() || snapshot.displayName,
-    status: forceUnknown ? "unknown" : snapshot.healthStatus,
+  return records.map((record) => ({
+    deviceId: record.deviceId,
+    label: record.model?.trim() || record.displayName,
+    status: forceUnknown ? "unknown" : record.healthStatus,
   }));
 };
 
 const collectMetrics = (
-  snapshot: StorageSmartDashboardSnapshot,
+  record: StorageHealthRecord,
   maxTemperatureCelsius: number | null,
 ): StorageHealthMetric[] => {
   const metrics: StorageHealthMetric[] = [];
 
-  if (snapshot.percentageUsed != null) {
-    metrics.push({ type: "percentageUsed", value: snapshot.percentageUsed });
+  if (record.percentageUsed != null) {
+    metrics.push({ type: "percentageUsed", value: record.percentageUsed });
   }
   if (maxTemperatureCelsius != null) {
     metrics.push({
@@ -139,32 +136,32 @@ const collectMetrics = (
       value: maxTemperatureCelsius,
     });
   }
-  if (snapshot.availableSparePercent != null) {
+  if (record.availableSparePercent != null) {
     metrics.push({
       type: "availableSparePercent",
-      value: snapshot.availableSparePercent,
+      value: record.availableSparePercent,
     });
   }
-  if (snapshot.currentPendingSectorCount != null) {
+  if (record.currentPendingSectorCount != null) {
     metrics.push({
       type: "currentPendingSectorCount",
-      value: snapshot.currentPendingSectorCount,
+      value: record.currentPendingSectorCount,
     });
   }
-  if (snapshot.offlineUncorrectableCount != null) {
+  if (record.offlineUncorrectableCount != null) {
     metrics.push({
       type: "offlineUncorrectableCount",
-      value: snapshot.offlineUncorrectableCount,
+      value: record.offlineUncorrectableCount,
     });
   }
-  if (snapshot.reallocatedSectorCount != null) {
+  if (record.reallocatedSectorCount != null) {
     metrics.push({
       type: "reallocatedSectorCount",
-      value: snapshot.reallocatedSectorCount,
+      value: record.reallocatedSectorCount,
     });
   }
-  if (snapshot.mediaErrors != null) {
-    metrics.push({ type: "mediaErrors", value: snapshot.mediaErrors });
+  if (record.mediaErrors != null) {
+    metrics.push({ type: "mediaErrors", value: record.mediaErrors });
   }
 
   return metrics.slice(0, 2);
@@ -188,11 +185,11 @@ const parseDateKeyUtc = (dateKey: string) => {
   return Date.UTC(year, month - 1, day);
 };
 
-const daysBetweenDateKeys = (currentDate: string, snapshotDate: string) => {
+const daysBetweenDateKeys = (currentDate: string, recordDate: string) => {
   const current = parseDateKeyUtc(currentDate);
-  const snapshot = parseDateKeyUtc(snapshotDate);
-  if (!Number.isFinite(current) || !Number.isFinite(snapshot)) {
+  const record = parseDateKeyUtc(recordDate);
+  if (!Number.isFinite(current) || !Number.isFinite(record)) {
     return Number.POSITIVE_INFINITY;
   }
-  return Math.floor((current - snapshot) / 86_400_000);
+  return Math.floor((current - record) / 86_400_000);
 };

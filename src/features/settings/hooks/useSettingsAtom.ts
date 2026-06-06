@@ -36,7 +36,7 @@ const settingsAtom = atom<ClientSettings>({
     scheduledDataDeletion: true,
     retentionDays: 30,
   },
-  storageSmart: {
+  storageHealth: {
     enabled: true,
     retentionDays: 1095,
   },
@@ -65,7 +65,7 @@ export const useSettingsAtom = () => {
       | "lineGraphColor"
       | "version"
       | "hardwareArchive"
-      | "storageSmart"
+      | "storageHealth"
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "trayWidget"
@@ -125,7 +125,7 @@ export const useSettingsAtom = () => {
       | "lineGraphColor"
       | "version"
       | "hardwareArchive"
-      | "storageSmart"
+      | "storageHealth"
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "trayWidget"
@@ -235,8 +235,8 @@ export const useSettingsAtom = () => {
     }));
   };
 
-  const setStorageSmartRetentionDays = async (value: number) => {
-    const result = await commands.setStorageSmartRetentionDays(value);
+  const setStorageHealthRetentionDays = async (value: number) => {
+    const result = await commands.setStorageHealthRetentionDays(value);
 
     if (isError(result)) {
       error(result.error);
@@ -246,7 +246,7 @@ export const useSettingsAtom = () => {
 
     setSettings((prev) => ({
       ...prev,
-      storageSmart: { ...prev.storageSmart, retentionDays: value },
+      storageHealth: { ...prev.storageHealth, retentionDays: value },
     }));
     return true;
   };
@@ -346,7 +346,7 @@ export const useSettingsAtom = () => {
     toggleHardwareArchiveAtom,
     setHardwareArchiveRetentionDays,
     setScheduledDataDeletion,
-    setStorageSmartRetentionDays,
+    setStorageHealthRetentionDays,
     setCloseToTrayPreferenceAtom,
     setTrayWidgetSettingsAtom,
   };
