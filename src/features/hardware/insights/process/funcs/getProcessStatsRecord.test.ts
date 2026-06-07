@@ -78,4 +78,19 @@ describe("getProcessStats (getProcessStatsRecord)", () => {
     const result = await getProcessStats(5, new Date());
     expect(result).toEqual([]);
   });
+
+  it("throws when the command returns an error result", async () => {
+    hoisted.getProcessStatsMock.mockResolvedValue({
+      status: "error",
+      error: "database unavailable",
+    });
+
+    const { getProcessStats } = await import(
+      "@/features/hardware/insights/process/funcs/getProcessStatsRecord"
+    );
+
+    await expect(getProcessStats(5, new Date())).rejects.toThrow(
+      "Failed to fetch process stats: database unavailable",
+    );
+  });
 });

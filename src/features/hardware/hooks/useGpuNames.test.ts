@@ -2,7 +2,12 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
+  errorMock: vi.fn(),
   getGpuArchiveNamesMock: vi.fn(),
+}));
+
+vi.mock("@/hooks/useTauriDialog", () => ({
+  useTauriDialog: () => ({ error: hoisted.errorMock }),
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -54,6 +59,35 @@ describe("useGpuNames", () => {
 
     const { result } = renderHook(() => useGpuNames());
 
+    expect(result.current).toEqual([]);
+  });
+
+  it("returns empty array and shows an error when the command returns an error result", async () => {
+    hoisted.getGpuArchiveNamesMock.mockResolvedValue({
+      status: "error",
+      error: "database unavailable",
+    });
+
+    const { result } = renderHook(() => useGpuNames());
+
+    await waitFor(() => {
+      expect(hoisted.errorMock).toHaveBeenCalledWith(
+        "Failed to fetch archived GPU names: database unavailable",
+      );
+    });
+    expect(result.current).toEqual([]);
+  });
+
+  it("returns empty array and shows an error when the command rejects", async () => {
+    hoisted.getGpuArchiveNamesMock.mockRejectedValue(new Error("transport"));
+
+    const { result } = renderHook(() => useGpuNames());
+
+    await waitFor(() => {
+      expect(hoisted.errorMock).toHaveBeenCalledWith(
+        "Failed to fetch archived GPU names: Error: transport",
+      );
+    });
     expect(result.current).toEqual([]);
   });
 });

@@ -22,8 +22,7 @@ export const getProcessStats = async (
     endAt.toISOString(),
   );
   if (isError(result)) {
-    console.error("Failed to fetch process stats:", result.error);
-    return [];
+    throw new Error(`Failed to fetch process stats: ${result.error}`);
   }
 
   return result.data;
@@ -41,8 +40,9 @@ export const getArchivedRecord = async (
     end.toISOString(),
   );
   if (isError(result)) {
-    console.error("Failed to fetch archived hardware records:", result.error);
-    return [];
+    throw new Error(
+      `Failed to fetch archived hardware records: ${result.error}`,
+    );
   }
 
   return result.data;
@@ -57,8 +57,7 @@ export const getProcessStatsInPeriod = async (
     end.toISOString(),
   );
   if (isError(result)) {
-    console.error("Failed to fetch process stats in period:", result.error);
-    return [];
+    throw new Error(`Failed to fetch process stats in period: ${result.error}`);
   }
 
   return result.data;

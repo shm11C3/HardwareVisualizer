@@ -143,7 +143,8 @@ pub async fn select_gpu_names() -> Result<Vec<String>, sqlx::Error> {
     "SELECT DISTINCT gpu_name
      FROM GPU_DATA_ARCHIVE
      WHERE gpu_name IS NOT NULL
-       AND gpu_name != 'Unknown'",
+       AND gpu_name != 'Unknown'
+     ORDER BY gpu_name ASC",
   )
   .fetch_all(&pool)
   .await?;
@@ -155,7 +156,8 @@ fn data_archive_select_sql(column: DataArchiveColumn) -> String {
   format!(
     "SELECT id, CAST({} AS REAL) AS value, timestamp
      FROM DATA_ARCHIVE
-     WHERE timestamp BETWEEN $1 AND $2",
+     WHERE timestamp BETWEEN $1 AND $2
+     ORDER BY timestamp ASC, id ASC",
     column.sql()
   )
 }
@@ -165,7 +167,8 @@ fn gpu_archive_select_sql(column: GpuArchiveColumn) -> String {
     "SELECT id, CAST({} AS REAL) AS value, timestamp
      FROM GPU_DATA_ARCHIVE
      WHERE gpu_name = $1
-       AND timestamp BETWEEN $2 AND $3",
+       AND timestamp BETWEEN $2 AND $3
+     ORDER BY timestamp ASC, id ASC",
     column.sql()
   )
 }
@@ -241,6 +244,45 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn data_archive_records_are_ordered_by_timestamp_and_id() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    sqlx::query(
+      "CREATE TABLE DATA_ARCHIVE (
+        id INTEGER PRIMARY KEY,
+        cpu_avg REAL,
+        timestamp DATETIME
+      )",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (id, cpu_avg, timestamp)
+       VALUES
+         (3, 30.0, '2026-06-08T00:02:00.000Z'),
+         (1, 10.0, '2026-06-08T00:01:00.000Z'),
+         (2, 20.0, '2026-06-08T00:01:00.000Z')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let rows = sqlx::query_as::<_, ArchiveRecord>(&data_archive_select_sql(
+      DataArchiveColumn::CpuAvg,
+    ))
+    .bind("2026-06-08T00:00:00.000Z")
+    .bind("2026-06-08T00:03:00.000Z")
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      rows.into_iter().map(|row| row.id).collect::<Vec<_>>(),
+      vec![1, 2, 3]
+    );
+  }
+
+  #[tokio::test]
   async fn gpu_archive_integer_values_decode_as_f64() {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     sqlx::query(
@@ -273,5 +315,46 @@ mod tests {
     .unwrap();
 
     assert_eq!(rows[0].value, Some(65.0));
+  }
+
+  #[tokio::test]
+  async fn gpu_archive_records_are_ordered_by_timestamp_and_id() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    sqlx::query(
+      "CREATE TABLE GPU_DATA_ARCHIVE (
+        id INTEGER PRIMARY KEY,
+        gpu_name TEXT,
+        usage_avg REAL,
+        timestamp DATETIME
+      )",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+      "INSERT INTO GPU_DATA_ARCHIVE (id, gpu_name, usage_avg, timestamp)
+       VALUES
+         (3, 'GPU', 30.0, '2026-06-08T00:02:00.000Z'),
+         (1, 'GPU', 10.0, '2026-06-08T00:01:00.000Z'),
+         (2, 'GPU', 20.0, '2026-06-08T00:01:00.000Z')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let rows = sqlx::query_as::<_, ArchiveRecord>(&gpu_archive_select_sql(
+      GpuArchiveColumn::UsageAvg,
+    ))
+    .bind("GPU")
+    .bind("2026-06-08T00:00:00.000Z")
+    .bind("2026-06-08T00:03:00.000Z")
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      rows.into_iter().map(|row| row.id).collect::<Vec<_>>(),
+      vec![1, 2, 3]
+    );
   }
 }

@@ -67,6 +67,21 @@ describe("getArchivedRecord functions", () => {
         endAt.toISOString(),
       );
     });
+
+    it("throws when the process stats command returns an error result", async () => {
+      hoisted.getProcessStatsMock.mockResolvedValue({
+        status: "error",
+        error: "process stats failed",
+      });
+
+      const { getProcessStats } = await import(
+        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
+      );
+
+      await expect(getProcessStats(30, new Date())).rejects.toThrow(
+        "Failed to fetch process stats: process stats failed",
+      );
+    });
   });
 
   describe("getArchivedRecord", () => {
@@ -117,6 +132,27 @@ describe("getArchivedRecord functions", () => {
         "2023-06-01T01:00:00.000Z",
       );
     });
+
+    it("throws when the archive command returns an error result", async () => {
+      hoisted.getDataArchiveRecordsMock.mockResolvedValue({
+        status: "error",
+        error: "archive failed",
+      });
+
+      const { getArchivedRecord } = await import(
+        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
+      );
+
+      await expect(
+        getArchivedRecord(
+          "cpu",
+          new Date("2023-06-01T00:00:00.000Z"),
+          new Date("2023-06-01T01:00:00.000Z"),
+        ),
+      ).rejects.toThrow(
+        "Failed to fetch archived hardware records: archive failed",
+      );
+    });
   });
 
   describe("getProcessStatsInPeriod", () => {
@@ -163,6 +199,23 @@ describe("getArchivedRecord functions", () => {
 
       expect(hoisted.getProcessStatsInPeriodMock).toHaveBeenCalledOnce();
       expect(result).toEqual([]);
+    });
+
+    it("throws when the process stats period command returns an error result", async () => {
+      hoisted.getProcessStatsInPeriodMock.mockResolvedValue({
+        status: "error",
+        error: "period failed",
+      });
+
+      const { getProcessStatsInPeriod } = await import(
+        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
+      );
+
+      await expect(
+        getProcessStatsInPeriod(new Date(), new Date()),
+      ).rejects.toThrow(
+        "Failed to fetch process stats in period: period failed",
+      );
     });
   });
 });

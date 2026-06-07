@@ -213,19 +213,18 @@ pub async fn get_data_archive_records(
   start: String,
   end: String,
 ) -> Result<Vec<ArchiveRecord>, String> {
-  use hardviz_core::infrastructure::database::archive_queries;
+  use crate::services::archive_history_service;
 
   let start = normalize_datetime_string(&start)?;
   let end = normalize_datetime_string(&end)?;
 
-  archive_queries::select_data_archive_records(
+  archive_history_service::fetch_data_archive_records(
     hardware_type.column(data_stats),
     &start,
     &end,
   )
   .await
   .map(|records| records.into_iter().map(Into::into).collect())
-  .map_err(|e| format!("Failed to fetch archived hardware records: {e}"))
 }
 
 ///
@@ -240,12 +239,12 @@ pub async fn get_gpu_archive_records(
   start: String,
   end: String,
 ) -> Result<Vec<ArchiveRecord>, String> {
-  use hardviz_core::infrastructure::database::archive_queries;
+  use crate::services::archive_history_service;
 
   let start = normalize_datetime_string(&start)?;
   let end = normalize_datetime_string(&end)?;
 
-  archive_queries::select_gpu_archive_records(
+  archive_history_service::fetch_gpu_archive_records(
     data_type.column(data_stats),
     &gpu_name,
     &start,
@@ -253,7 +252,6 @@ pub async fn get_gpu_archive_records(
   )
   .await
   .map(|records| records.into_iter().map(Into::into).collect())
-  .map_err(|e| format!("Failed to fetch archived GPU records: {e}"))
 }
 
 ///
@@ -265,7 +263,7 @@ pub async fn get_process_stats(
   period: u32,
   end_at: String,
 ) -> Result<Vec<ProcessStatRecord>, String> {
-  use hardviz_core::infrastructure::database::archive_queries;
+  use crate::services::archive_history_service;
 
   let end_at = parse_datetime(&end_at)?;
   let adjusted_end_at =
@@ -274,10 +272,9 @@ pub async fn get_process_stats(
   let start = format_datetime(start_time);
   let end = format_datetime(adjusted_end_at);
 
-  archive_queries::select_process_stats(&start, &end, false)
+  archive_history_service::fetch_process_stats(&start, &end)
     .await
     .map(|records| records.into_iter().map(Into::into).collect())
-    .map_err(|e| format!("Failed to fetch process stats: {e}"))
 }
 
 ///
@@ -289,15 +286,14 @@ pub async fn get_process_stats_in_period(
   start: String,
   end: String,
 ) -> Result<Vec<ProcessStatRecord>, String> {
-  use hardviz_core::infrastructure::database::archive_queries;
+  use crate::services::archive_history_service;
 
   let start = normalize_datetime_string(&start)?;
   let end = normalize_datetime_string(&end)?;
 
-  archive_queries::select_process_stats(&start, &end, true)
+  archive_history_service::fetch_process_stats_in_period(&start, &end)
     .await
     .map(|records| records.into_iter().map(Into::into).collect())
-    .map_err(|e| format!("Failed to fetch process stats in period: {e}"))
 }
 
 ///
@@ -306,11 +302,9 @@ pub async fn get_process_stats_in_period(
 #[command]
 #[specta::specta]
 pub async fn get_gpu_archive_names() -> Result<Vec<String>, String> {
-  use hardviz_core::infrastructure::database::archive_queries;
+  use crate::services::archive_history_service;
 
-  archive_queries::select_gpu_names()
-    .await
-    .map_err(|e| format!("Failed to fetch archived GPU names: {e}"))
+  archive_history_service::fetch_gpu_archive_names().await
 }
 
 fn parse_datetime(input: &str) -> Result<DateTime<Utc>, String> {
@@ -325,4 +319,36 @@ fn format_datetime(datetime: DateTime<Utc>) -> String {
 
 fn normalize_datetime_string(input: &str) -> Result<String, String> {
   parse_datetime(input).map(format_datetime)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn normalize_datetime_string_formats_offset_datetime_as_utc_millis() {
+    assert_eq!(
+      normalize_datetime_string("2026-06-08T10:30:15.123+09:00").unwrap(),
+      "2026-06-08T01:30:15.123Z"
+    );
+  }
+
+  #[test]
+  fn format_datetime_uses_millisecond_precision() {
+    let datetime = parse_datetime("2026-06-08T01:30:15Z").unwrap();
+
+    assert_eq!(format_datetime(datetime), "2026-06-08T01:30:15.000Z");
+  }
+
+  #[test]
+  fn datetime_helpers_report_invalid_input() {
+    let input = "not-a-date";
+
+    assert!(parse_datetime(input).unwrap_err().contains(input));
+    assert!(
+      normalize_datetime_string(input)
+        .unwrap_err()
+        .contains(input)
+    );
+  }
 }

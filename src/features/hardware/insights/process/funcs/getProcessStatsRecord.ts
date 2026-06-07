@@ -22,8 +22,7 @@ export const getProcessStats = async (
     endAt.toISOString(),
   );
   if (isError(result)) {
-    console.error("Failed to fetch process stats:", result.error);
-    return [];
+    throw new Error(`Failed to fetch process stats: ${result.error}`);
   }
 
   return result.data;

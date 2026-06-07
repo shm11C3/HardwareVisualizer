@@ -66,7 +66,7 @@ describe("SelectPeriod", () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
 
-    render(
+    const { rerender } = render(
       <SelectPeriod
         options={[{ label: "1 hour", value: 60 }]}
         selected={null}
@@ -75,8 +75,19 @@ describe("SelectPeriod", () => {
       />,
     );
 
+    await user.selectOptions(screen.getByRole("combobox"), "60");
+    expect(onChange).toHaveBeenCalledWith(60);
+
+    rerender(
+      <SelectPeriod
+        options={[{ label: "1 hour", value: 60 }]}
+        selected={60}
+        onChange={onChange}
+        showDefaultOption
+      />,
+    );
     await user.selectOptions(screen.getByRole("combobox"), "not-selected");
 
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

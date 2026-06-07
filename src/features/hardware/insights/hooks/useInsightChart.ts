@@ -9,6 +9,7 @@ import type {
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { commands, type HardwareType } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
@@ -40,6 +41,7 @@ export const useInsightChart = (
 ) => {
   const { hardwareType, dataStats, period, offset } = props;
   const { settings } = useSettingsAtom();
+  const { error } = useTauriDialog();
 
   const gpuName = hardwareType === "gpu" ? props.gpuName : "";
   const dataType = hardwareType === "gpu" ? props.dataType : undefined;
@@ -85,8 +87,9 @@ export const useInsightChart = (
         adjustedEndAt.toISOString(),
       );
       if (isError(result)) {
-        console.error("Failed to fetch archived GPU records:", result.error);
-        return [];
+        throw new Error(
+          `Failed to fetch archived GPU records: ${result.error}`,
+        );
       }
 
       return result.data;
@@ -99,8 +102,9 @@ export const useInsightChart = (
       adjustedEndAt.toISOString(),
     );
     if (isError(result)) {
-      console.error("Failed to fetch archived hardware records:", result.error);
-      return [];
+      throw new Error(
+        `Failed to fetch archived hardware records: ${result.error}`,
+      );
     }
 
     return result.data;
@@ -146,6 +150,10 @@ export const useInsightChart = (
         setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
       } catch (e) {
         console.error(e);
+        if (activeRequestIdRef.current === requestId) {
+          setData([]);
+        }
+        void error(String(e));
       }
     };
 
@@ -161,7 +169,7 @@ export const useInsightChart = (
         scheduledTimeoutIdRef.current = null;
       }
     };
-  }, [getData, formatValue, offset]);
+  }, [getData, formatValue, offset, error]);
 
   useEffect(() => {
     // Only auto-refresh the "current" window.
@@ -182,11 +190,15 @@ export const useInsightChart = (
         })
         .catch((e) => {
           console.error(e);
+          if (activeRequestIdRef.current === requestId) {
+            setData([]);
+          }
+          void error(String(e));
         });
     }, chartConfig.archiveUpdateIntervalMilSec);
 
     return () => clearInterval(intervalId);
-  }, [getData, formatValue, offset]);
+  }, [getData, formatValue, offset, error]);
 
   const endAtForBucket = useMemo(
     () => new Date(Date.now() - offset * step),

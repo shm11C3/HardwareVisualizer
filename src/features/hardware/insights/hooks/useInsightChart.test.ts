@@ -5,6 +5,7 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { commands } from "@/rspc/bindings";
 
 const hoisted = vi.hoisted(() => ({
+  errorMock: vi.fn(),
   getDataArchiveRecordsMock: vi.fn().mockResolvedValue({
     status: "ok",
     data: [],
@@ -13,6 +14,10 @@ const hoisted = vi.hoisted(() => ({
     status: "ok",
     data: [],
   }),
+}));
+
+vi.mock("@/hooks/useTauriDialog", () => ({
+  useTauriDialog: () => ({ error: hoisted.errorMock }),
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -256,8 +261,12 @@ describe("useInsightChart", () => {
 
     expect(result.current.hasData).toBe(false);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "Failed to fetch archived hardware records:",
-      "decode failed",
+      expect.objectContaining({
+        message: "Failed to fetch archived hardware records: decode failed",
+      }),
+    );
+    expect(hoisted.errorMock).toHaveBeenCalledWith(
+      "Error: Failed to fetch archived hardware records: decode failed",
     );
     consoleErrorSpy.mockRestore();
   });
@@ -449,15 +458,17 @@ describe("useInsightChart – auto-refresh interval", () => {
     clearTimeoutSpy.mockRestore();
   });
 
-  it("handles getData rejection in interval and logs error", async () => {
+  it("handles getData rejection in interval and clears stale chart data", async () => {
     const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
-    getDataArchiveRecordsMock.mockResolvedValue(ok([]));
+    getDataArchiveRecordsMock.mockResolvedValue(
+      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
 
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    renderHook(() =>
+    const { result } = renderHook(() =>
       useInsightChart({
         hardwareType: "cpu",
         dataStats: "avg",
@@ -472,6 +483,8 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
+    expect(result.current.hasData).toBe(true);
+
     // Make the command reject on the next call (inside the interval tick)
     getDataArchiveRecordsMock.mockRejectedValueOnce(new Error("DB error"));
 
@@ -481,6 +494,8 @@ describe("useInsightChart – auto-refresh interval", () => {
     });
 
     expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(hoisted.errorMock).toHaveBeenCalledWith("Error: DB error");
+    expect(result.current.hasData).toBe(false);
     consoleErrorSpy.mockRestore();
   });
 });
