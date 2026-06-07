@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import { sysInfoFixture } from "../src/e2e/fixtures/hardware";
 import {
   BOOTSTRAP_TIMEOUT,
-  capturePath,
   gotoApp,
   navigateTo,
+  saveCapture,
   seedHardwareHistory,
 } from "./helpers";
 
@@ -25,6 +25,6 @@ test.describe("cpu detail captures", () => {
     });
     await page.waitForTimeout(600);
 
-    await page.screenshot({ path: capturePath("cpu-detail") });
+    await saveCapture(page, "cpu-detail");
   });
 });

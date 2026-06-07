@@ -90,8 +90,9 @@ up). Shared helpers live in `e2e/helpers.ts`. The shape of a scenario:
 3. Navigate with `await navigateTo(page, "<screen>")` (clicks the side
    menu's accessible `open <type>` buttons) and interact via accessible
    selectors (`getByRole("tab", ...)`, aria-labels, headings).
-4. Save the capture: `await page.screenshot({ path: capturePath("<name>") })`
-   (`capturePath` resolves into `test-results/captures/`).
+4. Save the capture: `await saveCapture(page, "<name>")` — writes a
+   full-page PNG (the whole scrollable page, not just the viewport) into
+   `test-results/captures/`.
 
 Determinism rules:
 

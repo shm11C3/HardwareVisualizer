@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { BOOTSTRAP_TIMEOUT, capturePath, gotoApp, navigateTo } from "./helpers";
+import { BOOTSTRAP_TIMEOUT, gotoApp, navigateTo, saveCapture } from "./helpers";
 
 test.describe("settings captures", () => {
   test("settings sections render", async ({ page }) => {
@@ -14,6 +14,6 @@ test.describe("settings captures", () => {
     await expect(page.getByRole("heading", { name: "About" })).toBeVisible();
     await page.waitForTimeout(600);
 
-    await page.screenshot({ path: capturePath("settings") });
+    await saveCapture(page, "settings");
   });
 });

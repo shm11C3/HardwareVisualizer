@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import { settingsFixture } from "../src/e2e/fixtures/settings";
 import {
   BOOTSTRAP_TIMEOUT,
-  capturePath,
   gotoApp,
   navigateTo,
+  saveCapture,
   seedHardwareHistory,
 } from "./helpers";
 
@@ -41,6 +41,6 @@ test.describe("usage captures", () => {
     expect(renderedStrokes.sort()).toEqual([...expectedStrokes].sort());
     await page.waitForTimeout(600);
 
-    await page.screenshot({ path: capturePath("usage") });
+    await saveCapture(page, "usage");
   });
 });

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { GPU_FIXTURES } from "../src/e2e/fixtures/hardware";
-import { capturePath, gotoApp, seedHardwareHistory } from "./helpers";
+import { gotoApp, saveCapture, seedHardwareHistory } from "./helpers";
 
 test.describe("dashboard captures", () => {
   test("dashboard renders fixture hardware data", async ({ page }) => {
@@ -12,7 +12,7 @@ test.describe("dashboard captures", () => {
       page.getByRole("tab", { name: GPU_FIXTURES[0].name }),
     ).toBeVisible();
 
-    await page.screenshot({ path: capturePath("dashboard") });
+    await saveCapture(page, "dashboard");
   });
 
   test("gpu selector switches via accessible tab roles", async ({ page }) => {
@@ -25,6 +25,6 @@ test.describe("dashboard captures", () => {
     await secondaryGpuTab.click();
     await expect(secondaryGpuTab).toHaveAttribute("aria-selected", "true");
 
-    await page.screenshot({ path: capturePath("dashboard-gpu-secondary") });
+    await saveCapture(page, "dashboard-gpu-secondary");
   });
 });

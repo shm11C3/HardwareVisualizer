@@ -13,6 +13,13 @@ export const capturePath = (name: string) =>
   path.join("test-results", "captures", `${name}.png`);
 
 /**
+ * Save a full-page evidence capture (the whole scrollable page, not just the
+ * viewport) under `test-results/captures/<name>.png`.
+ */
+export const saveCapture = (page: Page, name: string) =>
+  page.screenshot({ path: capturePath(name), fullPage: true });
+
+/**
  * The first page load pays Vite's cold module-transform cost
  * (babel + react-compiler), which can take >10s — hence the long timeout.
  */

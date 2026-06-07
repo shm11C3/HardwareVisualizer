@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import {
   BOOTSTRAP_TIMEOUT,
-  capturePath,
   gotoApp,
   navigateTo,
+  saveCapture,
   seedHardwareHistory,
 } from "./helpers";
 
@@ -31,7 +31,7 @@ test.describe("insights captures", () => {
     // Wait for the debounced archive query (250ms) + chart render.
     await page.waitForTimeout(1_000);
 
-    await page.screenshot({ path: capturePath("insights-main") });
+    await saveCapture(page, "insights-main");
   });
 
   test("insights process tab lists fixture process stats", async ({ page }) => {
@@ -45,6 +45,6 @@ test.describe("insights captures", () => {
     await expect(page.getByText("hv-fixture-app").first()).toBeVisible();
     await page.waitForTimeout(600);
 
-    await page.screenshot({ path: capturePath("insights-process") });
+    await saveCapture(page, "insights-process");
   });
 });
