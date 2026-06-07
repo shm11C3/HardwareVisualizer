@@ -14,6 +14,7 @@ documentation.
 - [Core crate guide](../core/README.md)
 - [Tauri app crate guide](../src-tauri/README.md)
 - [Add a new language](development/add-language.md)
+- [E2E capture harness](development/e2e-captures.md)
 - [Download verification](download-verification.md)
 - [Documentation guide](documentation-guide.md)
 

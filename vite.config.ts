@@ -102,4 +102,9 @@ export default defineConfig(async ({ mode }) => ({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  optimizeDeps: {
+    // Pre-bundle the Tauri mock module so the E2E harness (VITE_E2E_MOCK)
+    // doesn't trigger a mid-session dependency re-optimization.
+    include: ["@tauri-apps/api/mocks"],
+  },
 }));
