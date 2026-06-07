@@ -8,18 +8,6 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-vi.mock("@tauri-apps/plugin-sql", () => ({
-  Database: {
-    load: vi.fn(),
-  },
-}));
-
-vi.mock("@/lib/sqlite", () => ({
-  sqlitePromise: Promise.resolve({
-    load: vi.fn(),
-  }),
-}));
-
 // Mock the actual function we're testing
 vi.mock("@/features/hardware/insights/snapshot/funcs/getArchivedRecord");
 

@@ -6,6 +6,7 @@
 //! once at startup via [`db::init`]; Core never resolves the path itself
 //! because path resolution depends on Tauri's bundle identifier.
 
+pub mod archive_queries;
 pub mod db;
 pub mod gpu_archive;
 pub mod hardware_archive;

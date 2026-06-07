@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
-import { sqlitePromise } from "@/lib/sqlite";
+import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
 export const useGpuNames = () => {
   const [gpuNames, setGpuNames] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchGpuNames = async () => {
-      const db = await sqlitePromise;
-      const result = await db.load<{ gpu_name: string }>(
-        "SELECT DISTINCT gpu_name FROM GPU_DATA_ARCHIVE WHERE gpu_name IS NOT NULL AND gpu_name != 'Unknown'",
-      );
-      setGpuNames(result.map((row) => row.gpu_name));
+      const result = await commands.getGpuArchiveNames();
+      if (isError(result)) {
+        console.error("Failed to fetch archived GPU names:", result.error);
+        setGpuNames([]);
+        return;
+      }
+      setGpuNames(result.data);
     };
 
     fetchGpuNames();

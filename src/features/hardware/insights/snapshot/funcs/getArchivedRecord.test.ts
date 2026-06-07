@@ -1,18 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  loadMock: vi.fn(),
+  getProcessStatsMock: vi.fn(),
+  getDataArchiveRecordsMock: vi.fn(),
+  getProcessStatsInPeriodMock: vi.fn(),
 }));
 
-vi.mock("@/lib/sqlite", () => ({
-  sqlitePromise: Promise.resolve({
-    load: hoisted.loadMock,
-    save: vi.fn(),
-  }),
-}));
-
-vi.mock("@/features/hardware/consts/chart", () => ({
-  chartConfig: { archiveUpdateIntervalMilSec: 60000 },
+vi.mock("@/rspc/bindings", () => ({
+  commands: {
+    getProcessStats: hoisted.getProcessStatsMock,
+    getDataArchiveRecords: hoisted.getDataArchiveRecordsMock,
+    getProcessStatsInPeriod: hoisted.getProcessStatsInPeriodMock,
+  },
 }));
 
 describe("getArchivedRecord functions", () => {
@@ -34,21 +33,39 @@ describe("getArchivedRecord functions", () => {
           latest_timestamp: "2023-06-01T02:00:00.000Z",
         },
       ];
-      hoisted.loadMock.mockResolvedValue(mockRows);
+      hoisted.getProcessStatsMock.mockResolvedValue({
+        status: "ok",
+        data: mockRows,
+      });
 
       const { getProcessStats } = await import(
         "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
       );
       const result = await getProcessStats(period, endAt);
 
-      expect(hoisted.loadMock).toHaveBeenCalledOnce();
-      const sql = hoisted.loadMock.mock.calls[0][0] as string;
-      expect(sql).toContain("process_stats");
-      // adjustedEndAt = endAt - 60000ms = 2023-06-01T01:59:00.000Z
-      // startTime = adjustedEndAt - 30*60*1000 = 2023-06-01T01:29:00.000Z
-      expect(sql).toContain("2023-06-01T01:29:00.000Z");
-      expect(sql).toContain("2023-06-01T01:59:00.000Z");
+      expect(hoisted.getProcessStatsMock).toHaveBeenCalledWith(
+        period,
+        endAt.toISOString(),
+      );
       expect(result).toEqual(mockRows);
+    });
+
+    it("normalizes a string period before calling the typed command", async () => {
+      const endAt = new Date("2023-06-01T02:00:00.000Z");
+      hoisted.getProcessStatsMock.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
+
+      const { getProcessStats } = await import(
+        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
+      );
+      await getProcessStats("180", endAt);
+
+      expect(hoisted.getProcessStatsMock).toHaveBeenCalledWith(
+        180,
+        endAt.toISOString(),
+      );
     });
   });
 
@@ -59,24 +76,30 @@ describe("getArchivedRecord functions", () => {
       const mockRows = [
         { id: 1, value: 45.2, timestamp: "2023-06-01T00:30:00.000Z" },
       ];
-      hoisted.loadMock.mockResolvedValue(mockRows);
+      hoisted.getDataArchiveRecordsMock.mockResolvedValue({
+        status: "ok",
+        data: mockRows,
+      });
 
       const { getArchivedRecord } = await import(
         "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
       );
       const result = await getArchivedRecord("cpu", start, end);
 
-      expect(hoisted.loadMock).toHaveBeenCalledOnce();
-      const sql = hoisted.loadMock.mock.calls[0][0] as string;
-      expect(sql).toContain("cpu_avg");
-      expect(sql).toContain("DATA_ARCHIVE");
-      expect(sql).toContain(start.toISOString());
-      expect(sql).toContain(end.toISOString());
+      expect(hoisted.getDataArchiveRecordsMock).toHaveBeenCalledWith(
+        "cpu",
+        "avg",
+        start.toISOString(),
+        end.toISOString(),
+      );
       expect(result).toEqual(mockRows);
     });
 
     it("queries DATA_ARCHIVE for ram", async () => {
-      hoisted.loadMock.mockResolvedValue([]);
+      hoisted.getDataArchiveRecordsMock.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
 
       const { getArchivedRecord } = await import(
         "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
@@ -87,8 +110,12 @@ describe("getArchivedRecord functions", () => {
         new Date("2023-06-01T01:00:00.000Z"),
       );
 
-      const sql = hoisted.loadMock.mock.calls[0][0] as string;
-      expect(sql).toContain("ram_avg");
+      expect(hoisted.getDataArchiveRecordsMock).toHaveBeenCalledWith(
+        "memory",
+        "avg",
+        "2023-06-01T00:00:00.000Z",
+        "2023-06-01T01:00:00.000Z",
+      );
     });
   });
 
@@ -106,31 +133,35 @@ describe("getArchivedRecord functions", () => {
           latest_timestamp: "2023-06-01T00:50:00.000Z",
         },
       ];
-      hoisted.loadMock.mockResolvedValue(mockRows);
+      hoisted.getProcessStatsInPeriodMock.mockResolvedValue({
+        status: "ok",
+        data: mockRows,
+      });
 
       const { getProcessStatsInPeriod } = await import(
         "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
       );
       const result = await getProcessStatsInPeriod(start, end);
 
-      expect(hoisted.loadMock).toHaveBeenCalledOnce();
-      const sql = hoisted.loadMock.mock.calls[0][0] as string;
-      expect(sql).toContain("process_stats");
-      expect(sql).toContain(start.toISOString());
-      expect(sql).toContain(end.toISOString());
-      expect(sql).toContain("ORDER BY");
+      expect(hoisted.getProcessStatsInPeriodMock).toHaveBeenCalledWith(
+        start.toISOString(),
+        end.toISOString(),
+      );
       expect(result).toEqual(mockRows);
     });
 
     it("returns empty array when no records found", async () => {
-      hoisted.loadMock.mockResolvedValue([]);
+      hoisted.getProcessStatsInPeriodMock.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
 
       const { getProcessStatsInPeriod } = await import(
         "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
       );
       const result = await getProcessStatsInPeriod(new Date(), new Date());
 
-      expect(hoisted.loadMock).toHaveBeenCalledOnce();
+      expect(hoisted.getProcessStatsInPeriodMock).toHaveBeenCalledOnce();
       expect(result).toEqual([]);
     });
   });

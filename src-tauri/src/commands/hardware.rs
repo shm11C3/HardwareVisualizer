@@ -1,8 +1,14 @@
 use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::models;
+use crate::models::archive_history::{
+  ArchiveDataStats, ArchiveRecord, DataArchiveHardwareType, GpuArchiveDataType,
+  ProcessStatRecord,
+};
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
+use chrono::{DateTime, SecondsFormat, Utc};
 use hardviz_core::collector::HistoryStore;
+use hardviz_core::persistence::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
 use std::sync::Arc;
 use tauri::command;
 
@@ -194,4 +200,129 @@ pub async fn get_storage_health_latest_records()
     .await
     .map(|records| records.into_iter().map(Into::into).collect())
     .map_err(|e| format!("Failed to fetch latest storage health records: {e}"))
+}
+
+///
+/// ## Get archived CPU/RAM records
+///
+#[command]
+#[specta::specta]
+pub async fn get_data_archive_records(
+  hardware_type: DataArchiveHardwareType,
+  data_stats: ArchiveDataStats,
+  start: String,
+  end: String,
+) -> Result<Vec<ArchiveRecord>, String> {
+  use hardviz_core::infrastructure::database::archive_queries;
+
+  let start = normalize_datetime_string(&start)?;
+  let end = normalize_datetime_string(&end)?;
+
+  archive_queries::select_data_archive_records(
+    hardware_type.column(data_stats),
+    &start,
+    &end,
+  )
+  .await
+  .map(|records| records.into_iter().map(Into::into).collect())
+  .map_err(|e| format!("Failed to fetch archived hardware records: {e}"))
+}
+
+///
+/// ## Get archived GPU records
+///
+#[command]
+#[specta::specta]
+pub async fn get_gpu_archive_records(
+  data_type: GpuArchiveDataType,
+  data_stats: ArchiveDataStats,
+  gpu_name: String,
+  start: String,
+  end: String,
+) -> Result<Vec<ArchiveRecord>, String> {
+  use hardviz_core::infrastructure::database::archive_queries;
+
+  let start = normalize_datetime_string(&start)?;
+  let end = normalize_datetime_string(&end)?;
+
+  archive_queries::select_gpu_archive_records(
+    data_type.column(data_stats),
+    &gpu_name,
+    &start,
+    &end,
+  )
+  .await
+  .map(|records| records.into_iter().map(Into::into).collect())
+  .map_err(|e| format!("Failed to fetch archived GPU records: {e}"))
+}
+
+///
+/// ## Get archived process stats for a period ending at `end_at`
+///
+#[command]
+#[specta::specta]
+pub async fn get_process_stats(
+  period: u32,
+  end_at: String,
+) -> Result<Vec<ProcessStatRecord>, String> {
+  use hardviz_core::infrastructure::database::archive_queries;
+
+  let end_at = parse_datetime(&end_at)?;
+  let adjusted_end_at =
+    end_at - chrono::Duration::seconds(HARDWARE_ARCHIVE_INTERVAL_SECONDS as i64);
+  let start_time = adjusted_end_at - chrono::Duration::minutes(period as i64);
+  let start = format_datetime(start_time);
+  let end = format_datetime(adjusted_end_at);
+
+  archive_queries::select_process_stats(&start, &end, false)
+    .await
+    .map(|records| records.into_iter().map(Into::into).collect())
+    .map_err(|e| format!("Failed to fetch process stats: {e}"))
+}
+
+///
+/// ## Get archived process stats between two timestamps
+///
+#[command]
+#[specta::specta]
+pub async fn get_process_stats_in_period(
+  start: String,
+  end: String,
+) -> Result<Vec<ProcessStatRecord>, String> {
+  use hardviz_core::infrastructure::database::archive_queries;
+
+  let start = normalize_datetime_string(&start)?;
+  let end = normalize_datetime_string(&end)?;
+
+  archive_queries::select_process_stats(&start, &end, true)
+    .await
+    .map(|records| records.into_iter().map(Into::into).collect())
+    .map_err(|e| format!("Failed to fetch process stats in period: {e}"))
+}
+
+///
+/// ## Get GPU names that have archive records
+///
+#[command]
+#[specta::specta]
+pub async fn get_gpu_archive_names() -> Result<Vec<String>, String> {
+  use hardviz_core::infrastructure::database::archive_queries;
+
+  archive_queries::select_gpu_names()
+    .await
+    .map_err(|e| format!("Failed to fetch archived GPU names: {e}"))
+}
+
+fn parse_datetime(input: &str) -> Result<DateTime<Utc>, String> {
+  DateTime::parse_from_rfc3339(input)
+    .map(|dt| dt.with_timezone(&Utc))
+    .map_err(|e| format!("Invalid datetime '{input}': {e}"))
+}
+
+fn format_datetime(datetime: DateTime<Utc>) -> String {
+  datetime.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
+fn normalize_datetime_string(input: &str) -> Result<String, String> {
+  parse_datetime(input).map(format_datetime)
 }

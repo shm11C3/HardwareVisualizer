@@ -6,7 +6,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { archivePeriods } from "../../consts/chart";
+import {
+  type ArchivePeriod,
+  normalizeArchivePeriod,
+} from "../utils/archivePeriod";
 
 export const SelectPeriod = ({
   options,
@@ -14,9 +17,9 @@ export const SelectPeriod = ({
   onChange,
   showDefaultOption,
 }: {
-  options: { label: string; value: keyof typeof archivePeriods }[];
-  selected: keyof typeof archivePeriods | null;
-  onChange: (value: (typeof archivePeriods)[number]) => void;
+  options: { label: string; value: ArchivePeriod }[];
+  selected: ArchivePeriod | null;
+  onChange: (value: ArchivePeriod) => void;
   showDefaultOption?: boolean;
 }) => {
   const { t } = useTranslation();
@@ -24,9 +27,12 @@ export const SelectPeriod = ({
   return (
     <Select
       value={String(selected ?? "not-selected")}
-      onValueChange={(value) =>
-        onChange(value as unknown as (typeof archivePeriods)[number])
-      }
+      onValueChange={(value) => {
+        const period = normalizeArchivePeriod(value);
+        if (period != null) {
+          onChange(period);
+        }
+      }}
     >
       <SelectTrigger className="w-[180px]">
         <SelectValue placeholder="Select Period" />

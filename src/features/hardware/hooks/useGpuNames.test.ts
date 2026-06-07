@@ -2,14 +2,13 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  loadMock: vi.fn(),
+  getGpuArchiveNamesMock: vi.fn(),
 }));
 
-vi.mock("@/lib/sqlite", () => ({
-  sqlitePromise: Promise.resolve({
-    load: hoisted.loadMock,
-    save: vi.fn(),
-  }),
+vi.mock("@/rspc/bindings", () => ({
+  commands: {
+    getGpuArchiveNames: hoisted.getGpuArchiveNamesMock,
+  },
 }));
 
 import { useGpuNames } from "@/features/hardware/hooks/useGpuNames";
@@ -20,10 +19,10 @@ describe("useGpuNames", () => {
   });
 
   it("returns GPU names fetched from the database", async () => {
-    hoisted.loadMock.mockResolvedValue([
-      { gpu_name: "NVIDIA GeForce RTX 4090" },
-      { gpu_name: "AMD Radeon RX 7900 XTX" },
-    ]);
+    hoisted.getGpuArchiveNamesMock.mockResolvedValue({
+      status: "ok",
+      data: ["NVIDIA GeForce RTX 4090", "AMD Radeon RX 7900 XTX"],
+    });
 
     const { result } = renderHook(() => useGpuNames());
 
@@ -34,13 +33,14 @@ describe("useGpuNames", () => {
       ]);
     });
 
-    expect(hoisted.loadMock).toHaveBeenCalledWith(
-      expect.stringContaining("SELECT DISTINCT gpu_name FROM GPU_DATA_ARCHIVE"),
-    );
+    expect(hoisted.getGpuArchiveNamesMock).toHaveBeenCalledOnce();
   });
 
   it("returns empty array when no GPU names are in the database", async () => {
-    hoisted.loadMock.mockResolvedValue([]);
+    hoisted.getGpuArchiveNamesMock.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
 
     const { result } = renderHook(() => useGpuNames());
 
@@ -50,7 +50,7 @@ describe("useGpuNames", () => {
   });
 
   it("starts with an empty array before the query resolves", () => {
-    hoisted.loadMock.mockReturnValue(new Promise(() => {})); // never resolves
+    hoisted.getGpuArchiveNamesMock.mockReturnValue(new Promise(() => {})); // never resolves
 
     const { result } = renderHook(() => useGpuNames());
 

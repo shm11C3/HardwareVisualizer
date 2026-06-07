@@ -1,7 +1,11 @@
-import { chartConfig } from "@/features/hardware/consts/chart";
 import type { SingleDataArchive } from "@/features/hardware/types/chart";
-import { sqlitePromise } from "@/lib/sqlite";
+import { commands } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 import type { ProcessStat } from "../../types/processStats";
+import {
+  type ArchivePeriod,
+  coercePeriodMinutes,
+} from "../../utils/archivePeriod";
 
 /**
  *
@@ -10,30 +14,19 @@ import type { ProcessStat } from "../../types/processStats";
  * @returns
  */
 export const getProcessStats = async (
-  period: number,
+  period: ArchivePeriod | number | string,
   endAt: Date,
 ): Promise<ProcessStat[]> => {
-  const adjustedEndAt = new Date(
-    endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
+  const result = await commands.getProcessStats(
+    coercePeriodMinutes(period),
+    endAt.toISOString(),
   );
-  const startTime = new Date(adjustedEndAt.getTime() - period * 60 * 1000);
-  const db = await sqlitePromise;
+  if (isError(result)) {
+    console.error("Failed to fetch process stats:", result.error);
+    return [];
+  }
 
-  const sql = `
-    SELECT
-      pid,
-      process_name,
-      AVG(cpu_usage) AS avg_cpu_usage,
-      AVG(memory_usage) AS avg_memory_usage,
-      MAX(execution_sec) AS total_execution_sec,
-      MAX(timestamp) AS latest_timestamp
-    FROM process_stats
-    WHERE timestamp BETWEEN '${startTime.toISOString()}'
-    AND '${adjustedEndAt.toISOString()}'
-    GROUP BY pid, process_name
-  `;
-
-  return db.load(sql);
+  return result.data;
 };
 
 export const getArchivedRecord = async (
@@ -41,36 +34,32 @@ export const getArchivedRecord = async (
   start: Date,
   end: Date,
 ): Promise<SingleDataArchive[]> => {
-  const db = await sqlitePromise;
+  const result = await commands.getDataArchiveRecords(
+    hardwareType === "ram" ? "memory" : "cpu",
+    "avg",
+    start.toISOString(),
+    end.toISOString(),
+  );
+  if (isError(result)) {
+    console.error("Failed to fetch archived hardware records:", result.error);
+    return [];
+  }
 
-  const sql = `SELECT ${hardwareType}_avg as value, timestamp
-              FROM DATA_ARCHIVE
-              WHERE timestamp BETWEEN '${start.toISOString()}'
-                AND '${end.toISOString()}'`;
-
-  return db.load(sql);
+  return result.data;
 };
 
 export const getProcessStatsInPeriod = async (
   start: Date,
   end: Date,
 ): Promise<ProcessStat[]> => {
-  const db = await sqlitePromise;
+  const result = await commands.getProcessStatsInPeriod(
+    start.toISOString(),
+    end.toISOString(),
+  );
+  if (isError(result)) {
+    console.error("Failed to fetch process stats in period:", result.error);
+    return [];
+  }
 
-  const sql = `
-    SELECT
-      pid,
-      process_name,
-      AVG(cpu_usage) AS avg_cpu_usage,
-      AVG(memory_usage) AS avg_memory_usage,
-      MAX(execution_sec) AS total_execution_sec,
-      MAX(timestamp) AS latest_timestamp
-    FROM process_stats
-    WHERE timestamp BETWEEN '${start.toISOString()}'
-    AND '${end.toISOString()}'
-    GROUP BY pid, process_name
-    ORDER BY avg_cpu_usage DESC
-  `;
-
-  return db.load(sql);
+  return result.data;
 };

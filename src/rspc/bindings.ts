@@ -85,6 +85,16 @@ export const commands = {
 } | null, string>(__TAURI_INVOKE("get_gpu_memory_usage")),
 	// ## Get latest Storage Health records for the dashboard
 	getStorageHealthLatestRecords: () => typedError<StorageHealthRecord[], string>(__TAURI_INVOKE("get_storage_health_latest_records")),
+	// ## Get archived CPU/RAM records
+	getDataArchiveRecords: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string) => typedError<ArchiveRecord[], string>(__TAURI_INVOKE("get_data_archive_records", { hardwareType, dataStats, start, end })),
+	// ## Get archived GPU records
+	getGpuArchiveRecords: (dataType: GpuArchiveDataType, dataStats: ArchiveDataStats, gpuName: string, start: string, end: string) => typedError<ArchiveRecord[], string>(__TAURI_INVOKE("get_gpu_archive_records", { dataType, dataStats, gpuName, start, end })),
+	// ## Get archived process stats for a period ending at `end_at`
+	getProcessStats: (period: number, endAt: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats", { period, endAt })),
+	// ## Get archived process stats between two timestamps
+	getProcessStatsInPeriod: (start: string, end: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats_in_period", { start, end })),
+	// ## Get GPU names that have archive records
+	getGpuArchiveNames: () => typedError<string[], string>(__TAURI_INVOKE("get_gpu_archive_names")),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -178,6 +188,14 @@ export const events = {
 };
 
 /* Types */
+export type ArchiveDataStats = "avg" | "max" | "min";
+
+export type ArchiveRecord = {
+	id: number,
+	value: number | null,
+	timestamp: string,
+};
+
 export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "memoryInfoNotAvailable" | "graphicInfoNotAvailable" | "networkInfoNotAvailable" | "networkUsageNotAvailable" | "unexpectedError";
 
 /**
@@ -279,6 +297,8 @@ export type CpuInfo = {
 	cpuName: string,
 };
 
+export type DataArchiveHardwareType = "cpu" | "memory";
+
 export type DiskKind = "hdd" | "ssd" | "other";
 
 export type DownloadEvent = { event: "started"; data: {
@@ -286,6 +306,8 @@ export type DownloadEvent = { event: "started"; data: {
 } } | { event: "progress"; data: {
 	chunkLength: string,
 } } | { event: "finished" };
+
+export type GpuArchiveDataType = "usage" | "temp" | "dedicatedMemory";
 
 export type GpuMemoryUsage = {
 	inUseBytes: string | null,
@@ -413,6 +435,15 @@ export type ProcessInfo_Serialize = {
 	cpuUsage: string,
 	// Memory usage
 	memoryUsage: string,
+};
+
+export type ProcessStatRecord = {
+	pid: number,
+	process_name: string,
+	avg_cpu_usage: number,
+	avg_memory_usage: number,
+	total_execution_sec: number,
+	latest_timestamp: string,
 };
 
 export type SizeUnit = "B" | "KB" | "MB" | "GB";
