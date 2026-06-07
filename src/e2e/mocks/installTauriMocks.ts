@@ -23,7 +23,85 @@ declare global {
   }
 }
 
+type InvokeHandler = (args?: unknown) => unknown;
+
 const STORE_RID = 1;
+
+const storeKey = (args?: unknown) => (args as { key: string }).key;
+
+/**
+ * Dispatch table mapping invoke commands to their mocked handlers:
+ * Tauri plugin commands (`plugin:<name>|<command>`) and generated
+ * tauri-specta commands (raw or typedError-boxed by the bindings).
+ */
+const buildInvokeHandlers = (
+  store: Map<string, unknown>,
+): Record<string, InvokeHandler> => ({
+  // --- @tauri-apps/plugin-store (rid-based key-value store) ---
+  "plugin:store|load": () => STORE_RID,
+  "plugin:store|has": (args) => store.has(storeKey(args)),
+  "plugin:store|get": (args) => [
+    store.get(storeKey(args)) ?? null,
+    store.has(storeKey(args)),
+  ],
+  "plugin:store|set": (args) => {
+    const a = args as { key: string; value?: unknown };
+    store.set(a.key, a.value);
+    return null;
+  },
+  "plugin:store|delete": (args) => store.delete(storeKey(args)),
+  "plugin:store|keys": () => [...store.keys()],
+  "plugin:store|values": () => [...store.values()],
+  "plugin:store|entries": () => [...store.entries()],
+  "plugin:store|length": () => store.size,
+  "plugin:store|save": () => null,
+  "plugin:store|reload": () => null,
+  "plugin:store|clear": () => null,
+  "plugin:store|reset": () => null,
+
+  // --- window/plugin surface ---
+  "plugin:window|theme": () => "dark",
+  "plugin:dialog|message": () => null,
+  "plugin:autostart|is_enabled": () => false,
+  "plugin:app|version": () => "1.0.0",
+
+  // --- generated commands ---
+  get_settings: () => settingsFixture,
+  get_hardware_info: () => sysInfoFixture,
+  get_process_list: () => processListFixture,
+  get_storage_health_latest_records: () => storageHealthFixture,
+  get_background_images: () => [],
+  get_network_info: () => [],
+  // No pending update — keeps the updater UI out of captures.
+  fetch_update: () => null,
+  // true keeps the settings capture free of the tray-unavailable warning,
+  // matching a typical desktop session.
+  is_close_to_tray_available: () => true,
+  mark_close_to_tray_listener_ready: () => null,
+
+  // --- insights archive commands (synthesized from requested range) ---
+  get_gpu_archive_names: () => GPU_FIXTURES.map((gpu) => gpu.name),
+  get_data_archive_records: (args) => {
+    const a = args as { hardwareType: string; start: string; end: string };
+    return a.hardwareType === "cpu"
+      ? buildArchiveRecords(a.start, a.end, 45, 20)
+      : buildArchiveRecords(a.start, a.end, 60, 8);
+  },
+  get_gpu_archive_records: (args) => {
+    const a = args as { dataType: string; start: string; end: string };
+    if (a.dataType === "temp") {
+      return buildArchiveRecords(a.start, a.end, 58, 6);
+    }
+    if (a.dataType === "dedicatedMemory") {
+      return buildArchiveRecords(a.start, a.end, 4_194_304, 524_288);
+    }
+    return buildArchiveRecords(a.start, a.end, 55, 25);
+  },
+  get_process_stats: (args) =>
+    buildProcessStats((args as { endAt: string }).endAt),
+  get_process_stats_in_period: (args) =>
+    buildProcessStats((args as { end: string }).end),
+});
 
 /**
  * Install Tauri IPC/event/window mocks so the React app runs in a plain
@@ -35,7 +113,7 @@ const STORE_RID = 1;
  * - `__TAURI_OS_PLUGIN_INTERNALS__` backs the synchronous `platform()` API
  *   of @tauri-apps/plugin-os (not an IPC call).
  * - `mockIPC(..., { shouldMockEvents: true })` routes commands to the
- *   handler below and implements `plugin:event|listen/emit/unlisten`.
+ *   dispatch table above and implements `plugin:event|listen/emit/unlisten`.
  */
 export const installTauriMocks = () => {
   mockWindows("main");
@@ -53,108 +131,12 @@ export const installTauriMocks = () => {
   };
 
   const store = new Map<string, unknown>(Object.entries(storeFixture));
+  const handlers = buildInvokeHandlers(store);
 
   mockIPC(
     (cmd: string, args?: unknown) => {
-      // --- @tauri-apps/plugin-store (rid-based key-value store) ---
-      if (cmd.startsWith("plugin:store|")) {
-        const a = args as { key?: string; value?: unknown };
-        switch (cmd) {
-          case "plugin:store|load":
-            return STORE_RID;
-          case "plugin:store|has":
-            return store.has(a.key as string);
-          case "plugin:store|get":
-            return [
-              store.get(a.key as string) ?? null,
-              store.has(a.key as string),
-            ];
-          case "plugin:store|set":
-            store.set(a.key as string, a.value);
-            return null;
-          case "plugin:store|delete":
-            return store.delete(a.key as string);
-          case "plugin:store|keys":
-            return [...store.keys()];
-          case "plugin:store|values":
-            return [...store.values()];
-          case "plugin:store|entries":
-            return [...store.entries()];
-          case "plugin:store|length":
-            return store.size;
-          case "plugin:store|save":
-          case "plugin:store|reload":
-          case "plugin:store|clear":
-          case "plugin:store|reset":
-            return null;
-        }
-      }
-
-      switch (cmd) {
-        // --- window/plugin surface ---
-        case "plugin:window|theme":
-          return "dark";
-        case "plugin:dialog|message":
-          return null;
-        case "plugin:autostart|is_enabled":
-          return false;
-        case "plugin:app|version":
-          return "1.0.0";
-
-        // --- generated commands (raw or typedError-boxed by bindings) ---
-        case "get_settings":
-          return settingsFixture;
-        case "get_hardware_info":
-          return sysInfoFixture;
-        case "get_process_list":
-          return processListFixture;
-        case "get_storage_health_latest_records":
-          return storageHealthFixture;
-        case "get_background_images":
-          return [];
-        case "get_network_info":
-          return [];
-        case "fetch_update":
-          // No pending update — keeps the updater UI out of captures.
-          return null;
-        case "is_close_to_tray_available":
-          // true keeps the settings capture free of the tray-unavailable
-          // warning, matching a typical desktop session.
-          return true;
-        case "mark_close_to_tray_listener_ready":
-          return null;
-
-        // --- insights archive commands (synthesized from requested range) ---
-        case "get_gpu_archive_names":
-          return GPU_FIXTURES.map((gpu) => gpu.name);
-        case "get_data_archive_records": {
-          const a = args as {
-            hardwareType: string;
-            start: string;
-            end: string;
-          };
-          return a.hardwareType === "cpu"
-            ? buildArchiveRecords(a.start, a.end, 45, 20)
-            : buildArchiveRecords(a.start, a.end, 60, 8);
-        }
-        case "get_gpu_archive_records": {
-          const a = args as { dataType: string; start: string; end: string };
-          if (a.dataType === "temp") {
-            return buildArchiveRecords(a.start, a.end, 58, 6);
-          }
-          if (a.dataType === "dedicatedMemory") {
-            return buildArchiveRecords(a.start, a.end, 4_194_304, 524_288);
-          }
-          return buildArchiveRecords(a.start, a.end, 55, 25);
-        }
-        case "get_process_stats": {
-          const a = args as { endAt: string };
-          return buildProcessStats(a.endAt);
-        }
-        case "get_process_stats_in_period": {
-          const a = args as { end: string };
-          return buildProcessStats(a.end);
-        }
+      if (Object.hasOwn(handlers, cmd)) {
+        return handlers[cmd](args);
       }
 
       // Settings mutators (`set_theme`, `set_language`, ...) succeed silently
