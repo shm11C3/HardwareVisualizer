@@ -106,21 +106,28 @@ impl SettingActions for models::settings::Settings {
       format!("Failed to read settings file: {e}")
     })?;
 
-    // Try full deserialization first
-    match serde_json::from_str::<Self>(&input) {
-      Ok(deserialized) => {
-        *self = deserialized;
-        Ok(())
-      }
-      Err(e) => {
-        log_error!(
-          "Failed to deserialize settings, attempting field-level recovery",
-          "read_file",
-          Some(e.to_string())
-        );
-        // Fall back to field-by-field recovery
-        self.merge_from_json_str(&input)
-      }
+    read_settings_from_str(self, &input)
+  }
+}
+
+fn read_settings_from_str(
+  settings: &mut models::settings::Settings,
+  input: &str,
+) -> Result<(), String> {
+  match serde_json::from_str::<models::settings::Settings>(input) {
+    Ok(deserialized) => {
+      *settings = deserialized;
+      clamp_loaded_settings(settings);
+      Ok(())
+    }
+    Err(e) => {
+      log_error!(
+        "Failed to deserialize settings, attempting field-level recovery",
+        "read_file",
+        Some(e.to_string())
+      );
+      // Fall back to field-by-field recovery
+      settings.merge_from_json_str(input)
     }
   }
 }
@@ -213,11 +220,8 @@ impl models::settings::Settings {
     try_field!(selected_background_img, "selectedBackgroundImg");
     try_field!(transparent_ui, "transparentUi");
     try_field!(window_opacity, "windowOpacity");
-    self.window_opacity = self
-      .window_opacity
-      .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
     try_field!(glass_blur, "glassBlur");
-    self.glass_blur = self.glass_blur.clamp(MIN_GLASS_BLUR, MAX_GLASS_BLUR);
+    clamp_loaded_settings(self);
     try_field!(temperature_unit, "temperatureUnit");
     try_field!(burn_in_shift, "burnInShift");
     try_field!(burn_in_shift_mode, "burnInShiftMode");
@@ -480,10 +484,28 @@ impl models::settings::Settings {
   }
 }
 
+fn clamp_loaded_settings(settings: &mut models::settings::Settings) {
+  settings.window_opacity = settings
+    .window_opacity
+    .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
+  settings.glass_blur = settings.glass_blur.clamp(MIN_GLASS_BLUR, MAX_GLASS_BLUR);
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
   use tempfile::TempDir;
+
+  #[test]
+  fn read_settings_from_str_clamps_full_deserialization_values() {
+    let mut settings = models::settings::Settings::default();
+
+    read_settings_from_str(&mut settings, r#"{"windowOpacity":5,"glassBlur":200}"#)
+      .unwrap();
+
+    assert_eq!(settings.window_opacity, MIN_WINDOW_OPACITY);
+    assert_eq!(settings.glass_blur, MAX_GLASS_BLUR);
+  }
 
   #[test]
   fn serialize_preserving_unknown_settings_keeps_core_owned_keys() {
