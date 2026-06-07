@@ -105,3 +105,10 @@ The `test-e2e-web` job in `.github/workflows/ci.yml` runs the suite on
 `ubuntu-latest` and uploads `test-results/captures/` as the `e2e-captures`
 artifact with `if: always()`, so captures survive failed runs. The Playwright
 HTML report and per-test output are uploaded only on failure.
+
+For same-repo pull requests the job also posts the captures inline as a
+sticky PR comment (`.github/scripts/comment-e2e-captures.sh`): images are
+force-pushed to the single-commit `e2e-captures` branch under
+`pr-<number>/` and embedded via raw.githubusercontent.com URLs. The branch
+is disposable — it can be deleted at any time and will be recreated by the
+next run. Fork PRs are skipped (their token is read-only).

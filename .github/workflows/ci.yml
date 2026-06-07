@@ -480,6 +480,9 @@ jobs:
   test-e2e-web:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -512,6 +515,16 @@ jobs:
             test-results/report/
             test-results/output/
           if-no-files-found: ignore
+
+      # Publish captures to the e2e-captures branch and embed them in a
+      # sticky PR comment. Same-repo PRs only (forks get a read-only token).
+      - name: Comment captures on PR
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/comment-e2e-captures.sh
 
   #
   # Frontend Build
@@ -600,6 +613,7 @@ jobs:
       - test-build
       - lint-frontend
       - test-frontend
+      - test-e2e-web
       - build-frontend
       - license-check-npm
       - license-check-cargo
