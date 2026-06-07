@@ -41,8 +41,10 @@ jobs:
           filters: |
             frontend:
               - 'src/**'
+              - 'e2e/**'
               - 'package*.json'
               - 'vite.config.ts'
+              - 'playwright.config.ts'
               - 'tsconfig*.json'
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -473,6 +475,58 @@ jobs:
           json-summary-path: coverage/coverage-summary.json
 
   #
+  # Frontend E2E captures (Playwright web/mock harness, issue #1609)
+  #
+  test-e2e-web:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E capture tests
+        run: npm run test:e2e
+
+      # Keep evidence captures even when the suite fails after launch.
+      - name: Upload capture artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: e2e-captures
+          path: test-results/captures/
+          if-no-files-found: warn
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: e2e-report
+          path: |
+            test-results/report/
+            test-results/output/
+          if-no-files-found: ignore
+
+      # Publish captures to the e2e-captures branch and embed them in a
+      # sticky PR comment. Same-repo PRs only (forks get a read-only token).
+      - name: Comment captures on PR
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/comment-e2e-captures.sh
+
+  #
   # Frontend Build
   #
   build-frontend:
@@ -559,6 +613,7 @@ jobs:
       - test-build
       - lint-frontend
       - test-frontend
+      - test-e2e-web
       - build-frontend
       - license-check-npm
       - license-check-cargo
