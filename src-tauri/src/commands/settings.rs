@@ -143,6 +143,7 @@ pub mod commands {
       selected_background_img: settings.selected_background_img,
       transparent_ui: settings.transparent_ui,
       window_opacity: settings.window_opacity,
+      glass_blur: settings.glass_blur,
       temperature_unit: settings.temperature_unit,
       hardware_archive: core_settings.hardware_archive.into(),
       storage_health: core_settings.storage_health.into(),
@@ -415,6 +416,22 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_window_opacity(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_glass_blur(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: u8,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_glass_blur(new_value) {
       emit_error(&window)?;
       return Err(e);
     }

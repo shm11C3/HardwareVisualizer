@@ -51,6 +51,7 @@ pub struct Settings {
   pub selected_background_img: Option<String>,
   pub transparent_ui: bool,
   pub window_opacity: u8,
+  pub glass_blur: u8,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub burn_in_shift: bool,
   pub burn_in_shift_mode: enums::settings::BurnInShiftMode,
@@ -94,6 +95,7 @@ pub struct ClientSettings {
   pub selected_background_img: Option<String>,
   pub transparent_ui: bool,
   pub window_opacity: u8,
+  pub glass_blur: u8,
   pub temperature_unit: enums::settings::TemperatureUnit,
   pub hardware_archive: models::hardware_archive::HardwareArchiveSettings,
   pub storage_health: models::storage_health::StorageHealthSettings,
@@ -136,6 +138,7 @@ impl Default for Settings {
       selected_background_img: None,
       transparent_ui: false,
       window_opacity: 86,
+      glass_blur: 10,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
@@ -277,6 +280,7 @@ mod tests {
       selected_background_img: Some("test.png".to_string()),
       transparent_ui: false,
       window_opacity: 86,
+      glass_blur: 10,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       hardware_archive: crate::models::hardware_archive::HardwareArchiveSettings::default(
       ),
@@ -313,6 +317,7 @@ mod tests {
     assert!(serialized.contains("\"backgroundImgOpacity\""));
     assert!(serialized.contains("\"transparentUi\""));
     assert!(serialized.contains("\"windowOpacity\""));
+    assert!(serialized.contains("\"glassBlur\""));
   }
 
   #[test]
@@ -401,6 +406,7 @@ mod tests {
     assert_eq!(settings.text_selectable, defaults.text_selectable);
     assert_eq!(settings.transparent_ui, defaults.transparent_ui);
     assert_eq!(settings.window_opacity, defaults.window_opacity);
+    assert_eq!(settings.glass_blur, defaults.glass_blur);
   }
 
   #[test]
@@ -417,6 +423,7 @@ mod tests {
     assert_eq!(settings.text_selectable, defaults.text_selectable);
     assert_eq!(settings.transparent_ui, defaults.transparent_ui);
     assert_eq!(settings.window_opacity, defaults.window_opacity);
+    assert_eq!(settings.glass_blur, defaults.glass_blur);
   }
 
   #[test]
@@ -433,6 +440,7 @@ mod tests {
       "backgroundImgOpacity": 90,
       "transparentUi": true,
       "windowOpacity": 64,
+      "glassBlur": 18,
       "temperatureUnit": "F",
       "burnInShift": true
     }"#;
@@ -450,6 +458,7 @@ mod tests {
     assert_eq!(settings.background_img_opacity, 90);
     assert!(settings.transparent_ui);
     assert_eq!(settings.window_opacity, 64);
+    assert_eq!(settings.glass_blur, 18);
     assert_eq!(
       settings.temperature_unit,
       enums::settings::TemperatureUnit::Fahrenheit
@@ -477,6 +486,15 @@ mod tests {
       .merge_from_json_str(r#"{"windowOpacity": 150}"#)
       .unwrap();
     assert_eq!(settings.window_opacity, 100);
+  }
+
+  #[test]
+  fn test_merge_from_json_str_clamps_glass_blur() {
+    let mut settings = Settings::default();
+    settings
+      .merge_from_json_str(r#"{"glassBlur": 200}"#)
+      .unwrap();
+    assert_eq!(settings.glass_blur, 30);
   }
 
   #[test]

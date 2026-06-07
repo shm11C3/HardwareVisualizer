@@ -248,7 +248,8 @@
         "transparentUi": {
           "name": "Transparent UI",
           "description": "Make the app background and panels transparent.",
-          "opacity": "Window opacity"
+          "opacity": "Window opacity",
+          "blur": "Backdrop blur"
         },
         "closeToTray": {
           "name": "Close to tray instead of quitting",

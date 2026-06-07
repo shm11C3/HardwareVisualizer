@@ -248,7 +248,8 @@
         "transparentUi": {
           "name": "透過UI",
           "description": "アプリ背景とパネルを透過します。",
-          "opacity": "ウィンドウの不透明度"
+          "opacity": "ウィンドウの不透明度",
+          "blur": "背景ぼかし"
         },
         "closeToTray": {
           "name": "閉じるボタンで終了せずトレイに格納する",

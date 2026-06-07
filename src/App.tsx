@@ -269,6 +269,7 @@ const AppContent = () => {
           {
             "--window-opacity-percent": `${settings.windowOpacity}%`,
             "--transparent-surface-opacity-percent": `${transparentSurfaceOpacity}%`,
+            "--transparent-backdrop-blur-px": `${settings.glassBlur}px`,
           } as CSSProperties
         }
       >
@@ -292,6 +293,9 @@ const AppContent = () => {
               : 0,
           }}
         />
+        {settings.transparentUi && (
+          <div className="transparent-app-backdrop pointer-events-none fixed inset-0" />
+        )}
         <div className="relative z-10">
           <SideMenu isFullScreen={isFullScreen || false} />
           <Suspense>

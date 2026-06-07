@@ -30,6 +30,7 @@ const settingsAtom = atom<ClientSettings>({
   selectedBackgroundImg: null,
   transparentUi: false,
   windowOpacity: 86,
+  glassBlur: 10,
   temperatureUnit: "C",
   hardwareArchive: {
     enabled: true,
@@ -86,6 +87,7 @@ export const useSettingsAtom = () => {
     selectedBackgroundImg: commands.setSelectedBackgroundImg,
     transparentUi: commands.setTransparentUi,
     windowOpacity: commands.setWindowOpacity,
+    glassBlur: commands.setGlassBlur,
     temperatureUnit: commands.setTemperatureUnit,
     burnInShift: commands.setBurnInShift,
     burnInShiftPreset: commands.setBurnInShiftPreset,
