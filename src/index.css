@@ -535,6 +535,8 @@
 .transparent-ui {
   --transparent-surface-alpha: var(--transparent-surface-opacity-percent, 55%);
   --transparent-border-alpha: 52%;
+  --transparent-backdrop-blur: var(--transparent-backdrop-blur-px, 10px);
+  --transparent-backdrop-filter: blur(var(--transparent-backdrop-blur));
 }
 
 .dark .transparent-ui {
@@ -554,20 +556,33 @@
   );
 }
 
+.transparent-ui .transparent-app-backdrop {
+  background-color: color-mix(in oklab, var(--background) 1%, transparent);
+  -webkit-backdrop-filter: var(--transparent-backdrop-filter);
+  backdrop-filter: var(--transparent-backdrop-filter);
+}
+
 .transparent-ui .bg-card,
 .transparent-ui .bg-card-overlay,
 .transparent-ui .bg-card-non-transparent,
 .transparent-ui .bg-accent,
 .transparent-ui .bg-modal,
-.transparent-ui .bg-popover {
+.transparent-ui .bg-popover,
+.transparent-ui .bg-secondary,
+.transparent-ui .bg-muted,
+.transparent-ui .bg-muted\/40,
+.transparent-ui .bg-muted\/50,
+.transparent-ui .bg-input,
+.transparent-ui .bg-background:not(.transparent-theme-backdrop),
+.transparent-ui [data-slot="tabs-trigger"][data-state="active"] {
   border-color: color-mix(
     in oklab,
     var(--border) var(--transparent-border-alpha),
     transparent
   );
   background-image: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: var(--transparent-backdrop-filter);
+  backdrop-filter: var(--transparent-backdrop-filter);
 }
 
 .transparent-ui .bg-card {
@@ -594,6 +609,12 @@
   );
 }
 
+.transparent-ui .bg-card-non-transparent thead.bg-card-non-transparent {
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 .transparent-ui .bg-accent {
   background-color: color-mix(
     in oklab,
@@ -614,6 +635,49 @@
   background-color: color-mix(
     in oklab,
     var(--popover) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-secondary {
+  background-color: color-mix(
+    in oklab,
+    var(--secondary) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-muted,
+.transparent-ui .bg-muted\/40,
+.transparent-ui .bg-muted\/50 {
+  background-color: color-mix(
+    in oklab,
+    var(--muted) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-input {
+  background-color: color-mix(
+    in oklab,
+    var(--input) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.transparent-ui .bg-background:not(.transparent-theme-backdrop),
+.transparent-ui [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: color-mix(
+    in oklab,
+    var(--background) var(--transparent-surface-alpha),
+    transparent
+  );
+}
+
+.dark .transparent-ui [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: color-mix(
+    in oklab,
+    var(--input) var(--transparent-surface-alpha),
     transparent
   );
 }

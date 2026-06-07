@@ -31,6 +31,7 @@ export type Settings = {
   selectedBackgroundImg: string | null;
   transparentUi: boolean;
   windowOpacity: number;
+  glassBlur: number;
   temperatureUnit: "C" | "F";
 };
 

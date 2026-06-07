@@ -14,10 +14,10 @@ const buttonVariants = cva(
         destructive:
           "bg-red-500 text-neutral-50 hover:bg-red-500/90 dark:bg-red-900 dark:text-neutral-50 dark:hover:bg-red-900/90",
         outline:
-          "border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+          "border border-[var(--border)] bg-background hover:bg-muted hover:text-[var(--foreground)]",
         secondary:
-          "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[color-mix(in oklab,var(--secondary)_80%,black_20%)]",
-        ghost: "hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+          "bg-secondary text-[var(--secondary-foreground)] hover:bg-[color-mix(in oklab,var(--secondary)_80%,black_20%)]",
+        ghost: "hover:bg-muted hover:text-[var(--foreground)]",
         link: "text-[var(--primary)] underline-offset-4 hover:underline",
       },
       size: {

@@ -7,6 +7,8 @@ use std::io::Write;
 pub const SETTINGS_FILENAME: &str = "settings.json";
 const MIN_WINDOW_OPACITY: u8 = 20;
 const MAX_WINDOW_OPACITY: u8 = 100;
+const MIN_GLASS_BLUR: u8 = 0;
+const MAX_GLASS_BLUR: u8 = 30;
 
 pub trait SettingActions {
   fn write_file(&self) -> Result<(), String>;
@@ -214,6 +216,8 @@ impl models::settings::Settings {
     self.window_opacity = self
       .window_opacity
       .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
+    try_field!(glass_blur, "glassBlur");
+    self.glass_blur = self.glass_blur.clamp(MIN_GLASS_BLUR, MAX_GLASS_BLUR);
     try_field!(temperature_unit, "temperatureUnit");
     try_field!(burn_in_shift, "burnInShift");
     try_field!(burn_in_shift_mode, "burnInShiftMode");
@@ -406,6 +410,11 @@ impl models::settings::Settings {
 
   pub fn set_window_opacity(&mut self, new_value: u8) -> Result<(), String> {
     self.window_opacity = new_value.clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
+    self.write_file()
+  }
+
+  pub fn set_glass_blur(&mut self, new_value: u8) -> Result<(), String> {
+    self.glass_blur = new_value.clamp(MIN_GLASS_BLUR, MAX_GLASS_BLUR);
     self.write_file()
   }
 

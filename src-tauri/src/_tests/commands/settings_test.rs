@@ -36,6 +36,7 @@ mod tests {
       selected_background_img: None,
       transparent_ui: false,
       window_opacity: 86,
+      glass_blur: 10,
       temperature_unit: enums::settings::TemperatureUnit::Celsius,
       burn_in_shift: false,
       burn_in_shift_mode: enums::settings::BurnInShiftMode::Jump,
@@ -85,6 +86,7 @@ mod tests {
     );
     assert_eq!(settings.transparent_ui, expected.transparent_ui);
     assert_eq!(settings.window_opacity, expected.window_opacity);
+    assert_eq!(settings.glass_blur, expected.glass_blur);
     assert_eq!(settings.temperature_unit, expected.temperature_unit);
   }
 
@@ -219,6 +221,13 @@ mod tests {
     let mut settings = models::settings::Settings::default();
     assert!(settings.set_background_img_opacity(100).is_ok());
     assert_eq!(settings.background_img_opacity, 100);
+  }
+
+  #[test]
+  fn test_set_glass_blur() {
+    let mut settings = models::settings::Settings::default();
+    assert!(settings.set_glass_blur(18).is_ok());
+    assert_eq!(settings.glass_blur, 18);
   }
 
   #[test]

@@ -32,6 +32,7 @@ vi.mock("@/rspc/bindings", () => ({
     setSelectedBackgroundImg: vi.fn(),
     setTransparentUi: vi.fn(),
     setWindowOpacity: vi.fn(),
+    setGlassBlur: vi.fn(),
     setTemperatureUnit: vi.fn(),
     setLineGraphColor: vi.fn(),
     setBurnInShift: vi.fn(),
@@ -84,6 +85,9 @@ describe("useSettingsAtom", () => {
       lineGraphShowTooltip: false,
       backgroundImgOpacity: 70,
       selectedBackgroundImg: "image.png",
+      transparentUi: true,
+      windowOpacity: 64,
+      glassBlur: 18,
       temperatureUnit: "F",
     };
 
