@@ -56,8 +56,19 @@ const buildInvokeHandlers = (
   "plugin:store|length": () => store.size,
   "plugin:store|save": () => null,
   "plugin:store|reload": () => null,
-  "plugin:store|clear": () => null,
-  "plugin:store|reset": () => null,
+  // clear() empties the store; reset() restores the configured defaults
+  // (falling back to clear() when no defaults exist) — see plugin-store v2.
+  "plugin:store|clear": () => {
+    store.clear();
+    return null;
+  },
+  "plugin:store|reset": () => {
+    store.clear();
+    for (const [key, value] of Object.entries(storeFixture)) {
+      store.set(key, value);
+    }
+    return null;
+  },
 
   // --- window/plugin surface ---
   "plugin:window|theme": () => "dark",

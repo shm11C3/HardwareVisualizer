@@ -43,8 +43,13 @@ export const gotoApp = async (page: Page) => {
  * render a stable history, then wait for the UI to settle.
  */
 export const seedHardwareHistory = async (page: Page) => {
+  // Fail loudly if the E2E mock bridge is missing rather than silently
+  // skipping the seed (which would surface later as an empty-chart capture).
   await page.evaluate(async () => {
-    await window.__E2E__?.emitHardwareUpdateSeries(30);
+    if (!window.__E2E__) {
+      throw new Error("window.__E2E__ is not installed (VITE_E2E_MOCK unset?)");
+    }
+    await window.__E2E__.emitHardwareUpdateSeries(30);
   });
   // Allow chart re-render/animation to settle before capturing.
   await page.waitForTimeout(600);
