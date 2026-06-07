@@ -3,20 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getArchivedRecord } from "@/features/hardware/insights/snapshot/funcs/getArchivedRecord";
 import { useSnapshot } from "@/features/hardware/insights/snapshot/hooks/useSnapshot";
 
+const hoisted = vi.hoisted(() => ({
+  errorMock: vi.fn(),
+}));
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-vi.mock("@tauri-apps/plugin-sql", () => ({
-  Database: {
-    load: vi.fn(),
-  },
-}));
-
-vi.mock("@/lib/sqlite", () => ({
-  sqlitePromise: Promise.resolve({
-    load: vi.fn(),
-  }),
+vi.mock("@/hooks/useTauriDialog", () => ({
+  useTauriDialog: () => ({ error: hoisted.errorMock }),
 }));
 
 vi.mock("@/features/hardware/insights/snapshot/funcs/getArchivedRecord");

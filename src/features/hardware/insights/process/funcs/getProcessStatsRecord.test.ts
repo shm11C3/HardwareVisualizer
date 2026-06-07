@@ -1,18 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  loadMock: vi.fn(),
+  getProcessStatsMock: vi.fn(),
 }));
 
-vi.mock("@/lib/sqlite", () => ({
-  sqlitePromise: Promise.resolve({
-    load: hoisted.loadMock,
-    save: vi.fn(),
-  }),
-}));
-
-vi.mock("@/features/hardware/consts/chart", () => ({
-  chartConfig: { archiveUpdateIntervalMilSec: 60000 },
+vi.mock("@/rspc/bindings", () => ({
+  commands: {
+    getProcessStats: hoisted.getProcessStatsMock,
+  },
 }));
 
 describe("getProcessStats (getProcessStatsRecord)", () => {
@@ -20,7 +15,7 @@ describe("getProcessStats (getProcessStatsRecord)", () => {
     vi.clearAllMocks();
   });
 
-  it("calls db.load with a SQL query containing the correct time window", async () => {
+  it("calls the typed process stats command with the period and end time", async () => {
     const endAt = new Date("2023-06-01T01:00:00.000Z");
     const period = 10; // 10 minutes
     const expectedRows = [
@@ -33,7 +28,10 @@ describe("getProcessStats (getProcessStatsRecord)", () => {
         latest_timestamp: "2023-06-01T01:00:00.000Z",
       },
     ];
-    hoisted.loadMock.mockResolvedValue(expectedRows);
+    hoisted.getProcessStatsMock.mockResolvedValue({
+      status: "ok",
+      data: expectedRows,
+    });
 
     const { getProcessStats } = await import(
       "@/features/hardware/insights/process/funcs/getProcessStatsRecord"
@@ -41,17 +39,37 @@ describe("getProcessStats (getProcessStatsRecord)", () => {
 
     const result = await getProcessStats(period, endAt);
 
-    expect(hoisted.loadMock).toHaveBeenCalledOnce();
-    const sql = hoisted.loadMock.mock.calls[0][0] as string;
-    expect(sql).toContain("process_stats");
-    // adjustedEndAt = endAt - 60000ms; startTime = adjustedEndAt - 10*60*1000
-    expect(sql).toContain("2023-06-01T00:49:00.000Z"); // startTime
-    expect(sql).toContain("2023-06-01T00:59:00.000Z"); // adjustedEndAt
+    expect(hoisted.getProcessStatsMock).toHaveBeenCalledWith(
+      period,
+      endAt.toISOString(),
+    );
     expect(result).toEqual(expectedRows);
   });
 
-  it("returns empty array when db.load resolves with []", async () => {
-    hoisted.loadMock.mockResolvedValue([]);
+  it("normalizes a string period before calling the typed command", async () => {
+    const endAt = new Date("2023-06-01T01:00:00.000Z");
+    hoisted.getProcessStatsMock.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+
+    const { getProcessStats } = await import(
+      "@/features/hardware/insights/process/funcs/getProcessStatsRecord"
+    );
+
+    await getProcessStats("180", endAt);
+
+    expect(hoisted.getProcessStatsMock).toHaveBeenCalledWith(
+      180,
+      endAt.toISOString(),
+    );
+  });
+
+  it("returns empty array when the command resolves with []", async () => {
+    hoisted.getProcessStatsMock.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
 
     const { getProcessStats } = await import(
       "@/features/hardware/insights/process/funcs/getProcessStatsRecord"
@@ -59,5 +77,20 @@ describe("getProcessStats (getProcessStatsRecord)", () => {
 
     const result = await getProcessStats(5, new Date());
     expect(result).toEqual([]);
+  });
+
+  it("throws when the command returns an error result", async () => {
+    hoisted.getProcessStatsMock.mockResolvedValue({
+      status: "error",
+      error: "database unavailable",
+    });
+
+    const { getProcessStats } = await import(
+      "@/features/hardware/insights/process/funcs/getProcessStatsRecord"
+    );
+
+    await expect(getProcessStats(5, new Date())).rejects.toThrow(
+      "Failed to fetch process stats: database unavailable",
+    );
   });
 });

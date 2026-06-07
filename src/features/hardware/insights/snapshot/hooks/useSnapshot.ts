@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import type { SingleDataArchive } from "@/features/hardware/types/chart";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import type { ProcessStat } from "../../types/processStats";
 import {
   getArchivedRecord,
@@ -10,6 +11,7 @@ import type { SnapshotPeriod, UsageRange } from "../types/snapshotType";
 
 export const useSnapshot = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
+  const { error } = useTauriDialog();
 
   // Calculate total memory in MB
   const totalMemoryMB = useMemo(() => {
@@ -84,22 +86,29 @@ export const useSnapshot = () => {
       const startDate = new Date(period.start);
       const endDate = new Date(period.end);
 
-      // Get hardware data
-      const hardwareType = selectedDataType === "memory" ? "ram" : "cpu";
-      const archivedResult = await getArchivedRecord(
-        hardwareType,
-        startDate,
-        endDate,
-      );
-      setArchivedData(archivedResult);
+      try {
+        // Get hardware data
+        const hardwareType = selectedDataType === "memory" ? "ram" : "cpu";
+        const archivedResult = await getArchivedRecord(
+          hardwareType,
+          startDate,
+          endDate,
+        );
+        setArchivedData(archivedResult);
 
-      // Get process data
-      const processResult = await getProcessStatsInPeriod(startDate, endDate);
-      setProcessData(processResult);
+        // Get process data
+        const processResult = await getProcessStatsInPeriod(startDate, endDate);
+        setProcessData(processResult);
+      } catch (err) {
+        console.error(err);
+        setArchivedData([]);
+        setProcessData([]);
+        void error(String(err));
+      }
     };
 
-    fetchData();
-  }, [period, selectedDataType]);
+    void fetchData();
+  }, [period, selectedDataType, error]);
 
   /**
    * Maximum number of data points to display in chart

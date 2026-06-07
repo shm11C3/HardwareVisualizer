@@ -1,3 +1,4 @@
+pub mod archive_history;
 pub mod background_image;
 pub mod hardware;
 pub mod hardware_archive;

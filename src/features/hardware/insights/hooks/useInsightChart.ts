@@ -3,72 +3,21 @@ import {
   type archivePeriods,
   chartConfig,
 } from "@/features/hardware/consts/chart";
-import type {
-  DataArchive,
-  GpuDataArchive,
-  SingleDataArchive,
-} from "@/features/hardware/types/chart";
+import type { SingleDataArchive } from "@/features/hardware/types/chart";
 import type {
   DataStats,
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { sqlitePromise } from "@/lib/sqlite";
-import type { HardwareType } from "@/rspc/bindings";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
+import { commands, type HardwareType } from "@/rspc/bindings";
+import { isError } from "@/types/result";
 
 // Aggregation function definitions for each type
 const aggregatorMap: Record<DataStats, (values: number[]) => number> = {
   avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
   max: (vals) => Math.max(...vals),
   min: (vals) => Math.min(...vals),
-};
-
-const getDataArchiveKey = (
-  hardwareType: Exclude<HardwareType, "gpu">,
-  dataStats: DataStats,
-): keyof DataArchive => {
-  const keyMap: Record<
-    Exclude<HardwareType, "gpu">,
-    Record<string, keyof DataArchive>
-  > = {
-    cpu: {
-      avg: "cpu_avg",
-      max: "cpu_max",
-      min: "cpu_min",
-    },
-    memory: {
-      avg: "ram_avg",
-      max: "ram_max",
-      min: "ram_min",
-    },
-  };
-
-  return keyMap[hardwareType][dataStats];
-};
-
-const getGpuDataArchiveKey = (
-  dataType: GpuDataType,
-  dataStats: DataStats,
-): keyof GpuDataArchive => {
-  const keyMap: Record<GpuDataType, Record<string, keyof GpuDataArchive>> = {
-    usage: {
-      avg: "usage_avg",
-      max: "usage_max",
-      min: "usage_min",
-    },
-    temp: {
-      avg: "temperature_avg",
-      max: "temperature_max",
-      min: "temperature_min",
-    },
-    dedicatedMemory: {
-      avg: "dedicated_memory_avg",
-      max: "dedicated_memory_max",
-      min: "dedicated_memory_min",
-    },
-  };
-
-  return keyMap[dataType][dataStats];
 };
 
 type UseInsightChartGpuProps = {
@@ -92,6 +41,7 @@ export const useInsightChart = (
 ) => {
   const { hardwareType, dataStats, period, offset } = props;
   const { settings } = useSettingsAtom();
+  const { error } = useTauriDialog();
 
   const gpuName = hardwareType === "gpu" ? props.gpuName : "";
   const dataType = hardwareType === "gpu" ? props.dataType : undefined;
@@ -124,26 +74,40 @@ export const useInsightChart = (
     );
     const startTime = new Date(adjustedEndAt.getTime() - period * 60 * 1000);
 
-    const sql: string = (() => {
-      if (hardwareType === "gpu") {
-        if (!dataType) {
-          throw new Error("Data type is required for GPU");
-        }
-
-        return `SELECT ${getGpuDataArchiveKey(dataType, dataStats)} as value, timestamp
-              FROM GPU_DATA_ARCHIVE
-              WHERE gpu_name = '${gpuName}'
-                AND timestamp BETWEEN '${startTime.toISOString()}'
-                AND '${adjustedEndAt.toISOString()}'`;
+    if (hardwareType === "gpu") {
+      if (!dataType) {
+        throw new Error("Data type is required for GPU");
       }
 
-      return `SELECT ${getDataArchiveKey(hardwareType, dataStats)} as value, timestamp
-              FROM DATA_ARCHIVE
-              WHERE timestamp BETWEEN '${startTime.toISOString()}'
-                AND '${adjustedEndAt.toISOString()}'`;
-    })();
+      const result = await commands.getGpuArchiveRecords(
+        dataType,
+        dataStats,
+        gpuName,
+        startTime.toISOString(),
+        adjustedEndAt.toISOString(),
+      );
+      if (isError(result)) {
+        throw new Error(
+          `Failed to fetch archived GPU records: ${result.error}`,
+        );
+      }
 
-    return await (await sqlitePromise).load(sql);
+      return result.data;
+    }
+
+    const result = await commands.getDataArchiveRecords(
+      hardwareType,
+      dataStats,
+      startTime.toISOString(),
+      adjustedEndAt.toISOString(),
+    );
+    if (isError(result)) {
+      throw new Error(
+        `Failed to fetch archived hardware records: ${result.error}`,
+      );
+    }
+
+    return result.data;
   }, [hardwareType, period, dataStats, gpuName, dataType, offset, step]);
 
   const formatValue = useCallback(
@@ -186,6 +150,10 @@ export const useInsightChart = (
         setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
       } catch (e) {
         console.error(e);
+        if (activeRequestIdRef.current === requestId) {
+          setData([]);
+        }
+        void error(String(e));
       }
     };
 
@@ -201,7 +169,7 @@ export const useInsightChart = (
         scheduledTimeoutIdRef.current = null;
       }
     };
-  }, [getData, formatValue, offset]);
+  }, [getData, formatValue, offset, error]);
 
   useEffect(() => {
     // Only auto-refresh the "current" window.
@@ -222,11 +190,15 @@ export const useInsightChart = (
         })
         .catch((e) => {
           console.error(e);
+          if (activeRequestIdRef.current === requestId) {
+            setData([]);
+          }
+          void error(String(e));
         });
     }, chartConfig.archiveUpdateIntervalMilSec);
 
     return () => clearInterval(intervalId);
-  }, [getData, formatValue, offset]);
+  }, [getData, formatValue, offset, error]);
 
   const endAtForBucket = useMemo(
     () => new Date(Date.now() - offset * step),

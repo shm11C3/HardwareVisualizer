@@ -1,21 +1,30 @@
 import { act, renderHook } from "@testing-library/react";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInsightChart } from "@/features/hardware/insights/hooks/useInsightChart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import { sqlitePromise } from "@/lib/sqlite";
+import { commands } from "@/rspc/bindings";
 
-vi.mock("@/lib/sqlite", () => ({
-  sqlitePromise: Promise.resolve({
-    load: vi.fn().mockResolvedValue([]),
+const hoisted = vi.hoisted(() => ({
+  errorMock: vi.fn(),
+  getDataArchiveRecordsMock: vi.fn().mockResolvedValue({
+    status: "ok",
+    data: [],
   }),
+  getGpuArchiveRecordsMock: vi.fn().mockResolvedValue({
+    status: "ok",
+    data: [],
+  }),
+}));
+
+vi.mock("@/hooks/useTauriDialog", () => ({
+  useTauriDialog: () => ({ error: hoisted.errorMock }),
+}));
+
+vi.mock("@/rspc/bindings", () => ({
+  commands: {
+    getDataArchiveRecords: hoisted.getDataArchiveRecordsMock,
+    getGpuArchiveRecords: hoisted.getGpuArchiveRecordsMock,
+  },
 }));
 
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
@@ -30,6 +39,9 @@ vi.mock("@/consts", () => ({
   },
 }));
 
+const ok = <T>(data: T) => ({ status: "ok" as const, data });
+const err = (error: string) => ({ status: "error" as const, error });
+
 describe("useInsightChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,10 +49,10 @@ describe("useInsightChart", () => {
 
   it("should fetch and aggregate data for non-GPU hardware", async () => {
     const mockData = [
-      { value: 10, timestamp: "2023-01-01T00:00:00Z" },
-      { value: 20, timestamp: "2023-01-01T00:01:00Z" },
+      { id: 1, value: 10, timestamp: "2023-01-01T00:00:00Z" },
+      { id: 2, value: 20, timestamp: "2023-01-01T00:01:00Z" },
     ];
-    ((await sqlitePromise).load as Mock).mockResolvedValue(mockData);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -65,10 +77,10 @@ describe("useInsightChart", () => {
 
   it("should fetch and aggregate memory max", async () => {
     const mockData = [
-      { value: 2000, timestamp: "2023-01-01T00:00:00Z" },
-      { value: 3000, timestamp: "2023-01-01T00:01:00Z" },
+      { id: 1, value: 2000, timestamp: "2023-01-01T00:00:00Z" },
+      { id: 2, value: 3000, timestamp: "2023-01-01T00:01:00Z" },
     ];
-    ((await sqlitePromise).load as Mock).mockResolvedValue(mockData);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -91,10 +103,10 @@ describe("useInsightChart", () => {
 
   it("should fetch and aggregate data for GPU hardware", async () => {
     const mockData = [
-      { value: 30, timestamp: "2023-01-01T00:00:00Z" },
-      { value: 40, timestamp: "2023-01-01T00:01:00Z" },
+      { id: 1, value: 30, timestamp: "2023-01-01T00:00:00Z" },
+      { id: 2, value: 40, timestamp: "2023-01-01T00:01:00Z" },
     ];
-    ((await sqlitePromise).load as Mock).mockResolvedValue(mockData);
+    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -120,10 +132,10 @@ describe("useInsightChart", () => {
 
   it("should fetch and aggregate GPU temperature with min", async () => {
     const mockData = [
-      { value: 60, timestamp: "2023-01-01T00:00:00Z" },
-      { value: 50, timestamp: "2023-01-01T00:01:00Z" },
+      { id: 1, value: 60, timestamp: "2023-01-01T00:00:00Z" },
+      { id: 2, value: 50, timestamp: "2023-01-01T00:01:00Z" },
     ];
-    ((await sqlitePromise).load as Mock).mockResolvedValue(mockData);
+    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -150,7 +162,7 @@ describe("useInsightChart", () => {
   vi.setSystemTime(mockedTime);
 
   it("should handle empty data gracefully", async () => {
-    ((await sqlitePromise).load as Mock).mockResolvedValue([]);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok([]));
 
     const { result } = renderHook(() =>
       useInsightChart({
@@ -170,7 +182,7 @@ describe("useInsightChart", () => {
   });
 
   it("should calculate labels correctly for long periods", async () => {
-    ((await sqlitePromise).load as Mock).mockResolvedValue([]);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok([]));
 
     const { result } = renderHook(() =>
       useInsightChart({
@@ -190,8 +202,8 @@ describe("useInsightChart", () => {
   });
 
   it("should shift time correctly when offset is applied", async () => {
-    const mockData = [{ value: 15, timestamp: "2023-01-01T00:00:00Z" }];
-    ((await sqlitePromise).load as Mock).mockResolvedValue(mockData);
+    const mockData = [{ id: 1, value: 15, timestamp: "2023-01-01T00:00:00Z" }];
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -211,6 +223,53 @@ describe("useInsightChart", () => {
 
     expect(result.current.labels.length).toBeGreaterThan(0);
   });
+
+  it("should clear chart data when the archive command returns an error", async () => {
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
+      ok([{ id: 1, value: 15, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result, rerender } = renderHook(
+      ({ offset }) =>
+        useInsightChart({
+          hardwareType: "cpu",
+          dataStats: "avg",
+          period: 10,
+          offset,
+        }),
+      { initialProps: { offset: 0 } },
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(result.current.chartData).toContain(15);
+
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValueOnce(
+      err("decode failed"),
+    );
+    rerender({ offset: 1 });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+
+    expect(result.current.hasData).toBe(false);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Failed to fetch archived hardware records: decode failed",
+      }),
+    );
+    expect(hoisted.errorMock).toHaveBeenCalledWith(
+      "Error: Failed to fetch archived hardware records: decode failed",
+    );
+    consoleErrorSpy.mockRestore();
+  });
 });
 
 describe("useInsightChart – formatValue branches", () => {
@@ -222,9 +281,9 @@ describe("useInsightChart – formatValue branches", () => {
   });
 
   it("should propagate null values from sqlite as null chart data", async () => {
-    ((await sqlitePromise).load as Mock).mockResolvedValue([
-      { value: null, timestamp: "2023-01-01T00:01:00Z" },
-    ]);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
+      ok([{ id: 1, value: null, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
     const { result } = renderHook(() =>
@@ -249,9 +308,9 @@ describe("useInsightChart – formatValue branches", () => {
     vi.mocked(useSettingsAtom).mockReturnValue({
       settings: { temperatureUnit: "F" },
     } as ReturnType<typeof useSettingsAtom>);
-    ((await sqlitePromise).load as Mock).mockResolvedValue([
-      { value: 100, timestamp: "2023-01-01T00:01:00Z" },
-    ]);
+    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(
+      ok([{ id: 1, value: 100, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
     const { result } = renderHook(() =>
@@ -274,9 +333,11 @@ describe("useInsightChart – formatValue branches", () => {
   });
 
   it("should convert dedicatedMemory values from KB to GB", async () => {
-    ((await sqlitePromise).load as Mock).mockResolvedValue([
-      { value: 1048576, timestamp: "2023-01-01T00:01:00Z" }, // 1 GiB in KiB
-    ]);
+    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(
+      ok([
+        { id: 1, value: 1048576, timestamp: "2023-01-01T00:01:00Z" }, // 1 GiB in KiB
+      ]),
+    );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
     const { result } = renderHook(() =>
@@ -314,10 +375,10 @@ describe("useInsightChart – auto-refresh interval", () => {
   });
 
   it("should poll getData via interval when offset is 0", async () => {
-    const loadMock = (await sqlitePromise).load as Mock;
-    loadMock.mockResolvedValue([
-      { value: 50, timestamp: "2023-01-01T00:01:00Z" },
-    ]);
+    const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
+    getDataArchiveRecordsMock.mockResolvedValue(
+      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
 
     renderHook(() =>
       useInsightChart({
@@ -334,7 +395,7 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    const callsAfterMount = loadMock.mock.calls.length;
+    const callsAfterMount = getDataArchiveRecordsMock.mock.calls.length;
 
     // Advance past archiveUpdateIntervalMilSec (60 000 ms) to trigger interval
     await act(async () => {
@@ -342,12 +403,14 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    expect(loadMock.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    expect(getDataArchiveRecordsMock.mock.calls.length).toBeGreaterThan(
+      callsAfterMount,
+    );
   });
 
   it("should not start auto-refresh when offset is non-zero", async () => {
-    const loadMock = (await sqlitePromise).load as Mock;
-    loadMock.mockResolvedValue([]);
+    const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
+    getDataArchiveRecordsMock.mockResolvedValue(ok([]));
 
     renderHook(() =>
       useInsightChart({
@@ -364,7 +427,7 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    const callsAfterMount = loadMock.mock.calls.length;
+    const callsAfterMount = getDataArchiveRecordsMock.mock.calls.length;
 
     // Advance well past the interval – should NOT trigger additional fetches
     await act(async () => {
@@ -372,7 +435,7 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    expect(loadMock.mock.calls.length).toBe(callsAfterMount);
+    expect(getDataArchiveRecordsMock.mock.calls.length).toBe(callsAfterMount);
   });
 
   it("cleanup: cancels pending debounce timeout on unmount", () => {
@@ -395,15 +458,17 @@ describe("useInsightChart – auto-refresh interval", () => {
     clearTimeoutSpy.mockRestore();
   });
 
-  it("handles getData rejection in interval and logs error", async () => {
-    const loadMock = (await sqlitePromise).load as Mock;
-    loadMock.mockResolvedValue([]);
+  it("handles getData rejection in interval and clears stale chart data", async () => {
+    const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
+    getDataArchiveRecordsMock.mockResolvedValue(
+      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
 
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    renderHook(() =>
+    const { result } = renderHook(() =>
       useInsightChart({
         hardwareType: "cpu",
         dataStats: "avg",
@@ -418,8 +483,10 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    // Make load reject on the next call (inside the interval tick)
-    loadMock.mockRejectedValueOnce(new Error("DB error"));
+    expect(result.current.hasData).toBe(true);
+
+    // Make the command reject on the next call (inside the interval tick)
+    getDataArchiveRecordsMock.mockRejectedValueOnce(new Error("DB error"));
 
     await act(async () => {
       vi.advanceTimersByTime(60000);
@@ -427,6 +494,8 @@ describe("useInsightChart – auto-refresh interval", () => {
     });
 
     expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(hoisted.errorMock).toHaveBeenCalledWith("Error: DB error");
+    expect(result.current.hasData).toBe(false);
     consoleErrorSpy.mockRestore();
   });
 });
