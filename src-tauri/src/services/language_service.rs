@@ -2,13 +2,37 @@ use sys_locale;
 
 // List of languages currently supported by the app
 pub const SUPPORTED_LANGUAGES: [&str; 3] = ["en", "ja", "ru"];
+const E2E_ENV: &str = "HARDVIZ_E2E";
+const E2E_DEFAULT_LANGUAGE_ENV: &str = "HARDVIZ_E2E_DEFAULT_LANGUAGE";
 
 ///
 /// Get default language setting
 ///
 pub fn get_default_language() -> String {
   let os_language = get_os_language();
-  resolve_language(os_language.as_deref())
+  let e2e_language = std::env::var(E2E_DEFAULT_LANGUAGE_ENV).ok();
+
+  default_language_for(
+    os_language.as_deref(),
+    is_env_enabled(E2E_ENV),
+    e2e_language.as_deref(),
+  )
+}
+
+fn is_env_enabled(key: &str) -> bool {
+  std::env::var(key).as_deref() == Ok("1")
+}
+
+fn default_language_for(
+  os_language: Option<&str>,
+  e2e_enabled: bool,
+  e2e_language: Option<&str>,
+) -> String {
+  if e2e_enabled && let Some(language) = e2e_language {
+    return resolve_language(Some(language));
+  }
+
+  resolve_language(os_language)
 }
 
 /// Resolve a language code to a supported language, falling back to "en".
@@ -85,6 +109,27 @@ mod tests {
   }
 
   // ── get_default_language ──
+
+  #[test]
+  fn default_language_uses_e2e_language_when_e2e_is_enabled() {
+    assert_eq!(default_language_for(Some("ja"), true, Some("en")), "en");
+    assert_eq!(default_language_for(Some("en"), true, Some("ja")), "ja");
+  }
+
+  #[test]
+  fn default_language_ignores_e2e_language_when_e2e_is_disabled() {
+    assert_eq!(default_language_for(Some("ja"), false, Some("en")), "ja");
+  }
+
+  #[test]
+  fn default_language_uses_os_language_when_e2e_language_is_missing() {
+    assert_eq!(default_language_for(Some("ja"), true, None), "ja");
+  }
+
+  #[test]
+  fn default_language_falls_back_to_en_for_unsupported_e2e_language() {
+    assert_eq!(default_language_for(Some("ja"), true, Some("fr")), "en");
+  }
 
   #[test]
   fn get_default_language_returns_supported_language() {

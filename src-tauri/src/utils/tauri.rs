@@ -6,6 +6,9 @@ const RELEASE_IDENTIFIER: &str = "HardwareVisualizer";
 const RELEASE_PRODUCT_NAME: &str = "HardwareVisualizer";
 const DEV_IDENTIFIER: &str = "HardwareVisualizerDev";
 const DEV_PRODUCT_NAME: &str = "HardwareVisualizerDev";
+const E2E_IDENTIFIER: &str = "HardwareVisualizerE2E";
+const E2E_PRODUCT_NAME: &str = "HardwareVisualizerE2E";
+const E2E_ENV: &str = "HARDVIZ_E2E";
 
 fn parse_tauri_conf(raw: &str) -> Value {
   serde_json::from_str(raw).unwrap_or(Value::Null)
@@ -19,11 +22,31 @@ fn release_identifier_from(conf: &Value) -> String {
     .to_string()
 }
 
-fn runtime_identifier_from(conf: &Value) -> String {
-  if cfg!(debug_assertions) {
+fn is_e2e_runtime() -> bool {
+  std::env::var(E2E_ENV).as_deref() == Ok("1")
+}
+
+fn runtime_identifier_for(conf: &Value, is_debug: bool, is_e2e: bool) -> String {
+  if is_e2e {
+    E2E_IDENTIFIER.to_string()
+  } else if is_debug {
     DEV_IDENTIFIER.to_string()
   } else {
     release_identifier_from(conf)
+  }
+}
+
+fn runtime_identifier_from(conf: &Value) -> String {
+  runtime_identifier_for(conf, cfg!(debug_assertions), is_e2e_runtime())
+}
+
+fn runtime_product_name_for(is_debug: bool, is_e2e: bool) -> Option<String> {
+  if is_e2e {
+    Some(E2E_PRODUCT_NAME.to_string())
+  } else if is_debug {
+    Some(DEV_PRODUCT_NAME.to_string())
+  } else {
+    None
   }
 }
 
@@ -59,13 +82,18 @@ pub fn get_identifier() -> String {
 /// `tauri.conf.json` conditionally.
 ///
 pub fn apply_runtime_config(config: &mut tauri::Config) {
-  if cfg!(debug_assertions) {
-    config.identifier = DEV_IDENTIFIER.to_string();
-    config.product_name = Some(DEV_PRODUCT_NAME.to_string());
+  let is_e2e = is_e2e_runtime();
+
+  if let Some(product_name) = runtime_product_name_for(cfg!(debug_assertions), is_e2e) {
+    config.identifier = runtime_identifier_from(tauri_conf());
+    config.product_name = Some(product_name.clone());
 
     for window in &mut config.app.windows {
-      if window.title == RELEASE_PRODUCT_NAME {
-        window.title = DEV_PRODUCT_NAME.to_string();
+      if matches!(
+        window.title.as_str(),
+        RELEASE_PRODUCT_NAME | DEV_PRODUCT_NAME | E2E_PRODUCT_NAME
+      ) {
+        window.title = product_name.clone();
       }
     }
   }
@@ -129,6 +157,39 @@ mod tests {
   }
 
   #[test]
+  fn test_runtime_identifier_e2e_overrides_debug_and_release_identity() {
+    let conf = json!({ "identifier": "ReleaseApp" });
+
+    assert_eq!(runtime_identifier_for(&conf, true, true), E2E_IDENTIFIER);
+    assert_eq!(runtime_identifier_for(&conf, false, true), E2E_IDENTIFIER);
+  }
+
+  #[test]
+  fn test_runtime_identity_falls_back_to_dev_then_release() {
+    let conf = json!({ "identifier": "ReleaseApp" });
+
+    assert_eq!(runtime_identifier_for(&conf, true, false), DEV_IDENTIFIER);
+    assert_eq!(runtime_identifier_for(&conf, false, false), "ReleaseApp");
+  }
+
+  #[test]
+  fn test_runtime_product_name_e2e_overrides_debug_identity() {
+    assert_eq!(
+      runtime_product_name_for(true, true),
+      Some(E2E_PRODUCT_NAME.to_string())
+    );
+    assert_eq!(
+      runtime_product_name_for(false, true),
+      Some(E2E_PRODUCT_NAME.to_string())
+    );
+    assert_eq!(
+      runtime_product_name_for(true, false),
+      Some(DEV_PRODUCT_NAME.to_string())
+    );
+    assert_eq!(runtime_product_name_for(false, false), None);
+  }
+
+  #[test]
   fn test_dev_identity_matches_tauri_dev_conf_json() {
     let conf: serde_json::Value =
       serde_json::from_str(include_str!("../../tauri.dev.conf.json")).unwrap();
@@ -153,6 +214,34 @@ mod tests {
     assert!(
       conf.get("mainBinaryName").is_none(),
       "tauri.dev.conf.json should inherit the release mainBinaryName"
+    );
+  }
+
+  #[test]
+  fn test_e2e_identity_matches_tauri_e2e_conf_json() {
+    let conf: serde_json::Value =
+      serde_json::from_str(include_str!("../../tauri.e2e.conf.json")).unwrap();
+    let window_title = conf
+      .get("app")
+      .and_then(|app| app.get("windows"))
+      .and_then(|windows| windows.as_array())
+      .and_then(|windows| windows.first())
+      .and_then(|window| window.get("title"))
+      .and_then(|title| title.as_str())
+      .expect("tauri.e2e.conf.json must contain app.windows[0].title");
+
+    assert_eq!(
+      conf.get("identifier").and_then(|v| v.as_str()),
+      Some(E2E_IDENTIFIER)
+    );
+    assert_eq!(
+      conf.get("productName").and_then(|v| v.as_str()),
+      Some(E2E_PRODUCT_NAME)
+    );
+    assert_eq!(window_title, E2E_PRODUCT_NAME);
+    assert!(
+      conf.get("mainBinaryName").is_none(),
+      "tauri.e2e.conf.json should inherit the release mainBinaryName"
     );
   }
 

@@ -113,3 +113,85 @@ force-pushed to the single-commit `e2e-captures` branch under
 `pr-<number>/` and embedded via raw.githubusercontent.com URLs. The branch
 is disposable — it can be deleted at any time and will be recreated by the
 next run. Fork PRs are skipped (their token is read-only).
+
+## Native Tauri smoke
+
+Issue #1610 adds a separate native smoke path that launches the real Tauri
+desktop application through `tauri-driver` and WebDriver. This is intentionally
+not another deterministic fixture harness: it uses the normal frontend build,
+real Tauri IPC/plugin calls, and the real backend startup path.
+
+Run it locally with:
+
+```bash
+npm run test:e2e:native
+```
+
+The native runner is named by screen and scenario:
+
+```text
+e2e-native/settings/native-first-run-smoke.ts
+```
+
+Shared non-scenario code lives under `e2e-native/support/`.
+
+Type-check the native runner without launching the app:
+
+```bash
+npm run typecheck:e2e:native
+```
+
+The command builds a debug, no-bundle app with the dedicated E2E config:
+
+```bash
+npm run tauri build -- --debug --no-bundle --config src-tauri/tauri.e2e.conf.json
+```
+
+The native smoke sets `HARDVIZ_E2E=1`, which switches the runtime identity to
+`HardwareVisualizerE2E`. Before each run the `HardwareVisualizerE2E` app data
+directory is deleted after a path-safety check. This deliberately exercises the
+first-run path without touching normal release or development data.
+
+The smoke also sets `HARDVIZ_E2E_DEFAULT_LANGUAGE=en`, which is honored only
+when `HARDVIZ_E2E=1`. This keeps first-run settings and text assertions
+independent from the runner's OS locale.
+
+It also sets `HARDVIZ_E2E_FORCE_CLOSE_TO_TRAY_PROMPT=1`. This only makes the
+frontend `is_close_to_tray_available` command return `true`, so the first-run
+prompt is deterministic under headless Linux CI. Tray setup and the normal
+window-close lifecycle still run through the real app path; this smoke does not
+assert OS tray/status-notifier integration.
+
+Current native scenario:
+
+1. Launch the real Tauri app binary through `tauri-driver`.
+2. Wait for the first-run Close-to-Tray prompt.
+3. Dismiss the prompt with the close button.
+4. Open Settings through the side menu.
+5. Assert that `General` and `About` render.
+6. Assert that About shows a non-empty `Version:` value from the real Tauri app
+   plugin.
+7. Save `test-results/captures/settings/native-first-run-smoke.png`.
+
+If the scenario fails after the WebDriver session starts, the runner tries to
+save `test-results/captures/settings/native-first-run-smoke-failure.png`.
+Native capture paths use screen/scenario naming. These PNGs are evidence for
+debugging and review only; they are not compared against visual baselines.
+
+Native prerequisites:
+
+- `tauri-driver`, installed with `cargo install tauri-driver --locked`.
+- Linux: `webkit2gtk-driver`, `xvfb`, and appindicator dependencies such as
+  `libayatana-appindicator3-dev`.
+- Windows: a compatible EdgeDriver/WebView2 WebDriver setup is required for
+  local experimentation, but Windows CI is not part of the initial native smoke.
+  If `tauri-driver` finds an incompatible native driver first, set
+  `TAURI_NATIVE_DRIVER_BIN` to the matching driver path.
+- macOS: desktop `tauri-driver` coverage is not practical because WKWebView has
+  no corresponding desktop WebDriver path.
+
+The `test-e2e-native` CI job runs only on `ubuntu-22.04`. It uploads
+`test-results/captures/` as the `e2e-native-captures` artifact with
+`if: always()`, so evidence survives failures. Native captures are not
+published through `.github/scripts/comment-e2e-captures.sh`; that PR comment
+remains dedicated to the Playwright web/mock review captures.
