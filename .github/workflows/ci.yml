@@ -42,6 +42,7 @@ jobs:
             frontend:
               - 'src/**'
               - 'e2e/**'
+              - 'e2e-native/**'
               - 'package*.json'
               - 'vite.config.ts'
               - 'playwright.config.ts'
@@ -68,6 +69,7 @@ jobs:
               - '.github/scripts/**'
             tauri:
               - 'src-tauri/**'
+              - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
               - '.github/workflows/**'
@@ -597,6 +599,47 @@ jobs:
           if-no-files-found: warn
 
   #
+  # Native Tauri E2E smoke (tauri-driver/WebDriver, issue #1610)
+  #
+  test-e2e-native:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Typecheck native E2E runner
+        run: npm run typecheck:e2e:native
+
+      - name: Setup Linux dependencies
+        uses: ./.github/actions/setup-linux-deps
+        with:
+          extra-packages: webkit2gtk-driver xvfb libayatana-appindicator3-dev
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked --version 0.3.0
+
+      - name: Run native E2E smoke
+        run: xvfb-run npm run test:e2e:native
+
+      - name: Upload native capture artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: e2e-native-captures
+          path: test-results/captures/
+          if-no-files-found: warn
+
+  #
   # Frontend Build
   #
   build-frontend:
@@ -684,6 +727,7 @@ jobs:
       - lint-frontend
       - test-frontend
       - test-e2e-web
+      - test-e2e-native
       - build-frontend
       - license-check-npm
       - license-check-cargo

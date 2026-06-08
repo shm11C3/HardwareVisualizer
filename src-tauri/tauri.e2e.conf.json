@@ -1,0 +1,11 @@
+{
+  "productName": "HardwareVisualizerE2E",
+  "identifier": "HardwareVisualizerE2E",
+  "app": {
+    "windows": [
+      {
+        "title": "HardwareVisualizerE2E"
+      }
+    ]
+  }
+}
