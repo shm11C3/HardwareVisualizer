@@ -61,22 +61,22 @@ Per-platform threshold overrides can be specified under `[platforms.<os>]`:
 
 ```toml
 [platforms.windows]
-max_avg_app_memory_mb = 70.0
+max_avg_app_memory_mb = 80.0
 max_p95_app_memory_mb = 100.0
-max_avg_memory_mb = 450.0
-max_p95_memory_mb = 500.0
+max_avg_memory_mb = 600.0
+max_p95_memory_mb = 600.0
 
 [platforms.linux]
 max_avg_app_memory_mb = 150.0
 max_p95_app_memory_mb = 150.0
-max_avg_memory_mb = 450.0
-max_p95_memory_mb = 500.0
+max_avg_memory_mb = 550.0
+max_p95_memory_mb = 550.0
 
 [platforms.macos]
 max_avg_app_memory_mb = 150.0
 max_p95_app_memory_mb = 150.0
-max_avg_memory_mb = 550.0
-max_p95_memory_mb = 600.0
+max_avg_memory_mb = 600.0
+max_p95_memory_mb = 650.0
 ```
 
 Only the fields you specify are overridden; others inherit from `[thresholds]`.
