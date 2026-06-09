@@ -18,10 +18,11 @@ export const useDashboardSelector = () => {
   const { toggleTitleIconVisibility } = useTitleIconVisualSelector();
 
   useEffect(() => {
-    toggleTitleIconVisibility(
-      "dashboard",
-      visibleItems?.includes("title") || false,
-    );
+    if (visibleItems == null) {
+      return;
+    }
+
+    toggleTitleIconVisibility("dashboard", visibleItems.includes("title"));
   }, [visibleItems, toggleTitleIconVisibility]);
 
   const toggleItem = async (item: DashboardSelectItemType) => {

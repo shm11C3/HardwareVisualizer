@@ -87,4 +87,22 @@ describe("useTitleIconVisualSelector", () => {
     ).length;
     expect(afterCount).toBe(beforeCount);
   });
+
+  it("toggleTitleIconVisibility(type, false) keeps state identity when the type is already hidden", () => {
+    const { result } = renderHook(() => useTitleIconVisualSelector(), {
+      wrapper,
+    });
+
+    act(() => {
+      result.current.toggleTitleIconVisibility("usage", false);
+    });
+
+    const hiddenVisibleTypes = result.current.visibleTypes;
+
+    act(() => {
+      result.current.toggleTitleIconVisibility("usage", false);
+    });
+
+    expect(result.current.visibleTypes).toBe(hiddenVisibleTypes);
+  });
 });
