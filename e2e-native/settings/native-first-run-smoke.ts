@@ -40,8 +40,13 @@ const FAILURE_CAPTURE = path.join(
   `${SCENARIO_NAME}-failure.png`,
 );
 
+const sanitizedProcessEnv = { ...process.env };
+for (const key of ["GTK_PATH", "LD_LIBRARY_PATH", "GIO_MODULE_DIR"] as const) {
+  delete sanitizedProcessEnv[key];
+}
+
 const e2eEnv = {
-  ...process.env,
+  ...sanitizedProcessEnv,
   HARDVIZ_E2E: "1",
   HARDVIZ_E2E_DEFAULT_LANGUAGE: "en",
   HARDVIZ_E2E_FORCE_CLOSE_TO_TRAY_PROMPT: "1",
