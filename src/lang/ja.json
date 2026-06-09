@@ -12,6 +12,7 @@
       "full": "温度",
       "abbrev": "温度"
     },
+    "thermalSensors": "温度センサー",
     "name": "名前",
     "vendor": "ベンダー",
     "coreCount": "コア数",

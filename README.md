@@ -134,6 +134,7 @@ After launching the app:
 | CPU / RAM Usage         | ✅     | Realtime + history               |
 | GPU Usage               | ✅     | NVIDIA full / others partial     |
 | GPU Temperature         | ✅     | NVIDIA full / others partial     |
+| CPU / Sensor Temperature | ✅    | Windows only (ACPI thermal zones, best-effort) |
 | Fan Monitoring          | ⏳     | Planned                          |
 | Storage Monitoring      | ✅     | Device summary                   |
 | Network Monitoring      | ✅     | Basic interfaces / Usage planned |
@@ -194,7 +195,7 @@ Flexible graph customization available.
 | Context               | Reason                                                  |
 | --------------------- | ------------------------------------------------------- |
 | Linux sudo            | Access to certain device files (GPU, sensors)           |
-| Windows WMI           | Memory and system extended metrics                      |
+| Windows WMI           | Memory and system extended metrics, thermal zones       |
 | Windows PDH           | GPU engine utilization                                  |
 | No outbound telemetry | No telemetry; the app does not send any data externally |
 

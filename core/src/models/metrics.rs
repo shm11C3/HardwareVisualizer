@@ -12,6 +12,18 @@ pub struct GpuMetric {
   pub gpu_cooler_level: Option<u32>,
 }
 
+/// One named temperature sensor reading (e.g. an ACPI thermal zone),
+/// always in raw °C.
+///
+/// `name` is a short zone label such as `TZ00` or `CPUZ`. Presentation
+/// conversion (Celsius/Fahrenheit) is the App's responsibility — Core
+/// never reads the user's preferred unit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SensorTemperature {
+  pub name: String,
+  pub temperature: f32,
+}
+
 /// One sample of per-process metrics carried inside [`MetricsSnapshot`].
 ///
 /// Persistence subscribers consume these to build per-process rolling
@@ -39,4 +51,10 @@ pub struct MetricsSnapshot {
   pub processors_usage: Vec<f32>,
   pub gpus: Vec<GpuMetric>,
   pub processes: Vec<ProcessSample>,
+  /// Headline CPU temperature in raw °C. `None` when no readable sensor
+  /// exists on this platform (currently collected on Windows only).
+  pub cpu_temperature: Option<f32>,
+  /// All named temperature sensors in raw °C (ACPI thermal zones on
+  /// Windows). Empty when unsupported.
+  pub sensor_temperatures: Vec<SensorTemperature>,
 }

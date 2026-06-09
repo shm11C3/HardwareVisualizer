@@ -563,6 +563,8 @@ mod tests {
       processors_usage: vec![0.0; processors],
       gpus: vec![],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     }
   }
 
@@ -685,6 +687,8 @@ mod tests {
         gpu_cooler_level: None,
       }],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     });
     assert_eq!(t.gpu_name_map.get("gpu:0").unwrap(), "RTX");
     assert_eq!(t.gpu_usage_histories.get("gpu:0").unwrap().len(), 1);
@@ -708,6 +712,8 @@ mod tests {
         memory_kb: 1024.0,
         run_time_secs: 60,
       }],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     }
   }
 
@@ -818,6 +824,8 @@ mod tests {
         memory_kb: 0.0,
         run_time_secs: 60,
       }],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
   }
@@ -837,6 +845,8 @@ mod tests {
         memory_kb: 1024.0,
         run_time_secs: 60,
       }],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     });
     let stats = t.collect_process_stats();
     assert_eq!(stats.len(), 1);
@@ -859,6 +869,8 @@ mod tests {
         // exceed 30-day cap
         run_time_secs: (60 * 60 * 24 * 31) as u64,
       }],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
   }
@@ -882,6 +894,8 @@ mod tests {
         gpu_cooler_level: None,
       }],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     });
     let gpus = t.collect_gpu_data();
     assert_eq!(gpus.len(), 1);

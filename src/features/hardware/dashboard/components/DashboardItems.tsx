@@ -26,6 +26,7 @@ import {
 import { minOpacity } from "@/consts/style";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
+  cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuTempAtom,
@@ -34,6 +35,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
+  sensorTempsAtom,
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
@@ -58,10 +60,16 @@ import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
 
 export const CPUInfo = () => {
   const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
+  const [cpuTemp] = useAtom(cpuTempAtom);
+  const [sensorTemps] = useAtom(sensorTempsAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const processes = useProcessInfo();
   const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
+
+  const cpuTemperature = cpuTemp[0]?.value;
+  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
 
   return (
     <>
@@ -70,8 +78,12 @@ export const CPUInfo = () => {
           chartValue={cpuUsageHistory[cpuUsageHistory.length - 1]}
           dataType={"usage"}
         />
-        {/**  TODO If temperature can be retrieved here, display temperature instead of `MiniLineChart`  */}
-        <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
+        {/** Temperature is only available on supported platforms (Windows thermal zones) */}
+        {cpuTemperature != null ? (
+          <DoughnutChart chartValue={cpuTemperature} dataType={"temp"} />
+        ) : (
+          <MiniLineChart hardwareType="cpu" usage={cpuUsageHistory} />
+        )}
       </div>
 
       {hardwareInfo.cpu ? (
@@ -88,6 +100,22 @@ export const CPUInfo = () => {
         />
       ) : (
         <Skeleton className="h-[188px] w-full rounded-md" />
+      )}
+
+      {sensorTemps.length > 0 && (
+        <div className="mt-2 ml-2">
+          <h4 className="font-bold text-sm md:text-md">
+            {t("shared.thermalSensors")}
+          </h4>
+          <InfoTable
+            data={Object.fromEntries(
+              sensorTemps.map((sensor) => [
+                sensor.name,
+                `${sensor.value} ${temperatureUnit}`,
+              ]),
+            )}
+          />
+        </div>
       )}
     </>
   );

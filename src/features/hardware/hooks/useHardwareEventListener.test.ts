@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
+  cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
@@ -19,6 +20,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
+  sensorTempsAtom,
 } from "@/features/hardware/store/chart";
 import type { GpuMonitorData, HardwareMonitorUpdate } from "@/rspc/bindings";
 
@@ -69,6 +71,8 @@ const makePayload = (
     memoryUsage: 60,
     gpus: gpus ?? [makeGpu()],
     processorsUsage: [40, 50],
+    cpuTemperature: null,
+    sensorTemperatures: [],
     ...rest,
   };
 };
@@ -278,6 +282,88 @@ describe("useHardwareEventListener", () => {
     );
 
     act(() => emit(makePayload({ gpus: [makeGpu({ gpuTemperature: null })] })));
+
+    expect(result.current).toEqual([]);
+  });
+
+  // ── CPU temperature ──
+
+  it("sets cpuTempAtom when cpuTemperature is present", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [temp] = useAtom(cpuTempAtom);
+        return temp;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload({ cpuTemperature: 48 })));
+
+    expect(result.current).toEqual([{ name: "CPU", value: 48 }]);
+  });
+
+  it("clears cpuTempAtom when cpuTemperature is null", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [temp] = useAtom(cpuTempAtom);
+        return temp;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(makePayload({ cpuTemperature: 48 }));
+      emit(makePayload({ cpuTemperature: null }));
+    });
+
+    expect(result.current).toEqual([]);
+  });
+
+  // ── Sensor temperatures ──
+
+  it("sets sensorTempsAtom from sensorTemperatures", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [sensors] = useAtom(sensorTempsAtom);
+        return sensors;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() =>
+      emit(
+        makePayload({
+          sensorTemperatures: [
+            { name: "CPUZ", value: 48 },
+            { name: "TZ01", value: 40 },
+          ],
+        }),
+      ),
+    );
+
+    expect(result.current).toEqual([
+      { name: "CPUZ", value: 48 },
+      { name: "TZ01", value: 40 },
+    ]);
+  });
+
+  it("clears sensorTempsAtom when sensorTemperatures is empty", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [sensors] = useAtom(sensorTempsAtom);
+        return sensors;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(makePayload({ sensorTemperatures: [{ name: "TZ00", value: 45 }] }));
+      emit(makePayload({ sensorTemperatures: [] }));
+    });
 
     expect(result.current).toEqual([]);
   });

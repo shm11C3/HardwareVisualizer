@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use hardviz_core::models::{GpuMetric, MetricsSnapshot};
+use hardviz_core::models::{GpuMetric, MetricsSnapshot, SensorTemperature};
 use tauri::Manager as _;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 use tokio::sync::watch;
@@ -8,7 +8,7 @@ use tokio::sync::watch;
 use crate::commands::settings;
 use crate::enums::settings::TemperatureUnit;
 use crate::log_warn;
-use crate::models::hardware::{GpuMonitorData, HardwareMonitorUpdate};
+use crate::models::hardware::{GpuMonitorData, HardwareMonitorUpdate, NameValue};
 use tauri_specta::Event as _;
 
 /// Subscribes to the in-process [`hardviz_core::event_bus::EventBus`] and
@@ -162,6 +162,24 @@ fn to_hardware_monitor_update(
       .into_iter()
       .map(|g| to_gpu_monitor_data(g, temp_unit))
       .collect(),
+    cpu_temperature: snapshot
+      .cpu_temperature
+      .map(|t| convert_temperature(t, temp_unit)),
+    sensor_temperatures: snapshot
+      .sensor_temperatures
+      .into_iter()
+      .map(|s| to_sensor_name_value(s, temp_unit))
+      .collect(),
+  }
+}
+
+fn to_sensor_name_value(
+  sensor: SensorTemperature,
+  temp_unit: &TemperatureUnit,
+) -> NameValue {
+  NameValue {
+    name: sensor.name,
+    value: convert_temperature(sensor.temperature, temp_unit) as i32,
   }
 }
 
@@ -208,6 +226,8 @@ mod tests {
       processors_usage: vec![10.0, 20.0],
       gpus: vec![],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     }
   }
 
@@ -219,12 +239,16 @@ mod tests {
       processors_usage: vec![10.0, 20.0, 30.0, 40.0],
       gpus: vec![],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_usage, 12.5);
     assert_eq!(update.memory_usage, 67.0);
     assert_eq!(update.processors_usage, vec![10.0, 20.0, 30.0, 40.0]);
     assert!(update.gpus.is_empty());
+    assert!(update.cpu_temperature.is_none());
+    assert!(update.sensor_temperatures.is_empty());
   }
 
   #[test]
@@ -238,6 +262,8 @@ mod tests {
         make_metric("pci:0:3.0", "RX 7900 XTX"),
       ],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus.len(), 2);
@@ -267,6 +293,8 @@ mod tests {
         gpu_cooler_level: None,
       }],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.gpus[0].gpu_temperature, Some(212.0));
@@ -288,6 +316,8 @@ mod tests {
         gpu_cooler_level: None,
       }],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus[0].gpu_temperature, Some(66.0));
@@ -309,12 +339,62 @@ mod tests {
         gpu_cooler_level: None,
       }],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert!(update.gpus[0].gpu_usage.is_none());
     assert!(update.gpus[0].gpu_temperature.is_none());
     assert!(update.gpus[0].gpu_dedicated_memory_usage_kb.is_none());
     assert!(update.gpus[0].gpu_cooler_level.is_none());
+  }
+
+  #[test]
+  fn cpu_and_sensor_temperatures_converted_to_fahrenheit() {
+    let snap = MetricsSnapshot {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      gpus: vec![],
+      processes: vec![],
+      cpu_temperature: Some(50.0),
+      sensor_temperatures: vec![
+        SensorTemperature {
+          name: "CPUZ".into(),
+          temperature: 50.0,
+        },
+        SensorTemperature {
+          name: "TZ01".into(),
+          temperature: 40.0,
+        },
+      ],
+    };
+    let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
+    assert_eq!(update.cpu_temperature, Some(122.0));
+    assert_eq!(update.sensor_temperatures.len(), 2);
+    assert_eq!(update.sensor_temperatures[0].name, "CPUZ");
+    assert_eq!(update.sensor_temperatures[0].value, 122);
+    assert_eq!(update.sensor_temperatures[1].name, "TZ01");
+    assert_eq!(update.sensor_temperatures[1].value, 104);
+  }
+
+  #[test]
+  fn cpu_and_sensor_temperatures_passthrough_in_celsius() {
+    let snap = MetricsSnapshot {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      gpus: vec![],
+      processes: vec![],
+      cpu_temperature: Some(49.6),
+      sensor_temperatures: vec![SensorTemperature {
+        name: "TZ00".into(),
+        temperature: 49.6,
+      }],
+    };
+    let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
+    assert_eq!(update.cpu_temperature, Some(50.0));
+    assert_eq!(update.sensor_temperatures[0].value, 50);
   }
 
   #[test]

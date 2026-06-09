@@ -2,6 +2,7 @@ import { useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
+  cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedMapAtom,
@@ -11,6 +12,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
+  sensorTempsAtom,
 } from "@/features/hardware/store/chart";
 import { events } from "@/rspc/bindings";
 
@@ -35,6 +37,8 @@ export const useHardwareEventListener = () => {
   const setGpuMemoryMap = useSetAtom(gpuDedicatedMemoryKbMapAtom);
   const setGpuFanSpeedMap = useSetAtom(gpuFanSpeedMapAtom);
   const setSelectedGpuId = useSetAtom(selectedGpuIdAtom);
+  const setCpuTemp = useSetAtom(cpuTempAtom);
+  const setSensorTemps = useSetAtom(sensorTempsAtom);
 
   const handleHardwareUpdate = useCallback(
     (event: {
@@ -51,16 +55,33 @@ export const useHardwareEventListener = () => {
           gpuCoolerLevel: number | null;
         }[];
         processorsUsage: number[];
+        cpuTemperature: number | null;
+        sensorTemperatures: { name: string; value: number }[];
       };
     }) => {
       if (document.hidden) {
         return;
       }
 
-      const { cpuUsage, memoryUsage, gpus, processorsUsage } = event.payload;
+      const {
+        cpuUsage,
+        memoryUsage,
+        gpus,
+        processorsUsage,
+        cpuTemperature,
+        sensorTemperatures,
+      } = event.payload;
 
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
       setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
+
+      // CPU temperature (Windows thermal zones; null where unsupported)
+      setCpuTemp(
+        cpuTemperature != null ? [{ name: "CPU", value: cpuTemperature }] : [],
+      );
+
+      // All named temperature sensors (thermal zones)
+      setSensorTemps(sensorTemperatures);
 
       // Per-GPU usage histories
       setGpuHistories((prev) =>
@@ -146,6 +167,8 @@ export const useHardwareEventListener = () => {
       setGpuMemoryMap,
       setGpuFanSpeedMap,
       setSelectedGpuId,
+      setCpuTemp,
+      setSensorTemps,
     ],
   );
   useEffect(() => {
