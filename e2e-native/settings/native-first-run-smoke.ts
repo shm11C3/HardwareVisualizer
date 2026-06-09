@@ -73,7 +73,7 @@ const commandExists = (command: string) => {
     return false;
   }
 
-  const result = spawnSync(command, ["--version"], {
+  const result = spawnSync(command, ["--help"], {
     cwd: REPO_ROOT,
     env: runtimeEnv,
     stdio: "ignore",
