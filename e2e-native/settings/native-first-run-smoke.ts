@@ -40,13 +40,8 @@ const FAILURE_CAPTURE = path.join(
   `${SCENARIO_NAME}-failure.png`,
 );
 
-const sanitizedProcessEnv = { ...process.env };
-for (const key of ["GTK_PATH", "LD_LIBRARY_PATH", "GIO_MODULE_DIR"] as const) {
-  delete sanitizedProcessEnv[key];
-}
-
-const e2eEnv = {
-  ...sanitizedProcessEnv,
+const buildEnv: NodeJS.ProcessEnv = {
+  ...process.env,
   HARDVIZ_E2E: "1",
   HARDVIZ_E2E_DEFAULT_LANGUAGE: "en",
   HARDVIZ_E2E_FORCE_CLOSE_TO_TRAY_PROMPT: "1",
@@ -54,6 +49,11 @@ const e2eEnv = {
   LC_ALL: "C.UTF-8",
   LANGUAGE: "en",
 };
+
+const runtimeEnv: NodeJS.ProcessEnv = { ...buildEnv };
+for (const key of ["GTK_PATH", "LD_LIBRARY_PATH", "GIO_MODULE_DIR"] as const) {
+  delete runtimeEnv[key];
+}
 
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const tauriDriverExecutable =
@@ -75,13 +75,13 @@ const commandExists = (command: string) => {
 
   const result = spawnSync(command, ["--version"], {
     cwd: REPO_ROOT,
-    env: e2eEnv,
+    env: runtimeEnv,
     stdio: "ignore",
     timeout: 5_000,
     windowsHide: true,
   });
 
-  return result.error == null && result.status != null;
+  return result.error == null && result.status === 0;
 };
 
 const resolveTauriDriver = () => {
@@ -183,7 +183,7 @@ const buildE2eApp = () => {
     ],
     {
       cwd: REPO_ROOT,
-      env: e2eEnv,
+      env: buildEnv,
       shell: process.platform === "win32",
       stdio: "inherit",
     },
@@ -374,7 +374,7 @@ const main = async () => {
     tauriDriver = spawn(tauriDriverPath, driverArgs, {
       cwd: REPO_ROOT,
       detached: process.platform !== "win32",
-      env: e2eEnv,
+      env: runtimeEnv,
       stdio: ["ignore", "inherit", "inherit"],
     });
 
