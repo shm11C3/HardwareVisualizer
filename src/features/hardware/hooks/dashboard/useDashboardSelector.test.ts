@@ -228,6 +228,18 @@ describe("useDashboardSelector", () => {
     );
   });
 
+  it("does not sync title visibility while visibleItems is still loading", () => {
+    // Keep useTauriStore pending so visibleItems remains null.
+    fakeStore.has = vi.fn(() => new Promise<boolean>(() => {}));
+
+    const { result } = renderHook(() => useDashboardSelector(), {
+      wrapper: Provider,
+    });
+
+    expect(result.current.visibleItems).toBeNull();
+    expect(mockToggleTitleIconVisibility).not.toHaveBeenCalled();
+  });
+
   it("toggleItem returns early without modifying the store when visibleItems is null", async () => {
     // Replace has() with a never-resolving Promise so useTauriStore keeps
     // visibleItems as null (still pending) for the duration of this test.
