@@ -52,6 +52,10 @@ export default defineConfig(async ({ mode }) => ({
         codeSplitting: {
           groups: [
             {
+              name: "vendor-chart",
+              test: /[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor|es-toolkit)[\\/]/,
+            },
+            {
               name: "vendor-react",
               test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
             },
