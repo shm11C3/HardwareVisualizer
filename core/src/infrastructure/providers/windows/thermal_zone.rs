@@ -17,6 +17,7 @@
 //! dedicated sampler thread (mirroring the macOS GPU-usage sampler). The
 //! collector reads the latest result from a process-wide cache.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -41,8 +42,10 @@ const IDLE_INTERVAL: Duration = Duration::from_secs(60);
 /// Latest successfully read zones (empty while unavailable).
 static LATEST_ZONES: OnceLock<Mutex<Vec<SensorTemperature>>> = OnceLock::new();
 
-/// Indicates whether the sampler thread has been started.
-static SAMPLER_STARTED: OnceLock<()> = OnceLock::new();
+/// Indicates whether the sampler thread is running. Reset to `false` when
+/// the spawn fails so a later collector tick can retry instead of latching
+/// the sampler off for the rest of the process.
+static SAMPLER_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -59,16 +62,15 @@ struct ThermalZonePerfCounter {
   high_precision_temperature: Option<u32>,
 }
 
-/// Start the background sampler thread. No-op if already started.
+/// Start the background sampler thread. No-op if already running.
 pub fn init_thermal_zone_sampler() {
-  if SAMPLER_STARTED.get().is_some() {
-    return;
-  }
-
   let _ = LATEST_ZONES.get_or_init(|| Mutex::new(Vec::new()));
 
-  // Even under races, `OnceLock` ensures only one thread is spawned.
-  if SAMPLER_STARTED.set(()).is_err() {
+  // Only the caller that flips the flag spawns; concurrent callers bail.
+  if SAMPLER_STARTED
+    .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+    .is_err()
+  {
     return;
   }
 
@@ -76,6 +78,7 @@ pub fn init_thermal_zone_sampler() {
     .name("thermal-zone-sampler".to_string())
     .spawn(sampler_loop)
   {
+    SAMPLER_STARTED.store(false, Ordering::Release);
     log_error!(
       "failed to spawn thermal-zone-sampler thread",
       "thermal_zone::init_thermal_zone_sampler",

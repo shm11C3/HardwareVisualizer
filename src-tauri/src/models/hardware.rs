@@ -72,7 +72,7 @@ pub struct GpuUsageResult {
 #[serde(rename_all = "camelCase")]
 pub struct NameValue {
   pub name: String,
-  pub value: i32, // Celsius temperature
+  pub value: i32, // Temperature in the user's preferred unit (°C/°F)
 }
 
 #[derive(Serialize, Deserialize, Type)]
