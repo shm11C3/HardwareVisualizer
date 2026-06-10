@@ -72,8 +72,10 @@ Notes:
    (`0x19C`) on the target core; use the value only when bit 31
    (Reading Valid) is 1; decode with the same subtraction.
 5. Plausibility gate before publishing (defensive, this project's own
-   policy, not an SDM fact): accept only `0 < temp ≤ t_target` and
-   `t_target` within 50–120 °C; otherwise drop the sample.
+   policy, not an SDM fact): accept only `0 < temp ≤ t_target`
+   (inclusive — a readout of 0 decodes to `temp == t_target` and
+   passes the gate) and `t_target` within 50–120 °C; otherwise drop
+   the sample.
 
 ## Quirks
 
@@ -82,11 +84,13 @@ Notes:
   parts are **out of scope**: the `t_target == 0` / fault rule above
   excludes them. (S2)
 - The digital readout saturates: values at or above TCC activation
-  read as 0 °C below target. A readout of 0 therefore means "at TjMax",
-  which on an idle machine indicates a bad read rather than a real
-  temperature — the plausibility gate drops `temp == t_target` only if
-  load context makes it implausible; implementers may publish it as-is
-  with the valid bit set. (S1)
+  read as 0 °C below target. A readout of 0 therefore decodes to
+  `temp == t_target` ("at TjMax"); the plausibility gate accepts it
+  and implementations publish it as-is (with the Reading Valid bit
+  checked where the register defines one). Sustained zero readouts on
+  an otherwise idle system indicate a stuck or failed sensor read and
+  are worth surfacing in logs, but this spec does not require dropping
+  them. (S1)
 - Whether the digital readout is referenced to `Temperature Target`
   alone or to `Temperature Target − TCC Activation Offset` is not
   explicitly stated by the SDM; common practice is to use bits 23:16
