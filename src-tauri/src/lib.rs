@@ -97,6 +97,7 @@ pub fn run() {
       hardware::get_network_info,
       hardware::get_gpu_memory_usage,
       hardware::get_storage_health_latest_records,
+      hardware::get_live_storage_health,
       hardware::get_data_archive_records,
       hardware::get_gpu_archive_records,
       hardware::get_process_stats,
@@ -241,10 +242,25 @@ pub fn run() {
                   core_settings.storage_health.retention_days,
                   identity_hash_key,
                 );
+              // Live Storage Health (ADR 0006): enumerate devices once at
+              // startup so on-demand reads never enumerate. The WMI query
+              // is blocking, so it runs off the main thread.
+              let live_storage_health = Arc::new(
+                hardviz_core::collector::LiveStorageHealthCollector::new(
+                  identity_hash_key,
+                ),
+              );
               {
                 let ws = app.state::<workers::WorkersState>();
                 ws.storage_health.lock().unwrap().replace(storage_health);
+                ws.live_storage_health
+                  .lock()
+                  .unwrap()
+                  .replace(Arc::clone(&live_storage_health));
               }
+              tauri::async_runtime::spawn_blocking(move || {
+                live_storage_health.enumerate_devices()
+              });
             }
             Err(e) => {
               log_error!(

@@ -126,6 +126,24 @@ pub struct StorageHealthRecord {
   pub collected_at: String,
 }
 
+/// Live Storage Health signals collected on demand and never persisted
+/// (ADR 0006). `device_id` matches the daily [`StorageHealthRecord`]
+/// identity so displays can join live signals to persisted device rows.
+#[derive(Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveStorageHealth {
+  pub device_id: String,
+  pub display_name: String,
+  pub temperature_celsius: Option<f32>,
+  pub available_spare_percent: Option<f32>,
+  pub percentage_used: Option<f32>,
+  pub media_errors: Option<u64>,
+  pub unsafe_shutdown_count: Option<u64>,
+  pub power_on_hours: Option<u64>,
+  pub power_cycle_count: Option<u64>,
+  pub collected_at: String,
+}
+
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkInfo {
@@ -322,6 +340,23 @@ impl From<core_hw::StorageHealthRecord> for StorageHealthRecord {
       error_log_entries: src.error_log_entries,
       unsafe_shutdown_count: src.unsafe_shutdown_count,
       warning_reasons: src.warning_reasons,
+      collected_at: src.collected_at,
+    }
+  }
+}
+
+impl From<core_hw::LiveStorageHealth> for LiveStorageHealth {
+  fn from(src: core_hw::LiveStorageHealth) -> Self {
+    Self {
+      device_id: src.device_id,
+      display_name: src.display_name,
+      temperature_celsius: src.temperature_celsius,
+      available_spare_percent: src.available_spare_percent,
+      percentage_used: src.percentage_used,
+      media_errors: src.media_errors,
+      unsafe_shutdown_count: src.unsafe_shutdown_count,
+      power_on_hours: src.power_on_hours,
+      power_cycle_count: src.power_cycle_count,
       collected_at: src.collected_at,
     }
   }

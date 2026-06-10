@@ -203,6 +203,34 @@ pub async fn get_storage_health_latest_records()
 }
 
 ///
+/// ## Get Live Storage Health signals (on demand, never persisted — ADR 0006)
+///
+/// Reads the startup-cached device list with one `DeviceIoControl` query
+/// per device; repeated calls within the core-side minimum interval
+/// return the last reading. Returns an empty list when
+/// `storageHealth.enabled` is off or on platforms without the cheap
+/// native read path (displays fall back to the daily records).
+///
+#[command]
+#[specta::specta]
+pub async fn get_live_storage_health(
+  state: tauri::State<'_, settings::AppState>,
+  workers: tauri::State<'_, crate::workers::WorkersState>,
+) -> Result<Vec<models::hardware::LiveStorageHealth>, String> {
+  use crate::services::hardware_service;
+
+  let enabled = state.core_settings.lock().unwrap().storage_health.enabled;
+  if !enabled {
+    return Ok(Vec::new());
+  }
+
+  let collector = workers.live_storage_health.lock().unwrap().clone();
+  hardware_service::get_live_storage_health(collector)
+    .await
+    .map(|signals| signals.into_iter().map(Into::into).collect())
+}
+
+///
 /// ## Get archived CPU/RAM records
 ///
 #[command]

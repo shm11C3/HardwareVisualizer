@@ -248,6 +248,27 @@ pub struct StorageHealthRecord {
   pub collected_at: String,
 }
 
+/// One device's Live Storage Health signals (ADR 0006).
+///
+/// Collected on demand for immediate display and never persisted,
+/// unlike the daily [`StorageHealthRecord`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveStorageHealth {
+  /// Same HMAC-based identity as the daily Storage Health Record, so
+  /// displays can join live signals to persisted device rows.
+  pub device_id: String,
+  pub display_name: String,
+  pub temperature_celsius: Option<f32>,
+  pub available_spare_percent: Option<f32>,
+  pub percentage_used: Option<f32>,
+  pub media_errors: Option<u64>,
+  pub unsafe_shutdown_count: Option<u64>,
+  pub power_on_hours: Option<u64>,
+  pub power_cycle_count: Option<u64>,
+  pub collected_at: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageDeviceRecord {
   pub id: String,
