@@ -43,13 +43,13 @@ struct Win32DiskDriveForDeviceIo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct WindowsStorageDevice {
-  device_path: String,
-  model: Option<String>,
-  serial_number: Option<String>,
-  firmware_version: Option<String>,
-  capacity_bytes: Option<u64>,
-  interface_type: Option<String>,
+pub(crate) struct WindowsStorageDevice {
+  pub(crate) device_path: String,
+  pub(crate) model: Option<String>,
+  pub(crate) serial_number: Option<String>,
+  pub(crate) firmware_version: Option<String>,
+  pub(crate) capacity_bytes: Option<u64>,
+  pub(crate) interface_type: Option<String>,
 }
 
 pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
@@ -58,7 +58,7 @@ pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
   collect_from_devices(&devices, &reader)
 }
 
-fn enumerate_storage_devices() -> Vec<WindowsStorageDevice> {
+pub(crate) fn enumerate_storage_devices() -> Vec<WindowsStorageDevice> {
   match query_win32_disk_drives() {
     Ok(disks) if !disks.is_empty() => {
       let mut devices = disks
@@ -116,7 +116,7 @@ fn fallback_physical_drive_candidates() -> Vec<WindowsStorageDevice> {
     .collect()
 }
 
-fn nvme_health_log_to_smart_disk_info(
+pub(crate) fn nvme_health_log_to_smart_disk_info(
   device: &WindowsStorageDevice,
   raw: &[u8],
 ) -> Result<SmartDiskInfo, String> {
@@ -174,11 +174,11 @@ fn nvme_health_log_to_smart_disk_info(
   })
 }
 
-trait NvmeHealthLogReader {
+pub(crate) trait NvmeHealthLogReader {
   fn read_nvme_health_log(&self, device_path: &str) -> Result<Vec<u8>, String>;
 }
 
-struct DeviceIoControlNvmeReader;
+pub(crate) struct DeviceIoControlNvmeReader;
 
 impl NvmeHealthLogReader for DeviceIoControlNvmeReader {
   fn read_nvme_health_log(&self, device_path: &str) -> Result<Vec<u8>, String> {

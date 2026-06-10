@@ -85,6 +85,16 @@ export const commands = {
 } | null, string>(__TAURI_INVOKE("get_gpu_memory_usage")),
 	// ## Get latest Storage Health records for the dashboard
 	getStorageHealthLatestRecords: () => typedError<StorageHealthRecord[], string>(__TAURI_INVOKE("get_storage_health_latest_records")),
+	/**
+	 *  ## Get Live Storage Health signals (on demand, never persisted — ADR 0006)
+	 * 
+	 *  Reads the startup-cached device list with one `DeviceIoControl` query
+	 *  per device; repeated calls within the core-side minimum interval
+	 *  return the last reading. Returns an empty list when
+	 *  `storageHealth.enabled` is off or on platforms without the cheap
+	 *  native read path (displays fall back to the daily records).
+	 */
+	getLiveStorageHealth: () => typedError<LiveStorageHealth[], string>(__TAURI_INVOKE("get_live_storage_health")),
 	// ## Get archived CPU/RAM records
 	getDataArchiveRecords: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string) => typedError<ArchiveRecord[], string>(__TAURI_INVOKE("get_data_archive_records", { hardwareType, dataStats, start, end })),
 	// ## Get archived GPU records
@@ -383,6 +393,24 @@ export type LineGraphColorStringSettings = {
 };
 
 export type LineGraphType = "default" | "step" | "linear" | "basis";
+
+/**
+ *  Live Storage Health signals collected on demand and never persisted
+ *  (ADR 0006). `device_id` matches the daily [`StorageHealthRecord`]
+ *  identity so displays can join live signals to persisted device rows.
+ */
+export type LiveStorageHealth = {
+	deviceId: string,
+	displayName: string,
+	temperatureCelsius: number | null,
+	availableSparePercent: number | null,
+	percentageUsed: number | null,
+	mediaErrors: number | null,
+	unsafeShutdownCount: number | null,
+	powerOnHours: number | null,
+	powerCycleCount: number | null,
+	collectedAt: string,
+};
 
 export type MemoryInfo = {
 	size: string,

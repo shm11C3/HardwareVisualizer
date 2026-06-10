@@ -11,6 +11,12 @@ pub struct WorkersState {
   pub window_adapter: Mutex<Option<WindowAdapter>>,
   pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
   pub storage_health: Mutex<Option<hardviz_core::persistence::StorageHealthController>>,
+  /// On-demand Live Storage Health collector (ADR 0006). Not a worker —
+  /// no background task, so `terminate_all` leaves it alone. `None` when
+  /// Storage Health is disabled at startup or the identity key is
+  /// invalid; the command then returns an empty result.
+  pub live_storage_health:
+    Mutex<Option<std::sync::Arc<hardviz_core::collector::LiveStorageHealthCollector>>>,
 
   /// Holds the tray icon for as long as the process should display it.
   /// Dropping this releases the OS handle and removes the icon, so it

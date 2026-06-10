@@ -309,7 +309,7 @@ fn warning_rank(level: &StorageWarningLevel) -> u8 {
   }
 }
 
-fn storage_device_id(
+pub(crate) fn storage_device_id(
   disk: &SmartDiskInfo,
   identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
 ) -> String {
@@ -365,7 +365,11 @@ fn hex_encode(bytes: &[u8]) -> String {
   output
 }
 
-fn attr_value_u64(disk: &SmartDiskInfo, id: Option<u32>, name: &str) -> Option<u64> {
+pub(crate) fn attr_value_u64(
+  disk: &SmartDiskInfo,
+  id: Option<u32>,
+  name: &str,
+) -> Option<u64> {
   find_attr(disk, id, name).and_then(|attr| {
     attr
       .raw_value
@@ -375,7 +379,11 @@ fn attr_value_u64(disk: &SmartDiskInfo, id: Option<u32>, name: &str) -> Option<u
   })
 }
 
-fn attr_value_f32(disk: &SmartDiskInfo, id: Option<u32>, name: &str) -> Option<f32> {
+pub(crate) fn attr_value_f32(
+  disk: &SmartDiskInfo,
+  id: Option<u32>,
+  name: &str,
+) -> Option<f32> {
   find_attr(disk, id, name).and_then(|attr| {
     attr
       .raw_value

@@ -97,3 +97,51 @@ pub async fn get_storage_health_latest_records()
 -> Result<Vec<hardviz_core::models::hardware::StorageHealthRecord>, sqlx::Error> {
   hardviz_core::infrastructure::database::storage_health::latest_records().await
 }
+
+///
+/// Read Live Storage Health signals from the startup-cached device list
+/// (ADR 0006). Nothing is persisted.
+///
+/// Returns an empty list when the collector is unavailable (Storage
+/// Health disabled at startup or an invalid identity key). The read is
+/// blocking — one `DeviceIoControl` query per cached device — so it runs
+/// on the blocking pool.
+///
+pub async fn get_live_storage_health(
+  collector: Option<std::sync::Arc<hardviz_core::collector::LiveStorageHealthCollector>>,
+) -> Result<Vec<hardviz_core::models::hardware::LiveStorageHealth>, String> {
+  let Some(collector) = collector else {
+    return Ok(Vec::new());
+  };
+
+  tokio::task::spawn_blocking(move || collector.read_live())
+    .await
+    .map_err(|e| format!("Failed to join live storage health read: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use hardviz_core::collector::LiveStorageHealthCollector;
+  use std::sync::Arc;
+
+  #[tokio::test]
+  async fn live_storage_health_returns_empty_when_collector_is_absent() {
+    let signals = get_live_storage_health(None).await.expect("must not fail");
+
+    assert!(signals.is_empty());
+  }
+
+  #[tokio::test]
+  async fn live_storage_health_returns_empty_before_enumeration() {
+    // An un-enumerated collector has an empty device cache, so the read
+    // returns empty without touching any device on every platform.
+    let collector = Arc::new(LiveStorageHealthCollector::new([0x42; 32]));
+
+    let signals = get_live_storage_health(Some(collector))
+      .await
+      .expect("must not fail");
+
+    assert!(signals.is_empty());
+  }
+}
