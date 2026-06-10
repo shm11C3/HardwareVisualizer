@@ -21,6 +21,7 @@ const counters = vi.hoisted(() => ({
     | null,
   infoTableRenders: 0,
   thermalSensorTableRenders: 0,
+  thermalSensorRowRenderWork: 0,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -48,14 +49,16 @@ vi.mock("@/components/shared/InfoTable", () => ({
     className?: string;
     data: Record<string, React.ReactNode>;
   }) => {
+    const keys = Object.keys(data);
     counters.infoTableRenders += 1;
-    if (Object.keys(data).some((key) => key.startsWith("Thermal Zone"))) {
+    if (keys.some((key) => key.startsWith("Thermal Zone"))) {
       counters.thermalSensorTableRenders += 1;
+      counters.thermalSensorRowRenderWork += keys.length;
     }
 
     return (
       <div className={className} data-testid="info-table">
-        {Object.keys(data).join(",")}
+        {keys.join(",")}
       </div>
     );
   },
@@ -152,15 +155,21 @@ const CpuDashboardProbe = () => {
   return <CPUInfo />;
 };
 
+const unchangedSensorTemperatures = Array.from({ length: 24 }, (_, index) => ({
+  name: `Thermal Zone ${index}`,
+  value: 50 + (index % 3),
+}));
+
 describe("Dashboard live metrics render fanout", () => {
   beforeEach(() => {
     counters.capturedHardwareUpdateListener = null;
     counters.infoTableRenders = 0;
     counters.thermalSensorTableRenders = 0;
+    counters.thermalSensorRowRenderWork = 0;
     setDocumentHidden(false);
   });
 
-  it("does not re-render unchanged CPU thermal sensor rows on live metric ticks", () => {
+  it("does not amplify unchanged CPU thermal sensor payloads into per-tick row render work", () => {
     render(
       <Provider>
         <CpuDashboardProbe />
@@ -172,12 +181,13 @@ describe("Dashboard live metrics render fanout", () => {
         makePayload({
           cpuUsage: 10,
           cpuTemperature: 50,
-          sensorTemperatures: [{ name: "Thermal Zone 0", value: 50 }],
+          sensorTemperatures: unchangedSensorTemperatures,
         }),
       );
     });
 
     counters.thermalSensorTableRenders = 0;
+    counters.thermalSensorRowRenderWork = 0;
 
     for (let i = 0; i < 5; i += 1) {
       act(() => {
@@ -185,12 +195,12 @@ describe("Dashboard live metrics render fanout", () => {
           makePayload({
             cpuUsage: 20 + i,
             cpuTemperature: 50,
-            sensorTemperatures: [{ name: "Thermal Zone 0", value: 50 }],
+            sensorTemperatures: unchangedSensorTemperatures,
           }),
         );
       });
     }
 
-    expect(counters.thermalSensorTableRenders).toBe(0);
+    expect(counters.thermalSensorRowRenderWork).toBe(0);
   });
 });
