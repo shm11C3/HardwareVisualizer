@@ -36,6 +36,9 @@ export const gpuFanSpeedMapAtom = atom<
 export const cpuTempAtom = atom<NameValues>([]);
 export const cpuFanSpeedAtom = atom<NameValues>([]);
 
+/** All named temperature sensors (thermal zones), Windows only for now */
+export const sensorTempsAtom = atom<NameValues>([]);
+
 /** All GPUs temperature as NameValues (read-write: write clears the map) */
 export const gpuTempAtom = atom<NameValues, [NameValues], void>(
   (get) => Object.values(get(gpuTempMapAtom)),

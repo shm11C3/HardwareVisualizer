@@ -77,6 +77,8 @@ mod tests {
       processors_usage: vec![],
       gpus: vec![],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     }
   }
 
@@ -149,6 +151,8 @@ mod tests {
         gpu_cooler_level: Some(50),
       }],
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     });
 
     let received = rx.recv().await.expect("receive snapshot");

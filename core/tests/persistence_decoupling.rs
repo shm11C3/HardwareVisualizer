@@ -20,6 +20,8 @@ fn snapshot(value: f32) -> MetricsSnapshot {
     processors_usage: vec![],
     gpus: vec![],
     processes: vec![],
+    cpu_temperature: None,
+    sensor_temperatures: vec![],
   }
 }
 

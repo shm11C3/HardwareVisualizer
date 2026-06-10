@@ -8,7 +8,7 @@
 //! Tauri `HardwareMonitorUpdate` event.
 
 use crate::collector::HistoryStore;
-use crate::models::{GpuMetric, MetricsSnapshot, ProcessSample};
+use crate::models::{GpuMetric, MetricsSnapshot, ProcessSample, SensorTemperature};
 
 /// One GPU sample collected per physical GPU. `None` means the metric is
 /// unavailable for this GPU vendor / platform.
@@ -27,6 +27,42 @@ pub struct SystemSample {
   pub memory_usage: f32,
   pub processors_usage: Vec<f32>,
   pub processes: Vec<ProcessSample>,
+}
+
+/// One round of CPU / sensor temperature readings, always in raw °C.
+/// Defaults to "nothing available" on platforms without a collector.
+#[derive(Default)]
+pub struct TemperatureSample {
+  pub cpu_temperature: Option<f32>,
+  pub sensor_temperatures: Vec<SensorTemperature>,
+}
+
+/// Read the latest CPU / sensor temperatures.
+///
+/// Windows: ACPI thermal zones via the WMI sampler thread (started on the
+/// first call). The headline CPU value picks a CPU-named zone when one
+/// exists, otherwise the hottest zone — see
+/// [`crate::utils::thermal::select_cpu_temperature`].
+#[cfg(target_os = "windows")]
+pub fn sample_temperatures() -> TemperatureSample {
+  use crate::infrastructure::providers::thermal_zone;
+
+  thermal_zone::init_thermal_zone_sampler();
+  let sensor_temperatures = thermal_zone::read_thermal_zones_cached();
+  let cpu_temperature =
+    crate::utils::thermal::select_cpu_temperature(&sensor_temperatures);
+
+  TemperatureSample {
+    cpu_temperature,
+    sensor_temperatures,
+  }
+}
+
+/// CPU / sensor temperatures are currently collected on Windows only.
+/// Linux (hwmon coretemp/k10temp) and macOS (SMC) can plug in here later.
+#[cfg(not(target_os = "windows"))]
+pub fn sample_temperatures() -> TemperatureSample {
+  TemperatureSample::default()
 }
 
 /// Run one CPU / memory / process refresh and append samples to the
@@ -423,10 +459,13 @@ fn build_gpu_metrics(gpu_samples: &[GpuSample]) -> Vec<GpuMetric> {
     .collect()
 }
 
-/// Compose a [`MetricsSnapshot`] from one cycle's system + GPU samples.
+/// Compose a [`MetricsSnapshot`] from one cycle's system + GPU +
+/// temperature samples. Temperatures are forwarded as raw °C (rounded);
+/// the App-side adapter applies the user's preferred unit.
 pub fn build_metrics_snapshot(
   system_sample: &SystemSample,
   gpu_samples: &[GpuSample],
+  temperature_sample: &TemperatureSample,
 ) -> MetricsSnapshot {
   MetricsSnapshot {
     cpu_usage: system_sample.cpu_usage,
@@ -434,6 +473,15 @@ pub fn build_metrics_snapshot(
     processors_usage: system_sample.processors_usage.clone(),
     gpus: build_gpu_metrics(gpu_samples),
     processes: system_sample.processes.clone(),
+    cpu_temperature: temperature_sample.cpu_temperature.map(|t| t.round()),
+    sensor_temperatures: temperature_sample
+      .sensor_temperatures
+      .iter()
+      .map(|s| SensorTemperature {
+        name: s.name.clone(),
+        temperature: s.temperature.round(),
+      })
+      .collect(),
   }
 }
 
@@ -565,7 +613,7 @@ mod tests {
       }],
     };
     let gpus = vec![make_sample("gpu:0", "RTX 4090", Some(50.0), Some(70.0))];
-    let snap = build_metrics_snapshot(&sys, &gpus);
+    let snap = build_metrics_snapshot(&sys, &gpus, &TemperatureSample::default());
     assert_eq!(snap.cpu_usage, 12.5);
     assert_eq!(snap.memory_usage, 67.0);
     assert_eq!(snap.processors_usage, vec![10.0, 20.0, 30.0, 40.0]);
@@ -574,6 +622,46 @@ mod tests {
     assert_eq!(snap.processes.len(), 1);
     assert_eq!(snap.processes[0].pid, 1);
     assert_eq!(snap.processes[0].name, "init");
+    assert_eq!(snap.cpu_temperature, None);
+    assert!(snap.sensor_temperatures.is_empty());
+  }
+
+  #[test]
+  fn snapshot_rounds_cpu_and_sensor_temperatures() {
+    let sys = SystemSample {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      processes: vec![],
+    };
+    let temps = TemperatureSample {
+      cpu_temperature: Some(49.95),
+      sensor_temperatures: vec![
+        SensorTemperature {
+          name: "CPUZ".into(),
+          temperature: 49.95,
+        },
+        SensorTemperature {
+          name: "TZ01".into(),
+          temperature: 40.2,
+        },
+      ],
+    };
+    let snap = build_metrics_snapshot(&sys, &[], &temps);
+    assert_eq!(snap.cpu_temperature, Some(50.0));
+    assert_eq!(
+      snap.sensor_temperatures,
+      vec![
+        SensorTemperature {
+          name: "CPUZ".into(),
+          temperature: 50.0,
+        },
+        SensorTemperature {
+          name: "TZ01".into(),
+          temperature: 40.0,
+        },
+      ]
+    );
   }
 
   // ── resolve_gpu_name_from_map ──

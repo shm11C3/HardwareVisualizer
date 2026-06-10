@@ -11,6 +11,7 @@
       "full": "Temperature",
       "abbrev": "Temp"
     },
+    "thermalSensors": "Thermal Sensors",
     "name": "Name",
     "vendor": "Vendor",
     "coreCount": "Core Count",

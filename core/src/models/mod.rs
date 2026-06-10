@@ -3,4 +3,4 @@
 pub mod hardware;
 mod metrics;
 
-pub use metrics::{GpuMetric, MetricsSnapshot, ProcessSample};
+pub use metrics::{GpuMetric, MetricsSnapshot, ProcessSample, SensorTemperature};

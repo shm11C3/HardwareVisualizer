@@ -22,6 +22,10 @@ pub struct HardwareMonitorUpdate {
   pub memory_usage: f32,
   pub gpus: Vec<GpuMonitorData>,
   pub processors_usage: Vec<f32>,
+  /// Headline CPU temperature in the user's preferred unit. Currently Windows only.
+  pub cpu_temperature: Option<f32>,
+  /// All named temperature sensors (thermal zones) in the user's preferred unit.
+  pub sensor_temperatures: Vec<NameValue>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone)]
@@ -68,7 +72,7 @@ pub struct GpuUsageResult {
 #[serde(rename_all = "camelCase")]
 pub struct NameValue {
   pub name: String,
-  pub value: i32, // Celsius temperature
+  pub value: i32, // Temperature in the user's preferred unit (°C/°F)
 }
 
 #[derive(Serialize, Deserialize, Type)]
@@ -480,9 +484,13 @@ mod tests {
       memory_usage: 60.0,
       gpus: vec![],
       processors_usage: vec![25.0, 75.0],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     assert_eq!(json["gpus"].as_array().unwrap().len(), 0);
+    assert!(json["cpuTemperature"].is_null());
+    assert_eq!(json["sensorTemperatures"].as_array().unwrap().len(), 0);
   }
 
   #[test]
@@ -492,6 +500,8 @@ mod tests {
       memory_usage: 60.0,
       gpus: vec![make_gpu_monitor_data("gpu:0", "RTX 4090")],
       processors_usage: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     assert_eq!(json["gpus"].as_array().unwrap().len(), 1);
@@ -508,12 +518,42 @@ mod tests {
         make_gpu_monitor_data("pci:0:3.0", "RX 7900 XTX"),
       ],
       processors_usage: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     let gpus = json["gpus"].as_array().unwrap();
     assert_eq!(gpus.len(), 2);
     assert_eq!(gpus[0]["gpuId"], "pci:0:2.0");
     assert_eq!(gpus[1]["gpuId"], "pci:0:3.0");
+  }
+
+  #[test]
+  fn hardware_monitor_update_with_cpu_and_sensor_temperatures() {
+    let update = HardwareMonitorUpdate {
+      cpu_usage: 50.0,
+      memory_usage: 60.0,
+      gpus: vec![],
+      processors_usage: vec![],
+      cpu_temperature: Some(48.0),
+      sensor_temperatures: vec![
+        NameValue {
+          name: "CPUZ".to_string(),
+          value: 48,
+        },
+        NameValue {
+          name: "TZ01".to_string(),
+          value: 40,
+        },
+      ],
+    };
+    let json = serde_json::to_value(&update).unwrap();
+    assert_eq!(json["cpuTemperature"], 48.0);
+    let sensors = json["sensorTemperatures"].as_array().unwrap();
+    assert_eq!(sensors.len(), 2);
+    assert_eq!(sensors[0]["name"], "CPUZ");
+    assert_eq!(sensors[0]["value"], 48);
+    assert_eq!(sensors[1]["name"], "TZ01");
   }
 
   // ── serialize_usage via ProcessInfo JSON serialization ──

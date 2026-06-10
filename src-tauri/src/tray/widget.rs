@@ -391,6 +391,8 @@ mod tests {
       processors_usage: vec![],
       gpus,
       processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
     }
   }
 

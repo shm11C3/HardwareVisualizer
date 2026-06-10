@@ -151,6 +151,11 @@ export const buildHardwareUpdateSeries = (
     processorsUsage: Array.from({ length: 8 }, (_, core) =>
       round1(40 + 30 * Math.sin(i / 4 + core)),
     ),
+    cpuTemperature: Math.round(50 + 8 * Math.sin(i / 5)),
+    sensorTemperatures: [
+      { name: "CPUZ", value: Math.round(50 + 8 * Math.sin(i / 5)) },
+      { name: "TZ01", value: Math.round(42 + 5 * Math.sin(i / 6)) },
+    ],
   }));
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
