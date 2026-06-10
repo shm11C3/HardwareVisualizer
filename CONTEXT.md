@@ -54,6 +54,10 @@ _Avoid_: Snapshot, storage health snapshot, live metrics snapshot, screenshot
 
 ### Persistence And History
 
+**Live Metrics Buffer**:
+A short-lived, non-persisted buffer of recent hardware utilization used for current-value displays and Usage Graphs.
+_Avoid_: Hardware Archive, history, telemetry buffer, dashboard state
+
 **Hardware Archive**:
 Persisted CPU, memory, GPU, and process utilization history used to power Hardware Insights.
 _Avoid_: Storage health history, live history, dashboard state, settings archive

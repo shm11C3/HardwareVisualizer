@@ -14,3 +14,4 @@ implementation guidance belongs in the architecture documents.
 - [0004 Separate Storage Health History](0004-separate-storage-health-history.md)
 - [0005 Storage Health Naming](0005-storage-health-naming.md)
 - [0006 Live Storage Health on Demand](0006-live-storage-health-on-demand.md)
+- [0007 External Live Metrics Buffer for 1Hz Frontend Metrics](0007-external-live-metrics-buffer.md)
