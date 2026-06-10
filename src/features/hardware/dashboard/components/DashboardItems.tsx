@@ -1,6 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import {
@@ -60,16 +60,13 @@ import { StorageHealthStatusIcon } from "./StorageHealthStatusIcon";
 
 export const CPUInfo = () => {
   const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const [cpuTemp] = useAtom(cpuTempAtom);
-  const [sensorTemps] = useAtom(sensorTempsAtom);
   const { hardwareInfo } = useHardwareInfoAtom();
   const processes = useProcessInfo();
   const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
 
   const cpuTemperature = cpuTemp[0]?.value;
-  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
 
   return (
     <>
@@ -102,24 +99,35 @@ export const CPUInfo = () => {
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
 
-      {sensorTemps.length > 0 && (
-        <div className="mt-2 ml-2">
-          <h4 className="font-bold text-sm md:text-md">
-            {t("shared.thermalSensors")}
-          </h4>
-          <InfoTable
-            data={Object.fromEntries(
-              sensorTemps.map((sensor) => [
-                sensor.name,
-                `${sensor.value} ${temperatureUnit}`,
-              ]),
-            )}
-          />
-        </div>
-      )}
+      <CpuThermalSensors />
     </>
   );
 };
+
+const CpuThermalSensors = memo(() => {
+  const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
+  const [sensorTemps] = useAtom(sensorTempsAtom);
+  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
+
+  if (sensorTemps.length === 0) return null;
+
+  return (
+    <div className="mt-2 ml-2">
+      <h4 className="font-bold text-sm md:text-md">
+        {t("shared.thermalSensors")}
+      </h4>
+      <InfoTable
+        data={Object.fromEntries(
+          sensorTemps.map((sensor) => [
+            sensor.name,
+            `${sensor.value} ${temperatureUnit}`,
+          ]),
+        )}
+      />
+    </div>
+  );
+});
 
 export const GPUInfo = () => {
   const { t } = useTranslation();

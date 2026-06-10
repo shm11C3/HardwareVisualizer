@@ -16,12 +16,24 @@ import {
 } from "@/features/hardware/store/chart";
 import { events } from "@/rspc/bindings";
 
+type NameValue = { name: string; value: number };
+
 const padHistory = (arr: (number | null)[]): (number | null)[] => {
   const padded = Array(Math.max(chartConfig.historyLengthSec - arr.length, 0))
     .fill(null)
     .concat(arr);
   return padded.slice(-chartConfig.historyLengthSec);
 };
+
+const areNameValuesEqual = (
+  current: readonly NameValue[],
+  next: readonly NameValue[],
+) =>
+  current.length === next.length &&
+  current.every(
+    (item, index) =>
+      item.name === next[index]?.name && item.value === next[index]?.value,
+  );
 
 /**
  * Listen for hardware monitor update events pushed from the backend.
@@ -76,12 +88,18 @@ export const useHardwareEventListener = () => {
       setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
 
       // CPU temperature (Windows thermal zones; null where unsupported)
-      setCpuTemp(
-        cpuTemperature != null ? [{ name: "CPU", value: cpuTemperature }] : [],
+      const nextCpuTemp =
+        cpuTemperature != null ? [{ name: "CPU", value: cpuTemperature }] : [];
+      setCpuTemp((prev) =>
+        areNameValuesEqual(prev, nextCpuTemp) ? prev : nextCpuTemp,
       );
 
       // All named temperature sensors (thermal zones)
-      setSensorTemps(sensorTemperatures);
+      setSensorTemps((prev) =>
+        areNameValuesEqual(prev, sensorTemperatures)
+          ? prev
+          : sensorTemperatures,
+      );
 
       // Per-GPU usage histories
       setGpuHistories((prev) =>
