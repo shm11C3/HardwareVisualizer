@@ -112,6 +112,37 @@ resolved and the Phase 0 guardrails are merged.
   approval review comment. The implementation PR template carries the
   checklist as a reminder of this requirement.
 
+## Status transition: Draft → Implementation-ready
+
+A document becomes a valid clean-room input only through this
+transition. The flip is proposed by the spec-author role and approved
+by a maintainer; the sign-off is the maintainer's approval of the PR
+that performs the flip.
+
+Checklist for the flipping PR (all items required):
+
+- [ ] Every `TODO(provenance)` marker is resolved: each affected fact
+      is pinned to a primary-source section/page, or independently
+      verified (e.g. against a hardware dump referenced by the
+      document).
+- [ ] Every entry under **Open questions** is either resolved (moved
+      into the fact tables with provenance) or explicitly marked
+      `non-blocking for <phase>` with a one-line justification kept in
+      the section.
+- [ ] No normative fact rests solely on a copyleft source (re-check
+      the notes column of the Sources table).
+- [ ] Scoped-enablement tables (e.g. the AMD per-family enablement
+      table) are consistent with the verification state of each row.
+- [ ] The revision number is bumped, the revision history records the
+      transition, and the Status field is set to
+      **`Implementation-ready (rev N)`** — this is the canonical
+      ready value that implementer and reviewer attestations check
+      for.
+
+Implementers and reviewers verify readiness by checking the Status
+field at the pinned revision; any remaining `TODO(provenance)` marker
+or unresolved blocking open question invalidates the flip.
+
 ## Current documents
 
 | Document | Covers | Issue phase |

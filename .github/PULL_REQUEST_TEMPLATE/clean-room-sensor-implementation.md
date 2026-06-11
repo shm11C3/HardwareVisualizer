@@ -35,9 +35,10 @@ No other external sensor documentation was used.
 
 - [ ] This implementation references only `docs/specs/sensors/**` (at
       the revisions pinned above) and this repository.
-- [ ] Every spec document pinned above is implementation-ready (no
-      unresolved `TODO(provenance)` markers; status is not
-      `Draft — not implementation-ready`).
+- [ ] Every spec document pinned above carries
+      `Status: Implementation-ready (rev N)` at the pinned revision
+      and has no unresolved `TODO(provenance)` markers (see "Status
+      transition" in `docs/specs/sensors/README.md`).
 - [ ] I did not consult LibreHardwareMonitor, OpenHardwareMonitor,
       Linux kernel, lm-sensors, or any decompiled monitoring tool
       while writing this implementation (full prohibited-source list:

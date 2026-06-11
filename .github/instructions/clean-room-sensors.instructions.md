@@ -101,8 +101,11 @@ No PR may be opened or reviewed as clean-room implementation work
 unless all of the following hold (the "implementation gate" of
 `docs/specs/sensors/README.md`):
 
-1. Every consulted spec document is implementation-ready (no
-   unresolved `TODO(provenance)` markers).
+1. Every consulted spec document is implementation-ready: it carries
+   `Status: Implementation-ready (rev N)` at the pinned revision and
+   has no unresolved `TODO(provenance)` markers. The flip from draft
+   follows the status-transition checklist in
+   `docs/specs/sensors/README.md`.
 2. The PR uses the clean-room PR template
    (`.github/PULL_REQUEST_TEMPLATE/clean-room-sensor-implementation.md`,
    append `?template=clean-room-sensor-implementation.md&expand=1` to the

@@ -37,7 +37,9 @@ Hard rules for output:
 - Start new documents from `docs/specs/sensors/spec-template.md`;
   keep `Status: Draft — not implementation-ready` while any
   `TODO(provenance)` remains; bump the revision number and history
-  table on every fact change.
+  table on every fact change. The flip to
+  `Implementation-ready (rev N)` goes through the status-transition
+  checklist in the specs README and requires maintainer approval.
 
 You write documentation only. Never write or edit Rust sensor
 implementation code in this role — that is the clean-room

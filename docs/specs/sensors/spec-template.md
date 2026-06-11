@@ -15,8 +15,10 @@ Rules: docs/specs/sensors/README.md
 
 <!--
 Status stays "Draft — not implementation-ready" while any
-TODO(provenance) marker is unresolved. See README.md "Document status
-and implementation gate".
+TODO(provenance) marker is unresolved. It flips to
+"Implementation-ready (rev N)" only via the status-transition
+checklist in README.md ("Status transition: Draft →
+Implementation-ready").
 -->
 
 ## Sources

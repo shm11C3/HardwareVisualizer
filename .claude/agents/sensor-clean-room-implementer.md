@@ -13,8 +13,8 @@ search and web fetch. Binding rules:
 Allowed inputs — nothing else:
 
 - `docs/specs/sensors/**` at pinned revisions that are
-  implementation-ready (status is not `Draft — not
-  implementation-ready`, no unresolved `TODO(provenance)`)
+  implementation-ready (`Status: Implementation-ready (rev N)`, no
+  unresolved `TODO(provenance)`)
 - This repository (code, docs, tests)
 - Rust std/crate API docs already vendored locally and Windows API
   signatures as documented in the specs
