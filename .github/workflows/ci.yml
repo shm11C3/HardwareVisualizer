@@ -46,6 +46,7 @@ jobs:
               - 'vite.config.ts'
               - 'playwright.config.ts'
               - 'playwright.perf.config.ts'
+              - 'playwright.memory.config.ts'
               - 'tsconfig*.json'
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -556,6 +557,43 @@ jobs:
         with:
           name: render-perf-results
           path: test-results/render-perf/
+          if-no-files-found: warn
+
+  #
+  # Frontend memory growth checks (Playwright web/mock IPC harness)
+  #
+  test-render-memory-perf:
+    needs: change-detection
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.frontend-changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    env:
+      RENDER_MEMORY_WARMUP_MS: "10000"
+      RENDER_MEMORY_DURATION_MS: "30000"
+      RENDER_MEMORY_SAMPLE_INTERVAL_MS: "5000"
+      RENDER_MEMORY_TAIL_WINDOW_MS: "15000"
+      RENDER_MEMORY_STREAM_INTERVAL_MS: "1000"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run render memory performance tests
+        run: npm run test:perf:render-memory
+
+      - name: Upload render memory performance results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: render-memory-perf-results
+          path: test-results/render-memory/
           if-no-files-found: warn
 
   #
