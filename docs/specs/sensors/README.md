@@ -126,13 +126,28 @@ Checklist for the flipping PR (all items required):
       verified (e.g. against a hardware dump referenced by the
       document).
 - [ ] Every entry under **Open questions** is either resolved (moved
-      into the fact tables with provenance) or explicitly marked
-      `non-blocking for <phase>` with a one-line justification kept in
-      the section.
+      into the fact tables with provenance) or explicitly annotated
+      in place, as the first line of the entry, using exactly this
+      form:
+
+      ```text
+      Non-blocking for <phase>: <one-line justification>.
+      ```
+
+      Example: `Non-blocking for Phase 1: package readout does not
+      depend on this; only per-core readings would.` The phase name
+      and justification stay in the Open questions section.
 - [ ] No normative fact rests solely on a copyleft source (re-check
       the notes column of the Sources table).
-- [ ] Scoped-enablement tables (e.g. the AMD per-family enablement
-      table) are consistent with the verification state of each row.
+- [ ] Scoped-enablement tables are consistent with the verification
+      state of each row. A *scoped-enablement table* is the pattern
+      for documents that are ready overall while specific hardware
+      scopes are not: a table in the **Detection** section with
+      columns `Scope` (e.g. CPU family or chip model), `Status` (what
+      verified the row, with source tag), and `Default enablement`
+      (enabled, or disabled until a named verification happens). The
+      per-family table in [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md)
+      is the reference example.
 - [ ] The revision number is bumped, the revision history records the
       transition, and the Status field is set to
       **`Implementation-ready (rev N)`** — this is the canonical
