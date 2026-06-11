@@ -78,11 +78,23 @@ resolved and the Phase 0 guardrails are merged.
   hardware dumps).
 - No implementation PR may be opened or reviewed as clean-room work
   until all of the following Phase 0 guardrails exist:
-  - `.github/instructions/` contains the prohibited-source list
-  - `CLAUDE.md` references the clean-room implementer restrictions
-  - the PR template requires spec revision pinning
-  - the PR template requires a provenance attestation
-  - the PR template requires the reviewer attestation below
+  - `.github/instructions/` contains the prohibited-source list —
+    satisfied by
+    [`clean-room-sensors.instructions.md`](../../../.github/instructions/clean-room-sensors.instructions.md)
+  - `CLAUDE.md` references the clean-room implementer restrictions —
+    satisfied by the instruction-file entry in
+    [`CLAUDE.md`](../../../CLAUDE.md)
+  - the PR template requires spec revision pinning, a provenance
+    attestation, and the reviewer attestation below — satisfied by
+    [`clean-room-sensor-implementation.md`](../../../.github/PULL_REQUEST_TEMPLATE/clean-room-sensor-implementation.md)
+  - dedicated role agents with tool restrictions exist — satisfied by
+    `.claude/agents/sensor-spec-author.md` and
+    `.claude/agents/sensor-clean-room-implementer.md` (the
+    implementer agent has no web tools)
+
+  The artifacts above satisfy the gate's existence requirements;
+  per-document readiness (`TODO(provenance)` resolution) still gates
+  each individual spec.
 - Reviewer contamination policy: reviewers can also breach the
   clean-room boundary. Implementation PR reviews must include this
   attestation:

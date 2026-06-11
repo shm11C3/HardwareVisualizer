@@ -1,3 +1,10 @@
+<!--
+Clean-room sensor implementation PRs (#1635) must use the dedicated
+template instead: append
+?template=clean-room-sensor-implementation.md&expand=1 to the compare
+URL. See .github/instructions/clean-room-sensors.instructions.md
+-->
+
 ## Summary
 
 <!-- What does this PR do and why? -->
