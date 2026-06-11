@@ -62,10 +62,14 @@ export const collectRenderPerfResult = async (
 ): Promise<RenderPerfResult> => {
   const browserMetrics = await page.evaluate(() => {
     const longTaskDurations = window.__RENDER_PERF__?.longTaskDurations ?? [];
+    const maxLongTaskDuration = longTaskDurations.reduce(
+      (max, duration) => Math.max(max, duration),
+      0,
+    );
     return {
       domElementCount: document.getElementsByTagName("*").length,
       longTaskCount: longTaskDurations.length,
-      maxLongTaskMs: Math.round(Math.max(0, ...longTaskDurations)),
+      maxLongTaskMs: Math.round(maxLongTaskDuration),
       totalLongTaskMs: Math.round(
         longTaskDurations.reduce((sum, duration) => sum + duration, 0),
       ),

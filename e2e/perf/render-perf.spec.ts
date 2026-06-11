@@ -9,6 +9,8 @@ import {
 } from "./renderPerf";
 
 const results: RenderPerfResult[] = [];
+// The perf suite runs extra browser instrumentation, so cold-start bootstrap
+// gets more room than BOOTSTRAP_TIMEOUT in the regular capture suite.
 const PERF_BOOTSTRAP_TIMEOUT = 60_000;
 const THRESHOLDS = {
   dashboardUpdates: {
