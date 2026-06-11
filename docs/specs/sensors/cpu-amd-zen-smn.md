@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Status | Draft |
-| Scope | Package control temperature (Tctl) and die temperature (Tdie) on AMD Family 17h (Zen/Zen+/Zen 2), Family 19h (Zen 3/Zen 4), and Family 1Ah (Zen 5) processors, read from the SMU thermal controller (THM) over the System Management Network (SMN). Excludes: per-CCD temperatures, SMU PM-table metrics, pre-Zen (Family 15h/16h) thermal registers. |
+| Status | Draft — not implementation-ready |
+| Scope | Package control temperature (Tctl) and die temperature (Tdie) on AMD Family 17h (Zen/Zen+/Zen 2) and Family 19h (Zen 3/Zen 4) processors, read from the SMU thermal controller (THM) over the System Management Network (SMN). Family 1Ah (Zen 5) is recognized but disabled by default pending verification (see Detection). Excludes: per-CCD temperatures, SMU PM-table metrics, pre-Zen (Family 15h/16h) thermal registers. |
 | Issue phase | Phase 1 (#1635) |
 
 ## Sources
@@ -14,8 +14,8 @@
 | S1 | AMD, *Processor Programming Reference (PPR) for AMD Family 17h Models 00h-0Fh Processors*, document no. 54945, register `SMU::THM::THM_TCON_CUR_TMP` | Primary |
 | S2 | AMD, *PPR for AMD Family 19h Model 01h, Revision B1 Processors*, document no. 55898 Vol 2 (same THM register) | Primary |
 | S3 | AMD public statements on Tctl offsets: "AMD Ryzen™ Community Update #3" (R. Hallock, Apr 2017) and 2nd-gen Ryzen launch documentation | Primary for offsets |
-| S4 | Linux `k10temp` hwmon driver (GPL-2.0) | Facts only (offset table corroboration, family coverage). No code was copied. |
-| S5 | PawnIO `RyzenSMU.p` module source (LGPL-2.1-or-later) | Interface facts only (allowed SMN windows, family gate, mutex) |
+| S4 | Linux `k10temp` hwmon driver (GPL-2.0) | **Non-normative corroboration only.** No fact in this document relies solely on this source. No code, structure, identifiers, or tables were copied. |
+| S5 | PawnIO `RyzenSMU.p` module source (LGPL-2.1-or-later) | Upstream-published interface definition of the module this project calls across the IOCTL boundary (allowed SMN windows, family gate, mutex). Not used as a source for any hardware register fact. No code was copied. |
 
 `TODO(provenance)`: pin PPR section/page numbers; the family 1Ah PPR
 reference still needs to be identified (see Open questions).
@@ -25,8 +25,18 @@ reference still needs to be identified (see Open questions).
 | Fact | Source |
 | --- | --- |
 | CPU vendor string is `AuthenticAMD` (CPUID leaf 0) | AMD APM / CPUID convention |
-| Effective family = `BaseFamily + ExtendedFamily` (CPUID leaf 1; extended family is added when base family is `0xF`); supported values: `0x17`, `0x19`, `0x1A` | AMD CPUID convention; S5 gates on exactly these |
-| The PawnIO `RyzenSMU` module itself rejects other vendors/families with an error status, providing a second layer of gating | S5 |
+| Effective family = `BaseFamily + ExtendedFamily` (CPUID leaf 1; extended family is added when base family is `0xF`) | AMD CPUID convention |
+| The PawnIO `RyzenSMU` module accepts families `0x17`, `0x19`, `0x1A` and rejects other vendors/families with an error status, providing a second layer of gating | S5 |
+
+"Recognized by the PawnIO module" and "enabled by this project" are
+separate decisions. This spec enables a family only once its THM
+register facts are verified against a primary source:
+
+| Family | Status | Default enablement |
+| --- | --- | --- |
+| `0x17` | `THM_TCON_CUR_TMP` verified against AMD PPR (S1) | Enabled |
+| `0x19` | `THM_TCON_CUR_TMP` verified against AMD PPR (S2) | Enabled |
+| `0x1A` | Recognized by the PawnIO module (S5) but not yet verified by this spec | Disabled until PPR or hardware-dump verification |
 
 ## Register map (facts)
 
@@ -43,9 +53,9 @@ register. See [`pawnio-interface.md`](pawnio-interface.md).
 Notes:
 
 - The same register address and layout are documented for Family 17h
-  (S1) and Family 19h (S2). Family 1Ah is expected to match (the
-  PawnIO module exposes the same window for it) but is unverified —
-  see Open questions. (S5)
+  (S1) and Family 19h (S2). Family 1Ah is not yet verified by this
+  spec and stays disabled by default — see Detection and Open
+  questions.
 - SMN is reached through an index/data register pair in the host
   bridge PCI configuration space; the PawnIO module handles this and
   serializes on the `Access_PCI` mutant. The client performs no raw
@@ -53,33 +63,26 @@ Notes:
 
 ## Read procedure and decode
 
-1. Confirm detection facts above.
-2. Read 32-bit `value` from SMN `0x00059800`.
-3. Decode Tctl:
-
-   ```text
-   raw   = (value >> 21) & 0x7FF
-   tctl  = raw * 0.125                # °C
-   if (value >> 19) & 1: tctl -= 49   # CUR_TEMP_RANGE_SEL
-   ```
-
-4. Decode Tdie by subtracting the model's Tctl offset (table below);
-   models not listed have offset 0 and `tdie == tctl`:
-
-   ```text
-   tdie = tctl - tctl_offset(model)
-   ```
-
-5. Publish Tdie as the CPU temperature. Plausibility gate (this
+1. Confirm detection facts above (including the per-family enablement
+   table).
+2. Read the 32-bit value of `THM_TCON_CUR_TMP` from SMN `0x00059800`.
+3. Decoding rules (hardware semantics):
+   - Extract `CUR_TEMP` from bits 31:21.
+   - Tctl = `CUR_TEMP` × 0.125 °C.
+   - If `CUR_TEMP_RANGE_SEL` (bit 19) is 1, subtract 49 °C from Tctl.
+   - Tdie = Tctl − the model's Tctl offset (table below); models not
+     listed have offset 0, so Tdie equals Tctl.
+4. Publish Tdie as the CPU temperature. Plausibility gate (this
    project's own policy, not a PPR fact): accept only
-   `-40 ≤ tdie ≤ 120` °C and drop all-zero register reads.
+   −40 ≤ Tdie ≤ 120 °C and drop all-zero register reads.
 
 ## Quirks
 
 Tctl is a unitless control input deliberately offset above the
 measured die temperature on some first/second-generation parts so that
 cooling policies stay uniform across the lineup. AMD published the
-offsets (S3); the same table ships as facts in `k10temp` (S4):
+offsets (S3, normative); `k10temp` corroborates them (S4,
+non-normative):
 
 | Product | Tctl − Tdie offset |
 | --- | --- |
@@ -90,7 +93,7 @@ offsets (S3); the same table ships as facts in `k10temp` (S4):
 | All other Zen-family products (incl. Zen 2 and newer) | 0 °C |
 
 - Offset matching is by product name (OPN), not by family/model
-  numbers alone. (S3, S4)
+  numbers alone. (S3; corroborated by S4)
 - `CUR_TEMP_RANGE_SEL = 1` (the −49 °C range) is the normal case on
   many desktop parts; the decode in step 3 must always honor the bit
   rather than assume either range. (S1)

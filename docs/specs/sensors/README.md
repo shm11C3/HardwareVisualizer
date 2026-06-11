@@ -15,7 +15,7 @@ MIT-licensed.
 
 | Role | May read | Must not do |
 | --- | --- | --- |
-| Spec author ("dirty room") | Vendor datasheets and manuals (primary); hardware dumps; MPL/GPL/LGPL implementations **only to extract facts** (register addresses, bit layouts, procedures, quirks) | Copy code excerpts, code structure, or implementation identifier names into spec documents |
+| Spec author ("dirty room") | Vendor datasheets and manuals (primary); public hardware specifications; independently collected hardware dumps; MPL/GPL/LGPL implementations **only as non-normative leads** | Copy code excerpts, code structure, or implementation identifier names into spec documents |
 | Implementer ("clean room") | `docs/specs/sensors/**` and this repository only | Read LibreHardwareMonitor / OpenHardwareMonitor / Linux kernel / lm-sensors sources, or any decompiled monitoring tool |
 
 Names that are part of a public API contract (for example PawnIO module
@@ -31,8 +31,15 @@ in spec documents.
   still needs to be pinned.
 - No code excerpts, no code structure, and no identifier names taken
   from copyrighted implementations.
-- Facts extracted from MPL/GPL/LGPL sources are allowed but must be
-  recorded as factual statements with the source named.
+- MPL/GPL/LGPL implementations may be used **only as non-normative
+  leads**. Normative spec facts must be backed by vendor
+  documentation, public hardware specifications, or independently
+  collected hardware dumps. Copyleft sources consulted as leads must
+  still be listed in the document's Sources table, explicitly marked
+  non-normative; no fact may rest solely on them.
+- If a quirk is known only from a copyleft implementation, it must
+  stay in the document's **Open questions** section until
+  independently verified.
 - Anything uncertain goes in the document's **Open questions** section,
   not in the fact tables.
 - Read-only orientation: documents describe register *reads*. Writes
@@ -56,6 +63,38 @@ in spec documents.
   ```
 
   This is the audit trail demonstrating clean-room provenance.
+
+## Document status and implementation gate
+
+These documents are currently **draft specifications**. They are not
+implementation-ready clean-room inputs until all provenance TODOs are
+resolved and the Phase 0 guardrails are merged.
+
+- A document containing `TODO(provenance)` markers must carry
+  `Status: Draft — not implementation-ready` and must not be used as
+  the sole clean-room input for implementation until all markers are
+  resolved and primary-source section/page references are pinned (or
+  the facts are otherwise independently verified, e.g. against
+  hardware dumps).
+- No implementation PR may be opened or reviewed as clean-room work
+  until all of the following Phase 0 guardrails exist:
+  - `.github/instructions/` contains the prohibited-source list
+  - `CLAUDE.md` references the clean-room implementer restrictions
+  - the PR template requires spec revision pinning
+  - the PR template requires a provenance attestation
+  - the PR template requires the reviewer attestation below
+- Reviewer contamination policy: reviewers can also breach the
+  clean-room boundary. Implementation PR reviews must include this
+  attestation:
+
+  ```markdown
+  - [ ] I reviewed this implementation only against
+        `docs/specs/sensors/**`, this repository, and the pinned spec
+        revision.
+  - [ ] I did not consult LibreHardwareMonitor, OpenHardwareMonitor,
+        Linux kernel, lm-sensors, or decompiled monitoring tools while
+        reviewing this implementation.
+  ```
 
 ## Current documents
 

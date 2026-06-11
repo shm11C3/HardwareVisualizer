@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Status | Draft |
+| Status | Draft — not implementation-ready |
 | Scope | The generic LPC/ISA access mechanism shared by PC Super I/O chips: configuration port pairs, vendor enter/exit key sequences, logical-device selection, chip identification, and locating the hardware-monitor I/O block. Applies to Nuvoton NCT67xx and ITE IT86xx/87xx families. Excludes: per-chip register maps (temperatures, fans, voltages) — those are the Phase 3/4 documents. |
 | Issue phase | Phases 2–4 (#1635) — mechanism shared by all of them |
 
@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | S1 | Nuvoton, *NCT6779D* datasheet (representative of the NCT67xx family): "Extended Function Registers" and "Hardware Monitor" chapters | Primary for Nuvoton facts. `TODO(provenance)`: pin section/page numbers per chip in the Phase 3 documents |
 | S2 | ITE, *IT8728F Preliminary Specification* (representative of the IT87xx family): "MB PnP Mode" and "Environment Controller" chapters | Primary for ITE facts. `TODO(provenance)`: pin per chip in Phase 4 |
-| S3 | PawnIO `LpcIO.p` module source (LGPL-2.1-or-later) | Interface facts only (slot mapping, allowed ports, mutex name) |
+| S3 | PawnIO `LpcIO.p` module source (LGPL-2.1-or-later) | Upstream-published interface definition of the module this project calls (interoperability facts: slot mapping, allowed ports, mutex name). Not used as a source for any chip register fact. No code was copied. |
 
 Facts below are uniform across the respective vendors' datasheet
 series; each per-chip Phase 3/4 document must still re-verify them
@@ -115,9 +115,10 @@ Writes are limited to exactly:
 - hardware-monitor/EC **address** port (index selection),
 - Nuvoton bank select (hardware-monitor register `0x4E`).
 
-No other configuration register, and no hardware-monitor data
-register, is ever written: no fan control, no limits, no alarm
-configuration, in any phase of #1635.
+No hardware-monitor data register is written except the documented
+Nuvoton bank-select register (`0x4E`) above. No sensor value,
+fan-control, limit, alarm, or other configuration data register is
+written in any phase of #1635.
 
 ## Open questions
 

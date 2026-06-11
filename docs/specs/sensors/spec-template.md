@@ -9,17 +9,26 @@ Rules: docs/specs/sensors/README.md
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Status | Draft |
+| Status | Draft — not implementation-ready |
 | Scope | <what this document specifies, and what it deliberately excludes> |
 | Issue phase | <phase from #1635> |
+
+<!--
+Status stays "Draft — not implementation-ready" while any
+TODO(provenance) marker is unresolved. See README.md "Document status
+and implementation gate".
+-->
 
 ## Sources
 
 <!--
-Primary sources first (vendor datasheets / manuals). For facts taken
-from MPL/GPL/LGPL implementations, name the project and state that only
-facts were extracted. Pin page/section where possible; otherwise add
-TODO(provenance).
+Primary sources first (vendor datasheets / manuals / public hardware
+specifications / independently collected hardware dumps).
+MPL/GPL/LGPL implementations are non-normative leads only: list them,
+mark them non-normative, and never let a normative fact rest solely on
+them. A quirk known only from a copyleft implementation belongs in
+Open questions until independently verified. Pin page/section where
+possible; otherwise add TODO(provenance).
 -->
 
 | ID | Source | Notes |
@@ -55,8 +64,9 @@ ordering, validity checks, and the exact decode formula with units.
 
 <!--
 Per-model deviations, errata, offsets. Each entry: factual statement +
-source note. Quirks learned from GPL/MPL sources are facts with the
-project named.
+source note backed by a primary source. A quirk known only from a
+copyleft implementation must live in Open questions, not here, until
+independently verified.
 -->
 
 ## Safety notes

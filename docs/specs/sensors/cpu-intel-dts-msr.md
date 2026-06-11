@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Status | Draft |
+| Status | Draft — not implementation-ready |
 | Scope | Package (and per-core) temperature on Intel x86-64 CPUs using the architectural digital thermal sensor (DTS) MSRs. Covers Nehalem-and-newer Core/Xeon/Atom parts that expose `MSR_TEMPERATURE_TARGET`. Excludes: pre-Nehalem TjMax estimation, thermal interrupt configuration, RAPL. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -57,17 +57,15 @@ Notes:
 ## Read procedure and decode
 
 1. Confirm detection facts above.
-2. Read `MSR_TEMPERATURE_TARGET` (`0x1A2`) once per session; let
-   `t_target = bits[23:16]`. If the read faults or `t_target == 0`,
-   report "unsupported" (caller falls back to ACPI zones per #1633).
+2. Read `MSR_TEMPERATURE_TARGET` (`0x1A2`) once per session and
+   extract the Temperature Target (`t_target`) from bits 23:16. If
+   the read faults or `t_target` is 0, report "unsupported" (caller
+   falls back to ACPI zones per #1633).
 3. Package temperature (preferred for Phase 1): read
-   `IA32_PACKAGE_THERM_STATUS` (`0x1B1`); let
-   `readout = bits[22:16]`; temperature in °C:
-
-   ```text
-   temp_pkg = t_target - readout
-   ```
-
+   `IA32_PACKAGE_THERM_STATUS` (`0x1B1`). Decoding rules (hardware
+   semantics):
+   - Extract the Package Digital Readout from bits 22:16.
+   - Package temperature = `t_target` − readout, in °C.
 4. Per-core temperature (optional, later): read `IA32_THERM_STATUS`
    (`0x19C`) on the target core; use the value only when bit 31
    (Reading Valid) is 1; decode with the same subtraction.

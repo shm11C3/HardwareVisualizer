@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Revision | 1 |
-| Status | Draft |
+| Status | Draft — not implementation-ready |
 | Scope | Facts needed to integrate a Rust user-mode client with PawnIO: installation/detection, the PawnIOLib API, the module execution model, and the IOCTL contracts of the `IntelMSR`, `RyzenSMU`, and `LpcIO` modules. Excludes: writing new Pawn modules, driver internals. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -15,7 +15,7 @@
 | S2 | namazso, *PawnIO.Modules* repository, <https://github.com/namazso/PawnIO.Modules> | Primary; module list, license |
 | S3 | PawnIO.Modules wiki, "Using PawnIO Modules", <https://github.com/namazso/PawnIO.Modules/wiki/Using-PawnIO-Modules> | Primary; user-mode API |
 | S4 | PawnIO.Modules wiki, "Getting started with PawnIO", <https://github.com/namazso/PawnIO.Modules/wiki/Getting-started-with-PawnIO> | Primary; toolchain, signing |
-| S5 | Module sources `IntelMSR.p`, `RyzenSMU.p`, `LpcIO.p` in S2 (LGPL-2.1-or-later) | Interface facts only (public `ioctl_*` contracts, allow-lists, mutex names). No code was copied. |
+| S5 | Module sources `IntelMSR.p`, `RyzenSMU.p`, `LpcIO.p` in S2 (LGPL-2.1-or-later) | Upstream-published interface definitions of the API this project calls across the IOCTL boundary (public `ioctl_*` contracts, allow-lists, mutex names); the PawnIO project is the authoritative source for its own interfaces. Not used as a source for any hardware register fact. No code was copied. |
 
 ## Licensing facts
 
@@ -121,7 +121,8 @@ Target: AMD x86-64 CPUs, families `0x17`, `0x19`, `0x1A` only.
 - Internally the module performs SMN access through an index/data
   register pair in the host bridge PCI configuration space (bus 0,
   device 0, function 0); the client never performs raw PCI access
-  itself. (S5)
+  itself. (S5; informative internal detail, not a contract this
+  project depends on)
 - The module synchronizes several operations on the named kernel
   mutant `\BaseNamedObjects\Access_PCI`. (S5)
 
