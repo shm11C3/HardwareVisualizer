@@ -15,6 +15,7 @@ const E2E_PORT = 1521;
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: ["**/perf/**"],
   outputDir: "./test-results/output",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

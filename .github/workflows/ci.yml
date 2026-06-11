@@ -45,6 +45,7 @@ jobs:
               - 'package*.json'
               - 'vite.config.ts'
               - 'playwright.config.ts'
+              - 'playwright.perf.config.ts'
               - 'tsconfig*.json'
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -525,6 +526,35 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bash .github/scripts/comment-e2e-captures.sh
+
+  #
+  # Frontend render performance checks (Playwright web/mock harness)
+  #
+  test-render-perf:
+    needs: change-detection
+    if: github.event_name == 'pull_request' && needs.change-detection.outputs.frontend-changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run render performance tests
+        run: npm run test:perf:render
+
+      - name: Upload render performance results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: render-perf-results
+          path: test-results/render-perf/
+          if-no-files-found: warn
 
   #
   # Frontend Build

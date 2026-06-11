@@ -26,15 +26,18 @@ export const saveCapture = (page: Page, name: string) =>
 export const BOOTSTRAP_TIMEOUT = 30_000;
 
 const CPU_NAME = sysInfoFixture.cpu?.name ?? "";
+type GotoAppOptions = {
+  timeout?: number;
+};
 
 /**
  * Load the app and wait until the dashboard rendered fixture data,
  * i.e. settings/mock bootstrap completed.
  */
-export const gotoApp = async (page: Page) => {
+export const gotoApp = async (page: Page, options: GotoAppOptions = {}) => {
   await page.goto("/");
   await expect(page.getByText(CPU_NAME).first()).toBeVisible({
-    timeout: BOOTSTRAP_TIMEOUT,
+    timeout: options.timeout ?? BOOTSTRAP_TIMEOUT,
   });
 };
 
