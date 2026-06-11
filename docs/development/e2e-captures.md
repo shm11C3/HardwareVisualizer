@@ -123,6 +123,35 @@ even while it starts as an observation signal. In CI the `test-render-perf` job
 runs only for frontend pull requests, uploads artifacts, and stays outside the
 merge gate.
 
+## Render memory smoke
+
+Frontend memory-growth checks also reuse the web/mock harness, but they measure
+Dashboard behavior while mocked Tauri IPC events continue to arrive over time:
+
+```bash
+npm run test:perf:render-memory
+```
+
+This suite starts a deterministic `hardware-monitor-update` stream through the
+mocked Tauri event path, then samples Chromium through CDP:
+
+- `Runtime.getHeapUsage`
+- `Performance.getMetrics`
+- `Memory.getDOMCounters`
+
+The report is written under:
+
+```text
+test-results/render-memory/
+```
+
+The check watches JS heap growth, DOM document/node counters, and JavaScript
+listener growth from a warmup baseline plus the later-window heap slope. This is
+a frontend memory-growth signal, not a Windows WebView2 process-memory check;
+the existing full performance workflow remains responsible for real Tauri
+process-level CPU/RSS monitoring. In CI the `test-render-memory-perf` job runs
+only for frontend pull requests, uploads artifacts, and stays non-blocking.
+
 ## CI
 
 The `test-e2e-web` job in `.github/workflows/ci.yml` runs the suite on

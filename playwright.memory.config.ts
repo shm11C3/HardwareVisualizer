@@ -1,18 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
-/**
- * Lightweight frontend render performance checks.
- *
- * This reuses the web/mock E2E mode, but keeps results separate from the
- * evidence capture suite so it can start as a non-blocking PR signal.
- */
-const RENDER_PERF_PORT = 1522;
+const RENDER_MEMORY_PORT = 1523;
 
 export default defineConfig({
   testDir: "./e2e/perf",
-  testMatch: ["**/render-perf.spec.ts"],
-  outputDir: "./test-results/render-perf/output",
-  timeout: 90_000,
+  testMatch: ["**/render-memory.spec.ts"],
+  outputDir: "./test-results/render-memory/output",
+  timeout: 150_000,
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -22,12 +16,12 @@ export default defineConfig({
         ["list"],
         [
           "html",
-          { outputFolder: "test-results/render-perf/report", open: "never" },
+          { outputFolder: "test-results/render-memory/report", open: "never" },
         ],
       ]
     : [["list"]],
   use: {
-    baseURL: `http://localhost:${RENDER_PERF_PORT}`,
+    baseURL: `http://localhost:${RENDER_MEMORY_PORT}`,
     colorScheme: "dark",
     locale: "en-US",
     timezoneId: "UTC",
@@ -46,8 +40,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `vite dev --port ${RENDER_PERF_PORT} --strictPort`,
-    url: `http://localhost:${RENDER_PERF_PORT}`,
+    command: `vite dev --port ${RENDER_MEMORY_PORT} --strictPort`,
+    url: `http://localhost:${RENDER_MEMORY_PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: { VITE_E2E_MOCK: "true" },

@@ -6,6 +6,7 @@
   "include": [
     "./**/*.ts",
     "../playwright.config.ts",
-    "../playwright.perf.config.ts"
+    "../playwright.perf.config.ts",
+    "../playwright.memory.config.ts"
   ]
 }
