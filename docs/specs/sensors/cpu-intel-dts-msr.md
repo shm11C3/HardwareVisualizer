@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Draft — not implementation-ready |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | Package (and per-core) temperature on Intel x86-64 CPUs using the architectural digital thermal sensor (DTS) MSRs. Covers Nehalem-and-newer Core/Xeon/Atom parts that expose `MSR_TEMPERATURE_TARGET`. Excludes: pre-Nehalem TjMax estimation, thermal interrupt configuration, RAPL. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -11,13 +11,16 @@
 
 | ID | Source | Notes |
 | --- | --- | --- |
-| S1 | Intel, *Intel® 64 and IA-32 Architectures Software Developer's Manual*, Volume 3B, chapter "Thermal Monitoring and Protection" (section "Reading the Digital Sensor"). Combined-volume order no. 325462. | Primary; semantics |
-| S2 | Intel SDM Volume 4, *Model-Specific Registers*, Table 2-2 (architectural MSRs) and per-model tables for `MSR_TEMPERATURE_TARGET`. Order no. 335592. | Primary; register layouts |
-| S3 | Intel SDM Volume 2, `CPUID` instruction reference (leaf `06H`). | Primary; feature detection |
+| S1 | Intel SDM, Volume 3B, **§14.8.5.2 "Reading the Digital Sensor"** (Figure 14-31, `IA32_THERM_STATUS` layout) and **§14.9 "Package Level Thermal Management"** (Figure 14-33, `IA32_PACKAGE_THERM_STATUS` layout) | Primary; semantics and layouts |
+| S2 | Intel SDM, Volume 4, **Table 2-2** (IA-32 architectural MSRs): rows `19CH` and `1B1H` (the `1B1H` row at p. Vol. 4 2-17 carries the `CPUID.06H:EAX[6]` gate and the §14.9 cross-reference); **Table 2-26**: row `1A2H` `MSR_TEMPERATURE_TARGET` | Primary; register rows |
+| S3 | Intel SDM, Volume 2A, `CPUID` instruction, **leaf `06H` "Thermal and Power Management Leaf"** (p. 3-217): "Bit 00: Digital temperature sensor is supported if set" | Primary; feature detection |
+| S4 | Intel, *12th Generation Intel® Core™ Processors Datasheet, Volume 1* (doc no. 655258), section "Adaptive Thermal Monitor" | Primary; 6-bit TCC Activation Offset variant (bits 29:24) on newer products |
 
-`TODO(provenance)`: pin SDM revision number and page numbers at
-implementation review time (the SDM is revised quarterly; field
-layouts cited here are stable architectural definitions).
+All SDM section/figure/table identifiers above were verified against
+the combined-volume revision **325462-075US (June 2021)**; identifiers
+can shift between revisions (e.g. §14.7.5.2 in rev -070 corresponds
+to §14.8.5.2 in -075US). The cited field layouts are stable
+architectural definitions.
 
 ## Detection
 
@@ -41,7 +44,7 @@ its read allow-list).
 | `0x19C` | `IA32_THERM_STATUS` | 31 | Reading Valid (1 = digital readout is valid) | flag | S2 |
 | `0x1B1` | `IA32_PACKAGE_THERM_STATUS` | 22:16 | Package Digital Readout: package temperature below package TCC activation | °C, unsigned | S2 |
 | `0x1A2` | `MSR_TEMPERATURE_TARGET` | 23:16 | Temperature Target: TCC activation temperature (commonly called TjMax) | °C | S2 |
-| `0x1A2` | `MSR_TEMPERATURE_TARGET` | 27:24 or 29:24 (model-dependent width) | TCC Activation Offset: lowers the throttle activation point below the Temperature Target | °C | S2 |
+| `0x1A2` | `MSR_TEMPERATURE_TARGET` | 27:24 (29:24 on newer products) | TCC Activation Offset (R/W): "a temperature offset in degrees C from the temperature target (bits 23:16); PROCHOT# will assert at the offset target temperature" | °C | S2, S4 |
 
 Notes:
 
@@ -50,9 +53,10 @@ Notes:
 - `IA32_PACKAGE_THERM_STATUS` is **package-scope**: any logical CPU of
   the package reads the same value. It has **no** Reading Valid bit.
   (S2)
-- The `TCC Activation Offset` field width differs between models
-  (4-bit on many client models, 6-bit on some); consult the SDM Vol. 4
-  row for each supported model before using it. (S2)
+- The `TCC Activation Offset` field is 4 bits (27:24) in the SDM
+  rev -075US model tables (S2); newer product datasheets document a
+  6-bit field at 29:24 (S4). The decode in this document never
+  consumes the field, so the width difference does not affect Phase 1.
 
 ## Read procedure and decode
 
@@ -89,14 +93,20 @@ Notes:
   an otherwise idle system indicate a stuck or failed sensor read and
   are worth surfacing in logs, but this spec does not require dropping
   them. (S1)
-- Whether the digital readout is referenced to `Temperature Target`
-  alone or to `Temperature Target − TCC Activation Offset` is not
-  explicitly stated by the SDM; common practice is to use bits 23:16
-  without subtracting the offset. Recorded as an open question. (S1,
-  S2)
+- TCC Activation Offset does not enter the temperature calculation:
+  S2 defines the offset as "a temperature offset in degrees C **from
+  the temperature target (bits 23:16)**; PROCHOT# will assert at the
+  offset target temperature" — i.e. bits 23:16 stay the fixed
+  reference and a programmed offset moves the throttle-assertion
+  point below it. The decode therefore always uses `t_target` =
+  bits 23:16. (S1, S2; empirical confirmation on offset-programmed
+  machines tracked under Open questions)
 - Multi-package systems: `0x1B1` must be read once per package, with
   the reading thread affinity-pinned to a core of each package. Phase
-  1 targets single-package consumer machines (package 0). (S2)
+  1 targets single-package consumer machines (package 0). PawnIO
+  executes `RDMSR` on the calling thread's current processor, so the
+  client's thread affinity selects the package — see
+  [`pawnio-interface.md`](pawnio-interface.md). (S2)
 
 ## Safety notes
 
@@ -107,19 +117,18 @@ Notes:
 
 ## Open questions
 
-- TCC Activation Offset interaction with the readout reference (see
-  Quirks). Resolution requires checking the SDM "Setting Thermal
-  Targets" subsection wording against an offset-programmed machine.
-- Which logical CPU PawnIO executes `RDMSR` on (tracked in
-  [`pawnio-interface.md`](pawnio-interface.md)); package-scope reads
-  make this moot for Phase 1 on single-package machines.
-- Hybrid (P/E-core) parts: per-core readouts differ per core type;
-  package readout is defined identically. Verify no additional
-  enumeration is needed beyond CPUID leaf `06H` on a hybrid test
-  machine.
+- Non-blocking for Phase 1: the decode uses `t_target` = bits 23:16
+  per the resolved Quirks entry; empirical behavior on machines with
+  a nonzero programmed TCC Activation Offset is additionally
+  confirmed via Phase 2 dumps.
+- Non-blocking for Phase 1: only the package-scope readout (`0x1B1`)
+  is used, and it is architecturally identical on hybrid (P/E-core)
+  parts; per-core readings are out of scope. Verify per-core-type
+  behavior before any later per-core phase.
 
 ## Revision history
 
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-06-10 | Initial version |
+| 2 | 2026-06-11 | Provenance pinned to SDM 325462-075US (June 2021): §14.8.5.2/§14.9, Table 2-2 rows 19CH/1B1H, Table 2-26 row 1A2H, Vol 2A leaf 06H. TCC-offset readout-reference question resolved (offset moves PROCHOT only); RDMSR execution-context question resolved via PawnIO facts. Remaining open questions annotated non-blocking. Status → Implementation-ready. |
