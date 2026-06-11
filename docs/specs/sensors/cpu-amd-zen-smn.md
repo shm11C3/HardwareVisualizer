@@ -90,7 +90,7 @@ non-normative):
 | Ryzen Threadripper 1900X / 1920X / 1950X | 27 °C |
 | Ryzen 7 2700X | 10 °C |
 | Ryzen Threadripper 2920X / 2950X / 2970WX / 2990WX | 27 °C |
-| All other Zen-family products (incl. Zen 2 and newer) | 0 °C |
+| Products without a primary-source documented positive Tctl offset (incl. Zen 2 and newer) | 0 °C, subject to per-family verification before this document reaches implementation-ready status |
 
 - Offset matching is by product name (OPN), not by family/model
   numbers alone. (S3; corroborated by S4)
