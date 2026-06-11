@@ -60,8 +60,8 @@ impl std::error::Error for ValidationError {}
 impl Default for Timing {
   fn default() -> Self {
     Self {
-      warmup_seconds: 10,
-      measurement_seconds: 30,
+      warmup_seconds: 15,
+      measurement_seconds: 60,
       sample_interval_ms: 1000,
     }
   }

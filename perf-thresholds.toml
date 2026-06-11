@@ -9,8 +9,8 @@ max_p95_memory_mb = 500.0
 max_memory_growth_mb = 50.0
 
 [timing]
-warmup_seconds = 10
-measurement_seconds = 30
+warmup_seconds = 15
+measurement_seconds = 60
 sample_interval_ms = 1000
 
 [platforms.windows]
