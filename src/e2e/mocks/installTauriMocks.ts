@@ -1,4 +1,3 @@
-import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { HardwareMonitorUpdate } from "@/rspc/bindings";
 import { buildArchiveRecords, buildProcessStats } from "../fixtures/archive";
@@ -19,11 +18,27 @@ declare global {
       emitHardwareUpdate: (payload?: HardwareMonitorUpdate) => Promise<void>;
       /** Emit a deterministic series of updates so charts build up history. */
       emitHardwareUpdateSeries: (count?: number) => Promise<void>;
+      /**
+       * Start a deterministic event stream through the mocked Tauri event IPC.
+       * Used by long-running frontend memory tests.
+       */
+      startHardwareUpdateStream: (options?: {
+        intervalMs?: number;
+      }) => Promise<void>;
+      stopHardwareUpdateStream: () => Promise<{ emittedCount: number }>;
     };
   }
 }
 
 type InvokeHandler = (args?: unknown) => unknown;
+type EventListenArgs = { event: string; handler: number };
+type EventEmitArgs = { event: string; payload?: unknown };
+type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
+type TauriInternalsWindow = Window & {
+  __TAURI_INTERNALS__?: {
+    runCallback?: (id: number, data: unknown) => void;
+  };
+};
 
 const STORE_RID = 1;
 
@@ -36,7 +51,27 @@ const storeKey = (args?: unknown) => (args as { key: string }).key;
  */
 const buildInvokeHandlers = (
   store: Map<string, unknown>,
+  eventListeners: Map<string, Set<number>>,
 ): Record<string, InvokeHandler> => ({
+  // --- @tauri-apps/plugin-event ---
+  "plugin:event|listen": (args) => {
+    const a = args as EventListenArgs;
+    if (!eventListeners.has(a.event)) {
+      eventListeners.set(a.event, new Set());
+    }
+    eventListeners.get(a.event)?.add(a.handler);
+    return a.handler;
+  },
+  "plugin:event|emit": (args) => {
+    dispatchTauriEvent(eventListeners, args as EventEmitArgs);
+    return null;
+  },
+  "plugin:event|unlisten": (args) => {
+    const a = args as EventUnlistenArgs;
+    eventListeners.get(a.event)?.delete(a.eventId ?? a.id ?? -1);
+    return null;
+  },
+
   // --- @tauri-apps/plugin-store (rid-based key-value store) ---
   "plugin:store|load": () => STORE_RID,
   "plugin:store|has": (args) => store.has(storeKey(args)),
@@ -114,10 +149,29 @@ const buildInvokeHandlers = (
     buildProcessStats((args as { end: string }).end),
 });
 
+const dispatchTauriEvent = (
+  eventListeners: Map<string, Set<number>>,
+  args: EventEmitArgs,
+) => {
+  const runCallback = (window as TauriInternalsWindow).__TAURI_INTERNALS__
+    ?.runCallback;
+  if (!runCallback) {
+    return;
+  }
+
+  for (const handler of eventListeners.get(args.event) ?? []) {
+    runCallback(handler, {
+      event: args.event,
+      id: handler,
+      payload: args.payload,
+    });
+  }
+};
+
 /**
  * Install Tauri IPC/event/window mocks so the React app runs in a plain
- * browser with deterministic fixture data. Loaded from `src/main.tsx` only
- * when `VITE_E2E_MOCK=true` (the branch is dead-code eliminated otherwise).
+ * browser with deterministic fixture data. Loaded from `src/main.e2e.tsx`,
+ * which Vite serves only in `--mode e2e`.
  *
  * Mock layers:
  * - `mockWindows("main")` fakes the current window label.
@@ -142,35 +196,75 @@ export const installTauriMocks = () => {
   };
 
   const store = new Map<string, unknown>(Object.entries(storeFixture));
-  const handlers = buildInvokeHandlers(store);
+  const eventListeners = new Map<string, Set<number>>();
+  const handlers = buildInvokeHandlers(store, eventListeners);
+  let streamTimer: number | undefined;
+  let streamIndex = 0;
+  let streamRunning = false;
 
-  mockIPC(
-    (cmd: string, args?: unknown) => {
-      if (Object.hasOwn(handlers, cmd)) {
-        return handlers[cmd](args);
-      }
+  const emitHardwareUpdateAt = async (index: number) => {
+    const series = buildHardwareUpdateSeries(index + 1);
+    dispatchTauriEvent(eventListeners, {
+      event: "hardware-monitor-update",
+      payload: series[index],
+    });
+  };
 
-      // Settings mutators (`set_theme`, `set_language`, ...) succeed silently
-      // so settings-screen scenarios can interact without enumerating them.
-      if (cmd.startsWith("set_")) {
-        return null;
-      }
+  const stopHardwareUpdateStream = () => {
+    streamRunning = false;
+    if (streamTimer !== undefined) {
+      window.clearTimeout(streamTimer);
+      streamTimer = undefined;
+    }
+    return { emittedCount: streamIndex };
+  };
 
-      throw new Error(`[e2e-mock] Unhandled invoke: ${cmd}`);
-    },
-    { shouldMockEvents: true },
-  );
+  mockIPC((cmd: string, args?: unknown) => {
+    if (Object.hasOwn(handlers, cmd)) {
+      return handlers[cmd](args);
+    }
+
+    // Settings mutators (`set_theme`, `set_language`, ...) succeed silently
+    // so settings-screen scenarios can interact without enumerating them.
+    if (cmd.startsWith("set_")) {
+      return null;
+    }
+
+    throw new Error(`[e2e-mock] Unhandled invoke: ${cmd}`);
+  });
 
   window.__E2E__ = {
-    emitHardwareUpdate: (payload) =>
-      emit(
-        "hardware-monitor-update",
-        payload ?? buildHardwareUpdateSeries(1)[0],
-      ),
+    emitHardwareUpdate: async (payload) =>
+      dispatchTauriEvent(eventListeners, {
+        event: "hardware-monitor-update",
+        payload: payload ?? buildHardwareUpdateSeries(1)[0],
+      }),
     emitHardwareUpdateSeries: async (count = 30) => {
       for (const payload of buildHardwareUpdateSeries(count)) {
-        await emit("hardware-monitor-update", payload);
+        dispatchTauriEvent(eventListeners, {
+          event: "hardware-monitor-update",
+          payload,
+        });
       }
     },
+    startHardwareUpdateStream: async ({ intervalMs = 1_000 } = {}) => {
+      stopHardwareUpdateStream();
+      streamIndex = 0;
+      streamRunning = true;
+
+      const tick = async () => {
+        if (!streamRunning) return;
+
+        await emitHardwareUpdateAt(streamIndex);
+        streamIndex += 1;
+
+        if (streamRunning) {
+          streamTimer = window.setTimeout(tick, intervalMs);
+        }
+      };
+
+      await tick();
+    },
+    stopHardwareUpdateStream: async () => stopHardwareUpdateStream(),
   };
 };

@@ -22,7 +22,7 @@ npm run test:e2e
 ```
 
 Playwright starts its own Vite dev server on port `1521` with
-`VITE_E2E_MOCK=true` (a regular `npm run dev` server on `1520` is never
+`vite dev --mode e2e` (a regular `npm run dev` server on `1520` is never
 reused). Captures are written to:
 
 ```text
@@ -35,9 +35,9 @@ timeout for the initial render assertion.
 
 ## How the mocks work
 
-- `src/main.tsx` installs the mocks before importing the app, only when
-  `VITE_E2E_MOCK=true`. The branch is statically false in production builds,
-  so the mock code is dead-code eliminated from release bundles.
+- `vite --mode e2e` rewrites `index.html` to use `src/main.e2e.tsx`.
+  The regular `src/main.tsx` keeps the production/Tauri app entry static,
+  while the E2E entry installs mocks before dynamically importing the app.
 - `src/e2e/mocks/installTauriMocks.ts` is the single mock entry point:
   - `mockIPC(..., { shouldMockEvents: true })` from `@tauri-apps/api/mocks`
     intercepts every `invoke()` (generated tauri-specta commands and
@@ -122,6 +122,35 @@ extremely loose because this suite is meant to catch obvious render regressions
 even while it starts as an observation signal. In CI the `test-render-perf` job
 runs only for frontend pull requests, uploads artifacts, and stays outside the
 merge gate.
+
+## Render memory smoke
+
+Frontend memory-growth checks also reuse the web/mock harness, but they measure
+Dashboard behavior while mocked Tauri IPC events continue to arrive over time:
+
+```bash
+npm run test:perf:render-memory
+```
+
+This suite starts a deterministic `hardware-monitor-update` stream through the
+mocked Tauri event path, then samples Chromium through CDP:
+
+- `Runtime.getHeapUsage`
+- `Performance.getMetrics`
+- `Memory.getDOMCounters`
+
+The report is written under:
+
+```text
+test-results/render-memory/
+```
+
+The check watches JS heap growth, DOM document/node counters, and JavaScript
+listener growth from a warmup baseline plus the later-window heap slope. This is
+a frontend memory-growth signal, not a Windows WebView2 process-memory check;
+the existing full performance workflow remains responsible for real Tauri
+process-level CPU/RSS monitoring. In CI the `test-render-memory-perf` job runs
+only for frontend pull requests, uploads artifacts, and stays non-blocking.
 
 ## CI
 
