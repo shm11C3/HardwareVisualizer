@@ -78,11 +78,23 @@ resolved and the Phase 0 guardrails are merged.
   hardware dumps).
 - No implementation PR may be opened or reviewed as clean-room work
   until all of the following Phase 0 guardrails exist:
-  - `.github/instructions/` contains the prohibited-source list
-  - `CLAUDE.md` references the clean-room implementer restrictions
-  - the PR template requires spec revision pinning
-  - the PR template requires a provenance attestation
-  - the PR template requires the reviewer attestation below
+  - `.github/instructions/` contains the prohibited-source list —
+    satisfied by
+    [`clean-room-sensors.instructions.md`](../../../.github/instructions/clean-room-sensors.instructions.md)
+  - `CLAUDE.md` references the clean-room implementer restrictions —
+    satisfied by the instruction-file entry in
+    [`CLAUDE.md`](../../../CLAUDE.md)
+  - the PR template requires spec revision pinning, a provenance
+    attestation, and the reviewer attestation below — satisfied by
+    [`clean-room-sensor-implementation.md`](../../../.github/PULL_REQUEST_TEMPLATE/clean-room-sensor-implementation.md)
+  - dedicated role agents with tool restrictions exist — satisfied by
+    [`.claude/agents/sensor-spec-author.md`](../../../.claude/agents/sensor-spec-author.md) and
+    [`.claude/agents/sensor-clean-room-implementer.md`](../../../.claude/agents/sensor-clean-room-implementer.md) (the
+    implementer agent has no web tools)
+
+  The artifacts above satisfy the gate's existence requirements;
+  per-document readiness (`TODO(provenance)` resolution) still gates
+  each individual spec.
 - Reviewer contamination policy: reviewers can also breach the
   clean-room boundary. Implementation PR reviews must include this
   attestation:
@@ -99,6 +111,52 @@ resolved and the Phase 0 guardrails are merged.
   Reviewers copy this checklist, with both boxes checked, into their
   approval review comment. The implementation PR template carries the
   checklist as a reminder of this requirement.
+
+## Status transition: Draft → Implementation-ready
+
+A document becomes a valid clean-room input only through this
+transition. The flip is proposed by the spec-author role and approved
+by a maintainer; the sign-off is the maintainer's approval of the PR
+that performs the flip.
+
+Checklist for the flipping PR (all items required):
+
+- [ ] Every `TODO(provenance)` marker is resolved: each affected fact
+      is pinned to a primary-source section/page, or independently
+      verified (e.g. against a hardware dump referenced by the
+      document).
+- [ ] Every entry under **Open questions** is either resolved (moved
+      into the fact tables with provenance) or explicitly annotated
+      in place, as the first line of the entry, using exactly this
+      form:
+
+      ```text
+      Non-blocking for <phase>: <one-line justification>.
+      ```
+
+      Example: `Non-blocking for Phase 1: package readout does not
+      depend on this; only per-core readings would.` The phase name
+      and justification stay in the Open questions section.
+- [ ] No normative fact rests solely on a copyleft source (re-check
+      the notes column of the Sources table).
+- [ ] Scoped-enablement tables are consistent with the verification
+      state of each row. A *scoped-enablement table* is the pattern
+      for documents that are ready overall while specific hardware
+      scopes are not: a table in the **Detection** section with
+      columns `Scope` (e.g. CPU family or chip model), `Status` (what
+      verified the row, with source tag), and `Default enablement`
+      (enabled, or disabled until a named verification happens). The
+      per-family table in [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md)
+      is the reference example.
+- [ ] The revision number is bumped, the revision history records the
+      transition, and the Status field is set to
+      **`Implementation-ready (rev N)`** — this is the canonical
+      ready value that implementer and reviewer attestations check
+      for.
+
+Implementers and reviewers verify readiness by checking the Status
+field at the pinned revision; any remaining `TODO(provenance)` marker
+or unresolved blocking open question invalidates the flip.
 
 ## Current documents
 

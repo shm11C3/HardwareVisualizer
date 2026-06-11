@@ -15,8 +15,10 @@ Rules: docs/specs/sensors/README.md
 
 <!--
 Status stays "Draft — not implementation-ready" while any
-TODO(provenance) marker is unresolved. See README.md "Document status
-and implementation gate".
+TODO(provenance) marker is unresolved. It flips to
+"Implementation-ready (rev N)" only via the status-transition
+checklist in README.md ("Status transition: Draft →
+Implementation-ready").
 -->
 
 ## Sources
@@ -41,6 +43,10 @@ possible; otherwise add TODO(provenance).
 <!--
 How an implementation decides this document applies: CPUID checks,
 chip ID registers, presence probes. Each fact tagged with a source ID.
+If parts of the hardware scope are unverified while the rest of the
+document is ready, add a scoped-enablement table here (columns:
+Scope, Status, Default enablement) following the per-family example
+in cpu-amd-zen-smn.md.
 -->
 
 ## Register map (facts)
@@ -81,6 +87,10 @@ and what must never be written.
 <!--
 Anything not yet verified against a primary source, with what evidence
 exists so far. Implementers must treat these as unresolved.
+At status-flip time every entry must be resolved or annotated as its
+first line with exactly:
+  Non-blocking for <phase>: <one-line justification>.
+(see README.md "Status transition: Draft → Implementation-ready").
 -->
 
 ## Revision history
