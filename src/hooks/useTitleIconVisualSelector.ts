@@ -1,5 +1,4 @@
 import { atom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback } from "react";
 import type { SelectedDisplayType } from "@/types/ui";
 
 const showTitleIconAtom = atom<SelectedDisplayType[]>([
@@ -13,34 +12,31 @@ export const useTitleIconVisualSelector = () => {
   const setShowTitleIcon = useSetAtom(showTitleIconAtom);
   const visibleTypes = useAtomValue(showTitleIconAtom);
 
-  const isTitleIconVisible = useCallback(
-    (type: SelectedDisplayType): boolean => {
-      return visibleTypes.includes(type);
-    },
-    [visibleTypes],
-  );
+  const isTitleIconVisible = (type: SelectedDisplayType): boolean => {
+    return visibleTypes.includes(type);
+  };
 
-  const toggleTitleIconVisibility = useCallback(
-    (type: SelectedDisplayType, visible: boolean) => {
-      setShowTitleIcon((prev) => {
-        const isVisible = prev.includes(type);
+  const toggleTitleIconVisibility = (
+    type: SelectedDisplayType,
+    visible: boolean,
+  ) => {
+    setShowTitleIcon((prev) => {
+      const isVisible = prev.includes(type);
 
-        if (visible) {
-          if (!isVisible) {
-            return [...prev, type];
-          }
-          return prev;
-        }
-
+      if (visible) {
         if (!isVisible) {
-          return prev;
+          return [...prev, type];
         }
+        return prev;
+      }
 
-        return prev.filter((t) => t !== type);
-      });
-    },
-    [setShowTitleIcon],
-  );
+      if (!isVisible) {
+        return prev;
+      }
+
+      return prev.filter((t) => t !== type);
+    });
+  };
 
   return { visibleTypes, isTitleIconVisible, toggleTitleIconVisibility };
 };

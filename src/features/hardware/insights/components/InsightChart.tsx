@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -114,7 +114,7 @@ export const GpuInsightChart = ({
     },
   } satisfies ChartConfig;
 
-  const maxDedicatedGpuMemory = useMemo(() => {
+  const maxDedicatedGpuMemory = (() => {
     const max =
       hardwareInfo.gpus?.reduce((acc, gpu) => {
         const matches = [
@@ -144,7 +144,7 @@ export const GpuInsightChart = ({
     }
     // Round up the maximum value to the nearest integer to ensure proper grid alignment in the chart.
     return Math.ceil(max);
-  }, [hardwareInfo.gpus]);
+  })();
 
   if (chartData.every((v) => v == null)) {
     return (

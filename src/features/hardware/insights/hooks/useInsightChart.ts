@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type archivePeriods,
   chartConfig,
@@ -10,7 +10,11 @@ import type {
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { commands, type HardwareType } from "@/rspc/bindings";
+import {
+  commands,
+  type HardwareType,
+  type TemperatureUnit,
+} from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 // Aggregation function definitions for each type
@@ -36,11 +40,92 @@ type UseInsightChartProps = {
   offset: number;
 };
 
+type InsightArchiveRequest = {
+  hardwareType: HardwareType;
+  dataStats: DataStats;
+  period: (typeof archivePeriods)[number];
+  offset: number;
+  step: number;
+  dataType: GpuDataType | undefined;
+  gpuName: string;
+};
+
+const getInsightArchiveData = async ({
+  hardwareType,
+  dataStats,
+  period,
+  offset,
+  step,
+  dataType,
+  gpuName,
+}: InsightArchiveRequest): Promise<SingleDataArchive[]> => {
+  const endAt = new Date(Date.now() - offset * step);
+  const adjustedEndAt = new Date(
+    endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
+  );
+  const startTime = new Date(adjustedEndAt.getTime() - period * 60 * 1000);
+
+  if (hardwareType === "gpu") {
+    if (!dataType) {
+      throw new Error("Data type is required for GPU");
+    }
+
+    const result = await commands.getGpuArchiveRecords(
+      dataType,
+      dataStats,
+      gpuName,
+      startTime.toISOString(),
+      adjustedEndAt.toISOString(),
+    );
+    if (isError(result)) {
+      throw new Error(`Failed to fetch archived GPU records: ${result.error}`);
+    }
+
+    return result.data;
+  }
+
+  const result = await commands.getDataArchiveRecords(
+    hardwareType,
+    dataStats,
+    startTime.toISOString(),
+    adjustedEndAt.toISOString(),
+  );
+  if (isError(result)) {
+    throw new Error(
+      `Failed to fetch archived hardware records: ${result.error}`,
+    );
+  }
+
+  return result.data;
+};
+
+const formatInsightValue = (
+  value: number | null,
+  dataType: GpuDataType | undefined,
+  temperatureUnit: TemperatureUnit,
+) => {
+  if (value == null) {
+    return null;
+  }
+
+  if (dataType === "temp" && temperatureUnit === "F") {
+    return (value * 9) / 5 + 32;
+  }
+
+  // KB => GB
+  if (dataType === "dedicatedMemory") {
+    return Number.parseFloat((value / (1024 * 1024)).toFixed(1));
+  }
+
+  return Number.parseFloat(value.toFixed(1));
+};
+
 export const useInsightChart = (
   props: UseInsightChartGpuProps | UseInsightChartProps,
 ) => {
   const { hardwareType, dataStats, period, offset } = props;
   const { settings } = useSettingsAtom();
+  const { temperatureUnit } = settings;
   const { error } = useTauriDialog();
 
   const gpuName = hardwareType === "gpu" ? props.gpuName : "";
@@ -67,69 +152,6 @@ export const useInsightChart = (
   const step =
     (stepMultiplierMap[period] ?? 1) * chartConfig.archiveUpdateIntervalMilSec;
 
-  const getData = useCallback(async (): Promise<SingleDataArchive[]> => {
-    const endAt = new Date(Date.now() - offset * step);
-    const adjustedEndAt = new Date(
-      endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
-    );
-    const startTime = new Date(adjustedEndAt.getTime() - period * 60 * 1000);
-
-    if (hardwareType === "gpu") {
-      if (!dataType) {
-        throw new Error("Data type is required for GPU");
-      }
-
-      const result = await commands.getGpuArchiveRecords(
-        dataType,
-        dataStats,
-        gpuName,
-        startTime.toISOString(),
-        adjustedEndAt.toISOString(),
-      );
-      if (isError(result)) {
-        throw new Error(
-          `Failed to fetch archived GPU records: ${result.error}`,
-        );
-      }
-
-      return result.data;
-    }
-
-    const result = await commands.getDataArchiveRecords(
-      hardwareType,
-      dataStats,
-      startTime.toISOString(),
-      adjustedEndAt.toISOString(),
-    );
-    if (isError(result)) {
-      throw new Error(
-        `Failed to fetch archived hardware records: ${result.error}`,
-      );
-    }
-
-    return result.data;
-  }, [hardwareType, period, dataStats, gpuName, dataType, offset, step]);
-
-  const formatValue = useCallback(
-    (value: number | null) => {
-      if (value == null) {
-        return null;
-      }
-
-      if (dataType === "temp" && settings.temperatureUnit === "F") {
-        return (value * 9) / 5 + 32;
-      }
-
-      // KB => GB
-      if (dataType === "dedicatedMemory") {
-        return Number.parseFloat((value / (1024 * 1024)).toFixed(1));
-      }
-
-      return Number.parseFloat(value.toFixed(1));
-    },
-    [settings.temperatureUnit, dataType],
-  );
-
   useEffect(() => {
     const isOffsetChanged = prevOffsetRef.current !== offset;
     prevOffsetRef.current = offset;
@@ -143,11 +165,24 @@ export const useInsightChart = (
 
     const run = async () => {
       try {
-        const rows = await getData();
+        const rows = await getInsightArchiveData({
+          hardwareType,
+          dataStats,
+          period,
+          offset,
+          step,
+          dataType,
+          gpuName,
+        });
         if (activeRequestIdRef.current !== requestId) {
           return;
         }
-        setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
+        setData(
+          rows.map((v) => ({
+            ...v,
+            value: formatInsightValue(v.value, dataType, temperatureUnit),
+          })),
+        );
       } catch (e) {
         console.error(e);
         if (activeRequestIdRef.current === requestId) {
@@ -169,7 +204,17 @@ export const useInsightChart = (
         scheduledTimeoutIdRef.current = null;
       }
     };
-  }, [getData, formatValue, offset, error]);
+  }, [
+    hardwareType,
+    dataStats,
+    period,
+    offset,
+    step,
+    dataType,
+    gpuName,
+    temperatureUnit,
+    error,
+  ]);
 
   useEffect(() => {
     // Only auto-refresh the "current" window.
@@ -181,12 +226,25 @@ export const useInsightChart = (
       const requestId = activeRequestIdRef.current + 1;
       activeRequestIdRef.current = requestId;
 
-      void getData()
+      void getInsightArchiveData({
+        hardwareType,
+        dataStats,
+        period,
+        offset,
+        step,
+        dataType,
+        gpuName,
+      })
         .then((rows) => {
           if (activeRequestIdRef.current !== requestId) {
             return;
           }
-          setData(rows.map((v) => ({ ...v, value: formatValue(v.value) })));
+          setData(
+            rows.map((v) => ({
+              ...v,
+              value: formatInsightValue(v.value, dataType, temperatureUnit),
+            })),
+          );
         })
         .catch((e) => {
           console.error(e);
@@ -198,17 +256,21 @@ export const useInsightChart = (
     }, chartConfig.archiveUpdateIntervalMilSec);
 
     return () => clearInterval(intervalId);
-  }, [getData, formatValue, offset, error]);
+  }, [
+    hardwareType,
+    dataStats,
+    period,
+    offset,
+    step,
+    dataType,
+    gpuName,
+    temperatureUnit,
+    error,
+  ]);
 
-  const endAtForBucket = useMemo(
-    () => new Date(Date.now() - offset * step),
-    [offset, step],
-  );
+  const endAtForBucket = new Date(Date.now() - offset * step);
 
-  const startTime = useMemo(
-    () => new Date(endAtForBucket.getTime() - period * 60 * 1000),
-    [endAtForBucket, period],
-  );
+  const startTime = new Date(endAtForBucket.getTime() - period * 60 * 1000);
 
   const startBucket =
     Math.ceil(
@@ -220,7 +282,7 @@ export const useInsightChart = (
         step,
     ) * step;
 
-  const bucketedData = useMemo(() => {
+  const bucketedData = (() => {
     return data.reduce(
       (acc, record) => {
         const recordTime = new Date(record.timestamp).getTime();
@@ -235,11 +297,11 @@ export const useInsightChart = (
       },
       {} as Record<number, number[]>,
     );
-  }, [data, step]);
+  })();
 
   const aggregateFn = aggregatorMap[dataStats];
 
-  const dateFormatter = useMemo(() => {
+  const dateFormatter = (() => {
     // Define display options (set properties based on conditions)
     const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
       const options: Intl.DateTimeFormatOptions = {};
@@ -263,10 +325,10 @@ export const useInsightChart = (
 
     // Create and cache Intl.DateTimeFormat instance
     return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
-  }, [period]);
+  })();
 
   // Loop from startBucket to endBucket by step, aggregating data in each bucket
-  const { filledLabels, filledChartData } = useMemo(() => {
+  const { filledLabels, filledChartData } = (() => {
     const filledChartData: Array<number | null> = [];
     const filledLabels: string[] = [];
 
@@ -290,15 +352,7 @@ export const useInsightChart = (
     }
 
     return { filledLabels, filledChartData };
-  }, [
-    aggregateFn,
-    bucketedData,
-    endBucket,
-    endAtForBucket,
-    startBucket,
-    step,
-    dateFormatter,
-  ]);
+  })();
 
   const hasData = filledChartData.some((v) => v != null);
 

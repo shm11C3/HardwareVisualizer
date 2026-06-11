@@ -1,5 +1,5 @@
 import { atom, useAtom } from "jotai";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { SelectedDisplayType } from "@/types/ui";
 
@@ -19,17 +19,14 @@ export const useMenu = () => {
     }
   }, [displayTarget, setDisplayTargetAtom]);
 
-  const toggleMenu = useCallback(() => {
+  const toggleMenu = () => {
     setMenuOpen(!isOpen);
-  }, [isOpen, setMenuOpen]);
+  };
 
-  const handleMenuClick = useCallback(
-    (type: SelectedDisplayType) => {
-      setDisplayTarget(type);
-      setDisplayTargetAtom(type);
-    },
-    [setDisplayTarget, setDisplayTargetAtom],
-  );
+  const handleMenuClick = (type: SelectedDisplayType) => {
+    setDisplayTarget(type);
+    setDisplayTargetAtom(type);
+  };
 
   return {
     isOpen,

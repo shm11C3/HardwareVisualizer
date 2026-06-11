@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   ChartTemplate,
   CpuUsages,
@@ -177,7 +177,7 @@ const AppContent = () => {
     Math.max(34, settings.windowOpacity * 0.64),
   );
 
-  const handleReset = useCallback(async () => {
+  const handleReset = async () => {
     try {
       await clearTauriStore();
       await loadSettings();
@@ -185,7 +185,7 @@ const AppContent = () => {
     } catch (error) {
       console.error("Failed to reset app state:", error);
     }
-  }, [initBackgroundImage, loadSettings]);
+  };
 
   const displayTargets: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: (

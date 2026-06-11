@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type archivePeriods,
   chartConfig,
 } from "@/features/hardware/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import type { ProcessStat } from "../../types/processStats";
 import { getProcessStats } from "../funcs/getProcessStatsRecord";
 import { useProcessStatsAtom } from "./useProcessStatsAtom";
 
@@ -32,20 +31,13 @@ export const useProcessStats = ({
       43200: 720,
     }[period] * chartConfig.archiveUpdateIntervalMilSec;
 
-  const endAt = useMemo(() => {
-    return new Date(Date.now() - offset * step);
-  }, [offset, step]);
-
-  const getData = useCallback(
-    async (): Promise<ProcessStat[]> => getProcessStats(period, endAt),
-    [period, endAt],
-  );
-
   useEffect(() => {
+    const endAt = new Date(Date.now() - offset * step);
+
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const stats = await getData();
+        const stats = await getProcessStats(period, endAt);
         setProcessStatsAtom(stats);
       } catch (err) {
         console.error(err);
@@ -60,7 +52,7 @@ export const useProcessStats = ({
     const interval = setInterval(fetchStats, 60000); // Update every 1 minute
 
     return () => clearInterval(interval);
-  }, [setProcessStatsAtom, getData, error]);
+  }, [period, offset, step, setProcessStatsAtom, error]);
 
   return { processStats, loading };
 };

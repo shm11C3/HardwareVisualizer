@@ -36,10 +36,14 @@ function reorderIdsByNearest(
 
 type SliderProps = React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>;
 
-export const Slider = React.forwardRef<
-  React.ComponentRef<typeof SliderPrimitive.Root>,
-  SliderProps
->(({ className, value, onValueChange, ...props }, ref) => {
+export const Slider = ({
+  className,
+  value,
+  onValueChange,
+  ref,
+  ...props
+}: SliderProps &
+  React.RefAttributes<React.ComponentRef<typeof SliderPrimitive.Root>>) => {
   // Maintain persistent IDs according to the length of values
   const [ids, setIds] = React.useState<string[]>(() =>
     Array.from({ length: value?.length ?? 1 }, () => makeId()),
@@ -99,5 +103,5 @@ export const Slider = React.forwardRef<
       ))}
     </SliderPrimitive.Root>
   );
-});
+};
 Slider.displayName = SliderPrimitive.Root.displayName;

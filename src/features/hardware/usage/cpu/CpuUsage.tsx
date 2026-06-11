@@ -1,5 +1,5 @@
 import { useAtom } from "jotai";
-import { memo, useEffect } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   LineChartComponent,
@@ -25,7 +25,7 @@ export const CpuUsages = () => {
   );
 };
 
-const CpuUsageChart = memo(() => {
+const CpuUsageChart = () => {
   const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const { init, hardwareInfo } = useHardwareInfoAtom();
@@ -78,41 +78,45 @@ const CpuUsageChart = memo(() => {
       </div>
     </div>
   );
-});
+};
 
-const ProcessorChart = memo(
-  ({ data, processorNumber }: { data: number[]; processorNumber: number }) => {
-    const { settings } = useSettingsAtom();
-    const { t } = useTranslation();
+const ProcessorChart = ({
+  data,
+  processorNumber,
+}: {
+  data: number[];
+  processorNumber: number;
+}) => {
+  const { settings } = useSettingsAtom();
+  const { t } = useTranslation();
 
-    const config = {
-      cpu: {
-        label: `Processor-${processorNumber}`,
-        color: settings.lineGraphColor.cpu,
-      },
-    } satisfies ChartConfig;
+  const config = {
+    cpu: {
+      label: `Processor-${processorNumber}`,
+      color: settings.lineGraphColor.cpu,
+    },
+  } satisfies ChartConfig;
 
-    return (
-      <div className="max-h-[200px] max-w-[300px]">
-        <SingleLineChart
-          labels={Array(chartConfig.historyLengthSec).fill("")}
-          chartData={Array(
-            Math.max(chartConfig.historyLengthSec - data.length, 0),
-          )
-            .fill(null)
-            .concat(data)}
-          dataType="cpu"
-          size="md"
-          lineGraphMix={false}
-          chartConfig={config}
-          border={settings.lineGraphBorder}
-          lineGraphShowScale={settings.lineGraphShowScale}
-          lineGraphShowTooltip={settings.lineGraphShowTooltip}
-          lineGraphType={settings.lineGraphType}
-          lineGraphShowLegend={false}
-          dataKey={`${t("shared.usage")} (%)`}
-        />
-      </div>
-    );
-  },
-);
+  return (
+    <div className="max-h-[200px] max-w-[300px]">
+      <SingleLineChart
+        labels={Array(chartConfig.historyLengthSec).fill("")}
+        chartData={Array(
+          Math.max(chartConfig.historyLengthSec - data.length, 0),
+        )
+          .fill(null)
+          .concat(data)}
+        dataType="cpu"
+        size="md"
+        lineGraphMix={false}
+        chartConfig={config}
+        border={settings.lineGraphBorder}
+        lineGraphShowScale={settings.lineGraphShowScale}
+        lineGraphShowTooltip={settings.lineGraphShowTooltip}
+        lineGraphType={settings.lineGraphType}
+        lineGraphShowLegend={false}
+        dataKey={`${t("shared.usage")} (%)`}
+      />
+    </div>
+  );
+};

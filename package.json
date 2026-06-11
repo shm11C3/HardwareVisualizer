@@ -22,7 +22,8 @@
     "gen:licenses:linux": "node --experimental-strip-types .github/scripts/generate-licenses.ts linux",
     "gen:licenses:win": "node --experimental-strip-types .github/scripts/generate-licenses.ts windows",
     "gen:licenses:mac": "node --experimental-strip-types .github/scripts/generate-licenses.ts macos",
-    "gen:licenses:tmp": "node --experimental-strip-types .github/scripts/generate-licenses.ts tmp"
+    "gen:licenses:tmp": "node --experimental-strip-types .github/scripts/generate-licenses.ts tmp",
+    "doctor": "npx react-doctor@latest"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
@@ -42,11 +43,12 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "jsdom": "^29.1.1",
     "license-checker": "^25.0.1",
+    "react-doctor": "^0.5.1",
     "rollup-plugin-visualizer": "^7.0.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
-    "vitest": "^4.0.8"
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

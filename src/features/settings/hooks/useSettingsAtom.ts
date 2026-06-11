@@ -1,5 +1,4 @@
 import { atom, useAtom } from "jotai";
-import { useCallback } from "react";
 import { defaultColorRGB } from "@/features/hardware/consts/chart";
 import type { ChartDataType } from "@/features/hardware/types/hardwareDataType";
 import type { Settings } from "@/features/settings/types/settingsType";
@@ -99,8 +98,7 @@ export const useSettingsAtom = () => {
 
   const [settings, setSettings] = useAtom(settingsAtom);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
-  const loadSettings = useCallback(async () => {
+  const loadSettings = async () => {
     try {
       const setting = await commands.getSettings();
 
@@ -118,7 +116,7 @@ export const useSettingsAtom = () => {
       console.error("Failed to fetch settings:", err);
       return false;
     }
-  }, [setSettings]);
+  };
 
   const updateSettingAtom = async <
     K extends keyof Omit<

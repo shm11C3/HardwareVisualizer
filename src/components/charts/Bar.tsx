@@ -1,5 +1,4 @@
 import { platform } from "@tauri-apps/plugin-os";
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
@@ -28,7 +27,7 @@ export const StorageBarChart = ({
   unit: SizeUnit;
 }) => {
   const { t } = useTranslation();
-  const os = useMemo(() => platform(), []);
+  const os = platform();
 
   const StorageChartConfig: Record<
     (typeof chartKey)[number],

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import type { SingleDataArchive } from "@/features/hardware/types/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
@@ -14,7 +14,7 @@ export const useSnapshot = () => {
   const { error } = useTauriDialog();
 
   // Calculate total memory in MB
-  const totalMemoryMB = useMemo(() => {
+  const totalMemoryMB = (() => {
     const memorySize = hardwareInfo.memory?.size;
     if (!memorySize) return 32768; // Default 32GB
 
@@ -29,7 +29,7 @@ export const useSnapshot = () => {
     }
 
     return 32768; // Default 32GB
-  }, [hardwareInfo.memory]);
+  })();
 
   const [period, setPeriod] = useState<SnapshotPeriod>({
     start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
@@ -49,7 +49,7 @@ export const useSnapshot = () => {
   >("device");
 
   // Actual memory max based on selected option
-  const selectedMemoryMaxMB = useMemo(() => {
+  const selectedMemoryMaxMB = (() => {
     switch (memoryMaxOption) {
       case "128MB":
         return 128;
@@ -66,7 +66,7 @@ export const useSnapshot = () => {
       default:
         return totalMemoryMB; // Device total memory
     }
-  }, [memoryMaxOption, totalMemoryMB]);
+  })();
 
   const [memoryRange, setMemoryRange] = useState<UsageRange>({
     type: "memory",
@@ -116,7 +116,7 @@ export const useSnapshot = () => {
    */
   const BUCKET_COUNT = 100;
 
-  const step = useMemo(() => {
+  const step = (() => {
     const startTime = new Date(period.start).getTime();
     const endTime = new Date(period.end).getTime();
     const diff = endTime - startTime;
@@ -126,9 +126,9 @@ export const useSnapshot = () => {
 
     // Keep step as integer for calculation consistency
     return Math.floor(Math.max(diff / BUCKET_COUNT, 60000));
-  }, [period]);
+  })();
 
-  const bucketedData = useMemo(() => {
+  const bucketedData = (() => {
     const result = archivedData.reduce(
       (acc, record, _index) => {
         if (record.value == null) return acc;
@@ -147,9 +147,9 @@ export const useSnapshot = () => {
     );
 
     return result;
-  }, [archivedData, step]);
+  })();
 
-  const dateFormatter = useMemo(() => {
+  const dateFormatter = (() => {
     const periodMinutes =
       (new Date(period.end).getTime() - new Date(period.start).getTime()) /
       (1000 * 60);
@@ -177,10 +177,10 @@ export const useSnapshot = () => {
 
     // Create and cache Intl.DateTimeFormat instance
     return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
-  }, [period]);
+  })();
 
   // Range filtering for process data
-  const filteredProcessData = useMemo(() => {
+  const filteredProcessData = (() => {
     if (!processData || !Array.isArray(processData)) {
       return [];
     }
@@ -201,9 +201,9 @@ export const useSnapshot = () => {
 
       return cpuInRange && memoryInRange;
     });
-  }, [processData, cpuRange, memoryRange]);
+  })();
 
-  const { filledLabels, filledChartData } = useMemo(() => {
+  const { filledLabels, filledChartData } = (() => {
     const filledChartData: Array<number | null> = [];
     const filledLabels: string[] = [];
 
@@ -255,7 +255,7 @@ export const useSnapshot = () => {
     }
 
     return { filledLabels, filledChartData };
-  }, [bucketedData, step, period, dateFormatter]);
+  })();
 
   return {
     period,

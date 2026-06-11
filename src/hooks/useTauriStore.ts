@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getStoreInstance } from "@/lib/tauriStore";
 
 type TauriStore<T> =
@@ -41,15 +41,12 @@ export const useTauriStore = <T>(
     };
   }, [key, defaultValue]);
 
-  const setValue = useCallback(
-    async (newValue: T) => {
-      const store = await getStoreInstance();
-      await store.set(key, newValue);
-      await store.save();
-      setValueState(newValue);
-    },
-    [key],
-  );
+  const setValue = async (newValue: T) => {
+    const store = await getStoreInstance();
+    await store.set(key, newValue);
+    await store.save();
+    setValueState(newValue);
+  };
 
   return isPending ? [null, setValue, true] : [value as T, setValue, false];
 };

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 /** Pixel distance threshold to distinguish click from drag */
 const CLICK_THRESHOLD = 5;
@@ -18,7 +18,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
   const [isDragging, setIsDragging] = useState(false);
   const moved = useRef(false);
 
-  const setXDomain = useCallback((domain: [number, number] | [0, "auto"]) => {
+  const setXDomain = (domain: [number, number] | [0, "auto"]) => {
     if (domain[1] === "auto") {
       _setXDomain([0, "auto"]);
       return;
@@ -32,9 +32,9 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
     const end = start + originalWidth; // Always maintain fixed width
 
     _setXDomain([start, end]);
-  }, []);
+  };
 
-  const setYDomain = useCallback((domain: [number, number]) => {
+  const setYDomain = (domain: [number, number]) => {
     const rawStart = Math.round(domain[0]);
     const rawEnd = Math.round(domain[1]);
 
@@ -44,86 +44,80 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
     const end = start + range;
 
     _setYDomain([start, end]);
-  }, []);
+  };
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent) => {
     dragStart.current = { x: e.clientX, y: e.clientY };
     moved.current = false;
     setIsDragging(true);
-  }, []);
+  };
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isZoomed || !dragStart.current || xDomain[1] === "auto") return;
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isZoomed || !dragStart.current || xDomain[1] === "auto") return;
 
-      const deltaX = e.clientX - dragStart.current.x;
-      const deltaY = e.clientY - dragStart.current.y;
+    const deltaX = e.clientX - dragStart.current.x;
+    const deltaY = e.clientY - dragStart.current.y;
 
-      if (
-        Math.abs(deltaX) > CLICK_THRESHOLD ||
-        Math.abs(deltaY) > CLICK_THRESHOLD
-      ) {
-        moved.current = true;
+    if (
+      Math.abs(deltaX) > CLICK_THRESHOLD ||
+      Math.abs(deltaY) > CLICK_THRESHOLD
+    ) {
+      moved.current = true;
 
-        const pixelWidth = containerRef.current?.getBoundingClientRect().width;
+      const pixelWidth = containerRef.current?.getBoundingClientRect().width;
 
-        setXDomain(calcDomain(deltaX, xDomain, "x", pixelWidth));
-        setYDomain(calcDomain(deltaY, yDomain, "y"));
+      setXDomain(calcDomain(deltaX, xDomain, "x", pixelWidth));
+      setYDomain(calcDomain(deltaY, yDomain, "y"));
 
-        dragStart.current = { x: e.clientX, y: e.clientY };
-      }
-    },
-    [isZoomed, xDomain, yDomain, setXDomain, setYDomain],
-  );
+      dragStart.current = { x: e.clientX, y: e.clientY };
+    }
+  };
 
-  const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => {
-      setIsDragging(false);
+  const handleMouseUp = (e: React.MouseEvent) => {
+    setIsDragging(false);
 
-      // Disable zoom if drag occurred
-      if (!dragStart.current || moved.current) {
-        dragStart.current = null;
-        moved.current = false;
-        return;
-      }
-
-      if (!containerRef.current) return;
-
-      // Zoom processing
-      const rect = containerRef.current.getBoundingClientRect();
-      const clickXRatio = (e.clientX - rect.left) / rect.width;
-      const clickYRatio = 1 - (e.clientY - rect.top) / rect.height;
-
-      const xMin = Math.min(...data.map((d) => d.x));
-      const xMax = Math.max(...data.map((d) => d.x));
-      const yMin = Math.min(...data.map((d) => d.y));
-      const yMax = Math.max(...data.map((d) => d.y));
-
-      const clickX = xMin + clickXRatio * (xMax - xMin);
-      const clickY = yMin + clickYRatio * (yMax - yMin);
-
-      if (!isZoomed) {
-        setXDomain([
-          clickX - ((xMax - xMin) * ZOOM_FACTOR) / 2,
-          clickX + ((xMax - xMin) * ZOOM_FACTOR) / 2,
-        ]);
-        setYDomain([
-          clickY - ((yMax - yMin) * ZOOM_FACTOR) / 2,
-          clickY + ((yMax - yMin) * ZOOM_FACTOR) / 2,
-        ]);
-        setIsZoomed(true);
-      } else {
-        setXDomain([0, "auto"]);
-        setYDomain([0, 100]);
-        setIsZoomed(false);
-      }
-
+    // Disable zoom if drag occurred
+    if (!dragStart.current || moved.current) {
       dragStart.current = null;
-    },
-    [data, isZoomed, setXDomain, setYDomain],
-  );
+      moved.current = false;
+      return;
+    }
 
-  const cursorStyle = useMemo(() => {
+    if (!containerRef.current) return;
+
+    // Zoom processing
+    const rect = containerRef.current.getBoundingClientRect();
+    const clickXRatio = (e.clientX - rect.left) / rect.width;
+    const clickYRatio = 1 - (e.clientY - rect.top) / rect.height;
+
+    const xMin = Math.min(...data.map((d) => d.x));
+    const xMax = Math.max(...data.map((d) => d.x));
+    const yMin = Math.min(...data.map((d) => d.y));
+    const yMax = Math.max(...data.map((d) => d.y));
+
+    const clickX = xMin + clickXRatio * (xMax - xMin);
+    const clickY = yMin + clickYRatio * (yMax - yMin);
+
+    if (!isZoomed) {
+      setXDomain([
+        clickX - ((xMax - xMin) * ZOOM_FACTOR) / 2,
+        clickX + ((xMax - xMin) * ZOOM_FACTOR) / 2,
+      ]);
+      setYDomain([
+        clickY - ((yMax - yMin) * ZOOM_FACTOR) / 2,
+        clickY + ((yMax - yMin) * ZOOM_FACTOR) / 2,
+      ]);
+      setIsZoomed(true);
+    } else {
+      setXDomain([0, "auto"]);
+      setYDomain([0, 100]);
+      setIsZoomed(false);
+    }
+
+    dragStart.current = null;
+  };
+
+  const cursorStyle = (() => {
     if (isZoomed) {
       return {
         cursor: isDragging ? "grabbing" : "grab",
@@ -133,7 +127,7 @@ export const useScatterChartZoom = (data: { x: number; y: number }[]) => {
     return {
       cursor: "zoom-in",
     };
-  }, [isZoomed, isDragging]);
+  })();
 
   return {
     containerRef,

@@ -1,5 +1,5 @@
 import { atom, useAtom } from "jotai";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type { BackgroundImage } from "@/features/settings/types/settingsType";
 import { convertFileToBase64 } from "@/lib/file";
@@ -18,8 +18,7 @@ export const useBackgroundImage = () => {
 
   const { settings, updateSettingAtom } = useSettingsAtom();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to initialize the background images
-  const initBackgroundImage = useCallback(async () => {
+  const initBackgroundImage = async () => {
     if (settings.selectedBackgroundImg) {
       const base64Image = await commands.getBackgroundImage(
         settings.selectedBackgroundImg,
@@ -34,7 +33,7 @@ export const useBackgroundImage = () => {
     } else {
       setBackgroundImage(null);
     }
-  }, [setBackgroundImage, settings.selectedBackgroundImg]);
+  };
 
   /**
    * Save background image

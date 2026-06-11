@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { archivePeriods } from "../../consts/chart";
@@ -55,7 +54,7 @@ const ProcessArea = ({
     offset: 0,
   });
 
-  const filteredData = useMemo(() => {
+  const filteredData = (() => {
     if (processStats == null) {
       return [];
     }
@@ -65,7 +64,7 @@ const ProcessArea = ({
         stat.total_execution_sec > 0 &&
         stat.total_execution_sec < 60 * 60 * 24 * 30, // Ignore processes running for more than 1 month
     );
-  }, [processStats]);
+  })();
 
   return (
     <div className="mt-4">

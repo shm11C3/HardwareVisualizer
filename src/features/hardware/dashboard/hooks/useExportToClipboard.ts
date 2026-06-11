@@ -1,6 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useAtom } from "jotai";
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
@@ -12,7 +11,7 @@ export const useExportToClipboard = () => {
   const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
   const { t } = useTranslation();
 
-  const clipboardContent = useMemo(() => {
+  const clipboardContent = (() => {
     const cpuInfo = hardwareInfo.cpu
       ? [
           { key: t("shared.name"), value: hardwareInfo.cpu.name },
@@ -164,7 +163,7 @@ export const useExportToClipboard = () => {
     ]
       .filter(Boolean)
       .join("\n\n");
-  }, [hardwareInfo, processorsUsageHistory, processes, networkInfo, t]);
+  })();
 
   const exportToClipboard = async () => {
     await writeText(clipboardContent);

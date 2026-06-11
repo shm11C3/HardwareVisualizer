@@ -1,5 +1,5 @@
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
-import { type JSX, memo, useMemo, useState } from "react";
+import { type JSX, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,7 +27,7 @@ export const ProcessHistoryTable = ({
     direction: "descending",
   });
 
-  const sortedProcesses = useMemo(() => {
+  const sortedProcesses = (() => {
     if (!processStats) return [];
     if (sortConfig == null) {
       return processStats;
@@ -65,7 +65,7 @@ export const ProcessHistoryTable = ({
       // Don't change order if types differ
       return 0;
     });
-  }, [processStats, sortConfig]);
+  })();
 
   if (processStats == null || (loading && processStats.length === 0)) {
     return <Skeleton className="h-[400px] w-full" />;
@@ -111,7 +111,7 @@ export const ProcessHistoryTable = ({
   );
 };
 
-const InfoTable = memo(function InfoTable({
+const InfoTable = function InfoTable({
   processes,
   sortConfig,
   requestSort,
@@ -222,9 +222,9 @@ const InfoTable = memo(function InfoTable({
       )}
     </div>
   );
-});
+};
 
-const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
+const TableBody = ({ processes }: { processes: ProcessStat[] }) => {
   const { settings } = useSettingsAtom();
 
   return (
@@ -260,7 +260,7 @@ const TableBody = memo(({ processes }: { processes: ProcessStat[] }) => {
       })}
     </tbody>
   );
-});
+};
 
 const tableHeaderVariants = tv({
   base: "flex transition-all duration-300",

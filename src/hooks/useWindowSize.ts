@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 type BreakpointSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 
@@ -48,15 +48,12 @@ export const useWindowSize = () => {
     };
   }, []);
 
-  const isBreak = useCallback(
-    (targetBreakpoint: BreakpointSize): boolean => {
-      const currentIndex = BREAKPOINT_ORDER.indexOf(breakpoint);
-      const targetIndex = BREAKPOINT_ORDER.indexOf(targetBreakpoint);
+  const isBreak = (targetBreakpoint: BreakpointSize): boolean => {
+    const currentIndex = BREAKPOINT_ORDER.indexOf(breakpoint);
+    const targetIndex = BREAKPOINT_ORDER.indexOf(targetBreakpoint);
 
-      return currentIndex >= targetIndex;
-    },
-    [breakpoint],
-  );
+    return currentIndex >= targetIndex;
+  };
 
   return { breakpoint, isBreak };
 };

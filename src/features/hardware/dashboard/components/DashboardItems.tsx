@@ -1,6 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import {
@@ -131,7 +131,7 @@ export const GPUInfo = () => {
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
   const [gpuDedicatedMemoryKbMap] = useAtom(gpuDedicatedMemoryKbMapAtom);
-  const os = useMemo(() => platform(), []);
+  const os = platform();
 
   const gpus = hardwareInfo.gpus ?? [];
   const targetGpu = gpus.find((g) => g.id === selectedGpuId) ?? gpus[0] ?? null;
@@ -304,7 +304,7 @@ export const MemoryInfo = () => {
     | {
         memoryCurrentUsage: null;
         memoryCurrentUsageUnit: null;
-      } = useMemo(() => {
+      } = (() => {
     const current = memoryUsageHistory[memoryUsageHistory.length - 1];
     const [total, unit] = hardwareInfo.memory?.size.split(" ") || [null, null];
 
@@ -321,7 +321,7 @@ export const MemoryInfo = () => {
       memoryCurrentUsage: Number(currentUsage.toFixed(0)),
       memoryCurrentUsageUnit: currentUsageUnit,
     };
-  }, [memoryUsageHistory, hardwareInfo.memory]);
+  })();
 
   return (
     <>
@@ -419,7 +419,7 @@ export const StorageDataInfo = () => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const { hardwareInfo } = useHardwareInfoAtom();
-  const os = useMemo(() => platform(), []);
+  const os = platform();
   const storageHealthErrorShownRef = useRef(false);
   const [storageHealthSummary, setStorageHealthSummary] =
     useState<StorageHealthSummaryViewModel | null>(null);
@@ -429,7 +429,7 @@ export const StorageDataInfo = () => {
     a.name.localeCompare(b.name),
   );
 
-  const chartData: StorageBarChartData[] = useMemo(() => {
+  const chartData: StorageBarChartData[] = (() => {
     return sortedStorage
       ? sortedStorage.reduce(
           (acc: StorageBarChartData[], storage: StorageInfo) => {
@@ -445,7 +445,7 @@ export const StorageDataInfo = () => {
           [],
         )
       : [];
-  }, [sortedStorage]);
+  })();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Polling is registered once for the Storage card lifetime.
   useEffect(() => {

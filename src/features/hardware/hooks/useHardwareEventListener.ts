@@ -1,5 +1,5 @@
 import { useSetAtom } from "jotai";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import {
   cpuTempAtom,
@@ -40,8 +40,8 @@ export const useHardwareEventListener = () => {
   const setCpuTemp = useSetAtom(cpuTempAtom);
   const setSensorTemps = useSetAtom(sensorTempsAtom);
 
-  const handleHardwareUpdate = useCallback(
-    (event: {
+  useEffect(() => {
+    const handleHardwareUpdate = (event: {
       payload: {
         cpuUsage: number;
         memoryUsage: number;
@@ -156,26 +156,24 @@ export const useHardwareEventListener = () => {
         const next = [...prev, processorsUsage];
         return next.slice(-chartConfig.historyLengthSec);
       });
-    },
-    [
-      setCpuHistory,
-      setMemoryHistory,
-      setGpuHistories,
-      setGpuTempMap,
-      setProcessorsHistory,
-      setGpuSources,
-      setGpuMemoryMap,
-      setGpuFanSpeedMap,
-      setSelectedGpuId,
-      setCpuTemp,
-      setSensorTemps,
-    ],
-  );
-  useEffect(() => {
+    };
+
     const unlisten = events.hardwareMonitorUpdate.listen(handleHardwareUpdate);
 
     return () => {
       unlisten.then((off) => off());
     };
-  }, [handleHardwareUpdate]);
+  }, [
+    setCpuHistory,
+    setMemoryHistory,
+    setGpuHistories,
+    setGpuTempMap,
+    setProcessorsHistory,
+    setGpuSources,
+    setGpuMemoryMap,
+    setGpuFanSpeedMap,
+    setSelectedGpuId,
+    setCpuTemp,
+    setSensorTemps,
+  ]);
 };

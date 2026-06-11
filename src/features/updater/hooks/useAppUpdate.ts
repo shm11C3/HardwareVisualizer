@@ -1,5 +1,5 @@
 import { Channel } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { commands, type DownloadEvent } from "@/rspc/bindings";
 import { isOk } from "@/types/result";
 
@@ -18,13 +18,13 @@ export function useUpdater() {
   const [total, setTotal] = useState<bigint | null>(null);
   const [isFinished, setIsFinished] = useState(false);
 
-  const percent = useMemo(() => {
+  const percent = (() => {
     if (!total || total === 0n) return null;
     // 0..100
     const p = (downloaded * 100n) / total;
     const n = Number(p);
     return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null;
-  }, [downloaded, total]);
+  })();
 
   useEffect(() => {
     (async () => {

@@ -7,7 +7,7 @@ import {
   GearIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
-import { type JSX, memo, useMemo } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { prefetchScreen } from "@/lazyScreens";
@@ -70,61 +70,59 @@ const menuItemClasses = tv({
   },
 });
 
-const MenuItem = memo(
-  ({
-    type,
-    selected,
-    handleMenuClick,
-  }: {
-    type: SelectedDisplayType;
-    selected: boolean;
-    handleMenuClick: (type: SelectedDisplayType) => void;
-  }) => {
-    const { t } = useTranslation();
+const MenuItem = ({
+  type,
+  selected,
+  handleMenuClick,
+}: {
+  type: SelectedDisplayType;
+  selected: boolean;
+  handleMenuClick: (type: SelectedDisplayType) => void;
+}) => {
+  const { t } = useTranslation();
 
-    const menuTitles: Record<SelectedDisplayType, string> = {
-      dashboard: t("pages.dashboard.name"),
-      usage: t("pages.usage.name"),
-      cpuDetail: "CPU",
-      insights: t("pages.insights.name"),
-      settings: t("pages.settings.name"),
-    };
+  const menuTitles: Record<SelectedDisplayType, string> = {
+    dashboard: t("pages.dashboard.name"),
+    usage: t("pages.usage.name"),
+    cpuDetail: "CPU",
+    insights: t("pages.insights.name"),
+    settings: t("pages.settings.name"),
+  };
 
-    const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
-      dashboard: <SquaresFourIcon size={20} />,
-      usage: <ComputerTowerIcon size={20} />,
-      cpuDetail: <CpuIcon size={20} />,
-      insights: <ChartLineIcon size={20} />,
-      settings: <GearIcon size={20} />,
-    };
+  const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
+    dashboard: <SquaresFourIcon size={20} />,
+    usage: <ComputerTowerIcon size={20} />,
+    cpuDetail: <CpuIcon size={20} />,
+    insights: <ChartLineIcon size={20} />,
+    settings: <GearIcon size={20} />,
+  };
 
-    return (
-      <li
-        className={menuItemClasses({
-          selected: selected,
-          isBottom: type === "settings",
-        })}
+  return (
+    <li
+      className={menuItemClasses({
+        selected: selected,
+        isBottom: type === "settings",
+      })}
+    >
+      <button
+        type="button"
+        className={cn(
+          "flex h-full w-full cursor-pointer items-center text-left",
+          type === "settings" ? "" : "p-2",
+        )}
+        onClick={() => handleMenuClick(type)}
+        onMouseEnter={() => prefetchScreen(type)}
+        onFocus={() => prefetchScreen(type)}
+        aria-label={`${menuTitles[type]} tab`}
+        aria-selected={selected}
+        role="tab"
       >
-        <button
-          type="button"
-          className={cn(
-            "flex h-full w-full cursor-pointer items-center text-left",
-            type === "settings" ? "" : "p-2",
-          )}
-          onClick={() => handleMenuClick(type)}
-          onMouseEnter={() => prefetchScreen(type)}
-          onFocus={() => prefetchScreen(type)}
-          aria-label={`${menuTitles[type]} tab`}
-          aria-selected={selected}
-          role="tab"
-        >
-          {menuIcons[type]}
-          <span className="ml-1">{menuTitles[type]}</span>
-        </button>
-      </li>
-    );
-  },
-);
+        {menuIcons[type]}
+        <span className="ml-1">{menuTitles[type]}</span>
+      </button>
+    </li>
+  );
+};
 
 const ClosedSideMenu = ({
   type,
@@ -167,13 +165,10 @@ const ClosedSideMenu = ({
   );
 };
 
-export const SideMenu = memo(({ isFullScreen }: { isFullScreen: boolean }) => {
+export const SideMenu = ({ isFullScreen }: { isFullScreen: boolean }) => {
   const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu();
 
-  const caretIcon = useMemo(
-    () => (isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />),
-    [isOpen],
-  );
+  const caretIcon = isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />;
 
   return (
     isOpen != null && (
@@ -254,4 +249,4 @@ export const SideMenu = memo(({ isFullScreen }: { isFullScreen: boolean }) => {
       </div>
     )
   );
-});
+};

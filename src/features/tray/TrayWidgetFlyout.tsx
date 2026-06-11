@@ -1,6 +1,6 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { Cpu, ExternalLink, Gpu, Thermometer, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const EVENT_TRAY_WIDGET_FRAME = "tray-widget-frame";
@@ -29,7 +29,7 @@ const INITIAL_FRAME: TrayWidgetFlyoutFrame = {
 export const TrayWidgetFlyout = () => {
   const { t } = useTranslation();
   const [frame, setFrame] = useState<TrayWidgetFlyoutFrame>(INITIAL_FRAME);
-  const worstState = useMemo(() => getWorstState(frame.items), [frame.items]);
+  const worstState = getWorstState(frame.items);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;

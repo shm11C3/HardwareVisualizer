@@ -4,7 +4,6 @@ import {
   confirm as showConfirm,
   message as showMessage,
 } from "@tauri-apps/plugin-dialog";
-import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
 type Kind = "info" | "warning" | "error";
@@ -19,70 +18,58 @@ type TitleType =
 export const useTauriDialog = () => {
   const { t } = useTranslation();
 
-  const ask = useCallback(
-    async ({
-      title,
-      message,
+  const ask = async ({
+    title,
+    message,
+    kind,
+  }: {
+    title?: TitleType;
+    message: string;
+    kind?: Kind;
+  }): Promise<boolean> => {
+    return await showAsk(message, {
+      title: title ? t(`error.title.${title}`) : undefined,
       kind,
-    }: {
-      title?: TitleType;
-      message: string;
-      kind?: Kind;
-    }): Promise<boolean> => {
-      return await showAsk(message, {
-        title: title ? t(`error.title.${title}`) : undefined,
-        kind,
-      });
-    },
-    [t],
-  );
+    });
+  };
 
-  const confirm = useCallback(
-    async ({
-      title,
-      message,
+  const confirm = async ({
+    title,
+    message,
+    kind,
+  }: {
+    title?: TitleType;
+    message: string;
+    kind?: Kind;
+  }): Promise<boolean> => {
+    return await showConfirm(message, {
+      title: title ? t(`error.title.${title}`) : undefined,
       kind,
-    }: {
-      title?: TitleType;
-      message: string;
-      kind?: Kind;
-    }): Promise<boolean> => {
-      return await showConfirm(message, {
-        title: title ? t(`error.title.${title}`) : undefined,
-        kind,
-      });
-    },
-    [t],
-  );
+    });
+  };
 
-  const message = useCallback(
-    async ({
-      title,
-      message,
+  const message = async ({
+    title,
+    message,
+    kind,
+  }: {
+    title?: TitleType;
+    message: string;
+    kind?: Kind;
+  }): Promise<MessageDialogResult> => {
+    return await showMessage(message, {
+      title: title ? t(`error.title.${title}`) : undefined,
       kind,
-    }: {
-      title?: TitleType;
-      message: string;
-      kind?: Kind;
-    }): Promise<MessageDialogResult> => {
-      return await showMessage(message, {
-        title: title ? t(`error.title.${title}`) : undefined,
-        kind,
-      });
-    },
-    [t],
-  );
+    });
+  };
 
-  const error = useCallback(
-    async (errorMessage: string) => {
-      return await message({
-        title: "error",
-        message: errorMessage,
-        kind: "error",
-      });
-    },
-    [message],
-  );
+  const error = async (errorMessage: string) => {
+    return await message({
+      title: "error",
+      message: errorMessage,
+      kind: "error",
+    });
+  };
 
   return { ask, confirm, message, error };
 };
