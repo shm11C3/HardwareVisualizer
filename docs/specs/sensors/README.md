@@ -96,6 +96,10 @@ resolved and the Phase 0 guardrails are merged.
         reviewing this implementation.
   ```
 
+  Reviewers copy this checklist, with both boxes checked, into their
+  approval review comment. The implementation PR template carries the
+  checklist as a reminder of this requirement.
+
 ## Current documents
 
 | Document | Covers | Issue phase |
