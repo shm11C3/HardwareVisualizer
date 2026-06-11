@@ -100,6 +100,29 @@ Determinism rules:
   `en-US` locale, UTC timezone, reduced motion (see `playwright.config.ts`).
 - Use fixture data only — never live hardware values.
 
+## Render performance smoke
+
+Lightweight render performance checks reuse the same web/mock harness, but run
+as a separate suite:
+
+```bash
+npm run test:perf:render
+```
+
+The suite writes a JSON report and Playwright artifacts under:
+
+```text
+test-results/render-perf/
+```
+
+These checks target coarse, CI-stable signals such as DOM element count,
+Long Task count, and generous interaction timing. They intentionally avoid
+strict FPS, CPU, and memory gates. Thresholds are moderate rather than
+extremely loose because this suite is meant to catch obvious render regressions
+even while it starts as an observation signal. In CI the `test-render-perf` job
+runs only for frontend pull requests, uploads artifacts, and stays outside the
+merge gate.
+
 ## CI
 
 The `test-e2e-web` job in `.github/workflows/ci.yml` runs the suite on
