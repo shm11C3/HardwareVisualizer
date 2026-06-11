@@ -88,8 +88,8 @@ resolved and the Phase 0 guardrails are merged.
     attestation, and the reviewer attestation below — satisfied by
     [`clean-room-sensor-implementation.md`](../../../.github/PULL_REQUEST_TEMPLATE/clean-room-sensor-implementation.md)
   - dedicated role agents with tool restrictions exist — satisfied by
-    `.claude/agents/sensor-spec-author.md` and
-    `.claude/agents/sensor-clean-room-implementer.md` (the
+    [`.claude/agents/sensor-spec-author.md`](../../../.claude/agents/sensor-spec-author.md) and
+    [`.claude/agents/sensor-clean-room-implementer.md`](../../../.claude/agents/sensor-clean-room-implementer.md) (the
     implementer agent has no web tools)
 
   The artifacts above satisfy the gate's existence requirements;
