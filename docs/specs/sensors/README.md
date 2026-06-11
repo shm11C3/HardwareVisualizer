@@ -66,9 +66,10 @@ in spec documents.
 
 ## Document status and implementation gate
 
-These documents are currently **draft specifications**. They are not
-implementation-ready clean-room inputs until all provenance TODOs are
-resolved and the Phase 0 guardrails are merged.
+Documents start as **draft specifications** and become valid
+clean-room inputs only through the status transition below (with the
+Phase 0 guardrails merged, as listed above). Per-document status is
+tracked in each document's header and in the Current documents table.
 
 - A document containing `TODO(provenance)` markers must carry
   `Status: Draft — not implementation-ready` and must not be used as
@@ -160,12 +161,12 @@ or unresolved blocking open question invalidates the flip.
 
 ## Current documents
 
-| Document | Covers | Issue phase |
-| --- | --- | --- |
-| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, licensing facts | Phase 1 |
-| [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 |
-| [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 |
-| [`superio-access.md`](superio-access.md) | Generic Super I/O configuration access, chip detection, ISA mutex | Phases 2–4 (mechanism) |
+| Document | Covers | Issue phase | Status |
+| --- | --- | --- | --- |
+| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, licensing facts | Phase 1 | Implementation-ready (rev 2) |
+| [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 | Implementation-ready (rev 2) |
+| [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 2) |
+| [`superio-access.md`](superio-access.md) | Generic Super I/O configuration access, chip detection, ISA mutex | Phases 2–4 (mechanism) | Draft — not implementation-ready |
 
 Per-chip Super I/O register maps (Nuvoton NCT67xx, ITE IT86xx/87xx) are
 **not yet written**; they are the Phase 3 / Phase 4 deliverables and

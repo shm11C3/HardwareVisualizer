@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
+| Revision | 2 |
 | Status | Draft — not implementation-ready |
 | Scope | The generic LPC/ISA access mechanism shared by PC Super I/O chips: configuration port pairs, vendor enter/exit key sequences, logical-device selection, chip identification, and locating the hardware-monitor I/O block. Applies to Nuvoton NCT67xx and ITE IT86xx/87xx families. Excludes: per-chip register maps (temperatures, fans, voltages) — those are the Phase 3/4 documents. |
 | Issue phase | Phases 2–4 (#1635) — mechanism shared by all of them |
@@ -100,9 +100,11 @@ For each slot (0, then 1):
   another monitor changes the selected index/bank between our write
   and read. (Issue #1635 convention; see
   [`pawnio-interface.md`](pawnio-interface.md))
-- The PawnIO `LpcIO` module additionally acquires the same named
-  mutant per IOCTL (S3); that does not make multi-IOCTL sequences
-  atomic, so the client-side mutex above is mandatory.
+- The PawnIO `LpcIO` module does not acquire the mutant itself: each
+  port/config ioctl is documented with a caller-must-hold warning for
+  `\BaseNamedObjects\Access_ISABUS.HTP.Method` (S3). The client-side
+  mutex above is therefore mandatory for single calls and multi-IOCTL
+  sequences alike.
 - Acquisition uses a bounded timeout; on timeout the sample is skipped
   (never proceed unlocked).
 
@@ -138,3 +140,4 @@ written in any phase of #1635.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-06-10 | Initial version |
+| 2 | 2026-06-11 | Corrected `Access_ISABUS.HTP.Method` ownership: the LpcIO module documents caller-held acquisition and takes no mutex itself. Still Draft — Phase 3/4 datasheet pinning outstanding. |
