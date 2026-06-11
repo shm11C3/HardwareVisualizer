@@ -170,8 +170,8 @@ const dispatchTauriEvent = (
 
 /**
  * Install Tauri IPC/event/window mocks so the React app runs in a plain
- * browser with deterministic fixture data. Loaded from `src/main.tsx` only
- * when `VITE_E2E_MOCK=true` (the branch is dead-code eliminated otherwise).
+ * browser with deterministic fixture data. Loaded from `src/main.e2e.tsx`,
+ * which Vite serves only in `--mode e2e`.
  *
  * Mock layers:
  * - `mockWindows("main")` fakes the current window label.

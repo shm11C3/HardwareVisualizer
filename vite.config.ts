@@ -36,6 +36,16 @@ const reactDevTools = (): PluginOption => {
   };
 };
 
+const e2eEntry = (): PluginOption => {
+  return {
+    name: "hardware-visualizer-e2e-entry",
+    apply: "serve",
+    transformIndexHtml(html) {
+      return html.replace("/src/main.tsx", "/src/main.e2e.tsx");
+    },
+  };
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => ({
   plugins: [
@@ -43,6 +53,7 @@ export default defineConfig(async ({ mode }) => ({
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
     mode === "react-devtools" && reactDevTools(),
+    mode === "e2e" && e2eEntry(),
   ],
 
   build: {
@@ -107,8 +118,8 @@ export default defineConfig(async ({ mode }) => ({
     },
   },
   optimizeDeps: {
-    // Pre-bundle the Tauri mock module so the E2E harness (VITE_E2E_MOCK)
-    // doesn't trigger a mid-session dependency re-optimization.
-    include: ["@tauri-apps/api/mocks"],
+    // Pre-bundle the Tauri mock module only in E2E mode so the regular app
+    // entry path stays independent from the web/mock harness.
+    include: mode === "e2e" ? ["@tauri-apps/api/mocks"] : [],
   },
 }));
