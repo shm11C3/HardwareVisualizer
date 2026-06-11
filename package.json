@@ -13,6 +13,7 @@
     "test": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:perf:render": "playwright test --config playwright.perf.config.ts",
+    "test:perf:webview-memory": "pwsh -NoProfile -ExecutionPolicy Bypass -File .github/scripts/test-webview-memory.ps1",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "lint": "biome lint && biome check && biome format --write",

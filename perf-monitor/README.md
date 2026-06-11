@@ -30,6 +30,9 @@ cargo perf-test -- --binary path/to/hardware-visualizer --warmup 5 --duration 10
 
 # JSON output for CI
 cargo perf-test -- --binary path/to/hardware-visualizer --output json > results.json
+
+# Windows-only WebView2 private-memory growth check
+npm run test:perf:webview-memory -- --Binary target/ci/hardware-visualizer.exe
 ```
 
 When `--output json` is used, machine-readable JSON is written to stdout and the normal text report is written to stderr. This keeps redirected JSON artifacts valid while still showing the full performance result in CI logs.
@@ -90,6 +93,22 @@ Only the fields you specify are overridden; others inherit from `[thresholds]`.
 5. **Report** - Computes statistics (avg, max, P95, memory growth) and checks against thresholds
 
 Memory samples track both the launched app process RSS and the total process-tree RSS that includes associated helper processes. Helpers are discovered by walking the `parent()` chain from the launched PID. Windows and macOS also include WebView helper processes that were created after launch and expose the target app identity in process metadata, because WebView helpers are not always reliably parented under the app PID.
+
+## WebView2 Memory Growth Check
+
+`npm run test:perf:webview-memory` is a separate Windows-only check for Tauri/WebView2 runtime memory behavior. It launches the real Tauri binary, keeps the Dashboard active, samples `msedgewebview2.exe` process groups, and records WebView2 `PrivateMemorySize64` instead of browser-only Playwright metrics or generic process RSS.
+
+The script writes both JSON and CSV artifacts under `test-results/webview-memory/` by default. It takes a warmup baseline, measures final growth from that baseline, and checks whether the later sampling window still has a positive growth slope.
+
+Default longer-run heuristic:
+
+- Warmup: 60 seconds
+- Measurement duration: 10 minutes
+- Sample interval: 5 seconds
+- Tail window: 3 minutes
+- Threshold: fail when WebView2 private memory grows by at least 150 MiB and the tail slope is greater than 1 MiB/min
+
+PR CI runs a shorter smoke version with `continue-on-error` and uploads artifacts for inspection. The scheduled/manual `Performance Test` workflow runs the longer version and can open a `performance-regression` issue when thresholds are exceeded.
 
 ### Metrics
 

@@ -90,17 +90,34 @@ jobs:
             --output json \
           > perf-results.json
 
+      - name: Run WebView2 memory growth test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: npm run test:perf:webview-memory -- --Binary target/ci/hardware-visualizer.exe --OutputDirectory webview-memory-results --WarmupSeconds 60 --DurationSeconds 600 --SampleIntervalSeconds 5 --TailWindowSeconds 180
+
       - name: Show results
         if: always()
         shell: bash
         run: cat perf-results.json 2>/dev/null || echo "No results file"
+
+      - name: Show WebView2 memory results
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path webview-memory-results/webview-memory-results.json) {
+            Get-Content webview-memory-results/webview-memory-results.json -Raw
+          } else {
+            Write-Host "No WebView2 memory results file"
+          }
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: perf-results-${{ matrix.platform }}
-          path: perf-results.json
+          path: |
+            perf-results.json
+            webview-memory-results/
 
   notify:
     needs: perf-test
