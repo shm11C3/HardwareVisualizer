@@ -22,10 +22,10 @@ const CONFIG = {
   ),
 };
 const THRESHOLDS: MemoryThresholds = {
-  jsHeapGrowthBytes: 20 * 1024 * 1024,
-  jsHeapSlopeBytesPerMinute: 8 * 1024 * 1024,
-  domNodeGrowth: 300,
-  listenerGrowth: 50,
+  jsHeapGrowthBytes: 8 * 1024 * 1024,
+  jsHeapSlopeBytesPerMinute: 3 * 1024 * 1024,
+  domNodeGrowth: 100,
+  listenerGrowth: 20,
 };
 
 test.describe("frontend memory growth", () => {
