@@ -1,0 +1,127 @@
+# Sensor Hardware Specifications (Clean-Room)
+
+This directory is the specification library for native CPU and Super I/O
+sensor monitoring via [PawnIO](https://github.com/namazso/PawnIO)
+(issue #1635). Every document here is a **fact-only hardware/interface
+specification** produced by the "spec author" role of the clean-room
+process described below.
+
+These documents are the **only** external technical input the
+implementation role is allowed to use. Keeping them factual, sourced,
+and free of third-party code is what lets the resulting Rust code stay
+MIT-licensed.
+
+## Clean-room process (two roles)
+
+| Role | May read | Must not do |
+| --- | --- | --- |
+| Spec author ("dirty room") | Vendor datasheets and manuals (primary); public hardware specifications; independently collected hardware dumps; MPL/GPL/LGPL implementations **only as non-normative leads** | Copy code excerpts, code structure, or implementation identifier names into spec documents |
+| Implementer ("clean room") | `docs/specs/sensors/**` and this repository only | Read LibreHardwareMonitor / OpenHardwareMonitor / Linux kernel / lm-sensors sources, or any decompiled monitoring tool |
+
+Names that are part of a public API contract (for example PawnIO module
+function names such as `ioctl_read_msr`) are interface facts required
+for interoperability, not implementation identifiers; they may appear
+in spec documents.
+
+## Hard rules for documents in this directory
+
+- State **facts**, with a source note (provenance) for each fact or
+  fact group: document title, document/order number, and section or
+  page where known. Use `TODO(provenance)` when a page-level citation
+  still needs to be pinned.
+- No code excerpts, no code structure, and no identifier names taken
+  from copyrighted implementations.
+- MPL/GPL/LGPL implementations may be used **only as non-normative
+  leads**. Normative spec facts must be backed by vendor
+  documentation, public hardware specifications, or independently
+  collected hardware dumps. Copyleft sources consulted as leads must
+  still be listed in the document's Sources table, explicitly marked
+  non-normative; no fact may rest solely on them.
+- If a quirk is known only from a copyleft implementation, it must
+  stay in the document's **Open questions** section until
+  independently verified.
+- Anything uncertain goes in the document's **Open questions** section,
+  not in the fact tables.
+- Read-only orientation: documents describe register *reads*. Writes
+  are documented only where a read transaction requires them (for
+  example configuration-mode entry keys or bank selection), and must be
+  marked as such.
+
+## Document conventions
+
+- One document per access domain or chip family, lowercase kebab-case
+  filenames (see [`docs/documentation-guide.md`](../../documentation-guide.md)).
+- Start from [`spec-template.md`](spec-template.md).
+- Each document carries a **revision number** and a revision history
+  table. Any change to facts increments the revision.
+- Implementation PRs must pin the spec they were built from in the PR
+  body, e.g.:
+
+  ```text
+  Implemented from docs/specs/sensors/cpu-amd-zen-smn.md revision 1
+  (commit <sha>). No other external sensor documentation was used.
+  ```
+
+  This is the audit trail demonstrating clean-room provenance.
+
+## Document status and implementation gate
+
+These documents are currently **draft specifications**. They are not
+implementation-ready clean-room inputs until all provenance TODOs are
+resolved and the Phase 0 guardrails are merged.
+
+- A document containing `TODO(provenance)` markers must carry
+  `Status: Draft — not implementation-ready` and must not be used as
+  the sole clean-room input for implementation until all markers are
+  resolved and primary-source section/page references are pinned (or
+  the facts are otherwise independently verified, e.g. against
+  hardware dumps).
+- No implementation PR may be opened or reviewed as clean-room work
+  until all of the following Phase 0 guardrails exist:
+  - `.github/instructions/` contains the prohibited-source list
+  - `CLAUDE.md` references the clean-room implementer restrictions
+  - the PR template requires spec revision pinning
+  - the PR template requires a provenance attestation
+  - the PR template requires the reviewer attestation below
+- Reviewer contamination policy: reviewers can also breach the
+  clean-room boundary. Implementation PR reviews must include this
+  attestation:
+
+  ```markdown
+  - [ ] I reviewed this implementation only against
+        `docs/specs/sensors/**`, this repository, and the pinned spec
+        revision.
+  - [ ] I did not consult LibreHardwareMonitor, OpenHardwareMonitor,
+        Linux kernel, lm-sensors, or decompiled monitoring tools while
+        reviewing this implementation.
+  ```
+
+  Reviewers copy this checklist, with both boxes checked, into their
+  approval review comment. The implementation PR template carries the
+  checklist as a reminder of this requirement.
+
+## Current documents
+
+| Document | Covers | Issue phase |
+| --- | --- | --- |
+| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, licensing facts | Phase 1 |
+| [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 |
+| [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 |
+| [`superio-access.md`](superio-access.md) | Generic Super I/O configuration access, chip detection, ISA mutex | Phases 2–4 (mechanism) |
+
+Per-chip Super I/O register maps (Nuvoton NCT67xx, ITE IT86xx/87xx) are
+**not yet written**; they are the Phase 3 / Phase 4 deliverables and
+will be added as separate documents validated against user-submitted
+register dumps.
+
+## Safety policy (applies to all documents and implementations)
+
+- Read-only register access. No writes that alter chip configuration,
+  fan control, limits, or power state in any phase of #1635.
+- Honor the ecosystem mutex conventions
+  (`Global\Access_ISABUS.HTP.Method`, `Global\Access_PCI`) so that
+  concurrent monitors (HWiNFO, LibreHardwareMonitor, FanControl) do not
+  corrupt each other's multi-step read transactions. Details in
+  [`pawnio-interface.md`](pawnio-interface.md).
+- When PawnIO is not installed, the application degrades gracefully to
+  the ACPI thermal-zone path introduced by PR #1633.

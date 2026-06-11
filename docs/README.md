@@ -10,6 +10,7 @@ documentation.
 
 - [Backend architecture](architecture/backend.md)
 - [Architecture decision records](adr/)
+- [Sensor hardware specs (clean-room)](specs/sensors/)
 - [Frontend architecture](../src/README.md)
 - [Core crate guide](../core/README.md)
 - [Tauri app crate guide](../src-tauri/README.md)
@@ -27,6 +28,8 @@ docs/
 ├── adr/                            # Architecture decision records
 ├── architecture/                   # Architecture documents
 ├── development/                    # Developer task guides
+├── specs/                          # Clean-room hardware specification documents
+│   └── sensors/                    # Sensor specs for PawnIO-based monitoring
 ├── third-party-notices/            # Generated and manual third-party notices
 ├── download-verification.md        # Download verification guide
 ├── download-verification.ja.md     # Japanese download verification guide
