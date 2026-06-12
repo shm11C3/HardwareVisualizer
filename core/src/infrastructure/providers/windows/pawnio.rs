@@ -291,14 +291,17 @@ impl Drop for PawnIoModule<'_> {
 }
 
 /// Discover the PawnIO install directory: registry first, then the
-/// documented `%ProgramFiles%\PawnIO` fallback (only when the directory
-/// actually exists, so a clean miss reports as unavailable).
+/// documented `%ProgramFiles%\PawnIO` fallback (only when the candidate
+/// actually contains the library file, so a stale registry entry falls
+/// through to the fallback and a clean miss reports as unavailable).
 fn installed_location() -> Option<PathBuf> {
-  if let Some(dir) = registry_install_location() {
+  if let Some(dir) = registry_install_location()
+    && dir.join(PAWNIO_LIB_FILE).is_file()
+  {
     return Some(dir);
   }
   let fallback = PathBuf::from(std::env::var_os("ProgramFiles")?).join("PawnIO");
-  fallback.is_dir().then_some(fallback)
+  fallback.join(PAWNIO_LIB_FILE).is_file().then_some(fallback)
 }
 
 /// Read `InstallLocation` (REG_SZ) from the PawnIO uninstall key.
