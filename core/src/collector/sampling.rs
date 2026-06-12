@@ -39,18 +39,40 @@ pub struct TemperatureSample {
 
 /// Read the latest CPU / sensor temperatures.
 ///
-/// Windows: ACPI thermal zones via the WMI sampler thread (started on the
-/// first call). The headline CPU value picks a CPU-named zone when one
-/// exists, otherwise the hottest zone — see
-/// [`crate::utils::thermal::select_cpu_temperature`].
+/// Windows: two cooperating sources, each on its own sampler thread
+/// (started on the first call):
+///
+/// 1. **PawnIO CPU package sensor** (preferred) — native Intel DTS /
+///    AMD Zen reading (#1635 Phase 1). When a fresh reading exists it
+///    becomes the headline `cpu_temperature` and is prepended to the
+///    sensor list as "CPU Package".
+/// 2. **ACPI thermal zones** via WMI (#1633) — always listed, and the
+///    headline fallback whenever PawnIO is unavailable (driver absent,
+///    unsupported CPU, stale reading): a CPU-named zone when one
+///    exists, otherwise the hottest zone — see
+///    [`crate::utils::thermal::select_cpu_temperature`].
 #[cfg(target_os = "windows")]
 pub fn sample_temperatures() -> TemperatureSample {
-  use crate::infrastructure::providers::thermal_zone;
+  use crate::infrastructure::providers::{pawnio_cpu_temp, thermal_zone};
 
   thermal_zone::init_thermal_zone_sampler();
-  let sensor_temperatures = thermal_zone::read_thermal_zones_cached();
-  let cpu_temperature =
-    crate::utils::thermal::select_cpu_temperature(&sensor_temperatures);
+  pawnio_cpu_temp::init_pawnio_cpu_temp_sampler();
+
+  let mut sensor_temperatures = thermal_zone::read_thermal_zones_cached();
+  let package_temperature = pawnio_cpu_temp::read_cpu_package_temperature_cached();
+
+  let cpu_temperature = package_temperature
+    .or_else(|| crate::utils::thermal::select_cpu_temperature(&sensor_temperatures));
+
+  if let Some(celsius) = package_temperature {
+    sensor_temperatures.insert(
+      0,
+      SensorTemperature {
+        name: pawnio_cpu_temp::CPU_PACKAGE_SENSOR_NAME.to_string(),
+        temperature: celsius,
+      },
+    );
+  }
 
   TemperatureSample {
     cpu_temperature,

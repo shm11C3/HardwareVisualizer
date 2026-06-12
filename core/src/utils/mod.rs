@@ -1,3 +1,4 @@
+pub mod cpu_thermal;
 pub mod formatter;
 pub mod ip;
 pub mod logger;

@@ -1,7 +1,10 @@
 pub mod adl_provider;
 pub mod device_io;
 pub mod directx;
+pub mod named_mutex;
 pub mod nvapi_provider;
+pub mod pawnio;
+pub mod pawnio_cpu_temp;
 pub mod pdh_provider;
 pub mod setupdi_provider;
 pub mod smart;
