@@ -1,7 +1,10 @@
 pub mod adl_provider;
+pub mod cpu_temperature;
+mod cpu_temperature_decode;
 pub mod device_io;
 pub mod directx;
 pub mod nvapi_provider;
+mod pawn_io;
 pub mod pdh_provider;
 pub mod setupdi_provider;
 pub mod smart;
