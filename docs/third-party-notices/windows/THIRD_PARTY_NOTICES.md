@@ -970,28 +970,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/number@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `number`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/number
-# or
-$ npm install @radix-ui/number
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/primitive@1.1.3
+## @radix-ui/number@1.1.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1020,7 +999,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-accordion@1.2.12
+## @radix-ui/primitive@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1049,7 +1028,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-alert-dialog@1.1.15
+## @radix-ui/react-accordion@1.2.13
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1078,7 +1057,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-arrow@1.1.7
+## @radix-ui/react-alert-dialog@1.1.16
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1107,7 +1086,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-checkbox@1.3.3
+## @radix-ui/react-arrow@1.1.9
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1136,7 +1115,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collapsible@1.1.12
+## @radix-ui/react-checkbox@1.3.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1165,7 +1144,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collection@1.1.7
+## @radix-ui/react-collapsible@1.1.13
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1194,49 +1173,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-compose-refs@1.1.2
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-compose-refs`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-compose-refs
-# or
-$ npm install @radix-ui/react-compose-refs
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-context@1.1.2
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-context`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-context
-# or
-$ npm install @radix-ui/react-context
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-context@1.1.3
+## @radix-ui/react-collection@1.1.9
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1265,7 +1202,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dialog@1.1.15
+## @radix-ui/react-compose-refs@1.1.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1294,28 +1231,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-direction@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-direction`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-direction
-# or
-$ npm install @radix-ui/react-direction
-`` ``` ``
-
-## Usage
-
-View docs [here](https://radix-ui.com/primitives/docs/utilities/direction).
-```
-
-## @radix-ui/react-dismissable-layer@1.1.11
+## @radix-ui/react-context@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1344,7 +1260,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dropdown-menu@2.1.16
+## @radix-ui/react-dialog@1.1.16
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1373,7 +1289,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-focus-guards@1.1.3
+## @radix-ui/react-direction@1.1.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1402,7 +1318,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-focus-scope@1.1.7
+## @radix-ui/react-dismissable-layer@1.1.12
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1431,28 +1347,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-id@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-id`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-id
-# or
-$ npm install @radix-ui/react-id
-`` ``` ``
-
-## Usage
-
-View docs [here](https://radix-ui.com/primitives/docs/utilities/id-provider).
-```
-
-## @radix-ui/react-label@2.1.8
+## @radix-ui/react-dropdown-menu@2.1.17
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1481,7 +1376,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-menu@2.1.16
+## @radix-ui/react-focus-guards@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1510,7 +1405,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-popper@1.2.8
+## @radix-ui/react-focus-scope@1.1.9
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1539,7 +1434,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-portal@1.1.9
+## @radix-ui/react-id@1.1.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1568,7 +1463,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-presence@1.1.5
+## @radix-ui/react-label@2.1.9
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1597,7 +1492,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-primitive@2.1.3
+## @radix-ui/react-menu@2.1.17
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1626,7 +1521,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-primitive@2.1.4
+## @radix-ui/react-popper@1.3.0
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1655,7 +1550,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-progress@1.1.8
+## @radix-ui/react-portal@1.1.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1684,7 +1579,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-radio-group@1.3.8
+## @radix-ui/react-presence@1.1.6
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1713,7 +1608,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-roving-focus@1.1.11
+## @radix-ui/react-primitive@2.1.5
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1742,7 +1637,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-scroll-area@1.2.10
+## @radix-ui/react-progress@1.1.9
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1771,7 +1666,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-select@2.2.6
+## @radix-ui/react-radio-group@1.4.0
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1800,7 +1695,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slider@1.3.6
+## @radix-ui/react-roving-focus@1.1.12
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1829,7 +1724,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slot@1.2.3
+## @radix-ui/react-scroll-area@1.2.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1858,7 +1753,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slot@1.2.4
+## @radix-ui/react-select@2.3.0
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1887,7 +1782,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-switch@1.2.6
+## @radix-ui/react-slider@1.4.0
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1916,7 +1811,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tabs@1.1.13
+## @radix-ui/react-slot@1.2.5
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1945,7 +1840,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tooltip@1.2.8
+## @radix-ui/react-switch@1.3.0
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1974,28 +1869,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-callback-ref@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-use-callback-ref`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-use-callback-ref
-# or
-$ npm install @radix-ui/react-use-callback-ref
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-use-controllable-state@1.2.2
+## @radix-ui/react-tabs@1.1.14
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2024,7 +1898,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-effect-event@0.0.2
+## @radix-ui/react-tooltip@1.2.9
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2053,112 +1927,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-escape-keydown@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-use-escape-keydown`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-use-escape-keydown
-# or
-$ npm install @radix-ui/react-use-escape-keydown
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-use-layout-effect@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-use-layout-effect`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-use-layout-effect
-# or
-$ npm install @radix-ui/react-use-layout-effect
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-use-previous@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-use-previous`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-use-previous
-# or
-$ npm install @radix-ui/react-use-previous
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-use-rect@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-use-rect`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-use-rect
-# or
-$ npm install @radix-ui/react-use-rect
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-use-size@1.1.1
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-# `react-use-size`
-
-## Installation
-
-`` ``` ``sh
-$ yarn add @radix-ui/react-use-size
-# or
-$ npm install @radix-ui/react-use-size
-`` ``` ``
-
-## Usage
-
-This is an internal utility, not intended for public usage.
-```
-
-## @radix-ui/react-visually-hidden@1.2.3
+## @radix-ui/react-use-callback-ref@1.1.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2187,7 +1956,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-visually-hidden@1.2.4
+## @radix-ui/react-use-controllable-state@1.2.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2216,25 +1985,236 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/rect@1.1.1
+## @radix-ui/react-use-effect-event@0.0.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
 
 ```LICENSE
-# `rect`
+MIT License
 
-## Installation
+Copyright (c) 2022 WorkOS
 
-`` ``` ``sh
-$ yarn add @radix-ui/rect
-# or
-$ npm install @radix-ui/rect
-`` ``` ``
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-## Usage
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-This is an internal utility, not intended for public usage.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/react-use-escape-keydown@1.1.2
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/react-use-layout-effect@1.1.2
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/react-use-previous@1.1.2
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/react-use-rect@1.1.2
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/react-use-size@1.1.2
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/react-visually-hidden@1.2.5
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @radix-ui/rect@1.1.2
+
+- License: MIT
+- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
+
+```LICENSE
+MIT License
+
+Copyright (c) 2022 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## @reduxjs/toolkit@2.12.0
@@ -2874,7 +2854,7 @@ MIT License
     SOFTWARE
 ```
 
-## @types/react@19.2.15
+## @types/react@19.2.17
 
 - License: MIT
 - Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
@@ -2963,7 +2943,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## baseline-browser-mapping@2.10.33
+## baseline-browser-mapping@2.10.34
 
 - License: Apache-2.0
 - Repository: [https://github.com/web-platform-dx/baseline-browser-mapping](https://github.com/web-platform-dx/baseline-browser-mapping)
@@ -3202,7 +3182,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## caniuse-lite@1.0.30001793
+## caniuse-lite@1.0.30001797
 
 - License: CC-BY-4.0
 - Repository: [https://github.com/browserslist/caniuse-lite](https://github.com/browserslist/caniuse-lite)
@@ -4234,7 +4214,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## electron-to-chromium@1.5.364
+## electron-to-chromium@1.5.368
 
 - License: ISC
 - Repository: [https://github.com/Kilian/electron-to-chromium](https://github.com/Kilian/electron-to-chromium)
@@ -4570,7 +4550,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@26.3.0
+## i18next@26.3.1
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4913,7 +4893,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## node-releases@2.0.46
+## node-releases@2.0.47
 
 - License: MIT
 - Repository: [https://github.com/chicoxyzzy/node-releases](https://github.com/chicoxyzzy/node-releases)
@@ -4968,7 +4948,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## react-dom@19.2.6
+## react-dom@19.2.7
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -5027,7 +5007,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.76.1
+## react-hook-form@7.77.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
@@ -5089,7 +5069,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-is@19.2.6
+## react-is@19.2.7
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
@@ -5272,7 +5252,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react@19.2.6
+## react@19.2.7
 
 - License: MIT
 - Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
