@@ -162,8 +162,9 @@
     },
     "actions": {
       "openDetails": "Open details",
-      "later": "Later",
-      "acknowledge": "OK"
+      "hide": "Hide",
+      "hideThisSession": "Hide for this session",
+      "neverShowAgain": "Never show again"
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
@@ -398,7 +399,10 @@
       "advanced": {
         "name": "Расширенные",
         "showGpuUsageSource": "Показывать источник данных ГП",
-        "showGpuUsageSourceDescription": "Отображать на главной панели источник данных (NVAPI, ADL, WMI и т.д.), используемый для получения информации о загрузке ГП."
+        "showGpuUsageSourceDescription": "Отображать на главной панели источник данных (NVAPI, ADL, WMI и т.д.), используемый для получения информации о загрузке ГП.",
+        "externalComponents": "External components",
+        "externalComponentsDescription": "View setup guidance for optional components such as PawnIO and smartctl.",
+        "openExternalComponentsDocs": "Open docs"
       }
     },
     "updater": {

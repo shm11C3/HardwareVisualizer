@@ -1,10 +1,8 @@
-import { ExternalLinkIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, EyeOffIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -12,6 +10,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
@@ -86,7 +90,7 @@ export const ExternalComponentGuidanceDialog = ({
     setCandidates((current) => current.filter((item) => item.key !== key));
   };
 
-  const handleAcknowledge = async () => {
+  const handleNeverShowAgain = async () => {
     if (!candidate) return;
 
     const result = await commands.acknowledgeExternalComponentGuidanceKey(
@@ -172,12 +176,23 @@ export const ExternalComponentGuidanceDialog = ({
             <ExternalLinkIcon className="size-4" />
             {t("externalComponentGuidance.actions.openDetails")}
           </Button>
-          <AlertDialogCancel onClick={handleLater}>
-            {t("externalComponentGuidance.actions.later")}
-          </AlertDialogCancel>
-          <AlertDialogAction onClick={handleAcknowledge}>
-            {t("externalComponentGuidance.actions.acknowledge")}
-          </AlertDialogAction>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="secondary">
+                <EyeOffIcon className="size-4" />
+                {t("externalComponentGuidance.actions.hide")}
+                <ChevronDownIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => void handleLater()}>
+                {t("externalComponentGuidance.actions.hideThisSession")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleNeverShowAgain()}>
+                {t("externalComponentGuidance.actions.neverShowAgain")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

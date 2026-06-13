@@ -173,8 +173,9 @@
     },
     "actions": {
       "openDetails": "詳細を開く",
-      "later": "あとで",
-      "acknowledge": "了解"
+      "hide": "表示しない",
+      "hideThisSession": "このセッションでは表示しない",
+      "neverShowAgain": "二度と表示しない"
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
@@ -428,7 +429,10 @@
       "advanced": {
         "name": "高度な設定",
         "showGpuUsageSource": "GPU使用率の取得ソースを表示",
-        "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。"
+        "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。",
+        "externalComponents": "外部コンポーネント",
+        "externalComponentsDescription": "PawnIO や smartctl などの任意コンポーネントの導入手順を確認します。",
+        "openExternalComponentsDocs": "ドキュメントを開く"
       }
     },
     "updater": {

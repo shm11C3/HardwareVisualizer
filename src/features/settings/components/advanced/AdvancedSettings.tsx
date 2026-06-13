@@ -1,8 +1,12 @@
+import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
+import { EXTERNAL_COMPONENT_DOCS_BASE_URL } from "@/components/shared/externalComponentGuidance";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useTauriStore } from "@/hooks/useTauriStore";
+import { openURL } from "@/lib/openUrl";
 
 export const AdvancedSettings = () => {
   const { t } = useTranslation();
@@ -36,6 +40,25 @@ export const AdvancedSettings = () => {
           ) : (
             <Skeleton className="h-6 w-11 rounded-full" />
           )}
+        </div>
+        <div className="flex w-full flex-col items-start gap-4 py-6 sm:flex-row sm:items-center sm:justify-between xl:w-1/2">
+          <div className="space-y-0.5">
+            <Label className="text-lg">
+              {t("pages.settings.advanced.externalComponents")}
+            </Label>
+            <p className="text-muted-foreground text-sm">
+              {t("pages.settings.advanced.externalComponentsDescription")}
+            </p>
+          </div>
+
+          <Button
+            onClick={() => openURL(EXTERNAL_COMPONENT_DOCS_BASE_URL)}
+            type="button"
+            variant="secondary"
+          >
+            {t("pages.settings.advanced.openExternalComponentsDocs")}
+            <ArrowSquareOutIcon size={16} />
+          </Button>
         </div>
       </div>
     </div>

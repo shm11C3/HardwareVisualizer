@@ -4,7 +4,7 @@ import type {
 } from "@/rspc/bindings";
 import type { SelectedDisplayType } from "@/types/ui";
 
-const EXTERNAL_COMPONENT_DOCS_BASE_URL =
+export const EXTERNAL_COMPONENT_DOCS_BASE_URL =
   "https://github.com/shm11C3/HardwareVisualizer/blob/develop/docs/user/external-components.md";
 
 const EXTERNAL_COMPONENT_DOCS_URLS: Record<string, string> = {

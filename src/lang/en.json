@@ -173,8 +173,9 @@
     },
     "actions": {
       "openDetails": "Open details",
-      "later": "Later",
-      "acknowledge": "OK"
+      "hide": "Hide",
+      "hideThisSession": "Hide for this session",
+      "neverShowAgain": "Never show again"
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
@@ -428,7 +429,10 @@
       "advanced": {
         "name": "Advanced",
         "showGpuUsageSource": "Show GPU Usage Source",
-        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard."
+        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard.",
+        "externalComponents": "External components",
+        "externalComponentsDescription": "View setup guidance for optional components such as PawnIO and smartctl.",
+        "openExternalComponentsDocs": "Open docs"
       }
     },
     "updater": {
