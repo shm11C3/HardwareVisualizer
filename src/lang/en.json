@@ -392,7 +392,11 @@
       "advanced": {
         "name": "Advanced",
         "showGpuUsageSource": "Show GPU Usage Source",
-        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard."
+        "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard.",
+        "elevatedStartupMode": {
+          "name": "Run as administrator on startup",
+          "description": "Start HardwareVisualizer with administrator privileges for sensors that require elevated access. Enabling this restarts the app after Windows approval."
+        }
       }
     },
     "updater": {

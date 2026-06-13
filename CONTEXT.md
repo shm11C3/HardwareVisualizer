@@ -80,6 +80,10 @@ _Avoid_: Close to Tray, tray setting, tray
 The window-close behavior where the app stays running in the system tray instead of exiting.
 _Avoid_: Tray Widget, tray setting, minimize to tray
 
+**Elevated Startup Mode**:
+A user preference for starting HardwareVisualizer with operating-system administrator privileges so privileged hardware access stays available across launches.
+_Avoid_: Admin mode, privileged core mode, installer option
+
 **Burn-in Shift**:
 A display-protection feature that subtly moves long-lived UI content over time.
 _Avoid_: Screen saver, layout animation, window positioning

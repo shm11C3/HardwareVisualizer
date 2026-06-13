@@ -231,6 +231,7 @@ impl models::settings::Settings {
     try_field!(text_selectable, "textSelectable");
     try_field!(close_to_tray, "closeToTray");
     try_field!(close_to_tray_choice_made, "closeToTrayChoiceMade");
+    try_field!(elevated_startup_mode, "elevatedStartupMode");
     try_field!(tray_widget, "trayWidget");
 
     Ok(())
@@ -482,6 +483,30 @@ impl models::settings::Settings {
     self.close_to_tray_choice_made = true;
     self.write_file()
   }
+
+  pub fn set_elevated_startup_mode(&mut self, new_value: bool) -> Result<(), String> {
+    self
+      .set_elevated_startup_mode_with_writer(new_value, |settings| settings.write_file())
+  }
+
+  fn set_elevated_startup_mode_with_writer<F>(
+    &mut self,
+    new_value: bool,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_value = self.elevated_startup_mode;
+    self.elevated_startup_mode = new_value;
+
+    if let Err(e) = write_file(self) {
+      self.elevated_startup_mode = previous_value;
+      return Err(e);
+    }
+
+    Ok(())
+  }
 }
 
 fn clamp_loaded_settings(settings: &mut models::settings::Settings) {
@@ -505,6 +530,45 @@ mod tests {
 
     assert_eq!(settings.window_opacity, MIN_WINDOW_OPACITY);
     assert_eq!(settings.glass_blur, MAX_GLASS_BLUR);
+  }
+
+  #[test]
+  fn merge_from_json_str_recovers_elevated_startup_mode() {
+    let mut settings = models::settings::Settings::default();
+
+    settings
+      .merge_from_json_str(r#"{"elevatedStartupMode":true}"#)
+      .unwrap();
+
+    assert!(settings.elevated_startup_mode);
+  }
+
+  #[test]
+  fn set_elevated_startup_mode_persists_when_writer_succeeds() {
+    let mut settings = models::settings::Settings::default();
+    let mut persisted_value = false;
+
+    settings
+      .set_elevated_startup_mode_with_writer(true, |next_settings| {
+        persisted_value = next_settings.elevated_startup_mode;
+        Ok(())
+      })
+      .unwrap();
+
+    assert!(settings.elevated_startup_mode);
+    assert!(persisted_value);
+  }
+
+  #[test]
+  fn set_elevated_startup_mode_restores_value_when_writer_fails() {
+    let mut settings = models::settings::Settings::default();
+
+    let err = settings
+      .set_elevated_startup_mode_with_writer(true, |_| Err("write failed".to_string()))
+      .unwrap_err();
+
+    assert_eq!(err, "write failed");
+    assert!(!settings.elevated_startup_mode);
   }
 
   #[test]

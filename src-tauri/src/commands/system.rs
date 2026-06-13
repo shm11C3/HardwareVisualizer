@@ -5,6 +5,13 @@ pub async fn restart_app(app_handle: tauri::AppHandle) {
   crate::services::system_service::restart_app(&app_handle).await;
 }
 
+/// Returns whether the current process is running with administrator privileges.
+#[tauri::command]
+#[specta::specta]
+pub fn is_process_elevated() -> Result<bool, String> {
+  crate::services::system_service::is_process_elevated()
+}
+
 /// Stop monitoring and exit the process.
 ///
 /// Phase 5 (#1408): the explicit Quit path. Keep it gated to the

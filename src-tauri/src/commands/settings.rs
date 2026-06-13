@@ -155,6 +155,7 @@ pub mod commands {
       text_selectable: settings.text_selectable,
       close_to_tray: settings.close_to_tray,
       close_to_tray_choice_made: settings.close_to_tray_choice_made,
+      elevated_startup_mode: settings.elevated_startup_mode,
       tray_widget: settings.tray_widget.normalized(),
     };
 
@@ -677,6 +678,58 @@ pub mod commands {
     if let Err(e) = settings.set_close_to_tray_preference(new_value) {
       emit_error(&window)?;
       return Err(e);
+    }
+
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_elevated_startup_mode(
+    window: Window,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    {
+      let mut settings = state.settings.lock().unwrap();
+
+      if let Err(e) = settings.set_elevated_startup_mode(new_value) {
+        emit_error(&window)?;
+        return Err(e);
+      }
+    }
+
+    if new_value {
+      let is_elevated = match crate::services::system_service::is_process_elevated() {
+        Ok(is_elevated) => is_elevated,
+        Err(e) => {
+          let mut settings = state.settings.lock().unwrap();
+          if let Err(save_err) = settings.set_elevated_startup_mode(false) {
+            emit_error(&window)?;
+            return Err(format!(
+              "Failed to check administrator status: {e}; additionally failed to restore setting: {save_err}"
+            ));
+          }
+          return Err(format!("Failed to check administrator status: {e}"));
+        }
+      };
+
+      if !is_elevated {
+        match crate::services::system_service::restart_app_elevated(&app_handle).await {
+          Ok(()) => {}
+          Err(e) => {
+            let mut settings = state.settings.lock().unwrap();
+            if let Err(save_err) = settings.set_elevated_startup_mode(false) {
+              emit_error(&window)?;
+              return Err(format!(
+                "{e}; additionally failed to restore setting: {save_err}"
+              ));
+            }
+            return Err(e);
+          }
+        }
+      }
     }
 
     Ok(())

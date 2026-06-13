@@ -61,6 +61,7 @@ pub struct Settings {
   pub text_selectable: bool,
   pub close_to_tray: bool,
   pub close_to_tray_choice_made: bool,
+  pub elevated_startup_mode: bool,
   pub tray_widget: crate::tray::widget::TrayWidgetSettings,
 }
 
@@ -107,6 +108,7 @@ pub struct ClientSettings {
   pub text_selectable: bool,
   pub close_to_tray: bool,
   pub close_to_tray_choice_made: bool,
+  pub elevated_startup_mode: bool,
   pub tray_widget: crate::tray::widget::TrayWidgetSettings,
 }
 
@@ -148,6 +150,7 @@ impl Default for Settings {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     }
   }
@@ -293,6 +296,7 @@ mod tests {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
 
@@ -318,6 +322,7 @@ mod tests {
     assert!(serialized.contains("\"transparentUi\""));
     assert!(serialized.contains("\"windowOpacity\""));
     assert!(serialized.contains("\"glassBlur\""));
+    assert!(serialized.contains("\"elevatedStartupMode\""));
   }
 
   #[test]
@@ -407,6 +412,10 @@ mod tests {
     assert_eq!(settings.transparent_ui, defaults.transparent_ui);
     assert_eq!(settings.window_opacity, defaults.window_opacity);
     assert_eq!(settings.glass_blur, defaults.glass_blur);
+    assert_eq!(
+      settings.elevated_startup_mode,
+      defaults.elevated_startup_mode
+    );
   }
 
   #[test]

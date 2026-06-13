@@ -51,33 +51,6 @@ const TYPED_ERROR_IMPL: &str = r#"async function typedError<T, E>(result: Promis
 "#;
 
 pub fn run() {
-  let app_state = settings::AppState::new();
-
-  // Core-owned shared sensor history. App-side commands and the collector
-  // loop read/write through this store. Persistence no longer shares it —
-  // the archive worker subscribes to the EventBus instead (#1407).
-  let history_store = Arc::new(HistoryStore::new());
-
-  let core_settings = app_state.core_settings.lock().unwrap().clone();
-
-  let db_path = utils::file::get_app_data_dir("hv-database.db");
-  // Initialize Core's DB pool location once at process start. Core
-  // can't resolve the bundle identifier on its own, so App owns path
-  // resolution and hands the file path to
-  // `hardviz_core::infrastructure::database::db`. We don't care about
-  // the return value here: this is the first and only caller during
-  // App startup.
-  let _ = hardviz_core::infrastructure::database::db::init(db_path.clone());
-
-  let app_max_version = infrastructure::database::migration::get_max_migration_version();
-  let db_error = hardviz_core::persistence::preflight::check_db_compatibility(
-    &db_path,
-    app_max_version,
-  );
-  let is_db_ok = db_error.is_none();
-
-  let migrations = infrastructure::database::migration::get_migrations();
-
   let builder = Builder::<tauri::Wry>::new()
     .events(collect_events![models::hardware::HardwareMonitorUpdate,])
     .commands(collect_commands![
@@ -134,6 +107,7 @@ pub fn run() {
       settings::commands::set_text_selectable,
       settings::commands::set_tray_widget_settings,
       settings::commands::set_close_to_tray_preference,
+      settings::commands::set_elevated_startup_mode,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,
       settings::commands::open_license_file_path,
@@ -143,6 +117,7 @@ pub fn run() {
       background_image::delete_background_image,
       ui::set_decoration,
       system::restart_app,
+      system::is_process_elevated,
       system::quit_app,
       system::is_close_to_tray_available,
       system::mark_close_to_tray_listener_ready,
@@ -157,6 +132,34 @@ pub fn run() {
     .export(Typescript::default(), "../src/rspc/bindings.ts")
     .expect("Failed to export typescript bindings");
 
+  let app_state = settings::AppState::new();
+  let elevated_startup_mode = app_state.settings.lock().unwrap().elevated_startup_mode;
+
+  // Core-owned shared sensor history. App-side commands and the collector
+  // loop read/write through this store. Persistence no longer shares it; the
+  // archive worker subscribes to the EventBus instead (#1407).
+  let history_store = Arc::new(HistoryStore::new());
+
+  let core_settings = app_state.core_settings.lock().unwrap().clone();
+
+  let db_path = utils::file::get_app_data_dir("hv-database.db");
+  // Initialize Core's DB pool location once at process start. Core
+  // can't resolve the bundle identifier on its own, so App owns path
+  // resolution and hands the file path to
+  // `hardviz_core::infrastructure::database::db`. We don't care about
+  // the return value here: this is the first and only caller during
+  // App startup.
+  let _ = hardviz_core::infrastructure::database::db::init(db_path.clone());
+
+  let app_max_version = infrastructure::database::migration::get_max_migration_version();
+  let db_error = hardviz_core::persistence::preflight::check_db_compatibility(
+    &db_path,
+    app_max_version,
+  );
+  let is_db_ok = db_error.is_none();
+
+  let migrations = infrastructure::database::migration::get_migrations();
+
   let store_for_setup = Arc::clone(&history_store);
 
   let mut tauri_builder = tauri::Builder::<Wry>::default()
@@ -169,6 +172,21 @@ pub fn run() {
 
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
+
+      if elevated_startup_mode {
+        match services::system_service::relaunch_for_elevated_startup_if_needed(app.handle())
+        {
+          Ok(true) => return Ok(()),
+          Ok(false) => {}
+          Err(e) => {
+            log_warn!(
+              &format!("Elevated Startup Mode could not restart as administrator: {e}"),
+              "lib::setup",
+              None::<&str>
+            );
+          }
+        }
+      }
 
       // Initialize UI and real-time monitoring (independent of DB)
       commands::ui::init(app);

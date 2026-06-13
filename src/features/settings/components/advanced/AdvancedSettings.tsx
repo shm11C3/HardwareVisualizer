@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useTauriStore } from "@/hooks/useTauriStore";
+import { ElevatedStartupModeToggle } from "./ElevatedStartupModeToggle";
 
 export const AdvancedSettings = () => {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ export const AdvancedSettings = () => {
         {t("pages.settings.advanced.name")}
       </h3>
       <div className="px-4">
+        <ElevatedStartupModeToggle />
         <div className="flex w-full items-center justify-between space-x-4 py-6 xl:w-1/3">
           <div className="space-y-0.5">
             <Label htmlFor="showGpuUsageSource" className="text-lg">

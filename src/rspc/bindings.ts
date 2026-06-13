@@ -145,6 +145,7 @@ export const commands = {
 	setTextSelectable: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_text_selectable", { newValue })),
 	setTrayWidgetSettings: (newValue: TrayWidgetSettings_Deserialize) => typedError<null, string>(__TAURI_INVOKE("set_tray_widget_settings", { newValue })),
 	setCloseToTrayPreference: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_close_to_tray_preference", { newValue })),
+	setElevatedStartupMode: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_elevated_startup_mode", { newValue })),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
 	openLicenseFilePath: () => typedError<null, string>(__TAURI_INVOKE("open_license_file_path")),
@@ -177,6 +178,8 @@ export const commands = {
 	setDecoration: (isDecorated: boolean) => typedError<null, string>(__TAURI_INVOKE("set_decoration", { isDecorated })),
 	// Restart the application
 	restartApp: () => __TAURI_INVOKE<void>("restart_app"),
+	// Returns whether the current process is running with administrator privileges.
+	isProcessElevated: () => typedError<boolean, string>(__TAURI_INVOKE("is_process_elevated")),
 	/**
 	 *  Stop monitoring and exit the process.
 	 * 
@@ -265,6 +268,7 @@ export type ClientSettings_Deserialize = {
 	textSelectable: boolean,
 	closeToTray: boolean,
 	closeToTrayChoiceMade: boolean,
+	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Deserialize,
 };
 
@@ -298,6 +302,7 @@ export type ClientSettings_Serialize = {
 	textSelectable: boolean,
 	closeToTray: boolean,
 	closeToTrayChoiceMade: boolean,
+	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Serialize,
 };
 

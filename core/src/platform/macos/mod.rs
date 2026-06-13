@@ -2,6 +2,7 @@ use crate::enums::error::BackendError;
 use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo};
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+  ProcessElevationPlatform,
 };
 use std::future::Future;
 use std::pin::Pin;
@@ -96,6 +97,16 @@ impl MotherboardPlatform for MacOSPlatform {
     Box::pin(async {
       Err("get_motherboard_info is not implemented for MacOSPlatform".to_string())
     })
+  }
+}
+
+impl ProcessElevationPlatform for MacOSPlatform {
+  fn is_process_elevated(&self) -> Result<bool, String> {
+    Ok(false)
+  }
+
+  fn relaunch_current_process_elevated(&self) -> Result<(), String> {
+    Err("Elevated Startup Mode is only supported on Windows.".to_string())
   }
 }
 

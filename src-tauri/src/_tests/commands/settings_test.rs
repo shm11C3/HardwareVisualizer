@@ -46,6 +46,7 @@ mod tests {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
 
@@ -88,6 +89,10 @@ mod tests {
     assert_eq!(settings.window_opacity, expected.window_opacity);
     assert_eq!(settings.glass_blur, expected.glass_blur);
     assert_eq!(settings.temperature_unit, expected.temperature_unit);
+    assert_eq!(
+      settings.elevated_startup_mode,
+      expected.elevated_startup_mode
+    );
   }
 
   #[test]
