@@ -16,8 +16,22 @@ Required components:
 - A working PawnIO driver installation that `pawnio_open` can open.
 - `PawnIOLib.dll`, loaded dynamically from the existing installation.
 - One CPU-specific PawnIO module blob:
-  - Intel package temperature path: `IntelMSR.amx`.
-  - AMD Family 17h / 19h package temperature path: `RyzenSMU.amx`.
+  - Intel package temperature path: `IntelMSR.amx` or `IntelMSR.bin`.
+  - AMD Family 17h / 19h package temperature path: `RyzenSMU.amx` or
+    `RyzenSMU.bin`.
+
+The collector prefers the implementation-ready spec names (`*.amx`) and then
+falls back to the installed module names observed during local validation
+(`*.bin`). The module extension is an operational compatibility detail only; it
+does not change the CPU register decode path.
+
+The process that opens PawnIO must have enough Windows privileges to access the
+driver. On the local Phase 1 validation machine, the `PawnIO` kernel driver
+service was installed and running, but a non-elevated process still failed at
+`pawnio_open` with `0x80070005`. Running the same probe elevated allowed the
+driver open, module load, and CPU package temperature sample to succeed. Until
+HardwareVisualizer has an elevated helper or service, users should expect to run
+the app as administrator for PawnIO-backed CPU package temperature collection.
 
 The current collector searches these locations:
 
@@ -38,8 +52,8 @@ unavailable reason instead of publishing a CPU temperature. Example reasons
 include:
 
 - `PawnIOLib.dll not found`.
-- `IntelMSR.amx not found`.
-- `RyzenSMU.amx not found`.
+- `IntelMSR.amx or IntelMSR.bin not found`.
+- `RyzenSMU.amx or RyzenSMU.bin not found`.
 - `pawnio_open failed: ...`.
 - `pawnio_load failed: ...`.
 
@@ -48,15 +62,15 @@ include:
 The Phase 1 implementation only uses read-only CPU package temperature paths:
 
 - Intel: `MSR_TEMPERATURE_TARGET` and `IA32_PACKAGE_THERM_STATUS` through
-  `IntelMSR.amx`.
-- AMD: SMN `0x00059800` through `RyzenSMU.amx`, enabled only for Family 17h and
+  `IntelMSR`.
+- AMD: SMN `0x00059800` through `RyzenSMU`, enabled only for Family 17h and
   Family 19h.
 
 The following are not covered by this runtime checklist or by the Phase 1
 implementation:
 
 - Installing PawnIO.
-- Bundling `PawnIOLib.dll` or `*.amx` module blobs.
+- Bundling `PawnIOLib.dll` or module blobs.
 - Driver installer integration or bootstrapper work.
 - AMD Family 1Ah / Zen 5 enablement.
 - AMD per-CCD temperatures or SMU PM-table metrics.

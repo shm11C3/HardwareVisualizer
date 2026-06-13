@@ -9,13 +9,16 @@ use windows::Win32::Foundation::{
   CloseHandle, HANDLE, WAIT_ABANDONED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 use windows::Win32::System::Threading::{
-  CreateMutexW, ReleaseMutex, WaitForSingleObject,
+  CreateMutexW, MUTEX_MODIFY_STATE, OpenMutexW, ReleaseMutex,
+  SYNCHRONIZATION_SYNCHRONIZE, WaitForSingleObject,
 };
 use windows::core::PCWSTR;
 
 const PAWNIO_DLL_NAME: &str = "PawnIOLib.dll";
 const INTEL_MSR_MODULE_FILE: &str = "IntelMSR.amx";
+const INTEL_MSR_LEGACY_MODULE_FILE: &str = "IntelMSR.bin";
 const RYZEN_SMU_MODULE_FILE: &str = "RyzenSMU.amx";
+const RYZEN_SMU_LEGACY_MODULE_FILE: &str = "RyzenSMU.bin";
 
 pub(crate) const ACCESS_PCI_MUTEX: &str = "Global\\Access_PCI";
 
@@ -26,11 +29,15 @@ pub(crate) enum PawnIoModule {
 }
 
 impl PawnIoModule {
-  fn file_name(&self) -> &'static str {
+  fn file_names(&self) -> &'static [&'static str] {
     match self {
-      Self::IntelMsr => INTEL_MSR_MODULE_FILE,
-      Self::RyzenSmu => RYZEN_SMU_MODULE_FILE,
+      Self::IntelMsr => &[INTEL_MSR_MODULE_FILE, INTEL_MSR_LEGACY_MODULE_FILE],
+      Self::RyzenSmu => &[RYZEN_SMU_MODULE_FILE, RYZEN_SMU_LEGACY_MODULE_FILE],
     }
+  }
+
+  fn not_found_reason(&self) -> String {
+    format!("{} not found", self.file_names().join(" or "))
   }
 }
 
@@ -117,7 +124,7 @@ impl PawnIoClient {
     let module_path = match discovery.module_path.clone() {
       Some(path) => path,
       None => {
-        let reason = format!("{} not found", module.file_name());
+        let reason = module.not_found_reason();
         discovery.fallback_reason = Some(reason.clone());
         return Err(PawnIoInitError {
           discovery: Box::new(discovery),
@@ -298,8 +305,7 @@ pub(crate) struct NamedMutex {
 impl NamedMutex {
   pub(crate) fn acquire(name: &str, timeout: Duration) -> Result<Self, String> {
     let wide_name = wide_null(name);
-    let handle = unsafe { CreateMutexW(None, false, PCWSTR(wide_name.as_ptr())) }
-      .map_err(|e| format!("failed to create/open mutex {name}: {e:?}"))?;
+    let handle = open_or_create_mutex(name, PCWSTR(wide_name.as_ptr()))?;
     let wait = unsafe { WaitForSingleObject(handle, timeout.as_millis() as u32) };
     if wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED {
       Ok(Self {
@@ -326,16 +332,26 @@ impl Drop for NamedMutex {
   }
 }
 
+fn open_or_create_mutex(name: &str, wide_name: PCWSTR) -> Result<HANDLE, String> {
+  let access = MUTEX_MODIFY_STATE | SYNCHRONIZATION_SYNCHRONIZE;
+  match unsafe { OpenMutexW(access, false, wide_name) } {
+    Ok(handle) => Ok(handle),
+    Err(open_error) => unsafe { CreateMutexW(None, false, wide_name) }.map_err(|create_error| {
+      format!(
+        "failed to open/create mutex {name}: open={open_error:?}; create={create_error:?}"
+      )
+    }),
+  }
+}
+
 fn discover_pawnio_files(module: &PawnIoModule) -> PawnIoDiscovery {
   let mut discovery = PawnIoDiscovery::probe_install();
   let candidates = pawnio_install_candidates();
-  let module_path = candidates
-    .iter()
-    .find_map(|path| find_named_file(path, module.file_name(), 4));
+  let module_path = find_first_module_file(&candidates, module.file_names(), 4);
 
   discovery.module_path = module_path;
   if discovery.pawnio_available && discovery.module_path.is_none() {
-    discovery.fallback_reason = Some(format!("{} not found", module.file_name()));
+    discovery.fallback_reason = Some(module.not_found_reason());
   }
   discovery
 }
@@ -377,6 +393,18 @@ fn pawnio_install_location_from_registry() -> Option<PathBuf> {
       let value = line[index + "REG_SZ".len()..].trim();
       (!value.is_empty()).then(|| PathBuf::from(value))
     })
+}
+
+fn find_first_module_file(
+  roots: &[PathBuf],
+  file_names: &[&str],
+  max_depth: usize,
+) -> Option<PathBuf> {
+  file_names.iter().find_map(|file_name| {
+    roots
+      .iter()
+      .find_map(|root| find_named_file(root, file_name, max_depth))
+  })
 }
 
 fn find_named_file(root: &Path, file_name: &str, max_depth: usize) -> Option<PathBuf> {
