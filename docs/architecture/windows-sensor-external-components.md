@@ -30,8 +30,9 @@ driver. On the local Phase 1 validation machine, the `PawnIO` kernel driver
 service was installed and running, but a non-elevated process still failed at
 `pawnio_open` with `0x80070005`. Running the same probe elevated allowed the
 driver open, module load, and CPU package temperature sample to succeed. Until
-HardwareVisualizer has an elevated helper or service, users should expect to run
-the app as administrator for PawnIO-backed CPU package temperature collection.
+HardwareVisualizer has an elevated helper or service, users who want
+PawnIO-backed CPU package temperature collection across launches should enable
+Elevated Startup Mode so the whole app process starts as administrator.
 
 The current collector searches these locations:
 

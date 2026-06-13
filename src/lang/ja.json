@@ -392,7 +392,11 @@
       "advanced": {
         "name": "高度な設定",
         "showGpuUsageSource": "GPU使用率の取得ソースを表示",
-        "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。"
+        "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。",
+        "elevatedStartupMode": {
+          "name": "管理者として起動",
+          "description": "昇格が必要なセンサーを使えるように、HardwareVisualizer を管理者権限で起動します。有効にすると Windows の承認後にアプリを再起動します。"
+        }
       }
     },
     "updater": {
