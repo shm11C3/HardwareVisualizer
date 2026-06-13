@@ -4,6 +4,7 @@ use crate::commands::settings;
 use crate::models;
 use crate::services::external_component_guidance_service::{
   ExternalComponentGuidanceState, ExternalComponentGuidanceView,
+  normalize_external_component_guidance_key,
 };
 use tauri::command;
 
@@ -50,6 +51,7 @@ pub async fn defer_external_component_guidance_for_session(
   key: String,
   guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
 ) -> Result<(), String> {
+  let key = normalize_external_component_guidance_key(&key)?;
   guidance_state.defer_for_session(&key);
   Ok(())
 }

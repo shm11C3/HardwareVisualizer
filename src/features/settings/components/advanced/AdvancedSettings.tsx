@@ -5,15 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { openURL } from "@/lib/openUrl";
 
 export const AdvancedSettings = () => {
   const { t } = useTranslation();
+  const { error } = useTauriDialog();
   const [showGpuUsageSource, setShowGpuUsageSource, isPending] = useTauriStore(
     "showGpuUsageSource",
     false,
   );
+
+  const handleOpenExternalComponentDocs = async () => {
+    try {
+      await openURL(EXTERNAL_COMPONENT_DOCS_BASE_URL);
+    } catch (err) {
+      console.error("Failed to open external components documentation:", err);
+      await error(t("pages.settings.advanced.openExternalComponentsDocsError"));
+    }
+  };
 
   return (
     <div className="p-4">
@@ -52,7 +63,7 @@ export const AdvancedSettings = () => {
           </div>
 
           <Button
-            onClick={() => openURL(EXTERNAL_COMPONENT_DOCS_BASE_URL)}
+            onClick={() => void handleOpenExternalComponentDocs()}
             type="button"
             variant="secondary"
           >

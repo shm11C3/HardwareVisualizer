@@ -1,5 +1,6 @@
 use crate::enums;
 use crate::models;
+use crate::services::external_component_guidance_service::normalize_external_component_guidance_key;
 use crate::utils;
 use crate::{log_error, log_info};
 use std::io::Write;
@@ -488,16 +489,21 @@ impl models::settings::Settings {
     &mut self,
     key: String,
   ) -> Result<(), String> {
-    let key = key.trim().to_string();
-    if !key.is_empty()
-      && !self
-        .external_component_guidance
-        .acknowledged_keys
-        .contains(&key)
+    let key = normalize_external_component_guidance_key(&key)?;
+    if self
+      .external_component_guidance
+      .acknowledged_keys
+      .contains(&key)
     {
-      self.external_component_guidance.acknowledged_keys.push(key);
+      return self.write_file();
     }
-    self.write_file()
+
+    let mut next = self.clone();
+    next.external_component_guidance.acknowledged_keys.push(key);
+    next.write_file()?;
+    *self = next;
+
+    Ok(())
   }
 }
 

@@ -432,7 +432,8 @@
         "showGpuUsageSourceDescription": "Display the data source (NVAPI, ADL, WMI, etc.) used to retrieve GPU usage on the dashboard.",
         "externalComponents": "External components",
         "externalComponentsDescription": "View setup guidance for optional components such as PawnIO and smartctl.",
-        "openExternalComponentsDocs": "Open docs"
+        "openExternalComponentsDocs": "Open docs",
+        "openExternalComponentsDocsError": "Failed to open external components documentation."
       }
     },
     "updater": {

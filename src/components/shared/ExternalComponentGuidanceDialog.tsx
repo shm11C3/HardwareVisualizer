@@ -57,19 +57,24 @@ export const ExternalComponentGuidanceDialog = ({
     let isCancelled = false;
 
     const loadCandidates = async () => {
-      const result =
-        await commands.getExternalComponentGuidanceCandidates(view);
-      if (isCancelled) return;
+      try {
+        const result =
+          await commands.getExternalComponentGuidanceCandidates(view);
+        if (isCancelled) return;
 
-      if (isError(result)) {
-        console.error(
-          "Failed to fetch external component guidance:",
-          result.error,
-        );
-        return;
+        if (isError(result)) {
+          console.error(
+            "Failed to fetch external component guidance:",
+            result.error,
+          );
+          return;
+        }
+
+        setCandidates(result.data);
+      } catch (err) {
+        if (isCancelled) return;
+        console.error("Failed to fetch external component guidance:", err);
       }
-
-      setCandidates(result.data);
     };
 
     void loadCandidates();
@@ -93,37 +98,47 @@ export const ExternalComponentGuidanceDialog = ({
   const handleNeverShowAgain = async () => {
     if (!candidate) return;
 
-    const result = await commands.acknowledgeExternalComponentGuidanceKey(
-      candidate.key,
-    );
-    if (isError(result)) {
-      console.error(
-        "Failed to acknowledge external component guidance:",
-        result.error,
+    try {
+      const result = await commands.acknowledgeExternalComponentGuidanceKey(
+        candidate.key,
       );
-      await error(t("externalComponentGuidance.errors.acknowledge"));
-      return;
-    }
+      if (isError(result)) {
+        console.error(
+          "Failed to acknowledge external component guidance:",
+          result.error,
+        );
+        await error(t("externalComponentGuidance.errors.acknowledge"));
+        return;
+      }
 
-    removeCandidate(candidate.key);
+      removeCandidate(candidate.key);
+    } catch (err) {
+      console.error("Failed to acknowledge external component guidance:", err);
+      await error(t("externalComponentGuidance.errors.acknowledge"));
+    }
   };
 
   const handleLater = async () => {
     if (!candidate) return;
 
-    const result = await commands.deferExternalComponentGuidanceForSession(
-      candidate.key,
-    );
-    if (isError(result)) {
-      console.error(
-        "Failed to defer external component guidance:",
-        result.error,
+    try {
+      const result = await commands.deferExternalComponentGuidanceForSession(
+        candidate.key,
       );
-      await error(t("externalComponentGuidance.errors.defer"));
-      return;
-    }
+      if (isError(result)) {
+        console.error(
+          "Failed to defer external component guidance:",
+          result.error,
+        );
+        await error(t("externalComponentGuidance.errors.defer"));
+        return;
+      }
 
-    removeCandidate(candidate.key);
+      removeCandidate(candidate.key);
+    } catch (err) {
+      console.error("Failed to defer external component guidance:", err);
+      await error(t("externalComponentGuidance.errors.defer"));
+    }
   };
 
   const handleOpenDetails = async () => {

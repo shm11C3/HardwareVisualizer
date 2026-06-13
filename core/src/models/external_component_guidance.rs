@@ -101,6 +101,7 @@ pub fn classify_external_component_reason(detail: &str) -> ExternalComponentReas
     || normalized.contains("no such file")
     || normalized.contains("cannot find")
     || normalized.contains("failed to execute")
+    || normalized.contains("not installed")
   {
     return ExternalComponentReasonKind::Missing;
   }
@@ -129,4 +130,17 @@ pub fn all_storage_health_signal_names() -> Vec<String> {
   .into_iter()
   .map(ToOwned::to_owned)
   .collect()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn classify_external_component_reason_treats_not_installed_as_missing() {
+    assert_eq!(
+      classify_external_component_reason("smartctl is not installed"),
+      ExternalComponentReasonKind::Missing
+    );
+  }
 }

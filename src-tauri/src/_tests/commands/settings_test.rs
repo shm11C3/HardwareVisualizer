@@ -90,6 +90,10 @@ mod tests {
     assert_eq!(settings.window_opacity, expected.window_opacity);
     assert_eq!(settings.glass_blur, expected.glass_blur);
     assert_eq!(settings.temperature_unit, expected.temperature_unit);
+    assert_eq!(
+      settings.external_component_guidance,
+      expected.external_component_guidance
+    );
   }
 
   #[test]

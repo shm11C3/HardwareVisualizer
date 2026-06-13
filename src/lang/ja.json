@@ -432,7 +432,8 @@
         "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。",
         "externalComponents": "外部コンポーネント",
         "externalComponentsDescription": "PawnIO や smartctl などの任意コンポーネントの導入手順を確認します。",
-        "openExternalComponentsDocs": "ドキュメントを開く"
+        "openExternalComponentsDocs": "ドキュメントを開く",
+        "openExternalComponentsDocsError": "外部コンポーネントのドキュメントを開けませんでした。"
       }
     },
     "updater": {

@@ -59,7 +59,9 @@ impl AppState {
 pub mod commands {
 
   use super::*;
-  use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
+  use crate::services::external_component_guidance_service::{
+    ExternalComponentGuidanceState, normalize_external_component_guidance_key,
+  };
   use crate::tray::widget::TrayWidgetSettings;
   use serde_json::json;
   use std::sync::Arc;
@@ -693,6 +695,7 @@ pub mod commands {
     guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
     key: String,
   ) -> Result<(), String> {
+    let key = normalize_external_component_guidance_key(&key)?;
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.acknowledge_external_component_guidance_key(key.clone()) {

@@ -15,6 +15,17 @@ pub enum ExternalComponentGuidanceView {
   StorageHealth,
 }
 
+pub(crate) fn normalize_external_component_guidance_key(
+  key: &str,
+) -> Result<String, String> {
+  let key = key.trim();
+  if key.is_empty() {
+    return Err("external component guidance key must not be empty".to_string());
+  }
+
+  Ok(key.to_string())
+}
+
 #[derive(Default)]
 pub struct ExternalComponentGuidanceState {
   pending: Mutex<BTreeMap<String, ExternalComponentGuidanceCandidate>>,
@@ -160,5 +171,19 @@ mod tests {
 
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0].key, "smartctl:storage-health:v1");
+  }
+
+  #[test]
+  fn normalize_external_component_guidance_key_trims_valid_keys() {
+    assert_eq!(
+      normalize_external_component_guidance_key(" pawnio:cpu-package-temperature:v1 ")
+        .unwrap(),
+      "pawnio:cpu-package-temperature:v1"
+    );
+  }
+
+  #[test]
+  fn normalize_external_component_guidance_key_rejects_empty_keys() {
+    assert!(normalize_external_component_guidance_key(" \t").is_err());
   }
 }
