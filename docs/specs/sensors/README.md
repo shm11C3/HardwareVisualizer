@@ -163,7 +163,7 @@ or unresolved blocking open question invalidates the flip.
 
 | Document | Covers | Issue phase | Status |
 | --- | --- | --- | --- |
-| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, blob distribution, licensing facts | Phase 1 | Implementation-ready (rev 3) |
+| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, blob distribution (signed `.bin`), elevation requirement, licensing facts | Phase 1 | Implementation-ready (rev 4) |
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 | Implementation-ready (rev 2) |
 | [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 3) |
 | [`superio-access.md`](superio-access.md) | Generic Super I/O configuration access, chip detection, ISA mutex | Phases 2–4 (mechanism) | Draft — not implementation-ready |
