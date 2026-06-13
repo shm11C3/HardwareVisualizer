@@ -59,8 +59,10 @@ impl AppState {
 pub mod commands {
 
   use super::*;
+  use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
   use crate::tray::widget::TrayWidgetSettings;
   use serde_json::json;
+  use std::sync::Arc;
   use tauri::{Emitter, EventTarget, Manager, Window};
 
   const ERROR_TITLE: &str = "Failed to update settings file";
@@ -155,6 +157,7 @@ pub mod commands {
       text_selectable: settings.text_selectable,
       close_to_tray: settings.close_to_tray,
       close_to_tray_choice_made: settings.close_to_tray_choice_made,
+      external_component_guidance: settings.external_component_guidance,
       tray_widget: settings.tray_widget.normalized(),
     };
 
@@ -678,6 +681,26 @@ pub mod commands {
       emit_error(&window)?;
       return Err(e);
     }
+
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn acknowledge_external_component_guidance_key(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
+    key: String,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.acknowledge_external_component_guidance_key(key.clone()) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    guidance_state.remove_key(&key);
 
     Ok(())
   }

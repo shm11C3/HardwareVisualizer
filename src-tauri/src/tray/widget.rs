@@ -393,6 +393,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     }
   }
 

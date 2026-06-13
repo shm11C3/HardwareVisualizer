@@ -15,7 +15,7 @@ use tauri_specta::Event as _;
 /// forwards each [`MetricsSnapshot`] to the main window as the existing
 /// [`HardwareMonitorUpdate`] Tauri event. This is the only place that
 /// translates Core events into a Tauri emit. It also applies the user's
-/// preferred temperature unit (`Celsius` / `Fahrenheit`) — the Core
+/// preferred temperature unit (`Celsius` / `Fahrenheit`) - the Core
 /// collector always publishes raw °C, and presentation conversion lives
 /// here at the App-side boundary.
 pub struct WindowAdapter {
@@ -85,6 +85,16 @@ impl WindowAdapter {
     if let Some(snapshot) = self.latest_snapshot.load() {
       emit_snapshot(app_handle, snapshot);
     }
+  }
+
+  pub fn latest_external_component_guidance_candidates(
+    &self,
+  ) -> Vec<hardviz_core::models::ExternalComponentGuidanceCandidate> {
+    self
+      .latest_snapshot
+      .load()
+      .map(|snapshot| snapshot.external_component_guidance_candidates)
+      .unwrap_or_default()
   }
 
   pub async fn terminate(self) {
@@ -228,6 +238,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     }
   }
 
@@ -241,6 +252,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_usage, 12.5);
@@ -264,6 +276,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus.len(), 2);
@@ -295,6 +308,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.gpus[0].gpu_temperature, Some(212.0));
@@ -318,6 +332,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.gpus[0].gpu_temperature, Some(66.0));
@@ -341,6 +356,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert!(update.gpus[0].gpu_usage.is_none());
@@ -368,6 +384,7 @@ mod tests {
           temperature: 40.0,
         },
       ],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.cpu_temperature, Some(122.0));
@@ -391,6 +408,7 @@ mod tests {
         name: "TZ00".into(),
         temperature: 49.6,
       }],
+      external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_temperature, Some(50.0));
@@ -448,6 +466,10 @@ mod tests {
   #[test]
   fn window_snapshot_omits_process_samples() {
     let mut snapshot = make_snapshot(1.0);
+    let candidate =
+      hardviz_core::models::ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
+        "PawnIOLib.dll not found".to_string(),
+      );
     snapshot
       .processes
       .push(hardviz_core::models::ProcessSample {
@@ -457,9 +479,16 @@ mod tests {
         memory_kb: 1024.0,
         run_time_secs: 60,
       });
+    snapshot
+      .external_component_guidance_candidates
+      .push(candidate.clone());
 
     let snapshot = to_window_snapshot(snapshot);
 
     assert!(snapshot.processes.is_empty());
+    assert_eq!(
+      snapshot.external_component_guidance_candidates,
+      vec![candidate]
+    );
   }
 }

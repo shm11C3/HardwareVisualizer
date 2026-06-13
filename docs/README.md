@@ -9,6 +9,7 @@ documentation.
 ## Main Entry Points
 
 - [Backend architecture](architecture/backend.md)
+- [External components](user/external-components.md)
 - [Windows sensor external components](architecture/windows-sensor-external-components.md)
 - [Architecture decision records](adr/)
 - [Sensor hardware specs (clean-room)](specs/sensors/)

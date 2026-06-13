@@ -164,6 +164,42 @@
     }
   },
 
+  "externalComponentGuidance": {
+    "title": "追加コンポーネントが必要です",
+    "labels": {
+      "missing": "何が不足しているか",
+      "impact": "何が取れないか",
+      "action": "ユーザーが何をすればよいか"
+    },
+    "actions": {
+      "openDetails": "詳細を開く",
+      "later": "あとで",
+      "acknowledge": "了解"
+    },
+    "candidates": {
+      "pawnioCpuPackageTemperature": {
+        "missing": "CPU パッケージ温度の取得に必要な PawnIO を利用できません。",
+        "impact": "ACPI fallback でも CPU 温度を取得できなかったため、CPU パッケージ温度を表示できません。",
+        "action": "PawnIO をインストールし、HardwareVisualizer を再起動してください。入手先と配置場所は詳細ページで確認できます。"
+      },
+      "smartctlStorageHealth": {
+        "missing": "Storage Health の取得に必要な smartctl を利用できないか、実行に失敗しました。",
+        "impact": "SMART 全体健康状態、温度、使用率、予備領域、セクター、メディアエラーなどの健康判定用 signal の一部を取得できません。",
+        "action": "smartmontools をインストールし、コマンドラインから smartctl を実行できるようにしてから HardwareVisualizer を再起動してください。"
+      },
+      "generic": {
+        "missing": "任意の外部コンポーネントを利用できません。",
+        "impact": "一部のハードウェア詳細を取得できません。",
+        "action": "詳細ページを開き、不足しているコンポーネントの導入手順を確認してください。"
+      }
+    },
+    "errors": {
+      "acknowledge": "この案内の設定を保存できませんでした。",
+      "defer": "このセッションで案内を非表示にできませんでした。",
+      "openDetails": "詳細ページを開けませんでした。"
+    }
+  },
+
   "pages": {
     "dashboard": {
       "name": "ダッシュボード",

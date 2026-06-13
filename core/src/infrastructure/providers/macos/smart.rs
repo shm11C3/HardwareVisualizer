@@ -1,21 +1,55 @@
 use crate::infrastructure::providers::smartctl::{self, SmartctlDevice};
+use crate::models::external_component_guidance::all_storage_health_signal_names;
 use crate::models::hardware::SmartDiskInfo;
+use crate::models::{ExternalComponentGuidanceCandidate, SmartInfoCollectionOutcome};
 use std::process::Command;
 
 pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
+  get_smart_info_with_guidance().disks
+}
+
+pub fn get_smart_info_with_guidance() -> SmartInfoCollectionOutcome {
   match smartctl::collect_smart_info_from_scan() {
-    Ok(disks) => Ok(disks),
+    Ok(disks) => SmartInfoCollectionOutcome {
+      disks: Ok(disks),
+      guidance_candidates: Vec::new(),
+    },
     Err(scan_error) => {
       let devices = diskutil_device_candidates();
       if devices.is_empty() {
-        return Err(scan_error);
+        return SmartInfoCollectionOutcome {
+          disks: Err(scan_error.clone()),
+          guidance_candidates: vec![
+            ExternalComponentGuidanceCandidate::smartctl_storage_health(
+              all_storage_health_signal_names(),
+              None,
+              scan_error,
+            ),
+          ],
+        };
       }
 
-      smartctl::collect_smart_info_from_devices(&devices).map_err(|fallback_error| {
-        format!(
-          "Failed to collect SMART info from smartctl scan ({scan_error}) and macOS diskutil candidates ({fallback_error})"
-        )
-      })
+      match smartctl::collect_smart_info_from_devices(&devices) {
+        Ok(disks) => SmartInfoCollectionOutcome {
+          disks: Ok(disks),
+          guidance_candidates: Vec::new(),
+        },
+        Err(fallback_error) => {
+          let detail = format!(
+            "Failed to collect SMART info from smartctl scan ({scan_error}) and macOS diskutil candidates ({fallback_error})"
+          );
+          SmartInfoCollectionOutcome {
+            disks: Err(detail.clone()),
+            guidance_candidates: vec![
+              ExternalComponentGuidanceCandidate::smartctl_storage_health(
+                all_storage_health_signal_names(),
+                None,
+                detail,
+              ),
+            ],
+          }
+        }
+      }
     }
   }
 }

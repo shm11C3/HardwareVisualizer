@@ -231,6 +231,7 @@ impl models::settings::Settings {
     try_field!(text_selectable, "textSelectable");
     try_field!(close_to_tray, "closeToTray");
     try_field!(close_to_tray_choice_made, "closeToTrayChoiceMade");
+    try_field!(external_component_guidance, "externalComponentGuidance");
     try_field!(tray_widget, "trayWidget");
 
     Ok(())
@@ -480,6 +481,22 @@ impl models::settings::Settings {
   pub fn set_close_to_tray_preference(&mut self, new_value: bool) -> Result<(), String> {
     self.close_to_tray = new_value;
     self.close_to_tray_choice_made = true;
+    self.write_file()
+  }
+
+  pub fn acknowledge_external_component_guidance_key(
+    &mut self,
+    key: String,
+  ) -> Result<(), String> {
+    let key = key.trim().to_string();
+    if !key.is_empty()
+      && !self
+        .external_component_guidance
+        .acknowledged_keys
+        .contains(&key)
+    {
+      self.external_component_guidance.acknowledged_keys.push(key);
+    }
     self.write_file()
   }
 }

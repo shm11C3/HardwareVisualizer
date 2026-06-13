@@ -46,6 +46,8 @@ mod tests {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      external_component_guidance:
+        models::settings::ExternalComponentGuidanceSettings::default(),
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
 

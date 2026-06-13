@@ -8,7 +8,10 @@
 //! Tauri `HardwareMonitorUpdate` event.
 
 use crate::collector::HistoryStore;
-use crate::models::{GpuMetric, MetricsSnapshot, ProcessSample, SensorTemperature};
+use crate::models::{
+  ExternalComponentGuidanceCandidate, GpuMetric, MetricsSnapshot, ProcessSample,
+  SensorTemperature,
+};
 
 /// One GPU sample collected per physical GPU. `None` means the metric is
 /// unavailable for this GPU vendor / platform.
@@ -36,6 +39,7 @@ pub struct TemperatureSample {
   pub cpu_temperature: Option<f32>,
   pub sensor_temperatures: Vec<SensorTemperature>,
   pub unavailable_reason: Option<String>,
+  pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
 }
 
 /// Read the latest CPU / sensor temperatures.
@@ -86,6 +90,7 @@ fn build_temperature_sample(
         cpu_temperature: Some(sample.temperature_celsius),
         sensor_temperatures,
         unavailable_reason: None,
+        guidance_candidates: Vec::new(),
       }
     }
     Err(pawnio_reason) => {
@@ -94,10 +99,21 @@ fn build_temperature_sample(
       let unavailable_reason = cpu_temperature.is_none().then(|| {
         format!("PawnIO unavailable ({pawnio_reason}); ACPI thermal zones unavailable")
       });
+      let guidance_candidates = unavailable_reason
+        .as_ref()
+        .map(|reason| {
+          vec![
+            ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
+              reason.clone(),
+            ),
+          ]
+        })
+        .unwrap_or_default();
       TemperatureSample {
         cpu_temperature,
         sensor_temperatures,
         unavailable_reason,
+        guidance_candidates,
       }
     }
   }
@@ -527,6 +543,9 @@ pub fn build_metrics_snapshot(
         temperature: s.temperature.round(),
       })
       .collect(),
+    external_component_guidance_candidates: temperature_sample
+      .guidance_candidates
+      .clone(),
   }
 }
 
@@ -692,6 +711,7 @@ mod tests {
         },
       ],
       unavailable_reason: None,
+      guidance_candidates: Vec::new(),
     };
     let snap = build_metrics_snapshot(&sys, &[], &temps);
     assert_eq!(snap.cpu_temperature, Some(50.0));
@@ -708,6 +728,31 @@ mod tests {
         },
       ]
     );
+  }
+
+  #[test]
+  fn snapshot_carries_external_component_guidance_candidates() {
+    let sys = SystemSample {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      processes: vec![],
+    };
+    let candidate = ExternalComponentGuidanceCandidate::pawnio_cpu_package_temperature(
+      "PawnIOLib.dll not found".to_string(),
+    );
+    let temps = TemperatureSample {
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
+      unavailable_reason: Some(
+        "PawnIO unavailable; ACPI thermal zones unavailable".to_string(),
+      ),
+      guidance_candidates: vec![candidate.clone()],
+    };
+
+    let snap = build_metrics_snapshot(&sys, &[], &temps);
+
+    assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
   }
 
   #[cfg(target_os = "windows")]
@@ -767,6 +812,39 @@ mod tests {
       sample.unavailable_reason.as_deref(),
       Some("PawnIO unavailable (pawnio_open failed); ACPI thermal zones unavailable")
     );
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_temperature_sample_returns_guidance_when_pawnio_and_acpi_fail() {
+    let sample =
+      build_temperature_sample(Err("PawnIOLib.dll not found".to_string()), Vec::new());
+
+    assert_eq!(sample.cpu_temperature, None);
+    assert_eq!(sample.guidance_candidates.len(), 1);
+    assert_eq!(
+      sample.guidance_candidates[0].key,
+      "pawnio:cpu-package-temperature:v1"
+    );
+    assert_eq!(
+      sample.guidance_candidates[0].missing_signals,
+      vec!["cpu-temperature".to_string()]
+    );
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_temperature_sample_does_not_return_guidance_when_acpi_fallback_succeeds() {
+    let sample = build_temperature_sample(
+      Err("PawnIOLib.dll not found".to_string()),
+      vec![SensorTemperature {
+        name: "CPUZ".into(),
+        temperature: 51.0,
+      }],
+    );
+
+    assert_eq!(sample.cpu_temperature, Some(51.0));
+    assert!(sample.guidance_candidates.is_empty());
   }
 
   // ── resolve_gpu_name_from_map ──
