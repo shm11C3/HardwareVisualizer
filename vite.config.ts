@@ -108,8 +108,8 @@ export default defineConfig(async ({ mode }) => ({
     port: 1520,
     strictPort: true,
     watch: {
-      // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell vite to ignore Rust sources and build artifacts
+      ignored: ["**/src-tauri/**", "**/target/**"],
     },
   },
   resolve: {
