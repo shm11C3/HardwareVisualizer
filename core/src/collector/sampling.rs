@@ -35,26 +35,71 @@ pub struct SystemSample {
 pub struct TemperatureSample {
   pub cpu_temperature: Option<f32>,
   pub sensor_temperatures: Vec<SensorTemperature>,
+  pub unavailable_reason: Option<String>,
 }
 
 /// Read the latest CPU / sensor temperatures.
 ///
-/// Windows: ACPI thermal zones via the WMI sampler thread (started on the
-/// first call). The headline CPU value picks a CPU-named zone when one
+/// Windows: prefer CPU package temperature from a supported PawnIO source,
+/// then fall back to ACPI thermal zones via the WMI sampler thread. When only
+/// ACPI is available, the headline CPU value picks a CPU-named zone when one
 /// exists, otherwise the hottest zone — see
 /// [`crate::utils::thermal::select_cpu_temperature`].
 #[cfg(target_os = "windows")]
 pub fn sample_temperatures() -> TemperatureSample {
-  use crate::infrastructure::providers::thermal_zone;
+  use crate::infrastructure::providers::{cpu_temperature, thermal_zone};
 
   thermal_zone::init_thermal_zone_sampler();
   let sensor_temperatures = thermal_zone::read_thermal_zones_cached();
-  let cpu_temperature =
-    crate::utils::thermal::select_cpu_temperature(&sensor_temperatures);
-
-  TemperatureSample {
-    cpu_temperature,
+  build_temperature_sample(
+    cpu_temperature::sample_cpu_package_temperature(),
     sensor_temperatures,
+  )
+}
+
+#[cfg(target_os = "windows")]
+fn build_temperature_sample(
+  pawnio_cpu_temperature: Result<
+    crate::infrastructure::providers::cpu_temperature::CpuPackageTemperature,
+    String,
+  >,
+  mut sensor_temperatures: Vec<SensorTemperature>,
+) -> TemperatureSample {
+  match pawnio_cpu_temperature {
+    Ok(sample) => {
+      sensor_temperatures.insert(
+        0,
+        SensorTemperature {
+          name: match sample.source {
+            crate::infrastructure::providers::cpu_temperature::CpuTemperatureSource::IntelDtsPackageMsr => {
+              "CPU Package (PawnIO Intel DTS)"
+            }
+            crate::infrastructure::providers::cpu_temperature::CpuTemperatureSource::AmdZenSmnTctl => {
+              "CPU Package (PawnIO AMD SMN)"
+            }
+          }
+          .to_string(),
+          temperature: sample.temperature_celsius,
+        },
+      );
+      TemperatureSample {
+        cpu_temperature: Some(sample.temperature_celsius),
+        sensor_temperatures,
+        unavailable_reason: None,
+      }
+    }
+    Err(pawnio_reason) => {
+      let cpu_temperature =
+        crate::utils::thermal::select_cpu_temperature(&sensor_temperatures);
+      let unavailable_reason = cpu_temperature.is_none().then(|| {
+        format!("PawnIO unavailable ({pawnio_reason}); ACPI thermal zones unavailable")
+      });
+      TemperatureSample {
+        cpu_temperature,
+        sensor_temperatures,
+        unavailable_reason,
+      }
+    }
   }
 }
 
@@ -646,6 +691,7 @@ mod tests {
           temperature: 40.2,
         },
       ],
+      unavailable_reason: None,
     };
     let snap = build_metrics_snapshot(&sys, &[], &temps);
     assert_eq!(snap.cpu_temperature, Some(50.0));
@@ -661,6 +707,65 @@ mod tests {
           temperature: 40.0,
         },
       ]
+    );
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_temperature_sample_prefers_pawnio_cpu_package() {
+    let sample = build_temperature_sample(
+      Ok(
+        crate::infrastructure::providers::cpu_temperature::CpuPackageTemperature {
+          temperature_celsius: 61.25,
+          source: crate::infrastructure::providers::cpu_temperature::CpuTemperatureSource::IntelDtsPackageMsr,
+        },
+      ),
+      vec![SensorTemperature {
+        name: "TZ00".into(),
+        temperature: 45.0,
+      }],
+    );
+
+    assert_eq!(sample.cpu_temperature, Some(61.25));
+    assert_eq!(
+      sample.sensor_temperatures[0].name,
+      "CPU Package (PawnIO Intel DTS)"
+    );
+    assert_eq!(sample.sensor_temperatures[0].temperature, 61.25);
+    assert!(sample.unavailable_reason.is_none());
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_temperature_sample_falls_back_to_acpi_cpu_zone() {
+    let sample = build_temperature_sample(
+      Err("PawnIOLib.dll not found".to_string()),
+      vec![
+        SensorTemperature {
+          name: "TZ00".into(),
+          temperature: 70.0,
+        },
+        SensorTemperature {
+          name: "CPUZ".into(),
+          temperature: 51.0,
+        },
+      ],
+    );
+
+    assert_eq!(sample.cpu_temperature, Some(51.0));
+    assert!(sample.unavailable_reason.is_none());
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_temperature_sample_returns_unavailable_reason_when_all_sources_fail() {
+    let sample =
+      build_temperature_sample(Err("pawnio_open failed".to_string()), Vec::new());
+
+    assert_eq!(sample.cpu_temperature, None);
+    assert_eq!(
+      sample.unavailable_reason.as_deref(),
+      Some("PawnIO unavailable (pawnio_open failed); ACPI thermal zones unavailable")
     );
   }
 

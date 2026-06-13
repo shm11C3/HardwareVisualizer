@@ -182,6 +182,10 @@ Core infrastructure contains lower-level external access used by Core:
 - `providers/`: OS, vendor, and system data providers. See
   [`core/README.md`](../../core/README.md) for Core-specific provider details.
 
+Windows sensor providers that depend on external runtime components, such as
+PawnIO and its CPU-specific module blobs, are documented in
+[`windows-sensor-external-components.md`](windows-sensor-external-components.md).
+
 ### Persistence (`core/src/persistence/`, `src-tauri/src/infrastructure/`)
 
 Persistence is split:
