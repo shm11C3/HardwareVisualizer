@@ -63,7 +63,8 @@
   GitHub Releases** — the repository README states "Signed builds can
   be found in Releases." This is the channel an end-user deployment
   must use, because the production driver loads signed modules only.
-  Latest release at authoring: **0.2.8 (2024-06-12)**. (S8)
+  Latest release at authoring: **0.2.8 (2026-06-12)**, verified
+  against the upstream git tag `0.2.8` (commit `754635b`). (S8)
 - The PawnIO.Modules CI (`build` workflow) compiles every `*.p` with
   `pawncc` (`-C64 -iinclude`) and uploads the resulting `*.amx` as a
   per-commit build artifact. **CI artifacts and self-built blobs are
@@ -239,4 +240,4 @@ Target: x86-64 systems; provides port I/O for Super I/O chips.
 | --- | --- | --- |
 | 1 | 2026-06-10 | Initial version |
 | 2 | 2026-06-11 | Provenance resolved against upstream sources: exact `PawnIOLib.h` API (incl. `pawnio_close`, cell-count semantics), device path, `msr_read` execution context and affinity natives, blob naming. Corrected mutex ownership: modules document caller-held mutants and acquire none themselves. Status → Implementation-ready. |
-| 3 | 2026-06-13 | Added "Module blob distribution" section: signed blobs ship via the PawnIO.Modules GitHub Releases (README-stated; latest 0.2.8, 2024-06-12), CI artifacts/self-builds are unsigned, driver/PawnIOLib from pawnio.eu. Resolved the blob-source open question (asset packaging left as a narrow non-blocking confirmation). Added source S8. Status remains Implementation-ready. |
+| 3 | 2026-06-13 | Added "Module blob distribution" section: signed blobs ship via the PawnIO.Modules GitHub Releases (README-stated; latest 0.2.8, 2026-06-12, verified against the upstream git tag), CI artifacts/self-builds are unsigned, driver/PawnIOLib from pawnio.eu. Resolved the blob-source open question (asset packaging left as a narrow non-blocking confirmation). Added source S8. Status remains Implementation-ready. |
