@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Implementation-ready (rev 2) |
+| Revision | 3 |
+| Status | Implementation-ready (rev 3) |
 | Scope | Facts needed to integrate a Rust user-mode client with PawnIO: installation/detection, the PawnIOLib API, the module execution model, and the IOCTL contracts of the `IntelMSR`, `RyzenSMU`, and `LpcIO` modules. Excludes: writing new Pawn modules, driver internals. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -18,6 +18,7 @@
 | S5 | Module sources `IntelMSR.p`, `RyzenSMU.p`, `LpcIO.p` in S2 (LGPL-2.1-or-later) | Upstream-published interface definitions of the API this project calls across the IOCTL boundary (public `ioctl_*` contracts, allow-lists, caller-mutex `@warning` docs); the PawnIO project is the authoritative source for its own interfaces. Not used as a source for any hardware register fact. No code was copied. |
 | S6 | `PawnIOLib/include/PawnIOLib.h` in S1 (LGPL-2.1-or-later, © 2026 namazso) | Primary; exact user-mode API prototypes and doc comments |
 | S7 | PawnIO driver source in S1 (GPL-2.0 with IOCTL exception): `PawnIO/src/natives_impl_windows.cpp`, `PawnIO/include/pawnio_um.h` | Native semantics (execution context of `msr_read`, affinity natives) and device path. Interface facts only; no code was copied. |
+| S8 | PawnIO.Modules `README.md` and GitHub Releases, <https://github.com/namazso/PawnIO.Modules/releases>; CI workflow `.github/workflows/ci.yml` in S2 | Primary; module-blob distribution channels and signing status |
 
 ## Licensing facts
 
@@ -53,10 +54,30 @@
   driver plus Windows test-signing mode. An end-user deployment
   therefore uses the signed driver with the signed module blobs
   released by the PawnIO project. (S4)
+- The driver and PawnIOLib runtime are distributed from
+  <https://pawnio.eu> (signed installer). (S1, S4)
+
+## Module blob distribution
+
+- **Signed module blobs are distributed via the PawnIO.Modules
+  GitHub Releases** — the repository README states "Signed builds can
+  be found in Releases." This is the channel an end-user deployment
+  must use, because the production driver loads signed modules only.
+  Latest release at authoring: **0.2.8 (2024-06-12)**. (S8)
+- The PawnIO.Modules CI (`build` workflow) compiles every `*.p` with
+  `pawncc` (`-C64 -iinclude`) and uploads the resulting `*.amx` as a
+  per-commit build artifact. **CI artifacts and self-built blobs are
+  unsigned** (the workflow has no signing step) and therefore load
+  only under the unrestricted driver + test-signing. (S8)
+- Consequence for this project: bundle the **signed** blobs from a
+  pinned PawnIO.Modules release (e.g. `RyzenSMU` and `IntelMSR` for
+  Phase 1), not self-built copies. Redistribution must comply with
+  the modules' LGPL-2.1 terms (see Licensing facts).
 - Compiled module blobs are named `<Module>.amx` (e.g. `IntelMSR.amx`,
-  `RyzenSMU.amx`); the PawnIO.Modules CI publishes `*.amx` artifacts
-  per release. The client bundles the blobs it needs and loads them
-  via `pawnio_load`. (S2)
+  `RyzenSMU.amx`). The client bundles the signed blobs it needs and
+  loads them via `pawnio_load`; for where the blobs come from and the
+  signed-vs-unsigned distinction, see "Module blob distribution"
+  above. (S2, S8)
 - Absence of PawnIO is a supported state: the client must detect the
   missing library/driver and report "unavailable" so the caller can
   fall back to the ACPI thermal-zone source (PR #1633).
@@ -205,11 +226,12 @@ Target: x86-64 systems; provides port I/O for Super I/O chips.
   module and never reloads a different blob on the same handle.
   Whether `pawnio_load` may be called twice on one handle is not
   documented upstream (S6); resolve only if a future phase needs it.
-- Non-blocking for Phase 1: the client ships and loads its own copies
-  of the required `.amx` blobs via `pawnio_load`, so the official
-  installer's module-directory layout does not affect Phase 1.
-  Confirm the layout if a future phase wants to reuse
-  installer-provided blobs.
+- Non-blocking for Phase 1: signed blobs come from the PawnIO.Modules
+  GitHub Releases (resolved — see "Module blob distribution"). The
+  exact per-release asset packaging (individual `.amx` files vs. a
+  single archive) was not confirmable verbatim at authoring time
+  because the Releases asset list failed to render; confirm the asset
+  names against the pinned release when wiring up bundling.
 
 ## Revision history
 
@@ -217,3 +239,4 @@ Target: x86-64 systems; provides port I/O for Super I/O chips.
 | --- | --- | --- |
 | 1 | 2026-06-10 | Initial version |
 | 2 | 2026-06-11 | Provenance resolved against upstream sources: exact `PawnIOLib.h` API (incl. `pawnio_close`, cell-count semantics), device path, `msr_read` execution context and affinity natives, blob naming. Corrected mutex ownership: modules document caller-held mutants and acquire none themselves. Status → Implementation-ready. |
+| 3 | 2026-06-13 | Added "Module blob distribution" section: signed blobs ship via the PawnIO.Modules GitHub Releases (README-stated; latest 0.2.8, 2024-06-12), CI artifacts/self-builds are unsigned, driver/PawnIOLib from pawnio.eu. Resolved the blob-source open question (asset packaging left as a narrow non-blocking confirmation). Added source S8. Status remains Implementation-ready. |
