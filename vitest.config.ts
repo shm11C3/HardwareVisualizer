@@ -5,7 +5,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["src/setupVitest.ts"],
-    include: ["src/**/*.{test,spec}.ts", "src/**/*.{test,spec}.tsx"],
+    include: [
+      "src/**/*.{test,spec}.ts",
+      "src/**/*.{test,spec}.tsx",
+      "e2e-native/**/*.{test,spec}.ts",
+    ],
     coverage: {
       include: ["src/**/*.ts"],
       exclude: [
