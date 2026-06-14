@@ -188,7 +188,8 @@ Flexible graph customization available.
 
 ### Background Image
 
-![image](https://github.com/user-attachments/assets/6ab09e8a-ebef-449a-b73f-07ae44626e20)
+<img width="1920" height="1055" alt="bg-image" src="https://github.com/user-attachments/assets/01734d4d-8e8f-4ca5-a73b-fba9a428d3d0" />
+
 
 ## Permissions & Security Notes
 
