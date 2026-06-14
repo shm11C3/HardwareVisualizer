@@ -165,11 +165,11 @@
   },
 
   "externalComponentGuidance": {
-    "title": "Additional component needed",
+    "title": "Optional components can enable more data",
     "labels": {
-      "missing": "What is missing",
-      "impact": "What cannot be collected",
-      "action": "What you can do"
+      "missing": "Missing component",
+      "impact": "Items that cannot be shown",
+      "action": "Required action"
     },
     "actions": {
       "openDetails": "Open details",
@@ -179,18 +179,18 @@
     },
     "candidates": {
       "pawnioCpuPackageTemperature": {
-        "missing": "PawnIO is not available for CPU package temperature collection.",
-        "impact": "CPU package temperature cannot be shown because the ACPI fallback did not provide a CPU temperature.",
+        "missing": "PawnIO",
+        "impact": "CPU package temperature",
         "action": "Install PawnIO, then restart HardwareVisualizer. The details page explains where to get it and where it must be placed."
       },
       "smartctlStorageHealth": {
-        "missing": "smartctl is not available or could not be used for Storage Health collection.",
-        "impact": "Some health-classification signals, such as SMART health, temperature, wear, spare, sector, or media-error data, cannot be collected.",
+        "missing": "smartctl (smartmontools)",
+        "impact": "Storage Health data such as SMART health, temperature, wear, spare, sector, or media-error signals",
         "action": "Install smartmontools and make smartctl available from the command line, then restart HardwareVisualizer."
       },
       "generic": {
-        "missing": "An optional external component is not available.",
-        "impact": "Some hardware details cannot be collected.",
+        "missing": "Optional external component",
+        "impact": "Some hardware details",
         "action": "Open the details page and follow the installation guidance for the missing component."
       }
     },
