@@ -17,4 +17,7 @@ pub mod storage_health;
 pub use archive::{
   ArchiveController, HARDWARE_ARCHIVE_INTERVAL_SECONDS, cleanup_old_data,
 };
-pub use storage_health::{ExternalComponentGuidanceSink, StorageHealthController};
+pub use storage_health::{
+  ExternalComponentGuidanceSink, StorageHealthController,
+  local_storage_health_date_string, refresh_storage_health_for_date,
+};

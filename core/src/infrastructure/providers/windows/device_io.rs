@@ -59,24 +59,8 @@ pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
 }
 
 pub(crate) fn enumerate_storage_devices() -> Vec<WindowsStorageDevice> {
-  match query_win32_disk_drives() {
-    Ok(disks) if !disks.is_empty() => {
-      let mut devices = disks
-        .into_iter()
-        .filter_map(WindowsStorageDevice::from_win32_disk_drive)
-        .collect::<Vec<_>>();
-      if devices.is_empty() {
-        return fallback_physical_drive_candidates();
-      }
-      devices.sort_by_key(|device| {
-        !device
-          .interface_type
-          .as_deref()
-          .map(|value| value.eq_ignore_ascii_case("nvme"))
-          .unwrap_or(false)
-      });
-      devices
-    }
+  match enumerate_storage_devices_strict() {
+    Ok(devices) if !devices.is_empty() => devices,
     Ok(_) => fallback_physical_drive_candidates(),
     Err(e) => {
       log_warn!(
@@ -87,6 +71,24 @@ pub(crate) fn enumerate_storage_devices() -> Vec<WindowsStorageDevice> {
       fallback_physical_drive_candidates()
     }
   }
+}
+
+pub(crate) fn enumerate_storage_devices_strict()
+-> Result<Vec<WindowsStorageDevice>, String> {
+  let mut devices = query_win32_disk_drives()?
+    .into_iter()
+    .filter_map(WindowsStorageDevice::from_win32_disk_drive)
+    .collect::<Vec<_>>();
+
+  devices.sort_by_key(|device| {
+    !device
+      .interface_type
+      .as_deref()
+      .map(|value| value.eq_ignore_ascii_case("nvme"))
+      .unwrap_or(false)
+  });
+
+  Ok(devices)
 }
 
 impl WindowsStorageDevice {

@@ -45,6 +45,7 @@ pub(crate) struct LiveStorageDevice {
   pub(crate) serial_number: Option<String>,
   pub(crate) firmware_version: Option<String>,
   pub(crate) capacity_bytes: Option<u64>,
+  pub(crate) interface_type: Option<String>,
 }
 
 /// Reads one cached device's current health signals. Implemented by the
@@ -65,7 +66,7 @@ impl LiveSignalReader for PlatformLiveSignalReader {
       serial_number: device.serial_number.clone(),
       firmware_version: device.firmware_version.clone(),
       capacity_bytes: device.capacity_bytes,
-      interface_type: None,
+      interface_type: device.interface_type.clone(),
     };
     let raw =
       device_io::DeviceIoControlNvmeReader.read_nvme_health_log(&device.device_path)?;
@@ -112,6 +113,27 @@ impl LiveStorageHealthCollector {
   /// tracked separately); the live read path never calls this.
   pub fn enumerate_devices(&self) {
     self.apply_enumeration(platform_enumerate_devices());
+  }
+
+  /// Re-enumerates storage devices for an explicit Storage Device
+  /// Refresh and replaces the live cache only if enumeration succeeds.
+  pub fn refresh_devices(&self) -> Result<Vec<String>, String> {
+    let devices = platform_enumerate_devices_strict()?;
+    if devices.is_empty() {
+      return Ok(Vec::new());
+    }
+
+    let device_ids = devices
+      .iter()
+      .map(|device| {
+        storage_device_id(
+          &smart_disk_from_live_device(device),
+          &self.identity_hash_key,
+        )
+      })
+      .collect();
+    self.apply_enumeration(devices);
+    Ok(device_ids)
   }
 
   /// Reads live signals for every cached device, returning the last
@@ -183,13 +205,57 @@ fn platform_enumerate_devices() -> Vec<LiveStorageDevice> {
       serial_number: device.serial_number,
       firmware_version: device.firmware_version,
       capacity_bytes: device.capacity_bytes,
+      interface_type: device.interface_type,
     })
     .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn platform_enumerate_devices_strict() -> Result<Vec<LiveStorageDevice>, String> {
+  Ok(
+    device_io::enumerate_storage_devices_strict()
+      .map_err(|e| format!("Failed to refresh Windows storage device list: {e}"))?
+      .into_iter()
+      .map(|device| LiveStorageDevice {
+        device_path: device.device_path,
+        model: device.model,
+        serial_number: device.serial_number,
+        firmware_version: device.firmware_version,
+        capacity_bytes: device.capacity_bytes,
+        interface_type: device.interface_type,
+      })
+      .collect(),
+  )
 }
 
 #[cfg(not(target_os = "windows"))]
 fn platform_enumerate_devices() -> Vec<LiveStorageDevice> {
   Vec::new()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn platform_enumerate_devices_strict() -> Result<Vec<LiveStorageDevice>, String> {
+  Ok(Vec::new())
+}
+
+fn smart_disk_from_live_device(device: &LiveStorageDevice) -> SmartDiskInfo {
+  SmartDiskInfo {
+    device_name: device.device_path.clone(),
+    device_type: device
+      .interface_type
+      .as_deref()
+      .map(str::to_ascii_lowercase),
+    protocol: device.interface_type.clone(),
+    model_name: device.model.clone(),
+    serial_number: device.serial_number.clone(),
+    firmware_version: device.firmware_version.clone(),
+    capacity_bytes: device.capacity_bytes,
+    health_status: crate::models::hardware::SmartHealthStatus::Unknown,
+    temperature_celsius: None,
+    power_on_hours: None,
+    power_cycle_count: None,
+    attributes: Vec::new(),
+  }
 }
 
 fn live_signal_from_disk(
@@ -262,6 +328,7 @@ mod tests {
       serial_number: Some("SERIAL123".to_string()),
       firmware_version: Some("1.0".to_string()),
       capacity_bytes: Some(1_000_204_886_016),
+      interface_type: Some("NVMe".to_string()),
     }
   }
 
@@ -460,6 +527,29 @@ mod tests {
     assert!(state.last_reading.is_none());
   }
 
+  #[test]
+  fn smart_disk_from_live_device_matches_daily_identity_inputs() {
+    let live_device = device(r"\\.\PhysicalDrive0");
+
+    let disk = smart_disk_from_live_device(&live_device);
+
+    assert_eq!(disk.device_name, r"\\.\PhysicalDrive0");
+    assert_eq!(disk.device_type.as_deref(), Some("nvme"));
+    assert_eq!(disk.protocol.as_deref(), Some("NVMe"));
+    assert_eq!(disk.model_name.as_deref(), Some("Example NVMe"));
+    assert_eq!(disk.serial_number.as_deref(), Some("SERIAL123"));
+    assert_eq!(disk.capacity_bytes, Some(1_000_204_886_016));
+    assert_eq!(
+      storage_device_id(&disk, &TEST_IDENTITY_HASH_KEY),
+      live_signal_from_disk(
+        &nvme_disk(r"\\.\PhysicalDrive0", "SERIAL123"),
+        &TEST_IDENTITY_HASH_KEY,
+        "2026-06-09T00:00:00+00:00",
+      )
+      .device_id
+    );
+  }
+
   #[cfg(not(target_os = "windows"))]
   #[test]
   fn read_live_returns_empty_on_non_windows() {
@@ -467,5 +557,19 @@ mod tests {
     collector.enumerate_devices();
 
     assert!(collector.read_live().is_empty());
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  #[test]
+  fn refresh_devices_keeps_cache_on_empty_non_windows_enumeration() {
+    let collector = collector_with_devices(vec![device(r"\\.\PhysicalDrive0")]);
+
+    let device_ids = collector.refresh_devices().unwrap();
+
+    assert!(device_ids.is_empty());
+    assert_eq!(
+      collector.state.lock().unwrap().devices,
+      vec![device(r"\\.\PhysicalDrive0")]
+    );
   }
 }

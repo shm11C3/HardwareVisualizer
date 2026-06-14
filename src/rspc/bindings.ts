@@ -95,6 +95,15 @@ export const commands = {
 	 *  native read path (displays fall back to the daily records).
 	 */
 	getLiveStorageHealth: () => typedError<LiveStorageHealth[], string>(__TAURI_INVOKE("get_live_storage_health")),
+	/**
+	 *  ## Re-detect Storage Devices
+	 *
+	 *  Re-detects connected storage devices, refreshes the Live Storage
+	 *  Health cache, collects current Storage Health signals, updates
+	 *  today's Storage Health Records, and returns the latest active records
+	 *  for the dashboard.
+	 */
+	refreshStorageDevices: () => typedError<StorageHealthRecord[], string>(__TAURI_INVOKE("refresh_storage_devices")),
 	getExternalComponentGuidanceCandidates: (view: ExternalComponentGuidanceView) => typedError<ExternalComponentGuidanceCandidate[], string>(__TAURI_INVOKE("get_external_component_guidance_candidates", { view })),
 	deferExternalComponentGuidanceForSession: (key: string) => typedError<null, string>(__TAURI_INVOKE("defer_external_component_guidance_for_session", { key })),
 	// ## Get archived CPU/RAM records

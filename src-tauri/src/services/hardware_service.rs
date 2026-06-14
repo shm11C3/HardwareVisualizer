@@ -1,6 +1,6 @@
-use crate::log_error;
 use crate::models::hardware::SysInfo;
 use crate::services::motherboard_service;
+use crate::{log_error, log_warn};
 use hardviz_core::collector::HistoryStore;
 use hardviz_core::infrastructure::providers::sysinfo_provider;
 use hardviz_core::platform::factory::PlatformFactory;
@@ -119,6 +119,54 @@ pub async fn get_live_storage_health(
     .map_err(|e| format!("Failed to join live storage health read: {e}"))
 }
 
+pub async fn refresh_storage_devices(
+  retention_days: u32,
+  identity_hash_key: [u8; hardviz_core::settings::STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
+  collector: Option<std::sync::Arc<hardviz_core::collector::LiveStorageHealthCollector>>,
+  guidance_sink: Option<hardviz_core::persistence::ExternalComponentGuidanceSink>,
+) -> Result<Vec<hardviz_core::models::hardware::StorageHealthRecord>, String> {
+  let Some(collector) = collector else {
+    return Err("Storage device re-detection is unavailable".to_string());
+  };
+
+  let active_device_ids = match tokio::task::spawn_blocking(move || {
+    collector.refresh_devices()
+  })
+  .await
+  {
+    Ok(Ok(device_ids)) => device_ids,
+    Ok(Err(e)) => {
+      log_warn!(
+        "Storage device re-detection enumeration failed; continuing without deactivation",
+        "services::hardware_service::refresh_storage_devices",
+        Some(e)
+      );
+      Vec::new()
+    }
+    Err(e) => {
+      log_warn!(
+        "Storage device re-detection enumeration task failed; continuing without deactivation",
+        "services::hardware_service::refresh_storage_devices",
+        Some(e.to_string())
+      );
+      Vec::new()
+    }
+  };
+
+  hardviz_core::persistence::refresh_storage_health_for_date(
+    retention_days,
+    &hardviz_core::persistence::local_storage_health_date_string(),
+    &identity_hash_key,
+    active_device_ids,
+    guidance_sink.as_ref(),
+  )
+  .await?;
+
+  hardviz_core::infrastructure::database::storage_health::latest_records()
+    .await
+    .map_err(|e| format!("Failed to fetch refreshed storage health records: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -143,5 +191,14 @@ mod tests {
       .expect("must not fail");
 
     assert!(signals.is_empty());
+  }
+
+  #[tokio::test]
+  async fn refresh_storage_devices_errors_when_collector_is_absent() {
+    let error = refresh_storage_devices(1, [0x42; 32], None, None)
+      .await
+      .expect_err("missing collector should be reported");
+
+    assert!(error.contains("unavailable"));
   }
 }

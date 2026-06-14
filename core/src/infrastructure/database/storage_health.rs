@@ -9,12 +9,149 @@ pub async fn insert_daily_records(
   devices: Vec<StorageDeviceRecord>,
   records: Vec<StorageHealthRecordDraft>,
 ) -> Result<(), sqlx::Error> {
-  if devices.is_empty() || records.is_empty() {
+  let pool = db::get_pool().await?;
+  let mut tx = pool.begin().await?;
+
+  insert_daily_records_in_transaction(&mut tx, devices, records).await?;
+
+  tx.commit().await?;
+  Ok(())
+}
+
+pub async fn refresh_daily_records(
+  active_device_ids: &[String],
+  devices: Vec<StorageDeviceRecord>,
+  records: Vec<StorageHealthRecordDraft>,
+) -> Result<(), sqlx::Error> {
+  if active_device_ids.is_empty() && (devices.is_empty() || records.is_empty()) {
     return Ok(());
   }
 
   let pool = db::get_pool().await?;
   let mut tx = pool.begin().await?;
+
+  insert_daily_records_in_transaction(&mut tx, devices, records).await?;
+  update_active_devices_in_transaction(&mut tx, active_device_ids).await?;
+
+  tx.commit().await?;
+  Ok(())
+}
+
+pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
+  let pool = db::get_pool().await?;
+  let cutoff = (chrono::Local::now().date_naive()
+    - chrono::Duration::days(retention_days as i64))
+  .format("%Y-%m-%d")
+  .to_string();
+
+  sqlx::query("DELETE FROM storage_health_daily_records WHERE date < $1")
+    .bind(cutoff)
+    .execute(&pool)
+    .await?;
+
+  Ok(())
+}
+
+pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  let rows = sqlx::query(
+    r#"
+    SELECT
+      s.device_id,
+      COALESCE(d.display_name, s.device_id) AS display_name,
+      d.model,
+      d.protocol,
+      d.capacity_bytes,
+      s.date,
+      s.health_status,
+      s.warning_level,
+      s.warning_reasons,
+      s.temperature_celsius,
+      s.power_on_hours,
+      s.percentage_used,
+      s.available_spare_percent,
+      s.reallocated_sector_count,
+      s.current_pending_sector_count,
+      s.offline_uncorrectable_count,
+      s.media_errors,
+      s.error_log_entries,
+      s.unsafe_shutdown_count,
+      s.collected_at
+    FROM storage_health_daily_records s
+    INNER JOIN (
+      SELECT device_id, MAX(date) AS date
+      FROM storage_health_daily_records
+      GROUP BY device_id
+    ) latest
+      ON latest.device_id = s.device_id
+      AND latest.date = s.date
+    LEFT JOIN storage_devices d ON d.id = s.device_id
+    WHERE COALESCE(d.is_active, 1) = 1
+    ORDER BY
+      CASE s.warning_level
+        WHEN 'critical' THEN 0
+        WHEN 'warning' THEN 1
+        WHEN 'unknown' THEN 2
+        ELSE 3
+      END,
+      display_name COLLATE NOCASE
+    "#,
+  )
+  .fetch_all(&pool)
+  .await?;
+
+  rows
+    .into_iter()
+    .map(|row| {
+      let warning_reasons = row
+        .try_get::<Option<String>, _>("warning_reasons")?
+        .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+        .unwrap_or_default();
+
+      Ok(StorageHealthRecord {
+        device_id: row.try_get("device_id")?,
+        display_name: row.try_get("display_name")?,
+        model: row.try_get("model")?,
+        protocol: row.try_get("protocol")?,
+        capacity_bytes: from_i64(row.try_get("capacity_bytes")?),
+        date: row.try_get("date")?,
+        health_status: parse_health_status(&row.try_get::<String, _>("health_status")?),
+        warning_level: parse_warning_level(&row.try_get::<String, _>("warning_level")?),
+        temperature_celsius: row
+          .try_get::<Option<f64>, _>("temperature_celsius")?
+          .map(|value| value as f32),
+        power_on_hours: from_i64(row.try_get("power_on_hours")?),
+        percentage_used: row
+          .try_get::<Option<f64>, _>("percentage_used")?
+          .map(|value| value as f32),
+        available_spare_percent: row
+          .try_get::<Option<f64>, _>("available_spare_percent")?
+          .map(|value| value as f32),
+        reallocated_sector_count: from_i64(row.try_get("reallocated_sector_count")?),
+        current_pending_sector_count: from_i64(
+          row.try_get("current_pending_sector_count")?,
+        ),
+        offline_uncorrectable_count: from_i64(
+          row.try_get("offline_uncorrectable_count")?,
+        ),
+        media_errors: from_i64(row.try_get("media_errors")?),
+        error_log_entries: from_i64(row.try_get("error_log_entries")?),
+        unsafe_shutdown_count: from_i64(row.try_get("unsafe_shutdown_count")?),
+        warning_reasons,
+        collected_at: row.try_get("collected_at")?,
+      })
+    })
+    .collect()
+}
+
+async fn insert_daily_records_in_transaction(
+  tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+  devices: Vec<StorageDeviceRecord>,
+  records: Vec<StorageHealthRecordDraft>,
+) -> Result<(), sqlx::Error> {
+  if devices.is_empty() || records.is_empty() {
+    return Ok(());
+  }
 
   for device in devices {
     sqlx::query(
@@ -49,7 +186,7 @@ pub async fn insert_daily_records(
     .bind(to_i64(device.capacity_bytes))
     .bind(device.first_seen_at)
     .bind(device.last_seen_at)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
   }
 
@@ -111,118 +248,33 @@ pub async fn insert_daily_records(
     .bind(to_i64(record.error_log_entries))
     .bind(to_i64(record.unsafe_shutdown_count))
     .bind(record.collected_at)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
   }
 
-  tx.commit().await?;
   Ok(())
 }
 
-pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
-  let pool = db::get_pool().await?;
-  let cutoff = (chrono::Local::now().date_naive()
-    - chrono::Duration::days(retention_days as i64))
-  .format("%Y-%m-%d")
-  .to_string();
+async fn update_active_devices_in_transaction(
+  tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+  active_device_ids: &[String],
+) -> Result<(), sqlx::Error> {
+  if active_device_ids.is_empty() {
+    return Ok(());
+  }
 
-  sqlx::query("DELETE FROM storage_health_daily_records WHERE date < $1")
-    .bind(cutoff)
-    .execute(&pool)
+  sqlx::query("UPDATE storage_devices SET is_active = 0")
+    .execute(&mut **tx)
     .await?;
 
+  for device_id in active_device_ids {
+    sqlx::query("UPDATE storage_devices SET is_active = 1 WHERE id = $1")
+      .bind(device_id)
+      .execute(&mut **tx)
+      .await?;
+  }
+
   Ok(())
-}
-
-pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, sqlx::Error> {
-  let pool = db::get_pool().await?;
-  let rows = sqlx::query(
-    r#"
-    SELECT
-      s.device_id,
-      COALESCE(d.display_name, s.device_id) AS display_name,
-      d.model,
-      d.protocol,
-      d.capacity_bytes,
-      s.date,
-      s.health_status,
-      s.warning_level,
-      s.warning_reasons,
-      s.temperature_celsius,
-      s.power_on_hours,
-      s.percentage_used,
-      s.available_spare_percent,
-      s.reallocated_sector_count,
-      s.current_pending_sector_count,
-      s.offline_uncorrectable_count,
-      s.media_errors,
-      s.error_log_entries,
-      s.unsafe_shutdown_count,
-      s.collected_at
-    FROM storage_health_daily_records s
-    INNER JOIN (
-      SELECT device_id, MAX(date) AS date
-      FROM storage_health_daily_records
-      GROUP BY device_id
-    ) latest
-      ON latest.device_id = s.device_id
-      AND latest.date = s.date
-    LEFT JOIN storage_devices d ON d.id = s.device_id
-    ORDER BY
-      CASE s.warning_level
-        WHEN 'critical' THEN 0
-        WHEN 'warning' THEN 1
-        WHEN 'unknown' THEN 2
-        ELSE 3
-      END,
-      display_name COLLATE NOCASE
-    "#,
-  )
-  .fetch_all(&pool)
-  .await?;
-
-  rows
-    .into_iter()
-    .map(|row| {
-      let warning_reasons = row
-        .try_get::<Option<String>, _>("warning_reasons")?
-        .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
-        .unwrap_or_default();
-
-      Ok(StorageHealthRecord {
-        device_id: row.try_get("device_id")?,
-        display_name: row.try_get("display_name")?,
-        model: row.try_get("model")?,
-        protocol: row.try_get("protocol")?,
-        capacity_bytes: from_i64(row.try_get("capacity_bytes")?),
-        date: row.try_get("date")?,
-        health_status: parse_health_status(&row.try_get::<String, _>("health_status")?),
-        warning_level: parse_warning_level(&row.try_get::<String, _>("warning_level")?),
-        temperature_celsius: row
-          .try_get::<Option<f64>, _>("temperature_celsius")?
-          .map(|value| value as f32),
-        power_on_hours: from_i64(row.try_get("power_on_hours")?),
-        percentage_used: row
-          .try_get::<Option<f64>, _>("percentage_used")?
-          .map(|value| value as f32),
-        available_spare_percent: row
-          .try_get::<Option<f64>, _>("available_spare_percent")?
-          .map(|value| value as f32),
-        reallocated_sector_count: from_i64(row.try_get("reallocated_sector_count")?),
-        current_pending_sector_count: from_i64(
-          row.try_get("current_pending_sector_count")?,
-        ),
-        offline_uncorrectable_count: from_i64(
-          row.try_get("offline_uncorrectable_count")?,
-        ),
-        media_errors: from_i64(row.try_get("media_errors")?),
-        error_log_entries: from_i64(row.try_get("error_log_entries")?),
-        unsafe_shutdown_count: from_i64(row.try_get("unsafe_shutdown_count")?),
-        warning_reasons,
-        collected_at: row.try_get("collected_at")?,
-      })
-    })
-    .collect()
 }
 
 fn to_i64(value: Option<u64>) -> Option<i64> {
@@ -483,6 +535,98 @@ mod tests {
       latest
         .iter()
         .any(|record| record.device_id == "disk-b" && record.date == "2026-05-10")
+    );
+
+    refresh_daily_records(
+      &["disk-a".to_string(), "disk-c".to_string()],
+      Vec::new(),
+      Vec::new(),
+    )
+    .await
+    .unwrap();
+
+    let disk_b_active_after_removal: (i64,) =
+      sqlx::query_as("SELECT is_active FROM storage_devices WHERE id = $1")
+        .bind("disk-b")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let latest_after_removal = latest_records().await.unwrap();
+
+    assert_eq!(disk_b_active_after_removal.0, 0);
+    assert_eq!(latest_after_removal.len(), 2);
+    assert!(
+      !latest_after_removal
+        .iter()
+        .any(|record| record.device_id == "disk-b")
+    );
+
+    refresh_daily_records(&[], Vec::new(), Vec::new())
+      .await
+      .unwrap();
+
+    let inactive_count: (i64,) =
+      sqlx::query_as("SELECT COUNT(1) FROM storage_devices WHERE is_active = 0")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let latest_after_empty_refresh = latest_records().await.unwrap();
+
+    assert_eq!(inactive_count.0, 1);
+    assert_eq!(latest_after_empty_refresh.len(), 2);
+
+    refresh_daily_records(
+      &["disk-a".to_string()],
+      vec![device_record("disk-b")],
+      vec![record("disk-b", "2026-05-12")],
+    )
+    .await
+    .unwrap();
+
+    let disk_b_active_after_authoritative_refresh: (i64,) =
+      sqlx::query_as("SELECT is_active FROM storage_devices WHERE id = $1")
+        .bind("disk-b")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let latest_after_authoritative_refresh = latest_records().await.unwrap();
+
+    assert_eq!(disk_b_active_after_authoritative_refresh.0, 0);
+    assert!(
+      !latest_after_authoritative_refresh
+        .iter()
+        .any(|record| record.device_id == "disk-b")
+    );
+
+    refresh_daily_records(
+      &["disk-a".to_string(), "disk-b".to_string()],
+      vec![device_record("disk-b")],
+      vec![record("disk-b", "2026-05-13")],
+    )
+    .await
+    .unwrap();
+
+    let disk_b_active: (i64,) =
+      sqlx::query_as("SELECT is_active FROM storage_devices WHERE id = $1")
+        .bind("disk-b")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let disk_b_history_count: (i64,) = sqlx::query_as(
+      "SELECT COUNT(1) FROM storage_health_daily_records WHERE device_id = $1",
+    )
+    .bind("disk-b")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let latest = latest_records().await.unwrap();
+
+    assert_eq!(disk_b_active.0, 1);
+    assert_eq!(disk_b_history_count.0, 3);
+    assert!(
+      latest
+        .iter()
+        .any(|record| record.device_id == "disk-b" && record.date == "2026-05-13")
     );
   }
 }
