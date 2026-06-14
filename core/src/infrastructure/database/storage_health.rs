@@ -37,20 +37,6 @@ pub async fn refresh_daily_records(
   Ok(())
 }
 
-pub async fn update_active_devices(
-  active_device_ids: &[String],
-) -> Result<(), sqlx::Error> {
-  if active_device_ids.is_empty() {
-    return Ok(());
-  }
-
-  let pool = db::get_pool().await?;
-  let mut tx = pool.begin().await?;
-  update_active_devices_in_transaction(&mut tx, active_device_ids).await?;
-  tx.commit().await?;
-  Ok(())
-}
-
 pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
   let cutoff = (chrono::Local::now().date_naive()
