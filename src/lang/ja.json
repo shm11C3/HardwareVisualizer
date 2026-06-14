@@ -218,7 +218,8 @@
           "record": "記録: {{datetime}}"
         },
         "errors": {
-          "fetchLatest": "ストレージの健康状態データの取得に失敗しました。"
+          "fetchLatest": "ストレージの健康状態データの取得に失敗しました。",
+          "fetchLive": "ライブのストレージヘルスデータの取得に失敗しました。"
         },
         "metrics": {
           "temperature": "温度",

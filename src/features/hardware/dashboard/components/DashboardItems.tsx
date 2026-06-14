@@ -426,6 +426,7 @@ export const StorageDataInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
   const storageHealthErrorShownRef = useRef(false);
+  const liveStorageHealthErrorShownRef = useRef(false);
   const storageHealthEnabled = settings.storageHealth.enabled ?? true;
   const [storageHealthRecords, setStorageHealthRecords] = useState<
     StorageHealthRecord[]
@@ -509,6 +510,7 @@ export const StorageDataInfo = () => {
 
   useEffect(() => {
     if (!storageHealthEnabled) {
+      liveStorageHealthErrorShownRef.current = false;
       setLiveStorageHealth([]);
       return;
     }
@@ -522,9 +524,16 @@ export const StorageDataInfo = () => {
       if (isError(result)) {
         console.error("Failed to fetch live storage health", result.error);
         setLiveStorageHealth([]);
+        if (!liveStorageHealthErrorShownRef.current) {
+          liveStorageHealthErrorShownRef.current = true;
+          void error(
+            `${t("pages.dashboard.storageHealth.errors.fetchLive")}\n${result.error}`,
+          );
+        }
         return;
       }
 
+      liveStorageHealthErrorShownRef.current = false;
       setLiveStorageHealth(result.data);
     };
 
@@ -535,7 +544,7 @@ export const StorageDataInfo = () => {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [storageHealthEnabled]);
+  }, [storageHealthEnabled, error, t]);
 
   return (
     <div className="pt-2">
