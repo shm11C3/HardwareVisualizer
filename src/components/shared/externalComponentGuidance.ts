@@ -7,9 +7,12 @@ import type { SelectedDisplayType } from "@/types/ui";
 export const EXTERNAL_COMPONENT_DOCS_BASE_URL =
   "https://github.com/shm11C3/HardwareVisualizer/blob/develop/docs/user/external-components.md";
 
-const EXTERNAL_COMPONENT_DOCS_URLS: Record<string, string> = {
-  "pawnio:cpu-package-temperature:v1": `${EXTERNAL_COMPONENT_DOCS_BASE_URL}#pawnio`,
-  "smartctl:storage-health:v1": `${EXTERNAL_COMPONENT_DOCS_BASE_URL}#smartctl`,
+const EXTERNAL_COMPONENT_DOCS_JA_URL =
+  "https://github.com/shm11C3/HardwareVisualizer/blob/develop/docs/user/external-components.ja.md";
+
+const EXTERNAL_COMPONENT_DOCS_ANCHORS: Record<string, string> = {
+  "pawnio:cpu-package-temperature:v1": "#pawnio",
+  "smartctl:storage-health:v1": "#smartctl",
 };
 
 type ExternalComponentGuidanceCopyKey =
@@ -43,8 +46,17 @@ export const externalComponentGuidanceCopyKey = (
 ): ExternalComponentGuidanceCopyKey =>
   EXTERNAL_COMPONENT_COPY_KEYS[candidate.key] ?? "generic";
 
+export const externalComponentGuidanceDocsBaseUrl = (
+  language?: string | null,
+) =>
+  language?.toLowerCase().startsWith("ja")
+    ? EXTERNAL_COMPONENT_DOCS_JA_URL
+    : EXTERNAL_COMPONENT_DOCS_BASE_URL;
+
 export const externalComponentGuidanceDocsUrl = (
   candidate: ExternalComponentGuidanceCandidate,
+  language?: string | null,
 ) =>
-  EXTERNAL_COMPONENT_DOCS_URLS[candidate.key] ??
-  EXTERNAL_COMPONENT_DOCS_BASE_URL;
+  `${externalComponentGuidanceDocsBaseUrl(language)}${
+    EXTERNAL_COMPONENT_DOCS_ANCHORS[candidate.key] ?? ""
+  }`;

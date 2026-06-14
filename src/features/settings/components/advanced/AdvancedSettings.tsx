@@ -1,6 +1,6 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { useTranslation } from "react-i18next";
-import { EXTERNAL_COMPONENT_DOCS_BASE_URL } from "@/components/shared/externalComponentGuidance";
+import { externalComponentGuidanceDocsBaseUrl } from "@/components/shared/externalComponentGuidance";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +11,7 @@ import { openURL } from "@/lib/openUrl";
 import { ElevatedStartupModeToggle } from "./ElevatedStartupModeToggle";
 
 export const AdvancedSettings = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
   const [showGpuUsageSource, setShowGpuUsageSource, isPending] = useTauriStore(
     "showGpuUsageSource",
@@ -20,7 +20,11 @@ export const AdvancedSettings = () => {
 
   const handleOpenExternalComponentDocs = async () => {
     try {
-      await openURL(EXTERNAL_COMPONENT_DOCS_BASE_URL);
+      await openURL(
+        externalComponentGuidanceDocsBaseUrl(
+          i18n.resolvedLanguage ?? i18n.language,
+        ),
+      );
     } catch (err) {
       console.error("Failed to open external components documentation:", err);
       await error(t("pages.settings.advanced.openExternalComponentsDocsError"));

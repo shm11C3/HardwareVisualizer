@@ -37,7 +37,7 @@ export const ExternalComponentGuidanceDialog = ({
   displayTarget,
   settingsLoaded = true,
 }: ExternalComponentGuidanceDialogProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
   const [candidates, setCandidates] = useState<
     ExternalComponentGuidanceCandidate[]
@@ -145,7 +145,12 @@ export const ExternalComponentGuidanceDialog = ({
     if (!candidate) return;
 
     try {
-      await openURL(externalComponentGuidanceDocsUrl(candidate));
+      await openURL(
+        externalComponentGuidanceDocsUrl(
+          candidate,
+          i18n.resolvedLanguage ?? i18n.language,
+        ),
+      );
     } catch (err) {
       console.error("Failed to open external component guidance details:", err);
       await error(t("externalComponentGuidance.errors.openDetails"));

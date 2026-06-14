@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
 import {
   externalComponentGuidanceCopyKey,
+  externalComponentGuidanceDocsBaseUrl,
   externalComponentGuidanceDocsUrl,
   externalComponentGuidanceViewForDisplayTarget,
 } from "./externalComponentGuidance";
@@ -48,5 +49,19 @@ describe("externalComponentGuidance", () => {
       "smartctlStorageHealth",
     );
     expect(externalComponentGuidanceDocsUrl(smartctl)).toContain("#smartctl");
+  });
+
+  it("uses Japanese docs URLs for Japanese UI languages", () => {
+    const pawnio = candidate("pawnio:cpu-package-temperature:v1");
+
+    expect(externalComponentGuidanceDocsBaseUrl("ja")).toContain(
+      "external-components.ja.md",
+    );
+    expect(externalComponentGuidanceDocsUrl(pawnio, "ja-JP")).toContain(
+      "external-components.ja.md#pawnio",
+    );
+    expect(externalComponentGuidanceDocsBaseUrl("ru")).toContain(
+      "external-components.md",
+    );
   });
 });

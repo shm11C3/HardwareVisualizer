@@ -1,5 +1,7 @@
 # External Components
 
+[English](external-components.md) | [Japanese](external-components.ja.md)
+
 This page is the source content for External Component Guidance. For now, the
 app should open the GitHub-rendered version of this document directly. The
 HardwareVisualizer website should later publish content derived from this page,
