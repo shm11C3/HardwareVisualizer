@@ -214,6 +214,7 @@
         "stale": "古い",
         "lastRecorded": "最終記録 {{date}}",
         "refresh": "ストレージを再検出",
+        "deviceSelector": "ストレージデバイスを選択",
         "temperatureSources": {
           "live": "ライブ: {{datetime}}",
           "record": "記録: {{datetime}}"

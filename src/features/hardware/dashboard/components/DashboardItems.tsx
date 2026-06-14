@@ -36,6 +36,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
+  selectedStorageDeviceIdAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
@@ -430,6 +431,9 @@ export const StorageDataInfo = () => {
   const liveStorageHealthErrorShownRef = useRef(false);
   const storageHealthRecordsVersionRef = useRef(0);
   const storageHealthEnabled = settings.storageHealth.enabled ?? true;
+  const [selectedStorageDeviceId, setSelectedStorageDeviceId] = useAtom(
+    selectedStorageDeviceIdAtom,
+  );
   const [storageHealthRecords, setStorageHealthRecords] = useState<
     StorageHealthRecord[]
   >([]);
@@ -470,8 +474,14 @@ export const StorageDataInfo = () => {
 
       return buildStorageHealthSummary(storageHealthRecords, new Date(), {
         liveSignals: liveStorageHealth,
+        selectedDeviceId: selectedStorageDeviceId,
       });
-    }, [storageHealthEnabled, storageHealthRecords, liveStorageHealth]);
+    }, [
+      storageHealthEnabled,
+      storageHealthRecords,
+      liveStorageHealth,
+      selectedStorageDeviceId,
+    ]);
 
   useEffect(() => {
     if (!storageHealthEnabled) {
@@ -585,6 +595,7 @@ export const StorageDataInfo = () => {
       <StorageHealthOverview
         summary={storageHealthSummary}
         onRefresh={storageHealthEnabled ? refreshStorageDevices : undefined}
+        onSelectDevice={setSelectedStorageDeviceId}
         refreshError={storageHealthRefreshError}
         refreshing={storageHealthRefreshing}
       />
@@ -661,11 +672,13 @@ const formatStorageHealthTimestamp = (value: string) => {
 
 const StorageHealthOverview = ({
   onRefresh,
+  onSelectDevice,
   refreshError,
   refreshing = false,
   summary,
 }: {
   onRefresh?: () => void;
+  onSelectDevice?: (deviceId: string) => void;
   refreshError?: string | null;
   refreshing?: boolean;
   summary: StorageHealthSummaryViewModel | null;
@@ -771,7 +784,11 @@ const StorageHealthOverview = ({
       )}
 
       {summary.devices.length > 1 && (
-        <StorageDeviceHealthOverview devices={summary.devices} />
+        <StorageDeviceHealthOverview
+          devices={summary.devices}
+          selectedDeviceId={summary.focusDevice?.deviceId ?? null}
+          onSelect={onSelectDevice}
+        />
       )}
     </div>
   );
@@ -808,27 +825,46 @@ const StorageHealthMetricValue = ({
 
 const StorageDeviceHealthOverview = ({
   devices,
+  selectedDeviceId,
+  onSelect,
 }: {
   devices: StorageHealthDeviceViewModel[];
+  selectedDeviceId?: string | null;
+  onSelect?: (deviceId: string) => void;
 }) => {
+  const { t } = useTranslation();
+
   if (devices.length === 0) return null;
 
   return (
-    <div className="grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
-      {devices.map((device) => (
-        <div
-          key={device.deviceId}
-          className="grid min-h-6 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2"
-        >
-          <StorageHealthStatusIcon status={device.status} size={15} />
-          <span
-            className="truncate text-muted-foreground text-xs"
-            title={device.label}
+    <div
+      role="tablist"
+      aria-label={t("pages.dashboard.storageHealth.deviceSelector")}
+      className="grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2"
+    >
+      {devices.map((device) => {
+        const isSelected = device.deviceId === selectedDeviceId;
+        return (
+          <button
+            key={device.deviceId}
+            type="button"
+            role="tab"
+            aria-selected={isSelected}
+            onClick={() => onSelect?.(device.deviceId)}
+            className={cn(
+              "grid min-h-6 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+              isSelected
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/60",
+            )}
           >
-            {device.label}
-          </span>
-        </div>
-      ))}
+            <StorageHealthStatusIcon status={device.status} size={15} />
+            <span className="truncate text-xs" title={device.label}>
+              {device.label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 };
