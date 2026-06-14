@@ -1,9 +1,20 @@
-import type { StorageHealthRecord, StorageHealthStatus } from "@/rspc/bindings";
+import type {
+  LiveStorageHealth,
+  StorageHealthRecord,
+  StorageHealthStatus,
+} from "@/rspc/bindings";
 
 export const STORAGE_HEALTH_STALE_AFTER_DAYS = 2;
 
+export type StorageHealthTemperatureSource = "live" | "record";
+
 export type StorageHealthMetric =
-  | { type: "temperatureCelsius"; value: number }
+  | {
+      type: "temperatureCelsius";
+      value: number;
+      source: StorageHealthTemperatureSource;
+      collectedAt: string;
+    }
   | { type: "percentageUsed"; value: number }
   | { type: "availableSparePercent"; value: number }
   | { type: "powerOnHours"; value: number }
@@ -33,6 +44,11 @@ export type StorageHealthSummaryViewModel = {
   devices: StorageHealthDeviceViewModel[];
 };
 
+export type BuildStorageHealthSummaryOptions = {
+  liveSignals?: LiveStorageHealth[];
+  selectedDeviceId?: string | null;
+};
+
 const healthRank: Record<StorageHealthStatus, number> = {
   good: 0,
   unknown: 1,
@@ -43,6 +59,7 @@ const healthRank: Record<StorageHealthStatus, number> = {
 export const buildStorageHealthSummary = (
   records: StorageHealthRecord[],
   now: Date = new Date(),
+  options: BuildStorageHealthSummaryOptions = {},
 ): StorageHealthSummaryViewModel => {
   if (records.length === 0) {
     return {
@@ -98,7 +115,15 @@ export const buildStorageHealthSummary = (
     if (rankDiff !== 0) return rankDiff;
     return a.displayName.localeCompare(b.displayName);
   });
-  const focusDevice = orderedRecords[0] ?? null;
+  const selectedDevice = options.selectedDeviceId
+    ? orderedRecords.find(
+        (record) => record.deviceId === options.selectedDeviceId,
+      )
+    : null;
+  const focusDevice = selectedDevice ?? orderedRecords[0] ?? null;
+  const liveSignalByDeviceId = new Map(
+    (options.liveSignals ?? []).map((signal) => [signal.deviceId, signal]),
+  );
 
   return {
     status: focusDevice?.healthStatus ?? "unknown",
@@ -109,7 +134,12 @@ export const buildStorageHealthSummary = (
     isStale: false,
     focusDevice,
     reasons: focusDevice?.warningReasons.slice(0, 2) ?? [],
-    metrics: focusDevice ? collectMetrics(focusDevice) : [],
+    metrics: focusDevice
+      ? collectMetrics(
+          focusDevice,
+          liveSignalByDeviceId.get(focusDevice.deviceId),
+        )
+      : [],
     devices: buildDeviceList(orderedRecords, false),
   };
 };
@@ -125,13 +155,23 @@ const buildDeviceList = (
   }));
 };
 
-const collectMetrics = (record: StorageHealthRecord): StorageHealthMetric[] => {
+const collectMetrics = (
+  record: StorageHealthRecord,
+  liveSignal?: LiveStorageHealth,
+): StorageHealthMetric[] => {
   const metrics: StorageHealthMetric[] = [];
 
-  if (record.temperatureCelsius != null) {
+  const temperature =
+    liveSignal?.temperatureCelsius ?? record.temperatureCelsius;
+  if (temperature != null) {
     metrics.push({
       type: "temperatureCelsius",
-      value: record.temperatureCelsius,
+      value: temperature,
+      source: liveSignal?.temperatureCelsius != null ? "live" : "record",
+      collectedAt:
+        liveSignal?.temperatureCelsius != null
+          ? liveSignal.collectedAt
+          : record.collectedAt,
     });
   }
   if (record.percentageUsed != null) {

@@ -213,6 +213,10 @@
         "title": "Storage Health",
         "stale": "Stale",
         "lastRecorded": "Last recorded {{date}}",
+        "temperatureSources": {
+          "live": "Live: {{datetime}}",
+          "record": "Record: {{datetime}}"
+        },
         "errors": {
           "fetchLatest": "Failed to fetch storage health data."
         },

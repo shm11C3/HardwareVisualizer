@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { StorageHealthRecord } from "@/rspc/bindings";
+import type { LiveStorageHealth, StorageHealthRecord } from "@/rspc/bindings";
 import {
   buildStorageHealthSummary,
   formatStorageHealthMetricValue,
@@ -28,6 +28,22 @@ const record = (
   unsafeShutdownCount: null,
   warningReasons: [],
   collectedAt: "2026-05-10T09:12:00Z",
+  ...overrides,
+});
+
+const liveSignal = (
+  overrides: Partial<LiveStorageHealth> = {},
+): LiveStorageHealth => ({
+  deviceId: "storage:disk-a",
+  displayName: "Disk A",
+  temperatureCelsius: 45,
+  availableSparePercent: 99,
+  percentageUsed: 2,
+  mediaErrors: 0,
+  unsafeShutdownCount: 0,
+  powerOnHours: 101,
+  powerCycleCount: 5,
+  collectedAt: "2026-05-10T10:00:00Z",
   ...overrides,
 });
 
@@ -106,7 +122,12 @@ describe("buildStorageHealthSummary", () => {
       "Temperature is elevated (47°C)",
     ]);
     expect(summary.metrics).toEqual([
-      { type: "temperatureCelsius", value: 47 },
+      {
+        type: "temperatureCelsius",
+        value: 47,
+        source: "record",
+        collectedAt: "2026-05-10T09:12:00Z",
+      },
       { type: "percentageUsed", value: 82 },
       { type: "powerOnHours", value: 100 },
     ]);
@@ -131,7 +152,12 @@ describe("buildStorageHealthSummary", () => {
     );
 
     expect(summary.metrics).toEqual([
-      { type: "temperatureCelsius", value: 44 },
+      {
+        type: "temperatureCelsius",
+        value: 44,
+        source: "record",
+        collectedAt: "2026-05-10T09:12:00Z",
+      },
       { type: "percentageUsed", value: 0 },
       { type: "availableSparePercent", value: 100 },
       { type: "powerOnHours", value: 118 },
@@ -291,6 +317,131 @@ describe("buildStorageHealthSummary", () => {
       },
     ]);
   });
+
+  it("uses live temperature for the focused device without changing daily health signals", () => {
+    const summary = buildStorageHealthSummary(
+      [
+        record({
+          deviceId: "disk-a",
+          displayName: "Disk A",
+          healthStatus: "warning",
+          warningLevel: "warning",
+          percentageUsed: 82,
+          availableSparePercent: 98,
+          temperatureCelsius: 42,
+          warningReasons: ["NVMe percentage used is high (82%)"],
+        }),
+      ],
+      new Date("2026-05-10T10:00:00"),
+      {
+        liveSignals: [
+          liveSignal({
+            deviceId: "disk-a",
+            temperatureCelsius: 55,
+            percentageUsed: 4,
+            availableSparePercent: 100,
+            collectedAt: "2026-05-10T10:00:00Z",
+          }),
+        ],
+      },
+    );
+
+    expect(summary.status).toBe("warning");
+    expect(summary.reasons).toEqual(["NVMe percentage used is high (82%)"]);
+    expect(summary.metrics).toEqual([
+      {
+        type: "temperatureCelsius",
+        value: 55,
+        source: "live",
+        collectedAt: "2026-05-10T10:00:00Z",
+      },
+      { type: "percentageUsed", value: 82 },
+      { type: "availableSparePercent", value: 98 },
+      { type: "powerOnHours", value: 100 },
+    ]);
+  });
+
+  it("falls back to the daily record temperature when the live signal has no temperature", () => {
+    const summary = buildStorageHealthSummary(
+      [record({ deviceId: "disk-a", temperatureCelsius: 42 })],
+      new Date("2026-05-10T10:00:00"),
+      {
+        liveSignals: [
+          liveSignal({
+            deviceId: "disk-a",
+            temperatureCelsius: null,
+            collectedAt: "2026-05-10T10:00:00Z",
+          }),
+        ],
+      },
+    );
+
+    expect(summary.metrics[0]).toEqual({
+      type: "temperatureCelsius",
+      value: 42,
+      source: "record",
+      collectedAt: "2026-05-10T09:12:00Z",
+    });
+  });
+
+  it("can use a selected storage device instead of the automatic focus device", () => {
+    const summary = buildStorageHealthSummary(
+      [
+        record({
+          deviceId: "disk-a",
+          displayName: "Selected Disk",
+          healthStatus: "good",
+          warningLevel: "none",
+          temperatureCelsius: 38,
+        }),
+        record({
+          deviceId: "disk-b",
+          displayName: "Warning Disk",
+          healthStatus: "warning",
+          warningLevel: "warning",
+          temperatureCelsius: 45,
+          warningReasons: ["NVMe percentage used is high (82%)"],
+        }),
+      ],
+      new Date("2026-05-10T10:00:00"),
+      {
+        selectedDeviceId: "disk-a",
+        liveSignals: [
+          liveSignal({
+            deviceId: "disk-a",
+            temperatureCelsius: 41,
+          }),
+        ],
+      },
+    );
+
+    expect(summary.status).toBe("good");
+    expect(summary.focusDevice?.deviceId).toBe("disk-a");
+    expect(summary.metrics[0]).toEqual({
+      type: "temperatureCelsius",
+      value: 41,
+      source: "live",
+      collectedAt: "2026-05-10T10:00:00Z",
+    });
+  });
+
+  it("does not surface live temperature when the daily record is stale", () => {
+    const summary = buildStorageHealthSummary(
+      [record({ date: "2026-05-07", temperatureCelsius: 38 })],
+      new Date("2026-05-10T10:00:00"),
+      {
+        liveSignals: [
+          liveSignal({
+            temperatureCelsius: 41,
+            collectedAt: "2026-05-10T10:00:00Z",
+          }),
+        ],
+      },
+    );
+
+    expect(summary.isStale).toBe(true);
+    expect(summary.metrics).toEqual([]);
+  });
 });
 
 describe("formatStorageHealthMetricValue", () => {
@@ -299,6 +450,8 @@ describe("formatStorageHealthMetricValue", () => {
       formatStorageHealthMetricValue({
         type: "temperatureCelsius",
         value: 44.4,
+        source: "record",
+        collectedAt: "2026-05-10T09:12:00Z",
       }),
     ).toBe("44°C");
     expect(

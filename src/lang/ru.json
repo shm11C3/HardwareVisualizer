@@ -202,6 +202,10 @@
         "title": "Состояние накопителя",
         "stale": "Устарело",
         "lastRecorded": "Последняя запись {{date}}",
+        "temperatureSources": {
+          "live": "Текущее: {{datetime}}",
+          "record": "Запись: {{datetime}}"
+        },
         "errors": {
           "fetchLatest": "Не удалось получить данные о состоянии накопителя."
         },
