@@ -213,6 +213,18 @@ winget install shm11C3.HardwareVisualizer
 署名状況の詳細は [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) をご覧ください。
 チェックサムと provenance の確認方法は [ダウンロード検証ガイド](docs/download-verification.ja.md) を参照してください。
 
+## Special Thanks
+
+HardwareVisualizer は、多くのオープンソースプロジェクト、ツール、コントリビューターの成果に支えられています。
+
+- [Tauri](https://tauri.app/) — 軽量なクロスプラットフォームデスクトップアプリケーションの基盤を提供しているプロジェクトです。
+- [sysinfo](https://github.com/GuillaumeGomez/sysinfo) — クロスプラットフォームなシステム情報取得を支えているプロジェクトです。
+- [nvapi-rs](https://github.com/arcnmx/nvapi-rs) — Rust から NVIDIA NVAPI を扱うために利用しているプロジェクトです。
+- [macmon](https://github.com/vladkens/macmon) — MITライセンスで公開されている macOS 向けモニタリング実装であり、HardwareVisualizer の macOS センサー対応の参考にしています。
+- [PawnIO](https://pawnio.eu/) / [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules) — Windows向けの任意ネイティブCPU温度取得において、利用可能な場合に連携できる低レベルインターフェースを提供しているプロジェクトです。
+
+注: この謝辞は、記載されたすべてのプロジェクトがHardwareVisualizerに同梱されている、またはすべての環境で使用されていることを意味するものではありません。Windows向けPawnIO CPU温度実装は、第三者の監視ツール実装を移植したものではなく、このリポジトリ内のclean-room sensor specificationsに基づいて実装されています。
+
 ## ライセンス
 
 [MIT License](LICENSE)
