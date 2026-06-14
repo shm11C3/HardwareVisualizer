@@ -224,6 +224,18 @@ See [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for signing status and the
 [download verification guide](docs/download-verification.md) for checksum and
 provenance checks.
 
+## Special Thanks
+
+HardwareVisualizer is made possible by many open-source projects, tools, and contributors.
+
+- [Tauri](https://tauri.app/) — for providing the foundation for building lightweight cross-platform desktop applications.
+- [sysinfo](https://github.com/GuillaumeGomez/sysinfo) — for cross-platform system information collection.
+- [nvapi-rs](https://github.com/arcnmx/nvapi-rs) — for enabling access to NVIDIA's NVAPI from Rust.
+- [macmon](https://github.com/vladkens/macmon) — for the MIT-licensed macOS monitoring implementation that informed parts of HardwareVisualizer's macOS sensor support.
+- [PawnIO](https://pawnio.eu/) and [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules) — for providing the low-level Windows interface that HardwareVisualizer can integrate with when available for optional native CPU temperature support.
+
+Note: This acknowledgement does not mean that all listed projects are bundled with HardwareVisualizer or used in every build. The Windows PawnIO CPU temperature implementation is implemented from the repository's clean-room sensor specifications, not by porting third-party monitoring implementations.
+
 ## License
 
 [MIT License](LICENSE)
