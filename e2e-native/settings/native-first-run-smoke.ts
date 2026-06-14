@@ -12,6 +12,7 @@ import {
   type Locator,
   until,
   type WebDriver,
+  type WebElement,
 } from "selenium-webdriver";
 import {
   assertSafeE2eDataDir,
@@ -23,7 +24,6 @@ const DRIVER_PORT = 4444;
 const DRIVER_URL = `http://${DRIVER_HOST}:${DRIVER_PORT}/`;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const BOOT_TIMEOUT_MS = 60_000;
-const OPTIONAL_DIALOG_TIMEOUT_MS = 5_000;
 const REPO_ROOT = path.resolve(
   fileURLToPath(new URL("../..", import.meta.url)),
 );
@@ -40,6 +40,20 @@ const FAILURE_CAPTURE = path.join(
   SCREEN_NAME,
   `${SCENARIO_NAME}-failure.png`,
 );
+const CLOSE_TO_TRAY_CLOSE_BUTTON = By.css('button[aria-label="Close dialog"]');
+const EXTERNAL_GUIDANCE_TITLE = By.xpath(
+  "//*[normalize-space()='Optional components can enable more data']",
+);
+const EXTERNAL_GUIDANCE_HIDE_BUTTON = By.xpath(
+  "//button[normalize-space()='Hide']",
+);
+const EXTERNAL_GUIDANCE_HIDE_SESSION_ITEM = By.xpath(
+  "//*[@role='menuitem' and normalize-space()='Hide for this session']",
+);
+
+type StartupBlocker =
+  | { element: WebElement; kind: "close-to-tray" }
+  | { element: WebElement; kind: "external-guidance" };
 
 const buildEnv: NodeJS.ProcessEnv = {
   ...process.env,
@@ -241,16 +255,50 @@ const waitForVisible = async (
   return element;
 };
 
-const waitForOptionalVisible = async (
-  driver: WebDriver,
-  locator: Locator,
-  timeoutMs = OPTIONAL_DIALOG_TIMEOUT_MS,
-) => {
-  try {
-    return await waitForVisible(driver, locator, timeoutMs);
-  } catch {
-    return null;
+const findVisibleElement = async (driver: WebDriver, locator: Locator) => {
+  const elements = await driver.findElements(locator);
+
+  for (const element of elements) {
+    try {
+      if (await element.isDisplayed()) {
+        return element;
+      }
+    } catch {
+      // Ignore stale candidates while the native WebView is still settling.
+    }
   }
+
+  return null;
+};
+
+const waitForStartupBlocker = async (driver: WebDriver) => {
+  const blocker = await driver.wait(async () => {
+    const externalGuidance = await findVisibleElement(
+      driver,
+      EXTERNAL_GUIDANCE_TITLE,
+    );
+    if (externalGuidance) {
+      return {
+        element: externalGuidance,
+        kind: "external-guidance" as const,
+      };
+    }
+
+    const closeToTray = await findVisibleElement(
+      driver,
+      CLOSE_TO_TRAY_CLOSE_BUTTON,
+    );
+    if (closeToTray) {
+      return {
+        element: closeToTray,
+        kind: "close-to-tray" as const,
+      };
+    }
+
+    return null;
+  }, BOOT_TIMEOUT_MS);
+
+  return blocker as StartupBlocker;
 };
 
 const hasExited = (child: ChildProcess) =>
@@ -324,25 +372,15 @@ const clickVisible = async (
 };
 
 const dismissExternalComponentGuidanceIfPresent = async (driver: WebDriver) => {
-  const title = await waitForOptionalVisible(
-    driver,
-    By.xpath(
-      "//*[normalize-space()='Optional components can enable more data']",
-    ),
-  );
-  if (!title) {
+  const blocker = await waitForStartupBlocker(driver);
+  if (blocker.kind !== "external-guidance") {
     return;
   }
 
   log("hiding optional component guidance");
-  await clickVisible(driver, By.xpath("//button[normalize-space()='Hide']"));
-  await clickVisible(
-    driver,
-    By.xpath(
-      "//*[@role='menuitem' and normalize-space()='Hide for this session']",
-    ),
-  );
-  await driver.wait(until.stalenessOf(title), DEFAULT_TIMEOUT_MS);
+  await clickVisible(driver, EXTERNAL_GUIDANCE_HIDE_BUTTON);
+  await clickVisible(driver, EXTERNAL_GUIDANCE_HIDE_SESSION_ITEM);
+  await driver.wait(until.stalenessOf(blocker.element), DEFAULT_TIMEOUT_MS);
 };
 
 const runSmoke = async (driver: WebDriver) => {
@@ -351,7 +389,7 @@ const runSmoke = async (driver: WebDriver) => {
   log("waiting for first-run close-to-tray prompt");
   const closeDialogButton = await clickVisible(
     driver,
-    By.css('button[aria-label="Close dialog"]'),
+    CLOSE_TO_TRAY_CLOSE_BUTTON,
     BOOT_TIMEOUT_MS,
   );
   await driver.wait(until.stalenessOf(closeDialogButton), DEFAULT_TIMEOUT_MS);
