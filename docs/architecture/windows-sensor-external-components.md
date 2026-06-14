@@ -20,6 +20,11 @@ Required components:
   - AMD Family 17h / 19h package temperature path: `RyzenSMU.amx` or
     `RyzenSMU.bin`.
 
+The CPU-specific module blob is not installed by the PawnIO runtime itself.
+Users must download a release asset from
+<https://github.com/namazso/PawnIO.Modules/releases>, extract the module blob,
+and place the required file under `C:\Program Files\PawnIO`.
+
 The collector prefers the implementation-ready spec names (`*.amx`) and then
 falls back to the installed module names observed during local validation
 (`*.bin`). The module extension is an operational compatibility detail only; it

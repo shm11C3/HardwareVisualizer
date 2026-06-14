@@ -56,11 +56,28 @@ paths:
 For PawnIO-backed CPU package temperature collection, the machine needs:
 
 - a working PawnIO driver/runtime installation;
-- `PawnIOLib.dll`;
-- one CPU-specific module blob:
+- `PawnIOLib.dll`, which is provided by the PawnIO runtime installation;
+- one CPU-specific module blob from the PawnIO.Modules release assets:
   - `IntelMSR.amx` or `IntelMSR.bin` for supported Intel CPUs;
   - `RyzenSMU.amx` or `RyzenSMU.bin` for supported AMD CPUs;
 - enough Windows privileges for the app process to open the PawnIO driver.
+
+To set up the module blob:
+
+1. Install the PawnIO runtime.
+2. Download a release asset from
+   [namazso/PawnIO.Modules](https://github.com/namazso/PawnIO.Modules/releases).
+3. Extract the archive and copy the CPU module file you need into
+   `C:\Program Files\PawnIO`.
+   - For Intel package temperature, copy `IntelMSR.amx` or `IntelMSR.bin`.
+   - For supported AMD package temperature, copy `RyzenSMU.amx` or
+     `RyzenSMU.bin`.
+   - If you are not sure which CPU path applies, copying both module files is
+     acceptable.
+4. Restart HardwareVisualizer.
+
+Writing to `C:\Program Files\PawnIO` usually requires administrator
+permission.
 
 If PawnIO is installed but HardwareVisualizer reports a permission issue, run
 HardwareVisualizer as administrator and try again.
