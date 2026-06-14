@@ -23,6 +23,7 @@ const DRIVER_PORT = 4444;
 const DRIVER_URL = `http://${DRIVER_HOST}:${DRIVER_PORT}/`;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const BOOT_TIMEOUT_MS = 60_000;
+const OPTIONAL_DIALOG_TIMEOUT_MS = 5_000;
 const REPO_ROOT = path.resolve(
   fileURLToPath(new URL("../..", import.meta.url)),
 );
@@ -240,6 +241,18 @@ const waitForVisible = async (
   return element;
 };
 
+const waitForOptionalVisible = async (
+  driver: WebDriver,
+  locator: Locator,
+  timeoutMs = OPTIONAL_DIALOG_TIMEOUT_MS,
+) => {
+  try {
+    return await waitForVisible(driver, locator, timeoutMs);
+  } catch {
+    return null;
+  }
+};
+
 const hasExited = (child: ChildProcess) =>
   child.exitCode != null || child.signalCode != null;
 
@@ -310,14 +323,37 @@ const clickVisible = async (
   return element;
 };
 
+const dismissExternalComponentGuidanceIfPresent = async (driver: WebDriver) => {
+  const title = await waitForOptionalVisible(
+    driver,
+    By.xpath(
+      "//*[normalize-space()='Optional components can enable more data']",
+    ),
+  );
+  if (!title) {
+    return;
+  }
+
+  log("hiding optional component guidance");
+  await clickVisible(driver, By.xpath("//button[normalize-space()='Hide']"));
+  await clickVisible(
+    driver,
+    By.xpath(
+      "//*[@role='menuitem' and normalize-space()='Hide for this session']",
+    ),
+  );
+  await driver.wait(until.stalenessOf(title), DEFAULT_TIMEOUT_MS);
+};
+
 const runSmoke = async (driver: WebDriver) => {
+  await dismissExternalComponentGuidanceIfPresent(driver);
+
   log("waiting for first-run close-to-tray prompt");
-  const closeDialogButton = await waitForVisible(
+  const closeDialogButton = await clickVisible(
     driver,
     By.css('button[aria-label="Close dialog"]'),
     BOOT_TIMEOUT_MS,
   );
-  await closeDialogButton.click();
   await driver.wait(until.stalenessOf(closeDialogButton), DEFAULT_TIMEOUT_MS);
 
   log("opening Settings");
