@@ -626,7 +626,7 @@ jobs:
         uses: ./.github/actions/setup-rust
 
       - name: Install tauri-driver
-        run: cargo install tauri-driver --locked --version 0.3.0
+        run: cargo install tauri-driver --locked --version 2.0.6
 
       - name: Run native E2E smoke
         run: xvfb-run npm run test:e2e:native
