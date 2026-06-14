@@ -12,6 +12,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
+import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
@@ -308,6 +309,10 @@ const AppContent = () => {
           <AppUpdate />
           <CloseToTrayFirstRunDialog
             closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
+            settingsLoaded={settingsLoaded}
+          />
+          <ExternalComponentGuidanceDialog
+            displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
           />
         </div>

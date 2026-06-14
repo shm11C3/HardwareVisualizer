@@ -164,6 +164,43 @@
     }
   },
 
+  "externalComponentGuidance": {
+    "title": "任意の追加コンポーネントで表示できる項目があります",
+    "labels": {
+      "missing": "不足コンポーネント",
+      "impact": "表示できなくなる項目",
+      "action": "必要なアクション"
+    },
+    "actions": {
+      "openDetails": "詳細を開く",
+      "hide": "表示しない",
+      "hideThisSession": "このセッションでは表示しない",
+      "neverShowAgain": "二度と表示しない"
+    },
+    "candidates": {
+      "pawnioCpuPackageTemperature": {
+        "missing": "PawnIO",
+        "impact": "CPU パッケージ温度",
+        "action": "PawnIO をインストールし、HardwareVisualizer を再起動してください。入手先と配置場所は詳細ページで確認できます。"
+      },
+      "smartctlStorageHealth": {
+        "missing": "smartctl（smartmontools）",
+        "impact": "Storage Health の SMART 健康状態、温度、使用率、予備領域、セクター、メディアエラーなど",
+        "action": "smartmontools をインストールし、コマンドラインから smartctl を実行できるようにしてから HardwareVisualizer を再起動してください。"
+      },
+      "generic": {
+        "missing": "任意の外部コンポーネント",
+        "impact": "一部のハードウェア詳細",
+        "action": "詳細ページを開き、不足しているコンポーネントの導入手順を確認してください。"
+      }
+    },
+    "errors": {
+      "acknowledge": "この案内の設定を保存できませんでした。",
+      "defer": "このセッションで案内を非表示にできませんでした。",
+      "openDetails": "詳細ページを開けませんでした。"
+    }
+  },
+
   "pages": {
     "dashboard": {
       "name": "ダッシュボード",
@@ -393,6 +430,10 @@
         "name": "高度な設定",
         "showGpuUsageSource": "GPU使用率の取得ソースを表示",
         "showGpuUsageSourceDescription": "ダッシュボードにGPU使用率の取得ソース（NVAPI、ADL、WMI等）を表示します。",
+        "externalComponents": "外部コンポーネント",
+        "externalComponentsDescription": "PawnIO や smartctl などの任意コンポーネントの導入手順を確認します。",
+        "openExternalComponentsDocs": "ドキュメントを開く",
+        "openExternalComponentsDocsError": "外部コンポーネントのドキュメントを開けませんでした。",
         "elevatedStartupMode": {
           "name": "管理者として起動",
           "description": "昇格が必要なセンサーを使えるように、HardwareVisualizer を管理者権限で起動します。有効にすると Windows の承認後にアプリを再起動します。"

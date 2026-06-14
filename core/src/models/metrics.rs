@@ -1,3 +1,5 @@
+use super::ExternalComponentGuidanceCandidate;
+
 /// One sample of per-GPU metrics, normalized across vendors and platforms.
 ///
 /// `None` indicates the metric is unavailable for this vendor/platform.
@@ -57,4 +59,7 @@ pub struct MetricsSnapshot {
   /// All named temperature sensors in raw °C (ACPI thermal zones on
   /// Windows). Empty when unsupported.
   pub sensor_temperatures: Vec<SensorTemperature>,
+  /// Diagnostic side data for optional runtime components that were
+  /// attempted but unavailable while user-visible data remains missing.
+  pub external_component_guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
 }

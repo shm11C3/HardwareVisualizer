@@ -17,6 +17,7 @@ Use the closest stable owner:
   - `src-tauri/README.md` for the Tauri app crate.
   - `core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.
+- User-facing guides that are published by the website live under `docs/user/`.
 - Architecture docs live under `docs/architecture/`.
 - Release, verification, signing, and distribution docs should live under
   `docs/release/` or `docs/security/` when those directories are introduced.

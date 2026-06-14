@@ -75,7 +75,7 @@ impl ArchiveController {
         // (e.g. when the collector temporarily out-paces us, or after
         // a `Lagged` recovery) cannot starve the 60-second write;
         // `rx.recv()` is last and may shed a snapshot in favor of an
-        // overdue write — which is fine because the tracker only ever
+        // overdue write - which is fine because the tracker only ever
         // computes aggregates over its 60-sample rings.
         tokio::select! {
           biased;
@@ -118,7 +118,7 @@ impl ArchiveController {
       // Phase 5 (#1408): write a final summary on shutdown so samples
       // accumulated since the last 60s tick are not lost when the user
       // explicitly quits. `is_dirty()` skips the flush when nothing has
-      // been ingested since the previous write — common when shutdown
+      // been ingested since the previous write - common when shutdown
       // lands within a fraction of a second after a scheduled tick.
       if tracker.is_dirty() {
         tracker.write_archive().await;
@@ -141,7 +141,7 @@ impl ArchiveController {
 /// This is a **one-shot** operation: it deletes everything older than
 /// the cutoff at the moment of the call and then returns. App calls it
 /// once at startup when `hardware_archive.scheduled_data_deletion` is
-/// enabled — that matches the pre-Phase-4 behavior of the previous
+/// enabled - that matches the pre-Phase-4 behavior of the previous
 /// `batch_delete_old_data` wrapper. The cleanup trigger is still
 /// "next process boot", not a recurring schedule.
 pub async fn cleanup_old_data(retention_days: u32) {
@@ -276,7 +276,7 @@ impl ArchiveTracker {
 
     // Age out accumulators that haven't been refreshed within the
     // grace window. Evicting on every snapshot (the previous behavior)
-    // dropped processes that exited just before the archive tick — a
+    // dropped processes that exited just before the archive tick - a
     // short-lived offender that burned CPU for most of the minute and
     // then exited would never appear in the archive row. Keeping
     // entries for [`PROCESS_GRACE_TICKS`] solves that without letting
@@ -297,7 +297,7 @@ impl ArchiveTracker {
       // Trade-off: a recycled PID running the same binary name is
       // indistinguishable from the original here and will continue
       // accumulating into the existing rings. That's a rare and
-      // benign case — the values stay representative of a process
+      // benign case - the values stay representative of a process
       // with that name on that PID slot.
       let pid_reused =
         entry.last_seen_tick != 0 && !entry.name.is_empty() && entry.name != sample.name;
@@ -356,7 +356,7 @@ impl ArchiveTracker {
     // Walk the union of every GPU history map so adapters that report
     // only temperature or only dedicated memory (e.g. Linux DRM, ADL
     // without VRAM, Apple IOKit without thermals) still produce a row
-    // — iterating `gpu_usage_histories` alone would silently drop them.
+    // - iterating `gpu_usage_histories` alone would silently drop them.
     let gpu_ids: HashSet<&String> = self
       .gpu_usage_histories
       .keys()
@@ -540,7 +540,7 @@ impl StatsCalculator {
       return (None, None, None);
     }
     // Sum in i64: dedicated GPU memory is reported in KB, so 60 samples
-    // from a high-VRAM card (e.g. 80 GB ≈ 8.4×10⁷ KB) easily exceed
+    // from a high-VRAM card (e.g. 80 GB is about 84,000,000 KB) easily exceed
     // i32::MAX. An i32 accumulator panics in debug and silently wraps
     // in release.
     let sum: i64 = values.iter().map(|&v| v as i64).sum();
@@ -565,6 +565,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     }
   }
 
@@ -689,6 +690,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     });
     assert_eq!(t.gpu_name_map.get("gpu:0").unwrap(), "RTX");
     assert_eq!(t.gpu_usage_histories.get("gpu:0").unwrap().len(), 1);
@@ -714,6 +716,7 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     }
   }
 
@@ -748,7 +751,7 @@ mod tests {
   fn ingest_resets_rings_on_pid_reuse_with_different_name() {
     let mut t = ArchiveTracker::new();
     t.ingest(snap_with_pid(42, "victim"));
-    // Drive several ticks without PID 42 — it stays in the map (still
+    // Drive several ticks without PID 42 - it stays in the map (still
     // within grace) but we don't push to its rings.
     for _ in 0..3 {
       t.ingest(snap_with_pid(99, "filler"));
@@ -781,7 +784,7 @@ mod tests {
     t.ingest(snap_with_pid(42, "victim"));
 
     let acc = t.processes.get(&42).unwrap();
-    // The brief gap must not wipe the rolling history — only the new
+    // The brief gap must not wipe the rolling history - only the new
     // sample is appended.
     assert_eq!(acc.cpu_history.len(), len_before + 1);
     assert_eq!(acc.memory_kb_history.len(), len_before + 1);
@@ -826,6 +829,7 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
   }
@@ -847,6 +851,7 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     });
     let stats = t.collect_process_stats();
     assert_eq!(stats.len(), 1);
@@ -871,6 +876,7 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
   }
@@ -896,6 +902,7 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      external_component_guidance_candidates: vec![],
     });
     let gpus = t.collect_gpu_data();
     assert_eq!(gpus.len(), 1);

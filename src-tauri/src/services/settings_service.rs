@@ -1,5 +1,6 @@
 use crate::enums;
 use crate::models;
+use crate::services::external_component_guidance_service::normalize_external_component_guidance_key;
 use crate::utils;
 use crate::{log_error, log_info};
 use std::io::Write;
@@ -231,6 +232,7 @@ impl models::settings::Settings {
     try_field!(text_selectable, "textSelectable");
     try_field!(close_to_tray, "closeToTray");
     try_field!(close_to_tray_choice_made, "closeToTrayChoiceMade");
+    try_field!(external_component_guidance, "externalComponentGuidance");
     try_field!(elevated_startup_mode, "elevatedStartupMode");
     try_field!(tray_widget, "trayWidget");
 
@@ -482,6 +484,27 @@ impl models::settings::Settings {
     self.close_to_tray = new_value;
     self.close_to_tray_choice_made = true;
     self.write_file()
+  }
+
+  pub fn acknowledge_external_component_guidance_key(
+    &mut self,
+    key: String,
+  ) -> Result<(), String> {
+    let key = normalize_external_component_guidance_key(&key)?;
+    if self
+      .external_component_guidance
+      .acknowledged_keys
+      .contains(&key)
+    {
+      return self.write_file();
+    }
+
+    let mut next = self.clone();
+    next.external_component_guidance.acknowledged_keys.push(key);
+    next.write_file()?;
+    *self = next;
+
+    Ok(())
   }
 
   pub fn set_elevated_startup_mode(&mut self, new_value: bool) -> Result<(), String> {

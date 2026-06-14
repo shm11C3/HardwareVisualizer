@@ -95,6 +95,8 @@ export const commands = {
 	 *  native read path (displays fall back to the daily records).
 	 */
 	getLiveStorageHealth: () => typedError<LiveStorageHealth[], string>(__TAURI_INVOKE("get_live_storage_health")),
+	getExternalComponentGuidanceCandidates: (view: ExternalComponentGuidanceView) => typedError<ExternalComponentGuidanceCandidate[], string>(__TAURI_INVOKE("get_external_component_guidance_candidates", { view })),
+	deferExternalComponentGuidanceForSession: (key: string) => typedError<null, string>(__TAURI_INVOKE("defer_external_component_guidance_for_session", { key })),
 	// ## Get archived CPU/RAM records
 	getDataArchiveRecords: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string) => typedError<ArchiveRecord[], string>(__TAURI_INVOKE("get_data_archive_records", { hardwareType, dataStats, start, end })),
 	// ## Get archived GPU records
@@ -145,6 +147,7 @@ export const commands = {
 	setTextSelectable: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_text_selectable", { newValue })),
 	setTrayWidgetSettings: (newValue: TrayWidgetSettings_Deserialize) => typedError<null, string>(__TAURI_INVOKE("set_tray_widget_settings", { newValue })),
 	setCloseToTrayPreference: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_close_to_tray_preference", { newValue })),
+	acknowledgeExternalComponentGuidanceKey: (key: string) => typedError<null, string>(__TAURI_INVOKE("acknowledge_external_component_guidance_key", { key })),
 	setElevatedStartupMode: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_elevated_startup_mode", { newValue })),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
@@ -268,6 +271,7 @@ export type ClientSettings_Deserialize = {
 	textSelectable: boolean,
 	closeToTray: boolean,
 	closeToTrayChoiceMade: boolean,
+	externalComponentGuidance: ExternalComponentGuidanceSettings,
 	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Deserialize,
 };
@@ -302,6 +306,7 @@ export type ClientSettings_Serialize = {
 	textSelectable: boolean,
 	closeToTray: boolean,
 	closeToTrayChoiceMade: boolean,
+	externalComponentGuidance: ExternalComponentGuidanceSettings,
 	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Serialize,
 };
@@ -324,6 +329,28 @@ export type DownloadEvent = { event: "started"; data: {
 } } | { event: "progress"; data: {
 	chunkLength: string,
 } } | { event: "finished" };
+
+export type ExternalComponent = "pawnio" | "smartctl";
+
+export type ExternalComponentGuidanceCandidate = {
+	key: string,
+	component: ExternalComponent,
+	usage: ExternalComponentUsage,
+	reasonKind: ExternalComponentReasonKind,
+	missingSignals: string[],
+	affectedDeviceCount: number | null,
+	diagnosticDetail: string | null,
+};
+
+export type ExternalComponentGuidanceSettings = {
+	acknowledgedKeys?: string[],
+};
+
+export type ExternalComponentGuidanceView = "dashboard" | "cpuDetail" | "storageHealth";
+
+export type ExternalComponentReasonKind = "missing" | "permission" | "misconfigured" | "failed";
+
+export type ExternalComponentUsage = "cpuPackageTemperature" | "storageHealth";
 
 export type GpuArchiveDataType = "usage" | "temp" | "dedicatedMemory";
 
@@ -604,4 +631,3 @@ function makeEvent<T>(name: string) {
 
     return Object.assign(fn, base);
 }
-

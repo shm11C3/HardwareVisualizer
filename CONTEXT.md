@@ -121,3 +121,9 @@ _Avoid_: Storage Health Record, storage health snapshot, realtime SMART
 **Storage Device Refresh**:
 The user-initiated action that re-detects connected storage devices, collects current health signals, updates today's Storage Health Record, and reflects added or removed devices in displays.
 _Avoid_: Rescan, reload, auto-detection, live polling
+
+### Sensor Availability
+
+**External Component Guidance**:
+A user-facing notice shown after hardware collection tries and cannot use an optional external runtime component, and fallback collection still leaves user-visible hardware data unavailable.
+_Avoid_: Startup dependency check, install prompt, dependency error, missing component alert

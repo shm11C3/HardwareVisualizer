@@ -298,6 +298,60 @@ when it helps explain partial support, and avoid converting a partially
 available device into an all-or-nothing failure unless the caller cannot
 produce a useful result without that data.
 
+External Component Guidance follows the same best-effort rule. Core may produce
+structured guidance candidates when an optional runtime component such as
+PawnIO or `smartctl` was actually attempted, could not be used, and fallback
+collection still leaves user-visible hardware data unavailable. Those
+candidates are diagnostic side data only: they must not change collection
+results, fallback order, or aggregate success/failure behavior.
+
+Core candidates should describe stable facts such as component, usage,
+reason-kind, missing important signals, and optional diagnostic detail. App owns
+the user-facing policy: it checks `externalComponentGuidance.acknowledgedKeys`
+in `settings.json`, holds unshown candidates only in session memory, maps
+guidance keys to detail URLs, returns candidates only while a relevant view can
+show them, and persists acknowledgements through typed settings commands.
+
+The initial candidate shape should stay minimal: a stable guidance key,
+component, usage, reason kind, missing signal names, optional affected device
+count, and optional diagnostic detail. Raw provider errors can be carried as
+diagnostic detail for logs or expandable UI, but translated user-facing copy
+should be driven by component, usage, and reason kind.
+
+The initial implementation scope is limited to PawnIO for Windows CPU package
+temperature and `smartctl` for Storage Health. Other vendor libraries, drivers,
+or OS APIs should not be folded into this guidance path until their component,
+usage, fallback behavior, and user action are explicit.
+The first implementation slice should wire both initial guidance keys through
+the shared candidate, settings, command, and dialog path rather than shipping
+only one component first.
+
+The minimum validation should cover both included components. PawnIO guidance
+appears only when PawnIO cannot provide CPU package temperature and no ACPI CPU
+temperature fallback is available. `smartctl` guidance appears only when
+`smartctl` cannot be used and fallback Storage Health collection still lacks an
+important health signal for at least one device. In both cases, tests should
+also cover the inverse path where the optional component is unavailable but
+fallback collection provides the user-visible data, so no guidance candidate is
+produced.
+
+App should aggregate unacknowledged guidance candidates by stable key. Repeated
+detections of the same key replace the session-held candidate instead of
+growing a queue, and already acknowledged keys are discarded before display.
+If more than one unacknowledged key is relevant to the current view, the
+frontend should show them one at a time.
+
+Relevant frontend views should request pending guidance through a typed command
+when they mount or become visible, rather than relying on a backend push event.
+That command should filter candidates by view and return only guidance that can
+be shown in the current UI context. Acknowledgement is a separate typed command
+that records the guidance key in App-owned settings.
+
+The frontend's "later" action should suppress the same guidance key only for
+the current app session. It must not write an acknowledgement to settings, so a
+future app session can show the guidance again if the same collection gap still
+exists.
+
 ### Add or Change Persisted Data
 
 1. Keep Tauri SQL plugin migration definitions in

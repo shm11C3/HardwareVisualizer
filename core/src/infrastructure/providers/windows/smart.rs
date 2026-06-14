@@ -1,6 +1,13 @@
 use crate::infrastructure::providers::smartctl;
 use crate::log_warn;
+use crate::models::external_component_guidance::{
+  SIGNAL_AVAILABLE_SPARE, SIGNAL_CURRENT_PENDING_SECTORS, SIGNAL_MEDIA_ERRORS,
+  SIGNAL_OFFLINE_UNCORRECTABLE_SECTORS, SIGNAL_PERCENTAGE_USED,
+  SIGNAL_REALLOCATED_SECTORS, SIGNAL_SMART_OVERALL_HEALTH, SIGNAL_TEMPERATURE,
+  all_storage_health_signal_names,
+};
 use crate::models::hardware::{SmartAttribute, SmartDiskInfo, SmartHealthStatus};
+use crate::models::{ExternalComponentGuidanceCandidate, SmartInfoCollectionOutcome};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
@@ -66,7 +73,11 @@ struct MsftStorageReliabilityCounter {
 }
 
 pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
-  collect_with_fallbacks(
+  get_smart_info_with_guidance().disks
+}
+
+pub fn get_smart_info_with_guidance() -> SmartInfoCollectionOutcome {
+  collect_with_fallbacks_with_guidance(
     super::device_io::get_smart_info,
     query_wmi_smart_info,
     smartctl::collect_smart_info_from_scan,
@@ -74,6 +85,7 @@ pub fn get_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
   )
 }
 
+#[cfg(test)]
 fn collect_with_fallbacks<D, W, S, C>(
   mut device_io: D,
   mut wmi: W,
@@ -86,29 +98,81 @@ where
   S: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
   C: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
 {
+  collect_with_fallbacks_with_guidance(&mut device_io, &mut wmi, &mut smartctl, &mut cim)
+    .disks
+}
+
+fn collect_with_fallbacks_with_guidance<D, W, S, C>(
+  mut device_io: D,
+  mut wmi: W,
+  mut smartctl: S,
+  mut cim: C,
+) -> SmartInfoCollectionOutcome
+where
+  D: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+  W: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+  S: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+  C: FnMut() -> Result<Vec<SmartDiskInfo>, String>,
+{
   let mut failures = Vec::new();
 
   if let Some(disks) =
     collect_from_source("DeviceIoControl", &mut device_io, &mut failures)
   {
-    return Ok(disks);
+    return SmartInfoCollectionOutcome {
+      disks: Ok(disks),
+      guidance_candidates: Vec::new(),
+    };
   }
   if let Some(disks) = collect_from_source("Windows WMI", &mut wmi, &mut failures) {
-    return Ok(disks);
+    return SmartInfoCollectionOutcome {
+      disks: Ok(disks),
+      guidance_candidates: Vec::new(),
+    };
   }
+
+  let smartctl_failure_index = failures.len();
   if let Some(disks) = collect_from_source("smartctl", &mut smartctl, &mut failures) {
-    return Ok(disks);
+    return SmartInfoCollectionOutcome {
+      disks: Ok(disks),
+      guidance_candidates: Vec::new(),
+    };
   }
+  let smartctl_failure = failures.get(smartctl_failure_index).cloned();
+
   if let Some(disks) =
     collect_from_source("Storage Management CIM", &mut cim, &mut failures)
   {
-    return Ok(disks);
+    let guidance_candidates = smartctl_failure
+      .as_deref()
+      .and_then(|detail| smartctl_guidance_for_disks(&disks, detail))
+      .into_iter()
+      .collect();
+    return SmartInfoCollectionOutcome {
+      disks: Ok(disks),
+      guidance_candidates,
+    };
   }
 
-  Err(format!(
-    "Failed to collect Windows storage health info: {}",
-    failures.join("; ")
-  ))
+  let guidance_candidates = smartctl_failure
+    .as_deref()
+    .map(|detail| {
+      ExternalComponentGuidanceCandidate::smartctl_storage_health(
+        all_storage_health_signal_names(),
+        None,
+        detail.to_string(),
+      )
+    })
+    .into_iter()
+    .collect();
+
+  SmartInfoCollectionOutcome {
+    disks: Err(format!(
+      "Failed to collect Windows storage health info: {}",
+      failures.join("; ")
+    )),
+    guidance_candidates,
+  }
 }
 
 fn collect_from_source<F>(
@@ -142,6 +206,142 @@ where
       None
     }
   }
+}
+
+fn smartctl_guidance_for_disks(
+  disks: &[SmartDiskInfo],
+  diagnostic_detail: &str,
+) -> Option<ExternalComponentGuidanceCandidate> {
+  let mut missing_signals = Vec::new();
+  let mut affected_device_count = 0_u32;
+
+  for disk in disks {
+    let disk_missing = missing_storage_health_signals(disk);
+    if !disk_missing.is_empty() {
+      affected_device_count += 1;
+    }
+    for signal in disk_missing {
+      if !missing_signals.contains(&signal) {
+        missing_signals.push(signal);
+      }
+    }
+  }
+
+  (!missing_signals.is_empty()).then(|| {
+    ExternalComponentGuidanceCandidate::smartctl_storage_health(
+      missing_signals,
+      Some(affected_device_count),
+      diagnostic_detail.to_string(),
+    )
+  })
+}
+
+fn missing_storage_health_signals(disk: &SmartDiskInfo) -> Vec<String> {
+  let mut missing = Vec::new();
+
+  if matches!(disk.health_status, SmartHealthStatus::Unknown) {
+    missing.push(SIGNAL_SMART_OVERALL_HEALTH.to_string());
+  }
+  if disk.temperature_celsius.is_none() {
+    missing.push(SIGNAL_TEMPERATURE.to_string());
+  }
+
+  match storage_protocol_kind(disk) {
+    StorageProtocolKind::Nvme => {
+      push_if_attr_missing(
+        disk,
+        None,
+        "Percentage Used",
+        SIGNAL_PERCENTAGE_USED,
+        &mut missing,
+      );
+      push_if_attr_missing(
+        disk,
+        None,
+        "Available Spare",
+        SIGNAL_AVAILABLE_SPARE,
+        &mut missing,
+      );
+      push_if_attr_missing(
+        disk,
+        None,
+        "Media Errors",
+        SIGNAL_MEDIA_ERRORS,
+        &mut missing,
+      );
+    }
+    StorageProtocolKind::Ata => {
+      push_if_attr_missing(
+        disk,
+        Some(5),
+        "Reallocated Sector Count",
+        SIGNAL_REALLOCATED_SECTORS,
+        &mut missing,
+      );
+      push_if_attr_missing(
+        disk,
+        Some(197),
+        "Current Pending Sector Count",
+        SIGNAL_CURRENT_PENDING_SECTORS,
+        &mut missing,
+      );
+      push_if_attr_missing(
+        disk,
+        Some(198),
+        "Offline Uncorrectable Sector Count",
+        SIGNAL_OFFLINE_UNCORRECTABLE_SECTORS,
+        &mut missing,
+      );
+    }
+    StorageProtocolKind::Unknown => {}
+  }
+
+  missing
+}
+
+enum StorageProtocolKind {
+  Ata,
+  Nvme,
+  Unknown,
+}
+
+fn storage_protocol_kind(disk: &SmartDiskInfo) -> StorageProtocolKind {
+  let value = disk
+    .protocol
+    .as_deref()
+    .or(disk.device_type.as_deref())
+    .unwrap_or_default()
+    .to_ascii_lowercase();
+
+  if value.contains("nvme") {
+    StorageProtocolKind::Nvme
+  } else if value.contains("ata") || value.contains("sata") || value.contains("sat") {
+    StorageProtocolKind::Ata
+  } else {
+    StorageProtocolKind::Unknown
+  }
+}
+
+fn push_if_attr_missing(
+  disk: &SmartDiskInfo,
+  id: Option<u32>,
+  name: &str,
+  signal: &str,
+  missing: &mut Vec<String>,
+) {
+  if !has_attr_value(disk, id, name) {
+    missing.push(signal.to_string());
+  }
+}
+
+fn has_attr_value(disk: &SmartDiskInfo, id: Option<u32>, name: &str) -> bool {
+  disk.attributes.iter().any(|attr| {
+    let matches = match id {
+      Some(id) => attr.id == Some(id),
+      None => attr.name.eq_ignore_ascii_case(name),
+    };
+    matches && (attr.raw_value.is_some() || attr.current.is_some())
+  })
 }
 
 fn query_wmi_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
@@ -584,6 +784,56 @@ mod tests {
       vec!["device_io", "wmi", "smartctl", "cim"]
     );
     assert_eq!(disks[0].device_name, "cim");
+  }
+
+  #[test]
+  fn guidance_candidate_is_returned_when_smartctl_fails_and_cim_lacks_health_signals() {
+    let outcome = collect_with_fallbacks_with_guidance(
+      || Err("unsupported".to_string()),
+      || Ok(Vec::new()),
+      || Err("smartctl is not installed".to_string()),
+      || Ok(vec![smart_disk("cim")]),
+    );
+
+    let disks = outcome.disks.expect("CIM should still be used as fallback");
+
+    assert_eq!(disks[0].device_name, "cim");
+    assert_eq!(outcome.guidance_candidates.len(), 1);
+    assert_eq!(
+      outcome.guidance_candidates[0].key,
+      "smartctl:storage-health:v1"
+    );
+    assert_eq!(
+      outcome.guidance_candidates[0].affected_device_count,
+      Some(1)
+    );
+    assert!(
+      outcome.guidance_candidates[0]
+        .missing_signals
+        .contains(&"temperature".to_string())
+    );
+  }
+
+  #[test]
+  fn guidance_candidate_is_not_returned_when_cim_covers_health_signals() {
+    let mut disk = smart_disk("cim");
+    disk.protocol = Some("NVMe".to_string());
+    disk.temperature_celsius = Some(40);
+    disk.attributes = vec![
+      cim_attr("Percentage Used", 3),
+      cim_attr("Available Spare", 98),
+      cim_attr("Media Errors", 0),
+    ];
+
+    let outcome = collect_with_fallbacks_with_guidance(
+      || Err("unsupported".to_string()),
+      || Ok(Vec::new()),
+      || Err("Failed to execute smartctl: not found".to_string()),
+      || Ok(vec![disk.clone()]),
+    );
+
+    assert!(outcome.disks.is_ok());
+    assert!(outcome.guidance_candidates.is_empty());
   }
 
   #[test]

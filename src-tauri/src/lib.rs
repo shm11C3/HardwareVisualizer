@@ -23,12 +23,14 @@ mod workers;
 mod _tests;
 
 use commands::background_image;
+use commands::external_component_guidance;
 use commands::hardware;
 use commands::settings;
 use commands::system;
 use commands::ui;
 use commands::updater::app_updates;
 use hardviz_core::collector::HistoryStore;
+use services::external_component_guidance_service::ExternalComponentGuidanceState;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tauri::Wry;
@@ -71,6 +73,8 @@ pub fn run() {
       hardware::get_gpu_memory_usage,
       hardware::get_storage_health_latest_records,
       hardware::get_live_storage_health,
+      external_component_guidance::get_external_component_guidance_candidates,
+      external_component_guidance::defer_external_component_guidance_for_session,
       hardware::get_data_archive_records,
       hardware::get_gpu_archive_records,
       hardware::get_process_stats,
@@ -107,6 +111,7 @@ pub fn run() {
       settings::commands::set_text_selectable,
       settings::commands::set_tray_widget_settings,
       settings::commands::set_close_to_tray_preference,
+      settings::commands::acknowledge_external_component_guidance_key,
       settings::commands::set_elevated_startup_mode,
       settings::commands::read_license_file,
       settings::commands::read_third_party_notices_file,
@@ -139,6 +144,8 @@ pub fn run() {
   // loop read/write through this store. Persistence no longer shares it; the
   // archive worker subscribes to the EventBus instead (#1407).
   let history_store = Arc::new(HistoryStore::new());
+  let external_component_guidance_state =
+    Arc::new(ExternalComponentGuidanceState::default());
 
   let core_settings = app_state.core_settings.lock().unwrap().clone();
 
@@ -161,6 +168,7 @@ pub fn run() {
   let migrations = infrastructure::database::migration::get_migrations();
 
   let store_for_setup = Arc::clone(&history_store);
+  let guidance_for_setup = Arc::clone(&external_component_guidance_state);
 
   let mut tauri_builder = tauri::Builder::<Wry>::default()
     .invoke_handler(builder.invoke_handler())
@@ -254,11 +262,18 @@ pub fn run() {
         if core_settings.storage_health.enabled {
           match core_settings.storage_health_identity.hash_key_bytes() {
             Ok(identity_hash_key) => {
+              let storage_guidance_state = Arc::clone(&guidance_for_setup);
+              let storage_guidance_sink:
+                hardviz_core::persistence::ExternalComponentGuidanceSink =
+                Arc::new(move |candidates| {
+                  storage_guidance_state.record_candidates(candidates);
+                });
               let storage_health =
-                hardviz_core::persistence::StorageHealthController::setup(
+                hardviz_core::persistence::StorageHealthController::setup_with_guidance_sink(
                   runtime_handle.clone(),
                   core_settings.storage_health.retention_days,
                   identity_hash_key,
+                  Some(storage_guidance_sink),
                 );
               // Live Storage Health (ADR 0006): enumerate devices once at
               // startup so on-demand reads never enumerate. The WMI query
@@ -367,6 +382,7 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .manage(history_store)
     .manage(app_state)
+    .manage(external_component_guidance_state)
     .manage(lifecycle::CloseToTrayRuntimeState::default())
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));

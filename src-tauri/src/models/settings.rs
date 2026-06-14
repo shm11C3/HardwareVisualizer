@@ -23,6 +23,12 @@ impl Default for LineGraphColorSettings {
   }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Type, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ExternalComponentGuidanceSettings {
+  pub acknowledged_keys: Vec<String>,
+}
+
 ///
 /// ## App-owned settings persisted in `settings.json`.
 ///
@@ -61,6 +67,7 @@ pub struct Settings {
   pub text_selectable: bool,
   pub close_to_tray: bool,
   pub close_to_tray_choice_made: bool,
+  pub external_component_guidance: ExternalComponentGuidanceSettings,
   pub elevated_startup_mode: bool,
   pub tray_widget: crate::tray::widget::TrayWidgetSettings,
 }
@@ -108,6 +115,7 @@ pub struct ClientSettings {
   pub text_selectable: bool,
   pub close_to_tray: bool,
   pub close_to_tray_choice_made: bool,
+  pub external_component_guidance: ExternalComponentGuidanceSettings,
   pub elevated_startup_mode: bool,
   pub tray_widget: crate::tray::widget::TrayWidgetSettings,
 }
@@ -150,6 +158,7 @@ impl Default for Settings {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      external_component_guidance: ExternalComponentGuidanceSettings::default(),
       elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     }
@@ -296,6 +305,7 @@ mod tests {
       text_selectable: false,
       close_to_tray: false,
       close_to_tray_choice_made: false,
+      external_component_guidance: ExternalComponentGuidanceSettings::default(),
       elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
@@ -322,6 +332,7 @@ mod tests {
     assert!(serialized.contains("\"transparentUi\""));
     assert!(serialized.contains("\"windowOpacity\""));
     assert!(serialized.contains("\"glassBlur\""));
+    assert!(serialized.contains("\"externalComponentGuidance\""));
     assert!(serialized.contains("\"elevatedStartupMode\""));
   }
 
@@ -433,6 +444,34 @@ mod tests {
     assert_eq!(settings.transparent_ui, defaults.transparent_ui);
     assert_eq!(settings.window_opacity, defaults.window_opacity);
     assert_eq!(settings.glass_blur, defaults.glass_blur);
+  }
+
+  #[test]
+  fn external_component_guidance_settings_default_to_no_acknowledged_keys() {
+    let settings = Settings::default();
+
+    assert!(
+      settings
+        .external_component_guidance
+        .acknowledged_keys
+        .is_empty()
+    );
+  }
+
+  #[test]
+  fn merge_from_json_str_recovers_external_component_guidance_keys() {
+    let mut settings = Settings::default();
+
+    settings
+      .merge_from_json_str(
+        r#"{"externalComponentGuidance":{"acknowledgedKeys":["smartctl:storage-health:v1"]}}"#,
+      )
+      .unwrap();
+
+    assert_eq!(
+      settings.external_component_guidance.acknowledged_keys,
+      vec!["smartctl:storage-health:v1".to_string()]
+    );
   }
 
   #[test]

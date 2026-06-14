@@ -9,6 +9,8 @@ documentation.
 ## Main Entry Points
 
 - [Backend architecture](architecture/backend.md)
+- [External components](user/external-components.md) /
+  [Japanese](user/external-components.ja.md)
 - [Windows sensor external components](architecture/windows-sensor-external-components.md)
 - [Architecture decision records](adr/)
 - [Sensor hardware specs (clean-room)](specs/sensors/)
@@ -32,6 +34,9 @@ docs/
 ├── specs/                          # Clean-room hardware specification documents
 │   └── sensors/                    # Sensor specs for PawnIO-based monitoring
 ├── third-party-notices/            # Generated and manual third-party notices
+├── user/                           # User-facing guides published by the website
+│   ├── external-components.md      # External component setup guide
+│   └── external-components.ja.md   # Japanese external component setup guide
 ├── download-verification.md        # Download verification guide
 ├── download-verification.ja.md     # Japanese download verification guide
 └── internal/                       # Maintainer/internal operations docs

@@ -2,6 +2,7 @@
 
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
+use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -12,6 +13,7 @@ use crate::models::hardware::{
   SmartAttribute, SmartDiskInfo, SmartHealthStatus, StorageDeviceRecord,
   StorageHealthRecordDraft, StorageHealthStatus, StorageWarningLevel,
 };
+use crate::models::{ExternalComponentGuidanceCandidate, SmartInfoCollectionOutcome};
 use crate::settings::STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES;
 use crate::{log_error, log_info, log_warn};
 
@@ -22,6 +24,9 @@ const PERCENTAGE_USED_WARNING: f32 = 80.0;
 const PERCENTAGE_USED_CRITICAL: f32 = 100.0;
 const AVAILABLE_SPARE_WARNING_PERCENT: f32 = 20.0;
 const AVAILABLE_SPARE_CRITICAL_PERCENT: f32 = 10.0;
+
+pub type ExternalComponentGuidanceSink =
+  Arc<dyn Fn(Vec<ExternalComponentGuidanceCandidate>) + Send + Sync + 'static>;
 
 pub struct StorageHealthController {
   handle: JoinHandle<()>,
@@ -34,11 +39,26 @@ impl StorageHealthController {
     retention_days: u32,
     identity_hash_key: [u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
   ) -> Self {
+    Self::setup_with_guidance_sink(runtime, retention_days, identity_hash_key, None)
+  }
+
+  pub fn setup_with_guidance_sink(
+    runtime: Handle,
+    retention_days: u32,
+    identity_hash_key: [u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
+    guidance_sink: Option<ExternalComponentGuidanceSink>,
+  ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
       let today = local_date_string();
-      run_daily_record_for_date(retention_days, &today, &identity_hash_key).await;
+      run_daily_record_for_date(
+        retention_days,
+        &today,
+        &identity_hash_key,
+        guidance_sink.as_ref(),
+      )
+      .await;
       let mut last_checked_date = Some(today);
 
       let mut ticker =
@@ -62,7 +82,12 @@ impl StorageHealthController {
           _ = ticker.tick() => {
             let today = local_date_string();
             if last_checked_date.as_deref() != Some(today.as_str()) {
-              run_daily_record_for_date(retention_days, &today, &identity_hash_key).await;
+              run_daily_record_for_date(
+                retention_days,
+                &today,
+                &identity_hash_key,
+                guidance_sink.as_ref(),
+              ).await;
               last_checked_date = Some(today);
             }
           }
@@ -83,23 +108,35 @@ async fn run_daily_record_for_date(
   retention_days: u32,
   date: &str,
   identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
+  guidance_sink: Option<&ExternalComponentGuidanceSink>,
 ) {
   let collected_at = chrono::Utc::now().to_rfc3339();
-  let disks = match tokio::task::spawn_blocking(collect_platform_smart_info).await {
-    Ok(Ok(disks)) => disks,
-    Ok(Err(e)) => {
+  let outcome =
+    match tokio::task::spawn_blocking(collect_platform_smart_info_with_guidance).await {
+      Ok(outcome) => outcome,
+      Err(e) => {
+        log_error!(
+          "Failed to join storage health collection task",
+          "persistence::storage_health::run_daily_record_for_date",
+          Some(e.to_string())
+        );
+        return;
+      }
+    };
+
+  if !outcome.guidance_candidates.is_empty()
+    && let Some(sink) = guidance_sink
+  {
+    sink(outcome.guidance_candidates.clone());
+  }
+
+  let disks = match outcome.disks {
+    Ok(disks) => disks,
+    Err(e) => {
       log_error!(
         "Failed to collect storage health info",
         "persistence::storage_health::run_daily_record_for_date",
         Some(e)
-      );
-      return;
-    }
-    Err(e) => {
-      log_error!(
-        "Failed to join storage health collection task",
-        "persistence::storage_health::run_daily_record_for_date",
-        Some(e.to_string())
       );
       return;
     }
@@ -423,18 +460,18 @@ fn local_date_string() -> String {
 }
 
 #[cfg(target_os = "linux")]
-fn collect_platform_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
-  crate::infrastructure::providers::linux::smart::get_smart_info()
+fn collect_platform_smart_info_with_guidance() -> SmartInfoCollectionOutcome {
+  crate::infrastructure::providers::linux::smart::get_smart_info_with_guidance()
 }
 
 #[cfg(target_os = "macos")]
-fn collect_platform_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
-  crate::infrastructure::providers::macos::smart::get_smart_info()
+fn collect_platform_smart_info_with_guidance() -> SmartInfoCollectionOutcome {
+  crate::infrastructure::providers::macos::smart::get_smart_info_with_guidance()
 }
 
 #[cfg(target_os = "windows")]
-fn collect_platform_smart_info() -> Result<Vec<SmartDiskInfo>, String> {
-  crate::infrastructure::providers::windows::smart::get_smart_info()
+fn collect_platform_smart_info_with_guidance() -> SmartInfoCollectionOutcome {
+  crate::infrastructure::providers::windows::smart::get_smart_info_with_guidance()
 }
 
 #[cfg(test)]

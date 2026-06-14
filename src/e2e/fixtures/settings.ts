@@ -52,6 +52,9 @@ export const settingsFixture: ClientSettings_Serialize = {
   textSelectable: false,
   closeToTray: false,
   closeToTrayChoiceMade: true,
+  externalComponentGuidance: {
+    acknowledgedKeys: [],
+  },
   elevatedStartupMode: false,
   trayWidget: {
     enabled: false,

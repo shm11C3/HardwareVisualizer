@@ -116,6 +116,9 @@ const buildInvokeHandlers = (
   get_hardware_info: () => sysInfoFixture,
   get_process_list: () => processListFixture,
   get_storage_health_latest_records: () => storageHealthFixture,
+  get_external_component_guidance_candidates: () => [],
+  defer_external_component_guidance_for_session: () => null,
+  acknowledge_external_component_guidance_key: () => null,
   get_background_images: () => [],
   get_network_info: () => [],
   // No pending update — keeps the updater UI out of captures.

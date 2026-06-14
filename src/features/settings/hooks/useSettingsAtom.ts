@@ -49,6 +49,9 @@ const settingsAtom = atom<ClientSettings>({
   textSelectable: false,
   closeToTray: false,
   closeToTrayChoiceMade: false,
+  externalComponentGuidance: {
+    acknowledgedKeys: [],
+  },
   elevatedStartupMode: false,
   trayWidget: {
     enabled: false,
@@ -70,6 +73,7 @@ export const useSettingsAtom = () => {
       | "storageHealth"
       | "closeToTray"
       | "closeToTrayChoiceMade"
+      | "externalComponentGuidance"
       | "trayWidget"
     >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
@@ -132,6 +136,7 @@ export const useSettingsAtom = () => {
       | "storageHealth"
       | "closeToTray"
       | "closeToTrayChoiceMade"
+      | "externalComponentGuidance"
       | "trayWidget"
     >,
   >(
