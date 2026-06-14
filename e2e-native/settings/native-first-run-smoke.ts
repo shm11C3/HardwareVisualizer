@@ -51,10 +51,6 @@ const EXTERNAL_GUIDANCE_HIDE_SESSION_ITEM = By.xpath(
   "//*[@role='menuitem' and normalize-space()='Hide for this session']",
 );
 
-type StartupBlocker =
-  | { element: WebElement; kind: "close-to-tray" }
-  | { element: WebElement; kind: "external-guidance" };
-
 const buildEnv: NodeJS.ProcessEnv = {
   ...process.env,
   HARDVIZ_E2E: "1",
@@ -271,36 +267,6 @@ const findVisibleElement = async (driver: WebDriver, locator: Locator) => {
   return null;
 };
 
-const waitForStartupBlocker = async (driver: WebDriver) => {
-  const blocker = await driver.wait(async () => {
-    const externalGuidance = await findVisibleElement(
-      driver,
-      EXTERNAL_GUIDANCE_TITLE,
-    );
-    if (externalGuidance) {
-      return {
-        element: externalGuidance,
-        kind: "external-guidance" as const,
-      };
-    }
-
-    const closeToTray = await findVisibleElement(
-      driver,
-      CLOSE_TO_TRAY_CLOSE_BUTTON,
-    );
-    if (closeToTray) {
-      return {
-        element: closeToTray,
-        kind: "close-to-tray" as const,
-      };
-    }
-
-    return null;
-  }, BOOT_TIMEOUT_MS);
-
-  return blocker as StartupBlocker;
-};
-
 const hasExited = (child: ChildProcess) =>
   child.exitCode != null || child.signalCode != null;
 
@@ -360,38 +326,79 @@ const terminateProcessTree = (child: ChildProcess, signal: NodeJS.Signals) => {
   }
 };
 
+const clickElement = async (
+  driver: WebDriver,
+  element: WebElement,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+) => {
+  await driver.wait(until.elementIsEnabled(element), timeoutMs);
+  await element.click();
+};
+
 const clickVisible = async (
   driver: WebDriver,
   locator: Locator,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ) => {
   const element = await waitForVisible(driver, locator, timeoutMs);
-  await driver.wait(until.elementIsEnabled(element), timeoutMs);
-  await element.click();
+  await clickElement(driver, element, timeoutMs);
   return element;
 };
 
-const dismissExternalComponentGuidanceIfPresent = async (driver: WebDriver) => {
-  const blocker = await waitForStartupBlocker(driver);
-  if (blocker.kind !== "external-guidance") {
-    return;
+const findExternalComponentGuidance = async (driver: WebDriver) =>
+  (await findVisibleElement(driver, EXTERNAL_GUIDANCE_HIDE_BUTTON)) ??
+  (await findVisibleElement(driver, EXTERNAL_GUIDANCE_TITLE));
+
+const dismissExternalComponentGuidanceIfVisible = async (driver: WebDriver) => {
+  const guidanceElement = await findExternalComponentGuidance(driver);
+  if (!guidanceElement) {
+    return false;
   }
 
   log("hiding optional component guidance");
   await clickVisible(driver, EXTERNAL_GUIDANCE_HIDE_BUTTON);
   await clickVisible(driver, EXTERNAL_GUIDANCE_HIDE_SESSION_ITEM);
-  await driver.wait(until.stalenessOf(blocker.element), DEFAULT_TIMEOUT_MS);
+  await driver.wait(until.stalenessOf(guidanceElement), DEFAULT_TIMEOUT_MS);
+  return true;
+};
+
+const clickFirstRunCloseToTrayPrompt = async (driver: WebDriver) => {
+  const startedAt = Date.now();
+  let lastClickError: unknown = null;
+
+  while (Date.now() - startedAt < BOOT_TIMEOUT_MS) {
+    if (await dismissExternalComponentGuidanceIfVisible(driver)) {
+      await driver.sleep(250);
+      continue;
+    }
+
+    const closeDialogButton = await findVisibleElement(
+      driver,
+      CLOSE_TO_TRAY_CLOSE_BUTTON,
+    );
+    if (!closeDialogButton) {
+      await driver.sleep(250);
+      continue;
+    }
+
+    try {
+      await clickElement(driver, closeDialogButton);
+      return closeDialogButton;
+    } catch (error) {
+      lastClickError = error;
+      await driver.sleep(250);
+    }
+  }
+
+  if (lastClickError instanceof Error) {
+    throw lastClickError;
+  }
+  throw new Error("Timed out waiting for first-run close-to-tray prompt");
 };
 
 const runSmoke = async (driver: WebDriver) => {
-  await dismissExternalComponentGuidanceIfPresent(driver);
-
   log("waiting for first-run close-to-tray prompt");
-  const closeDialogButton = await clickVisible(
-    driver,
-    CLOSE_TO_TRAY_CLOSE_BUTTON,
-    BOOT_TIMEOUT_MS,
-  );
+  const closeDialogButton = await clickFirstRunCloseToTrayPrompt(driver);
   await driver.wait(until.stalenessOf(closeDialogButton), DEFAULT_TIMEOUT_MS);
 
   log("opening Settings");
