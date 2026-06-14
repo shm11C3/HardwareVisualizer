@@ -15,7 +15,7 @@ use crate::models::hardware::{
 };
 use crate::models::{ExternalComponentGuidanceCandidate, SmartInfoCollectionOutcome};
 use crate::settings::STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES;
-use crate::{log_error, log_info, log_warn};
+use crate::{log_error, log_info};
 
 const STORAGE_HEALTH_CHECK_INTERVAL_SECONDS: u64 = 60;
 const TEMPERATURE_WARNING_CELSIUS: f32 = 55.0;
@@ -27,6 +27,11 @@ const AVAILABLE_SPARE_CRITICAL_PERCENT: f32 = 10.0;
 
 pub type ExternalComponentGuidanceSink =
   Arc<dyn Fn(Vec<ExternalComponentGuidanceCandidate>) + Send + Sync + 'static>;
+
+struct StorageHealthCollection {
+  devices: Vec<StorageDeviceRecord>,
+  records: Vec<StorageHealthRecordDraft>,
+}
 
 pub struct StorageHealthController {
   handle: JoinHandle<()>,
@@ -110,19 +115,61 @@ async fn run_daily_record_for_date(
   identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
   guidance_sink: Option<&ExternalComponentGuidanceSink>,
 ) {
-  let collected_at = chrono::Utc::now().to_rfc3339();
-  let outcome =
-    match tokio::task::spawn_blocking(collect_platform_smart_info_with_guidance).await {
-      Ok(outcome) => outcome,
+  let collection =
+    match collect_storage_health_for_date(date, identity_hash_key, guidance_sink).await {
+      Ok(collection) => collection,
       Err(e) => {
         log_error!(
-          "Failed to join storage health collection task",
+          "Failed to collect storage health info",
           "persistence::storage_health::run_daily_record_for_date",
-          Some(e.to_string())
+          Some(e)
         );
         return;
       }
     };
+
+  if let Err(e) =
+    store_storage_health_collection(retention_days, Vec::new(), collection).await
+  {
+    log_error!(
+      "Failed to store storage health daily records",
+      "persistence::storage_health::run_daily_record_for_date",
+      Some(e)
+    );
+  }
+}
+
+pub async fn refresh_storage_health_for_date(
+  retention_days: u32,
+  date: &str,
+  identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
+  active_device_ids: Vec<String>,
+  guidance_sink: Option<&ExternalComponentGuidanceSink>,
+) -> Result<(), String> {
+  if !active_device_ids.is_empty() {
+    database::storage_health::update_active_devices(&active_device_ids)
+      .await
+      .map_err(|e| format!("Failed to update active storage devices: {e}"))?;
+  }
+
+  let collection =
+    collect_storage_health_for_date(date, identity_hash_key, guidance_sink).await?;
+  store_storage_health_collection(retention_days, active_device_ids, collection).await
+}
+
+pub fn local_storage_health_date_string() -> String {
+  local_date_string()
+}
+
+async fn collect_storage_health_for_date(
+  date: &str,
+  identity_hash_key: &[u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES],
+  guidance_sink: Option<&ExternalComponentGuidanceSink>,
+) -> Result<StorageHealthCollection, String> {
+  let collected_at = chrono::Utc::now().to_rfc3339();
+  let outcome = tokio::task::spawn_blocking(collect_platform_smart_info_with_guidance)
+    .await
+    .map_err(|e| format!("Failed to join storage health collection task: {e}"))?;
 
   if !outcome.guidance_candidates.is_empty()
     && let Some(sink) = guidance_sink
@@ -130,17 +177,7 @@ async fn run_daily_record_for_date(
     sink(outcome.guidance_candidates.clone());
   }
 
-  let disks = match outcome.disks {
-    Ok(disks) => disks,
-    Err(e) => {
-      log_error!(
-        "Failed to collect storage health info",
-        "persistence::storage_health::run_daily_record_for_date",
-        Some(e)
-      );
-      return;
-    }
-  };
+  let disks = outcome.disks?;
 
   let (devices, records): (Vec<_>, Vec<_>) = disks
     .iter()
@@ -148,30 +185,34 @@ async fn run_daily_record_for_date(
     .unzip();
 
   if records.is_empty() {
-    log_warn!(
-      "Storage Health collection returned no disks",
-      "persistence::storage_health::run_daily_record_for_date",
-      None::<&str>
-    );
-    return;
+    return Err("Storage Health collection returned no disks".to_string());
   }
 
-  if let Err(e) = database::storage_health::insert_daily_records(devices, records).await {
-    log_error!(
-      "Failed to insert storage health daily records",
-      "persistence::storage_health::run_daily_record_for_date",
-      Some(e.to_string())
-    );
-    return;
-  }
+  Ok(StorageHealthCollection { devices, records })
+}
 
-  if let Err(e) = database::storage_health::delete_old_data(retention_days).await {
-    log_error!(
-      "Failed to delete old storage health records",
-      "persistence::storage_health::run_daily_record_for_date",
-      Some(e.to_string())
-    );
-  }
+async fn store_storage_health_collection(
+  retention_days: u32,
+  active_device_ids: Vec<String>,
+  collection: StorageHealthCollection,
+) -> Result<(), String> {
+  let result = if active_device_ids.is_empty() {
+    database::storage_health::insert_daily_records(collection.devices, collection.records)
+      .await
+  } else {
+    database::storage_health::refresh_daily_records(
+      &active_device_ids,
+      collection.devices,
+      collection.records,
+    )
+    .await
+  };
+
+  result.map_err(|e| format!("Failed to insert storage health daily records: {e}"))?;
+
+  database::storage_health::delete_old_data(retention_days)
+    .await
+    .map_err(|e| format!("Failed to delete old storage health records: {e}"))
 }
 
 fn build_daily_record(

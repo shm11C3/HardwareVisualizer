@@ -1,5 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
+import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
@@ -427,6 +428,7 @@ export const StorageDataInfo = () => {
   const os = useMemo(() => platform(), []);
   const storageHealthErrorShownRef = useRef(false);
   const liveStorageHealthErrorShownRef = useRef(false);
+  const storageHealthRecordsVersionRef = useRef(0);
   const storageHealthEnabled = settings.storageHealth.enabled ?? true;
   const [storageHealthRecords, setStorageHealthRecords] = useState<
     StorageHealthRecord[]
@@ -434,6 +436,10 @@ export const StorageDataInfo = () => {
   const [liveStorageHealth, setLiveStorageHealth] = useState<
     LiveStorageHealth[]
   >([]);
+  const [storageHealthRefreshing, setStorageHealthRefreshing] = useState(false);
+  const [storageHealthRefreshError, setStorageHealthRefreshError] = useState<
+    string | null
+  >(null);
 
   // Sort by drive name
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
@@ -471,14 +477,20 @@ export const StorageDataInfo = () => {
     if (!storageHealthEnabled) {
       storageHealthErrorShownRef.current = false;
       setStorageHealthRecords([]);
+      setStorageHealthRefreshError(null);
+      setStorageHealthRefreshing(false);
       return;
     }
 
     let isMounted = true;
 
     const loadStorageHealthDevices = async () => {
+      const recordsVersionAtRequest = storageHealthRecordsVersionRef.current;
       const result = await commands.getStorageHealthLatestRecords();
       if (!isMounted) return;
+      if (recordsVersionAtRequest !== storageHealthRecordsVersionRef.current) {
+        return;
+      }
 
       if (isError(result)) {
         console.error(
@@ -546,9 +558,36 @@ export const StorageDataInfo = () => {
     };
   }, [storageHealthEnabled, error, t]);
 
+  const refreshStorageDevices = async () => {
+    if (!storageHealthEnabled || storageHealthRefreshing) return;
+
+    setStorageHealthRefreshing(true);
+    setStorageHealthRefreshError(null);
+
+    const result = await commands.refreshStorageDevices();
+
+    if (isError(result)) {
+      console.error("Failed to refresh storage devices", result.error);
+      setStorageHealthRefreshError(
+        `${t("pages.dashboard.storageHealth.errors.refresh")}\n${result.error}`,
+      );
+      setStorageHealthRefreshing(false);
+      return;
+    }
+
+    storageHealthRecordsVersionRef.current += 1;
+    setStorageHealthRecords(result.data);
+    setStorageHealthRefreshing(false);
+  };
+
   return (
     <div className="pt-2">
-      <StorageHealthOverview summary={storageHealthSummary} />
+      <StorageHealthOverview
+        summary={storageHealthSummary}
+        onRefresh={storageHealthEnabled ? refreshStorageDevices : undefined}
+        refreshError={storageHealthRefreshError}
+        refreshing={storageHealthRefreshing}
+      />
       <div
         className={storageDataInfoGridVariants({ isWindows: os === "windows" })}
       >
@@ -621,13 +660,19 @@ const formatStorageHealthTimestamp = (value: string) => {
 };
 
 const StorageHealthOverview = ({
+  onRefresh,
+  refreshError,
+  refreshing = false,
   summary,
 }: {
+  onRefresh?: () => void;
+  refreshError?: string | null;
+  refreshing?: boolean;
   summary: StorageHealthSummaryViewModel | null;
 }) => {
   const { t } = useTranslation();
 
-  if (!summary || summary.driveCount === 0) return null;
+  if (!summary || (summary.driveCount === 0 && !onRefresh)) return null;
 
   const focusDeviceLabel =
     summary.focusDevice?.model?.trim() ||
@@ -661,14 +706,43 @@ const StorageHealthOverview = ({
             </span>
           )}
         </div>
-        {summary.latestDate && (
-          <span className="shrink-0 text-[10px] text-muted-foreground">
-            {t("pages.dashboard.storageHealth.lastRecorded", {
-              date: summary.latestDate,
-            })}
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          {summary.latestDate && (
+            <span className="text-[10px] text-muted-foreground">
+              {t("pages.dashboard.storageHealth.lastRecorded", {
+                date: summary.latestDate,
+              })}
+            </span>
+          )}
+          {onRefresh && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={t("pages.dashboard.storageHealth.refresh")}
+                  className="size-7 rounded-sm p-0"
+                  disabled={refreshing}
+                  onClick={onRefresh}
+                  type="button"
+                  variant="ghost"
+                >
+                  <RefreshCw
+                    className={cn("size-3.5", refreshing && "animate-spin")}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t("pages.dashboard.storageHealth.refresh")}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
+
+      {refreshError && (
+        <p className="truncate text-destructive text-xs" title={refreshError}>
+          {refreshError}
+        </p>
+      )}
 
       {summary.metrics.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

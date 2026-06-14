@@ -213,13 +213,15 @@
         "title": "ストレージヘルス",
         "stale": "古い",
         "lastRecorded": "最終記録 {{date}}",
+        "refresh": "ストレージを再検出",
         "temperatureSources": {
           "live": "ライブ: {{datetime}}",
           "record": "記録: {{datetime}}"
         },
         "errors": {
           "fetchLatest": "ストレージの健康状態データの取得に失敗しました。",
-          "fetchLive": "ライブのストレージヘルスデータの取得に失敗しました。"
+          "fetchLive": "ライブのストレージヘルスデータの取得に失敗しました。",
+          "refresh": "ストレージの再検出に失敗しました。"
         },
         "metrics": {
           "temperature": "温度",

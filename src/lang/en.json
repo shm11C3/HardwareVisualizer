@@ -213,13 +213,15 @@
         "title": "Storage Health",
         "stale": "Stale",
         "lastRecorded": "Last recorded {{date}}",
+        "refresh": "Re-detect storage devices",
         "temperatureSources": {
           "live": "Live: {{datetime}}",
           "record": "Record: {{datetime}}"
         },
         "errors": {
           "fetchLatest": "Failed to fetch storage health data.",
-          "fetchLive": "Failed to fetch live storage health data."
+          "fetchLive": "Failed to fetch live storage health data.",
+          "refresh": "Failed to re-detect storage devices."
         },
         "metrics": {
           "temperature": "Temp",

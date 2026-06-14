@@ -73,6 +73,7 @@ pub fn run() {
       hardware::get_gpu_memory_usage,
       hardware::get_storage_health_latest_records,
       hardware::get_live_storage_health,
+      hardware::refresh_storage_devices,
       external_component_guidance::get_external_component_guidance_candidates,
       external_component_guidance::defer_external_component_guidance_for_session,
       hardware::get_data_archive_records,

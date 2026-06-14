@@ -6,6 +6,7 @@ use crate::models::archive_history::{
   ProcessStatRecord,
 };
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
+use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
 use chrono::{DateTime, SecondsFormat, Utc};
 use hardviz_core::collector::HistoryStore;
 use hardviz_core::persistence::HARDWARE_ARCHIVE_INTERVAL_SECONDS;
@@ -228,6 +229,49 @@ pub async fn get_live_storage_health(
   hardware_service::get_live_storage_health(collector)
     .await
     .map(|signals| signals.into_iter().map(Into::into).collect())
+}
+
+///
+/// ## Re-detect Storage Devices
+///
+/// Re-detects connected storage devices, refreshes the Live Storage
+/// Health cache, collects current Storage Health signals, updates
+/// today's Storage Health Records, and returns the latest active records
+/// for the dashboard.
+///
+#[command]
+#[specta::specta]
+pub async fn refresh_storage_devices(
+  state: tauri::State<'_, settings::AppState>,
+  workers: tauri::State<'_, crate::workers::WorkersState>,
+  guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
+) -> Result<Vec<models::hardware::StorageHealthRecord>, String> {
+  use crate::services::hardware_service;
+
+  let (retention_days, identity_hash_key) = {
+    let settings = state.core_settings.lock().unwrap();
+    if !settings.storage_health.enabled {
+      return Ok(Vec::new());
+    }
+    let identity_hash_key = settings.storage_health_identity.hash_key_bytes()?;
+    (settings.storage_health.retention_days, identity_hash_key)
+  };
+
+  let collector = workers.live_storage_health.lock().unwrap().clone();
+  let guidance_state = Arc::clone(guidance_state.inner());
+  let guidance_sink: hardviz_core::persistence::ExternalComponentGuidanceSink =
+    Arc::new(move |candidates| {
+      guidance_state.record_candidates(candidates);
+    });
+
+  hardware_service::refresh_storage_devices(
+    retention_days,
+    identity_hash_key,
+    collector,
+    Some(guidance_sink),
+  )
+  .await
+  .map(|records| records.into_iter().map(Into::into).collect())
 }
 
 ///
