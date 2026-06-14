@@ -88,7 +88,7 @@ vi.mock("@/rspc/bindings", () => ({
   commands: mocks.commands,
 }));
 
-const todayDateKey = () => new Date().toISOString().slice(0, 10);
+const TEST_DATE = "2026-05-10";
 
 const record = (
   overrides: Partial<StorageHealthRecord> = {},
@@ -98,7 +98,7 @@ const record = (
   model: "Example SSD",
   protocol: "NVMe",
   capacityBytes: 1_000_000,
-  date: todayDateKey(),
+  date: TEST_DATE,
   healthStatus: "good",
   warningLevel: "none",
   temperatureCelsius: 42,
@@ -112,12 +112,13 @@ const record = (
   errorLogEntries: null,
   unsafeShutdownCount: null,
   warningReasons: [],
-  collectedAt: `${todayDateKey()}T09:12:00Z`,
+  collectedAt: `${TEST_DATE}T09:12:00Z`,
   ...overrides,
 });
 
 describe("StorageDataInfo storage device re-detection", () => {
   beforeEach(() => {
+    vi.setSystemTime(new Date(`${TEST_DATE}T12:00:00`));
     vi.stubGlobal(
       "ResizeObserver",
       class ResizeObserver {
@@ -144,6 +145,7 @@ describe("StorageDataInfo storage device re-detection", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -176,6 +178,9 @@ describe("StorageDataInfo storage device re-detection", () => {
     expect(
       await screen.findByText(/Failed to re-detect storage devices/),
     ).toBeInTheDocument();
+    expect(mocks.dialogError).toHaveBeenCalledWith(
+      "Failed to re-detect storage devices.\nrefresh failed",
+    );
     expect(screen.getByText("42°C")).toBeInTheDocument();
   });
 

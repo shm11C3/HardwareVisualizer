@@ -568,9 +568,9 @@ export const StorageDataInfo = () => {
 
     if (isError(result)) {
       console.error("Failed to refresh storage devices", result.error);
-      setStorageHealthRefreshError(
-        `${t("pages.dashboard.storageHealth.errors.refresh")}\n${result.error}`,
-      );
+      const message = `${t("pages.dashboard.storageHealth.errors.refresh")}\n${result.error}`;
+      setStorageHealthRefreshError(message);
+      void error(message);
       setStorageHealthRefreshing(false);
       return;
     }

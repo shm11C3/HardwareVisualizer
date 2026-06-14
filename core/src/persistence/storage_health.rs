@@ -146,12 +146,6 @@ pub async fn refresh_storage_health_for_date(
   active_device_ids: Vec<String>,
   guidance_sink: Option<&ExternalComponentGuidanceSink>,
 ) -> Result<(), String> {
-  if !active_device_ids.is_empty() {
-    database::storage_health::update_active_devices(&active_device_ids)
-      .await
-      .map_err(|e| format!("Failed to update active storage devices: {e}"))?;
-  }
-
   let collection =
     collect_storage_health_for_date(date, identity_hash_key, guidance_sink).await?;
   store_storage_health_collection(retention_days, active_device_ids, collection).await
