@@ -114,6 +114,10 @@ _Avoid_: SMART collection, storage health acquisition
 The storage device surfaced first in a Storage Health Display because its health state most needs the user's attention.
 _Avoid_: Representative drive, selected disk, SMART target
 
+**Selected Storage Device**:
+The storage device the user explicitly chooses as the primary subject of a Storage Health Display, distinct from the automatically chosen Focus Storage Device.
+_Avoid_: Display Target, selected disk, SMART target
+
 **Live Storage Health**:
 Current storage device health signals collected for immediate display and not retained as history, distinct from the daily Storage Health Record.
 _Avoid_: Storage Health Record, storage health snapshot, realtime SMART

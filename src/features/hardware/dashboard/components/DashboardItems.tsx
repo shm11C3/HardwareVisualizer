@@ -44,7 +44,11 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { formatBytes } from "@/lib/formatter";
 import { cn } from "@/lib/utils";
-import type { StorageInfo } from "@/rspc/bindings";
+import type {
+  LiveStorageHealth,
+  StorageHealthRecord,
+  StorageInfo,
+} from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
@@ -418,11 +422,18 @@ const storageDataInfoGridVariants = tv({
 export const StorageDataInfo = () => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
+  const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
   const os = useMemo(() => platform(), []);
   const storageHealthErrorShownRef = useRef(false);
-  const [storageHealthSummary, setStorageHealthSummary] =
-    useState<StorageHealthSummaryViewModel | null>(null);
+  const liveStorageHealthErrorShownRef = useRef(false);
+  const storageHealthEnabled = settings.storageHealth.enabled ?? true;
+  const [storageHealthRecords, setStorageHealthRecords] = useState<
+    StorageHealthRecord[]
+  >([]);
+  const [liveStorageHealth, setLiveStorageHealth] = useState<
+    LiveStorageHealth[]
+  >([]);
 
   // Sort by drive name
   const sortedStorage = hardwareInfo.storage.sort((a, b) =>
@@ -447,8 +458,22 @@ export const StorageDataInfo = () => {
       : [];
   }, [sortedStorage]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Polling is registered once for the Storage card lifetime.
+  const storageHealthSummary =
+    useMemo<StorageHealthSummaryViewModel | null>(() => {
+      if (!storageHealthEnabled) return null;
+
+      return buildStorageHealthSummary(storageHealthRecords, new Date(), {
+        liveSignals: liveStorageHealth,
+      });
+    }, [storageHealthEnabled, storageHealthRecords, liveStorageHealth]);
+
   useEffect(() => {
+    if (!storageHealthEnabled) {
+      storageHealthErrorShownRef.current = false;
+      setStorageHealthRecords([]);
+      return;
+    }
+
     let isMounted = true;
 
     const loadStorageHealthDevices = async () => {
@@ -460,7 +485,7 @@ export const StorageDataInfo = () => {
           "Failed to fetch storage health dashboard records",
           result.error,
         );
-        setStorageHealthSummary(null);
+        setStorageHealthRecords([]);
         if (!storageHealthErrorShownRef.current) {
           storageHealthErrorShownRef.current = true;
           void error(
@@ -471,7 +496,7 @@ export const StorageDataInfo = () => {
       }
 
       storageHealthErrorShownRef.current = false;
-      setStorageHealthSummary(buildStorageHealthSummary(result.data));
+      setStorageHealthRecords(result.data);
     };
 
     loadStorageHealthDevices();
@@ -481,7 +506,45 @@ export const StorageDataInfo = () => {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [storageHealthEnabled, error, t]);
+
+  useEffect(() => {
+    if (!storageHealthEnabled) {
+      liveStorageHealthErrorShownRef.current = false;
+      setLiveStorageHealth([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadLiveStorageHealth = async () => {
+      const result = await commands.getLiveStorageHealth();
+      if (!isMounted) return;
+
+      if (isError(result)) {
+        console.error("Failed to fetch live storage health", result.error);
+        setLiveStorageHealth([]);
+        if (!liveStorageHealthErrorShownRef.current) {
+          liveStorageHealthErrorShownRef.current = true;
+          void error(
+            `${t("pages.dashboard.storageHealth.errors.fetchLive")}\n${result.error}`,
+          );
+        }
+        return;
+      }
+
+      liveStorageHealthErrorShownRef.current = false;
+      setLiveStorageHealth(result.data);
+    };
+
+    loadLiveStorageHealth();
+    const intervalId = window.setInterval(loadLiveStorageHealth, 10_000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [storageHealthEnabled, error, t]);
 
   return (
     <div className="pt-2">
@@ -551,6 +614,12 @@ const storageHealthMetricLabelKeys = {
   unsafeShutdownCount: "pages.dashboard.storageHealth.metrics.unsafeShutdowns",
 } as const satisfies Record<StorageHealthMetric["type"], string>;
 
+const formatStorageHealthTimestamp = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+};
+
 const StorageHealthOverview = ({
   summary,
 }: {
@@ -611,9 +680,7 @@ const StorageHealthOverview = ({
               <div className="truncate text-[10px] text-muted-foreground">
                 {t(storageHealthMetricLabelKeys[metric.type])}
               </div>
-              <div className="truncate font-mono text-xs">
-                {formatStorageHealthMetricValue(metric)}
-              </div>
+              <StorageHealthMetricValue metric={metric} />
             </div>
           ))}
         </div>
@@ -633,6 +700,35 @@ const StorageHealthOverview = ({
         <StorageDeviceHealthOverview devices={summary.devices} />
       )}
     </div>
+  );
+};
+
+const StorageHealthMetricValue = ({
+  metric,
+}: {
+  metric: StorageHealthMetric;
+}) => {
+  const { t } = useTranslation();
+  const value = formatStorageHealthMetricValue(metric);
+
+  if (metric.type !== "temperatureCelsius") {
+    return <div className="truncate font-mono text-xs">{value}</div>;
+  }
+
+  const tooltip = t(
+    `pages.dashboard.storageHealth.temperatureSources.${metric.source}`,
+    {
+      datetime: formatStorageHealthTimestamp(metric.collectedAt),
+    },
+  );
+
+  return (
+    <Tooltip>
+      <TooltipTrigger className="block max-w-full truncate border-0 bg-transparent p-0 text-left font-mono text-inherit text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring">
+        {value}
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   );
 };
 
