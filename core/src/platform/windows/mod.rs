@@ -4,6 +4,7 @@ use crate::models::hardware::{
 };
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+  ProcessElevationPlatform,
 };
 
 use std::future::Future;
@@ -13,6 +14,7 @@ pub mod gpu;
 pub mod memory;
 pub mod motherboard;
 pub mod network;
+pub mod process_elevation;
 
 pub struct WindowsPlatform;
 
@@ -93,6 +95,16 @@ impl MotherboardPlatform for WindowsPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<MotherboardInfo, String>> + Send + '_>> {
     motherboard::get_motherboard_info()
+  }
+}
+
+impl ProcessElevationPlatform for WindowsPlatform {
+  fn is_process_elevated(&self) -> Result<bool, String> {
+    process_elevation::is_process_elevated()
+  }
+
+  fn relaunch_current_process_elevated(&self) -> Result<(), String> {
+    process_elevation::relaunch_current_process_elevated()
   }
 }
 

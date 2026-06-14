@@ -105,6 +105,12 @@ are different lifecycle events. Code that starts, stops, flushes, or cleans up
 workers must key off the process/App shutdown path when it needs finalization,
 not merely the window-close path.
 
+Elevated Startup Mode is also App-owned lifecycle behavior. It restarts the
+whole Tauri process with Windows administrator privileges when enabled and the
+current process is not already elevated. Core cannot be elevated independently
+because it is linked into the App process; a Core-only elevation model would
+require a separate helper or service process and IPC boundary.
+
 ## Layer Responsibilities
 
 ### Commands (`src-tauri/src/commands/`)
@@ -226,7 +232,7 @@ Settings are split by consumer:
 
 - Core settings affect sampling, persistence, retention, or other Core behavior.
 - App settings affect UI presentation, language/theme, graph options, tray
-  behavior, window behavior, and Tauri-only features.
+  behavior, window behavior, process launch behavior, and Tauri-only features.
 - Both sides share a single top-level `settings.json` object. Core deserializes
   only Core-owned keys and ignores App-owned keys; App deserializes App-owned
   keys and preserves existing unknown keys when writing.

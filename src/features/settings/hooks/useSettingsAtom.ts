@@ -52,6 +52,7 @@ const settingsAtom = atom<ClientSettings>({
   externalComponentGuidance: {
     acknowledgedKeys: [],
   },
+  elevatedStartupMode: false,
   trayWidget: {
     enabled: false,
     metricOrder: ["cpu", "gpu", "gpu-temp"],
@@ -99,6 +100,7 @@ export const useSettingsAtom = () => {
     burnInShiftIdleOnly: commands.setBurnInShiftIdleOnly,
     burnInShiftOptions: commands.setBurnInShiftOptions,
     textSelectable: commands.setTextSelectable,
+    elevatedStartupMode: commands.setElevatedStartupMode,
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);

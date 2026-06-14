@@ -42,6 +42,7 @@ vi.mock("@/rspc/bindings", () => ({
     setBurnInShiftOptions: vi.fn(),
     setCloseToTrayPreference: vi.fn(),
     setTrayWidgetSettings: vi.fn(),
+    setElevatedStartupMode: vi.fn(),
     setHardwareArchiveEnabled: vi.fn(),
     setHardwareArchiveRetentionDays: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),
@@ -245,6 +246,40 @@ describe("useSettingsAtom", () => {
 
     expect(commands.setTheme).toHaveBeenCalledWith("system");
     expect(result.current.settings.theme).toEqual("system");
+  });
+
+  it("updateSettingAtom: elevated startup mode is updated on success", async () => {
+    (commands.setElevatedStartupMode as Mock).mockResolvedValue({ data: null });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.updateSettingAtom("elevatedStartupMode", true);
+    });
+
+    expect(commands.setElevatedStartupMode).toHaveBeenCalledWith(true);
+    expect(result.current.settings.elevatedStartupMode).toBe(true);
+  });
+
+  it("updateSettingAtom: elevated startup mode reverts on error", async () => {
+    const errorMsg = "Administrator approval was cancelled";
+    (commands.setElevatedStartupMode as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.updateSettingAtom("elevatedStartupMode", true);
+    });
+
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.settings.elevatedStartupMode).toBe(false);
   });
 
   it("Default theme is 'system'", () => {

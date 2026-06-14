@@ -55,6 +55,7 @@ export const settingsFixture: ClientSettings_Serialize = {
   externalComponentGuidance: {
     acknowledgedKeys: [],
   },
+  elevatedStartupMode: false,
   trayWidget: {
     enabled: false,
     metricOrder: ["cpu", "gpu", "gpu-temp"],

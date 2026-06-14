@@ -86,8 +86,21 @@ pub trait MotherboardPlatform: Send + Sync {
   >;
 }
 
+/// Trait that defines process elevation operations.
+pub trait ProcessElevationPlatform: Send + Sync {
+  /// Returns whether the current process is running with elevated privileges.
+  fn is_process_elevated(&self) -> Result<bool, String>;
+
+  /// Relaunch the current executable with elevated privileges.
+  fn relaunch_current_process_elevated(&self) -> Result<(), String>;
+}
+
 /// Trait that integrates all platform functionality
 pub trait Platform:
-  MemoryPlatform + GpuPlatform + NetworkPlatform + MotherboardPlatform
+  MemoryPlatform
+  + GpuPlatform
+  + NetworkPlatform
+  + MotherboardPlatform
+  + ProcessElevationPlatform
 {
 }

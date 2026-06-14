@@ -48,6 +48,7 @@ mod tests {
       close_to_tray_choice_made: false,
       external_component_guidance:
         models::settings::ExternalComponentGuidanceSettings::default(),
+      elevated_startup_mode: false,
       tray_widget: crate::tray::widget::TrayWidgetSettings::default(),
     };
 
@@ -93,6 +94,10 @@ mod tests {
     assert_eq!(
       settings.external_component_guidance,
       expected.external_component_guidance
+    );
+    assert_eq!(
+      settings.elevated_startup_mode,
+      expected.elevated_startup_mode
     );
   }
 

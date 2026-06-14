@@ -433,7 +433,11 @@
         "externalComponents": "External components",
         "externalComponentsDescription": "View setup guidance for optional components such as PawnIO and smartctl.",
         "openExternalComponentsDocs": "Open docs",
-        "openExternalComponentsDocsError": "Failed to open external components documentation."
+        "openExternalComponentsDocsError": "Failed to open external components documentation.",
+        "elevatedStartupMode": {
+          "name": "Run as administrator on startup",
+          "description": "Start HardwareVisualizer with administrator privileges for sensors that require elevated access. Enabling this restarts the app after Windows approval."
+        }
       }
     },
     "updater": {

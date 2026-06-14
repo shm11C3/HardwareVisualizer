@@ -148,6 +148,7 @@ export const commands = {
 	setTrayWidgetSettings: (newValue: TrayWidgetSettings_Deserialize) => typedError<null, string>(__TAURI_INVOKE("set_tray_widget_settings", { newValue })),
 	setCloseToTrayPreference: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_close_to_tray_preference", { newValue })),
 	acknowledgeExternalComponentGuidanceKey: (key: string) => typedError<null, string>(__TAURI_INVOKE("acknowledge_external_component_guidance_key", { key })),
+	setElevatedStartupMode: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_elevated_startup_mode", { newValue })),
 	readLicenseFile: () => typedError<string, string>(__TAURI_INVOKE("read_license_file")),
 	readThirdPartyNoticesFile: () => typedError<string, string>(__TAURI_INVOKE("read_third_party_notices_file")),
 	openLicenseFilePath: () => typedError<null, string>(__TAURI_INVOKE("open_license_file_path")),
@@ -180,6 +181,8 @@ export const commands = {
 	setDecoration: (isDecorated: boolean) => typedError<null, string>(__TAURI_INVOKE("set_decoration", { isDecorated })),
 	// Restart the application
 	restartApp: () => __TAURI_INVOKE<void>("restart_app"),
+	// Returns whether the current process is running with administrator privileges.
+	isProcessElevated: () => typedError<boolean, string>(__TAURI_INVOKE("is_process_elevated")),
 	/**
 	 *  Stop monitoring and exit the process.
 	 * 
@@ -269,6 +272,7 @@ export type ClientSettings_Deserialize = {
 	closeToTray: boolean,
 	closeToTrayChoiceMade: boolean,
 	externalComponentGuidance: ExternalComponentGuidanceSettings,
+	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Deserialize,
 };
 
@@ -303,6 +307,7 @@ export type ClientSettings_Serialize = {
 	closeToTray: boolean,
 	closeToTrayChoiceMade: boolean,
 	externalComponentGuidance: ExternalComponentGuidanceSettings,
+	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Serialize,
 };
 
@@ -626,4 +631,3 @@ function makeEvent<T>(name: string) {
 
     return Object.assign(fn, base);
 }
-

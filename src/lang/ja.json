@@ -433,7 +433,11 @@
         "externalComponents": "外部コンポーネント",
         "externalComponentsDescription": "PawnIO や smartctl などの任意コンポーネントの導入手順を確認します。",
         "openExternalComponentsDocs": "ドキュメントを開く",
-        "openExternalComponentsDocsError": "外部コンポーネントのドキュメントを開けませんでした。"
+        "openExternalComponentsDocsError": "外部コンポーネントのドキュメントを開けませんでした。",
+        "elevatedStartupMode": {
+          "name": "管理者として起動",
+          "description": "昇格が必要なセンサーを使えるように、HardwareVisualizer を管理者権限で起動します。有効にすると Windows の承認後にアプリを再起動します。"
+        }
       }
     },
     "updater": {

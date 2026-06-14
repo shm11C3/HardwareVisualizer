@@ -403,7 +403,11 @@
         "externalComponents": "Внешние компоненты",
         "externalComponentsDescription": "Посмотрите инструкции по настройке необязательных компонентов, таких как PawnIO и smartctl.",
         "openExternalComponentsDocs": "Открыть документацию",
-        "openExternalComponentsDocsError": "Не удалось открыть документацию по внешним компонентам."
+        "openExternalComponentsDocsError": "Не удалось открыть документацию по внешним компонентам.",
+        "elevatedStartupMode": {
+          "name": "Запускать от имени администратора",
+          "description": "Запускает HardwareVisualizer с правами администратора для датчиков, которым нужен повышенный доступ. При включении приложение перезапустится после подтверждения Windows."
+        }
       }
     },
     "updater": {
