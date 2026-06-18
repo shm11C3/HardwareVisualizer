@@ -179,8 +179,8 @@ const DataArea = ({
   className = "rounded-2xl bg-card",
 }: {
   children: React.ReactNode;
-  title?: string;
-  icon?: JSX.Element;
+  title?: string | undefined;
+  icon?: JSX.Element | undefined;
   border?: boolean;
   className?: string;
 }) => {

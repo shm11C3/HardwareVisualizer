@@ -665,7 +665,7 @@ const StorageHealthOverview = ({
   refreshing = false,
   summary,
 }: {
-  onRefresh?: () => void;
+  onRefresh?: (() => void) | undefined;
   refreshError?: string | null;
   refreshing?: boolean;
   summary: StorageHealthSummaryViewModel | null;

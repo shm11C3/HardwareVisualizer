@@ -8,8 +8,25 @@
   },
   "linter": {
     "enabled": true,
+    "domains": {
+      "types": "all"
+    },
     "rules": {
       "preset": "recommended",
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConfusingVoidType": "error",
+        // types ドメインで有効化されるが off にする。
+        // Biome の型推論 (tsc 非依存) は useState の union や外部の判別共用体
+        // (Tauri DownloadEvent 等) を解決できず、到達可能な case を「到達不能」と
+        // 誤検知するため (誤検知率が高い)。型安全な Promise 系ルールは維持する。
+        "noUnnecessaryConditions": "off"
+      },
+      "complexity": {
+        // tsconfig の noPropertyAccessFromIndexSignature と衝突するため off
+        // (index signature は dot 記法不可 = bracket 記法を強制される)
+        "useLiteralKeys": "off"
+      },
       "nursery": {
         "useSortedClasses": {
           "level": "error",
@@ -18,6 +35,7 @@
         }
       },
       "style": {
+        "noNonNullAssertion": "error",
         "noParameterAssign": "error",
         "useAsConstAssertion": "error",
         "useDefaultParameterLast": "error",

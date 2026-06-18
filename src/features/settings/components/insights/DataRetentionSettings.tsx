@@ -137,7 +137,7 @@ export const DataRetentionSettings = () => {
           <div className="flex items-center space-x-2">
             <Checkbox
               id={scheduledDataDeletionId}
-              checked={settings.hardwareArchive.scheduledDataDeletion}
+              checked={settings.hardwareArchive.scheduledDataDeletion ?? false}
               onCheckedChange={handleScheduledDataDeletion}
             />
             <Label

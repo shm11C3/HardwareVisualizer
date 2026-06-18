@@ -1,6 +1,10 @@
 import type { LineGraphType } from "@/rspc/bindings";
 
-const MonotoneChartIcon = ({ className }: { className?: string }) => (
+const MonotoneChartIcon = ({
+  className,
+}: {
+  className?: string | undefined;
+}) => (
   <svg
     width="24"
     height="24"
@@ -17,7 +21,7 @@ const MonotoneChartIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const StepChartIcon = ({ className }: { className?: string }) => (
+const StepChartIcon = ({ className }: { className?: string | undefined }) => (
   <svg
     width="24"
     height="24"
@@ -34,7 +38,7 @@ const StepChartIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const LinearChartIcon = ({ className }: { className?: string }) => (
+const LinearChartIcon = ({ className }: { className?: string | undefined }) => (
   <svg
     width="24"
     height="24"
@@ -47,7 +51,7 @@ const LinearChartIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const BasisChartIcon = ({ className }: { className?: string }) => (
+const BasisChartIcon = ({ className }: { className?: string | undefined }) => (
   <svg
     width="24"
     height="24"

@@ -25,11 +25,9 @@ export const useUploadImage = () => {
       }),
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      picture: undefined,
-    },
+    defaultValues: {},
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {

@@ -37,8 +37,8 @@ vi.mock("react-i18next", () => ({
         "pages.settings.general.trayWidget.metric.cpu": "CPU",
         "pages.settings.general.trayWidget.metric.gpu": "GPU",
         "pages.settings.general.trayWidget.metric.gpu-temp": "GPU temperature",
-        "pages.settings.general.trayWidget.dragMetric": `Drag ${params?.metric}`,
-        "pages.settings.general.trayWidget.seconds": `${params?.count}s`,
+        "pages.settings.general.trayWidget.dragMetric": `Drag ${params?.["metric"]}`,
+        "pages.settings.general.trayWidget.seconds": `${params?.["count"]}s`,
       };
 
       return translations[key] || key;
