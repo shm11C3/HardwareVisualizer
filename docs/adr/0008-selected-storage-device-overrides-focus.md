@@ -13,3 +13,5 @@ A Storage Health Display shows one storage device at a time. By default it surfa
 ## Consequences
 
 With a device selected, the overview header no longer reflects overall health. A reviewer who sees a healthy ("good") header while another device is critical should not treat it as a bug — the per-device badges in the selector are the overall-health signal. This is a deliberate behavioral asymmetry, not an oversight.
+
+The selected device name is not repeated beside the Storage Health title. The selected tab is the single visible label for the active device, avoiding redundant labels in the compact dashboard header. When many devices are present, the selector remains a single horizontal row and scrolls sideways so it does not expand the dashboard card vertically.

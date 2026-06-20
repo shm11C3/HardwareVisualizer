@@ -687,11 +687,6 @@ const StorageHealthOverview = ({
 
   if (!summary || (summary.driveCount === 0 && !onRefresh)) return null;
 
-  const focusDeviceLabel =
-    summary.focusDevice?.model?.trim() ||
-    summary.focusDevice?.displayName ||
-    null;
-
   return (
     <div
       className={cn(
@@ -705,14 +700,6 @@ const StorageHealthOverview = ({
           <span className="shrink-0 font-medium text-sm">
             {t("pages.dashboard.storageHealth.title")}
           </span>
-          {focusDeviceLabel && (
-            <span
-              className="truncate text-muted-foreground text-xs"
-              title={focusDeviceLabel}
-            >
-              {focusDeviceLabel}
-            </span>
-          )}
           {summary.isStale && (
             <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {t("pages.dashboard.storageHealth.stale")}
@@ -751,6 +738,14 @@ const StorageHealthOverview = ({
         </div>
       </div>
 
+      {summary.devices.length > 1 && (
+        <StorageDeviceHealthOverview
+          devices={summary.devices}
+          selectedDeviceId={summary.focusDevice?.deviceId ?? null}
+          onSelect={onSelectDevice}
+        />
+      )}
+
       {refreshError && (
         <p className="truncate text-destructive text-xs" title={refreshError}>
           {refreshError}
@@ -781,14 +776,6 @@ const StorageHealthOverview = ({
             </li>
           ))}
         </ul>
-      )}
-
-      {summary.devices.length > 1 && (
-        <StorageDeviceHealthOverview
-          devices={summary.devices}
-          selectedDeviceId={summary.focusDevice?.deviceId ?? null}
-          onSelect={onSelectDevice}
-        />
       )}
     </div>
   );
@@ -840,7 +827,8 @@ const StorageDeviceHealthOverview = ({
     <div
       role="tablist"
       aria-label={t("pages.dashboard.storageHealth.deviceSelector")}
-      className="grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2"
+      aria-orientation="horizontal"
+      className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden pb-1"
     >
       {devices.map((device) => {
         const isSelected = device.deviceId === selectedDeviceId;
@@ -852,7 +840,7 @@ const StorageDeviceHealthOverview = ({
             aria-selected={isSelected}
             onClick={() => onSelect?.(device.deviceId)}
             className={cn(
-              "grid min-h-6 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+              "grid h-6 w-40 shrink-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
               isSelected
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted/60",

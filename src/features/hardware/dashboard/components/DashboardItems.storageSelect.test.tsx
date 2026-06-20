@@ -188,6 +188,22 @@ describe("StorageDataInfo storage device selection", () => {
     ).toBeInTheDocument();
   });
 
+  it("places the selector directly below the title without duplicating the selected device label", async () => {
+    renderStorage();
+
+    const title = await screen.findByText("Storage Health");
+    const titleGroup = title.closest("div");
+    const headerRow = titleGroup?.parentElement ?? null;
+    const tablist = screen.getByRole("tablist", {
+      name: "Select storage device",
+    });
+
+    expect(headerRow).not.toBeNull();
+    expect(headerRow).not.toHaveTextContent("Disk B SSD");
+    expect(tablist.previousElementSibling).toBe(headerRow);
+    expect(tablist).toHaveAttribute("aria-orientation", "horizontal");
+  });
+
   it("does not render a device selector when only one device is present", async () => {
     mocks.commands.getStorageHealthLatestRecords.mockResolvedValue({
       status: "ok",

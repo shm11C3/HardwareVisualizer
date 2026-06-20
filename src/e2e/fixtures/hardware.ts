@@ -2,6 +2,7 @@ import type {
   HardwareMonitorUpdate,
   ProcessInfo_Serialize,
   StorageHealthRecord,
+  StorageInfo,
   SysInfo,
 } from "@/rspc/bindings";
 
@@ -93,30 +94,108 @@ export const processListFixture: ProcessInfo_Serialize[] = [
   { pid: 500, name: "fixture-shell", cpuUsage: "0.3", memoryUsage: "32 MB" },
 ];
 
-export const storageHealthFixture: StorageHealthRecord[] = [
-  {
-    deviceId: "e2e-disk-0",
-    displayName: "Fixture SSD",
-    model: "FIXTURE-SSD-1TB",
-    protocol: "NVMe",
-    capacityBytes: 1_024_000_000_000,
-    date: "2026-01-01",
-    healthStatus: "good",
-    warningLevel: "none",
-    temperatureCelsius: 38,
-    powerOnHours: 1234,
-    percentageUsed: 3,
-    availableSparePercent: 100,
-    reallocatedSectorCount: null,
-    currentPendingSectorCount: null,
-    offlineUncorrectableCount: null,
-    mediaErrors: 0,
-    errorLogEntries: 0,
-    unsafeShutdownCount: 2,
-    warningReasons: [],
-    collectedAt: "2026-01-01T00:00:00Z",
-  },
-];
+export const buildStorageInfoFixture = (count: number): StorageInfo[] =>
+  Array.from({ length: Math.max(0, count) }, (_, index) => {
+    if (index === 0) {
+      return {
+        name: "Fixture SSD",
+        size: 953,
+        sizeUnit: "GB",
+        free: 512,
+        freeUnit: "GB",
+        storageType: "ssd",
+        fileSystem: "NTFS",
+      };
+    }
+
+    if (index === 1) {
+      return {
+        name: "Fixture HDD",
+        size: 3,
+        sizeUnit: "GB",
+        free: 1,
+        freeUnit: "GB",
+        storageType: "hdd",
+        fileSystem: "NTFS",
+      };
+    }
+
+    const size = index % 4 === 0 ? 4 : 1;
+    const storageType = index % 5 === 0 ? "hdd" : "ssd";
+
+    return {
+      name: `Fixture ${storageType.toUpperCase()} ${index + 1}`,
+      size,
+      sizeUnit: "GB",
+      free: Math.max(1, size - 1),
+      freeUnit: "GB",
+      storageType,
+      fileSystem: index % 3 === 0 ? "exFAT" : "NTFS",
+    };
+  });
+
+export const buildStorageHealthFixture = (
+  count: number,
+  options: {
+    collectedAt?: string;
+    date?: string;
+  } = {},
+): StorageHealthRecord[] =>
+  Array.from({ length: Math.max(0, count) }, (_, index) => {
+    const date = options.date ?? "2026-01-01";
+    const isCritical = index > 0 && index % 7 === 0;
+    const isWarning = !isCritical && index > 0 && index % 3 === 0;
+    const healthStatus = isCritical
+      ? "critical"
+      : isWarning
+        ? "warning"
+        : "good";
+    const displayName =
+      index === 0
+        ? "Fixture SSD"
+        : index === 1
+          ? "Fixture HDD"
+          : `Fixture ${index % 5 === 0 ? "HDD" : "SSD"} ${index + 1}`;
+    const temperatureCelsius = 36 + ((index * 3) % 29);
+    const percentageUsed = Math.min(99, 3 + index * 4);
+    const warningReasons = isCritical
+      ? [
+          `Fixture disk ${index + 1} has critical media errors`,
+          `Temperature reached ${temperatureCelsius} C`,
+        ]
+      : isWarning
+        ? [`Fixture disk ${index + 1} is above the warning threshold`]
+        : [];
+
+    return {
+      deviceId: `e2e-disk-${index}`,
+      displayName,
+      model:
+        index === 0
+          ? "FIXTURE-SSD-1TB"
+          : `FIXTURE-${index % 5 === 0 ? "HDD" : "SSD"}-${String(index + 1).padStart(2, "0")}`,
+      protocol: index % 5 === 0 ? "SATA" : "NVMe",
+      capacityBytes: (index % 4 === 0 ? 4 : 1) * 1_024_000_000_000,
+      date,
+      healthStatus,
+      warningLevel: healthStatus === "good" ? "none" : healthStatus,
+      temperatureCelsius,
+      powerOnHours: 1234 + index * 911,
+      percentageUsed,
+      availableSparePercent: Math.max(1, 100 - index * 3),
+      reallocatedSectorCount: isCritical ? 12 + index : null,
+      currentPendingSectorCount: isWarning || isCritical ? index : null,
+      offlineUncorrectableCount: isCritical ? 2 : null,
+      mediaErrors: isCritical ? 5 + index : 0,
+      errorLogEntries: isWarning || isCritical ? index * 2 : 0,
+      unsafeShutdownCount: 2 + index,
+      warningReasons,
+      collectedAt: options.collectedAt ?? `${date}T00:00:00Z`,
+    };
+  });
+
+export const storageHealthFixture: StorageHealthRecord[] =
+  buildStorageHealthFixture(1);
 
 /**
  * Build a deterministic series of `hardware-monitor-update` payloads.

@@ -3,6 +3,8 @@ import type { HardwareMonitorUpdate } from "@/rspc/bindings";
 import { buildArchiveRecords, buildProcessStats } from "../fixtures/archive";
 import {
   buildHardwareUpdateSeries,
+  buildStorageHealthFixture,
+  buildStorageInfoFixture,
   GPU_FIXTURES,
   processListFixture,
   storageHealthFixture,
@@ -34,6 +36,9 @@ type InvokeHandler = (args?: unknown) => unknown;
 type EventListenArgs = { event: string; handler: number };
 type EventEmitArgs = { event: string; payload?: unknown };
 type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
+type FixtureOverrides = {
+  storageDeviceCount: number | null;
+};
 type TauriInternalsWindow = Window & {
   __TAURI_INTERNALS__?: {
     runCallback?: (id: number, data: unknown) => void;
@@ -41,8 +46,28 @@ type TauriInternalsWindow = Window & {
 };
 
 const STORE_RID = 1;
+const MAX_STORAGE_DEVICE_STUB_COUNT = 32;
 
 const storeKey = (args?: unknown) => (args as { key: string }).key;
+
+const readFixtureOverrides = (): FixtureOverrides => {
+  const rawStorageDeviceCount = new URLSearchParams(window.location.search).get(
+    "storageDevices",
+  );
+  const parsedStorageDeviceCount =
+    rawStorageDeviceCount == null
+      ? Number.NaN
+      : Number.parseInt(rawStorageDeviceCount, 10);
+
+  return {
+    storageDeviceCount: Number.isFinite(parsedStorageDeviceCount)
+      ? Math.max(
+          0,
+          Math.min(MAX_STORAGE_DEVICE_STUB_COUNT, parsedStorageDeviceCount),
+        )
+      : null,
+  };
+};
 
 /**
  * Dispatch table mapping invoke commands to their mocked handlers:
@@ -52,6 +77,7 @@ const storeKey = (args?: unknown) => (args as { key: string }).key;
 const buildInvokeHandlers = (
   store: Map<string, unknown>,
   eventListeners: Map<string, Set<number>>,
+  fixtureOverrides: FixtureOverrides,
 ): Record<string, InvokeHandler> => ({
   // --- @tauri-apps/plugin-event ---
   "plugin:event|listen": (args) => {
@@ -113,9 +139,27 @@ const buildInvokeHandlers = (
 
   // --- generated commands ---
   get_settings: () => settingsFixture,
-  get_hardware_info: () => sysInfoFixture,
+  get_hardware_info: () =>
+    fixtureOverrides.storageDeviceCount == null
+      ? sysInfoFixture
+      : {
+          ...sysInfoFixture,
+          storage: buildStorageInfoFixture(fixtureOverrides.storageDeviceCount),
+        },
   get_process_list: () => processListFixture,
-  get_storage_health_latest_records: () => storageHealthFixture,
+  get_storage_health_latest_records: () =>
+    fixtureOverrides.storageDeviceCount == null
+      ? storageHealthFixture
+      : buildStorageHealthFixture(fixtureOverrides.storageDeviceCount, {
+          date: new Date().toISOString().slice(0, 10),
+        }),
+  get_live_storage_health: () => [],
+  refresh_storage_devices: () =>
+    fixtureOverrides.storageDeviceCount == null
+      ? storageHealthFixture
+      : buildStorageHealthFixture(fixtureOverrides.storageDeviceCount, {
+          date: new Date().toISOString().slice(0, 10),
+        }),
   get_external_component_guidance_candidates: () => [],
   defer_external_component_guidance_for_session: () => null,
   acknowledge_external_component_guidance_key: () => null,
@@ -200,7 +244,8 @@ export const installTauriMocks = () => {
 
   const store = new Map<string, unknown>(Object.entries(storeFixture));
   const eventListeners = new Map<string, Set<number>>();
-  const handlers = buildInvokeHandlers(store, eventListeners);
+  const fixtureOverrides = readFixtureOverrides();
+  const handlers = buildInvokeHandlers(store, eventListeners, fixtureOverrides);
   let streamTimer: number | undefined;
   let streamIndex = 0;
   let streamRunning = false;

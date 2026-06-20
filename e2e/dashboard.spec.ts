@@ -27,4 +27,34 @@ test.describe("dashboard captures", () => {
 
     await saveCapture(page, "dashboard-gpu-secondary");
   });
+
+  test("storage selector scrolls horizontally with many stubbed devices", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?storageDevices=12" });
+    await seedHardwareHistory(page);
+
+    const storageSelector = page.getByRole("tablist", {
+      name: "Select storage device",
+    });
+    await expect(storageSelector).toBeVisible();
+
+    const scrollMetrics = await storageSelector.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      overflowX: window.getComputedStyle(element).overflowX,
+      scrollWidth: element.scrollWidth,
+    }));
+
+    expect(scrollMetrics.scrollWidth).toBeGreaterThan(
+      scrollMetrics.clientWidth,
+    );
+    expect(scrollMetrics.overflowX).toBe("auto");
+
+    const lastDevice = page.getByRole("tab", { name: /FIXTURE-SSD-12/ });
+    await lastDevice.scrollIntoViewIfNeeded();
+    await lastDevice.click();
+    await expect(lastDevice).toHaveAttribute("aria-selected", "true");
+
+    await saveCapture(page, "dashboard-storage-many");
+  });
 });
