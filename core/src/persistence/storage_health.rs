@@ -190,6 +190,8 @@ async fn store_storage_health_collection(
   active_device_ids: Vec<String>,
   collection: StorageHealthCollection,
 ) -> Result<(), String> {
+  let active_device_ids =
+    active_device_ids_with_collected_devices(active_device_ids, &collection.devices);
   let result = if active_device_ids.is_empty() {
     database::storage_health::insert_daily_records(collection.devices, collection.records)
       .await
@@ -207,6 +209,23 @@ async fn store_storage_health_collection(
   database::storage_health::delete_old_data(retention_days)
     .await
     .map_err(|e| format!("Failed to delete old storage health records: {e}"))
+}
+
+fn active_device_ids_with_collected_devices(
+  mut active_device_ids: Vec<String>,
+  devices: &[StorageDeviceRecord],
+) -> Vec<String> {
+  if active_device_ids.is_empty() {
+    return active_device_ids;
+  }
+
+  for device in devices {
+    if !active_device_ids.iter().any(|id| id == &device.id) {
+      active_device_ids.push(device.id.clone());
+    }
+  }
+
+  active_device_ids
 }
 
 fn build_daily_record(
@@ -542,6 +561,47 @@ mod tests {
       raw_value: Some(raw.to_string()),
       when_failed: None,
     }
+  }
+
+  #[test]
+  fn active_refresh_ids_include_collected_device_ids() {
+    let active_device_ids = active_device_ids_with_collected_devices(
+      vec!["live-disk".to_string()],
+      &[StorageDeviceRecord {
+        id: "daily-disk".to_string(),
+        display_name: "Daily Disk".to_string(),
+        model: Some("Example SSD".to_string()),
+        serial_hash: Some("serial-daily-disk".to_string()),
+        protocol: Some("NVMe".to_string()),
+        capacity_bytes: Some(1_000_000),
+        first_seen_at: "2026-05-10T00:00:00Z".to_string(),
+        last_seen_at: "2026-05-10T00:00:00Z".to_string(),
+      }],
+    );
+
+    assert_eq!(
+      active_device_ids,
+      vec!["live-disk".to_string(), "daily-disk".to_string()]
+    );
+  }
+
+  #[test]
+  fn empty_active_refresh_ids_preserve_non_authoritative_insert_path() {
+    let active_device_ids = active_device_ids_with_collected_devices(
+      Vec::new(),
+      &[StorageDeviceRecord {
+        id: "daily-disk".to_string(),
+        display_name: "Daily Disk".to_string(),
+        model: Some("Example SSD".to_string()),
+        serial_hash: Some("serial-daily-disk".to_string()),
+        protocol: Some("NVMe".to_string()),
+        capacity_bytes: Some(1_000_000),
+        first_seen_at: "2026-05-10T00:00:00Z".to_string(),
+        last_seen_at: "2026-05-10T00:00:00Z".to_string(),
+      }],
+    );
+
+    assert!(active_device_ids.is_empty());
   }
 
   #[test]
