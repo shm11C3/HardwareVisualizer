@@ -52,6 +52,23 @@ const TYPED_ERROR_IMPL: &str = r#"async function typedError<T, E>(result: Promis
 // @ts-expect-error tauri-specta's generated contract assertion leaves E unused under noUnusedLocals.
 "#;
 
+/// Apply pending schema migrations against Core's pool, synchronously.
+///
+/// Runs on a short-lived current-thread runtime because this executes
+/// during `run()` setup, before the Tauri (and its Tokio) runtime starts —
+/// the same pattern the DB preflight uses. [`db::init`] must have been
+/// called first so Core can resolve the database file.
+fn apply_pending_migrations() -> Result<(), String> {
+  let migrations = infrastructure::database::migration::get_migrations();
+  let runtime = tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+    .map_err(|e| format!("Failed to build runtime for migrations: {e}"))?;
+  runtime.block_on(hardviz_core::infrastructure::database::migrate::run(
+    migrations,
+  ))
+}
+
 pub fn run() {
   let builder = Builder::<tauri::Wry>::new()
     .events(collect_events![models::hardware::HardwareMonitorUpdate,])
@@ -160,18 +177,37 @@ pub fn run() {
   let _ = hardviz_core::infrastructure::database::db::init(db_path.clone());
 
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
-  let db_error = hardviz_core::persistence::preflight::check_db_compatibility(
+  let mut db_error = hardviz_core::persistence::preflight::check_db_compatibility(
     &db_path,
     app_max_version,
   );
-  let is_db_ok = db_error.is_none();
 
-  let migrations = infrastructure::database::migration::get_migrations();
+  // Core owns the database pool, so it also applies the schema migrations —
+  // synchronously here, before any persistence worker writes. These were
+  // previously registered with `tauri-plugin-sql` but never ran, because
+  // the DB is never loaded through the plugin (no `preload`, no frontend
+  // `Database.load`), leaving newer tables such as `storage_devices`
+  // missing. A migration failure is surfaced as a DB-incompatible startup
+  // so the existing recovery dialog handles it.
+  if db_error.is_none()
+    && let Err(e) = apply_pending_migrations()
+  {
+    log_error!(
+      "Failed to apply database migrations",
+      "lib::run",
+      Some(e.clone())
+    );
+    db_error = Some(hardviz_core::persistence::preflight::DbStartupError::Other(
+      e,
+    ));
+  }
+
+  let is_db_ok = db_error.is_none();
 
   let store_for_setup = Arc::clone(&history_store);
   let guidance_for_setup = Arc::clone(&external_component_guidance_state);
 
-  let mut tauri_builder = tauri::Builder::<Wry>::default()
+  let tauri_builder = tauri::Builder::<Wry>::default()
     .invoke_handler(builder.invoke_handler())
     .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
       lifecycle::on_second_instance(app);
@@ -387,14 +423,6 @@ pub fn run() {
     .manage(lifecycle::CloseToTrayRuntimeState::default())
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));
-
-  if is_db_ok {
-    tauri_builder = tauri_builder.plugin(
-      tauri_plugin_sql::Builder::new()
-        .add_migrations("sqlite:hv-database.db", migrations)
-        .build(),
-    );
-  }
 
   let mut context = tauri::generate_context!();
   utils::tauri::apply_runtime_config(context.config_mut());

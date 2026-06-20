@@ -57,7 +57,7 @@ src-tauri/src/
 ├── workers/              ← WorkersState — holds Core controller / adapter handles
 ├── tray/                 ← tray widget windows, surface helpers, and UI policy
 ├── infrastructure/       ← App-only DB code
-│   └── database/migration.rs   SQL migration definitions for tauri-plugin-sql
+│   └── database/migration.rs   SQL migration definitions (run by Core's migrator)
 ├── models/               ← App-side DTOs (HardwareMonitorUpdate, settings, storage health, …)
 ├── enums/                ← App-side enums (TemperatureUnit, hardware, settings, …)
 ├── utils/                ← App-side helpers (file paths, color, Tauri-aware logger)
@@ -111,7 +111,8 @@ Commands → Services → (Core API)         ─ App-owned
 The `platform/` and `infrastructure/providers/` directories that the
 architecture document references now live in [`core/src/`](../core); the
 App crate retains only the App-specific `infrastructure/database/`
-(migrations registered with `tauri-plugin-sql`).
+(the ordered schema migration definitions, executed at startup by Core's
+migrator in `hardviz_core::infrastructure::database::migrate`).
 
 ## Frontend integration
 
