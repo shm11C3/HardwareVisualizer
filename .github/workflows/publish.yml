@@ -68,7 +68,9 @@ jobs:
     permissions:
       contents: write
     env:
-      ENABLE_WINDOWS_SIGNING: false
+      # Toggle Windows code signing via the repository variable of the same name
+      # (Settings → Secrets and variables → Actions → Variables). Defaults to off.
+      ENABLE_WINDOWS_SIGNING: ${{ vars.ENABLE_WINDOWS_SIGNING || 'false' }}
     strategy:
       fail-fast: false
       matrix:

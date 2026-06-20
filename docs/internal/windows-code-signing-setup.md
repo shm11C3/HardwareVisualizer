@@ -50,13 +50,12 @@ GitHub リポジトリの **Settings > Secrets and variables > Actions** で以�
 
 ## 3. 署名の有効化
 
-`.github/workflows/publish.yml` の `ENABLE_WINDOWS_SIGNING` を `true` にします
-（既定では安全のため `false`）。
+リポジトリ変数 `ENABLE_WINDOWS_SIGNING` を `true` にします
+（**Settings → Secrets and variables → Actions → Variables**）。ワークフローは
+`vars.ENABLE_WINDOWS_SIGNING` を参照し、未設定時は `false`（署名オフ）です。
 
-```yaml
-env:
-  ENABLE_WINDOWS_SIGNING: true
-```
+> 先に手順 2 の Secrets を設定してから有効化してください。Secrets 未設定のまま
+> 有効化すると、署名ステップが `ES_USERNAME is not set` 等で失敗します。
 
 ## 4. 仕組み
 
