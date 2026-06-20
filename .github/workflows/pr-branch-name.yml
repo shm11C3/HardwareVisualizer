@@ -1,0 +1,27 @@
+name: PR Branch Name
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions: read-all
+
+jobs:
+  validate:
+    runs-on: ubuntu-slim
+
+    steps:
+      - name: Validate PR branch name
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            feat/*|feature/*|fix/*|docs/*|refactor/*|chore/*|dependabot/*|renovate/*)
+              echo "Branch name '$HEAD_REF' follows the project convention."
+              ;;
+            *)
+              echo "::error title=Invalid PR branch name::Branch '$HEAD_REF' does not follow CONTRIBUTING.md. Use feat/, feature/, fix/, docs/, refactor/, or chore/; do not use tool-dependent prefixes such as codex/ or claude/."
+              exit 1
+              ;;
+          esac
