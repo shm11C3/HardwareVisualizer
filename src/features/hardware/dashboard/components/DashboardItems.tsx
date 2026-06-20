@@ -823,37 +823,104 @@ const StorageDeviceHealthOverview = ({
 
   if (devices.length === 0) return null;
 
+  const usesCompactTabs = devices.length > 2;
+  const selectedDevice =
+    devices.find((device) => device.deviceId === selectedDeviceId) ??
+    devices[0];
+
   return (
-    <div
-      role="tablist"
-      aria-label={t("pages.dashboard.storageHealth.deviceSelector")}
-      aria-orientation="horizontal"
-      className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden pb-1"
-    >
-      {devices.map((device) => {
-        const isSelected = device.deviceId === selectedDeviceId;
-        return (
-          <button
-            key={device.deviceId}
-            type="button"
-            role="tab"
-            aria-selected={isSelected}
-            onClick={() => onSelect?.(device.deviceId)}
-            className={cn(
-              "grid h-6 w-40 shrink-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
-              isSelected
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/60",
-            )}
-          >
-            <StorageHealthStatusIcon status={device.status} size={15} />
-            <span className="truncate text-xs" title={device.label}>
-              {device.label}
-            </span>
-          </button>
-        );
-      })}
+    <div className="space-y-1">
+      <div
+        role="tablist"
+        aria-label={t("pages.dashboard.storageHealth.deviceSelector")}
+        aria-orientation="horizontal"
+        className={cn(
+          "max-w-full gap-1 pb-1",
+          usesCompactTabs
+            ? "flex overflow-x-auto overflow-y-hidden"
+            : "grid grid-cols-2 overflow-visible",
+        )}
+      >
+        {devices.map((device) => {
+          const isSelected = device.deviceId === selectedDeviceId;
+          const tabTitle = formatStorageDeviceTabTitle(device);
+          return (
+            <button
+              key={device.deviceId}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => onSelect?.(device.deviceId)}
+              title={tabTitle}
+              className={cn(
+                "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+                usesCompactTabs
+                  ? "h-6 w-44 shrink-0"
+                  : "min-h-6 min-w-0 py-0.5",
+                isSelected
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60",
+              )}
+            >
+              <StorageHealthStatusIcon status={device.status} size={15} />
+              <span
+                className={cn(
+                  "min-w-0 text-xs leading-4",
+                  usesCompactTabs ? "truncate" : "break-all",
+                )}
+              >
+                {device.label}
+              </span>
+              <StorageDeviceProtocolBadge
+                className="justify-self-end"
+                protocolLabel={device.protocolLabel}
+              />
+            </button>
+          );
+        })}
+      </div>
+      {usesCompactTabs && selectedDevice && (
+        <div
+          className="flex min-w-0 items-center gap-1.5 px-1 text-muted-foreground text-xs"
+          title={formatStorageDeviceTabTitle(selectedDevice)}
+        >
+          <span className="min-w-0 break-all leading-4">
+            {selectedDevice.label}
+          </span>
+          <StorageDeviceProtocolBadge
+            className="shrink-0"
+            protocolLabel={selectedDevice.protocolLabel}
+          />
+        </div>
+      )}
     </div>
+  );
+};
+
+const formatStorageDeviceTabTitle = (device: StorageHealthDeviceViewModel) =>
+  device.protocolLabel
+    ? `${device.label} (${device.protocolLabel})`
+    : device.label;
+
+const StorageDeviceProtocolBadge = ({
+  className,
+  protocolLabel,
+}: {
+  className?: string;
+  protocolLabel: string | null;
+}) => {
+  if (!protocolLabel) return null;
+
+  return (
+    <span
+      className={cn(
+        "truncate rounded-[2px] border border-border/60 bg-background/70 px-1 font-mono text-[9px] text-muted-foreground leading-4",
+        className,
+      )}
+      title={protocolLabel}
+    >
+      {protocolLabel}
+    </span>
   );
 };
 

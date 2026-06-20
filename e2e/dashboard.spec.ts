@@ -52,8 +52,14 @@ test.describe("dashboard captures", () => {
 
     const lastDevice = page.getByRole("tab", { name: /FIXTURE-SSD-12/ });
     await lastDevice.scrollIntoViewIfNeeded();
+    await expect(lastDevice).toContainText("NVMe");
     await lastDevice.click();
     await expect(lastDevice).toHaveAttribute("aria-selected", "true");
+    const selectedDeviceLabel = await storageSelector.evaluate((element) =>
+      element.nextElementSibling?.textContent?.replace(/\s+/g, " ").trim(),
+    );
+    expect(selectedDeviceLabel).toContain("FIXTURE-SSD-12");
+    expect(selectedDeviceLabel).toContain("NVMe");
 
     await saveCapture(page, "dashboard-storage-many");
   });

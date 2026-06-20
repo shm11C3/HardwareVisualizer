@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -200,8 +206,63 @@ describe("StorageDataInfo storage device selection", () => {
 
     expect(headerRow).not.toBeNull();
     expect(headerRow).not.toHaveTextContent("Disk B SSD");
-    expect(tablist.previousElementSibling).toBe(headerRow);
+    expect(tablist.parentElement?.previousElementSibling).toBe(headerRow);
     expect(tablist).toHaveAttribute("aria-orientation", "horizontal");
+    expect(
+      screen.getByRole("tab", { name: /Disk A SSD.*NVMe/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Disk A SSD")).not.toHaveClass("truncate");
+    expect(screen.getByText("Disk B SSD")).not.toHaveClass("truncate");
+  });
+
+  it("shows the full selected device name below compact tabs", async () => {
+    mocks.commands.getStorageHealthLatestRecords.mockResolvedValue({
+      status: "ok",
+      data: [
+        record({
+          deviceId: "disk-a",
+          displayName: "Disk A",
+          model: "Disk A SSD",
+          healthStatus: "good",
+          warningLevel: "none",
+          temperatureCelsius: 38,
+        }),
+        record({
+          deviceId: "disk-b",
+          displayName: "Disk B",
+          model: "Very Long Warning Disk B SSD Model Name",
+          healthStatus: "warning",
+          warningLevel: "warning",
+          temperatureCelsius: 45,
+          warningReasons: ["Temperature is elevated (45ﾂｰC)"],
+        }),
+        record({
+          deviceId: "disk-c",
+          displayName: "Disk C",
+          model: "Disk C SSD",
+          healthStatus: "good",
+          warningLevel: "none",
+          temperatureCelsius: 37,
+        }),
+      ],
+    });
+    renderStorage();
+
+    await screen.findByRole("tab", {
+      name: /Very Long Warning Disk B SSD Model Name/,
+    });
+    const tablist = screen.getByRole("tablist", {
+      name: "Select storage device",
+    });
+    const selectedDeviceLabel = tablist.nextElementSibling;
+
+    expect(
+      within(tablist).getByText("Very Long Warning Disk B SSD Model Name"),
+    ).toHaveClass("truncate");
+    expect(selectedDeviceLabel).toHaveTextContent(
+      "Very Long Warning Disk B SSD Model Name",
+    );
+    expect(selectedDeviceLabel).toHaveTextContent("NVMe");
   });
 
   it("does not render a device selector when only one device is present", async () => {

@@ -28,6 +28,7 @@ export type StorageHealthMetric =
 export type StorageHealthDeviceViewModel = {
   deviceId: string;
   label: string;
+  protocolLabel: string | null;
   status: StorageHealthStatus;
 };
 
@@ -151,8 +152,29 @@ const buildDeviceList = (
   return records.map((record) => ({
     deviceId: record.deviceId,
     label: record.model?.trim() || record.displayName,
+    protocolLabel: formatStorageDeviceProtocolLabel(record.protocol),
     status: forceUnknown ? "unknown" : record.healthStatus,
   }));
+};
+
+export const formatStorageDeviceProtocolLabel = (
+  protocol: string | null | undefined,
+): string | null => {
+  const normalized = protocol?.trim();
+  if (!normalized) return null;
+
+  const lower = normalized.toLowerCase();
+  if (lower.includes("nvme")) return "NVMe";
+  if (lower.includes("sata") || lower === "sat" || lower.startsWith("sat,")) {
+    return "SATA";
+  }
+  if (lower === "ata" || lower.startsWith("ata,")) return "ATA";
+  if (lower.includes("scsi")) return "SCSI";
+  if (lower.includes("usb")) return "USB";
+  if (lower.includes("raid")) return "RAID";
+  if (lower.includes("mmc")) return "eMMC";
+
+  return null;
 };
 
 const collectMetrics = (
