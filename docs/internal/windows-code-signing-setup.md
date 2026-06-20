@@ -62,7 +62,8 @@ env:
 
 - `Setup CodeSignTool (SSL.com eSigner)` ステップが CodeSignTool の Windows 版
   (`v1.3.2`、JRE 同梱のため別途 Java 不要) を GitHub Releases から固定バージョンで
-  ダウンロード・展開し、`CODESIGNTOOL_DIR` を後続ステップへ公開します。
+  ダウンロードし、SHA256 を検証してから展開し、`CODESIGNTOOL_DIR` を後続ステップへ
+  公開します。
 - `update-tauri-config.ts --sign` が `tauri.conf.json` の
   `bundle.windows.signCommand` に署名ラッパー
   (`pwsh ... .github/scripts/sign-codesigntool.ps1 %1`) を注入します。

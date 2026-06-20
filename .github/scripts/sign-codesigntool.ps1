@@ -29,6 +29,9 @@ $toolDir = $env:CODESIGNTOOL_DIR
 if (-not $toolDir) { throw "CODESIGNTOOL_DIR is not set" }
 if (-not $env:ES_USERNAME) { throw "ES_USERNAME is not set" }
 if (-not $env:ES_PASSWORD) { throw "ES_PASSWORD is not set" }
+# Required for non-interactive (headless CI) signing: without it CodeSignTool
+# blocks on a manual OTP prompt instead of generating the OTP from the secret.
+if (-not $env:ES_TOTP_SECRET) { throw "ES_TOTP_SECRET is not set" }
 
 $absInput = (Resolve-Path -LiteralPath $FilePath).Path
 
@@ -43,8 +46,9 @@ $signArgs = @(
   "-input_file_path=$absInput",
   "-output_dir_path=$outDir"
 )
-if ($env:ES_TOTP_SECRET) { $signArgs += "-totp_secret=$($env:ES_TOTP_SECRET)" }
-if ($env:CREDENTIAL_ID)  { $signArgs += "-credential_id=$($env:CREDENTIAL_ID)" }
+$signArgs += "-totp_secret=$($env:ES_TOTP_SECRET)"
+# credential_id is only required when the eSigner account has more than one certificate.
+if ($env:CREDENTIAL_ID) { $signArgs += "-credential_id=$($env:CREDENTIAL_ID)" }
 
 Write-Host "Signing with CodeSignTool: $absInput"
 

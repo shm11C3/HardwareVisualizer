@@ -157,11 +157,17 @@ jobs:
         run: |
           # Windows build bundles its own JRE, so no separate Java setup is needed.
           $version = "v1.3.2"
+          # SHA256 of the official CodeSignTool-v1.3.2-windows.zip asset, pinned for supply-chain integrity.
+          $expectedSha256 = "4afc32e8b7f79bbe1de7e4e7049aaad4e0f754357613b9bbec0e3052f06fd36b"
           $url = "https://github.com/SSLcom/CodeSignTool/releases/download/$version/CodeSignTool-$version-windows.zip"
           $zip = Join-Path $env:RUNNER_TEMP "codesigntool.zip"
           $dest = Join-Path $env:RUNNER_TEMP "codesigntool"
           Write-Host "Downloading CodeSignTool $version ..."
           Invoke-WebRequest -Uri $url -OutFile $zip
+          $actualSha256 = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "CodeSignTool checksum mismatch: expected $expectedSha256, got $actualSha256"
+          }
           Expand-Archive -Path $zip -DestinationPath $dest -Force
           $bat = Get-ChildItem -Path $dest -Recurse -Filter "CodeSignTool.bat" | Select-Object -First 1
           if (-not $bat) { throw "CodeSignTool.bat not found after extracting $url" }
