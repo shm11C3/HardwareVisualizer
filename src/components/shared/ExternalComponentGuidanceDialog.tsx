@@ -1,4 +1,10 @@
-import { ChevronDownIcon, ExternalLinkIcon, EyeOffIcon } from "lucide-react";
+import { platform } from "@tauri-apps/plugin-os";
+import {
+  ChevronDownIcon,
+  ExternalLinkIcon,
+  EyeOffIcon,
+  ShieldIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,6 +29,7 @@ import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import type { SelectedDisplayType } from "@/types/ui";
 import {
+  externalComponentGuidanceActionKey,
   externalComponentGuidanceCopyKey,
   externalComponentGuidanceDocsUrl,
   externalComponentGuidanceViewForDisplayTarget,
@@ -42,6 +49,8 @@ export const ExternalComponentGuidanceDialog = ({
   const [candidates, setCandidates] = useState<
     ExternalComponentGuidanceCandidate[]
   >([]);
+  const [isEnablingElevatedStartupMode, setIsEnablingElevatedStartupMode] =
+    useState(false);
 
   const view = useMemo(
     () => externalComponentGuidanceViewForDisplayTarget(displayTarget),
@@ -90,6 +99,11 @@ export const ExternalComponentGuidanceDialog = ({
   const copyKey = candidate
     ? externalComponentGuidanceCopyKey(candidate)
     : null;
+  const actionKey = candidate
+    ? externalComponentGuidanceActionKey(candidate)
+    : null;
+  const shouldShowElevatedStartupAction =
+    candidate?.reasonKind === "permission" && platform() === "windows";
 
   const removeCandidate = (key: string) => {
     setCandidates((current) => current.filter((item) => item.key !== key));
@@ -157,7 +171,31 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  if (!candidate || !copyKey) {
+  const handleEnableElevatedStartupMode = async () => {
+    if (!candidate) return;
+
+    setIsEnablingElevatedStartupMode(true);
+    try {
+      const result = await commands.setElevatedStartupMode(true);
+      if (isError(result)) {
+        console.error(
+          "Failed to enable elevated startup mode from external component guidance:",
+          result.error,
+        );
+        await error(t("externalComponentGuidance.errors.elevatedStartupMode"));
+      }
+    } catch (err) {
+      console.error(
+        "Failed to enable elevated startup mode from external component guidance:",
+        err,
+      );
+      await error(t("externalComponentGuidance.errors.elevatedStartupMode"));
+    } finally {
+      setIsEnablingElevatedStartupMode(false);
+    }
+  };
+
+  if (!candidate || !copyKey || !actionKey) {
     return null;
   }
 
@@ -185,17 +223,29 @@ export const ExternalComponentGuidanceDialog = ({
               <GuidanceRow
                 label={t("externalComponentGuidance.labels.action")}
                 value={t(
-                  `externalComponentGuidance.candidates.${copyKey}.action`,
+                  `externalComponentGuidance.candidates.${copyKey}.${actionKey}`,
                 )}
               />
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2">
-          <Button onClick={handleOpenDetails} type="button" variant="outline">
-            <ExternalLinkIcon className="size-4" />
-            {t("externalComponentGuidance.actions.openDetails")}
-          </Button>
+          {shouldShowElevatedStartupAction ? (
+            <Button
+              disabled={isEnablingElevatedStartupMode}
+              onClick={() => void handleEnableElevatedStartupMode()}
+              type="button"
+              variant="outline"
+            >
+              <ShieldIcon className="size-4" />
+              {t("externalComponentGuidance.actions.enableElevatedStartupMode")}
+            </Button>
+          ) : (
+            <Button onClick={handleOpenDetails} type="button" variant="outline">
+              <ExternalLinkIcon className="size-4" />
+              {t("externalComponentGuidance.actions.openDetails")}
+            </Button>
+          )}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="secondary">

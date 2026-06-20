@@ -167,12 +167,13 @@
   "externalComponentGuidance": {
     "title": "任意の追加コンポーネントで表示できる項目があります",
     "labels": {
-      "missing": "不足コンポーネント",
+      "missing": "確認が必要な項目",
       "impact": "表示できなくなる項目",
       "action": "必要なアクション"
     },
     "actions": {
       "openDetails": "詳細を開く",
+      "enableElevatedStartupMode": "管理者として再起動",
       "hide": "表示しない",
       "hideThisSession": "このセッションでは表示しない",
       "neverShowAgain": "二度と表示しない"
@@ -181,22 +182,26 @@
       "pawnioCpuPackageTemperature": {
         "missing": "PawnIO",
         "impact": "CPU パッケージ温度",
-        "action": "PawnIO をインストールし、HardwareVisualizer を再起動してください。入手先と配置場所は詳細ページで確認できます。"
+        "action": "PawnIO をインストールし、HardwareVisualizer が管理者権限で driver を開ける状態にしてからアプリを再起動してください。入手先と配置場所は詳細ページで確認できます。",
+        "permissionAction": "PawnIO はインストール済みの可能性がありますが、HardwareVisualizer がアクセスできませんでした。管理者として起動するか、設定の「管理者として起動」を有効にしてから再度確認してください。"
       },
       "smartctlStorageHealth": {
         "missing": "smartctl（smartmontools）",
         "impact": "Storage Health の SMART 健康状態、温度、使用率、予備領域、セクター、メディアエラーなど",
-        "action": "smartmontools をインストールし、コマンドラインから smartctl を実行できるようにしてから HardwareVisualizer を再起動してください。"
+        "action": "smartmontools をインストールし、コマンドラインから smartctl を実行できるようにしてください。インストール済みの場合は、デバイスや OS で昇格権限が必要か確認してから HardwareVisualizer を再起動してください。",
+        "permissionAction": "smartctl は利用可能ですが、現在の権限では Storage Health シグナルを読み取れませんでした。このデバイスまたは OS で必要な権限で HardwareVisualizer を起動してから再度確認してください。"
       },
       "generic": {
         "missing": "任意の外部コンポーネント",
         "impact": "一部のハードウェア詳細",
-        "action": "詳細ページを開き、不足しているコンポーネントの導入手順を確認してください。"
+        "action": "詳細ページを開き、コンポーネントの導入手順または必要な権限設定を確認してください。",
+        "permissionAction": "コンポーネントはインストール済みの可能性がありますが、現在の権限では HardwareVisualizer がアクセスできませんでした。詳細ページを開き、必要な権限設定を確認してください。"
       }
     },
     "errors": {
       "acknowledge": "この案内の設定を保存できませんでした。",
       "defer": "このセッションで案内を非表示にできませんでした。",
+      "elevatedStartupMode": "管理者として再起動できませんでした。",
       "openDetails": "詳細ページを開けませんでした。"
     }
   },

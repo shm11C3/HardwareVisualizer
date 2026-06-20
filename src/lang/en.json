@@ -167,12 +167,13 @@
   "externalComponentGuidance": {
     "title": "Optional components can enable more data",
     "labels": {
-      "missing": "Missing component",
+      "missing": "Component or access",
       "impact": "Items that cannot be shown",
       "action": "Required action"
     },
     "actions": {
       "openDetails": "Open details",
+      "enableElevatedStartupMode": "Restart as administrator",
       "hide": "Hide",
       "hideThisSession": "Hide for this session",
       "neverShowAgain": "Never show again"
@@ -181,22 +182,26 @@
       "pawnioCpuPackageTemperature": {
         "missing": "PawnIO",
         "impact": "CPU package temperature",
-        "action": "Install PawnIO, then restart HardwareVisualizer. The details page explains where to get it and where it must be placed."
+        "action": "Install PawnIO and make sure HardwareVisualizer can open the driver with administrator privileges, then restart the app. The details page explains where to get it and where it must be placed.",
+        "permissionAction": "PawnIO appears to be installed, but HardwareVisualizer could not access it. Run the app as administrator or enable Run as administrator on startup, then try again."
       },
       "smartctlStorageHealth": {
         "missing": "smartctl (smartmontools)",
         "impact": "Storage Health data such as SMART health, temperature, wear, spare, sector, or media-error signals",
-        "action": "Install smartmontools and make smartctl available from the command line, then restart HardwareVisualizer."
+        "action": "Install smartmontools and make smartctl available from the command line. If it is already installed, check whether the device or operating system requires elevated access, then restart HardwareVisualizer.",
+        "permissionAction": "smartctl is available, but HardwareVisualizer could not read the Storage Health signals with the current privileges. Run with the access required by this device or operating system, then try again."
       },
       "generic": {
         "missing": "Optional external component",
         "impact": "Some hardware details",
-        "action": "Open the details page and follow the installation guidance for the missing component."
+        "action": "Open the details page and follow the installation or access guidance for the component.",
+        "permissionAction": "The component may be installed, but HardwareVisualizer could not access it with the current privileges. Open the details page and check the required access setup."
       }
     },
     "errors": {
       "acknowledge": "Failed to save this guidance preference.",
       "defer": "Failed to hide this guidance for the current session.",
+      "elevatedStartupMode": "Failed to restart as administrator.",
       "openDetails": "Failed to open the details page."
     }
   },

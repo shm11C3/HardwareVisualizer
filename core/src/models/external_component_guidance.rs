@@ -90,9 +90,13 @@ pub fn classify_external_component_reason(detail: &str) -> ExternalComponentReas
   let normalized = detail.to_ascii_lowercase();
 
   if normalized.contains("permission denied")
+    || normalized.contains("access denied")
     || normalized.contains("access is denied")
     || normalized.contains("operation not permitted")
     || normalized.contains("administrator")
+    || normalized.contains("e_accessdenied")
+    || normalized.contains("0x80070005")
+    || normalized.contains("os error 5")
   {
     return ExternalComponentReasonKind::Permission;
   }
@@ -141,6 +145,22 @@ mod tests {
     assert_eq!(
       classify_external_component_reason("smartctl is not installed"),
       ExternalComponentReasonKind::Missing
+    );
+  }
+
+  #[test]
+  fn classify_external_component_reason_treats_access_denied_as_permission() {
+    assert_eq!(
+      classify_external_component_reason("CreateFile failed: access denied"),
+      ExternalComponentReasonKind::Permission
+    );
+  }
+
+  #[test]
+  fn classify_external_component_reason_treats_hresult_as_permission() {
+    assert_eq!(
+      classify_external_component_reason("pawnio_open failed: 0x80070005"),
+      ExternalComponentReasonKind::Permission
     );
   }
 }

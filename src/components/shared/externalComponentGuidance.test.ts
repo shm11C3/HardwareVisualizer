@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
 import {
+  externalComponentGuidanceActionKey,
   externalComponentGuidanceCopyKey,
   externalComponentGuidanceDocsBaseUrl,
   externalComponentGuidanceDocsUrl,
@@ -49,6 +50,18 @@ describe("externalComponentGuidance", () => {
       "smartctlStorageHealth",
     );
     expect(externalComponentGuidanceDocsUrl(smartctl)).toContain("#smartctl");
+  });
+
+  it("uses permission action copy for permission failures", () => {
+    const missing = candidate("pawnio:cpu-package-temperature:v1");
+    const permission = candidate("pawnio:cpu-package-temperature:v1", {
+      reasonKind: "permission",
+    });
+
+    expect(externalComponentGuidanceActionKey(missing)).toBe("action");
+    expect(externalComponentGuidanceActionKey(permission)).toBe(
+      "permissionAction",
+    );
   });
 
   it("uses Japanese docs URLs for Japanese UI languages", () => {
