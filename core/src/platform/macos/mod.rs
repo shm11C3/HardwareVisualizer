@@ -10,6 +10,7 @@ use tokio::task;
 
 mod gpu;
 pub mod memory;
+pub mod motherboard;
 pub mod network;
 
 pub struct MacOSPlatform;
@@ -94,9 +95,7 @@ impl MotherboardPlatform for MacOSPlatform {
         + '_,
     >,
   > {
-    Box::pin(async {
-      Err("get_motherboard_info is not implemented for MacOSPlatform".to_string())
-    })
+    motherboard::get_motherboard_info()
   }
 }
 

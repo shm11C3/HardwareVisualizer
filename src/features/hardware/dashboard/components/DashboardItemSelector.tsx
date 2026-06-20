@@ -40,7 +40,7 @@ export const DashboardItemSelector = ({
   const items: DashboardSelectItemType[] = [
     "title",
     ...dashBoardItems.filter(
-      (item) => item !== "motherboard" || os === "windows",
+      (item) => item !== "motherboard" || os === "windows" || os === "macos",
     ),
   ];
 

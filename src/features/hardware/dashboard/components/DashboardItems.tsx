@@ -943,7 +943,9 @@ export const MotherboardDataInfo = () => {
         [t("shared.serialNumber")]: mb.serialNumber,
         [t("shared.biosVendor")]: mb.biosVendor,
         [t("shared.biosVersion")]: mb.biosVersion,
-        [t("shared.biosReleaseDate")]: mb.biosReleaseDate,
+        ...(mb.biosReleaseDate
+          ? { [t("shared.biosReleaseDate")]: mb.biosReleaseDate }
+          : {}),
       }}
     />
   );
