@@ -106,7 +106,8 @@ export const Dashboard = () => {
     },
     motherboard: {
       icon: <DesktopIcon size={24} color="oklch(70% 0.14 150)" />,
-      component: os === "windows" ? <MotherboardDataInfo /> : null,
+      component:
+        os === "windows" || os === "macos" ? <MotherboardDataInfo /> : null,
     },
   };
 
