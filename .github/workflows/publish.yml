@@ -68,7 +68,9 @@ jobs:
     permissions:
       contents: write
     env:
-      ENABLE_WINDOWS_SIGNING: false
+      # Toggle Windows code signing via the repository variable of the same name
+      # (Settings → Secrets and variables → Actions → Variables). Defaults to off.
+      ENABLE_WINDOWS_SIGNING: ${{ vars.ENABLE_WINDOWS_SIGNING || 'false' }}
     strategy:
       fail-fast: false
       matrix:
@@ -137,9 +139,11 @@ jobs:
           TAG="${GITHUB_REF_NAME}"      # v1.x.x
 
           if [ "${{ env.ENABLE_WINDOWS_SIGNING }}" = "true" ] && [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            # Use forward slashes so the path is safe inside the JSON signCommand.
+            WS="${GITHUB_WORKSPACE//\\//}"
             node .github/scripts/update-tauri-config.ts \
             --tag "$TAG" \
-            --sign "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a hardware-monitor -c hv-certificate %1"
+            --sign "pwsh -NoProfile -ExecutionPolicy Bypass -File ${WS}/.github/scripts/sign-codesigntool.ps1 %1"
           elif [ "${{ runner.os }}" = "macOS" ]; then
             node .github/scripts/update-tauri-config.ts \
             --tag "$TAG" \
@@ -149,9 +153,28 @@ jobs:
             --tag "$TAG"
           fi
 
-      - name: Setup Azure Code Signing
+      - name: Setup CodeSignTool (SSL.com eSigner)
         if: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' }}
-        run: cargo install trusted-signing-cli
+        shell: pwsh
+        run: |
+          # Windows build bundles its own JRE, so no separate Java setup is needed.
+          $version = "v1.3.2"
+          # SHA256 of the official CodeSignTool-v1.3.2-windows.zip asset, pinned for supply-chain integrity.
+          $expectedSha256 = "4afc32e8b7f79bbe1de7e4e7049aaad4e0f754357613b9bbec0e3052f06fd36b"
+          $url = "https://github.com/SSLcom/CodeSignTool/releases/download/$version/CodeSignTool-$version-windows.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "codesigntool.zip"
+          $dest = Join-Path $env:RUNNER_TEMP "codesigntool"
+          Write-Host "Downloading CodeSignTool $version ..."
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $actualSha256 = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "CodeSignTool checksum mismatch: expected $expectedSha256, got $actualSha256"
+          }
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $bat = Get-ChildItem -Path $dest -Recurse -Filter "CodeSignTool.bat" | Select-Object -First 1
+          if (-not $bat) { throw "CodeSignTool.bat not found after extracting $url" }
+          "CODESIGNTOOL_DIR=$($bat.Directory.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "CODESIGNTOOL_DIR=$($bat.Directory.FullName)"
 
       - name: Setup Apple API Key for notarization
         if: runner.os == 'macOS'
@@ -175,9 +198,10 @@ jobs:
       - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AZURE_CLIENT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_ID || '' }}
-          AZURE_CLIENT_SECRET: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_CLIENT_SECRET || '' }}
-          AZURE_TENANT_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.AZURE_TENANT_ID || '' }}
+          ES_USERNAME: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.ES_USERNAME || '' }}
+          ES_PASSWORD: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.ES_PASSWORD || '' }}
+          ES_TOTP_SECRET: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.ES_TOTP_SECRET || '' }}
+          CREDENTIAL_ID: ${{ env.ENABLE_WINDOWS_SIGNING == 'true' && matrix.platform == 'windows-latest' && secrets.CREDENTIAL_ID || '' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
