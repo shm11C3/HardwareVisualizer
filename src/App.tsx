@@ -15,6 +15,7 @@ import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstR
 import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
+import { useSelectedStorageDevicePersistence } from "@/features/hardware/hooks/useSelectedStorageDevicePersistence";
 import { useErrorModalListener } from "@/hooks/useTauriEventListener";
 import { ScreenTemplate } from "./components/shared/ScreenTemplate";
 import { SideMenu } from "./features/menu/SideMenu";
@@ -113,6 +114,7 @@ const AppContent = () => {
   useDocumentVisibilityClass();
   useHardwareEventListener();
   useSelectedGpuPersistence();
+  useSelectedStorageDevicePersistence();
   const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {

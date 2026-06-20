@@ -15,6 +15,9 @@ export const gpuUsageHistoriesAtom = atom<Record<string, (number | null)[]>>(
 /** Currently selected GPU ID for dashboard/usage view */
 export const selectedGpuIdAtom = atom<string | null>(null);
 
+/** Currently selected storage device id for the Storage Health Display */
+export const selectedStorageDeviceIdAtom = atom<string | null>(null);
+
 /** Per-GPU usage source keyed by gpuId */
 export const gpuUsageSourcesAtom = atom<Record<string, string | null>>({});
 

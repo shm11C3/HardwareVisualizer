@@ -214,6 +214,7 @@
         "stale": "Stale",
         "lastRecorded": "Last recorded {{date}}",
         "refresh": "Re-detect storage devices",
+        "deviceSelector": "Select storage device",
         "temperatureSources": {
           "live": "Live: {{datetime}}",
           "record": "Record: {{datetime}}"

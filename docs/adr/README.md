@@ -15,3 +15,4 @@ implementation guidance belongs in the architecture documents.
 - [0005 Storage Health Naming](0005-storage-health-naming.md)
 - [0006 Live Storage Health on Demand](0006-live-storage-health-on-demand.md)
 - [0007 Elevated Startup Mode](0007-elevated-startup-mode.md)
+- [0008 Selected Storage Device Overrides Focus Alarm](0008-selected-storage-device-overrides-focus.md)

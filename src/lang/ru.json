@@ -203,6 +203,7 @@
         "stale": "Устарело",
         "lastRecorded": "Последняя запись {{date}}",
         "refresh": "Повторно обнаружить накопители",
+        "deviceSelector": "Выбрать накопитель",
         "temperatureSources": {
           "live": "Текущее: {{datetime}}",
           "record": "Запись: {{datetime}}"
