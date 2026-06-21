@@ -89,14 +89,24 @@ impl ExternalComponentGuidanceCandidate {
 pub fn classify_external_component_reason(detail: &str) -> ExternalComponentReasonKind {
   let normalized = detail.to_ascii_lowercase();
 
-  if normalized.contains("permission denied")
-    || normalized.contains("access denied")
-    || normalized.contains("access is denied")
-    || normalized.contains("operation not permitted")
-    || normalized.contains("administrator")
-    || normalized.contains("e_accessdenied")
-    || normalized.contains("0x80070005")
-    || (cfg!(target_os = "windows") && normalized.contains("os error 5"))
+  let permission_patterns = [
+    "permission denied",
+    "access denied",
+    "access is denied",
+    "operation not permitted",
+    "administrator",
+    "e_accessdenied",
+    "0x80070005",
+  ];
+  let windows_permission_patterns = ["os error 5"];
+
+  if permission_patterns
+    .iter()
+    .any(|pattern| normalized.contains(pattern))
+    || (cfg!(target_os = "windows")
+      && windows_permission_patterns
+        .iter()
+        .any(|pattern| normalized.contains(pattern)))
   {
     return ExternalComponentReasonKind::Permission;
   }
