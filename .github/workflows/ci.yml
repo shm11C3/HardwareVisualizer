@@ -49,7 +49,6 @@ jobs:
               - 'playwright.perf.config.ts'
               - 'playwright.memory.config.ts'
               - 'tsconfig*.json'
-              - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
             backend:
@@ -57,14 +56,12 @@ jobs:
               - 'src-tauri/**'
               - 'Cargo.*'
               - '.cargo/**'
-              - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
             core:
               - 'core/**'
               - 'Cargo.*'
               - '.cargo/**'
-              - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
             tauri:
@@ -72,12 +69,10 @@ jobs:
               - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
-              - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
             frontend-deps:
               - 'package*.json'
-              - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
             backend-deps:
@@ -85,7 +80,6 @@ jobs:
               - 'src-tauri/Cargo.toml'
               - 'Cargo.*'
               - '.cargo/**'
-              - '.github/workflows/**'
               - '.github/actions/**'
               - '.github/scripts/**'
             actions:
