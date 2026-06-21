@@ -96,7 +96,7 @@ pub fn classify_external_component_reason(detail: &str) -> ExternalComponentReas
     || normalized.contains("administrator")
     || normalized.contains("e_accessdenied")
     || normalized.contains("0x80070005")
-    || normalized.contains("os error 5")
+    || (cfg!(target_os = "windows") && normalized.contains("os error 5"))
   {
     return ExternalComponentReasonKind::Permission;
   }
@@ -161,6 +161,20 @@ mod tests {
     assert_eq!(
       classify_external_component_reason("pawnio_open failed: 0x80070005"),
       ExternalComponentReasonKind::Permission
+    );
+  }
+
+  #[test]
+  fn classify_external_component_reason_treats_os_error_5_as_windows_only() {
+    let expected = if cfg!(target_os = "windows") {
+      ExternalComponentReasonKind::Permission
+    } else {
+      ExternalComponentReasonKind::Failed
+    };
+
+    assert_eq!(
+      classify_external_component_reason("open failed: os error 5"),
+      expected
     );
   }
 }
