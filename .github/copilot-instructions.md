@@ -35,6 +35,10 @@
   - `cargo tauri-fmt`
   - `cargo tauri-lint`
   - `cargo tauri-test`
+- PR branches must follow `CONTRIBUTING.md`: use `feat/` or
+  `feature/`, `fix/`, `docs/`, `refactor/`, or `chore/` according to
+  the change kind. Do not use tool-dependent prefixes such as `codex/`
+  or `claude/`; project branch rules override generic agent defaults.
 
 ## Project conventions
 - Import alias: `@` → `src` (`vite.config.ts` / `vitest.config.ts`).

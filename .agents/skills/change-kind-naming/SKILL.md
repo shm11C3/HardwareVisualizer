@@ -56,6 +56,11 @@ Use branch prefixes that match the final classification:
 - `ci/...`
 - `chore/...`
 
+In repositories that define branch rules, such as this repository's
+`CONTRIBUTING.md`, the repository rule wins over generic agent defaults.
+Never use tool-dependent prefixes such as `codex/...` or `claude/...`
+when the project requires change-kind branch prefixes.
+
 Use the same prefix in the Conventional Commit subject and PR title:
 
 ```text
