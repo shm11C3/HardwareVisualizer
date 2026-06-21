@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use sqlx::sqlite::SqlitePool;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 
 /// Process-wide database location. Set once at App startup via [`init`]
 /// (typically `<AppData>/<bundle-id>/hv-database.db`). Core has no way
@@ -41,12 +41,52 @@ fn db_path() -> &'static Path {
 /// is intentionally out of scope for #1407 — see "Out of Scope" in the
 /// issue ("Schema redesigns or migrations.").
 pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
-  let path = db_path();
-  if let Some(parent) = path.parent() {
+  open_pool(db_path()).await
+}
+
+async fn open_pool(path: &Path) -> Result<SqlitePool, sqlx::Error> {
+  ensure_parent_dir(path).await?;
+  let options = SqliteConnectOptions::new()
+    .filename(path)
+    .create_if_missing(true);
+  SqlitePool::connect_with(options).await
+}
+
+async fn ensure_parent_dir(path: &Path) -> Result<(), sqlx::Error> {
+  if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
     tokio::fs::create_dir_all(parent)
       .await
       .map_err(sqlx::Error::Io)?;
   }
-  let database_url = format!("sqlite:{}", path.to_string_lossy());
-  SqlitePool::connect(&database_url).await
+  Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use tempfile::TempDir;
+
+  #[tokio::test]
+  async fn open_pool_creates_missing_database_file() {
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("missing").join("hv-database.db");
+
+    assert!(!db_path.exists());
+
+    let pool = open_pool(&db_path).await.unwrap();
+    sqlx::query("CREATE TABLE smoke (id INTEGER PRIMARY KEY)")
+      .execute(&pool)
+      .await
+      .unwrap();
+    pool.close().await;
+
+    assert!(db_path.exists());
+  }
+
+  #[tokio::test]
+  async fn ensure_parent_dir_allows_filename_only_database_paths() {
+    ensure_parent_dir(Path::new("hv-database.db"))
+      .await
+      .unwrap();
+  }
 }

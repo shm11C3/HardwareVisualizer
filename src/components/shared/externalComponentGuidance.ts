@@ -20,6 +20,8 @@ type ExternalComponentGuidanceCopyKey =
   | "smartctlStorageHealth"
   | "generic";
 
+type ExternalComponentGuidanceActionKey = "action" | "permissionAction";
+
 const EXTERNAL_COMPONENT_COPY_KEYS: Record<
   string,
   ExternalComponentGuidanceCopyKey
@@ -45,6 +47,11 @@ export const externalComponentGuidanceCopyKey = (
   candidate: ExternalComponentGuidanceCandidate,
 ): ExternalComponentGuidanceCopyKey =>
   EXTERNAL_COMPONENT_COPY_KEYS[candidate.key] ?? "generic";
+
+export const externalComponentGuidanceActionKey = (
+  candidate: ExternalComponentGuidanceCandidate,
+): ExternalComponentGuidanceActionKey =>
+  candidate.reasonKind === "permission" ? "permissionAction" : "action";
 
 export const externalComponentGuidanceDocsBaseUrl = (
   language?: string | null,
