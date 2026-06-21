@@ -45,15 +45,20 @@ pub async fn get_pool() -> Result<SqlitePool, sqlx::Error> {
 }
 
 async fn open_pool(path: &Path) -> Result<SqlitePool, sqlx::Error> {
-  if let Some(parent) = path.parent() {
-    tokio::fs::create_dir_all(parent)
-      .await
-      .map_err(sqlx::Error::Io)?;
-  }
+  ensure_parent_dir(path).await?;
   let options = SqliteConnectOptions::new()
     .filename(path)
     .create_if_missing(true);
   SqlitePool::connect_with(options).await
+}
+
+async fn ensure_parent_dir(path: &Path) -> Result<(), sqlx::Error> {
+  if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+    tokio::fs::create_dir_all(parent)
+      .await
+      .map_err(sqlx::Error::Io)?;
+  }
+  Ok(())
 }
 
 #[cfg(test)]
@@ -76,5 +81,12 @@ mod tests {
     pool.close().await;
 
     assert!(db_path.exists());
+  }
+
+  #[tokio::test]
+  async fn ensure_parent_dir_allows_filename_only_database_paths() {
+    ensure_parent_dir(Path::new("hv-database.db"))
+      .await
+      .unwrap();
   }
 }
