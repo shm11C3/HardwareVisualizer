@@ -22,9 +22,8 @@ available.
 
 ## SHA-256 checksums
 
-GitHub Releases are planned to include `SHA256SUMS.txt` starting with v1.8.1
-in the release Assets section as the canonical checksum list for release
-assets.
+Starting with v1.8.1, GitHub Releases include `SHA256SUMS.txt` in the release
+Assets section as the canonical checksum list for release assets.
 
 Download `SHA256SUMS.txt` from the same GitHub Release as your installer and
 compare the SHA-256 value for the matching filename.
@@ -51,8 +50,8 @@ For releases before v1.8.1, `SHA256SUMS.txt` may not be available.
 
 ## GitHub Artifact Attestations
 
-GitHub Artifact Attestations are planned to be generated for release assets
-starting with v1.8.1.
+Starting with v1.8.1, GitHub Artifact Attestations are generated for release
+assets.
 
 This is an advanced verification step. Most users should first verify that the
 file matches the SHA-256 value published in `SHA256SUMS.txt`.
@@ -66,6 +65,36 @@ gh attestation verify ./HardwareVisualizer_x.x.x_x64_en-US.msi -R shm11C3/Hardwa
 ```
 
 For releases before v1.8.1, GitHub Artifact Attestations may not be available.
+
+## Windows Authenticode signature
+
+Windows `.exe` and `.msi` release installers are Authenticode signed starting
+with v1.9.0. Earlier Windows release installers may be unsigned.
+
+Verify the installer signature with PowerShell:
+
+```powershell
+Get-AuthenticodeSignature .\HardwareVisualizer_x.x.x_x64_en-US.msi | Format-List
+```
+
+For the NSIS setup executable:
+
+```powershell
+Get-AuthenticodeSignature .\HardwareVisualizer_x.x.x_x64-setup.exe | Format-List
+```
+
+Successful output should report `Status: Valid`. You can also inspect the
+signer certificate and timestamp details in the command output.
+
+If you have Windows SDK tools installed, `signtool` can perform the same policy
+check:
+
+```powershell
+signtool verify /pa /v .\HardwareVisualizer_x.x.x_x64-setup.exe
+```
+
+Windows SmartScreen may still show a reputation warning for a validly signed
+installer while publisher or file reputation is being established.
 
 ## macOS signature and notarization
 
@@ -92,6 +121,20 @@ codesign --verify --deep --strict --verbose=2 /Applications/HardwareVisualizer.a
 
 Successful `spctl` output should report `accepted`, and the detailed output
 should identify a Developer ID source.
+
+## Linux package signing
+
+Linux packages, such as AppImage, `.deb`, and `.rpm` files, are not currently
+signed with a Linux package-signing mechanism such as GPG, Sigstore/cosign, or
+repository metadata signing. Verify Linux downloads with `SHA256SUMS.txt` and
+GitHub Artifact Attestations when available.
+
+## Tauri updater `.sig` assets
+
+Release assets ending in `.sig` are Tauri updater signatures for the in-app
+update path. They do not replace Windows Authenticode signing, macOS
+notarization, Linux package signing, SHA-256 checksums, or GitHub Artifact
+Attestations for manual downloads.
 
 ## Winget
 
