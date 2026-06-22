@@ -20,32 +20,37 @@ risk. Users should verify the domain before downloading.
 
 ## Current signing status
 
-| Platform      | Signing status        | Verification                 |
-| ------------- | --------------------- | ---------------------------- |
-| Windows       | Pending               | Winget, SHA-256, attestation |
-| macOS         | Signed and notarized  | Gatekeeper, codesign         |
-| Linux         | Unsigned              | SHA-256, attestation         |
-| Tauri updater | Signed updater assets | Update-path only             |
+| Platform      | Signing status                 | Verification                               |
+| ------------- | ------------------------------ | ------------------------------------------ |
+| Windows       | Signed (v1.9.0+ installers)    | Authenticode, Winget, SHA-256, attestation |
+| macOS         | Signed and notarized           | Gatekeeper, codesign, SHA-256, attestation |
+| Linux         | Unsigned packages              | SHA-256, attestation                       |
+| Tauri updater | Signed updater assets          | Update-path only                           |
 
-Windows Authenticode signing is currently pending. Until Windows code signing is
-available, use official distribution locations and verify GitHub Release
-downloads with SHA-256 checksums and GitHub Artifact Attestations.
+Windows release installers are Authenticode signed starting with v1.9.0.
+Earlier Windows releases may be unsigned. For all platforms, use official
+distribution locations and verify GitHub Release downloads with SHA-256
+checksums and GitHub Artifact Attestations where available.
 
-SHA-256 checksums and GitHub Artifact Attestations are planned to start with
-v1.8.1 and later releases that include verification metadata.
+SHA-256 checksums and GitHub Artifact Attestations are generated for v1.8.1 and
+later releases that include verification metadata.
 
-Tauri updater signatures protect the in-app update path. They do not replace
-platform code signing, SHA-256 checksums, or GitHub Artifact Attestations.
+Tauri updater `.sig` assets protect the in-app update path. They do not replace
+platform code signing, Linux package signing, SHA-256 checksums, or GitHub
+Artifact Attestations for manual downloads.
 
 ## Windows
 
-Status: Authenticode code signing is pending.
+Status: Authenticode signed for v1.9.0 and later release installers.
 
-We are currently working on Windows Authenticode signing through SSL.com.
+Windows `.exe` and `.msi` release installers built by the official publish
+workflow are Authenticode signed through SSL.com eSigner starting with v1.9.0.
+Earlier Windows release installers may be unsigned.
 
-Until Windows code signing is available, verify downloads using:
+Verify Windows downloads using:
 
 - official distribution locations
+- Authenticode signature validation
 - SHA-256 checksums
 - GitHub Artifact Attestations
 
@@ -59,17 +64,18 @@ winget show shm11C3.HardwareVisualizer
 Winget is an official installation path, but it is not a replacement for
 Authenticode signing, SHA-256 checksums, or GitHub Artifact Attestations.
 
-Windows SmartScreen may show a warning while Authenticode signing and reputation
-are not fully established.
+Windows SmartScreen may still show a warning for a validly signed installer
+while publisher or file reputation is being established. Authenticode signature
+validation and SmartScreen reputation are related but separate checks.
 
-### Planned signing process
+### Signing process
 
-The planned SSL.com signing process applies to Windows installer packages, such
-as `.exe` and `.msi` files, published on GitHub Releases.
+The SSL.com signing process applies to Windows installer packages, such as
+`.exe` and `.msi` files, published on GitHub Releases.
 
 - Artifacts are built from this repository using CI.
 - Only CI-built artifacts will be signed for release distribution.
-- Certificate material and signing access will be handled through the SSL.com
+- Certificate material and signing access are handled through the SSL.com
   signing workflow.
 
 ### Team roles
@@ -95,7 +101,8 @@ for copy-pasteable commands.
 
 ## Linux
 
-Status: not cryptographically signed yet.
+Status: Linux packages are not signed with a Linux package-signing mechanism
+yet.
 
 Linux artifacts, such as AppImage, `.deb`, and `.rpm` files, are published
 through GitHub Releases.
@@ -106,13 +113,17 @@ Until Linux package signing is implemented, verify downloads using:
 - SHA-256 checksums
 - GitHub Artifact Attestations
 
+Release assets ending in `.sig`, including Linux `.sig` assets, are Tauri
+updater signatures. They are not GPG, Sigstore/cosign, repository, or package
+manager signatures for manual Linux package verification.
+
 We may add Linux artifact signing, such as Sigstore/cosign or GPG, in a future
 release.
 
 ## Release integrity controls
 
 For v1.8.1 and later releases that include verification metadata, the release
-workflow is planned to provide two repository-generated verification layers:
+workflow provides two repository-generated verification layers:
 
 - `SHA256SUMS.txt` is attached to the GitHub Release and lists SHA-256 checksums
   for all release assets except itself.
@@ -134,8 +145,8 @@ computes SHA-256 locally without uploading the selected file.
 Tauri updater artifacts are signed using the Tauri updater signing mechanism.
 
 These signatures protect the application update path, but they are not a
-replacement for platform code signing, SHA-256 checksums, or GitHub Artifact
-Attestations.
+replacement for Windows Authenticode signing, macOS notarization, Linux package
+signing, SHA-256 checksums, or GitHub Artifact Attestations.
 
 ## Verification guide
 
