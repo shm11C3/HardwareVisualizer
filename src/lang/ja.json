@@ -299,6 +299,7 @@
         "transparentUi": {
           "name": "透過UI",
           "description": "アプリ背景とパネルを透過します。",
+          "experimentalNote": "実験的機能です。透過UIは表示の不具合を起こす場合があり、特にmacOSではGPU使用率と消費電力が増加することがあります。",
           "opacity": "ウィンドウの不透明度",
           "blur": "背景ぼかし"
         },
