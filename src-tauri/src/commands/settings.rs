@@ -396,6 +396,39 @@ pub mod commands {
     Ok(())
   }
 
+  /// Apply (or clear) native macOS window vibrancy.
+  ///
+  /// When enabled, installs an `NSVisualEffectView` behind the (transparent)
+  /// webview so the frosted-glass look is composited by the OS instead of the
+  /// CSS `backdrop-filter: blur`, which was measured to continuously pin the
+  /// WebKit render/GPU processes on macOS (see #1718). No-op elsewhere.
+  #[cfg(target_os = "macos")]
+  pub fn apply_window_vibrancy(app: &tauri::AppHandle, enabled: bool) {
+    use tauri::window::{Effect, EffectsBuilder};
+
+    let Some(window) = app.get_webview_window("main") else {
+      return;
+    };
+
+    let result = if enabled {
+      window.set_effects(EffectsBuilder::new().effect(Effect::HudWindow).build())
+    } else {
+      window.set_effects(None::<tauri::utils::config::WindowEffectsConfig>)
+    };
+
+    if let Err(e) = result {
+      log_error!(
+        "Failed to update window vibrancy",
+        "settings::apply_window_vibrancy",
+        Some(e.to_string())
+      );
+    }
+  }
+
+  /// No-op on non-macOS platforms (native vibrancy is a macOS feature).
+  #[cfg(not(target_os = "macos"))]
+  pub fn apply_window_vibrancy(_app: &tauri::AppHandle, _enabled: bool) {}
+
   #[tauri::command]
   #[specta::specta]
   pub async fn set_transparent_ui(
@@ -403,12 +436,16 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: bool,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
+    {
+      let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_transparent_ui(new_value) {
-      emit_error(&window)?;
-      return Err(e);
+      if let Err(e) = settings.set_transparent_ui(new_value) {
+        emit_error(&window)?;
+        return Err(e);
+      }
     }
+
+    apply_window_vibrancy(window.app_handle(), new_value);
     Ok(())
   }
 

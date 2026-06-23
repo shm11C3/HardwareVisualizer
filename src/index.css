@@ -539,6 +539,16 @@
   --transparent-backdrop-filter: blur(var(--transparent-backdrop-blur));
 }
 
+/*
+ * macOS: render the frosted glass natively via NSVisualEffectView (Tauri window
+ * effects, see #1718) instead of CSS `backdrop-filter: blur`, which was measured
+ * to continuously pin the WebKit render/GPU processes. Disabling the filter here
+ * removes that cost; translucency is kept so the native vibrancy shows through.
+ */
+.transparent-ui.native-vibrancy {
+  --transparent-backdrop-filter: none;
+}
+
 .dark .transparent-ui {
   --transparent-surface-alpha: var(--transparent-surface-opacity-percent, 44%);
   --transparent-border-alpha: 58%;
