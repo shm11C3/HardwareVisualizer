@@ -8,9 +8,9 @@ changelog:
 
   categories:
     - title: Added
-      labels: ["change:feature", feature, enhancement]
+      labels: ["change:feature"]
     - title: Fixed
-      labels: ["change:fix", bug]
+      labels: ["change:fix"]
     - title: Maintenance
       labels:
         [
@@ -20,12 +20,6 @@ changelog:
           "change:config",
           "change:test",
           "change:refactor",
-          ci,
-          docs,
-          documentation,
-          dependencies,
-          configuration,
-          refactor,
         ]
     - title: Other Changes
       labels: ["*"]

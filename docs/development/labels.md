@@ -39,9 +39,8 @@ or repository automation.
 - `change:config` - build, TypeScript, Vite, Vitest, Cargo, or Tauri config.
 - `change:test` - test harness, fixtures, or coverage changes.
 
-Release notes read `change:` labels first. During the migration from legacy
-labels, `.github/release.yml` also keeps the old labels as a fallback so
-already-merged pull requests still categorize correctly.
+Release notes read `change:` labels only. Do not add unprefixed project labels
+such as `feature`, `bug`, `docs`, or `dependencies` as release-note fallbacks.
 
 Dependabot is the special case to watch. By default, Dependabot can create and
 apply `dependencies` plus ecosystem labels such as `javascript`, `rust`, or
@@ -122,7 +121,8 @@ state better than project-specific labels.
 
 ## Migration Notes
 
-The following legacy labels are deprecated for new work:
+The following legacy labels were removed from GitHub after the replacement
+labels were created:
 
 - `bug` -> `type:bug` on issues, `change:fix` on pull requests.
 - `enhancement` and `feature` -> `type:feature` on issues,
@@ -142,5 +142,7 @@ The following legacy labels are deprecated for new work:
 - `testing` and `automation testing` -> `change:test` or `feature:e2e`.
 - `automated` -> `source:automation`.
 
-Do not delete legacy labels until the next release is cut and no open pull
-request depends on them for generated release notes.
+Do not recreate removed unprefixed project labels. Keep only GitHub standard
+helper labels, such as `good first issue`, `help wanted`, `duplicate`,
+`invalid`, `question`, and `wontfix`, when they describe workflow state better
+than project-specific labels.
