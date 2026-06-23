@@ -139,7 +139,11 @@ jobs:
                   repo: context.repo.repo,
                   name: label,
                 });
-              } catch {
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
                 await github.rest.issues.createLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
