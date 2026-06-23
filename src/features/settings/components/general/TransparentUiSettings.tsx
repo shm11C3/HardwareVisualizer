@@ -1,3 +1,4 @@
+import { AlertTriangleIcon } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,11 @@ export const TransparentUiSettings = () => {
           checked={settings.transparentUi}
           onCheckedChange={(value) => updateSettingAtom("transparentUi", value)}
         />
+      </div>
+
+      <div className="flex w-full items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm xl:w-1/2">
+        <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
+        <p>{t("pages.settings.general.transparentUi.experimentalNote")}</p>
       </div>
 
       {settings.transparentUi && (
