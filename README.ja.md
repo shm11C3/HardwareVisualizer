@@ -50,6 +50,7 @@ Web サイト: <https://hardviz.com/>
     - [背景画像](#背景画像)
   - [権限とセキュリティについて](#権限とセキュリティについて)
   - [ロードマップ](#ロードマップ)
+  - [フィードバックと Discussion](#フィードバックと-discussion)
   - [コントリビューション](#コントリビューション)
   - [コード署名ポリシー（英語版のみ）](#コード署名ポリシー英語版のみ)
   - [ライセンス](#ライセンス)
@@ -203,6 +204,24 @@ winget install shm11C3.HardwareVisualizer
 | ゲームモード                     | 計画中     |
 | 消費電力の推定機能               | 検討中     |
 | プラグインシステム               | 検討中     |
+
+## フィードバックと Discussion
+
+質問、まだ曖昧なアイデア、実装方針が決まっていない要望は、Issue を作成する前に
+[GitHub Discussions](https://github.com/shm11C3/HardwareVisualizer/discussions)
+へ投稿してください。
+
+- [UI フィードバック](https://github.com/shm11C3/HardwareVisualizer/discussions/1699):
+  読みやすさ、画面遷移、ダッシュボードのレイアウト、グラフ、設定、トレイ /
+  ウィジェット、見た目のカスタマイズについて。
+- [機能アイデア](https://github.com/shm11C3/HardwareVisualizer/discussions/1700):
+  新しいワークフロー、ハードウェア対応、アラート、履歴、カスタマイズ、エクスポート、
+  その他の改善案について。
+- [匿名アンケート](https://hardviz.com/survey/?source=web):
+  GitHub に公開投稿したくない場合はこちらから送信できます。
+
+再現手順のある不具合や、実装内容が具体的な要望は
+[CONTRIBUTING.md](CONTRIBUTING.md) のテンプレートから Issue を作成してください。
 
 ## コントリビューション
 

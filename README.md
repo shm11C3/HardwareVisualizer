@@ -55,6 +55,7 @@ Web: <https://hardviz.com/>
     - [Background Image](#background-image)
   - [Permissions \& Security Notes](#permissions--security-notes)
   - [Roadmap](#roadmap)
+  - [Feedback and Discussions](#feedback-and-discussions)
   - [Contributing](#contributing)
   - [FAQ](#faq)
   - [Code Signing Policy](#code-signing-policy)
@@ -210,6 +211,24 @@ Flexible graph customization available.
 | Game Mode                    | Planned  |
 | Power Consumption Estimation | Idea     |
 | Plugin System                | Idea     |
+
+## Feedback and Discussions
+
+Have a question, rough idea, or open-ended request? Please use
+[GitHub Discussions](https://github.com/shm11C3/HardwareVisualizer/discussions)
+before opening an implementation issue.
+
+- [UI feedback](https://github.com/shm11C3/HardwareVisualizer/discussions/1699):
+  readability, navigation, dashboard layout, charts, settings, tray/widget, and
+  visual customization.
+- [Feature ideas](https://github.com/shm11C3/HardwareVisualizer/discussions/1700):
+  new workflows, hardware support, alerts, history, customization, export, or
+  other improvement ideas.
+- [Anonymous survey](https://hardviz.com/survey/?source=web): use this if you
+  prefer not to post publicly on GitHub.
+
+If you have a reproducible bug or a concrete implementation request, open an
+Issue from the templates in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contributing
 
