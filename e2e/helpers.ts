@@ -27,6 +27,7 @@ export const BOOTSTRAP_TIMEOUT = 30_000;
 
 const CPU_NAME = sysInfoFixture.cpu?.name ?? "";
 type GotoAppOptions = {
+  path?: string;
   timeout?: number;
 };
 
@@ -35,7 +36,7 @@ type GotoAppOptions = {
  * i.e. settings/mock bootstrap completed.
  */
 export const gotoApp = async (page: Page, options: GotoAppOptions = {}) => {
-  await page.goto("/");
+  await page.goto(options.path ?? "/");
   await expect(page.getByText(CPU_NAME).first()).toBeVisible({
     timeout: options.timeout ?? BOOTSTRAP_TIMEOUT,
   });

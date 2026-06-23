@@ -43,7 +43,6 @@ tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
 specta-typescript = "0.0.11"
 specta = "=2.0.0-rc.24"
 tauri-plugin-shell = "2.3.5"
-tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }
 sqlx = { version = "0.8.6", features = [
     "sqlite",
     "runtime-tokio-rustls",

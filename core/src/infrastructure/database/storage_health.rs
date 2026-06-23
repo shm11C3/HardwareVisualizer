@@ -54,7 +54,22 @@ pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
 
 pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, sqlx::Error> {
   let pool = db::get_pool().await?;
-  let rows = sqlx::query(
+  latest_records_from_pool(&pool).await
+}
+
+/// Reads the most recent health record per active device.
+///
+/// The `storage_health_daily_records` table is created by an app-side
+/// migration. When a database predates that migration — e.g. an older build
+/// without the storage-health schema was the last to open this file — the
+/// table does not exist yet. In that case we return an empty result instead of
+/// surfacing a hard `no such table` error: there genuinely are no records, and
+/// the rows appear once the migration runs. This mirrors the startup preflight
+/// check, which also treats a missing migration table as compatible.
+async fn latest_records_from_pool(
+  pool: &sqlx::SqlitePool,
+) -> Result<Vec<StorageHealthRecord>, sqlx::Error> {
+  let rows = match sqlx::query(
     r#"
     SELECT
       s.device_id,
@@ -97,8 +112,13 @@ pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, sqlx::Error> {
       display_name COLLATE NOCASE
     "#,
   )
-  .fetch_all(&pool)
-  .await?;
+  .fetch_all(pool)
+  .await
+  {
+    Ok(rows) => rows,
+    Err(error) if is_missing_table_error(&error) => return Ok(Vec::new()),
+    Err(error) => return Err(error),
+  };
 
   rows
     .into_iter()
@@ -277,6 +297,14 @@ async fn update_active_devices_in_transaction(
   Ok(())
 }
 
+/// Returns `true` when the error is SQLite's "no such table" error, signalling
+/// that the storage-health schema migration has not run against this database
+/// yet. Matched on the message string to stay consistent with the startup
+/// preflight check in `crate::persistence::preflight`.
+fn is_missing_table_error(error: &sqlx::Error) -> bool {
+  error.to_string().contains("no such table")
+}
+
 fn to_i64(value: Option<u64>) -> Option<i64> {
   value.and_then(|v| i64::try_from(v).ok())
 }
@@ -396,6 +424,23 @@ mod tests {
       warning_reasons: vec!["test reason".to_string()],
       collected_at: "2026-05-10T00:00:00Z".to_string(),
     }
+  }
+
+  #[tokio::test]
+  async fn latest_records_returns_empty_when_table_missing() {
+    // A database that predates the storage-health migration has no
+    // `storage_health_daily_records` table. Reading must degrade to an empty
+    // result rather than surfacing a hard `no such table` error. Uses a fresh
+    // in-memory pool to avoid touching the process-wide `db::init` path.
+    let pool = sqlx::SqlitePool::connect("sqlite::memory:")
+      .await
+      .expect("in-memory sqlite pool");
+
+    let records = latest_records_from_pool(&pool)
+      .await
+      .expect("missing table must not be an error");
+
+    assert!(records.is_empty());
   }
 
   #[tokio::test]

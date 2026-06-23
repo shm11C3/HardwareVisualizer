@@ -20,7 +20,7 @@
 ## SHA-256 チェックサム
 
 v1.8.1 以降の GitHub Release では、リリース assets の正規チェックサム一覧として
-`SHA256SUMS.txt` を Assets セクションに含める予定です。
+`SHA256SUMS.txt` を Assets セクションに含めています。
 
 インストーラーと同じ GitHub Release から `SHA256SUMS.txt` をダウンロードし、
 対象ファイル名の SHA-256 値と照合してください。
@@ -47,7 +47,7 @@ v1.8.1 より前のリリースでは、`SHA256SUMS.txt` が提供されてい�
 
 ## GitHub Artifact Attestations
 
-v1.8.1 以降のリリース assets で GitHub Artifact Attestations を生成する予定です。
+v1.8.1 以降のリリース assets では GitHub Artifact Attestations を生成しています。
 
 これは高度な検証手順です。多くのユーザーはまず、ファイルの SHA-256 が
 `SHA256SUMS.txt` に記載された値と一致することを確認してください。
@@ -61,6 +61,35 @@ gh attestation verify ./HardwareVisualizer_x.x.x_x64_en-US.msi -R shm11C3/Hardwa
 ```
 
 v1.8.1 より前のリリースでは、GitHub Artifact Attestations が提供されていない場合があります。
+
+## Windows Authenticode 署名
+
+Windows の `.exe` / `.msi` リリースインストーラーは、v1.9.0 以降 Authenticode
+署名済みです。v1.9.0 より前の Windows リリースインストーラーは未署名の場合があります。
+
+インストーラーの署名は PowerShell で検証できます。
+
+```powershell
+Get-AuthenticodeSignature .\HardwareVisualizer_x.x.x_x64_en-US.msi | Format-List
+```
+
+NSIS 形式のセットアップ実行ファイルを確認する場合:
+
+```powershell
+Get-AuthenticodeSignature .\HardwareVisualizer_x.x.x_x64-setup.exe | Format-List
+```
+
+成功している場合、出力に `Status: Valid` が表示されます。署名者証明書やタイムスタンプの詳細も
+同じ出力で確認できます。
+
+Windows SDK tools が入っている場合は、`signtool` でも同じポリシー検証を実行できます。
+
+```powershell
+signtool verify /pa /v .\HardwareVisualizer_x.x.x_x64-setup.exe
+```
+
+有効な署名が付いていても、発行元またはファイルの reputation が十分に確立するまでは
+Windows SmartScreen の警告が表示される場合があります。
 
 ## macOS の署名と notarization
 
@@ -86,6 +115,19 @@ codesign --verify --deep --strict --verbose=2 /Applications/HardwareVisualizer.a
 ```
 
 `spctl` の出力に `accepted` が含まれ、詳細出力に Developer ID の情報が表示されれば成功です。
+
+## Linux package signing
+
+AppImage、`.deb`、`.rpm` などの Linux パッケージは、現時点では GPG、Sigstore/cosign、
+リポジトリメタデータ署名などの Linux package signing では署名されていません。
+Linux 向けダウンロードは、利用可能な場合 `SHA256SUMS.txt` と GitHub Artifact Attestations
+で検証してください。
+
+## Tauri updater の `.sig` assets
+
+Release assets に含まれる `.sig` ファイルは、アプリ内アップデート経路で使用する
+Tauri updater 署名です。Windows Authenticode 署名、macOS notarization、Linux package signing、
+SHA-256 チェックサム、GitHub Artifact Attestations の代替ではありません。
 
 ## Winget
 

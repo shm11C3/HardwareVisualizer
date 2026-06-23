@@ -36,6 +36,7 @@ import {
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
+  selectedStorageDeviceIdAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/chart";
 import type { NameValues } from "@/features/hardware/types/hardwareDataType";
@@ -430,6 +431,9 @@ export const StorageDataInfo = () => {
   const liveStorageHealthErrorShownRef = useRef(false);
   const storageHealthRecordsVersionRef = useRef(0);
   const storageHealthEnabled = settings.storageHealth.enabled ?? true;
+  const [selectedStorageDeviceId, setSelectedStorageDeviceId] = useAtom(
+    selectedStorageDeviceIdAtom,
+  );
   const [storageHealthRecords, setStorageHealthRecords] = useState<
     StorageHealthRecord[]
   >([]);
@@ -470,8 +474,14 @@ export const StorageDataInfo = () => {
 
       return buildStorageHealthSummary(storageHealthRecords, new Date(), {
         liveSignals: liveStorageHealth,
+        selectedDeviceId: selectedStorageDeviceId,
       });
-    }, [storageHealthEnabled, storageHealthRecords, liveStorageHealth]);
+    }, [
+      storageHealthEnabled,
+      storageHealthRecords,
+      liveStorageHealth,
+      selectedStorageDeviceId,
+    ]);
 
   useEffect(() => {
     if (!storageHealthEnabled) {
@@ -585,6 +595,7 @@ export const StorageDataInfo = () => {
       <StorageHealthOverview
         summary={storageHealthSummary}
         onRefresh={storageHealthEnabled ? refreshStorageDevices : undefined}
+        onSelectDevice={setSelectedStorageDeviceId}
         refreshError={storageHealthRefreshError}
         refreshing={storageHealthRefreshing}
       />
@@ -661,11 +672,13 @@ const formatStorageHealthTimestamp = (value: string) => {
 
 const StorageHealthOverview = ({
   onRefresh,
+  onSelectDevice,
   refreshError,
   refreshing = false,
   summary,
 }: {
   onRefresh?: (() => void) | undefined;
+  onSelectDevice?: (deviceId: string) => void;
   refreshError?: string | null;
   refreshing?: boolean;
   summary: StorageHealthSummaryViewModel | null;
@@ -673,11 +686,6 @@ const StorageHealthOverview = ({
   const { t } = useTranslation();
 
   if (!summary || (summary.driveCount === 0 && !onRefresh)) return null;
-
-  const focusDeviceLabel =
-    summary.focusDevice?.model?.trim() ||
-    summary.focusDevice?.displayName ||
-    null;
 
   return (
     <div
@@ -692,14 +700,6 @@ const StorageHealthOverview = ({
           <span className="shrink-0 font-medium text-sm">
             {t("pages.dashboard.storageHealth.title")}
           </span>
-          {focusDeviceLabel && (
-            <span
-              className="truncate text-muted-foreground text-xs"
-              title={focusDeviceLabel}
-            >
-              {focusDeviceLabel}
-            </span>
-          )}
           {summary.isStale && (
             <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {t("pages.dashboard.storageHealth.stale")}
@@ -738,6 +738,14 @@ const StorageHealthOverview = ({
         </div>
       </div>
 
+      {summary.devices.length > 1 && (
+        <StorageDeviceHealthOverview
+          devices={summary.devices}
+          selectedDeviceId={summary.focusDevice?.deviceId ?? null}
+          onSelect={onSelectDevice}
+        />
+      )}
+
       {refreshError && (
         <p className="truncate text-destructive text-xs" title={refreshError}>
           {refreshError}
@@ -768,10 +776,6 @@ const StorageHealthOverview = ({
             </li>
           ))}
         </ul>
-      )}
-
-      {summary.devices.length > 1 && (
-        <StorageDeviceHealthOverview devices={summary.devices} />
       )}
     </div>
   );
@@ -808,28 +812,115 @@ const StorageHealthMetricValue = ({
 
 const StorageDeviceHealthOverview = ({
   devices,
+  selectedDeviceId,
+  onSelect,
 }: {
   devices: StorageHealthDeviceViewModel[];
+  selectedDeviceId?: string | null;
+  onSelect?: (deviceId: string) => void;
 }) => {
+  const { t } = useTranslation();
+
   if (devices.length === 0) return null;
 
+  const usesCompactTabs = devices.length > 2;
+  const selectedDevice =
+    devices.find((device) => device.deviceId === selectedDeviceId) ??
+    devices[0];
+
   return (
-    <div className="grid max-h-20 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto sm:grid-cols-2">
-      {devices.map((device) => (
+    <div className="space-y-1">
+      <div
+        role="tablist"
+        aria-label={t("pages.dashboard.storageHealth.deviceSelector")}
+        aria-orientation="horizontal"
+        className={cn(
+          "max-w-full gap-1 pb-1",
+          usesCompactTabs
+            ? "flex overflow-x-auto overflow-y-hidden"
+            : "grid grid-cols-2 overflow-visible",
+        )}
+      >
+        {devices.map((device) => {
+          const isSelected = device.deviceId === selectedDeviceId;
+          const tabTitle = formatStorageDeviceTabTitle(device);
+          return (
+            <button
+              key={device.deviceId}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => onSelect?.(device.deviceId)}
+              title={tabTitle}
+              className={cn(
+                "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+                usesCompactTabs
+                  ? "h-6 w-44 shrink-0"
+                  : "min-h-6 min-w-0 py-0.5",
+                isSelected
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60",
+              )}
+            >
+              <StorageHealthStatusIcon status={device.status} size={15} />
+              <span
+                className={cn(
+                  "min-w-0 text-xs leading-4",
+                  usesCompactTabs ? "truncate" : "break-all",
+                )}
+              >
+                {device.label}
+              </span>
+              <StorageDeviceProtocolBadge
+                className="justify-self-end"
+                protocolLabel={device.protocolLabel}
+              />
+            </button>
+          );
+        })}
+      </div>
+      {usesCompactTabs && selectedDevice && (
         <div
-          key={device.deviceId}
-          className="grid min-h-6 grid-cols-[1rem_minmax(0,1fr)] items-center gap-2"
+          className="flex min-w-0 items-center gap-1.5 px-1 text-muted-foreground text-xs"
+          title={formatStorageDeviceTabTitle(selectedDevice)}
         >
-          <StorageHealthStatusIcon status={device.status} size={15} />
-          <span
-            className="truncate text-muted-foreground text-xs"
-            title={device.label}
-          >
-            {device.label}
+          <span className="min-w-0 break-all leading-4">
+            {selectedDevice.label}
           </span>
+          <StorageDeviceProtocolBadge
+            className="shrink-0"
+            protocolLabel={selectedDevice.protocolLabel}
+          />
         </div>
-      ))}
+      )}
     </div>
+  );
+};
+
+const formatStorageDeviceTabTitle = (device: StorageHealthDeviceViewModel) =>
+  device.protocolLabel
+    ? `${device.label} (${device.protocolLabel})`
+    : device.label;
+
+const StorageDeviceProtocolBadge = ({
+  className,
+  protocolLabel,
+}: {
+  className?: string;
+  protocolLabel: string | null;
+}) => {
+  if (!protocolLabel) return null;
+
+  return (
+    <span
+      className={cn(
+        "truncate rounded-[2px] border border-border/60 bg-background/70 px-1 font-mono text-[9px] text-muted-foreground leading-4",
+        className,
+      )}
+      title={protocolLabel}
+    >
+      {protocolLabel}
+    </span>
   );
 };
 
@@ -852,7 +943,9 @@ export const MotherboardDataInfo = () => {
         [t("shared.serialNumber")]: mb.serialNumber,
         [t("shared.biosVendor")]: mb.biosVendor,
         [t("shared.biosVersion")]: mb.biosVersion,
-        [t("shared.biosReleaseDate")]: mb.biosReleaseDate,
+        ...(mb.biosReleaseDate
+          ? { [t("shared.biosReleaseDate")]: mb.biosReleaseDate }
+          : {}),
       }}
     />
   );

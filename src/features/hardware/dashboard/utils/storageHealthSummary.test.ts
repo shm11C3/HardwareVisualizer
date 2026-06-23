@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LiveStorageHealth, StorageHealthRecord } from "@/rspc/bindings";
 import {
   buildStorageHealthSummary,
+  formatStorageDeviceProtocolLabel,
   formatStorageHealthMetricValue,
 } from "./storageHealthSummary";
 
@@ -90,6 +91,7 @@ describe("buildStorageHealthSummary", () => {
     expect(summary.devices[0]).toEqual({
       deviceId: "disk-a",
       label: "Example SSD",
+      protocolLabel: "NVMe",
       status: "good",
     });
   });
@@ -134,8 +136,34 @@ describe("buildStorageHealthSummary", () => {
     expect(summary.devices[0]).toEqual({
       deviceId: "disk-b",
       label: "Example SSD",
+      protocolLabel: "NVMe",
       status: "warning",
     });
+  });
+
+  it("exposes compact storage protocol labels for selector tabs", () => {
+    const summary = buildStorageHealthSummary(
+      [
+        record({ deviceId: "disk-a", displayName: "Disk A", protocol: "nvme" }),
+        record({
+          deviceId: "disk-b",
+          displayName: "Disk B",
+          protocol: "sat,12",
+        }),
+        record({
+          deviceId: "disk-c",
+          displayName: "Disk C",
+          protocol: "USB",
+        }),
+      ],
+      new Date("2026-05-10T10:00:00"),
+    );
+
+    expect(summary.devices.map((device) => device.protocolLabel)).toEqual([
+      "NVMe",
+      "SATA",
+      "USB",
+    ]);
   });
 
   it("exposes healthy storage health metrics when values were collected", () => {
@@ -261,6 +289,7 @@ describe("buildStorageHealthSummary", () => {
       {
         deviceId: "disk-a",
         label: "Example SSD",
+        protocolLabel: "NVMe",
         status: "unknown",
       },
     ]);
@@ -279,6 +308,7 @@ describe("buildStorageHealthSummary", () => {
       {
         deviceId: "storage:disk-a",
         label: "Example SSD",
+        protocolLabel: "NVMe",
         status: "unknown",
       },
     ]);
@@ -313,6 +343,7 @@ describe("buildStorageHealthSummary", () => {
       {
         deviceId: "disk-a",
         label: "Example SSD",
+        protocolLabel: "NVMe",
         status: "good",
       },
     ]);
@@ -469,5 +500,17 @@ describe("formatStorageHealthMetricValue", () => {
     expect(
       formatStorageHealthMetricValue({ type: "mediaErrors", value: 3 }),
     ).toBe("3");
+  });
+});
+
+describe("formatStorageDeviceProtocolLabel", () => {
+  it("normalizes known protocol names and suppresses unknown verbose values", () => {
+    expect(formatStorageDeviceProtocolLabel("NVMe")).toBe("NVMe");
+    expect(formatStorageDeviceProtocolLabel("sata")).toBe("SATA");
+    expect(formatStorageDeviceProtocolLabel("ata")).toBe("ATA");
+    expect(
+      formatStorageDeviceProtocolLabel("unknown bridge adapter"),
+    ).toBeNull();
+    expect(formatStorageDeviceProtocolLabel(null)).toBeNull();
   });
 });

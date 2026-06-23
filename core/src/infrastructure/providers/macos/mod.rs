@@ -5,4 +5,5 @@ pub mod net_sys;
 pub mod smart;
 pub mod sysctl;
 pub mod system_profiler_displays;
+pub mod system_profiler_hardware;
 pub mod system_profiler_memory;

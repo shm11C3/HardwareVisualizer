@@ -24,11 +24,15 @@ HardwareVisualizer is an open-source project, and we welcome improvements from t
 HardwareVisualizer automatically assigns labels based on the branch name.  
 Branch naming convention:
 
-- Features: `feat/<short-description-or-issue-number>`
+- Features: `feat/<short-description-or-issue-number>` or `feature/<short-description-or-issue-number>`
 - Bug fixes: `fix/<short-description-or-issue-number>`
 - Documentation: `docs/<short-description-or-issue-number>`
 - Refactoring: `refactor/<short-description-or-issue-number>`
 - Other: `chore/<short-description-or-issue-number>`
+
+PR branch names are validated by CI. Tool-dependent prefixes such as
+`codex/` or `claude/` are not accepted; choose a project prefix that
+matches the change type before pushing or opening the PR.
 
 When submitting a Pull Request (PR), please:
 
