@@ -58,7 +58,7 @@ export const BurnInShiftSettings = () => {
           type="single"
           collapsible
           className="w-full xl:w-1/3"
-          defaultValue={defaultOpen ? "burnInShiftSettings" : undefined}
+          {...(defaultOpen && { defaultValue: "burnInShiftSettings" })}
         >
           <AccordionItem value="burnInShiftSettings">
             <AccordionTrigger>

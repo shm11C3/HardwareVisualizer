@@ -82,8 +82,8 @@ export const Slider = React.forwardRef<
         "relative flex w-full touch-none select-none items-center",
         className,
       )}
-      value={value}
-      onValueChange={onValueChange}
+      {...(value !== undefined && { value })}
+      {...(onValueChange !== undefined && { onValueChange })}
       {...props}
     >
       <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">

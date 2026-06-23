@@ -10,6 +10,10 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
+      "complexity": {
+        // TypeScript's noPropertyAccessFromIndexSignature requires bracket access for index signatures.
+        "useLiteralKeys": "off"
+      },
       "nursery": {
         "useSortedClasses": {
           "level": "error",

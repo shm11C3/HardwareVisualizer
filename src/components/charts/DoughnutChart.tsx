@@ -170,6 +170,8 @@ export const DoughnutChart = ({
                     </g>
                   );
                 }
+
+                return null;
               }}
             />
           </PolarRadiusAxis>

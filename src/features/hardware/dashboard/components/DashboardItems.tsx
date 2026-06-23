@@ -677,8 +677,8 @@ const StorageHealthOverview = ({
   refreshing = false,
   summary,
 }: {
-  onRefresh?: () => void;
-  onSelectDevice?: (deviceId: string) => void;
+  onRefresh?: (() => void) | undefined;
+  onSelectDevice?: ((deviceId: string) => void) | undefined;
   refreshError?: string | null;
   refreshing?: boolean;
   summary: StorageHealthSummaryViewModel | null;
@@ -817,7 +817,7 @@ const StorageDeviceHealthOverview = ({
 }: {
   devices: StorageHealthDeviceViewModel[];
   selectedDeviceId?: string | null;
-  onSelect?: (deviceId: string) => void;
+  onSelect?: ((deviceId: string) => void) | undefined;
 }) => {
   const { t } = useTranslation();
 

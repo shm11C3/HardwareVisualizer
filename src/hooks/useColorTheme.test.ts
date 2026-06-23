@@ -20,7 +20,7 @@ describe("useColorTheme", () => {
   // Reset document class list before each test execution
   beforeEach(() => {
     document.documentElement.classList.remove("dark", "light");
-    document.documentElement.dataset.theme = "";
+    document.documentElement.dataset["theme"] = "";
     vi.clearAllMocks();
 
     // Set default mock behavior

@@ -16,9 +16,9 @@ vi.mock("react-i18next", () => ({
     t: (key: string, params?: Record<string, unknown>) => {
       const translations: Record<string, string> = {
         "pages.updater.title": "Update Available",
-        "pages.updater.description": `Version ${params?.version || ""} is available`,
-        "pages.updater.releaseNotesDescription": `View release notes at ${params?.releaseNotesUrl || ""}`,
-        "pages.updater.currentVersion": `Current: ${params?.currentVersion || ""}`,
+        "pages.updater.description": `Version ${params?.["version"] || ""} is available`,
+        "pages.updater.releaseNotesDescription": `View release notes at ${params?.["releaseNotesUrl"] || ""}`,
+        "pages.updater.currentVersion": `Current: ${params?.["currentVersion"] || ""}`,
         "pages.updater.later": "Later",
         "pages.updater.updateAndRestart": "Update and Restart",
         "pages.updater.needRestart": "Please restart to complete the update",
