@@ -101,6 +101,8 @@ jobs:
             .github/actions/setup-safe-chain/action.yml
           delete-branch: true
           labels: |
-            dependencies
-            automated
+            change:deps
+            change:ci
+            area:github-actions
+            source:automation
           signoff: false

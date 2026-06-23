@@ -14,6 +14,10 @@ updates:
     cooldown:
       default-days: 5
     open-pull-requests-limit: 40
+    labels:
+      - "change:deps"
+      - "area:javascript"
+      - "area:frontend"
 
     ignore:
       - dependency-name: "@tauri-apps/*"
@@ -48,6 +52,10 @@ updates:
     cooldown:
       default-days: 5
     open-pull-requests-limit: 40
+    labels:
+      - "change:deps"
+      - "area:core"
+      - "area:tauri"
     ignore:
       - dependency-name: "tauri"
       - dependency-name: "tauri-build"
@@ -63,6 +71,10 @@ updates:
       timezone: "Asia/Tokyo"
     cooldown:
       default-days: 5
+    labels:
+      - "change:deps"
+      - "area:core"
+      - "area:tauri"
 
   - package-ecosystem: "github-actions"
     directories:
@@ -75,3 +87,6 @@ updates:
       timezone: "Asia/Tokyo"
     cooldown:
       default-days: 5
+    labels:
+      - "change:deps"
+      - "area:github-actions"

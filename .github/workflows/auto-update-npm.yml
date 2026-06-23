@@ -59,6 +59,8 @@ jobs:
           branch: chore/auto-npm-update
           delete-branch: true
           labels: |
-            dependencies
-            automated
+            change:deps
+            area:javascript
+            area:frontend
+            source:automation
           signoff: false

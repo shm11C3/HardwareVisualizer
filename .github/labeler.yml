@@ -1,50 +1,121 @@
-frontend:
+"area:frontend":
   - changed-files:
       - any-glob-to-any-file:
           - "src/**"
           - "index.html"
           - "package.json"
+          - "package-lock.json"
+          - "vite.config.*"
+          - "vitest.config.*"
+          - "playwright*.config.*"
+          - "tsconfig*.json"
 
-hardviz_core:
+"area:core":
   - changed-files:
       - any-glob-to-any-file:
           - "core/**"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "rust-toolchain.toml"
+          - ".cargo/**"
 
-hardviz_tauri:
+"area:tauri":
   - changed-files:
       - any-glob-to-any-file:
           - "src-tauri/**"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "rust-toolchain.toml"
+          - ".cargo/**"
 
-github_actions:
+"area:github-actions":
   - changed-files:
       - any-glob-to-any-file:
           - ".github/workflows/**"
           - ".github/actions/**"
+          - ".github/scripts/**"
 
-docs:
+"area:docs":
   - changed-files:
       - any-glob-to-any-file:
           - "**/*.md"
           - "docs/**"
 
-dependencies:
+"area:javascript":
   - changed-files:
       - any-glob-to-any-file:
-          - "Cargo.lock"
+          - "package.json"
           - "package-lock.json"
+          - "src/**"
+          - "vite.config.*"
+          - "vitest.config.*"
+          - "playwright*.config.*"
+          - "tsconfig*.json"
 
-configuration:
+"area:config":
   - changed-files:
       - any-glob-to-any-file:
           - "tsconfig*.json"
           - "vite.config.*"
           - "vitest.config.*"
+          - "playwright*.config.*"
+          - "Cargo.toml"
+          - "**/Cargo.toml"
+          - "*.conf.json"
+          - "src-tauri/*.conf.json"
+          - ".cargo/**"
+
+"change:deps":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Cargo.lock"
+          - "package-lock.json"
+          - "package.json"
+          - "Cargo.toml"
+          - "**/Cargo.toml"
+          - "rust-toolchain.toml"
+
+"change:config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tsconfig*.json"
+          - "vite.config.*"
+          - "vitest.config.*"
+          - "playwright*.config.*"
           - "Cargo.toml"
           - "**/Cargo.toml"
           - "*.conf.json"
 
-feature:
+"change:feature":
   - head-branch: ["^feat/.*", "^feature/.*"]
 
-bug:
+"change:fix":
   - head-branch: ["^fix/.*"]
+
+"change:docs":
+  - head-branch: ["^docs/.*"]
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+"change:refactor":
+  - head-branch: ["^refactor/.*"]
+
+"change:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/actions/**"
+          - ".github/scripts/**"
+
+"change:test":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.test.*"
+          - "src/setupVitest.ts"
+          - "src/e2e/**"
+          - "e2e/**"
+          - "e2e-native/**"
+          - "playwright*.config.*"
+          - "vitest.config.*"

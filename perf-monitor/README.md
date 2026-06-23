@@ -122,7 +122,9 @@ The GitHub Actions workflow (`.github/workflows/perf-test.yml`) runs daily at 03
 - Builds the app and perf-monitor on the active performance matrix
 - Currently runs the performance gate on Windows only
 - Uploads JSON results as artifacts
-- Creates a GitHub Issue labeled `performance-regression` if any threshold is exceeded
+- Creates or updates a GitHub Issue when any threshold is exceeded
+- Labels performance test issues with `type:performance`, `status:regression`,
+  and `source:performance-test`
 
 ## Project Structure
 
