@@ -299,6 +299,7 @@
         "transparentUi": {
           "name": "Transparent UI",
           "description": "Make the app background and panels transparent.",
+          "experimentalNote": "Experimental: transparent UI may cause visual glitches and can increase GPU usage and power consumption, especially on macOS.",
           "opacity": "Window opacity",
           "blur": "Backdrop blur"
         },
