@@ -91,8 +91,9 @@ is the primary user-facing entry point.
 Use `feat:` labels for product or platform capability areas. These labels
 answer "what capability is affected?"
 
-Use an indigo or blue-purple color for all `feat:*` labels so capability labels
-read visually as feature-oriented work.
+Keep `feat:*` colors visually distinct from GitHub helper labels such as
+`good first issue`. Treat the GitHub label configuration as the source of truth
+for exact colors.
 
 - `feat:hardware-monitoring`
 - `feat:storage-health`
