@@ -60,10 +60,14 @@ guessing before the likely owner is clear.
 - `area:core` - `core/**` or Tauri-independent domain/runtime code.
 - `area:tauri` - `src-tauri/**`, Tauri commands, app wiring, or bundling.
 - `area:github-actions` - workflows and composite actions under `.github/**`.
-- `area:rust` - Rust-only implementation or dependency work.
 - `area:javascript` - JavaScript/TypeScript dependency or tooling work.
 - `area:docs` - documentation files or docs automation.
 - `area:config` - project configuration files.
+
+Rust work is labeled by crate boundary, not by language alone. Use
+`area:core` for the Tauri-independent Core crate and `area:tauri` for the
+Tauri/App crate. Use both labels for root Cargo, toolchain, or workspace changes
+that can affect both crates.
 
 ### Screen
 
@@ -136,8 +140,9 @@ labels were created:
 - `ci` and `github_actions` -> `change:ci` + `area:github-actions`.
 - `dependencies` -> `change:deps`.
 - `configuration` -> `change:config` + `area:config`.
-- `frontend`, `backend`, `rust`, `javascript`, `tauri`, `hardviz_core`, and
+- `frontend`, `backend`, `javascript`, `tauri`, `hardviz_core`, and
   `hardviz_tauri` -> `area:*`.
+- `rust` -> `area:core`, `area:tauri`, or both, depending on the affected crate.
 - `hardware` and `monitoring` -> use a precise `feature:*` label.
 - `testing` and `automation testing` -> `change:test` or `feature:e2e`.
 - `automated` -> `source:automation`.

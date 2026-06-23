@@ -14,11 +14,19 @@
   - changed-files:
       - any-glob-to-any-file:
           - "core/**"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "rust-toolchain.toml"
+          - ".cargo/**"
 
 "area:tauri":
   - changed-files:
       - any-glob-to-any-file:
           - "src-tauri/**"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "rust-toolchain.toml"
+          - ".cargo/**"
 
 "area:github-actions":
   - changed-files:
@@ -32,17 +40,6 @@
       - any-glob-to-any-file:
           - "**/*.md"
           - "docs/**"
-
-"area:rust":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "Cargo.toml"
-          - "**/Cargo.toml"
-          - "Cargo.lock"
-          - "rust-toolchain.toml"
-          - ".cargo/**"
-          - "core/**"
-          - "src-tauri/**"
 
 "area:javascript":
   - changed-files:

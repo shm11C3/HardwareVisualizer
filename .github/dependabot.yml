@@ -54,7 +54,8 @@ updates:
     open-pull-requests-limit: 40
     labels:
       - "change:deps"
-      - "area:rust"
+      - "area:core"
+      - "area:tauri"
     ignore:
       - dependency-name: "tauri"
       - dependency-name: "tauri-build"
@@ -72,7 +73,8 @@ updates:
       default-days: 5
     labels:
       - "change:deps"
-      - "area:rust"
+      - "area:core"
+      - "area:tauri"
 
   - package-ecosystem: "github-actions"
     directories:

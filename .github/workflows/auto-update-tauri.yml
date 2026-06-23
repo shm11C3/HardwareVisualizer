@@ -65,6 +65,5 @@ jobs:
           labels: |
             change:deps
             area:tauri
-            area:rust
             source:automation
           signoff: false
