@@ -91,6 +91,9 @@ is the primary user-facing entry point.
 Use `feat:` labels for product or platform capability areas. These labels
 answer "what capability is affected?"
 
+Use an indigo or blue-purple color for all `feat:*` labels so capability labels
+read visually as feature-oriented work.
+
 - `feat:hardware-monitoring`
 - `feat:storage-health`
 - `feat:gpu-monitoring`
