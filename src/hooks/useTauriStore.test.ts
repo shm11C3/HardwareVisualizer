@@ -59,7 +59,7 @@ describe("useTauriStore", () => {
 
   it("When key exists on initial load, value from store is returned", async () => {
     // Arrange: State where value is already saved in fakeStore
-    fakeStore.data.testKey = "storedValue";
+    fakeStore.data["testKey"] = "storedValue";
     const { result } = renderHook(() =>
       useTauriStore<string>("testKey", "defaultValue"),
     );

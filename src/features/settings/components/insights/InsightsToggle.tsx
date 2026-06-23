@@ -41,7 +41,7 @@ export const InsightsToggle = () => {
             </div>
 
             <Switch
-              checked={settings.hardwareArchive.enabled}
+              checked={settings.hardwareArchive.enabled ?? false}
               onCheckedChange={handleCheckedChange}
             />
           </div>

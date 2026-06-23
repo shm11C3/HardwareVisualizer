@@ -2,9 +2,9 @@ import type { JSX } from "react";
 import { BurnInShift } from "./BurnInShift";
 
 interface ScreenTemplateProps {
-  title?: string;
-  icon?: JSX.Element;
-  enabledBurnInShift?: boolean;
+  title?: string | undefined;
+  icon?: JSX.Element | undefined;
+  enabledBurnInShift?: boolean | undefined;
   children: React.ReactNode;
 }
 

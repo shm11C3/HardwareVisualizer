@@ -30,8 +30,8 @@ export const useTauriDialog = () => {
       kind?: Kind;
     }): Promise<boolean> => {
       return await showAsk(message, {
-        title: title ? t(`error.title.${title}`) : undefined,
-        kind,
+        ...(title !== undefined && { title: t(`error.title.${title}`) }),
+        ...(kind !== undefined && { kind }),
       });
     },
     [t],
@@ -48,8 +48,8 @@ export const useTauriDialog = () => {
       kind?: Kind;
     }): Promise<boolean> => {
       return await showConfirm(message, {
-        title: title ? t(`error.title.${title}`) : undefined,
-        kind,
+        ...(title !== undefined && { title: t(`error.title.${title}`) }),
+        ...(kind !== undefined && { kind }),
       });
     },
     [t],
@@ -66,8 +66,8 @@ export const useTauriDialog = () => {
       kind?: Kind;
     }): Promise<MessageDialogResult> => {
       return await showMessage(message, {
-        title: title ? t(`error.title.${title}`) : undefined,
-        kind,
+        ...(title !== undefined && { title: t(`error.title.${title}`) }),
+        ...(kind !== undefined && { kind }),
       });
     },
     [t],

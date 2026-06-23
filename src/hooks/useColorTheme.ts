@@ -45,7 +45,7 @@ export const useColorTheme = (theme: Theme) => {
 
   useEffect(() => {
     document.documentElement.classList.remove(...defaultTheme);
-    document.documentElement.dataset.theme = "";
+    document.documentElement.dataset["theme"] = "";
 
     // Apply System Theme
     if (theme === "system") {
@@ -64,6 +64,6 @@ export const useColorTheme = (theme: Theme) => {
       applyTheme("dark");
     }
 
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset["theme"] = theme;
   }, [theme, systemTheme, applyTheme]);
 };
