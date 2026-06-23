@@ -34,6 +34,10 @@ PR branch names are validated by CI. Tool-dependent prefixes such as
 `codex/` or `claude/` are not accepted; choose a project prefix that
 matches the change type before pushing or opening the PR.
 
+Labels are grouped by purpose. Use the
+[GitHub label guide](docs/development/labels.md) when triaging issues or
+checking pull request labels.
+
 When submitting a Pull Request (PR), please:
 
 - Provide a concise description of the change
