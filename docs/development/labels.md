@@ -87,25 +87,25 @@ is the primary user-facing entry point.
 
 ### Feature
 
-Use `feature:` labels for product or platform capability areas. These labels
+Use `feat:` labels for product or platform capability areas. These labels
 answer "what capability is affected?"
 
-- `feature:hardware-monitoring`
-- `feature:storage-health`
-- `feature:gpu-monitoring`
-- `feature:process-stats`
-- `feature:live-metrics`
-- `feature:charts`
-- `feature:background-images`
-- `feature:tray-widget`
-- `feature:external-components`
-- `feature:e2e`
-- `feature:i18n`
-- `feature:release`
-- `feature:supply-chain`
-- `feature:design-system`
+- `feat:hardware-monitoring`
+- `feat:storage-health`
+- `feat:gpu-monitoring`
+- `feat:process-stats`
+- `feat:live-metrics`
+- `feat:charts`
+- `feat:background-images`
+- `feat:tray-widget`
+- `feat:external-components`
+- `feat:e2e`
+- `feat:i18n`
+- `feat:release`
+- `feat:supply-chain`
+- `feat:design-system`
 
-Prefer one or two precise `feature:` labels over broad combinations.
+Prefer one or two precise `feat:` labels over broad combinations.
 
 ### Status And Source
 
@@ -143,8 +143,8 @@ labels were created:
 - `frontend`, `backend`, `javascript`, `tauri`, `hardviz_core`, and
   `hardviz_tauri` -> `area:*`.
 - `rust` -> `area:core`, `area:tauri`, or both, depending on the affected crate.
-- `hardware` and `monitoring` -> use a precise `feature:*` label.
-- `testing` and `automation testing` -> `change:test` or `feature:e2e`.
+- `hardware` and `monitoring` -> use a precise `feat:*` label.
+- `testing` and `automation testing` -> `change:test` or `feat:e2e`.
 - `automated` -> `source:automation`.
 
 Do not recreate removed unprefixed project labels. Keep only GitHub standard
