@@ -63,7 +63,8 @@ jobs:
           branch: chore/auto-tauri-update
           delete-branch: true
           labels: |
-            dependencies
-            automated
-            tauri
+            change:deps
+            area:tauri
+            area:rust
+            source:automation
           signoff: false

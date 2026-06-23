@@ -1,6 +1,6 @@
 changelog:
   exclude:
-    labels: [ignore-for-release, no-release-notes]
+    labels: ["release:skip", ignore-for-release, no-release-notes]
     authors:
       - dependabot[bot]
       - dependabot
@@ -8,10 +8,24 @@ changelog:
 
   categories:
     - title: Added
-      labels: [feature, enhancement]
+      labels: ["change:feature", feature, enhancement]
     - title: Fixed
-      labels: [bug]
+      labels: ["change:fix", bug]
     - title: Maintenance
-      labels: [ci, docs, dependencies, configuration]
+      labels:
+        [
+          "change:ci",
+          "change:docs",
+          "change:deps",
+          "change:config",
+          "change:test",
+          "change:refactor",
+          ci,
+          docs,
+          documentation,
+          dependencies,
+          configuration,
+          refactor,
+        ]
     - title: Other Changes
       labels: ["*"]

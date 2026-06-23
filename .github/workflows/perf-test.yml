@@ -113,32 +113,47 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const label = 'performance-regression';
+            const labels = ['type:performance', 'status:regression', 'source:performance-test'];
             const title = 'Performance test threshold exceeded';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-
-            // Ensure label exists
-            try {
-              await github.rest.issues.getLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
-              });
-            } catch {
-              await github.rest.issues.createLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: label,
+            const labelDetails = {
+              'type:performance': {
+                color: '17e0f0',
+                description: 'Runtime, build, bundle, memory, or responsiveness work',
+              },
+              'status:regression': {
                 color: 'e11d48',
-                description: 'Automated performance test detected a threshold violation',
-              });
+                description: 'Known regression from a previous working state',
+              },
+              'source:performance-test': {
+                color: 'ededed',
+                description: 'Created by the scheduled performance workflow',
+              },
+            };
+
+            // Ensure labels exist
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                });
+              } catch {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                  ...labelDetails[label],
+                });
+              }
             }
 
             // Check for existing open issue
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: label,
+              labels: labels.join(','),
               state: 'open',
               per_page: 1,
             });
@@ -160,6 +175,6 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 body,
-                labels: [label],
+                labels,
               });
             }

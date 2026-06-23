@@ -90,3 +90,7 @@ jobs:
             ./docs/third-party-notices
           token: ${{ steps.generate-token.outputs.token }}
           delete-branch: true
+          labels: |
+            change:docs
+            area:docs
+            source:automation
