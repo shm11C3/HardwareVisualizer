@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -9,10 +10,28 @@ const minWindowOpacity = 20;
 const maxWindowOpacity = 100;
 const minGlassBlur = 0;
 const maxGlassBlur = 30;
+// On macOS glass_blur is a frost-intensity level mapped to a vibrancy material:
+// 0 = off, 1-10 = low, 11-20 = medium, 21+ = high. The macOS control is a
+// 4-step slider; macFrostStops is the glass_blur value stored per step.
+type MacFrostLevel = "off" | "low" | "medium" | "high";
+const macFrostStops = [0, 8, 16, 26];
+const glassBlurToMacFrostIndex = (v: number): number => {
+  if (v <= 0) return 0;
+  if (v <= 10) return 1;
+  if (v <= 20) return 2;
+  return 3;
+};
+const glassBlurToMacFrostLevel = (v: number): MacFrostLevel => {
+  if (v <= 0) return "off";
+  if (v <= 10) return "low";
+  if (v <= 20) return "medium";
+  return "high";
+};
 
 export const TransparentUiSettings = () => {
   const { t } = useTranslation();
   const { settings, updateSettingAtom } = useSettingsAtom();
+  const isMacOS = platform() === "macos";
   const transparentUiId = useId();
   const windowOpacityId = useId();
   const windowOpacityLabelId = `${windowOpacityId}-label`;
@@ -25,6 +44,23 @@ export const TransparentUiSettings = () => {
 
   const changeGlassBlur = async (value: number[]) => {
     await updateSettingAtom("glassBlur", value[0]);
+  };
+
+  const changeMacFrostLevel = async (value: number[]) => {
+    await updateSettingAtom("glassBlur", macFrostStops[value[0] ?? 0] ?? 0);
+  };
+
+  const macFrostLevelLabel = (): string => {
+    switch (glassBlurToMacFrostLevel(settings.glassBlur)) {
+      case "off":
+        return t("pages.settings.general.transparentUi.blurLevel.off");
+      case "low":
+        return t("pages.settings.general.transparentUi.blurLevel.low");
+      case "medium":
+        return t("pages.settings.general.transparentUi.blurLevel.medium");
+      default:
+        return t("pages.settings.general.transparentUi.blurLevel.high");
+    }
   };
 
   return (
@@ -83,19 +119,34 @@ export const TransparentUiSettings = () => {
                 {t("pages.settings.general.transparentUi.blur")}
               </Label>
               <span className="font-medium text-muted-foreground text-sm tabular-nums">
-                {settings.glassBlur}px
+                {isMacOS ? macFrostLevelLabel() : `${settings.glassBlur}px`}
               </span>
             </div>
-            <Slider
-              id={glassBlurId}
-              aria-labelledby={glassBlurLabelId}
-              min={minGlassBlur}
-              max={maxGlassBlur}
-              step={1}
-              value={[settings.glassBlur]}
-              onValueChange={changeGlassBlur}
-              className="mt-4 w-full"
-            />
+            {isMacOS ? (
+              // Native vibrancy materials are discrete, so the macOS slider
+              // snaps to 4 steps (off / low / medium / high).
+              <Slider
+                id={glassBlurId}
+                aria-labelledby={glassBlurLabelId}
+                min={0}
+                max={3}
+                step={1}
+                value={[glassBlurToMacFrostIndex(settings.glassBlur)]}
+                onValueChange={changeMacFrostLevel}
+                className="mt-4 w-full"
+              />
+            ) : (
+              <Slider
+                id={glassBlurId}
+                aria-labelledby={glassBlurLabelId}
+                min={minGlassBlur}
+                max={maxGlassBlur}
+                step={1}
+                value={[settings.glassBlur]}
+                onValueChange={changeGlassBlur}
+                className="mt-4 w-full"
+              />
+            )}
           </div>
         </div>
       )}
