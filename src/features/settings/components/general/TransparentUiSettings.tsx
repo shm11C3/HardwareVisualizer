@@ -1,4 +1,4 @@
-import { AlertTriangleIcon } from "lucide-react";
+import { platform } from "@tauri-apps/plugin-os";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -10,10 +10,14 @@ const minWindowOpacity = 20;
 const maxWindowOpacity = 100;
 const minGlassBlur = 0;
 const maxGlassBlur = 30;
+// macOS uses native vibrancy (a fixed material, no adjustable radius), so the
+// blur control becomes an on/off toggle; this glass_blur value means "on".
+const macFrostBlur = 16;
 
 export const TransparentUiSettings = () => {
   const { t } = useTranslation();
   const { settings, updateSettingAtom } = useSettingsAtom();
+  const isMacOS = platform() === "macos";
   const transparentUiId = useId();
   const windowOpacityId = useId();
   const windowOpacityLabelId = `${windowOpacityId}-label`;
@@ -47,11 +51,6 @@ export const TransparentUiSettings = () => {
         />
       </div>
 
-      <div className="flex w-full items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm xl:w-1/2">
-        <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
-        <p>{t("pages.settings.general.transparentUi.experimentalNote")}</p>
-      </div>
-
       {settings.transparentUi && (
         <div className="grid w-full gap-6 py-3 xl:w-1/3">
           <div>
@@ -80,20 +79,34 @@ export const TransparentUiSettings = () => {
               <Label id={glassBlurLabelId} className="text-lg">
                 {t("pages.settings.general.transparentUi.blur")}
               </Label>
-              <span className="font-medium text-muted-foreground text-sm tabular-nums">
-                {settings.glassBlur}px
-              </span>
+              {!isMacOS && (
+                <span className="font-medium text-muted-foreground text-sm tabular-nums">
+                  {settings.glassBlur}px
+                </span>
+              )}
             </div>
-            <Slider
-              id={glassBlurId}
-              aria-labelledby={glassBlurLabelId}
-              min={minGlassBlur}
-              max={maxGlassBlur}
-              step={1}
-              value={[settings.glassBlur]}
-              onValueChange={changeGlassBlur}
-              className="mt-4 w-full"
-            />
+            {isMacOS ? (
+              // Native vibrancy has no adjustable radius, so expose an on/off
+              // toggle instead of a px slider on macOS.
+              <Switch
+                aria-labelledby={glassBlurLabelId}
+                checked={settings.glassBlur > 0}
+                onCheckedChange={(value) =>
+                  updateSettingAtom("glassBlur", value ? macFrostBlur : 0)
+                }
+              />
+            ) : (
+              <Slider
+                id={glassBlurId}
+                aria-labelledby={glassBlurLabelId}
+                min={minGlassBlur}
+                max={maxGlassBlur}
+                step={1}
+                value={[settings.glassBlur]}
+                onValueChange={changeGlassBlur}
+                className="mt-4 w-full"
+              />
+            )}
           </div>
         </div>
       )}

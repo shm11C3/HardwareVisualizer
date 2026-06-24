@@ -299,7 +299,6 @@
         "transparentUi": {
           "name": "Transparent UI",
           "description": "Make the app background and panels transparent.",
-          "experimentalNote": "Experimental: transparent UI may cause visual glitches and can increase GPU usage and power consumption, especially on macOS.",
           "opacity": "Window opacity",
           "blur": "Backdrop blur"
         },
@@ -452,6 +451,10 @@
           "name": "Run as administrator on startup",
           "description": "Start HardwareVisualizer with administrator privileges for sensors that require elevated access. Enabling this restarts the app after Windows approval."
         }
+      },
+      "experimental": {
+        "name": "Experimental features",
+        "description": "Early-stage features. They may be incomplete and can affect stability or, on macOS, power consumption."
       }
     },
     "updater": {

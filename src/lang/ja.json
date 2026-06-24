@@ -299,7 +299,6 @@
         "transparentUi": {
           "name": "透過UI",
           "description": "アプリ背景とパネルを透過します。",
-          "experimentalNote": "実験的機能です。透過UIは表示の不具合を起こす場合があり、特にmacOSではGPU使用率と消費電力が増加することがあります。",
           "opacity": "ウィンドウの不透明度",
           "blur": "背景ぼかし"
         },
@@ -452,6 +451,10 @@
           "name": "管理者として起動",
           "description": "昇格が必要なセンサーを使えるように、HardwareVisualizer を管理者権限で起動します。有効にすると Windows の承認後にアプリを再起動します。"
         }
+      },
+      "experimental": {
+        "name": "実験的機能",
+        "description": "開発中の機能です。動作が不安定だったり、特にmacOSでは消費電力が増えたりする場合があります。"
       }
     },
     "updater": {

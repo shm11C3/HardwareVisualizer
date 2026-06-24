@@ -6,7 +6,6 @@ import { LanguageSelect } from "./LanguageSelect";
 import { TemperatureUnitSelect } from "./TemperatureUnitSelect";
 import { TextSelectionToggle } from "./TextSelectionToggle";
 import { ThemeSelect } from "./ThemeSelect";
-import { TransparentUiSettings } from "./TransparentUiSettings";
 import { TrayWidgetSettings } from "./TrayWidgetSettings";
 
 export const GeneralSettings = () => {
@@ -20,7 +19,6 @@ export const GeneralSettings = () => {
       <div className="px-4">
         <LanguageSelect />
         <ThemeSelect />
-        <TransparentUiSettings />
         <TemperatureUnitSelect />
         <CloseToTrayToggle />
         <TrayWidgetSettings />

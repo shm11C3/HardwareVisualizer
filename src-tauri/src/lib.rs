@@ -158,6 +158,7 @@ pub fn run() {
   let app_state = settings::AppState::new();
   let elevated_startup_mode = app_state.settings.lock().unwrap().elevated_startup_mode;
   let transparent_ui = app_state.settings.lock().unwrap().transparent_ui;
+  let glass_blur = app_state.settings.lock().unwrap().glass_blur;
 
   // Core-owned shared sensor history. App-side commands and the collector
   // loop read/write through this store. Persistence no longer shares it; the
@@ -238,10 +239,11 @@ pub fn run() {
       commands::ui::init(app);
       builder.mount_events(app);
 
-      // Apply native macOS vibrancy up front when transparent UI is enabled, so
-      // the frosted glass is composited by the OS instead of the costly CSS
-      // backdrop-filter blur (see #1718). No-op on other platforms.
-      settings::commands::apply_window_vibrancy(app.handle(), transparent_ui);
+      // Apply native macOS vibrancy up front when transparent UI is on and the
+      // background-frost toggle (glass_blur) is non-zero, so the frosted glass is
+      // composited by the OS instead of the costly CSS backdrop-filter blur
+      // (see #1718). No-op on other platforms.
+      settings::commands::apply_window_vibrancy(app.handle(), transparent_ui && glass_blur > 0);
 
       // Real-time pipeline: collector publishes MetricsSnapshot to the
       // EventBus, WindowAdapter subscribes and emits HardwareMonitorUpdate.

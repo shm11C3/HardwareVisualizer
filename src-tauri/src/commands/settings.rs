@@ -436,6 +436,7 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: bool,
   ) -> Result<(), String> {
+    let vibrancy_enabled;
     {
       let mut settings = state.settings.lock().unwrap();
 
@@ -443,9 +444,12 @@ pub mod commands {
         emit_error(&window)?;
         return Err(e);
       }
+      // Native vibrancy is the frost: on only when transparency is on AND the
+      // (macOS) background-frost toggle (glass_blur) is non-zero.
+      vibrancy_enabled = new_value && settings.glass_blur > 0;
     }
 
-    apply_window_vibrancy(window.app_handle(), new_value);
+    apply_window_vibrancy(window.app_handle(), vibrancy_enabled);
     Ok(())
   }
 
@@ -472,12 +476,19 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: u8,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
+    let vibrancy_enabled;
+    {
+      let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_glass_blur(new_value) {
-      emit_error(&window)?;
-      return Err(e);
+      if let Err(e) = settings.set_glass_blur(new_value) {
+        emit_error(&window)?;
+        return Err(e);
+      }
+      // On macOS the background-frost toggle maps to glass_blur (0 = off).
+      vibrancy_enabled = settings.transparent_ui && new_value > 0;
     }
+
+    apply_window_vibrancy(window.app_handle(), vibrancy_enabled);
     Ok(())
   }
 
