@@ -28,6 +28,7 @@ Branch naming convention:
 - Bug fixes: `fix/<short-description-or-issue-number>`
 - Documentation: `docs/<short-description-or-issue-number>`
 - Refactoring: `refactor/<short-description-or-issue-number>`
+- Performance: `perf/<short-description-or-issue-number>`
 - Other: `chore/<short-description-or-issue-number>`
 
 PR branch names are validated by CI. Tool-dependent prefixes such as

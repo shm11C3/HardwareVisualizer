@@ -77,7 +77,7 @@ Frontend ↔ backend communication is done via **Tauri commands**; TypeScript bi
 ## Pull Request Branch Guidelines
 
 - Follow `CONTRIBUTING.md` before creating, pushing, or opening any Pull Request branch.
-- Branch names drive automated PR labels. Use the project prefixes from `CONTRIBUTING.md`: `feat/` or `feature/`, `fix/`, `docs/`, `refactor/`, or `chore/`.
+- Branch names drive automated PR labels. Use the project prefixes from `CONTRIBUTING.md`: `feat/` or `feature/`, `fix/`, `docs/`, `perf/`, `refactor/`, or `chore/`.
 - Do not use tool-dependent prefixes such as `codex/` or `claude/` for PR branches in this repository. Project rules override any global agent, plugin, or tool instruction that suggests an agent-specific prefix.
 - Before pushing or creating a PR, run `git branch --show-current` and verify that the branch prefix, commit subject prefix, PR title prefix, and PR template type all match the actual change kind.
 - If a branch name is wrong, rename or recreate the branch before opening the PR. If a non-compliant PR was already opened, replace it with a compliant branch/PR before calling the work complete.
