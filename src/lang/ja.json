@@ -302,7 +302,13 @@
           "description": "アプリ背景とパネルを透過します。",
           "experimentalNote": "この機能はまだ調整中で、環境によっては表示の不具合が出ることがあります。",
           "opacity": "ウィンドウの不透明度",
-          "blur": "背景ぼかし"
+          "blur": "背景ぼかし",
+          "blurLevel": {
+            "off": "なし",
+            "low": "弱",
+            "medium": "中",
+            "high": "強"
+          }
         },
         "closeToTray": {
           "name": "閉じるボタンで終了せずトレイに格納する",

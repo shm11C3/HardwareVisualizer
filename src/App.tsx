@@ -32,6 +32,7 @@ import {
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { clearTauriStore } from "@/lib/tauriStore";
@@ -172,6 +173,7 @@ const AppContent = () => {
 
   useKeydown({ isDecorated: Boolean(isDecorated), setDecorated });
   const { isFullScreen, toggleFullScreen } = useFullScreenMode();
+  const isMacOS = platform() === "macos";
   const windowOpacityRatio = settings.transparentUi
     ? settings.windowOpacity / 100
     : 1;
@@ -267,6 +269,7 @@ const AppContent = () => {
         className={cn(
           "min-h-screen bg-background bg-cover text-foreground duration-300 ease-in-out",
           settings.transparentUi && "transparent-ui",
+          settings.transparentUi && isMacOS && "native-vibrancy",
         )}
         style={
           {

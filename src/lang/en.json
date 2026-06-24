@@ -302,7 +302,13 @@
           "description": "Make the app background and panels transparent.",
           "experimentalNote": "This feature is still being refined and may cause display glitches in some environments.",
           "opacity": "Window opacity",
-          "blur": "Backdrop blur"
+          "blur": "Backdrop blur",
+          "blurLevel": {
+            "off": "Off",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High"
+          }
         },
         "closeToTray": {
           "name": "Close to tray instead of quitting",

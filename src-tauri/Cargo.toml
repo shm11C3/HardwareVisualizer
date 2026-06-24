@@ -94,6 +94,7 @@ dirs = "6.0.0"
 libc = "0.2"
 core-foundation = "0.10.1"
 objc2 = "0.6.4"
+window-vibrancy = "0.7"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSAttributedString",
     "NSButton",
