@@ -1,4 +1,3 @@
-import { AlertTriangleIcon } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -32,11 +31,19 @@ export const TransparentUiSettings = () => {
     <>
       <div className="flex w-full items-center justify-between gap-4 py-6 xl:w-1/2">
         <div className="space-y-1">
-          <Label htmlFor={transparentUiId} className="text-lg">
-            {t("pages.settings.general.transparentUi.name")}
-          </Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor={transparentUiId} className="text-lg">
+              {t("pages.settings.general.transparentUi.name")}
+            </Label>
+            <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
+              {t("pages.settings.general.transparentUi.experimentalBadge")}
+            </span>
+          </div>
           <p className="text-muted-foreground text-sm">
             {t("pages.settings.general.transparentUi.description")}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {t("pages.settings.general.transparentUi.experimentalNote")}
           </p>
         </div>
 
@@ -45,11 +52,6 @@ export const TransparentUiSettings = () => {
           checked={settings.transparentUi}
           onCheckedChange={(value) => updateSettingAtom("transparentUi", value)}
         />
-      </div>
-
-      <div className="flex w-full items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm xl:w-1/2">
-        <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
-        <p>{t("pages.settings.general.transparentUi.experimentalNote")}</p>
       </div>
 
       {settings.transparentUi && (
