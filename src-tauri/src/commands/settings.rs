@@ -403,31 +403,56 @@ pub mod commands {
   /// CSS `backdrop-filter: blur`, which was measured to continuously pin the
   /// WebKit render/GPU processes on macOS (see #1718). No-op elsewhere.
   #[cfg(target_os = "macos")]
-  pub fn apply_window_vibrancy(app: &tauri::AppHandle, enabled: bool) {
-    use tauri::window::{Effect, EffectsBuilder};
+  pub fn apply_window_vibrancy(app: &tauri::AppHandle, glass_blur: u8) {
+    // window-vibrancy's apply/clear touch AppKit and MUST run on the main
+    // thread, but async Tauri commands run on a worker thread, so dispatch to
+    // the main thread (otherwise it fails with NotMainThread). Tauri's own
+    // `set_effects(None)` also does not reliably remove the NSVisualEffectView,
+    // so we use window-vibrancy's explicit apply/clear instead.
+    //
+    // glass_blur doubles as a frost-intensity level on macOS:
+    //   0 = off (clear), 1..=10 = low, 11..=20 = medium, 21.. = high.
+    let app_handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+      use window_vibrancy::{NSVisualEffectMaterial, apply_vibrancy, clear_vibrancy};
 
-    let Some(window) = app.get_webview_window("main") else {
-      return;
-    };
+      let Some(window) = app_handle.get_webview_window("main") else {
+        return;
+      };
 
-    let result = if enabled {
-      window.set_effects(EffectsBuilder::new().effect(Effect::HudWindow).build())
-    } else {
-      window.set_effects(None::<tauri::utils::config::WindowEffectsConfig>)
-    };
+      // apply_vibrancy ADDS an NSVisualEffectView (it does not replace an
+      // existing one), so switching materials just stacks views and the change
+      // is not visible. Remove any existing effect views first.
+      while clear_vibrancy(&window).unwrap_or(false) {}
 
-    if let Err(e) = result {
-      log_error!(
-        "Failed to update window vibrancy",
-        "settings::apply_window_vibrancy",
-        Some(e.to_string())
-      );
-    }
+      // Levels go weak -> strong as glass_blur increases. Materials are chosen
+      // by appearance (HudWindow reads lightest / most see-through, Sheet the
+      // most frosted); swap these if the feel is off.
+      let result = match glass_blur {
+        0 => Ok(()),
+        1..=10 => apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None),
+        11..=20 => apply_vibrancy(&window, NSVisualEffectMaterial::Menu, None, None),
+        _ => apply_vibrancy(
+          &window,
+          NSVisualEffectMaterial::UnderWindowBackground,
+          None,
+          None,
+        ),
+      };
+
+      if let Err(e) = result {
+        log_error!(
+          "Failed to update window vibrancy",
+          "settings::apply_window_vibrancy",
+          Some(format!("{e:?}"))
+        );
+      }
+    });
   }
 
   /// No-op on non-macOS platforms (native vibrancy is a macOS feature).
   #[cfg(not(target_os = "macos"))]
-  pub fn apply_window_vibrancy(_app: &tauri::AppHandle, _enabled: bool) {}
+  pub fn apply_window_vibrancy(_app: &tauri::AppHandle, _glass_blur: u8) {}
 
   #[tauri::command]
   #[specta::specta]
@@ -436,7 +461,7 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: bool,
   ) -> Result<(), String> {
-    let vibrancy_enabled;
+    let frost_level;
     {
       let mut settings = state.settings.lock().unwrap();
 
@@ -444,12 +469,11 @@ pub mod commands {
         emit_error(&window)?;
         return Err(e);
       }
-      // Native vibrancy is the frost: on only when transparency is on AND the
-      // (macOS) background-frost toggle (glass_blur) is non-zero.
-      vibrancy_enabled = new_value && settings.glass_blur > 0;
+      // Frost intensity follows glass_blur, but only while transparency is on.
+      frost_level = if new_value { settings.glass_blur } else { 0 };
     }
 
-    apply_window_vibrancy(window.app_handle(), vibrancy_enabled);
+    apply_window_vibrancy(window.app_handle(), frost_level);
     Ok(())
   }
 
@@ -476,7 +500,7 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: u8,
   ) -> Result<(), String> {
-    let vibrancy_enabled;
+    let frost_level;
     {
       let mut settings = state.settings.lock().unwrap();
 
@@ -484,11 +508,15 @@ pub mod commands {
         emit_error(&window)?;
         return Err(e);
       }
-      // On macOS the background-frost toggle maps to glass_blur (0 = off).
-      vibrancy_enabled = settings.transparent_ui && new_value > 0;
+      // Frost intensity follows glass_blur, but only while transparency is on.
+      frost_level = if settings.transparent_ui {
+        new_value
+      } else {
+        0
+      };
     }
 
-    apply_window_vibrancy(window.app_handle(), vibrancy_enabled);
+    apply_window_vibrancy(window.app_handle(), frost_level);
     Ok(())
   }
 

@@ -243,7 +243,10 @@ pub fn run() {
       // background-frost toggle (glass_blur) is non-zero, so the frosted glass is
       // composited by the OS instead of the costly CSS backdrop-filter blur
       // (see #1718). No-op on other platforms.
-      settings::commands::apply_window_vibrancy(app.handle(), transparent_ui && glass_blur > 0);
+      settings::commands::apply_window_vibrancy(
+        app.handle(),
+        if transparent_ui { glass_blur } else { 0 },
+      );
 
       // Real-time pipeline: collector publishes MetricsSnapshot to the
       // EventBus, WindowAdapter subscribes and emits HardwareMonitorUpdate.

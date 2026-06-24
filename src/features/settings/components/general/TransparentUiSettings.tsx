@@ -1,4 +1,5 @@
 import { platform } from "@tauri-apps/plugin-os";
+import { AlertTriangleIcon } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -10,9 +11,23 @@ const minWindowOpacity = 20;
 const maxWindowOpacity = 100;
 const minGlassBlur = 0;
 const maxGlassBlur = 30;
-// macOS uses native vibrancy (a fixed material, no adjustable radius), so the
-// blur control becomes an on/off toggle; this glass_blur value means "on".
-const macFrostBlur = 16;
+// On macOS glass_blur is a frost-intensity level mapped to a vibrancy material:
+// 0 = off, 1-10 = low, 11-20 = medium, 21+ = high. The macOS control is a
+// 4-step slider; macFrostStops is the glass_blur value stored per step.
+type MacFrostLevel = "off" | "low" | "medium" | "high";
+const macFrostStops = [0, 8, 16, 26];
+const glassBlurToMacFrostIndex = (v: number): number => {
+  if (v <= 0) return 0;
+  if (v <= 10) return 1;
+  if (v <= 20) return 2;
+  return 3;
+};
+const glassBlurToMacFrostLevel = (v: number): MacFrostLevel => {
+  if (v <= 0) return "off";
+  if (v <= 10) return "low";
+  if (v <= 20) return "medium";
+  return "high";
+};
 
 export const TransparentUiSettings = () => {
   const { t } = useTranslation();
@@ -32,6 +47,23 @@ export const TransparentUiSettings = () => {
     await updateSettingAtom("glassBlur", value[0]);
   };
 
+  const changeMacFrostLevel = async (value: number[]) => {
+    await updateSettingAtom("glassBlur", macFrostStops[value[0] ?? 0] ?? 0);
+  };
+
+  const macFrostLevelLabel = (): string => {
+    switch (glassBlurToMacFrostLevel(settings.glassBlur)) {
+      case "off":
+        return t("pages.settings.general.transparentUi.blurLevel.off");
+      case "low":
+        return t("pages.settings.general.transparentUi.blurLevel.low");
+      case "medium":
+        return t("pages.settings.general.transparentUi.blurLevel.medium");
+      default:
+        return t("pages.settings.general.transparentUi.blurLevel.high");
+    }
+  };
+
   return (
     <>
       <div className="flex w-full items-center justify-between gap-4 py-6 xl:w-1/2">
@@ -49,6 +81,11 @@ export const TransparentUiSettings = () => {
           checked={settings.transparentUi}
           onCheckedChange={(value) => updateSettingAtom("transparentUi", value)}
         />
+      </div>
+
+      <div className="flex w-full items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm xl:w-1/2">
+        <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-yellow-600" />
+        <p>{t("pages.settings.general.transparentUi.experimentalNote")}</p>
       </div>
 
       {settings.transparentUi && (
@@ -79,21 +116,22 @@ export const TransparentUiSettings = () => {
               <Label id={glassBlurLabelId} className="text-lg">
                 {t("pages.settings.general.transparentUi.blur")}
               </Label>
-              {!isMacOS && (
-                <span className="font-medium text-muted-foreground text-sm tabular-nums">
-                  {settings.glassBlur}px
-                </span>
-              )}
+              <span className="font-medium text-muted-foreground text-sm tabular-nums">
+                {isMacOS ? macFrostLevelLabel() : `${settings.glassBlur}px`}
+              </span>
             </div>
             {isMacOS ? (
-              // Native vibrancy has no adjustable radius, so expose an on/off
-              // toggle instead of a px slider on macOS.
-              <Switch
+              // Native vibrancy materials are discrete, so the macOS slider
+              // snaps to 4 steps (off / low / medium / high).
+              <Slider
+                id={glassBlurId}
                 aria-labelledby={glassBlurLabelId}
-                checked={settings.glassBlur > 0}
-                onCheckedChange={(value) =>
-                  updateSettingAtom("glassBlur", value ? macFrostBlur : 0)
-                }
+                min={0}
+                max={3}
+                step={1}
+                value={[glassBlurToMacFrostIndex(settings.glassBlur)]}
+                onValueChange={changeMacFrostLevel}
+                className="mt-4 w-full"
               />
             ) : (
               <Slider
