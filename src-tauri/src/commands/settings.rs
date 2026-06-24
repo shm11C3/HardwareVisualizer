@@ -396,6 +396,64 @@ pub mod commands {
     Ok(())
   }
 
+  /// Apply (or clear) native macOS window vibrancy.
+  ///
+  /// When enabled, installs an `NSVisualEffectView` behind the (transparent)
+  /// webview so the frosted-glass look is composited by the OS instead of the
+  /// CSS `backdrop-filter: blur`, which was measured to continuously pin the
+  /// WebKit render/GPU processes on macOS (see #1718). No-op elsewhere.
+  #[cfg(target_os = "macos")]
+  pub fn apply_window_vibrancy(app: &tauri::AppHandle, glass_blur: u8) {
+    // window-vibrancy's apply/clear touch AppKit and MUST run on the main
+    // thread, but async Tauri commands run on a worker thread, so dispatch to
+    // the main thread (otherwise it fails with NotMainThread). Tauri's own
+    // `set_effects(None)` also does not reliably remove the NSVisualEffectView,
+    // so we use window-vibrancy's explicit apply/clear instead.
+    //
+    // glass_blur doubles as a frost-intensity level on macOS:
+    //   0 = off (clear), 1..=10 = low, 11..=20 = medium, 21.. = high.
+    let app_handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+      use window_vibrancy::{NSVisualEffectMaterial, apply_vibrancy, clear_vibrancy};
+
+      let Some(window) = app_handle.get_webview_window("main") else {
+        return;
+      };
+
+      // apply_vibrancy ADDS an NSVisualEffectView (it does not replace an
+      // existing one), so switching materials just stacks views and the change
+      // is not visible. Remove any existing effect views first.
+      while clear_vibrancy(&window).unwrap_or(false) {}
+
+      // Levels go weak -> strong as glass_blur increases. Materials are chosen
+      // by appearance (HudWindow reads lightest / most see-through, Sheet the
+      // most frosted); swap these if the feel is off.
+      let result = match glass_blur {
+        0 => Ok(()),
+        1..=10 => apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None),
+        11..=20 => apply_vibrancy(&window, NSVisualEffectMaterial::Menu, None, None),
+        _ => apply_vibrancy(
+          &window,
+          NSVisualEffectMaterial::UnderWindowBackground,
+          None,
+          None,
+        ),
+      };
+
+      if let Err(e) = result {
+        log_error!(
+          "Failed to update window vibrancy",
+          "settings::apply_window_vibrancy",
+          Some(format!("{e:?}"))
+        );
+      }
+    });
+  }
+
+  /// No-op on non-macOS platforms (native vibrancy is a macOS feature).
+  #[cfg(not(target_os = "macos"))]
+  pub fn apply_window_vibrancy(_app: &tauri::AppHandle, _glass_blur: u8) {}
+
   #[tauri::command]
   #[specta::specta]
   pub async fn set_transparent_ui(
@@ -403,12 +461,19 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: bool,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
+    let frost_level;
+    {
+      let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_transparent_ui(new_value) {
-      emit_error(&window)?;
-      return Err(e);
+      if let Err(e) = settings.set_transparent_ui(new_value) {
+        emit_error(&window)?;
+        return Err(e);
+      }
+      // Frost intensity follows glass_blur, but only while transparency is on.
+      frost_level = if new_value { settings.glass_blur } else { 0 };
     }
+
+    apply_window_vibrancy(window.app_handle(), frost_level);
     Ok(())
   }
 
@@ -435,12 +500,23 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     new_value: u8,
   ) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
+    let frost_level;
+    {
+      let mut settings = state.settings.lock().unwrap();
 
-    if let Err(e) = settings.set_glass_blur(new_value) {
-      emit_error(&window)?;
-      return Err(e);
+      if let Err(e) = settings.set_glass_blur(new_value) {
+        emit_error(&window)?;
+        return Err(e);
+      }
+      // Frost intensity follows glass_blur, but only while transparency is on.
+      frost_level = if settings.transparent_ui {
+        new_value
+      } else {
+        0
+      };
     }
+
+    apply_window_vibrancy(window.app_handle(), frost_level);
     Ok(())
   }
 

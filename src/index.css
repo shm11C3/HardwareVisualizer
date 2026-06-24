@@ -539,6 +539,24 @@
   --transparent-backdrop-filter: blur(var(--transparent-backdrop-blur));
 }
 
+/*
+ * macOS: render the frosted glass natively via NSVisualEffectView (Tauri window
+ * effects, see #1718) instead of CSS. The web UI surfaces are painted OPAQUE so
+ * WebKit no longer alpha-composites every panel each frame (the measured cost),
+ * and the CSS backdrop-filter blur is dropped; the native vibrancy behind the
+ * (transparent) window provides the frosted translucency.
+ */
+.transparent-ui.native-vibrancy {
+  --transparent-backdrop-filter: none;
+  --transparent-surface-alpha: 100%;
+  --transparent-border-alpha: 100%;
+}
+
+.dark .transparent-ui.native-vibrancy {
+  --transparent-surface-alpha: 100%;
+  --transparent-border-alpha: 100%;
+}
+
 .dark .transparent-ui {
   --transparent-surface-alpha: var(--transparent-surface-opacity-percent, 44%);
   --transparent-border-alpha: 58%;

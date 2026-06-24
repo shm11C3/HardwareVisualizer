@@ -298,10 +298,17 @@
         },
         "transparentUi": {
           "name": "Transparent UI",
+          "experimentalBadge": "Experimental",
           "description": "Make the app background and panels transparent.",
-          "experimentalNote": "Experimental: transparent UI may cause visual glitches and can increase GPU usage and power consumption, especially on macOS.",
+          "experimentalNote": "This feature is still being refined and may cause display glitches in some environments.",
           "opacity": "Window opacity",
-          "blur": "Backdrop blur"
+          "blur": "Backdrop blur",
+          "blurLevel": {
+            "off": "Off",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High"
+          }
         },
         "closeToTray": {
           "name": "Close to tray instead of quitting",
