@@ -87,6 +87,7 @@ pub fn run() {
       hardware::get_memory_usage_history,
       hardware::get_gpu_usage_history,
       hardware::get_network_info,
+      hardware::get_super_io_chip_id_diagnostics,
       hardware::get_gpu_memory_usage,
       hardware::get_storage_health_latest_records,
       hardware::get_live_storage_health,

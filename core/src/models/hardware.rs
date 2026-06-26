@@ -106,6 +106,53 @@ pub struct MotherboardInfo {
   pub bios_release_date: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperIoChipIdDiagnostics {
+  pub platform_supported: bool,
+  pub pawnio: Option<PawnIoRuntimeDiagnostics>,
+  pub slots: Vec<SuperIoChipIdSlotProbe>,
+  pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PawnIoRuntimeDiagnostics {
+  pub install_location: Option<String>,
+  pub dll_path: Option<String>,
+  pub module_path: Option<String>,
+  pub pawnio_available: bool,
+  pub library_loadable: bool,
+  pub driver_openable: bool,
+  pub module_loadable: bool,
+  pub version: Option<u32>,
+  pub fallback_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperIoChipIdSlotProbe {
+  pub slot: u8,
+  pub index_port: u16,
+  pub data_port: u16,
+  pub attempts: Vec<SuperIoChipIdAttempt>,
+  pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperIoChipIdAttempt {
+  pub vendor: SuperIoVendor,
+  pub id_high: Option<u8>,
+  pub id_low: Option<u8>,
+  pub chip_id: Option<u16>,
+  pub absent: bool,
+  pub error: Option<String>,
+  pub exit_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SuperIoVendor {
+  Nuvoton,
+  Ite,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CpuInfo {
   pub name: String,

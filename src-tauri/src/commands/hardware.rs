@@ -189,6 +189,26 @@ pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
 }
 
 ///
+/// ## Get Super I/O chip-id diagnostics through PawnIO LpcIO
+///
+/// This diagnostic only reads raw chip-id registers (`0x20` / `0x21`) after
+/// the documented Nuvoton and ITE configuration-mode enter sequences. It does
+/// not read temperatures, fan counters, voltages, or any hardware-monitor data.
+///
+#[command]
+#[specta::specta]
+pub async fn get_super_io_chip_id_diagnostics()
+-> Result<models::hardware::SuperIoChipIdDiagnostics, String> {
+  use crate::services::hardware_service;
+
+  Ok(
+    hardware_service::get_super_io_chip_id_diagnostics()
+      .await
+      .into(),
+  )
+}
+
+///
 /// ## Get latest Storage Health records for the dashboard
 ///
 #[command]
