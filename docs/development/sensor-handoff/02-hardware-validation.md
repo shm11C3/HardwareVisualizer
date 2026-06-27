@@ -9,8 +9,12 @@ raw register dumps that Phase 3 / Phase 4 spec authoring needs.
 ## State
 
 - ✅ Nuvoton-class board: non-elevated access-denied + elevated chip-id captured.
+- ⚠️ Nuvoton-class board: elevated LDN B config-space base captured
+  (`CR30=0x09`, normal HM base `0x0290`, read-only HM base `0x0000`),
+  but `ioctl_find_bars=0x80070490` and `pio_outb(0x0295)=0x80070005`
+  blocked the temperature/RPM byte dump.
 - ⬜ ITE board, PawnIO-absent host, concurrent-monitor (HWiNFO / LHM / FanControl) behavior.
-- ⬜ Raw hardware-monitor register dumps for the detected chip(s) — the
+- ⬜ Raw hardware-monitor temperature/RPM byte dumps for the detected chip(s) — the
   primary input for clean-room Phase 3/4 specs.
 
 ## Paste this prompt into the next session
