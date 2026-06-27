@@ -21,9 +21,11 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   - re-pin provenance to `pawnio-interface.md` rev 4 and
     `superio-access.md` rev 3,
   - complete the implementer attestation box for ready specs,
-  - file and link the Phase 2 child issue under #1635,
   - decide `LpcIO.bin` distribution/bundling and LGPL third-party notice
     handling.
+- Phase 2 child tracking stays in #1732 and these handoff docs for now;
+  do not create a separate child issue unless the scope grows beyond the
+  chip-id diagnostic.
 - Next execution session: [02-hardware-validation.md](02-hardware-validation.md).
 
 ## Sessions
@@ -63,7 +65,7 @@ only a small diagnostic extension.
 - `src/rspc/bindings.ts` は生成物。必要なら `npm run tauri:dev` など既存の生成経路で更新し、手編集しない。
 - `superio-access.md` は `Implementation-ready (rev 3)` だが、ready範囲は Phase 2 raw chip-id diagnostic のみ。
 - chip-model mapping / hardware-monitor base discovery / temperature / fan RPM には、別途 ready spec が必要。
-- Draft PR #1732 は、PR本文の provenance re-pin / attestation / Phase 2 child issue link / `LpcIO.bin` distribution方針が未更新。
+- Draft PR #1732 は、PR本文の provenance re-pin / attestation / `LpcIO.bin` distribution方針が未更新。
 ```
 
 ## #1732 operating policy
@@ -71,8 +73,8 @@ only a small diagnostic extension.
 ```md
 # #1732 運用方針
 
-#1732 は、PR本文の provenance re-pin / attestation / Phase 2 child issue
-link / `LpcIO.bin` distribution方針が更新されるまでは Draft として維持する。
+#1732 は、PR本文の provenance re-pin / attestation / `LpcIO.bin`
+distribution方針が更新されるまでは Draft として維持する。
 
 このPRでやるのは:
 - LpcIOでchip IDを読む最初のdiagnostic
