@@ -12,7 +12,7 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   - Spec gate resolved by [#1734](https://github.com/shm11C3/HardwareVisualizer/pull/1734) (`a8c167b1`); `docs/specs/sensors/superio-access.md` is `Implementation-ready (rev 3)` for the **Phase 2 raw chip-id diagnostic scope only**.
   - Code: `core/src/infrastructure/providers/windows/super_io_diagnostics.rs` (chip-id `0x20`/`0x21` only), routed through the `SuperIoPlatform` trait + `PlatformFactory` (post-review refactor). Pure helpers in `core/src/utils/super_io.rs`.
   - Command: `get_super_io_chip_id_diagnostics` / TS `commands.getSuperIoChipIdDiagnostics()`.
-  - Hardware validation: Nuvoton-class board captured (non-elevated access-denied + elevated chip-id). **Still open:** ITE board, PawnIO-absent host, concurrent-monitor (HWiNFO / LHM / FanControl) behavior — fold these into the Phase 3 hardware-dump session below.
+  - Hardware validation: ✅ validated on a Nuvoton-class board (non-elevated access-denied + elevated chip-id), captured in #1732 — enough to unblock Phase 3 Nuvoton. **Non-blocking follow-ups:** ITE board, PawnIO-absent host, concurrent-monitor (HWiNFO / LHM / FanControl) behavior.
 - ⬜ **Phase 3** — Nuvoton NCT67xx/NCT679x register map (temps + fan RPM). **Spec not written.** ← current focus.
 - ⬜ **Phase 4** — ITE IT86xx/87xx register map (temps + fan RPM). **Spec not written.**
 
@@ -31,7 +31,7 @@ register dumps collected via [02](02-hardware-validation.md).
 | File | Session | Role | Current state |
 | --- | --- | --- | --- |
 | [01-spec-gate.md](01-spec-gate.md) | Resolve the `superio-access.md` draft gate | spec author | ✅ Done (#1734 / `a8c167b1`) |
-| [02-hardware-validation.md](02-hardware-validation.md) | Validate chip-id + capture register dumps on real Windows hardware | tester | 🔶 Partial (Nuvoton-class captured; ITE / PawnIO-absent / concurrent pending) |
+| [02-hardware-validation.md](02-hardware-validation.md) | Validate chip-id + capture register dumps on real Windows hardware | tester | ✅ Done for Nuvoton Phase 3 (#1732); ITE / PawnIO-absent / concurrent-monitor validation remains as non-blocking follow-up |
 | [07-phase3-nuvoton-spec.md](07-phase3-nuvoton-spec.md) | Author the Nuvoton register-map spec | spec author | ⬜ **Next** |
 | [08-phase4-ite-spec.md](08-phase4-ite-spec.md) | Author the ITE register-map spec | spec author | ⬜ Not started |
 | [03-chip-id-mapping.md](03-chip-id-mapping.md) | chip-id -> model mapping + hardware-monitor base discovery | clean-room implementer | ⬜ Blocked on ready Phase 3/4 specs |
@@ -40,8 +40,10 @@ register dumps collected via [02](02-hardware-validation.md).
 | [06-external-component-guidance.md](06-external-component-guidance.md) | PawnIO LpcIO guidance (separate from CPU-temp guidance) | implementer | ⬜ Blocked until motherboard-sensor failure states are defined |
 
 Recommended order from here:
-`02 dumps` → `07 (and/or 08) spec authoring` → `03 mapping + base discovery`
+`07 (and/or 08) spec authoring` → `03 mapping + base discovery`
 → `04 decode` → `05 metrics/UI` → `06 guidance`.
+Remaining 02 follow-ups (ITE / PawnIO-absent / concurrent monitors) are
+non-blocking for Nuvoton Phase 3 and can be captured alongside that work.
 Sessions 03/04/05/06 each become their own PR; split 04 per chip family
 (Nuvoton PR, then ITE PR).
 
