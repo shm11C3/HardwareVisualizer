@@ -19,13 +19,17 @@ const INTEL_MSR_MODULE_FILE: &str = "IntelMSR.amx";
 const INTEL_MSR_LEGACY_MODULE_FILE: &str = "IntelMSR.bin";
 const RYZEN_SMU_MODULE_FILE: &str = "RyzenSMU.amx";
 const RYZEN_SMU_LEGACY_MODULE_FILE: &str = "RyzenSMU.bin";
+const LPC_IO_MODULE_FILE: &str = "LpcIO.bin";
+const LPC_IO_LEGACY_MODULE_FILE: &str = "LpcIO.amx";
 
 pub(crate) const ACCESS_PCI_MUTEX: &str = "Global\\Access_PCI";
+pub(crate) const ACCESS_ISABUS_MUTEX: &str = "Global\\Access_ISABUS.HTP.Method";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PawnIoModule {
   IntelMsr,
   RyzenSmu,
+  LpcIo,
 }
 
 impl PawnIoModule {
@@ -33,6 +37,7 @@ impl PawnIoModule {
     match self {
       Self::IntelMsr => &[INTEL_MSR_MODULE_FILE, INTEL_MSR_LEGACY_MODULE_FILE],
       Self::RyzenSmu => &[RYZEN_SMU_MODULE_FILE, RYZEN_SMU_LEGACY_MODULE_FILE],
+      Self::LpcIo => &[LPC_IO_MODULE_FILE, LPC_IO_LEGACY_MODULE_FILE],
     }
   }
 
@@ -203,11 +208,57 @@ impl PawnIoClient {
       .map(|out| out[0])
   }
 
+  pub(crate) fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+    self.execute_no_output("ioctl_select_slot", &[slot])
+  }
+
+  pub(crate) fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+    self.execute_no_output("ioctl_pio_outb", &[port as u64, value as u64])
+  }
+
+  pub(crate) fn superio_inb(&self, register: u8) -> Result<u8, String> {
+    self
+      .execute("ioctl_superio_inb", &[register as u64])
+      .map(|out| out[0] as u8)
+  }
+
+  pub(crate) fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+    self.execute_no_output("ioctl_superio_outb", &[register as u64, value as u64])
+  }
+
   fn execute(&self, name: &str, input: &[u64]) -> Result<Vec<u64>, String> {
+    let output = self.execute_raw(name, input, 1)?;
+    if output.is_empty() {
+      return Err(format!("pawnio_execute {name} returned no output cells"));
+    }
+
+    Ok(output)
+  }
+
+  fn execute_no_output(&self, name: &str, input: &[u64]) -> Result<(), String> {
+    self.execute_raw(name, input, 0).map(|_| ())
+  }
+
+  fn execute_raw(
+    &self,
+    name: &str,
+    input: &[u64],
+    output_cells: usize,
+  ) -> Result<Vec<u64>, String> {
     let name =
       CString::new(name).map_err(|e| format!("invalid PawnIO function name: {e}"))?;
-    let mut output = [0_u64; 1];
+    // Always back the output pointer with at least one cell so PawnIOLib
+    // receives a valid, aligned, non-null pointer even for no-output IOCTLs,
+    // but tell it the true cell count (`output_cells`) so a 0-output IOCTL is
+    // never told it has space to write.
+    let mut output = vec![0_u64; output_cells.max(1)];
     let mut return_size = 0_usize;
+    // SAFETY: `self.handle` is returned by `pawnio_open` and kept alive by
+    // `PawnIoClient`; `name` is a NUL-terminated `CString` that outlives the
+    // call; `input` and `output` pointers reference valid contiguous `u64`
+    // buffers for the exact element counts passed to PawnIOLib. For no-output
+    // IOCTLs, `output_cells` is 0 but the backing vector still provides a
+    // non-null pointer and PawnIOLib receives an output count of 0.
     let hr = unsafe {
       (self.library.execute)(
         self.handle,
@@ -215,7 +266,7 @@ impl PawnIoClient {
         input.as_ptr(),
         input.len(),
         output.as_mut_ptr(),
-        output.len(),
+        output_cells,
         &mut return_size,
       )
     };
@@ -226,14 +277,8 @@ impl PawnIoClient {
         format_hresult(hr)
       ));
     }
-    if return_size == 0 {
-      return Err(format!(
-        "pawnio_execute {} returned no output cells",
-        name.to_string_lossy()
-      ));
-    }
 
-    Ok(output[..return_size.min(output.len())].to_vec())
+    Ok(output[..return_size.min(output_cells)].to_vec())
   }
 }
 
@@ -243,9 +288,11 @@ impl Drop for PawnIoClient {
   }
 }
 
-// SAFETY: the PawnIO handle is only used behind the process-wide CPU
-// temperature sampler mutex, and the DLL remains loaded for the full handle
-// lifetime through `PawnIoLibrary`.
+// SAFETY: the PawnIO handle is owned by `PawnIoClient` and closed exactly once
+// in `Drop`. Callers serialize stateful module transactions with the
+// appropriate ecosystem mutex (`Access_PCI` for SMN, `Access_ISABUS` for
+// Super I/O). The DLL remains loaded for the full handle lifetime through
+// `PawnIoLibrary`.
 unsafe impl Send for PawnIoClient {}
 
 type PawnIoVersion = unsafe extern "system" fn(*mut u32) -> i32;

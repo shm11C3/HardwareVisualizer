@@ -193,6 +193,58 @@ pub struct MotherboardInfo {
   pub bios_release_date: String,
 }
 
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SuperIoChipIdDiagnostics {
+  pub platform_supported: bool,
+  pub pawnio: Option<PawnIoRuntimeDiagnostics>,
+  pub slots: Vec<SuperIoChipIdSlotProbe>,
+  pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PawnIoRuntimeDiagnostics {
+  pub install_location: Option<String>,
+  pub dll_path: Option<String>,
+  pub module_path: Option<String>,
+  pub pawnio_available: bool,
+  pub library_loadable: bool,
+  pub driver_openable: bool,
+  pub module_loadable: bool,
+  pub version: Option<u32>,
+  pub fallback_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SuperIoChipIdSlotProbe {
+  pub slot: u8,
+  pub index_port: u16,
+  pub data_port: u16,
+  pub attempts: Vec<SuperIoChipIdAttempt>,
+  pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SuperIoChipIdAttempt {
+  pub vendor: SuperIoVendor,
+  pub id_high: Option<u8>,
+  pub id_low: Option<u8>,
+  pub chip_id: Option<u16>,
+  pub absent: bool,
+  pub error: Option<String>,
+  pub exit_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum SuperIoVendor {
+  Nuvoton,
+  Ite,
+}
+
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SysInfo {
@@ -402,6 +454,68 @@ impl From<core_hw::MotherboardInfo> for MotherboardInfo {
       bios_vendor: src.bios_vendor,
       bios_version: src.bios_version,
       bios_release_date: src.bios_release_date,
+    }
+  }
+}
+
+impl From<core_hw::SuperIoChipIdDiagnostics> for SuperIoChipIdDiagnostics {
+  fn from(src: core_hw::SuperIoChipIdDiagnostics) -> Self {
+    Self {
+      platform_supported: src.platform_supported,
+      pawnio: src.pawnio.map(Into::into),
+      slots: src.slots.into_iter().map(Into::into).collect(),
+      error: src.error,
+    }
+  }
+}
+
+impl From<core_hw::PawnIoRuntimeDiagnostics> for PawnIoRuntimeDiagnostics {
+  fn from(src: core_hw::PawnIoRuntimeDiagnostics) -> Self {
+    Self {
+      install_location: src.install_location,
+      dll_path: src.dll_path,
+      module_path: src.module_path,
+      pawnio_available: src.pawnio_available,
+      library_loadable: src.library_loadable,
+      driver_openable: src.driver_openable,
+      module_loadable: src.module_loadable,
+      version: src.version,
+      fallback_reason: src.fallback_reason,
+    }
+  }
+}
+
+impl From<core_hw::SuperIoChipIdSlotProbe> for SuperIoChipIdSlotProbe {
+  fn from(src: core_hw::SuperIoChipIdSlotProbe) -> Self {
+    Self {
+      slot: src.slot,
+      index_port: src.index_port,
+      data_port: src.data_port,
+      attempts: src.attempts.into_iter().map(Into::into).collect(),
+      error: src.error,
+    }
+  }
+}
+
+impl From<core_hw::SuperIoChipIdAttempt> for SuperIoChipIdAttempt {
+  fn from(src: core_hw::SuperIoChipIdAttempt) -> Self {
+    Self {
+      vendor: src.vendor.into(),
+      id_high: src.id_high,
+      id_low: src.id_low,
+      chip_id: src.chip_id,
+      absent: src.absent,
+      error: src.error,
+      exit_error: src.exit_error,
+    }
+  }
+}
+
+impl From<core_hw::SuperIoVendor> for SuperIoVendor {
+  fn from(src: core_hw::SuperIoVendor) -> Self {
+    match src {
+      core_hw::SuperIoVendor::Nuvoton => Self::Nuvoton,
+      core_hw::SuperIoVendor::Ite => Self::Ite,
     }
   }
 }

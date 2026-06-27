@@ -86,6 +86,18 @@ pub trait MotherboardPlatform: Send + Sync {
   >;
 }
 
+/// Trait that defines platform-specific Super I/O chip-id diagnostics.
+pub trait SuperIoPlatform: Send + Sync {
+  /// Read raw Super I/O chip-id diagnostics.
+  ///
+  /// This is a blocking, read-only probe. Platforms without a Super I/O
+  /// LpcIO path return a result with `platform_supported = false` rather
+  /// than erroring, so the caller can branch on support uniformly.
+  fn get_super_io_chip_id_diagnostics(
+    &self,
+  ) -> models::hardware::SuperIoChipIdDiagnostics;
+}
+
 /// Trait that defines process elevation operations.
 pub trait ProcessElevationPlatform: Send + Sync {
   /// Returns whether the current process is running with elevated privileges.
@@ -101,6 +113,7 @@ pub trait Platform:
   + GpuPlatform
   + NetworkPlatform
   + MotherboardPlatform
+  + SuperIoPlatform
   + ProcessElevationPlatform
 {
 }

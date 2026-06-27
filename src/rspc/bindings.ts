@@ -73,6 +73,14 @@ export const commands = {
 	// ## Get network information
 	getNetworkInfo: () => typedError<NetworkInfo[], BackendError>(__TAURI_INVOKE("get_network_info")),
 	/**
+	 *  ## Get Super I/O chip-id diagnostics through PawnIO LpcIO
+	 * 
+	 *  This diagnostic only reads raw chip-id registers (`0x20` / `0x21`) after
+	 *  the documented Nuvoton and ITE configuration-mode enter sequences. It does
+	 *  not read temperatures, fan counters, voltages, or any hardware-monitor data.
+	 */
+	getSuperIoChipIdDiagnostics: () => typedError<SuperIoChipIdDiagnostics, string>(__TAURI_INVOKE("get_super_io_chip_id_diagnostics")),
+	/**
 	 *  ## Get realtime GPU memory usage (best-effort)
 	 * 
 	 *  **Platform support**: Currently implemented only on macOS. On other
@@ -97,7 +105,7 @@ export const commands = {
 	getLiveStorageHealth: () => typedError<LiveStorageHealth[], string>(__TAURI_INVOKE("get_live_storage_health")),
 	/**
 	 *  ## Re-detect Storage Devices
-	 *
+	 * 
 	 *  Re-detects connected storage devices, refreshes the Live Storage
 	 *  Health cache, collects current Storage Health signals, updates
 	 *  today's Storage Health Records, and returns the latest active records
@@ -489,6 +497,18 @@ export type NetworkInfo = {
 	defaultIpv6Gateway: string[],
 };
 
+export type PawnIoRuntimeDiagnostics = {
+	installLocation: string | null,
+	dllPath: string | null,
+	modulePath: string | null,
+	pawnioAvailable: boolean,
+	libraryLoadable: boolean,
+	driverOpenable: boolean,
+	moduleLoadable: boolean,
+	version: number | null,
+	fallbackReason: string | null,
+};
+
 export type ProcessInfo = ProcessInfo_Serialize | ProcessInfo_Deserialize;
 
 export type ProcessInfo_Deserialize = {
@@ -571,6 +591,33 @@ export type StorageInfo = {
 
 export type StorageWarningLevel = "none" | "warning" | "critical" | "unknown";
 
+export type SuperIoChipIdAttempt = {
+	vendor: SuperIoVendor,
+	idHigh: number | null,
+	idLow: number | null,
+	chipId: number | null,
+	absent: boolean,
+	error: string | null,
+	exitError: string | null,
+};
+
+export type SuperIoChipIdDiagnostics = {
+	platformSupported: boolean,
+	pawnio: PawnIoRuntimeDiagnostics | null,
+	slots: SuperIoChipIdSlotProbe[],
+	error: string | null,
+};
+
+export type SuperIoChipIdSlotProbe = {
+	slot: number,
+	indexPort: number,
+	dataPort: number,
+	attempts: SuperIoChipIdAttempt[],
+	error: string | null,
+};
+
+export type SuperIoVendor = "nuvoton" | "ite";
+
 export type SysInfo = {
 	cpu: CpuInfo | null,
 	memory: MemoryInfo | null,
@@ -640,3 +687,4 @@ function makeEvent<T>(name: string) {
 
     return Object.assign(fn, base);
 }
+

@@ -98,6 +98,26 @@ pub async fn get_storage_health_latest_records()
   hardviz_core::infrastructure::database::storage_health::latest_records().await
 }
 
+pub async fn get_super_io_chip_id_diagnostics()
+-> hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
+  tokio::task::spawn_blocking(|| {
+    let platform =
+      PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+    Ok::<_, String>(platform.get_super_io_chip_id_diagnostics())
+  })
+  .await
+  .map_err(|e| format!("Failed to join Super I/O diagnostic task: {e}"))
+  .and_then(|result| result)
+  .unwrap_or_else(
+    |error| hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
+      platform_supported: cfg!(target_os = "windows"),
+      pawnio: None,
+      slots: Vec::new(),
+      error: Some(error),
+    },
+  )
+}
+
 ///
 /// Read Live Storage Health signals from the startup-cached device list
 /// (ADR 0006). Nothing is persisted.
@@ -200,5 +220,16 @@ mod tests {
       .expect_err("missing collector should be reported");
 
     assert!(error.contains("unavailable"));
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  #[tokio::test]
+  async fn super_io_chip_id_diagnostics_reports_unsupported_platform() {
+    let diagnostics = get_super_io_chip_id_diagnostics().await;
+
+    assert!(!diagnostics.platform_supported);
+    assert!(diagnostics.pawnio.is_none());
+    assert!(diagnostics.slots.is_empty());
+    assert!(diagnostics.error.unwrap().contains("Windows only"));
   }
 }
