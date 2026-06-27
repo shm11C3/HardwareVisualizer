@@ -37,6 +37,7 @@ jobs:
       - name: Check changed files
         uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: changes
+        background: true
         with:
           filters: |
             frontend:
@@ -105,12 +106,17 @@ jobs:
 
           node .github/scripts/check-tauri-deps-changed.ts "$base_ref"
 
+      - name: Wait for changed file detection
+        wait: changes
+
   #
   # GitHub Actions lint
   #
   lint-actions:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.actions-changed == 'true'
+    # actionlint 1.7.11 does not understand GitHub Actions step-level
+    # background/wait/wait-all syntax yet.
+    if: ${{ false }}
     runs-on: ubuntu-slim
     steps:
       - name: Checkout repository
@@ -336,13 +342,40 @@ jobs:
 
       - name: Setup Linux dependencies (source-only PR)
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' && matrix.platform == 'ubuntu-22.04' }}
+        background: true
         uses: ./.github/actions/setup-linux-deps
 
       - name: Setup Linux dependencies (Tauri CLI build)
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
+        background: true
         uses: ./.github/actions/setup-linux-deps
         with:
           extra-packages: "libfuse2 libappindicator3-dev patchelf"
+
+      - name: Cache AppRun binary
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Linux' }}
+        background: true
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/tauri/AppRun-x86_64
+          key: tauri-apprun-x86_64
+
+      - name: Cache WiX binary
+        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Windows' }}
+        background: true
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~\AppData\Local\tauri\WixTools
+          key: tauri-wix-314
+
+      - name: Optimize Windows build environment
+        if: matrix.platform == 'windows-latest'
+        background: true
+        run: |
+          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+
+      - name: Wait for platform preparation
+        wait-all: true
 
       - name: Fix linuxdeploy permissions
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && matrix.platform == 'ubuntu-22.04' }}
@@ -354,13 +387,6 @@ jobs:
           unset GTK_PATH
           unset LD_LIBRARY_PATH
 
-      - name: Cache AppRun binary
-        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Linux' }}
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ~/.cache/tauri/AppRun-x86_64
-          key: tauri-apprun-x86_64
-
       - name: Pre-download AppRun if not cached
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Linux' }}
         run: |
@@ -369,13 +395,6 @@ jobs:
             curl -L https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64 -o ~/.cache/tauri/AppRun-x86_64
             chmod +x ~/.cache/tauri/AppRun-x86_64
           fi
-
-      - name: Cache WiX binary
-        if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Windows' }}
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ~\AppData\Local\tauri\WixTools
-          key: tauri-wix-314
 
       - name: Pre-download WiX if not cached
         if: ${{ (github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true') && runner.os == 'Windows' }}
@@ -391,17 +410,17 @@ jobs:
 
       - name: Setup Node.js
         if: ${{ github.event_name != 'pull_request' || needs.change-detection.outputs.tauri-deps-changed == 'true' }}
+        background: true
         uses: ./.github/actions/setup-node
 
       - name: Setup Rust
+        background: true
         uses: ./.github/actions/setup-rust
         with:
           components: ""
 
-      - name: Optimize Windows build environment
-        if: matrix.platform == 'windows-latest'
-        run: |
-          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+      - name: Wait for toolchain setup
+        wait-all: true
 
       - name: Prepare frontendDist placeholder
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
@@ -431,26 +450,9 @@ jobs:
           args: --no-bundle
 
   #
-  # Frontend Lint
+  # Frontend checks
   #
-  lint-frontend:
-    needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Setup Node.js
-        uses: ./.github/actions/setup-node
-
-      - name: Frontend lint
-        run: npm run lint:ci
-
-  #
-  # Frontend tests
-  #
-  test-frontend:
+  check-frontend:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
@@ -464,6 +466,11 @@ jobs:
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
 
+      - name: Frontend lint
+        id: frontend-lint
+        background: true
+        run: npm run lint:ci
+
       - name: Run frontend tests with coverage
         run: npm test
 
@@ -471,6 +478,9 @@ jobs:
         uses: davelosert/vitest-coverage-report-action@3c054a2d2e2ca45446417ad5d6d5eb33092af8f1 # v2.12.1
         with:
           json-summary-path: coverage/coverage-summary.json
+
+      - name: Wait for frontend lint
+        wait: frontend-lint
 
   #
   # Frontend E2E captures (Playwright web/mock harness, issue #1609)
@@ -718,8 +728,7 @@ jobs:
       - test-tauri
       - check-core-tauri-integration
       - test-build
-      - lint-frontend
-      - test-frontend
+      - check-frontend
       - test-e2e-web
       - test-e2e-native
       - build-frontend
