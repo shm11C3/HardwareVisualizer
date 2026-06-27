@@ -34,7 +34,15 @@ Core:
 ```rust
 pub struct FanSpeed {
   pub name: String,
-  pub rpm: u32,
+  pub rpm: Option<u32>,
+  pub status: FanSpeedStatus,
+}
+
+pub enum FanSpeedStatus {
+  Active,
+  Stopped,
+  Disconnected,
+  Invalid,
 }
 
 pub struct MetricsSnapshot {
@@ -77,6 +85,7 @@ Frontend:
 - センサーがない場合はセクションを出さない
 - 温度単位は既存 `settings.temperatureUnit` に従う
 - fan RPMは単位変換しない
+- fan status は Active / Stopped / Disconnected / Invalid を区別する
 - CPU thermal zonesとは別セクションにする
 - Motherboard cardだけに表示する
 

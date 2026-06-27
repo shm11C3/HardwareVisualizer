@@ -10,8 +10,12 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   — `feat(sensors): Super I/O chip-id diagnostic via PawnIO LpcIO`
 - Branch: `feat/1635-superio-chip-id-diagnostics`
 - Base: `develop`
-- Current scope: read Super I/O chip-id registers (`0x20` / `0x21`)
-  through PawnIO `LpcIO`, nothing more.
+- Current scope: Phase 2 raw Super I/O chip-id diagnostic through PawnIO
+  `LpcIO`, covering slot 0 / slot 1 selection, Nuvoton and ITE
+  configuration-mode enter/exit sequences, chip-id register reads
+  (`0x20` / `0x21`), absent-id classification, and the
+  `Global\Access_ISABUS.HTP.Method` ISA mutex contract. It still reads no
+  hardware-monitor data.
 - Spec gate: resolved by
   [#1734](https://github.com/shm11C3/HardwareVisualizer/pull/1734)
   / commit `a8c167b1`. `docs/specs/sensors/superio-access.md` is now

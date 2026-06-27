@@ -61,12 +61,22 @@ pub struct MotherboardTemperature {
 
 pub struct MotherboardFanSpeed {
   pub name: String,
-  pub rpm: u32,
+  pub rpm: Option<u32>,
+  pub status: FanSpeedStatus,
   pub source: String,
+}
+
+pub enum FanSpeedStatus {
+  Active,
+  Stopped,
+  Disconnected,
+  Invalid,
 }
 ```
 
 ただし、最終的な `MetricsSnapshot` 接続は別セッションでもよい。
+decode flowでは tachometer raw value から `rpm` と `status` を分けて返す。
+実測0 RPM、停止、未接続、範囲外を同じ `0` に潰さない。
 
 # テスト方針
 

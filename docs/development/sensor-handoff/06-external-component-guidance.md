@@ -30,15 +30,12 @@ pawnio:cpu-package-temperature:v1
 pawnio:motherboard-sensors:v1
 ```
 
-またはより具体的に:
-
-```text
-pawnio-lpcio:motherboard-sensors:v1
-```
+このkeyを canonical value として使う。frontend copy、event handling、
+persisted guidance state、docs/user の案内で別名を作らない。
 
 # やること
 
-- key名を決める
+- `pawnio:motherboard-sensors:v1` を guidance key として実装する
 - `ExternalComponentUsage` に MotherboardSensors を追加するか検討
 - missing signals:
   - motherboard-temperature

@@ -2,15 +2,15 @@
 
 ## Goal
 
-Run Draft PR #1732's `getSuperIoChipIdDiagnostics()` command on real
-Windows self-built PC hardware and capture evidence.
+Run Draft PR #1732's Super I/O chip-id diagnostic on real Windows
+self-built PC hardware and capture evidence.
 
 ## Paste this prompt into the next session
 
 ```md
 # 目的
 
-Draft PR #1732 の `getSuperIoChipIdDiagnostics()` を Windows 自作PC実機で検証したい。
+Draft PR #1732 の Super I/O chip-id diagnostic を Windows 自作PC実機で検証したい。
 
 このセッションではコード追加よりも、実機からの証拠収集を優先する。
 
@@ -18,8 +18,9 @@ Draft PR #1732 の `getSuperIoChipIdDiagnostics()` を Windows 自作PC実機で
 
 PR #1732:
 - Branch: feat/1635-superio-chip-id-diagnostics
-- Command: `get_super_io_chip_id_diagnostics`
-- TS binding: `commands.getSuperIoChipIdDiagnostics()`
+- Session target: `getSuperIoChipIdDiagnostics()` diagnostic flow
+- Backend Tauri command: `get_super_io_chip_id_diagnostics`
+- TypeScript binding: `commands.getSuperIoChipIdDiagnostics()`
 
 # やること
 
