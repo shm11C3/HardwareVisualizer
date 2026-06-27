@@ -166,12 +166,13 @@ or unresolved blocking open question invalidates the flip.
 | [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, blob distribution (signed `.bin`), elevation requirement, licensing facts | Phase 1 | Implementation-ready (rev 4) |
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 | Implementation-ready (rev 2) |
 | [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 3) |
-| [`superio-access.md`](superio-access.md) | Generic Super I/O configuration access, chip detection, ISA mutex | Phases 2–4 (mechanism) | Draft — not implementation-ready |
+| [`superio-access.md`](superio-access.md) | Phase 2 raw Super I/O chip-id diagnostic: config port pairs, Nuvoton/ITE enter/exit, chip-id registers, absent-id classification, ISA mutex | Phase 2 | Implementation-ready (rev 3) |
 
-Per-chip Super I/O register maps (Nuvoton NCT67xx, ITE IT86xx/87xx) are
+Per-chip Super I/O register maps (Nuvoton NCT67xx, ITE IT86xx/87xx) and hardware-monitor base discovery are
 **not yet written**; they are the Phase 3 / Phase 4 deliverables and
 will be added as separate documents validated against user-submitted
-register dumps.
+register dumps. The current `superio-access.md` readiness is intentionally
+limited to the Phase 2 raw chip-id diagnostic scope.
 
 ## Safety policy (applies to all documents and implementations)
 
