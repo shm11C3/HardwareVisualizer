@@ -25,6 +25,11 @@ Super I/O chip detection / hardware-monitor base discovery の次段階として
 選んだ対象について、必要なspecが `Implementation-ready` になっているか確認する。
 Draftなら実装せず、spec gapを整理して終了する。
 
+想定spec:
+
+- Nuvoton: `docs/specs/sensors/superio-nuvoton-nct67xx.md`
+- ITE: `docs/specs/sensors/superio-ite-it86xx-it87xx.md`
+
 # 実装範囲
 
 対象chip familyについて:
