@@ -1,0 +1,1370 @@
+{
+  "schema": "hardwarevisualizer.superio-hm-dump.v1",
+  "capturedAt": "2026-06-28T02:14:37.4489581+09:00",
+  "dryRun": false,
+  "elevated": true,
+  "includeBaseDiscovery": true,
+  "includeHmRead": true,
+  "safety": {
+    "purpose": "Independent hardware-validation dump for spec authoring; not a production implementation path.",
+    "writesAllowed": [
+      "Super I/O configuration-mode entry/exit",
+      "Super I/O logical-device selection",
+      "Hardware Monitor index selection",
+      "Hardware Monitor bank selection when -IncludeHmRead is set"
+    ],
+    "writesProhibited": [
+      "fan-control/PWM registers",
+      "threshold/limit registers",
+      "alarm-clear registers",
+      "GPIO registers",
+      "activation registers"
+    ]
+  },
+  "machine": {
+    "baseBoard": {
+      "manufacturer": "NZXT",
+      "product": "N7 B650E",
+      "version": "Default string"
+    },
+    "processor": {
+      "manufacturer": "AuthenticAMD",
+      "name": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+      "cores": 8,
+      "logicalProcessors": 16
+    },
+    "operatingSystem": {
+      "caption": "Microsoft Windows 11 Pro",
+      "version": "10.0.26200",
+      "buildNumber": "26200",
+      "architecture": "64 ビット"
+    }
+  },
+  "pawnio": {
+    "installCandidates": [
+      "C:\\Program Files\\PawnIO",
+      "C:\\Program Files (x86)\\PawnIO"
+    ],
+    "dllPath": "C:\\Program Files\\PawnIO\\PawnIOLib.dll",
+    "modulePath": "C:\\Program Files\\PawnIO\\LpcIO.bin",
+    "libraryLoadable": true,
+    "version": 131072,
+    "versionHex": "0x00020000",
+    "open": {
+      "hresult": "0x00000000",
+      "succeeded": true
+    },
+    "moduleLoad": {
+      "hresult": "0x00000000",
+      "succeeded": true,
+      "bytes": 17388
+    },
+    "versionCall": {
+      "hresult": "0x00000000",
+      "succeeded": true
+    },
+    "close": {
+      "hresult": "0x00000000",
+      "succeeded": true
+    }
+  },
+  "mutex": {
+    "name": "Global\\Access_ISABUS.HTP.Method",
+    "source": "opened-existing",
+    "timeoutMs": 500,
+    "acquired": true
+  },
+  "slots": [
+    {
+      "slot": 0,
+      "indexPort": 46,
+      "indexPortHex": "0x002E",
+      "dataPort": 47,
+      "dataPortHex": "0x002F",
+      "selectSlot": {
+        "function": "ioctl_select_slot",
+        "input": [
+          0
+        ],
+        "hresult": "0x00000000",
+        "succeeded": true,
+        "returnSize": 0,
+        "output": [],
+        "error": null
+      },
+      "findBarsBeforeConfig": {
+        "function": "ioctl_find_bars",
+        "input": [],
+        "hresult": "0x80070490",
+        "succeeded": false,
+        "returnSize": 0,
+        "output": [],
+        "error": null
+      },
+      "attempts": [
+        {
+          "vendor": "nuvoton",
+          "error": null,
+          "exit": {
+            "function": "ioctl_pio_outb",
+            "input": [
+              46,
+              170
+            ],
+            "hresult": "0x00000000",
+            "succeeded": true,
+            "returnSize": 0,
+            "output": [],
+            "error": null
+          },
+          "chipId": {
+            "idHigh": 216,
+            "idHighHex": "0xD8",
+            "idLow": 2,
+            "idLowHex": "0x02",
+            "chipId": 55298,
+            "chipIdHex": "0xD802",
+            "absent": false
+          },
+          "baseDiscovery": {
+            "logicalDevice": 11,
+            "logicalDeviceHex": "0x0B",
+            "cr30": 9,
+            "cr30Hex": "0x09",
+            "activeBitSet": true,
+            "cr60": 2,
+            "cr60Hex": "0x02",
+            "cr61": 144,
+            "cr61Hex": "0x90",
+            "normalBase": 656,
+            "normalBaseHex": "0x0290",
+            "normalBaseValid": true,
+            "cr64": 0,
+            "cr64Hex": "0x00",
+            "cr65": 0,
+            "cr65Hex": "0x00",
+            "readOnlyBase": 0,
+            "readOnlyBaseHex": "0x0000",
+            "readOnlyBaseValid": false,
+            "findBarsInConfigMode": {
+              "function": "ioctl_find_bars",
+              "input": [],
+              "hresult": "0x00000000",
+              "succeeded": true,
+              "returnSize": 0,
+              "output": [],
+              "error": null
+            }
+          },
+          "hardwareMonitorDump": {
+            "note": "Raw dump only. Do not decode or ship from this output until the matching spec is implementation-ready.",
+            "baseAddress": 656,
+            "baseAddressHex": "0x0290",
+            "indexPort": 661,
+            "indexPortHex": "0x0295",
+            "dataPort": 662,
+            "dataPortHex": "0x0296",
+            "findBarsBeforeRead": {
+              "function": "ioctl_find_bars",
+              "input": [],
+              "hresult": "0x00000000",
+              "succeeded": true,
+              "returnSize": 0,
+              "output": [],
+              "error": null
+            },
+            "bankSelect": {
+              "indexRegisterWrite": {
+                "function": "ioctl_pio_outb",
+                "input": [
+                  661,
+                  78
+                ],
+                "hresult": "0x00000000",
+                "succeeded": true,
+                "returnSize": 0,
+                "output": [],
+                "error": null
+              },
+              "bankValueWrite": {
+                "function": "ioctl_pio_outb",
+                "input": [
+                  662,
+                  4
+                ],
+                "hresult": "0x00000000",
+                "succeeded": true,
+                "returnSize": 0,
+                "output": [],
+                "error": null
+              }
+            },
+            "bank4Reads": [
+              {
+                "register": 144,
+                "registerHex": "0x90",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    144
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    39
+                  ],
+                  "error": null
+                },
+                "value": 39,
+                "valueHex": "0x27"
+              },
+              {
+                "register": 145,
+                "registerHex": "0x91",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    145
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    35
+                  ],
+                  "error": null
+                },
+                "value": 35,
+                "valueHex": "0x23"
+              },
+              {
+                "register": 146,
+                "registerHex": "0x92",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    146
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    41
+                  ],
+                  "error": null
+                },
+                "value": 41,
+                "valueHex": "0x29"
+              },
+              {
+                "register": 147,
+                "registerHex": "0x93",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    147
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    15
+                  ],
+                  "error": null
+                },
+                "value": 15,
+                "valueHex": "0x0F"
+              },
+              {
+                "register": 148,
+                "registerHex": "0x94",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    148
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    19
+                  ],
+                  "error": null
+                },
+                "value": 19,
+                "valueHex": "0x13"
+              },
+              {
+                "register": 149,
+                "registerHex": "0x95",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    149
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    16
+                  ],
+                  "error": null
+                },
+                "value": 16,
+                "valueHex": "0x10"
+              },
+              {
+                "register": 176,
+                "registerHex": "0xB0",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    176
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    255
+                  ],
+                  "error": null
+                },
+                "value": 255,
+                "valueHex": "0xFF"
+              },
+              {
+                "register": 177,
+                "registerHex": "0xB1",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    177
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    31
+                  ],
+                  "error": null
+                },
+                "value": 31,
+                "valueHex": "0x1F"
+              },
+              {
+                "register": 178,
+                "registerHex": "0xB2",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    178
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    14
+                  ],
+                  "error": null
+                },
+                "value": 14,
+                "valueHex": "0x0E"
+              },
+              {
+                "register": 179,
+                "registerHex": "0xB3",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    179
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    30
+                  ],
+                  "error": null
+                },
+                "value": 30,
+                "valueHex": "0x1E"
+              },
+              {
+                "register": 180,
+                "registerHex": "0xB4",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    180
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    255
+                  ],
+                  "error": null
+                },
+                "value": 255,
+                "valueHex": "0xFF"
+              },
+              {
+                "register": 181,
+                "registerHex": "0xB5",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    181
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    31
+                  ],
+                  "error": null
+                },
+                "value": 31,
+                "valueHex": "0x1F"
+              },
+              {
+                "register": 182,
+                "registerHex": "0xB6",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    182
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    57
+                  ],
+                  "error": null
+                },
+                "value": 57,
+                "valueHex": "0x39"
+              },
+              {
+                "register": 183,
+                "registerHex": "0xB7",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    183
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    5
+                  ],
+                  "error": null
+                },
+                "value": 5,
+                "valueHex": "0x05"
+              },
+              {
+                "register": 184,
+                "registerHex": "0xB8",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    184
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    51
+                  ],
+                  "error": null
+                },
+                "value": 51,
+                "valueHex": "0x33"
+              },
+              {
+                "register": 185,
+                "registerHex": "0xB9",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    185
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    29
+                  ],
+                  "error": null
+                },
+                "value": 29,
+                "valueHex": "0x1D"
+              },
+              {
+                "register": 186,
+                "registerHex": "0xBA",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    186
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    255
+                  ],
+                  "error": null
+                },
+                "value": 255,
+                "valueHex": "0xFF"
+              },
+              {
+                "register": 187,
+                "registerHex": "0xBB",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    187
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    31
+                  ],
+                  "error": null
+                },
+                "value": 31,
+                "valueHex": "0x1F"
+              },
+              {
+                "register": 192,
+                "registerHex": "0xC0",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    192
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 193,
+                "registerHex": "0xC1",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    193
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 194,
+                "registerHex": "0xC2",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    194
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    11
+                  ],
+                  "error": null
+                },
+                "value": 11,
+                "valueHex": "0x0B"
+              },
+              {
+                "register": 195,
+                "registerHex": "0xC3",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    195
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    8
+                  ],
+                  "error": null
+                },
+                "value": 8,
+                "valueHex": "0x08"
+              },
+              {
+                "register": 196,
+                "registerHex": "0xC4",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    196
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 197,
+                "registerHex": "0xC5",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    197
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 198,
+                "registerHex": "0xC6",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    198
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    2
+                  ],
+                  "error": null
+                },
+                "value": 2,
+                "valueHex": "0x02"
+              },
+              {
+                "register": 199,
+                "registerHex": "0xC7",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    199
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    226
+                  ],
+                  "error": null
+                },
+                "value": 226,
+                "valueHex": "0xE2"
+              },
+              {
+                "register": 200,
+                "registerHex": "0xC8",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    200
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    3
+                  ],
+                  "error": null
+                },
+                "value": 3,
+                "valueHex": "0x03"
+              },
+              {
+                "register": 201,
+                "registerHex": "0xC9",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    201
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    44
+                  ],
+                  "error": null
+                },
+                "value": 44,
+                "valueHex": "0x2C"
+              },
+              {
+                "register": 202,
+                "registerHex": "0xCA",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    202
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 203,
+                "registerHex": "0xCB",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    203
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 204,
+                "registerHex": "0xCC",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    204
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    255
+                  ],
+                  "error": null
+                },
+                "value": 255,
+                "valueHex": "0xFF"
+              },
+              {
+                "register": 205,
+                "registerHex": "0xCD",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    205
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    31
+                  ],
+                  "error": null
+                },
+                "value": 31,
+                "valueHex": "0x1F"
+              },
+              {
+                "register": 206,
+                "registerHex": "0xCE",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    206
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              },
+              {
+                "register": 207,
+                "registerHex": "0xCF",
+                "writeIndex": {
+                  "function": "ioctl_pio_outb",
+                  "input": [
+                    661,
+                    207
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 0,
+                  "output": [],
+                  "error": null
+                },
+                "readData": {
+                  "function": "ioctl_pio_inb",
+                  "input": [
+                    662
+                  ],
+                  "hresult": "0x00000000",
+                  "succeeded": true,
+                  "returnSize": 1,
+                  "output": [
+                    0
+                  ],
+                  "error": null
+                },
+                "value": 0,
+                "valueHex": "0x00"
+              }
+            ]
+          }
+        },
+        {
+          "vendor": "ite",
+          "error": null,
+          "exit": {
+            "function": "ioctl_superio_outb",
+            "input": [
+              2,
+              2
+            ],
+            "hresult": "0x00000000",
+            "succeeded": true,
+            "returnSize": 0,
+            "output": [],
+            "error": null
+          },
+          "chipId": {
+            "idHigh": 255,
+            "idHighHex": "0xFF",
+            "idLow": 255,
+            "idLowHex": "0xFF",
+            "chipId": null,
+            "chipIdHex": null,
+            "absent": true
+          }
+        }
+      ]
+    },
+    {
+      "slot": 1,
+      "indexPort": 78,
+      "indexPortHex": "0x004E",
+      "dataPort": 79,
+      "dataPortHex": "0x004F",
+      "selectSlot": {
+        "function": "ioctl_select_slot",
+        "input": [
+          1
+        ],
+        "hresult": "0x00000000",
+        "succeeded": true,
+        "returnSize": 0,
+        "output": [],
+        "error": null
+      },
+      "findBarsBeforeConfig": {
+        "function": "ioctl_find_bars",
+        "input": [],
+        "hresult": "0x80070490",
+        "succeeded": false,
+        "returnSize": 0,
+        "output": [],
+        "error": null
+      },
+      "attempts": [
+        {
+          "vendor": "nuvoton",
+          "error": null,
+          "exit": {
+            "function": "ioctl_pio_outb",
+            "input": [
+              78,
+              170
+            ],
+            "hresult": "0x00000000",
+            "succeeded": true,
+            "returnSize": 0,
+            "output": [],
+            "error": null
+          },
+          "chipId": {
+            "idHigh": 255,
+            "idHighHex": "0xFF",
+            "idLow": 255,
+            "idLowHex": "0xFF",
+            "chipId": null,
+            "chipIdHex": null,
+            "absent": true
+          },
+          "baseDiscovery": null,
+          "hardwareMonitorDump": null
+        },
+        {
+          "vendor": "ite",
+          "error": null,
+          "exit": {
+            "function": "ioctl_superio_outb",
+            "input": [
+              2,
+              2
+            ],
+            "hresult": "0x00000000",
+            "succeeded": true,
+            "returnSize": 0,
+            "output": [],
+            "error": null
+          },
+          "chipId": {
+            "idHigh": 255,
+            "idHighHex": "0xFF",
+            "idLow": 255,
+            "idLowHex": "0xFF",
+            "chipId": null,
+            "chipIdHex": null,
+            "absent": true
+          }
+        }
+      ]
+    }
+  ],
+  "error": null
+}

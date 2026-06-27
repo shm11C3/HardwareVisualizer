@@ -1,292 +1,331 @@
-# Spec: Super I/O Nuvoton NCT67xx/NCT679x hardware-monitor reads
+# Nuvoton NCT67xx / NCT679x Super I/O Hardware Monitor Spec
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
-| Status | Draft — not implementation-ready |
-| Scope | Phase 3 Nuvoton-family register-map draft for motherboard temperature and fan RPM reads. Revision 3 pins NCT6796D-E/NCT6796D datasheet facts, records the mismatch between that datasheet and the observed `0xD802` hardware, records elevated `0xD802` configuration-space evidence, and keeps decode disabled until an exact-chip primary source plus hardware-monitor register bytes are available. Excludes voltage decode, fan-control/PWM writes, threshold/limit writes, alarm clearing, UI integration, and any Rust implementation. |
+| Revision | 5 |
+| Status | Implementation-ready (rev 5) |
+| Scope | Phase 3 Nuvoton-family motherboard temperature and fan RPM reads for the scoped `0xD802` / `NCT6799D` normal Hardware Monitor path. Revision 5 enables only read-oriented normal-HM banked access for bank 4 byte temperatures (`0x90`-`0x95`) and direct 16-bit RPM registers (`0xC0`-`0xCB`) after chip-id, LDN B, and HM-base validation. It excludes NCT6796D runtime enablement, exact package suffix claims such as `-R`, read-only HM access, voltage decode, count-based fan RPM decode, AUXFANIN4 / seventh fan decode, fan-control/PWM writes, threshold/limit writes, alarm clearing, GPIO, UI integration, and any Rust implementation. |
 | Issue phase | Phase 3 (#1635) - Nuvoton NCT67xx / NCT679x temperature and fan RPM specification |
 
-This revision is intentionally a **Draft**. It verifies the prior draft
-against the official NCT6796D datasheet and finds that the datasheet's
-configuration-space chip ID is `0xD421`, while the Phase 2 real board
-dump observed `0xD802`. Therefore the NCT6796D facts below are useful
-primary-source register-map evidence, but they do **not** prove that the
-observed board can safely use this map. A later elevated local probe
-confirmed that the `0xD802` responder exposes Logical Device B with
-normal HM base `0x0290`, but it did not capture temperature or fan RPM
-bytes. No implementation may use this document as a ready clean-room
-input until the blocking items in
-[Open questions](#open-questions) are resolved and the status is flipped
-using the checklist in [`README.md`](README.md).
+Revision 5 flips this document to **Implementation-ready** for a narrow
+scope. The official NCT6796D datasheet identifies NCT6796D as
+`0xD421`, so `0xD802` must not be treated as NCT6796D. The enabled
+`0xD802` scope is instead based on independent hardware evidence: the
+local NZXT N7 B650E dump proves the raw chip ID, normal HM base, and
+bank 4 reads on the target machine, and a public AIDA64 hardware dump
+from an ASUS ROG Strix X670E-F board maps raw device ID `D802h` to
+`NCT6799D` while corroborating the same normal HM base and bank 4
+register shape. The package suffix/revision remains unknown and must
+not be surfaced as `NCT6799D-R`.
 
 ## Sources
 
 | ID | Source | Notes |
 | --- | --- | --- |
-| S1 | Nuvoton, *NCT6796D LPC/eSPI SI/O Datasheet*, version 0.6, publication release date July 6, 2017; official PDF: `https://www.nuvoton.com/resource-files/NCT6796D_Datasheet_V0_6.pdf` | Primary source for NCT6796D register facts. Relevant pins: configuration protocol chapter 7, pp. 51-53; hardware-monitor LPC access chapter 8.3, pp. 54-55; temperature format chapter 8.6.3, pp. 60-62; fan speed reading chapter 8.8.1-8.8.3, pp. 66-67; fan count/RPM registers chapter 9.209-9.232, pp. 176-183; HM read-only register chapter 9.481, pp. 277-280; global chip ID CR20/CR21, p. 369; Logical Device B CR30/CR60-65, pp. 431-432. |
+| S1 | Nuvoton, *NCT6796D LPC/eSPI SI/O Datasheet*, version 0.6, publication release date July 6, 2017; official PDF: `https://www.nuvoton.com/resource-files/NCT6796D_Datasheet_V0_6.pdf` | Primary source for NCT6796D-only facts and family register semantics. Relevant pins: configuration protocol chapter 7, pp. 51-53; hardware-monitor LPC access chapter 8.3, pp. 54-55; temperature format chapter 8.6.3, pp. 60-62; fan speed reading chapter 8.8.1-8.8.3, pp. 66-67; fan count/RPM registers chapter 9.209-9.232, pp. 176-183; HM read-only register chapter 9.481, pp. 277-280; global chip ID CR20/CR21, p. 369; Logical Device B CR30/CR60-65, pp. 431-432. S1 does not identify `0xD802`. |
 | S2 | [`superio-access.md`](superio-access.md) revision 3 | Primary clean-room source for the Phase 2 Nuvoton configuration-mode key sequence, global chip-id register reads (`0x20` / `0x21`), absent-id classification, standard Super I/O configuration port pairs, and ISA mutex policy. |
 | S3 | HardwareVisualizer PR #1732 real-hardware diagnostic dump, captured 2026-06-27 on NZXT N7 B650E / AMD Ryzen 7 7800X3D / Windows 11 Pro | Independent hardware evidence for a reachable Nuvoton-class responder at slot 0 (`0x2E`/`0x2F`) with raw chip-id bytes `0xD8` / `0x02`; this is not the NCT6796D `0xD4` / `0x21` ID from S1. |
-| S4 | HardwareVisualizer issue #1635 clean-room policy and [`README.md`](README.md) status-transition rules | Project policy source for keeping copyleft implementations non-normative and for leaving unresolved datasheet/dump gaps as Draft-only open questions. |
-| S5 | Local standard-rights PawnIO probe on 2026-06-28 | Environment evidence only: `C:\Program Files\PawnIO` has `PawnIOLib.dll` and `LpcIO.bin`, PawnIO service is running, `pawnio_version` returned `0x00020000`, but `pawnio_open` returned `0x80070005` under medium integrity. No Phase 3 register dump was captured in this session. |
-| S6 | Local elevated PawnIO `LpcIO` probe on 2026-06-28, run from Administrator PowerShell on the S3-class machine | Independent hardware evidence: `pawnio_open`, `pawnio_load`, and `Global\Access_ISABUS.HTP.Method` mutex acquisition succeeded; slot 0 repeated `chipId=0xD802`; LDN B read `CR30=0x09`, `CR60/61=0x02/0x90` (`HM base=0x0290`), and `CR64/65=0x00/0x00` (no valid read-only HM base). `ioctl_find_bars` returned `0x80070490`, and a normal HM index-port write to `0x0295` returned `0x80070005`, so no temperature or fan RPM bytes were captured. |
+| S4 | HardwareVisualizer issue #1635 clean-room policy and [`README.md`](README.md) status-transition rules | Project policy source for keeping copyleft implementations non-normative and for allowing independently collected hardware dumps to verify facts when primary section/page references are unavailable. |
+| S5 | Local standard-rights PawnIO probe on 2026-06-28 | Environment evidence only: `C:\Program Files\PawnIO` has `PawnIOLib.dll` and `LpcIO.bin`, PawnIO service is running, `pawnio_version` returned `0x00020000`, but `pawnio_open` returned `0x80070005` under medium integrity. |
+| S6 | Local elevated PawnIO `LpcIO` probe on 2026-06-28, run from Administrator PowerShell on the S3-class machine | Independent hardware evidence for the pre-fix blocker: `pawnio_open`, `pawnio_load`, and `Global\Access_ISABUS.HTP.Method` mutex acquisition succeeded; slot 0 repeated `chipId=0xD802`; LDN B read `CR30=0x09`, `CR60/61=0x02/0x90` (`HM base=0x0290`), and `CR64/65=0x00/0x00` (no valid read-only HM base). `ioctl_find_bars` returned `0x80070490`, and a normal HM index-port write to `0x0295` returned `0x80070005`, so no temperature or fan RPM bytes were captured in that run. |
+| S7 | [`docs/development/sensor-handoff/evidence/2026-06-28-superio-hm-dump-admin.md`](../../development/sensor-handoff/evidence/2026-06-28-superio-hm-dump-admin.md) and raw JSON captured from Administrator PowerShell on the S3-class machine | Independent local hardware evidence resolving the local HM byte-dump blocker: after slot selection, Nuvoton configuration-mode entry, LDN B selection, and `ioctl_find_bars`, bank select (`0x4E=0x04`) and all requested bank 4 reads (`0x90`-`0x95`, `0xB0`-`0xBB`, `0xC0`-`0xCF`) succeeded through normal HM ports `0x0295`/`0x0296`. |
+| S8 | [`docs/development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-source-hunt.md`](../../development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-source-hunt.md) | Source-hunt evidence: public Nuvoton product-selection data and direct public URL probes did not expose an NCT6799D/NCT6799D-R datasheet or product page; third-party board photos and public user reports suggest NCT6799D-R, while the later independent AIDA64 dump supports `NCT6799D` for raw ID `0xD802`. |
+| S9 | [`docs/development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-aida64-dump.md`](../../development/sensor-handoff/evidence/2026-06-28-nuvoton-0xd802-aida64-dump.md), summarizing public AIDA64 text dumps attached to LibreHardwareMonitor issue #1720 | Independent dump evidence from an ASUS ROG Strix X670E-F Gaming WiFi board. The dump reports raw Super I/O device ID `D802h` and labels it `NCT6799D`; it records normal HM base `0x0290`, read-only HM base `0x0A00` on that board, bank 4 temperature bytes, and bank 4 direct RPM-style bytes. This is dump output only, not implementation source code. |
 
 No LibreHardwareMonitor, OpenHardwareMonitor, Linux kernel, lm-sensors,
 or decompiled monitoring-tool source is a normative source for this
-revision. No fact below rests on those implementations.
+revision. S9 uses public hardware dump text attached to an issue; no
+AIDA64 source, binary, disassembly, or implementation structure was
+consulted, and no fact below rests on LibreHardwareMonitor code.
 
 ## Validation outcome
 
-Revision 3 does **not** pass the implementation-ready gate:
+Revision 5 passes the implementation-ready gate for the scoped
+`0xD802` / `NCT6799D` normal-HM read path:
 
-- The only official datasheet fetched and verified in this session is
-  NCT6796D/NCT6796D-E. It identifies global CR20/CR21 as `0xD4`/`0x21`
-  (`chipId=0xD421`), not the observed board's `0xD8`/`0x02`
-  (`chipId=0xD802`). (S1, S3)
-- The observed `0xD802` chip still needs an exact primary-source model
-  mapping or an exact-chip datasheet. (S3)
-- Elevated PawnIO access captured the observed chip's LDN B activation
-  and normal HM base, but PawnIO `LpcIO` did not permit the normal HM
-  index/data port transaction, so no temperature or fan RPM register
-  bytes were captured. (S6)
+- Exact chip identity: S9 independently maps raw `D802h` to `NCT6799D`.
+  S3/S7 prove the local target board exposes the same raw chip ID. The
+  package suffix/revision is not proven and remains out of scope. (S3,
+  S7, S9)
+- HM base and bank selection: S7 proves the local target board exposes
+  LDN B normal HM base `0x0290` and can select bank 4 through normal HM
+  ports after `ioctl_find_bars` succeeds. S9 corroborates normal HM base
+  `0x0290` on another `D802h` / NCT6799D board. (S7, S9)
+- Temperature bytes: S7 captures local bank 4 `0x90`-`0x95`; S9 captures
+  the same bank/register set and a repeated temperature sampling table
+  at `0490`-`0495`. (S7, S9)
+- Fan/RPM bytes: S7 captures local direct RPM register bytes at
+  `0xC0`-`0xCB`; S9 captures non-zero direct high/low values at the same
+  six register pairs. Zero direct RPM is treated as stopped-or-unconnected,
+  not as a read failure. (S7, S9)
+- Remaining uncertainties are explicitly non-blocking or disabled in
+  [Open questions](#open-questions) and [Scoped enablement](#scoped-enablement).
 
 ## Detection
 
-### Applicability
+### Chip identity and base facts
 
 | Fact | Source |
 | --- | --- |
-| This document applies only after a Nuvoton-compatible Super I/O responder is detected through the Phase 2 configuration-mode diagnostic path. The diagnostic reads global chip-id bytes from configuration registers `0x20` and `0x21` while holding `Global\Access_ISABUS.HTP.Method`. | S2 |
-| A raw chip-id reading of `0x00`/`0x00` or `0xFF`/`0xFF` is treated as absent/no usable responder for the Phase 2 diagnostic. Mixed values must stay visible as raw bytes for triage. | S2 |
-| NCT6796D's global CR20 high byte is `0xD4` and CR21 low byte is `0x21`, so the configuration-space chip ID is `0xD421`. | S1 p. 369 |
-| The observed Nuvoton-class board in S3 responded on slot 0 (`0x2E` index / `0x2F` data) with `idHigh=0xD8`, `idLow=0x02`, combined `chipId=0xD802`. | S3 |
-| The observed `0xD802` responder is not proven to be NCT6796D/NCT6796D-E by S1 and must remain disabled for NCT6796D-specific decode. | S1, S3 |
-| The elevated S6 probe on the observed `0xD802` board read LDN B `CR30=0x09`, normal HM base `0x0290`, and read-only HM base `0x0000`. The normal HM base is reachable in configuration space, but no sensor-byte read was completed through PawnIO. | S6 |
+| Use the Phase 2 Nuvoton Super I/O config-entry sequence and read global `CR20`/`CR21` as raw chip-id high/low bytes. | S2 |
+| NCT6796D/NCT6796D-E's global CR20 high byte is `0xD4` and CR21 low byte is `0x21`, so its configuration-space chip ID is `0xD421`. This is not the enabled `0xD802` scope. | S1 p. 369 |
+| The observed local board in S3/S7 responded on slot 0 (`0x2E` index / `0x2F` data) with `idHigh=0xD8`, `idLow=0x02`, combined `chipId=0xD802`. | S3, S7 |
+| The independent S9 AIDA64 dump reports raw device ID `D802h` and labels that responder `NCT6799D`; the same dump's per-LDN config tables show CR20/CR21 as `D8 02`. | S9 |
+| The enabled runtime identity is therefore raw chip ID `0xD802` / `NCT6799D`. Do not claim package suffix `-R`, OEM variant, or package revision. | S7, S9 |
+| The local S7 board reads LDN B `CR30=0x09`, normal HM base `0x0290`, and read-only HM base `0x0000`; the S9 board reads normal HM base `0x0290` and read-only HM base `0x0A00`. The enabled path uses only the normal HM base. | S7, S9 |
+| On the local board, `ioctl_find_bars` failed before configuration/base discovery (`0x80070490`) but succeeded after Nuvoton configuration-mode entry and LDN B/base discovery. After that, normal HM bank select and reads through `0x0295`/`0x0296` succeeded. | S7 |
 
 ### Scoped enablement
 
 | Scope | Status | Default enablement |
 | --- | --- | --- |
-| Nuvoton responder detection using Phase 2 raw chip-id bytes | Ready only through `superio-access.md` rev 3; this document references the diagnostic result but does not change the Phase 2 ready scope. | Existing diagnostic may remain enabled. |
-| NCT6796D/NCT6796D-E chip-id mapping (`0xD421`) | Primary-source pinned from S1, but not hardware-validated on the S3 board. | Disabled until an NCT6796D/NCT6796D-E hardware dump is captured, or until scope is explicitly limited to datasheet-only support. |
-| Observed chip-id `0xD802` | Draft. Observed in S3, but exact Nuvoton model/revision is unresolved. S1 disproves treating it as NCT6796D. | Disabled. |
-| Hardware Monitor logical-device selection and base discovery | Draft. NCT6796D facts are pinned from S1; the observed `0xD802` board partially matches the LDN B/base shape with `CR30=0x09` and HM base `0x0290`, but the exact chip remains unresolved and the read-only HM base is `0x0000`. | Disabled. |
-| Temperature register reads | Draft. NCT6796D register facts are pinned from S1, but S6 did not capture hardware-monitor temperature bytes for the observed board. | Disabled. |
-| Fan tachometer / RPM reads | Draft. NCT6796D register facts are pinned from S1, but S6 did not capture hardware-monitor fan count/RPM bytes for the observed board. | Disabled. |
+| Nuvoton responder detection using Phase 2 raw chip-id bytes | Ready through `superio-access.md` rev 3; this document references the diagnostic result but does not change the Phase 2 scope. | Existing diagnostic may remain enabled. |
+| NCT6796D/NCT6796D-E chip-id mapping (`0xD421`) | Primary-source pinned from S1, but not hardware-validated on the S3 board and not needed for the rev 5 ready scope. | Disabled. |
+| `0xD802` / `NCT6799D` chip-id mapping | Ready for the normal HM read scope. S7 proves the local raw ID; S9 independently maps `D802h` to `NCT6799D`. | Enabled for the scoped Phase 3 normal-HM reads. |
+| Normal HM logical-device selection and base discovery | Ready for `0xD802`: select LDN B, read `CR30`, read `CR60/61`, validate normal HM base, then use base+`0x05`/base+`0x06`. | Enabled for `0xD802` only. |
+| Read-only HM base (`CR64/65`) | Board-variable in evidence: local S7 is `0x0000`, S9 is `0x0A00`. The ready scope does not need it. | Disabled. |
+| Bank 4 byte temperature reads `0x90`-`0x95` | Ready for `0xD802` / NCT6799D normal HM access, validated by S7 and S9. | Enabled with generic source labels. |
+| Direct 16-bit fan RPM reads `0xC0`-`0xCB` | Ready for six generic fan inputs on `0xD802` / NCT6799D normal HM access, validated by S7 and S9. | Enabled with generic fan labels. |
+| Count-based fan reads `0xB0`-`0xBB` | Captured by S7/S9 but unnecessary while direct RPM registers are available. | Disabled. |
+| AUXFANIN4 / seventh fan path `0xCC`-`0xCF` | Captured by S7/S9 but not required for the ready scope and not enough to assign a board-stable label. | Disabled. |
 
 ## Register map facts
 
 ### Configuration-space fields needed before hardware-monitor access
 
-These fields are NCT6796D facts from S1. They are not implementation-ready
-for the observed S3 hardware while the exact `0xD802` model is unresolved.
+These facts are implementation-ready only for the `0xD802` / NCT6799D
+normal-HM scope unless the row explicitly says otherwise.
 
 | Address | Name | Bits | Meaning | Units / encoding | Source |
 | --- | --- | --- | --- | --- | --- |
-| `0x20` | Chip ID high byte | `7:0` | NCT6796D high byte `0xD4`. | Raw byte | S1 p. 369 |
-| `0x21` | Chip ID low byte | `7:0` | NCT6796D low byte `0x21`. | Raw byte | S1 p. 369 |
-| `0x07` | Logical Device Number select | `7:0` | Selects which logical device's registers are accessed at indexes `0x30` and above. | Raw logical-device number | S1 pp. 51-52 |
-| `0x0B` | Logical Device B / Hardware Monitor logical device | `7:0` | Selects Logical Device B, whose CR30 enables Hardware Monitor & SB-TSI and whose CR60/61 and CR64/65 define HM base addresses. | Raw logical-device number | S1 pp. 431-432 |
-| `0x30` after LDN `0x0B` | Hardware Monitor & SB-TSI activation | bit `0` | `0` inactive, `1` active. Discovery may read this bit. This spec does not permit writing it. | Boolean active bit | S1 p. 431 |
-| `0x60` / `0x61` after LDN `0x0B` | HM base address | `15:0` | Selects the normal Hardware Monitor base address in `<0x100:0xFFE>` on a 2-byte boundary. | I/O base address | S1 p. 431 |
-| `0x64` / `0x65` after LDN `0x0B` | Read-only HM base address | `15:0` | Selects the read-only Hardware Monitor base address in `<0x100:0xFFE>` on a 2-byte boundary. | I/O base address | S1 p. 431 |
+| `0x20` | Chip ID high byte | `7:0` | `0xD8` for the enabled `0xD802` / NCT6799D scope. `0xD4` identifies NCT6796D/NCT6796D-E but that scope is disabled in rev 5. | Raw byte | S7, S9; S1 p. 369 for disabled `0xD421` |
+| `0x21` | Chip ID low byte | `7:0` | `0x02` for the enabled `0xD802` / NCT6799D scope. `0x21` identifies NCT6796D/NCT6796D-E but that scope is disabled in rev 5. | Raw byte | S7, S9; S1 p. 369 for disabled `0xD421` |
+| `0x07` | Logical Device Number select | `7:0` | Selects which logical device's registers are accessed at indexes `0x30` and above. | Raw logical-device number | S1 pp. 51-52, S2 |
+| `0x0B` | Logical Device B / Hardware Monitor logical device | `7:0` | Selects Logical Device B, whose CR30 enables Hardware Monitor & SB-TSI and whose CR60/61 and CR64/65 define HM base addresses. | Raw logical-device number | S1 pp. 431-432; S7, S9 |
+| `0x30` after LDN `0x0B` | Hardware Monitor & SB-TSI activation | bit `0` | `0` inactive, `1` active. Discovery may read this bit. This spec does not permit writing it. Higher bits are not interpreted by this revision. | Boolean active bit | S1 p. 431; S7 observed `0x09`; S9 observed `0x03` |
+| `0x60` / `0x61` after LDN `0x0B` | Normal HM base address | `15:0` | Selects the normal Hardware Monitor base address. The enabled scope requires a valid base; local and independent dumps observed `0x0290`. | I/O base address | S1 p. 431; S7, S9 |
+| `0x64` / `0x65` after LDN `0x0B` | Read-only HM base address | `15:0` | Optional read-only Hardware Monitor base. This revision records the value but does not use this path because evidence differs by board. | I/O base address | S1 p. 431; S7 observed `0x0000`; S9 observed `0x0A00` |
 
-### Hardware-monitor I/O access fields
+### Hardware-monitor access registers
 
-| Address | Name | Bits | Meaning | Units / encoding | Source |
-| --- | --- | --- | --- | --- | --- |
-| `base + 0x05` | Hardware Monitor address/index port | `7:0` | I/O port used to select a hardware-monitor internal register; standard index/data locations are usually `0x295`/`0x296`. | Port offset from discovered HM base | S1 pp. 54-55 |
-| `base + 0x06` | Hardware Monitor data port | `7:0` | I/O port used to read or write the selected hardware-monitor internal register. | Port offset from discovered HM base | S1 pp. 54-55 |
-| internal `0x4E` | Hardware Monitor bank-select register | `7:0` | Selects the bank for banked hardware-monitor internal registers. Bank writes are allowed only as read-transaction plumbing. | Bank selector | S1 p. 55 |
+For normal HM access, the enabled `0xD802` scope uses the base from
+LDN B `CR60/61` and these offsets:
 
-### Temperature sensor registers
+| Relative offset | Register | Access | Meaning | Source |
+| --- | --- | --- | --- | --- |
+| `+0x05` | HM index port | Write | Selects a Hardware Monitor register index. With base `0x0290`, this is port `0x0295`. | S1 pp. 54-55; S7, S9 |
+| `+0x06` | HM data port | Read/write for read plumbing | Reads the selected Hardware Monitor register; also receives the bank value after selecting the bank register. With base `0x0290`, this is port `0x0296`. | S1 pp. 54-55; S7, S9 |
+| HM index `0x4E` | Bank select register | Write for read plumbing | Selects the bank used by subsequent banked HM register reads. Write data value `0x04` to access bank 4. | S1 p. 176; S7, S9 |
 
-NCT6796D exposes SYSTIN, CPUTIN, AUXTIN0, AUXTIN1, AUXTIN2, AUXTIN3,
-and AUXTIN4 temperature values. The data format for those sensors is
-9-bit two's-complement with 0.5 C resolution when using the high/low
-temperature-source registers. The HM read-only table also exposes byte
-temperature readings for all seven sources. (S1 pp. 60-62, 277-280)
+Required writes in this table are read-transaction plumbing only. They
+must not be generalized to fan-control, threshold, alarm, GPIO, or
+activation writes.
 
-| Access path | Address | Name | Meaning | Units / encoding | Source |
-| --- | --- | --- | --- | --- | --- |
-| Read-only HM base | offset `0x10` | SYSTIN temperature reading | System temperature input. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Read-only HM base | offset `0x11` | CPUTIN temperature reading | CPU socket/board temperature input. Distinct from Phase 1 CPU package temperature. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Read-only HM base | offset `0x12` | AUXTIN0 temperature reading | Auxiliary temperature input 0. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Read-only HM base | offset `0x13` | AUXTIN1 temperature reading | Auxiliary temperature input 1. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Read-only HM base | offset `0x14` | AUXTIN2 temperature reading | Auxiliary temperature input 2. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Read-only HM base | offset `0x15` | AUXTIN3 temperature reading | Auxiliary temperature input 3. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Read-only HM base | offset `0x16` | AUXTIN4 temperature reading | Auxiliary temperature input 4. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 pp. 277-278 |
-| Banked HM registers | bank `0x04`, indexes `0x90`-`0x95` | SYSTIN through AUXTIN3 temperature readings | Alternate banked readings for SYSTIN, CPUTIN, and AUXTIN0-3. AUXTIN4 is not listed in this table. | Byte temperature reading; exact signedness/invalid handling still needs dump verification before enablement. | S1 p. 176 |
+### Temperature registers
+
+Bank 4 byte temperature registers are ready for the enabled `0xD802` /
+NCT6799D normal-HM scope:
+
+| Bank | Register | Generic source label | Decode | Source |
+| --- | --- | --- | --- | --- |
+| `0x04` | `0x90` | SYSTIN | signed 8-bit degrees C | S1 p. 176; S7, S9 |
+| `0x04` | `0x91` | CPUTIN | signed 8-bit degrees C | S1 p. 176; S7, S9 |
+| `0x04` | `0x92` | AUXTIN0 | signed 8-bit degrees C | S1 p. 176; S7, S9 |
+| `0x04` | `0x93` | AUXTIN1 | signed 8-bit degrees C | S1 p. 176; S7, S9 |
+| `0x04` | `0x94` | AUXTIN2 | signed 8-bit degrees C | S1 p. 176; S7, S9 |
+| `0x04` | `0x95` | AUXTIN3 | signed 8-bit degrees C | S1 p. 176; S7, S9 |
+
+S7 captured these local raw bank 4 temperature bytes on the observed
+NZXT N7 B650E `0xD802` board:
+
+| Register | Raw value |
+| --- | --- |
+| `0x90` | `0x27` |
+| `0x91` | `0x23` |
+| `0x92` | `0x29` |
+| `0x93` | `0x0F` |
+| `0x94` | `0x13` |
+| `0x95` | `0x10` |
+
+S9 independently captured the same bank/register set on an ASUS ROG
+Strix X670E-F `D802h` / NCT6799D board:
+
+| Register | Raw value |
+| --- | --- |
+| `0x90` | `0x20` |
+| `0x91` | `0x24` |
+| `0x92` | `0x11` |
+| `0x93` | `0x16` |
+| `0x94` | `0x16` |
+| `0x95` | `0x0E` |
 
 ### Fan tachometer / RPM registers
 
-NCT6796D provides 13-bit fan count readings and 16-bit direct fan RPM
-readings. For 13-bit count reads, the datasheet requires reading the
-high byte first, then the low byte. `RPM = 1.35e6 / count`. For 16-bit
-RPM reads, the datasheet requires reading the high byte first, then the
-low byte; the combined 16-bit value is the RPM value in decimal. (S1
-p. 66)
+The rev 5 ready scope enables direct 16-bit RPM registers only. Count
+registers were captured but remain disabled because direct RPM registers
+avoid count-to-RPM conversion ambiguity and were validated on both S7
+and S9 evidence.
 
-| Fan input | 13-bit count registers | 16-bit RPM registers | Read order / conversion | Source |
-| --- | --- | --- | --- | --- |
-| SYSFANIN | bank `0x04`, high `0xB0`, low `0xB1` | bank `0x04`, high `0xC0`, low `0xC1` | Count high then low; RPM high then low. | S1 pp. 66, 176, 180 |
-| CPUFANIN | bank `0x04`, high `0xB2`, low `0xB3` | bank `0x04`, high `0xC2`, low `0xC3` | Count high then low; RPM high then low. | S1 pp. 66, 177, 180-181 |
-| AUXFANIN0 | bank `0x04`, high `0xB4`, low `0xB5` | bank `0x04`, high `0xC4`, low `0xC5` | Count high then low; RPM high then low. | S1 pp. 66, 177-178, 181 |
-| AUXFANIN1 | bank `0x04`, high `0xB6`, low `0xB7` | bank `0x04`, high `0xC6`, low `0xC7` | Count high then low; RPM high then low. | S1 pp. 66, 178, 181-182 |
-| AUXFANIN2 | bank `0x04`, high `0xB8`, low `0xB9` | bank `0x04`, high `0xC8`, low `0xC9` | Count high then low; RPM high then low. | S1 pp. 66, 178-179, 182 |
-| AUXFANIN3 | bank `0x04`, high `0xBA`, low `0xBB` | bank `0x04`, high `0xCA`, low `0xCB` | Count high then low; RPM high then low. | S1 pp. 66, 179, 182-183 |
-| AUXFANIN4 | bank `0x04`, high `0xCC`, low `0xCD` per summary table | bank `0x04`, high `0xCE`, low `0xCF` per summary table; read-only HM offsets `0x46`/`0x47` also list AUXFANIN4 RPM | Count high then low; RPM high then low. Detailed banked-register sections for `0xCC`-`0xCF` were not found in S1 text extraction, so enablement needs hardware dump confirmation. | S1 pp. 66, 279 |
+| Generic fan | Bank | Direct RPM high | Direct RPM low | Decode | Source |
+| --- | --- | --- | --- | --- | --- |
+| Fan 1 / SYSFANIN candidate | `0x04` | `0xC0` | `0xC1` | high byte then low byte, unsigned RPM | S1 p. 66; S7, S9 |
+| Fan 2 / CPUFANIN candidate | `0x04` | `0xC2` | `0xC3` | high byte then low byte, unsigned RPM | S1 p. 66; S7, S9 |
+| Fan 3 / AUXFANIN0 candidate | `0x04` | `0xC4` | `0xC5` | high byte then low byte, unsigned RPM | S1 p. 66; S7, S9 |
+| Fan 4 / AUXFANIN1 candidate | `0x04` | `0xC6` | `0xC7` | high byte then low byte, unsigned RPM | S1 p. 66; S7, S9 |
+| Fan 5 / AUXFANIN2 candidate | `0x04` | `0xC8` | `0xC9` | high byte then low byte, unsigned RPM | S1 p. 66; S7, S9 |
+| Fan 6 / AUXFANIN3 candidate | `0x04` | `0xCA` | `0xCB` | high byte then low byte, unsigned RPM | S1 p. 66; S7, S9 |
 
-The HM read-only register table provides direct count/RPM offsets for
-the first six fan inputs and RPM offsets for AUXFANIN4:
+S7 local direct RPM bytes:
 
-| Read-only HM offset range | Meaning | Source |
+| Registers | Raw high/low | Direct RPM |
 | --- | --- | --- |
-| `0x2E`-`0x39` | SYSFANIN, CPUFANIN, AUXFANIN0, AUXFANIN1, AUXFANIN2, AUXFANIN3 count high/low readings. | S1 p. 279 |
-| `0x3A`-`0x47` | SYSFANIN, CPUFANIN, AUXFANIN0, AUXFANIN1, AUXFANIN2, AUXFANIN3, AUXFANIN4 RPM high/low readings. | S1 p. 279 |
+| `0xC0`/`0xC1` | `0x00`/`0x00` | `0` |
+| `0xC2`/`0xC3` | `0x0B`/`0x08` | `2824` |
+| `0xC4`/`0xC5` | `0x00`/`0x00` | `0` |
+| `0xC6`/`0xC7` | `0x02`/`0xE2` | `738` |
+| `0xC8`/`0xC9` | `0x03`/`0x2C` | `812` |
+| `0xCA`/`0xCB` | `0x00`/`0x00` | `0` |
 
-## Read procedure and decode
+S9 independent direct RPM bytes:
 
-### Discovery procedure (draft)
+| Registers | Raw high/low | Direct RPM |
+| --- | --- | --- |
+| `0xC0`/`0xC1` | `0x03`/`0x59` | `857` |
+| `0xC2`/`0xC3` | `0x03`/`0x2D` | `813` |
+| `0xC4`/`0xC5` | `0x03`/`0x40` | `832` |
+| `0xC6`/`0xC7` | `0x03`/`0x55` | `853` |
+| `0xC8`/`0xC9` | `0x03`/`0x42` | `834` |
+| `0xCA`/`0xCB` | `0x03`/`0x8A` | `906` |
 
-This procedure is not implementation-ready until the exact `0xD802`
-chip is identified or matching hardware is validated for NCT6796D.
+Captured but disabled fan-related registers:
+
+| Bank | Registers | Reason disabled |
+| --- | --- | --- |
+| `0x04` | `0xB0`-`0xBB` | Count-path bytes are not needed while direct RPM registers are available. |
+| `0x04` | `0xCC`-`0xCF` | AUXFANIN4 / seventh fan path is outside the rev 5 ready scope. |
+
+## Procedures
+
+### Discovery procedure
 
 1. Acquire `Global\Access_ISABUS.HTP.Method` with a bounded timeout
    before any Super I/O index/data or hardware-monitor I/O transaction.
    If the mutex cannot be acquired, abort the transaction rather than
    proceeding unlocked. (S2)
-2. Use the Phase 2 Nuvoton configuration-mode procedure to read the raw
+2. Use the Phase 2 Nuvoton configuration-mode procedure to read raw
    chip-id bytes from `0x20` / `0x21`. If the responder is absent under
    the Phase 2 absent-id rules, stop. (S2)
-3. Treat `0xD421` as NCT6796D/NCT6796D-E candidate hardware. Treat
-   `0xD802` as an unresolved Nuvoton-class responder and keep decode
-   disabled. (S1, S3)
-4. Select Logical Device B by writing `0x07` then `0x0B` in
-   configuration mode. (S1)
-5. Read CR30, CR60/61, and CR64/65. CR30 bit 0 indicates whether
-   Hardware Monitor & SB-TSI is active; CR60/61 is the normal HM base;
-   CR64/65 is the read-only HM base. (S1)
-6. Exit configuration mode using the Phase 2 Nuvoton exit sequence.
-   (S2)
-7. Cache the detected slot, chip-id bytes, optional model mapping, and
-   base addresses. Sampling paths must not re-enter configuration mode
-   on every metrics tick.
+3. Enable the rev 5 normal-HM path only when the raw chip ID is
+   `0xD802`. Label the supported chip family as `NCT6799D`; do not add
+   a `-R` suffix. Any other chip ID is outside this document's enabled
+   runtime scope. (S7, S9)
+4. Select LDN `0x0B`, read `CR30`, and require bit 0 to be set. Do not
+   write `CR30`. (S1, S7, S9)
+5. Read `CR60/61` as the normal HM base and require it to be a valid I/O
+   base in the Phase 2 / PawnIO-safe range. Record `CR64/65` if useful
+   for diagnostics, but do not use the read-only HM path in rev 5. (S7,
+   S9)
+6. Call PawnIO `ioctl_find_bars` after slot selection and LDN B/base
+   discovery, before normal HM index/data I/O. On the local board this
+   order changed `ioctl_find_bars` from `0x80070490` to success and
+   authorized normal HM port I/O. (S7)
+7. Use normal HM index port `base + 0x05` and data port `base + 0x06`.
+   Select bank 4 by writing index `0x4E`, then data `0x04`. (S1, S7,
+   S9)
+8. Read the enabled register set: temperatures `0x90`-`0x95` and direct
+   RPM pairs `0xC0`-`0xCB`. Abort the current sample on any failed index
+   write or data read; do not synthesize values from partial reads. (S7,
+   S9)
+9. Exit Nuvoton configuration mode and release the ISA mutex in all
+   paths. (S2)
 
-### Hardware-monitor register read procedure (draft)
+### Temperature decode
 
-1. Acquire `Global\Access_ISABUS.HTP.Method` for the whole
-   hardware-monitor transaction. (S2)
-2. For banked reads, write internal register `0x4E` through the normal
-   HM index/data ports to select the required bank. (S1)
-3. Write the target register address to `base + 0x05`, then read the
-   selected byte from `base + 0x06`. (S1)
-4. For 13-bit fan count and 16-bit fan RPM reads, read the high byte
-   first, then the low byte. (S1)
-5. Release the mutex after all bytes for one coherent sample have been
-   read.
-
-### Temperature decode (draft)
-
-- For high/low temperature-source registers, decode the 9-bit
-  two's-complement value as 0.5 C units. (S1 p. 60)
-- For HM read-only byte temperature offsets, do not enable decode until
-  an exact hardware dump confirms the access path and plausible source
-  labels for the board. (S1, S3, S6)
+- Decode each enabled bank 4 temperature byte as signed 8-bit degrees C.
+  Preserve the raw byte alongside the decoded value in diagnostics.
+- Use generic source labels from the register table unless a later
+  board-specific evidence file safely narrows physical labels.
 - Do not merge motherboard/board temperature inputs with Phase 1 CPU
   package temperature sources.
 
-### Fan RPM decode (draft)
+### Fan RPM decode
 
-- For 13-bit count registers, combine the high and low fields into a
-  13-bit count and calculate `RPM = 1.35e6 / count`. (S1 p. 66)
-- For 16-bit RPM registers, combine high then low bytes and interpret
-  the resulting 16-bit integer as RPM. (S1 p. 66)
-- Do not surface zero, max-count, or otherwise implausible values until
-  stopped/disconnected handling is verified by real hardware dump.
+- For enabled direct 16-bit RPM registers, combine high then low bytes
+  and interpret the resulting unsigned 16-bit integer as RPM. (S1 p. 66;
+  S7, S9)
+- A direct RPM value of `0x0000` is a valid stopped-or-unconnected raw
+  reading. Do not treat zero as a read failure and do not infer physical
+  disconnection from zero alone. (S7, S9)
+- Do not use count-path bytes at `0xB0`-`0xBB` or AUXFANIN4 / seventh fan
+  bytes at `0xCC`-`0xCF` in rev 5 implementation.
 
 ## Quirks
 
-- No model-specific quirks are implementation-ready in this revision.
-- Chip-id `0xD802` is observed on one Nuvoton-class board (S3), but S1
-  identifies NCT6796D as `0xD421`. Treat `0xD802` as a draft-only
-  applicability clue, not as a decode key.
+- `0xD802` is implementation-ready only as `NCT6799D` without a package
+  suffix claim. Public board-review and user-report leads make
+  `NCT6799D-R` plausible, but rev 5 does not prove or expose `-R`. (S8,
+  S9)
+- For the observed local board, `ioctl_find_bars` must run after Nuvoton
+  configuration/base discovery has made the HM base visible to PawnIO
+  `LpcIO`; running it before config discovery returned `0x80070490` and
+  left normal HM ports unauthorized. (S7)
+- Read-only HM base availability is board-variable in current evidence:
+  S7 observed `0x0000`, S9 observed `0x0A00`. Rev 5 does not use the
+  read-only HM path. (S7, S9)
 
 ## Safety notes
 
 - This document is read-oriented. Required writes are limited to
-  read-transaction plumbing: Nuvoton configuration-mode enter/exit
-  keys documented by S2, logical-device selection required for base
-  discovery, and hardware-monitor bank selection required for banked
-  register reads.
-- The implementation must never write fan-control registers, PWM duty
-  registers, Smart Fan policy registers, sensor source-selection
-  registers, threshold/limit registers, alarm-clear registers, GPIO
-  registers, CR30 activation bits, or any other register that can alter
-  board behavior.
-- All Super I/O and hardware-monitor index/data sequences must hold
-  `Global\Access_ISABUS.HTP.Method` for the complete multi-I/O
-  transaction. Interleaving another monitor's index write between this
-  client's index and data operations can corrupt the read. (S2)
-- Fan RPM and temperature values must be plausibility-filtered before
-  surfacing them to the metrics stream. This revision does not define
-  the exact ranges yet; implementers must wait for the readied revision.
+  read-transaction plumbing: Nuvoton configuration-mode enter/exit,
+  logical-device selection, normal HM index selection, and normal HM bank
+  selection.
+- Do not write activation, fan-control/PWM, Smart Fan, threshold, limit,
+  alarm-clear, GPIO, or vendor/OEM registers from this spec.
+- Hold the ISA mutex for the whole Super I/O / HM transaction and abort
+  rather than racing another monitor.
+- Require elevation/PawnIO access. If `pawnio_open` fails with
+  `0x80070005`, surface an unavailable/permission diagnostic rather than
+  retrying through unsafe access paths. (S5)
+- Keep all disabled scopes disabled unless a later spec revision updates
+  the scoped enablement table and records the necessary evidence.
 
 ## Open questions
 
-- Blocking for Phase 3 ready: Identify the observed `0xD802` responder
-  with a primary Nuvoton source, board documentation, or another
-  independent source. The NCT6796D datasheet fetched in this session
-  maps NCT6796D to `0xD421`, so `0xD802` must not use the NCT6796D
-  register map by assumption.
-- Blocking for Phase 3 ready: Complete a Phase 3 hardware-monitor byte
-  dump on the S3 board. S6 captured chip-id and LDN B `CR30/CR60-65`
-  under elevation, but `ioctl_find_bars` returned `0x80070490` and the
-  normal HM index-port write to `0x0295` returned `0x80070005`; the
-  remaining dump must include normal HM banked temperature/RPM bytes
-  and manual context for connected versus empty fan headers.
-- Blocking for Phase 3 ready: Confirm whether the observed chip exposes
-  the same normal HM behavior as S1 before enabling any register reads.
-  S6 observed normal HM base `0x0290` but read-only HM base `0x0000` on
-  the unresolved `0xD802` chip, so the S1 read-only HM path is not
-  hardware-validated for this board.
-- Blocking for Phase 3 ready: Define stopped, disconnected, max-count,
-  zero, and implausible fan handling from primary-source text or
-  hardware dump evidence.
-- Blocking for Phase 3 ready: Confirm AUXFANIN4 count/RPM banked
-  registers for the exact supported chip. S1's summary table lists
-  Bank 4 `0xCC`-`0xCF`, but the extracted detailed register sections
-  only reached AUXFANIN3 for the normal Bank 4 speed registers.
-- Blocking for Phase 3 ready: Decide whether a future revision will
-  support NCT6796D/NCT6796D-E only, the observed `0xD802` chip only, or
-  a broader NCT67xx/NCT679x table with per-chip scoped enablement.
+- Non-blocking for Phase 3: A public Nuvoton NCT6799D/NCT6799D-R
+  datasheet and official chip-id table remain unavailable; rev 5 is
+  scoped to independently verified raw chip ID `0xD802` / `NCT6799D` and
+  does not claim package suffix, OEM variant, or package revision.
+- Non-blocking for Phase 3: Board-specific physical header labels remain
+  unresolved; rev 5 exposes generic fan labels and preserves zero RPM as
+  stopped-or-unconnected without classifying physical connection state.
+- Non-blocking for Phase 3: NCT6796D/NCT6796D-E runtime support remains
+  disabled because no matching hardware dump was captured for chip ID
+  `0xD421` in this validation set.
+- Non-blocking for Phase 3: Read-only HM access and AUXFANIN4 / seventh
+  fan decode remain disabled; the enabled scope uses only normal HM bank
+  4 temperatures `0x90`-`0x95` and direct RPM pairs `0xC0`-`0xCB`.
 
 ## Implementation-ready transition checklist
 
-Before this document can become `Implementation-ready (rev N)`, the
-Phase 3 spec-author PR must satisfy the directory-level checklist in
-[`README.md`](README.md) and at minimum:
+Revision 5 satisfies the directory-level checklist in [`README.md`](README.md):
 
-- resolve the exact chip-id/model mapping for every enabled scope,
-- pin exact S1 or replacement primary-source section/page references
-  for every register, conversion, and procedure fact,
-- ensure no normative fact rests solely on a copyleft implementation,
-- record the exact elevated real-hardware dump(s) used for validation,
-- set scoped enablement so unsupported or unverified chip IDs remain
-  disabled by default,
-- resolve or explicitly annotate every open question according to the
-  README status-transition rules, and
-- bump the revision and status in the header and revision history.
+- no unresolved provenance marker remains in this document;
+- every enabled fact is pinned to S1/S2 or independently verified by S7
+  and S9 hardware dumps;
+- no normative fact rests solely on a copyleft implementation;
+- disabled or unverified scopes remain disabled in
+  [Scoped enablement](#scoped-enablement);
+- every remaining open question is explicitly annotated as non-blocking
+  for Phase 3; and
+- the revision, status, and revision history record the ready flip.
 
 ## Provenance text for a future clean-room implementation PR
 
-Do **not** use this text while the document is Draft. After a later
-revision is flipped to implementation-ready, the implementation PR
-should pin the ready revision and commit, for example:
+Implementation PRs should pin this ready revision and commit, for example:
 
 ```text
 Implemented from docs/specs/sensors/superio-access.md revision 3 (commit a8c167b1), limited to Super I/O configuration access and chip-id diagnostic facts.
-Implemented from docs/specs/sensors/superio-nuvoton-nct67xx.md revision <ready-revision> (commit <ready-commit>), limited to the Nuvoton scopes marked enabled in that revision.
+Implemented from docs/specs/sensors/superio-nuvoton-nct67xx.md revision 5 (commit <ready-commit>), limited to the `0xD802` / NCT6799D normal HM scopes marked enabled in that revision.
 No other external sensor documentation was used.
 ```
 
@@ -297,3 +336,5 @@ No other external sensor documentation was used.
 | 1 | 2026-06-28 | Initial Phase 3 Nuvoton-family draft; records Phase 2 diagnostic linkage, expected hardware-monitor spec shape, safety constraints, and unresolved provenance/dump requirements. |
 | 2 | 2026-06-28 | Fetched and verified the official NCT6796D V0.6 datasheet; pinned NCT6796D configuration, HM base, temperature, and fan RPM facts; recorded that S1 maps NCT6796D to `0xD421` while the observed S3 board is `0xD802`; recorded standard-rights PawnIO dump failure (`0x80070005`). Status remains Draft. |
 | 3 | 2026-06-28 | Added elevated PawnIO `LpcIO` evidence for the observed `0xD802` board: LDN B active, normal HM base `0x0290`, read-only HM base `0x0000`, and blocked HM index/data access (`ioctl_find_bars=0x80070490`, `pio_outb(0x0295)=0x80070005`). Status remains Draft. |
+| 4 | 2026-06-28 | Added successful elevated normal-HM bank 4 byte-dump evidence, recorded the `ioctl_find_bars` ordering requirement, narrowed stopped/zero-RPM handling, and documented the `0xD802` source-hunt result. Exact-chip mapping remains unresolved, so status remains Draft. |
+| 5 | 2026-06-28 | Added independent AIDA64 dump evidence mapping `0xD802` to `NCT6799D`, scoped support to normal HM bank 4 temperatures and direct RPM pairs, disabled unresolved suffix/read-only/AUXFANIN4 scopes, and flipped status to Implementation-ready. |
