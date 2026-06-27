@@ -19,6 +19,7 @@ documentation.
 - [Tauri app crate guide](../src-tauri/README.md)
 - [Add a new language](development/add-language.md)
 - [E2E capture harness](development/e2e-captures.md)
+- [Super I/O sensor work handoff](development/sensor-handoff/)
 - [GitHub label guide](development/labels.md)
 - [Download verification](download-verification.md)
 - [Documentation guide](documentation-guide.md)
