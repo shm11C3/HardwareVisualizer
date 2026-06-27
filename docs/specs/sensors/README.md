@@ -167,14 +167,9 @@ or unresolved blocking open question invalidates the flip.
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 | Implementation-ready (rev 2) |
 | [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 3) |
 | [`superio-access.md`](superio-access.md) | Phase 2 raw Super I/O chip-id diagnostic: config port pairs, Nuvoton/ITE enter/exit, chip-id registers, absent-id classification, ISA mutex | Phase 2 | Implementation-ready (rev 3) |
-| [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) | Draft Nuvoton NCT67xx/NCT679x hardware-monitor map for motherboard temperatures and fan RPM. Rev 3 pins official NCT6796D facts and records that the observed `0xD802` board does not match the NCT6796D `0xD421` chip ID; elevated probing found HM base `0x0290` but did not capture temperature/RPM bytes, so exact-chip provenance and a hardware-monitor byte dump still block readiness. | Phase 3 | Draft — not implementation-ready |
+| [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) | Nuvoton NCT67xx/NCT679x hardware-monitor map for motherboard temperatures and fan RPM. Rev 5 is implementation-ready for scoped `0xD802` / `NCT6799D` normal HM bank 4 byte temperatures (`0x90`-`0x95`) and direct RPM pairs (`0xC0`-`0xCB`), validated by local elevated PawnIO dump plus an independent AIDA64 dump. NCT6796D, read-only HM, count-based RPM, AUXFANIN4/seventh fan, voltages, and PWM remain disabled or out of scope. | Phase 3 | Implementation-ready (rev 5) |
 
-The Nuvoton Phase 3 document is currently a draft; it is **not** a
-clean-room implementation input yet. The ITE IT86xx/87xx register map
-and hardware-monitor base discovery for ITE are still not written and
-remain the Phase 4 deliverable. The current `superio-access.md`
-readiness is intentionally limited to the Phase 2 raw chip-id
-diagnostic scope.
+The Nuvoton Phase 3 document is implementation-ready only for the scoped `0xD802` / `NCT6799D` normal HM read path listed above. The ITE IT86xx/87xx register map and hardware-monitor base discovery for ITE are still not written and remain the Phase 4 deliverable. The current `superio-access.md` readiness is intentionally limited to the Phase 2 raw chip-id diagnostic scope.
 
 ## Safety policy (applies to all documents and implementations)
 

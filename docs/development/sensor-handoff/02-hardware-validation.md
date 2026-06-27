@@ -8,14 +8,27 @@ raw register dumps that Phase 3 / Phase 4 spec authoring needs.
 
 ## State
 
-- ✅ Nuvoton-class board: non-elevated access-denied + elevated chip-id captured.
-- ⚠️ Nuvoton-class board: elevated LDN B config-space base captured
-  (`CR30=0x09`, normal HM base `0x0290`, read-only HM base `0x0000`),
-  but `ioctl_find_bars=0x80070490` and `pio_outb(0x0295)=0x80070005`
-  blocked the temperature/RPM byte dump.
-- ⬜ ITE board, PawnIO-absent host, concurrent-monitor (HWiNFO / LHM / FanControl) behavior.
-- ⬜ Raw hardware-monitor temperature/RPM byte dumps for the detected chip(s) — the
-  primary input for clean-room Phase 3/4 specs.
+- Done: Nuvoton-class board validation captured both standard-rights
+  access-denied behavior and elevated chip-id behavior.
+- Done: elevated base discovery captured LDN B `CR30=0x09`, normal HM
+  base `0x0290`, and read-only HM base `0x0000`.
+- Done: elevated HM byte dump captured bank 4 temperature/RPM-adjacent
+  bytes through normal HM ports `0x0295`/`0x0296` after `ioctl_find_bars`
+  succeeded post Nuvoton config/base discovery. The earlier
+  `pio_outb(0x0295)=0x80070005` failure was an authorization/order issue:
+  `ioctl_find_bars` had to run after the selected chip/LDN exposed the HM
+  base.
+- Done: exact-chip provenance for `0xD802` is resolved for the scoped
+  Phase 3 normal-HM path by an independent AIDA64 dump that maps raw
+  device ID `D802h` to `NCT6799D` and corroborates normal HM base
+  `0x0290` plus bank 4 temperature/RPM bytes. Package suffix `-R` and
+  OEM/package revision remain unproven and are not part of the ready
+  scope.
+- Done: `docs/specs/sensors/superio-nuvoton-nct67xx.md` is flipped to
+  `Implementation-ready (rev 5)` for `0xD802` / `NCT6799D` normal HM
+  bank 4 temperatures and direct RPM pairs only.
+- Still out of local coverage: ITE board, PawnIO-absent host, and
+  concurrent-monitor behavior.
 
 ## Paste this prompt into the next session
 
