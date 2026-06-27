@@ -1,35 +1,44 @@
-# Session 2: Validate the Chip-ID Diagnostic on Real Hardware
+# Session 2: Validate the Chip-ID Diagnostic and Capture Register Dumps
 
 ## Goal
 
-Run Draft PR #1732's Super I/O chip-id diagnostic on real Windows
-self-built PC hardware and capture evidence.
+Run the merged Phase 2 Super I/O chip-id diagnostic on real Windows
+self-built PC hardware, finish the open validation cases, and capture
+raw register dumps that Phase 3 / Phase 4 spec authoring needs.
+
+## State
+
+- ✅ Nuvoton-class board: non-elevated access-denied + elevated chip-id captured.
+- ⬜ ITE board, PawnIO-absent host, concurrent-monitor (HWiNFO / LHM / FanControl) behavior.
+- ⬜ Raw hardware-monitor register dumps for the detected chip(s) — the
+  primary input for clean-room Phase 3/4 specs.
 
 ## Paste this prompt into the next session
 
 ```md
 # 目的
 
-Draft PR #1732 の Super I/O chip-id diagnostic を Windows 自作PC実機で検証したい。
+#1635 Phase 2 (merged) の Super I/O chip-id diagnostic を Windows 自作PC実機で
+検証し、まだ取れていないケースと、Phase 3/4 spec authoring に必要な register dump を集めたい。
 
 このセッションではコード追加よりも、実機からの証拠収集を優先する。
 
 # 前提
 
-PR #1732:
-- Branch: feat/1635-superio-chip-id-diagnostics
-- Session target: `getSuperIoChipIdDiagnostics()` diagnostic flow
+- #1732 は develop にマージ済み（merge commit d8bb4bb8）。develop で作業する。
 - Backend Tauri command: `get_super_io_chip_id_diagnostics`
 - TypeScript binding: `commands.getSuperIoChipIdDiagnostics()`
+- 既に Nuvoton系で 非昇格access-denied / 昇格chip-id 取得済み。残りを埋める。
 
 # やること
 
-1. #1732 のブランチを checkout する。
+1. develop を checkout する。
 2. Windows環境でビルド/起動する。
 3. PawnIO runtime / `LpcIO.bin` or `LpcIO.amx` の配置状況を確認する。
 4. HardwareVisualizer を通常権限で起動して command を実行する。
 5. HardwareVisualizer を管理者権限で起動して command を実行する。
 6. 結果JSONを保存する。
+7. 可能なら ITE機 / PawnIO非導入機 / 他モニタ併用 でも実行する。
 
 # 収集したい情報
 
@@ -65,6 +74,13 @@ PR #1732:
 - `0x00/0x00` または `0xFF/0xFF` が absent として返るか
 - HWiNFO / LibreHardwareMonitor / FanControl 等を起動中でも mutex timeout / access issue がどう出るか
 
+# Phase 3/4 spec authoring 用に追加で残したい dump
+
+- 検出された chip ID と確定した chip model
+- hardware-monitor base address（取得できれば）
+- temperature / fan tachometer register 周辺の raw bytes（independently collected dump として）
+- これらは clean-room spec の normative source になり得るので、取得手順と環境を併記する
+
 # 実装変更の扱い
 
 - 原則、実装変更はしない。
@@ -77,6 +93,6 @@ PR #1732:
 - 通常権限の結果
 - 管理者権限の結果
 - raw JSON
-- 判断: #1732 のdiagnosticは実機検証に使えるか
+- Phase 3/4 spec authoring に渡せる register dump
 - 次に必要な修正があるか
 ```

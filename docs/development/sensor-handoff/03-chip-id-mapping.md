@@ -10,7 +10,7 @@ hardware-monitor base discovery.
 ```md
 # 目的
 
-#1732 の次の実装段階として、Super I/O chip ID diagnostic の結果から chip model を識別し、hardware-monitor base address discovery に進めたい。
+マージ済み Phase 2 chip-id diagnostic の次の実装段階として、Super I/O chip ID diagnostic の結果から chip model を識別し、hardware-monitor base address discovery に進めたい。
 
 ただし、このセッションは clean-room implementation セッションなので、実装前に必ず spec readiness を確認すること。
 
@@ -20,7 +20,8 @@ hardware-monitor base discovery.
 
 1. `docs/specs/sensors/superio-access.md` が、この実装範囲について `Implementation-ready` になっているか。
 2. chip ID table / hardware-monitor base discovery に必要なspecが存在するか。
-3. まだ Draft なら、実装せずに止めて、必要なspec gapを列挙する。
+3. Nuvotonなら `superio-nuvoton-*`、ITEなら `superio-ite-*` の per-family spec が `Implementation-ready` か確認する。
+4. まだ Draft / 未作成なら、実装せずに止めて、必要なspec gapを列挙する。
 
 # やりたい実装範囲
 

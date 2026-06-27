@@ -8,6 +8,10 @@
 > diagnostic surface to `Implementation-ready (rev 3)`. Keep this prompt as
 > historical context. Re-run it only if the ready scope expands beyond raw
 > chip-id diagnostics.
+>
+> For Phase 3, do not start here — use
+> [07-phase3-nuvoton-spec.md](07-phase3-nuvoton-spec.md) or
+> [08-phase4-ite-spec.md](08-phase4-ite-spec.md).
 
 ## Original goal
 
