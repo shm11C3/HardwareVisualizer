@@ -1028,7 +1028,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-accordion@1.2.13
+## @radix-ui/react-accordion@1.2.14
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1057,7 +1057,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-alert-dialog@1.1.16
+## @radix-ui/react-alert-dialog@1.1.17
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1086,7 +1086,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-arrow@1.1.9
+## @radix-ui/react-arrow@1.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1115,7 +1115,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-checkbox@1.3.4
+## @radix-ui/react-checkbox@1.3.5
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1144,7 +1144,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collapsible@1.1.13
+## @radix-ui/react-collapsible@1.1.14
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1173,7 +1173,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collection@1.1.9
+## @radix-ui/react-collection@1.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1260,7 +1260,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dialog@1.1.16
+## @radix-ui/react-dialog@1.1.17
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1318,7 +1318,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dismissable-layer@1.1.12
+## @radix-ui/react-dismissable-layer@1.1.13
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1347,7 +1347,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dropdown-menu@2.1.17
+## @radix-ui/react-dropdown-menu@2.1.18
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1405,7 +1405,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-focus-scope@1.1.9
+## @radix-ui/react-focus-scope@1.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1463,7 +1463,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-label@2.1.9
+## @radix-ui/react-label@2.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1492,7 +1492,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-menu@2.1.17
+## @radix-ui/react-menu@2.1.18
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1521,7 +1521,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-popper@1.3.0
+## @radix-ui/react-popper@1.3.1
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1550,7 +1550,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-portal@1.1.11
+## @radix-ui/react-portal@1.1.12
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1608,7 +1608,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-primitive@2.1.5
+## @radix-ui/react-primitive@2.1.6
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1637,7 +1637,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-progress@1.1.9
+## @radix-ui/react-progress@1.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1666,7 +1666,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-radio-group@1.4.0
+## @radix-ui/react-radio-group@1.4.1
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1695,7 +1695,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-roving-focus@1.1.12
+## @radix-ui/react-roving-focus@1.1.13
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1724,7 +1724,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-scroll-area@1.2.11
+## @radix-ui/react-scroll-area@1.2.12
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1753,7 +1753,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-select@2.3.0
+## @radix-ui/react-select@2.3.1
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1782,7 +1782,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slider@1.4.0
+## @radix-ui/react-slider@1.4.1
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1811,7 +1811,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slot@1.2.5
+## @radix-ui/react-slot@1.3.0
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1840,7 +1840,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-switch@1.3.0
+## @radix-ui/react-switch@1.3.1
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1869,7 +1869,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tabs@1.1.14
+## @radix-ui/react-tabs@1.1.15
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1898,7 +1898,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tooltip@1.2.9
+## @radix-ui/react-tooltip@1.2.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2159,7 +2159,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-visually-hidden@1.2.5
+## @radix-ui/react-visually-hidden@1.2.6
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2308,7 +2308,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tauri-apps/api@2.11.0
+## @tauri-apps/api@2.11.1
 
 - License: Apache-2.0 OR MIT
 - Repository: [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
@@ -4808,7 +4808,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## lucide-react@1.18.0
+## lucide-react@1.21.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -5003,7 +5003,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.79.0
+## react-hook-form@7.80.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
@@ -6183,11 +6183,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## bitvec
-
-- License: MIT
-- Repository: [https://github.com/bitvecto-rs/bitvec](https://github.com/bitvecto-rs/bitvec)
-
 ## block2
 
 - License: MIT
@@ -6438,37 +6433,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-## borsh-derive
-
-- License: Apache-2.0
-- Repository: [https://github.com/near/borsh-rs](https://github.com/near/borsh-rs)
-
-```LICENSE
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
 ## bumpalo
 
 - License: Apache-2.0 OR MIT
@@ -6500,21 +6464,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-```
-
-## bytecheck_derive
-
-- License: MIT
-- Repository: [https://github.com/djkoloski/bytecheck](https://github.com/djkoloski/bytecheck)
-
-```LICENSE
-Copyright 2020 David Koloski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## byteorder
@@ -9407,11 +9356,6 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-## funty
-
-- License: MIT
-- Repository: [https://github.com/myrrlyn/funty](https://github.com/myrrlyn/funty)
-
 ## futf
 
 - License: Apache-2.0 OR MIT
@@ -10582,37 +10526,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-```
-
-## leb128fmt
-
-- License: Apache-2.0 OR MIT
-- Repository: [https://github.com/bluk/leb128fmt](https://github.com/bluk/leb128fmt)
-
-```LICENSE
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
 ```
 
 ## libappindicator-sys
@@ -11901,36 +11814,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## ptr_meta
-
-- License: MIT
-- Repository: [https://github.com/djkoloski/ptr_meta](https://github.com/djkoloski/ptr_meta)
-
-```LICENSE
-Copyright 2021 David Koloski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-## ptr_meta_derive
-
-- License: MIT
-- Repository: [https://github.com/djkoloski/ptr_meta](https://github.com/djkoloski/ptr_meta)
-
-```LICENSE
-Copyright 2021 David Koloski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ## pxfm
 
 - License: Apache-2.0 OR BSD-3-Clause
@@ -12511,21 +12394,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-```
-
-## rkyv_derive
-
-- License: MIT
-- Repository: [https://github.com/rkyv/rkyv](https://github.com/rkyv/rkyv)
-
-```LICENSE
-Copyright 2021 David Koloski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## rustc-hash
@@ -13677,11 +13545,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## tap
-
-- License: MIT
-- Repository: [https://github.com/myrrlyn/tap](https://github.com/myrrlyn/tap)
-
 ## tauri-build
 
 - License: Apache-2.0 OR MIT
@@ -14751,11 +14614,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## wasm-encoder
-
-- License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: [https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-encoder](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-encoder)
-
 ## wayland-protocols
 
 - License: MIT
@@ -15053,37 +14911,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## wit-bindgen-core
-
-- License: Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
-- Repository: [https://github.com/bytecodealliance/wit-bindgen](https://github.com/bytecodealliance/wit-bindgen)
-
-```LICENSE
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-```
-
 ## wl-clipboard-rs
 
 - License: Apache-2.0 OR MIT
@@ -15147,11 +14974,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
-
-## wyz
-
-- License: MIT
-- Repository: [https://github.com/myrrlyn/wyz](https://github.com/myrrlyn/wyz)
 
 ## zbus_names
 
