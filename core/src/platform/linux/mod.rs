@@ -1,8 +1,10 @@
 use crate::enums::error::BackendError;
-use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, NetworkInfo};
+use crate::models::hardware::{
+  GpuMemoryUsage, GraphicInfo, NetworkInfo, SuperIoChipIdDiagnostics,
+};
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform,
+  ProcessElevationPlatform, SuperIoPlatform,
 };
 use std::future::Future;
 use std::pin::Pin;
@@ -99,6 +101,12 @@ impl MotherboardPlatform for LinuxPlatform {
     Box::pin(async {
       Err("get_motherboard_info is not implemented for LinuxPlatform".to_string())
     })
+  }
+}
+
+impl SuperIoPlatform for LinuxPlatform {
+  fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+    SuperIoChipIdDiagnostics::unsupported_platform()
   }
 }
 

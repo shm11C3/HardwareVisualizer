@@ -1,8 +1,10 @@
 use crate::enums::error::BackendError;
-use crate::models::hardware::{GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo};
+use crate::models::hardware::{
+  GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo, SuperIoChipIdDiagnostics,
+};
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform,
+  ProcessElevationPlatform, SuperIoPlatform,
 };
 use std::future::Future;
 use std::pin::Pin;
@@ -96,6 +98,12 @@ impl MotherboardPlatform for MacOSPlatform {
     >,
   > {
     motherboard::get_motherboard_info()
+  }
+}
+
+impl SuperIoPlatform for MacOSPlatform {
+  fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+    SuperIoChipIdDiagnostics::unsupported_platform()
   }
 }
 

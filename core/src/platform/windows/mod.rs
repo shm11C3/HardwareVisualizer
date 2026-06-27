@@ -1,10 +1,10 @@
 use crate::enums::error::BackendError;
 use crate::models::hardware::{
-  GpuMemoryUsage, GraphicInfo, MotherboardInfo, NetworkInfo,
+  GpuMemoryUsage, GraphicInfo, MotherboardInfo, NetworkInfo, SuperIoChipIdDiagnostics,
 };
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform,
+  ProcessElevationPlatform, SuperIoPlatform,
 };
 
 use std::future::Future;
@@ -95,6 +95,12 @@ impl MotherboardPlatform for WindowsPlatform {
     &self,
   ) -> Pin<Box<dyn Future<Output = Result<MotherboardInfo, String>> + Send + '_>> {
     motherboard::get_motherboard_info()
+  }
+}
+
+impl SuperIoPlatform for WindowsPlatform {
+  fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+    crate::infrastructure::providers::windows::super_io_diagnostics::read_super_io_chip_id_diagnostics()
   }
 }
 

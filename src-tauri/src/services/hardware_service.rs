@@ -100,31 +100,22 @@ pub async fn get_storage_health_latest_records()
 
 pub async fn get_super_io_chip_id_diagnostics()
 -> hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
-  #[cfg(target_os = "windows")]
-  {
-    tokio::task::spawn_blocking(|| {
-      hardviz_core::infrastructure::providers::windows::super_io_diagnostics::read_super_io_chip_id_diagnostics()
-    })
-    .await
-    .unwrap_or_else(|e| hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
-      platform_supported: true,
+  tokio::task::spawn_blocking(|| {
+    let platform =
+      PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+    Ok::<_, String>(platform.get_super_io_chip_id_diagnostics())
+  })
+  .await
+  .map_err(|e| format!("Failed to join Super I/O diagnostic task: {e}"))
+  .and_then(|result| result)
+  .unwrap_or_else(
+    |error| hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
+      platform_supported: cfg!(target_os = "windows"),
       pawnio: None,
       slots: Vec::new(),
-      error: Some(format!("Failed to join Super I/O diagnostic task: {e}")),
-    })
-  }
-
-  #[cfg(not(target_os = "windows"))]
-  {
-    hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
-      platform_supported: false,
-      pawnio: None,
-      slots: Vec::new(),
-      error: Some(
-        "Super I/O LpcIO diagnostics are available on Windows only".to_string(),
-      ),
-    }
-  }
+      error: Some(error),
+    },
+  )
 }
 
 ///

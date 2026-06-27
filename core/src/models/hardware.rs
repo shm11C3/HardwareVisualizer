@@ -114,6 +114,23 @@ pub struct SuperIoChipIdDiagnostics {
   pub error: Option<String>,
 }
 
+impl SuperIoChipIdDiagnostics {
+  /// Result for platforms that do not have a Super I/O `LpcIO` path.
+  ///
+  /// Reports `platform_supported = false` with an explanatory message
+  /// instead of an error, so callers can branch on support uniformly.
+  pub fn unsupported_platform() -> Self {
+    Self {
+      platform_supported: false,
+      pawnio: None,
+      slots: Vec::new(),
+      error: Some(
+        "Super I/O LpcIO diagnostics are available on Windows only".to_string(),
+      ),
+    }
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PawnIoRuntimeDiagnostics {
   pub install_location: Option<String>,
