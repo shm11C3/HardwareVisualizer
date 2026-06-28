@@ -186,6 +186,12 @@
         "action": "Install PawnIO and make sure HardwareVisualizer can open the driver with administrator privileges, then restart the app. The details page explains where to get it and where it must be placed.",
         "permissionAction": "PawnIO appears to be installed, but HardwareVisualizer could not access it. Run the app as administrator or enable Run as administrator on startup, then try again."
       },
+      "pawnioMotherboardSensors": {
+        "missing": "PawnIO LpcIO",
+        "impact": "Motherboard temperature sensors and fan speeds",
+        "action": "Install PawnIO, place the LpcIO module where HardwareVisualizer can load it, and make sure the app can open the driver with administrator privileges. Then restart the app.",
+        "permissionAction": "PawnIO appears to be installed, but HardwareVisualizer could not access the driver for motherboard sensors. Run the app as administrator or enable Run as administrator on startup, then try again."
+      },
       "smartctlStorageHealth": {
         "missing": "smartctl (smartmontools)",
         "impact": "Storage Health data such as SMART health, temperature, wear, spare, sector, or media-error signals",

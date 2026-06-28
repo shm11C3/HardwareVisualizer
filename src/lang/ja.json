@@ -186,6 +186,12 @@
         "action": "PawnIO をインストールし、HardwareVisualizer が管理者権限で driver を開ける状態にしてからアプリを再起動してください。入手先と配置場所は詳細ページで確認できます。",
         "permissionAction": "PawnIO はインストール済みの可能性がありますが、HardwareVisualizer がアクセスできませんでした。管理者として起動するか、設定の「管理者として起動」を有効にしてから再度確認してください。"
       },
+      "pawnioMotherboardSensors": {
+        "missing": "PawnIO LpcIO",
+        "impact": "マザーボード温度センサーとファン回転数",
+        "action": "PawnIO をインストールし、LpcIO module を HardwareVisualizer が読み込める場所に配置して、アプリが管理者権限で driver を開ける状態にしてから再起動してください。",
+        "permissionAction": "PawnIO は見つかりましたが、現在の権限では HardwareVisualizer がマザーボードセンサー用 driver を開けません。管理者として起動するか、設定の「管理者として起動」を有効にしてから再度確認してください。"
+      },
       "smartctlStorageHealth": {
         "missing": "smartctl（smartmontools）",
         "impact": "Storage Health の SMART 健康状態、温度、使用率、予備領域、セクター、メディアエラーなど",

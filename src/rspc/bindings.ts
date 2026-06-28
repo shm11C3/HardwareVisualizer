@@ -367,7 +367,7 @@ export type ExternalComponentGuidanceView = "dashboard" | "cpuDetail" | "storage
 
 export type ExternalComponentReasonKind = "missing" | "permission" | "misconfigured" | "failed";
 
-export type ExternalComponentUsage = "cpuPackageTemperature" | "storageHealth";
+export type ExternalComponentUsage = "cpuPackageTemperature" | "motherboardSensors" | "storageHealth";
 
 export type FanSpeedStatus = "active" | "inactive" | "invalid";
 

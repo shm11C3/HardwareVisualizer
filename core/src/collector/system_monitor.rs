@@ -48,12 +48,13 @@ impl SystemMonitorController {
       if let Some(system_sample) = sampling::sample_system(&store) {
         let gpu_samples = sampling::sample_gpu(&store).await;
         let temperature_sample = sampling::sample_temperatures();
-        let motherboard_sample = sampling::sample_motherboard_sensors();
+        let motherboard_collection = sampling::sample_motherboard_sensors();
         let snapshot = sampling::build_metrics_snapshot(
           &system_sample,
           &gpu_samples,
           &temperature_sample,
-          &motherboard_sample,
+          &motherboard_collection.sample,
+          &motherboard_collection.guidance_candidates,
         );
         bus.publish(snapshot);
       }
@@ -66,12 +67,13 @@ impl SystemMonitorController {
             if let Some(system_sample) = sampling::sample_system(&store) {
               let gpu_samples = sampling::sample_gpu(&store).await;
               let temperature_sample = sampling::sample_temperatures();
-              let motherboard_sample = sampling::sample_motherboard_sensors();
+              let motherboard_collection = sampling::sample_motherboard_sensors();
               let snapshot = sampling::build_metrics_snapshot(
                 &system_sample,
                 &gpu_samples,
                 &temperature_sample,
-                &motherboard_sample,
+                &motherboard_collection.sample,
+                &motherboard_collection.guidance_candidates,
               );
               bus.publish(snapshot);
             }

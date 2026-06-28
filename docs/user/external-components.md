@@ -92,6 +92,27 @@ HardwareVisualizer as administrator and try again.
 More implementation detail is recorded in
 [`../architecture/windows-sensor-external-components.md`](../architecture/windows-sensor-external-components.md).
 
+### PawnIO Motherboard Sensors
+
+PawnIO is also used on Windows for supported Super I/O motherboard temperature
+and fan-speed reads. This path currently depends on the PawnIO LpcIO module and
+the app process being able to open the PawnIO driver.
+
+For PawnIO-backed motherboard sensors, the machine needs:
+
+- a working PawnIO driver/runtime installation;
+- `PawnIOLib.dll`, which is provided by the PawnIO runtime installation;
+- `LpcIO.bin` or `LpcIO.amx` from the PawnIO.Modules release assets;
+- enough Windows privileges for the app process to open the PawnIO driver.
+
+If PawnIO is installed but HardwareVisualizer reports a permission issue, run
+HardwareVisualizer as administrator or enable Run as administrator on startup,
+then restart the app.
+
+This guidance only covers access to the read-only motherboard sensor path. It
+does not enable fan control, PWM writes, voltages, unsupported Super I/O chips,
+or vendor-specific embedded-controller sensors.
+
 ## smartctl
 
 `smartctl` is part of smartmontools. HardwareVisualizer can use it as one

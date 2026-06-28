@@ -3,9 +3,12 @@ use serde::{Deserialize, Serialize};
 use super::hardware::SmartDiskInfo;
 
 pub const PAWNIO_CPU_PACKAGE_TEMPERATURE_KEY: &str = "pawnio:cpu-package-temperature:v1";
+pub const PAWNIO_MOTHERBOARD_SENSORS_KEY: &str = "pawnio:motherboard-sensors:v1";
 pub const SMARTCTL_STORAGE_HEALTH_KEY: &str = "smartctl:storage-health:v1";
 
 pub const SIGNAL_CPU_TEMPERATURE: &str = "cpu-temperature";
+pub const SIGNAL_MOTHERBOARD_TEMPERATURE: &str = "motherboard-temperature";
+pub const SIGNAL_MOTHERBOARD_FAN_SPEED: &str = "motherboard-fan-speed";
 pub const SIGNAL_SMART_OVERALL_HEALTH: &str = "smart-overall-health";
 pub const SIGNAL_TEMPERATURE: &str = "temperature";
 pub const SIGNAL_PERCENTAGE_USED: &str = "percentage-used";
@@ -44,6 +47,7 @@ pub enum ExternalComponent {
 #[serde(rename_all = "camelCase")]
 pub enum ExternalComponentUsage {
   CpuPackageTemperature,
+  MotherboardSensors,
   StorageHealth,
 }
 
@@ -64,6 +68,21 @@ impl ExternalComponentGuidanceCandidate {
       usage: ExternalComponentUsage::CpuPackageTemperature,
       reason_kind: classify_external_component_reason(&diagnostic_detail),
       missing_signals: vec![SIGNAL_CPU_TEMPERATURE.to_string()],
+      affected_device_count: None,
+      diagnostic_detail: Some(diagnostic_detail),
+    }
+  }
+
+  pub fn pawnio_motherboard_sensors(diagnostic_detail: String) -> Self {
+    Self {
+      key: PAWNIO_MOTHERBOARD_SENSORS_KEY.to_string(),
+      component: ExternalComponent::Pawnio,
+      usage: ExternalComponentUsage::MotherboardSensors,
+      reason_kind: classify_external_component_reason(&diagnostic_detail),
+      missing_signals: vec![
+        SIGNAL_MOTHERBOARD_TEMPERATURE.to_string(),
+        SIGNAL_MOTHERBOARD_FAN_SPEED.to_string(),
+      ],
       affected_device_count: None,
       diagnostic_detail: Some(diagnostic_detail),
     }
@@ -171,6 +190,25 @@ mod tests {
     assert_eq!(
       classify_external_component_reason("pawnio_open failed: 0x80070005"),
       ExternalComponentReasonKind::Permission
+    );
+  }
+
+  #[test]
+  fn pawnio_motherboard_sensors_candidate_reports_both_live_signals() {
+    let candidate = ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+      "pawnio_open failed: 0x80070005".to_string(),
+    );
+
+    assert_eq!(candidate.key, PAWNIO_MOTHERBOARD_SENSORS_KEY);
+    assert_eq!(candidate.component, ExternalComponent::Pawnio);
+    assert_eq!(candidate.usage, ExternalComponentUsage::MotherboardSensors);
+    assert_eq!(
+      candidate.reason_kind,
+      ExternalComponentReasonKind::Permission
+    );
+    assert_eq!(
+      candidate.missing_signals,
+      vec![SIGNAL_MOTHERBOARD_TEMPERATURE, SIGNAL_MOTHERBOARD_FAN_SPEED]
     );
   }
 

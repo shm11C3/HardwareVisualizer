@@ -70,6 +70,21 @@ PawnIO をインストール済みでも HardwareVisualizer が権限不足を�
 
 実装上の詳細は [`../architecture/windows-sensor-external-components.md`](../architecture/windows-sensor-external-components.md) に記録しています。
 
+### PawnIO Motherboard Sensors
+
+PawnIO は、対応している Super I/O のマザーボード温度とファン回転数を Windows で取得する場合にも使われます。この経路では PawnIO LpcIO module と、HardwareVisualizer のプロセスが PawnIO driver を開ける権限が必要です。
+
+PawnIO 経由でマザーボードセンサーを取得するには、対象の PC に次のものが必要です。
+
+- 正しく動作する PawnIO driver/runtime
+- PawnIO runtime に含まれる `PawnIOLib.dll`
+- PawnIO.Modules のリリースアセットに含まれる `LpcIO.bin` または `LpcIO.amx`
+- HardwareVisualizer のプロセスが PawnIO driver を開ける Windows 権限
+
+PawnIO をインストール済みでも HardwareVisualizer が権限不足を報告する場合は、HardwareVisualizer を管理者として実行するか、「管理者として起動」を有効にしてからアプリを再起動してください。
+
+この案内は読み取り専用のマザーボードセンサー経路だけを対象にしています。ファン制御、PWM 書き込み、電圧、未対応の Super I/O chip、vendor 固有の embedded controller sensor は対象外です。
+
 ## smartctl
 
 `smartctl` は smartmontools に含まれるツールです。HardwareVisualizer は、OS 標準の経路だけでは十分なデバイス健康状態を取得できない場合に、Storage Health の取得元の 1 つとして `smartctl` を使用できます。

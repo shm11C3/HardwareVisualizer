@@ -25,6 +25,7 @@ pub enum ExternalComponent {
 #[serde(rename_all = "camelCase")]
 pub enum ExternalComponentUsage {
   CpuPackageTemperature,
+  MotherboardSensors,
   StorageHealth,
 }
 
@@ -68,6 +69,7 @@ impl From<core_models::ExternalComponentUsage> for ExternalComponentUsage {
       core_models::ExternalComponentUsage::CpuPackageTemperature => {
         Self::CpuPackageTemperature
       }
+      core_models::ExternalComponentUsage::MotherboardSensors => Self::MotherboardSensors,
       core_models::ExternalComponentUsage::StorageHealth => Self::StorageHealth,
     }
   }
@@ -102,5 +104,24 @@ mod tests {
     assert_eq!(wire.usage, ExternalComponentUsage::CpuPackageTemperature);
     assert_eq!(wire.reason_kind, ExternalComponentReasonKind::Missing);
     assert_eq!(wire.missing_signals, vec!["cpu-temperature"]);
+  }
+
+  #[test]
+  fn converts_motherboard_sensor_guidance_candidate_to_wire_shape() {
+    let candidate =
+      core_models::ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+        "pawnio_open failed: 0x80070005".to_string(),
+      );
+
+    let wire = ExternalComponentGuidanceCandidate::from(candidate);
+
+    assert_eq!(wire.key, "pawnio:motherboard-sensors:v1");
+    assert_eq!(wire.component, ExternalComponent::Pawnio);
+    assert_eq!(wire.usage, ExternalComponentUsage::MotherboardSensors);
+    assert_eq!(wire.reason_kind, ExternalComponentReasonKind::Permission);
+    assert_eq!(
+      wire.missing_signals,
+      vec!["motherboard-temperature", "motherboard-fan-speed"]
+    );
   }
 }

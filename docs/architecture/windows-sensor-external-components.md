@@ -65,12 +65,20 @@ include:
 
 ## Scope Boundaries
 
-The Phase 1 implementation only uses read-only CPU package temperature paths:
+The Phase 1 implementation uses read-only CPU package temperature paths:
 
 - Intel: `MSR_TEMPERATURE_TARGET` and `IA32_PACKAGE_THERM_STATUS` through
   `IntelMSR`.
 - AMD: SMN `0x00059800` through `RyzenSMU`, enabled only for Family 17h and
   Family 19h.
+
+The motherboard sensor implementation also uses a read-only PawnIO LpcIO path
+for the scoped Nuvoton NCT6799D Super I/O bank-4 temperature and direct RPM
+registers. It requires `LpcIO.bin` or `LpcIO.amx` and the same process-level
+ability to open the PawnIO driver. A non-elevated process can fail at
+`pawnio_open` with `0x80070005`; in that case the Dashboard surfaces
+`pawnio:motherboard-sensors:v1` guidance and offers the existing elevated
+startup action.
 
 The following are not covered by this runtime checklist or by the Phase 1
 implementation:
@@ -81,7 +89,8 @@ implementation:
 - AMD Family 1Ah / Zen 5 enablement.
 - AMD per-CCD temperatures or SMU PM-table metrics.
 - Threadripper / EPYC multi-die-specific behavior.
-- Super I/O, fan RPM, voltage, and motherboard sensors.
+- Super I/O chips outside the scoped NCT6799D read path.
+- Fan control, PWM writes, voltage sensors, and embedded-controller sensors.
 
 If a future release bundles PawnIO components, update the Windows third-party
 notices and release packaging documentation before shipping those artifacts.

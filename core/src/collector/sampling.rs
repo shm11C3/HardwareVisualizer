@@ -47,30 +47,44 @@ pub struct TemperatureSample {
   pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
 }
 
+#[derive(Default)]
+pub struct MotherboardSensorCollection {
+  pub sample: MotherboardSensorSample,
+  pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
 #[cfg(target_os = "windows")]
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "windows")]
-pub fn sample_motherboard_sensors() -> MotherboardSensorSample {
+pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
   match crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
   {
-    Ok(sample) => sample,
+    Ok(sample) => MotherboardSensorCollection {
+      sample,
+      guidance_candidates: Vec::new(),
+    },
     Err(reason) => {
       if !MOTHERBOARD_SENSOR_FALLBACK_LOGGED.swap(true, Ordering::Relaxed) {
         log_warn!(
           "motherboard_sensor_sampling_failed",
           "collector::sampling::sample_motherboard_sensors",
-          Some(reason)
+          Some(reason.clone())
         );
       }
-      MotherboardSensorSample::default()
+      MotherboardSensorCollection {
+        sample: MotherboardSensorSample::default(),
+        guidance_candidates: vec![
+          ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(reason),
+        ],
+      }
     }
   }
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn sample_motherboard_sensors() -> MotherboardSensorSample {
-  MotherboardSensorSample::default()
+pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
+  MotherboardSensorCollection::default()
 }
 
 /// Read the latest CPU / sensor temperatures.
@@ -559,6 +573,7 @@ pub fn build_metrics_snapshot(
   gpu_samples: &[GpuSample],
   temperature_sample: &TemperatureSample,
   motherboard_sample: &MotherboardSensorSample,
+  motherboard_guidance_candidates: &[ExternalComponentGuidanceCandidate],
 ) -> MetricsSnapshot {
   MetricsSnapshot {
     cpu_usage: system_sample.cpu_usage,
@@ -587,7 +602,10 @@ pub fn build_metrics_snapshot(
     motherboard_fan_speeds: motherboard_sample.fan_speeds.clone(),
     external_component_guidance_candidates: temperature_sample
       .guidance_candidates
-      .clone(),
+      .iter()
+      .chain(motherboard_guidance_candidates.iter())
+      .cloned()
+      .collect(),
   }
 }
 
@@ -724,6 +742,7 @@ mod tests {
       &gpus,
       &TemperatureSample::default(),
       &MotherboardSensorSample::default(),
+      &[],
     );
     assert_eq!(snap.cpu_usage, 12.5);
     assert_eq!(snap.memory_usage, 67.0);
@@ -761,7 +780,7 @@ mod tests {
       guidance_candidates: Vec::new(),
     };
     let snap =
-      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default());
+      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default(), &[]);
     assert_eq!(snap.cpu_temperature, Some(50.0));
     assert_eq!(
       snap.sensor_temperatures,
@@ -805,6 +824,7 @@ mod tests {
       &[],
       &TemperatureSample::default(),
       &motherboard_sample,
+      &[],
     );
 
     assert_eq!(snap.motherboard_temperatures.len(), 1);
@@ -838,7 +858,30 @@ mod tests {
     };
 
     let snap =
-      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default());
+      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default(), &[]);
+
+    assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
+  }
+
+  #[test]
+  fn snapshot_carries_motherboard_external_component_guidance_candidates() {
+    let sys = SystemSample {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      processes: vec![],
+    };
+    let candidate = ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+      "pawnio_open failed: 0x80070005".to_string(),
+    );
+
+    let snap = build_metrics_snapshot(
+      &sys,
+      &[],
+      &TemperatureSample::default(),
+      &MotherboardSensorSample::default(),
+      std::slice::from_ref(&candidate),
+    );
 
     assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
   }
