@@ -77,7 +77,7 @@ pub fn sample_motherboard_sensors() -> Result<MotherboardSensorSample, String> {
 }
 
 struct MotherboardSensorSampler {
-  active: Option<ActiveNuvotonMotherboardSensors>,
+  active: Option<ActiveNuvotonMotherboardSensors<PawnIoClient>>,
   unavailable_reason: Option<String>,
   retry_unavailable: bool,
   sample_failure_logged: bool,
@@ -162,15 +162,50 @@ impl MotherboardSensorSampler {
   }
 }
 
-struct ActiveNuvotonMotherboardSensors {
-  client: PawnIoClient,
+trait LpcIoOps {
+  fn select_lpc_slot(&self, slot: u64) -> Result<(), String>;
+  fn find_lpc_bars(&self) -> Result<(), String>;
+  fn pio_inb(&self, port: u16) -> Result<u8, String>;
+  fn pio_outb(&self, port: u16, value: u8) -> Result<(), String>;
+  fn superio_inb(&self, register: u8) -> Result<u8, String>;
+  fn superio_outb(&self, register: u8, value: u8) -> Result<(), String>;
+}
+
+impl LpcIoOps for PawnIoClient {
+  fn select_lpc_slot(&self, slot: u64) -> Result<(), String> {
+    PawnIoClient::select_lpc_slot(self, slot)
+  }
+
+  fn find_lpc_bars(&self) -> Result<(), String> {
+    PawnIoClient::find_lpc_bars(self)
+  }
+
+  fn pio_inb(&self, port: u16) -> Result<u8, String> {
+    PawnIoClient::pio_inb(self, port)
+  }
+
+  fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+    PawnIoClient::pio_outb(self, port, value)
+  }
+
+  fn superio_inb(&self, register: u8) -> Result<u8, String> {
+    PawnIoClient::superio_inb(self, register)
+  }
+
+  fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+    PawnIoClient::superio_outb(self, register, value)
+  }
+}
+
+struct ActiveNuvotonMotherboardSensors<C: LpcIoOps> {
+  client: C,
   slot: u8,
   hm_base: u16,
   chip_label: &'static str,
   source_label: &'static str,
 }
 
-impl ActiveNuvotonMotherboardSensors {
+impl ActiveNuvotonMotherboardSensors<PawnIoClient> {
   fn open() -> Result<Self, String> {
     let (client, _discovery) =
       PawnIoClient::open(PawnIoModule::LpcIo).map_err(|error| error.reason)?;
@@ -202,7 +237,7 @@ impl ActiveNuvotonMotherboardSensors {
   }
 
   fn discover_slot(
-    client: &PawnIoClient,
+    client: &impl LpcIoOps,
     slot: u8,
   ) -> Result<Option<DetectedSlot>, String> {
     let Some((index_port, _data_port)) = slot_ports(slot) else {
@@ -225,10 +260,19 @@ impl ActiveNuvotonMotherboardSensors {
       }
     }
   }
+}
 
+impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
   fn sample(&self) -> Result<MotherboardSensorSample, String> {
     let _mutex = NamedMutex::acquire(ACCESS_ISABUS_MUTEX, ISABUS_MUTEX_TIMEOUT)?;
-    self.client.select_lpc_slot(self.slot as u64)?;
+    self.sample_unlocked()
+  }
+
+  fn sample_unlocked(&self) -> Result<MotherboardSensorSample, String> {
+    // `ioctl_find_bars` authorizes normal-HM ports for this loaded LpcIO
+    // handle during discovery. Re-running `ioctl_select_slot` here can clear
+    // that BAR authorization, which makes the subsequent HM index/data port
+    // I/O fail with access denied on the validated NZXT N7 B650E path.
     self.write_hm_byte(HM_BANK_SELECT_REGISTER, NUVOTON_BANK_4)?;
 
     let temperatures = TEMPERATURE_REGISTERS
@@ -286,7 +330,7 @@ struct DetectedSlot {
 }
 
 fn discover_nuvoton_hm_base(
-  client: &PawnIoClient,
+  client: &impl LpcIoOps,
   slot: u8,
 ) -> Result<Option<DetectedSlot>, String> {
   let id_high = client.superio_inb(CHIP_ID_HIGH_REGISTER)?;
@@ -320,12 +364,12 @@ fn discover_nuvoton_hm_base(
   Ok(Some(DetectedSlot { slot, hm_base }))
 }
 
-fn enter_nuvoton(client: &PawnIoClient, index_port: u16) -> Result<(), String> {
+fn enter_nuvoton(client: &impl LpcIoOps, index_port: u16) -> Result<(), String> {
   client.pio_outb(index_port, 0x87)?;
   client.pio_outb(index_port, 0x87)
 }
 
-fn exit_nuvoton(client: &PawnIoClient, index_port: u16) -> Result<(), String> {
+fn exit_nuvoton(client: &impl LpcIoOps, index_port: u16) -> Result<(), String> {
   client.pio_outb(index_port, 0xAA)
 }
 
@@ -336,4 +380,125 @@ fn is_valid_hm_base(base: u16) -> bool {
 fn is_retryable_init_error(reason: &str) -> bool {
   reason.contains("timed out waiting for mutex")
     || reason.contains("failed waiting for mutex")
+}
+
+#[cfg(test)]
+mod tests {
+  use std::cell::{Cell, RefCell};
+
+  use super::*;
+
+  struct FakeLpcIo {
+    selected_slot_calls: Cell<u32>,
+    hm_bars_authorized: Cell<bool>,
+    selected_hm_register: Cell<Option<u8>>,
+    selected_hm_bank: Cell<u8>,
+    read_registers: RefCell<Vec<u8>>,
+  }
+
+  impl FakeLpcIo {
+    fn with_authorized_hm_bars() -> Self {
+      Self {
+        selected_slot_calls: Cell::new(0),
+        hm_bars_authorized: Cell::new(true),
+        selected_hm_register: Cell::new(None),
+        selected_hm_bank: Cell::new(0),
+        read_registers: RefCell::new(Vec::new()),
+      }
+    }
+
+    fn require_hm_bars(&self) -> Result<(), String> {
+      if self.hm_bars_authorized.get() {
+        Ok(())
+      } else {
+        Err("hm ports are not authorized".to_string())
+      }
+    }
+
+    fn read_value_for(register: u8) -> u8 {
+      match register {
+        0x90..=0x95 => 32,
+        0xC0 | 0xC2 | 0xC4 | 0xC6 | 0xC8 | 0xCA => 0x03,
+        0xC1 | 0xC3 | 0xC5 | 0xC7 | 0xC9 | 0xCB => 0x20,
+        _ => 0,
+      }
+    }
+  }
+
+  impl LpcIoOps for FakeLpcIo {
+    fn select_lpc_slot(&self, _slot: u64) -> Result<(), String> {
+      self
+        .selected_slot_calls
+        .set(self.selected_slot_calls.get() + 1);
+      self.hm_bars_authorized.set(false);
+      Ok(())
+    }
+
+    fn find_lpc_bars(&self) -> Result<(), String> {
+      self.hm_bars_authorized.set(true);
+      Ok(())
+    }
+
+    fn pio_inb(&self, port: u16) -> Result<u8, String> {
+      if port != 0x0296 {
+        return Err(format!("unexpected HM data port 0x{port:04X}"));
+      }
+
+      self.require_hm_bars()?;
+      if self.selected_hm_bank.get() != NUVOTON_BANK_4 {
+        return Err("bank 4 is not selected".to_string());
+      }
+
+      let register = self
+        .selected_hm_register
+        .get()
+        .ok_or_else(|| "HM index register was not selected".to_string())?;
+      self.read_registers.borrow_mut().push(register);
+      Ok(Self::read_value_for(register))
+    }
+
+    fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
+      match port {
+        0x0295 => {
+          self.require_hm_bars()?;
+          self.selected_hm_register.set(Some(value));
+          Ok(())
+        }
+        0x0296 => {
+          self.require_hm_bars()?;
+          if self.selected_hm_register.get() == Some(HM_BANK_SELECT_REGISTER) {
+            self.selected_hm_bank.set(value);
+          }
+          Ok(())
+        }
+        _ => Ok(()),
+      }
+    }
+
+    fn superio_inb(&self, _register: u8) -> Result<u8, String> {
+      Ok(0)
+    }
+
+    fn superio_outb(&self, _register: u8, _value: u8) -> Result<(), String> {
+      Ok(())
+    }
+  }
+
+  #[test]
+  fn sample_preserves_discovered_hm_bar_authorization() {
+    let active = ActiveNuvotonMotherboardSensors {
+      client: FakeLpcIo::with_authorized_hm_bars(),
+      slot: 0,
+      hm_base: 0x0290,
+      chip_label: NUVOTON_CHIP_LABEL,
+      source_label: NUVOTON_SOURCE_LABEL,
+    };
+
+    let sample = active.sample_unlocked().unwrap();
+
+    assert_eq!(active.client.selected_slot_calls.get(), 0);
+    assert_eq!(sample.temperatures.len(), 6);
+    assert_eq!(sample.fan_speeds.len(), 6);
+    assert_eq!(active.client.read_registers.borrow().len(), 18);
+  }
 }
