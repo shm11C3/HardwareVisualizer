@@ -10,11 +10,13 @@ import {
   gpuUsageHistoriesAtom,
   gpuUsageSourcesAtom,
   memoryUsageHistoryAtom,
+  motherboardFanSpeedsAtom,
+  motherboardTempsAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/chart";
-import { events } from "@/rspc/bindings";
+import { events, type HardwareMonitorUpdate } from "@/rspc/bindings";
 
 const padHistory = (arr: (number | null)[]): (number | null)[] => {
   const padded = Array(Math.max(chartConfig.historyLengthSec - arr.length, 0))
@@ -39,26 +41,11 @@ export const useHardwareEventListener = () => {
   const setSelectedGpuId = useSetAtom(selectedGpuIdAtom);
   const setCpuTemp = useSetAtom(cpuTempAtom);
   const setSensorTemps = useSetAtom(sensorTempsAtom);
+  const setMotherboardTemps = useSetAtom(motherboardTempsAtom);
+  const setMotherboardFanSpeeds = useSetAtom(motherboardFanSpeedsAtom);
 
   const handleHardwareUpdate = useCallback(
-    (event: {
-      payload: {
-        cpuUsage: number;
-        memoryUsage: number;
-        gpus: {
-          gpuId: string;
-          gpuName: string;
-          gpuUsage: number | null;
-          gpuTemperature: number | null;
-          gpuSource: string;
-          gpuDedicatedMemoryUsageKb: number | null;
-          gpuCoolerLevel: number | null;
-        }[];
-        processorsUsage: number[];
-        cpuTemperature: number | null;
-        sensorTemperatures: { name: string; value: number }[];
-      };
-    }) => {
+    (event: { payload: HardwareMonitorUpdate }) => {
       if (document.hidden) {
         return;
       }
@@ -70,6 +57,8 @@ export const useHardwareEventListener = () => {
         processorsUsage,
         cpuTemperature,
         sensorTemperatures,
+        motherboardTemperatures,
+        motherboardFanSpeeds,
       } = event.payload;
 
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
@@ -82,6 +71,8 @@ export const useHardwareEventListener = () => {
 
       // All named temperature sensors (thermal zones)
       setSensorTemps(sensorTemperatures);
+      setMotherboardTemps(motherboardTemperatures);
+      setMotherboardFanSpeeds(motherboardFanSpeeds);
 
       // Per-GPU usage histories
       setGpuHistories((prev) =>
@@ -169,6 +160,8 @@ export const useHardwareEventListener = () => {
       setSelectedGpuId,
       setCpuTemp,
       setSensorTemps,
+      setMotherboardTemps,
+      setMotherboardFanSpeeds,
     ],
   );
   useEffect(() => {

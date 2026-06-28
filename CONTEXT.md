@@ -126,6 +126,32 @@ _Avoid_: Storage Health Record, storage health snapshot, realtime SMART
 The user-initiated action that re-detects connected storage devices, collects current health signals, updates today's Storage Health Record, and reflects added or removed devices in displays.
 _Avoid_: Rescan, reload, auto-detection, live polling
 
+### Motherboard Sensors
+
+**Motherboard Sensor Display**:
+Presenting all available live motherboard temperature and fan-speed readings on the Hardware Dashboard.
+_Avoid_: CPU thermal zones, GPU sensors, Storage Health Display
+
+**Sensor Source Label**:
+A compact label that identifies where a live sensor reading came from, such as a provider, chip, or platform source.
+_Avoid_: Debug output, hardware report, install guidance
+
+**Fan Speed Reading**:
+A live fan-speed value reported for a hardware fan source, typically shown as RPM.
+_Avoid_: Fan health, fan control, PWM setting
+
+**Inactive Fan Reading**:
+A fan-speed reading of 0 RPM, meaning the fan is not currently spinning or not reporting rotation; it does not by itself prove disconnection or fault.
+_Avoid_: Disconnected fan, failed fan, missing fan
+
+**Active Fan Reading**:
+A fan-speed reading above 0 RPM, meaning the fan is currently reporting rotation.
+_Avoid_: Healthy fan, connected fan
+
+**Invalid Fan Reading**:
+A fan-speed reading that cannot be trusted for display because the reported value is outside the accepted reading shape.
+_Avoid_: Failed fan, broken fan
+
 ### Sensor Availability
 
 **External Component Guidance**:

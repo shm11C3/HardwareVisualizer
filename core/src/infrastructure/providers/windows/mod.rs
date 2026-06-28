@@ -9,5 +9,6 @@ pub mod pdh_provider;
 pub mod setupdi_provider;
 pub mod smart;
 pub mod super_io_diagnostics;
+pub mod super_io_motherboard;
 pub mod thermal_zone;
 pub mod wmi_provider;

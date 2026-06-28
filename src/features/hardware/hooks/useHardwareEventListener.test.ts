@@ -18,6 +18,8 @@ import {
   gpuUsageSourcesAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  motherboardFanSpeedsAtom,
+  motherboardTempsAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -73,6 +75,8 @@ const makePayload = (
     processorsUsage: [40, 50],
     cpuTemperature: null,
     sensorTemperatures: [],
+    motherboardTemperatures: [],
+    motherboardFanSpeeds: [],
     ...rest,
   };
 };
@@ -366,6 +370,108 @@ describe("useHardwareEventListener", () => {
     });
 
     expect(result.current).toEqual([]);
+  });
+
+  // Motherboard Super I/O sensors
+
+  it("sets motherboardTempsAtom from motherboardTemperatures", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [sensors] = useAtom(motherboardTempsAtom);
+        return sensors;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() =>
+      emit(
+        makePayload({
+          motherboardTemperatures: [
+            { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
+            { name: "CPUTIN", value: 52, source: "NCT6799D / Super I/O" },
+          ],
+        }),
+      ),
+    );
+
+    expect(result.current).toEqual([
+      { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
+      { name: "CPUTIN", value: 52, source: "NCT6799D / Super I/O" },
+    ]);
+  });
+
+  it("sets motherboardFanSpeedsAtom and preserves inactive zero RPM", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [fans] = useAtom(motherboardFanSpeedsAtom);
+        return fans;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() =>
+      emit(
+        makePayload({
+          motherboardFanSpeeds: [
+            {
+              name: "Fan 1",
+              rpm: 0,
+              status: "inactive",
+              source: "NCT6799D / Super I/O",
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(result.current).toEqual([
+      {
+        name: "Fan 1",
+        rpm: 0,
+        status: "inactive",
+        source: "NCT6799D / Super I/O",
+      },
+    ]);
+  });
+
+  it("clears motherboard sensor atoms when payload arrays are empty", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [temps] = useAtom(motherboardTempsAtom);
+        const [fans] = useAtom(motherboardFanSpeedsAtom);
+        return { temps, fans };
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(
+        makePayload({
+          motherboardTemperatures: [
+            { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
+          ],
+          motherboardFanSpeeds: [
+            {
+              name: "Fan 1",
+              rpm: 1200,
+              status: "active",
+              source: "NCT6799D / Super I/O",
+            },
+          ],
+        }),
+      );
+      emit(
+        makePayload({
+          motherboardTemperatures: [],
+          motherboardFanSpeeds: [],
+        }),
+      );
+    });
+
+    expect(result.current).toEqual({ temps: [], fans: [] });
   });
 
   // ── GPU source ──

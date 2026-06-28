@@ -26,6 +26,38 @@ pub struct SensorTemperature {
   pub temperature: f32,
 }
 
+/// One named motherboard temperature reading, always in raw degrees C.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MotherboardTemperature {
+  pub name: String,
+  pub temperature: f32,
+  pub source: String,
+}
+
+/// Display classification for one motherboard fan-speed reading.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FanSpeedStatus {
+  Active,
+  Inactive,
+  Invalid,
+}
+
+/// One named motherboard fan-speed reading.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MotherboardFanSpeed {
+  pub name: String,
+  pub rpm: Option<u32>,
+  pub status: FanSpeedStatus,
+  pub source: String,
+}
+
+/// One round of motherboard sensor readings.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MotherboardSensorSample {
+  pub temperatures: Vec<MotherboardTemperature>,
+  pub fan_speeds: Vec<MotherboardFanSpeed>,
+}
+
 /// One sample of per-process metrics carried inside [`MetricsSnapshot`].
 ///
 /// Persistence subscribers consume these to build per-process rolling
@@ -59,6 +91,11 @@ pub struct MetricsSnapshot {
   /// All named temperature sensors in raw °C (ACPI thermal zones on
   /// Windows). Empty when unsupported.
   pub sensor_temperatures: Vec<SensorTemperature>,
+  /// Live motherboard temperature readings in raw degrees C. Empty when
+  /// unsupported or unavailable.
+  pub motherboard_temperatures: Vec<MotherboardTemperature>,
+  /// Live motherboard fan-speed readings. Empty when unsupported or unavailable.
+  pub motherboard_fan_speeds: Vec<MotherboardFanSpeed>,
   /// Diagnostic side data for optional runtime components that were
   /// attempted but unavailable while user-visible data remains missing.
   pub external_component_guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,

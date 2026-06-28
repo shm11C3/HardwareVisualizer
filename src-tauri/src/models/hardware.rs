@@ -26,6 +26,10 @@ pub struct HardwareMonitorUpdate {
   pub cpu_temperature: Option<f32>,
   /// All named temperature sensors (thermal zones) in the user's preferred unit.
   pub sensor_temperatures: Vec<NameValue>,
+  /// Motherboard temperature sensors in the user's preferred unit.
+  pub motherboard_temperatures: Vec<MotherboardTemperatureValue>,
+  /// Motherboard fan speeds in RPM.
+  pub motherboard_fan_speeds: Vec<MotherboardFanSpeedValue>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone)]
@@ -73,6 +77,31 @@ pub struct GpuUsageResult {
 pub struct NameValue {
   pub name: String,
   pub value: i32, // Temperature in the user's preferred unit (°C/°F)
+}
+
+#[derive(Debug, Clone, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MotherboardTemperatureValue {
+  pub name: String,
+  pub value: i32,
+  pub source: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MotherboardFanSpeedValue {
+  pub name: String,
+  pub rpm: Option<u32>,
+  pub status: FanSpeedStatus,
+  pub source: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum FanSpeedStatus {
+  Active,
+  Inactive,
+  Invalid,
 }
 
 #[derive(Serialize, Deserialize, Type)]
@@ -334,6 +363,16 @@ impl From<core_hw::NameValue> for NameValue {
     Self {
       name: src.name,
       value: src.value,
+    }
+  }
+}
+
+impl From<hardviz_core::models::FanSpeedStatus> for FanSpeedStatus {
+  fn from(src: hardviz_core::models::FanSpeedStatus) -> Self {
+    match src {
+      hardviz_core::models::FanSpeedStatus::Active => Self::Active,
+      hardviz_core::models::FanSpeedStatus::Inactive => Self::Inactive,
+      hardviz_core::models::FanSpeedStatus::Invalid => Self::Invalid,
     }
   }
 }
@@ -635,6 +674,8 @@ mod tests {
       processors_usage: vec![25.0, 75.0],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     assert_eq!(json["gpus"].as_array().unwrap().len(), 0);
@@ -651,6 +692,8 @@ mod tests {
       processors_usage: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     assert_eq!(json["gpus"].as_array().unwrap().len(), 1);
@@ -669,6 +712,8 @@ mod tests {
       processors_usage: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     let gpus = json["gpus"].as_array().unwrap();
@@ -695,6 +740,8 @@ mod tests {
           value: 40,
         },
       ],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
     };
     let json = serde_json::to_value(&update).unwrap();
     assert_eq!(json["cpuTemperature"], 48.0);
@@ -703,6 +750,39 @@ mod tests {
     assert_eq!(sensors[0]["name"], "CPUZ");
     assert_eq!(sensors[0]["value"], 48);
     assert_eq!(sensors[1]["name"], "TZ01");
+  }
+
+  #[test]
+  fn hardware_monitor_update_with_motherboard_sensors() {
+    let update = HardwareMonitorUpdate {
+      cpu_usage: 50.0,
+      memory_usage: 60.0,
+      gpus: vec![],
+      processors_usage: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
+      motherboard_temperatures: vec![MotherboardTemperatureValue {
+        name: "SYSTIN".to_string(),
+        value: 41,
+        source: "NCT6799D / Super I/O".to_string(),
+      }],
+      motherboard_fan_speeds: vec![MotherboardFanSpeedValue {
+        name: "Fan 1".to_string(),
+        rpm: Some(0),
+        status: FanSpeedStatus::Inactive,
+        source: "NCT6799D / Super I/O".to_string(),
+      }],
+    };
+
+    let json = serde_json::to_value(&update).unwrap();
+    assert_eq!(json["motherboardTemperatures"][0]["name"], "SYSTIN");
+    assert_eq!(json["motherboardTemperatures"][0]["value"], 41);
+    assert_eq!(
+      json["motherboardTemperatures"][0]["source"],
+      "NCT6799D / Super I/O"
+    );
+    assert_eq!(json["motherboardFanSpeeds"][0]["rpm"], 0);
+    assert_eq!(json["motherboardFanSpeeds"][0]["status"], "inactive");
   }
 
   // ── serialize_usage via ProcessInfo JSON serialization ──

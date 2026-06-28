@@ -235,6 +235,37 @@ export const buildHardwareUpdateSeries = (
       { name: "CPUZ", value: Math.round(50 + 8 * Math.sin(i / 5)) },
       { name: "TZ01", value: Math.round(42 + 5 * Math.sin(i / 6)) },
     ],
+    motherboardTemperatures: [
+      {
+        name: "SYSTIN",
+        value: Math.round(38 + 4 * Math.sin(i / 6)),
+        source: "NCT6799D / Super I/O",
+      },
+      {
+        name: "CPUTIN",
+        value: Math.round(48 + 8 * Math.sin(i / 5)),
+        source: "NCT6799D / Super I/O",
+      },
+      {
+        name: "AUXTIN0",
+        value: Math.round(35 + 3 * Math.sin(i / 7)),
+        source: "NCT6799D / Super I/O",
+      },
+    ],
+    motherboardFanSpeeds: [
+      {
+        name: "Fan 1",
+        rpm: Math.round(1200 + 120 * Math.sin(i / 4)),
+        status: "active",
+        source: "NCT6799D / Super I/O",
+      },
+      {
+        name: "Fan 2",
+        rpm: 0,
+        status: "inactive",
+        source: "NCT6799D / Super I/O",
+      },
+    ],
   }));
 
 const round1 = (value: number) => Math.round(value * 10) / 10;

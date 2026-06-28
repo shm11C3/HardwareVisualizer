@@ -565,6 +565,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     }
   }
@@ -690,6 +692,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     });
     assert_eq!(t.gpu_name_map.get("gpu:0").unwrap(), "RTX");
@@ -716,6 +720,8 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     }
   }
@@ -829,6 +835,8 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
@@ -851,6 +859,8 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     });
     let stats = t.collect_process_stats();
@@ -876,6 +886,8 @@ mod tests {
       }],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
@@ -902,6 +914,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     });
     let gpus = t.collect_gpu_data();

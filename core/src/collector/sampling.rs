@@ -9,8 +9,8 @@
 
 use crate::collector::HistoryStore;
 use crate::models::{
-  ExternalComponentGuidanceCandidate, GpuMetric, MetricsSnapshot, ProcessSample,
-  SensorTemperature,
+  ExternalComponentGuidanceCandidate, GpuMetric, MetricsSnapshot,
+  MotherboardSensorSample, ProcessSample, SensorTemperature,
 };
 
 /// One GPU sample collected per physical GPU. `None` means the metric is
@@ -40,6 +40,17 @@ pub struct TemperatureSample {
   pub sensor_temperatures: Vec<SensorTemperature>,
   pub unavailable_reason: Option<String>,
   pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
+#[cfg(target_os = "windows")]
+pub fn sample_motherboard_sensors() -> MotherboardSensorSample {
+  crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
+    .unwrap_or_default()
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn sample_motherboard_sensors() -> MotherboardSensorSample {
+  MotherboardSensorSample::default()
 }
 
 /// Read the latest CPU / sensor temperatures.
@@ -527,6 +538,7 @@ pub fn build_metrics_snapshot(
   system_sample: &SystemSample,
   gpu_samples: &[GpuSample],
   temperature_sample: &TemperatureSample,
+  motherboard_sample: &MotherboardSensorSample,
 ) -> MetricsSnapshot {
   MetricsSnapshot {
     cpu_usage: system_sample.cpu_usage,
@@ -543,6 +555,16 @@ pub fn build_metrics_snapshot(
         temperature: s.temperature.round(),
       })
       .collect(),
+    motherboard_temperatures: motherboard_sample
+      .temperatures
+      .iter()
+      .map(|s| crate::models::MotherboardTemperature {
+        name: s.name.clone(),
+        temperature: s.temperature.round(),
+        source: s.source.clone(),
+      })
+      .collect(),
+    motherboard_fan_speeds: motherboard_sample.fan_speeds.clone(),
     external_component_guidance_candidates: temperature_sample
       .guidance_candidates
       .clone(),
@@ -677,7 +699,12 @@ mod tests {
       }],
     };
     let gpus = vec![make_sample("gpu:0", "RTX 4090", Some(50.0), Some(70.0))];
-    let snap = build_metrics_snapshot(&sys, &gpus, &TemperatureSample::default());
+    let snap = build_metrics_snapshot(
+      &sys,
+      &gpus,
+      &TemperatureSample::default(),
+      &MotherboardSensorSample::default(),
+    );
     assert_eq!(snap.cpu_usage, 12.5);
     assert_eq!(snap.memory_usage, 67.0);
     assert_eq!(snap.processors_usage, vec![10.0, 20.0, 30.0, 40.0]);
@@ -713,7 +740,8 @@ mod tests {
       unavailable_reason: None,
       guidance_candidates: Vec::new(),
     };
-    let snap = build_metrics_snapshot(&sys, &[], &temps);
+    let snap =
+      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default());
     assert_eq!(snap.cpu_temperature, Some(50.0));
     assert_eq!(
       snap.sensor_temperatures,
@@ -750,7 +778,8 @@ mod tests {
       guidance_candidates: vec![candidate.clone()],
     };
 
-    let snap = build_metrics_snapshot(&sys, &[], &temps);
+    let snap =
+      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default());
 
     assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
   }

@@ -214,6 +214,16 @@
       "gpuSelector": {
         "label": "GPU を選択"
       },
+      "motherboardSensors": {
+        "title": "マザーボードセンサー",
+        "temperatures": "温度",
+        "fanSpeeds": "ファン速度",
+        "status": {
+          "active": "稼働中",
+          "inactive": "停止中",
+          "invalid": "無効"
+        }
+      },
       "storageHealth": {
         "title": "ストレージヘルス",
         "stale": "古い",

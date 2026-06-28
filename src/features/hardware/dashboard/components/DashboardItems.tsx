@@ -34,12 +34,17 @@ import {
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
+  motherboardFanSpeedsAtom,
+  motherboardTempsAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   selectedStorageDeviceIdAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/chart";
-import type { NameValues } from "@/features/hardware/types/hardwareDataType";
+import type {
+  FanSpeedStatus,
+  NameValues,
+} from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { useTauriStore } from "@/hooks/useTauriStore";
@@ -926,28 +931,93 @@ const StorageDeviceProtocolBadge = ({
 
 export const MotherboardDataInfo = () => {
   const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
+  const [motherboardTemps] = useAtom(motherboardTempsAtom);
+  const [motherboardFanSpeeds] = useAtom(motherboardFanSpeedsAtom);
 
   if (!hardwareInfo.motherboard) {
     return <Skeleton className="h-[188px] w-full rounded-md" />;
   }
 
   const mb = hardwareInfo.motherboard;
+  const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
+  const sensorSource =
+    motherboardTemps[0]?.source ?? motherboardFanSpeeds[0]?.source;
+  const fanStatusLabel = (status: FanSpeedStatus) => {
+    switch (status) {
+      case "active":
+        return t("pages.dashboard.motherboardSensors.status.active");
+      case "inactive":
+        return t("pages.dashboard.motherboardSensors.status.inactive");
+      case "invalid":
+        return t("pages.dashboard.motherboardSensors.status.invalid");
+    }
+  };
 
   return (
-    <InfoTable
-      data={{
-        [t("shared.manufacturer")]: mb.manufacturer,
-        [t("shared.product")]: mb.product,
-        ...(mb.version ? { [t("shared.version")]: mb.version } : {}),
-        [t("shared.serialNumber")]: mb.serialNumber,
-        [t("shared.biosVendor")]: mb.biosVendor,
-        [t("shared.biosVersion")]: mb.biosVersion,
-        ...(mb.biosReleaseDate
-          ? { [t("shared.biosReleaseDate")]: mb.biosReleaseDate }
-          : {}),
-      }}
-    />
+    <>
+      <InfoTable
+        data={{
+          [t("shared.manufacturer")]: mb.manufacturer,
+          [t("shared.product")]: mb.product,
+          ...(mb.version ? { [t("shared.version")]: mb.version } : {}),
+          [t("shared.serialNumber")]: mb.serialNumber,
+          [t("shared.biosVendor")]: mb.biosVendor,
+          [t("shared.biosVersion")]: mb.biosVersion,
+          ...(mb.biosReleaseDate
+            ? { [t("shared.biosReleaseDate")]: mb.biosReleaseDate }
+            : {}),
+        }}
+      />
+
+      {(motherboardTemps.length > 0 || motherboardFanSpeeds.length > 0) && (
+        <div className="mt-3 space-y-3">
+          <div className="ml-2 flex items-center gap-2">
+            <h4 className="font-bold text-sm md:text-md">
+              {t("pages.dashboard.motherboardSensors.title")}
+            </h4>
+            {sensorSource && (
+              <span className="rounded-sm bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {sensorSource}
+              </span>
+            )}
+          </div>
+
+          {motherboardTemps.length > 0 && (
+            <div className="ml-2">
+              <h5 className="mb-1 font-medium text-muted-foreground text-xs">
+                {t("pages.dashboard.motherboardSensors.temperatures")}
+              </h5>
+              <InfoTable
+                data={Object.fromEntries(
+                  motherboardTemps.map((sensor) => [
+                    sensor.name,
+                    `${sensor.value} ${temperatureUnit}`,
+                  ]),
+                )}
+              />
+            </div>
+          )}
+
+          {motherboardFanSpeeds.length > 0 && (
+            <div className="ml-2">
+              <h5 className="mb-1 font-medium text-muted-foreground text-xs">
+                {t("pages.dashboard.motherboardSensors.fanSpeeds")}
+              </h5>
+              <InfoTable
+                data={Object.fromEntries(
+                  motherboardFanSpeeds.map((fan) => [
+                    fan.name,
+                    `${fan.rpm ?? "N/A"} RPM (${fanStatusLabel(fan.status)})`,
+                  ]),
+                )}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 };
 

@@ -203,6 +203,16 @@
       "gpuSelector": {
         "label": "Выберите ГП"
       },
+      "motherboardSensors": {
+        "title": "Датчики материнской платы",
+        "temperatures": "Температуры",
+        "fanSpeeds": "Скорости вентиляторов",
+        "status": {
+          "active": "Активен",
+          "inactive": "Неактивен",
+          "invalid": "Недействителен"
+        }
+      },
       "storageHealth": {
         "title": "Состояние накопителя",
         "stale": "Устарело",

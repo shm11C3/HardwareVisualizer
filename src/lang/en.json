@@ -214,6 +214,16 @@
       "gpuSelector": {
         "label": "Select GPU"
       },
+      "motherboardSensors": {
+        "title": "Motherboard Sensors",
+        "temperatures": "Temperatures",
+        "fanSpeeds": "Fan Speeds",
+        "status": {
+          "active": "Active",
+          "inactive": "Inactive",
+          "invalid": "Invalid"
+        }
+      },
       "storageHealth": {
         "title": "Storage Health",
         "stale": "Stale",

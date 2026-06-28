@@ -369,6 +369,8 @@ export type ExternalComponentReasonKind = "missing" | "permission" | "misconfigu
 
 export type ExternalComponentUsage = "cpuPackageTemperature" | "storageHealth";
 
+export type FanSpeedStatus = "active" | "inactive" | "invalid";
+
 export type GpuArchiveDataType = "usage" | "temp" | "dedicatedMemory";
 
 export type GpuMemoryUsage = {
@@ -430,6 +432,10 @@ export type HardwareMonitorUpdate = {
 	cpuTemperature: number | null,
 	// All named temperature sensors (thermal zones) in the user's preferred unit.
 	sensorTemperatures: NameValue[],
+	// Motherboard temperature sensors in the user's preferred unit.
+	motherboardTemperatures: MotherboardTemperatureValue[],
+	// Motherboard fan speeds in RPM.
+	motherboardFanSpeeds: MotherboardFanSpeedValue[],
 };
 
 export type HardwareType = "cpu" | "memory" | "gpu";
@@ -471,6 +477,13 @@ export type MemoryInfo = {
 	isDetailed: boolean,
 };
 
+export type MotherboardFanSpeedValue = {
+	name: string,
+	rpm: number | null,
+	status: FanSpeedStatus,
+	source: string,
+};
+
 export type MotherboardInfo = {
 	manufacturer: string,
 	product: string,
@@ -479,6 +492,12 @@ export type MotherboardInfo = {
 	biosVendor: string,
 	biosVersion: string,
 	biosReleaseDate: string,
+};
+
+export type MotherboardTemperatureValue = {
+	name: string,
+	value: number,
+	source: string,
 };
 
 export type NameValue = {
