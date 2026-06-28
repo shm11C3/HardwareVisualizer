@@ -99,7 +99,7 @@ objc2 = "0.6.4"
 # `NSVisualEffectViewTagged` Objective-C class, and the release profile's LTO
 # (`lto = true`, `codegen-units = 1`) then fails the macOS link with
 # "symbol multiply defined" for `__CLASS_NSVisualEffectViewTagged` (see #1724/#1718).
-window-vibrancy = "0.6"
+window-vibrancy = "0.7"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSAttributedString",
     "NSButton",
