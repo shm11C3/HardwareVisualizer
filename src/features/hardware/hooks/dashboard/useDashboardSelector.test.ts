@@ -130,8 +130,8 @@ describe("useDashboardSelector", () => {
       wrapper: Provider,
     });
 
-    await act(async () => {
-      await waitFor(() => result.current.visibleItems?.includes("motherboard"));
+    await waitFor(() => {
+      expect(result.current.visibleItems).toContain("motherboard");
     });
 
     const expectedItems = [...storedItems, "motherboard"];
@@ -140,6 +140,33 @@ describe("useDashboardSelector", () => {
       "dashboardVisibleItems",
       expectedItems,
     );
+    expect(fakeStore.set).toHaveBeenCalledWith(
+      "dashboardVisibleItemsVersion",
+      1,
+    );
+  });
+
+  it("does not restore previously hidden default dashboard items during migration", async () => {
+    const storedItems: DashboardSelectItemType[] = ["cpu", "title"];
+    fakeStore.data["dashboardVisibleItems"] = storedItems;
+
+    const { result } = renderHook(() => useDashboardSelector(), {
+      wrapper: Provider,
+    });
+
+    await waitFor(() => {
+      expect(result.current.visibleItems).toEqual([
+        "cpu",
+        "title",
+        "motherboard",
+      ]);
+    });
+
+    expect(fakeStore.set).toHaveBeenCalledWith("dashboardVisibleItems", [
+      "cpu",
+      "title",
+      "motherboard",
+    ]);
     expect(fakeStore.set).toHaveBeenCalledWith(
       "dashboardVisibleItemsVersion",
       1,

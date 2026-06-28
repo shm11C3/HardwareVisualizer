@@ -11,6 +11,12 @@ const DEFAULT_VISIBLE_ITEMS: DashboardSelectItemType[] = [
   "title",
 ] as const;
 const CURRENT_VISIBLE_ITEMS_VERSION = 1;
+const VISIBLE_ITEMS_ADDED_BY_VERSION: Record<
+  number,
+  DashboardSelectItemType[]
+> = {
+  1: ["motherboard"],
+};
 
 export const useDashboardSelector = () => {
   const [visibleItems, setVisibleItems] = useTauriStore<
@@ -30,19 +36,27 @@ export const useDashboardSelector = () => {
       return;
     }
 
-    const knownVisibleItems = visibleItems.filter((item) =>
-      DEFAULT_VISIBLE_ITEMS.includes(item),
-    );
-    const missingDefaultItems = DEFAULT_VISIBLE_ITEMS.filter(
-      (item) => !knownVisibleItems.includes(item),
-    );
-    const migratedItems = [...knownVisibleItems, ...missingDefaultItems];
+    const missingDefaultItems = Object.entries(VISIBLE_ITEMS_ADDED_BY_VERSION)
+      .filter(([version]) => {
+        const itemVersion = Number(version);
+        return (
+          itemVersion > visibleItemsVersion &&
+          itemVersion <= CURRENT_VISIBLE_ITEMS_VERSION
+        );
+      })
+      .flatMap(([, items]) => items)
+      .filter(
+        (item) =>
+          DEFAULT_VISIBLE_ITEMS.includes(item) && !visibleItems.includes(item),
+      );
+    const migratedItems = [...visibleItems, ...missingDefaultItems];
+
+    const shouldUpdateVisibleItems =
+      missingDefaultItems.length > 0 ||
+      migratedItems.some((item, index) => item !== visibleItems[index]);
 
     const migrateVisibleItems = async () => {
-      if (
-        migratedItems.length !== visibleItems.length ||
-        migratedItems.some((item, index) => item !== visibleItems[index])
-      ) {
+      if (shouldUpdateVisibleItems) {
         await setVisibleItems(migratedItems);
       }
       await setVisibleItemsVersion(CURRENT_VISIBLE_ITEMS_VERSION);
