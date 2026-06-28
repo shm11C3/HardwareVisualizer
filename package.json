@@ -28,7 +28,7 @@
     "gen:licenses:tmp": "node --experimental-strip-types .github/scripts/generate-licenses.ts tmp"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.0",
+    "@biomejs/biome": "2.5.1",
     "@playwright/test": "^1.61.0",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.0",
