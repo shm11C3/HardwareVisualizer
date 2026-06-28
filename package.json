@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.1",
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "^1.61.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.0",
     "@tauri-apps/cli": "^2.11.3",
@@ -41,7 +41,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@types/selenium-webdriver": "^4.35.6",
-    "@vitejs/plugin-react": "^6.0.2",
+    "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.9",
     "babel-plugin-react-compiler": "^1.0.0",
     "jsdom": "^29.1.1",
@@ -50,7 +50,7 @@
     "selenium-webdriver": "^4.45.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^6.0.3",
-    "vite": "^8.0.16",
+    "vite": "^8.1.0",
     "vitest": "^4.0.8"
   },
   "dependencies": {
@@ -92,7 +92,7 @@
     "react-error-boundary": "^6.1.2",
     "react-hook-form": "^7.80.0",
     "react-i18next": "^17.0.8",
-    "recharts": "^3.6.0",
+    "recharts": "^3.9.0",
     "tailwind-merge": "^3.6.0",
     "tailwind-variants": "^3.1.1",
     "tailwindcss-animate": "^1.0.7",
