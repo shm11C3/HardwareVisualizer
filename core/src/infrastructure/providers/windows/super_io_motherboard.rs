@@ -390,19 +390,41 @@ mod tests {
 
   struct FakeLpcIo {
     selected_slot_calls: Cell<u32>,
+    find_bars_calls: Cell<u32>,
     hm_bars_authorized: Cell<bool>,
     selected_hm_register: Cell<Option<u8>>,
     selected_hm_bank: Cell<u8>,
+    selected_ldn: Cell<Option<u8>>,
+    hm_base_high_read: Cell<bool>,
+    hm_base_low_read: Cell<bool>,
     read_registers: RefCell<Vec<u8>>,
   }
 
   impl FakeLpcIo {
+    fn new() -> Self {
+      Self {
+        selected_slot_calls: Cell::new(0),
+        find_bars_calls: Cell::new(0),
+        hm_bars_authorized: Cell::new(false),
+        selected_hm_register: Cell::new(None),
+        selected_hm_bank: Cell::new(0),
+        selected_ldn: Cell::new(None),
+        hm_base_high_read: Cell::new(false),
+        hm_base_low_read: Cell::new(false),
+        read_registers: RefCell::new(Vec::new()),
+      }
+    }
+
     fn with_authorized_hm_bars() -> Self {
       Self {
         selected_slot_calls: Cell::new(0),
+        find_bars_calls: Cell::new(0),
         hm_bars_authorized: Cell::new(true),
         selected_hm_register: Cell::new(None),
         selected_hm_bank: Cell::new(0),
+        selected_ldn: Cell::new(Some(NUVOTON_HARDWARE_MONITOR_LDN)),
+        hm_base_high_read: Cell::new(true),
+        hm_base_low_read: Cell::new(true),
         read_registers: RefCell::new(Vec::new()),
       }
     }
@@ -435,6 +457,13 @@ mod tests {
     }
 
     fn find_lpc_bars(&self) -> Result<(), String> {
+      self.find_bars_calls.set(self.find_bars_calls.get() + 1);
+      if self.selected_ldn.get() != Some(NUVOTON_HARDWARE_MONITOR_LDN) {
+        return Err("find_lpc_bars called before LDN B selection".to_string());
+      }
+      if !self.hm_base_high_read.get() || !self.hm_base_low_read.get() {
+        return Err("find_lpc_bars called before HM base discovery".to_string());
+      }
       self.hm_bars_authorized.set(true);
       Ok(())
     }
@@ -475,13 +504,50 @@ mod tests {
       }
     }
 
-    fn superio_inb(&self, _register: u8) -> Result<u8, String> {
-      Ok(0)
+    fn superio_inb(&self, register: u8) -> Result<u8, String> {
+      match register {
+        CHIP_ID_HIGH_REGISTER => Ok(0xD8),
+        CHIP_ID_LOW_REGISTER => Ok(0x02),
+        LDN_ACTIVATION_REGISTER => {
+          if self.selected_ldn.get() == Some(NUVOTON_HARDWARE_MONITOR_LDN) {
+            Ok(0x09)
+          } else {
+            Ok(0x00)
+          }
+        }
+        HM_BASE_HIGH_REGISTER => {
+          self.hm_base_high_read.set(true);
+          Ok(0x02)
+        }
+        HM_BASE_LOW_REGISTER => {
+          self.hm_base_low_read.set(true);
+          Ok(0x90)
+        }
+        _ => Ok(0),
+      }
     }
 
-    fn superio_outb(&self, _register: u8, _value: u8) -> Result<(), String> {
+    fn superio_outb(&self, register: u8, value: u8) -> Result<(), String> {
+      if register == LOGICAL_DEVICE_SELECT_REGISTER {
+        self.selected_ldn.set(Some(value));
+      }
       Ok(())
     }
+  }
+
+  #[test]
+  fn discover_slot_authorizes_hm_bars_after_base_discovery() {
+    let client = FakeLpcIo::new();
+
+    let detected = ActiveNuvotonMotherboardSensors::discover_slot(&client, 0)
+      .unwrap()
+      .unwrap();
+
+    assert_eq!(detected.slot, 0);
+    assert_eq!(detected.hm_base, 0x0290);
+    assert_eq!(client.selected_slot_calls.get(), 1);
+    assert_eq!(client.find_bars_calls.get(), 1);
+    assert!(client.hm_bars_authorized.get());
   }
 
   #[test]
@@ -499,6 +565,12 @@ mod tests {
     assert_eq!(active.client.selected_slot_calls.get(), 0);
     assert_eq!(sample.temperatures.len(), 6);
     assert_eq!(sample.fan_speeds.len(), 6);
-    assert_eq!(active.client.read_registers.borrow().len(), 18);
+    assert_eq!(
+      active.client.read_registers.borrow().as_slice(),
+      &[
+        0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6,
+        0xC7, 0xC8, 0xC9, 0xCA, 0xCB
+      ]
+    );
   }
 }
