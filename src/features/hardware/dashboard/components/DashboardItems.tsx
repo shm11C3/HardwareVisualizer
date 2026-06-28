@@ -935,12 +935,14 @@ export const MotherboardDataInfo = () => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const [motherboardTemps] = useAtom(motherboardTempsAtom);
   const [motherboardFanSpeeds] = useAtom(motherboardFanSpeedsAtom);
+  const mb = hardwareInfo.motherboard;
+  const hasLiveSensors =
+    motherboardTemps.length > 0 || motherboardFanSpeeds.length > 0;
 
-  if (!hardwareInfo.motherboard) {
+  if (!mb && !hasLiveSensors) {
     return <Skeleton className="h-[188px] w-full rounded-md" />;
   }
 
-  const mb = hardwareInfo.motherboard;
   const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
   const sensorSource =
     motherboardTemps[0]?.source ?? motherboardFanSpeeds[0]?.source;
@@ -957,22 +959,24 @@ export const MotherboardDataInfo = () => {
 
   return (
     <>
-      <InfoTable
-        data={{
-          [t("shared.manufacturer")]: mb.manufacturer,
-          [t("shared.product")]: mb.product,
-          ...(mb.version ? { [t("shared.version")]: mb.version } : {}),
-          [t("shared.serialNumber")]: mb.serialNumber,
-          [t("shared.biosVendor")]: mb.biosVendor,
-          [t("shared.biosVersion")]: mb.biosVersion,
-          ...(mb.biosReleaseDate
-            ? { [t("shared.biosReleaseDate")]: mb.biosReleaseDate }
-            : {}),
-        }}
-      />
+      {mb && (
+        <InfoTable
+          data={{
+            [t("shared.manufacturer")]: mb.manufacturer,
+            [t("shared.product")]: mb.product,
+            ...(mb.version ? { [t("shared.version")]: mb.version } : {}),
+            [t("shared.serialNumber")]: mb.serialNumber,
+            [t("shared.biosVendor")]: mb.biosVendor,
+            [t("shared.biosVersion")]: mb.biosVersion,
+            ...(mb.biosReleaseDate
+              ? { [t("shared.biosReleaseDate")]: mb.biosReleaseDate }
+              : {}),
+          }}
+        />
+      )}
 
-      {(motherboardTemps.length > 0 || motherboardFanSpeeds.length > 0) && (
-        <div className="mt-3 space-y-3">
+      {hasLiveSensors && (
+        <div className={cn("space-y-3", mb && "mt-3")}>
           <div className="ml-2 flex items-center gap-2">
             <h4 className="font-bold text-sm md:text-md">
               {t("pages.dashboard.motherboardSensors.title")}
