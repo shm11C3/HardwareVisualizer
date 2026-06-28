@@ -79,26 +79,29 @@ pub fn sample_motherboard_sensors() -> Result<MotherboardSensorSample, String> {
 struct MotherboardSensorSampler {
   active: Option<ActiveNuvotonMotherboardSensors>,
   unavailable_reason: Option<String>,
+  retry_unavailable: bool,
   sample_failure_logged: bool,
 }
 
 impl MotherboardSensorSampler {
   fn new() -> Self {
-    match ActiveNuvotonMotherboardSensors::open() {
-      Ok(active) => Self {
-        active: Some(active),
-        unavailable_reason: None,
-        sample_failure_logged: false,
-      },
-      Err(reason) => Self {
-        active: None,
-        unavailable_reason: Some(reason),
-        sample_failure_logged: false,
-      },
-    }
+    let mut sampler = Self {
+      active: None,
+      unavailable_reason: None,
+      retry_unavailable: false,
+      sample_failure_logged: false,
+    };
+    let _ = sampler.try_open();
+    sampler
   }
 
   fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
+    if self.active.is_none()
+      && (self.unavailable_reason.is_none() || self.retry_unavailable)
+    {
+      let _ = self.try_open();
+    }
+
     let result = match self.active.as_ref() {
       Some(active) => active.sample(),
       None => Err(
@@ -123,6 +126,24 @@ impl MotherboardSensorSampler {
     result
   }
 
+  fn try_open(&mut self) -> Result<(), String> {
+    match ActiveNuvotonMotherboardSensors::open() {
+      Ok(active) => {
+        self.active = Some(active);
+        self.unavailable_reason = None;
+        self.retry_unavailable = false;
+        self.sample_failure_logged = false;
+        Ok(())
+      }
+      Err(reason) => {
+        self.active = None;
+        self.retry_unavailable = is_retryable_init_error(&reason);
+        self.unavailable_reason = Some(reason.clone());
+        Err(reason)
+      }
+    }
+  }
+
   fn diagnostic_summary(&self) -> String {
     match &self.active {
       Some(active) => format!(
@@ -130,8 +151,12 @@ impl MotherboardSensorSampler {
         active.chip_label, active.slot, active.hm_base
       ),
       None => format!(
-        "unavailable reason={}",
-        self.unavailable_reason.as_deref().unwrap_or("unknown")
+        "unavailable retryable={} reason={}",
+        self.retry_unavailable,
+        self
+          .unavailable_reason
+          .as_deref()
+          .unwrap_or("not attempted")
       ),
     }
   }
@@ -306,4 +331,9 @@ fn exit_nuvoton(client: &PawnIoClient, index_port: u16) -> Result<(), String> {
 
 fn is_valid_hm_base(base: u16) -> bool {
   base != 0x0000 && base != 0xFFFF && base <= u16::MAX - HM_DATA_OFFSET
+}
+
+fn is_retryable_init_error(reason: &str) -> bool {
+  reason.contains("timed out waiting for mutex")
+    || reason.contains("failed waiting for mutex")
 }

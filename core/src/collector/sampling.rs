@@ -7,7 +7,12 @@
 //! `WindowAdapter` applies the user's preferred unit before emitting the
 //! Tauri `HardwareMonitorUpdate` event.
 
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::collector::HistoryStore;
+#[cfg(target_os = "windows")]
+use crate::log_warn;
 use crate::models::{
   ExternalComponentGuidanceCandidate, GpuMetric, MetricsSnapshot,
   MotherboardSensorSample, ProcessSample, SensorTemperature,
@@ -43,9 +48,24 @@ pub struct TemperatureSample {
 }
 
 #[cfg(target_os = "windows")]
+static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
 pub fn sample_motherboard_sensors() -> MotherboardSensorSample {
-  crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
-    .unwrap_or_default()
+  match crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
+  {
+    Ok(sample) => sample,
+    Err(reason) => {
+      if !MOTHERBOARD_SENSOR_FALLBACK_LOGGED.swap(true, Ordering::Relaxed) {
+        log_warn!(
+          "motherboard_sensor_sampling_failed",
+          "collector::sampling::sample_motherboard_sensors",
+          Some(reason)
+        );
+      }
+      MotherboardSensorSample::default()
+    }
+  }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -756,6 +776,45 @@ mod tests {
         },
       ]
     );
+  }
+
+  #[test]
+  fn snapshot_carries_motherboard_sensors() {
+    let sys = SystemSample {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      processes: vec![],
+    };
+    let motherboard_sample = MotherboardSensorSample {
+      temperatures: vec![crate::models::MotherboardTemperature {
+        name: "SYSTIN".into(),
+        temperature: 39.6,
+        source: "NCT6799D / Super I/O".into(),
+      }],
+      fan_speeds: vec![crate::models::MotherboardFanSpeed {
+        name: "Fan 1".into(),
+        rpm: Some(0),
+        status: crate::models::FanSpeedStatus::Inactive,
+        source: "NCT6799D / Super I/O".into(),
+      }],
+    };
+
+    let snap = build_metrics_snapshot(
+      &sys,
+      &[],
+      &TemperatureSample::default(),
+      &motherboard_sample,
+    );
+
+    assert_eq!(snap.motherboard_temperatures.len(), 1);
+    assert_eq!(snap.motherboard_temperatures[0].name, "SYSTIN");
+    assert_eq!(snap.motherboard_temperatures[0].temperature, 40.0);
+    assert_eq!(
+      snap.motherboard_temperatures[0].source,
+      "NCT6799D / Super I/O"
+    );
+    assert_eq!(snap.motherboard_fan_speeds, motherboard_sample.fan_speeds);
   }
 
   #[test]

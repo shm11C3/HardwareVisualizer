@@ -12,6 +12,7 @@
       "abbrev": "Temp"
     },
     "thermalSensors": "Thermal Sensors",
+    "notAvailable": "N/A",
     "name": "Name",
     "vendor": "Vendor",
     "coreCount": "Core Count",

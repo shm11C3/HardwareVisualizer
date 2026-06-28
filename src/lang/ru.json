@@ -12,6 +12,7 @@
       "abbrev": "Темп."
     },
     "thermalSensors": "Датчики температуры",
+    "notAvailable": "Н/Д",
     "name": "Имя",
     "vendor": "Производитель",
     "coreCount": "Количество ядер",

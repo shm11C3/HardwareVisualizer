@@ -1009,7 +1009,9 @@ export const MotherboardDataInfo = () => {
                 data={Object.fromEntries(
                   motherboardFanSpeeds.map((fan) => [
                     fan.name,
-                    `${fan.rpm ?? "N/A"} RPM (${fanStatusLabel(fan.status)})`,
+                    fan.rpm != null
+                      ? `${fan.rpm} RPM (${fanStatusLabel(fan.status)})`
+                      : `${t("shared.notAvailable")} (${fanStatusLabel(fan.status)})`,
                   ]),
                 )}
               />
