@@ -98,6 +98,7 @@ describe("useDashboardSelector", () => {
   it("loads stored value when it exists in the store", async () => {
     // Arrange: Store already has a value
     const storedItems: DashboardSelectItemType[] = ["cpu", "memory", "title"];
+    fakeStore.data["dashboardVisibleItemsVersion"] = 1;
     fakeStore.data["dashboardVisibleItems"] = storedItems;
 
     const { result } = renderHook(() => useDashboardSelector(), {
@@ -113,9 +114,42 @@ describe("useDashboardSelector", () => {
     expect(result.current.visibleItems).toEqual(storedItems);
   });
 
+  it("migrates old stored visible items to include newly added dashboard items", async () => {
+    const storedItems: DashboardSelectItemType[] = [
+      "cpu",
+      "gpu",
+      "memory",
+      "storage",
+      "process",
+      "network",
+      "title",
+    ];
+    fakeStore.data["dashboardVisibleItems"] = storedItems;
+
+    const { result } = renderHook(() => useDashboardSelector(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await waitFor(() => result.current.visibleItems?.includes("motherboard"));
+    });
+
+    const expectedItems = [...storedItems, "motherboard"];
+    expect(result.current.visibleItems).toEqual(expectedItems);
+    expect(fakeStore.set).toHaveBeenCalledWith(
+      "dashboardVisibleItems",
+      expectedItems,
+    );
+    expect(fakeStore.set).toHaveBeenCalledWith(
+      "dashboardVisibleItemsVersion",
+      1,
+    );
+  });
+
   it("toggles visibility of an item by adding it when not present", async () => {
     // Arrange: Start with only some items visible
     const initialItems: DashboardSelectItemType[] = ["cpu", "memory"];
+    fakeStore.data["dashboardVisibleItemsVersion"] = 1;
     fakeStore.data["dashboardVisibleItems"] = initialItems;
 
     const { result } = renderHook(() => useDashboardSelector(), {
@@ -142,6 +176,7 @@ describe("useDashboardSelector", () => {
   it("toggles visibility of an item by removing it when present", async () => {
     // Arrange: Start with multiple items visible
     const initialItems: DashboardSelectItemType[] = ["cpu", "memory", "gpu"];
+    fakeStore.data["dashboardVisibleItemsVersion"] = 1;
     fakeStore.data["dashboardVisibleItems"] = initialItems;
 
     const { result } = renderHook(() => useDashboardSelector(), {
@@ -166,6 +201,7 @@ describe("useDashboardSelector", () => {
   it("prevents empty selection when trying to remove the last item", async () => {
     // Arrange: Start with only one item visible
     const initialItems: DashboardSelectItemType[] = ["cpu"];
+    fakeStore.data["dashboardVisibleItemsVersion"] = 1;
     fakeStore.data["dashboardVisibleItems"] = initialItems;
 
     const { result } = renderHook(() => useDashboardSelector(), {
@@ -189,6 +225,7 @@ describe("useDashboardSelector", () => {
   it("calls toggleTitleIconVisibility with true when title is in visibleItems", async () => {
     // Arrange: Start with 'title' included
     const initialItems: DashboardSelectItemType[] = ["cpu", "title"];
+    fakeStore.data["dashboardVisibleItemsVersion"] = 1;
     fakeStore.data["dashboardVisibleItems"] = initialItems;
 
     const { result } = renderHook(() => useDashboardSelector(), {
@@ -210,6 +247,7 @@ describe("useDashboardSelector", () => {
   it("calls toggleTitleIconVisibility with false when title is not in visibleItems", async () => {
     // Arrange: Start without 'title'
     const initialItems: DashboardSelectItemType[] = ["cpu", "memory"];
+    fakeStore.data["dashboardVisibleItemsVersion"] = 1;
     fakeStore.data["dashboardVisibleItems"] = initialItems;
 
     const { result } = renderHook(() => useDashboardSelector(), {
