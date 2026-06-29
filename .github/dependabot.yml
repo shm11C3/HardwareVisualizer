@@ -61,6 +61,8 @@ updates:
       - dependency-name: "tauri-build"
       - dependency-name: "tauri-plugin-*"
       - dependency-name: "tauri-specta"
+      # Keep aligned with Tauri's 0.6 dependency; 0.7 duplicates macOS Objective-C symbols under release LTO.
+      - dependency-name: "window-vibrancy"
 
   - package-ecosystem: "rust-toolchain"
     directory: "/"
