@@ -79,6 +79,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     }
   }
@@ -154,6 +156,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     });
 

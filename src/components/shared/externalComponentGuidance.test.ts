@@ -41,6 +41,9 @@ describe("externalComponentGuidance", () => {
       component: "smartctl",
       usage: "storageHealth",
     });
+    const motherboard = candidate("pawnio:motherboard-sensors:v1", {
+      usage: "motherboardSensors",
+    });
 
     expect(externalComponentGuidanceCopyKey(pawnio)).toBe(
       "pawnioCpuPackageTemperature",
@@ -50,6 +53,12 @@ describe("externalComponentGuidance", () => {
       "smartctlStorageHealth",
     );
     expect(externalComponentGuidanceDocsUrl(smartctl)).toContain("#smartctl");
+    expect(externalComponentGuidanceCopyKey(motherboard)).toBe(
+      "pawnioMotherboardSensors",
+    );
+    expect(externalComponentGuidanceDocsUrl(motherboard)).toContain(
+      "#pawnio-motherboard-sensors",
+    );
   });
 
   it("uses permission action copy for permission failures", () => {

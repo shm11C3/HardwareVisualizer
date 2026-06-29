@@ -7,10 +7,15 @@
 //! `WindowAdapter` applies the user's preferred unit before emitting the
 //! Tauri `HardwareMonitorUpdate` event.
 
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::collector::HistoryStore;
+#[cfg(target_os = "windows")]
+use crate::log_warn;
 use crate::models::{
-  ExternalComponentGuidanceCandidate, GpuMetric, MetricsSnapshot, ProcessSample,
-  SensorTemperature,
+  ExternalComponentGuidanceCandidate, GpuMetric, MetricsSnapshot,
+  MotherboardSensorSample, ProcessSample, SensorTemperature,
 };
 
 /// One GPU sample collected per physical GPU. `None` means the metric is
@@ -40,6 +45,57 @@ pub struct TemperatureSample {
   pub sensor_temperatures: Vec<SensorTemperature>,
   pub unavailable_reason: Option<String>,
   pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
+#[derive(Default)]
+pub struct MotherboardSensorCollection {
+  pub sample: MotherboardSensorSample,
+  pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
+#[cfg(target_os = "windows")]
+static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
+pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
+  match crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
+  {
+    Ok(sample) => MotherboardSensorCollection {
+      sample,
+      guidance_candidates: Vec::new(),
+    },
+    Err(reason) => {
+      if !MOTHERBOARD_SENSOR_FALLBACK_LOGGED.swap(true, Ordering::Relaxed) {
+        log_warn!(
+          "motherboard_sensor_sampling_failed",
+          "collector::sampling::sample_motherboard_sensors",
+          Some(reason.clone())
+        );
+      }
+      MotherboardSensorCollection {
+        sample: MotherboardSensorSample::default(),
+        guidance_candidates: motherboard_guidance_candidates_for_reason(reason),
+      }
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn motherboard_guidance_candidates_for_reason(
+  reason: String,
+) -> Vec<ExternalComponentGuidanceCandidate> {
+  if reason
+    == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+  {
+    return Vec::new();
+  }
+
+  vec![ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(reason)]
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
+  MotherboardSensorCollection::default()
 }
 
 /// Read the latest CPU / sensor temperatures.
@@ -527,6 +583,8 @@ pub fn build_metrics_snapshot(
   system_sample: &SystemSample,
   gpu_samples: &[GpuSample],
   temperature_sample: &TemperatureSample,
+  motherboard_sample: &MotherboardSensorSample,
+  motherboard_guidance_candidates: &[ExternalComponentGuidanceCandidate],
 ) -> MetricsSnapshot {
   MetricsSnapshot {
     cpu_usage: system_sample.cpu_usage,
@@ -543,9 +601,22 @@ pub fn build_metrics_snapshot(
         temperature: s.temperature.round(),
       })
       .collect(),
+    motherboard_temperatures: motherboard_sample
+      .temperatures
+      .iter()
+      .map(|s| crate::models::MotherboardTemperature {
+        name: s.name.clone(),
+        temperature: s.temperature.round(),
+        source: s.source.clone(),
+      })
+      .collect(),
+    motherboard_fan_speeds: motherboard_sample.fan_speeds.clone(),
     external_component_guidance_candidates: temperature_sample
       .guidance_candidates
-      .clone(),
+      .iter()
+      .chain(motherboard_guidance_candidates.iter())
+      .cloned()
+      .collect(),
   }
 }
 
@@ -677,7 +748,13 @@ mod tests {
       }],
     };
     let gpus = vec![make_sample("gpu:0", "RTX 4090", Some(50.0), Some(70.0))];
-    let snap = build_metrics_snapshot(&sys, &gpus, &TemperatureSample::default());
+    let snap = build_metrics_snapshot(
+      &sys,
+      &gpus,
+      &TemperatureSample::default(),
+      &MotherboardSensorSample::default(),
+      &[],
+    );
     assert_eq!(snap.cpu_usage, 12.5);
     assert_eq!(snap.memory_usage, 67.0);
     assert_eq!(snap.processors_usage, vec![10.0, 20.0, 30.0, 40.0]);
@@ -713,7 +790,8 @@ mod tests {
       unavailable_reason: None,
       guidance_candidates: Vec::new(),
     };
-    let snap = build_metrics_snapshot(&sys, &[], &temps);
+    let snap =
+      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default(), &[]);
     assert_eq!(snap.cpu_temperature, Some(50.0));
     assert_eq!(
       snap.sensor_temperatures,
@@ -728,6 +806,46 @@ mod tests {
         },
       ]
     );
+  }
+
+  #[test]
+  fn snapshot_carries_motherboard_sensors() {
+    let sys = SystemSample {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      processes: vec![],
+    };
+    let motherboard_sample = MotherboardSensorSample {
+      temperatures: vec![crate::models::MotherboardTemperature {
+        name: "SYSTIN".into(),
+        temperature: 39.6,
+        source: "NCT6799D / Super I/O".into(),
+      }],
+      fan_speeds: vec![crate::models::MotherboardFanSpeed {
+        name: "Fan 1".into(),
+        rpm: Some(0),
+        status: crate::models::FanSpeedStatus::Inactive,
+        source: "NCT6799D / Super I/O".into(),
+      }],
+    };
+
+    let snap = build_metrics_snapshot(
+      &sys,
+      &[],
+      &TemperatureSample::default(),
+      &motherboard_sample,
+      &[],
+    );
+
+    assert_eq!(snap.motherboard_temperatures.len(), 1);
+    assert_eq!(snap.motherboard_temperatures[0].name, "SYSTIN");
+    assert_eq!(snap.motherboard_temperatures[0].temperature, 40.0);
+    assert_eq!(
+      snap.motherboard_temperatures[0].source,
+      "NCT6799D / Super I/O"
+    );
+    assert_eq!(snap.motherboard_fan_speeds, motherboard_sample.fan_speeds);
   }
 
   #[test]
@@ -750,9 +868,62 @@ mod tests {
       guidance_candidates: vec![candidate.clone()],
     };
 
-    let snap = build_metrics_snapshot(&sys, &[], &temps);
+    let snap =
+      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default(), &[]);
 
     assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
+  }
+
+  #[test]
+  fn snapshot_carries_motherboard_external_component_guidance_candidates() {
+    let sys = SystemSample {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      processes: vec![],
+    };
+    let candidate = ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(
+      "pawnio_open failed: 0x80070005".to_string(),
+    );
+
+    let snap = build_metrics_snapshot(
+      &sys,
+      &[],
+      &TemperatureSample::default(),
+      &MotherboardSensorSample::default(),
+      std::slice::from_ref(&candidate),
+    );
+
+    assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_motherboard_guidance_suppresses_unsupported_super_io_path() {
+    let candidates = motherboard_guidance_candidates_for_reason(
+      crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+        .to_string(),
+    );
+
+    assert!(candidates.is_empty());
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_motherboard_guidance_remains_for_pawnio_access_failure() {
+    let candidates = motherboard_guidance_candidates_for_reason(
+      "pawnio_open failed: 0x80070005".to_string(),
+    );
+
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(
+      candidates[0].key,
+      crate::models::external_component_guidance::PAWNIO_MOTHERBOARD_SENSORS_KEY
+    );
+    assert_eq!(
+      candidates[0].reason_kind,
+      crate::models::ExternalComponentReasonKind::Permission
+    );
   }
 
   #[cfg(target_os = "windows")]

@@ -212,6 +212,16 @@ impl PawnIoClient {
     self.execute_no_output("ioctl_select_slot", &[slot])
   }
 
+  pub(crate) fn find_lpc_bars(&self) -> Result<(), String> {
+    self.execute_no_output("ioctl_find_bars", &[])
+  }
+
+  pub(crate) fn pio_inb(&self, port: u16) -> Result<u8, String> {
+    self
+      .execute("ioctl_pio_inb", &[port as u64])
+      .map(|out| out[0] as u8)
+  }
+
   pub(crate) fn pio_outb(&self, port: u16, value: u8) -> Result<(), String> {
     self.execute_no_output("ioctl_pio_outb", &[port as u64, value as u64])
   }

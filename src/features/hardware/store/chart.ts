@@ -1,5 +1,9 @@
 import { atom } from "jotai";
-import type { NameValues } from "@/features/hardware/types/hardwareDataType";
+import type {
+  MotherboardFanSpeedValues,
+  MotherboardTemperatureValues,
+  NameValues,
+} from "@/features/hardware/types/hardwareDataType";
 
 export const cpuUsageHistoryAtom = atom<(number | null)[]>([]);
 export const processorsUsageHistoryAtom = atom<number[][]>([]);
@@ -41,6 +45,12 @@ export const cpuFanSpeedAtom = atom<NameValues>([]);
 
 /** All named temperature sensors (thermal zones), Windows only for now */
 export const sensorTempsAtom = atom<NameValues>([]);
+
+/** Live motherboard temperature sensors from the Super I/O provider */
+export const motherboardTempsAtom = atom<MotherboardTemperatureValues>([]);
+
+/** Live motherboard fan speeds from the Super I/O provider */
+export const motherboardFanSpeedsAtom = atom<MotherboardFanSpeedValues>([]);
 
 /** All GPUs temperature as NameValues (read-write: write clears the map) */
 export const gpuTempAtom = atom<NameValues, [NameValues], void>(

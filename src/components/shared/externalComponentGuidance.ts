@@ -12,11 +12,13 @@ const EXTERNAL_COMPONENT_DOCS_JA_URL =
 
 const EXTERNAL_COMPONENT_DOCS_ANCHORS: Record<string, string> = {
   "pawnio:cpu-package-temperature:v1": "#pawnio",
+  "pawnio:motherboard-sensors:v1": "#pawnio-motherboard-sensors",
   "smartctl:storage-health:v1": "#smartctl",
 };
 
 type ExternalComponentGuidanceCopyKey =
   | "pawnioCpuPackageTemperature"
+  | "pawnioMotherboardSensors"
   | "smartctlStorageHealth"
   | "generic";
 
@@ -27,6 +29,7 @@ const EXTERNAL_COMPONENT_COPY_KEYS: Record<
   ExternalComponentGuidanceCopyKey
 > = {
   "pawnio:cpu-package-temperature:v1": "pawnioCpuPackageTemperature",
+  "pawnio:motherboard-sensors:v1": "pawnioMotherboardSensors",
   "smartctl:storage-health:v1": "smartctlStorageHealth",
 };
 

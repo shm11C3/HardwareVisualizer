@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use hardviz_core::models::{GpuMetric, MetricsSnapshot, SensorTemperature};
+use hardviz_core::models::{
+  GpuMetric, MetricsSnapshot, MotherboardFanSpeed, MotherboardTemperature,
+  SensorTemperature,
+};
 use tauri::Manager as _;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 use tokio::sync::watch;
@@ -8,7 +11,10 @@ use tokio::sync::watch;
 use crate::commands::settings;
 use crate::enums::settings::TemperatureUnit;
 use crate::log_warn;
-use crate::models::hardware::{GpuMonitorData, HardwareMonitorUpdate, NameValue};
+use crate::models::hardware::{
+  GpuMonitorData, HardwareMonitorUpdate, MotherboardFanSpeedValue,
+  MotherboardTemperatureValue, NameValue,
+};
 use tauri_specta::Event as _;
 
 /// Subscribes to the in-process [`hardviz_core::event_bus::EventBus`] and
@@ -180,6 +186,16 @@ fn to_hardware_monitor_update(
       .into_iter()
       .map(|s| to_sensor_name_value(s, temp_unit))
       .collect(),
+    motherboard_temperatures: snapshot
+      .motherboard_temperatures
+      .into_iter()
+      .map(|s| to_motherboard_temperature_value(s, temp_unit))
+      .collect(),
+    motherboard_fan_speeds: snapshot
+      .motherboard_fan_speeds
+      .into_iter()
+      .map(to_motherboard_fan_speed_value)
+      .collect(),
   }
 }
 
@@ -206,6 +222,27 @@ fn to_gpu_monitor_data(g: GpuMetric, temp_unit: &TemperatureUnit) -> GpuMonitorD
 }
 
 /// Convert raw °C from Core into the user's preferred unit, rounded.
+fn to_motherboard_temperature_value(
+  sensor: MotherboardTemperature,
+  temp_unit: &TemperatureUnit,
+) -> MotherboardTemperatureValue {
+  MotherboardTemperatureValue {
+    name: sensor.name,
+    value: convert_temperature(sensor.temperature, temp_unit) as i32,
+    source: sensor.source,
+  }
+}
+
+fn to_motherboard_fan_speed_value(fan: MotherboardFanSpeed) -> MotherboardFanSpeedValue {
+  MotherboardFanSpeedValue {
+    name: fan.name,
+    rpm: fan.rpm,
+    status: fan.status.into(),
+    source: fan.source,
+  }
+}
+
+/// Convert raw degrees C from Core into the user's preferred unit, rounded.
 fn convert_temperature(celsius: f32, unit: &TemperatureUnit) -> f32 {
   match unit {
     TemperatureUnit::Celsius => celsius.round(),
@@ -238,6 +275,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     }
   }
@@ -252,6 +291,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -276,6 +317,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -308,6 +351,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -332,6 +377,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -356,6 +403,8 @@ mod tests {
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -384,6 +433,8 @@ mod tests {
           temperature: 40.0,
         },
       ],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -408,11 +459,54 @@ mod tests {
         name: "TZ00".into(),
         temperature: 49.6,
       }],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
     assert_eq!(update.cpu_temperature, Some(50.0));
     assert_eq!(update.sensor_temperatures[0].value, 50);
+  }
+
+  #[test]
+  fn motherboard_sensors_are_converted_with_source_and_fan_status() {
+    let snap = MetricsSnapshot {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![],
+      gpus: vec![],
+      processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
+      motherboard_temperatures: vec![MotherboardTemperature {
+        name: "SYSTIN".into(),
+        temperature: 40.0,
+        source: "NCT6799D / Super I/O".into(),
+      }],
+      motherboard_fan_speeds: vec![MotherboardFanSpeed {
+        name: "Fan 1".into(),
+        rpm: Some(0),
+        status: hardviz_core::models::FanSpeedStatus::Inactive,
+        source: "NCT6799D / Super I/O".into(),
+      }],
+      external_component_guidance_candidates: vec![],
+    };
+
+    let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
+
+    assert_eq!(update.motherboard_temperatures.len(), 1);
+    assert_eq!(update.motherboard_temperatures[0].name, "SYSTIN");
+    assert_eq!(update.motherboard_temperatures[0].value, 104);
+    assert_eq!(
+      update.motherboard_temperatures[0].source,
+      "NCT6799D / Super I/O"
+    );
+    assert_eq!(update.motherboard_fan_speeds.len(), 1);
+    assert_eq!(update.motherboard_fan_speeds[0].rpm, Some(0));
+    assert_eq!(
+      update.motherboard_fan_speeds[0].status,
+      crate::models::hardware::FanSpeedStatus::Inactive
+    );
   }
 
   #[test]

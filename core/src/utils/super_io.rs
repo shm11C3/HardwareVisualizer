@@ -8,6 +8,8 @@
 //! Implemented from docs/specs/sensors/superio-access.md (chip-id register and
 //! configuration-port facts). No other external sensor source was used.
 
+use crate::models::FanSpeedStatus;
+
 /// Super I/O configuration index/data port pair for an `LpcIO` slot.
 ///
 /// A board straps its Super I/O chip to one of two pairs: slot 0 is the
@@ -33,6 +35,36 @@ pub const fn chip_id(id_high: u8, id_low: u8) -> u16 {
 /// `0x00`) from both id registers means no chip answered on that port pair.
 pub const fn is_absent_id(id_high: u8, id_low: u8) -> bool {
   matches!((id_high, id_low), (0x00, 0x00) | (0xFF, 0xFF))
+}
+
+/// Decode a Nuvoton bank 4 byte temperature as signed degrees C.
+///
+/// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
+/// revision 5, scoped to `0xD802` / NCT6799D normal HM bank 4 byte
+/// temperatures.
+pub const fn decode_nuvoton_temperature_byte(raw: u8) -> f32 {
+  (raw as i8) as f32
+}
+
+/// Decode a Nuvoton direct RPM high/low register pair.
+///
+/// Implemented from `docs/specs/sensors/superio-nuvoton-nct67xx.md`
+/// revision 5, which defines the enabled direct RPM path as high byte then low
+/// byte, unsigned RPM.
+pub const fn decode_nuvoton_direct_rpm(high: u8, low: u8) -> u32 {
+  ((high as u32) << 8) | low as u32
+}
+
+/// Classify a direct RPM value for display.
+///
+/// A 0 RPM direct reading is valid and means inactive for display; it is not a
+/// read failure and does not prove physical disconnection.
+pub const fn fan_speed_status_from_rpm(rpm: u32) -> FanSpeedStatus {
+  if rpm == 0 {
+    FanSpeedStatus::Inactive
+  } else {
+    FanSpeedStatus::Active
+  }
 }
 
 #[cfg(test)]
@@ -67,5 +99,25 @@ mod tests {
     // A mixed reading is a real (present) responder, not "absent".
     assert!(!is_absent_id(0x00, 0xFF));
     assert!(!is_absent_id(0xFF, 0x00));
+  }
+
+  #[test]
+  fn nuvoton_temperature_byte_decodes_signed_celsius() {
+    assert_eq!(decode_nuvoton_temperature_byte(0x27), 39.0);
+    assert_eq!(decode_nuvoton_temperature_byte(0x00), 0.0);
+    assert_eq!(decode_nuvoton_temperature_byte(0xF0), -16.0);
+  }
+
+  #[test]
+  fn nuvoton_direct_rpm_combines_high_then_low_bytes() {
+    assert_eq!(decode_nuvoton_direct_rpm(0x0B, 0x08), 2824);
+    assert_eq!(decode_nuvoton_direct_rpm(0x02, 0xE2), 738);
+    assert_eq!(decode_nuvoton_direct_rpm(0x00, 0x00), 0);
+  }
+
+  #[test]
+  fn fan_speed_status_preserves_zero_as_inactive() {
+    assert_eq!(fan_speed_status_from_rpm(0), FanSpeedStatus::Inactive);
+    assert_eq!(fan_speed_status_from_rpm(1), FanSpeedStatus::Active);
   }
 }
