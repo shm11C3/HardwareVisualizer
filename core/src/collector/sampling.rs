@@ -74,12 +74,23 @@ pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
       }
       MotherboardSensorCollection {
         sample: MotherboardSensorSample::default(),
-        guidance_candidates: vec![
-          ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(reason),
-        ],
+        guidance_candidates: motherboard_guidance_candidates_for_reason(reason),
       }
     }
   }
+}
+
+#[cfg(target_os = "windows")]
+fn motherboard_guidance_candidates_for_reason(
+  reason: String,
+) -> Vec<ExternalComponentGuidanceCandidate> {
+  if reason
+    == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+  {
+    return Vec::new();
+  }
+
+  vec![ExternalComponentGuidanceCandidate::pawnio_motherboard_sensors(reason)]
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -884,6 +895,35 @@ mod tests {
     );
 
     assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_motherboard_guidance_suppresses_unsupported_super_io_path() {
+    let candidates = motherboard_guidance_candidates_for_reason(
+      crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+        .to_string(),
+    );
+
+    assert!(candidates.is_empty());
+  }
+
+  #[cfg(target_os = "windows")]
+  #[test]
+  fn windows_motherboard_guidance_remains_for_pawnio_access_failure() {
+    let candidates = motherboard_guidance_candidates_for_reason(
+      "pawnio_open failed: 0x80070005".to_string(),
+    );
+
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(
+      candidates[0].key,
+      crate::models::external_component_guidance::PAWNIO_MOTHERBOARD_SENSORS_KEY
+    );
+    assert_eq!(
+      candidates[0].reason_kind,
+      crate::models::ExternalComponentReasonKind::Permission
+    );
   }
 
   #[cfg(target_os = "windows")]

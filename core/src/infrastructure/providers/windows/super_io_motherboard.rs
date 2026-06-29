@@ -15,6 +15,8 @@ const ISABUS_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
 const NUVOTON_NCT6799D_CHIP_ID: u16 = 0xD802;
 const NUVOTON_CHIP_LABEL: &str = "NCT6799D";
 const NUVOTON_SOURCE_LABEL: &str = "NCT6799D / Super I/O";
+pub(crate) const UNSUPPORTED_NUVOTON_HM_PATH_REASON: &str =
+  "No supported Nuvoton NCT6799D Super I/O hardware-monitor path found";
 
 const CHIP_ID_HIGH_REGISTER: u8 = 0x20;
 const CHIP_ID_LOW_REGISTER: u8 = 0x21;
@@ -231,9 +233,7 @@ impl ActiveNuvotonMotherboardSensors<PawnIoClient> {
       }
     }
 
-    Err(last_error.unwrap_or_else(|| {
-      "No supported Nuvoton NCT6799D Super I/O hardware-monitor path found".to_string()
-    }))
+    Err(last_error.unwrap_or_else(|| UNSUPPORTED_NUVOTON_HM_PATH_REASON.to_string()))
   }
 
   fn discover_slot(
