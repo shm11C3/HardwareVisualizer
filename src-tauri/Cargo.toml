@@ -10,6 +10,8 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
+quote = "1.0.45"
+syn = { version = "2.0.117", features = ["full"] }
 tauri-build = { version = "2.6.3", features = [] }
 
 
