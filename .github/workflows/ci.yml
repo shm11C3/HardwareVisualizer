@@ -343,6 +343,12 @@ jobs:
         with:
           components: ""
 
+      - name: Prepare frontendDist placeholder
+        shell: bash
+        run: |
+          mkdir -p dist
+          printf '<!doctype html><html><body></body></html>\n' > dist/index.html
+
       - name: Regenerate Tauri bindings
         run: cargo run --locked -p hardware_visualizer --features bindings-export --bin export_bindings
 

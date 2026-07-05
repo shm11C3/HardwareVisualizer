@@ -166,11 +166,6 @@ pub fn export_bindings() {
   export_typescript_bindings(&builder);
 }
 
-#[cfg(not(debug_assertions))]
-pub fn export_bindings() {
-  panic!("TypeScript bindings export is only available in debug builds");
-}
-
 pub fn run() {
   let builder = build_specta_builder();
 
