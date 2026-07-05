@@ -322,10 +322,17 @@ fn single_type_arg(ty: &Type) -> Option<(String, &Type)> {
   let PathArguments::AngleBracketed(args) = &segment.arguments else {
     return None;
   };
-  let inner = args.args.iter().find_map(|arg| match arg {
-    GenericArgument::Type(ty) => Some(ty),
-    _ => None,
-  })?;
+  let type_args = args
+    .args
+    .iter()
+    .filter_map(|arg| match arg {
+      GenericArgument::Type(ty) => Some(ty),
+      _ => None,
+    })
+    .collect::<Vec<_>>();
+  let [inner] = type_args.as_slice() else {
+    return None;
+  };
   Some((segment.ident.to_string(), inner))
 }
 
