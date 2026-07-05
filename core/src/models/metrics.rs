@@ -1,5 +1,19 @@
 use super::ExternalComponentGuidanceCandidate;
 
+/// One GPU sample collected per physical GPU.
+///
+/// `None` means the metric is unavailable for this GPU vendor / platform.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GpuSample {
+  pub gpu_id: String,
+  pub name: String,
+  pub usage: Option<f32>,
+  pub temperature: Option<f32>,
+  pub dedicated_memory_kb: Option<f32>,
+  pub cooler_level: Option<u32>,
+  pub source: String,
+}
+
 /// One sample of per-GPU metrics, normalized across vendors and platforms.
 ///
 /// `None` indicates the metric is unavailable for this vendor/platform.
@@ -12,6 +26,37 @@ pub struct GpuMetric {
   pub gpu_source: String,
   pub gpu_dedicated_memory_usage_kb: Option<f32>,
   pub gpu_cooler_level: Option<u32>,
+}
+
+/// Availability state for best-effort live sensor sampling.
+///
+/// Unsupported means the platform or hardware path is not available by design.
+/// Unavailable means the platform supports the path, but the current sample
+/// could not produce user-visible values.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum SensorAvailability {
+  #[default]
+  Available,
+  Unsupported {
+    reason: String,
+  },
+  Unavailable {
+    reason: String,
+  },
+}
+
+impl SensorAvailability {
+  pub fn unsupported(reason: impl Into<String>) -> Self {
+    Self::Unsupported {
+      reason: reason.into(),
+    }
+  }
+
+  pub fn unavailable(reason: impl Into<String>) -> Self {
+    Self::Unavailable {
+      reason: reason.into(),
+    }
+  }
 }
 
 /// One named temperature sensor reading (e.g. an ACPI thermal zone),
@@ -56,6 +101,54 @@ pub struct MotherboardFanSpeed {
 pub struct MotherboardSensorSample {
   pub temperatures: Vec<MotherboardTemperature>,
   pub fan_speeds: Vec<MotherboardFanSpeed>,
+}
+
+/// One round of CPU / sensor temperature readings, always in raw °C.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TemperatureSample {
+  pub cpu_temperature: Option<f32>,
+  pub sensor_temperatures: Vec<SensorTemperature>,
+  pub availability: SensorAvailability,
+  pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
+impl TemperatureSample {
+  pub fn unsupported(reason: impl Into<String>) -> Self {
+    Self {
+      availability: SensorAvailability::unsupported(reason),
+      ..Self::default()
+    }
+  }
+
+  pub fn unavailable(reason: impl Into<String>) -> Self {
+    Self {
+      availability: SensorAvailability::unavailable(reason),
+      ..Self::default()
+    }
+  }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MotherboardSensorCollection {
+  pub sample: MotherboardSensorSample,
+  pub availability: SensorAvailability,
+  pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
+impl MotherboardSensorCollection {
+  pub fn unsupported(reason: impl Into<String>) -> Self {
+    Self {
+      availability: SensorAvailability::unsupported(reason),
+      ..Self::default()
+    }
+  }
+
+  pub fn unavailable(reason: impl Into<String>) -> Self {
+    Self {
+      availability: SensorAvailability::unavailable(reason),
+      ..Self::default()
+    }
+  }
 }
 
 /// One sample of per-process metrics carried inside [`MetricsSnapshot`].

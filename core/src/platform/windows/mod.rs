@@ -4,7 +4,7 @@ use crate::models::hardware::{
 };
 use crate::platform::traits::{
   GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, SuperIoPlatform,
+  ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
 };
 
 use std::future::Future;
@@ -15,6 +15,7 @@ pub mod memory;
 pub mod motherboard;
 pub mod network;
 pub mod process_elevation;
+pub mod sensors;
 
 pub struct WindowsPlatform;
 
@@ -82,6 +83,12 @@ impl GpuPlatform for WindowsPlatform {
   {
     Box::pin(async { Ok(None) })
   }
+
+  fn sample_gpus(
+    &self,
+  ) -> Pin<Box<dyn Future<Output = Vec<crate::models::GpuSample>> + Send + '_>> {
+    Box::pin(gpu::sample_gpus())
+  }
 }
 
 impl NetworkPlatform for WindowsPlatform {
@@ -101,6 +108,16 @@ impl MotherboardPlatform for WindowsPlatform {
 impl SuperIoPlatform for WindowsPlatform {
   fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
     crate::infrastructure::providers::windows::super_io_diagnostics::read_super_io_chip_id_diagnostics()
+  }
+}
+
+impl SensorPlatform for WindowsPlatform {
+  fn sample_temperatures(&self) -> crate::models::TemperatureSample {
+    sensors::sample_temperatures()
+  }
+
+  fn sample_motherboard_sensors(&self) -> crate::models::MotherboardSensorCollection {
+    sensors::sample_motherboard_sensors()
   }
 }
 

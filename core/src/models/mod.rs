@@ -9,6 +9,7 @@ pub use external_component_guidance::{
   ExternalComponentUsage, SmartInfoCollectionOutcome,
 };
 pub use metrics::{
-  FanSpeedStatus, GpuMetric, MetricsSnapshot, MotherboardFanSpeed,
-  MotherboardSensorSample, MotherboardTemperature, ProcessSample, SensorTemperature,
+  FanSpeedStatus, GpuMetric, GpuSample, MetricsSnapshot, MotherboardFanSpeed,
+  MotherboardSensorCollection, MotherboardSensorSample, MotherboardTemperature,
+  ProcessSample, SensorAvailability, SensorTemperature, TemperatureSample,
 };

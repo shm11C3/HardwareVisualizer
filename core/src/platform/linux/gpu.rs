@@ -130,3 +130,82 @@ pub async fn get_gpu_temperature() -> Result<Vec<models::hardware::NameValue>, S
     Ok(all_temps)
   }
 }
+
+/// Collect GPU metrics on Linux using DRM/sysfs for AMD and DRM for Intel.
+pub async fn sample_gpus() -> Vec<models::GpuSample> {
+  let mut metrics: Vec<models::GpuSample> = Vec::new();
+  let card_ids = infrastructure::providers::drm_sys::get_all_card_ids();
+  let card_vendors = card_ids
+    .into_iter()
+    .map(|card_id| {
+      (
+        card_id,
+        infrastructure::providers::drm_sys::detect_gpu_vendor(card_id),
+      )
+    })
+    .collect::<Vec<_>>();
+
+  let lspci_output = if card_vendors
+    .iter()
+    .any(|(_, vendor)| *vendor == infrastructure::providers::drm_sys::GpuVendor::Amd)
+  {
+    tokio::task::spawn_blocking(infrastructure::providers::lspci::get_lspci_nn_output)
+      .await
+      .ok()
+      .flatten()
+  } else {
+    None
+  };
+
+  for (card_id, vendor) in card_vendors {
+    let (name, usage, temperature, source) = match vendor {
+      infrastructure::providers::drm_sys::GpuVendor::Amd => {
+        let name = infrastructure::providers::drm_sys::get_card_bdf(card_id)
+          .and_then(|bdf| {
+            lspci_output.as_deref().and_then(|out| {
+              infrastructure::providers::lspci::parse_gpu_name_by_bdf(out, &bdf)
+            })
+          })
+          .unwrap_or_else(|| format!("AMD GPU (card{})", card_id));
+        let usage = infrastructure::providers::drm_sys::get_amd_gpu_usage(card_id as u32)
+          .await
+          .map(|u| (u * 100.0) as f32)
+          .ok();
+        let temperature =
+          infrastructure::providers::hwmon::read_hwmon_temperatures(card_id)
+            .ok()
+            .and_then(|temps| temps.first().map(|t| t.value as f32));
+        (name, usage, temperature, "DRM (AMD)".to_string())
+      }
+      infrastructure::providers::drm_sys::GpuVendor::Intel => {
+        let usage = infrastructure::providers::drm_sys::get_intel_gpu_usage()
+          .await
+          .map(|u| (u * 100.0) as f32)
+          .ok();
+        (
+          format!("Intel GPU (card{})", card_id),
+          usage,
+          None,
+          "DRM (Intel)".to_string(),
+        )
+      }
+      _ => continue,
+    };
+
+    let gpu_id = infrastructure::providers::drm_sys::get_card_bdf(card_id)
+      .map(|bdf| format!("pci:{bdf}"))
+      .unwrap_or_else(|| format!("drm:card{card_id}"));
+
+    metrics.push(models::GpuSample {
+      gpu_id,
+      name,
+      usage,
+      temperature,
+      dedicated_memory_kb: None,
+      cooler_level: None,
+      source,
+    });
+  }
+
+  metrics
+}
