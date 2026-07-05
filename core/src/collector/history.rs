@@ -120,10 +120,7 @@ impl HistoryStore {
     }
   }
 
-  pub(crate) fn update_gpu_histories(
-    &self,
-    samples: &[crate::collector::sampling::GpuSample],
-  ) {
+  pub(crate) fn update_gpu_histories(&self, samples: &[crate::models::GpuSample]) {
     let mut usage_histories = self.inner.gpu_usage_histories.lock().unwrap();
     let mut temp_histories = self.inner.gpu_temperature_histories.lock().unwrap();
     let mut mem_histories = self.inner.gpu_dedicated_memory_histories.lock().unwrap();
@@ -297,7 +294,7 @@ fn push_history(history: &Arc<Mutex<VecDeque<f32>>>, value: f32) {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::collector::sampling::GpuSample;
+  use crate::models::GpuSample;
 
   fn store_with(cpu: Vec<f32>, mem: Vec<f32>) -> HistoryStore {
     let s = HistoryStore::new();

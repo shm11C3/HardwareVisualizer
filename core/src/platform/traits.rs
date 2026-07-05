@@ -63,6 +63,11 @@ pub trait GpuPlatform: Send + Sync {
         + '_,
     >,
   >;
+
+  /// Collect per-GPU realtime metrics for the monitoring pipeline.
+  fn sample_gpus(
+    &self,
+  ) -> Pin<Box<dyn Future<Output = Vec<models::GpuSample>> + Send + '_>>;
 }
 
 /// Trait that defines platform-specific network operations
@@ -98,6 +103,15 @@ pub trait SuperIoPlatform: Send + Sync {
   ) -> models::hardware::SuperIoChipIdDiagnostics;
 }
 
+/// Trait that defines live CPU / motherboard sensor sampling operations.
+pub trait SensorPlatform: Send + Sync {
+  /// Sample CPU and named temperature sensors, always in raw degrees Celsius.
+  fn sample_temperatures(&self) -> models::TemperatureSample;
+
+  /// Sample live motherboard temperature and fan readings.
+  fn sample_motherboard_sensors(&self) -> models::MotherboardSensorCollection;
+}
+
 /// Trait that defines process elevation operations.
 pub trait ProcessElevationPlatform: Send + Sync {
   /// Returns whether the current process is running with elevated privileges.
@@ -114,6 +128,7 @@ pub trait Platform:
   + NetworkPlatform
   + MotherboardPlatform
   + SuperIoPlatform
+  + SensorPlatform
   + ProcessElevationPlatform
 {
 }
