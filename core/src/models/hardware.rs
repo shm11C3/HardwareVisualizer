@@ -1,10 +1,9 @@
-//! POJO mirrors of the wire-format hardware types defined in
-//! `src-tauri/src/models/hardware.rs`.
+//! Core-owned hardware data models.
 //!
-//! These types are returned by the Core platform sensors. The wire types
-//! (with `specta::Type` for tauri-specta TypeScript bindings) live in
-//! `src-tauri`; commands and services convert between the two via `From`
-//! impls at the boundary.
+//! These types are returned by the Core platform sensors. The Tauri app
+//! generates matching wire DTOs from this file at build time so Core stays
+//! independent of Tauri and `specta`, while commands and services still
+//! convert at the App/Core boundary.
 //!
 //! Most types derive `Serialize` / `Deserialize` because the Linux
 //! platform layer caches some of them to disk via

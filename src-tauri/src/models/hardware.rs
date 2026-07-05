@@ -1,7 +1,11 @@
 use crate::{enums::hardware::DiskKind, utils::formatter::SizeUnit};
-use hardviz_core::models::hardware as core_hw;
-use serde::{Deserialize, Serialize};
 use specta::Type;
+
+mod generated {
+  include!(concat!(env!("OUT_DIR"), "/hardware_models.rs"));
+}
+
+pub use generated::*;
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -32,53 +36,6 @@ pub struct HardwareMonitorUpdate {
   pub motherboard_fan_speeds: Vec<MotherboardFanSpeedValue>,
 }
 
-#[derive(Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct MemoryInfo {
-  pub size: String,
-  pub clock: u32,
-  pub clock_unit: String,
-  pub memory_count: u32,
-  pub total_slots: u32,
-  pub memory_type: String,
-  pub is_detailed: bool,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct GraphicInfo {
-  pub id: String,
-  pub name: String,
-  pub vendor_name: String,
-  pub clock: u32,
-  pub memory_size: String,
-  pub memory_size_dedicated: String,
-  pub core_count: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct GpuMemoryUsage {
-  pub in_use_bytes: Option<String>,
-  pub alloc_bytes: Option<String>,
-}
-
-/// GPU usage percentage together with the data-source identifier
-/// (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit")
-#[derive(Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct GpuUsageResult {
-  pub usage: i32,
-  pub source: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct NameValue {
-  pub name: String,
-  pub value: i32, // Temperature in the user's preferred unit (°C/°F)
-}
-
 #[derive(Debug, Clone, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MotherboardTemperatureValue {
@@ -104,269 +61,6 @@ pub enum FanSpeedStatus {
   Invalid,
 }
 
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageInfo {
-  pub name: String,
-  pub size: f32,
-  pub size_unit: SizeUnit,
-  pub free: f32,
-  pub free_unit: SizeUnit,
-  pub storage_type: DiskKind,
-  pub file_system: String,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum StorageHealthStatus {
-  Good,
-  Warning,
-  Critical,
-  Unknown,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum StorageWarningLevel {
-  None,
-  Warning,
-  Critical,
-  Unknown,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageHealthRecord {
-  pub device_id: String,
-  pub display_name: String,
-  pub model: Option<String>,
-  pub protocol: Option<String>,
-  pub capacity_bytes: Option<u64>,
-  pub date: String,
-  pub health_status: StorageHealthStatus,
-  pub warning_level: StorageWarningLevel,
-  pub temperature_celsius: Option<f32>,
-  pub power_on_hours: Option<u64>,
-  pub percentage_used: Option<f32>,
-  pub available_spare_percent: Option<f32>,
-  pub reallocated_sector_count: Option<u64>,
-  pub current_pending_sector_count: Option<u64>,
-  pub offline_uncorrectable_count: Option<u64>,
-  pub media_errors: Option<u64>,
-  pub error_log_entries: Option<u64>,
-  pub unsafe_shutdown_count: Option<u64>,
-  pub warning_reasons: Vec<String>,
-  pub collected_at: String,
-}
-
-/// Live Storage Health signals collected on demand and never persisted
-/// (ADR 0006). `device_id` matches the daily [`StorageHealthRecord`]
-/// identity so displays can join live signals to persisted device rows.
-#[derive(Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct LiveStorageHealth {
-  pub device_id: String,
-  pub display_name: String,
-  pub temperature_celsius: Option<f32>,
-  pub available_spare_percent: Option<f32>,
-  pub percentage_used: Option<f32>,
-  pub media_errors: Option<u64>,
-  pub unsafe_shutdown_count: Option<u64>,
-  pub power_on_hours: Option<u64>,
-  pub power_cycle_count: Option<u64>,
-  pub collected_at: String,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkInfo {
-  pub description: Option<String>,
-  pub mac_address: Option<String>,
-  pub ipv4: Vec<String>,
-  pub ipv6: Vec<String>,
-  pub link_local_ipv6: Vec<String>,
-  pub ip_subnet: Vec<String>,
-  pub default_ipv4_gateway: Vec<String>,
-  pub default_ipv6_gateway: Vec<String>,
-}
-
-#[derive(Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ProcessInfo {
-  /// Process ID
-  pub pid: i32,
-
-  /// Process name
-  pub name: String,
-
-  /// CPU usage
-  #[serde(serialize_with = "serialize_usage")]
-  #[specta(type = String)]
-  pub cpu_usage: f32,
-
-  /// Memory usage
-  #[serde(serialize_with = "serialize_usage")]
-  #[specta(type = String)]
-  pub memory_usage: f32,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MotherboardInfo {
-  pub manufacturer: String,
-  pub product: String,
-  pub version: String,
-  pub serial_number: String,
-  pub bios_vendor: String,
-  pub bios_version: String,
-  pub bios_release_date: String,
-}
-
-#[derive(Debug, Clone, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SuperIoChipIdDiagnostics {
-  pub platform_supported: bool,
-  pub pawnio: Option<PawnIoRuntimeDiagnostics>,
-  pub slots: Vec<SuperIoChipIdSlotProbe>,
-  pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct PawnIoRuntimeDiagnostics {
-  pub install_location: Option<String>,
-  pub dll_path: Option<String>,
-  pub module_path: Option<String>,
-  pub pawnio_available: bool,
-  pub library_loadable: bool,
-  pub driver_openable: bool,
-  pub module_loadable: bool,
-  pub version: Option<u32>,
-  pub fallback_reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SuperIoChipIdSlotProbe {
-  pub slot: u8,
-  pub index_port: u16,
-  pub data_port: u16,
-  pub attempts: Vec<SuperIoChipIdAttempt>,
-  pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SuperIoChipIdAttempt {
-  pub vendor: SuperIoVendor,
-  pub id_high: Option<u8>,
-  pub id_low: Option<u8>,
-  pub chip_id: Option<u16>,
-  pub absent: bool,
-  pub error: Option<String>,
-  pub exit_error: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub enum SuperIoVendor {
-  Nuvoton,
-  Ite,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SysInfo {
-  pub cpu: Option<CpuInfo>,
-  pub memory: Option<MemoryInfo>,
-  pub gpus: Option<Vec<GraphicInfo>>,
-  pub storage: Vec<StorageInfo>,
-  pub motherboard: Option<MotherboardInfo>,
-}
-
-#[derive(Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct CpuInfo {
-  pub name: String,
-  pub vendor: String,
-  pub core_count: u32,
-  pub clock: u32,
-  pub clock_unit: String,
-  pub cpu_name: String,
-}
-
-fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>
-where
-  S: serde::Serializer,
-{
-  if x.fract() == 0.0 {
-    s.serialize_str(&format!("{x:.0}")) // Integer only
-  } else {
-    s.serialize_str(&format!("{x:.1}")) // Up to 1 decimal place
-  }
-}
-
-// ── Core POJO ↔ wire conversions ──
-//
-// Field-by-field copies. Wire types derive `specta::Type` for tauri-specta;
-// the Core POJOs in `hardviz_core::models::hardware` are returned by the
-// platform sensor layer.
-
-impl From<core_hw::MemoryInfo> for MemoryInfo {
-  fn from(src: core_hw::MemoryInfo) -> Self {
-    Self {
-      size: src.size,
-      clock: src.clock,
-      clock_unit: src.clock_unit,
-      memory_count: src.memory_count,
-      total_slots: src.total_slots,
-      memory_type: src.memory_type,
-      is_detailed: src.is_detailed,
-    }
-  }
-}
-
-impl From<core_hw::GraphicInfo> for GraphicInfo {
-  fn from(src: core_hw::GraphicInfo) -> Self {
-    Self {
-      id: src.id,
-      name: src.name,
-      vendor_name: src.vendor_name,
-      clock: src.clock,
-      memory_size: src.memory_size,
-      memory_size_dedicated: src.memory_size_dedicated,
-      core_count: src.core_count,
-    }
-  }
-}
-
-impl From<core_hw::GpuMemoryUsage> for GpuMemoryUsage {
-  fn from(src: core_hw::GpuMemoryUsage) -> Self {
-    Self {
-      in_use_bytes: src.in_use_bytes,
-      alloc_bytes: src.alloc_bytes,
-    }
-  }
-}
-
-impl From<core_hw::GpuUsageResult> for GpuUsageResult {
-  fn from(src: core_hw::GpuUsageResult) -> Self {
-    Self {
-      usage: src.usage,
-      source: src.source,
-    }
-  }
-}
-
-impl From<core_hw::NameValue> for NameValue {
-  fn from(src: core_hw::NameValue) -> Self {
-    Self {
-      name: src.name,
-      value: src.value,
-    }
-  }
-}
-
 impl From<hardviz_core::models::FanSpeedStatus> for FanSpeedStatus {
   fn from(src: hardviz_core::models::FanSpeedStatus) -> Self {
     match src {
@@ -377,210 +71,14 @@ impl From<hardviz_core::models::FanSpeedStatus> for FanSpeedStatus {
   }
 }
 
-impl From<core_hw::StorageInfo> for StorageInfo {
-  fn from(src: core_hw::StorageInfo) -> Self {
-    Self {
-      name: src.name,
-      size: src.size,
-      size_unit: src.size_unit.into(),
-      free: src.free,
-      free_unit: src.free_unit.into(),
-      storage_type: src.storage_type.into(),
-      file_system: src.file_system,
-    }
-  }
-}
-
-impl From<core_hw::StorageHealthStatus> for StorageHealthStatus {
-  fn from(value: core_hw::StorageHealthStatus) -> Self {
-    match value {
-      core_hw::StorageHealthStatus::Good => Self::Good,
-      core_hw::StorageHealthStatus::Warning => Self::Warning,
-      core_hw::StorageHealthStatus::Critical => Self::Critical,
-      core_hw::StorageHealthStatus::Unknown => Self::Unknown,
-    }
-  }
-}
-
-impl From<core_hw::StorageWarningLevel> for StorageWarningLevel {
-  fn from(value: core_hw::StorageWarningLevel) -> Self {
-    match value {
-      core_hw::StorageWarningLevel::None => Self::None,
-      core_hw::StorageWarningLevel::Warning => Self::Warning,
-      core_hw::StorageWarningLevel::Critical => Self::Critical,
-      core_hw::StorageWarningLevel::Unknown => Self::Unknown,
-    }
-  }
-}
-
-impl From<core_hw::StorageHealthRecord> for StorageHealthRecord {
-  fn from(src: core_hw::StorageHealthRecord) -> Self {
-    Self {
-      device_id: src.device_id,
-      display_name: src.display_name,
-      model: src.model,
-      protocol: src.protocol,
-      capacity_bytes: src.capacity_bytes,
-      date: src.date,
-      health_status: src.health_status.into(),
-      warning_level: src.warning_level.into(),
-      temperature_celsius: src.temperature_celsius,
-      power_on_hours: src.power_on_hours,
-      percentage_used: src.percentage_used,
-      available_spare_percent: src.available_spare_percent,
-      reallocated_sector_count: src.reallocated_sector_count,
-      current_pending_sector_count: src.current_pending_sector_count,
-      offline_uncorrectable_count: src.offline_uncorrectable_count,
-      media_errors: src.media_errors,
-      error_log_entries: src.error_log_entries,
-      unsafe_shutdown_count: src.unsafe_shutdown_count,
-      warning_reasons: src.warning_reasons,
-      collected_at: src.collected_at,
-    }
-  }
-}
-
-impl From<core_hw::LiveStorageHealth> for LiveStorageHealth {
-  fn from(src: core_hw::LiveStorageHealth) -> Self {
-    Self {
-      device_id: src.device_id,
-      display_name: src.display_name,
-      temperature_celsius: src.temperature_celsius,
-      available_spare_percent: src.available_spare_percent,
-      percentage_used: src.percentage_used,
-      media_errors: src.media_errors,
-      unsafe_shutdown_count: src.unsafe_shutdown_count,
-      power_on_hours: src.power_on_hours,
-      power_cycle_count: src.power_cycle_count,
-      collected_at: src.collected_at,
-    }
-  }
-}
-
-impl From<core_hw::NetworkInfo> for NetworkInfo {
-  fn from(src: core_hw::NetworkInfo) -> Self {
-    Self {
-      description: src.description,
-      mac_address: src.mac_address,
-      ipv4: src.ipv4,
-      ipv6: src.ipv6,
-      link_local_ipv6: src.link_local_ipv6,
-      ip_subnet: src.ip_subnet,
-      default_ipv4_gateway: src.default_ipv4_gateway,
-      default_ipv6_gateway: src.default_ipv6_gateway,
-    }
-  }
-}
-
-impl From<core_hw::ProcessInfo> for ProcessInfo {
-  fn from(src: core_hw::ProcessInfo) -> Self {
-    Self {
-      pid: src.pid,
-      name: src.name,
-      cpu_usage: src.cpu_usage,
-      memory_usage: src.memory_usage,
-    }
-  }
-}
-
-impl From<core_hw::MotherboardInfo> for MotherboardInfo {
-  fn from(src: core_hw::MotherboardInfo) -> Self {
-    Self {
-      manufacturer: src.manufacturer,
-      product: src.product,
-      version: src.version,
-      serial_number: src.serial_number,
-      bios_vendor: src.bios_vendor,
-      bios_version: src.bios_version,
-      bios_release_date: src.bios_release_date,
-    }
-  }
-}
-
-impl From<core_hw::SuperIoChipIdDiagnostics> for SuperIoChipIdDiagnostics {
-  fn from(src: core_hw::SuperIoChipIdDiagnostics) -> Self {
-    Self {
-      platform_supported: src.platform_supported,
-      pawnio: src.pawnio.map(Into::into),
-      slots: src.slots.into_iter().map(Into::into).collect(),
-      error: src.error,
-    }
-  }
-}
-
-impl From<core_hw::PawnIoRuntimeDiagnostics> for PawnIoRuntimeDiagnostics {
-  fn from(src: core_hw::PawnIoRuntimeDiagnostics) -> Self {
-    Self {
-      install_location: src.install_location,
-      dll_path: src.dll_path,
-      module_path: src.module_path,
-      pawnio_available: src.pawnio_available,
-      library_loadable: src.library_loadable,
-      driver_openable: src.driver_openable,
-      module_loadable: src.module_loadable,
-      version: src.version,
-      fallback_reason: src.fallback_reason,
-    }
-  }
-}
-
-impl From<core_hw::SuperIoChipIdSlotProbe> for SuperIoChipIdSlotProbe {
-  fn from(src: core_hw::SuperIoChipIdSlotProbe) -> Self {
-    Self {
-      slot: src.slot,
-      index_port: src.index_port,
-      data_port: src.data_port,
-      attempts: src.attempts.into_iter().map(Into::into).collect(),
-      error: src.error,
-    }
-  }
-}
-
-impl From<core_hw::SuperIoChipIdAttempt> for SuperIoChipIdAttempt {
-  fn from(src: core_hw::SuperIoChipIdAttempt) -> Self {
-    Self {
-      vendor: src.vendor.into(),
-      id_high: src.id_high,
-      id_low: src.id_low,
-      chip_id: src.chip_id,
-      absent: src.absent,
-      error: src.error,
-      exit_error: src.exit_error,
-    }
-  }
-}
-
-impl From<core_hw::SuperIoVendor> for SuperIoVendor {
-  fn from(src: core_hw::SuperIoVendor) -> Self {
-    match src {
-      core_hw::SuperIoVendor::Nuvoton => Self::Nuvoton,
-      core_hw::SuperIoVendor::Ite => Self::Ite,
-    }
-  }
-}
-
-impl From<core_hw::CpuInfo> for CpuInfo {
-  fn from(src: core_hw::CpuInfo) -> Self {
-    Self {
-      name: src.name,
-      vendor: src.vendor,
-      core_count: src.core_count,
-      clock: src.clock,
-      clock_unit: src.clock_unit,
-      cpu_name: src.cpu_name,
-    }
-  }
-}
-
-impl From<core_hw::SysInfo> for SysInfo {
-  fn from(src: core_hw::SysInfo) -> Self {
-    Self {
-      cpu: src.cpu.map(Into::into),
-      memory: src.memory.map(Into::into),
-      gpus: src.gpus.map(|v| v.into_iter().map(Into::into).collect()),
-      storage: src.storage.into_iter().map(Into::into).collect(),
-      motherboard: src.motherboard.map(Into::into),
-    }
+fn serialize_usage<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>
+where
+  S: serde::Serializer,
+{
+  if x.fract() == 0.0 {
+    s.serialize_str(&format!("{x:.0}")) // Integer only
+  } else {
+    s.serialize_str(&format!("{x:.1}")) // Up to 1 decimal place
   }
 }
 
@@ -879,5 +377,71 @@ mod tests {
     let json = serde_json::to_value(&mem).unwrap();
     assert_eq!(json["inUseBytes"], "1048576");
     assert_eq!(json["allocBytes"], "2097152");
+  }
+
+  #[test]
+  fn generated_conversion_preserves_nested_sys_info_fields() {
+    use hardviz_core::{
+      enums::hardware as core_enums, models::hardware as core_hw,
+      utils::formatter as core_formatter,
+    };
+
+    let info: SysInfo = core_hw::SysInfo {
+      cpu: Some(core_hw::CpuInfo {
+        name: "CPU".to_string(),
+        vendor: "Vendor".to_string(),
+        core_count: 8,
+        clock: 3200,
+        clock_unit: "MHz".to_string(),
+        cpu_name: "CPU Vendor".to_string(),
+      }),
+      memory: Some(core_hw::MemoryInfo {
+        size: "32 GB".to_string(),
+        clock: 5600,
+        clock_unit: "MHz".to_string(),
+        memory_count: 2,
+        total_slots: 4,
+        memory_type: "DDR5".to_string(),
+        is_detailed: true,
+      }),
+      gpus: Some(vec![core_hw::GraphicInfo {
+        id: "gpu-0".to_string(),
+        name: "GPU".to_string(),
+        vendor_name: "Vendor".to_string(),
+        clock: 1800,
+        memory_size: "8 GB".to_string(),
+        memory_size_dedicated: "8 GB".to_string(),
+        core_count: Some("128".to_string()),
+      }]),
+      storage: vec![core_hw::StorageInfo {
+        name: "Disk".to_string(),
+        size: 1.0,
+        size_unit: core_formatter::SizeUnit::GBytes,
+        free: 0.5,
+        free_unit: core_formatter::SizeUnit::GBytes,
+        storage_type: core_enums::DiskKind::Ssd,
+        file_system: "apfs".to_string(),
+      }],
+      motherboard: Some(core_hw::MotherboardInfo {
+        manufacturer: "Board Maker".to_string(),
+        product: "Board".to_string(),
+        version: "1.0".to_string(),
+        serial_number: "serial".to_string(),
+        bios_vendor: "BIOS Vendor".to_string(),
+        bios_version: "BIOS 1".to_string(),
+        bios_release_date: "2026-01-01".to_string(),
+      }),
+    }
+    .into();
+
+    assert_eq!(info.cpu.as_ref().unwrap().core_count, 8);
+    assert_eq!(info.memory.as_ref().unwrap().memory_type, "DDR5");
+    assert_eq!(info.gpus.as_ref().unwrap()[0].id, "gpu-0");
+    assert_eq!(info.storage[0].storage_type, DiskKind::Ssd);
+    assert_eq!(info.storage[0].size_unit, SizeUnit::GBytes);
+    assert_eq!(
+      info.motherboard.as_ref().unwrap().manufacturer,
+      "Board Maker"
+    );
   }
 }

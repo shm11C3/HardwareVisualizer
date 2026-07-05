@@ -10,6 +10,8 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
+quote = "1.0.45"
+syn = { version = "2.0.117", features = ["full"] }
 tauri-build = { version = "2.6.3", features = [] }
 
 
@@ -68,6 +70,12 @@ features = [
 # If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+bindings-export = []
+
+[[bin]]
+name = "export_bindings"
+path = "src/bin/export_bindings.rs"
+required-features = ["bindings-export"]
 
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"
