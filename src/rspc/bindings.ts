@@ -388,10 +388,6 @@ export type GpuMonitorData = {
 	gpuCoolerLevel: number | null,
 };
 
-/**
- *  GPU usage percentage together with the data-source identifier
- *  (e.g. "NVAPI", "ADL", "WMI", "DRM (AMD)", "IOKit")
- */
 export type GpuUsageResult = {
 	usage: number,
 	source: string,
@@ -449,11 +445,6 @@ export type LineGraphColorStringSettings = {
 
 export type LineGraphType = "default" | "step" | "linear" | "basis";
 
-/**
- *  Live Storage Health signals collected on demand and never persisted
- *  (ADR 0006). `device_id` matches the daily [`StorageHealthRecord`]
- *  identity so displays can join live signals to persisted device rows.
- */
 export type LiveStorageHealth = {
 	deviceId: string,
 	displayName: string,
@@ -531,24 +522,16 @@ export type PawnIoRuntimeDiagnostics = {
 export type ProcessInfo = ProcessInfo_Serialize | ProcessInfo_Deserialize;
 
 export type ProcessInfo_Deserialize = {
-	// Process ID
 	pid: number,
-	// Process name
 	name: string,
-	// CPU usage
 	cpuUsage: string,
-	// Memory usage
 	memoryUsage: string,
 };
 
 export type ProcessInfo_Serialize = {
-	// Process ID
 	pid: number,
-	// Process name
 	name: string,
-	// CPU usage
 	cpuUsage: string,
-	// Memory usage
 	memoryUsage: string,
 };
 

@@ -325,6 +325,31 @@ jobs:
         run: cargo check -p hardware_visualizer --all-targets --features custom-protocol
 
   #
+  # Generated Tauri bindings freshness
+  #
+  check-tauri-bindings:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.core-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.actions-changed == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Linux dependencies
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+
+      - name: Regenerate Tauri bindings
+        run: cargo run --locked -p hardware_visualizer --bin export_bindings
+
+      - name: Check generated bindings are current
+        run: git diff --exit-code -- src/rspc/bindings.ts
+
+  #
   # Build test
   #
   test-build:
@@ -727,6 +752,7 @@ jobs:
       - lint-tauri
       - test-tauri
       - check-core-tauri-integration
+      - check-tauri-bindings
       - test-build
       - check-frontend
       - test-e2e-web

@@ -69,8 +69,8 @@ fn apply_pending_migrations() -> Result<(), String> {
   ))
 }
 
-pub fn run() {
-  let builder = Builder::<tauri::Wry>::new()
+fn build_specta_builder() -> Builder<Wry> {
+  Builder::<Wry>::new()
     .events(collect_events![models::hardware::HardwareMonitorUpdate,])
     .commands(collect_commands![
       app_updates::fetch_update,
@@ -145,16 +145,41 @@ pub fn run() {
       system::quit_app,
       system::is_close_to_tray_available,
       system::mark_close_to_tray_listener_ready,
-    ]);
+    ])
+}
+
+#[cfg(debug_assertions)]
+fn bindings_path() -> std::path::PathBuf {
+  std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/rspc/bindings.ts")
+}
+
+#[cfg(debug_assertions)]
+fn export_typescript_bindings(builder: &Builder<Wry>) {
+  builder
+    .export(Typescript::default(), bindings_path())
+    .expect("Failed to export typescript bindings");
+}
+
+#[cfg(debug_assertions)]
+pub fn export_bindings() {
+  let builder = build_specta_builder().typed_error_impl(TYPED_ERROR_IMPL);
+  export_typescript_bindings(&builder);
+}
+
+#[cfg(not(debug_assertions))]
+pub fn export_bindings() {
+  panic!("TypeScript bindings export is only available in debug builds");
+}
+
+pub fn run() {
+  let builder = build_specta_builder();
 
   #[cfg(debug_assertions)]
   let builder = builder.typed_error_impl(TYPED_ERROR_IMPL);
 
   // TS bindings
   #[cfg(debug_assertions)]
-  builder
-    .export(Typescript::default(), "../src/rspc/bindings.ts")
-    .expect("Failed to export typescript bindings");
+  export_typescript_bindings(&builder);
 
   let app_state = settings::AppState::new();
   let elevated_startup_mode = app_state.settings.lock().unwrap().elevated_startup_mode;
