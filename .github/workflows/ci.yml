@@ -344,7 +344,7 @@ jobs:
           components: ""
 
       - name: Regenerate Tauri bindings
-        run: cargo run --locked -p hardware_visualizer --bin export_bindings
+        run: cargo run --locked -p hardware_visualizer --features bindings-export --bin export_bindings
 
       - name: Check generated bindings are current
         run: git diff --exit-code -- src/rspc/bindings.ts
