@@ -2,7 +2,12 @@ use super::db;
 use crate::persistence::archive_data::ProcessStatData;
 
 pub async fn insert(processes: Vec<ProcessStatData>) -> Result<(), sqlx::Error> {
+  if processes.is_empty() {
+    return Ok(());
+  }
+
   let pool = db::get_pool().await?;
+  let mut tx = pool.begin().await?;
 
   for proc in processes {
     sqlx::query(
@@ -15,10 +20,11 @@ pub async fn insert(processes: Vec<ProcessStatData>) -> Result<(), sqlx::Error> 
     .bind(proc.memory_usage)
     .bind(proc.execution_sec)
     .bind(chrono::Utc::now())
-    .execute(&pool)
+    .execute(&mut *tx)
     .await?;
   }
 
+  tx.commit().await?;
   Ok(())
 }
 
