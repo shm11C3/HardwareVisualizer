@@ -59,6 +59,8 @@ runHook(
   },
   2,
 );
+runHook("null payload", "pre", "null", 2);
+runHook("scalar payload", "pre", "42", 2);
 runHook(
   "move to generated binding",
   "pre",

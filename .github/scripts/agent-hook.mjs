@@ -22,6 +22,10 @@ try {
   console.error(`Cannot parse agent hook payload: ${error.message}`);
   process.exit(2);
 }
+if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+  console.error("Cannot parse agent hook payload: expected an object");
+  process.exit(2);
+}
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -110,9 +114,15 @@ function runValidator(args = []) {
   );
 }
 
+function validatorExitCode(result) {
+  if (result.error) {
+    console.error(`Failed to run guidance validator: ${result.error.message}`);
+  }
+  return result.status === 0 ? 0 : 2;
+}
+
 if (mode === "stop") {
-  const result = runValidator();
-  process.exit(result.status === 0 ? 0 : 2);
+  process.exit(validatorExitCode(runValidator()));
 }
 
 const guidancePaths = [...paths].filter(isGuidancePath);
@@ -136,5 +146,4 @@ for (const relativePath of guidancePaths.filter((item) =>
   }
 }
 
-const result = runValidator(["--touched", ...guidancePaths]);
-process.exit(result.status === 0 ? 0 : 2);
+process.exit(validatorExitCode(runValidator(["--touched", ...guidancePaths])));
