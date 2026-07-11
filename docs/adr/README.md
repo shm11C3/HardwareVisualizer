@@ -6,6 +6,19 @@ code alone.
 ADRs are intentionally short. They explain what was decided and why; detailed
 implementation guidance belongs in the architecture documents.
 
+## Status
+
+Every ADR carries one explicit status:
+
+- `proposed`: direction under evaluation; do not treat it as canonical shipped
+  behavior without current code/product evidence.
+- `accepted`: the current decision. It can describe implemented direction that
+  has not yet appeared in a public release.
+- `superseded`: historical context replaced by a newer ADR, which the record
+  must link.
+
+ADR status describes decision maturity, not release status.
+
 ## Records
 
 - [0001 Platform Layer for OS-specific Hardware Access](0001-platform-layer-for-os-specific-hardware-access.md)

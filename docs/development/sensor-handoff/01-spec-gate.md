@@ -42,7 +42,7 @@ Then complete the implementer attestation item that every pinned spec is
 # やること
 
 1. `docs/specs/sensors/README.md`
-2. `.github/instructions/clean-room-sensors.instructions.md`
+2. `.agents/rules/clean-room-sensors.md`
 3. `docs/specs/sensors/superio-access.md`
 4. `docs/specs/sensors/pawnio-interface.md`
 

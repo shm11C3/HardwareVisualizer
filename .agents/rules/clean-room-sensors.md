@@ -1,3 +1,7 @@
+---
+scope: "docs/specs/sensors/**,docs/development/sensor-handoff/**,core/src/infrastructure/providers/windows/pawn_io.rs,core/src/infrastructure/providers/windows/cpu_temperature.rs,core/src/infrastructure/providers/windows/cpu_temperature_decode.rs,core/src/infrastructure/providers/windows/super_io*.rs,core/src/platform/windows/motherboard.rs,core/src/platform/windows/sensors.rs,core/src/utils/super_io.rs"
+---
+
 # Clean-room rules for PawnIO sensor work (HardwareVisualizer)
 
 These instructions enforce the clean-room (Chinese wall) process of
@@ -46,8 +50,9 @@ maintainer explicitly taking spec-author responsibility.
 
 ## Allowed inputs (implementer role)
 
-- `docs/specs/sensors/**` at pinned revisions whose status is **not**
-  `Draft — not implementation-ready`
+- `docs/specs/sensors/**` at pinned revisions whose status is exactly
+  **`Implementation-ready (rev N)`**, with no unresolved
+  `TODO(provenance)` markers or blocking open questions
 - This repository (code, docs, issues, PRs)
 - General language/platform documentation that is not a sensor
   monitoring implementation: Rust std/crate docs, Microsoft Windows
@@ -94,6 +99,16 @@ carries provenance. Use
   repository MIT. Redistributing module blobs with an installer
   requires third-party-notice compliance (see
   `docs/specs/sensors/pawnio-interface.md`).
+
+## Hardware safety
+
+- Sensor access is read-only. Do not write registers that alter chip
+  configuration, fan control, limits, or power state.
+- Honor the ISA/PCI ecosystem mutex conventions documented in
+  `docs/specs/sensors/pawnio-interface.md` so concurrent monitoring tools do not
+  corrupt multi-step reads.
+- Fan control, PWM control, voltage control, and other hardware mutation are out
+  of scope for this clean-room sensor work.
 
 ## Implementation PR requirements
 

@@ -79,9 +79,9 @@ tracked in each document's header and in the Current documents table.
   hardware dumps).
 - No implementation PR may be opened or reviewed as clean-room work
   until all of the following Phase 0 guardrails exist:
-  - `.github/instructions/` contains the prohibited-source list —
+  - `.agents/rules/` contains the prohibited-source list —
     satisfied by
-    [`clean-room-sensors.instructions.md`](../../../.github/instructions/clean-room-sensors.instructions.md)
+    [`clean-room-sensors.md`](../../../.agents/rules/clean-room-sensors.md)
   - `CLAUDE.md` references the clean-room implementer restrictions —
     satisfied by the instruction-file entry in
     [`CLAUDE.md`](../../../CLAUDE.md)

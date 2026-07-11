@@ -8,6 +8,7 @@ documentation.
 
 ## Main Entry Points
 
+- [Product and design principles](design-principles.md)
 - [Backend architecture](architecture/backend.md)
 - [External components](user/external-components.md) /
   [Japanese](user/external-components.ja.md)
@@ -23,13 +24,17 @@ documentation.
 - [GitHub label guide](development/labels.md)
 - [Download verification](download-verification.md)
 - [Documentation guide](documentation-guide.md)
+- [Shared agent rules](../.agents/rules/README.md)
+- [AI learning records](agents/lessons/)
 
 ## Documentation Map
 
 ```text
 docs/
 ├── README.md                       # Documentation index
+├── design-principles.md            # Product and engineering decision lens
 ├── documentation-guide.md          # Documentation placement and naming rules
+├── agents/                         # AI learning provenance and promotion records
 ├── adr/                            # Architecture decision records
 ├── architecture/                   # Architecture documents
 ├── development/                    # Developer task guides

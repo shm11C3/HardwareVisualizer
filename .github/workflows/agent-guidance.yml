@@ -1,0 +1,104 @@
+name: Agent Guidance
+
+on:
+  pull_request:
+    paths:
+      - "**/AGENTS.md"
+      - "CLAUDE.md"
+      - ".agents/rules/**"
+      - ".agents/skills/**"
+      - ".claude/agents/**"
+      - ".claude/settings.json"
+      - ".codex/hooks.json"
+      - ".github/pull_request_template.md"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
+      - ".github/scripts/agent-hook.mjs"
+      - ".github/scripts/check-agent-guidance.mjs"
+      - ".github/scripts/test-agent-guidance.mjs"
+      - ".github/scripts/test-agent-hook.mjs"
+      - ".github/workflows/agent-guidance.yml"
+      - ".github/workflows/pr-branch-name.yml"
+      - "CONTRIBUTING.md"
+      - "docs/agents/**"
+      - "docs/adr/**"
+      - "docs/design-principles.md"
+      - "docs/architecture/backend.md"
+      - "docs/specs/sensors/README.md"
+      - "docs/development/sensor-handoff/01-spec-gate.md"
+      - "docs/development/sensor-handoff/07-phase3-nuvoton-spec.md"
+      - "docs/development/sensor-handoff/08-phase4-ite-spec.md"
+      - "core/README.md"
+      - "src-tauri/README.md"
+      - "src/README.md"
+      - "biome.jsonc"
+      - "package.json"
+  push:
+    branches:
+      - develop
+    paths:
+      - "**/AGENTS.md"
+      - "CLAUDE.md"
+      - ".agents/rules/**"
+      - ".agents/skills/**"
+      - ".claude/agents/**"
+      - ".claude/settings.json"
+      - ".codex/hooks.json"
+      - ".github/pull_request_template.md"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
+      - ".github/scripts/agent-hook.mjs"
+      - ".github/scripts/check-agent-guidance.mjs"
+      - ".github/scripts/test-agent-guidance.mjs"
+      - ".github/scripts/test-agent-hook.mjs"
+      - ".github/workflows/agent-guidance.yml"
+      - ".github/workflows/pr-branch-name.yml"
+      - "CONTRIBUTING.md"
+      - "docs/agents/**"
+      - "docs/adr/**"
+      - "docs/design-principles.md"
+      - "docs/architecture/backend.md"
+      - "docs/specs/sensors/README.md"
+      - "docs/development/sensor-handoff/01-spec-gate.md"
+      - "docs/development/sensor-handoff/07-phase3-nuvoton-spec.md"
+      - "docs/development/sensor-handoff/08-phase4-ite-spec.md"
+      - "core/README.md"
+      - "src-tauri/README.md"
+      - "src/README.md"
+      - "biome.jsonc"
+      - "package.json"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Validate agent guidance
+        run: node .github/scripts/check-agent-guidance.mjs
+
+      - name: Test agent hooks
+        run: node .github/scripts/test-agent-hook.mjs
+
+      - name: Test agent guidance failures
+        run: node .github/scripts/test-agent-guidance.mjs
+
+      - name: Check script syntax
+        run: |
+          node --check .github/scripts/agent-hook.mjs
+          node --check .github/scripts/check-agent-guidance.mjs
+          node --check .github/scripts/test-agent-guidance.mjs
+          node --check .github/scripts/test-agent-hook.mjs
+
+      - name: Check whitespace
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD | tail -1)"
+          fi
+          git diff --check "$BASE_SHA" "$GITHUB_SHA"

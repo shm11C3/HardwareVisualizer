@@ -21,7 +21,7 @@ NCT67xx/NCT679x motherboard temperature and fan RPM reads.
 
 # やること
 
-1. `docs/specs/sensors/README.md` と `.github/instructions/clean-room-sensors.instructions.md` を読む。
+1. `docs/specs/sensors/README.md` と `.agents/rules/clean-room-sensors.md` を読む。
 2. `docs/specs/sensors/superio-access.md` rev 3 を読む。
 3. Nuvoton NCT67xx / NCT679x 系に必要な vendor datasheet / public hardware spec / independently collected dump を使って、fact-only specを作成する。
 
