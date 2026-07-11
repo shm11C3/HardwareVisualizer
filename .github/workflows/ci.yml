@@ -736,7 +736,7 @@ jobs:
           components: ""
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        run: cargo install cargo-deny --version 0.19.4 --locked
 
       - name: Check Rust licenses
         run: cargo deny --manifest-path Cargo.toml check --config src-tauri/deny.toml licenses
