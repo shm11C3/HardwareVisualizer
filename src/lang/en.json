@@ -397,6 +397,8 @@
           "lineGraphShowLegend": "Legend",
           "lineGraphShowScale": "Scale",
           "lineGraphShowTooltip": "Tooltip",
+          "graphFitToWindow": "Fit Graphs to Window",
+          "graphMarginPx": "Graph Margin",
           "size": "Graph Size",
           "lineType": "Line Graph Style"
         }

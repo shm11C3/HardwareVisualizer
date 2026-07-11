@@ -135,6 +135,8 @@ pub mod commands {
       theme: settings.theme,
       display_targets: settings.display_targets,
       graph_size: settings.graph_size,
+      graph_fit_to_window: settings.graph_fit_to_window,
+      graph_margin_px: settings.graph_margin_px,
       line_graph_type: settings.line_graph_type,
       line_graph_border: settings.line_graph_border,
       line_graph_fill: settings.line_graph_fill,
@@ -227,6 +229,38 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_graph_size(new_size) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_graph_fit_to_window(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_graph_fit_to_window(new_value) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_graph_margin_px(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: u32,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_graph_margin_px(new_value) {
       emit_error(&window)?;
       return Err(e);
     }

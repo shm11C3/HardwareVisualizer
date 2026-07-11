@@ -6,6 +6,7 @@ import { UploadImage } from "@/features/settings/components/UploadImage";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { BackgroundOpacitySlider } from "./BackgroundOpacitySlider";
 import { GraphColorSettings } from "./GraphColorSettings";
+import { GraphSizeSlider } from "./GraphSizeSlider";
 import { GraphStyleSettings } from "./GraphStyleSettings";
 import { GraphTypeSelector } from "./GraphTypeSelector";
 
@@ -19,19 +20,24 @@ export const GraphSettings = () => {
         {t("pages.settings.customTheme.name")}
       </h3>
       <div className="items-start gap-x-12 gap-y-4 p-4 xl:grid xl:grid-cols-6">
-        <div className="col-span-2 py-2">
-          <h4 className="font-bold text-xl">
-            {t("pages.settings.customTheme.graphStyle.name")}
-          </h4>
-          <GraphStyleSettings />
-        </div>
-        <div className="col-span-1 py-2">
-          <GraphColorSettings />
-          <div className="py-6">
+        <div className="col-span-3 gap-x-12 py-2 xl:grid xl:grid-cols-3">
+          <div className="col-span-2">
             <h4 className="font-bold text-xl">
-              {t("pages.settings.general.hardwareType")}
+              {t("pages.settings.customTheme.graphStyle.name")}
             </h4>
-            <GraphTypeSelector />
+            <GraphStyleSettings />
+          </div>
+          <div className="col-span-1">
+            <GraphColorSettings />
+            <div className="py-6">
+              <h4 className="font-bold text-xl">
+                {t("pages.settings.general.hardwareType")}
+              </h4>
+              <GraphTypeSelector />
+            </div>
+          </div>
+          <div className="col-span-3">
+            <GraphSizeSlider />
           </div>
         </div>
         <div className="col-span-3 ml-10 py-2">

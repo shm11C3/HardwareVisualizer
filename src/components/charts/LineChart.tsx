@@ -27,6 +27,7 @@ import { CustomLegend, type LegendItem } from "./CustomLegend";
 type ChartProps = {
   labels: string[];
   size: (typeof sizeOptions)[number];
+  fitToContainer?: boolean;
 };
 
 type SingleChartProps = {
@@ -89,6 +90,7 @@ export const SingleLineChart = ({
   width,
   height,
   className,
+  fitToContainer = false,
 }: SingleChartProps & { chartConfig: ChartConfig } & {
   border: boolean;
   lineGraphShowScale: boolean;
@@ -136,9 +138,18 @@ export const SingleLineChart = ({
 
   // [TODO] Allow horizontally dragging the selected range
   return (
-    <div className={cn(graphVariants({ size }), className)}>
+    <div
+      className={cn(
+        graphVariants({ size }),
+        fitToContainer && "flex min-h-30 w-full max-w-none flex-1 flex-col",
+        className,
+      )}
+    >
       <ChartContainer
-        className={chartAreaVariants({ border })}
+        className={cn(
+          chartAreaVariants({ border }),
+          fitToContainer && "aspect-auto min-h-0 w-full flex-1",
+        )}
         config={chartConfig}
         style={{
           ...(width && { width }),
@@ -192,6 +203,7 @@ const MixLineChart = ({
   gpuData,
   chartConfig,
   size,
+  fitToContainer = false,
 }: MultiChartProps & { chartConfig: ChartConfig }) => {
   const { settings } = useSettingsAtom();
   const [currentTheme] = useAtom(currentThemeAtom);
@@ -228,9 +240,17 @@ const MixLineChart = ({
   }));
 
   return (
-    <div className={graphVariants({ size })}>
+    <div
+      className={cn(
+        graphVariants({ size }),
+        fitToContainer && "flex min-h-30 w-full max-w-none flex-1 flex-col",
+      )}
+    >
       <ChartContainer
-        className={chartAreaVariants({ border: settings.lineGraphBorder })}
+        className={cn(
+          chartAreaVariants({ border: settings.lineGraphBorder }),
+          fitToContainer && "aspect-auto min-h-0 w-full flex-1",
+        )}
         config={chartConfig}
       >
         <AreaChart data={data}>
@@ -312,7 +332,7 @@ export const LineChartComponent = (
     <MixLineChart {...props} chartConfig={chartConfig} />
   ) : (
     <SingleLineChart
-      className="mt-5"
+      className={props.fitToContainer ? "" : "mt-5"}
       {...props}
       chartConfig={chartConfig}
       border={settings.lineGraphBorder}

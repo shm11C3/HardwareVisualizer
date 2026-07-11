@@ -1,4 +1,3 @@
-import { GraphSizeSlider } from "./GraphSizeSlider";
 import { GraphStyleToggle } from "./GraphStyleToggle";
 import { LineChartTypeSelector } from "./LineChartTypeSelector";
 
@@ -11,7 +10,6 @@ export const GraphStyleSettings = () => {
       <GraphStyleToggle type="lineGraphShowLegend" />
       <GraphStyleToggle type="lineGraphShowScale" />
       <GraphStyleToggle type="lineGraphShowTooltip" />
-      <GraphSizeSlider />
       <LineChartTypeSelector />
     </>
   );

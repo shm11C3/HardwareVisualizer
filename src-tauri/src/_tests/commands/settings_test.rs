@@ -20,6 +20,8 @@ mod tests {
         hardware::HardwareType::Gpu,
       ],
       graph_size: enums::settings::GraphSize::XL,
+      graph_fit_to_window: false,
+      graph_margin_px: 32,
       line_graph_type: enums::settings::LineGraphType::Default,
       line_graph_border: true,
       line_graph_fill: true,
@@ -58,6 +60,8 @@ mod tests {
     assert_eq!(settings.display_targets, expected.display_targets,);
     assert_eq!(settings.line_graph_border, expected.line_graph_border);
     assert_eq!(settings.graph_size, expected.graph_size);
+    assert_eq!(settings.graph_fit_to_window, expected.graph_fit_to_window);
+    assert_eq!(settings.graph_margin_px, expected.graph_margin_px);
     assert_eq!(settings.line_graph_type, expected.line_graph_type);
     assert_eq!(settings.line_graph_fill, expected.line_graph_fill);
     assert_eq!(settings.line_graph_color.cpu, expected.line_graph_color.cpu);
@@ -136,6 +140,23 @@ mod tests {
         .is_ok()
     );
     assert_eq!(settings.graph_size, enums::settings::GraphSize::SM);
+  }
+
+  #[test]
+  fn test_set_graph_fit_to_window() {
+    let mut settings = models::settings::Settings::default();
+    assert!(settings.set_graph_fit_to_window(true).is_ok());
+    assert!(settings.graph_fit_to_window);
+  }
+
+  #[test]
+  fn test_set_graph_margin_px() {
+    let mut settings = models::settings::Settings::default();
+    assert!(settings.set_graph_margin_px(64).is_ok());
+    assert_eq!(settings.graph_margin_px, 64);
+
+    assert!(settings.set_graph_margin_px(201).is_ok());
+    assert_eq!(settings.graph_margin_px, 200);
   }
 
   #[test]

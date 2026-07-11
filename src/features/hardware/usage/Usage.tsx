@@ -1,5 +1,5 @@
 import { useAtom } from "jotai";
-import { useMemo } from "react";
+import type { CSSProperties } from "react";
 import { LineChartComponent as LineChart } from "@/components/charts/LineChart";
 import { BurnInShift } from "@/components/shared/BurnInShift";
 import { chartConfig } from "@/features/hardware/consts/chart";
@@ -9,10 +9,15 @@ import {
   memoryUsageHistoryAtom,
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 
 const labels = Array(chartConfig.historyLengthSec).fill("");
 
-const CpuUsageChart = () => {
+type UsageChartProps = {
+  fitToContainer: boolean;
+};
+
+const CpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const { settings } = useSettingsAtom();
 
@@ -23,11 +28,12 @@ const CpuUsageChart = () => {
       dataType="cpu"
       size={settings.graphSize}
       lineGraphMix={false}
+      fitToContainer={fitToContainer}
     />
   );
 };
 
-const MemoryUsageChart = () => {
+const MemoryUsageChart = ({ fitToContainer }: UsageChartProps) => {
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
   const { settings } = useSettingsAtom();
 
@@ -38,11 +44,12 @@ const MemoryUsageChart = () => {
       dataType="memory"
       size={settings.graphSize}
       lineGraphMix={false}
+      fitToContainer={fitToContainer}
     />
   );
 };
 
-const GpuUsageChart = () => {
+const GpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const { settings } = useSettingsAtom();
 
@@ -53,11 +60,12 @@ const GpuUsageChart = () => {
       dataType="gpu"
       size={settings.graphSize}
       lineGraphMix={false}
+      fitToContainer={fitToContainer}
     />
   );
 };
 
-const MixUsageChart = () => {
+const MixUsageChart = ({ fitToContainer }: UsageChartProps) => {
   const { settings } = useSettingsAtom();
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
@@ -75,28 +83,56 @@ const MixUsageChart = () => {
       }
       size={settings.graphSize}
       lineGraphMix={true}
+      fitToContainer={fitToContainer}
     />
   );
 };
 
-export const ChartTemplate = () => {
+export const ChartTemplate = ({
+  isFullScreen = false,
+}: {
+  isFullScreen?: boolean;
+}) => {
   const { settings } = useSettingsAtom();
+  const fitToContainer = settings.graphFitToWindow;
 
-  const renderedCharts = useMemo(() => {
-    return settings.lineGraphMix ? (
-      <MixUsageChart />
-    ) : (
-      <>
-        {settings.displayTargets.includes("cpu") && <CpuUsageChart />}
-        {settings.displayTargets.includes("memory") && <MemoryUsageChart />}
-        {settings.displayTargets.includes("gpu") && <GpuUsageChart />}
-      </>
-    );
-  }, [settings]);
+  const renderedCharts = settings.lineGraphMix ? (
+    <MixUsageChart fitToContainer={fitToContainer} />
+  ) : (
+    <>
+      {settings.displayTargets.includes("cpu") && (
+        <CpuUsageChart fitToContainer={fitToContainer} />
+      )}
+      {settings.displayTargets.includes("memory") && (
+        <MemoryUsageChart fitToContainer={fitToContainer} />
+      )}
+      {settings.displayTargets.includes("gpu") && (
+        <GpuUsageChart fitToContainer={fitToContainer} />
+      )}
+    </>
+  );
+
+  const fitStyle = fitToContainer
+    ? ({
+        height: "calc(100dvh - var(--burnin-padding) - var(--burnin-padding))",
+        padding: `${settings.graphMarginPx}px`,
+      } satisfies CSSProperties)
+    : undefined;
 
   return (
-    <BurnInShift enabled>
-      <div className="ml-16 p-8">{renderedCharts}</div>
+    <BurnInShift enabled paddingOverride={fitToContainer ? 0 : undefined}>
+      <div
+        className={cn(
+          fitToContainer
+            ? "flex min-h-0 flex-col gap-4 overflow-y-auto"
+            : "p-8",
+          !isFullScreen && "ml-16",
+        )}
+        style={fitStyle}
+        data-testid="usage-chart-layout"
+      >
+        {renderedCharts}
+      </div>
     </BurnInShift>
   );
 };

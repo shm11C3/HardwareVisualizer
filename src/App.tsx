@@ -210,7 +210,7 @@ const AppContent = () => {
         <Dashboard />
       </ScreenTemplate>
     ),
-    usage: <ChartTemplate />,
+    usage: <ChartTemplate isFullScreen={Boolean(isFullScreen)} />,
     cpuDetail: (
       <ScreenTemplate
         icon={

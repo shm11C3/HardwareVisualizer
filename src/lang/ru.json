@@ -367,6 +367,8 @@
           "lineGraphShowLegend": "Легенда",
           "lineGraphShowScale": "Шкала",
           "lineGraphShowTooltip": "Подсказка",
+          "graphFitToWindow": "Подгонять графики под окно",
+          "graphMarginPx": "Отступ графиков",
           "size": "Размер графика",
           "lineType": "Стиль линии графика"
         }
