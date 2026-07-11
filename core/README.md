@@ -19,8 +19,8 @@ not need a Tauri context lives here, and the Tauri app crate
   fan out from.
 - Run Core-owned persistence workers for hardware archive and storage SMART
   snapshots.
-- Run a SQLite schema-version preflight check before the App brings up the
-  Tauri SQL plugin.
+- Run a SQLite schema-version preflight check before Core applies the
+  App-supplied migration set and DB-dependent workers start.
 - Hold the subset of on-disk settings whose values change Core behavior.
 - Expose the platform abstraction (Windows / Linux / macOS) and the
   infrastructure-level providers (sysinfo, NVAPI, WMI, procfs, …) used by it.
@@ -64,7 +64,7 @@ core/src/
 ├── settings/              ← Core-consumed settings (subset of settings.json)
 │   ├── mod.rs               CoreSettings (load / save with App-key merge)
 │   ├── hardware_archive.rs  HardwareArchiveSettings
-│   └── storage_smart.rs     Storage SMART settings and identity key
+│   └── storage_health.rs    Storage Health settings and identity key
 ├── platform/              ← Cross-platform hardware access
 │   ├── traits.rs            Memory / GPU / Network / Motherboard traits
 │   ├── factory.rs           PlatformFactory (compile-time OS selection)
@@ -80,8 +80,8 @@ core/src/
 
 Core owns persistence workers that do not need Tauri objects. The App crate
 still owns Tauri-specific startup decisions: resolving the SQLite path,
-registering Tauri SQL migrations, and deciding whether DB-dependent workers can
-start after preflight.
+supplying the ordered migration definitions, and deciding whether DB-dependent
+workers can start after preflight. Core owns the pool and migration execution.
 
 ## Provider inventory
 

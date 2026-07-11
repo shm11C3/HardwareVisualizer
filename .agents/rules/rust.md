@@ -1,3 +1,7 @@
+---
+scope: "core/**/*.rs,src-tauri/**/*.rs,Cargo.toml,core/Cargo.toml,src-tauri/Cargo.toml"
+---
+
 # Rust coding instructions (HardwareVisualizer)
 
 These instructions apply to Rust code in both crates of the workspace:
@@ -41,21 +45,26 @@ The backend is split across two crates:
   (`src-tauri/src/commands/`), thin services (`src-tauri/src/services/`)
   that call into Core, adapters that translate Core events into Tauri
   events (`src-tauri/src/adapters/`), wire-format models with
-  `specta::Type` derives (`src-tauri/src/models/`), and persistence /
-  database access (`src-tauri/src/infrastructure/database/` — moves to
-  Core in a future phase).
+  `specta::Type` derives (`src-tauri/src/models/`), database-path resolution,
+  startup compatibility wiring, and ordered SQL migration definitions. Core
+  owns the pool, migration execution, Tauri-independent persistence workers,
+  and database operations.
 
-Dependency direction: **Commands → Services → `hardviz_core::platform` →
-`hardviz_core::infrastructure` / OS APIs**, with the EventBus carrying
-real-time snapshots from Core to App-side adapters.
+For hardware access, dependency direction is **Commands → Services →
+`hardviz_core::platform` → `hardviz_core::infrastructure` / OS APIs**, with the
+EventBus carrying real-time snapshots from Core to App-side adapters. App-owned
+settings, lifecycle, and plugin services do not need to pass through the Core
+platform abstraction.
 
 Do not add a `tauri` dependency to `core/Cargo.toml`, and do not write
 `use tauri::*;` under `core/src/`. `specta` and `tauri_specta` derives
-stay in the `src-tauri` crate; Core uses POJO mirrors and `From`
-conversions handle the boundary.
+stay in the `src-tauri` crate. Core owns the platform-facing plain models; App
+wire DTOs and their `From<core::...>` conversions are generated from the
+allowlist or implemented at the boundary. Follow ADR 0009.
 
 See `docs/architecture/backend.md` for the longer-form
-architecture doc.
+architecture doc and `docs/design-principles.md` for the product/engineering
+decision lens.
 
 ## Platform-conditional code
 
@@ -65,5 +74,7 @@ architecture doc.
 ## Testing
 
 - Run Rust tests: `cargo tauri-test` (CI parity) or `cargo test --lib` (quick local check).
-- Place tests in inline `#[cfg(test)] mod tests { ... }` at the bottom of each file.
+- Prefer inline `#[cfg(test)] mod tests { ... }` for pure module-local helpers.
+  Shared App test setup may remain under `src-tauri/src/_tests/`; integration
+  tests should cover cross-module contracts rather than duplicating unit tests.
 - Prefer testing pure functions. Extract platform-dependent logic into pure helpers where practical.

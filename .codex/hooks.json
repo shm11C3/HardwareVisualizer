@@ -1,14 +1,39 @@
 {
   "hooks": {
-    "PostToolUse": [
+    "PreToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit|apply_patch",
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; echo $f | grep -qE '\\.rs$' || exit 0; cargo tauri-fmt && cargo tauri-lint; }",
-            "timeout": 120,
-            "statusMessage": "Running cargo fmt & clippy..."
+            "command": "node \"$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs\" pre",
+            "timeout": 10,
+            "statusMessage": "Checking generated-file guard..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs\" post",
+            "timeout": 30,
+            "statusMessage": "Validating agent guidance..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.github/scripts/agent-hook.mjs\" stop",
+            "timeout": 30,
+            "statusMessage": "Checking complete agent guidance consistency..."
           }
         ]
       }

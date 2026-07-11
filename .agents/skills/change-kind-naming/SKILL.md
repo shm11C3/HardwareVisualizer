@@ -1,13 +1,15 @@
 ---
 name: change-kind-naming
-description: Decide the correct change kind and align branch names, PR titles, and commit prefixes. Use when choosing Conventional Commit prefixes, branch prefixes, PR titles, or PR template change types, especially when a change could be fix/refactor/chore/docs/feat.
+description: Decide the correct change kind and semantically align branch names, PR titles, commit prefixes, and PR template types. Use when choosing Conventional Commit or branch prefixes for fix, refactor, chore, docs, feat, perf, test, or CI changes.
 ---
 
 # Change Kind Naming
 
 ## Quick Start
 
-Before committing, pushing, or opening a PR, classify the actual change type and make these four surfaces agree:
+Before committing, pushing, or opening a PR, classify the actual change type and
+make these four surfaces agree semantically under the repository's allowed
+branch prefixes:
 
 - commit subject prefix
 - PR title prefix
@@ -48,20 +50,33 @@ Prefer the highest-impact type when one PR intentionally mixes types. If the mix
 
 Use branch prefixes that match the final classification:
 
-- `fix/...`
-- `refactor/...`
 - `feat/...`
+- `feature/...`
+- `fix/...`
 - `docs/...`
+- `perf/...`
+- `refactor/...`
+- `chore/...`
+
+This repository's CI does not allow `test/...` or `ci/...` branches. For a
+test-only or CI-only change, use a `chore/...` branch while keeping the more
+precise `test:` or `ci:` Conventional Commit and PR title. Select `Other` in the
+PR template. Alignment is semantic here; it does not require the branch and
+commit prefix strings to be identical.
+
+Do not use:
+
 - `test/...`
 - `ci/...`
-- `chore/...`
+- `codex/...`
+- `claude/...`
 
 In repositories that define branch rules, such as this repository's
 `CONTRIBUTING.md`, the repository rule wins over generic agent defaults.
 Never use tool-dependent prefixes such as `codex/...` or `claude/...`
 when the project requires change-kind branch prefixes.
 
-Use the same prefix in the Conventional Commit subject and PR title:
+Use the same Conventional Commit prefix in the commit subject and PR title:
 
 ```text
 refactor: rename hardware archive retention setting

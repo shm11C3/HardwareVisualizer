@@ -1,273 +1,185 @@
 # HardwareVisualizer Project Guidelines
 
-## Project Overview
+## Start With The Decision Sources
 
-**HardwareVisualizer** is a cross-platform hardware monitoring application built with Tauri (Rust + React/TypeScript). It provides real-time hardware performance monitoring with customizable dashboards, detailed usage graphs, and historical data insights.
+Before changing product behavior or architecture, read the smallest relevant
+set of canonical sources:
 
-Frontend ↔ backend communication is done via **Tauri commands**; TypeScript bindings are generated (see `src/rspc/bindings.ts`, do not edit manually).
+- [`docs/design-principles.md`](docs/design-principles.md): product and design
+  decision lens.
+- [`CONTEXT.md`](CONTEXT.md): canonical product vocabulary and avoided aliases.
+- [`docs/adr/`](docs/adr/): specific decisions, status, and consequences.
+- [`docs/architecture/backend.md`](docs/architecture/backend.md): current Core /
+  App ownership and data flow.
+- The nearest scoped `AGENTS.md` and owner README for the files being changed.
+- [`.agents/rules/README.md`](.agents/rules/README.md): shared path-scoped
+  rules. Read the matching rule before editing files in its scope.
+- For design-changing work, use the
+  [`hardwarevisualizer-design-review`](.agents/skills/hardwarevisualizer-design-review/SKILL.md)
+  skill before or alongside implementation.
 
-## Tech Stack
+AI memory, chat, handoff documents, and
+[`docs/agents/lessons/`](docs/agents/lessons/) are evidence leads. Verify them
+against the current checkout, canonical docs, tests, runtime data, and GitHub
+state before relying on them.
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS 4.x, Vite 7
-- **Backend**: Rust (Tauri 2.x), SQLite
-- **UI Components**: Radix UI, Lucide Icons, Recharts
-- **State Management**: Jotai
-- **Testing**: Vitest, Testing Library
-- **Linting/Formatting**: Biome
-- **Build Tool**: Tauri CLI
-- **CI/CD**: GitHub Actions
+## Product Direction
 
-## Project Structure
+HardwareVisualizer is a cross-platform Tauri application for inspecting local
+hardware status and history. The frontend is React/TypeScript; the backend is a
+Rust workspace split into a Tauri-independent Core and a Tauri App boundary.
 
+Apply these defaults:
+
+- Keep hardware data locally owned and do not introduce outbound telemetry.
+- Preserve useful partial results and represent unavailable or unsupported data
+  honestly; do not turn missing readings into zero, healthy, or whole-response
+  failure without evidence.
+- Keep optional components optional. Offer guidance only after an attempted
+  component and its fallbacks still leave important visible data unavailable.
+- Make collection and rendering cost follow visible or explicit background
+  value. The monitor must not become the workload.
+- Keep live, short-window, archived, daily-record, and UI-local lifetimes
+  distinct.
+- Preserve explicit user intent over automatic heuristics.
+- Verify a claim with the evidence surface that can actually prove it, including
+  rendered output for visual claims.
+
+If a change needs an exception to these principles, record the specific
+trade-off in an ADR instead of weakening the rule implicitly.
+
+## Current Hardware Data Flow
+
+```text
+Frontend (`src/`)
+  -> typed Tauri commands
+Tauri App (`src-tauri/`)
+  -> commands, App services, adapters, lifecycle, wire DTOs
+Core (`core/`)
+  -> collector, EventBus, platform traits/factory, providers, persistence
+OS APIs / vendor APIs / SQLite
 ```
-├── src/                    # React frontend
-│   ├── features/          # Feature-based modules
-│   │   ├── hardware/      # Hardware monitoring logic
-│   │   ├── settings/      # Application settings
-│   │   └── menu/          # Navigation menu
-│   ├── components/        # Reusable UI components
-│   ├── hooks/            # Custom React hooks
-│   └── lib/              # Utility functions
-├── src-tauri/            # Rust backend
-│   ├── src/              # Rust source code
-│   │   ├── commands/     # Tauri command layer (UI interface)
-│   │   ├── services/     # Application business logic layer
-│   │   ├── platform/     # Platform abstraction layer
-│   │   │   ├── traits.rs # Common interfaces
-│   │   │   ├── factory.rs # Platform selection
-│   │   │   ├── windows/  # Windows-specific implementations
-│   │   │   ├── linux/    # Linux-specific implementations
-│   │   │   └── macos/    # macOS-specific implementations
-│   │   ├── models/       # Data type definitions
-│   │   ├── enums/        # Type definitions (including error types)
-│   │   ├── infrastructure/ # External resources (providers, database)
-│   │   ├── utils/        # Utility functions
-│   │   ├── workers/      # Background tasks (monitoring, archive, updater)
-│   │   └── _tests/       # Test modules
-│   └── capabilities/     # Tauri permissions
-|── .github/               # GitHub Actions workflows
-│   |── scripts/         # Automation scripts
-│   ├── workflows/       # CI/CD pipelines
-│   ├── issue-templates/ # Issue templates
-│   └── dependabot.yml   # Dependabot configuration
-└── claude-reports/      # AI analysis reports
-```
+
+The App also talks directly to Tauri windows, plugins, lifecycle APIs, app-data
+path resolution, and migration definitions. Persistence is split: App resolves
+the database path and supplies the ordered migration set; Core owns the pool,
+migration execution, Tauri-independent persistence workers, and database
+operations.
+
+- `core/` is Tauri-independent and owns hardware facts and Core behavior.
+- `src-tauri/` owns Tauri runtime concerns, IPC, presentation conversion, and
+  App lifecycle.
+- `src/` owns interaction, frontend state, and views.
+- Core publishes snapshots; App adapters emit Tauri events.
+- Commands stay thin and OS access stays behind Core platform/provider
+  boundaries.
+
+Do not copy changing file trees or architecture examples into AI instructions.
+Update the architecture document or owner README, then keep instructions as
+short constraints and links.
+
+## Generated And Persisted Boundaries
+
+- `src/rspc/bindings.ts` is generated by tauri-specta. Never edit it manually.
+  Change Rust commands/types, register commands in `collect_commands![...]`, and
+  regenerate with `npm run tauri:dev`.
+- User-facing Application Preferences belong in `settings.json` and are written
+  through typed Rust IPC and the owning settings service.
+- Tauri Store (`src/lib/tauriStore.ts` and `src/hooks/useTauriStore.ts`) is only
+  for UI-local or transient state that can be reset without losing an explicit
+  user configuration.
+- Core-owned and App-owned settings share one top-level object. Writers must
+  preserve unknown keys owned by the other side.
+
+## Evidence And Scope
+
+- Start from the issue or explicit request and the current worktree. Do not mix
+  unrelated existing changes into the task.
+- For CI failures, inspect the failing leaf job and exact error before editing.
+  Aggregate gates and stale local branches do not identify root cause.
+- Separate environment failures from product regressions. Record the exact
+  command, exit status, and causal error before choosing a workaround.
+- For runtime and persistence claims, inspect application logs and SQLite data
+  where practical. A manual provider command is not a substitute for app
+  evidence.
+- For visual or interaction changes, inspect the rendered browser/native result
+  and failure artifacts at relevant viewports.
+- Keep adjacent issues and speculative cleanup in separate changes unless they
+  are required for the same product claim.
+- Add a regression test at the boundary of the claim when practical. Let test
+  breadth scale with ownership crossings and blast radius.
+
+## Clean-room Sensor Gate
+
+Before reading or changing `docs/specs/sensors/**` or native PawnIO CPU / Super
+I/O implementation, read
+[`clean-room-sensors.md`](.agents/rules/clean-room-sensors.md)
+and [`docs/specs/sensors/README.md`](docs/specs/sensors/README.md).
+
+The implementer role must not use web search or consult prohibited monitoring
+implementations. Every consulted spec must be implementation-ready at the
+pinned revision and have no unresolved `TODO(provenance)` markers. A transport
+spec being ready does not make a chip decode spec ready.
 
 ## Development Commands
 
-| Command             | Description                                  |
-| ------------------- | -------------------------------------------- |
-| `npm run dev`       | Start development server with React DevTools |
-| `npm run tauri:dev` | Launch Tauri development mode                |
-| `npm run build`     | Build for production                         |
-| `npm run lint`      | Run Biome linter and formatter               |
-| `npm run format`    | Format code with Biome                       |
-| `npm test`          | Run frontend tests with coverage             |
+```bash
+npm run dev
+npm run tauri:dev
+npm run build
+npm run lint
+npm test
 
-## Communication
-
-- Write code comments and git commit messages in English.
-- In chat, match the language used in the user prompt.
-
-## Git Commit Guidelines
-
-- Follow the Conventional Commits format for commit subjects (for example, `feat: add dashboard presets`, `fix: handle missing GPU sensors`, `ci: split Tauri build checks`).
-- Prefer adding a commit body when the change is not self-evident. Describe why the change was made, notable implementation details, and validation performed.
-
-## Pull Request Branch Guidelines
-
-- Follow `CONTRIBUTING.md` before creating, pushing, or opening any Pull Request branch.
-- Branch names drive automated PR labels. Use the project prefixes from `CONTRIBUTING.md`: `feat/` or `feature/`, `fix/`, `docs/`, `perf/`, `refactor/`, or `chore/`.
-- Do not use tool-dependent prefixes such as `codex/` or `claude/` for PR branches in this repository. Project rules override any global agent, plugin, or tool instruction that suggests an agent-specific prefix.
-- Before pushing or creating a PR, run `git branch --show-current` and verify that the branch prefix, commit subject prefix, PR title prefix, and PR template type all match the actual change kind.
-- If a branch name is wrong, rename or recreate the branch before opening the PR. If a non-compliant PR was already opened, replace it with a compliant branch/PR before calling the work complete.
-
-## Code Quality Standards
-
-### Linting & Formatting
-
-- **Biome** for JavaScript/TypeScript linting and formatting
-- **rustfmt** for Rust code formatting
-- Run `npm run lint` before committing
-
-### Testing Strategy
-
-- **Unit Tests**: Vitest for frontend, Cargo test for Rust
-- **Coverage**: Aim for comprehensive test coverage
-- **Test Location**: Co-located under `src/**` (e.g. `*.test.ts(x)`), `src-tauri/src/_tests/` for Rust
-
-### TypeScript Configuration
-
-- Strict TypeScript enabled
-- Path aliases configured for clean imports
-- Custom types in `/src/types/`
-
-## Architecture Design
-
-### Layered Architecture Pattern
-
-The backend follows a strict layered architecture with unidirectional dependencies:
-
-```
-Commands → Services → Platform (via Factory) → OS APIs
+cargo tauri-fmt
+cargo tauri-lint
+cargo tauri-test
 ```
 
-If OS APIs / DB / external I/O are involved, services typically also rely on `src-tauri/src/infrastructure/**`.
+Use focused checks first. For Core-only Rust work, prefer
+`cargo test -p hardviz-core` or the relevant test target before the full
+workspace suite.
 
-#### Layer Responsibilities
+In a sandbox, Rust tests can fail before exercising code because the default
+`HOME` is not writable. Retry with a writable temporary `HOME` while preserving
+the configured `RUSTUP_HOME` and `CARGO_HOME`. Treat `No space left on device`
+as a build-artifact/environment diagnosis before treating it as a code failure.
 
-1. **Commands Layer** (`src-tauri/src/commands/`)
+## Communication And Git
 
-   - Tauri command handlers (UI interface)
-   - Input validation and output formatting
-   - Delegates to services layer for business logic
+- Write code comments, non-localized documentation, commit messages, and PR
+  titles in English. Preserve the target language in `.ja.md` and other
+  localized documentation.
+- In chat, match the language used by the user.
+- Follow Conventional Commits. Use a commit body when the reason, compatibility,
+  or validation is not self-evident.
+- Follow `CONTRIBUTING.md` before creating or publishing a PR.
+- Allowed project branch prefixes are `feat/`, `feature/`, `fix/`, `docs/`,
+  `perf/`, `refactor/`, and `chore/`. Never use tool-specific prefixes such as
+  `codex/` or `claude/`.
+- `test:` and `ci:` remain valid Conventional Commit / PR title kinds, but this
+  repository uses a `chore/` branch and the PR template's `Other` type for those
+  changes because `test/` and `ci/` branches are rejected by CI.
+- Before publishing, use the
+  [`change-kind-naming`](.agents/skills/change-kind-naming/SKILL.md) skill and
+  verify the branch, commit/PR title, and PR template describe the same kind.
+- Do not call work complete at "pushed" when the request is to merge. Confirm
+  current checks, unresolved review threads, review decision, mergeability, and
+  `mergedAt`/merged state.
 
-2. **Services Layer** (`src-tauri/src/services/`)
+## Learning Loop
 
-   - Application business logic and hardware data processing
-   - Platform abstraction through Factory pattern
-   - Hardware monitoring state management
-   - Data aggregation and formatting
+When the maintainer corrects an assumption, a failure repeats, or an
+investigation exposes a surprising invariant, use the
+[`capture-project-learning`](.agents/skills/capture-project-learning/SKILL.md)
+skill.
 
-3. **Platform Layer** (`src-tauri/src/platform/`)
-   - OS-specific hardware access implementations
-   - Trait-based platform abstraction (`MemoryPlatform`, `GpuPlatform`, `NetworkPlatform`)
-   - Factory pattern for automatic platform detection
-   - Direct OS API interactions
+Do not dump raw chat memory into this file. Record an evidence-backed lesson,
+then promote the durable part to the right owner: vocabulary, design principle,
+ADR, architecture, scoped rule, skill, test, hook, or CI check. Hooks are only
+for cheap deterministic checks; they must not guess product meaning.
 
-#### Design Patterns Used
+Validate guidance changes with:
 
-- **Strategy Pattern**: Platform-specific implementations via trait objects
-- **Factory Pattern**: Automatic platform detection and instance creation
-- **Adapter Pattern**: OS-specific implementations adapting to common trait interfaces
-- **Service Layer Pattern**: Business logic abstraction from UI and platform concerns
-
-#### Service Layer Implementation
-
-```rust
-// Services layer uses Factory to access platform functionality
-use crate::platform::factory::PlatformFactory;
-
-pub async fn fetch_memory_detail() -> Result<MemoryInfo, String> {
-  let platform = PlatformFactory::create()
-    .map_err(|e| format!("Failed to create platform: {e}"))?;
-  platform.get_memory_info_detail().await
-}
-
-pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
-  let platform = PlatformFactory::create()
-    .map_err(|_| BackendError::UnexpectedError)?;
-  platform.get_network_info()
-    .map_err(|_| BackendError::UnexpectedError)
-}
+```bash
+npm run check:agent-guidance
 ```
-
-#### Platform Abstraction
-
-```rust
-// Platform traits define hardware access contracts
-pub trait MemoryPlatform: Send + Sync {
-  fn get_memory_info(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
-  fn get_memory_info_detail(&self) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, String>> + Send + '_>>;
-}
-
-pub trait GpuPlatform: Send + Sync {
-  fn get_gpu_usage(&self) -> Pin<Box<dyn Future<Output = Result<f32, String>> + Send + '_>>;
-  fn get_gpu_temperature(&self, unit: TemperatureUnit) -> Pin<Box<dyn Future<Output = Result<Vec<NameValue>, String>> + Send + '_>>;
-  fn get_gpu_info(&self) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>>;
-}
-
-pub trait NetworkPlatform: Send + Sync {
-  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError>;
-}
-
-// Unified Platform trait combining all hardware access
-pub trait Platform: MemoryPlatform + GpuPlatform + NetworkPlatform {}
-
-// Factory for automatic platform detection
-impl PlatformFactory {
-  pub fn create() -> Result<Box<dyn Platform>, PlatformError> {
-    #[cfg(target_os = "windows")]
-    {
-      let platform = WindowsPlatform::new()
-        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
-      Ok(Box::new(platform))
-    }
-    #[cfg(target_os = "linux")]
-    {
-      let platform = LinuxPlatform::new()
-        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
-      Ok(Box::new(platform))
-    }
-    #[cfg(target_os = "macos")]
-    {
-      let platform = MacOSPlatform::new()
-        .map_err(|e| PlatformError::InitializationFailed(e.to_string()))?;
-      Ok(Box::new(platform))
-    }
-  }
-}
-```
-
-### Dependency Rules
-
-- **Unidirectional Flow**: Commands → Services → Platform, no reverse dependencies
-- **Factory Encapsulation**: Services use Factory for platform access, never direct platform instantiation
-- **Trait Abstraction**: Platform traits provide clean interfaces hiding OS-specific complexity
-- **Conditional Compilation**: Platform selection handled at compile time via `#[cfg(target_os)]`
-- **Service Isolation**: Services handle business logic, platforms handle hardware access only
-
-### Current Architecture Benefits
-
-- **Simplified Design**: Removed intermediate repository layer for cleaner data flow
-- **Direct Platform Access**: Services directly use Factory for platform functionality
-- **Better Performance**: Fewer abstraction layers reduce overhead
-- **Clear Separation**: Business logic in services, hardware access in platform layer
-- **Automatic Platform Detection**: Factory handles OS detection transparently
-
-## Key Features
-
-- Real-time CPU, RAM, GPU, Storage, Network monitoring
-- Customizable dashboard with drag-and-drop
-- Historical data insights (up to 30 days)
-- Custom background images
-- Multi-language support (EN/JA)
-- Auto-updater functionality
-
-## Hardware Data Collection
-
-- **Permissions**: Requires elevated privileges on Linux (`sudo`)
-- **Database**: SQLite for historical data storage
-- **Real-time**: WebSocket-like updates via Tauri events
-- **GPU Support**: NVIDIA (full), AMD/Intel (limited)
-
-## Build & Distribution
-
-- **Tauri Bundle**: Cross-platform native executables
-- **GitHub Actions**: Automated CI/CD pipeline
-- **Release**: GitHub Releases with auto-updater
-- **Dependencies**: Listed in Linux .deb package requirements
-
-## Development Notes
-
-- **Memory Management**: Efficient data handling for continuous monitoring
-- **Performance**: Optimized rendering for real-time updates
-- **Error Handling**: Comprehensive error boundaries and logging
-- **Internationalization**: i18next for multi-language support
-
-## Frontend conventions worth knowing
-
-- Generated bindings: `src/rspc/bindings.ts` is generated by tauri-specta; edit Rust commands and re-run `npm run tauri:dev` to regenerate.
-- Persistence boundary:
-  - Use Tauri Store (`src/lib/tauriStore.ts` + `src/hooks/useTauriStore.ts`) only for transient or UI-local state that is not a user-facing application preference, such as window chrome state, ephemeral selections, cached UI choices, or view state that can be reset without losing an explicit user configuration.
-  - Store user-facing application preferences in `settings.json`. Examples include settings exposed on the Settings screen, behavior toggles, tray widget configuration, close-to-tray behavior, graph/display preferences, language/theme, and other choices users reasonably expect to survive as part of their app configuration.
-  - Do not write user-facing preferences directly from the frontend with Tauri Store. Expose initial values through the existing `get_settings` command, add typed setter IPC commands in `src-tauri/src/commands/settings.rs`, persist through the Rust settings service, and regenerate `src/rspc/bindings.ts`.
-  - When adding a new persisted setting, decide and document whether it is UI-local state or an app preference before choosing `store.json` versus `settings.json`.
-- Error events: backend emits `error_event`; frontend listens via `useErrorModalListener` in `src/hooks/useTauriEventListener.ts`.
-
-## Security Considerations
-
-- **Tauri CSP**: Configured for secure WebView
-- **Permissions**: Minimal required capabilities
-- **Data Privacy**: Local-only data storage
-- **Elevated Access**: Required for hardware information access

@@ -1,5 +1,7 @@
 # Core / App Split
 
+Status: accepted
+
 After the platform boundary existed, we split the backend in [#1402](https://github.com/shm11C3/HardwareVisualizer/issues/1402) into `hardviz-core` and the Tauri app crate. Core owns Tauri-independent sensor collection, realtime history, platform access, persistence workers, and Core-consumed settings; the App crate owns Tauri commands, event adapters, lifecycle, plugins, UI-owned settings, and generated frontend bindings.
 
 This preserves the platform-layer design while making sensor collection and persistence testable without a Tauri runtime, and it keeps `MetricsSnapshot` fan-out separate from Tauri event emission.

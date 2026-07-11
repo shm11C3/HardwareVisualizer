@@ -97,7 +97,7 @@ The App crate owns code that needs Tauri, frontend bindings, or UI-level state:
   conversion;
 - owning UI-only settings such as theme, language, graph display options,
   background image choices, tray widget settings, and close-to-tray behavior;
-- registering SQL migrations for the Tauri SQL plugin;
+- defining the ordered SQL migration set supplied to Core at startup;
 - holding worker/controller handles so shutdown can terminate background work.
 
 When Close to Tray is enabled, closing the main window and exiting the process
@@ -197,15 +197,18 @@ PawnIO and its CPU-specific module blobs, are documented in
 Persistence is split:
 
 - Core owns persistence workers and DB operations that are independent of Tauri.
-- App owns Tauri SQL plugin migrations and passes the resolved SQLite path to
-  Core during startup.
+- App owns the ordered migration definitions and passes the resolved SQLite
+  path and migration set to Core during startup.
+- Core owns the database pool and executes the App-supplied migration set
+  through `hardviz_core::infrastructure::database::migrate`.
 
 Startup flow:
 
 1. App resolves the SQLite database path.
 2. App initializes Core's DB location.
 3. App checks schema compatibility through Core preflight.
-4. App registers Tauri SQL migrations when the DB is compatible.
+4. App supplies the ordered migration definitions to Core's migrator when the
+   DB is compatible.
 5. DB-dependent Core workers start only when startup preflight allows it.
 
 The Hardware Archive Retention Period is controlled by
@@ -246,7 +249,7 @@ When adding a setting:
    Tauri commands.
 3. Do not write user-facing application preferences directly from the frontend
    through Tauri Store.
-4. Regenerate `src/rspc/bindings.ts` by running `npm run tauri dev` when command
+4. Regenerate `src/rspc/bindings.ts` by running `npm run tauri:dev` when command
    types change.
 
 ## Design Rules
@@ -272,7 +275,7 @@ When adding a setting:
 1. Add or update the App service in `src-tauri/src/services/`.
 2. Add the command handler in `src-tauri/src/commands/`.
 3. Register the command in `collect_commands![...]` in `src-tauri/src/lib.rs`.
-4. Run `npm run tauri dev` to regenerate TypeScript bindings.
+4. Run `npm run tauri:dev` to regenerate TypeScript bindings.
 5. Use the generated binding from frontend code.
 
 ### Add a New Hardware Data Source
@@ -354,7 +357,7 @@ exists.
 
 ### Add or Change Persisted Data
 
-1. Keep Tauri SQL plugin migration definitions in
+1. Keep the App-owned ordered migration definitions in
    `src-tauri/src/infrastructure/database/`.
 2. Keep Tauri-independent persistence code in `core/src/persistence/` or
    `core/src/infrastructure/database/`.

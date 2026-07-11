@@ -1,0 +1,4 @@
+interface:
+  display_name: "Capture Project Learning"
+  short_description: "Promote proven lessons into durable project guardrails."
+  default_prompt: "Use $capture-project-learning to record this correction or failure, verify it, and promote the durable rule to the right project surface."

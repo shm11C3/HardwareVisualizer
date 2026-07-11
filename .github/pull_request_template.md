@@ -2,7 +2,7 @@
 Clean-room sensor implementation PRs (#1635) must use the dedicated
 template instead: append
 ?template=clean-room-sensor-implementation.md&expand=1 to the compare
-URL. See .github/instructions/clean-room-sensors.instructions.md
+URL. See .agents/rules/clean-room-sensors.md
 -->
 
 ## Summary
@@ -19,6 +19,7 @@ URL. See .github/instructions/clean-room-sensors.instructions.md
 - [ ] Bug fix (`fix/` branch)
 - [ ] New feature (`feat/` branch)
 - [ ] Refactoring (`refactor/` branch)
+- [ ] Performance (`perf/` branch)
 - [ ] Documentation (`docs/` branch)
 - [ ] Dependencies update
 - [ ] Other (`chore/` branch)
