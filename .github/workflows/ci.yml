@@ -22,6 +22,7 @@ jobs:
       tauri-changed: ${{ steps.changes.outputs.tauri }}
       frontend-deps-changed: ${{ steps.changes.outputs.frontend-deps }}
       backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
+      cargo-license-config-changed: ${{ steps.changes.outputs.cargo-license-config }}
       tauri-deps-changed: ${{ steps.tauri-deps.outputs.changed }}
       actions-changed: ${{ steps.changes.outputs.actions }}
     steps:
@@ -83,6 +84,10 @@ jobs:
               - '.cargo/**'
               - '.github/actions/**'
               - '.github/scripts/**'
+            cargo-license-config:
+              - 'src-tauri/deny.toml'
+              - '.github/actions/setup-rust/**'
+              - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -716,7 +721,7 @@ jobs:
 
   license-check-cargo:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.cargo-license-config-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
