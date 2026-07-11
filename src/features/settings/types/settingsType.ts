@@ -17,6 +17,8 @@ export type Settings = {
     | "espresso";
   displayTargets: Array<ChartDataType>;
   graphSize: (typeof sizeOptions)[number];
+  graphFitToWindow: boolean;
+  graphMarginPx: number;
   lineGraphBorder: boolean;
   lineGraphFill: boolean;
   lineGraphColor: {

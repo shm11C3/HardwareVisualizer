@@ -14,6 +14,8 @@ export const settingsFixture: ClientSettings_Serialize = {
   theme: "dark",
   displayTargets: ["cpu", "memory", "gpu"],
   graphSize: "xl",
+  graphFitToWindow: false,
+  graphMarginPx: 32,
   lineGraphType: "default",
   lineGraphBorder: true,
   lineGraphFill: true,

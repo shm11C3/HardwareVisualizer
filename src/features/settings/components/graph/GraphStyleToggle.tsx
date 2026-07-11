@@ -35,6 +35,7 @@ export const GraphStyleToggle = ({
           </div>
 
           <Switch
+            id={type}
             checked={settings[type]}
             onCheckedChange={settingGraphSwitch}
           />

@@ -397,6 +397,8 @@
           "lineGraphShowLegend": "凡例の表示",
           "lineGraphShowScale": "スケールの表示",
           "lineGraphShowTooltip": "ツールチップの表示",
+          "graphFitToWindow": "ウィンドウサイズに合わせる",
+          "graphMarginPx": "グラフの余白",
           "size": "グラフのサイズ",
           "lineType": "線グラフのスタイル"
         }

@@ -10,6 +10,7 @@ const MIN_WINDOW_OPACITY: u8 = 20;
 const MAX_WINDOW_OPACITY: u8 = 100;
 const MIN_GLASS_BLUR: u8 = 0;
 const MAX_GLASS_BLUR: u8 = 30;
+const MAX_GRAPH_MARGIN_PX: u32 = 200;
 
 pub trait SettingActions {
   fn write_file(&self) -> Result<(), String>;
@@ -209,6 +210,8 @@ impl models::settings::Settings {
     try_field!(theme, "theme");
     try_field!(display_targets, "displayTargets");
     try_field!(graph_size, "graphSize");
+    try_field!(graph_fit_to_window, "graphFitToWindow");
+    try_field!(graph_margin_px, "graphMarginPx");
     try_field!(line_graph_type, "lineGraphType");
     try_field!(line_graph_border, "lineGraphBorder");
     try_field!(line_graph_fill, "lineGraphFill");
@@ -292,6 +295,16 @@ impl models::settings::Settings {
     new_size: enums::settings::GraphSize,
   ) -> Result<(), String> {
     self.graph_size = new_size;
+    self.write_file()
+  }
+
+  pub fn set_graph_fit_to_window(&mut self, new_value: bool) -> Result<(), String> {
+    self.graph_fit_to_window = new_value;
+    self.write_file()
+  }
+
+  pub fn set_graph_margin_px(&mut self, new_value: u32) -> Result<(), String> {
+    self.graph_margin_px = new_value.min(MAX_GRAPH_MARGIN_PX);
     self.write_file()
   }
 
@@ -537,6 +550,7 @@ fn clamp_loaded_settings(settings: &mut models::settings::Settings) {
     .window_opacity
     .clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY);
   settings.glass_blur = settings.glass_blur.clamp(MIN_GLASS_BLUR, MAX_GLASS_BLUR);
+  settings.graph_margin_px = settings.graph_margin_px.min(MAX_GRAPH_MARGIN_PX);
 }
 
 #[cfg(test)]
@@ -548,11 +562,38 @@ mod tests {
   fn read_settings_from_str_clamps_full_deserialization_values() {
     let mut settings = models::settings::Settings::default();
 
-    read_settings_from_str(&mut settings, r#"{"windowOpacity":5,"glassBlur":200}"#)
-      .unwrap();
+    read_settings_from_str(
+      &mut settings,
+      r#"{"windowOpacity":5,"glassBlur":200,"graphMarginPx":1000}"#,
+    )
+    .unwrap();
 
     assert_eq!(settings.window_opacity, MIN_WINDOW_OPACITY);
     assert_eq!(settings.glass_blur, MAX_GLASS_BLUR);
+    assert_eq!(settings.graph_margin_px, MAX_GRAPH_MARGIN_PX);
+  }
+
+  #[test]
+  fn merge_from_json_str_recovers_graph_fit_fields() {
+    let mut settings = models::settings::Settings::default();
+
+    settings
+      .merge_from_json_str(r#"{"graphFitToWindow":true,"graphMarginPx":64}"#)
+      .unwrap();
+
+    assert!(settings.graph_fit_to_window);
+    assert_eq!(settings.graph_margin_px, 64);
+  }
+
+  #[test]
+  fn merge_from_json_str_clamps_graph_margin_px() {
+    let mut settings = models::settings::Settings::default();
+
+    settings
+      .merge_from_json_str(r#"{"graphMarginPx":1000}"#)
+      .unwrap();
+
+    assert_eq!(settings.graph_margin_px, MAX_GRAPH_MARGIN_PX);
   }
 
   #[test]

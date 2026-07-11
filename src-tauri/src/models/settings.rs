@@ -45,6 +45,8 @@ pub struct Settings {
   pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
+  pub graph_fit_to_window: bool,
+  pub graph_margin_px: u32,
   pub line_graph_type: enums::settings::LineGraphType,
   pub line_graph_border: bool,
   pub line_graph_fill: bool,
@@ -91,6 +93,8 @@ pub struct ClientSettings {
   pub theme: enums::settings::Theme,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
+  pub graph_fit_to_window: bool,
+  pub graph_margin_px: u32,
   pub line_graph_type: enums::settings::LineGraphType,
   pub line_graph_border: bool,
   pub line_graph_fill: bool,
@@ -132,6 +136,8 @@ impl Default for Settings {
         enums::hardware::HardwareType::Gpu,
       ],
       graph_size: enums::settings::GraphSize::XL,
+      graph_fit_to_window: false,
+      graph_margin_px: 32,
       line_graph_type: enums::settings::LineGraphType::Default,
       line_graph_border: true,
       line_graph_fill: true,
@@ -276,6 +282,8 @@ mod tests {
       theme: enums::settings::Theme::Dark,
       display_targets: vec![enums::hardware::HardwareType::Cpu],
       graph_size: enums::settings::GraphSize::XL,
+      graph_fit_to_window: false,
+      graph_margin_px: 32,
       line_graph_type: enums::settings::LineGraphType::Default,
       line_graph_border: true,
       line_graph_fill: false,
@@ -326,6 +334,8 @@ mod tests {
 
     assert!(serialized.contains("\"displayTargets\""));
     assert!(serialized.contains("\"graphSize\""));
+    assert!(serialized.contains("\"graphFitToWindow\""));
+    assert!(serialized.contains("\"graphMarginPx\""));
     assert!(serialized.contains("\"lineGraphType\""));
     assert!(serialized.contains("\"lineGraphBorder\""));
     assert!(serialized.contains("\"backgroundImgOpacity\""));
@@ -411,6 +421,8 @@ mod tests {
 
     // Missing fields should have default values
     let defaults = Settings::default();
+    assert_eq!(settings.graph_fit_to_window, defaults.graph_fit_to_window);
+    assert_eq!(settings.graph_margin_px, defaults.graph_margin_px);
     assert_eq!(settings.burn_in_shift, defaults.burn_in_shift);
     assert_eq!(settings.burn_in_shift_mode, defaults.burn_in_shift_mode);
     assert_eq!(settings.burn_in_shift_preset, defaults.burn_in_shift_preset);
