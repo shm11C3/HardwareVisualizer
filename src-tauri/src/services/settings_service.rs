@@ -299,13 +299,49 @@ impl models::settings::Settings {
   }
 
   pub fn set_graph_fit_to_window(&mut self, new_value: bool) -> Result<(), String> {
+    self.set_graph_fit_to_window_with_writer(new_value, |settings| settings.write_file())
+  }
+
+  fn set_graph_fit_to_window_with_writer<F>(
+    &mut self,
+    new_value: bool,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_value = self.graph_fit_to_window;
     self.graph_fit_to_window = new_value;
-    self.write_file()
+
+    if let Err(error) = write_file(self) {
+      self.graph_fit_to_window = previous_value;
+      return Err(error);
+    }
+
+    Ok(())
   }
 
   pub fn set_graph_margin_px(&mut self, new_value: u32) -> Result<(), String> {
+    self.set_graph_margin_px_with_writer(new_value, |settings| settings.write_file())
+  }
+
+  fn set_graph_margin_px_with_writer<F>(
+    &mut self,
+    new_value: u32,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_value = self.graph_margin_px;
     self.graph_margin_px = new_value.min(MAX_GRAPH_MARGIN_PX);
-    self.write_file()
+
+    if let Err(error) = write_file(self) {
+      self.graph_margin_px = previous_value;
+      return Err(error);
+    }
+
+    Ok(())
   }
 
   pub fn set_line_graph_type(
@@ -594,6 +630,34 @@ mod tests {
       .unwrap();
 
     assert_eq!(settings.graph_margin_px, MAX_GRAPH_MARGIN_PX);
+  }
+
+  #[test]
+  fn set_graph_fit_to_window_restores_value_when_writer_fails() {
+    let mut settings = models::settings::Settings::default();
+
+    let error = settings
+      .set_graph_fit_to_window_with_writer(true, |_| Err("write failed".to_string()))
+      .unwrap_err();
+
+    assert_eq!(error, "write failed");
+    assert!(!settings.graph_fit_to_window);
+  }
+
+  #[test]
+  fn set_graph_margin_px_restores_value_when_writer_fails() {
+    let mut settings = models::settings::Settings::default();
+    let previous_value = settings.graph_margin_px;
+
+    let error = settings
+      .set_graph_margin_px_with_writer(1000, |next_settings| {
+        assert_eq!(next_settings.graph_margin_px, MAX_GRAPH_MARGIN_PX);
+        Err("write failed".to_string())
+      })
+      .unwrap_err();
+
+    assert_eq!(error, "write failed");
+    assert_eq!(settings.graph_margin_px, previous_value);
   }
 
   #[test]
