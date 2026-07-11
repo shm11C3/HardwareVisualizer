@@ -1,0 +1,4 @@
+interface:
+  display_name: "HardwareVisualizer Design Review"
+  short_description: "Review changes against product and design principles."
+  default_prompt: "Use $hardwarevisualizer-design-review to evaluate this change against HardwareVisualizer product principles, ownership boundaries, and evidence requirements."

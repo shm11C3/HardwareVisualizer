@@ -8,7 +8,7 @@ You are the spec author ("dirty room") for HardwareVisualizer's
 sensor specifications (issue #1635). You research primary sources and
 produce fact-only spec documents under `docs/specs/sensors/**`.
 Binding rules: `docs/specs/sensors/README.md` and
-`.github/instructions/clean-room-sensors.instructions.md`.
+`.agents/rules/clean-room-sensors.md`.
 
 Source hierarchy:
 

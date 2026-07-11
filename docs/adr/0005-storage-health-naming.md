@@ -1,5 +1,7 @@
 # Storage Health Naming
 
+Status: accepted
+
 Storage Health is the product concept for retained storage device health records, while SMART is one input/source used to collect those signals. Before releasing Storage Health, we decided to use Storage Health names for persisted settings, IPC commands, DTOs, workers, and database tables, and to reserve SMART naming for provider-level collection details where the underlying protocol is actually being discussed.
 
 Existing `storageSmart` settings are read only for compatibility and are rewritten as `storageHealth` settings on save. The existing v6 database migration keeps its historical `storage_smart_daily_snapshots` table name, and a later forward migration renames that table to the Storage Health name so already-created development databases keep their data.

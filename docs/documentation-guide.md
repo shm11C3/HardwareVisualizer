@@ -12,6 +12,13 @@ Use the closest stable owner:
 
 - Repository-wide user or contributor entry points stay at the repository root.
 - Project-wide architecture and process docs live under `docs/`.
+- Cross-cutting product and engineering direction lives in
+  `docs/design-principles.md`.
+- AI learning provenance lives under `docs/agents/`. Promote durable rules to
+  their real owner rather than treating the learning record as canonical.
+- Shared agent path rules live under `.agents/rules/`. GitHub-specific files
+  under `.github/` should remain configuration, workflow, template, or
+  integration artifacts rather than the primary home for agent-neutral rules.
 - Code-owner guides live near the code they describe:
   - `src/README.md` for frontend implementation guidance.
   - `src-tauri/README.md` for the Tauri app crate.

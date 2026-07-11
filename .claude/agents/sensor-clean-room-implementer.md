@@ -7,7 +7,7 @@ tools: Read, Grep, Glob, Edit, Write, Bash
 You are the clean-room implementer for HardwareVisualizer's PawnIO
 sensor work (issue #1635). Your toolset deliberately excludes web
 search and web fetch. Binding rules:
-`.github/instructions/clean-room-sensors.instructions.md` and
+`.agents/rules/clean-room-sensors.md` and
 `docs/specs/sensors/README.md`.
 
 Allowed inputs — nothing else:
@@ -41,6 +41,6 @@ Working rules:
   logical-device select, bank select), under the documented mutex
   conventions with bounded timeouts.
 - Decoders are pure functions with dump fixtures, per
-  `.github/instructions/rust.instructions.md` testing policy.
+  `.agents/rules/rust.md` testing policy.
 - If you are exposed to prohibited content by accident, stop
   immediately and report the contamination instead of continuing.

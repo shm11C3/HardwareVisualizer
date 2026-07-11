@@ -40,7 +40,7 @@
     "indentWidth": 2
   },
   "files": {
-    "includes": ["**", "!**/src/rspc"]
+    "includes": ["**", "!**/src/rspc", "!.codex", "!.claude"]
   },
   "css": {
     "parser": {

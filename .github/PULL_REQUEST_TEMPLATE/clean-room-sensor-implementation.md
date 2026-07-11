@@ -1,6 +1,6 @@
 <!--
 Template for clean-room sensor implementation PRs (#1635).
-Rules: .github/instructions/clean-room-sensors.instructions.md
+Rules: .agents/rules/clean-room-sensors.md
 Process: docs/specs/sensors/README.md
 -->
 
@@ -42,7 +42,7 @@ No other external sensor documentation was used.
 - [ ] I did not consult LibreHardwareMonitor, OpenHardwareMonitor,
       Linux kernel, lm-sensors, or any decompiled monitoring tool
       while writing this implementation (full prohibited-source list:
-      `.github/instructions/clean-room-sensors.instructions.md`).
+      `.agents/rules/clean-room-sensors.md`).
 - [ ] Register access added by this PR is read-only; the only writes
       are those the pinned specs document as required for reads
       (e.g. Super I/O config keys, bank select), and the ecosystem

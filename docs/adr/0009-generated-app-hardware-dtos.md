@@ -1,5 +1,7 @@
 # Generated App Hardware DTOs
 
+Status: accepted
+
 The Tauri app generates its pure hardware wire DTOs from `core/src/models/hardware.rs` during the `src-tauri` build.
 
 Core remains the owner of platform-facing hardware data models and must not depend on Tauri, `specta`, or tauri-specta. The App crate owns the wire-facing types, TypeScript binding surface, and any presentation-specific serialization policy. To keep those boundaries without repeating the same struct fields twice, `src-tauri/build.rs` parses the Core hardware model file and writes the selected App DTOs and their `From<core::...>` conversions to `OUT_DIR/hardware_models.rs`.

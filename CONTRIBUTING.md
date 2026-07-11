@@ -70,7 +70,7 @@ npm ci
 ### Run Development App
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ### Production Build
