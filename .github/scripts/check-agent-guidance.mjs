@@ -1,6 +1,10 @@
 import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  cleanRoomReferenceFiles,
+  requiredGuidanceFiles,
+} from "./guidance-paths.mjs";
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -15,43 +19,6 @@ if (process.env.AGENT_GUIDANCE_OVERRIDES) {
     errors.push(`Invalid AGENT_GUIDANCE_OVERRIDES: ${error.message}`);
   }
 }
-
-const requiredFiles = [
-  "AGENTS.md",
-  "core/AGENTS.md",
-  "src-tauri/AGENTS.md",
-  "src/AGENTS.md",
-  "docs/AGENTS.md",
-  "docs/design-principles.md",
-  "docs/agents/lessons/README.md",
-  ".agents/skills/change-kind-naming/SKILL.md",
-  ".agents/skills/hardwarevisualizer-design-review/SKILL.md",
-  ".agents/skills/hardwarevisualizer-design-review/agents/openai.yaml",
-  ".agents/skills/capture-project-learning/SKILL.md",
-  ".agents/skills/capture-project-learning/agents/openai.yaml",
-  ".agents/rules/README.md",
-  ".agents/rules/clean-room-sensors.md",
-  ".agents/rules/design.md",
-  ".agents/rules/documentation.md",
-  ".agents/rules/frontend.md",
-  ".agents/rules/rust.md",
-  ".agents/rules/settings.md",
-  ".github/scripts/agent-hook.mjs",
-  ".github/scripts/test-agent-guidance.mjs",
-  ".github/scripts/test-agent-hook.mjs",
-  ".github/workflows/pr-branch-name.yml",
-  "CONTRIBUTING.md",
-];
-const cleanRoomReferenceFiles = [
-  ".claude/agents/sensor-clean-room-implementer.md",
-  ".claude/agents/sensor-spec-author.md",
-  ".github/PULL_REQUEST_TEMPLATE/clean-room-sensor-implementation.md",
-  ".github/pull_request_template.md",
-  "docs/specs/sensors/README.md",
-  "docs/development/sensor-handoff/01-spec-gate.md",
-  "docs/development/sensor-handoff/07-phase3-nuvoton-spec.md",
-  "docs/development/sensor-handoff/08-phase4-ite-spec.md",
-];
 
 const lessonFields = new Set([
   "id",
@@ -142,7 +109,7 @@ function parseScalar(rawValue, relativePath, key) {
 function commaSeparatedPaths(value) {
   return value
     .split(",")
-    .map((item) => item.trim().replace(/^and\s+/, ""))
+    .map((item) => item.trim())
     .filter(Boolean);
 }
 
@@ -232,7 +199,10 @@ function validateLessonShape(fields, relativePath) {
 }
 
 async function checkRequiredFiles() {
-  for (const relativePath of [...requiredFiles, ...cleanRoomReferenceFiles]) {
+  for (const relativePath of [
+    ...requiredGuidanceFiles,
+    ...cleanRoomReferenceFiles,
+  ]) {
     if (!(await exists(relativePath))) {
       fail(`Missing required guidance file: ${relativePath}`);
     }
@@ -406,6 +376,12 @@ async function checkLessons() {
   for (const record of records) {
     if (record.status === "promoted") {
       for (const reference of commaSeparatedPaths(record.canonicalRefs)) {
+        if (reference.startsWith("and ")) {
+          fail(
+            `${record.relativePath} canonical_refs must be a comma-separated list of repository-relative paths`,
+          );
+          continue;
+        }
         const normalized = path.normalize(reference);
         if (
           path.isAbsolute(reference) ||
@@ -736,6 +712,10 @@ async function checkForSensitiveContent(relativePaths) {
       pattern: /(?:gh[pousr]|github_pat)_[A-Za-z0-9_]{20,}/,
     },
     { name: "personal absolute path", pattern: /\/Users\/[^/\s]+\// },
+    {
+      name: "personal absolute path (Windows)",
+      pattern: /[A-Za-z]:\\Users\\[^\\\s]+\\/,
+    },
   ];
 
   for (const relativePath of relativePaths) {

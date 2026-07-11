@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isGuidancePath } from "./guidance-paths.mjs";
 
 const mode = process.argv[2];
 if (mode !== "pre" && mode !== "post" && mode !== "stop") {
@@ -96,41 +97,6 @@ if (paths.has("src/rspc/bindings.ts")) {
 
 if (mode === "pre") {
   process.exit(0);
-}
-
-function isGuidancePath(relativePath) {
-  return (
-    relativePath === "AGENTS.md" ||
-    relativePath.endsWith("/AGENTS.md") ||
-    relativePath === "CLAUDE.md" ||
-    relativePath.startsWith(".agents/rules/") ||
-    relativePath.startsWith(".agents/skills/") ||
-    relativePath.startsWith(".claude/agents/") ||
-    relativePath.startsWith(".github/PULL_REQUEST_TEMPLATE/") ||
-    relativePath === "docs/design-principles.md" ||
-    relativePath === "docs/architecture/backend.md" ||
-    relativePath === "docs/README.md" ||
-    relativePath === "docs/documentation-guide.md" ||
-    relativePath === "docs/specs/sensors/README.md" ||
-    relativePath.startsWith("docs/development/sensor-handoff/") ||
-    relativePath === "core/README.md" ||
-    relativePath === "src-tauri/README.md" ||
-    relativePath === "src/README.md" ||
-    relativePath.startsWith("docs/agents/") ||
-    relativePath.startsWith("docs/adr/") ||
-    relativePath === ".codex/hooks.json" ||
-    relativePath === ".claude/settings.json" ||
-    relativePath === ".github/scripts/agent-hook.mjs" ||
-    relativePath === ".github/scripts/test-agent-guidance.mjs" ||
-    relativePath === ".github/scripts/test-agent-hook.mjs" ||
-    relativePath === ".github/scripts/check-agent-guidance.mjs" ||
-    relativePath === ".github/workflows/agent-guidance.yml" ||
-    relativePath === ".github/workflows/pr-branch-name.yml" ||
-    relativePath === ".github/pull_request_template.md" ||
-    relativePath === "CONTRIBUTING.md" ||
-    relativePath === "biome.jsonc" ||
-    relativePath === "package.json"
-  );
 }
 
 function runValidator(args = []) {

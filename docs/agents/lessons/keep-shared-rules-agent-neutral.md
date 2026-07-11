@@ -7,7 +7,7 @@ trigger: adding or relocating reusable agent instructions
 failure_signature: agent-neutral rules were stored in a GitHub Copilot-specific directory even though Copilot was not an active consumer
 root_cause: tool discovery conventions were treated as the primary ownership boundary instead of the agents that actually use the guidance
 guardrail: .agents/rules/ owns shared path-scoped rules; .github/ contains GitHub-specific configuration and optional adapters only
-canonical_refs: AGENTS.md, .agents/rules/README.md, docs/documentation-guide.md, and .github/workflows/agent-guidance.yml
+canonical_refs: AGENTS.md, .agents/rules/README.md, docs/documentation-guide.md, .github/workflows/agent-guidance.yml
 verification: npm run check:agent-guidance verifies required shared rules, references, hooks, and the path-filtered workflow
 evidence: maintainer direction that GitHub Copilot is rarely used and current repository guidance layout
 revalidate_when: an actively used GitHub integration requires a documented rule adapter or the repository adopts another shared agent-rule standard

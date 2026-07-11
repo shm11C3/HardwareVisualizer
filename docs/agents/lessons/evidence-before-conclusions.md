@@ -7,7 +7,7 @@ trigger: a claim depends on current failure, runtime, release, or merge state
 failure_signature: conclusions were drawn from an aggregate check, stale checkout, memory, or handoff before inspecting primary evidence
 root_cause: a secondary status was treated as if it identified the failing leaf job or current runtime behavior
 guardrail: docs/design-principles.md DP-09 and the evidence rules in AGENTS.md
-canonical_refs: docs/design-principles.md, AGENTS.md, and .agents/skills/hardwarevisualizer-design-review/SKILL.md
+canonical_refs: docs/design-principles.md, AGENTS.md, .agents/skills/hardwarevisualizer-design-review/SKILL.md
 verification: identify the leaf evidence source for the scoped claim and record its current result before concluding
 evidence: GitHub Actions leaf-job logs, current code and tests, application logs and SQLite data, rendered artifacts, and current PR checks/review/merged state
 revalidate_when: CI topology, release workflow, runtime storage, or PR policy changes

@@ -7,7 +7,7 @@ trigger: a validation command fails before exercising the changed product behavi
 failure_signature: blocked HOME writes, exhausted build storage, or tool IO noise was at risk of being reported as a product regression
 root_cause: environment and tooling preconditions were not separated from the code path under test
 guardrail: AGENTS.md requires exact error capture and environment/product classification; Biome excludes agent-local configuration directories
-canonical_refs: AGENTS.md, and biome.jsonc
+canonical_refs: AGENTS.md, biome.jsonc
 verification: capture command exit status and causal stderr, then rerun the focused check after correcting only the environment precondition
 evidence: command exit status, exact stderr, writable HOME retry, target directory size, and a focused rerun of the affected test
 revalidate_when: sandbox policy, Rust toolchain storage, Biome configuration, or agent config locations change

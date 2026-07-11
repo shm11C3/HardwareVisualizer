@@ -13,6 +13,7 @@ on:
       - ".github/pull_request_template.md"
       - ".github/PULL_REQUEST_TEMPLATE/**"
       - ".github/scripts/agent-hook.mjs"
+      - ".github/scripts/guidance-paths.mjs"
       - ".github/scripts/check-agent-guidance.mjs"
       - ".github/scripts/test-agent-guidance.mjs"
       - ".github/scripts/test-agent-hook.mjs"
@@ -30,6 +31,8 @@ on:
       - "core/README.md"
       - "src-tauri/README.md"
       - "src/README.md"
+      - "docs/README.md"
+      - "docs/documentation-guide.md"
       - "biome.jsonc"
       - "package.json"
   push:
@@ -46,6 +49,7 @@ on:
       - ".github/pull_request_template.md"
       - ".github/PULL_REQUEST_TEMPLATE/**"
       - ".github/scripts/agent-hook.mjs"
+      - ".github/scripts/guidance-paths.mjs"
       - ".github/scripts/check-agent-guidance.mjs"
       - ".github/scripts/test-agent-guidance.mjs"
       - ".github/scripts/test-agent-hook.mjs"
@@ -63,6 +67,8 @@ on:
       - "core/README.md"
       - "src-tauri/README.md"
       - "src/README.md"
+      - "docs/README.md"
+      - "docs/documentation-guide.md"
       - "biome.jsonc"
       - "package.json"
 
@@ -77,6 +83,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate agent guidance
         run: node .github/scripts/check-agent-guidance.mjs
@@ -90,6 +97,7 @@ jobs:
       - name: Check script syntax
         run: |
           node --check .github/scripts/agent-hook.mjs
+          node --check .github/scripts/guidance-paths.mjs
           node --check .github/scripts/check-agent-guidance.mjs
           node --check .github/scripts/test-agent-guidance.mjs
           node --check .github/scripts/test-agent-hook.mjs

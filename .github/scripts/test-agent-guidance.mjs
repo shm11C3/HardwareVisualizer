@@ -76,6 +76,19 @@ expectFailure(
 );
 
 expectFailure(
+  "noncanonical canonical reference list",
+  {
+    "docs/agents/lessons/evidence-before-conclusions.md": read(
+      "docs/agents/lessons/evidence-before-conclusions.md",
+    ).replace(
+      /^canonical_refs: .+$/m,
+      "canonical_refs: docs/design-principles.md, and AGENTS.md",
+    ),
+  },
+  "canonical_refs must be a comma-separated list of repository-relative paths",
+);
+
+expectFailure(
   "missing superseding lesson",
   {
     "docs/agents/lessons/evidence-before-conclusions.md": read(
@@ -156,6 +169,14 @@ expectFailure(
     "AGENTS.md": `${read("AGENTS.md")}\n[Broken fixture](missing-agent-guidance-file.md)\n`,
   },
   "has broken local link: missing-agent-guidance-file.md",
+);
+
+expectFailure(
+  "Windows personal path",
+  {
+    "docs/README.md": `${read("docs/README.md")}\nC:\\Users\\operator\\Desktop\\private-note.md\n`,
+  },
+  "contains a personal absolute path (Windows)",
 );
 
 expectFailure(

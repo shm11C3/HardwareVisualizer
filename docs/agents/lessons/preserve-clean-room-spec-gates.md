@@ -7,7 +7,7 @@ trigger: work reads or changes clean-room sensor specifications or native CPU an
 failure_signature: stale handoff status or transport readiness could be mistaken for implementation-ready chip decode evidence
 root_cause: snapshot coordination documents and separate specification gates were collapsed into one readiness decision
 guardrail: .agents/rules/clean-room-sensors.md and docs/specs/sensors/README.md
-canonical_refs: docs/specs/sensors/README.md, and .agents/rules/clean-room-sensors.md
+canonical_refs: docs/specs/sensors/README.md, .agents/rules/clean-room-sensors.md
 verification: confirm exact Implementation-ready status at the pinned revision, no TODO(provenance), read-only scope, and required attestations
 evidence: current specification status, pinned revision, TODO(provenance) scan, evidence files, and required PR attestations
 revalidate_when: clean-room roles, prohibited sources, specification status rules, or PR template requirements change
