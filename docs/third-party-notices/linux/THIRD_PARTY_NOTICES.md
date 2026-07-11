@@ -2,7 +2,7 @@
 
 This application includes third-party libraries licensed under their respective licenses.
 
-## @babel/code-frame@7.29.7
+## @babel/code-frame@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -33,7 +33,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/compat-data@7.29.7
+## @babel/compat-data@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -64,7 +64,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/core@7.29.7
+## @babel/core@8.0.1
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -95,7 +95,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/generator@7.29.7
+## @babel/generator@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -126,7 +126,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/helper-compilation-targets@7.29.7
+## @babel/helper-compilation-targets@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -157,7 +157,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/helper-globals@7.29.7
+## @babel/helper-globals@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -188,7 +188,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/helper-module-imports@7.29.7
+## @babel/helper-string-parser@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -219,7 +219,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/helper-module-transforms@7.29.7
+## @babel/helper-validator-identifier@8.0.2
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -250,7 +250,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/helper-string-parser@7.29.7
+## @babel/helper-validator-option@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -281,69 +281,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/helper-validator-identifier@7.29.7
-
-- License: MIT
-- Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
-- Publisher: The Babel Team
-
-```LICENSE
-MIT License
-
-Copyright (c) 2014-present Sebastian McKenzie and other contributors
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-## @babel/helper-validator-option@7.29.7
-
-- License: MIT
-- Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
-- Publisher: The Babel Team
-
-```LICENSE
-MIT License
-
-Copyright (c) 2014-present Sebastian McKenzie and other contributors
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-## @babel/helpers@7.29.7
+## @babel/helpers@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -375,7 +313,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/parser@7.29.7
+## @babel/parser@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -434,7 +372,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/template@7.29.7
+## @babel/template@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -465,7 +403,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/traverse@7.29.7
+## @babel/traverse@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -496,7 +434,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @babel/types@7.29.7
+## @babel/types@8.0.0
 
 - License: MIT
 - Repository: [https://github.com/babel/babel](https://github.com/babel/babel)
@@ -823,35 +761,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @jridgewell/remapping@2.3.5
-
-- License: MIT
-- Repository: [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
-- Publisher: Justin Ridgewell
-- Email: <justin@ridgewell.name>
-
-```LICENSE
-Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ## @jridgewell/resolve-uri@3.1.2
 
 - License: MIT
@@ -1028,7 +937,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-accordion@1.2.14
+## @radix-ui/react-accordion@1.2.15
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1057,7 +966,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-alert-dialog@1.1.17
+## @radix-ui/react-alert-dialog@1.1.18
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1086,7 +995,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-arrow@1.1.10
+## @radix-ui/react-arrow@1.1.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1115,7 +1024,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-checkbox@1.3.5
+## @radix-ui/react-checkbox@1.3.6
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1144,7 +1053,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collapsible@1.1.14
+## @radix-ui/react-collapsible@1.1.15
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1173,7 +1082,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collection@1.1.10
+## @radix-ui/react-collection@1.1.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1260,7 +1169,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dialog@1.1.17
+## @radix-ui/react-dialog@1.1.18
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1318,7 +1227,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dismissable-layer@1.1.13
+## @radix-ui/react-dismissable-layer@1.1.14
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1347,7 +1256,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dropdown-menu@2.1.18
+## @radix-ui/react-dropdown-menu@2.1.19
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1405,7 +1314,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-focus-scope@1.1.10
+## @radix-ui/react-focus-scope@1.1.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1463,7 +1372,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-label@2.1.10
+## @radix-ui/react-label@2.1.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1492,7 +1401,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-menu@2.1.18
+## @radix-ui/react-menu@2.1.19
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1521,7 +1430,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-popper@1.3.1
+## @radix-ui/react-popper@1.3.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1550,7 +1459,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-portal@1.1.12
+## @radix-ui/react-portal@1.1.13
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1608,7 +1517,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-primitive@2.1.6
+## @radix-ui/react-primitive@2.1.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1637,7 +1546,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-progress@1.1.10
+## @radix-ui/react-progress@1.1.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1666,7 +1575,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-radio-group@1.4.1
+## @radix-ui/react-radio-group@1.4.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1695,7 +1604,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-roving-focus@1.1.13
+## @radix-ui/react-roving-focus@1.1.14
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1724,7 +1633,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-scroll-area@1.2.12
+## @radix-ui/react-scroll-area@1.2.13
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1753,7 +1662,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-select@2.3.1
+## @radix-ui/react-select@2.3.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1782,7 +1691,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slider@1.4.1
+## @radix-ui/react-slider@1.4.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1840,7 +1749,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-switch@1.3.1
+## @radix-ui/react-switch@1.3.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1869,7 +1778,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tabs@1.1.15
+## @radix-ui/react-tabs@1.1.16
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1898,7 +1807,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tooltip@1.2.10
+## @radix-ui/react-tooltip@1.2.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1986,35 +1895,6 @@ SOFTWARE.
 ```
 
 ## @radix-ui/react-use-effect-event@0.0.3
-
-- License: MIT
-- Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
-
-```LICENSE
-MIT License
-
-Copyright (c) 2022 WorkOS
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## @radix-ui/react-use-escape-keydown@1.1.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2159,7 +2039,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-visually-hidden@1.2.6
+## @radix-ui/react-visually-hidden@1.2.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2825,6 +2705,64 @@ MIT License
     SOFTWARE
 ```
 
+## @types/gensync@1.0.5
+
+- License: MIT
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
+MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+```
+
+## @types/jsesc@2.5.1
+
+- License: MIT
+- Repository: [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
+
+```LICENSE
+MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+```
+
 ## @types/react-dom@19.2.3
 
 - License: MIT
@@ -2943,7 +2881,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## baseline-browser-mapping@2.10.37
+## baseline-browser-mapping@2.10.40
 
 - License: Apache-2.0
 - Repository: [https://github.com/web-platform-dx/baseline-browser-mapping](https://github.com/web-platform-dx/baseline-browser-mapping)
@@ -3152,7 +3090,7 @@ Apache License
    limitations under the License.
 ```
 
-## browserslist@4.28.2
+## browserslist@4.28.4
 
 - License: MIT
 - Repository: [https://github.com/browserslist/browserslist](https://github.com/browserslist/browserslist)
@@ -4124,34 +4062,6 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-## debug@4.4.3
-
-- License: MIT
-- Repository: [https://github.com/debug-js/debug](https://github.com/debug-js/debug)
-- Publisher: Josh Junon
-
-```LICENSE
-(The MIT License)
-
-Copyright (c) 2014-2017 TJ Holowaychuk <tj@vision-media.ca>
-Copyright (c) 2018-2021 Josh Junon
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software
-and associated documentation files (the 'Software'), to deal in the Software without restriction,
-including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
-and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial
-portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ## decimal.js-light@2.5.1
 
 - License: MIT
@@ -4214,7 +4124,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## electron-to-chromium@1.5.372
+## electron-to-chromium@1.5.380
 
 - License: ISC
 - Repository: [https://github.com/Kilian/electron-to-chromium](https://github.com/Kilian/electron-to-chromium)
@@ -4228,7 +4138,26 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## es-toolkit@1.47.1
+## empathic@2.0.1
+
+- License: MIT
+- Repository: [https://github.com/lukeed/empathic](https://github.com/lukeed/empathic)
+- Publisher: Luke Edwards
+- Email: <luke.edwards05@gmail.com>
+
+```LICENSE
+MIT License
+
+Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## es-toolkit@1.49.0
 
 - License: MIT
 - Repository: [https://github.com/toss/es-toolkit](https://github.com/toss/es-toolkit)
@@ -4546,7 +4475,7 @@ If this sounds interesting you should probably follow [@HenrikJoreteg](https://t
 MIT
 ```
 
-## i18next@26.3.3
+## i18next@26.3.4
 
 - License: MIT
 - Repository: [https://github.com/i18next/i18next](https://github.com/i18next/i18next)
@@ -4577,7 +4506,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## immer@10.2.0
+## immer@11.1.11
 
 - License: MIT
 - Repository: [https://github.com/immerjs/immer](https://github.com/immerjs/immer)
@@ -4608,35 +4537,88 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## immer@11.1.8
+## import-meta-resolve@4.2.0
 
 - License: MIT
-- Repository: [https://github.com/immerjs/immer](https://github.com/immerjs/immer)
-- Publisher: Michel Weststrate
-- Email: <info@michel.codes>
+- Repository: [https://github.com/wooorm/import-meta-resolve](https://github.com/wooorm/import-meta-resolve)
+- Publisher: Titus Wormer
+- Email: <tituswormer@gmail.com>
 
 ```LICENSE
-MIT License
+(The MIT License)
 
-Copyright (c) 2017 Michel Weststrate
+Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+This is a derivative work based on:
+<https://github.com/nodejs/node>.
+Which is licensed:
+
+"""
+Copyright Node.js contributors. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+"""
+
+This license applies to parts of Node.js originating from the
+https://github.com/joyent/node repository:
+
+"""
+Copyright Joyent, Inc. and other Node contributors. All rights reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+"""
 ```
 
 ## internmap@2.0.3
@@ -4691,7 +4673,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## js-tokens@4.0.0
+## js-tokens@10.0.0
 
 - License: MIT
 - Repository: [https://github.com/lydell/js-tokens](https://github.com/lydell/js-tokens)
@@ -4700,7 +4682,7 @@ SOFTWARE.
 ```LICENSE
 The MIT License (MIT)
 
-Copyright (c) 2014, 2015, 2016, 2017, 2018 Simon Lydell
+Copyright (c) 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 Simon Lydell
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4783,32 +4765,72 @@ SOFTWARE.
 [others]: https://github.com/json5/json5/contributors
 ```
 
-## lru-cache@5.1.1
+## lru-cache@11.5.1
 
-- License: ISC
+- License: BlueOak-1.0.0
 - Repository: [https://github.com/isaacs/node-lru-cache](https://github.com/isaacs/node-lru-cache)
 - Publisher: Isaac Z. Schlueter
 - Email: <i@izs.me>
 
 ```LICENSE
-The ISC License
+# Blue Oak Model License
 
-Copyright (c) Isaac Z. Schlueter and Contributors
+Version 1.0.0
 
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
+## Purpose
 
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+This license gives everyone as much permission to work with
+this software as possible, while protecting contributors
+from liability.
+
+## Acceptance
+
+In order to receive this license, you must agree to its
+rules.  The rules of this license are both obligations
+under that agreement and conditions to your license.
+You must not do anything with this software that triggers
+a rule that you cannot or will not follow.
+
+## Copyright
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe that contributor's
+copyright in it.
+
+## Notices
+
+You must ensure that everyone who gets a copy of
+any part of this software from you, with or without
+changes, also gets the text of this license or a link to
+<https://blueoakcouncil.org/license/1.0.0>.
+
+## Excuse
+
+If anyone notifies you in writing that you have not
+complied with [Notices](#notices), you can keep your
+license by taking all practical steps to comply within 30
+days after the notice.  If you do not do so, your license
+ends immediately.
+
+## Patent
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe any patent claims
+they can license or become able to license.
+
+## Reliability
+
+No contributor can revoke this license.
+
+## No Liability
+
+***As far as the law allows, this software comes as is,
+without any warranty or condition, and no contributor
+will be liable to anyone for any damages related to this
+software or this license, under any kind of legal claim.***
 ```
 
-## lucide-react@1.21.0
+## lucide-react@1.23.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -4860,36 +4882,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## ms@2.1.3
-
-- License: MIT
-- Repository: [https://github.com/vercel/ms](https://github.com/vercel/ms)
-
-```LICENSE
-The MIT License (MIT)
-
-Copyright (c) 2020 Vercel, Inc.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## node-releases@2.0.47
+## node-releases@2.0.50
 
 - License: MIT
 - Repository: [https://github.com/chicoxyzzy/node-releases](https://github.com/chicoxyzzy/node-releases)
@@ -4918,6 +4911,39 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+## obug@2.1.3
+
+- License: MIT
+- Repository: [https://github.com/sxzz/obug](https://github.com/sxzz/obug)
+- Publisher: Kevin Deng
+- Email: <sxzz@sxzz.moe>
+
+```LICENSE
+The MIT License (MIT)
+
+Copyright © 2025-PRESENT Kevin Deng (https://github.com/sxzz)
+Copyright (c) 2014-2017 TJ Holowaychuk <tj@vision-media.ca>
+Copyright (c) 2018-2021 Josh Junon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## picocolors@1.1.1
@@ -5277,7 +5303,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## recharts@3.9.0
+## recharts@3.9.2
 
 - License: MIT
 - Repository: [https://github.com/recharts/recharts](https://github.com/recharts/recharts)
@@ -5425,7 +5451,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## semver@6.3.1
+## semver@7.8.5
 
 - License: ISC
 - Repository: [https://github.com/npm/node-semver](https://github.com/npm/node-semver)
@@ -5540,7 +5566,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwindcss@4.3.1
+## tailwindcss@4.3.2
 
 - License: MIT
 - Repository: [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
@@ -5914,31 +5940,6 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-## yallist@3.1.1
-
-- License: ISC
-- Repository: [https://github.com/isaacs/yallist](https://github.com/isaacs/yallist)
-- Publisher: Isaac Z. Schlueter
-- Email: <i@izs.me>
-
-```LICENSE
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## zod@4.4.3
