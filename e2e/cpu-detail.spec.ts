@@ -14,7 +14,7 @@ test.describe("cpu detail captures", () => {
   test("cpu detail shows fixture info and per-core charts", async ({
     page,
   }) => {
-    await gotoApp(page);
+    await gotoApp(page, { path: "/?navigationLayout=classic" });
     await seedHardwareHistory(page);
 
     await navigateTo(page, "cpuDetail");

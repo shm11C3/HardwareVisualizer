@@ -13,6 +13,7 @@ import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
 import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
+import { NavigationRestructureNotice } from "@/components/shared/NavigationRestructureNotice";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import { useSelectedGpuPersistence } from "@/features/hardware/hooks/useSelectedGpuPersistence";
 import { useSelectedStorageDevicePersistence } from "@/features/hardware/hooks/useSelectedStorageDevicePersistence";
@@ -28,6 +29,7 @@ import "@/lib/i18n";
 import {
   ChartLineIcon,
   CpuIcon,
+  GaugeIcon,
   GearIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
@@ -210,6 +212,23 @@ const AppContent = () => {
         <Dashboard />
       </ScreenTemplate>
     ),
+    performance: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <GaugeIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("navigation.performance")
+            : undefined
+        }
+        enabledBurnInShift
+      >
+        <Dashboard />
+      </ScreenTemplate>
+    ),
     usage: <ChartTemplate isFullScreen={Boolean(isFullScreen)} />,
     cpuDetail: (
       <ScreenTemplate
@@ -303,7 +322,10 @@ const AppContent = () => {
           <div className="transparent-app-backdrop pointer-events-none fixed inset-0" />
         )}
         <div className="relative z-10">
-          <SideMenu isFullScreen={isFullScreen || false} />
+          <SideMenu
+            isFullScreen={isFullScreen || false}
+            navigationLayout={settings.navigationLayout}
+          />
           <Suspense>
             {displayTarget ? (
               displayTargets[displayTarget]
@@ -312,6 +334,7 @@ const AppContent = () => {
             )}
           </Suspense>
           <AppUpdate />
+          <NavigationRestructureNotice settingsLoaded={settingsLoaded} />
           <CloseToTrayFirstRunDialog
             closeToTrayChoiceMade={settings.closeToTrayChoiceMade}
             settingsLoaded={settingsLoaded}

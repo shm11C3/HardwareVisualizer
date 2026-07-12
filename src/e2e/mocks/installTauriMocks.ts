@@ -38,6 +38,8 @@ type EventEmitArgs = { event: string; payload?: unknown };
 type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
 type FixtureOverrides = {
   storageDeviceCount: number | null;
+  showNavigationNotice: boolean;
+  classicNavigation: boolean;
 };
 type TauriInternalsWindow = Window & {
   __TAURI_INTERNALS__?: {
@@ -66,6 +68,13 @@ const readFixtureOverrides = (): FixtureOverrides => {
           Math.min(MAX_STORAGE_DEVICE_STUB_COUNT, parsedStorageDeviceCount),
         )
       : null,
+    showNavigationNotice:
+      new URLSearchParams(window.location.search).get(
+        "showNavigationNotice",
+      ) === "1",
+    classicNavigation:
+      new URLSearchParams(window.location.search).get("navigationLayout") ===
+      "classic",
   };
 };
 
@@ -138,7 +147,15 @@ const buildInvokeHandlers = (
   "plugin:app|version": () => "1.0.0",
 
   // --- generated commands ---
-  get_settings: () => settingsFixture,
+  get_settings: () => ({
+    ...settingsFixture,
+    navigationLayout: fixtureOverrides.classicNavigation
+      ? "classic"
+      : settingsFixture.navigationLayout,
+    lastAcknowledgedAnnouncement: fixtureOverrides.showNavigationNotice
+      ? null
+      : settingsFixture.lastAcknowledgedAnnouncement,
+  }),
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null
       ? sysInfoFixture
@@ -275,6 +292,10 @@ export const installTauriMocks = () => {
     // Settings mutators (`set_theme`, `set_language`, ...) succeed silently
     // so settings-screen scenarios can interact without enumerating them.
     if (cmd.startsWith("set_")) {
+      return null;
+    }
+
+    if (cmd === "acknowledge_navigation_restructure_announcement") {
       return null;
     }
 

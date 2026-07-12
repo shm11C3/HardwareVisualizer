@@ -14,6 +14,8 @@ mod tests {
       version: utils::tauri::get_app_version(),
       language: language_service::get_default_language(),
       theme: enums::settings::Theme::System,
+      navigation_layout: enums::settings::NavigationLayout::Grouped,
+      last_acknowledged_announcement: None,
       display_targets: vec![
         hardware::HardwareType::Cpu,
         hardware::HardwareType::Memory,
@@ -57,6 +59,11 @@ mod tests {
     assert_eq!(settings.version, expected.version,);
     assert_eq!(settings.language, expected.language);
     assert_eq!(settings.theme, expected.theme);
+    assert_eq!(settings.navigation_layout, expected.navigation_layout);
+    assert_eq!(
+      settings.last_acknowledged_announcement,
+      expected.last_acknowledged_announcement
+    );
     assert_eq!(settings.display_targets, expected.display_targets,);
     assert_eq!(settings.line_graph_border, expected.line_graph_border);
     assert_eq!(settings.graph_size, expected.graph_size);

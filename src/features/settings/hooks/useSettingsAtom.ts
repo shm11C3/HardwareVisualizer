@@ -12,6 +12,8 @@ const settingsAtom = atom<ClientSettings>({
   version: "0.0.0",
   language: "en",
   theme: "system",
+  navigationLayout: "grouped",
+  lastAcknowledgedAnnouncement: null,
   displayTargets: [],
   graphSize: "xl",
   graphFitToWindow: false,
@@ -76,6 +78,8 @@ export const useSettingsAtom = () => {
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
+      | "navigationLayout"
+      | "lastAcknowledgedAnnouncement"
       | "trayWidget"
     >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
@@ -141,6 +145,8 @@ export const useSettingsAtom = () => {
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
+      | "navigationLayout"
+      | "lastAcknowledgedAnnouncement"
       | "trayWidget"
     >,
   >(
@@ -173,6 +179,59 @@ export const useSettingsAtom = () => {
     }
 
     setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
+  };
+
+  const setNavigationLayoutAtom = async (
+    value: ClientSettings["navigationLayout"],
+  ) => {
+    const previousLayout = settings.navigationLayout;
+    const previousAcknowledgement = settings.lastAcknowledgedAnnouncement;
+    const acknowledgement =
+      value === "classic" ? "grouped-navigation-v1" : previousAcknowledgement;
+
+    setSettings((prev) => ({
+      ...prev,
+      navigationLayout: value,
+      lastAcknowledgedAnnouncement: acknowledgement,
+    }));
+
+    const result = await commands.setNavigationLayout(value);
+
+    if (isError(result)) {
+      await error(result.error);
+      console.error(result.error);
+      setSettings((prev) => ({
+        ...prev,
+        navigationLayout: previousLayout,
+        lastAcknowledgedAnnouncement: previousAcknowledgement,
+      }));
+      return false;
+    }
+
+    return true;
+  };
+
+  const acknowledgeNavigationRestructureAnnouncementAtom = async () => {
+    const previousValue = settings.lastAcknowledgedAnnouncement;
+    setSettings((prev) => ({
+      ...prev,
+      lastAcknowledgedAnnouncement: "grouped-navigation-v1",
+    }));
+
+    const result =
+      await commands.acknowledgeNavigationRestructureAnnouncement();
+
+    if (isError(result)) {
+      await error(result.error);
+      console.error(result.error);
+      setSettings((prev) => ({
+        ...prev,
+        lastAcknowledgedAnnouncement: previousValue,
+      }));
+      return false;
+    }
+
+    return true;
   };
 
   /**
@@ -362,5 +421,7 @@ export const useSettingsAtom = () => {
     setStorageHealthRetentionDays,
     setCloseToTrayPreferenceAtom,
     setTrayWidgetSettingsAtom,
+    setNavigationLayoutAtom,
+    acknowledgeNavigationRestructureAnnouncementAtom,
   };
 };

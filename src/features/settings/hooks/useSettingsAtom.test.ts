@@ -49,6 +49,8 @@ vi.mock("@/rspc/bindings", () => ({
     setHardwareArchiveRetentionDays: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),
     setStorageHealthRetentionDays: vi.fn(),
+    setNavigationLayout: vi.fn(),
+    acknowledgeNavigationRestructureAnnouncement: vi.fn(),
   },
 }));
 
@@ -540,5 +542,64 @@ describe("useSettingsAtom", () => {
       initialSettings.closeToTrayChoiceMade,
     );
     expect(result.current.settings.trayWidget.enabled).toBe(true);
+  });
+
+  it("setNavigationLayoutAtom: opting out acknowledges the current announcement", async () => {
+    (commands.setNavigationLayout as Mock).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.setNavigationLayoutAtom("classic");
+    });
+
+    expect(commands.setNavigationLayout).toHaveBeenCalledWith("classic");
+    expect(result.current.settings.navigationLayout).toBe("classic");
+    expect(result.current.settings.lastAcknowledgedAnnouncement).toBe(
+      "grouped-navigation-v1",
+    );
+  });
+
+  it("setNavigationLayoutAtom: save failure restores layout and acknowledgement", async () => {
+    (commands.setNavigationLayout as Mock).mockResolvedValue({
+      status: "error",
+      error: "save failed",
+    });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const previousLayout = result.current.settings.navigationLayout;
+    const previousAcknowledgement =
+      result.current.settings.lastAcknowledgedAnnouncement;
+
+    await act(async () => {
+      await result.current.setNavigationLayoutAtom("classic");
+    });
+
+    expect(result.current.settings.navigationLayout).toBe(previousLayout);
+    expect(result.current.settings.lastAcknowledgedAnnouncement).toBe(
+      previousAcknowledgement,
+    );
+  });
+
+  it("acknowledgeNavigationRestructureAnnouncementAtom: persists the versioned acknowledgement", async () => {
+    (
+      commands.acknowledgeNavigationRestructureAnnouncement as Mock
+    ).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.acknowledgeNavigationRestructureAnnouncementAtom();
+    });
+
+    expect(
+      commands.acknowledgeNavigationRestructureAnnouncement,
+    ).toHaveBeenCalledOnce();
+    expect(result.current.settings.lastAcknowledgedAnnouncement).toBe(
+      "grouped-navigation-v1",
+    );
   });
 });

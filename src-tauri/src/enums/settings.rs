@@ -2,6 +2,30 @@ use hardviz_core::enums::settings as core_settings;
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Type, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NavigationLayout {
+  #[default]
+  Grouped,
+  Classic,
+}
+
+impl<'de> Deserialize<'de> for NavigationLayout {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    match String::deserialize(deserializer)?.to_lowercase().as_str() {
+      "grouped" => Ok(Self::Grouped),
+      "classic" => Ok(Self::Classic),
+      value => Err(serde::de::Error::unknown_variant(
+        value,
+        &["grouped", "classic"],
+      )),
+    }
+  }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Theme {
@@ -162,6 +186,30 @@ pub enum BurnInShiftPreset {
 mod tests {
   use super::*;
   use serde_json;
+
+  #[test]
+  fn navigation_layout_defaults_to_grouped() {
+    assert_eq!(NavigationLayout::default(), NavigationLayout::Grouped);
+  }
+
+  #[test]
+  fn navigation_layout_round_trips_supported_values() {
+    for (layout, json) in [
+      (NavigationLayout::Grouped, "\"grouped\""),
+      (NavigationLayout::Classic, "\"classic\""),
+    ] {
+      assert_eq!(serde_json::to_string(&layout).unwrap(), json);
+      assert_eq!(
+        serde_json::from_str::<NavigationLayout>(json).unwrap(),
+        layout
+      );
+    }
+  }
+
+  #[test]
+  fn navigation_layout_rejects_unknown_values() {
+    assert!(serde_json::from_str::<NavigationLayout>("\"future\"").is_err());
+  }
 
   #[test]
   fn test_theme_serialization() {

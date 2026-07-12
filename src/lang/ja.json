@@ -213,6 +213,17 @@
     }
   },
 
+  "navigation": {
+    "dashboardSection": "ダッシュボード",
+    "performance": "パフォーマンス",
+    "insightSection": "インサイト",
+    "notice": {
+      "title": "ナビゲーションが新しくなりました",
+      "description": "現在状態の確認はパフォーマンスから始められます。設定から以前のナビゲーションに戻すこともできます。",
+      "openSettings": "ナビゲーション設定を開く",
+      "dismiss": "ナビゲーションのお知らせを閉じる"
+    }
+  },
   "pages": {
     "dashboard": {
       "name": "ダッシュボード",
@@ -289,6 +300,10 @@
       "name": "設定",
       "general": {
         "name": "一般",
+        "navigationLayout": {
+          "name": "クラシックナビゲーション",
+          "description": "グループ化されたナビゲーションの代わりに、従来の5項目を使用します。"
+        },
         "language": "言語",
         "colorMode": {
           "name": "カラーモード",

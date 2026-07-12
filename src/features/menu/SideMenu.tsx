@@ -4,6 +4,7 @@ import {
   ChartLineIcon,
   ComputerTowerIcon,
   CpuIcon,
+  GaugeIcon,
   GearIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
@@ -12,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import { prefetchScreen } from "@/lazyScreens";
 import { cn } from "@/lib/utils";
+import type { NavigationLayout } from "@/rspc/bindings";
 import type { SelectedDisplayType } from "@/types/ui";
 import { useMenu } from "./hooks/useMenu";
 
@@ -22,6 +24,8 @@ const menuTypes = [
   "insights",
   "settings",
 ] as const;
+
+const groupedMenuTypes = ["performance", "insights"] as const;
 
 const buttonClasses = tv({
   base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 cursor-pointer z-20",
@@ -84,6 +88,7 @@ const MenuItem = memo(
 
     const menuTitles: Record<SelectedDisplayType, string> = {
       dashboard: t("pages.dashboard.name"),
+      performance: t("navigation.performance"),
       usage: t("pages.usage.name"),
       cpuDetail: "CPU",
       insights: t("pages.insights.name"),
@@ -92,6 +97,7 @@ const MenuItem = memo(
 
     const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
       dashboard: <SquaresFourIcon size={20} />,
+      performance: <GaugeIcon size={20} />,
       usage: <ComputerTowerIcon size={20} />,
       cpuDetail: <CpuIcon size={20} />,
       insights: <ChartLineIcon size={20} />,
@@ -137,6 +143,7 @@ const ClosedSideMenu = ({
 }) => {
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: <SquaresFourIcon size={24} />,
+    performance: <GaugeIcon size={24} />,
     usage: <ComputerTowerIcon size={24} />,
     cpuDetail: <CpuIcon size={24} />,
     insights: <ChartLineIcon size={24} />,
@@ -167,71 +174,102 @@ const ClosedSideMenu = ({
   );
 };
 
-export const SideMenu = memo(({ isFullScreen }: { isFullScreen: boolean }) => {
-  const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu();
+export const SideMenu = memo(
+  ({
+    isFullScreen,
+    navigationLayout,
+  }: {
+    isFullScreen: boolean;
+    navigationLayout: NavigationLayout;
+  }) => {
+    const { t } = useTranslation();
+    const { isOpen, displayTarget, handleMenuClick, toggleMenu } =
+      useMenu(navigationLayout);
 
-  const caretIcon = useMemo(
-    () => (isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />),
-    [isOpen],
-  );
+    const caretIcon = useMemo(
+      () => (isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />),
+      [isOpen],
+    );
 
-  return (
-    isOpen != null && (
-      <div className="inset-0">
-        <div className="fixed z-60">
-          {/** Show icon only when cursor is near */}
-          <button
-            type="button"
-            className={buttonClasses({
-              status:
-                isFullScreen && !isOpen
-                  ? "fullScreenClose"
-                  : isOpen
-                    ? "open"
-                    : "close",
-            })}
-            onClick={toggleMenu}
-          >
-            {caretIcon}
-          </button>
-          {/** Opened */}
-          <div className={sideMenuClasses({ open: isOpen })}>
-            <div className="relative flex h-full flex-col">
-              <ul className="p-4 pb-16">
-                {/* bottom space for settings */}
-                <li className="mb-4">
-                  {isOpen && (
-                    <h2 className="font-bold text-xl">HardwareVisualizer</h2>
-                  )}
-                </li>
-                {menuTypes
-                  .filter((v) => v !== "settings")
-                  .map((type) => (
-                    <MenuItem
-                      key={type}
-                      type={type}
-                      handleMenuClick={handleMenuClick}
-                      selected={displayTarget === type}
-                    />
-                  ))}
-              </ul>
-              <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
-                <MenuItem
-                  type="settings"
-                  handleMenuClick={handleMenuClick}
-                  selected={displayTarget === "settings"}
-                />
-              </ul>
-            </div>
-          </div>
-          {/** Closed */}
-          {!isFullScreen && (
-            <div className={closedSideMenuClasses({ open: isOpen })}>
+    return (
+      isOpen != null && (
+        <div className="inset-0">
+          <div className="fixed z-60">
+            {/** Show icon only when cursor is near */}
+            <button
+              type="button"
+              className={buttonClasses({
+                status:
+                  isFullScreen && !isOpen
+                    ? "fullScreenClose"
+                    : isOpen
+                      ? "open"
+                      : "close",
+              })}
+              onClick={toggleMenu}
+            >
+              {caretIcon}
+            </button>
+            {/** Opened */}
+            <div className={sideMenuClasses({ open: isOpen })}>
               <div className="relative flex h-full flex-col">
-                <ul className="pt-2">
-                  {menuTypes
-                    .filter((v) => v !== "settings")
-                    .map((type) => (
+                <ul className="p-4 pb-16">
+                  {/* bottom space for settings */}
+                  <li className="mb-4">
+                    {isOpen && (
+                      <h2 className="font-bold text-xl">HardwareVisualizer</h2>
+                    )}
+                  </li>
+                  {navigationLayout === "grouped" ? (
+                    <>
+                      <li className="mb-1 px-2 pt-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+                        {t("navigation.dashboardSection")}
+                      </li>
+                      <MenuItem
+                        type="performance"
+                        handleMenuClick={handleMenuClick}
+                        selected={displayTarget === "performance"}
+                      />
+                      <li className="mt-5 mb-1 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+                        {t("navigation.insightSection")}
+                      </li>
+                      <MenuItem
+                        type="insights"
+                        handleMenuClick={handleMenuClick}
+                        selected={displayTarget === "insights"}
+                      />
+                    </>
+                  ) : (
+                    menuTypes
+                      .filter((v) => v !== "settings")
+                      .map((type) => (
+                        <MenuItem
+                          key={type}
+                          type={type}
+                          handleMenuClick={handleMenuClick}
+                          selected={displayTarget === type}
+                        />
+                      ))
+                  )}
+                </ul>
+                <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
+                  <MenuItem
+                    type="settings"
+                    handleMenuClick={handleMenuClick}
+                    selected={displayTarget === "settings"}
+                  />
+                </ul>
+              </div>
+            </div>
+            {/** Closed */}
+            {!isFullScreen && (
+              <div className={closedSideMenuClasses({ open: isOpen })}>
+                <div className="relative flex h-full flex-col">
+                  <ul className="pt-2">
+                    {(navigationLayout === "grouped"
+                      ? groupedMenuTypes
+                      : menuTypes.filter((v) => v !== "settings")
+                    ).map((type) => (
                       <ClosedSideMenu
                         key={type}
                         type={type}
@@ -239,19 +277,20 @@ export const SideMenu = memo(({ isFullScreen }: { isFullScreen: boolean }) => {
                         handleMenuClick={handleMenuClick}
                       />
                     ))}
-                </ul>
-                <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
-                  <ClosedSideMenu
-                    type="settings"
-                    selected={displayTarget === "settings"}
-                    handleMenuClick={handleMenuClick}
-                  />
-                </ul>
+                  </ul>
+                  <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
+                    <ClosedSideMenu
+                      type="settings"
+                      selected={displayTarget === "settings"}
+                      handleMenuClick={handleMenuClick}
+                    />
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    )
-  );
-});
+      )
+    );
+  },
+);

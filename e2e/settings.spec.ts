@@ -16,4 +16,60 @@ test.describe("settings captures", () => {
 
     await saveCapture(page, "settings");
   });
+
+  test("grouped navigation is the default and Classic switches immediately", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+
+    await expect(
+      page.getByRole("button", { name: "open performance" }),
+    ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await expect(page.getByRole("button", { name: "open usage" })).toHaveCount(
+      0,
+    );
+
+    await navigateTo(page, "settings");
+    const classicNavigation = page.getByRole("switch", {
+      name: "Classic navigation",
+    });
+    await classicNavigation.click();
+
+    await expect(classicNavigation).toBeChecked();
+    await expect(
+      page.getByRole("button", { name: "open dashboard" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "open usage" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "open cpuDetail" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "open performance" }),
+    ).toHaveCount(0);
+  });
+
+  test("navigation notice links to Settings and can be dismissed", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?showNavigationNotice=1" });
+
+    const notice = page.getByRole("complementary", {
+      name: "Navigation has been reorganized",
+    });
+    await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+
+    await notice
+      .getByRole("button", { name: "Open navigation settings" })
+      .click();
+    await expect(
+      page.getByRole("switch", { name: "Classic navigation" }),
+    ).toBeVisible();
+
+    await notice
+      .getByRole("button", { name: "Dismiss navigation notice" })
+      .click();
+    await expect(notice).toHaveCount(0);
+  });
 });

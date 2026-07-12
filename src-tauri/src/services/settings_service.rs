@@ -6,6 +6,7 @@ use crate::{log_error, log_info};
 use std::io::Write;
 
 pub const SETTINGS_FILENAME: &str = "settings.json";
+pub const GROUPED_NAVIGATION_ANNOUNCEMENT_ID: &str = "grouped-navigation-v1";
 const MIN_WINDOW_OPACITY: u8 = 20;
 const MAX_WINDOW_OPACITY: u8 = 100;
 const MIN_GLASS_BLUR: u8 = 0;
@@ -208,6 +209,11 @@ impl models::settings::Settings {
     try_field!(version, "version");
     try_field!(language, "language");
     try_field!(theme, "theme");
+    try_field!(navigation_layout, "navigationLayout");
+    try_field!(
+      last_acknowledged_announcement,
+      "lastAcknowledgedAnnouncement"
+    );
     try_field!(display_targets, "displayTargets");
     try_field!(graph_size, "graphSize");
     try_field!(graph_fit_to_window, "graphFitToWindow");
@@ -280,6 +286,65 @@ impl models::settings::Settings {
   pub fn set_theme(&mut self, new_theme: enums::settings::Theme) -> Result<(), String> {
     self.theme = new_theme;
     self.write_file()
+  }
+
+  pub fn set_navigation_layout(
+    &mut self,
+    new_layout: enums::settings::NavigationLayout,
+  ) -> Result<(), String> {
+    self.set_navigation_layout_with_writer(new_layout, |settings| settings.write_file())
+  }
+
+  fn set_navigation_layout_with_writer<F>(
+    &mut self,
+    new_layout: enums::settings::NavigationLayout,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_layout = self.navigation_layout;
+    let previous_acknowledgement = self.last_acknowledged_announcement.clone();
+    self.navigation_layout = new_layout;
+    if new_layout == enums::settings::NavigationLayout::Classic {
+      self.last_acknowledged_announcement =
+        Some(GROUPED_NAVIGATION_ANNOUNCEMENT_ID.to_string());
+    }
+
+    if let Err(error) = write_file(self) {
+      self.navigation_layout = previous_layout;
+      self.last_acknowledged_announcement = previous_acknowledgement;
+      return Err(error);
+    }
+
+    Ok(())
+  }
+
+  pub fn acknowledge_navigation_restructure_announcement(
+    &mut self,
+  ) -> Result<(), String> {
+    self.acknowledge_navigation_restructure_announcement_with_writer(|settings| {
+      settings.write_file()
+    })
+  }
+
+  fn acknowledge_navigation_restructure_announcement_with_writer<F>(
+    &mut self,
+    write_file: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_value = self.last_acknowledged_announcement.clone();
+    self.last_acknowledged_announcement =
+      Some(GROUPED_NAVIGATION_ANNOUNCEMENT_ID.to_string());
+
+    if let Err(error) = write_file(self) {
+      self.last_acknowledged_announcement = previous_value;
+      return Err(error);
+    }
+
+    Ok(())
   }
 
   pub fn set_display_targets(
@@ -619,6 +684,70 @@ mod tests {
 
     assert!(settings.graph_fit_to_window);
     assert_eq!(settings.graph_margin_px, 64);
+  }
+
+  #[test]
+  fn read_settings_recovers_unknown_navigation_layout_without_losing_valid_fields() {
+    let mut settings = models::settings::Settings::default();
+
+    read_settings_from_str(
+      &mut settings,
+      r#"{"language":"ja","navigationLayout":"future"}"#,
+    )
+    .unwrap();
+
+    assert_eq!(settings.language, "ja");
+    assert_eq!(
+      settings.navigation_layout,
+      enums::settings::NavigationLayout::Grouped
+    );
+  }
+
+  #[test]
+  fn set_navigation_layout_rolls_back_when_write_fails() {
+    let mut settings = models::settings::Settings::default();
+
+    let result = settings.set_navigation_layout_with_writer(
+      enums::settings::NavigationLayout::Classic,
+      |_| Err("write failed".to_string()),
+    );
+
+    assert_eq!(result, Err("write failed".to_string()));
+    assert_eq!(
+      settings.navigation_layout,
+      enums::settings::NavigationLayout::Grouped
+    );
+    assert_eq!(settings.last_acknowledged_announcement, None);
+  }
+
+  #[test]
+  fn opting_out_to_classic_dismisses_navigation_notice() {
+    let mut settings = models::settings::Settings::default();
+
+    settings
+      .set_navigation_layout_with_writer(
+        enums::settings::NavigationLayout::Classic,
+        |_| Ok(()),
+      )
+      .unwrap();
+
+    assert_eq!(
+      settings.last_acknowledged_announcement.as_deref(),
+      Some(GROUPED_NAVIGATION_ANNOUNCEMENT_ID)
+    );
+  }
+
+  #[test]
+  fn acknowledge_navigation_announcement_rolls_back_when_write_fails() {
+    let mut settings = models::settings::Settings::default();
+
+    let result =
+      settings.acknowledge_navigation_restructure_announcement_with_writer(|_| {
+        Err("write failed".to_string())
+      });
+
+    assert_eq!(result, Err("write failed".to_string()));
+    assert_eq!(settings.last_acknowledged_announcement, None);
   }
 
   #[test]

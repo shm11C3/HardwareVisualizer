@@ -10,16 +10,18 @@ import {
 
 test.describe("usage captures", () => {
   test("usage charts render seeded history", async ({ page }) => {
-    await gotoApp(page);
+    await gotoApp(page, { path: "/?navigationLayout=classic" });
     await seedHardwareHistory(page);
 
     await navigateTo(page, "usage");
 
     // The mixed usage chart (SVG) renders with its CPU/RAM/GPU legend.
-    await expect(page.getByText("RAM", { exact: true })).toBeVisible({
-      timeout: BOOTSTRAP_TIMEOUT,
-    });
-    await expect(page.getByText("GPU", { exact: true })).toBeVisible();
+    await expect(page.locator("span").filter({ hasText: /^RAM$/ })).toBeVisible(
+      { timeout: BOOTSTRAP_TIMEOUT },
+    );
+    await expect(
+      page.locator("span").filter({ hasText: /^GPU$/ }),
+    ).toBeVisible();
 
     // Guard against silently-broken series styling: compare the *computed*
     // stroke of each area curve against the fixture colors. The browser
