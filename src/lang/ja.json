@@ -277,6 +277,37 @@
         }
       }
     },
+    "performance": {
+      "description": "現在値と直近60秒を、監視方法に合わせて表示します。",
+      "shortWindow": "直近60秒",
+      "layoutPreset": "パフォーマンスレイアウト",
+      "customizePanels": "カスタムパネル",
+      "customizePanelsDescription": "表示するライブ情報を選び、必要な順序へドラッグできます。",
+      "reorderPanel": "{{panel}}を並べ替え",
+      "presets": {
+        "compact": {
+          "name": "コンパクト"
+        },
+        "monitor": {
+          "name": "モニター"
+        },
+        "detailed": {
+          "name": "詳細"
+        },
+        "custom": {
+          "name": "カスタム"
+        }
+      },
+      "panels": {
+        "currentValues": "現在値",
+        "usageGraphs": "使用率グラフ",
+        "processTable": "ライブプロセス"
+      },
+      "panelDescriptions": {
+        "usageGraphs": "CPU、RAM、GPUの直近の変化を表示します。",
+        "processTable": "現在CPUとメモリを使用しているプロセスです。"
+      }
+    },
     "usage": {
       "name": "ハードウェア使用率"
     },

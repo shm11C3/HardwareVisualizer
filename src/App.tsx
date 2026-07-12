@@ -4,6 +4,7 @@ import {
   CpuUsages,
   Dashboard,
   Insights,
+  Performance,
   Settings,
 } from "./lazyScreens";
 import "./index.css";
@@ -29,7 +30,6 @@ import "@/lib/i18n";
 import {
   ChartLineIcon,
   CpuIcon,
-  GaugeIcon,
   GearIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
@@ -213,21 +213,10 @@ const AppContent = () => {
       </ScreenTemplate>
     ),
     performance: (
-      <ScreenTemplate
-        icon={
-          visibleTypes.includes("dashboard") ? (
-            <GaugeIcon size={32} />
-          ) : undefined
-        }
-        title={
-          visibleTypes.includes("dashboard")
-            ? t("navigation.performance")
-            : undefined
-        }
-        enabledBurnInShift
-      >
-        <Dashboard />
-      </ScreenTemplate>
+      <Performance
+        isFullScreen={Boolean(isFullScreen)}
+        showTitle={visibleTypes.includes("dashboard")}
+      />
     ),
     usage: <ChartTemplate isFullScreen={Boolean(isFullScreen)} />,
     cpuDetail: (

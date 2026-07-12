@@ -32,12 +32,24 @@ type GotoAppOptions = {
 };
 
 /**
- * Load the app and wait until the dashboard rendered fixture data,
+ * Load the app and wait until the selected default screen rendered,
  * i.e. settings/mock bootstrap completed.
  */
 export const gotoApp = async (page: Page, options: GotoAppOptions = {}) => {
-  await page.goto(options.path ?? "/");
-  await expect(page.getByText(CPU_NAME).first()).toBeVisible({
+  const path = options.path ?? "/";
+  await page.goto(path);
+  const isClassic =
+    new URL(path, "http://localhost").searchParams.get("navigationLayout") ===
+    "classic";
+
+  if (isClassic) {
+    await expect(page.getByText(CPU_NAME).first()).toBeVisible({
+      timeout: options.timeout ?? BOOTSTRAP_TIMEOUT,
+    });
+    return;
+  }
+
+  await expect(page.getByTestId("performance-screen")).toBeVisible({
     timeout: options.timeout ?? BOOTSTRAP_TIMEOUT,
   });
 };

@@ -4,7 +4,7 @@ import { gotoApp, saveCapture, seedHardwareHistory } from "./helpers";
 
 test.describe("dashboard captures", () => {
   test("dashboard renders fixture hardware data", async ({ page }) => {
-    await gotoApp(page);
+    await gotoApp(page, { path: "/?navigationLayout=classic" });
     await seedHardwareHistory(page);
 
     // GPU selector tablist renders because the fixture exposes two GPUs.
@@ -16,7 +16,7 @@ test.describe("dashboard captures", () => {
   });
 
   test("gpu selector switches via accessible tab roles", async ({ page }) => {
-    await gotoApp(page);
+    await gotoApp(page, { path: "/?navigationLayout=classic" });
     await seedHardwareHistory(page);
 
     const secondaryGpuTab = page.getByRole("tab", {
@@ -31,7 +31,9 @@ test.describe("dashboard captures", () => {
   test("storage selector scrolls horizontally with many stubbed devices", async ({
     page,
   }) => {
-    await gotoApp(page, { path: "/?storageDevices=12" });
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic&storageDevices=12",
+    });
     await seedHardwareHistory(page);
 
     const storageSelector = page.getByRole("tablist", {

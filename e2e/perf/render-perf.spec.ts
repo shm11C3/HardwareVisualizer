@@ -27,6 +27,13 @@ const THRESHOLDS = {
     maxLongTaskMs: 500,
     totalLongTaskMs: 1_000,
   },
+  performanceDetailed: {
+    interactionMs: 3_500,
+    domElementCount: 2_000,
+    longTaskCount: 12,
+    maxLongTaskMs: 500,
+    totalLongTaskMs: 1_750,
+  },
 };
 
 const measureMs = async (action: () => Promise<void>) => {
@@ -48,7 +55,10 @@ test.describe("frontend render performance", () => {
 
   test("dashboard repeated metric updates stay bounded", async ({ page }) => {
     const readyMs = await measureMs(async () => {
-      await gotoApp(page, { timeout: PERF_BOOTSTRAP_TIMEOUT });
+      await gotoApp(page, {
+        path: "/?navigationLayout=classic",
+        timeout: PERF_BOOTSTRAP_TIMEOUT,
+      });
     });
 
     await resetRenderPerf(page);
@@ -89,22 +99,30 @@ test.describe("frontend render performance", () => {
       .toBeLessThanOrEqual(THRESHOLDS.dashboardUpdates.totalLongTaskMs);
   });
 
-  test("usage chart render stays bounded", async ({ page }) => {
+  test("usage chart repeated metric updates stay bounded", async ({ page }) => {
     await gotoApp(page, {
       path: "/?navigationLayout=classic",
       timeout: PERF_BOOTSTRAP_TIMEOUT,
     });
     await seedHardwareHistory(page);
+    await navigateTo(page, "usage");
+    await expect(page.locator("span").filter({ hasText: /^RAM$/ })).toBeVisible(
+      { timeout: PERF_BOOTSTRAP_TIMEOUT },
+    );
+    await expect(
+      page.locator("span").filter({ hasText: /^GPU$/ }),
+    ).toBeVisible();
     await resetRenderPerf(page);
 
     const interactionMs = await measureMs(async () => {
-      await navigateTo(page, "usage");
-      await expect(
-        page.locator("span").filter({ hasText: /^RAM$/ }),
-      ).toBeVisible({ timeout: PERF_BOOTSTRAP_TIMEOUT });
-      await expect(
-        page.locator("span").filter({ hasText: /^GPU$/ }),
-      ).toBeVisible();
+      await page.evaluate(async () => {
+        if (!window.__E2E__) {
+          throw new Error(
+            "window.__E2E__ is not installed (VITE_E2E_MOCK unset?)",
+          );
+        }
+        await window.__E2E__.emitHardwareUpdateSeries(60);
+      });
       await page.waitForTimeout(600);
     });
 
@@ -129,5 +147,53 @@ test.describe("frontend render performance", () => {
     expect
       .soft(result.totalLongTaskMs)
       .toBeLessThanOrEqual(THRESHOLDS.usageChart.totalLongTaskMs);
+  });
+
+  test("Detailed Performance updates stay bounded against the classic baselines", async ({
+    page,
+  }) => {
+    const readyMs = await measureMs(async () => {
+      await gotoApp(page, { timeout: PERF_BOOTSTRAP_TIMEOUT });
+    });
+    await seedHardwareHistory(page);
+    await expect(page.getByTestId("performance-current-values")).toBeVisible();
+    await expect(page.getByTestId("performance-usage-graphs")).toBeVisible();
+    await resetRenderPerf(page);
+
+    const interactionMs = await measureMs(async () => {
+      await page.evaluate(async () => {
+        if (!window.__E2E__) {
+          throw new Error(
+            "window.__E2E__ is not installed (VITE_E2E_MOCK unset?)",
+          );
+        }
+        await window.__E2E__.emitHardwareUpdateSeries(60);
+      });
+      await page.waitForTimeout(600);
+    });
+
+    const result = await collectRenderPerfResult(page, {
+      screen: "performance-detailed-updates",
+      readyMs,
+      interactionMs,
+    });
+    results.push(result);
+
+    expect.soft(result.readyMs).toBeLessThanOrEqual(PERF_BOOTSTRAP_TIMEOUT);
+    expect
+      .soft(result.interactionMs)
+      .toBeLessThanOrEqual(THRESHOLDS.performanceDetailed.interactionMs);
+    expect
+      .soft(result.domElementCount)
+      .toBeLessThanOrEqual(THRESHOLDS.performanceDetailed.domElementCount);
+    expect
+      .soft(result.longTaskCount)
+      .toBeLessThanOrEqual(THRESHOLDS.performanceDetailed.longTaskCount);
+    expect
+      .soft(result.maxLongTaskMs)
+      .toBeLessThanOrEqual(THRESHOLDS.performanceDetailed.maxLongTaskMs);
+    expect
+      .soft(result.totalLongTaskMs)
+      .toBeLessThanOrEqual(THRESHOLDS.performanceDetailed.totalLongTaskMs);
   });
 });
