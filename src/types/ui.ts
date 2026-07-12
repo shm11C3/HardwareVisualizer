@@ -1,6 +1,11 @@
 export type SelectedDisplayType =
   | "dashboard"
   | "performance"
+  | "hardwareCpu"
+  | "hardwareGpu"
+  | "hardwareMemory"
+  | "hardwareStorage"
+  | "hardwareSystem"
   | "usage"
   | "cpuDetail"
   | "insights"

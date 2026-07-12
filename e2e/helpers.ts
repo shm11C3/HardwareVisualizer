@@ -80,6 +80,11 @@ export const navigateTo = async (
   type:
     | "dashboard"
     | "performance"
+    | "hardwareCpu"
+    | "hardwareGpu"
+    | "hardwareMemory"
+    | "hardwareStorage"
+    | "hardwareSystem"
     | "usage"
     | "cpuDetail"
     | "insights"

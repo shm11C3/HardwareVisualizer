@@ -1,7 +1,7 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { useAtom } from "jotai";
 import { RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
 import {
@@ -929,7 +929,11 @@ const StorageDeviceProtocolBadge = ({
   );
 };
 
-export const MotherboardDataInfo = () => {
+export const MotherboardDataInfo = ({
+  unavailableContent,
+}: {
+  unavailableContent?: ReactNode;
+} = {}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { hardwareInfo } = useHardwareInfoAtom();
@@ -940,7 +944,9 @@ export const MotherboardDataInfo = () => {
     motherboardTemps.length > 0 || motherboardFanSpeeds.length > 0;
 
   if (!mb && !hasLiveSensors) {
-    return <Skeleton className="h-[188px] w-full rounded-md" />;
+    return (
+      unavailableContent ?? <Skeleton className="h-[188px] w-full rounded-md" />
+    );
   }
 
   const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
@@ -1027,15 +1033,36 @@ export const MotherboardDataInfo = () => {
   );
 };
 
-export const NetworkInfo = () => {
+export const NetworkInfo = ({
+  unavailableContent,
+}: {
+  unavailableContent?: ReactNode;
+} = {}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { networkInfo, initNetwork } = useHardwareInfoAtom();
+  const [isLoading, setIsLoading] = useState(true);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `initNetwork` is a stable function
   useEffect(() => {
-    initNetwork();
+    let isMounted = true;
+
+    void initNetwork().finally(() => {
+      if (isMounted) setIsLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  if (isLoading && unavailableContent) {
+    return <Skeleton className="h-[188px] w-full rounded-md" />;
+  }
+
+  if (networkInfo.length === 0 && unavailableContent) {
+    return unavailableContent;
+  }
 
   return (
     <>

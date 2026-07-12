@@ -205,7 +205,15 @@
   "navigation": {
     "dashboardSection": "Панель",
     "performance": "Производительность",
+    "hardware": {
+      "title": "Оборудование",
+      "memory": "Память",
+      "storage": "Накопители",
+      "system": "Система"
+    },
     "insightSection": "Аналитика",
+    "expandSidebar": "Развернуть боковую панель",
+    "collapseSidebar": "Свернуть боковую панель",
     "notice": {
       "title": "Навигация была обновлена",
       "description": "Текущий мониторинг теперь начинается с раздела «Производительность». Прежнюю навигацию можно вернуть в настройках.",
@@ -264,6 +272,18 @@
           "critical": "Критично",
           "unknown": "Неизвестно"
         }
+      }
+    },
+    "hardware": {
+      "unavailable": "Информация о категории «{{category}}» недоступна в этой системе.",
+      "system": {
+        "platformInformation": "Информация о платформе",
+        "operatingSystem": "Операционная система",
+        "version": "Версия",
+        "architecture": "Архитектура",
+        "hardwareReport": "Отчёт об оборудовании",
+        "hardwareReportDescription": "Скопируйте доступные сведения об оборудовании и сети для диагностики или передачи.",
+        "copyHardwareReport": "Скопировать отчёт об оборудовании"
       }
     },
     "performance": {

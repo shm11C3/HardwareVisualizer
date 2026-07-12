@@ -4,8 +4,12 @@ import {
   ChartLineIcon,
   ComputerTowerIcon,
   CpuIcon,
+  DesktopTowerIcon,
   GaugeIcon,
   GearIcon,
+  GraphicsCardIcon,
+  HardDrivesIcon,
+  MemoryIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { type JSX, memo, useMemo } from "react";
@@ -25,7 +29,19 @@ const menuTypes = [
   "settings",
 ] as const;
 
-const groupedMenuTypes = ["performance", "insights"] as const;
+const hardwareMenuTypes = [
+  "hardwareCpu",
+  "hardwareGpu",
+  "hardwareMemory",
+  "hardwareStorage",
+  "hardwareSystem",
+] as const;
+
+const groupedMenuTypes = [
+  "performance",
+  ...hardwareMenuTypes,
+  "insights",
+] as const;
 
 const buttonClasses = tv({
   base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 cursor-pointer z-20",
@@ -89,6 +105,11 @@ const MenuItem = memo(
     const menuTitles: Record<SelectedDisplayType, string> = {
       dashboard: t("pages.dashboard.name"),
       performance: t("navigation.performance"),
+      hardwareCpu: "CPU",
+      hardwareGpu: "GPU",
+      hardwareMemory: t("navigation.hardware.memory"),
+      hardwareStorage: t("navigation.hardware.storage"),
+      hardwareSystem: t("navigation.hardware.system"),
       usage: t("pages.usage.name"),
       cpuDetail: "CPU",
       insights: t("pages.insights.name"),
@@ -98,6 +119,11 @@ const MenuItem = memo(
     const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
       dashboard: <SquaresFourIcon size={20} />,
       performance: <GaugeIcon size={20} />,
+      hardwareCpu: <CpuIcon size={20} />,
+      hardwareGpu: <GraphicsCardIcon size={20} />,
+      hardwareMemory: <MemoryIcon size={20} />,
+      hardwareStorage: <HardDrivesIcon size={20} />,
+      hardwareSystem: <DesktopTowerIcon size={20} />,
       usage: <ComputerTowerIcon size={20} />,
       cpuDetail: <CpuIcon size={20} />,
       insights: <ChartLineIcon size={20} />,
@@ -141,9 +167,29 @@ const ClosedSideMenu = ({
   selected: boolean;
   handleMenuClick: (type: SelectedDisplayType) => void;
 }) => {
+  const { t } = useTranslation();
+  const menuTitles: Record<SelectedDisplayType, string> = {
+    dashboard: t("pages.dashboard.name"),
+    performance: t("navigation.performance"),
+    hardwareCpu: "CPU",
+    hardwareGpu: "GPU",
+    hardwareMemory: t("navigation.hardware.memory"),
+    hardwareStorage: t("navigation.hardware.storage"),
+    hardwareSystem: t("navigation.hardware.system"),
+    usage: t("pages.usage.name"),
+    cpuDetail: "CPU",
+    insights: t("pages.insights.name"),
+    settings: t("pages.settings.name"),
+  };
+
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: <SquaresFourIcon size={24} />,
     performance: <GaugeIcon size={24} />,
+    hardwareCpu: <CpuIcon size={24} />,
+    hardwareGpu: <GraphicsCardIcon size={24} />,
+    hardwareMemory: <MemoryIcon size={24} />,
+    hardwareStorage: <HardDrivesIcon size={24} />,
+    hardwareSystem: <DesktopTowerIcon size={24} />,
     usage: <ComputerTowerIcon size={24} />,
     cpuDetail: <CpuIcon size={24} />,
     insights: <ChartLineIcon size={24} />,
@@ -167,6 +213,7 @@ const ClosedSideMenu = ({
         onMouseEnter={() => prefetchScreen(type)}
         onFocus={() => prefetchScreen(type)}
         aria-label={`open ${type}`}
+        title={menuTitles[type]}
       >
         {menuIcons[type]}
       </button>
@@ -207,6 +254,11 @@ export const SideMenu = memo(
                       : "close",
               })}
               onClick={toggleMenu}
+              aria-label={
+                isOpen
+                  ? t("navigation.collapseSidebar")
+                  : t("navigation.expandSidebar")
+              }
             >
               {caretIcon}
             </button>
@@ -230,6 +282,21 @@ export const SideMenu = memo(
                         handleMenuClick={handleMenuClick}
                         selected={displayTarget === "performance"}
                       />
+                      <li className="mt-4">
+                        <h3 className="mb-1 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+                          {t("navigation.hardware.title")}
+                        </h3>
+                        <ul className="ml-2 border-border border-l pl-2">
+                          {hardwareMenuTypes.map((type) => (
+                            <MenuItem
+                              key={type}
+                              type={type}
+                              handleMenuClick={handleMenuClick}
+                              selected={displayTarget === type}
+                            />
+                          ))}
+                        </ul>
+                      </li>
                       <li className="mt-5 mb-1 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
                         {t("navigation.insightSection")}
                       </li>

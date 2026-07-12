@@ -216,7 +216,15 @@
   "navigation": {
     "dashboardSection": "ダッシュボード",
     "performance": "パフォーマンス",
+    "hardware": {
+      "title": "ハードウェア",
+      "memory": "メモリ",
+      "storage": "ストレージ",
+      "system": "システム"
+    },
     "insightSection": "インサイト",
+    "expandSidebar": "サイドバーを開く",
+    "collapseSidebar": "サイドバーを閉じる",
     "notice": {
       "title": "ナビゲーションが新しくなりました",
       "description": "現在状態の確認はパフォーマンスから始められます。設定から以前のナビゲーションに戻すこともできます。",
@@ -275,6 +283,18 @@
           "critical": "重大",
           "unknown": "不明"
         }
+      }
+    },
+    "hardware": {
+      "unavailable": "このシステムでは{{category}}情報を利用できません。",
+      "system": {
+        "platformInformation": "プラットフォーム情報",
+        "operatingSystem": "オペレーティングシステム",
+        "version": "バージョン",
+        "architecture": "アーキテクチャ",
+        "hardwareReport": "ハードウェアレポート",
+        "hardwareReportDescription": "トラブルシューティングや共有のため、取得できたハードウェアとネットワークの情報をコピーします。",
+        "copyHardwareReport": "ハードウェアレポートをコピー"
       }
     },
     "performance": {

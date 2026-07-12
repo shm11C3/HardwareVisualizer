@@ -17,6 +17,11 @@ const classicDisplayTargets: SelectedDisplayType[] = [
 
 const groupedDisplayTargets: SelectedDisplayType[] = [
   "performance",
+  "hardwareCpu",
+  "hardwareGpu",
+  "hardwareMemory",
+  "hardwareStorage",
+  "hardwareSystem",
   "insights",
   "settings",
 ];
@@ -32,6 +37,14 @@ export const normalizeDisplayTarget = (
 
   if (allowedTargets.includes(displayTarget)) {
     return displayTarget;
+  }
+
+  if (navigationLayout === "grouped" && displayTarget === "cpuDetail") {
+    return "hardwareCpu";
+  }
+
+  if (navigationLayout === "classic" && displayTarget === "hardwareCpu") {
+    return "cpuDetail";
   }
 
   return navigationLayout === "grouped" ? "performance" : "dashboard";

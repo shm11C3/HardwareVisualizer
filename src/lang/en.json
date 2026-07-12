@@ -216,7 +216,15 @@
   "navigation": {
     "dashboardSection": "Dashboard",
     "performance": "Performance",
+    "hardware": {
+      "title": "Hardware",
+      "memory": "Memory",
+      "storage": "Storage",
+      "system": "System"
+    },
     "insightSection": "Insight",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
     "notice": {
       "title": "Navigation has been reorganized",
       "description": "Live monitoring now starts from Performance. You can return to the previous navigation from Settings.",
@@ -275,6 +283,18 @@
           "critical": "Critical",
           "unknown": "Unknown"
         }
+      }
+    },
+    "hardware": {
+      "unavailable": "{{category}} information is unavailable on this system.",
+      "system": {
+        "platformInformation": "Platform information",
+        "operatingSystem": "Operating system",
+        "version": "Version",
+        "architecture": "Architecture",
+        "hardwareReport": "Hardware report",
+        "hardwareReportDescription": "Copy the available hardware and network details for troubleshooting or sharing.",
+        "copyHardwareReport": "Copy hardware report"
       }
     },
     "performance": {

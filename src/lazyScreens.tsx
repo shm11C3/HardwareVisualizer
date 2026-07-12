@@ -20,6 +20,12 @@ export const Performance = React.lazy(() =>
   })),
 );
 
+export const HardwareCategoryScreen = React.lazy(() =>
+  import("./features/hardware/categories/HardwareCategoryScreen").then((m) => ({
+    default: m.HardwareCategoryScreen,
+  })),
+);
+
 export const CpuUsages = React.lazy(() =>
   import("./features/hardware/usage/cpu/CpuUsage").then((m) => ({
     default: m.CpuUsages,
@@ -47,9 +53,16 @@ export const prefetchScreen = async (type: SelectedDisplayType) => {
     case "performance":
       await import("./features/hardware/performance/Performance");
       break;
+    case "hardwareGpu":
+    case "hardwareMemory":
+    case "hardwareStorage":
+    case "hardwareSystem":
+      await import("./features/hardware/categories/HardwareCategoryScreen");
+      break;
     case "usage":
       await import("./features/hardware/usage/Usage");
       break;
+    case "hardwareCpu":
     case "cpuDetail":
       await import("./features/hardware/usage/cpu/CpuUsage");
       break;

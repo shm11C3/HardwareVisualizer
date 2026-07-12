@@ -99,11 +99,37 @@ describe("useMenu", () => {
   it("normalizes classic screens to Performance in grouped navigation", () => {
     expect(normalizeDisplayTarget("usage", "grouped")).toBe("performance");
     expect(normalizeDisplayTarget("dashboard", "grouped")).toBe("performance");
-    expect(normalizeDisplayTarget("cpuDetail", "grouped")).toBe("performance");
   });
 
-  it("normalizes Performance to the Hardware Dashboard in classic navigation", () => {
+  it("normalizes the shared CPU screen between navigation layouts", () => {
+    expect(normalizeDisplayTarget("cpuDetail", "grouped")).toBe("hardwareCpu");
+    expect(normalizeDisplayTarget("hardwareCpu", "classic")).toBe("cpuDetail");
+  });
+
+  it("normalizes grouped-only screens to the Hardware Dashboard in classic navigation", () => {
     expect(normalizeDisplayTarget("performance", "classic")).toBe("dashboard");
+    expect(normalizeDisplayTarget("hardwareGpu", "classic")).toBe("dashboard");
+    expect(normalizeDisplayTarget("hardwareMemory", "classic")).toBe(
+      "dashboard",
+    );
+    expect(normalizeDisplayTarget("hardwareStorage", "classic")).toBe(
+      "dashboard",
+    );
+    expect(normalizeDisplayTarget("hardwareSystem", "classic")).toBe(
+      "dashboard",
+    );
+  });
+
+  it("preserves grouped hardware category screens", () => {
+    for (const target of [
+      "hardwareCpu",
+      "hardwareGpu",
+      "hardwareMemory",
+      "hardwareStorage",
+      "hardwareSystem",
+    ] as const) {
+      expect(normalizeDisplayTarget(target, "grouped")).toBe(target);
+    }
   });
 
   it("preserves shared screens in both layouts", () => {

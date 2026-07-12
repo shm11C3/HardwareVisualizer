@@ -3,6 +3,7 @@ import {
   ChartTemplate,
   CpuUsages,
   Dashboard,
+  HardwareCategoryScreen,
   Insights,
   Performance,
   Settings,
@@ -30,7 +31,11 @@ import "@/lib/i18n";
 import {
   ChartLineIcon,
   CpuIcon,
+  DesktopTowerIcon,
   GearIcon,
+  GraphicsCardIcon,
+  HardDrivesIcon,
+  MemoryIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -217,6 +222,85 @@ const AppContent = () => {
         isFullScreen={Boolean(isFullScreen)}
         showTitle={visibleTypes.includes("dashboard")}
       />
+    ),
+    hardwareCpu: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("cpuDetail") ? <CpuIcon size={32} /> : undefined
+        }
+        title={
+          visibleTypes.includes("cpuDetail")
+            ? hardwareInfo.cpu?.name || "CPU"
+            : undefined
+        }
+        enabledBurnInShift
+      >
+        <CpuUsages />
+      </ScreenTemplate>
+    ),
+    hardwareGpu: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <GraphicsCardIcon size={32} />
+          ) : undefined
+        }
+        title={visibleTypes.includes("dashboard") ? "GPU" : undefined}
+        enabledBurnInShift
+      >
+        <HardwareCategoryScreen category="gpu" />
+      </ScreenTemplate>
+    ),
+    hardwareMemory: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <MemoryIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("navigation.hardware.memory")
+            : undefined
+        }
+        enabledBurnInShift
+      >
+        <HardwareCategoryScreen category="memory" />
+      </ScreenTemplate>
+    ),
+    hardwareStorage: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <HardDrivesIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("navigation.hardware.storage")
+            : undefined
+        }
+        enabledBurnInShift
+      >
+        <HardwareCategoryScreen category="storage" />
+      </ScreenTemplate>
+    ),
+    hardwareSystem: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <DesktopTowerIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("navigation.hardware.system")
+            : undefined
+        }
+        enabledBurnInShift
+      >
+        <HardwareCategoryScreen category="system" />
+      </ScreenTemplate>
     ),
     usage: <ChartTemplate isFullScreen={Boolean(isFullScreen)} />,
     cpuDetail: (
