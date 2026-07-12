@@ -152,9 +152,9 @@ const buildInvokeHandlers = (
     navigationLayout: fixtureOverrides.classicNavigation
       ? "classic"
       : settingsFixture.navigationLayout,
-    lastAcknowledgedAnnouncement: fixtureOverrides.showNavigationNotice
-      ? null
-      : settingsFixture.lastAcknowledgedAnnouncement,
+    uiAnnouncementVersion: fixtureOverrides.showNavigationNotice
+      ? 0
+      : settingsFixture.uiAnnouncementVersion,
   }),
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUPED_NAVIGATION_ANNOUNCEMENT_ID } from "./NavigationRestructureNotice";
+import { GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION } from "./NavigationRestructureNotice";
 
 const mockSetDisplayTargetAtom = vi.fn();
 const mockSetStoredDisplayTarget = vi.fn();
@@ -9,7 +9,7 @@ let mockMenuOpen = false;
 
 let mockSettings = {
   navigationLayout: "grouped" as "grouped" | "classic",
-  lastAcknowledgedAnnouncement: null as string | null,
+  uiAnnouncementVersion: 0,
 };
 
 vi.mock("jotai", async (importOriginal) => ({
@@ -44,7 +44,7 @@ describe("NavigationRestructureNotice", () => {
     vi.clearAllMocks();
     mockSettings = {
       navigationLayout: "grouped",
-      lastAcknowledgedAnnouncement: null,
+      uiAnnouncementVersion: 0,
     };
     mockMenuOpen = false;
   });
@@ -72,7 +72,7 @@ describe("NavigationRestructureNotice", () => {
 
     mockSettings = {
       navigationLayout: "grouped",
-      lastAcknowledgedAnnouncement: GROUPED_NAVIGATION_ANNOUNCEMENT_ID,
+      uiAnnouncementVersion: GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION,
     };
     rerender(<NavigationRestructureNotice settingsLoaded />);
     expect(

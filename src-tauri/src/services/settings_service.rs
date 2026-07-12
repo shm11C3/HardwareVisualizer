@@ -6,7 +6,7 @@ use crate::{log_error, log_info};
 use std::io::Write;
 
 pub const SETTINGS_FILENAME: &str = "settings.json";
-pub const GROUPED_NAVIGATION_ANNOUNCEMENT_ID: &str = "grouped-navigation-v1";
+pub const GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION: u32 = 1;
 const MIN_WINDOW_OPACITY: u8 = 20;
 const MAX_WINDOW_OPACITY: u8 = 100;
 const MIN_GLASS_BLUR: u8 = 0;
@@ -210,10 +210,7 @@ impl models::settings::Settings {
     try_field!(language, "language");
     try_field!(theme, "theme");
     try_field!(navigation_layout, "navigationLayout");
-    try_field!(
-      last_acknowledged_announcement,
-      "lastAcknowledgedAnnouncement"
-    );
+    try_field!(ui_announcement_version, "uiAnnouncementVersion");
     try_field!(display_targets, "displayTargets");
     try_field!(graph_size, "graphSize");
     try_field!(graph_fit_to_window, "graphFitToWindow");
@@ -304,16 +301,17 @@ impl models::settings::Settings {
     F: FnOnce(&Self) -> Result<(), String>,
   {
     let previous_layout = self.navigation_layout;
-    let previous_acknowledgement = self.last_acknowledged_announcement.clone();
+    let previous_announcement_version = self.ui_announcement_version;
     self.navigation_layout = new_layout;
     if new_layout == enums::settings::NavigationLayout::Classic {
-      self.last_acknowledged_announcement =
-        Some(GROUPED_NAVIGATION_ANNOUNCEMENT_ID.to_string());
+      self.ui_announcement_version = self
+        .ui_announcement_version
+        .max(GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION);
     }
 
     if let Err(error) = write_file(self) {
       self.navigation_layout = previous_layout;
-      self.last_acknowledged_announcement = previous_acknowledgement;
+      self.ui_announcement_version = previous_announcement_version;
       return Err(error);
     }
 
@@ -335,12 +333,13 @@ impl models::settings::Settings {
   where
     F: FnOnce(&Self) -> Result<(), String>,
   {
-    let previous_value = self.last_acknowledged_announcement.clone();
-    self.last_acknowledged_announcement =
-      Some(GROUPED_NAVIGATION_ANNOUNCEMENT_ID.to_string());
+    let previous_value = self.ui_announcement_version;
+    self.ui_announcement_version = self
+      .ui_announcement_version
+      .max(GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION);
 
     if let Err(error) = write_file(self) {
-      self.last_acknowledged_announcement = previous_value;
+      self.ui_announcement_version = previous_value;
       return Err(error);
     }
 
@@ -717,7 +716,7 @@ mod tests {
       settings.navigation_layout,
       enums::settings::NavigationLayout::Grouped
     );
-    assert_eq!(settings.last_acknowledged_announcement, None);
+    assert_eq!(settings.ui_announcement_version, 0);
   }
 
   #[test]
@@ -732,8 +731,28 @@ mod tests {
       .unwrap();
 
     assert_eq!(
-      settings.last_acknowledged_announcement.as_deref(),
-      Some(GROUPED_NAVIGATION_ANNOUNCEMENT_ID)
+      settings.ui_announcement_version,
+      GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION
+    );
+  }
+
+  #[test]
+  fn opting_out_does_not_regress_a_newer_announcement_version() {
+    let mut settings = models::settings::Settings {
+      ui_announcement_version: GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION + 1,
+      ..models::settings::Settings::default()
+    };
+
+    settings
+      .set_navigation_layout_with_writer(
+        enums::settings::NavigationLayout::Classic,
+        |_| Ok(()),
+      )
+      .unwrap();
+
+    assert_eq!(
+      settings.ui_announcement_version,
+      GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION + 1
     );
   }
 
@@ -747,7 +766,7 @@ mod tests {
       });
 
     assert_eq!(result, Err("write failed".to_string()));
-    assert_eq!(settings.last_acknowledged_announcement, None);
+    assert_eq!(settings.ui_announcement_version, 0);
   }
 
   #[test]

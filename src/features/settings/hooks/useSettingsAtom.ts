@@ -13,7 +13,7 @@ const settingsAtom = atom<ClientSettings>({
   language: "en",
   theme: "system",
   navigationLayout: "grouped",
-  lastAcknowledgedAnnouncement: null,
+  uiAnnouncementVersion: 0,
   displayTargets: [],
   graphSize: "xl",
   graphFitToWindow: false,
@@ -79,7 +79,7 @@ export const useSettingsAtom = () => {
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
       | "navigationLayout"
-      | "lastAcknowledgedAnnouncement"
+      | "uiAnnouncementVersion"
       | "trayWidget"
     >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
@@ -146,7 +146,7 @@ export const useSettingsAtom = () => {
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
       | "navigationLayout"
-      | "lastAcknowledgedAnnouncement"
+      | "uiAnnouncementVersion"
       | "trayWidget"
     >,
   >(
@@ -185,14 +185,16 @@ export const useSettingsAtom = () => {
     value: ClientSettings["navigationLayout"],
   ) => {
     const previousLayout = settings.navigationLayout;
-    const previousAcknowledgement = settings.lastAcknowledgedAnnouncement;
-    const acknowledgement =
-      value === "classic" ? "grouped-navigation-v1" : previousAcknowledgement;
+    const previousAnnouncementVersion = settings.uiAnnouncementVersion;
+    const announcementVersion =
+      value === "classic"
+        ? Math.max(previousAnnouncementVersion, 1)
+        : previousAnnouncementVersion;
 
     setSettings((prev) => ({
       ...prev,
       navigationLayout: value,
-      lastAcknowledgedAnnouncement: acknowledgement,
+      uiAnnouncementVersion: announcementVersion,
     }));
 
     const result = await commands.setNavigationLayout(value);
@@ -203,7 +205,7 @@ export const useSettingsAtom = () => {
       setSettings((prev) => ({
         ...prev,
         navigationLayout: previousLayout,
-        lastAcknowledgedAnnouncement: previousAcknowledgement,
+        uiAnnouncementVersion: previousAnnouncementVersion,
       }));
       return false;
     }
@@ -212,10 +214,10 @@ export const useSettingsAtom = () => {
   };
 
   const acknowledgeNavigationRestructureAnnouncementAtom = async () => {
-    const previousValue = settings.lastAcknowledgedAnnouncement;
+    const previousValue = settings.uiAnnouncementVersion;
     setSettings((prev) => ({
       ...prev,
-      lastAcknowledgedAnnouncement: "grouped-navigation-v1",
+      uiAnnouncementVersion: Math.max(prev.uiAnnouncementVersion, 1),
     }));
 
     const result =
@@ -226,7 +228,7 @@ export const useSettingsAtom = () => {
       console.error(result.error);
       setSettings((prev) => ({
         ...prev,
-        lastAcknowledgedAnnouncement: previousValue,
+        uiAnnouncementVersion: previousValue,
       }));
       return false;
     }

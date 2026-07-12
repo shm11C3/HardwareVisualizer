@@ -13,7 +13,7 @@ export const settingsFixture: ClientSettings_Serialize = {
   language: "en",
   theme: "dark",
   navigationLayout: "grouped",
-  lastAcknowledgedAnnouncement: "grouped-navigation-v1",
+  uiAnnouncementVersion: 1,
   displayTargets: ["cpu", "memory", "gpu"],
   graphSize: "xl",
   graphFitToWindow: false,

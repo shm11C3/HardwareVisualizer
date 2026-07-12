@@ -556,9 +556,7 @@ describe("useSettingsAtom", () => {
 
     expect(commands.setNavigationLayout).toHaveBeenCalledWith("classic");
     expect(result.current.settings.navigationLayout).toBe("classic");
-    expect(result.current.settings.lastAcknowledgedAnnouncement).toBe(
-      "grouped-navigation-v1",
-    );
+    expect(result.current.settings.uiAnnouncementVersion).toBe(1);
   });
 
   it("setNavigationLayoutAtom: save failure restores layout and acknowledgement", async () => {
@@ -570,16 +568,16 @@ describe("useSettingsAtom", () => {
       wrapper: Provider,
     });
     const previousLayout = result.current.settings.navigationLayout;
-    const previousAcknowledgement =
-      result.current.settings.lastAcknowledgedAnnouncement;
+    const previousAnnouncementVersion =
+      result.current.settings.uiAnnouncementVersion;
 
     await act(async () => {
       await result.current.setNavigationLayoutAtom("classic");
     });
 
     expect(result.current.settings.navigationLayout).toBe(previousLayout);
-    expect(result.current.settings.lastAcknowledgedAnnouncement).toBe(
-      previousAcknowledgement,
+    expect(result.current.settings.uiAnnouncementVersion).toBe(
+      previousAnnouncementVersion,
     );
   });
 
@@ -598,8 +596,6 @@ describe("useSettingsAtom", () => {
     expect(
       commands.acknowledgeNavigationRestructureAnnouncement,
     ).toHaveBeenCalledOnce();
-    expect(result.current.settings.lastAcknowledgedAnnouncement).toBe(
-      "grouped-navigation-v1",
-    );
+    expect(result.current.settings.uiAnnouncementVersion).toBe(1);
   });
 });

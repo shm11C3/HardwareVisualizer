@@ -44,7 +44,7 @@ pub struct Settings {
   pub language: String,
   pub theme: enums::settings::Theme,
   pub navigation_layout: enums::settings::NavigationLayout,
-  pub last_acknowledged_announcement: Option<String>,
+  pub ui_announcement_version: u32,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
   pub graph_fit_to_window: bool,
@@ -94,7 +94,7 @@ pub struct ClientSettings {
   pub language: String,
   pub theme: enums::settings::Theme,
   pub navigation_layout: enums::settings::NavigationLayout,
-  pub last_acknowledged_announcement: Option<String>,
+  pub ui_announcement_version: u32,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
   pub graph_fit_to_window: bool,
@@ -135,7 +135,7 @@ impl Default for Settings {
       language: services::language_service::get_default_language().to_string(),
       theme: enums::settings::Theme::System,
       navigation_layout: enums::settings::NavigationLayout::Grouped,
-      last_acknowledged_announcement: None,
+      ui_announcement_version: 0,
       display_targets: vec![
         enums::hardware::HardwareType::Cpu,
         enums::hardware::HardwareType::Memory,
@@ -287,7 +287,7 @@ mod tests {
       language: "en".to_string(),
       theme: enums::settings::Theme::Dark,
       navigation_layout: enums::settings::NavigationLayout::Classic,
-      last_acknowledged_announcement: Some("grouped-navigation-v1".to_string()),
+      ui_announcement_version: 1,
       display_targets: vec![enums::hardware::HardwareType::Cpu],
       graph_size: enums::settings::GraphSize::XL,
       graph_fit_to_window: false,
@@ -459,8 +459,8 @@ mod tests {
     assert_eq!(settings.theme, defaults.theme);
     assert_eq!(settings.navigation_layout, defaults.navigation_layout);
     assert_eq!(
-      settings.last_acknowledged_announcement,
-      defaults.last_acknowledged_announcement
+      settings.ui_announcement_version,
+      defaults.ui_announcement_version
     );
     assert_eq!(settings.graph_size, defaults.graph_size);
     assert_eq!(settings.line_graph_border, defaults.line_graph_border);

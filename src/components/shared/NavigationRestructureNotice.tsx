@@ -11,7 +11,7 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
 
-export const GROUPED_NAVIGATION_ANNOUNCEMENT_ID = "grouped-navigation-v1";
+export const GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION = 1;
 
 export const NavigationRestructureNotice = ({
   settingsLoaded,
@@ -31,7 +31,7 @@ export const NavigationRestructureNotice = ({
   if (
     !settingsLoaded ||
     settings.navigationLayout !== "grouped" ||
-    settings.lastAcknowledgedAnnouncement === GROUPED_NAVIGATION_ANNOUNCEMENT_ID
+    settings.uiAnnouncementVersion >= GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION
   ) {
     return null;
   }

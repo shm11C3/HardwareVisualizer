@@ -134,7 +134,7 @@ pub mod commands {
       language: settings.language,
       theme: settings.theme,
       navigation_layout: settings.navigation_layout,
-      last_acknowledged_announcement: settings.last_acknowledged_announcement,
+      ui_announcement_version: settings.ui_announcement_version,
       display_targets: settings.display_targets,
       graph_size: settings.graph_size,
       graph_fit_to_window: settings.graph_fit_to_window,
