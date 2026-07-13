@@ -12,6 +12,10 @@ import {
   performanceCustomLayoutsEqual,
 } from "../types/performanceLayout";
 
+const reportCustomLayoutPersistenceError = (error: unknown) => {
+  console.error("Failed to persist custom Performance layout:", error);
+};
+
 export const usePerformanceLayout = () => {
   const [storedPreset, setStoredPreset, isPresetPending] =
     useTauriStore<unknown>(
@@ -91,7 +95,9 @@ export const usePerformanceLayout = () => {
     ) {
       return;
     }
-    void enqueueCustomLayoutMutation(() => customLayout);
+    void enqueueCustomLayoutMutation(() => customLayout).catch(
+      reportCustomLayoutPersistenceError,
+    );
   }, [
     customLayout,
     enqueueCustomLayoutMutation,
@@ -115,6 +121,9 @@ export const usePerformanceLayout = () => {
           ? currentLayout.visible.filter((candidate) => candidate !== panel)
           : [...currentLayout.visible, panel],
       };
+    }).catch((error) => {
+      reportCustomLayoutPersistenceError(error);
+      return false;
     });
 
   const handlePanelDragEnd = (event: DragEndEvent) => {
@@ -138,7 +147,7 @@ export const usePerformanceLayout = () => {
         ...currentLayout,
         order: arrayMove(currentLayout.order, oldIndex, newIndex),
       };
-    });
+    }).catch(reportCustomLayoutPersistenceError);
   };
 
   return {
