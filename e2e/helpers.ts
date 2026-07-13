@@ -86,6 +86,9 @@ export const navigateTo = async (
     | "settings",
 ) => {
   const target = page.getByRole("button", { name: `open ${type}` });
+  await expect(page.locator('[data-settings-loaded="true"]')).toBeAttached({
+    timeout: BOOTSTRAP_TIMEOUT,
+  });
   await expect(page.getByRole("button", { name: "open settings" })).toBeVisible(
     { timeout: BOOTSTRAP_TIMEOUT },
   );
