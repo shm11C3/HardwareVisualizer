@@ -266,6 +266,42 @@
         }
       }
     },
+    "performance": {
+      "description": "Текущие значения и последние 60 секунд в подходящем для наблюдения виде.",
+      "shortWindow": "Последние 60 секунд",
+      "layoutPreset": "Макет производительности",
+      "customizePanels": "Настраиваемые панели",
+      "customizePanelsDescription": "Выберите активные данные и перетащите панели в нужном порядке.",
+      "reorderPanel": "Изменить порядок: {{panel}}",
+      "metrics": {
+        "cpu": "ЦП",
+        "memory": "Память",
+        "gpu": "ГП"
+      },
+      "presets": {
+        "compact": {
+          "name": "Компактный"
+        },
+        "monitor": {
+          "name": "Монитор"
+        },
+        "detailed": {
+          "name": "Подробный"
+        },
+        "custom": {
+          "name": "Свой"
+        }
+      },
+      "panels": {
+        "currentValues": "Текущие значения",
+        "usageGraphs": "Графики использования",
+        "processTable": "Активные процессы"
+      },
+      "panelDescriptions": {
+        "usageGraphs": "Недавняя активность ЦП, памяти и ГП.",
+        "processTable": "Процессы, использующие ЦП и память сейчас."
+      }
+    },
     "usage": {
       "name": "Использование"
     },

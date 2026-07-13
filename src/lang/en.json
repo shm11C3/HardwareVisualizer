@@ -277,6 +277,42 @@
         }
       }
     },
+    "performance": {
+      "description": "Live values and the last 60 seconds, arranged for the way you are monitoring.",
+      "shortWindow": "Last 60 seconds",
+      "layoutPreset": "Performance layout",
+      "customizePanels": "Custom panels",
+      "customizePanelsDescription": "Choose what stays live and drag panels into the order you need.",
+      "reorderPanel": "Reorder {{panel}}",
+      "metrics": {
+        "cpu": "CPU",
+        "memory": "RAM",
+        "gpu": "GPU"
+      },
+      "presets": {
+        "compact": {
+          "name": "Compact"
+        },
+        "monitor": {
+          "name": "Monitor"
+        },
+        "detailed": {
+          "name": "Detailed"
+        },
+        "custom": {
+          "name": "Custom"
+        }
+      },
+      "panels": {
+        "currentValues": "Current values",
+        "usageGraphs": "Usage graphs",
+        "processTable": "Live processes"
+      },
+      "panelDescriptions": {
+        "usageGraphs": "CPU, RAM, and GPU activity over the short window.",
+        "processTable": "Processes currently using CPU and memory."
+      }
+    },
     "usage": {
       "name": "Usage"
     },

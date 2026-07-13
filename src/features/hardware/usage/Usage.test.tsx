@@ -62,6 +62,7 @@ describe("ChartTemplate", () => {
 
     const layout = screen.getByTestId("usage-chart-layout");
     expect(layout).toHaveClass("p-8");
+    expect(layout).not.toHaveClass("space-y-4");
     expect(layout).not.toHaveStyle({ padding: "32px" });
     expect(screen.getAllByTestId("usage-chart")).toHaveLength(3);
     for (const chart of screen.getAllByTestId("usage-chart")) {

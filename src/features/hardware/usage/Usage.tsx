@@ -17,6 +17,14 @@ type UsageChartProps = {
   fitToContainer: boolean;
 };
 
+type UsageGraphPanelProps = {
+  fitToContainer?: boolean;
+  height?: string;
+  padding?: number;
+  className?: string;
+  testId?: string;
+};
+
 const CpuUsageChart = ({ fitToContainer }: UsageChartProps) => {
   const [cpuUsageHistory] = useAtom(cpuUsageHistoryAtom);
   const { settings } = useSettingsAtom();
@@ -88,13 +96,15 @@ const MixUsageChart = ({ fitToContainer }: UsageChartProps) => {
   );
 };
 
-export const ChartTemplate = ({
-  isFullScreen = false,
-}: {
-  isFullScreen?: boolean;
-}) => {
+export const UsageGraphPanel = ({
+  fitToContainer: fitToContainerOverride,
+  height,
+  padding,
+  className,
+  testId = "usage-graph-panel",
+}: UsageGraphPanelProps) => {
   const { settings } = useSettingsAtom();
-  const fitToContainer = settings.graphFitToWindow;
+  const fitToContainer = fitToContainerOverride ?? settings.graphFitToWindow;
 
   const renderedCharts = settings.lineGraphMix ? (
     <MixUsageChart fitToContainer={fitToContainer} />
@@ -114,25 +124,45 @@ export const ChartTemplate = ({
 
   const fitStyle = fitToContainer
     ? ({
-        height: "calc(100dvh - var(--burnin-padding) - var(--burnin-padding))",
-        padding: `${settings.graphMarginPx}px`,
+        height,
+        padding: `${padding ?? settings.graphMarginPx}px`,
       } satisfies CSSProperties)
     : undefined;
 
   return (
+    <div
+      className={cn(
+        fitToContainer
+          ? "flex min-h-0 flex-col gap-4 overflow-y-auto"
+          : undefined,
+        className,
+      )}
+      style={fitStyle}
+      data-testid={testId}
+    >
+      {renderedCharts}
+    </div>
+  );
+};
+
+export const ChartTemplate = ({
+  isFullScreen = false,
+}: {
+  isFullScreen?: boolean;
+}) => {
+  const { settings } = useSettingsAtom();
+  const fitToContainer = settings.graphFitToWindow;
+  const fitHeight =
+    "calc(100dvh - var(--burnin-padding) - var(--burnin-padding))";
+
+  return (
     <BurnInShift enabled paddingOverride={fitToContainer ? 0 : undefined}>
-      <div
-        className={cn(
-          fitToContainer
-            ? "flex min-h-0 flex-col gap-4 overflow-y-auto"
-            : "p-8",
-          !isFullScreen && "ml-16",
-        )}
-        style={fitStyle}
-        data-testid="usage-chart-layout"
-      >
-        {renderedCharts}
-      </div>
+      <UsageGraphPanel
+        fitToContainer={fitToContainer}
+        height={fitHeight}
+        className={cn(!fitToContainer && "p-8", !isFullScreen && "ml-16")}
+        testId="usage-chart-layout"
+      />
     </BurnInShift>
   );
 };

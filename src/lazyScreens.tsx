@@ -14,6 +14,12 @@ export const ChartTemplate = React.lazy(() =>
   })),
 );
 
+export const Performance = React.lazy(() =>
+  import("./features/hardware/performance/Performance").then((m) => ({
+    default: m.Performance,
+  })),
+);
+
 export const CpuUsages = React.lazy(() =>
   import("./features/hardware/usage/cpu/CpuUsage").then((m) => ({
     default: m.CpuUsages,
@@ -36,8 +42,10 @@ export const Settings = React.lazy(() =>
 export const prefetchScreen = async (type: SelectedDisplayType) => {
   switch (type) {
     case "dashboard":
-    case "performance":
       await import("./features/hardware/dashboard/Dashboard");
+      break;
+    case "performance":
+      await import("./features/hardware/performance/Performance");
       break;
     case "usage":
       await import("./features/hardware/usage/Usage");
