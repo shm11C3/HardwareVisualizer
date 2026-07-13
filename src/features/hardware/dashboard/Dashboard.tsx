@@ -50,6 +50,11 @@ type DataTypeKey =
   | "motherboard";
 
 const EMPTY_EXCLUDED_ITEMS: readonly DashboardItemType[] = [];
+const SPECIFICATIONS_ITEM_STORE_KEY = "systemSpecificationsItem";
+const SPECIFICATIONS_VISIBLE_ITEMS_STORE_KEY =
+  "systemSpecificationsVisibleItems";
+const SPECIFICATIONS_VISIBLE_ITEMS_VERSION_STORE_KEY =
+  "systemSpecificationsVisibleItemsVersion";
 
 export const Dashboard = ({
   excludedItems = EMPTY_EXCLUDED_ITEMS,
@@ -61,11 +66,23 @@ export const Dashboard = ({
   specificationsMode?: boolean;
 }) => {
   const { hardwareInfo } = useHardwareInfoAtom();
-  const { dashboardItemMap, handleDragOver } = useSortableDashboard();
+  const { dashboardItemMap, handleDragOver } = useSortableDashboard({
+    storeKey: specificationsMode
+      ? SPECIFICATIONS_ITEM_STORE_KEY
+      : "dashboardItem",
+  });
   const { settings } = useSettingsAtom();
   const { t } = useTranslation();
   const sensors = useSensors(useSensor(PointerSensor));
-  const { visibleItems, toggleItem } = useDashboardSelector();
+  const { visibleItems, toggleItem } = useDashboardSelector({
+    visibleItemsKey: specificationsMode
+      ? SPECIFICATIONS_VISIBLE_ITEMS_STORE_KEY
+      : "dashboardVisibleItems",
+    visibleItemsVersionKey: specificationsMode
+      ? SPECIFICATIONS_VISIBLE_ITEMS_VERSION_STORE_KEY
+      : "dashboardVisibleItemsVersion",
+    syncDashboardTitleVisibility: !specificationsMode,
+  });
   const os = platform();
 
   const dataAreaKey2Title: Partial<Record<DataTypeKey, string>> = {
@@ -156,7 +173,9 @@ export const Dashboard = ({
         <DashboardItemSelector
           visibleItems={visibleItems}
           toggleItem={toggleItem}
-          excludedItems={excludedItems}
+          excludedItems={
+            specificationsMode ? [...excludedItems, "title"] : excludedItems
+          }
         />
         <ExportHardwareInfo includeRuntimeStats={!specificationsMode} />
       </div>

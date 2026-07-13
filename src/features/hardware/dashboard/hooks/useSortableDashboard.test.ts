@@ -52,6 +52,17 @@ describe("useSortableDashboard", () => {
     expect(result.current.dashboardItemMap).toEqual([...dashBoardItems]);
   });
 
+  it("uses a separate store key when requested", () => {
+    renderHook(
+      () => useSortableDashboard({ storeKey: "systemSpecificationsItem" }),
+      { wrapper: Provider },
+    );
+
+    expect(useTauriStore).toHaveBeenCalledWith("systemSpecificationsItem", [
+      ...dashBoardItems,
+    ]);
+  });
+
   it("handleDragOver: swaps items when active and over differ", () => {
     const { result } = renderHook(() => useSortableDashboard(), {
       wrapper: Provider,

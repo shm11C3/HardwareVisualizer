@@ -117,13 +117,38 @@ describe("useMenu", () => {
       },
     );
 
-    expect(result.current.displayTarget).toBe("usage");
+    expect(result.current.displayTarget).toBeNull();
     expect(mockSetDisplayTarget).not.toHaveBeenCalled();
 
     rerender({ navigationLayout: "classic", settingsLoaded: true });
 
     expect(result.current.displayTarget).toBe("usage");
     expect(mockSetDisplayTarget).not.toHaveBeenCalled();
+  });
+
+  it("does not publish a legacy Performance target before settings load", () => {
+    vi.mocked(useTauriStore).mockImplementation((key: string) => {
+      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false];
+      if (key === "display")
+        return ["performance", mockSetDisplayTarget, false];
+      return [null, vi.fn(), false];
+    }) as unknown as typeof useTauriStore;
+
+    const { result, rerender } = renderHook(
+      ({ settingsLoaded }) => useMenu("grouped", settingsLoaded),
+      {
+        initialProps: { settingsLoaded: false },
+        wrapper: Provider,
+      },
+    );
+
+    expect(result.current.displayTarget).toBeNull();
+    expect(mockSetDisplayTarget).not.toHaveBeenCalled();
+
+    rerender({ settingsLoaded: true });
+
+    expect(result.current.displayTarget).toBe("groupedDashboard");
+    expect(mockSetDisplayTarget).toHaveBeenCalledWith("groupedDashboard");
   });
 
   it("normalizes classic and legacy Performance screens to the grouped Dashboard", () => {

@@ -7,11 +7,15 @@ import { type DashboardItemType, dashBoardItems } from "../types/dashboardItem";
 
 const DEFAULT_DASHBOARD_ITEMS = [...dashBoardItems];
 
-export const useSortableDashboard = () => {
+export const useSortableDashboard = ({
+  storeKey = "dashboardItem",
+}: {
+  storeKey?: string;
+} = {}) => {
   const { init } = useHardwareInfoAtom();
   const [dashboardItemMap, setDashboardItemMap] = useTauriStore<
     DashboardItemType[]
-  >("dashboardItem", DEFAULT_DASHBOARD_ITEMS);
+  >(storeKey, DEFAULT_DASHBOARD_ITEMS);
 
   const handleDragOver = (event: DragEndEvent) => {
     const { active, over } = event;

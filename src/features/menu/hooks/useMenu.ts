@@ -52,7 +52,7 @@ export const useMenu = (
   useEffect(() => {
     if (displayTarget && !isDisplayPending) {
       if (!settingsLoaded) {
-        setDisplayTargetAtom(displayTarget);
+        setDisplayTargetAtom(null);
         return;
       }
 
