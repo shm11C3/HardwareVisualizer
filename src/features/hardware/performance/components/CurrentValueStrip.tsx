@@ -5,7 +5,7 @@ import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuTempMapAtom,
-  graphicUsageHistoryAtom,
+  gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
   selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
@@ -37,21 +37,33 @@ const Sparkline = ({
   values: (number | null)[];
   color: string;
 }) => {
-  const points = useMemo(() => {
+  const segments = useMemo(() => {
     const width = 180;
     const height = 48;
     const denominator = Math.max(values.length - 1, 1);
+    const nextSegments: Array<{ startIndex: number; points: string[] }> = [];
 
-    return values
-      .map((value, index) =>
-        value == null
-          ? null
-          : `${(index / denominator) * width},${
-              height - (Math.min(100, Math.max(0, value)) / 100) * height
-            }`,
-      )
-      .filter((point): point is string => point != null)
-      .join(" ");
+    values.forEach((value, index) => {
+      if (value == null) {
+        return;
+      }
+
+      const point = `${(index / denominator) * width},${
+        height - (Math.min(100, Math.max(0, value)) / 100) * height
+      }`;
+      const previousValue = values[index - 1];
+      if (index === 0 || previousValue == null) {
+        nextSegments.push({ startIndex: index, points: [point] });
+        return;
+      }
+
+      nextSegments.at(-1)?.points.push(point);
+    });
+
+    return nextSegments.map(({ startIndex, points }) => ({
+      startIndex,
+      points: points.join(" "),
+    }));
   }, [values]);
 
   return (
@@ -67,8 +79,9 @@ const Sparkline = ({
         strokeOpacity="0.12"
         vectorEffect="non-scaling-stroke"
       />
-      {points && (
+      {segments.map(({ startIndex, points }) => (
         <polyline
+          key={startIndex}
           points={points}
           fill="none"
           stroke={color}
@@ -77,7 +90,7 @@ const Sparkline = ({
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
-      )}
+      ))}
     </svg>
   );
 };
@@ -85,11 +98,13 @@ const Sparkline = ({
 const MetricSignal = memo(
   ({
     label,
+    metricId,
     history,
     color,
     temperature,
   }: {
     label: string;
+    metricId: "cpu" | "memory" | "gpu";
     history: (number | null)[];
     color: string;
     temperature?: string | undefined;
@@ -101,7 +116,7 @@ const MetricSignal = memo(
       <article
         className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-card/80 p-4 shadow-sm"
         style={{ "--metric-color": color } as CSSProperties}
-        data-testid={`performance-metric-${label.toLowerCase()}`}
+        data-testid={`performance-metric-${metricId}`}
       >
         <div
           className="absolute inset-x-0 top-0 h-0.5 bg-[var(--metric-color)]"
@@ -137,14 +152,22 @@ export const CurrentValueStrip = ({ className }: { className?: string }) => {
   const { t } = useTranslation();
   const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
   const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
-  const gpuHistory = useAtomValue(graphicUsageHistoryAtom);
+  const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
   const selectedGpuId = useAtomValue(selectedGpuIdAtom);
   const { settings } = useSettingsAtom();
+  const effectiveGpuId =
+    selectedGpuId != null && Object.hasOwn(gpuUsageHistories, selectedGpuId)
+      ? selectedGpuId
+      : (Object.keys(gpuUsageHistories)[0] ??
+        Object.keys(gpuTemperatureMap)[0]);
+  const gpuHistory =
+    effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
   const gpuTemperature =
-    (selectedGpuId != null ? gpuTemperatureMap[selectedGpuId]?.value : null) ??
-    Object.values(gpuTemperatureMap)[0]?.value;
+    effectiveGpuId != null
+      ? gpuTemperatureMap[effectiveGpuId]?.value
+      : undefined;
 
   return (
     <section
@@ -153,7 +176,8 @@ export const CurrentValueStrip = ({ className }: { className?: string }) => {
       data-testid="performance-current-values"
     >
       <MetricSignal
-        label="CPU"
+        metricId="cpu"
+        label={t("pages.performance.metrics.cpu")}
         history={cpuHistory}
         color={toCssColor(settings.lineGraphColor.cpu)}
         temperature={formatTemperature(
@@ -162,12 +186,14 @@ export const CurrentValueStrip = ({ className }: { className?: string }) => {
         )}
       />
       <MetricSignal
-        label="RAM"
+        metricId="memory"
+        label={t("pages.performance.metrics.memory")}
         history={memoryHistory}
         color={toCssColor(settings.lineGraphColor.memory)}
       />
       <MetricSignal
-        label="GPU"
+        metricId="gpu"
+        label={t("pages.performance.metrics.gpu")}
         history={gpuHistory}
         color={toCssColor(settings.lineGraphColor.gpu)}
         temperature={formatTemperature(

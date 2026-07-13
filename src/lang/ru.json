@@ -293,6 +293,11 @@
       "customizePanels": "Настраиваемые панели",
       "customizePanelsDescription": "Выберите активные данные и перетащите панели в нужном порядке.",
       "reorderPanel": "Изменить порядок: {{panel}}",
+      "metrics": {
+        "cpu": "ЦП",
+        "memory": "Память",
+        "gpu": "ГП"
+      },
       "presets": {
         "compact": {
           "name": "Компактный"

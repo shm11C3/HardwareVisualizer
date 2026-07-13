@@ -244,7 +244,10 @@ export const SideMenu = memo(
 
     return (
       isOpen != null && (
-        <div className="inset-0">
+        <div
+          className="inset-0"
+          data-settings-loaded={settingsLoaded ? "true" : "false"}
+        >
           <div className="fixed z-60">
             {/** Show icon only when cursor is near */}
             <button

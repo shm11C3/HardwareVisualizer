@@ -304,6 +304,11 @@
       "customizePanels": "Custom panels",
       "customizePanelsDescription": "Choose what stays live and drag panels into the order you need.",
       "reorderPanel": "Reorder {{panel}}",
+      "metrics": {
+        "cpu": "CPU",
+        "memory": "RAM",
+        "gpu": "GPU"
+      },
       "presets": {
         "compact": {
           "name": "Compact"
