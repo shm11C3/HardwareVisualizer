@@ -270,7 +270,10 @@ export const SideMenu = memo(
               {caretIcon}
             </button>
             {/** Opened */}
-            <div className={sideMenuClasses({ open: isOpen })}>
+            <div
+              className={sideMenuClasses({ open: isOpen })}
+              data-testid="expanded-side-menu"
+            >
               <div className="relative flex h-full flex-col">
                 <ul className="p-4 pb-16">
                   {/* bottom space for settings */}

@@ -58,6 +58,12 @@ test.describe("Hardware Category Screens", () => {
     await expect(
       page.getByRole("button", { name: "Collapse sidebar" }),
     ).toBeVisible();
+    const expandedSideMenu = page.getByTestId("expanded-side-menu");
+    await expect
+      .poll(async () =>
+        Math.round((await expandedSideMenu.boundingBox())?.x ?? -1),
+      )
+      .toBe(0);
     for (const label of ["CPU", "GPU", "Memory", "Storage", "System"]) {
       await expect(page.getByRole("tab", { name: `${label} tab` })).toBeVisible(
         { timeout: BOOTSTRAP_TIMEOUT },
