@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
   PerformanceCustomLayout,
@@ -35,6 +35,10 @@ describe("usePerformanceLayout", () => {
         ? ([preset, setPreset, false] as never)
         : ([customLayout, setCustomLayout, false] as never),
     );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("persists preset selection in UI-local store", async () => {
@@ -115,5 +119,48 @@ describe("usePerformanceLayout", () => {
       order: ["currentValues", "usageGraphs", "processTable"],
       visible: ["processTable"],
     });
+  });
+
+  it("handles rejected panel visibility writes without leaking the rejection", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    setCustomLayout.mockRejectedValueOnce(persistenceError);
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    let changed = true;
+    await act(async () => {
+      changed = await result.current.togglePanel("currentValues");
+    });
+
+    expect(changed).toBe(false);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to persist custom Performance layout:",
+      persistenceError,
+    );
+  });
+
+  it("handles rejected panel-order writes without leaking the rejection", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    setCustomLayout.mockRejectedValueOnce(persistenceError);
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    act(() => {
+      result.current.handlePanelDragEnd({
+        active: { id: "processTable" },
+        over: { id: "currentValues" },
+      } as never);
+    });
+
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to persist custom Performance layout:",
+        persistenceError,
+      ),
+    );
   });
 });
