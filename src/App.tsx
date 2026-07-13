@@ -230,7 +230,7 @@ const AppContent = () => {
         }
         title={
           visibleTypes.includes("cpuDetail")
-            ? hardwareInfo.cpu?.name || "CPU"
+            ? hardwareInfo.cpu?.name || t("navigation.hardware.cpu")
             : undefined
         }
         enabledBurnInShift
@@ -245,7 +245,11 @@ const AppContent = () => {
             <GraphicsCardIcon size={32} />
           ) : undefined
         }
-        title={visibleTypes.includes("dashboard") ? "GPU" : undefined}
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("navigation.hardware.gpu")
+            : undefined
+        }
         enabledBurnInShift
       >
         <HardwareCategoryScreen category="gpu" />

@@ -218,6 +218,8 @@
     "performance": "Performance",
     "hardware": {
       "title": "Hardware",
+      "cpu": "CPU",
+      "gpu": "GPU",
       "memory": "Memory",
       "storage": "Storage",
       "system": "System"

@@ -1056,8 +1056,13 @@ export const NetworkInfo = ({
     };
   }, []);
 
-  if (isLoading && unavailableContent) {
-    return <Skeleton className="h-[188px] w-full rounded-md" />;
+  if (isLoading) {
+    return (
+      <Skeleton
+        className="h-[188px] w-full rounded-md"
+        data-testid="network-info-loading"
+      />
+    );
   }
 
   if (networkInfo.length === 0 && unavailableContent) {

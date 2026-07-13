@@ -40,6 +40,8 @@ type EventEmitArgs = { event: string; payload?: unknown };
 type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
 type FixtureOverrides = {
   storageDeviceCount: number | null;
+  gpuUnavailable: boolean;
+  memoryUnavailable: boolean;
   showNavigationNotice: boolean;
   classicNavigation: boolean;
 };
@@ -55,9 +57,8 @@ const MAX_STORAGE_DEVICE_STUB_COUNT = 32;
 const storeKey = (args?: unknown) => (args as { key: string }).key;
 
 const readFixtureOverrides = (): FixtureOverrides => {
-  const rawStorageDeviceCount = new URLSearchParams(window.location.search).get(
-    "storageDevices",
-  );
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawStorageDeviceCount = searchParams.get("storageDevices");
   const parsedStorageDeviceCount =
     rawStorageDeviceCount == null
       ? Number.NaN
@@ -70,13 +71,10 @@ const readFixtureOverrides = (): FixtureOverrides => {
           Math.min(MAX_STORAGE_DEVICE_STUB_COUNT, parsedStorageDeviceCount),
         )
       : null,
-    showNavigationNotice:
-      new URLSearchParams(window.location.search).get(
-        "showNavigationNotice",
-      ) === "1",
-    classicNavigation:
-      new URLSearchParams(window.location.search).get("navigationLayout") ===
-      "classic",
+    gpuUnavailable: searchParams.get("gpuDevices") === "0",
+    memoryUnavailable: searchParams.get("memoryModules") === "0",
+    showNavigationNotice: searchParams.get("showNavigationNotice") === "1",
+    classicNavigation: searchParams.get("navigationLayout") === "classic",
   };
 };
 
@@ -158,13 +156,15 @@ const buildInvokeHandlers = (
       ? 0
       : settingsFixture.uiAnnouncementVersion,
   }),
-  get_hardware_info: () =>
-    fixtureOverrides.storageDeviceCount == null
-      ? sysInfoFixture
-      : {
-          ...sysInfoFixture,
-          storage: buildStorageInfoFixture(fixtureOverrides.storageDeviceCount),
-        },
+  get_hardware_info: () => ({
+    ...sysInfoFixture,
+    memory: fixtureOverrides.memoryUnavailable ? null : sysInfoFixture.memory,
+    gpus: fixtureOverrides.gpuUnavailable ? [] : sysInfoFixture.gpus,
+    storage:
+      fixtureOverrides.storageDeviceCount == null
+        ? sysInfoFixture.storage
+        : buildStorageInfoFixture(fixtureOverrides.storageDeviceCount),
+  }),
   get_process_list: () => processListFixture,
   get_storage_health_latest_records: () =>
     fixtureOverrides.storageDeviceCount == null

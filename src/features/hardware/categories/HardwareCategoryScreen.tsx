@@ -47,6 +47,37 @@ const UnavailableState = ({ label }: { label: string }) => {
 
 const LoadingPanel = () => <Skeleton className="h-[240px] w-full rounded-xl" />;
 
+const SimpleCategoryPanel = ({
+  category,
+  label,
+  isLoading,
+  hasData,
+  maxWidthClassName,
+  children,
+}: {
+  category: Exclude<HardwareCategory, "system">;
+  label: string;
+  isLoading: boolean;
+  hasData: boolean;
+  maxWidthClassName: string;
+  children: ReactNode;
+}) => (
+  <div
+    className={`mx-auto ${maxWidthClassName}`}
+    data-testid={`hardware-category-${category}`}
+  >
+    <CategoryPanel title={label}>
+      {isLoading ? (
+        <LoadingPanel />
+      ) : hasData ? (
+        children
+      ) : (
+        <UnavailableState label={label} />
+      )}
+    </CategoryPanel>
+  </div>
+);
+
 const SystemPlatformInfo = () => {
   const { t } = useTranslation();
 
@@ -84,7 +115,7 @@ export const HardwareCategoryScreen = ({
   }, []);
 
   const labels: Record<HardwareCategory, string> = {
-    gpu: "GPU",
+    gpu: t("navigation.hardware.gpu"),
     memory: t("navigation.hardware.memory"),
     storage: t("navigation.hardware.storage"),
     system: t("navigation.hardware.system"),
@@ -92,52 +123,43 @@ export const HardwareCategoryScreen = ({
 
   if (category === "gpu") {
     return (
-      <div className="mx-auto max-w-5xl" data-testid="hardware-category-gpu">
-        <CategoryPanel title={labels.gpu}>
-          {isLoading ? (
-            <LoadingPanel />
-          ) : hardwareInfo.gpus && hardwareInfo.gpus.length > 0 ? (
-            <GPUInfo />
-          ) : (
-            <UnavailableState label={labels.gpu} />
-          )}
-        </CategoryPanel>
-      </div>
+      <SimpleCategoryPanel
+        category="gpu"
+        label={labels.gpu}
+        isLoading={isLoading}
+        hasData={Boolean(hardwareInfo.gpus && hardwareInfo.gpus.length > 0)}
+        maxWidthClassName="max-w-5xl"
+      >
+        <GPUInfo />
+      </SimpleCategoryPanel>
     );
   }
 
   if (category === "memory") {
     return (
-      <div className="mx-auto max-w-5xl" data-testid="hardware-category-memory">
-        <CategoryPanel title={labels.memory}>
-          {isLoading ? (
-            <LoadingPanel />
-          ) : hardwareInfo.memory ? (
-            <MemoryInfo />
-          ) : (
-            <UnavailableState label={labels.memory} />
-          )}
-        </CategoryPanel>
-      </div>
+      <SimpleCategoryPanel
+        category="memory"
+        label={labels.memory}
+        isLoading={isLoading}
+        hasData={hardwareInfo.memory != null}
+        maxWidthClassName="max-w-5xl"
+      >
+        <MemoryInfo />
+      </SimpleCategoryPanel>
     );
   }
 
   if (category === "storage") {
     return (
-      <div
-        className="mx-auto max-w-6xl"
-        data-testid="hardware-category-storage"
+      <SimpleCategoryPanel
+        category="storage"
+        label={labels.storage}
+        isLoading={isLoading}
+        hasData={hardwareInfo.storage.length > 0}
+        maxWidthClassName="max-w-6xl"
       >
-        <CategoryPanel title={labels.storage}>
-          {isLoading ? (
-            <LoadingPanel />
-          ) : hardwareInfo.storage.length > 0 ? (
-            <StorageDataInfo />
-          ) : (
-            <UnavailableState label={labels.storage} />
-          )}
-        </CategoryPanel>
-      </div>
+        <StorageDataInfo />
+      </SimpleCategoryPanel>
     );
   }
 

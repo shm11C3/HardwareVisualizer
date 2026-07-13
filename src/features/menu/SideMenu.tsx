@@ -105,8 +105,8 @@ const MenuItem = memo(
     const menuTitles: Record<SelectedDisplayType, string> = {
       dashboard: t("pages.dashboard.name"),
       performance: t("navigation.performance"),
-      hardwareCpu: "CPU",
-      hardwareGpu: "GPU",
+      hardwareCpu: t("navigation.hardware.cpu"),
+      hardwareGpu: t("navigation.hardware.gpu"),
       hardwareMemory: t("navigation.hardware.memory"),
       hardwareStorage: t("navigation.hardware.storage"),
       hardwareSystem: t("navigation.hardware.system"),
@@ -171,8 +171,8 @@ const ClosedSideMenu = ({
   const menuTitles: Record<SelectedDisplayType, string> = {
     dashboard: t("pages.dashboard.name"),
     performance: t("navigation.performance"),
-    hardwareCpu: "CPU",
-    hardwareGpu: "GPU",
+    hardwareCpu: t("navigation.hardware.cpu"),
+    hardwareGpu: t("navigation.hardware.gpu"),
     hardwareMemory: t("navigation.hardware.memory"),
     hardwareStorage: t("navigation.hardware.storage"),
     hardwareSystem: t("navigation.hardware.system"),

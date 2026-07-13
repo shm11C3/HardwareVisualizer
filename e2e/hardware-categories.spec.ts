@@ -46,9 +46,6 @@ test.describe("Hardware Category Screens", () => {
     await expect(
       page.getByRole("button", { name: "Copy hardware report" }),
     ).toBeVisible();
-    await expect(
-      page.getByText("Network information is unavailable on this system."),
-    ).toBeVisible();
 
     await saveCapture(page, "hardware-system-desktop");
   });
@@ -61,12 +58,10 @@ test.describe("Hardware Category Screens", () => {
     await expect(
       page.getByRole("button", { name: "Collapse sidebar" }),
     ).toBeVisible();
-    await page.waitForTimeout(400);
-
     for (const label of ["CPU", "GPU", "Memory", "Storage", "System"]) {
-      await expect(
-        page.getByRole("tab", { name: `${label} tab` }),
-      ).toBeVisible();
+      await expect(page.getByRole("tab", { name: `${label} tab` })).toBeVisible(
+        { timeout: BOOTSTRAP_TIMEOUT },
+      );
     }
 
     await saveCapture(page, "hardware-navigation-expanded-desktop");
@@ -76,17 +71,42 @@ test.describe("Hardware Category Screens", () => {
     await saveCapture(page, "hardware-navigation-expanded-compact-window");
   });
 
-  test("shows an explicit state when a hardware category is unavailable", async ({
-    page,
-  }) => {
-    await gotoApp(page, { path: "/?storageDevices=0" });
-    await navigateTo(page, "hardwareStorage");
+  for (const scenario of [
+    {
+      name: "GPU",
+      path: "/?gpuDevices=0",
+      target: "hardwareGpu",
+      message: "GPU information is unavailable on this system.",
+    },
+    {
+      name: "Memory",
+      path: "/?memoryModules=0",
+      target: "hardwareMemory",
+      message: "Memory information is unavailable on this system.",
+    },
+    {
+      name: "Storage",
+      path: "/?storageDevices=0",
+      target: "hardwareStorage",
+      message: "Storage information is unavailable on this system.",
+    },
+    {
+      name: "Network",
+      path: "/",
+      target: "hardwareSystem",
+      message: "Network information is unavailable on this system.",
+    },
+  ] as const) {
+    test(`shows an explicit state when ${scenario.name} is unavailable`, async ({
+      page,
+    }) => {
+      await gotoApp(page, { path: scenario.path });
+      await navigateTo(page, scenario.target);
 
-    await expect(
-      page.getByText("Storage information is unavailable on this system."),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("hardware-category-unavailable"),
-    ).toBeVisible();
-  });
+      await expect(page.getByText(scenario.message)).toBeVisible();
+      await expect(
+        page.getByTestId("hardware-category-unavailable"),
+      ).toBeVisible();
+    });
+  }
 });
