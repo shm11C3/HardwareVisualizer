@@ -1,6 +1,6 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import {
   DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
@@ -26,6 +26,49 @@ export const usePerformanceLayout = () => {
 
   const preset = normalizePerformancePreset(storedPreset);
   const customLayout = normalizePerformanceCustomLayout(storedCustomLayout);
+  const latestCustomLayoutRef = useRef(customLayout);
+  const customLayoutMutationQueueRef = useRef(Promise.resolve());
+
+  useEffect(() => {
+    latestCustomLayoutRef.current = customLayout;
+  }, [customLayout]);
+
+  const enqueueCustomLayoutMutation = useCallback(
+    (
+      mutate: (current: typeof customLayout) => typeof customLayout | undefined,
+    ) => {
+      const mutation = customLayoutMutationQueueRef.current.then(async () => {
+        const previousLayout = latestCustomLayoutRef.current;
+        const nextLayout = mutate(previousLayout);
+        if (nextLayout == null) {
+          return false;
+        }
+
+        latestCustomLayoutRef.current = nextLayout;
+        try {
+          await setStoredCustomLayout(nextLayout);
+          return true;
+        } catch (error) {
+          if (
+            performanceCustomLayoutsEqual(
+              latestCustomLayoutRef.current,
+              nextLayout,
+            )
+          ) {
+            latestCustomLayoutRef.current = previousLayout;
+          }
+          throw error;
+        }
+      });
+
+      customLayoutMutationQueueRef.current = mutation.then(
+        () => undefined,
+        () => undefined,
+      );
+      return mutation;
+    },
+    [setStoredCustomLayout],
+  );
 
   useEffect(() => {
     if (isPresetPending || storedPreset === preset) {
@@ -41,31 +84,31 @@ export const usePerformanceLayout = () => {
     ) {
       return;
     }
-    void setStoredCustomLayout(customLayout);
+    void enqueueCustomLayoutMutation(() => customLayout);
   }, [
     customLayout,
+    enqueueCustomLayoutMutation,
     isCustomLayoutPending,
-    setStoredCustomLayout,
     storedCustomLayout,
   ]);
 
   const setPreset = (nextPreset: PerformanceLayoutPreset) =>
     setStoredPreset(nextPreset);
 
-  const togglePanel = async (panel: PerformancePanelId) => {
-    const isVisible = customLayout.visible.includes(panel);
-    if (isVisible && customLayout.visible.length === 1) {
-      return false;
-    }
+  const togglePanel = (panel: PerformancePanelId) =>
+    enqueueCustomLayoutMutation((currentLayout) => {
+      const isVisible = currentLayout.visible.includes(panel);
+      if (isVisible && currentLayout.visible.length === 1) {
+        return undefined;
+      }
 
-    await setStoredCustomLayout({
-      ...customLayout,
-      visible: isVisible
-        ? customLayout.visible.filter((candidate) => candidate !== panel)
-        : [...customLayout.visible, panel],
+      return {
+        ...currentLayout,
+        visible: isVisible
+          ? currentLayout.visible.filter((candidate) => candidate !== panel)
+          : [...currentLayout.visible, panel],
+      };
     });
-    return true;
-  };
 
   const handlePanelDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -73,17 +116,21 @@ export const usePerformanceLayout = () => {
       return;
     }
 
-    const oldIndex = customLayout.order.indexOf(
-      active.id as PerformancePanelId,
-    );
-    const newIndex = customLayout.order.indexOf(over.id as PerformancePanelId);
-    if (oldIndex < 0 || newIndex < 0) {
-      return;
-    }
+    void enqueueCustomLayoutMutation((currentLayout) => {
+      const oldIndex = currentLayout.order.indexOf(
+        active.id as PerformancePanelId,
+      );
+      const newIndex = currentLayout.order.indexOf(
+        over.id as PerformancePanelId,
+      );
+      if (oldIndex < 0 || newIndex < 0) {
+        return undefined;
+      }
 
-    void setStoredCustomLayout({
-      ...customLayout,
-      order: arrayMove(customLayout.order, oldIndex, newIndex),
+      return {
+        ...currentLayout,
+        order: arrayMove(currentLayout.order, oldIndex, newIndex),
+      };
     });
   };
 

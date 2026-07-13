@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
@@ -28,6 +28,8 @@ describe("usePerformanceLayout", () => {
       order: ["currentValues", "usageGraphs", "processTable"],
       visible: ["currentValues", "usageGraphs", "processTable"],
     };
+    setPreset.mockResolvedValue(undefined);
+    setCustomLayout.mockResolvedValue(undefined);
     vi.mocked(useTauriStore).mockImplementation((key) =>
       key === "performanceLayoutPreset"
         ? ([preset, setPreset, false] as never)
@@ -43,14 +45,15 @@ describe("usePerformanceLayout", () => {
     expect(setPreset).toHaveBeenCalledWith("monitor");
   });
 
-  it("reorders Custom panels without changing visibility", () => {
+  it("reorders Custom panels without changing visibility", async () => {
     const { result } = renderHook(() => usePerformanceLayout());
 
-    act(() => {
+    await act(async () => {
       result.current.handlePanelDragEnd({
         active: { id: "processTable" },
         over: { id: "currentValues" },
       } as never);
+      await Promise.resolve();
     });
 
     expect(setCustomLayout).toHaveBeenCalledWith({
@@ -73,5 +76,42 @@ describe("usePerformanceLayout", () => {
 
     expect(changed).toBe(false);
     expect(setCustomLayout).not.toHaveBeenCalled();
+  });
+
+  it("serializes rapid Custom mutations against the latest layout", async () => {
+    let resolveFirstWrite: (() => void) | undefined;
+    setCustomLayout
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstWrite = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    let firstMutation: Promise<boolean> | undefined;
+    let secondMutation: Promise<boolean> | undefined;
+    act(() => {
+      firstMutation = result.current.togglePanel("currentValues");
+      secondMutation = result.current.togglePanel("usageGraphs");
+    });
+
+    await waitFor(() => expect(setCustomLayout).toHaveBeenCalledOnce());
+    expect(setCustomLayout).toHaveBeenLastCalledWith({
+      order: ["currentValues", "usageGraphs", "processTable"],
+      visible: ["usageGraphs", "processTable"],
+    });
+
+    await act(async () => {
+      resolveFirstWrite?.();
+      await Promise.all([firstMutation, secondMutation]);
+    });
+
+    expect(setCustomLayout).toHaveBeenCalledTimes(2);
+    expect(setCustomLayout).toHaveBeenLastCalledWith({
+      order: ["currentValues", "usageGraphs", "processTable"],
+      visible: ["processTable"],
+    });
   });
 });

@@ -284,6 +284,11 @@
       "customizePanels": "カスタムパネル",
       "customizePanelsDescription": "表示するライブ情報を選び、必要な順序へドラッグできます。",
       "reorderPanel": "{{panel}}を並べ替え",
+      "metrics": {
+        "cpu": "CPU",
+        "memory": "メモリ",
+        "gpu": "GPU"
+      },
       "presets": {
         "compact": {
           "name": "コンパクト"

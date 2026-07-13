@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cpuUsageHistoryAtom,
   gpuTempMapAtom,
+  gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
   selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
@@ -134,6 +135,10 @@ describe("Performance", () => {
     state.preset = "compact";
     const store = createStore();
     store.set(selectedGpuIdAtom, "gpu-2");
+    store.set(gpuUsageHistoriesAtom, {
+      "gpu-1": [25],
+      "gpu-2": [50],
+    });
     store.set(gpuTempMapAtom, {
       "gpu-1": { name: "GPU 1", value: 45 },
       "gpu-2": { name: "GPU 2", value: 67 },
@@ -148,5 +153,45 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-metric-gpu")).toHaveTextContent(
       "67°C",
     );
+  });
+
+  it("leaves visible gaps between unavailable sparkline samples", () => {
+    state.preset = "compact";
+    const store = createStore();
+    store.set(cpuUsageHistoryAtom, [10, 20, null, 30, 40]);
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(
+      screen.getByTestId("performance-metric-cpu").querySelectorAll("polyline"),
+    ).toHaveLength(2);
+  });
+
+  it("uses one effective GPU for history and temperature fallbacks", () => {
+    state.preset = "compact";
+    const store = createStore();
+    store.set(selectedGpuIdAtom, "stale-gpu");
+    store.set(gpuUsageHistoriesAtom, {
+      "gpu-1": [25],
+    });
+    store.set(gpuTempMapAtom, {
+      "gpu-1": { name: "GPU 1", value: 45 },
+      "stale-gpu": { name: "Stale GPU", value: 67 },
+    });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const gpuMetric = screen.getByTestId("performance-metric-gpu");
+    expect(gpuMetric).toHaveTextContent("25%");
+    expect(gpuMetric).toHaveTextContent("45°C");
+    expect(gpuMetric).not.toHaveTextContent("67°C");
   });
 });

@@ -154,10 +154,12 @@ test.describe("frontend render performance", () => {
   }) => {
     const readyMs = await measureMs(async () => {
       await gotoApp(page, { timeout: PERF_BOOTSTRAP_TIMEOUT });
+      await expect(
+        page.getByTestId("performance-current-values"),
+      ).toBeVisible();
+      await expect(page.getByTestId("performance-usage-graphs")).toBeVisible();
     });
     await seedHardwareHistory(page);
-    await expect(page.getByTestId("performance-current-values")).toBeVisible();
-    await expect(page.getByTestId("performance-usage-graphs")).toBeVisible();
     await resetRenderPerf(page);
 
     const interactionMs = await measureMs(async () => {
