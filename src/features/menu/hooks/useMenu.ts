@@ -6,6 +6,8 @@ import type { SelectedDisplayType } from "@/types/ui";
 
 export const displayTargetAtom = atom<SelectedDisplayType | null>(null);
 export const sideMenuOpenAtom = atom<boolean | null>(null);
+export const navigationLayoutFocusRequestedAtom = atom(false);
+export const DEFAULT_DISPLAY_TARGET = "dashboard" satisfies SelectedDisplayType;
 
 const classicDisplayTargets: SelectedDisplayType[] = [
   "dashboard",
@@ -50,15 +52,23 @@ export const normalizeDisplayTarget = (
   return navigationLayout === "grouped" ? "performance" : "dashboard";
 };
 
-export const useMenu = (navigationLayout: NavigationLayout) => {
-  const [, setDisplayTargetAtom] = useAtom(displayTargetAtom);
+export const useMenu = (
+  navigationLayout: NavigationLayout,
+  settingsLoaded: boolean,
+) => {
+  const [displayTargetValue, setDisplayTargetAtom] = useAtom(displayTargetAtom);
   const [, setSideMenuOpenAtom] = useAtom(sideMenuOpenAtom);
   const [isOpen, setMenuOpen] = useTauriStore("sideMenuOpen", false);
   const [displayTarget, setDisplayTarget, isDisplayPending] =
-    useTauriStore<SelectedDisplayType>("display", "dashboard");
+    useTauriStore<SelectedDisplayType>("display", DEFAULT_DISPLAY_TARGET);
 
   useEffect(() => {
     if (displayTarget && !isDisplayPending) {
+      if (!settingsLoaded) {
+        setDisplayTargetAtom(displayTarget);
+        return;
+      }
+
       const normalizedTarget = normalizeDisplayTarget(
         displayTarget,
         navigationLayout,
@@ -73,6 +83,7 @@ export const useMenu = (navigationLayout: NavigationLayout) => {
     displayTarget,
     isDisplayPending,
     navigationLayout,
+    settingsLoaded,
     setDisplayTarget,
     setDisplayTargetAtom,
   ]);
@@ -101,6 +112,6 @@ export const useMenu = (navigationLayout: NavigationLayout) => {
     isOpen,
     toggleMenu,
     handleMenuClick,
-    displayTarget,
+    displayTarget: displayTargetValue,
   };
 };

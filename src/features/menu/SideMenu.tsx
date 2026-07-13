@@ -225,13 +225,17 @@ export const SideMenu = memo(
   ({
     isFullScreen,
     navigationLayout,
+    settingsLoaded,
   }: {
     isFullScreen: boolean;
     navigationLayout: NavigationLayout;
+    settingsLoaded: boolean;
   }) => {
     const { t } = useTranslation();
-    const { isOpen, displayTarget, handleMenuClick, toggleMenu } =
-      useMenu(navigationLayout);
+    const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu(
+      navigationLayout,
+      settingsLoaded,
+    );
 
     const caretIcon = useMemo(
       () => (isOpen ? <CaretDoubleLeftIcon /> : <CaretDoubleRightIcon />),

@@ -1,21 +1,28 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION } from "./NavigationRestructureNotice";
 
 const mockSetDisplayTargetAtom = vi.fn();
 const mockSetStoredDisplayTarget = vi.fn();
 const mockAcknowledge = vi.fn();
+const mockRequestNavigationLayoutFocus = vi.fn();
 let mockMenuOpen = false;
 
 let mockSettings = {
   navigationLayout: "grouped" as "grouped" | "classic",
   uiAnnouncementVersion: 0,
+  currentUiAnnouncementVersion: 1,
 };
 
 vi.mock("jotai", async (importOriginal) => ({
   ...(await importOriginal<typeof import("jotai")>()),
   useAtomValue: () => mockMenuOpen,
-  useSetAtom: () => mockSetDisplayTargetAtom,
+  useSetAtom: () => (value: unknown) => {
+    if (value === true) {
+      mockRequestNavigationLayoutFocus(value);
+      return;
+    }
+    mockSetDisplayTargetAtom(value);
+  },
 }));
 
 vi.mock("react-i18next", () => ({
@@ -25,6 +32,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+  navigationMutationPendingAtom: {},
   useSettingsAtom: () => ({
     settings: mockSettings,
     acknowledgeNavigationRestructureAnnouncementAtom: mockAcknowledge,
@@ -45,6 +53,7 @@ describe("NavigationRestructureNotice", () => {
     mockSettings = {
       navigationLayout: "grouped",
       uiAnnouncementVersion: 0,
+      currentUiAnnouncementVersion: 1,
     };
     mockMenuOpen = false;
   });
@@ -72,7 +81,8 @@ describe("NavigationRestructureNotice", () => {
 
     mockSettings = {
       navigationLayout: "grouped",
-      uiAnnouncementVersion: GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION,
+      uiAnnouncementVersion: 1,
+      currentUiAnnouncementVersion: 1,
     };
     rerender(<NavigationRestructureNotice settingsLoaded />);
     expect(
@@ -87,6 +97,7 @@ describe("NavigationRestructureNotice", () => {
 
     expect(mockSetDisplayTargetAtom).toHaveBeenCalledWith("settings");
     expect(mockSetStoredDisplayTarget).toHaveBeenCalledWith("settings");
+    expect(mockRequestNavigationLayoutFocus).toHaveBeenCalledWith(true);
   });
 
   it("moves clear of the expanded sidebar", () => {

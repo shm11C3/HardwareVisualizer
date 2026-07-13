@@ -95,6 +95,9 @@ pub struct ClientSettings {
   pub theme: enums::settings::Theme,
   pub navigation_layout: enums::settings::NavigationLayout,
   pub ui_announcement_version: u32,
+  /// Current announcement schema version. This is wire metadata, not a
+  /// persisted user preference.
+  pub current_ui_announcement_version: u32,
   pub display_targets: Vec<enums::hardware::HardwareType>,
   pub graph_size: enums::settings::GraphSize,
   pub graph_fit_to_window: bool,
@@ -288,6 +291,7 @@ mod tests {
       theme: enums::settings::Theme::Dark,
       navigation_layout: enums::settings::NavigationLayout::Classic,
       ui_announcement_version: 1,
+      current_ui_announcement_version: 1,
       display_targets: vec![enums::hardware::HardwareType::Cpu],
       graph_size: enums::settings::GraphSize::XL,
       graph_fit_to_window: false,
