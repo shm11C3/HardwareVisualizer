@@ -36,6 +36,7 @@ export const Settings = React.lazy(() =>
 export const prefetchScreen = async (type: SelectedDisplayType) => {
   switch (type) {
     case "dashboard":
+    case "performance":
       await import("./features/hardware/dashboard/Dashboard");
       break;
     case "usage":

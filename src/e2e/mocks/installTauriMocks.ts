@@ -20,6 +20,8 @@ declare global {
       emitHardwareUpdate: (payload?: HardwareMonitorUpdate) => Promise<void>;
       /** Emit a deterministic series of updates so charts build up history. */
       emitHardwareUpdateSeries: (count?: number) => Promise<void>;
+      /** Number of mocked IPC invocations observed for a command. */
+      getInvokeCount: (command: string) => number;
       /**
        * Start a deterministic event stream through the mocked Tauri event IPC.
        * Used by long-running frontend memory tests.
@@ -38,6 +40,8 @@ type EventEmitArgs = { event: string; payload?: unknown };
 type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
 type FixtureOverrides = {
   storageDeviceCount: number | null;
+  showNavigationNotice: boolean;
+  classicNavigation: boolean;
 };
 type TauriInternalsWindow = Window & {
   __TAURI_INTERNALS__?: {
@@ -66,6 +70,13 @@ const readFixtureOverrides = (): FixtureOverrides => {
           Math.min(MAX_STORAGE_DEVICE_STUB_COUNT, parsedStorageDeviceCount),
         )
       : null,
+    showNavigationNotice:
+      new URLSearchParams(window.location.search).get(
+        "showNavigationNotice",
+      ) === "1",
+    classicNavigation:
+      new URLSearchParams(window.location.search).get("navigationLayout") ===
+      "classic",
   };
 };
 
@@ -138,7 +149,15 @@ const buildInvokeHandlers = (
   "plugin:app|version": () => "1.0.0",
 
   // --- generated commands ---
-  get_settings: () => settingsFixture,
+  get_settings: () => ({
+    ...settingsFixture,
+    navigationLayout: fixtureOverrides.classicNavigation
+      ? "classic"
+      : settingsFixture.navigationLayout,
+    uiAnnouncementVersion: fixtureOverrides.showNavigationNotice
+      ? 0
+      : settingsFixture.uiAnnouncementVersion,
+  }),
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null
       ? sysInfoFixture
@@ -246,6 +265,7 @@ export const installTauriMocks = () => {
   const eventListeners = new Map<string, Set<number>>();
   const fixtureOverrides = readFixtureOverrides();
   const handlers = buildInvokeHandlers(store, eventListeners, fixtureOverrides);
+  const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;
   let streamIndex = 0;
   let streamRunning = false;
@@ -268,6 +288,8 @@ export const installTauriMocks = () => {
   };
 
   mockIPC((cmd: string, args?: unknown) => {
+    invokeCounts.set(cmd, (invokeCounts.get(cmd) ?? 0) + 1);
+
     if (Object.hasOwn(handlers, cmd)) {
       return handlers[cmd](args);
     }
@@ -278,10 +300,15 @@ export const installTauriMocks = () => {
       return null;
     }
 
+    if (cmd === "acknowledge_navigation_restructure_announcement") {
+      return null;
+    }
+
     throw new Error(`[e2e-mock] Unhandled invoke: ${cmd}`);
   });
 
   window.__E2E__ = {
+    getInvokeCount: (command) => invokeCounts.get(command) ?? 0,
     emitHardwareUpdate: async (payload) =>
       dispatchTauriEvent(eventListeners, {
         event: "hardware-monitor-update",

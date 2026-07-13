@@ -12,6 +12,9 @@ const settingsAtom = atom<ClientSettings>({
   version: "0.0.0",
   language: "en",
   theme: "system",
+  navigationLayout: "grouped",
+  uiAnnouncementVersion: 0,
+  currentUiAnnouncementVersion: 0,
   displayTargets: [],
   graphSize: "xl",
   graphFitToWindow: false,
@@ -63,6 +66,9 @@ const settingsAtom = atom<ClientSettings>({
   },
 });
 
+export const navigationMutationPendingAtom = atom(false);
+let navigationMutationInFlight = false;
+
 export const useSettingsAtom = () => {
   const { error } = useTauriDialog();
   const mapSettingUpdater: {
@@ -76,6 +82,9 @@ export const useSettingsAtom = () => {
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
+      | "navigationLayout"
+      | "uiAnnouncementVersion"
+      | "currentUiAnnouncementVersion"
       | "trayWidget"
     >]: (value: ClientSettings[K]) => Promise<Result<null, string>>;
   } = {
@@ -108,6 +117,9 @@ export const useSettingsAtom = () => {
   };
 
   const [settings, setSettings] = useAtom(settingsAtom);
+  const [, setNavigationMutationPending] = useAtom(
+    navigationMutationPendingAtom,
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: This effect runs only once to load settings
   const loadSettings = useCallback(async () => {
@@ -141,6 +153,9 @@ export const useSettingsAtom = () => {
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
+      | "navigationLayout"
+      | "uiAnnouncementVersion"
+      | "currentUiAnnouncementVersion"
       | "trayWidget"
     >,
   >(
@@ -173,6 +188,85 @@ export const useSettingsAtom = () => {
     }
 
     setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
+  };
+
+  const setNavigationLayoutAtom = async (
+    value: ClientSettings["navigationLayout"],
+  ) => {
+    if (navigationMutationInFlight) return false;
+
+    navigationMutationInFlight = true;
+    setNavigationMutationPending(true);
+    const previousLayout = settings.navigationLayout;
+    const previousAnnouncementVersion = settings.uiAnnouncementVersion;
+    const announcementVersion =
+      value === "classic"
+        ? Math.max(
+            previousAnnouncementVersion,
+            settings.currentUiAnnouncementVersion,
+          )
+        : previousAnnouncementVersion;
+
+    setSettings((prev) => ({
+      ...prev,
+      navigationLayout: value,
+      uiAnnouncementVersion: announcementVersion,
+    }));
+
+    try {
+      const result = await commands.setNavigationLayout(value);
+
+      if (isError(result)) {
+        await error(result.error);
+        console.error(result.error);
+        setSettings((prev) => ({
+          ...prev,
+          navigationLayout: previousLayout,
+          uiAnnouncementVersion: previousAnnouncementVersion,
+        }));
+        return false;
+      }
+
+      return true;
+    } finally {
+      navigationMutationInFlight = false;
+      setNavigationMutationPending(false);
+    }
+  };
+
+  const acknowledgeNavigationRestructureAnnouncementAtom = async () => {
+    if (navigationMutationInFlight) return false;
+
+    navigationMutationInFlight = true;
+    setNavigationMutationPending(true);
+    const previousValue = settings.uiAnnouncementVersion;
+    setSettings((prev) => ({
+      ...prev,
+      uiAnnouncementVersion: Math.max(
+        prev.uiAnnouncementVersion,
+        prev.currentUiAnnouncementVersion,
+      ),
+    }));
+
+    try {
+      const result =
+        await commands.acknowledgeNavigationRestructureAnnouncement();
+
+      if (isError(result)) {
+        await error(result.error);
+        console.error(result.error);
+        setSettings((prev) => ({
+          ...prev,
+          uiAnnouncementVersion: previousValue,
+        }));
+        return false;
+      }
+
+      return true;
+    } finally {
+      navigationMutationInFlight = false;
+      setNavigationMutationPending(false);
+    }
   };
 
   /**
@@ -362,5 +456,7 @@ export const useSettingsAtom = () => {
     setStorageHealthRetentionDays,
     setCloseToTrayPreferenceAtom,
     setTrayWidgetSettingsAtom,
+    setNavigationLayoutAtom,
+    acknowledgeNavigationRestructureAnnouncementAtom,
   };
 };

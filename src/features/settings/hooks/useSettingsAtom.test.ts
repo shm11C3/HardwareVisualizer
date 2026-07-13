@@ -49,6 +49,8 @@ vi.mock("@/rspc/bindings", () => ({
     setHardwareArchiveRetentionDays: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),
     setStorageHealthRetentionDays: vi.fn(),
+    setNavigationLayout: vi.fn(),
+    acknowledgeNavigationRestructureAnnouncement: vi.fn(),
   },
 }));
 
@@ -540,5 +542,154 @@ describe("useSettingsAtom", () => {
       initialSettings.closeToTrayChoiceMade,
     );
     expect(result.current.settings.trayWidget.enabled).toBe(true);
+  });
+
+  it("setNavigationLayoutAtom: opting out acknowledges the current announcement", async () => {
+    (commands.setNavigationLayout as Mock).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    (commands.getSettings as Mock).mockResolvedValue({
+      data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
+    });
+
+    await act(async () => {
+      await result.current.loadSettings();
+    });
+    await act(async () => {
+      await result.current.setNavigationLayoutAtom("classic");
+    });
+
+    expect(commands.setNavigationLayout).toHaveBeenCalledWith("classic");
+    expect(result.current.settings.navigationLayout).toBe("classic");
+    expect(result.current.settings.uiAnnouncementVersion).toBe(1);
+  });
+
+  it("setNavigationLayoutAtom: save failure restores layout and acknowledgement", async () => {
+    (commands.setNavigationLayout as Mock).mockResolvedValue({
+      status: "error",
+      error: "save failed",
+    });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const previousLayout = result.current.settings.navigationLayout;
+    const previousAnnouncementVersion =
+      result.current.settings.uiAnnouncementVersion;
+
+    await act(async () => {
+      await result.current.setNavigationLayoutAtom("classic");
+    });
+
+    expect(result.current.settings.navigationLayout).toBe(previousLayout);
+    expect(result.current.settings.uiAnnouncementVersion).toBe(
+      previousAnnouncementVersion,
+    );
+  });
+
+  it("acknowledgeNavigationRestructureAnnouncementAtom: persists the versioned acknowledgement", async () => {
+    (
+      commands.acknowledgeNavigationRestructureAnnouncement as Mock
+    ).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    (commands.getSettings as Mock).mockResolvedValue({
+      data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
+    });
+
+    await act(async () => {
+      await result.current.loadSettings();
+    });
+    await act(async () => {
+      await result.current.acknowledgeNavigationRestructureAnnouncementAtom();
+    });
+
+    expect(
+      commands.acknowledgeNavigationRestructureAnnouncement,
+    ).toHaveBeenCalledOnce();
+    expect(result.current.settings.uiAnnouncementVersion).toBe(1);
+  });
+
+  it("acknowledgeNavigationRestructureAnnouncementAtom: save failure restores the prior version", async () => {
+    (
+      commands.acknowledgeNavigationRestructureAnnouncement as Mock
+    ).mockResolvedValue({ status: "error", error: "save failed" });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    (commands.getSettings as Mock).mockResolvedValue({
+      data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
+    });
+
+    let acknowledged = true;
+    await act(async () => {
+      await result.current.loadSettings();
+    });
+    await act(async () => {
+      acknowledged =
+        await result.current.acknowledgeNavigationRestructureAnnouncementAtom();
+    });
+
+    expect(acknowledged).toBe(false);
+    expect(result.current.settings.uiAnnouncementVersion).toBe(0);
+  });
+
+  it("acknowledgeNavigationRestructureAnnouncementAtom: preserves a newer acknowledgement", async () => {
+    (
+      commands.acknowledgeNavigationRestructureAnnouncement as Mock
+    ).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    (commands.getSettings as Mock).mockResolvedValue({
+      data: {
+        ...result.current.settings,
+        uiAnnouncementVersion: 3,
+        currentUiAnnouncementVersion: 1,
+      },
+    });
+
+    await act(async () => {
+      await result.current.loadSettings();
+    });
+    await act(async () => {
+      await result.current.acknowledgeNavigationRestructureAnnouncementAtom();
+    });
+
+    expect(result.current.settings.uiAnnouncementVersion).toBe(3);
+  });
+
+  it("setNavigationLayoutAtom: rejects an overlapping navigation mutation", async () => {
+    let resolveFirst: ((result: { data: null }) => void) | undefined;
+    (commands.setNavigationLayout as Mock).mockReturnValue(
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    let firstMutation: Promise<boolean> | undefined;
+    act(() => {
+      firstMutation = result.current.setNavigationLayoutAtom("classic");
+    });
+
+    let overlappingResult = true;
+    await act(async () => {
+      overlappingResult =
+        await result.current.setNavigationLayoutAtom("grouped");
+    });
+
+    expect(overlappingResult).toBe(false);
+    expect(commands.setNavigationLayout).toHaveBeenCalledOnce();
+
+    resolveFirst?.({ data: null });
+    await act(async () => {
+      await firstMutation;
+    });
+
+    expect(result.current.settings.navigationLayout).toBe("classic");
   });
 });

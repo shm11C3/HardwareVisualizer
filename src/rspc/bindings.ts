@@ -127,6 +127,8 @@ export const commands = {
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
+	setNavigationLayout: (newLayout: NavigationLayout) => typedError<null, string>(__TAURI_INVOKE("set_navigation_layout", { newLayout })),
+	acknowledgeNavigationRestructureAnnouncement: () => typedError<null, string>(__TAURI_INVOKE("acknowledge_navigation_restructure_announcement")),
 	setDisplayTargets: (newTargets: HardwareType[]) => typedError<null, string>(__TAURI_INVOKE("set_display_targets", { newTargets })),
 	setGraphSize: (newSize: GraphSize) => typedError<null, string>(__TAURI_INVOKE("set_graph_size", { newSize })),
 	setGraphFitToWindow: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_graph_fit_to_window", { newValue })),
@@ -264,6 +266,13 @@ export type ClientSettings_Deserialize = {
 	version: string,
 	language: string,
 	theme: Theme,
+	navigationLayout: NavigationLayout,
+	uiAnnouncementVersion: number,
+	/**
+	 *  Current announcement schema version. This is wire metadata, not a
+	 *  persisted user preference.
+	 */
+	currentUiAnnouncementVersion: number,
 	displayTargets: HardwareType[],
 	graphSize: GraphSize,
 	graphFitToWindow: boolean,
@@ -301,6 +310,13 @@ export type ClientSettings_Serialize = {
 	version: string,
 	language: string,
 	theme: Theme,
+	navigationLayout: NavigationLayout,
+	uiAnnouncementVersion: number,
+	/**
+	 *  Current announcement schema version. This is wire metadata, not a
+	 *  persisted user preference.
+	 */
+	currentUiAnnouncementVersion: number,
 	displayTargets: HardwareType[],
 	graphSize: GraphSize,
 	graphFitToWindow: boolean,
@@ -501,6 +517,8 @@ export type NameValue = {
 	name: string,
 	value: number,
 };
+
+export type NavigationLayout = "grouped" | "classic";
 
 export type NetworkInfo = {
 	description: string | null,

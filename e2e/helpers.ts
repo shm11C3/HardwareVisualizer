@@ -65,7 +65,48 @@ export const seedHardwareHistory = async (page: Page) => {
  */
 export const navigateTo = async (
   page: Page,
-  type: "dashboard" | "usage" | "cpuDetail" | "insights" | "settings",
+  type:
+    | "dashboard"
+    | "performance"
+    | "usage"
+    | "cpuDetail"
+    | "insights"
+    | "settings",
 ) => {
-  await page.getByRole("button", { name: `open ${type}` }).click();
+  const target = page.getByRole("button", { name: `open ${type}` });
+  await expect(page.locator('[data-settings-loaded="true"]')).toBeAttached({
+    timeout: BOOTSTRAP_TIMEOUT,
+  });
+  await expect(page.getByRole("button", { name: "open settings" })).toBeVisible(
+    { timeout: BOOTSTRAP_TIMEOUT },
+  );
+
+  if (type === "usage" || type === "cpuDetail" || type === "dashboard") {
+    if ((await target.count()) === 0) {
+      await page.getByRole("button", { name: "open settings" }).click();
+      const classicNavigation = page.getByRole("switch", {
+        name: "Classic navigation",
+      });
+      await expect(classicNavigation).toBeVisible({
+        timeout: BOOTSTRAP_TIMEOUT,
+      });
+      if (!(await classicNavigation.isChecked())) {
+        await classicNavigation.click();
+      }
+    }
+  } else if (type === "performance" && (await target.count()) === 0) {
+    await page.getByRole("button", { name: "open settings" }).click();
+    const classicNavigation = page.getByRole("switch", {
+      name: "Classic navigation",
+    });
+    await expect(classicNavigation).toBeVisible({
+      timeout: BOOTSTRAP_TIMEOUT,
+    });
+    if (await classicNavigation.isChecked()) {
+      await classicNavigation.click();
+    }
+  }
+
+  await expect(target).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+  await target.click();
 };

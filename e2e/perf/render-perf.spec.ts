@@ -90,16 +90,21 @@ test.describe("frontend render performance", () => {
   });
 
   test("usage chart render stays bounded", async ({ page }) => {
-    await gotoApp(page, { timeout: PERF_BOOTSTRAP_TIMEOUT });
+    await gotoApp(page, {
+      path: "/?navigationLayout=classic",
+      timeout: PERF_BOOTSTRAP_TIMEOUT,
+    });
     await seedHardwareHistory(page);
     await resetRenderPerf(page);
 
     const interactionMs = await measureMs(async () => {
       await navigateTo(page, "usage");
-      await expect(page.getByText("RAM", { exact: true })).toBeVisible({
-        timeout: PERF_BOOTSTRAP_TIMEOUT,
-      });
-      await expect(page.getByText("GPU", { exact: true })).toBeVisible();
+      await expect(
+        page.locator("span").filter({ hasText: /^RAM$/ }),
+      ).toBeVisible({ timeout: PERF_BOOTSTRAP_TIMEOUT });
+      await expect(
+        page.locator("span").filter({ hasText: /^GPU$/ }),
+      ).toBeVisible();
       await page.waitForTimeout(600);
     });
 

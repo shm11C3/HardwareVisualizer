@@ -14,6 +14,18 @@ _Avoid_: Monitoring, Storage Monitoring, telemetry
 The current-status view where users inspect live CPU, memory, GPU, storage, network, process, and motherboard information at a glance.
 _Avoid_: Dashboard settings, insight page, system report
 
+**Performance Screen**:
+The grouped-navigation view for inspecting current hardware state together with short-window Usage Graphs.
+_Avoid_: Insights Screen, Hardware Insight, hardware specifications
+
+**Performance Layout Preset**:
+A UI-local arrangement of panels on the Performance Screen, such as Compact, Monitor, Detailed, or Custom.
+_Avoid_: Insights tab, saved report, navigation layout
+
+**Hardware Category Screen**:
+A grouped-navigation view that organizes hardware information for one category: CPU, GPU, Memory, Storage, or System.
+_Avoid_: Performance Layout Preset, Hardware Insight, dashboard item
+
 **Dashboard Item**:
 An information block on the Hardware Dashboard that can be shown, hidden, or reordered.
 _Avoid_: Display Target, insight tab, graph target
@@ -67,6 +79,10 @@ _Avoid_: Retention, refresh interval, cleanup schedule
 **Application Preference**:
 A user-facing choice that users reasonably expect to persist as part of the app configuration.
 _Avoid_: UI cache, transient state, local selection
+
+**Classic Navigation**:
+The opt-out navigation layout that preserves the previous five flat entries and their user-visible behavior while grouped navigation is the default.
+_Avoid_: legacy screen, old dashboard, fallback mode
 
 **UI-local State**:
 Transient interface state that can be reset without losing an explicit user configuration.

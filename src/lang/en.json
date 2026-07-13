@@ -213,6 +213,17 @@
     }
   },
 
+  "navigation": {
+    "dashboardSection": "Dashboard",
+    "performance": "Performance",
+    "insightSection": "Insight",
+    "notice": {
+      "title": "Navigation has been reorganized",
+      "description": "Live monitoring now starts from Performance. You can return to the previous navigation from Settings.",
+      "openSettings": "Open navigation settings",
+      "dismiss": "Dismiss navigation notice"
+    }
+  },
   "pages": {
     "dashboard": {
       "name": "Dashboard",
@@ -289,6 +300,10 @@
       "name": "Settings",
       "general": {
         "name": "General",
+        "navigationLayout": {
+          "name": "Classic navigation",
+          "description": "Use the original five-item navigation instead of grouped navigation."
+        },
         "language": "Language",
         "colorMode": {
           "name": "Color Mode",

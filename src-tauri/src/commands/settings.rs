@@ -133,6 +133,10 @@ pub mod commands {
       version: settings.version,
       language: settings.language,
       theme: settings.theme,
+      navigation_layout: settings.navigation_layout,
+      ui_announcement_version: settings.ui_announcement_version,
+      current_ui_announcement_version:
+        services::settings_service::GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION,
       display_targets: settings.display_targets,
       graph_size: settings.graph_size,
       graph_fit_to_window: settings.graph_fit_to_window,
@@ -196,6 +200,39 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_theme(new_theme) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_navigation_layout(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_layout: enums::settings::NavigationLayout,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.set_navigation_layout(new_layout) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn acknowledge_navigation_restructure_announcement(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+
+    if let Err(e) = settings.acknowledge_navigation_restructure_announcement() {
       emit_error(&window)?;
       return Err(e);
     }

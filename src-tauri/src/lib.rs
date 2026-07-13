@@ -102,6 +102,8 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::get_settings,
       settings::commands::set_language,
       settings::commands::set_theme,
+      settings::commands::set_navigation_layout,
+      settings::commands::acknowledge_navigation_restructure_announcement,
       settings::commands::set_display_targets,
       settings::commands::set_graph_size,
       settings::commands::set_graph_fit_to_window,

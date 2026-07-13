@@ -3,6 +3,7 @@ import { AutoStartToggle } from "./AutoStartToggle";
 import { BurnInShiftSettings } from "./BurnInShiftSettings";
 import { CloseToTrayToggle } from "./CloseToTrayToggle";
 import { LanguageSelect } from "./LanguageSelect";
+import { NavigationLayoutToggle } from "./NavigationLayoutToggle";
 import { TemperatureUnitSelect } from "./TemperatureUnitSelect";
 import { TextSelectionToggle } from "./TextSelectionToggle";
 import { ThemeSelect } from "./ThemeSelect";
@@ -22,6 +23,7 @@ export const GeneralSettings = () => {
         <ThemeSelect />
         <TransparentUiSettings />
         <TemperatureUnitSelect />
+        <NavigationLayoutToggle />
         <CloseToTrayToggle />
         <TrayWidgetSettings />
         <AutoStartToggle />
