@@ -11,20 +11,24 @@ The app's ongoing activity of collecting and presenting local hardware status an
 _Avoid_: Monitoring, Storage Monitoring, telemetry
 
 **Hardware Dashboard**:
-The current-status view where users inspect live CPU, memory, GPU, storage, network, process, and motherboard information at a glance.
-_Avoid_: Dashboard settings, insight page, system report
+The Classic Navigation view where users inspect live CPU, memory, GPU, storage, network, process, and motherboard information at a glance.
+_Avoid_: Grouped Dashboard, Dashboard settings, insight page, system report
 
-**Performance Screen**:
-The grouped-navigation view for inspecting current hardware state together with short-window Usage Graphs.
-_Avoid_: Insights Screen, Hardware Insight, hardware specifications
+**Grouped Dashboard**:
+The grouped-navigation destination that contains the peer Performance and System Specifications tabs.
+_Avoid_: Hardware Dashboard, Performance Tab, dashboard section
+
+**Performance Tab**:
+The Grouped Dashboard tab for inspecting current hardware state together with short-window Usage Graphs.
+_Avoid_: Performance Screen, Insights Screen, Hardware Insight, hardware specifications
 
 **Performance Layout Preset**:
-A UI-local arrangement of panels on the Performance Screen, such as Compact, Monitor, Detailed, or Custom.
+A UI-local arrangement of panels on the Performance Tab, such as Compact, Monitor, Detailed, or Custom.
 _Avoid_: Insights tab, saved report, navigation layout
 
-**Hardware Category Screen**:
-A grouped-navigation view that organizes hardware information for one category: CPU, GPU, Memory, Storage, or System.
-_Avoid_: Performance Layout Preset, Hardware Insight, dashboard item
+**System Specifications Tab**:
+The Grouped Dashboard tab that presents available hardware configuration, platform facts, capability-dependent observations, and Hardware Report access as one surface.
+_Avoid_: Hardware Category Screen, standalone CPU screen, standalone GPU screen, System screen
 
 **Dashboard Item**:
 An information block on the Hardware Dashboard that can be shown, hidden, or reordered.

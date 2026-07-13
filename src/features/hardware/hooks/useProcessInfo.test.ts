@@ -59,6 +59,15 @@ describe("useProcessInfo", () => {
     expect(result.current).toEqual([]);
   });
 
+  it("does not fetch or subscribe to shared process state when disabled", () => {
+    const { result } = renderHook(() => useProcessInfo({ enabled: false }), {
+      wrapper: Provider,
+    });
+
+    expect(result.current).toEqual([]);
+    expect(commands.getProcessList).not.toHaveBeenCalled();
+  });
+
   it("calls error() and console.error on fetch failure", async () => {
     const errorMsg = "Failed to fetch processes";
     (commands.getProcessList as Mock).mockRejectedValue(errorMsg);

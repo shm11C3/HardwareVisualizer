@@ -1,15 +1,25 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useAtom } from "jotai";
+import { atom, useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 import { processorsUsageHistoryAtom } from "../../store/chart";
 
-export const useExportToClipboard = () => {
+const disabledProcessorsUsageHistoryAtom = atom<number[][]>([]);
+
+export const useExportToClipboard = ({
+  includeRuntimeStats = true,
+}: {
+  includeRuntimeStats?: boolean;
+} = {}) => {
   const { hardwareInfo, networkInfo } = useHardwareInfoAtom();
-  const processes = useProcessInfo();
-  const [processorsUsageHistory] = useAtom(processorsUsageHistoryAtom);
+  const processes = useProcessInfo({ enabled: includeRuntimeStats });
+  const processorsUsageHistory = useAtomValue(
+    includeRuntimeStats
+      ? processorsUsageHistoryAtom
+      : disabledProcessorsUsageHistoryAtom,
+  );
   const { t } = useTranslation();
 
   const clipboardContent = useMemo(() => {
@@ -18,15 +28,21 @@ export const useExportToClipboard = () => {
           { key: t("shared.name"), value: hardwareInfo.cpu.name },
           { key: t("shared.vendor"), value: hardwareInfo.cpu.vendor },
           { key: t("shared.coreCount"), value: hardwareInfo.cpu.coreCount },
-          {
-            key: t("shared.threadCount"),
-            value: processorsUsageHistory[0]?.length || 0,
-          },
+          ...(includeRuntimeStats
+            ? [
+                {
+                  key: t("shared.threadCount"),
+                  value: processorsUsageHistory[0]?.length || 0,
+                },
+              ]
+            : []),
           {
             key: t("shared.defaultClockSpeed"),
             value: `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
           },
-          { key: t("shared.processCount"), value: processes.length },
+          ...(includeRuntimeStats
+            ? [{ key: t("shared.processCount"), value: processes.length }]
+            : []),
         ]
           .map(({ key, value }) => `${key}: ${value}`)
           .join("\n")
@@ -164,7 +180,14 @@ export const useExportToClipboard = () => {
     ]
       .filter(Boolean)
       .join("\n\n");
-  }, [hardwareInfo, processorsUsageHistory, processes, networkInfo, t]);
+  }, [
+    hardwareInfo,
+    includeRuntimeStats,
+    processorsUsageHistory,
+    processes,
+    networkInfo,
+    t,
+  ]);
 
   const exportToClipboard = async () => {
     await writeText(clipboardContent);

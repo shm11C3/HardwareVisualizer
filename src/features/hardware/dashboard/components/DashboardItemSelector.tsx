@@ -10,16 +10,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  type DashboardItemType,
   type DashboardSelectItemType,
   dashBoardItems,
 } from "@/features/hardware/dashboard/types/dashboardItem";
 
+const EMPTY_EXCLUDED_ITEMS: readonly DashboardItemType[] = [];
+
 export const DashboardItemSelector = ({
   visibleItems,
   toggleItem,
+  excludedItems = EMPTY_EXCLUDED_ITEMS,
 }: {
   visibleItems: DashboardSelectItemType[] | null;
   toggleItem: (item: DashboardSelectItemType) => void;
+  excludedItems?: readonly DashboardItemType[];
 }) => {
   const { t } = useTranslation();
   const os = platform();
@@ -40,7 +45,9 @@ export const DashboardItemSelector = ({
   const items: DashboardSelectItemType[] = [
     "title",
     ...dashBoardItems.filter(
-      (item) => item !== "motherboard" || os === "windows" || os === "macos",
+      (item) =>
+        !excludedItems.includes(item) &&
+        (item !== "motherboard" || os === "windows" || os === "macos"),
     ),
   ];
 

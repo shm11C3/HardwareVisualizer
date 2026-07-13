@@ -39,8 +39,8 @@ describe("useMenu", () => {
     });
 
     expect(result.current.isOpen).toBe(false);
-    expect(mockSetDisplayTarget).toHaveBeenCalledWith("performance");
-    expect(result.current.displayTarget).toBe("performance");
+    expect(mockSetDisplayTarget).toHaveBeenCalledWith("groupedDashboard");
+    expect(result.current.displayTarget).toBe("groupedDashboard");
     expect(typeof result.current.toggleMenu).toBe("function");
     expect(typeof result.current.handleMenuClick).toBe("function");
   });
@@ -126,14 +126,24 @@ describe("useMenu", () => {
     expect(mockSetDisplayTarget).not.toHaveBeenCalled();
   });
 
-  it("normalizes classic screens to Performance in grouped navigation", () => {
-    expect(normalizeDisplayTarget("usage", "grouped")).toBe("performance");
-    expect(normalizeDisplayTarget("dashboard", "grouped")).toBe("performance");
-    expect(normalizeDisplayTarget("cpuDetail", "grouped")).toBe("performance");
+  it("normalizes classic and legacy Performance screens to the grouped Dashboard", () => {
+    expect(normalizeDisplayTarget("usage", "grouped")).toBe("groupedDashboard");
+    expect(normalizeDisplayTarget("dashboard", "grouped")).toBe(
+      "groupedDashboard",
+    );
+    expect(normalizeDisplayTarget("cpuDetail", "grouped")).toBe(
+      "groupedDashboard",
+    );
+    expect(normalizeDisplayTarget("performance", "grouped")).toBe(
+      "groupedDashboard",
+    );
   });
 
-  it("normalizes Performance to the Hardware Dashboard in classic navigation", () => {
+  it("normalizes grouped Dashboard targets to the Hardware Dashboard in classic navigation", () => {
     expect(normalizeDisplayTarget("performance", "classic")).toBe("dashboard");
+    expect(normalizeDisplayTarget("groupedDashboard", "classic")).toBe(
+      "dashboard",
+    );
   });
 
   it("preserves shared screens in both layouts", () => {

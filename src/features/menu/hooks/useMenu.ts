@@ -18,7 +18,7 @@ const classicDisplayTargets: SelectedDisplayType[] = [
 ];
 
 const groupedDisplayTargets: SelectedDisplayType[] = [
-  "performance",
+  "groupedDashboard",
   "insights",
   "settings",
 ];
@@ -36,7 +36,7 @@ export const normalizeDisplayTarget = (
     return displayTarget;
   }
 
-  return navigationLayout === "grouped" ? "performance" : "dashboard";
+  return navigationLayout === "grouped" ? "groupedDashboard" : "dashboard";
 };
 
 export const useMenu = (

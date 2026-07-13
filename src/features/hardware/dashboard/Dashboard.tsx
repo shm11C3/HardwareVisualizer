@@ -25,8 +25,11 @@ import { cn } from "@/lib/utils";
 import { useHardwareInfoAtom } from "../hooks/useHardwareInfoAtom";
 import {
   CPUInfo,
+  CPUSpecifications,
   GPUInfo,
+  GPUSpecifications,
   MemoryInfo,
+  MemorySpecifications,
   MotherboardDataInfo,
   NetworkInfo,
   StorageDataInfo,
@@ -46,7 +49,17 @@ type DataTypeKey =
   | "process"
   | "motherboard";
 
-export const Dashboard = () => {
+const EMPTY_EXCLUDED_ITEMS: readonly DashboardItemType[] = [];
+
+export const Dashboard = ({
+  excludedItems = EMPTY_EXCLUDED_ITEMS,
+  responsive = false,
+  specificationsMode = false,
+}: {
+  excludedItems?: readonly DashboardItemType[];
+  responsive?: boolean;
+  specificationsMode?: boolean;
+}) => {
   const { hardwareInfo } = useHardwareInfoAtom();
   const { dashboardItemMap, handleDragOver } = useSortableDashboard();
   const { settings } = useSettingsAtom();
@@ -70,7 +83,7 @@ export const Dashboard = () => {
   > = {
     cpu: {
       icon: <CpuIcon size={24} color={`rgb(${settings.lineGraphColor.cpu})`} />,
-      component: <CPUInfo />,
+      component: specificationsMode ? <CPUSpecifications /> : <CPUInfo />,
     },
     gpu: {
       icon: (
@@ -81,7 +94,11 @@ export const Dashboard = () => {
       ),
       component:
         hardwareInfo.gpus != null && hardwareInfo.gpus.length > 0 ? (
-          <GPUInfo />
+          specificationsMode ? (
+            <GPUSpecifications />
+          ) : (
+            <GPUInfo />
+          )
         ) : null,
     },
     memory: {
@@ -91,7 +108,7 @@ export const Dashboard = () => {
           color={`rgb(${settings.lineGraphColor.memory})`}
         />
       ),
-      component: <MemoryInfo />,
+      component: specificationsMode ? <MemorySpecifications /> : <MemoryInfo />,
     },
     process: {
       component: <ProcessesTable />,
@@ -102,7 +119,7 @@ export const Dashboard = () => {
     },
     network: {
       icon: <NetworkIcon size={24} color="oklch(74.6% 0.16 232.661)" />,
-      component: <NetworkInfo />,
+      component: <NetworkInfo showUnavailableState={specificationsMode} />,
     },
     motherboard: {
       icon: <DesktopIcon size={24} color="oklch(70% 0.14 150)" />,
@@ -113,7 +130,12 @@ export const Dashboard = () => {
 
   if (!dashboardItemMap) {
     return (
-      <div className="grid grid-cols-2 gap-4">
+      <div
+        className={cn(
+          "grid gap-4",
+          responsive ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-2",
+        )}
+      >
         <Skeleton className="h-[400px] w-full rounded-md" />
         <Skeleton className="h-[400px] w-full rounded-md" />
         <Skeleton className="h-[400px] w-full rounded-md" />
@@ -124,14 +146,19 @@ export const Dashboard = () => {
     );
   }
 
+  const displayedDashboardItemMap = dashboardItemMap.filter(
+    (item) => !excludedItems.includes(item),
+  );
+
   return (
     <>
       <div className="mr-4 flex justify-end gap-3">
         <DashboardItemSelector
           visibleItems={visibleItems}
           toggleItem={toggleItem}
+          excludedItems={excludedItems}
         />
-        <ExportHardwareInfo />
+        <ExportHardwareInfo includeRuntimeStats={!specificationsMode} />
       </div>
       <DndContext
         sensors={sensors}
@@ -139,11 +166,16 @@ export const Dashboard = () => {
         onDragOver={handleDragOver}
       >
         <SortableContext
-          items={dashboardItemMap}
+          items={displayedDashboardItemMap}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-4">
-            {dashboardItemMap
+          <div
+            className={cn(
+              "grid gap-4",
+              responsive ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-2",
+            )}
+          >
+            {displayedDashboardItemMap
               .filter(
                 (key) =>
                   dashboardItemKeyToItems[key].component != null &&

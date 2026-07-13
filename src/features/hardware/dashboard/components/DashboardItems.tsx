@@ -132,6 +132,25 @@ export const CPUInfo = () => {
   );
 };
 
+export const CPUSpecifications = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+
+  return hardwareInfo.cpu ? (
+    <InfoTable
+      data={{
+        [t("shared.name")]: hardwareInfo.cpu.name,
+        [t("shared.vendor")]: hardwareInfo.cpu.vendor,
+        [t("shared.coreCount")]: hardwareInfo.cpu.coreCount,
+        [t("shared.defaultClockSpeed")]:
+          `${hardwareInfo.cpu.clock} ${hardwareInfo.cpu.clockUnit}`,
+      }}
+    />
+  ) : (
+    <Skeleton className="h-[188px] w-full rounded-md" />
+  );
+};
+
 export const GPUInfo = () => {
   const { t } = useTranslation();
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
@@ -298,6 +317,49 @@ export const GPUInfo = () => {
   );
 };
 
+export const GPUSpecifications = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+  const os = useMemo(() => platform(), []);
+
+  return hardwareInfo.gpus ? (
+    hardwareInfo.gpus.map((gpu, index, gpus) => {
+      const showCoreCount = gpu.memorySizeDedicated === "N/A" && os === "macos";
+      const dedicatedMemoryDisplay = showCoreCount
+        ? (gpu.coreCount ?? "N/A")
+        : gpu.memorySizeDedicated;
+      const dedicatedMemoryLabel = showCoreCount
+        ? t("shared.coreCount")
+        : t("shared.memorySizeDedicated");
+
+      return (
+        <div
+          className={index !== 0 ? "py-3" : gpus.length > 1 ? "pb-3" : ""}
+          key={gpu.id}
+        >
+          {gpus.length > 1 && (
+            <div className="mb-1 flex items-center px-4">
+              <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-muted-foreground text-xs">
+                #{index + 1}
+              </span>
+            </div>
+          )}
+          <InfoTable
+            data={{
+              [t("shared.name")]: gpu.name,
+              [t("shared.vendor")]: gpu.vendorName,
+              [t("shared.memorySize")]: gpu.memorySize,
+              [dedicatedMemoryLabel]: dedicatedMemoryDisplay,
+            }}
+          />
+        </div>
+      );
+    })
+  ) : (
+    <Skeleton className="h-[188px] w-full rounded-md" />
+  );
+};
+
 export const MemoryInfo = () => {
   const { t } = useTranslation();
   const [memoryUsageHistory] = useAtom(memoryUsageHistoryAtom);
@@ -395,6 +457,49 @@ export const MemoryInfo = () => {
         <Skeleton className="h-[188px] w-full rounded-md" />
       )}
     </>
+  );
+};
+
+export const MemorySpecifications = () => {
+  const { t } = useTranslation();
+  const { hardwareInfo } = useHardwareInfoAtom();
+  const os = platform();
+
+  return hardwareInfo.memory ? (
+    <div className="space-y-2">
+      <InfoTable
+        data={
+          hardwareInfo.memory.isDetailed
+            ? {
+                [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+                [t("shared.totalMemory")]: hardwareInfo.memory.size,
+                ...(hardwareInfo.memory.totalSlots > 0
+                  ? {
+                      [t("shared.memoryCount")]:
+                        `${hardwareInfo.memory.memoryCount}/${hardwareInfo.memory.totalSlots}`,
+                    }
+                  : {}),
+                ...(hardwareInfo.memory.clock > 0
+                  ? {
+                      [t("shared.memoryClockSpeed")]:
+                        `${hardwareInfo.memory.clock} ${hardwareInfo.memory.clockUnit}`,
+                    }
+                  : {}),
+              }
+            : {
+                [t("shared.memoryType")]: hardwareInfo.memory.memoryType,
+                [t("shared.totalMemory")]: hardwareInfo.memory.size,
+              }
+        }
+      />
+      <div className="flex justify-end">
+        {!hardwareInfo.memory.isDetailed && os !== "macos" && (
+          <FetchDetailButton />
+        )}
+      </div>
+    </div>
+  ) : (
+    <Skeleton className="h-[188px] w-full rounded-md" />
   );
 };
 
@@ -1027,15 +1132,47 @@ export const MotherboardDataInfo = () => {
   );
 };
 
-export const NetworkInfo = () => {
+export const NetworkInfo = ({
+  showUnavailableState = false,
+}: {
+  showUnavailableState?: boolean;
+}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const { networkInfo, initNetwork } = useHardwareInfoAtom();
+  const [isLoading, setIsLoading] = useState(showUnavailableState);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `initNetwork` is a stable function
   useEffect(() => {
-    initNetwork();
+    let isMounted = true;
+
+    void initNetwork().finally(() => {
+      if (isMounted && showUnavailableState) {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  if (isLoading) {
+    return (
+      <Skeleton
+        className="h-24 w-full rounded-md"
+        data-testid="network-info-loading"
+      />
+    );
+  }
+
+  if (showUnavailableState && networkInfo.length === 0) {
+    return (
+      <p className="px-4 pb-4 text-muted-foreground text-sm">
+        {t("pages.dashboard.systemSpecifications.networkUnavailable")}
+      </p>
+    );
+  }
 
   return (
     <>
