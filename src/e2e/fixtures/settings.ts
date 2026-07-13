@@ -14,6 +14,7 @@ export const settingsFixture: ClientSettings_Serialize = {
   theme: "dark",
   navigationLayout: "grouped",
   uiAnnouncementVersion: 1,
+  currentUiAnnouncementVersion: 1,
   displayTargets: ["cpu", "memory", "gpu"],
   graphSize: "xl",
   graphFitToWindow: false,

@@ -135,6 +135,8 @@ pub mod commands {
       theme: settings.theme,
       navigation_layout: settings.navigation_layout,
       ui_announcement_version: settings.ui_announcement_version,
+      current_ui_announcement_version:
+        services::settings_service::GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION,
       display_targets: settings.display_targets,
       graph_size: settings.graph_size,
       graph_fit_to_window: settings.graph_fit_to_window,
