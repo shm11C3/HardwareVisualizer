@@ -63,13 +63,25 @@ test.describe("settings captures", () => {
     await notice
       .getByRole("button", { name: "Open navigation settings" })
       .click();
-    await expect(
-      page.getByRole("switch", { name: "Classic navigation" }),
-    ).toBeVisible();
+    const classicNavigation = page.getByRole("switch", {
+      name: "Classic navigation",
+    });
+    await expect(classicNavigation).toBeVisible();
+    await expect(classicNavigation).toBeFocused();
 
     await notice
       .getByRole("button", { name: "Dismiss navigation notice" })
       .click();
     await expect(notice).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__E2E__?.getInvokeCount(
+              "acknowledge_navigation_restructure_announcement",
+            ) ?? 0,
+        ),
+      )
+      .toBe(1);
   });
 });

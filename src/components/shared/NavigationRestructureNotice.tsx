@@ -3,15 +3,18 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
+  DEFAULT_DISPLAY_TARGET,
   displayTargetAtom,
+  navigationLayoutFocusRequestedAtom,
   sideMenuOpenAtom,
 } from "@/features/menu/hooks/useMenu";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import {
+  navigationMutationPendingAtom,
+  useSettingsAtom,
+} from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { cn } from "@/lib/utils";
 import type { SelectedDisplayType } from "@/types/ui";
-
-export const GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION = 1;
 
 export const NavigationRestructureNotice = ({
   settingsLoaded,
@@ -22,16 +25,20 @@ export const NavigationRestructureNotice = ({
   const { settings, acknowledgeNavigationRestructureAnnouncementAtom } =
     useSettingsAtom();
   const setDisplayTargetAtom = useSetAtom(displayTargetAtom);
+  const requestNavigationLayoutFocus = useSetAtom(
+    navigationLayoutFocusRequestedAtom,
+  );
   const [, setStoredDisplayTarget] = useTauriStore<SelectedDisplayType>(
     "display",
-    "performance",
+    DEFAULT_DISPLAY_TARGET,
   );
   const isMenuOpen = useAtomValue(sideMenuOpenAtom);
+  const navigationMutationPending = useAtomValue(navigationMutationPendingAtom);
 
   if (
     !settingsLoaded ||
     settings.navigationLayout !== "grouped" ||
-    settings.uiAnnouncementVersion >= GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION
+    settings.uiAnnouncementVersion >= settings.currentUiAnnouncementVersion
   ) {
     return null;
   }
@@ -39,9 +46,7 @@ export const NavigationRestructureNotice = ({
   const openNavigationSettings = () => {
     setDisplayTargetAtom("settings");
     void setStoredDisplayTarget("settings");
-    window.setTimeout(() => {
-      document.getElementById("classicNavigation")?.focus();
-    }, 250);
+    requestNavigationLayoutFocus(true);
   };
 
   return (
@@ -71,6 +76,7 @@ export const NavigationRestructureNotice = ({
         variant="ghost"
         size="icon"
         className="-mt-2 -mr-2 shrink-0"
+        disabled={navigationMutationPending}
         onClick={() => void acknowledgeNavigationRestructureAnnouncementAtom()}
         aria-label={t("navigation.notice.dismiss")}
       >

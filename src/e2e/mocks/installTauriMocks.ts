@@ -20,6 +20,8 @@ declare global {
       emitHardwareUpdate: (payload?: HardwareMonitorUpdate) => Promise<void>;
       /** Emit a deterministic series of updates so charts build up history. */
       emitHardwareUpdateSeries: (count?: number) => Promise<void>;
+      /** Number of mocked IPC invocations observed for a command. */
+      getInvokeCount: (command: string) => number;
       /**
        * Start a deterministic event stream through the mocked Tauri event IPC.
        * Used by long-running frontend memory tests.
@@ -263,6 +265,7 @@ export const installTauriMocks = () => {
   const eventListeners = new Map<string, Set<number>>();
   const fixtureOverrides = readFixtureOverrides();
   const handlers = buildInvokeHandlers(store, eventListeners, fixtureOverrides);
+  const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;
   let streamIndex = 0;
   let streamRunning = false;
@@ -285,6 +288,8 @@ export const installTauriMocks = () => {
   };
 
   mockIPC((cmd: string, args?: unknown) => {
+    invokeCounts.set(cmd, (invokeCounts.get(cmd) ?? 0) + 1);
+
     if (Object.hasOwn(handlers, cmd)) {
       return handlers[cmd](args);
     }
@@ -303,6 +308,7 @@ export const installTauriMocks = () => {
   });
 
   window.__E2E__ = {
+    getInvokeCount: (command) => invokeCounts.get(command) ?? 0,
     emitHardwareUpdate: async (payload) =>
       dispatchTauriEvent(eventListeners, {
         event: "hardware-monitor-update",

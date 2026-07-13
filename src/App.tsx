@@ -314,6 +314,7 @@ const AppContent = () => {
           <SideMenu
             isFullScreen={isFullScreen || false}
             navigationLayout={settings.navigationLayout}
+            settingsLoaded={settingsLoaded}
           />
           <Suspense>
             {displayTarget ? (

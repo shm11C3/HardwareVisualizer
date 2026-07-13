@@ -86,6 +86,9 @@ export const navigateTo = async (
     | "settings",
 ) => {
   const target = page.getByRole("button", { name: `open ${type}` });
+  await expect(page.getByRole("button", { name: "open settings" })).toBeVisible(
+    { timeout: BOOTSTRAP_TIMEOUT },
+  );
 
   if (type === "usage" || type === "cpuDetail" || type === "dashboard") {
     if ((await target.count()) === 0) {
@@ -99,6 +102,17 @@ export const navigateTo = async (
       if (!(await classicNavigation.isChecked())) {
         await classicNavigation.click();
       }
+    }
+  } else if (type === "performance" && (await target.count()) === 0) {
+    await page.getByRole("button", { name: "open settings" }).click();
+    const classicNavigation = page.getByRole("switch", {
+      name: "Classic navigation",
+    });
+    await expect(classicNavigation).toBeVisible({
+      timeout: BOOTSTRAP_TIMEOUT,
+    });
+    if (await classicNavigation.isChecked()) {
+      await classicNavigation.click();
     }
   }
 

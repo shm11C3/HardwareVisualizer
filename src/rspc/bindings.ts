@@ -268,6 +268,11 @@ export type ClientSettings_Deserialize = {
 	theme: Theme,
 	navigationLayout: NavigationLayout,
 	uiAnnouncementVersion: number,
+	/**
+	 *  Current announcement schema version. This is wire metadata, not a
+	 *  persisted user preference.
+	 */
+	currentUiAnnouncementVersion: number,
 	displayTargets: HardwareType[],
 	graphSize: GraphSize,
 	graphFitToWindow: boolean,
@@ -307,6 +312,11 @@ export type ClientSettings_Serialize = {
 	theme: Theme,
 	navigationLayout: NavigationLayout,
 	uiAnnouncementVersion: number,
+	/**
+	 *  Current announcement schema version. This is wire metadata, not a
+	 *  persisted user preference.
+	 */
+	currentUiAnnouncementVersion: number,
 	displayTargets: HardwareType[],
 	graphSize: GraphSize,
 	graphFitToWindow: boolean,
