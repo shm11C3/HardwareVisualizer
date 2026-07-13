@@ -88,7 +88,7 @@ describe("usePerformanceLayout", () => {
           }),
       )
       .mockResolvedValue(undefined);
-    const { result } = renderHook(() => usePerformanceLayout());
+    const { result, rerender } = renderHook(() => usePerformanceLayout());
 
     let firstMutation: Promise<boolean> | undefined;
     let secondMutation: Promise<boolean> | undefined;
@@ -102,6 +102,8 @@ describe("usePerformanceLayout", () => {
       order: ["currentValues", "usageGraphs", "processTable"],
       visible: ["usageGraphs", "processTable"],
     });
+
+    rerender();
 
     await act(async () => {
       resolveFirstWrite?.();

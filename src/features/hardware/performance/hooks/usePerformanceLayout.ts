@@ -28,15 +28,19 @@ export const usePerformanceLayout = () => {
   const customLayout = normalizePerformanceCustomLayout(storedCustomLayout);
   const latestCustomLayoutRef = useRef(customLayout);
   const customLayoutMutationQueueRef = useRef(Promise.resolve());
+  const pendingCustomLayoutMutationCountRef = useRef(0);
 
   useEffect(() => {
-    latestCustomLayoutRef.current = customLayout;
+    if (pendingCustomLayoutMutationCountRef.current === 0) {
+      latestCustomLayoutRef.current = customLayout;
+    }
   }, [customLayout]);
 
   const enqueueCustomLayoutMutation = useCallback(
     (
       mutate: (current: typeof customLayout) => typeof customLayout | undefined,
     ) => {
+      pendingCustomLayoutMutationCountRef.current += 1;
       const mutation = customLayoutMutationQueueRef.current.then(async () => {
         const previousLayout = latestCustomLayoutRef.current;
         const nextLayout = mutate(previousLayout);
@@ -60,12 +64,15 @@ export const usePerformanceLayout = () => {
           throw error;
         }
       });
+      const trackedMutation = mutation.finally(() => {
+        pendingCustomLayoutMutationCountRef.current -= 1;
+      });
 
-      customLayoutMutationQueueRef.current = mutation.then(
+      customLayoutMutationQueueRef.current = trackedMutation.then(
         () => undefined,
         () => undefined,
       );
-      return mutation;
+      return trackedMutation;
     },
     [setStoredCustomLayout],
   );
