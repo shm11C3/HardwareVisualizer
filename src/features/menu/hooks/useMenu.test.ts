@@ -39,8 +39,8 @@ describe("useMenu", () => {
     });
 
     expect(result.current.isOpen).toBe(false);
-    expect(mockSetDisplayTarget).toHaveBeenCalledWith("performance");
-    expect(result.current.displayTarget).toBe("performance");
+    expect(mockSetDisplayTarget).toHaveBeenCalledWith("groupedDashboard");
+    expect(result.current.displayTarget).toBe("groupedDashboard");
     expect(typeof result.current.toggleMenu).toBe("function");
     expect(typeof result.current.handleMenuClick).toBe("function");
   });
@@ -117,7 +117,7 @@ describe("useMenu", () => {
       },
     );
 
-    expect(result.current.displayTarget).toBe("usage");
+    expect(result.current.displayTarget).toBeNull();
     expect(mockSetDisplayTarget).not.toHaveBeenCalled();
 
     rerender({ navigationLayout: "classic", settingsLoaded: true });
@@ -126,14 +126,49 @@ describe("useMenu", () => {
     expect(mockSetDisplayTarget).not.toHaveBeenCalled();
   });
 
-  it("normalizes classic screens to Performance in grouped navigation", () => {
-    expect(normalizeDisplayTarget("usage", "grouped")).toBe("performance");
-    expect(normalizeDisplayTarget("dashboard", "grouped")).toBe("performance");
-    expect(normalizeDisplayTarget("cpuDetail", "grouped")).toBe("performance");
+  it("does not publish a legacy Performance target before settings load", () => {
+    vi.mocked(useTauriStore).mockImplementation((key: string) => {
+      if (key === "sideMenuOpen") return [false, mockSetMenuOpen, false];
+      if (key === "display")
+        return ["performance", mockSetDisplayTarget, false];
+      return [null, vi.fn(), false];
+    }) as unknown as typeof useTauriStore;
+
+    const { result, rerender } = renderHook(
+      ({ settingsLoaded }) => useMenu("grouped", settingsLoaded),
+      {
+        initialProps: { settingsLoaded: false },
+        wrapper: Provider,
+      },
+    );
+
+    expect(result.current.displayTarget).toBeNull();
+    expect(mockSetDisplayTarget).not.toHaveBeenCalled();
+
+    rerender({ settingsLoaded: true });
+
+    expect(result.current.displayTarget).toBe("groupedDashboard");
+    expect(mockSetDisplayTarget).toHaveBeenCalledWith("groupedDashboard");
   });
 
-  it("normalizes Performance to the Hardware Dashboard in classic navigation", () => {
+  it("normalizes classic and legacy Performance screens to the grouped Dashboard", () => {
+    expect(normalizeDisplayTarget("usage", "grouped")).toBe("groupedDashboard");
+    expect(normalizeDisplayTarget("dashboard", "grouped")).toBe(
+      "groupedDashboard",
+    );
+    expect(normalizeDisplayTarget("cpuDetail", "grouped")).toBe(
+      "groupedDashboard",
+    );
+    expect(normalizeDisplayTarget("performance", "grouped")).toBe(
+      "groupedDashboard",
+    );
+  });
+
+  it("normalizes grouped Dashboard targets to the Hardware Dashboard in classic navigation", () => {
     expect(normalizeDisplayTarget("performance", "classic")).toBe("dashboard");
+    expect(normalizeDisplayTarget("groupedDashboard", "classic")).toBe(
+      "dashboard",
+    );
   });
 
   it("preserves shared screens in both layouts", () => {

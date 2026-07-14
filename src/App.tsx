@@ -3,6 +3,7 @@ import {
   ChartTemplate,
   CpuUsages,
   Dashboard,
+  GroupedDashboard,
   Insights,
   Performance,
   Settings,
@@ -211,6 +212,12 @@ const AppContent = () => {
       >
         <Dashboard />
       </ScreenTemplate>
+    ),
+    groupedDashboard: (
+      <GroupedDashboard
+        isFullScreen={Boolean(isFullScreen)}
+        showTitle={visibleTypes.includes("dashboard")}
+      />
     ),
     performance: (
       <Performance

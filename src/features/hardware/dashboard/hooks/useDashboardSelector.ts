@@ -18,12 +18,20 @@ const VISIBLE_ITEMS_ADDED_BY_VERSION: Record<
   1: ["motherboard"],
 };
 
-export const useDashboardSelector = () => {
+export const useDashboardSelector = ({
+  visibleItemsKey = "dashboardVisibleItems",
+  visibleItemsVersionKey = "dashboardVisibleItemsVersion",
+  syncDashboardTitleVisibility = true,
+}: {
+  visibleItemsKey?: string;
+  visibleItemsVersionKey?: string;
+  syncDashboardTitleVisibility?: boolean;
+} = {}) => {
   const [visibleItems, setVisibleItems] = useTauriStore<
     DashboardSelectItemType[]
-  >("dashboardVisibleItems", DEFAULT_VISIBLE_ITEMS);
+  >(visibleItemsKey, DEFAULT_VISIBLE_ITEMS);
   const [visibleItemsVersion, setVisibleItemsVersion] = useTauriStore<number>(
-    "dashboardVisibleItemsVersion",
+    visibleItemsVersionKey,
     0,
   );
   const { toggleTitleIconVisibility } = useTitleIconVisualSelector();
@@ -71,12 +79,12 @@ export const useDashboardSelector = () => {
   ]);
 
   useEffect(() => {
-    if (visibleItems == null) {
+    if (visibleItems == null || !syncDashboardTitleVisibility) {
       return;
     }
 
     toggleTitleIconVisibility("dashboard", visibleItems.includes("title"));
-  }, [visibleItems, toggleTitleIconVisibility]);
+  }, [visibleItems, syncDashboardTitleVisibility, toggleTitleIconVisibility]);
 
   const toggleItem = async (item: DashboardSelectItemType) => {
     if (!visibleItems) return;

@@ -1,5 +1,6 @@
 export type SelectedDisplayType =
   | "dashboard"
+  | "groupedDashboard"
   | "performance"
   | "usage"
   | "cpuDetail"

@@ -30,7 +30,8 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
 
 const mockUseProcessInfo = vi.fn();
 vi.mock("@/features/hardware/hooks/useProcessInfo", () => ({
-  useProcessInfo: () => mockUseProcessInfo(),
+  useProcessInfo: (options?: { enabled?: boolean }) =>
+    mockUseProcessInfo(options),
 }));
 
 // ── Fixture data ──────────────────────────────────────────────────────────────
@@ -194,6 +195,30 @@ describe("useExportToClipboard", () => {
       await result.current.exportToClipboard();
     });
     expect(getWrittenContent()).toContain("3");
+  });
+
+  it("omits runtime-derived CPU fields from the specifications report", async () => {
+    mockUseHardwareInfoAtom.mockReturnValue({
+      hardwareInfo: { ...defaultSysInfo, cpu: fullCpuInfo },
+      networkInfo: [],
+    });
+    mockUseProcessInfo.mockReturnValue([
+      { pid: 1, name: "process1", cpuUsage: 10, memoryUsage: 200 },
+    ]);
+    const { result } = renderHook(
+      () => useExportToClipboard({ includeRuntimeStats: false }),
+      {
+        wrapper: makeWrapper([[100, 200, 300]]),
+      },
+    );
+
+    await act(async () => {
+      await result.current.exportToClipboard();
+    });
+
+    expect(mockUseProcessInfo).toHaveBeenCalledWith({ enabled: false });
+    expect(getWrittenContent()).not.toContain("shared.threadCount");
+    expect(getWrittenContent()).not.toContain("shared.processCount");
   });
 
   it("falls back to 0 threads when processorsUsageHistory is empty", async () => {

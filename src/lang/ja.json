@@ -219,7 +219,7 @@
     "insightSection": "インサイト",
     "notice": {
       "title": "ナビゲーションが新しくなりました",
-      "description": "現在状態の確認はパフォーマンスから始められます。設定から以前のナビゲーションに戻すこともできます。",
+      "description": "現在状態とシステム仕様はダッシュボードから確認できます。設定から以前のナビゲーションに戻すこともできます。",
       "openSettings": "ナビゲーション設定を開く",
       "dismiss": "ナビゲーションのお知らせを閉じる"
     }
@@ -227,6 +227,15 @@
   "pages": {
     "dashboard": {
       "name": "ダッシュボード",
+      "viewTabs": "ダッシュボード表示",
+      "tabs": {
+        "performance": "パフォーマンス",
+        "systemSpecifications": "システム仕様"
+      },
+      "copyHardwareReport": "ハードウェアレポートをコピー",
+      "systemSpecifications": {
+        "networkUnavailable": "このシステムではネットワーク情報を利用できません。"
+      },
       "visibleItems": "表示項目",
       "selectItems": "表示する項目を選択してください",
       "gpuSelector": {

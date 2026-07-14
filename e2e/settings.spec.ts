@@ -23,11 +23,17 @@ test.describe("settings captures", () => {
     await gotoApp(page);
 
     await expect(
-      page.getByRole("button", { name: "open performance" }),
+      page.getByRole("button", { name: "open dashboard" }),
     ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
     await expect(page.getByRole("button", { name: "open usage" })).toHaveCount(
       0,
     );
+    await expect(
+      page.getByRole("button", { name: "open cpuDetail" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "open performance" }),
+    ).toHaveCount(0);
 
     await navigateTo(page, "settings");
     const classicNavigation = page.getByRole("switch", {
@@ -45,9 +51,6 @@ test.describe("settings captures", () => {
     await expect(
       page.getByRole("button", { name: "open cpuDetail" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "open performance" }),
-    ).toHaveCount(0);
   });
 
   test("navigation notice links to Settings and can be dismissed", async ({

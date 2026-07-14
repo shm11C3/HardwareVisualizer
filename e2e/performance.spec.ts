@@ -6,7 +6,50 @@ import {
   seedHardwareHistory,
 } from "./helpers";
 
-test.describe("Performance Screen", () => {
+test.describe("Grouped Dashboard", () => {
+  test("switches between Performance and System Specifications without keeping inactive content mounted", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+
+    const performanceTab = page.getByRole("tab", { name: "Performance" });
+    const specificationsTab = page.getByRole("tab", {
+      name: "System Specifications",
+    });
+
+    await expect(performanceTab).toHaveAttribute("data-state", "active");
+    await expect(page.getByTestId("performance-screen")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Copy hardware report" }),
+    ).toHaveCount(0);
+
+    await specificationsTab.click();
+    await expect(specificationsTab).toHaveAttribute("data-state", "active");
+    await expect(page.getByTestId("performance-screen")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Copy hardware report" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("live-process-table")).toHaveCount(0);
+    await expect(page.getByText("Thread Count")).toHaveCount(0);
+    await expect(
+      page.getByText("Network information is unavailable on this system."),
+    ).toBeVisible();
+
+    await navigateTo(page, "settings");
+    await navigateTo(page, "dashboard");
+    await expect(specificationsTab).toHaveAttribute("data-state", "active");
+    await saveCapture(page, "dashboard-system-specifications-desktop");
+
+    await page.setViewportSize({ width: 520, height: 800 });
+    await saveCapture(page, "dashboard-system-specifications-compact-window");
+
+    await performanceTab.click();
+    await expect(page.getByTestId("performance-screen")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Copy hardware report" }),
+    ).toHaveCount(0);
+  });
+
   test("switches presets and unmounts panels outside the active preset", async ({
     page,
   }) => {
@@ -27,7 +70,7 @@ test.describe("Performance Screen", () => {
     await expect(page.getByTestId("live-process-table")).toHaveCount(0);
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "performance");
+    await navigateTo(page, "dashboard");
     await expect(page.getByRole("tab", { name: "Compact" })).toHaveAttribute(
       "data-state",
       "active",
@@ -66,7 +109,7 @@ test.describe("Performance Screen", () => {
     await expect(classicNavigation).toBeChecked();
     await classicNavigation.click();
     await expect(classicNavigation).not.toBeChecked();
-    await navigateTo(page, "performance");
+    await navigateTo(page, "dashboard");
     await expect(page.getByRole("tab", { name: "Custom" })).toHaveAttribute(
       "data-state",
       "active",

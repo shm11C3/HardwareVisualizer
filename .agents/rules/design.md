@@ -16,6 +16,8 @@ nearest scoped `AGENTS.md`.
 - Make collection/rendering cost follow visible or explicit background value.
 - Match evidence to the claim; inspect rendered output for visual claims.
 - Use the issue/request as the scope anchor and separate adjacent work.
+- For navigation changes, identify each level explicitly as a sidebar
+  destination, in-screen tab, or content section before implementing routes.
 - If a specific exception is needed, add or update an ADR rather than silently
   crossing a documented boundary.
 

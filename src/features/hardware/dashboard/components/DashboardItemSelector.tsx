@@ -14,12 +14,16 @@ import {
   dashBoardItems,
 } from "@/features/hardware/dashboard/types/dashboardItem";
 
+const EMPTY_EXCLUDED_ITEMS: readonly DashboardSelectItemType[] = [];
+
 export const DashboardItemSelector = ({
   visibleItems,
   toggleItem,
+  excludedItems = EMPTY_EXCLUDED_ITEMS,
 }: {
   visibleItems: DashboardSelectItemType[] | null;
   toggleItem: (item: DashboardSelectItemType) => void;
+  excludedItems?: readonly DashboardSelectItemType[];
 }) => {
   const { t } = useTranslation();
   const os = platform();
@@ -38,9 +42,11 @@ export const DashboardItemSelector = ({
   };
 
   const items: DashboardSelectItemType[] = [
-    "title",
+    ...(excludedItems.includes("title") ? [] : (["title"] as const)),
     ...dashBoardItems.filter(
-      (item) => item !== "motherboard" || os === "windows" || os === "macos",
+      (item) =>
+        !excludedItems.includes(item) &&
+        (item !== "motherboard" || os === "windows" || os === "macos"),
     ),
   ];
 

@@ -14,9 +14,11 @@ import type { PerformancePanelId } from "./types/performanceLayout";
 export const Performance = ({
   isFullScreen = false,
   showTitle = true,
+  embedded = false,
 }: {
   isFullScreen?: boolean;
   showTitle?: boolean;
+  embedded?: boolean;
 }) => {
   const { t } = useTranslation();
   const {
@@ -29,60 +31,68 @@ export const Performance = ({
   } = usePerformanceLayout();
   const isMonitor = preset === "monitor";
 
+  const content = (
+    <main
+      className={cn(
+        "mx-auto w-full pb-8",
+        embedded
+          ? "pt-2"
+          : cn("min-h-screen pt-12 pr-4", isFullScreen ? "pl-4" : "pl-16"),
+        !isMonitor && "2xl:w-3/4 2xl:px-4",
+      )}
+      data-performance-preset={preset}
+      data-testid="performance-screen"
+    >
+      <header
+        className={cn(
+          "mb-4 flex flex-col gap-3",
+          isMonitor && "lg:flex-row lg:items-center lg:justify-between",
+        )}
+      >
+        <div className="min-w-0">
+          {showTitle && (
+            <div className="flex items-center gap-2">
+              <GaugeIcon size={32} />
+              <h2 className="font-bold text-3xl text-foreground">
+                {t("navigation.performance")}
+              </h2>
+            </div>
+          )}
+          {!isMonitor && (
+            <p
+              className={cn(
+                "text-muted-foreground text-sm",
+                showTitle && "mt-1 ml-10",
+              )}
+            >
+              {t("pages.performance.description")}
+            </p>
+          )}
+        </div>
+        <PerformancePresetSelector preset={preset} onPresetChange={setPreset} />
+      </header>
+
+      {isPending ? (
+        <PerformanceSkeleton />
+      ) : (
+        <PerformancePresetContent
+          preset={preset}
+          customLayout={customLayout}
+          onPanelToggle={togglePanel}
+          onPanelDragEnd={handlePanelDragEnd}
+          embedded={embedded}
+        />
+      )}
+    </main>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
   return (
     <BurnInShift enabled paddingOverride={isMonitor ? 0 : undefined}>
-      <main
-        className={cn(
-          "mx-auto min-h-screen w-full pt-12 pr-4 pb-8",
-          isFullScreen ? "pl-4" : "pl-16",
-          !isMonitor && "2xl:w-3/4 2xl:px-4",
-        )}
-        data-performance-preset={preset}
-        data-testid="performance-screen"
-      >
-        <header
-          className={cn(
-            "mb-4 flex flex-col gap-3",
-            isMonitor && "lg:flex-row lg:items-center lg:justify-between",
-          )}
-        >
-          <div className="min-w-0">
-            {showTitle && (
-              <div className="flex items-center gap-2">
-                <GaugeIcon size={32} />
-                <h2 className="font-bold text-3xl text-foreground">
-                  {t("navigation.performance")}
-                </h2>
-              </div>
-            )}
-            {!isMonitor && (
-              <p
-                className={cn(
-                  "text-muted-foreground text-sm",
-                  showTitle && "mt-1 ml-10",
-                )}
-              >
-                {t("pages.performance.description")}
-              </p>
-            )}
-          </div>
-          <PerformancePresetSelector
-            preset={preset}
-            onPresetChange={setPreset}
-          />
-        </header>
-
-        {isPending ? (
-          <PerformanceSkeleton />
-        ) : (
-          <PerformancePresetContent
-            preset={preset}
-            customLayout={customLayout}
-            onPanelToggle={togglePanel}
-            onPanelDragEnd={handlePanelDragEnd}
-          />
-        )}
-      </main>
+      {content}
     </BurnInShift>
   );
 };
@@ -92,11 +102,13 @@ const PerformancePresetContent = ({
   customLayout,
   onPanelToggle,
   onPanelDragEnd,
+  embedded,
 }: {
   preset: ReturnType<typeof usePerformanceLayout>["preset"];
   customLayout: ReturnType<typeof usePerformanceLayout>["customLayout"];
   onPanelToggle: ReturnType<typeof usePerformanceLayout>["togglePanel"];
   onPanelDragEnd: ReturnType<typeof usePerformanceLayout>["handlePanelDragEnd"];
+  embedded: boolean;
 }) => {
   if (preset === "compact") {
     return <CurrentValueStrip />;
@@ -106,7 +118,7 @@ const PerformancePresetContent = ({
     return (
       <UsageGraphPanel
         fitToContainer
-        height="calc(100dvh - 8rem)"
+        height={embedded ? "calc(100dvh - 12rem)" : "calc(100dvh - 8rem)"}
         className="rounded-xl border border-border bg-card/70"
         testId="performance-usage-graphs"
       />

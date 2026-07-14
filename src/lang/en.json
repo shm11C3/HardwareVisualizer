@@ -219,7 +219,7 @@
     "insightSection": "Insight",
     "notice": {
       "title": "Navigation has been reorganized",
-      "description": "Live monitoring now starts from Performance. You can return to the previous navigation from Settings.",
+      "description": "Live monitoring and system specifications now start from Dashboard. You can return to the previous navigation from Settings.",
       "openSettings": "Open navigation settings",
       "dismiss": "Dismiss navigation notice"
     }
@@ -227,6 +227,15 @@
   "pages": {
     "dashboard": {
       "name": "Dashboard",
+      "viewTabs": "Dashboard views",
+      "tabs": {
+        "performance": "Performance",
+        "systemSpecifications": "System Specifications"
+      },
+      "copyHardwareReport": "Copy hardware report",
+      "systemSpecifications": {
+        "networkUnavailable": "Network information is unavailable on this system."
+      },
       "visibleItems": "Visible Items",
       "selectItems": "Select items to display on the dashboard",
       "gpuSelector": {

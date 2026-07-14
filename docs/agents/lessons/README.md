@@ -104,3 +104,4 @@ shared enforcement surface.
 - [Preserve clean-room specification gates](preserve-clean-room-spec-gates.md)
 - [Prevent Tauri dependency version skew](prevent-tauri-dependency-version-skew.md)
 - [Keep shared rules agent-neutral](keep-shared-rules-agent-neutral.md)
+- [Make navigation levels explicit](make-navigation-levels-explicit.md)
