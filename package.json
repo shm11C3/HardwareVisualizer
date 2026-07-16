@@ -50,7 +50,7 @@
     "jsdom": "^29.1.1",
     "license-checker": "^25.0.1",
     "rollup-plugin-visualizer": "^7.0.0",
-    "selenium-webdriver": "^4.45.0",
+    "selenium-webdriver": "^4.46.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
