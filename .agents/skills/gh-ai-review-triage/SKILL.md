@@ -20,6 +20,7 @@ Separate AI review noise from useful feedback. Inspect review threads, classify 
    - Fetch inline review threads with resolved/outdated state.
    - Fetch top-level PR comments and review submissions to catch bot summaries, approvals, and nitpick-only reviews.
    - Note the author for each item. Treat Copilot, CodeRabbit, and similar bot comments as advisory until verified.
+   - Extract binding constraints from the user request, explicit maintainer corrections, and accepted canonical decisions. Use them as the classification boundary rather than treating them as advisory inputs equal to bot feedback.
 
 3. Use the best available retrieval method.
    - If GitHub connector tools are available, prefer `_list_pull_request_review_threads` for inline threads and `_fetch_pr_comments` for the merged PR timeline.
@@ -32,13 +33,15 @@ Separate AI review noise from useful feedback. Inspect review threads, classify 
    - `Should Fix`: non-blocking but clearly correct feedback that removes misleading code, unrealistic tests, stale comments, fragile behavior, or likely reviewer follow-up.
    - `Worth Fixing`: small low-risk change that improves clarity, test realism, performance in a hot path, user-visible behavior, or future maintainability.
    - `Optional`: nitpick, style preference, docstring/coverage suggestion outside project requirements, or UX improvement with fallback already implemented.
-   - `Ignore`: outdated, resolved, duplicate, incorrect after local verification, or unrelated to this PR.
+   - `Ignore`: outdated, resolved, duplicate, incorrect after local verification, unrelated to this PR, or conflicts with a binding maintainer constraint without evidence that the decision must be reopened.
 
 5. Verify before editing.
+   - Check the proposed edit against the binding constraints before judging only its local technical correctness. A plausible implementation can still be the wrong product behavior or scope.
    - Reproduce claimed CI-impacting issues locally when feasible.
    - Inspect the referenced code, not only the bot wording.
    - If a bot says "warnings-as-errors" or similar, run the relevant check before treating it as required.
    - Only mark Required if the issue is verifiable with reproduction/test evidence or deterministically verifiable from available data; if verification isn't possible, downgrade to Should Fix with a 'needs verification' tag (or Ignore if clearly stale/duplicate).
+   - If a comment conflicts with a binding constraint, preserve the constraint and report the conflict. If the comment exposes new correctness, safety, or consistency evidence, return that evidence to the maintainer instead of silently overriding the direction or implementing a compromise that weakens it.
 
 6. Decide action.
    - Treat `Required`, `Should Fix`, and `Worth Fixing` as fix targets by default. Note: fix targets assume verification feasibility has been assessed per Step 5.

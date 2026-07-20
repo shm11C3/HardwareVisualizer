@@ -103,6 +103,7 @@ shared enforcement surface.
 - [Verify user-visible results](verify-user-visible-results.md)
 - [Preserve clean-room specification gates](preserve-clean-room-spec-gates.md)
 - [Prefer experimental sensor coverage](prefer-experimental-sensor-coverage.md)
+- [Preserve maintainer direction during AI review](preserve-maintainer-direction-during-ai-review.md)
 - [Prevent Tauri dependency version skew](prevent-tauri-dependency-version-skew.md)
 - [Keep shared rules agent-neutral](keep-shared-rules-agent-neutral.md)
 - [Make navigation levels explicit](make-navigation-levels-explicit.md)
