@@ -106,12 +106,18 @@ fn build_temperature_sample(
       let cpu_temperature =
         crate::utils::thermal::select_cpu_temperature(&sensor_temperatures);
       let availability = if cpu_temperature.is_none() {
-        let reason = if unsupported {
-          format!(
+        let reason = match &pawnio_error {
+          CpuPackageTemperatureError::Unsupported(_) => format!(
             "PawnIO CPU package path unsupported ({pawnio_reason}); ACPI thermal zones unavailable"
-          )
-        } else {
-          format!("PawnIO unavailable ({pawnio_reason}); ACPI thermal zones unavailable")
+          ),
+          CpuPackageTemperatureError::Unavailable { .. } => {
+            format!(
+              "PawnIO unavailable ({pawnio_reason}); ACPI thermal zones unavailable"
+            )
+          }
+          CpuPackageTemperatureError::Internal(_) => format!(
+            "CPU temperature sampler internal error ({pawnio_reason}); ACPI thermal zones unavailable"
+          ),
         };
         if unsupported {
           SensorAvailability::unsupported(reason)
@@ -336,10 +342,12 @@ mod tests {
     );
 
     assert_eq!(sample.cpu_temperature, None);
-    assert!(matches!(
+    assert_eq!(
       sample.availability,
-      SensorAvailability::Unavailable { .. }
-    ));
+      SensorAvailability::unavailable(
+        "CPU temperature sampler internal error (CPU temperature sampler lock poisoned); ACPI thermal zones unavailable"
+      )
+    );
     assert!(sample.guidance_candidates.is_empty());
   }
 

@@ -343,7 +343,8 @@ impl CpuTemperatureSampler {
         .map(|temperature| CpuPackageTemperature {
           temperature_celsius: temperature,
           source: CpuTemperatureSource::IntelDtsPackageMsr,
-        }),
+        })
+        .map_err(|reason| CpuPackageTemperatureError::Unavailable { reason, enablement }),
       Some(ActiveCpuTemperatureSource::Amd {
         client,
         tctl_offset_celsius,
@@ -360,16 +361,14 @@ impl CpuTemperatureSampler {
             source: CpuTemperatureSource::AmdZenSmnTctl,
           }),
         Err(reason) => Err(reason),
-      },
-      None => {
-        return Err(self.inactive_error.clone().unwrap_or_else(|| {
-          CpuPackageTemperatureError::Internal(
-            "CPU package temperature unavailable".to_string(),
-          )
-        }));
       }
-    }
-    .map_err(|reason| CpuPackageTemperatureError::Unavailable { reason, enablement });
+      .map_err(|reason| CpuPackageTemperatureError::Unavailable { reason, enablement }),
+      None => Err(self.inactive_error.clone().unwrap_or_else(|| {
+        CpuPackageTemperatureError::Internal(
+          "CPU package temperature unavailable".to_string(),
+        )
+      })),
+    };
 
     if let Err(reason) = &result
       && !self.sample_failure_logged
