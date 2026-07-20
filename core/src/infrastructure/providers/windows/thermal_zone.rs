@@ -24,7 +24,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use wmi::WMIConnection;
 
-use crate::models::{SensorTemperature, SensorVerification};
+use crate::models::SensorTemperature;
 use crate::utils::thermal;
 use crate::{log_debug, log_error};
 
@@ -206,7 +206,6 @@ fn query_msacpi_zones(conn: &WMIConnection) -> Result<Vec<SensorTemperature>, St
       thermal::is_plausible_celsius(celsius).then(|| SensorTemperature {
         name: thermal::clean_zone_name(&row.instance_name),
         temperature: celsius,
-        verification: SensorVerification::Verified,
       })
     })
     .collect();
@@ -244,7 +243,6 @@ fn query_perf_counter_zones(
       Some(SensorTemperature {
         name: thermal::clean_zone_name(&row.name),
         temperature: celsius,
-        verification: SensorVerification::Verified,
       })
     })
     .collect();

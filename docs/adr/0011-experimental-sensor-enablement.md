@@ -21,20 +21,30 @@ verified.
 For native sensor collection, the implementation distinguishes three states:
 
 1. **Verified** — the hardware/register path is covered by the implementation-
-   ready spec and may be presented as the normal supported path.
+   ready spec. The verified hardware matrix is maintained in the relevant
+   sensor specification rather than exposed as routine UI state.
 2. **Experimental** — the access module or OS path already recognizes the device
    or family, and HardwareVisualizer has a plausible read-only decode to attempt,
    but the exact hardware facts are not yet fully verified. The app may collect
-   and display the reading, but it must label or otherwise classify it as
-   experimental.
+   and display a successful reading through the existing presentation contract;
+   success is not labeled or otherwise classified as experimental on screen.
 3. **Unsupported** — the access module/path does not recognize the hardware, or
    attempting a read would require guessing an address, chip selection, register
    map, mutation, or behavior not already described by the current repository
    inputs. This remains disabled.
 
-Verification is independent from `SensorAvailability`. A successfully collected
-experimental value is still `Available`; `Experimental` describes the confidence
-in the hardware/register path, not whether the current sample produced a value.
+Enablement confidence is independent from `SensorAvailability`. A successfully
+collected experimental value is still `Available`; `Experimental` describes the
+policy for attempting the hardware/register path, not a status attached to each
+successful sample.
+
+The sensor specifications are the canonical record of which hardware is
+Verified, Experimental, or Unsupported. Runtime code may mirror the minimum
+classification needed to select a safe path and to describe an actual failure,
+but the App event DTO and routine frontend readings do not carry verification
+metadata. If collection from an Experimental path fails and an existing
+diagnostic or guidance surface exposes that failure, the failure text may state
+that the attempted path was experimental.
 
 Lack of complete primary-source verification is not, by itself, a reason to
 disable a reading. When the device is recognized and the existing read-only
@@ -77,8 +87,11 @@ This policy changes runtime enablement, not clean-room provenance:
   rules.
 - Keep plausibility gates. For CPU temperature, reject all-zero reads and values
   outside the accepted range rather than publishing them as experimental.
-- Mark experimental readings in the data path or presentation path so support
-  reports can distinguish them from verified readings.
+- Keep successful readings on the existing data and presentation contracts; do
+  not add verification metadata, badges, or source-label suffixes to routine UI.
+- When an Experimental attempt actually fails and that failure is surfaced,
+  identify the attempted path as experimental in the diagnostic detail. Do not
+  show an experimental label merely because collection succeeded.
 - Do not show PawnIO installation/permission guidance when the only issue is
   that a source is experimental or unverified. Guidance remains for actual
   missing, permission, load, or runtime failures after an attempted source and
@@ -90,22 +103,24 @@ This policy changes runtime enablement, not clean-room provenance:
 
 The implementation makes the following vertical change:
 
-1. Core owns shared `SensorEnablement` (`Verified`, `Experimental`,
-   `Unsupported`) and `SensorVerification` (`Verified`, `Experimental`) models.
-2. Core temperature and motherboard readings retain verification independently
-   from availability. The headline CPU value also retains the verification of
-   the source selected for it.
-3. The App event DTO carries structured verification metadata to the frontend.
-   Experimental CPU readings also keep an explicit sensor label so the current
-   Dashboard and support reports identify them without requiring a new view.
-4. AMD Family `0x1A` selects the existing AMD SMN source as `Experimental`;
+1. Core owns the internal `SensorEnablement` (`Verified`, `Experimental`,
+   `Unsupported`) policy model used to select a safe path and contextualize
+   failures.
+2. Successful Core readings, App event DTOs, generated bindings, and frontend
+   state keep their existing shapes. Verification metadata is not propagated
+   with successful samples and the Dashboard receives no new label or badge.
+3. AMD Family `0x1A` selects the existing AMD SMN source as `Experimental`;
    families `0x17` and `0x19` remain `Verified`, and families rejected by the
    `RyzenSMU` module remain `Unsupported`.
-5. Intel remains capability-driven rather than family/model-gated.
+4. Intel remains capability-driven rather than family/model-gated.
+5. A failed Experimental attempt carries that context in the existing Core
+   diagnostic detail. Optional-component guidance still requires an actual
+   missing, permission, load, read, or decode failure plus insufficient
+   fallback data.
 6. Existing plausibility checks, read-only access, mutexes, fallback behavior,
    and optional-component guidance rules remain unchanged.
-7. Focused regression tests cover candidate classification, metadata
-   propagation, presentation labeling, and guidance suppression.
+7. Focused regression tests cover candidate classification, unchanged success
+   labels, experimental failure wording, and guidance suppression.
 
 The Windows-only providers still require a Windows runner or machine for final
 runtime proof. Per-CCD temperatures, SMU PM-table metrics, new Zen 5 register

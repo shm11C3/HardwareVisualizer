@@ -448,10 +448,8 @@ export type HardwareMonitorUpdate = {
 	processorsUsage: number[],
 	// Headline CPU temperature in the user's preferred unit. Currently Windows only.
 	cpuTemperature: number | null,
-	// Verification confidence for the headline CPU temperature.
-	cpuTemperatureVerification: SensorVerification | null,
 	// All named temperature sensors (thermal zones) in the user's preferred unit.
-	sensorTemperatures: SensorTemperatureValue[],
+	sensorTemperatures: NameValue[],
 	// Motherboard temperature sensors in the user's preferred unit.
 	motherboardTemperatures: MotherboardTemperatureValue[],
 	// Motherboard fan speeds in RPM.
@@ -497,7 +495,6 @@ export type MotherboardFanSpeedValue = {
 	rpm: number | null,
 	status: FanSpeedStatus,
 	source: string,
-	verification: SensorVerification,
 };
 
 export type MotherboardInfo = {
@@ -514,7 +511,6 @@ export type MotherboardTemperatureValue = {
 	name: string,
 	value: number,
 	source: string,
-	verification: SensorVerification,
 };
 
 export type NameValue = {
@@ -571,14 +567,6 @@ export type ProcessStatRecord = {
 	total_execution_sec: number,
 	latest_timestamp: string,
 };
-
-export type SensorTemperatureValue = {
-	name: string,
-	value: number,
-	verification: SensorVerification,
-};
-
-export type SensorVerification = "verified" | "experimental";
 
 export type SizeUnit = "B" | "KB" | "MB" | "GB";
 
@@ -725,4 +713,3 @@ function makeEvent<T>(name: string) {
 
     return Object.assign(fn, base);
 }
-

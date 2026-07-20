@@ -3,7 +3,6 @@ import type {
   MotherboardFanSpeedValues,
   MotherboardTemperatureValues,
   NameValues,
-  SensorTemperatureValues,
 } from "@/features/hardware/types/hardwareDataType";
 
 export const cpuUsageHistoryAtom = atom<(number | null)[]>([]);
@@ -45,7 +44,7 @@ export const cpuTempAtom = atom<NameValues>([]);
 export const cpuFanSpeedAtom = atom<NameValues>([]);
 
 /** All named temperature sensors (thermal zones), Windows only for now */
-export const sensorTempsAtom = atom<SensorTemperatureValues>([]);
+export const sensorTempsAtom = atom<NameValues>([]);
 
 /** Live motherboard temperature sensors from the Super I/O provider */
 export const motherboardTempsAtom = atom<MotherboardTemperatureValues>([]);

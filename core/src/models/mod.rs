@@ -12,5 +12,5 @@ pub use metrics::{
   FanSpeedStatus, GpuMetric, GpuSample, MetricsSnapshot, MotherboardFanSpeed,
   MotherboardSensorCollection, MotherboardSensorSample, MotherboardTemperature,
   ProcessSample, SensorAvailability, SensorEnablement, SensorTemperature,
-  SensorVerification, TemperatureSample,
+  TemperatureSample,
 };

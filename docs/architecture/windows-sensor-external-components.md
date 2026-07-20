@@ -71,10 +71,11 @@ The Phase 1 implementation uses read-only CPU package temperature paths:
   `IntelMSR`.
 - AMD: SMN `0x00059800` through `RyzenSMU`. Family 17h and 19h are verified;
   other families the `RyzenSMU` module recognizes (e.g. Family 1Ah / Zen 5) are
-  enabled best-effort as experimental readings, plausibility-gated and labeled
-  experimental. Core diagnostics and sensor samples retain the verification
-  level, and the App event projection carries it as structured metadata in
-  addition to the experimental sensor label (see ADR 0011).
+  enabled best-effort as experimental paths with the same plausibility gate.
+  Successful values keep the existing Core sample, App event, and Dashboard
+  presentation contracts. Verification status is maintained in the sensor
+  specification; only a surfaced failure from an experimental attempt carries
+  that context (see ADR 0011).
 
 The motherboard sensor implementation also uses a read-only PawnIO LpcIO path
 for the scoped Nuvoton NCT6799D Super I/O bank-4 temperature and direct RPM

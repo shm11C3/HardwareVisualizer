@@ -33,14 +33,16 @@
 **Verified** only once its THM register facts are verified against a
 primary source. Per ADR 0011, a family that the `RyzenSMU` module
 recognizes but this spec has not yet verified is still enabled
-best-effort as an **experimental** reading (reusing the verified decode,
-plausibility-gated and labeled experimental) rather than disabled:
+best-effort as an **experimental** path (reusing the verified decode and
+plausibility gate) rather than disabled. Successful readings use the normal
+presentation contract; if an attempted experimental path fails and the failure
+is surfaced, the diagnostic may identify it as experimental:
 
 | Family | Status | Default enablement |
 | --- | --- | --- |
 | `0x17` | Layout and ranges verified against the directly pinned AMD OSRR 56255 Rev 3.03 §4.2.1, p. 243 (S2) and the AMD register header (S6) | Enabled |
 | `0x19` | Register, address, and Tctl description verified against PPR 55898 Vol 2 §10.3 (S1) | Enabled |
-| `0x1A` | Recognized by the PawnIO module (S5) but not yet verified by this spec | Enabled best-effort as **experimental** (plausibility-gated, labeled experimental) per ADR 0011; graduates to verified once THM facts are pinned |
+| `0x1A` | Recognized by the PawnIO module (S5) but not yet verified by this spec | Enabled best-effort as **experimental** and plausibility-gated per ADR 0011; successful UI readings use the normal source label; graduates to verified once THM facts are pinned |
 
 ## Register map (facts)
 
@@ -69,8 +71,8 @@ Notes:
   CPU THM; the `TJ_SEL` fields named in the GPU-IP header (S6) are
   therefore not part of this spec's decode — see Open questions.
   Family 1Ah is not yet verified by this spec; per ADR 0011 it is enabled
-  best-effort as an experimental reading (reusing this verified decode,
-  plausibility-gated and labeled experimental) rather than disabled — see
+  best-effort as an experimental path (reusing this verified decode and
+  plausibility gate) rather than disabled — see
   Detection and Open questions.
 - SMN is reached through an index/data register pair in the host
   bridge PCI configuration space; the PawnIO module performs that
@@ -153,7 +155,7 @@ non-normative):
   show readings explained by it (then a spec revision may adopt it as
   a future extension).
 - Non-blocking for Phase 1: family 1Ah is enabled best-effort as an
-  experimental reading via the Detection enablement table (ADR 0011),
+  experimental path via the Detection enablement table (ADR 0011),
   not verified. Confirm `THM_TCON_CUR_TMP` address/layout from an AMD
   PPR/OSRR when available, or validate against a Phase 2 register dump,
   to graduate it from experimental to verified.

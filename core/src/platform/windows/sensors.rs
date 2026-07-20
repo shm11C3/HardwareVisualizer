@@ -6,7 +6,7 @@ use crate::infrastructure::providers::windows::cpu_temperature::{
 use crate::log_warn;
 use crate::models::{
   ExternalComponentGuidanceCandidate, MotherboardSensorCollection, SensorAvailability,
-  SensorTemperature, SensorVerification, TemperatureSample,
+  SensorTemperature, TemperatureSample,
 };
 
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -86,12 +86,10 @@ fn build_temperature_sample(
         SensorTemperature {
           name: cpu_package_sensor_name(&sample).to_string(),
           temperature: sample.temperature_celsius,
-          verification: sample.verification,
         },
       );
       TemperatureSample {
         cpu_temperature: Some(sample.temperature_celsius),
-        cpu_temperature_verification: Some(sample.verification),
         sensor_temperatures,
         availability: SensorAvailability::Available,
         guidance_candidates: Vec::new(),
@@ -99,14 +97,14 @@ fn build_temperature_sample(
     }
     Err(pawnio_error) => {
       let pawnio_reason = pawnio_error.to_string();
-      let component_failed =
-        matches!(&pawnio_error, CpuPackageTemperatureError::Unavailable(_));
+      let component_failed = matches!(
+        &pawnio_error,
+        CpuPackageTemperatureError::Unavailable { .. }
+      );
       let unsupported =
         matches!(&pawnio_error, CpuPackageTemperatureError::Unsupported(_));
-      let cpu_sensor =
-        crate::utils::thermal::select_cpu_temperature_sensor(&sensor_temperatures);
-      let cpu_temperature = cpu_sensor.map(|sensor| sensor.temperature);
-      let cpu_temperature_verification = cpu_sensor.map(|sensor| sensor.verification);
+      let cpu_temperature =
+        crate::utils::thermal::select_cpu_temperature(&sensor_temperatures);
       let availability = if cpu_temperature.is_none() {
         let reason = if unsupported {
           format!(
@@ -134,7 +132,6 @@ fn build_temperature_sample(
       };
       TemperatureSample {
         cpu_temperature,
-        cpu_temperature_verification,
         sensor_temperatures,
         availability,
         guidance_candidates,
@@ -144,19 +141,9 @@ fn build_temperature_sample(
 }
 
 fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
-  match (sample.source, sample.verification) {
-    (CpuTemperatureSource::IntelDtsPackageMsr, SensorVerification::Verified) => {
-      "CPU Package (PawnIO Intel DTS)"
-    }
-    (CpuTemperatureSource::AmdZenSmnTctl, SensorVerification::Verified) => {
-      "CPU Package (PawnIO AMD SMN)"
-    }
-    (CpuTemperatureSource::IntelDtsPackageMsr, SensorVerification::Experimental) => {
-      "CPU Package (PawnIO Intel DTS, Experimental)"
-    }
-    (CpuTemperatureSource::AmdZenSmnTctl, SensorVerification::Experimental) => {
-      "CPU Package (PawnIO AMD SMN, Experimental)"
-    }
+  match sample.source {
+    CpuTemperatureSource::IntelDtsPackageMsr => "CPU Package (PawnIO Intel DTS)",
+    CpuTemperatureSource::AmdZenSmnTctl => "CPU Package (PawnIO AMD SMN)",
   }
 }
 
@@ -198,13 +185,11 @@ mod tests {
         crate::infrastructure::providers::windows::cpu_temperature::CpuPackageTemperature {
           temperature_celsius: 61.25,
           source: crate::infrastructure::providers::windows::cpu_temperature::CpuTemperatureSource::IntelDtsPackageMsr,
-          verification: SensorVerification::Verified,
         },
       ),
       vec![SensorTemperature {
         name: "TZ00".into(),
         temperature: 45.0,
-        verification: SensorVerification::Verified,
       }],
     );
 
@@ -214,33 +199,24 @@ mod tests {
       "CPU Package (PawnIO Intel DTS)"
     );
     assert_eq!(sample.sensor_temperatures[0].temperature, 61.25);
-    assert_eq!(
-      sample.cpu_temperature_verification,
-      Some(SensorVerification::Verified)
-    );
     assert_eq!(sample.availability, SensorAvailability::Available);
   }
 
   #[test]
-  fn temperature_sample_labels_experimental_cpu_package_without_guidance() {
+  fn temperature_sample_keeps_the_standard_amd_source_label() {
     let sample = build_temperature_sample(
       Ok(CpuPackageTemperature {
         temperature_celsius: 63.5,
         source: CpuTemperatureSource::AmdZenSmnTctl,
-        verification: SensorVerification::Experimental,
       }),
       Vec::new(),
     );
 
     assert_eq!(sample.cpu_temperature, Some(63.5));
-    assert_eq!(
-      sample.cpu_temperature_verification,
-      Some(SensorVerification::Experimental)
-    );
     assert_eq!(sample.availability, SensorAvailability::Available);
     assert_eq!(
       sample.sensor_temperatures[0].name,
-      "CPU Package (PawnIO AMD SMN, Experimental)"
+      "CPU Package (PawnIO AMD SMN)"
     );
     assert!(sample.guidance_candidates.is_empty());
   }
@@ -248,19 +224,18 @@ mod tests {
   #[test]
   fn temperature_sample_falls_back_to_acpi_cpu_zone() {
     let sample = build_temperature_sample(
-      Err(CpuPackageTemperatureError::Unavailable(
-        "PawnIOLib.dll not found".to_string(),
-      )),
+      Err(CpuPackageTemperatureError::Unavailable {
+        reason: "PawnIOLib.dll not found".to_string(),
+        enablement: crate::models::SensorEnablement::Verified,
+      }),
       vec![
         SensorTemperature {
           name: "TZ00".into(),
           temperature: 70.0,
-          verification: SensorVerification::Verified,
         },
         SensorTemperature {
           name: "CPUZ".into(),
           temperature: 51.0,
-          verification: SensorVerification::Verified,
         },
       ],
     );
@@ -272,9 +247,10 @@ mod tests {
   #[test]
   fn temperature_sample_returns_unavailable_reason_when_all_sources_fail() {
     let sample = build_temperature_sample(
-      Err(CpuPackageTemperatureError::Unavailable(
-        "pawnio_open failed".to_string(),
-      )),
+      Err(CpuPackageTemperatureError::Unavailable {
+        reason: "pawnio_open failed".to_string(),
+        enablement: crate::models::SensorEnablement::Verified,
+      }),
       Vec::new(),
     );
 
@@ -290,9 +266,10 @@ mod tests {
   #[test]
   fn temperature_sample_returns_guidance_when_pawnio_and_acpi_fail() {
     let sample = build_temperature_sample(
-      Err(CpuPackageTemperatureError::Unavailable(
-        "PawnIOLib.dll not found".to_string(),
-      )),
+      Err(CpuPackageTemperatureError::Unavailable {
+        reason: "PawnIOLib.dll not found".to_string(),
+        enablement: crate::models::SensorEnablement::Verified,
+      }),
       Vec::new(),
     );
 
@@ -305,6 +282,30 @@ mod tests {
     assert_eq!(
       sample.guidance_candidates[0].missing_signals,
       vec!["cpu-temperature".to_string()]
+    );
+  }
+
+  #[test]
+  fn temperature_sample_identifies_an_experimental_failure_when_all_sources_fail() {
+    let sample = build_temperature_sample(
+      Err(CpuPackageTemperatureError::Unavailable {
+        reason: "CPU temperature decode failed".to_string(),
+        enablement: crate::models::SensorEnablement::Experimental,
+      }),
+      Vec::new(),
+    );
+
+    assert_eq!(
+      sample.availability,
+      SensorAvailability::unavailable(
+        "PawnIO unavailable (experimental CPU package temperature attempt failed: CPU temperature decode failed); ACPI thermal zones unavailable"
+      )
+    );
+    assert_eq!(
+      sample.guidance_candidates[0].diagnostic_detail.as_deref(),
+      Some(
+        "experimental CPU package temperature attempt failed: CPU temperature decode failed"
+      )
     );
   }
 
@@ -345,13 +346,13 @@ mod tests {
   #[test]
   fn temperature_sample_does_not_return_guidance_when_acpi_fallback_succeeds() {
     let sample = build_temperature_sample(
-      Err(CpuPackageTemperatureError::Unavailable(
-        "PawnIOLib.dll not found".to_string(),
-      )),
+      Err(CpuPackageTemperatureError::Unavailable {
+        reason: "PawnIOLib.dll not found".to_string(),
+        enablement: crate::models::SensorEnablement::Verified,
+      }),
       vec![SensorTemperature {
         name: "CPUZ".into(),
         temperature: 51.0,
-        verification: SensorVerification::Verified,
       }],
     );
 

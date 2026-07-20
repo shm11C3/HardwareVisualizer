@@ -11,21 +11,12 @@ export type NameValues = Array<{
   value: number;
 }>;
 
-export type SensorVerification = "verified" | "experimental";
-
-export type SensorTemperatureValues = Array<{
-  name: string;
-  value: number;
-  verification: SensorVerification;
-}>;
-
 export type FanSpeedStatus = "active" | "inactive" | "invalid";
 
 export type MotherboardTemperatureValues = Array<{
   name: string;
   value: number;
   source: string;
-  verification: SensorVerification;
 }>;
 
 export type MotherboardFanSpeedValues = Array<{
@@ -33,7 +24,6 @@ export type MotherboardFanSpeedValues = Array<{
   rpm: number | null;
   status: FanSpeedStatus;
   source: string;
-  verification: SensorVerification;
 }>;
 
 export type DataStats = "avg" | "max" | "min";
