@@ -21,6 +21,7 @@ fn snapshot(value: f32) -> MetricsSnapshot {
     gpus: vec![],
     processes: vec![],
     cpu_temperature: None,
+    cpu_temperature_verification: None,
     sensor_temperatures: vec![],
     motherboard_temperatures: vec![],
     motherboard_fan_speeds: vec![],

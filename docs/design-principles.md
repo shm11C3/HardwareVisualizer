@@ -41,6 +41,12 @@ the result. HardwareVisualizer reports observations and sampled summaries; it
 must not overclaim a complete process audit, authoritative fault diagnosis, or
 proof of hardware health from one reading.
 
+For native sensors, prefer an explicitly labeled experimental reading over a
+hard allowlist when an existing read-only path recognizes the hardware and an
+existing plausibility-gated decode can be attempted without inventing an
+address, register map, or chip selection. Verification confidence is separate
+from availability. See [ADR 0011](adr/0011-experimental-sensor-enablement.md).
+
 See [Backend Architecture](architecture/backend.md#add-a-new-hardware-data-source)
 and [Product Vocabulary](../CONTEXT.md#sensor-availability).
 

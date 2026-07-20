@@ -59,6 +59,42 @@ impl SensorAvailability {
   }
 }
 
+/// Verification confidence for a successfully decoded sensor reading.
+///
+/// This is independent from [`SensorAvailability`]. An experimental reading
+/// that passed the provider's runtime and plausibility checks is still
+/// available; this value tells consumers how thoroughly the hardware path has
+/// been verified.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SensorVerification {
+  #[default]
+  Verified,
+  Experimental,
+}
+
+/// Runtime enablement decision for a native sensor path.
+///
+/// Prefer `Experimental` when an existing read-only access path recognizes the
+/// hardware and an existing plausibility-gated decode can be attempted safely.
+/// Use `Unsupported` when attempting the path would require guessing hardware
+/// facts such as an address, register map, or chip selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SensorEnablement {
+  Verified,
+  Experimental,
+  Unsupported,
+}
+
+impl SensorEnablement {
+  pub const fn verification(self) -> Option<SensorVerification> {
+    match self {
+      Self::Verified => Some(SensorVerification::Verified),
+      Self::Experimental => Some(SensorVerification::Experimental),
+      Self::Unsupported => None,
+    }
+  }
+}
+
 /// One named temperature sensor reading (e.g. an ACPI thermal zone),
 /// always in raw °C.
 ///
@@ -69,6 +105,7 @@ impl SensorAvailability {
 pub struct SensorTemperature {
   pub name: String,
   pub temperature: f32,
+  pub verification: SensorVerification,
 }
 
 /// One named motherboard temperature reading, always in raw degrees C.
@@ -77,6 +114,7 @@ pub struct MotherboardTemperature {
   pub name: String,
   pub temperature: f32,
   pub source: String,
+  pub verification: SensorVerification,
 }
 
 /// Display classification for one motherboard fan-speed reading.
@@ -94,6 +132,7 @@ pub struct MotherboardFanSpeed {
   pub rpm: Option<u32>,
   pub status: FanSpeedStatus,
   pub source: String,
+  pub verification: SensorVerification,
 }
 
 /// One round of motherboard sensor readings.
@@ -107,6 +146,7 @@ pub struct MotherboardSensorSample {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TemperatureSample {
   pub cpu_temperature: Option<f32>,
+  pub cpu_temperature_verification: Option<SensorVerification>,
   pub sensor_temperatures: Vec<SensorTemperature>,
   pub availability: SensorAvailability,
   pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
@@ -181,6 +221,8 @@ pub struct MetricsSnapshot {
   /// Headline CPU temperature in raw °C. `None` when no readable sensor
   /// exists on this platform (currently collected on Windows only).
   pub cpu_temperature: Option<f32>,
+  /// Verification confidence for `cpu_temperature` when it is available.
+  pub cpu_temperature_verification: Option<SensorVerification>,
   /// All named temperature sensors in raw °C (ACPI thermal zones on
   /// Windows). Empty when unsupported.
   pub sensor_temperatures: Vec<SensorTemperature>,
@@ -192,4 +234,22 @@ pub struct MetricsSnapshot {
   /// Diagnostic side data for optional runtime components that were
   /// attempted but unavailable while user-visible data remains missing.
   pub external_component_guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn sensor_enablement_maps_only_readable_paths_to_verification() {
+    assert_eq!(
+      SensorEnablement::Verified.verification(),
+      Some(SensorVerification::Verified)
+    );
+    assert_eq!(
+      SensorEnablement::Experimental.verification(),
+      Some(SensorVerification::Experimental)
+    );
+    assert_eq!(SensorEnablement::Unsupported.verification(), None);
+  }
 }

@@ -4,6 +4,7 @@ use std::time::Duration;
 use super::pawn_io::{ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule};
 use crate::models::{
   MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature,
+  SensorVerification,
 };
 use crate::utils::super_io::{
   chip_id, decode_nuvoton_direct_rpm, decode_nuvoton_temperature_byte,
@@ -205,6 +206,7 @@ struct ActiveNuvotonMotherboardSensors<C: LpcIoOps> {
   hm_base: u16,
   chip_label: &'static str,
   source_label: &'static str,
+  verification: SensorVerification,
 }
 
 impl ActiveNuvotonMotherboardSensors<PawnIoClient> {
@@ -224,6 +226,7 @@ impl ActiveNuvotonMotherboardSensors<PawnIoClient> {
             hm_base: discovered.hm_base,
             chip_label: NUVOTON_CHIP_LABEL,
             source_label: NUVOTON_SOURCE_LABEL,
+            verification: discovered.verification,
           });
         }
         Ok(None) => {}
@@ -284,6 +287,7 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
             name: (*name).to_string(),
             temperature: decode_nuvoton_temperature_byte(raw),
             source: self.source_label.to_string(),
+            verification: self.verification,
           })
       })
       .collect::<Result<Vec<_>, _>>()?;
@@ -299,6 +303,7 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
           rpm: Some(rpm),
           status: fan_speed_status_from_rpm(rpm),
           source: self.source_label.to_string(),
+          verification: self.verification,
         })
       })
       .collect::<Result<Vec<_>, String>>()?;
@@ -327,6 +332,7 @@ impl<C: LpcIoOps> ActiveNuvotonMotherboardSensors<C> {
 struct DetectedSlot {
   slot: u8,
   hm_base: u16,
+  verification: SensorVerification,
 }
 
 fn discover_nuvoton_hm_base(
@@ -361,7 +367,11 @@ fn discover_nuvoton_hm_base(
 
   client.find_lpc_bars()?;
 
-  Ok(Some(DetectedSlot { slot, hm_base }))
+  Ok(Some(DetectedSlot {
+    slot,
+    hm_base,
+    verification: SensorVerification::Verified,
+  }))
 }
 
 fn enter_nuvoton(client: &impl LpcIoOps, index_port: u16) -> Result<(), String> {
@@ -558,6 +568,7 @@ mod tests {
       hm_base: 0x0290,
       chip_label: NUVOTON_CHIP_LABEL,
       source_label: NUVOTON_SOURCE_LABEL,
+      verification: SensorVerification::Verified,
     };
 
     let sample = active.sample_unlocked().unwrap();
@@ -565,6 +576,12 @@ mod tests {
     assert_eq!(active.client.selected_slot_calls.get(), 0);
     assert_eq!(sample.temperatures.len(), 6);
     assert_eq!(sample.fan_speeds.len(), 6);
+    assert!(
+      sample
+        .temperatures
+        .iter()
+        .all(|sensor| sensor.verification == SensorVerification::Verified)
+    );
     assert_eq!(
       active.client.read_registers.borrow().as_slice(),
       &[

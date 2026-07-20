@@ -80,25 +80,35 @@ pub fn dedupe_zones(zones: Vec<SensorTemperature>) -> Vec<SensorTemperature> {
 /// 1. A zone whose name mentions the CPU (`CPU` / `PROC`) — an exact match.
 /// 2. Otherwise the hottest zone: on consumer ACPI tables the CPU package
 ///    usually dominates, so this is the best-effort estimate.
-pub fn select_cpu_temperature(zones: &[SensorTemperature]) -> Option<f32> {
+pub fn select_cpu_temperature_sensor(
+  zones: &[SensorTemperature],
+) -> Option<&SensorTemperature> {
   let named = zones.iter().find(|z| {
     let upper = z.name.to_uppercase();
     upper.contains("CPU") || upper.contains("PROC")
   });
   if let Some(zone) = named {
-    return Some(zone.temperature);
+    return Some(zone);
   }
-  zones.iter().map(|z| z.temperature).reduce(f32::max)
+  zones
+    .iter()
+    .max_by(|left, right| left.temperature.total_cmp(&right.temperature))
+}
+
+pub fn select_cpu_temperature(zones: &[SensorTemperature]) -> Option<f32> {
+  select_cpu_temperature_sensor(zones).map(|zone| zone.temperature)
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::models::SensorVerification;
 
   fn zone(name: &str, temperature: f32) -> SensorTemperature {
     SensorTemperature {
       name: name.to_string(),
       temperature,
+      verification: SensorVerification::Verified,
     }
   }
 

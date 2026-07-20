@@ -28,8 +28,10 @@ pub struct HardwareMonitorUpdate {
   pub processors_usage: Vec<f32>,
   /// Headline CPU temperature in the user's preferred unit. Currently Windows only.
   pub cpu_temperature: Option<f32>,
+  /// Verification confidence for the headline CPU temperature.
+  pub cpu_temperature_verification: Option<SensorVerification>,
   /// All named temperature sensors (thermal zones) in the user's preferred unit.
-  pub sensor_temperatures: Vec<NameValue>,
+  pub sensor_temperatures: Vec<SensorTemperatureValue>,
   /// Motherboard temperature sensors in the user's preferred unit.
   pub motherboard_temperatures: Vec<MotherboardTemperatureValue>,
   /// Motherboard fan speeds in RPM.
@@ -38,10 +40,19 @@ pub struct HardwareMonitorUpdate {
 
 #[derive(Debug, Clone, serde::Serialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct SensorTemperatureValue {
+  pub name: String,
+  pub value: i32,
+  pub verification: SensorVerification,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct MotherboardTemperatureValue {
   pub name: String,
   pub value: i32,
   pub source: String,
+  pub verification: SensorVerification,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Type)]
@@ -51,6 +62,23 @@ pub struct MotherboardFanSpeedValue {
   pub rpm: Option<u32>,
   pub status: FanSpeedStatus,
   pub source: String,
+  pub verification: SensorVerification,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum SensorVerification {
+  Verified,
+  Experimental,
+}
+
+impl From<hardviz_core::models::SensorVerification> for SensorVerification {
+  fn from(src: hardviz_core::models::SensorVerification) -> Self {
+    match src {
+      hardviz_core::models::SensorVerification::Verified => Self::Verified,
+      hardviz_core::models::SensorVerification::Experimental => Self::Experimental,
+    }
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Type)]
@@ -171,6 +199,7 @@ mod tests {
       gpus: vec![],
       processors_usage: vec![25.0, 75.0],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -189,6 +218,7 @@ mod tests {
       gpus: vec![make_gpu_monitor_data("gpu:0", "RTX 4090")],
       processors_usage: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -209,6 +239,7 @@ mod tests {
       ],
       processors_usage: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -228,14 +259,17 @@ mod tests {
       gpus: vec![],
       processors_usage: vec![],
       cpu_temperature: Some(48.0),
+      cpu_temperature_verification: Some(SensorVerification::Experimental),
       sensor_temperatures: vec![
-        NameValue {
+        SensorTemperatureValue {
           name: "CPUZ".to_string(),
           value: 48,
+          verification: SensorVerification::Experimental,
         },
-        NameValue {
+        SensorTemperatureValue {
           name: "TZ01".to_string(),
           value: 40,
+          verification: SensorVerification::Verified,
         },
       ],
       motherboard_temperatures: vec![],
@@ -243,10 +277,12 @@ mod tests {
     };
     let json = serde_json::to_value(&update).unwrap();
     assert_eq!(json["cpuTemperature"], 48.0);
+    assert_eq!(json["cpuTemperatureVerification"], "experimental");
     let sensors = json["sensorTemperatures"].as_array().unwrap();
     assert_eq!(sensors.len(), 2);
     assert_eq!(sensors[0]["name"], "CPUZ");
     assert_eq!(sensors[0]["value"], 48);
+    assert_eq!(sensors[0]["verification"], "experimental");
     assert_eq!(sensors[1]["name"], "TZ01");
   }
 
@@ -258,17 +294,20 @@ mod tests {
       gpus: vec![],
       processors_usage: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![MotherboardTemperatureValue {
         name: "SYSTIN".to_string(),
         value: 41,
         source: "NCT6799D / Super I/O".to_string(),
+        verification: SensorVerification::Verified,
       }],
       motherboard_fan_speeds: vec![MotherboardFanSpeedValue {
         name: "Fan 1".to_string(),
         rpm: Some(0),
         status: FanSpeedStatus::Inactive,
         source: "NCT6799D / Super I/O".to_string(),
+        verification: SensorVerification::Verified,
       }],
     };
 

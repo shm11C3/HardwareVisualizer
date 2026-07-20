@@ -74,6 +74,7 @@ const makePayload = (
     gpus: gpus ?? [makeGpu()],
     processorsUsage: [40, 50],
     cpuTemperature: null,
+    cpuTemperatureVerification: null,
     sensorTemperatures: [],
     motherboardTemperatures: [],
     motherboardFanSpeeds: [],
@@ -341,16 +342,16 @@ describe("useHardwareEventListener", () => {
       emit(
         makePayload({
           sensorTemperatures: [
-            { name: "CPUZ", value: 48 },
-            { name: "TZ01", value: 40 },
+            { name: "CPUZ", value: 48, verification: "experimental" },
+            { name: "TZ01", value: 40, verification: "verified" },
           ],
         }),
       ),
     );
 
     expect(result.current).toEqual([
-      { name: "CPUZ", value: 48 },
-      { name: "TZ01", value: 40 },
+      { name: "CPUZ", value: 48, verification: "experimental" },
+      { name: "TZ01", value: 40, verification: "verified" },
     ]);
   });
 
@@ -365,7 +366,13 @@ describe("useHardwareEventListener", () => {
     );
 
     act(() => {
-      emit(makePayload({ sensorTemperatures: [{ name: "TZ00", value: 45 }] }));
+      emit(
+        makePayload({
+          sensorTemperatures: [
+            { name: "TZ00", value: 45, verification: "verified" },
+          ],
+        }),
+      );
       emit(makePayload({ sensorTemperatures: [] }));
     });
 
@@ -388,16 +395,36 @@ describe("useHardwareEventListener", () => {
       emit(
         makePayload({
           motherboardTemperatures: [
-            { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
-            { name: "CPUTIN", value: 52, source: "NCT6799D / Super I/O" },
+            {
+              name: "SYSTIN",
+              value: 41,
+              source: "NCT6799D / Super I/O",
+              verification: "verified",
+            },
+            {
+              name: "CPUTIN",
+              value: 52,
+              source: "NCT6799D / Super I/O",
+              verification: "verified",
+            },
           ],
         }),
       ),
     );
 
     expect(result.current).toEqual([
-      { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
-      { name: "CPUTIN", value: 52, source: "NCT6799D / Super I/O" },
+      {
+        name: "SYSTIN",
+        value: 41,
+        source: "NCT6799D / Super I/O",
+        verification: "verified",
+      },
+      {
+        name: "CPUTIN",
+        value: 52,
+        source: "NCT6799D / Super I/O",
+        verification: "verified",
+      },
     ]);
   });
 
@@ -420,6 +447,7 @@ describe("useHardwareEventListener", () => {
               rpm: 0,
               status: "inactive",
               source: "NCT6799D / Super I/O",
+              verification: "verified",
             },
           ],
         }),
@@ -432,6 +460,7 @@ describe("useHardwareEventListener", () => {
         rpm: 0,
         status: "inactive",
         source: "NCT6799D / Super I/O",
+        verification: "verified",
       },
     ]);
   });
@@ -451,7 +480,12 @@ describe("useHardwareEventListener", () => {
       emit(
         makePayload({
           motherboardTemperatures: [
-            { name: "SYSTIN", value: 41, source: "NCT6799D / Super I/O" },
+            {
+              name: "SYSTIN",
+              value: 41,
+              source: "NCT6799D / Super I/O",
+              verification: "verified",
+            },
           ],
           motherboardFanSpeeds: [
             {
@@ -459,6 +493,7 @@ describe("useHardwareEventListener", () => {
               rpm: 1200,
               status: "active",
               source: "NCT6799D / Super I/O",
+              verification: "verified",
             },
           ],
         }),

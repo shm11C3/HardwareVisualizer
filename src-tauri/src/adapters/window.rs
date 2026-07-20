@@ -13,7 +13,7 @@ use crate::enums::settings::TemperatureUnit;
 use crate::log_warn;
 use crate::models::hardware::{
   GpuMonitorData, HardwareMonitorUpdate, MotherboardFanSpeedValue,
-  MotherboardTemperatureValue, NameValue,
+  MotherboardTemperatureValue, SensorTemperatureValue,
 };
 use tauri_specta::Event as _;
 
@@ -181,10 +181,11 @@ fn to_hardware_monitor_update(
     cpu_temperature: snapshot
       .cpu_temperature
       .map(|t| convert_temperature(t, temp_unit)),
+    cpu_temperature_verification: snapshot.cpu_temperature_verification.map(Into::into),
     sensor_temperatures: snapshot
       .sensor_temperatures
       .into_iter()
-      .map(|s| to_sensor_name_value(s, temp_unit))
+      .map(|s| to_sensor_temperature_value(s, temp_unit))
       .collect(),
     motherboard_temperatures: snapshot
       .motherboard_temperatures
@@ -199,13 +200,14 @@ fn to_hardware_monitor_update(
   }
 }
 
-fn to_sensor_name_value(
+fn to_sensor_temperature_value(
   sensor: SensorTemperature,
   temp_unit: &TemperatureUnit,
-) -> NameValue {
-  NameValue {
+) -> SensorTemperatureValue {
+  SensorTemperatureValue {
     name: sensor.name,
     value: convert_temperature(sensor.temperature, temp_unit) as i32,
+    verification: sensor.verification.into(),
   }
 }
 
@@ -230,6 +232,7 @@ fn to_motherboard_temperature_value(
     name: sensor.name,
     value: convert_temperature(sensor.temperature, temp_unit) as i32,
     source: sensor.source,
+    verification: sensor.verification.into(),
   }
 }
 
@@ -239,6 +242,7 @@ fn to_motherboard_fan_speed_value(fan: MotherboardFanSpeed) -> MotherboardFanSpe
     rpm: fan.rpm,
     status: fan.status.into(),
     source: fan.source,
+    verification: fan.verification.into(),
   }
 }
 
@@ -253,6 +257,7 @@ fn convert_temperature(celsius: f32, unit: &TemperatureUnit) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use hardviz_core::models::SensorVerification;
 
   fn make_metric(gpu_id: &str, name: &str) -> GpuMetric {
     GpuMetric {
@@ -274,6 +279,7 @@ mod tests {
       gpus: vec![],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -290,6 +296,7 @@ mod tests {
       gpus: vec![],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -316,6 +323,7 @@ mod tests {
       ],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -350,6 +358,7 @@ mod tests {
       }],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -376,6 +385,7 @@ mod tests {
       }],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -402,6 +412,7 @@ mod tests {
       }],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -423,14 +434,17 @@ mod tests {
       gpus: vec![],
       processes: vec![],
       cpu_temperature: Some(50.0),
+      cpu_temperature_verification: Some(SensorVerification::Experimental),
       sensor_temperatures: vec![
         SensorTemperature {
           name: "CPUZ".into(),
           temperature: 50.0,
+          verification: SensorVerification::Experimental,
         },
         SensorTemperature {
           name: "TZ01".into(),
           temperature: 40.0,
+          verification: SensorVerification::Verified,
         },
       ],
       motherboard_temperatures: vec![],
@@ -439,6 +453,10 @@ mod tests {
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
     assert_eq!(update.cpu_temperature, Some(122.0));
+    assert_eq!(
+      update.cpu_temperature_verification,
+      Some(crate::models::hardware::SensorVerification::Experimental)
+    );
     assert_eq!(update.sensor_temperatures.len(), 2);
     assert_eq!(update.sensor_temperatures[0].name, "CPUZ");
     assert_eq!(update.sensor_temperatures[0].value, 122);
@@ -455,9 +473,11 @@ mod tests {
       gpus: vec![],
       processes: vec![],
       cpu_temperature: Some(49.6),
+      cpu_temperature_verification: Some(SensorVerification::Verified),
       sensor_temperatures: vec![SensorTemperature {
         name: "TZ00".into(),
         temperature: 49.6,
+        verification: SensorVerification::Verified,
       }],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
@@ -477,17 +497,20 @@ mod tests {
       gpus: vec![],
       processes: vec![],
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![MotherboardTemperature {
         name: "SYSTIN".into(),
         temperature: 40.0,
         source: "NCT6799D / Super I/O".into(),
+        verification: SensorVerification::Verified,
       }],
       motherboard_fan_speeds: vec![MotherboardFanSpeed {
         name: "Fan 1".into(),
         rpm: Some(0),
         status: hardviz_core::models::FanSpeedStatus::Inactive,
         source: "NCT6799D / Super I/O".into(),
+        verification: SensorVerification::Verified,
       }],
       external_component_guidance_candidates: vec![],
     };

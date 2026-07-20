@@ -150,12 +150,14 @@ pub fn build_metrics_snapshot(
     gpus: build_gpu_metrics(gpu_samples),
     processes: system_sample.processes.clone(),
     cpu_temperature: temperature_sample.cpu_temperature.map(|t| t.round()),
+    cpu_temperature_verification: temperature_sample.cpu_temperature_verification,
     sensor_temperatures: temperature_sample
       .sensor_temperatures
       .iter()
       .map(|s| SensorTemperature {
         name: s.name.clone(),
         temperature: s.temperature.round(),
+        verification: s.verification,
       })
       .collect(),
     motherboard_temperatures: motherboard_sample
@@ -165,6 +167,7 @@ pub fn build_metrics_snapshot(
         name: s.name.clone(),
         temperature: s.temperature.round(),
         source: s.source.clone(),
+        verification: s.verification,
       })
       .collect(),
     motherboard_fan_speeds: motherboard_sample.fan_speeds.clone(),
@@ -180,7 +183,7 @@ pub fn build_metrics_snapshot(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::models::SensorAvailability;
+  use crate::models::{SensorAvailability, SensorVerification};
 
   fn make_sample(
     gpu_id: &str,
@@ -335,14 +338,17 @@ mod tests {
     };
     let temps = TemperatureSample {
       cpu_temperature: Some(49.95),
+      cpu_temperature_verification: Some(SensorVerification::Experimental),
       sensor_temperatures: vec![
         SensorTemperature {
           name: "CPUZ".into(),
           temperature: 49.95,
+          verification: SensorVerification::Experimental,
         },
         SensorTemperature {
           name: "TZ01".into(),
           temperature: 40.2,
+          verification: SensorVerification::Verified,
         },
       ],
       availability: SensorAvailability::Available,
@@ -357,10 +363,12 @@ mod tests {
         SensorTemperature {
           name: "CPUZ".into(),
           temperature: 50.0,
+          verification: SensorVerification::Experimental,
         },
         SensorTemperature {
           name: "TZ01".into(),
           temperature: 40.0,
+          verification: SensorVerification::Verified,
         },
       ]
     );
@@ -379,12 +387,14 @@ mod tests {
         name: "SYSTIN".into(),
         temperature: 39.6,
         source: "NCT6799D / Super I/O".into(),
+        verification: SensorVerification::Verified,
       }],
       fan_speeds: vec![crate::models::MotherboardFanSpeed {
         name: "Fan 1".into(),
         rpm: Some(0),
         status: crate::models::FanSpeedStatus::Inactive,
         source: "NCT6799D / Super I/O".into(),
+        verification: SensorVerification::Verified,
       }],
     };
 
@@ -419,6 +429,7 @@ mod tests {
     );
     let temps = TemperatureSample {
       cpu_temperature: None,
+      cpu_temperature_verification: None,
       sensor_temperatures: vec![],
       availability: SensorAvailability::unavailable(
         "PawnIO unavailable; ACPI thermal zones unavailable".to_string(),
