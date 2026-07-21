@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 3 |
-| Status | Implementation-ready (rev 3) |
-| Scope | Package control temperature (Tctl) and die temperature (Tdie) on AMD Family 17h (Zen/Zen+/Zen 2) and Family 19h (Zen 3/Zen 4) processors, read from the SMU thermal controller (THM) over the System Management Network (SMN). Family 1Ah (Zen 5) is recognized but disabled by default pending verification (see Detection). Excludes: per-CCD temperatures, SMU PM-table metrics, pre-Zen (Family 15h/16h) thermal registers. |
+| Revision | 4 |
+| Status | Implementation-ready (rev 4) |
+| Scope | Package control temperature (Tctl) and die temperature (Tdie) on AMD Family 17h (Zen/Zen+/Zen 2) and Family 19h (Zen 3/Zen 4) processors, read from the SMU thermal controller (THM) over the System Management Network (SMN). Family 1Ah (Zen 5) is recognized and enabled best-effort as experimental pending verification (see Detection and ADR 0011). Excludes: per-CCD temperatures, SMU PM-table metrics, pre-Zen (Family 15h/16h) thermal registers. |
 | Issue phase | Phase 1 (#1635) |
 
 ## Sources
@@ -28,15 +28,21 @@
 | Effective family = `BaseFamily + ExtendedFamily` (CPUID leaf 1; extended family is added when base family is `0xF`) | AMD CPUID convention |
 | The PawnIO `RyzenSMU` module accepts families `0x17`, `0x19`, `0x1A` and rejects other vendors/families with an error status, providing a second layer of gating | S5 |
 
-"Recognized by the PawnIO module" and "enabled by this project" are
-separate decisions. This spec enables a family only once its THM
-register facts are verified against a primary source:
+"Recognized by the PawnIO module", "verified by this spec", and
+"enabled by this project" are separate decisions. A family is marked
+**Verified** only once its THM register facts are verified against a
+primary source. Per ADR 0011, a family that the `RyzenSMU` module
+recognizes but this spec has not yet verified is still enabled
+best-effort as an **experimental** path (reusing the verified decode and
+plausibility gate) rather than disabled. Successful readings use the normal
+presentation contract; if an attempted experimental path fails and the failure
+is surfaced, the diagnostic may identify it as experimental:
 
 | Family | Status | Default enablement |
 | --- | --- | --- |
 | `0x17` | Layout and ranges verified against the directly pinned AMD OSRR 56255 Rev 3.03 §4.2.1, p. 243 (S2) and the AMD register header (S6) | Enabled |
 | `0x19` | Register, address, and Tctl description verified against PPR 55898 Vol 2 §10.3 (S1) | Enabled |
-| `0x1A` | Recognized by the PawnIO module (S5) but not yet verified by this spec | Disabled until PPR/OSRR or hardware-dump verification |
+| `0x1A` | Recognized by the PawnIO module (S5) but not yet verified by this spec | Enabled best-effort as **experimental** and plausibility-gated per ADR 0011; successful UI readings use the normal source label; graduates to verified once THM facts are pinned |
 
 ## Register map (facts)
 
@@ -64,8 +70,10 @@ Notes:
   than the fields above, i.e. including 18:16) as **Reserved** on the
   CPU THM; the `TJ_SEL` fields named in the GPU-IP header (S6) are
   therefore not part of this spec's decode — see Open questions.
-  Family 1Ah is not yet verified by this spec and stays disabled by
-  default — see Detection and Open questions.
+  Family 1Ah is not yet verified by this spec; per ADR 0011 it is enabled
+  best-effort as an experimental path (reusing this verified decode and
+  plausibility gate) rather than disabled — see
+  Detection and Open questions.
 - SMN is reached through an index/data register pair in the host
   bridge PCI configuration space; the PawnIO module performs that
   access, and the **client must hold `Global\Access_PCI`** around
@@ -146,10 +154,11 @@ non-normative):
   not part of the Ready decode path; revisit only if Phase 2 dumps
   show readings explained by it (then a spec revision may adopt it as
   a future extension).
-- Non-blocking for Phase 1: family 1Ah stays disabled by default via
-  the Detection enablement table. Confirm `THM_TCON_CUR_TMP`
-  address/layout from an AMD PPR/OSRR when available, or validate
-  against a Phase 2 register dump, before enabling it.
+- Non-blocking for Phase 1: family 1Ah is enabled best-effort as an
+  experimental path via the Detection enablement table (ADR 0011),
+  not verified. Confirm `THM_TCON_CUR_TMP` address/layout from an AMD
+  PPR/OSRR when available, or validate against a Phase 2 register dump,
+  to graduate it from experimental to verified.
 - Non-blocking for Phase 1: the reported value is the package control
   temperature that drives cooling policy regardless of die-selection
   details, and Phase 1 targets single-die consumer parts. Whether
@@ -163,3 +172,4 @@ non-normative):
 | 1 | 2026-06-10 | Initial version |
 | 2 | 2026-06-11 | Provenance pinned: PPR 55898 Vol 2 §10.3 (p. 2-179), AMD OSRR 17h §4.2.1, AMD MIT register header, SB-TSI scaling corroboration. Added `CUR_TEMP_TJ_SEL` field and decode rule. Corrected `Access_PCI` ownership to caller-held. Open questions resolved or annotated non-blocking. Status → Implementation-ready. |
 | 3 | 2026-06-11 | OSRR 56255 Rev 3.03 §4.2.1 (p. 243) fetched and pinned directly (GitHub mirror of the AMD PDF), replacing the FreeBSD-carried quote as the Family 17h primary; S8 demoted to non-normative corroboration. `TJ_SEL` removed from the register map and decode path (the CPU OSRR marks bits 18:0 Reserved) and recorded as a non-blocking open question. Fixed the contradictory zero-offset wording in the Tctl-offset table. Status remains Implementation-ready. |
+| 4 | 2026-07-20 | Runtime enablement policy updated per ADR 0011: Family 1Ah remains unverified by this spec but is no longer hard-disabled by default; it is enabled best-effort as an experimental, plausibility-gated reading until THM facts are verified by a primary source or accepted hardware dump. No new register facts were added. Status remains Implementation-ready. |

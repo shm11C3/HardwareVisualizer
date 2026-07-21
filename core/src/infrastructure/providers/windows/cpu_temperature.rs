@@ -10,6 +10,7 @@ use super::pawn_io::{
   ACCESS_PCI_MUTEX, NamedMutex, PawnIoClient, PawnIoDiscovery, PawnIoInitError,
   PawnIoModule,
 };
+use crate::models::SensorEnablement;
 use crate::{log_debug, log_warn};
 
 const PAWNIO_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
@@ -40,12 +41,6 @@ pub struct IntelThermalCapabilities {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AmdFamilyEnablement {
-  pub recognized_by_pawnio_module: bool,
-  pub enabled_by_spec: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CpuTemperatureSource {
   IntelDtsPackageMsr,
   AmdZenSmnTctl,
@@ -56,7 +51,6 @@ pub enum CpuTemperatureFallbackReason {
   UnsupportedCpuVendor(String),
   IntelDtsUnavailable,
   IntelPackageThermalUnavailable,
-  AmdFamilyDisabled(u32),
   AmdFamilyUnsupported(u32),
 }
 
@@ -70,15 +64,38 @@ impl fmt::Display for CpuTemperatureFallbackReason {
       Self::IntelPackageThermalUnavailable => {
         write!(f, "Intel package thermal management unavailable")
       }
-      Self::AmdFamilyDisabled(family) => {
-        write!(f, "AMD family 0x{family:x} is disabled by the ready spec")
-      }
       Self::AmdFamilyUnsupported(family) => {
         write!(
           f,
-          "AMD family 0x{family:x} is unsupported by the ready spec"
+          "AMD family 0x{family:x} is unsupported by the PawnIO RyzenSMU path"
         )
       }
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CpuPackageTemperatureError {
+  Unsupported(CpuTemperatureFallbackReason),
+  Unavailable {
+    reason: String,
+    enablement: SensorEnablement,
+  },
+  Internal(String),
+}
+
+impl fmt::Display for CpuPackageTemperatureError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Unsupported(reason) => fmt::Display::fmt(reason, f),
+      Self::Unavailable {
+        reason,
+        enablement: SensorEnablement::Experimental,
+      } => write!(
+        f,
+        "experimental CPU package temperature attempt failed: {reason}"
+      ),
+      Self::Unavailable { reason, .. } | Self::Internal(reason) => f.write_str(reason),
     }
   }
 }
@@ -87,22 +104,14 @@ impl fmt::Display for CpuTemperatureFallbackReason {
 pub(crate) struct CpuTemperatureCandidate {
   pub(crate) source: CpuTemperatureSource,
   pub(crate) module: PawnIoModule,
+  pub(crate) enablement: SensorEnablement,
 }
 
-pub fn amd_family_enablement(family: u32) -> AmdFamilyEnablement {
+pub fn amd_family_enablement(family: u32) -> SensorEnablement {
   match family {
-    0x17 | 0x19 => AmdFamilyEnablement {
-      recognized_by_pawnio_module: true,
-      enabled_by_spec: true,
-    },
-    0x1a => AmdFamilyEnablement {
-      recognized_by_pawnio_module: true,
-      enabled_by_spec: false,
-    },
-    _ => AmdFamilyEnablement {
-      recognized_by_pawnio_module: false,
-      enabled_by_spec: false,
-    },
+    0x17 | 0x19 => SensorEnablement::Verified,
+    0x1a => SensorEnablement::Experimental,
+    _ => SensorEnablement::Unsupported,
   }
 }
 
@@ -125,21 +134,22 @@ pub(crate) fn select_cpu_temperature_candidate(
       Ok(CpuTemperatureCandidate {
         source: CpuTemperatureSource::IntelDtsPackageMsr,
         module: PawnIoModule::IntelMsr,
+        enablement: SensorEnablement::Verified,
       })
     }
     CpuVendor::Amd => {
       let enablement = amd_family_enablement(cpu.family);
-      if enablement.enabled_by_spec {
-        Ok(CpuTemperatureCandidate {
-          source: CpuTemperatureSource::AmdZenSmnTctl,
-          module: PawnIoModule::RyzenSmu,
-        })
-      } else if enablement.recognized_by_pawnio_module {
-        Err(CpuTemperatureFallbackReason::AmdFamilyDisabled(cpu.family))
-      } else {
-        Err(CpuTemperatureFallbackReason::AmdFamilyUnsupported(
-          cpu.family,
-        ))
+      match enablement {
+        SensorEnablement::Verified | SensorEnablement::Experimental => {
+          Ok(CpuTemperatureCandidate {
+            source: CpuTemperatureSource::AmdZenSmnTctl,
+            module: PawnIoModule::RyzenSmu,
+            enablement,
+          })
+        }
+        SensorEnablement::Unsupported => Err(
+          CpuTemperatureFallbackReason::AmdFamilyUnsupported(cpu.family),
+        ),
       }
     }
     CpuVendor::Other => Err(CpuTemperatureFallbackReason::UnsupportedCpuVendor(
@@ -152,9 +162,10 @@ pub(crate) fn select_cpu_temperature_candidate(
 pub struct CpuTemperatureDiagnostics {
   pub cpu: CpuIdentity,
   pub intel_capabilities: Option<IntelThermalCapabilities>,
-  pub amd_enablement: Option<AmdFamilyEnablement>,
+  pub amd_enablement: Option<SensorEnablement>,
   pub pawnio: PawnIoDiscovery,
   pub selected_source: Option<CpuTemperatureSource>,
+  pub selected_enablement: Option<SensorEnablement>,
   pub fallback_reason: Option<String>,
 }
 
@@ -168,22 +179,26 @@ enum ActiveCpuTemperatureSource {
   Intel {
     client: PawnIoClient,
     target_celsius: u32,
+    enablement: SensorEnablement,
   },
   Amd {
     client: PawnIoClient,
     tctl_offset_celsius: f32,
+    enablement: SensorEnablement,
   },
 }
 
 struct CpuTemperatureSampler {
   diagnostics: CpuTemperatureDiagnostics,
   active: Option<ActiveCpuTemperatureSource>,
+  inactive_error: Option<CpuPackageTemperatureError>,
   sample_failure_logged: bool,
 }
 
 static CPU_TEMPERATURE_SAMPLER: OnceLock<Mutex<CpuTemperatureSampler>> = OnceLock::new();
 
-pub fn sample_cpu_package_temperature() -> Result<CpuPackageTemperature, String> {
+pub fn sample_cpu_package_temperature()
+-> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
   let sampler = CPU_TEMPERATURE_SAMPLER.get_or_init(|| {
     let sampler = CpuTemperatureSampler::new();
     log_debug!(
@@ -196,7 +211,11 @@ pub fn sample_cpu_package_temperature() -> Result<CpuPackageTemperature, String>
 
   sampler
     .lock()
-    .map_err(|_| "CPU temperature sampler lock poisoned".to_string())?
+    .map_err(|_| {
+      CpuPackageTemperatureError::Internal(
+        "CPU temperature sampler lock poisoned".to_string(),
+      )
+    })?
     .sample()
 }
 
@@ -225,6 +244,7 @@ impl CpuTemperatureDiagnostics {
       amd_enablement: None,
       pawnio: PawnIoDiscovery::unavailable("sampler unavailable"),
       selected_source: None,
+      selected_enablement: None,
       fallback_reason: Some(reason.into()),
     }
   }
@@ -242,7 +262,7 @@ impl CpuTemperatureSampler {
     let candidate = match select_cpu_temperature_candidate(&cpu, intel_capabilities) {
       Ok(candidate) => candidate,
       Err(reason) => {
-        let reason = reason.to_string();
+        let fallback_reason = reason.to_string();
         let mut pawnio = PawnIoDiscovery::probe_install();
         if pawnio.fallback_reason.is_none() {
           pawnio.fallback_reason =
@@ -255,9 +275,11 @@ impl CpuTemperatureSampler {
             amd_enablement,
             pawnio,
             selected_source: None,
-            fallback_reason: Some(reason),
+            selected_enablement: None,
+            fallback_reason: Some(fallback_reason),
           },
           active: None,
+          inactive_error: Some(CpuPackageTemperatureError::Unsupported(reason)),
           sample_failure_logged: false,
         };
       }
@@ -271,31 +293,47 @@ impl CpuTemperatureSampler {
           amd_enablement,
           pawnio,
           selected_source: Some(candidate.source),
+          selected_enablement: Some(candidate.enablement),
           fallback_reason: None,
         },
         active: Some(active),
+        inactive_error: None,
         sample_failure_logged: false,
       },
-      Err(error) => Self {
-        diagnostics: CpuTemperatureDiagnostics {
-          cpu,
-          intel_capabilities,
-          amd_enablement,
-          pawnio: *error.discovery,
-          selected_source: None,
-          fallback_reason: Some(error.reason),
-        },
-        active: None,
-        sample_failure_logged: false,
-      },
+      Err(error) => {
+        let PawnIoInitError { discovery, reason } = error;
+        Self {
+          diagnostics: CpuTemperatureDiagnostics {
+            cpu,
+            intel_capabilities,
+            amd_enablement,
+            pawnio: *discovery,
+            selected_source: None,
+            selected_enablement: Some(candidate.enablement),
+            fallback_reason: Some(reason.clone()),
+          },
+          active: None,
+          inactive_error: Some(CpuPackageTemperatureError::Unavailable {
+            reason,
+            enablement: candidate.enablement,
+          }),
+          sample_failure_logged: false,
+        }
+      }
     }
   }
 
-  fn sample(&mut self) -> Result<CpuPackageTemperature, String> {
+  fn sample(&mut self) -> Result<CpuPackageTemperature, CpuPackageTemperatureError> {
+    let enablement = self
+      .active
+      .as_ref()
+      .map(ActiveCpuTemperatureSource::enablement)
+      .unwrap_or(SensorEnablement::Verified);
     let result = match self.active.as_mut() {
       Some(ActiveCpuTemperatureSource::Intel {
         client,
         target_celsius,
+        enablement: _,
       }) => client
         .read_msr(IA32_PACKAGE_THERM_STATUS)
         .and_then(|status| {
@@ -305,10 +343,12 @@ impl CpuTemperatureSampler {
         .map(|temperature| CpuPackageTemperature {
           temperature_celsius: temperature,
           source: CpuTemperatureSource::IntelDtsPackageMsr,
-        }),
+        })
+        .map_err(|reason| CpuPackageTemperatureError::Unavailable { reason, enablement }),
       Some(ActiveCpuTemperatureSource::Amd {
         client,
         tctl_offset_celsius,
+        enablement: _,
       }) => match NamedMutex::acquire(ACCESS_PCI_MUTEX, PAWNIO_MUTEX_TIMEOUT) {
         Ok(_mutex) => client
           .read_smu_register(AMD_THM_TCON_CUR_TMP)
@@ -321,14 +361,13 @@ impl CpuTemperatureSampler {
             source: CpuTemperatureSource::AmdZenSmnTctl,
           }),
         Err(reason) => Err(reason),
-      },
-      None => Err(
-        self
-          .diagnostics
-          .fallback_reason
-          .clone()
-          .unwrap_or_else(|| "CPU package temperature unavailable".to_string()),
-      ),
+      }
+      .map_err(|reason| CpuPackageTemperatureError::Unavailable { reason, enablement }),
+      None => Err(self.inactive_error.clone().unwrap_or_else(|| {
+        CpuPackageTemperatureError::Internal(
+          "CPU package temperature unavailable".to_string(),
+        )
+      })),
     };
 
     if let Err(reason) = &result
@@ -338,7 +377,7 @@ impl CpuTemperatureSampler {
       log_warn!(
         "cpu_temperature_sample_failed",
         "windows::cpu_temperature::CpuTemperatureSampler::sample",
-        Some(reason.clone())
+        Some(reason.to_string())
       );
     }
 
@@ -347,6 +386,12 @@ impl CpuTemperatureSampler {
 }
 
 impl ActiveCpuTemperatureSource {
+  const fn enablement(&self) -> SensorEnablement {
+    match self {
+      Self::Intel { enablement, .. } | Self::Amd { enablement, .. } => *enablement,
+    }
+  }
+
   fn open(
     cpu: &CpuIdentity,
     candidate: &CpuTemperatureCandidate,
@@ -378,11 +423,13 @@ impl ActiveCpuTemperatureSource {
         Self::Intel {
           client,
           target_celsius,
+          enablement: candidate.enablement,
         }
       }
       CpuTemperatureSource::AmdZenSmnTctl => Self::Amd {
         client,
         tctl_offset_celsius: amd_tctl_offset_celsius(&cpu.brand),
+        enablement: candidate.enablement,
       },
     };
 
@@ -600,32 +647,14 @@ mod tests {
   }
 
   #[test]
-  fn amd_family_17h_and_19h_are_enabled() {
-    assert_eq!(
-      amd_family_enablement(0x17),
-      AmdFamilyEnablement {
-        recognized_by_pawnio_module: true,
-        enabled_by_spec: true
-      }
-    );
-    assert_eq!(
-      amd_family_enablement(0x19),
-      AmdFamilyEnablement {
-        recognized_by_pawnio_module: true,
-        enabled_by_spec: true
-      }
-    );
+  fn amd_family_17h_and_19h_are_verified() {
+    assert_eq!(amd_family_enablement(0x17), SensorEnablement::Verified);
+    assert_eq!(amd_family_enablement(0x19), SensorEnablement::Verified);
   }
 
   #[test]
-  fn amd_family_1ah_is_recognized_but_disabled() {
-    assert_eq!(
-      amd_family_enablement(0x1a),
-      AmdFamilyEnablement {
-        recognized_by_pawnio_module: true,
-        enabled_by_spec: false
-      }
-    );
+  fn amd_family_1ah_is_experimental() {
+    assert_eq!(amd_family_enablement(0x1a), SensorEnablement::Experimental);
   }
 
   #[test]
@@ -642,6 +671,7 @@ mod tests {
       Ok(CpuTemperatureCandidate {
         source: CpuTemperatureSource::IntelDtsPackageMsr,
         module: PawnIoModule::IntelMsr,
+        enablement: SensorEnablement::Verified,
       })
     );
 
@@ -658,23 +688,47 @@ mod tests {
   }
 
   #[test]
-  fn amd_candidate_accepts_only_enabled_families() {
+  fn amd_candidate_classifies_verified_experimental_and_unsupported_families() {
     assert_eq!(
       select_cpu_temperature_candidate(&cpu(CpuVendor::Amd, "AuthenticAMD", 0x19), None),
       Ok(CpuTemperatureCandidate {
         source: CpuTemperatureSource::AmdZenSmnTctl,
         module: PawnIoModule::RyzenSmu,
+        enablement: SensorEnablement::Verified,
       })
     );
 
     assert_eq!(
       select_cpu_temperature_candidate(&cpu(CpuVendor::Amd, "AuthenticAMD", 0x1a), None),
-      Err(CpuTemperatureFallbackReason::AmdFamilyDisabled(0x1a))
+      Ok(CpuTemperatureCandidate {
+        source: CpuTemperatureSource::AmdZenSmnTctl,
+        module: PawnIoModule::RyzenSmu,
+        enablement: SensorEnablement::Experimental,
+      })
     );
     assert_eq!(
       select_cpu_temperature_candidate(&cpu(CpuVendor::Amd, "AuthenticAMD", 0x16), None),
       Err(CpuTemperatureFallbackReason::AmdFamilyUnsupported(0x16))
     );
+  }
+
+  #[test]
+  fn experimental_failure_is_identified_only_in_the_error() {
+    let error = CpuPackageTemperatureError::Unavailable {
+      reason: "CPU temperature decode failed".to_string(),
+      enablement: SensorEnablement::Experimental,
+    };
+
+    assert_eq!(
+      error.to_string(),
+      "experimental CPU package temperature attempt failed: CPU temperature decode failed"
+    );
+
+    let verified_error = CpuPackageTemperatureError::Unavailable {
+      reason: "CPU temperature decode failed".to_string(),
+      enablement: SensorEnablement::Verified,
+    };
+    assert_eq!(verified_error.to_string(), "CPU temperature decode failed");
   }
 
   #[test]
