@@ -35,8 +35,8 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
     "fmt",
 ] }
 chrono = "0.4.44"
-tauri-plugin-dialog = "2.7.1"
-tauri-plugin-store = "2.4.3"
+tauri-plugin-dialog = "2.7.2"
+tauri-plugin-store = "2.4.4"
 base64 = "0.22"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 regex = "1.12.3"
