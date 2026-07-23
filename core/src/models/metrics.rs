@@ -59,6 +59,19 @@ impl SensorAvailability {
   }
 }
 
+/// Runtime enablement decision for a native sensor path.
+///
+/// Prefer `Experimental` when an existing read-only access path recognizes the
+/// hardware and an existing plausibility-gated decode can be attempted safely.
+/// Use `Unsupported` when attempting the path would require guessing hardware
+/// facts such as an address, register map, or chip selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SensorEnablement {
+  Verified,
+  Experimental,
+  Unsupported,
+}
+
 /// One named temperature sensor reading (e.g. an ACPI thermal zone),
 /// always in raw °C.
 ///

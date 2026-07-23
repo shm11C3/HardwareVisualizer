@@ -31,3 +31,4 @@ ADR status describes decision maturity, not release status.
 - [0008 Selected Storage Device Overrides Focus Alarm](0008-selected-storage-device-overrides-focus.md)
 - [0009 Generated App Hardware DTOs](0009-generated-app-hardware-dtos.md)
 - [0010 Grouped Navigation with Classic Fallback](0010-grouped-navigation-with-classic-fallback.md)
+- [0011 Experimental Sensor Enablement for Recognized-but-Unverified Hardware](0011-experimental-sensor-enablement.md)

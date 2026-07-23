@@ -69,8 +69,13 @@ The Phase 1 implementation uses read-only CPU package temperature paths:
 
 - Intel: `MSR_TEMPERATURE_TARGET` and `IA32_PACKAGE_THERM_STATUS` through
   `IntelMSR`.
-- AMD: SMN `0x00059800` through `RyzenSMU`, enabled only for Family 17h and
-  Family 19h.
+- AMD: SMN `0x00059800` through `RyzenSMU`. Family 17h and 19h are verified;
+  other families the `RyzenSMU` module recognizes (e.g. Family 1Ah / Zen 5) are
+  enabled best-effort as experimental paths with the same plausibility gate.
+  Successful values keep the existing Core sample, App event, and Dashboard
+  presentation contracts. Verification status is maintained in the sensor
+  specification; only a surfaced failure from an experimental attempt carries
+  that context (see ADR 0011).
 
 The motherboard sensor implementation also uses a read-only PawnIO LpcIO path
 for the scoped Nuvoton NCT6799D Super I/O bank-4 temperature and direct RPM
@@ -86,7 +91,9 @@ implementation:
 - Installing PawnIO.
 - Bundling `PawnIOLib.dll` or module blobs.
 - Driver installer integration or bootstrapper work.
-- AMD Family 1Ah / Zen 5 enablement.
+- AMD Family 1Ah / Zen 5 *verified* enablement (it is enabled experimentally in
+  the current implementation; verification against a primary source is still
+  future work).
 - AMD per-CCD temperatures or SMU PM-table metrics.
 - Threadripper / EPYC multi-die-specific behavior.
 - Super I/O chips outside the scoped NCT6799D read path.

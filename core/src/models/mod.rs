@@ -11,5 +11,6 @@ pub use external_component_guidance::{
 pub use metrics::{
   FanSpeedStatus, GpuMetric, GpuSample, MetricsSnapshot, MotherboardFanSpeed,
   MotherboardSensorCollection, MotherboardSensorSample, MotherboardTemperature,
-  ProcessSample, SensorAvailability, SensorTemperature, TemperatureSample,
+  ProcessSample, SensorAvailability, SensorEnablement, SensorTemperature,
+  TemperatureSample,
 };

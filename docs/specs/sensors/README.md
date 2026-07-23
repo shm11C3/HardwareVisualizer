@@ -165,7 +165,7 @@ or unresolved blocking open question invalidates the flip.
 | --- | --- | --- | --- |
 | [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts, mutex conventions, blob distribution (signed `.bin`), elevation requirement, licensing facts | Phase 1 | Implementation-ready (rev 4) |
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 | Implementation-ready (rev 2) |
-| [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 3) |
+| [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 4) |
 | [`superio-access.md`](superio-access.md) | Phase 2 raw Super I/O chip-id diagnostic: config port pairs, Nuvoton/ITE enter/exit, chip-id registers, absent-id classification, ISA mutex | Phase 2 | Implementation-ready (rev 3) |
 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) | Nuvoton NCT67xx/NCT679x hardware-monitor map for motherboard temperatures and fan RPM. Rev 5 is implementation-ready for scoped `0xD802` / `NCT6799D` normal HM bank 4 byte temperatures (`0x90`-`0x95`) and direct RPM pairs (`0xC0`-`0xCB`), validated by local elevated PawnIO dump plus an independent AIDA64 dump. NCT6796D, read-only HM, count-based RPM, AUXFANIN4/seventh fan, voltages, and PWM remain disabled or out of scope. | Phase 3 | Implementation-ready (rev 5) |
 
