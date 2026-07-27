@@ -12,7 +12,7 @@ default-run = "hardware_visualizer"
 
 [build-dependencies]
 quote = "1.0.45"
-syn = { version = "2.0.117", features = ["full"] }
+syn = { version = "3.0.2", features = ["full"] }
 tauri-build = { version = "2.6.3", features = [] }
 
 
