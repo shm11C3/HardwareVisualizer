@@ -92,3 +92,11 @@ updates:
     labels:
       - "change:deps"
       - "area:github-actions"
+
+    groups:
+      # init / analyze / upload-sarif must run the same version; updating them
+      # separately fails with "Loaded a configuration file for version X, but
+      # running version Y".
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
