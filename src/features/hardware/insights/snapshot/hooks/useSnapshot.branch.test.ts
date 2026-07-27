@@ -201,19 +201,22 @@ describe("useSnapshot - Branch Coverage", () => {
     ["1GB", 1024],
     ["2GB", 2048],
     ["8GB", 8192],
-  ] as const)("should return %s (%i MB) for memoryMaxOption %s", async (option, expectedMB) => {
-    const { result } = renderHook(() => useSnapshot());
+  ] as const)(
+    "should return %s (%i MB) for memoryMaxOption %s",
+    async (option, expectedMB) => {
+      const { result } = renderHook(() => useSnapshot());
 
-    act(() => {
-      result.current.setMemoryMaxOption(option);
-    });
+      act(() => {
+        result.current.setMemoryMaxOption(option);
+      });
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
-    expect(result.current.selectedMemoryMaxMB).toBe(expectedMB);
-  });
+      expect(result.current.selectedMemoryMaxMB).toBe(expectedMB);
+    },
+  );
 
   it("should use MB value directly when memory size is in MB", async () => {
     mockMemorySize = "8192 MB";
