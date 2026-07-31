@@ -701,7 +701,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @hookform/resolvers@5.4.0
+## @hookform/resolvers@5.5.1
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/resolvers](https://github.com/react-hook-form/resolvers)
@@ -879,7 +879,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/number@1.1.2
+## @radix-ui/number@1.1.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -908,7 +908,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/primitive@1.1.5
+## @radix-ui/primitive@1.1.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -937,7 +937,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-accordion@1.2.16
+## @radix-ui/react-accordion@1.2.20
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -966,7 +966,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-alert-dialog@1.1.19
+## @radix-ui/react-alert-dialog@1.1.23
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -995,7 +995,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-arrow@1.1.11
+## @radix-ui/react-arrow@1.1.15
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1024,7 +1024,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-checkbox@1.3.7
+## @radix-ui/react-checkbox@1.3.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1053,7 +1053,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collapsible@1.1.16
+## @radix-ui/react-collapsible@1.1.20
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1082,7 +1082,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-collection@1.1.12
+## @radix-ui/react-collection@1.1.15
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1111,7 +1111,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-compose-refs@1.1.3
+## @radix-ui/react-compose-refs@1.1.5
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1140,7 +1140,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-context@1.2.0
+## @radix-ui/react-context@1.2.2
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1169,7 +1169,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dialog@1.1.19
+## @radix-ui/react-dialog@1.1.23
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1198,7 +1198,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-direction@1.1.2
+## @radix-ui/react-direction@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1227,7 +1227,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dismissable-layer@1.1.15
+## @radix-ui/react-dismissable-layer@1.1.19
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1256,7 +1256,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-dropdown-menu@2.1.20
+## @radix-ui/react-dropdown-menu@2.1.24
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1285,7 +1285,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-focus-guards@1.1.4
+## @radix-ui/react-focus-guards@1.1.6
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1314,7 +1314,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-focus-scope@1.1.12
+## @radix-ui/react-focus-scope@1.1.16
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1343,7 +1343,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-id@1.1.2
+## @radix-ui/react-id@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1372,7 +1372,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-label@2.1.11
+## @radix-ui/react-label@2.1.15
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1401,7 +1401,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-menu@2.1.20
+## @radix-ui/react-menu@2.1.24
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1430,7 +1430,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-popper@1.3.3
+## @radix-ui/react-popper@1.3.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1459,7 +1459,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-portal@1.1.13
+## @radix-ui/react-portal@1.1.17
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1488,7 +1488,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-presence@1.1.7
+## @radix-ui/react-presence@1.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1517,7 +1517,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-primitive@2.1.7
+## @radix-ui/react-primitive@2.1.10
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1546,7 +1546,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-progress@1.1.12
+## @radix-ui/react-progress@1.1.16
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1575,7 +1575,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-radio-group@1.4.3
+## @radix-ui/react-radio-group@1.4.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1604,7 +1604,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-roving-focus@1.1.15
+## @radix-ui/react-roving-focus@1.1.19
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1633,7 +1633,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-scroll-area@1.2.14
+## @radix-ui/react-scroll-area@1.2.18
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1662,7 +1662,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-select@2.3.3
+## @radix-ui/react-select@2.3.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1691,7 +1691,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slider@1.4.3
+## @radix-ui/react-slider@1.4.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1720,7 +1720,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-slot@1.3.0
+## @radix-ui/react-slot@1.3.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1749,7 +1749,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-switch@1.3.3
+## @radix-ui/react-switch@1.3.7
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1778,7 +1778,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tabs@1.1.17
+## @radix-ui/react-tabs@1.1.21
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1807,7 +1807,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-tooltip@1.2.12
+## @radix-ui/react-tooltip@1.2.16
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1836,7 +1836,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-callback-ref@1.1.2
+## @radix-ui/react-use-callback-ref@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1865,7 +1865,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-controllable-state@1.2.3
+## @radix-ui/react-use-controllable-state@1.2.6
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1894,7 +1894,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-effect-event@0.0.3
+## @radix-ui/react-use-effect-event@0.0.5
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1923,7 +1923,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-is-hydrated@0.1.1
+## @radix-ui/react-use-is-hydrated@0.1.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1952,7 +1952,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-layout-effect@1.1.2
+## @radix-ui/react-use-layout-effect@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -1981,7 +1981,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-previous@1.1.2
+## @radix-ui/react-use-previous@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2010,7 +2010,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-rect@1.1.2
+## @radix-ui/react-use-rect@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2039,7 +2039,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-use-size@1.1.2
+## @radix-ui/react-use-size@1.1.4
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2068,7 +2068,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/react-visually-hidden@1.2.7
+## @radix-ui/react-visually-hidden@1.2.11
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -2097,7 +2097,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @radix-ui/rect@1.1.2
+## @radix-ui/rect@1.1.3
 
 - License: MIT
 - Repository: [https://github.com/radix-ui/primitives](https://github.com/radix-ui/primitives)
@@ -4404,168 +4404,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## html-parse-stringify@3.0.1
+## html-parse-stringify@4.0.1
 
 - License: MIT
-- Repository: [https://github.com/henrikjoreteg/html-parse-stringify](https://github.com/henrikjoreteg/html-parse-stringify)
+- Repository: [https://github.com/i18next/html-parse-stringify](https://github.com/i18next/html-parse-stringify)
 - Publisher: Henrik Joreteg
 - Email: <henrik@joreteg.com>
 
 ```LICENSE
-# html-parse-stringify
+MIT License
 
-This is an _experimental lightweight approach_ to enable quickly parsing HTML into an AST and stringify'ing it back to the original string.
+Copyright (c) 2025 Henrik Joreteg <henrik@joreteg.com>
+Copyright (c) 2026-present i18next (https://github.com/i18next)
 
-As it turns out, if you can make a the simplifying assumptions about HTML that all tags must be closed or self-closing. Which is OK for _this_ particular application. You can write a super light/fast parser in JS with regex.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-"Why on earth would you do this?! Haven't you read: http://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags ?!?!"
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-Why yes, yes I have :)
-
-But the truth is. If you _could_ do this in a whopping grand total of ~600 bytes (min+gzip) as this repo shows. It potentially enables DOM diffing based on a HTML strings to be super light and fast in a browser. What is that you say? DOM-diffing?
-
-Yes.
-
-React.js essentially pioneered the approach. With React you render to a "virtual DOM" whenever you want to, and the virtual DOM can then diff against the real DOM (or the last virtual DOM) and then turn that diff into whatever transformations are necessary to get the _real_ DOM to match what you rendered as efficiently as possible.
-
-As a result, when you're building a single page app, you don't have to worry so much about bindings. Instead, you simple re-render to the virtual DOM whenever you know something's changed. All of a sudden being able to have `change` events for individual properties becomes less important, instead you can just reference those values in your template whenever you think something changed.
-
-Cool idea, right?!
-
-## So why this?
-
-Well, there are other things React expects me to do if I use it that I don't like. Such as the custom templating and syntax you have to use.
-
-If, hypothetically, you could instead diff an HTML string (generated by _whatever_ templating language of your choice) against the DOM, then you'd get the same benefit, sans React's impositions.
-
-This may all turn out to be a bad idea altogether, but initial results seem promising when paired with [virtual-dom](https://github.com/Matt-Esch/virtual-dom).
-
-But you can't just diff HTML strings, as simple strings, very easily, in order to diff two HTML node trees you have to first turn that string into a tree structure of some sort. Typically, the thing you generate from parsing something like this is called an AST (abstract syntax tree).
-
-This lib does exactly that.
-
-It has two methods:
-
-1. parse
-2. stringify
-
-## `.parse(htmlString, options)`
-
-Takes a string of HTML and turns it into an AST, the only option you can currently pass is an object of registered `components` whose children will be ignored when generating the AST.
-
-## `.stringify(AST)`
-
-Takes an AST and turns it back into a string of HTML.
-
-## What does the AST look like?
-
-See comments in the following example:
-
-`` ``` ``js
-var HTML = require('html-parse-stringify')
-
-// this html:
-var html = '<div class="oh"><p>hi</p></div>'
-
-// becomes this AST:
-var ast = HTML.parse(html)
-
-console.log(ast)
-/*
-{
-    // can be `tag`, `text` or `component`
-    type: 'tag',
-
-    // name of tag if relevant
-    name: 'div',
-    
-    // parsed attribute object
-    attrs: {
-        class: 'oh'
-    },
-
-    // whether this is a self-closing tag
-    // such as <img/>
-    voidElement: false,
-
-    // an array of child nodes
-    // we see the same structure
-    // repeated in each of these
-    children: [
-        {
-            type: 'tag',
-            name: 'p',
-            attrs: {},
-            voidElement: false,
-            children: [
-                // this is a text node
-                // it also has a `type`
-                // but nothing other than
-                // a `content` containing
-                // its text.
-                {
-                    type: 'text',
-                    content: 'hi'
-                }
-            ]
-        }
-    ]
-}
-*/
-`` ``` ``
-
-## the AST node types
-
-### 1. tag
-
-properties:
-
-- `type` - will always be `tag` for this type of node
-- `name` - tag name, such as 'div'
-- `attrs` - an object of key/value pairs. If an attribute has multiple space-separated items such as classes, they'll still be in a single string, for example: `class: "class1 class2"`
-- `voidElement` - `true` or `false`. Whether this tag is a known void element as defined by [spec](http://www.w3.org/html/wg/drafts/html/master/syntax.html#void-elements).
-- `children` - array of child nodes. Note that any continuous string of text is a text node child, see below.
-
-### 2. text
-
-properties:
-
-- `type` - will always be `text` for this type of node
-- `content` - text content of the node
-
-### 3. component
-
-If you pass an object of `components` as part of the `options` object passed as the second argument to `.parse()` then the AST won't keep parsing that branch of the DOM tree when it one of those registered components.
-
-This is so that it's possible to ignore sections of the tree that you may want to handle by another "subview" in your application that handles it's own DOM diffing.
-
-properties:
-
-- `type` - will always be `component` for this type of node
-- `name` - tag name, such as 'div'
-- `attrs` - an object of key/value pairs. If an attribute has multiple space-separated items such as classes, they'll still be in a single string, for example: `class: "class1 class2"`
-- `voidElement` - `true` or `false`. Whether this tag is a known void element as defined by [spec](http://www.w3.org/html/wg/drafts/html/master/syntax.html#void-elements).
-- `children` - it will still have a `children` array, but it will always be empty.
-
-## changelog
-
-- `3.0.1` Merged #47 which makes void elements check case insensitive. Thanks again, [@adrai](https://github.com/adrai) for this contribution!
-- `3.0.0` Merged #46 which fixed an issue with handling of whitespace. Doing major version bump since this changes behavior if you have whitespace only nodes (see merged PR and #45 for more details). Thanks [@adrai](https://github.com/adrai) for this contribution!
-- `2.1.1` Merged #41 which fixed an issue with tag nesting. Thanks [@ericponto](https://github.com/ericponto).
-- `2.1.0` Merged support for numeric tags. This allows a use case described in [this PR](https://github.com/HenrikJoreteg/html-parse-stringify/pull/43). Thanks [@kachkaev](https://github.com/kachkaev).
-- `2.0.3` Fixed failed publish. Accidentally published an empty package :sweat_smile:
-- `2.0.2` Fixed incorrect attribution for vulnerability disclosure. The vulnerability was discovered by Yeting Li. Sam Sanoop was the one who reached out to me about it.
-- `2.0.1` Addressing a reported regular expression denial of service issue found by [Yeting Li](https://github.com/yetingli) and reported to me by [Sam Sanoop](https://twitter.com/snoopysecurity) of [Snyk](https://snyk.io/) THANK YOU!. The issue was that sending certain input would cause one of the regular expressions we used to lock up and not finish, freezing the process. See the test that was added for details. To be clear, this lib wasn't meant for parsing non-well formed HTML. But, better safe than sorry! So we're fixing it.
-- `2.0.0` updated to more modern dependencies/build system. Switched to prettier, etc. No big feature differences, just new build system/project structure. Added support for top level text nodes thanks to @jperl. Added support for comments thanks to @pconerly.
-- `1.0.0 - 1.0.3` no big changes, bug fixes and speed improvements.
-
-## credits
-
-If this sounds interesting you should probably follow [@HenrikJoreteg](https://twitter.com/henrikjoreteg) and [@Philip_Roberts](https://twitter.com/philip_roberts) on twitter to see how this all turns out.
-
-## license
-
-MIT
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## i18next@26.3.6
@@ -4923,7 +4791,7 @@ will be liable to anyone for any damages related to this
 software or this license, under any kind of legal claim.***
 ```
 
-## lucide-react@1.25.0
+## lucide-react@1.27.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -5063,10 +4931,10 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## react-dom@19.2.7
+## react-dom@19.2.8
 
 - License: MIT
-- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+- Repository: [https://github.com/react/react](https://github.com/react/react)
 
 ```LICENSE
 MIT License
@@ -5122,7 +4990,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.82.0
+## react-hook-form@7.83.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
@@ -5153,7 +5021,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-i18next@17.0.10
+## react-i18next@17.0.11
 
 - License: MIT
 - Repository: [https://github.com/i18next/react-i18next](https://github.com/i18next/react-i18next)
@@ -5367,10 +5235,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react@19.2.7
+## react@19.2.8
 
 - License: MIT
-- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+- Repository: [https://github.com/react/react](https://github.com/react/react)
 
 ```LICENSE
 MIT License
@@ -5396,7 +5264,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## recharts@3.9.2
+## recharts@3.10.1
 
 - License: MIT
 - Repository: [https://github.com/recharts/recharts](https://github.com/recharts/recharts)
@@ -6002,37 +5870,6 @@ Note that for some tooling (like Jest) that doesn't play well with `package.json
 ## Licenses
 
 This project is released under the MIT license, but the vendor'ed in libraries include other licenses (e.g. ISC) that we enumerate in our `package.json:license` field.
-```
-
-## void-elements@3.1.0
-
-- License: MIT
-- Repository: [https://github.com/pugjs/void-elements](https://github.com/pugjs/void-elements)
-- Publisher: hemanth.hm
-
-```LICENSE
-(The MIT License)
-
-Copyright (c) 2014 hemanth
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## zod@4.4.3
