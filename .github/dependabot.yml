@@ -8,7 +8,8 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "tuesday"
       time: "08:30"
       timezone: "Asia/Tokyo"
     cooldown:
