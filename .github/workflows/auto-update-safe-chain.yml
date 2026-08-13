@@ -3,8 +3,8 @@ name: Auto update safe-chain version
 on:
   workflow_dispatch:
   schedule:
-    # Every Monday 09:30 JST (00:30 UTC)
-    - cron: "30 0 * * 1"
+    # Twice monthly on the 1st and 15th at 09:30 JST (00:30 UTC)
+    - cron: "30 0 1,15 * *"
 
 permissions: read-all
 
@@ -95,7 +95,7 @@ jobs:
             This PR was created automatically.
 
             - Updates pinned safe-chain version in `.github/actions/setup-safe-chain/action.yml`
-            - Schedule: weekly
+            - Schedule: twice monthly (1st and 15th, 09:30 JST)
           branch: chore/auto-safe-chain-bump
           add-paths: |
             .github/actions/setup-safe-chain/action.yml

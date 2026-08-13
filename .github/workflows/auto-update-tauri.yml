@@ -3,8 +3,8 @@ name: Auto update Tauri dependencies
 on:
   workflow_dispatch:
   schedule:
-    # Every Wednesday 09:00 JST (00:00 UTC)
-    - cron: "0 0 * * 3"
+    # Twice monthly on the 8th and 22nd at 09:00 JST (00:00 UTC)
+    - cron: "0 0 8,22 * *"
 
 permissions: read-all
 
@@ -70,7 +70,7 @@ jobs:
             - Updated `tauri`, `tauri-build`, and `tauri-plugin-*` Cargo crates
             - Regenerated lockfiles when Tauri dependency versions changed
 
-            > This workflow runs weekly (Wed 09:00 JST) and is separate from Dependabot,
+            > This workflow runs twice monthly (8th and 22nd, 09:00 JST) and is separate from Dependabot,
             > which ignores Tauri-related packages.
           branch: chore/auto-tauri-update
           delete-branch: true

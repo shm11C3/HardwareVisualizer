@@ -5,8 +5,8 @@ name: Auto update npm lockfile
 on:
   workflow_dispatch:
   schedule:
-    # Every Monday 09:15 JST (00:15 UTC)
-    - cron: "15 0 * * 1"
+    # Twice monthly on the 1st and 15th at 09:15 JST (00:15 UTC)
+    - cron: "15 0 1,15 * *"
 
 permissions: read-all
 
