@@ -142,6 +142,23 @@ serde = "1"
   writeFileSync(
     cargoLockPath,
     readFileSync(cargoLockPath, "utf8").replace(
+      ' "os_pipe",',
+      ' "os_pipe 1.2.3",',
+    ),
+  );
+  assert.deepEqual(
+    check("HEAD", "--worktree"),
+    {
+      changed: "false",
+      npm_changed: "false",
+      cargo_changed: "false",
+    },
+    "dependency-list-only rewrites inside a Tauri block must be ignored",
+  );
+
+  writeFileSync(
+    cargoLockPath,
+    readFileSync(cargoLockPath, "utf8").replace(
       'name = "tauri-runtime"\nversion = "2.11.0"',
       'name = "tauri-runtime"\nversion = "2.12.0"',
     ),

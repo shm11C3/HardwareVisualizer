@@ -118,7 +118,12 @@ function extractCargoLock(text: string): string {
   for (const block of text.split(/\n\s*\n/)) {
     const name = block.match(/^name = "([^"]+)"/m)?.[1];
     if (name && tauriCratePattern.test(name)) {
-      entries.push(block.trim());
+      const identity = block
+        .split("\n")
+        .filter((line) => /^(?:name|version|source|checksum) = /.test(line))
+        .sort()
+        .join("\n");
+      entries.push(identity);
     }
   }
 
