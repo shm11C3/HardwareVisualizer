@@ -99,6 +99,9 @@ jobs:
           install-deps: "false"
           setup-safe-chain: "false"
 
+      - name: Test Tauri dependency change detection
+        run: node .github/scripts/test-check-tauri-deps-changed.mjs
+
       - name: Check Tauri dependency changes
         id: tauri-deps
         shell: bash
