@@ -45,6 +45,18 @@ jobs:
       - name: Run Tauri dependency updater
         run: bash .github/scripts/tauri-updater.sh
 
+      - name: Check for effective Tauri dependency updates
+        id: tauri-deps
+        run: node .github/scripts/check-tauri-deps-changed.ts HEAD --worktree
+
+      - name: Discard npm changes without a Tauri npm update
+        if: steps.tauri-deps.outputs.npm_changed != 'true'
+        run: git restore -- package.json package-lock.json
+
+      - name: Discard Cargo changes without a Tauri crate update
+        if: steps.tauri-deps.outputs.cargo_changed != 'true'
+        run: git restore -- Cargo.lock src-tauri/Cargo.toml
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
@@ -56,7 +68,7 @@ jobs:
 
             - Updated `@tauri-apps/*` npm packages to latest
             - Updated `tauri`, `tauri-build`, and `tauri-plugin-*` Cargo crates
-            - Regenerated lockfiles
+            - Regenerated lockfiles when Tauri dependency versions changed
 
             > This workflow runs weekly (Wed 09:00 JST) and is separate from Dependabot,
             > which ignores Tauri-related packages.

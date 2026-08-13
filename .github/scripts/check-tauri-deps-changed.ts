@@ -1,14 +1,15 @@
 /// <reference types="node" />
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 type JsonObject = Record<string, unknown>;
 type Extractor = (text: string) => string;
 
 const baseRef = process.argv[2] ?? "HEAD^";
+const headRef = process.argv[3] ?? "HEAD";
 const outputPath = process.env.GITHUB_OUTPUT;
-const tauriCratePattern = /^(tauri|tauri-build|tauri-specta|tauri-plugin-.+)$/;
+const tauriCratePattern = /^tauri(?:$|-.+)$/;
 
 const jsonSections = [
   "dependencies",
@@ -19,6 +20,10 @@ const jsonSections = [
 
 function readFileAt(ref: string, path: string): string {
   try {
+    if (ref === "--worktree") {
+      return readFileSync(path, "utf8");
+    }
+
     return execFileSync("git", ["show", `${ref}:${path}`], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -157,21 +162,32 @@ function extractCargoToml(text: string): string {
   return entries.sort().join("\n");
 }
 
-const checks: [path: string, extract: Extractor][] = [
+const npmChecks: [path: string, extract: Extractor][] = [
   ["package.json", extractPackageJson],
   ["package-lock.json", extractPackageLock],
+];
+const cargoChecks: [path: string, extract: Extractor][] = [
   ["Cargo.lock", extractCargoLock],
   ["src-tauri/Cargo.toml", extractCargoToml],
 ];
 
-const changed = checks.some(([path, extract]) => {
-  const base = extract(readFileAt(baseRef, path));
-  const head = extract(readFileAt("HEAD", path));
-  return base !== head;
-});
+function hasChanged(checks: [path: string, extract: Extractor][]): boolean {
+  return checks.some(([path, extract]) => {
+    const base = extract(readFileAt(baseRef, path));
+    const head = extract(readFileAt(headRef, path));
+    return base !== head;
+  });
+}
+
+const npmChanged = hasChanged(npmChecks);
+const cargoChanged = hasChanged(cargoChecks);
+const changed = npmChanged || cargoChanged;
 
 if (outputPath) {
-  appendFileSync(outputPath, `changed=${changed}\n`);
+  appendFileSync(
+    outputPath,
+    `changed=${changed}\nnpm_changed=${npmChanged}\ncargo_changed=${cargoChanged}\n`,
+  );
 } else {
   console.log(`changed=${changed}`);
 }
