@@ -86,7 +86,8 @@ jobs:
           name: default-branch-osv-scan-assets
           path: |
             osv-scanner.toml
-            .github/scripts/fail-on-osv-high-or-critical.ts
+            .github/osv/release-vulnerability-assessments.json
+            .github/scripts/evaluate-release-vulnerabilities.ts
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
@@ -133,21 +134,44 @@ jobs:
             --gh-annotations=false
             --fail-on-vuln=false
 
-      - name: Upload release OSV SARIF artifact
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-OSV Scanner SARIF file
-          path: release-osv-results.sarif
-          if-no-files-found: error
-          retention-days: 5
+      - name: Download CISA KEV catalog
+        shell: bash
+        run: |
+          curl \
+            --fail \
+            --location \
+            --remove-on-error \
+            --retry 3 \
+            --retry-all-errors \
+            --proto '=https' \
+            --tlsv1.2 \
+            --output cisa-kev.json \
+            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: "24"
 
-      - name: Fail on High or Critical release vulnerabilities
-        run: node --experimental-strip-types .github/scripts/fail-on-osv-high-or-critical.ts release-results.json
+      - name: Evaluate release vulnerability response
+        run: |
+          node --experimental-strip-types \
+            .github/scripts/evaluate-release-vulnerabilities.ts \
+            release-results.json \
+            --policy .github/osv/release-vulnerability-assessments.json \
+            --kev cisa-kev.json \
+            --output release-vulnerability-evaluation.json
         env:
           OSV_RELEASE_TAG: ${{ needs.resolve-release-tag.outputs.release-tag }}
+
+      - name: Upload release OSV evaluation artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-osv-evaluation
+          path: |
+            release-results.json
+            release-osv-results.sarif
+            release-vulnerability-evaluation.json
+          if-no-files-found: error
+          retention-days: 30

@@ -23,6 +23,7 @@ documentation.
 - [Super I/O sensor work handoff](development/sensor-handoff/)
 - [GitHub label guide](development/labels.md)
 - [Download verification](download-verification.md)
+- [Release vulnerability response](security/release-vulnerability-response.md)
 - [Documentation guide](documentation-guide.md)
 - [Shared agent rules](../.agents/rules/README.md)
 - [AI learning records](agents/lessons/)
@@ -40,6 +41,7 @@ docs/
 ├── development/                    # Developer task guides
 ├── specs/                          # Clean-room hardware specification documents
 │   └── sensors/                    # Sensor specs for PawnIO-based monitoring
+├── security/                       # Release security response and evidence policy
 ├── third-party-notices/            # Generated and manual third-party notices
 ├── user/                           # User-facing guides published by the website
 │   ├── external-components.md      # External component setup guide
