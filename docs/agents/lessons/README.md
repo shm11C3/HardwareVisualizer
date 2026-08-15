@@ -109,3 +109,4 @@ shared enforcement surface.
 - [Make navigation levels explicit](make-navigation-levels-explicit.md)
 - [Separate release integrity from vulnerability exposure](separate-release-integrity-from-vulnerability-exposure.md)
 - [Deliver pull requests through review](deliver-pull-requests-through-review.md)
+- [Keep shared system refresh ownership explicit](keep-shared-system-refresh-ownership-explicit.md)

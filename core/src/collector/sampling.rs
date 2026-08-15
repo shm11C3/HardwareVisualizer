@@ -40,7 +40,17 @@ pub fn sample_temperatures() -> TemperatureSample {
 /// store's history rings.
 pub fn sample_system(store: &HistoryStore) -> Option<SystemSample> {
   let result = store.system().lock().ok().map(|mut sys| {
-    sys.refresh_all();
+    sys.refresh_cpu_usage();
+    sys.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
+    // Keep sysinfo's default task enumeration so Linux process membership
+    // remains compatible with refresh_all().
+    sys.refresh_processes_specifics(
+      sysinfo::ProcessesToUpdate::All,
+      true,
+      sysinfo::ProcessRefreshKind::nothing()
+        .with_cpu()
+        .with_memory(),
+    );
 
     let cpu_usage = calculate_average_cpu_usage(sys.cpus());
     let memory_usage =
@@ -231,6 +241,89 @@ mod tests {
     assert_eq!(
       calculate_memory_usage_percentage(16_000_000_000, 32_000_000_000),
       50.0
+    );
+  }
+
+  #[test]
+  fn sample_system_refreshes_required_system_and_process_data() {
+    let store = HistoryStore::new();
+    let current_pid =
+      sysinfo::get_current_pid().expect("current process should have a PID");
+    const SENTINEL_CPU_USAGE: f32 = 321.0;
+    const SENTINEL_MEMORY_KB: f32 = 1_048_576.0;
+
+    store.update_process_histories(&[(
+      current_pid,
+      SENTINEL_CPU_USAGE,
+      SENTINEL_MEMORY_KB,
+    )]);
+
+    {
+      let mut system = store.system().lock().unwrap();
+      *system = sysinfo::System::new();
+      assert!(system.cpus().is_empty());
+      assert_eq!(system.total_memory(), 0);
+      assert!(system.processes().is_empty());
+    }
+
+    let sample = sample_system(&store).expect("system lock should be available");
+    let system = store.system().lock().unwrap();
+
+    assert!(!sample.processors_usage.is_empty());
+    assert!(system.total_memory() > 0);
+    assert_eq!(sample.cpu_usage, calculate_average_cpu_usage(system.cpus()));
+    assert_eq!(
+      sample.processors_usage,
+      system
+        .cpus()
+        .iter()
+        .map(|cpu| cpu.cpu_usage())
+        .collect::<Vec<_>>()
+    );
+    assert_eq!(
+      sample.memory_usage,
+      calculate_memory_usage_percentage(system.used_memory(), system.total_memory())
+    );
+
+    let process = system
+      .process(current_pid)
+      .expect("targeted refresh should include the current process");
+    let process_sample = sample
+      .processes
+      .iter()
+      .find(|sample| sample.pid == current_pid.as_u32())
+      .expect("system sample should include the current process");
+
+    assert!(!process_sample.name.is_empty());
+    assert_eq!(
+      process_sample.name,
+      process.name().to_string_lossy().into_owned()
+    );
+    assert_eq!(process_sample.cpu_usage, process.cpu_usage());
+    assert_eq!(process_sample.memory_kb, process.memory() as f32 / 1024.0);
+    assert_eq!(process_sample.run_time_secs, process.run_time());
+    drop(system);
+
+    assert_eq!(store.cpu_history(1), vec![sample.cpu_usage]);
+    assert_eq!(store.memory_history(1), vec![sample.memory_usage]);
+    let process_info = store
+      .process_list()
+      .into_iter()
+      .find(|process| process.pid == current_pid.as_u32() as i32)
+      .expect("process list should include the current process");
+    assert_eq!(process_info.name, process_sample.name);
+    assert_eq!(
+      process_info.cpu_usage,
+      crate::utils::rounding::round1(
+        ((SENTINEL_CPU_USAGE + process_sample.cpu_usage) / 2.0)
+          / sample.processors_usage.len() as f32
+      )
+    );
+    assert_eq!(
+      process_info.memory_usage,
+      crate::utils::rounding::round1(
+        ((SENTINEL_MEMORY_KB + process_sample.memory_kb) / 2.0) / 1024.0
+      )
     );
   }
 

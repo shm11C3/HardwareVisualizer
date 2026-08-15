@@ -90,7 +90,10 @@ used by the platform layer and Core services.
 
 Cross-platform providers:
 
-- `sysinfo_provider.rs` reads CPU and storage facts through `sysinfo`.
+- `sysinfo_provider.rs` reads CPU and storage facts through `sysinfo`. The
+  collector refreshes live CPU usage, memory, and process data on its periodic
+  loop; the provider refreshes CPU frequency on demand when CPU hardware facts
+  are requested.
 - `smartctl.rs` wraps the external `smartctl` command and parses SMART data.
 
 Windows providers:
