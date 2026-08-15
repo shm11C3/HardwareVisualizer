@@ -5,9 +5,9 @@ description: Deliver a HardwareVisualizer change as a focused GitHub pull reques
 
 # Deliver Pull Request
 
-Deliver one coherent requirement from the current worktree to a Ready pull
-request whose relevant checks and reviews are complete. Do not merge unless the
-user explicitly asks.
+Deliver one coherent requirement from the current worktree to its intended
+Ready or Draft pull request state with relevant checks and reviews complete. Do
+not merge unless the user explicitly asks.
 
 ## Authorization Boundary
 
@@ -63,11 +63,11 @@ Read and use
 3. Review the complete diff and stage only intended paths.
 4. Create a Conventional Commit with a body when the reason or compatibility is
    not self-evident.
-5. Push the project-prefixed branch and create a Ready PR unless the user asks
-   for a draft. If the selected connector authors the PR as
-   `hardwarevisualizerappmanager[bot]`, create it as Draft unless the user also
-   authorizes merge; this repository enables auto-merge for Ready PRs by that
-   author.
+5. Push the project-prefixed branch. Create a PR only when no existing PR covers
+   that branch; otherwise update the existing PR. Use Ready unless the user asks
+   for Draft. Keep a `hardwarevisualizerappmanager[bot]` PR Draft unless the
+   user also authorizes merge; this repository enables auto-merge for Ready PRs
+   by that author.
 6. Report the PR URL, committed scope, validation evidence, and preserved
    unrelated changes.
 
@@ -123,7 +123,8 @@ Stop the review loop when all of the following are true:
 - required or configured reviews complete without outstanding changes;
 - every actionable thread is addressed, or explicitly declined with evidence,
   and resolved;
-- the PR is Ready, mergeable, and has no unresolved conflict.
+- the PR is in the intended publication state defined above, is mergeable, and
+  has no unresolved conflict.
 
 Do not request more review merely for additional certainty or more findings.
 If an external permission, unavailable reviewer, or persistent environment
