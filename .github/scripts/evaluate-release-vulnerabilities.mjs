@@ -231,14 +231,19 @@ function hasFix(vulnerability, pkg) {
       );
       return samePackage(affectedPackage, pkg, false);
     })
-    .flatMap((affected) => list(affected.ranges).map(object))
-    .filter((range) => range.type === "ECOSYSTEM" || range.type === "SEMVER");
+    .flatMap((affected) => list(affected.ranges).map(object));
 
   // OSV confirms that the scanned version is affected, but selecting its
   // interval would require an ecosystem-specific version comparator. Report a
   // fix only for the unambiguous single-interval shape; otherwise mitigation is
   // the safe recommendation.
-  if (versionRanges.length !== 1) return false;
+  if (
+    versionRanges.length !== 1 ||
+    (versionRanges[0].type !== "ECOSYSTEM" &&
+      versionRanges[0].type !== "SEMVER")
+  ) {
+    return false;
+  }
   const events = list(versionRanges[0].events).map(object);
   return (
     events.length === 2 &&
