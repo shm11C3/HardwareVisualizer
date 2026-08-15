@@ -9,7 +9,7 @@ root_cause: publication and completion were treated as separate tasks, while rev
 guardrail: AGENTS.md owns pre-change justification and .agents/skills/deliver-pull-request/SKILL.md owns end-to-end PR delivery
 canonical_refs: AGENTS.md, .agents/skills/deliver-pull-request/SKILL.md
 verification: invoke the skill for a PR request and confirm it states the minimal change rationale, preserves unrelated work, monitors required CI and reviews, replies with evidence, resolves threads, and stops at the documented completion gate
-evidence: "maintainer PR workflow correction; whowns AGENTS.md review discipline; HardwareVisualizer PR #1915 and PR #1930 review follow-through"
+evidence: "maintainer PR workflow correction; shm11C3/whowns AGENTS.md review discipline; HardwareVisualizer PR #1915 and PR #1930 review follow-through"
 revalidate_when: repository PR completion criteria, automatic review behavior, GitHub tooling, or sandbox execution policy changes
 ---
 

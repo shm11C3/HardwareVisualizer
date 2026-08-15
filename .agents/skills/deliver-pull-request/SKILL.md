@@ -1,6 +1,6 @@
 ---
 name: deliver-pull-request
-description: Deliver a HardwareVisualizer change as a focused GitHub pull request and continue through CI and review completion. Use when the user asks to create, open, publish, or prepare a PR, or asks Codex to handle PR feedback and checks through approval.
+description: Deliver a HardwareVisualizer change as a focused GitHub pull request and continue through CI and review completion. Use when the user explicitly asks to create, open, or publish a PR, or asks Codex to handle an existing PR's feedback and checks through approval.
 ---
 
 # Deliver Pull Request
@@ -8,6 +8,19 @@ description: Deliver a HardwareVisualizer change as a focused GitHub pull reques
 Deliver one coherent requirement from the current worktree to a Ready pull
 request whose relevant checks and reviews are complete. Do not merge unless the
 user explicitly asks.
+
+## Authorization Boundary
+
+Use this workflow only when the current request explicitly authorizes PR
+publication or follow-through on an existing PR. A request to create, open, or
+publish a PR authorizes the in-scope branch, commit, push, PR creation, review
+replies, and thread resolution required by this workflow. It does not authorize
+merge, destructive Git operations, or unrelated changes.
+
+If the user asks only to prepare PR content, propose a plan, inspect status, or
+triage feedback, do not perform Git or GitHub mutations beyond that request
+without confirmation. Host approval requirements still apply to every tool
+call.
 
 ## 1. Establish The Change Contract
 
