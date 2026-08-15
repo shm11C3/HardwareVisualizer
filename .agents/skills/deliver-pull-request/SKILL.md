@@ -128,8 +128,9 @@ Stop the review loop when all of the following are true:
 - focused regression tests and relevant CI checks pass;
 - required or configured reviews applicable to the intended publication state
   complete without outstanding changes;
-- every actionable thread is addressed, or explicitly declined with evidence,
-  and resolved;
+- every actionable review item is addressed or explicitly declined with
+  evidence; inline threads are resolved, and non-thread items have the required
+  reply and decision;
 - the PR is in the intended publication state defined above, is mergeable, and
   has no unresolved conflict.
 
