@@ -6,7 +6,7 @@ description: Deliver a focused HardwareVisualizer change as a pull request, then
 # Deliver Pull Request
 
 Publish one coherent change and finish the CI and review work that belongs to
-it. Do not merge unless the user explicitly asks.
+it. This workflow ends at an approved PR; merging is a separate request.
 
 ## 1. Confirm The Boundary
 
@@ -32,6 +32,12 @@ only at the smallest durable owner that will need it.
 ## 2. Keep The Change Focused
 
 - Inspect the current branch, worktree, base, and associated PR.
+- Reuse only an open PR whose head repository and branch, intended base, and
+  represented requirement match the current change. Stop when the target is
+  missing or ambiguous instead of creating or updating a different PR.
+- Preserve an existing PR's Draft or Ready state. If pushing or changing that
+  state can enable repository automation to merge without merge authorization,
+  stop before the mutation.
 - Preserve unrelated user changes. Use an isolated worktree when necessary.
 - Implement only the current requirement. Keep adjacent findings separate.
 - Add a focused regression test when it can prove the changed contract.
@@ -63,8 +69,8 @@ Separate discovery from verification so review converges on approval.
 
 1. Let the configured automatic reviewers perform one primary review of the
    published change.
-2. Collect its findings before editing and keep a working record of each claim,
-   evidence, decision, and owning boundary.
+2. Collect automatic and human feedback before editing and keep a working
+   record of each claim, evidence, decision, and owning boundary.
 3. Triage all accepted findings together and make one focused correction batch.
 
 The primary review is the only broad review. Do not request another full review
@@ -143,7 +149,7 @@ Stop when:
   are resolved;
 - GitHub has no outstanding change request and records approval from the
   approval-capable reviewer; and
-- the PR is in the requested publication state without a merge conflict.
+- the PR is in the requested publication state and GitHub reports it mergeable.
 
 Do not seek more findings merely for additional certainty. A verification
 review does not reopen broad discovery. If permission, approval, a required
