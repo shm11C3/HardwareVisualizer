@@ -222,7 +222,7 @@ function preferredIdentifier(values) {
 }
 
 function hasFix(vulnerability, pkg) {
-  const ecosystemRanges = list(vulnerability.affected)
+  const versionRanges = list(vulnerability.affected)
     .map(object)
     .filter((affected) => {
       const affectedPackage = parsePackage(
@@ -231,15 +231,20 @@ function hasFix(vulnerability, pkg) {
       );
       return samePackage(affectedPackage, pkg, false);
     })
-    .flatMap((affected) => list(affected.ranges).map(object))
-    .filter((range) => range.type === "ECOSYSTEM");
+    .flatMap((affected) => list(affected.ranges).map(object));
 
   // OSV confirms that the scanned version is affected, but selecting its
   // interval would require an ecosystem-specific version comparator. Report a
   // fix only for the unambiguous single-interval shape; otherwise mitigation is
   // the safe recommendation.
-  if (ecosystemRanges.length !== 1) return false;
-  const events = list(ecosystemRanges[0].events).map(object);
+  if (
+    versionRanges.length !== 1 ||
+    (versionRanges[0].type !== "ECOSYSTEM" &&
+      versionRanges[0].type !== "SEMVER")
+  ) {
+    return false;
+  }
+  const events = list(versionRanges[0].events).map(object);
   return (
     events.length === 2 &&
     typeof events[0].introduced === "string" &&
