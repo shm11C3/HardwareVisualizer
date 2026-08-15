@@ -54,8 +54,20 @@ operation in the permitted environment with the required approval.
 
 ## 4. Finish CI And Review
 
-After publication, inspect the PR's current CI results and review feedback. Do
-not repeatedly request new reviews after each correction.
+Use one bounded review cycle:
+
+1. After publication, collect the automatic reviews already configured for the
+   PR once.
+2. Triage the resulting feedback together and make one focused correction
+   batch when needed.
+3. Run the relevant regression checks and CI for that correction.
+4. Reply with the decisions, resolve the handled threads, and stop.
+
+Do not request or wait for another automated review of the correction commit.
+If another automated review arrives on its own, do not recursively reopen this
+cycle. Report any new blocking finding for a separate maintainer decision.
+Continue only when a human explicitly asks or a required repository gate
+remains unsatisfied.
 
 For review feedback, read and use
 [gh-ai-review-triage](../gh-ai-review-triage/SKILL.md):
@@ -68,9 +80,8 @@ For review feedback, read and use
 - Keep accepted corrections narrow, run the relevant checks, reply with the
   decision and evidence, and resolve the thread.
 - Never request a Codex review manually. Codex decides when to review.
-- Rely on configured automatic reviewers. Request another review only when a
-  human explicitly asks or a material unreviewed change makes the existing
-  review obsolete.
+- Rely on the configured automatic review collected for this cycle. Never
+  request a follow-up review unless a human explicitly asks.
 
 For a failing check, inspect the failing leaf job and exact error before
 editing. Separate product regressions from test and environment failures, and
@@ -82,10 +93,11 @@ Stop when:
 
 - the requested change is complete and contains no unrelated work;
 - relevant local checks and CI pass;
-- all existing actionable feedback is fixed or declined with evidence, and its
+- the collected review feedback is fixed or declined with evidence, and its
   threads are resolved; and
 - the PR is in the requested publication state without a merge conflict.
 
-Do not seek more findings merely for additional certainty. If permission or an
+Do not seek more findings merely for additional certainty. A later automated
+review does not reopen a completed cycle. If permission, a required gate, or an
 external service prevents completion, report the concrete blocker and the
 evidence already completed.
