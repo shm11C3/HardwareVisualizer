@@ -17,7 +17,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
-use sysinfo::{ProcessesToUpdate, System};
+use sysinfo::System;
 
 use crate::models::hardware::ProcessInfo;
 use crate::utils::rounding;
@@ -181,14 +181,13 @@ impl HistoryStore {
       .unwrap_or_default()
   }
 
-  /// Process list refreshed via sysinfo, with rolling-average CPU and
-  /// memory usage (last [`PROCESS_AVG_WINDOW`] samples) per process.
+  /// Process list from the latest collector sample, with rolling-average CPU
+  /// and memory usage (last [`PROCESS_AVG_WINDOW`] samples) per process.
   pub fn process_list(&self) -> Vec<ProcessInfo> {
-    let mut system = self.inner.system.lock().unwrap();
+    let system = self.inner.system.lock().unwrap();
     let process_cpu_histories = self.inner.process_cpu_histories.lock().unwrap();
     let process_memory_histories = self.inner.process_memory_histories.lock().unwrap();
 
-    system.refresh_processes(ProcessesToUpdate::All, true);
     let num_cores = system.cpus().len() as f32;
 
     system
@@ -197,9 +196,9 @@ impl HistoryStore {
       .map(|process| {
         let pid = process.pid();
 
-        // For freshly started processes (no history yet), fall through
-        // to the just-refreshed sysinfo sample instead of pretending the
-        // CPU usage is 0.0. Mirrors the memory branch below.
+        // For freshly started processes (no history yet), fall through to the
+        // latest sysinfo sample instead of pretending the CPU usage is 0.0.
+        // Mirrors the memory branch below.
         let core_divisor = num_cores.max(1.0);
         let fresh_cpu = || rounding::round1(process.cpu_usage() / core_divisor);
         let cpu_usage = process_cpu_histories
