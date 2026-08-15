@@ -52,7 +52,9 @@ the need.
 - If an existing Ready PR is authored by
   `hardwarevisualizerappmanager[bot]` or `dependabot[bot]` and merge is not
   authorized, stop before pushing because synchronization enables auto-merge.
-  Ask whether to convert it to Draft.
+  Ask whether to convert it to Draft. Keep an existing Draft by either author
+  Draft without merge authorization; a request to mark it Ready is not merge
+  authorization because that event also enables auto-merge.
 - Preserve unrelated user changes. Use an isolated worktree when another task
   or dirty worktree would contaminate the PR.
 - Implement only the current requirement. Keep adjacent findings separate.

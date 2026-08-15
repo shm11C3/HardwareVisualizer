@@ -36,5 +36,7 @@ review stale or a human explicitly asks. Create new PRs authored by the
 repository's auto-merge actors as Draft unless merge is explicitly authorized.
 For an existing Ready PR by one of those actors, stop before pushing and ask to
 convert it to Draft or authorize merge. Treat pre-existing auto-merge as merge
-intent: do not drive the PR to completion until the user authorizes merge or
-confirms that auto-merge may be disabled.
+intent. Keep an existing Draft by one of those actors Draft unless merge is
+authorized; requesting Ready alone is insufficient because that event enables
+auto-merge. Do not drive the PR to completion until the user authorizes merge
+or confirms that auto-merge may be disabled.
