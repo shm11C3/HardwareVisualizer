@@ -4,7 +4,7 @@ status: promoted
 cause_status: confirmed
 scope: pull request creation, CI follow-through, and automated review handling
 trigger: an agent is asked to create or publish a HardwareVisualizer pull request
-failure_signature: work stopped after push or PR creation, review comments expanded scope, Codex review was requested manually, decisions were either lost or over-documented, or a connector-authored Ready PR enabled merge without authorization
+failure_signature: work stopped after push or PR creation, review comments expanded scope, Codex review was requested manually, decisions were either lost or over-documented, or an automation-authored Ready PR enabled merge without authorization
 root_cause: publication and completion were treated as separate tasks, review comments were treated as prescribed patches, and reviewer, decision-record, and merge-authorization responsibilities were unclear
 guardrail: AGENTS.md owns pre-change justification and .agents/skills/deliver-pull-request/SKILL.md owns end-to-end PR delivery
 canonical_refs: AGENTS.md, .agents/skills/deliver-pull-request/SKILL.md
@@ -31,6 +31,6 @@ and an ADR for an architecturally significant Why and its consequences.
 Never request Codex review manually; Codex decides automatically when review is
 needed. For other configured automatic reviewers, avoid repeated full reviews
 after each correction unless a material unreviewed change makes the prior
-review stale or a human explicitly asks. Keep connector-authored app-manager PRs
-Draft unless merge is explicitly authorized, because making them Ready enables
-repository auto-merge.
+review stale or a human explicitly asks. Keep PRs authored by the repository's
+auto-merge actors Draft unless merge is explicitly authorized, because making
+them Ready enables repository auto-merge.
