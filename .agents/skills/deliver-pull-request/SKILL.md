@@ -43,8 +43,10 @@ the need.
 - Inspect the current branch, base, worktree status, and existing PR before
   editing, including the PR's Ready or Draft state and whether auto-merge is
   already enabled.
-- Reuse only an open, unmerged PR. If the referenced PR is closed or merged,
-  stop and ask whether to create a new PR instead of inferring a replacement.
+- Reuse a PR only when it is open and unmerged, its head repository and branch
+  are the branch being pushed, its base repository and branch are the intended
+  target, and it represents the current requirement. Otherwise stop and ask
+  instead of inferring a replacement or update target.
 - If an existing PR has auto-merge enabled and the user did not authorize
   merge, stop before driving its checks or reviews to completion. Ask whether
   to disable auto-merge; do not change that existing intent without
@@ -76,9 +78,9 @@ Read and use
 3. Review the complete diff and stage only intended paths.
 4. Create a Conventional Commit with a body when the reason or compatibility is
    not self-evident.
-5. Push the project-prefixed branch. Create a PR only when no open, unmerged PR
-   covers that branch; use Ready for a new PR unless the user asks for Draft. If
-   the selected connector authors a new PR as
+5. Push the project-prefixed branch. Create a PR only when no eligible existing
+   PR identified above covers the change; use Ready for a new PR unless the user
+   asks for Draft. If the selected connector authors a new PR as
    `hardwarevisualizerappmanager[bot]` or `dependabot[bot]`, create it as
    Draft unless merge is authorized. When updating an eligible existing PR,
    preserve its current Ready or Draft state unless the user confirms a change.
