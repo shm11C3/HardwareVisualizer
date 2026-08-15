@@ -34,8 +34,9 @@ Daily Storage Health collection uses:
 3. smartctl
 4. Storage Management CIM
 
-Live Storage Health uses only DeviceIoControl.
-
+Live Storage Health reads use only DeviceIoControl. Device enumeration for
+Live Storage Health uses WMI at startup and on explicit Storage Device Refresh;
+the live read path does not use WMI, smartctl, or Storage Management CIM.
 smartctl remains a fallback and capability-extension source rather than the
 primary Windows provider.
 
