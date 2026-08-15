@@ -32,3 +32,4 @@ ADR status describes decision maturity, not release status.
 - [0009 Generated App Hardware DTOs](0009-generated-app-hardware-dtos.md)
 - [0010 Grouped Navigation with Classic Fallback](0010-grouped-navigation-with-classic-fallback.md)
 - [0011 Experimental Sensor Enablement for Recognized-but-Unverified Hardware](0011-experimental-sensor-enablement.md)
+- [0012 Native-first Windows Storage Health Collection](0012-native-first-windows-storage-health-collection.md)
