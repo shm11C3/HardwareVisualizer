@@ -54,34 +54,60 @@ operation in the permitted environment with the required approval.
 
 ## 4. Finish CI And Review
 
-Use one bounded review cycle:
+Separate discovery from verification so review converges on approval.
 
-1. After publication, collect the automatic reviews already configured for the
-   PR once.
-2. Triage the resulting feedback together and make one focused correction
-   batch when needed.
-3. Run the relevant regression checks and CI for that correction.
-4. Reply with the decisions, resolve the handled threads, and stop.
+### Primary Review
 
-Do not request or wait for another automated review of the correction commit.
-If another automated review arrives on its own, do not recursively reopen this
-cycle. Report any new blocking finding for a separate maintainer decision.
-Continue only when a human explicitly asks or a required repository gate
-remains unsatisfied.
+1. Let the configured automatic reviewers perform one primary review of the
+   published change.
+2. Collect its findings before editing and keep a working record of each claim,
+   evidence, decision, and owning boundary.
+3. Triage all accepted findings together and make one focused correction batch.
+
+The primary review is the only broad review. Do not request another full review
+after corrections.
 
 For review feedback, read and use
 [gh-ai-review-triage](../gh-ai-review-triage/SKILL.md):
 
 - Treat a comment as evidence of a possible problem, not as a prescribed
   patch.
-- Verify the root cause, current-scope risk, and owning boundary before editing.
-- Accept only feedback needed for the current requirement. Otherwise reply
-  with the reason for declining it.
+- Implement a suggestion only when all of these are true: the problem is
+  supported by code, tests, CI, or a canonical decision; it breaks the current
+  requirement's correctness or security, or makes the changed boundary unclear
+  or brittle for a presently required case; the PR owns that boundary; and a
+  smallest coherent fix is identified.
+- Decline when the claim is false, stale, duplicate, outside the current
+  requirement without affecting its contract, or owned by another boundary
+  that this requirement does not need to change. Reply with the verified
+  evidence, scope decision, and responsible boundary.
+- Do not use low implementation cost, reviewer preference, or possible future
+  value to justify implementation.
+- If the evidence is insufficient, or a verified risk is real but outside the
+  current PR's responsibility, do not guess, dismiss it, or add a defensive
+  patch. Ask the maintainer for a decision.
 - Keep accepted corrections narrow, run the relevant checks, reply with the
   decision and evidence, and resolve the thread.
 - Never request a Codex review manually. Codex decides when to review.
-- Rely on the configured automatic review collected for this cycle. Never
-  request a follow-up review unless a human explicitly asks.
+
+### Verification Reviews
+
+After the correction batch and relevant CI pass:
+
+1. Request one CodeRabbit incremental review with `@coderabbitai review`.
+2. Treat that review as verification of the primary-review decisions and the
+   correction diff, not as a new broad review.
+3. Accept a new finding only when it proves that a primary finding remains
+   unresolved or that the correction introduced a regression. Reply and defer
+   unrelated discovery instead of expanding the PR.
+4. If another correction is required, repeat the focused validation and one
+   incremental review. Never use `@coderabbitai full review`.
+5. Once threads are resolved and CI passes, use `@coderabbitai approve` when
+   needed and confirm GitHub records approval.
+
+If two consecutive verification reviews fail to reach approval, stop automatic
+correction. Report the unresolved claims, evidence, and decisions to the
+maintainer instead of starting a third implementation cycle.
 
 For a failing check, inspect the failing leaf job and exact error before
 editing. Separate product regressions from test and environment failures, and
@@ -93,11 +119,13 @@ Stop when:
 
 - the requested change is complete and contains no unrelated work;
 - relevant local checks and CI pass;
-- the collected review feedback is fixed or declined with evidence, and its
-  threads are resolved; and
+- primary-review feedback is fixed or declined with evidence, and its threads
+  are resolved;
+- GitHub has no outstanding change request and records approval from the
+  approval-capable reviewer; and
 - the PR is in the requested publication state without a merge conflict.
 
-Do not seek more findings merely for additional certainty. A later automated
-review does not reopen a completed cycle. If permission, a required gate, or an
-external service prevents completion, report the concrete blocker and the
-evidence already completed.
+Do not seek more findings merely for additional certainty. A verification
+review does not reopen broad discovery. If permission, approval, a required
+gate, or an external service prevents completion, report the concrete blocker
+and the evidence already completed.
