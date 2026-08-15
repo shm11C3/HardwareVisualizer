@@ -14,8 +14,8 @@ not merge unless the user explicitly asks.
 Use this workflow only when the current request explicitly authorizes PR
 publication or follow-through on an existing PR. A request to create, open, or
 publish a PR authorizes the in-scope branch, commit, push, PR creation, review
-replies, and thread resolution required by this workflow. It does not authorize
-merge, destructive Git operations, or unrelated changes.
+replies, review reactions, and thread resolution required by this workflow. It
+does not authorize merge, destructive Git operations, or unrelated changes.
 
 If the user asks only to prepare PR content, propose a plan, inspect status, or
 triage feedback, do not perform Git or GitHub mutations beyond that request
@@ -43,10 +43,16 @@ the need.
 - Inspect the current branch, base, worktree status, and existing PR before
   editing, including the PR's Ready or Draft state and whether auto-merge is
   already enabled.
+- Reuse only an open, unmerged PR. If the referenced PR is closed or merged,
+  stop and ask whether to create a new PR instead of inferring a replacement.
 - If an existing PR has auto-merge enabled and the user did not authorize
   merge, stop before driving its checks or reviews to completion. Ask whether
   to disable auto-merge; do not change that existing intent without
   confirmation.
+- If an existing Ready PR is authored by
+  `hardwarevisualizerappmanager[bot]` or `dependabot[bot]` and merge is not
+  authorized, stop before pushing because synchronization enables auto-merge.
+  Ask whether to convert it to Draft.
 - Preserve unrelated user changes. Use an isolated worktree when another task
   or dirty worktree would contaminate the PR.
 - Implement only the current requirement. Keep adjacent findings separate.
@@ -68,13 +74,12 @@ Read and use
 3. Review the complete diff and stage only intended paths.
 4. Create a Conventional Commit with a body when the reason or compatibility is
    not self-evident.
-5. Push the project-prefixed branch. Create a PR only when no existing PR covers
-   that branch; use Ready for a new PR unless the user asks for Draft. When
-   updating an existing PR, preserve its current Ready or Draft state unless the
-   user explicitly asks to change it. Keep PRs authored by
-   `hardwarevisualizerappmanager[bot]` or `dependabot[bot]` Draft unless the
-   user also authorizes merge; this repository enables auto-merge for Ready PRs
-   by those authors.
+5. Push the project-prefixed branch. Create a PR only when no open, unmerged PR
+   covers that branch; use Ready for a new PR unless the user asks for Draft. If
+   the selected connector authors a new PR as
+   `hardwarevisualizerappmanager[bot]` or `dependabot[bot]`, create it as
+   Draft unless merge is authorized. When updating an eligible existing PR,
+   preserve its current Ready or Draft state unless the user confirms a change.
 6. Report the PR URL, committed scope, validation evidence, and preserved
    unrelated changes.
 

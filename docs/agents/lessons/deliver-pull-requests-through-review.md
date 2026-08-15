@@ -17,8 +17,9 @@ revalidate_when: repository PR completion criteria, automatic review behavior, G
 
 Creating a PR is a publication milestone, not the completion condition. Keep
 working until relevant CI and reviews applicable to the intended publication
-state pass, every actionable thread has an evidence-backed decision and is
-resolved, and the PR is in its intended Ready or Draft state and mergeable.
+state pass, every actionable review item has an evidence-backed decision,
+inline threads are resolved, and the PR is in its intended Ready or Draft state
+and mergeable.
 
 Before implementation, justify the smallest coherent change using Why, What,
 How, and Why Not. Review feedback does not expand the task by itself: verify the
@@ -31,8 +32,9 @@ and an ADR for an architecturally significant Why and its consequences.
 Never request Codex review manually; Codex decides automatically when review is
 needed. For other configured automatic reviewers, avoid repeated full reviews
 after each correction unless a material unreviewed change makes the prior
-review stale or a human explicitly asks. Keep PRs authored by the repository's
-auto-merge actors Draft unless merge is explicitly authorized, because making
-them Ready enables repository auto-merge. Treat pre-existing auto-merge as
-merge intent: do not drive the PR to completion until the user authorizes merge
-or confirms that auto-merge may be disabled.
+review stale or a human explicitly asks. Create new PRs authored by the
+repository's auto-merge actors as Draft unless merge is explicitly authorized.
+For an existing Ready PR by one of those actors, stop before pushing and ask to
+convert it to Draft or authorize merge. Treat pre-existing auto-merge as merge
+intent: do not drive the PR to completion until the user authorizes merge or
+confirms that auto-merge may be disabled.
