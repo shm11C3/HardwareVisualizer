@@ -8,7 +8,7 @@ failure_signature: work stopped at PR creation, review follow-through expanded a
 root_cause: discovery and verification reviews were not separated, so new review scope was introduced on every correction instead of converging on approval
 guardrail: .agents/skills/deliver-pull-request/SKILL.md owns primary review, strict triage, incremental verification, and an approval gate; .coderabbit.yml keeps push-triggered review incremental
 canonical_refs: AGENTS.md, .agents/skills/deliver-pull-request/SKILL.md
-verification: confirm the skill performs one broad primary review, uses incremental verification after batched corrections, admits later merge-blocking findings, requires approval, and escalates non-converging review
+verification: confirm the skill performs one broad primary review, uses incremental verification after batched corrections, fixes only in-scope merge-blocking findings, tracks out-of-scope critical findings separately, requires approval, and escalates non-converging review
 evidence: "maintainer corrections during HardwareVisualizer PR #1934"
 revalidate_when: repository PR completion criteria, automatic review behavior, or sandbox execution policy changes
 ---
@@ -25,5 +25,7 @@ incremental review, but never restart a full review. If two verification
 reviews do not converge on approval, stop automatic correction and escalate the
 unresolved decision. Later reviews may still introduce a verified
 merge-blocking security, data-integrity, supported-path failure, or contract
-finding; minor new suggestions do not justify another push. Never request
-Codex review manually; Codex decides when review is needed.
+finding. Fix it in the PR only when it belongs to the current requirement;
+otherwise create a separate Issue, or use the private security reporting path
+for a vulnerability. Minor new suggestions do not justify another push. Never
+request Codex review manually; Codex decides when review is needed.
