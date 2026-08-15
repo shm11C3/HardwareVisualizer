@@ -4,7 +4,7 @@ status: promoted
 cause_status: confirmed
 scope: pull request creation, CI follow-through, and automated review handling
 trigger: an agent is asked to create or publish a HardwareVisualizer pull request
-failure_signature: work stopped after push or PR creation, review comments expanded scope, Codex review was requested manually, decisions were either lost or over-documented, or an automation-authored Ready PR enabled merge without authorization
+failure_signature: work stopped after push or PR creation, review comments expanded scope, Codex review was requested manually, decisions were either lost or over-documented, or auto-merge could merge a PR without authorization
 root_cause: publication and completion were treated as separate tasks, review comments were treated as prescribed patches, and reviewer, decision-record, and merge-authorization responsibilities were unclear
 guardrail: AGENTS.md owns pre-change justification and .agents/skills/deliver-pull-request/SKILL.md owns end-to-end PR delivery
 canonical_refs: AGENTS.md, .agents/skills/deliver-pull-request/SKILL.md
@@ -33,4 +33,6 @@ needed. For other configured automatic reviewers, avoid repeated full reviews
 after each correction unless a material unreviewed change makes the prior
 review stale or a human explicitly asks. Keep PRs authored by the repository's
 auto-merge actors Draft unless merge is explicitly authorized, because making
-them Ready enables repository auto-merge.
+them Ready enables repository auto-merge. Treat pre-existing auto-merge as
+merge intent: do not drive the PR to completion until the user authorizes merge
+or confirms that auto-merge may be disabled.

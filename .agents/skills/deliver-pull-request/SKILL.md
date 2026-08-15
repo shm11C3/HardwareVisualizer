@@ -41,7 +41,12 @@ the need.
 ## 2. Protect Scope And Existing Work
 
 - Inspect the current branch, base, worktree status, and existing PR before
-  editing.
+  editing, including the PR's Ready or Draft state and whether auto-merge is
+  already enabled.
+- If an existing PR has auto-merge enabled and the user did not authorize
+  merge, stop before driving its checks or reviews to completion. Ask whether
+  to disable auto-merge; do not change that existing intent without
+  confirmation.
 - Preserve unrelated user changes. Use an isolated worktree when another task
   or dirty worktree would contaminate the PR.
 - Implement only the current requirement. Keep adjacent findings separate.
@@ -132,7 +137,8 @@ Stop the review loop when all of the following are true:
   evidence; inline threads are resolved, and non-thread items have the required
   reply and decision;
 - the PR is in the intended publication state defined above, is mergeable, and
-  has no unresolved conflict.
+  has no unresolved conflict; auto-merge is not enabled unless merge was
+  explicitly authorized.
 
 Do not request more review merely for additional certainty or more findings.
 If an external permission, unavailable reviewer, or persistent environment
