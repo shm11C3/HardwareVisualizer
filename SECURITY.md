@@ -8,6 +8,10 @@ We provide security fixes for the latest stable release only.
 | Latest  | ✅        |
 | Older   | ❌        |
 
+Maintainer release triage follows the
+[Release Vulnerability Response](docs/security/release-vulnerability-response.md)
+policy.
+
 ## Reporting a Vulnerability
 **Do not open a public GitHub Issue for security vulnerabilities.**
 

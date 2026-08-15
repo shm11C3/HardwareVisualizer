@@ -102,6 +102,9 @@ jobs:
       - name: Test Tauri dependency change detection
         run: node .github/scripts/test-check-tauri-deps-changed.mjs
 
+      - name: Test release vulnerability evaluation
+        run: node .github/scripts/test-evaluate-release-vulnerabilities.mjs
+
       - name: Check Tauri dependency changes
         id: tauri-deps
         shell: bash

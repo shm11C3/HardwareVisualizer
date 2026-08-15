@@ -107,3 +107,4 @@ shared enforcement surface.
 - [Prevent Tauri dependency version skew](prevent-tauri-dependency-version-skew.md)
 - [Keep shared rules agent-neutral](keep-shared-rules-agent-neutral.md)
 - [Make navigation levels explicit](make-navigation-levels-explicit.md)
+- [Separate release integrity from vulnerability exposure](separate-release-integrity-from-vulnerability-exposure.md)
