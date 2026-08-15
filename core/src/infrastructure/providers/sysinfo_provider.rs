@@ -10,8 +10,12 @@ use sysinfo::{Disks, System};
 /// ## Get CPU information
 ///
 pub fn get_cpu_info(
-  system: MutexGuard<'_, System>,
+  mut system: MutexGuard<'_, System>,
 ) -> Result<models::hardware::CpuInfo, String> {
+  // The periodic collector refreshes CPU usage only. Refresh frequency at the
+  // command boundary so visible clock data stays current without adding this
+  // platform-dependent cost to every sampling tick.
+  system.refresh_cpu_frequency();
   let cpus = system.cpus();
 
   if cpus.is_empty() {
