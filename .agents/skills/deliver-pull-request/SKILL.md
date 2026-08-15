@@ -99,11 +99,13 @@ constraints:
   it can prove recurrence.
 - Treat each automated review as an independent full review, not merely
   validation of the last correction.
-- Rely on configured automatic review. Do not manually request another review
-  after every feedback commit.
-- Request manual re-review only when a material, previously unreviewed change
-  to behavior, contracts, security boundaries, or correctness logic makes the
-  prior review stale, or when a human explicitly asks.
+- Rely on Codex to review automatically when it determines review is needed.
+  Never request a Codex review manually, including after feedback commits or
+  material changes.
+- For other configured automatic reviewers, do not manually request another
+  review after every feedback commit. Re-request only when a material,
+  previously unreviewed change makes the prior review stale, or when a human
+  explicitly asks.
 
 For CI failures, capture the exact leaf error and determine whether it is a
 product regression, test defect, or environment failure before editing. Fix

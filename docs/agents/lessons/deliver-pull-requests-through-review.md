@@ -4,12 +4,12 @@ status: promoted
 cause_status: confirmed
 scope: pull request creation, CI follow-through, and automated review handling
 trigger: an agent is asked to create or publish a HardwareVisualizer pull request
-failure_signature: work stopped after push or PR creation, or repeated full automated reviews expanded scope after each feedback commit
-root_cause: publication and completion were treated as separate tasks, while review comments were treated as prescribed patches instead of scoped evidence
+failure_signature: work stopped after push or PR creation, review comments expanded scope, or Codex review was requested manually instead of relying on its automatic timing
+root_cause: publication and completion were treated as separate tasks, review comments were treated as prescribed patches, and reviewer orchestration responsibilities were unclear
 guardrail: AGENTS.md owns pre-change justification and .agents/skills/deliver-pull-request/SKILL.md owns end-to-end PR delivery
 canonical_refs: AGENTS.md, .agents/skills/deliver-pull-request/SKILL.md
 verification: invoke the skill for a PR request and confirm it states the minimal change rationale, preserves unrelated work, monitors required CI and reviews, replies with evidence, resolves threads, and stops at the documented completion gate
-evidence: "maintainer PR workflow correction; shm11C3/whowns AGENTS.md review discipline; HardwareVisualizer PR #1915 and PR #1930 review follow-through"
+evidence: "maintainer PR workflow corrections, including automatic Codex review timing; shm11C3/whowns AGENTS.md review discipline; HardwareVisualizer PR #1915, PR #1930, and PR #1934 review follow-through"
 revalidate_when: repository PR completion criteria, automatic review behavior, GitHub tooling, or sandbox execution policy changes
 ---
 
@@ -23,5 +23,7 @@ mergeable.
 Before implementation, justify the smallest coherent change using Why, What,
 How, and Why Not. Review feedback does not expand the task by itself: verify the
 problem, root cause, owning boundary, and current-scope risk before editing.
-Rely on configured automatic review instead of repeatedly requesting new full
-reviews after each correction.
+Never request Codex review manually; Codex decides automatically when review is
+needed. For other configured automatic reviewers, avoid repeated full reviews
+after each correction unless a material unreviewed change makes the prior
+review stale or a human explicitly asks.
