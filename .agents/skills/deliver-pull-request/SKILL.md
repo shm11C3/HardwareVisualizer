@@ -136,9 +136,11 @@ Stop the review loop when all of the following are true:
 - every actionable review item is addressed or explicitly declined with
   evidence; inline threads are resolved, and non-thread items have the required
   reply and decision;
-- the PR is in the intended publication state defined above, is mergeable, and
-  has no unresolved conflict; auto-merge is not enabled unless merge was
-  explicitly authorized.
+- for publication or follow-through without a merge request, the PR is in the
+  intended publication state defined above, is mergeable, has no unresolved
+  conflict, and does not have auto-merge enabled;
+- when the user explicitly requested merge, GitHub reports the PR as merged and
+  provides its merged timestamp.
 
 Do not request more review merely for additional certainty or more findings.
 If an external permission, unavailable reviewer, or persistent environment
