@@ -92,17 +92,21 @@ For review feedback, read and use
 
 ### Verification Reviews
 
-After the correction batch and relevant CI pass:
+After the correction batch:
 
-1. Request one CodeRabbit incremental review with `@coderabbitai review`.
-2. Treat that review as verification of the primary-review decisions and the
-   correction diff, not as a new broad review.
-3. Accept a new finding only when it proves that a primary finding remains
+1. Run focused checks, then commit and push the complete correction batch.
+2. Let CodeRabbit's automatic incremental review and relevant CI inspect that
+   push.
+3. Treat the incremental review as verification of the primary-review
+   decisions and the correction diff, not as a new broad review.
+4. Accept a new finding only when it proves that a primary finding remains
    unresolved or that the correction introduced a regression. Reply and defer
    unrelated discovery instead of expanding the PR.
-4. If another correction is required, repeat the focused validation and one
-   incremental review. Never use `@coderabbitai full review`.
-5. Once threads are resolved and CI passes, use `@coderabbitai approve` when
+5. If another correction is required, batch it and let the next push receive
+   automatic incremental review. If automatic review was paused or skipped,
+   request one with `@coderabbitai review`. Never use
+   `@coderabbitai full review`.
+6. Once threads are resolved and CI passes, use `@coderabbitai approve` when
    needed and confirm GitHub records approval.
 
 If two consecutive verification reviews fail to reach approval, stop automatic
