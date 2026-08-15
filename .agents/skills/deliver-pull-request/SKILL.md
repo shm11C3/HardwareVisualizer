@@ -64,7 +64,10 @@ Read and use
 4. Create a Conventional Commit with a body when the reason or compatibility is
    not self-evident.
 5. Push the project-prefixed branch and create a Ready PR unless the user asks
-   for a draft.
+   for a draft. If the selected connector authors the PR as
+   `hardwarevisualizerappmanager[bot]`, create it as Draft unless the user also
+   authorizes merge; this repository enables auto-merge for Ready PRs by that
+   author.
 6. Report the PR URL, committed scope, validation evidence, and preserved
    unrelated changes.
 

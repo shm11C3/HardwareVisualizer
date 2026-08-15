@@ -37,6 +37,14 @@ Apply YAGNI to every change. Do not add functionality, conditional branches,
 fallbacks, configuration, dependencies, or abstractions that the current
 requirement does not need. Low implementation cost is not evidence of need.
 
+Preserve non-obvious decisions at the smallest durable owner where a future
+maintainer will need them. Let code show how, focused tests state what must hold,
+commit or PR context explain a change-local why, and code comments explain why
+not when a rejected alternative would otherwise look preferable. Use an ADR for
+an architecturally significant why, including its context, alternatives, and
+consequences. Do not require one consolidated decision document for every
+change.
+
 HardwareVisualizer is not a lightweight codebase, so complexity is not
 prohibited when the current product requirement, correctness, platform
 behavior, or established ownership boundaries require it. Prefer the least
