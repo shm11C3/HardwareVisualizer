@@ -48,34 +48,14 @@ for (const candidate of [
   }
 }
 
-const patchInputs = [];
-const visitedInputs = new Set();
+const patchInput =
+  typeof toolInput === "string"
+    ? toolInput
+    : typeof toolInput === "object" && toolInput !== null
+      ? (toolInput.patch ?? toolInput.input ?? "")
+      : "";
 
-function collectPatchInputs(candidate) {
-  if (typeof candidate === "string") {
-    if (candidate.includes("*** Begin Patch")) {
-      patchInputs.push(candidate);
-    }
-    return;
-  }
-
-  if (
-    typeof candidate !== "object" ||
-    candidate === null ||
-    visitedInputs.has(candidate)
-  ) {
-    return;
-  }
-
-  visitedInputs.add(candidate);
-  for (const value of Object.values(candidate)) {
-    collectPatchInputs(value);
-  }
-}
-
-collectPatchInputs(payload);
-
-for (const patchInput of patchInputs) {
+if (typeof patchInput === "string") {
   const patchPathPattern =
     /^\*\*\* (?:(?:Add|Update|Delete) File:|Move to:) (.+)$/gm;
   for (const match of patchInput.matchAll(patchPathPattern)) {

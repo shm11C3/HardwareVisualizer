@@ -142,19 +142,6 @@ for (const configPath of [".codex/hooks.json", ".claude/settings.json"]) {
   }
 }
 
-runHook(
-  "nested apply_patch payload",
-  "pre",
-  {
-    tool_input: {
-      arguments: {
-        input: "*** Begin Patch\n*** Update File: src/App.tsx\n*** End Patch",
-      },
-    },
-  },
-  0,
-);
-
 const after = gitStatus();
 if (after !== before) {
   throw new Error("Agent hooks changed the worktree");

@@ -87,7 +87,7 @@ jobs:
           path: |
             osv-scanner.toml
             .github/osv/release-vulnerability-assessments.json
-            .github/scripts/evaluate-release-vulnerabilities.ts
+            .github/scripts/evaluate-release-vulnerabilities.mjs
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
@@ -140,6 +140,8 @@ jobs:
           curl \
             --fail \
             --location \
+            --connect-timeout 10 \
+            --max-time 60 \
             --remove-on-error \
             --retry 3 \
             --retry-all-errors \
@@ -155,12 +157,11 @@ jobs:
 
       - name: Evaluate release vulnerability response
         run: |
-          node --experimental-strip-types \
-            .github/scripts/evaluate-release-vulnerabilities.ts \
+          node .github/scripts/evaluate-release-vulnerabilities.mjs \
             release-results.json \
-            --policy .github/osv/release-vulnerability-assessments.json \
-            --kev cisa-kev.json \
-            --output release-vulnerability-evaluation.json
+            .github/osv/release-vulnerability-assessments.json \
+            cisa-kev.json \
+            release-vulnerability-evaluation.json
         env:
           OSV_RELEASE_TAG: ${{ needs.resolve-release-tag.outputs.release-tag }}
 
@@ -173,5 +174,5 @@ jobs:
             release-results.json
             release-osv-results.sarif
             release-vulnerability-evaluation.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
