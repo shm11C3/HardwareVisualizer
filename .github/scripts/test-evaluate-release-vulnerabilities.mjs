@@ -23,7 +23,7 @@ function affectedEntry({
   ecosystem = "npm",
   name = "runtime-package",
   fixed = "2.0.0",
-  rangeType = "ECOSYSTEM",
+  rangeType = "SEMVER",
   events,
 } = {}) {
   return {
@@ -330,6 +330,26 @@ try {
       "known_exploited",
     );
   }
+
+  assertDecision(
+    runEvaluation({
+      packages: [
+        packageResult({
+          vulnerabilities: [
+            vulnerability({
+              id: "GHSA-ecosystem-fix",
+              aliases: ["CVE-2026-12345"],
+              affected: [affectedEntry({ rangeType: "ECOSYSTEM" })],
+            }),
+          ],
+        }),
+      ],
+      kev: ["CVE-2026-12345"],
+    }),
+    1,
+    "emergency_release_candidate",
+    "known_exploited",
+  );
 
   assertDecision(
     runEvaluation({
