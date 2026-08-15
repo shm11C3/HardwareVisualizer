@@ -23,6 +23,40 @@ AI memory, chat, handoff documents, and
 against the current checkout, canonical docs, tests, runtime data, and GitHub
 state before relying on them.
 
+## Change Justification And Simplicity
+
+Before changing code, be able to explain:
+
+- **Why** the change is required now.
+- **What** must change to satisfy the current requirement.
+- **How** the smallest coherent solution works.
+- **Why Not** plausible alternatives are unnecessary or worse for the current
+  requirement.
+
+Apply YAGNI to every change. Do not add functionality, conditional branches,
+fallbacks, configuration, dependencies, or abstractions that the current
+requirement does not need. Low implementation cost is not evidence of need.
+
+Preserve non-obvious decisions at the smallest durable owner where a future
+maintainer will need them. Let code show how, focused tests state what must hold,
+commit or PR context explain a change-local why, and code comments explain why
+not when a rejected alternative would otherwise look preferable. Use an ADR for
+an architecturally significant why, including its context, alternatives, and
+consequences. Do not require one consolidated decision document for every
+change.
+
+HardwareVisualizer is not a lightweight codebase, so complexity is not
+prohibited when the current product requirement, correctness, platform
+behavior, or established ownership boundaries require it. Prefer the least
+complex design that remains clear, cohesive, testable, and maintainable; do not
+use simplicity to justify brittle code, avoidable duplication, or misplaced
+responsibility.
+
+Treat review feedback as evidence of a possible problem, not as a prescribed
+patch. Verify the root cause, current-scope risk, and owning boundary before
+editing. A valid adjacent improvement belongs in a separate change unless it is
+required for the current product claim.
+
 ## Product Direction
 
 HardwareVisualizer is a cross-platform Tauri application for inspecting local
@@ -162,6 +196,9 @@ as a build-artifact/environment diagnosis before treating it as a code failure.
 - Before publishing, use the
   [`change-kind-naming`](.agents/skills/change-kind-naming/SKILL.md) skill and
   verify the branch, commit/PR title, and PR template describe the same kind.
+- When asked to create or publish a PR, use the
+  [`deliver-pull-request`](.agents/skills/deliver-pull-request/SKILL.md) skill
+  and continue through its CI and review completion gate.
 - Do not call work complete at "pushed" when the request is to merge. Confirm
   current checks, unresolved review threads, review decision, mergeability, and
   `mergedAt`/merged state.
