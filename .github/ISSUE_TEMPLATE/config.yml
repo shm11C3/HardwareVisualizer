@@ -1,6 +1,6 @@
 blank_issues_enabled: true
 contact_links:
-  - name: GitHub Community Support
+  - name: Questions & Discussions
     url: https://github.com/shm11C3/HardwareVisualizer/discussions
     about: Feel free to ask questions, share ideas, or drop your feedback here.
   - name: Security Vulnerability
