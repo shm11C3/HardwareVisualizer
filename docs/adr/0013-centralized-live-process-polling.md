@@ -27,12 +27,22 @@ The frontend will have one polling coordinator for the shared live process
 resource per Jotai store.
 
 - Components consume process state without creating their own timers.
+- A consumer is active only while it is mounted and its `enabled` input is
+  `true`. It joins the coordinator when it mounts enabled or `enabled` changes
+  from `false` to `true`, and leaves when it unmounts or `enabled` changes from
+  `true` to `false`. Disabled consumers do not keep polling active.
 - The first active consumer starts polling, and polling stops after the last
-  active consumer unmounts.
+  active consumer leaves.
 - Polling pauses while the document is hidden and performs an immediate refresh
   when the document becomes visible again.
-- Only one `get_process_list` request may be in flight. A stopped or superseded
-  request must not replace newer process state when it completes.
+- Only one `get_process_list` request may be in flight. A periodic three-second
+  tick that occurs while a request is in flight is skipped and is not queued,
+  so steady-state polling starts at most one request every three seconds.
+- If consumer demand starts or the document becomes visible while a request
+  from an earlier inactive or hidden lifecycle is still in flight, its result
+  is ignored and those demand signals are coalesced into one immediate refresh
+  after it settles. A stopped or superseded request must not replace current
+  process state when it completes.
 - The last successful process list remains available during a transient request
   failure. One failed polling attempt follows one shared error path.
 - The existing three-second cadence remains the initial policy. Changing the
@@ -63,8 +73,8 @@ semantics rather than prescribing one React implementation.
 - Multiple process-data consumers observe one refresh schedule and one shared
   result.
 - Hidden or inactive live views no longer require process-list IPC.
-- Polling lifecycle, visibility changes, slow requests, and late responses need
-  focused frontend tests.
+- Polling lifecycle, mounted `enabled` changes, visibility changes, slow
+  requests, and late responses need focused frontend tests.
 - The displayed list may remain at the last successful sample during a
   transient failure; the existing error surface still reports the failed
   refresh.
