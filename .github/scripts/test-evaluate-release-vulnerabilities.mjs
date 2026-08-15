@@ -23,13 +23,15 @@ function affectedEntry({
   ecosystem = "npm",
   name = "runtime-package",
   fixed = "2.0.0",
+  rangeType = "ECOSYSTEM",
+  events,
 } = {}) {
   return {
     package: { ecosystem, name },
     ranges: [
       {
-        type: "ECOSYSTEM",
-        events: [{ introduced: "0" }, ...(fixed ? [{ fixed }] : [])],
+        type: rangeType,
+        events: events ?? [{ introduced: "0" }, ...(fixed ? [{ fixed }] : [])],
       },
     ],
   };
@@ -169,15 +171,49 @@ try {
           vulnerabilities: [
             vulnerability({
               id: "GHSA-dev-only",
+              aliases: ["CVE-2026-12345"],
               affected: [affectedEntry({ name: "nanoid" })],
             }),
           ],
         }),
       ],
+      kev: ["CVE-2026-12345"],
     }),
     0,
     "maintenance",
     "development_only",
+  );
+
+  assertDecision(
+    runEvaluation({
+      packages: [
+        packageResult({
+          name: "nanoid",
+          version: "3.3.12",
+          dependencyGroups: ["dev"],
+          vulnerabilities: [
+            vulnerability({
+              id: "GHSA-dev-affected",
+              affected: [affectedEntry({ name: "nanoid" })],
+            }),
+          ],
+        }),
+      ],
+      assessments: [
+        assessment({
+          advisory_id: "GHSA-dev-affected",
+          package: {
+            ecosystem: "npm",
+            name: "nanoid",
+            version: "3.3.12",
+          },
+          exposure: "affected",
+        }),
+      ],
+    }),
+    1,
+    "emergency_release_candidate",
+    "affected_release",
   );
 
   assertDecision(
@@ -294,6 +330,57 @@ try {
       "known_exploited",
     );
   }
+
+  assertDecision(
+    runEvaluation({
+      packages: [
+        packageResult({
+          version: "2.5.0",
+          vulnerabilities: [
+            vulnerability({
+              id: "GHSA-reintroduced",
+              aliases: ["CVE-2026-12345"],
+              affected: [
+                affectedEntry({
+                  events: [
+                    { introduced: "0" },
+                    { fixed: "1.0.0" },
+                    { introduced: "2.0.0" },
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      kev: ["CVE-2026-12345"],
+    }),
+    1,
+    "emergency_mitigation_candidate",
+    "known_exploited",
+  );
+
+  assertDecision(
+    runEvaluation({
+      packages: [
+        packageResult({
+          vulnerabilities: [
+            vulnerability({
+              id: "GHSA-git-fix",
+              aliases: ["CVE-2026-12345"],
+              affected: [
+                affectedEntry({ rangeType: "GIT", fixed: "deadbeef" }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      kev: ["CVE-2026-12345"],
+    }),
+    1,
+    "emergency_mitigation_candidate",
+    "known_exploited",
+  );
 
   const groupedAliases = runEvaluation({
     packages: [

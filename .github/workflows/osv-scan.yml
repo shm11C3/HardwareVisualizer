@@ -137,6 +137,7 @@ jobs:
       - name: Download CISA KEV catalog
         shell: bash
         run: |
+          source_url="https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
           curl \
             --fail \
             --location \
@@ -148,7 +149,14 @@ jobs:
             --proto '=https' \
             --tlsv1.2 \
             --output cisa-kev.json \
-            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+            "$source_url"
+
+          jq -n \
+            --arg source_url "$source_url" \
+            --arg retrieved_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sha256 "$(sha256sum cisa-kev.json | awk '{print $1}')" \
+            '{source_url: $source_url, retrieved_at: $retrieved_at, sha256: $sha256}' \
+            > cisa-kev-metadata.json
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -171,6 +179,8 @@ jobs:
         with:
           name: release-osv-evaluation
           path: |
+            cisa-kev.json
+            cisa-kev-metadata.json
             release-results.json
             release-osv-results.sarif
             release-vulnerability-evaluation.json

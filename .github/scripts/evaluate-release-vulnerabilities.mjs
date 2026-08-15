@@ -222,7 +222,7 @@ function preferredIdentifier(values) {
 }
 
 function hasFix(vulnerability, pkg) {
-  return list(vulnerability.affected)
+  const ecosystemRanges = list(vulnerability.affected)
     .map(object)
     .filter((affected) => {
       const affectedPackage = parsePackage(
@@ -231,13 +231,24 @@ function hasFix(vulnerability, pkg) {
       );
       return samePackage(affectedPackage, pkg, false);
     })
-    .some((affected) =>
-      list(affected.ranges).some((range) =>
-        list(object(range).events).some(
-          (event) => typeof object(event).fixed === "string",
-        ),
-      ),
-    );
+    .flatMap((affected) => list(affected.ranges).map(object))
+    .filter((range) => range.type === "ECOSYSTEM");
+
+  // OSV confirms that the scanned version is affected, but selecting its
+  // interval would require an ecosystem-specific version comparator. Report a
+  // fix only for the unambiguous single-interval shape; otherwise mitigation is
+  // the safe recommendation.
+  if (ecosystemRanges.length !== 1) return false;
+  const events = list(ecosystemRanges[0].events).map(object);
+  const introduced = events.filter(
+    (event) => typeof event.introduced === "string",
+  );
+  const fixed = events.filter(
+    (event) => typeof event.fixed === "string" && event.fixed.length > 0,
+  );
+  return (
+    introduced.length === 1 && fixed.length === 1 && events.at(-1) === fixed[0]
+  );
 }
 
 function candidates(results) {
@@ -335,13 +346,13 @@ function evaluate(candidate, assessments, kevCves, releaseTag, evaluationDate) {
 
   let decision = "maintenance";
   let reason = "below_triage_threshold";
-  if (developmentOnly) {
+  if (active?.exposure === "affected") {
+    decision = emergency(candidate.fixAvailable);
+    reason = "affected_release";
+  } else if (developmentOnly) {
     reason = "development_only";
   } else if (active?.exposure === "not_affected") {
     reason = "not_affected";
-  } else if (active?.exposure === "affected") {
-    decision = emergency(candidate.fixAvailable);
-    reason = "affected_release";
   } else if (knownExploited) {
     decision = emergency(candidate.fixAvailable);
     reason = "known_exploited";
