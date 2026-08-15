@@ -1,157 +1,91 @@
 ---
 name: deliver-pull-request
-description: Deliver a HardwareVisualizer change as a focused GitHub pull request and continue through CI and review completion. Use when the user explicitly asks to create, open, or publish a PR, or asks Codex to handle an existing PR's feedback and checks through approval.
+description: Deliver a focused HardwareVisualizer change as a pull request, then address its CI and review feedback to completion. Use when the user explicitly asks to create or publish a PR, or to finish an existing PR.
 ---
 
 # Deliver Pull Request
 
-Deliver one coherent requirement from the current worktree to its intended
-Ready or Draft pull request state with relevant checks and reviews complete. Do
-not merge unless the user explicitly asks.
+Publish one coherent change and finish the CI and review work that belongs to
+it. Do not merge unless the user explicitly asks.
 
-## Authorization Boundary
+## 1. Confirm The Boundary
 
-Use this workflow only when the current request explicitly authorizes PR
-publication or follow-through on an existing PR. A request to create, open, or
-publish a PR authorizes the in-scope branch, commit, push, PR creation, review
-replies, review reactions, and thread resolution required by this workflow. It
-does not authorize merge, destructive Git operations, or unrelated changes.
+A request to create or publish a PR authorizes the branch, commit, push, PR,
+review replies, and thread resolution needed to deliver that change. It does
+not authorize merge, destructive Git operations, or unrelated changes.
 
-If the user asks only to prepare PR content, propose a plan, inspect status, or
-triage feedback, do not perform Git or GitHub mutations beyond that request
-without confirmation. Host approval requirements still apply to every tool
-call.
+Before editing, apply
+[AGENTS.md](../../../AGENTS.md#change-justification-and-simplicity) and be able
+to explain:
 
-## 1. Establish The Change Contract
+- why the change is needed now;
+- what must change;
+- how the smallest coherent solution works; and
+- why plausible alternatives are unnecessary or worse for this requirement.
 
-Read [AGENTS.md](../../../AGENTS.md#change-justification-and-simplicity), the
-issue or explicit request, and the smallest relevant decision sources. Before
-editing, state or be able to state:
+Do not create mandatory decision paperwork. Preserve a non-obvious decision
+only at the smallest durable owner that will need it.
 
-- Why the change is necessary now.
-- What behavior or contract must change.
-- How the smallest coherent solution satisfies it.
-- Why plausible alternatives are unnecessary or worse for the current scope.
+## 2. Keep The Change Focused
 
-Do not use low cost, reviewer preference, future extensibility, or nearby
-cleanup as justification. Allow complexity only when the current requirement,
-correctness, platform behavior, or established ownership boundary demonstrates
-the need.
-
-## 2. Protect Scope And Existing Work
-
-- Inspect the current branch, base, worktree status, and existing PR before
-  editing, including the PR's Ready or Draft state and whether auto-merge is
-  already enabled.
-- Reuse a PR only when it is open and unmerged, its head repository and branch
-  are the branch being pushed, its base repository and branch are the intended
-  target, and it represents the current requirement. Otherwise stop and ask
-  instead of inferring a replacement or update target.
-- If an existing PR has auto-merge enabled and the user did not authorize
-  merge, stop before driving its checks or reviews to completion. Ask whether
-  to disable auto-merge; do not change that existing intent without
-  confirmation.
-- If an existing Ready PR is authored by
-  `hardwarevisualizerappmanager[bot]` or `dependabot[bot]` and merge is not
-  authorized, stop before pushing because synchronization enables auto-merge.
-  Ask whether to convert it to Draft. Keep an existing Draft by either author
-  Draft without merge authorization; a request to mark it Ready is not merge
-  authorization because that event also enables auto-merge.
-- Preserve unrelated user changes. Use an isolated worktree when another task
-  or dirty worktree would contaminate the PR.
+- Inspect the current branch, worktree, base, and associated PR.
+- Preserve unrelated user changes. Use an isolated worktree when necessary.
 - Implement only the current requirement. Keep adjacent findings separate.
-- Prefer direct code with a clear owner. Do not trade simplicity for brittle
-  behavior, avoidable duplication, or unclear responsibility.
-- Add a focused regression test at the boundary that owns the claim when
-  practical. Scale broader validation with blast radius.
+- Add a focused regression test when it can prove the changed contract.
+- Allow complexity only when the current requirement or an established
+  ownership boundary requires it.
 
-## 3. Publish The Focused Pull Request
+## 3. Publish The Pull Request
 
-Read and use
-[change-kind-naming](../change-kind-naming/SKILL.md) before publication. Follow
-`CONTRIBUTING.md` and the repository PR template.
+Read and use [change-kind-naming](../change-kind-naming/SKILL.md). Follow
+`CONTRIBUTING.md` and the PR template.
 
-1. Refresh the intended base and confirm the branch contains only the scoped
-   change.
-2. Run focused checks first, then any broader checks justified by the changed
-   ownership boundaries.
+1. Confirm the branch contains only the intended change.
+2. Run focused checks, then broader checks only when the blast radius requires
+   them.
 3. Review the complete diff and stage only intended paths.
-4. Create a Conventional Commit with a body when the reason or compatibility is
-   not self-evident.
-5. Push the project-prefixed branch. Create a PR only when no eligible existing
-   PR identified above covers the change; use Ready for a new PR unless the user
-   asks for Draft. If the selected connector authors a new PR as
-   `hardwarevisualizerappmanager[bot]` or `dependabot[bot]`, create it as
-   Draft unless merge is authorized. When updating an eligible existing PR,
-   preserve its current Ready or Draft state unless the user confirms a change.
-6. Report the PR URL, committed scope, validation evidence, and preserved
-   unrelated changes.
+4. Create a Conventional Commit and push the project-prefixed branch.
+5. Create or update the PR in the Ready or Draft state requested by the user.
+6. Report the PR URL, scope, validation, and any preserved unrelated work.
 
-Prefer an available GitHub connector for GitHub state and mutations. The `gh`
-CLI cannot run inside the project sandbox. When `gh` is needed, run the explicit
-operation outside the sandbox with the required approval. Do not interpret a
-sandbox failure as invalid authentication or a GitHub outage without checking
-the same operation in the permitted environment.
+Prefer an available GitHub connector. The `gh` CLI cannot complete GitHub
+operations inside the project sandbox; when it is needed, run the explicit
+operation in the permitted environment with the required approval.
 
-## 4. Complete CI And Review
+## 4. Finish CI And Review
 
-Do not stop at PR creation or push. Monitor the failing leaf jobs, required
-checks, review decision, unresolved threads, and mergeability until the
-completion gate is satisfied.
+After publication, inspect the PR's current CI results and review feedback. Do
+not repeatedly request new reviews after each correction.
 
 For review feedback, read and use
-[gh-ai-review-triage](../gh-ai-review-triage/SKILL.md), with these binding
-constraints:
+[gh-ai-review-triage](../gh-ai-review-triage/SKILL.md):
 
-- Use review to protect the simplest sufficient design and to assess failure
-  observability, ownership clarity, and focused regression coverage. Finding
-  count and adopted-suggestion count are not quality metrics. Do not use review
-  as the primary defect-discovery mechanism.
-- Treat every comment as evidence of a possible problem, not as a requested
+- Treat a comment as evidence of a possible problem, not as a prescribed
   patch.
-- Verify the essential issue, root cause, current-scope risk, and owning
-  boundary before changing code.
-- Accept only feedback needed for the current requirement. Reply with the
-  decision and evidence for both accepted and declined comments, then resolve
-  the thread.
-- When a Codex comment asks whether it was useful, react only after deciding:
-  use a positive reaction for an accepted finding and a negative reaction for
-  an evidence-backed decline. The reaction does not replace the reply or thread
-  resolution.
-- Keep each correction narrow and add or update a focused regression test when
-  it can prove recurrence.
-- Treat each automated review as an independent full review, not merely
-  validation of the last correction.
-- Rely on Codex to review automatically when it determines review is needed.
-  Never request a Codex review manually, including after feedback commits or
-  material changes.
-- For other configured automatic reviewers, do not manually request another
-  review after every feedback commit. Re-request only when a material,
-  previously unreviewed change makes the prior review stale, or when a human
-  explicitly asks.
+- Verify the root cause, current-scope risk, and owning boundary before editing.
+- Accept only feedback needed for the current requirement. Otherwise reply
+  with the reason for declining it.
+- Keep accepted corrections narrow, run the relevant checks, reply with the
+  decision and evidence, and resolve the thread.
+- Never request a Codex review manually. Codex decides when to review.
+- Rely on configured automatic reviewers. Request another review only when a
+  human explicitly asks or a material unreviewed change makes the existing
+  review obsolete.
 
-For CI failures, capture the exact leaf error and determine whether it is a
-product regression, test defect, or environment failure before editing. Fix
-only in-scope causes, rerun the focused evidence, push, and continue monitoring.
+For a failing check, inspect the failing leaf job and exact error before
+editing. Separate product regressions from test and environment failures, and
+fix only an in-scope cause.
 
 ## Completion Gate
 
-Stop the review loop when all of the following are true:
+Stop when:
 
-- the current requirement is satisfied without unrelated changes;
-- focused regression tests and relevant CI checks pass;
-- required or configured reviews applicable to the intended publication state
-  complete without outstanding changes;
-- every actionable review item is addressed or explicitly declined with
-  evidence; inline threads are resolved, and non-thread items have the required
-  reply and decision;
-- for publication or follow-through without a merge request, the PR is in the
-  intended publication state defined above, is mergeable, has no unresolved
-  conflict, and does not have auto-merge enabled;
-- when the user explicitly requested merge, GitHub reports the PR as merged and
-  provides its merged timestamp.
+- the requested change is complete and contains no unrelated work;
+- relevant local checks and CI pass;
+- all existing actionable feedback is fixed or declined with evidence, and its
+  threads are resolved; and
+- the PR is in the requested publication state without a merge conflict.
 
-Do not request more review merely for additional certainty or more findings.
-If an external permission, unavailable reviewer, or persistent environment
-failure prevents completion, report the exact blocker and the evidence already
-completed. Do not weaken the gate or broaden the implementation to escape it.
+Do not seek more findings merely for additional certainty. If permission or an
+external service prevents completion, report the concrete blocker and the
+evidence already completed.

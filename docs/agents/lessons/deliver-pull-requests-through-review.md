@@ -4,39 +4,21 @@ status: promoted
 cause_status: confirmed
 scope: pull request creation, CI follow-through, and automated review handling
 trigger: an agent is asked to create or publish a HardwareVisualizer pull request
-failure_signature: work stopped after push or PR creation, review comments expanded scope, Codex review was requested manually, decisions were either lost or over-documented, or auto-merge could merge a PR without authorization
-root_cause: publication and completion were treated as separate tasks, review comments were treated as prescribed patches, and reviewer, decision-record, and merge-authorization responsibilities were unclear
-guardrail: AGENTS.md owns pre-change justification and .agents/skills/deliver-pull-request/SKILL.md owns end-to-end PR delivery
+failure_signature: work stopped at PR creation, or review follow-through expanded a simple workflow into speculative GitHub state handling
+root_cause: PR publication and completion were separated, then individual review findings were encoded as general workflow requirements
+guardrail: .agents/skills/deliver-pull-request/SKILL.md owns a small PR delivery workflow; review comments do not expand its scope without evidence from the current requirement
 canonical_refs: AGENTS.md, .agents/skills/deliver-pull-request/SKILL.md
-verification: invoke the skill for a PR request and confirm it states the minimal change rationale, preserves non-obvious decisions at their smallest durable owner, preserves unrelated work, prevents unauthorized auto-merge, monitors required CI and reviews, replies with evidence, resolves threads, and stops at the documented completion gate
-evidence: "maintainer PR workflow corrections, including automatic Codex review timing and proportionate decision records; shm11C3/whowns AGENTS.md review discipline; HardwareVisualizer auto-merge.yml; HardwareVisualizer PR #1915, PR #1930, and PR #1934 review follow-through"
-revalidate_when: repository PR completion criteria, automatic review behavior, GitHub tooling, or sandbox execution policy changes
+verification: confirm the skill publishes a focused PR, handles current CI and review feedback, and stops at its completion gate without requesting more findings
+evidence: "maintainer corrections during HardwareVisualizer PR #1934"
+revalidate_when: repository PR completion criteria, automatic review behavior, or sandbox execution policy changes
 ---
 
-# Deliver Pull Requests Through Review
+# Deliver Pull Requests Without Growing The Workflow
 
-Creating a PR is a publication milestone, not the completion condition. Keep
-working until relevant CI and reviews applicable to the intended publication
-state pass, every actionable review item has an evidence-backed decision,
-inline threads are resolved, and the PR is in its intended Ready or Draft state
-and mergeable.
+PR creation is not completion: finish the current CI and review work that
+belongs to the requested change. However, that follow-through is not an
+invitation to model every GitHub state or encode every reviewer suggestion.
 
-Before implementation, justify the smallest coherent change using Why, What,
-How, and Why Not. Review feedback does not expand the task by itself: verify the
-problem, root cause, owning boundary, and current-scope risk before editing.
-Do not turn those four questions into mandatory paperwork. Preserve only the
-non-obvious decisions future maintainers need, using code for How, tests for
-What, commit or PR context for a change-local Why, comments for a local Why Not,
-and an ADR for an architecturally significant Why and its consequences.
-
-Never request Codex review manually; Codex decides automatically when review is
-needed. For other configured automatic reviewers, avoid repeated full reviews
-after each correction unless a material unreviewed change makes the prior
-review stale or a human explicitly asks. Create new PRs authored by the
-repository's auto-merge actors as Draft unless merge is explicitly authorized.
-For an existing Ready PR by one of those actors, stop before pushing and ask to
-convert it to Draft or authorize merge. Treat pre-existing auto-merge as merge
-intent. Keep an existing Draft by one of those actors Draft unless merge is
-authorized; requesting Ready alone is insufficient because that event enables
-auto-merge. Do not drive the PR to completion until the user authorizes merge
-or confirms that auto-merge may be disabled.
+Treat feedback as evidence, make only changes required by the current scope,
+and stop when the documented completion gate is satisfied. Never request Codex
+review manually; Codex decides when review is needed.
