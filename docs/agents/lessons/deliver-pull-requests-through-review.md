@@ -16,9 +16,9 @@ revalidate_when: repository PR completion criteria, automatic review behavior, G
 # Deliver Pull Requests Through Review
 
 Creating a PR is a publication milestone, not the completion condition. Keep
-working until relevant CI and configured reviews pass, every actionable thread
-has an evidence-backed decision and is resolved, and the PR is Ready and
-mergeable.
+working until relevant CI and reviews applicable to the intended publication
+state pass, every actionable thread has an evidence-backed decision and is
+resolved, and the PR is in its intended Ready or Draft state and mergeable.
 
 Before implementation, justify the smallest coherent change using Why, What,
 How, and Why Not. Review feedback does not expand the task by itself: verify the

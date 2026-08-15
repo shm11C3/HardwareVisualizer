@@ -98,6 +98,10 @@ constraints:
 - Accept only feedback needed for the current requirement. Reply with the
   decision and evidence for both accepted and declined comments, then resolve
   the thread.
+- When a Codex comment asks whether it was useful, react only after deciding:
+  use a positive reaction for an accepted finding and a negative reaction for
+  an evidence-backed decline. The reaction does not replace the reply or thread
+  resolution.
 - Keep each correction narrow and add or update a focused regression test when
   it can prove recurrence.
 - Treat each automated review as an independent full review, not merely
@@ -120,7 +124,8 @@ Stop the review loop when all of the following are true:
 
 - the current requirement is satisfied without unrelated changes;
 - focused regression tests and relevant CI checks pass;
-- required or configured reviews complete without outstanding changes;
+- required or configured reviews applicable to the intended publication state
+  complete without outstanding changes;
 - every actionable thread is addressed, or explicitly declined with evidence,
   and resolved;
 - the PR is in the intended publication state defined above, is mergeable, and
