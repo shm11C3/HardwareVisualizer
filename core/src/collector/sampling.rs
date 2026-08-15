@@ -247,11 +247,30 @@ mod tests {
   #[test]
   fn sample_system_refreshes_required_system_and_process_data() {
     let store = HistoryStore::new();
-    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    let current_pid =
+      sysinfo::get_current_pid().expect("current process should have a PID");
+    const SENTINEL_CPU_USAGE: f32 = 321.0;
+    const SENTINEL_MEMORY_KB: f32 = 1_048_576.0;
+
+    store.update_process_histories(&[(
+      current_pid,
+      SENTINEL_CPU_USAGE,
+      SENTINEL_MEMORY_KB,
+    )]);
+
+    {
+      let mut system = store.system().lock().unwrap();
+      *system = sysinfo::System::new();
+      assert!(system.cpus().is_empty());
+      assert_eq!(system.total_memory(), 0);
+      assert!(system.processes().is_empty());
+    }
 
     let sample = sample_system(&store).expect("system lock should be available");
     let system = store.system().lock().unwrap();
 
+    assert!(!sample.processors_usage.is_empty());
+    assert!(system.total_memory() > 0);
     assert_eq!(sample.cpu_usage, calculate_average_cpu_usage(system.cpus()));
     assert_eq!(
       sample.processors_usage,
@@ -266,8 +285,6 @@ mod tests {
       calculate_memory_usage_percentage(system.used_memory(), system.total_memory())
     );
 
-    let current_pid =
-      sysinfo::get_current_pid().expect("current process should have a PID");
     let process = system
       .process(current_pid)
       .expect("targeted refresh should include the current process");
@@ -289,11 +306,24 @@ mod tests {
 
     assert_eq!(store.cpu_history(1), vec![sample.cpu_usage]);
     assert_eq!(store.memory_history(1), vec![sample.memory_usage]);
-    assert!(
-      store
-        .process_list()
-        .iter()
-        .any(|process| process.pid == current_pid.as_u32() as i32)
+    let process_info = store
+      .process_list()
+      .into_iter()
+      .find(|process| process.pid == current_pid.as_u32() as i32)
+      .expect("process list should include the current process");
+    assert_eq!(process_info.name, process_sample.name);
+    assert_eq!(
+      process_info.cpu_usage,
+      crate::utils::rounding::round1(
+        ((SENTINEL_CPU_USAGE + process_sample.cpu_usage) / 2.0)
+          / sample.processors_usage.len() as f32
+      )
+    );
+    assert_eq!(
+      process_info.memory_usage,
+      crate::utils::rounding::round1(
+        ((SENTINEL_MEMORY_KB + process_sample.memory_kb) / 2.0) / 1024.0
+      )
     );
   }
 
