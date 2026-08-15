@@ -240,14 +240,12 @@ function hasFix(vulnerability, pkg) {
   // the safe recommendation.
   if (ecosystemRanges.length !== 1) return false;
   const events = list(ecosystemRanges[0].events).map(object);
-  const introduced = events.filter(
-    (event) => typeof event.introduced === "string",
-  );
-  const fixed = events.filter(
-    (event) => typeof event.fixed === "string" && event.fixed.length > 0,
-  );
   return (
-    introduced.length === 1 && fixed.length === 1 && events.at(-1) === fixed[0]
+    events.length === 2 &&
+    typeof events[0].introduced === "string" &&
+    events[0].introduced.length > 0 &&
+    typeof events[1].fixed === "string" &&
+    events[1].fixed.length > 0
   );
 }
 

@@ -366,6 +366,34 @@ try {
         packageResult({
           vulnerabilities: [
             vulnerability({
+              id: "GHSA-extra-range-event",
+              aliases: ["CVE-2026-12345"],
+              affected: [
+                affectedEntry({
+                  events: [
+                    { introduced: "0" },
+                    { limit: "1.5.0" },
+                    { fixed: "2.0.0" },
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      kev: ["CVE-2026-12345"],
+    }),
+    1,
+    "emergency_mitigation_candidate",
+    "known_exploited",
+  );
+
+  assertDecision(
+    runEvaluation({
+      packages: [
+        packageResult({
+          vulnerabilities: [
+            vulnerability({
               id: "GHSA-git-fix",
               aliases: ["CVE-2026-12345"],
               affected: [
