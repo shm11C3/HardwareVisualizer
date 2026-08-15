@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deliver Pull Request"
+  short_description: "Publish a focused PR through CI and review."
+  default_prompt: "Use $deliver-pull-request to publish this focused change and continue until CI and actionable review feedback are complete."
