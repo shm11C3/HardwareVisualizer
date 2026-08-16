@@ -116,8 +116,9 @@ const MenuItem = memo(
           onClick={() => handleMenuClick(type)}
           onMouseEnter={() => prefetchScreen(type)}
           onFocus={() => prefetchScreen(type)}
-          aria-selected={selected}
-          role="tab"
+          // These entries switch destinations; there is no tablist or tab
+          // panel behind them, so they must not claim the tab model.
+          aria-current={selected ? "page" : undefined}
         >
           {menuIcons[type]}
           <span className="ml-1">{menuTitles[type]}</span>
@@ -185,6 +186,7 @@ const ClosedSideMenu = ({
         aria-label={t("navigation.openDestination", {
           name: menuTitles[type],
         })}
+        aria-current={selected ? "page" : undefined}
       >
         {menuIcons[type]}
       </button>

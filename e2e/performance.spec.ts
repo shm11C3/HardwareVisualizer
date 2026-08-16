@@ -12,26 +12,27 @@ test.describe("Grouped navigation destinations", () => {
   }) => {
     await gotoApp(page);
 
-    // Both screens are side-menu destinations now, not tabs inside one screen,
-    // so selection lives on the menu entries.
-    const performanceEntry = page.getByRole("tab", {
-      name: "Performance",
-      exact: true,
+    // Both screens are side-menu destinations now, so selection is reported as
+    // the current page on the menu entries rather than as a selected tab.
+    const performanceEntry = page.getByRole("button", {
+      name: "Open Performance",
     });
-    const specificationsEntry = page.getByRole("tab", {
-      name: "System Specifications",
-      exact: true,
+    const specificationsEntry = page.getByRole("button", {
+      name: "Open System Specifications",
     });
-    await expect(performanceEntry).toHaveAttribute("aria-selected", "true");
-    await expect(specificationsEntry).toHaveAttribute("aria-selected", "false");
+    await expect(performanceEntry).toHaveAttribute("aria-current", "page");
+    await expect(specificationsEntry).not.toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await expect(page.getByTestId("performance-screen")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Copy hardware report" }),
     ).toHaveCount(0);
 
     await navigateTo(page, "systemSpecifications");
-    await expect(specificationsEntry).toHaveAttribute("aria-selected", "true");
-    await expect(performanceEntry).toHaveAttribute("aria-selected", "false");
+    await expect(specificationsEntry).toHaveAttribute("aria-current", "page");
+    await expect(performanceEntry).not.toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("performance-screen")).toHaveCount(0);
     await expect(page.getByTestId("system-specifications-sheet")).toBeVisible();
     await expect(
@@ -71,8 +72,8 @@ test.describe("Grouped navigation destinations", () => {
     // A destination both layouts share survives untouched.
     await page.goto("/?storedDisplay=insights");
     await expect(
-      page.getByRole("button", { name: "Open Performance" }),
-    ).toBeVisible();
+      page.getByRole("button", { name: "Open Insights" }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("performance-screen")).toHaveCount(0);
   });
 

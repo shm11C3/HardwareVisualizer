@@ -210,6 +210,7 @@ const AppContent = () => {
             : undefined
         }
         enabledBurnInShift
+        isFullScreen={Boolean(isFullScreen)}
       >
         <Dashboard />
       </ScreenTemplate>
@@ -233,6 +234,7 @@ const AppContent = () => {
             : undefined
         }
         enabledBurnInShift
+        isFullScreen={Boolean(isFullScreen)}
       >
         <SystemSpecifications />
       </ScreenTemplate>
@@ -249,6 +251,7 @@ const AppContent = () => {
             : undefined
         }
         enabledBurnInShift
+        isFullScreen={Boolean(isFullScreen)}
       >
         <CpuUsages />
       </ScreenTemplate>
@@ -266,6 +269,7 @@ const AppContent = () => {
             : undefined
         }
         enabledBurnInShift
+        isFullScreen={Boolean(isFullScreen)}
       >
         <Insights />
       </ScreenTemplate>
