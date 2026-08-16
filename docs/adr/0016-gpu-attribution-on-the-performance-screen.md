@@ -25,8 +25,8 @@ The effective GPU resolves in this order:
 
 1. An explicit selection, while that adapter is still detected — whether or not
    it is currently reporting anything.
-2. Otherwise the first adapter that reports usage, then the first that reports
-   a temperature.
+2. Otherwise the first adapter that reports usage, then temperature, then fan
+   speed, then dedicated memory.
 
 The first rule is the decision. The earlier resolver dropped a selection the
 moment its adapter stopped appearing in the usage map, which silently replaced
@@ -35,13 +35,30 @@ Honoring the selection and reporting nothing is the honest answer; only a
 selection pointing at an adapter that no longer exists is discarded, because
 there is no longer anything to honor.
 
-An adapter list is therefore needed, not just the live maps. It is the union of
-the adapters the one-shot hardware fetch detected and any id that appears in
-any live map, so a reading is never rendered without an owner and a detected
-adapter is never unreachable. An id the static fetch has not returned — because
-it is slow, or because it failed — is named from the temperature or fan map,
-which carry the platform's own name for each adapter; only an id no source
-names at all is shown as itself.
+## The inventory is not a source of adapter identity
+
+The `getHardwareInfo` inventory and the monitor stream key their GPUs in
+different namespaces on every platform. Windows NVIDIA reports the raw NVAPI id
+as `GraphicInfo.id` but samples as `nvapi:<id>`; macOS pairs
+`0x<registry_id>` with `iokit:<name>`; Linux pairs `card<n>` with the PCI BDF.
+The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
+across.
+
+The adapter list is therefore built from the live side alone: every id the
+stream reported, named by the `gpuName` each sample carries, plus any id that
+only a value map knows about. Unioning with the inventory would render one
+physical GPU as two adapters, one of which reports nothing and is then declared
+silent — the exact misattribution this decision exists to prevent. The
+inventory's surface is the System Specifications sheet, which lists every
+detected adapter as a static fact and attributes no readings.
+
+Where the two sides do have to meet — the VRAM total that labels a live VRAM
+reading — they meet on the name, which both sources report, the same join the
+classic Hardware Dashboard already uses.
+
+"Every detected adapter is represented" therefore means every adapter the
+monitor stream reported. An adapter that names itself and reports no values is
+still listed and still selectable; that is what the unavailable state is for.
 
 ## All four live maps, or none of the conclusions
 
@@ -77,8 +94,10 @@ falls back to the full name.
 The selector sits in the GPU instrument's header, where the readings it governs
 are. It is a labelled group of toggle buttons, not a tablist: there is no
 tabpanel, no roving tabindex, and no arrow-key contract, so announcing tabs
-would promise a keyboard model the control does not implement. A single-adapter machine gets the name alone, because naming is the whole
-job when there is no choice to make. Compact names its adapter in the footer
+would promise a keyboard model the control does not implement.
+
+A single-adapter machine gets the name alone, because naming is the whole job
+when there is no choice to make. Compact names its adapter in the footer
 rather than in the GPU row: the row's tracks are sized for the mini monitor's
 small corner window and cannot hold a device name. Compact does not offer
 selection; it follows the choice made in Panels.
@@ -91,9 +110,12 @@ selection; it follows the choice made in Panels.
 - Every detected adapter is reachable without leaving grouped navigation.
 - A user who selects a silent adapter is told it is silent instead of being
   shown another adapter's numbers.
-- The selection is one piece of state (`selectedGpuIdAtom`, persisted by
-  `useSelectedGpuPersistence`), so Performance, Compact, and the classic
-  Hardware Dashboard agree and the choice survives restarts.
+- The selection is one piece of state (`selectedGpuIdAtom`), so Performance and
+  Compact always agree on which adapter they describe.
+- `useSelectedGpuPersistence` restores the stored id as-is instead of
+  validating it against the inventory, which it could never match. A selection
+  made for an adapter that is absent at the next launch is kept on disk rather
+  than overwritten, so it applies again when the adapter returns.
 
 ### Negative
 
@@ -101,8 +123,9 @@ selection; it follows the choice made in Panels.
   no device to name.
 - Long adapter names still truncate inside a three-column strip; the full name
   is only available on hover or to assistive technology.
-- Compact fetches the static hardware facts itself, adding one one-shot IPC
-  call to a view that previously needed none.
+- A GPU that the inventory lists but the monitor stream never reports does not
+  appear on Performance at all. It is still on the System Specifications sheet,
+  but Performance cannot name a device it has no reading from.
 - The unavailable state only covers an adapter that has never reported. The
   live maps are append-only, so an adapter that reports and then goes silent
   keeps its last value on screen; distinguishing a stale reading from a current
@@ -114,4 +137,6 @@ selection; it follows the choice made in Panels.
 - Changing GPU collection providers, archive semantics, or the Insights GPU
   view.
 - Adding selection or live readings to the System Specifications sheet.
-- Changing the classic Hardware Dashboard GPU card.
+- Changing the classic Hardware Dashboard GPU card, whose own selector writes
+  inventory ids into the same atom and therefore does not resolve against the
+  live maps. That mismatch predates this decision and is tracked separately.

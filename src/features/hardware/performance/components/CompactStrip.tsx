@@ -1,12 +1,12 @@
 import { useAtomValue } from "jotai";
-import { type CSSProperties, memo, useEffect, useMemo } from "react";
+import { type CSSProperties, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedMapAtom,
+  gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
@@ -133,18 +133,9 @@ export const CompactStrip = ({
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
   const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
+  const gpuNames = useAtomValue(gpuNamesAtom);
   const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
   const selectedGpuId = useAtomValue(selectedGpuIdAtom);
-  const { hardwareInfo, init } = useHardwareInfoAtom();
-
-  // The strip names its GPU row's adapter, and Compact is the only thing
-  // mounted in this view, so it has to fetch the static facts itself.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: one-time static-fact fetch
-  useEffect(() => {
-    if (hardwareInfo.gpus == null) {
-      void init();
-    }
-  }, []);
 
   const gpuLive = useMemo<GpuLiveMaps>(
     () => ({
@@ -161,8 +152,8 @@ export const CompactStrip = ({
     ],
   );
   const gpuAdapters = useMemo(
-    () => listGpuAdapters(hardwareInfo.gpus, gpuLive),
-    [hardwareInfo.gpus, gpuLive],
+    () => listGpuAdapters(gpuNames, gpuLive),
+    [gpuNames, gpuLive],
   );
   const effectiveGpuId = getEffectiveGpuId(
     selectedGpuId,

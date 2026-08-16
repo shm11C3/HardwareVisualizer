@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { GraphicInfo } from "@/rspc/bindings";
 import {
   type GpuLiveMaps,
   getEffectiveGpuId,
@@ -7,15 +6,8 @@ import {
   listGpuAdapters,
 } from "./gpuIdentity";
 
-const gpu = (id: string, name: string): GraphicInfo => ({
-  id,
-  name,
-  vendorName: "Vendor",
-  clock: 0,
-  memorySize: "8 GB",
-  memorySizeDedicated: "8 GB",
-  coreCount: null,
-});
+/** The live name map, as the event listener builds it from each sample. */
+const names = (...pairs: [string, string][]) => Object.fromEntries(pairs);
 
 const live = (maps: Partial<GpuLiveMaps> = {}): GpuLiveMaps => ({
   usageHistories: {},
@@ -26,63 +18,68 @@ const live = (maps: Partial<GpuLiveMaps> = {}): GpuLiveMaps => ({
 });
 
 describe("listGpuAdapters", () => {
-  it("represents every detected adapter even when only one reports values", () => {
+  it("lists one adapter per live id, never unioned with the inventory namespace", () => {
+    // Windows NVIDIA: the inventory reports "12345", sampling reports
+    // "nvapi:12345". Unioning them would render one card as two adapters and
+    // declare the inventory half silent.
     const adapters = listGpuAdapters(
-      [gpu("gpu-1", "NVIDIA GeForce RTX 4080"), gpu("gpu-2", "Intel UHD 770")],
-      live({ usageHistories: { "gpu-1": [20] } }),
-    );
-
-    expect(adapters.map((adapter) => adapter.id)).toEqual(["gpu-1", "gpu-2"]);
-  });
-
-  it("keeps an adapter that only exists in the live maps, so no reading is ownerless", () => {
-    const adapters = listGpuAdapters(
-      [gpu("gpu-1", "Radeon 780M")],
-      live({ temperatures: { "gpu-9": { name: "Late GPU", value: 40 } } }),
-    );
-
-    expect(adapters).toEqual([
-      { id: "gpu-1", name: "Radeon 780M", label: "Radeon 780M" },
-      { id: "gpu-9", name: "Late GPU", label: "Late GPU" },
-    ]);
-  });
-
-  it("names an adapter from the fan map when the static fetch has not answered", () => {
-    // The static fetch can be slow or fail outright; the sensor maps carry the
-    // platform's own name, so an id never has to be shown raw when one exists.
-    const adapters = listGpuAdapters(
-      null,
-      live({
-        usageHistories: { "GPU-{8ee6}": [30] },
-        fanSpeeds: { "GPU-{8ee6}": { name: "Radeon RX 7900 XT", value: 55 } },
-      }),
+      names(["nvapi:12345", "NVIDIA GeForce RTX 4080"]),
+      live({ usageHistories: { "nvapi:12345": [30] } }),
     );
 
     expect(adapters).toEqual([
       {
-        id: "GPU-{8ee6}",
-        name: "Radeon RX 7900 XT",
-        label: "Radeon RX 7900 XT",
+        id: "nvapi:12345",
+        name: "NVIDIA GeForce RTX 4080",
+        label: "GeForce RTX 4080",
       },
     ]);
   });
 
-  it("falls back to the id only when no map names the adapter at all", () => {
+  it("covers every live map, so a fan-only adapter is still listed", () => {
     const adapters = listGpuAdapters(
-      null,
-      live({ usageHistories: { "GPU-{8ee6}": [30] } }),
+      names(["pci:1:0:0", "Radeon RX 7900 XT"]),
+      live({
+        usageHistories: { "nvapi:1": [30] },
+        fanSpeeds: { "pci:1:0:0": { name: "Radeon RX 7900 XT", value: 55 } },
+      }),
     );
 
-    expect(adapters[0].label).toBe("GPU-{8ee6}");
+    // Named adapters come first in payload order, then any id that only a
+    // value map knows about.
+    expect(adapters.map((adapter) => adapter.id)).toEqual([
+      "pci:1:0:0",
+      "nvapi:1",
+    ]);
+  });
+
+  it("names an adapter from the sensor map when the name map has not caught up", () => {
+    const adapters = listGpuAdapters(
+      {},
+      live({
+        temperatures: { "iokit:M3": { name: "Apple M3 Max", value: 51 } },
+      }),
+    );
+
+    expect(adapters[0].name).toBe("Apple M3 Max");
+  });
+
+  it("falls back to the id only when no source names the adapter", () => {
+    const adapters = listGpuAdapters(
+      {},
+      live({ usageHistories: { "pdh:Unknown": [30] } }),
+    );
+
+    expect(adapters[0].label).toBe("pdh:Unknown");
   });
 
   it("drops the vendor word that every adapter of a brand repeats", () => {
     const adapters = listGpuAdapters(
-      [
-        gpu("gpu-1", "NVIDIA GeForce RTX 4080"),
-        gpu("gpu-2", "Intel(R) UHD Graphics 770"),
-      ],
-      live(),
+      names(
+        ["gpu-1", "NVIDIA GeForce RTX 4080"],
+        ["gpu-2", "Intel(R) UHD Graphics 770"],
+      ),
+      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -93,8 +90,8 @@ describe("listGpuAdapters", () => {
 
   it("falls back to full names rather than showing two identical labels", () => {
     const adapters = listGpuAdapters(
-      [gpu("gpu-1", "NVIDIA RTX A2000"), gpu("gpu-2", "AMD RTX A2000")],
-      live(),
+      names(["gpu-1", "NVIDIA RTX A2000"], ["gpu-2", "AMD RTX A2000"]),
+      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -107,11 +104,11 @@ describe("listGpuAdapters", () => {
     // Two identical cards: shortening cannot tell them apart, so it must not
     // pretend to by showing the same short label twice.
     const adapters = listGpuAdapters(
-      [
-        gpu("gpu-1", "NVIDIA GeForce RTX 4090"),
-        gpu("gpu-2", "NVIDIA GeForce RTX 4090"),
-      ],
-      live(),
+      names(
+        ["gpu-1", "NVIDIA GeForce RTX 4090"],
+        ["gpu-2", "NVIDIA GeForce RTX 4090"],
+      ),
+      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -122,11 +119,11 @@ describe("listGpuAdapters", () => {
 
   it("drops the leading words two adapters share, since a narrow card truncates the rest away", () => {
     const adapters = listGpuAdapters(
-      [
-        gpu("gpu-1", "NVIDIA GeForce RTX 4080"),
-        gpu("gpu-2", "NVIDIA GeForce RTX 4060"),
-      ],
-      live(),
+      names(
+        ["gpu-1", "NVIDIA GeForce RTX 4080"],
+        ["gpu-2", "NVIDIA GeForce RTX 4060"],
+      ),
+      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual(["4080", "4060"]);
@@ -136,8 +133,8 @@ describe("listGpuAdapters", () => {
 
   it("never consumes a whole name when one adapter's name prefixes another's", () => {
     const adapters = listGpuAdapters(
-      [gpu("gpu-1", "Radeon Graphics"), gpu("gpu-2", "Radeon Graphics Pro")],
-      live(),
+      names(["gpu-1", "Radeon Graphics"], ["gpu-2", "Radeon Graphics Pro"]),
+      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
@@ -147,9 +144,12 @@ describe("listGpuAdapters", () => {
   });
 
   it("keeps a name that is nothing but a vendor word", () => {
-    expect(listGpuAdapters([gpu("gpu-1", "Apple")], live())[0].label).toBe(
-      "Apple",
+    const adapters = listGpuAdapters(
+      names(["gpu-1", "Apple"]),
+      live({ usageHistories: { "gpu-1": [20] } }),
     );
+
+    expect(adapters[0].label).toBe("Apple");
   });
 });
 

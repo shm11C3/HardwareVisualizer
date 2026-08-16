@@ -121,6 +121,13 @@ test.describe("Grouped navigation destinations", () => {
     const primary = page.getByRole("button", { name: "HV Fixture GPU 8GB" });
     const secondary = page.getByRole("button", { name: "HV Fixture iGPU" });
 
+    // Exactly one control per physical adapter. The fixture's inventory ids
+    // and live ids differ on purpose, so a join across the two namespaces
+    // would show four controls here, two of them permanently silent.
+    await expect(
+      page.getByTestId("performance-gpu-selector").getByRole("button"),
+    ).toHaveCount(2);
+
     // Both adapters are reachable and the readings say which one they are.
     await expect(primary).toHaveAttribute("aria-pressed", "true");
     await expect(secondary).toHaveAttribute("aria-pressed", "false");

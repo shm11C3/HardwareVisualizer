@@ -3,6 +3,7 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cpuUsageHistoryAtom,
+  gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
@@ -308,6 +309,7 @@ describe("Performance", () => {
   it("names the adapter behind the GPU readings without offering a choice there is none of", () => {
     const store = createStore();
     state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
+    store.set(gpuNamesAtom, { "gpu-1": "NVIDIA GeForce RTX 4080" });
     store.set(gpuUsageHistoriesAtom, { "gpu-1": [42] });
 
     render(
@@ -328,6 +330,10 @@ describe("Performance", () => {
       gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
     store.set(gpuUsageHistoriesAtom, { "gpu-1": [25], "gpu-2": [50] });
     store.set(gpuTempMapAtom, {
       "gpu-1": { name: "GPU 1", value: 45 },
@@ -364,6 +370,11 @@ describe("Performance", () => {
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
     store.set(selectedGpuIdAtom, "gpu-2");
+    // gpu-2 named itself in the stream but reported no values at all.
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
     store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
     store.set(gpuTempMapAtom, { "gpu-1": { name: "GPU 1", value: 45 } });
 
@@ -386,6 +397,7 @@ describe("Performance", () => {
   it("does not call an adapter unavailable before the first sample arrives", () => {
     const store = createStore();
     state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
+    store.set(gpuNamesAtom, { "gpu-1": "NVIDIA GeForce RTX 4080" });
 
     render(
       <Provider store={store}>
@@ -406,6 +418,10 @@ describe("Performance", () => {
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
     store.set(selectedGpuIdAtom, "gpu-2");
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
     store.set(gpuUsageHistoriesAtom, { "gpu-1": [25], "gpu-2": [50] });
 
     render(

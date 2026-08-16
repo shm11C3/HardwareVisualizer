@@ -15,6 +15,7 @@ import {
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedMapAtom,
+  gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
@@ -145,6 +146,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
   const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
+  const gpuNames = useAtomValue(gpuNamesAtom);
   const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
   const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
@@ -176,14 +178,17 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     ],
   );
   const gpuAdapters = useMemo(
-    () => listGpuAdapters(hardwareInfo.gpus, gpuLive),
-    [hardwareInfo.gpus, gpuLive],
+    () => listGpuAdapters(gpuNames, gpuLive),
+    [gpuNames, gpuLive],
   );
   const effectiveGpuId = getEffectiveGpuId(
     selectedGpuId,
     gpuLive,
     gpuAdapters.map((adapter) => adapter.id),
   );
+  const effectiveGpuName = gpuAdapters.find(
+    (adapter) => adapter.id === effectiveGpuId,
+  )?.name;
   const gpuHasNoReadings = hasNoLiveGpuReadings(effectiveGpuId, gpuLive);
   const gpuHistory =
     effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
@@ -255,8 +260,11 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     if (effectiveGpuId != null) {
       const usedKb = gpuDedicatedMemoryKbMap[effectiveGpuId];
       if (usedKb != null) {
+        // Matched by name, not id: the inventory and the live samples use
+        // different id namespaces (see `gpuNamesAtom`), so an id lookup here
+        // always misses and silently drops the total.
         const totalLabel = hardwareInfo.gpus?.find(
-          (gpu) => gpu.id === effectiveGpuId,
+          (gpu) => gpu.name === effectiveGpuName,
         )?.memorySizeDedicated;
         const usedGb = (usedKb / 1024 / 1024).toFixed(1);
         substats.push({
@@ -283,6 +291,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     return substats;
   }, [
     effectiveGpuId,
+    effectiveGpuName,
     gpuDedicatedMemoryKbMap,
     gpuFanSpeedMap,
     hardwareInfo.gpus,

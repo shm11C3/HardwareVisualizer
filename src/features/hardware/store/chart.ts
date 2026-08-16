@@ -16,6 +16,18 @@ export const gpuUsageHistoriesAtom = atom<Record<string, (number | null)[]>>(
   {},
 );
 
+/**
+ * Per-GPU name keyed by the live sampling id.
+ *
+ * The monitor stream and the one-shot `getHardwareInfo` inventory key their
+ * GPUs in different namespaces on every platform — Windows NVIDIA reports the
+ * raw NVAPI id as `GraphicInfo.id` but samples as `nvapi:<id>`, macOS pairs
+ * `0x<registry_id>` with `iokit:<name>`, Linux pairs `card<n>` with the PCI
+ * BDF. So a live id cannot be resolved against the inventory, and every
+ * sample carries its own name for exactly that reason.
+ */
+export const gpuNamesAtom = atom<Record<string, string>>({});
+
 /** Currently selected GPU ID for dashboard/usage view */
 export const selectedGpuIdAtom = atom<string | null>(null);
 

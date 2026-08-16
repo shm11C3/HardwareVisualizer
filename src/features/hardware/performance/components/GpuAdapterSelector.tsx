@@ -39,7 +39,10 @@ export const GpuAdapterSelector = ({
         title={adapter.name}
         data-testid="performance-gpu-adapter"
       >
-        {adapter.label}
+        {/* The visible text is shortened to fit the card; the full name is
+            still read out, since a title alone is not an accessible name. */}
+        <span aria-hidden="true">{adapter.label}</span>
+        <span className="sr-only">{adapter.name}</span>
       </p>
     );
   }

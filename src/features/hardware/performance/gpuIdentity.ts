@@ -1,5 +1,3 @@
-import type { GraphicInfo } from "@/rspc/bindings";
-
 /**
  * One adapter as the Performance screens need it: the stable id every live
  * value is keyed by, the name the platform reported, and a short label for
@@ -92,39 +90,46 @@ const dropSharedPrefixWords = (labels: string[]) => {
 };
 
 /**
- * Every adapter the Performance screens can attribute a reading to: the ones
- * the one-shot hardware fetch detected, plus any id that only shows up in the
- * live maps. The second part matters because a reading rendered without an
- * owner is exactly the misattribution this list exists to prevent.
+ * Every adapter the Performance screens can attribute a reading to.
  *
- * Labels are shortened only while they stay unique; when two adapters shorten
- * to the same string every label falls back to the full name rather than
- * showing two controls that read identically.
+ * The list is built from the live maps alone, never unioned with the
+ * `getHardwareInfo` inventory: the two key their GPUs in different namespaces
+ * on every platform (see `gpuNamesAtom`), so unioning by id renders one
+ * physical GPU as two adapters — one of which reports nothing and is then
+ * declared silent. The inventory's job is the System Specifications sheet;
+ * this list's job is attribution, and only ids that carry readings can be
+ * attributed to.
+ *
+ * Names come from the sample that carried the reading. Labels are shortened
+ * only while they stay unique; when two adapters shorten to the same string
+ * every label falls back to the full name rather than showing two controls
+ * that read identically.
  */
 export const listGpuAdapters = (
-  gpus: GraphicInfo[] | null | undefined,
+  gpuNames: Record<string, string>,
   live: GpuLiveMaps,
 ): GpuAdapter[] => {
   const named = new Map<string, string>();
 
-  for (const gpu of gpus ?? []) {
-    named.set(gpu.id, gpu.name);
-  }
-
-  // The sensor maps carry the platform's own name for each adapter, so they
-  // can identify an id the static fetch has not returned (or never will,
-  // when it failed). Only an id no map names at all falls back to the id.
-  for (const map of [live.temperatures, live.fanSpeeds]) {
-    for (const [id, value] of Object.entries(map)) {
-      if (!named.has(id)) {
-        named.set(id, value.name);
-      }
-    }
+  // Every adapter the stream named, in payload order — including one that
+  // named itself and reported nothing else, which is the case the unavailable
+  // state exists for.
+  for (const [id, name] of Object.entries(gpuNames)) {
+    named.set(id, name);
   }
   for (const map of liveMapsInOrder(live)) {
     for (const id of Object.keys(map)) {
       if (!named.has(id)) {
         named.set(id, id);
+      }
+    }
+  }
+  // The sensor maps carry a name too, so they can still identify an adapter
+  // if the name map has not caught up with them.
+  for (const map of [live.temperatures, live.fanSpeeds]) {
+    for (const [id, value] of Object.entries(map)) {
+      if (named.get(id) === id) {
+        named.set(id, value.name);
       }
     }
   }
