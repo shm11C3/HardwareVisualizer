@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
-import { type CSSProperties, memo } from "react";
+import { type CSSProperties, memo, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
@@ -11,11 +12,8 @@ import {
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
-import {
-  formatTemperature,
-  getEffectiveGpuId,
-  toCssColor,
-} from "./InstrumentStrip";
+import { getEffectiveGpuId, listGpuAdapters } from "../gpuIdentity";
+import { formatTemperature, toCssColor } from "./InstrumentStrip";
 import { Sparkline } from "./Sparkline";
 
 /**
@@ -129,11 +127,34 @@ export const CompactStrip = ({
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
   const selectedGpuId = useAtomValue(selectedGpuIdAtom);
+  const { hardwareInfo, init } = useHardwareInfoAtom();
 
+  // The strip names its GPU row's adapter, and Compact is the only thing
+  // mounted in this view, so it has to fetch the static facts itself.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one-time static-fact fetch
+  useEffect(() => {
+    if (hardwareInfo.gpus == null) {
+      void init();
+    }
+  }, []);
+
+  const gpuAdapters = useMemo(
+    () =>
+      listGpuAdapters(
+        hardwareInfo.gpus,
+        gpuTemperatureMap,
+        Object.keys(gpuUsageHistories),
+      ),
+    [hardwareInfo.gpus, gpuTemperatureMap, gpuUsageHistories],
+  );
   const effectiveGpuId = getEffectiveGpuId(
     selectedGpuId,
     gpuUsageHistories,
     gpuTemperatureMap,
+    gpuAdapters.map((adapter) => adapter.id),
+  );
+  const activeGpuAdapter = gpuAdapters.find(
+    (adapter) => adapter.id === effectiveGpuId,
   );
 
   const rows: CompactMetricRow[] = [
@@ -173,7 +194,14 @@ export const CompactStrip = ({
   // strip once the backend collects them; they join `rows` / `footerItems`
   // without further layout changes. Storage capacity deliberately stays out:
   // it is a specification fact, not a live reading (see ADR 0014).
-  const footerItems: string[] = [];
+  //
+  // The GPU row carries one adapter's numbers, so the strip says which one.
+  // It goes in the footer rather than the row: the row's tracks are sized for
+  // the mini monitor's small corner window and cannot hold a device name.
+  const footerItems: string[] =
+    activeGpuAdapter != null
+      ? [`${t("pages.performance.metrics.gpu")}: ${activeGpuAdapter.label}`]
+      : [];
 
   return (
     <section

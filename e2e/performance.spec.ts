@@ -111,6 +111,45 @@ test.describe("Grouped navigation destinations", () => {
     await saveCapture(page, "performance-monitor-desktop");
   });
 
+  test("attributes the GPU readings to a named adapter the user can change", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await seedHardwareHistory(page);
+
+    const gpuInstrument = page.getByTestId("performance-metric-gpu");
+    const primary = page.getByRole("tab", { name: "HV Fixture GPU 8GB" });
+    const secondary = page.getByRole("tab", { name: "HV Fixture iGPU" });
+
+    // Both adapters are reachable and the readings say which one they are.
+    await expect(primary).toHaveAttribute("aria-selected", "true");
+    await expect(secondary).toHaveAttribute("aria-selected", "false");
+    await expect(gpuInstrument).toContainText("VRAM 4.0/8 GB");
+
+    await secondary.click();
+    await expect(secondary).toHaveAttribute("aria-selected", "true");
+    await expect(gpuInstrument).toContainText("VRAM 1.0/2 GB");
+    await expect(gpuInstrument).not.toContainText("VRAM 4.0/8 GB");
+
+    await saveCapture(page, "performance-gpu-selector-desktop");
+
+    // The choice is explicit user intent, so it outlives leaving the screen.
+    await navigateTo(page, "systemSpecifications");
+    await navigateTo(page, "performance");
+    await expect(
+      page.getByRole("tab", { name: "HV Fixture iGPU" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    // ...and the Compact strip reports the same adapter rather than its own.
+    await page.getByRole("tab", { name: "Compact" }).click();
+    // The label drops the words both fixture adapters share, so a narrow strip
+    // keeps the part that tells them apart.
+    const strip = page.getByTestId("performance-compact-strip");
+    await expect(strip).toContainText("GPU: iGPU");
+    await expect(strip).not.toContainText("GPU 8GB");
+    await saveCapture(page, "performance-gpu-selector-compact");
+  });
+
   test("persists panel visibility edited in the panels view", async ({
     page,
   }) => {

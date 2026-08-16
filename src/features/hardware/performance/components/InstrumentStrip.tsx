@@ -1,5 +1,5 @@
 import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import {
   type CSSProperties,
   memo,
@@ -24,23 +24,16 @@ import {
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
+import {
+  getEffectiveGpuId,
+  hasNoLiveGpuReadings,
+  listGpuAdapters,
+} from "../gpuIdentity";
+import { GpuAdapterSelector } from "./GpuAdapterSelector";
 import { Sparkline } from "./Sparkline";
 
 export const toCssColor = (value: string) =>
   value.startsWith("rgb(") ? value : `rgb(${value})`;
-
-/**
- * The GPU both Performance views agree on: the explicit selection while it is
- * still reporting usage, otherwise the first GPU that reports anything.
- */
-export const getEffectiveGpuId = (
-  selectedGpuId: string | null,
-  gpuUsageHistories: Record<string, (number | null)[]>,
-  gpuTemperatureMap: Record<string, { name: string; value: number }>,
-) =>
-  selectedGpuId != null && Object.hasOwn(gpuUsageHistories, selectedGpuId)
-    ? selectedGpuId
-    : (Object.keys(gpuUsageHistories)[0] ?? Object.keys(gpuTemperatureMap)[0]);
 
 export const formatTemperature = (
   value: number | null | undefined,
@@ -63,6 +56,8 @@ const MetricInstrument = memo(
     history,
     color,
     badge,
+    identity,
+    note,
     substats,
     gauges,
     icon,
@@ -73,6 +68,10 @@ const MetricInstrument = memo(
     history: (number | null)[];
     color: string;
     badge?: string | undefined;
+    /** Names the physical device the readings came from, e.g. the GPU adapter. */
+    identity?: ReactNode;
+    /** Stated instead of substats when the device reports nothing. */
+    note?: string | undefined;
     substats: Substat[];
     /** Classic Hardware Dashboard card icon, colored per metric hue. */
     icon: ReactNode;
@@ -90,9 +89,9 @@ const MetricInstrument = memo(
         className="absolute inset-x-0 top-0 h-0.5 bg-[var(--metric-color)]"
         aria-hidden="true"
       />
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {icon}
-        <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+        <p className="shrink-0 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
           {label}
         </p>
         {badge != null && (
@@ -100,6 +99,7 @@ const MetricInstrument = memo(
             {badge}
           </p>
         )}
+        {identity != null && <div className="ml-auto min-w-0">{identity}</div>}
       </div>
       {/* Two side-by-side doughnuts must fit a one-third-width card, so the
           xl row stays below the classic 200px dashboard height. */}
@@ -114,12 +114,16 @@ const MetricInstrument = memo(
       <div className="mt-2 text-muted-foreground">
         <Sparkline values={history} color={color} />
       </div>
-      {substats.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
-          {substats.map((substat) => (
-            <span key={substat.key}>{substat.text}</span>
-          ))}
-        </div>
+      {note != null ? (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{note}</p>
+      ) : (
+        substats.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
+            {substats.map((substat) => (
+              <span key={substat.key}>{substat.text}</span>
+            ))}
+          </div>
+        )
       )}
     </article>
   ),
@@ -141,7 +145,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
   const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
-  const selectedGpuId = useAtomValue(selectedGpuIdAtom);
+  const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
   const { settings } = useSettingsAtom();
   const { hardwareInfo, init } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
@@ -155,8 +159,23 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     void init();
   }, []);
 
+  const gpuAdapters = useMemo(
+    () =>
+      listGpuAdapters(
+        hardwareInfo.gpus,
+        gpuTemperatureMap,
+        Object.keys(gpuUsageHistories),
+      ),
+    [hardwareInfo.gpus, gpuTemperatureMap, gpuUsageHistories],
+  );
   const effectiveGpuId = getEffectiveGpuId(
     selectedGpuId,
+    gpuUsageHistories,
+    gpuTemperatureMap,
+    gpuAdapters.map((adapter) => adapter.id),
+  );
+  const gpuHasNoReadings = hasNoLiveGpuReadings(
+    effectiveGpuId,
     gpuUsageHistories,
     gpuTemperatureMap,
   );
@@ -331,6 +350,18 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         history={gpuHistory}
         color={toCssColor(settings.lineGraphColor.gpu)}
         substats={gpuSubstats}
+        note={
+          gpuHasNoReadings
+            ? t("pages.performance.gpuNoLiveReadings")
+            : undefined
+        }
+        identity={
+          <GpuAdapterSelector
+            adapters={gpuAdapters}
+            selectedId={effectiveGpuId}
+            onSelect={setSelectedGpuId}
+          />
+        }
         icon={
           <GraphicsCardIcon
             size={22}
