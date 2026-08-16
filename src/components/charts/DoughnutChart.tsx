@@ -36,6 +36,12 @@ type DoughnutChartProps =
       usagePercentage?: never;
     };
 
+/**
+ * Gauge tween length. Must stay below the 1Hz hardware update interval, and
+ * shorter still keeps the per-tick repaint cost down.
+ */
+export const gaugeAnimationDurationMs = 300;
+
 const dataType2Units = (
   dataType: Exclude<HardwareDataType, "memoryUsageValue">,
   temperatureUnit: Settings["temperatureUnit"],
@@ -136,7 +142,19 @@ export const DoughnutChart = ({
             }}
             polarRadius={isXl ? [70, 60] : [50, 42.5]}
           />
-          <RadialBar dataKey="value" background cornerRadius={10} />
+          {/*
+            Hardware metrics arrive every second. Recharts' 1500ms default
+            outlives that interval, so each tick restarts a tween that never
+            settles: the gauge never reaches the current value and the WebKit
+            compositor never goes idle. Keep the tween shorter than the update
+            interval so it completes between ticks.
+          */}
+          <RadialBar
+            dataKey="value"
+            background
+            cornerRadius={10}
+            animationDuration={gaugeAnimationDurationMs}
+          />
           <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
             <Label
               content={({ viewBox }) => {
