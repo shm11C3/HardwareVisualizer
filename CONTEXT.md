@@ -14,25 +14,21 @@ _Avoid_: Monitoring, Storage Monitoring, telemetry
 The Classic Navigation view where users inspect live CPU, memory, GPU, storage, network, process, and motherboard information at a glance.
 _Avoid_: Grouped Dashboard, Dashboard settings, insight page, system report
 
-**Grouped Dashboard**:
-The grouped-navigation destination that contains the peer Performance and System Specifications tabs.
-_Avoid_: Hardware Dashboard, Performance Tab, dashboard section
-
-**Performance Tab**:
-The Grouped Dashboard tab for inspecting current hardware state together with short-window Usage Graphs.
-_Avoid_: Performance Screen, Insights Screen, Hardware Insight, hardware specifications
+**Performance Screen**:
+The grouped-navigation destination for inspecting current hardware state together with short-window Usage Graphs.
+_Avoid_: Performance Tab, Grouped Dashboard, Insights Screen, Hardware Insight, hardware specifications
 
 **Performance View**:
-A UI-local Performance Tab mode: Panels (Instrument Strip plus reorderable panels), Compact (dense small-window strip), or Monitor (full-height graph).
+A UI-local Performance Screen mode: Panels (Instrument Strip plus reorderable panels), Compact (dense small-window strip), or Monitor (full-height graph).
 _Avoid_: Performance Layout Preset, Detailed preset, Custom preset, Insights tab, saved report, navigation layout
 
 **Instrument Strip**:
 The always-mounted live header of the Panels view: one hue-coded CPU, RAM, and GPU instrument combining a doughnut gauge, a short-window sparkline, and platform-dependent secondary readings.
 _Avoid_: Current Values panel, metric cards, gauge row
 
-**System Specifications Tab**:
-The Grouped Dashboard tab that presents available hardware configuration, platform facts, capability-dependent observations, and Hardware Report access as one surface.
-_Avoid_: Hardware Category Screen, standalone CPU screen, standalone GPU screen, System screen
+**System Specifications Screen**:
+The grouped-navigation destination that presents available hardware configuration, platform facts, capability-dependent observations, and Hardware Report access as one surface.
+_Avoid_: System Specifications Tab, Grouped Dashboard, Hardware Category Screen, standalone CPU screen, standalone GPU screen, System screen
 
 **Dashboard Item**:
 An information block on the Hardware Dashboard that can be shown, hidden, or reordered.
@@ -153,7 +149,7 @@ _Avoid_: Rescan, reload, auto-detection, live polling
 ### Motherboard Sensors
 
 **Motherboard Sensor Display**:
-Presenting all available live motherboard temperature and fan-speed readings on the Performance Tab's Motherboard Sensors panel and on the Hardware Dashboard.
+Presenting all available live motherboard temperature and fan-speed readings on the Performance Screen's Motherboard Sensors panel and on the Hardware Dashboard.
 _Avoid_: CPU thermal zones, GPU sensors, Storage Health Display
 
 **Sensor Source Label**:

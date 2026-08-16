@@ -3,10 +3,10 @@ import {
   ChartTemplate,
   CpuUsages,
   Dashboard,
-  GroupedDashboard,
   Insights,
   Performance,
   Settings,
+  SystemSpecifications,
 } from "./lazyScreens";
 import "./index.css";
 import type { CSSProperties, ErrorInfo, JSX } from "react";
@@ -30,6 +30,7 @@ import type { SelectedDisplayType } from "./types/ui";
 import "@/lib/i18n";
 import {
   ChartLineIcon,
+  ComputerTowerIcon,
   CpuIcon,
   GearIcon,
   SquaresFourIcon,
@@ -213,17 +214,28 @@ const AppContent = () => {
         <Dashboard />
       </ScreenTemplate>
     ),
-    groupedDashboard: (
-      <GroupedDashboard
-        isFullScreen={Boolean(isFullScreen)}
-        showTitle={visibleTypes.includes("dashboard")}
-      />
-    ),
     performance: (
       <Performance
         isFullScreen={Boolean(isFullScreen)}
         showTitle={visibleTypes.includes("dashboard")}
       />
+    ),
+    systemSpecifications: (
+      <ScreenTemplate
+        icon={
+          visibleTypes.includes("dashboard") ? (
+            <ComputerTowerIcon size={32} />
+          ) : undefined
+        }
+        title={
+          visibleTypes.includes("dashboard")
+            ? t("navigation.systemSpecifications")
+            : undefined
+        }
+        enabledBurnInShift
+      >
+        <SystemSpecifications />
+      </ScreenTemplate>
     ),
     usage: <ChartTemplate isFullScreen={Boolean(isFullScreen)} />,
     cpuDetail: (

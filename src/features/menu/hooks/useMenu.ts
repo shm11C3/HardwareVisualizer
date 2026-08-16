@@ -18,13 +18,24 @@ const classicDisplayTargets: SelectedDisplayType[] = [
 ];
 
 const groupedDisplayTargets: SelectedDisplayType[] = [
-  "groupedDashboard",
+  "performance",
+  "systemSpecifications",
   "insights",
   "settings",
 ];
 
+/**
+ * The retired Grouped Dashboard destination held Performance and System
+ * Specifications as tabs. Both are sidebar destinations now, so a stored
+ * selection resolves to the one users watch. Which tab was open last was
+ * UI-local state and is not carried over.
+ */
+const LEGACY_DISPLAY_TARGETS: Record<string, SelectedDisplayType> = {
+  groupedDashboard: "performance",
+};
+
 export const normalizeDisplayTarget = (
-  displayTarget: SelectedDisplayType,
+  displayTarget: unknown,
   navigationLayout: NavigationLayout,
 ): SelectedDisplayType => {
   const allowedTargets =
@@ -32,11 +43,18 @@ export const normalizeDisplayTarget = (
       ? groupedDisplayTargets
       : classicDisplayTargets;
 
-  if (allowedTargets.includes(displayTarget)) {
-    return displayTarget;
+  if (allowedTargets.includes(displayTarget as SelectedDisplayType)) {
+    return displayTarget as SelectedDisplayType;
   }
 
-  return navigationLayout === "grouped" ? "groupedDashboard" : "dashboard";
+  if (typeof displayTarget === "string") {
+    const legacyTarget = LEGACY_DISPLAY_TARGETS[displayTarget];
+    if (legacyTarget != null && allowedTargets.includes(legacyTarget)) {
+      return legacyTarget;
+    }
+  }
+
+  return navigationLayout === "grouped" ? "performance" : "dashboard";
 };
 
 export const useMenu = (

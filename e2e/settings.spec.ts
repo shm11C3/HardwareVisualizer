@@ -22,17 +22,22 @@ test.describe("settings captures", () => {
   }) => {
     await gotoApp(page);
 
+    // Grouped navigation lists Performance and System Specifications as their
+    // own destinations; the classic-only screens stay hidden.
+    await expect(
+      page.getByRole("button", { name: "open performance" }),
+    ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await expect(
+      page.getByRole("button", { name: "open systemSpecifications" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "open dashboard" }),
-    ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    ).toHaveCount(0);
     await expect(page.getByRole("button", { name: "open usage" })).toHaveCount(
       0,
     );
     await expect(
       page.getByRole("button", { name: "open cpuDetail" }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "open performance" }),
     ).toHaveCount(0);
 
     await navigateTo(page, "settings");
@@ -51,6 +56,9 @@ test.describe("settings captures", () => {
     await expect(
       page.getByRole("button", { name: "open cpuDetail" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "open systemSpecifications" }),
+    ).toHaveCount(0);
   });
 
   test("navigation notice links to Settings and can be dismissed", async ({

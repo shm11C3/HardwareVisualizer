@@ -2,6 +2,11 @@
 
 Status: accepted
 
+The single Grouped Dashboard destination described here was replaced by
+[ADR 0015](0015-performance-and-system-specifications-destinations.md), which
+promotes Performance and System Specifications to peer sidebar destinations.
+Everything else in this record still holds.
+
 The sidebar previously exposed five flat entries: Hardware Dashboard, Usage,
 CPU, Insights, and Settings. Grouped navigation restructures those entry
 points around one Grouped Dashboard destination, the existing Insights Screen,

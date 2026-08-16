@@ -4,6 +4,12 @@ Status: accepted
 
 Refines: [ADR 0010](0010-grouped-navigation-with-classic-fallback.md)
 
+The Performance Tab and System Specifications Tab described here became peer
+sidebar destinations in
+[ADR 0015](0015-performance-and-system-specifications-destinations.md). The
+presentation decisions below still apply to those screens; only their
+navigation level changed.
+
 The first Grouped Dashboard implementation shipped four Performance Layout
 Presets (Compact, Monitor, Detailed, Custom) and reused the Hardware Dashboard
 card grid for the System Specifications tab. Maintainer review of the rendered

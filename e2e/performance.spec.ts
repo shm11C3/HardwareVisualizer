@@ -6,25 +6,28 @@ import {
   seedHardwareHistory,
 } from "./helpers";
 
-test.describe("Grouped Dashboard", () => {
-  test("switches between Performance and System Specifications without keeping inactive content mounted", async ({
+test.describe("Grouped navigation destinations", () => {
+  test("moves between the Performance and System Specifications destinations without keeping the other mounted", async ({
     page,
   }) => {
     await gotoApp(page);
 
-    const performanceTab = page.getByRole("tab", { name: "Performance" });
-    const specificationsTab = page.getByRole("tab", {
-      name: "System Specifications",
+    // Both screens are side-menu destinations now, not tabs inside one screen,
+    // so selection lives on the menu entries.
+    const performanceEntry = page.getByRole("tab", { name: "Performance tab" });
+    const specificationsEntry = page.getByRole("tab", {
+      name: "System Specifications tab",
     });
-
-    await expect(performanceTab).toHaveAttribute("data-state", "active");
+    await expect(performanceEntry).toHaveAttribute("aria-selected", "true");
+    await expect(specificationsEntry).toHaveAttribute("aria-selected", "false");
     await expect(page.getByTestId("performance-screen")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Copy hardware report" }),
     ).toHaveCount(0);
 
-    await specificationsTab.click();
-    await expect(specificationsTab).toHaveAttribute("data-state", "active");
+    await navigateTo(page, "systemSpecifications");
+    await expect(specificationsEntry).toHaveAttribute("aria-selected", "true");
+    await expect(performanceEntry).toHaveAttribute("aria-selected", "false");
     await expect(page.getByTestId("performance-screen")).toHaveCount(0);
     await expect(page.getByTestId("system-specifications-sheet")).toBeVisible();
     await expect(
@@ -39,14 +42,14 @@ test.describe("Grouped Dashboard", () => {
     ).toBeVisible();
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "dashboard");
-    await expect(specificationsTab).toHaveAttribute("data-state", "active");
-    await saveCapture(page, "dashboard-system-specifications-desktop");
+    await navigateTo(page, "systemSpecifications");
+    await expect(page.getByTestId("system-specifications-sheet")).toBeVisible();
+    await saveCapture(page, "system-specifications-desktop");
 
     await page.setViewportSize({ width: 520, height: 800 });
-    await saveCapture(page, "dashboard-system-specifications-compact-window");
+    await saveCapture(page, "system-specifications-compact-window");
 
-    await performanceTab.click();
+    await navigateTo(page, "performance");
     await expect(page.getByTestId("performance-screen")).toBeVisible();
   });
 
@@ -71,7 +74,7 @@ test.describe("Grouped Dashboard", () => {
     await expect(page.getByTestId("live-process-table")).toHaveCount(0);
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "dashboard");
+    await navigateTo(page, "performance");
     await expect(page.getByRole("tab", { name: "Compact" })).toHaveAttribute(
       "data-state",
       "active",
@@ -102,7 +105,7 @@ test.describe("Grouped Dashboard", () => {
     await expect(page.getByTestId("performance-hidden-panels")).toHaveCount(0);
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "dashboard");
+    await navigateTo(page, "performance");
     await expect(page.getByTestId("performance-usage-graphs")).toHaveCount(0);
     await expect(page.getByTestId("live-process-table")).toBeVisible();
 
@@ -173,9 +176,9 @@ test.describe("Grouped Dashboard", () => {
     // Nothing else is reachable: the rest of the app is inert behind the
     // layer, so no tabs, headings, or side-menu buttons remain exposed.
     await expect(page.getByRole("tab")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("heading", { name: "Performance" }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "open settings" }),
     ).toHaveCount(0);

@@ -25,7 +25,11 @@ const menuTypes = [
   "settings",
 ] as const;
 
-const groupedMenuTypes = ["groupedDashboard", "insights"] as const;
+const groupedMenuTypes = [
+  "performance",
+  "systemSpecifications",
+  "insights",
+] as const;
 
 const buttonClasses = tv({
   base: "fixed top-0 rounded-xl hover:bg-zinc-300 dark:hover:bg-gray-700 p-2 cursor-pointer z-20",
@@ -88,8 +92,8 @@ const MenuItem = memo(
 
     const menuTitles: Record<SelectedDisplayType, string> = {
       dashboard: t("pages.dashboard.name"),
-      groupedDashboard: t("pages.dashboard.name"),
       performance: t("navigation.performance"),
+      systemSpecifications: t("navigation.systemSpecifications"),
       usage: t("pages.usage.name"),
       cpuDetail: "CPU",
       insights: t("pages.insights.name"),
@@ -98,8 +102,8 @@ const MenuItem = memo(
 
     const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
       dashboard: <SquaresFourIcon size={20} />,
-      groupedDashboard: <SquaresFourIcon size={20} />,
       performance: <GaugeIcon size={20} />,
+      systemSpecifications: <ComputerTowerIcon size={20} />,
       usage: <ComputerTowerIcon size={20} />,
       cpuDetail: <CpuIcon size={20} />,
       insights: <ChartLineIcon size={20} />,
@@ -145,8 +149,8 @@ const ClosedSideMenu = ({
 }) => {
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: <SquaresFourIcon size={24} />,
-    groupedDashboard: <SquaresFourIcon size={24} />,
     performance: <GaugeIcon size={24} />,
+    systemSpecifications: <ComputerTowerIcon size={24} />,
     usage: <ComputerTowerIcon size={24} />,
     cpuDetail: <CpuIcon size={24} />,
     insights: <ChartLineIcon size={24} />,
@@ -169,7 +173,7 @@ const ClosedSideMenu = ({
         onClick={() => handleMenuClick(type)}
         onMouseEnter={() => prefetchScreen(type)}
         onFocus={() => prefetchScreen(type)}
-        aria-label={`open ${type === "groupedDashboard" ? "dashboard" : type}`}
+        aria-label={`open ${type}`}
       >
         {menuIcons[type]}
       </button>
@@ -187,7 +191,6 @@ export const SideMenu = memo(
     navigationLayout: NavigationLayout;
     settingsLoaded: boolean;
   }) => {
-    const { t } = useTranslation();
     const { isOpen, displayTarget, handleMenuClick, toggleMenu } = useMenu(
       navigationLayout,
       settingsLoaded,
@@ -230,37 +233,17 @@ export const SideMenu = memo(
                       <h2 className="font-bold text-xl">HardwareVisualizer</h2>
                     )}
                   </li>
-                  {navigationLayout === "grouped" ? (
-                    <>
-                      <li className="mb-1 px-2 pt-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                        {t("navigation.dashboardSection")}
-                      </li>
-                      <MenuItem
-                        type="groupedDashboard"
-                        handleMenuClick={handleMenuClick}
-                        selected={displayTarget === "groupedDashboard"}
-                      />
-                      <li className="mt-5 mb-1 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                        {t("navigation.insightSection")}
-                      </li>
-                      <MenuItem
-                        type="insights"
-                        handleMenuClick={handleMenuClick}
-                        selected={displayTarget === "insights"}
-                      />
-                    </>
-                  ) : (
-                    menuTypes
-                      .filter((v) => v !== "settings")
-                      .map((type) => (
-                        <MenuItem
-                          key={type}
-                          type={type}
-                          handleMenuClick={handleMenuClick}
-                          selected={displayTarget === type}
-                        />
-                      ))
-                  )}
+                  {(navigationLayout === "grouped"
+                    ? groupedMenuTypes
+                    : menuTypes.filter((v) => v !== "settings")
+                  ).map((type) => (
+                    <MenuItem
+                      key={type}
+                      type={type}
+                      handleMenuClick={handleMenuClick}
+                      selected={displayTarget === type}
+                    />
+                  ))}
                 </ul>
                 <ul className="absolute bottom-0 h-14 w-full border-slate-200 border-t-1 p-3 dark:border-zinc-60">
                   <MenuItem

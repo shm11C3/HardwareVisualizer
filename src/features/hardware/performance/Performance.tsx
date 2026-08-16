@@ -22,11 +22,9 @@ import { usePerformanceLayout } from "./hooks/usePerformanceLayout";
 export const Performance = ({
   isFullScreen = false,
   showTitle = true,
-  embedded = false,
 }: {
   isFullScreen?: boolean;
   showTitle?: boolean;
-  embedded?: boolean;
 }) => {
   const { t } = useTranslation();
   const {
@@ -73,10 +71,8 @@ export const Performance = ({
   const content = (
     <main
       className={cn(
-        "mx-auto w-full pb-8",
-        embedded
-          ? "pt-2"
-          : cn("min-h-screen pt-12 pr-4", isFullScreen ? "pl-4" : "pl-16"),
+        "mx-auto min-h-screen w-full pt-12 pr-4 pb-8",
+        isFullScreen ? "pl-4" : "pl-16",
         !isMonitor && "2xl:w-3/4 2xl:px-4",
       )}
       data-performance-view={view}
@@ -148,7 +144,7 @@ export const Performance = ({
       ) : isMonitor ? (
         <UsageGraphPanel
           fitToContainer
-          height={embedded ? "calc(100dvh - 12rem)" : "calc(100dvh - 8rem)"}
+          height="calc(100dvh - 8rem)"
           testId="performance-usage-graphs"
         />
       ) : (
@@ -195,10 +191,6 @@ export const Performance = ({
       </div>,
       document.body,
     );
-  }
-
-  if (embedded) {
-    return content;
   }
 
   return (

@@ -77,7 +77,14 @@ export const seedHardwareHistory = async (page: Page) => {
  */
 export const navigateTo = async (
   page: Page,
-  type: "dashboard" | "usage" | "cpuDetail" | "insights" | "settings",
+  type:
+    | "dashboard"
+    | "performance"
+    | "systemSpecifications"
+    | "usage"
+    | "cpuDetail"
+    | "insights"
+    | "settings",
 ) => {
   const target = page.getByRole("button", { name: `open ${type}` });
   await expect(page.locator('[data-settings-loaded="true"]')).toBeAttached({
