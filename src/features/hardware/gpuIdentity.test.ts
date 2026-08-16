@@ -329,6 +329,13 @@ describe("toLiveGpuId", () => {
     expect(toLiveGpuId(inventory[1], {})).toBe("67890");
   });
 
+  it("keeps the inventory id before any sample names an adapter", () => {
+    // The classic card is available before the first monitor sample. The id
+    // it returns here cannot address readings, so the card reconciles it once
+    // the stream names the adapter.
+    expect(toLiveGpuId(inventory[1], {})).toBe("67890");
+  });
+
   it("keeps the inventory id when the name is ambiguous", () => {
     expect(
       toLiveGpuId(

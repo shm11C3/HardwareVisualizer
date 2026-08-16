@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { GpuAdapterSelector } from "./GpuAdapterSelector";
@@ -11,8 +12,10 @@ import { GpuAdapterSelector } from "./GpuAdapterSelector";
  * where the value is rendered.
  */
 export const MonitorGpuSelector = () => {
+  const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { adapters, effectiveGpuId, selectGpu } = useGpuAdapters();
+  const { adapters, effectiveGpuId, selectGpu, hasNoReadings } =
+    useGpuAdapters();
 
   // Naming the adapter behind a series the user has turned off is noise.
   if (!settings.displayTargets.includes("gpu")) {
@@ -20,10 +23,22 @@ export const MonitorGpuSelector = () => {
   }
 
   return (
-    <GpuAdapterSelector
-      adapters={adapters}
-      selectedId={effectiveGpuId}
-      onSelect={selectGpu}
-    />
+    <div className="flex min-w-0 items-center gap-2">
+      {/* Monitor is only the graph, so a blank series is the sole evidence the
+          user gets. Say why it is blank rather than letting it read as idle. */}
+      {hasNoReadings && (
+        <p
+          className="min-w-0 truncate text-muted-foreground text-xs"
+          data-testid="performance-monitor-gpu-unavailable"
+        >
+          {t("pages.performance.gpuNoLiveReadings")}
+        </p>
+      )}
+      <GpuAdapterSelector
+        adapters={adapters}
+        selectedId={effectiveGpuId}
+        onSelect={selectGpu}
+      />
+    </div>
   );
 };

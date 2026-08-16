@@ -61,6 +61,12 @@ that join, so the shared selection is written in the live namespace by every
 surface and read back through the name by the one surface that needs the
 inventory.
 
+The classic card is reachable before the first sample, when no live id exists
+yet, so a selection made there starts as an inventory id and is reconciled to
+the live id as soon as the stream names that adapter. Committing an id that
+cannot address readings is what would otherwise leave the card's highlight and
+the graphs describing different adapters.
+
 Where the join is ambiguous, the caller refuses rather than falls back: the
 classic card claims no adapter identity for a selection it cannot resolve,
 instead of labelling one adapter's readings with another's name. Pairing the
@@ -167,10 +173,11 @@ selection; it follows the choice made in Panels.
   appear on Performance at all. It is still on the System Specifications sheet,
   but Performance cannot name a device it has no reading from.
 - The unavailable state only covers an adapter that has never reported. The
-  live maps are append-only, so an adapter that reports and then goes silent
-  keeps its last value on screen; distinguishing a stale reading from a current
-  one needs per-sample presence tracking in the event listener, which this
-  decision does not add.
+  live maps, including the name map, are append-only, so an adapter that
+  reports and then goes silent keeps its last value on screen and stays in the
+  selector for the rest of the session. Distinguishing a stale reading from a
+  current one, and an unplugged adapter from a skipped sample, needs per-sample
+  presence tracking in the event listener, which this decision does not add.
 
 ### Non-goals
 
