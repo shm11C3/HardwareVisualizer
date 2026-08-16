@@ -34,3 +34,4 @@ ADR status describes decision maturity, not release status.
 - [0011 Experimental Sensor Enablement for Recognized-but-Unverified Hardware](0011-experimental-sensor-enablement.md)
 - [0012 Native-first Windows Storage Health Collection](0012-native-first-windows-storage-health-collection.md)
 - [0013 Centralized Live Process Polling](0013-centralized-live-process-polling.md)
+- [0014 Performance Views and the Specification Sheet](0014-performance-views-and-specification-sheet.md)

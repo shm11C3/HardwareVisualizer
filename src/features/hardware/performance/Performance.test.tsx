@@ -9,10 +9,20 @@ import {
   selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { Performance } from "./Performance";
-import type { PerformanceLayoutPreset } from "./types/performanceLayout";
+import type {
+  PerformanceCustomLayout,
+  PerformancePanelColumns,
+  PerformanceView,
+} from "./types/performanceLayout";
 
 const state = vi.hoisted(() => ({
-  preset: "detailed" as PerformanceLayoutPreset,
+  view: "panels" as PerformanceView,
+  columns: 1 as PerformancePanelColumns,
+  compactExpanded: false,
+  customLayout: {
+    order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+    visible: ["usageGraphs", "processTable"],
+  } as PerformanceCustomLayout,
   chartRenders: { cpu: 0, memory: 0, gpu: 0 },
   processRenders: 0,
 }));
@@ -50,6 +60,43 @@ vi.mock("@/hooks/useBurnInShift", () => ({
   }),
 }));
 
+vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
+  useHardwareInfoAtom: () => ({
+    hardwareInfo: {
+      cpu: null,
+      memory: null,
+      gpus: null,
+      storage: [],
+      motherboard: null,
+    },
+    init: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+vi.mock("@/components/charts/DoughnutChart", () => ({
+  DoughnutChart: ({
+    chartValue,
+    dataType,
+    unit,
+  }: {
+    chartValue: number | null;
+    dataType: "usage" | "temp" | "memoryUsageValue";
+    unit?: string;
+  }) => (
+    <div data-testid={`doughnut-${dataType}`}>
+      {chartValue == null
+        ? "—"
+        : `${chartValue}${
+            dataType === "temp"
+              ? "°C"
+              : dataType === "memoryUsageValue"
+                ? unit
+                : "%"
+          }`}
+    </div>
+  ),
+}));
+
 vi.mock("@/components/charts/LineChart", () => ({
   LineChartComponent: (props: {
     dataType?: "cpu" | "memory" | "gpu";
@@ -70,12 +117,13 @@ vi.mock("@/features/hardware/dashboard/components/ProcessTable", () => ({
 
 vi.mock("./hooks/usePerformanceLayout", () => ({
   usePerformanceLayout: () => ({
-    preset: state.preset,
-    setPreset: vi.fn(),
-    customLayout: {
-      order: ["currentValues", "usageGraphs", "processTable"],
-      visible: ["currentValues"],
-    },
+    view: state.view,
+    setView: vi.fn(),
+    columns: state.columns,
+    setColumns: vi.fn(),
+    compactExpanded: state.compactExpanded,
+    setCompactExpanded: vi.fn(),
+    customLayout: state.customLayout,
     togglePanel: vi.fn(),
     handlePanelDragEnd: vi.fn(),
     isPending: false,
@@ -84,7 +132,13 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
 
 describe("Performance", () => {
   beforeEach(() => {
-    state.preset = "detailed";
+    state.view = "panels";
+    state.columns = 1;
+    state.compactExpanded = false;
+    state.customLayout = {
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: ["usageGraphs", "processTable"],
+    };
     state.chartRenders = { cpu: 0, memory: 0, gpu: 0 };
     state.processRenders = 0;
   });
@@ -110,29 +164,60 @@ describe("Performance", () => {
     expect(state.processRenders).toBe(1);
   });
 
-  it("unmounts graph and process panels in Compact", () => {
-    state.preset = "compact";
+  it("mounts only the dense strip in Compact", () => {
+    state.view = "compact";
 
     render(<Performance />);
 
-    expect(screen.getByTestId("performance-current-values")).toBeVisible();
+    expect(screen.getByTestId("performance-compact-strip")).toBeVisible();
+    expect(screen.queryByTestId("performance-current-values")).toBeNull();
     expect(screen.queryByTestId("performance-usage-graphs")).toBeNull();
     expect(screen.queryByTestId("live-process-table")).toBeNull();
     expect(state.chartRenders).toEqual({ cpu: 0, memory: 0, gpu: 0 });
   });
 
-  it("mounts only visible Custom panels", () => {
-    state.preset = "custom";
+  it("drops every other surface in the expanded Compact view", () => {
+    state.view = "compact";
+    state.compactExpanded = true;
+
+    render(<Performance />);
+
+    expect(
+      screen.getByTestId("performance-compact-fullscreen"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("performance-compact-strip")).toBeVisible();
+    expect(screen.getByTestId("performance-compact-collapse")).toBeVisible();
+    // No screen chrome survives: no view switcher, no title, no panels.
+    expect(screen.queryByTestId("performance-screen")).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByTestId("performance-usage-graphs")).toBeNull();
+  });
+
+  it("mounts only the graph in Monitor", () => {
+    state.view = "monitor";
+
+    render(<Performance />);
+
+    expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
+    expect(screen.queryByTestId("performance-current-values")).toBeNull();
+    expect(screen.queryByTestId("live-process-table")).toBeNull();
+  });
+
+  it("keeps hidden panels unmounted in the panels view", () => {
+    state.customLayout = {
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: ["usageGraphs"],
+    };
 
     render(<Performance />);
 
     expect(screen.getByTestId("performance-current-values")).toBeVisible();
-    expect(screen.queryByTestId("performance-usage-graphs")).toBeNull();
+    expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
     expect(screen.queryByTestId("live-process-table")).toBeNull();
+    expect(screen.queryByTestId("performance-panel-perCore")).toBeNull();
   });
 
   it("shows the temperature for the GPU selected by the usage history", () => {
-    state.preset = "compact";
     const store = createStore();
     store.set(selectedGpuIdAtom, "gpu-2");
     store.set(gpuUsageHistoriesAtom, {
@@ -156,7 +241,6 @@ describe("Performance", () => {
   });
 
   it("leaves visible gaps between unavailable sparkline samples", () => {
-    state.preset = "compact";
     const store = createStore();
     store.set(cpuUsageHistoryAtom, [10, 20, null, 30, 40]);
 
@@ -172,7 +256,6 @@ describe("Performance", () => {
   });
 
   it("uses one effective GPU for history and temperature fallbacks", () => {
-    state.preset = "compact";
     const store = createStore();
     store.set(selectedGpuIdAtom, "stale-gpu");
     store.set(gpuUsageHistoriesAtom, {
@@ -193,5 +276,35 @@ describe("Performance", () => {
     expect(gpuMetric).toHaveTextContent("25%");
     expect(gpuMetric).toHaveTextContent("45°C");
     expect(gpuMetric).not.toHaveTextContent("67°C");
+  });
+
+  it("keeps the two-column request collapsible to one column", () => {
+    state.columns = 2;
+
+    render(<Performance />);
+
+    const grid = screen
+      .getByTestId("performance-panel-usageGraphs")
+      .closest("[data-panel-columns]");
+    expect(grid).toHaveAttribute("data-panel-columns", "2");
+    // Two columns are an upper bound: narrow windows still render one.
+    expect(grid).toHaveClass("grid-cols-1", "xl:grid-cols-2");
+  });
+
+  it("shows panel controls and the hidden-panel strip only while editing", () => {
+    render(<Performance />);
+
+    expect(screen.queryByTestId("performance-hidden-panels")).toBeNull();
+
+    act(() => {
+      screen.getByTestId("performance-edit-toggle").click();
+    });
+
+    expect(screen.getByTestId("performance-hidden-panels")).toBeVisible();
+    expect(
+      screen.getAllByRole("button", {
+        name: "pages.performance.showPanel",
+      }),
+    ).toHaveLength(2);
   });
 });

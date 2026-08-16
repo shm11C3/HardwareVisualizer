@@ -115,7 +115,6 @@
     },
     "title": "タイトル"
   },
-
   "trayWidgetFlyout": {
     "openMainWindow": "メインウィンドウを開く",
     "close": "トレイウィジェットを閉じる",
@@ -126,7 +125,6 @@
       "gpu-temp": "GPU温度"
     }
   },
-
   "errorBoundary": {
     "title": "予期しないエラーが発生しました",
     "description": "UI と設定をリセットするか、問題が続く場合は報告してください。",
@@ -141,7 +139,6 @@
       "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
     }
   },
-
   "closeToTray": {
     "startupDialog": {
       "title": "システムトレイで使ってみますか？",
@@ -164,7 +161,6 @@
       "listenerReady": "トレイ格納ダイアログを初期化できませんでした。"
     }
   },
-
   "externalComponentGuidance": {
     "title": "任意の追加コンポーネントで表示できる項目があります",
     "labels": {
@@ -212,7 +208,6 @@
       "openDetails": "詳細ページを開けませんでした。"
     }
   },
-
   "navigation": {
     "dashboardSection": "ダッシュボード",
     "performance": "パフォーマンス",
@@ -234,7 +229,11 @@
       },
       "copyHardwareReport": "ハードウェアレポートをコピー",
       "systemSpecifications": {
-        "networkUnavailable": "このシステムではネットワーク情報を利用できません。"
+        "networkUnavailable": "このシステムではネットワーク情報を利用できません。",
+        "platform": "プラットフォーム",
+        "operatingSystem": "オペレーティングシステム",
+        "architecture": "アーキテクチャ",
+        "deviceCount": "{{count}}台"
       },
       "visibleItems": "表示項目",
       "selectItems": "表示する項目を選択してください",
@@ -287,40 +286,39 @@
       }
     },
     "performance": {
-      "description": "現在値と直近60秒を、監視方法に合わせて表示します。",
-      "shortWindow": "直近60秒",
-      "layoutPreset": "パフォーマンスレイアウト",
-      "customizePanels": "カスタムパネル",
-      "customizePanelsDescription": "表示するライブ情報を選び、必要な順序へドラッグできます。",
+      "viewSwitcher": "パフォーマンス表示",
+      "editPanels": "パネルを編集",
+      "doneEditing": "完了",
+      "hiddenPanels": "非表示のパネル:",
+      "showPanel": "{{panel}}を表示",
+      "hidePanel": "{{panel}}を非表示",
       "reorderPanel": "{{panel}}を並べ替え",
+      "currentValues": "現在値",
+      "perCoreUnavailable": "このシステムではコア別使用率を利用できません。",
+      "motherboardSensorsUnavailable": "このシステムではマザーボードセンサーを検出できません。",
       "metrics": {
         "cpu": "CPU",
         "memory": "メモリ",
         "gpu": "GPU"
       },
-      "presets": {
-        "compact": {
-          "name": "コンパクト"
-        },
-        "monitor": {
-          "name": "モニター"
-        },
-        "detailed": {
-          "name": "詳細"
-        },
-        "custom": {
-          "name": "カスタム"
-        }
+      "views": {
+        "panels": "パネル",
+        "compact": "コンパクト",
+        "monitor": "モニター"
       },
       "panels": {
-        "currentValues": "現在値",
         "usageGraphs": "使用率グラフ",
-        "processTable": "ライブプロセス"
+        "processTable": "ライブプロセス",
+        "perCore": "コア別使用率",
+        "motherboardSensors": "マザーボードセンサー"
       },
-      "panelDescriptions": {
-        "usageGraphs": "CPU、RAM、GPUの直近の変化を表示します。",
-        "processTable": "現在CPUとメモリを使用しているプロセスです。"
-      }
+      "panelColumns": "パネルの列数",
+      "columns": {
+        "1": "1列",
+        "2": "2列"
+      },
+      "expandCompact": "拡大",
+      "exitCompactFullScreen": "全画面を終了"
     },
     "usage": {
       "name": "ハードウェア使用率"
@@ -554,7 +552,6 @@
       "needRestart": "アップデートを完了するためにアプリケーションを再起動してください。"
     }
   },
-
   "error": {
     "title": {
       "info": "情報",

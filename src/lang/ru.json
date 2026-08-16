@@ -115,7 +115,6 @@
     },
     "title": "Заголовок"
   },
-
   "errorBoundary": {
     "title": "Произошла непредвиденная ошибка",
     "description": "Сбросьте интерфейс и настройки или сообщите о проблеме, если она повторяется.",
@@ -130,7 +129,6 @@
       "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
     }
   },
-
   "closeToTray": {
     "startupDialog": {
       "title": "Попробовать режим системного трея?",
@@ -153,7 +151,6 @@
       "listenerReady": "Не удалось инициализировать диалог трея."
     }
   },
-
   "externalComponentGuidance": {
     "title": "Требуется дополнительный компонент",
     "labels": {
@@ -201,7 +198,6 @@
       "openDetails": "Не удалось открыть страницу подробностей."
     }
   },
-
   "navigation": {
     "dashboardSection": "Панель",
     "performance": "Производительность",
@@ -223,7 +219,11 @@
       },
       "copyHardwareReport": "Копировать отчёт об оборудовании",
       "systemSpecifications": {
-        "networkUnavailable": "Сведения о сети недоступны в этой системе."
+        "networkUnavailable": "Сведения о сети недоступны в этой системе.",
+        "platform": "Платформа",
+        "operatingSystem": "Операционная система",
+        "architecture": "Архитектура",
+        "deviceCount": "Устройств: {{count}}"
       },
       "visibleItems": "Видимые элементы",
       "selectItems": "Выберите элементы для отображения на главной панели",
@@ -276,40 +276,39 @@
       }
     },
     "performance": {
-      "description": "Текущие значения и последние 60 секунд в подходящем для наблюдения виде.",
-      "shortWindow": "Последние 60 секунд",
-      "layoutPreset": "Макет производительности",
-      "customizePanels": "Настраиваемые панели",
-      "customizePanelsDescription": "Выберите активные данные и перетащите панели в нужном порядке.",
+      "viewSwitcher": "Вид производительности",
+      "editPanels": "Изменить панели",
+      "doneEditing": "Готово",
+      "hiddenPanels": "Скрытые панели:",
+      "showPanel": "Показать {{panel}}",
+      "hidePanel": "Скрыть {{panel}}",
       "reorderPanel": "Изменить порядок: {{panel}}",
+      "currentValues": "Текущие значения",
+      "perCoreUnavailable": "Загрузка по ядрам недоступна в этой системе.",
+      "motherboardSensorsUnavailable": "Датчики материнской платы не обнаружены в этой системе.",
       "metrics": {
         "cpu": "ЦП",
         "memory": "Память",
         "gpu": "ГП"
       },
-      "presets": {
-        "compact": {
-          "name": "Компактный"
-        },
-        "monitor": {
-          "name": "Монитор"
-        },
-        "detailed": {
-          "name": "Подробный"
-        },
-        "custom": {
-          "name": "Свой"
-        }
+      "views": {
+        "panels": "Панели",
+        "compact": "Компактный",
+        "monitor": "Монитор"
       },
       "panels": {
-        "currentValues": "Текущие значения",
         "usageGraphs": "Графики использования",
-        "processTable": "Активные процессы"
+        "processTable": "Активные процессы",
+        "perCore": "Загрузка по ядрам",
+        "motherboardSensors": "Датчики материнской платы"
       },
-      "panelDescriptions": {
-        "usageGraphs": "Недавняя активность ЦП, памяти и ГП.",
-        "processTable": "Процессы, использующие ЦП и память сейчас."
-      }
+      "panelColumns": "Колонки панелей",
+      "columns": {
+        "1": "Одна колонка",
+        "2": "Две колонки"
+      },
+      "expandCompact": "Развернуть",
+      "exitCompactFullScreen": "Выйти из полноэкранного режима"
     },
     "usage": {
       "name": "Использование"
@@ -524,7 +523,6 @@
       "needRestart": "Перезапустите приложение для завершения обновления."
     }
   },
-
   "error": {
     "title": {
       "info": "Информация",

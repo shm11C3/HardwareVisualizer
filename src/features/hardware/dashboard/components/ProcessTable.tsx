@@ -23,7 +23,16 @@ import type { ProcessInfo } from "@/rspc/bindings";
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
 
-export const ProcessesTable = () => {
+export const ProcessesTable = ({
+  headingStyle = "card",
+}: {
+  /**
+   * "card" keeps the classic Hardware Dashboard heading. "panel" matches the
+   * Performance panel eyebrow so the process card does not read as a
+   * differently-styled block among its neighbours.
+   */
+  headingStyle?: "card" | "panel";
+} = {}) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
   const processes = useProcessInfo();
@@ -81,9 +90,14 @@ export const ProcessesTable = () => {
     setSortConfig({ key, direction });
   };
 
+  const isPanelHeading = headingStyle === "panel";
+
   return (
     <div
-      className="rounded-md bg-card-non-transparent p-4"
+      className={cn(
+        "bg-card-non-transparent p-4",
+        isPanelHeading ? "rounded-2xl" : "rounded-md",
+      )}
       data-testid="live-process-table"
       style={{
         opacity:
@@ -96,23 +110,38 @@ export const ProcessesTable = () => {
       }}
     >
       <Dialog>
-        <div className="flex">
-          <div className="mb-2 flex items-center">
-            <div className="mr-2 mb-0.5 ml-6">
-              <GearIcon size={24} color="var(--color-process)" />
-            </div>
-            <h4 className="font-bold text-xl">{t("shared.process")}</h4>
-          </div>
-
-          <div className="ml-auto">
+        {isPanelHeading ? (
+          <div className="mb-2 flex min-h-9 items-center gap-2">
+            <GearIcon size={18} color="var(--color-process)" />
+            <h4 className="font-mono font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+              {t("shared.process")}
+            </h4>
             <DialogTrigger
               type="button"
-              className="flex w-full cursor-pointer items-center justify-center hover:text-zinc-600 focus:outline-hidden dark:text-gray-400 dark:hover:text-white"
+              className="ml-auto flex cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground focus:outline-hidden"
             >
-              <ArrowsOutIcon size={28} />
+              <ArrowsOutIcon size={20} />
             </DialogTrigger>
           </div>
-        </div>
+        ) : (
+          <div className="flex">
+            <div className="mb-2 flex items-center">
+              <div className="mr-2 mb-0.5 ml-6">
+                <GearIcon size={24} color="var(--color-process)" />
+              </div>
+              <h4 className="font-bold text-xl">{t("shared.process")}</h4>
+            </div>
+
+            <div className="ml-auto">
+              <DialogTrigger
+                type="button"
+                className="flex w-full cursor-pointer items-center justify-center hover:text-zinc-600 focus:outline-hidden dark:text-gray-400 dark:hover:text-white"
+              >
+                <ArrowsOutIcon size={28} />
+              </DialogTrigger>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <InfoTable

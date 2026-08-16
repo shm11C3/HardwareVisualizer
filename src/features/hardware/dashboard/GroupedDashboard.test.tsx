@@ -34,8 +34,10 @@ vi.mock("@/hooks/useTauriStore", () => ({
   ],
 }));
 
-vi.mock("./Dashboard", () => ({
-  Dashboard: () => <div data-testid="system-specifications-content" />,
+vi.mock("../specifications/SystemSpecifications", () => ({
+  SystemSpecifications: () => (
+    <div data-testid="system-specifications-content" />
+  ),
 }));
 
 vi.mock("../performance/Performance", () => ({
