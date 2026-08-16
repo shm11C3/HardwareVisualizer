@@ -186,9 +186,9 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     gpuLive,
     gpuAdapters.map((adapter) => adapter.id),
   );
-  const effectiveGpuName = gpuAdapters.find(
+  const effectiveGpuAdapter = gpuAdapters.find(
     (adapter) => adapter.id === effectiveGpuId,
-  )?.name;
+  );
   const gpuHasNoReadings = hasNoLiveGpuReadings(effectiveGpuId, gpuLive);
   const gpuHistory =
     effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
@@ -262,10 +262,15 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
       if (usedKb != null) {
         // Matched by name, not id: the inventory and the live samples use
         // different id namespaces (see `gpuNamesAtom`), so an id lookup here
-        // always misses and silently drops the total.
-        const totalLabel = hardwareInfo.gpus?.find(
-          (gpu) => gpu.name === effectiveGpuName,
-        )?.memorySizeDedicated;
+        // always misses and silently drops the total. Two identical cards
+        // make the name ambiguous, and a total attributed to the wrong one
+        // of them is worse than no total, so the denominator is dropped.
+        const totalLabel =
+          effectiveGpuAdapter != null && !effectiveGpuAdapter.isNameAmbiguous
+            ? hardwareInfo.gpus?.find(
+                (gpu) => gpu.name === effectiveGpuAdapter.name,
+              )?.memorySizeDedicated
+            : undefined;
         const usedGb = (usedKb / 1024 / 1024).toFixed(1);
         substats.push({
           key: "vram",
@@ -291,7 +296,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     return substats;
   }, [
     effectiveGpuId,
-    effectiveGpuName,
+    effectiveGpuAdapter,
     gpuDedicatedMemoryKbMap,
     gpuFanSpeedMap,
     hardwareInfo.gpus,

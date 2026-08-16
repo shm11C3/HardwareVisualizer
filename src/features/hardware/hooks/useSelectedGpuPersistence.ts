@@ -1,5 +1,5 @@
 import { useAtom } from "jotai";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { selectedGpuIdAtom } from "@/features/hardware/store/chart";
 import { useTauriStore } from "@/hooks/useTauriStore";
 
@@ -26,21 +26,25 @@ export const useSelectedGpuPersistence = () => {
     null,
   );
   const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
-  const hydratedRef = useRef(false);
+  // State, not a ref: a ref flipped inside the hydration effect is already
+  // true when the write-back effect runs later in the *same* commit, where
+  // `selectedGpuId` is still the pre-hydration value — so it would persist
+  // that stale value straight over the preference just restored.
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (isPending || hydratedRef.current) return;
+    if (isPending || hydrated) return;
     if (storedId != null) {
       // Explicit intent outranks the event listener's auto-selection of the
       // first reporting adapter, whichever of the two lands first.
       setSelectedGpuId(storedId);
     }
-    hydratedRef.current = true;
-  }, [isPending, storedId, setSelectedGpuId]);
+    setHydrated(true);
+  }, [isPending, hydrated, storedId, setSelectedGpuId]);
 
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    if (!hydrated) return;
     if (selectedGpuId === storedId) return;
     setStoredId(selectedGpuId);
-  }, [selectedGpuId, storedId, setStoredId]);
+  }, [hydrated, selectedGpuId, storedId, setStoredId]);
 };

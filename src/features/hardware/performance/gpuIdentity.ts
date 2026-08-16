@@ -5,8 +5,16 @@
  */
 export type GpuAdapter = {
   id: string;
+  /** The raw platform name. Two identical cards report the same one. */
   name: string;
+  /** Always unique across the list, so a control can never be ambiguous. */
   label: string;
+  /**
+   * Whether another adapter reports the same `name`. Any join that keys on
+   * the name — the inventory's VRAM total, for one — has to refuse when this
+   * is true, because the name cannot pick out one of the two.
+   */
+  isNameAmbiguous: boolean;
 };
 
 /**
@@ -135,15 +143,41 @@ export const listGpuAdapters = (
   }
 
   const entries = [...named.entries()];
-  const labels = dropSharedPrefixWords(
+  const shortened = dropSharedPrefixWords(
     entries.map(([, name]) => shortenGpuName(name)),
   );
-  const isUnique = new Set(labels).size === labels.length;
+  const nameCounts = new Map<string, number>();
+  for (const [, name] of entries) {
+    nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+  }
+
+  // An ordinal for the adapters the platform reports under one name — two
+  // identical cards — then, only if labels still collide, the full names.
+  // A control the user cannot tell from its neighbour is not a choice.
+  const withOrdinals = (bases: string[]) => {
+    const seen = new Map<string, number>();
+    return bases.map((base, index) => {
+      const name = entries[index][1];
+      if ((nameCounts.get(name) ?? 0) < 2) {
+        return base;
+      }
+      const ordinal = (seen.get(name) ?? 0) + 1;
+      seen.set(name, ordinal);
+      return `${base} #${ordinal}`;
+    });
+  };
+
+  const shortLabels = withOrdinals(shortened);
+  const labels =
+    new Set(shortLabels).size === shortLabels.length
+      ? shortLabels
+      : withOrdinals(entries.map(([, name]) => name));
 
   return entries.map(([id, name], index) => ({
     id,
     name,
-    label: isUnique ? labels[index] : name,
+    label: labels[index],
+    isNameAmbiguous: (nameCounts.get(name) ?? 0) > 1,
   }));
 };
 

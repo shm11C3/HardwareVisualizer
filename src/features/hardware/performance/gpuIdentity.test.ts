@@ -32,6 +32,7 @@ describe("listGpuAdapters", () => {
         id: "nvapi:12345",
         name: "NVIDIA GeForce RTX 4080",
         label: "GeForce RTX 4080",
+        isNameAmbiguous: false,
       },
     ]);
   });
@@ -100,9 +101,9 @@ describe("listGpuAdapters", () => {
     ]);
   });
 
-  it("keeps full names when trimming the shared prefix would collide", () => {
-    // Two identical cards: shortening cannot tell them apart, so it must not
-    // pretend to by showing the same short label twice.
+  it("adds an ordinal when the platform reports the same name twice", () => {
+    // Two identical cards. Neither shortening nor the full name can tell them
+    // apart, and two controls that read identically are not a choice.
     const adapters = listGpuAdapters(
       names(
         ["gpu-1", "NVIDIA GeForce RTX 4090"],
@@ -112,9 +113,23 @@ describe("listGpuAdapters", () => {
     );
 
     expect(adapters.map((adapter) => adapter.label)).toEqual([
-      "NVIDIA GeForce RTX 4090",
-      "NVIDIA GeForce RTX 4090",
+      "GeForce RTX 4090 #1",
+      "GeForce RTX 4090 #2",
     ]);
+    // Anything that keys on the name has to refuse it here.
+    expect(adapters.every((adapter) => adapter.isNameAmbiguous)).toBe(true);
+  });
+
+  it("leaves distinct adapters unmarked, so name joins stay allowed", () => {
+    const adapters = listGpuAdapters(
+      names(
+        ["gpu-1", "NVIDIA GeForce RTX 4080"],
+        ["gpu-2", "Intel UHD Graphics 770"],
+      ),
+      live({ usageHistories: { "gpu-1": [20], "gpu-2": [5] } }),
+    );
+
+    expect(adapters.every((adapter) => adapter.isNameAmbiguous)).toBe(false);
   });
 
   it("drops the leading words two adapters share, since a narrow card truncates the rest away", () => {

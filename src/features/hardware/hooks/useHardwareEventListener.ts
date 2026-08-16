@@ -110,9 +110,14 @@ export const useHardwareEventListener = () => {
       // Names from all GPUs. Every sample carries one, and it is the only way
       // to name an adapter: live ids and the inventory's ids do not share a
       // namespace on any platform (see `gpuNamesAtom`).
-      setGpuNames(
-        Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuName])),
-      );
+      // Merged, not replaced: a name is an identity, not a reading. A
+      // provider that drops one adapter from a single sample must not erase
+      // the only record that the adapter exists, or the Performance selector
+      // would jump to another GPU on a transient hiccup.
+      setGpuNames((prev) => ({
+        ...prev,
+        ...Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuName])),
+      }));
 
       // Usage sources from all GPUs
       setGpuSources(

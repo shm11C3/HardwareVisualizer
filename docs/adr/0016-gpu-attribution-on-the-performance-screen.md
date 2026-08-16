@@ -86,8 +86,18 @@ one adapter from another: trademark marks, a leading vendor word, and a run of
 leading words every detected adapter repeats. The last rule matters because the
 shared part is exactly what a narrow card keeps while truncating the model
 away — "GeForce RTX 4080" and "GeForce RTX 4060" would otherwise both render as
-"GeForce RTX 40…". If shortening would make two labels identical, every label
-falls back to the full name.
+"GeForce RTX 40…".
+
+Labels are then made unique, because two controls that read identically are
+not a choice. Adapters the platform reports under one name — two identical
+cards — get an ordinal; if labels still collide, every label falls back to the
+full name. The accessible name follows the same rule, so the ordinal is
+announced exactly when the raw name cannot tell the cards apart.
+
+A duplicated name also disqualifies the name as a join key. The VRAM total,
+the one place the inventory and the live side have to meet, is dropped rather
+than guessed when two adapters share a name: showing a live reading against
+the wrong card's capacity is worse than showing no denominator.
 
 ## Placement
 
@@ -123,6 +133,8 @@ selection; it follows the choice made in Panels.
   no device to name.
 - Long adapter names still truncate inside a three-column strip; the full name
   is only available on hover or to assistive technology.
+- Two identical cards lose their VRAM denominator, because the only join
+  available cannot say which card is which.
 - A GPU that the inventory lists but the monitor stream never reports does not
   appear on Performance at all. It is still on the System Specifications sheet,
   but Performance cannot name a device it has no reading from.

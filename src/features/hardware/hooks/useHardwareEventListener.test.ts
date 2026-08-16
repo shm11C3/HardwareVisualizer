@@ -929,6 +929,40 @@ describe("useHardwareEventListener", () => {
       });
     });
 
+    it("keeps a known adapter's name when a sample omits it", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [names] = useAtom(gpuNamesAtom);
+          return names;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() => {
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({ gpuId: "nvapi:0", gpuName: "GeForce RTX 4080" }),
+              makeGpu({ gpuId: "pci:0:2:0", gpuName: "UHD Graphics 770" }),
+            ],
+          }),
+        );
+        // A provider hiccup drops one adapter from a single sample. A name is
+        // identity, not a reading, so it must not vanish with it.
+        emit(
+          makePayload({
+            gpus: [makeGpu({ gpuId: "nvapi:0", gpuName: "GeForce RTX 4080" })],
+          }),
+        );
+      });
+
+      expect(result.current).toEqual({
+        "nvapi:0": "GeForce RTX 4080",
+        "pci:0:2:0": "UHD Graphics 770",
+      });
+    });
+
     it("tracks usage sources for all GPUs", () => {
       const { result } = renderHook(
         () => {

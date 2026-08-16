@@ -3,6 +3,13 @@ import { cn } from "@/lib/utils";
 import type { GpuAdapter } from "../gpuIdentity";
 
 /**
+ * The full name, except where two identical cards report the same one — then
+ * the label, which carries the ordinal that tells them apart.
+ */
+const accessibleName = (adapter: GpuAdapter) =>
+  adapter.isNameAmbiguous ? adapter.label : adapter.name;
+
+/**
  * States which adapter the GPU instrument's readings belong to, and lets the
  * user pick another one when the machine has more than one.
  *
@@ -36,13 +43,13 @@ export const GpuAdapterSelector = ({
           "min-w-0 truncate text-muted-foreground text-xs",
           className,
         )}
-        title={adapter.name}
+        title={accessibleName(adapter)}
         data-testid="performance-gpu-adapter"
       >
         {/* The visible text is shortened to fit the card; the full name is
             still read out, since a title alone is not an accessible name. */}
         <span aria-hidden="true">{adapter.label}</span>
-        <span className="sr-only">{adapter.name}</span>
+        <span className="sr-only">{accessibleName(adapter)}</span>
       </p>
     );
   }
@@ -66,10 +73,12 @@ export const GpuAdapterSelector = ({
             key={adapter.id}
             type="button"
             aria-pressed={isSelected}
-            // The visible label is shortened to fit the card, so the full name
-            // the platform reported is what assistive technology announces.
-            aria-label={adapter.name}
-            title={adapter.name}
+            // The visible label is shortened to fit the card, so the full
+            // name is what assistive technology announces — carrying the
+            // ordinal when the platform reports the same name twice, since
+            // the raw name alone would not say which card this is.
+            aria-label={accessibleName(adapter)}
+            title={accessibleName(adapter)}
             onClick={() => onSelect(adapter.id)}
             className={cn(
               "min-w-0 max-w-28 truncate rounded-md border px-1.5 py-0.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
