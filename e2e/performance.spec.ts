@@ -205,6 +205,33 @@ test.describe("Grouped Dashboard", () => {
     await expect(fullScreen).toHaveCount(0);
   });
 
+  test("keeps the expanded strip inside a small corner window", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await seedHardwareHistory(page);
+
+    // The mini monitor's own use case: a small window kept in a screen corner.
+    await page.setViewportSize({ width: 520, height: 420 });
+    await page.getByRole("tab", { name: "Compact" }).click();
+    await page.getByTestId("performance-compact-expand").click();
+    await expect(
+      page.getByTestId("performance-compact-fullscreen"),
+    ).toBeVisible();
+
+    // burnin-root hides overflow, so a row wider than the window would clip
+    // the sparkline instead of shrinking.
+    const overflow = await page
+      .getByTestId("performance-compact-row-cpu")
+      .evaluate((row) => ({
+        scrollWidth: row.scrollWidth,
+        clientWidth: row.clientWidth,
+      }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+
+    await saveCapture(page, "performance-compact-fullscreen-small-window");
+  });
+
   test("renders at desktop and compact viewports", async ({ page }) => {
     await gotoApp(page);
     await seedHardwareHistory(page);

@@ -42,8 +42,11 @@ const CompactRow = memo(
       <div
         className={cn(
           "grid items-center border-border/60 border-b last:border-b-0",
+          // The mini monitor is meant for a small corner window, so the
+          // flexible tracks must be able to shrink (minmax(0,...)) instead of
+          // forcing a ~600px row that burnin-root would clip.
           expanded
-            ? "min-h-0 flex-1 grid-cols-[5rem_minmax(6rem,1fr)_6rem_4.5rem_minmax(12rem,2.6fr)] gap-4 py-3"
+            ? "min-h-0 flex-1 grid-cols-[2.75rem_minmax(0,1fr)_3.25rem_3rem_minmax(0,1.6fr)] gap-3 py-3 sm:grid-cols-[5rem_minmax(0,1fr)_6rem_4.5rem_minmax(0,2.6fr)] sm:gap-4"
             : "grid-cols-[2.8rem_minmax(3.5rem,1fr)_2.8rem_2.8rem_minmax(5rem,1.2fr)] gap-2.5 py-3",
         )}
         style={{ "--metric-color": row.color } as CSSProperties}
@@ -52,7 +55,7 @@ const CompactRow = memo(
         <span
           className={cn(
             "font-mono font-semibold text-muted-foreground uppercase tracking-[0.1em]",
-            expanded ? "text-base" : "text-[11px]",
+            expanded ? "text-sm sm:text-base" : "text-[11px]",
           )}
         >
           {row.label}
@@ -75,7 +78,7 @@ const CompactRow = memo(
         <span
           className={cn(
             "text-right font-mono tabular-nums",
-            expanded ? "font-semibold text-2xl" : "text-sm",
+            expanded ? "font-semibold text-xl sm:text-2xl" : "text-sm",
           )}
         >
           {currentValue == null ? "—" : `${Math.round(currentValue)}%`}
@@ -83,7 +86,7 @@ const CompactRow = memo(
         <span
           className={cn(
             "text-right font-mono text-muted-foreground tabular-nums",
-            expanded ? "text-sm" : "text-[11px]",
+            expanded ? "text-xs sm:text-sm" : "text-[11px]",
           )}
         >
           {row.detail ?? ""}

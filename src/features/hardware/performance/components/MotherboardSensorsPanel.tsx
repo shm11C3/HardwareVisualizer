@@ -1,6 +1,8 @@
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
+  cpuUsageHistoryAtom,
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
 } from "@/features/hardware/store/chart";
@@ -17,13 +19,24 @@ export const MotherboardSensorsPanel = () => {
   const { settings } = useSettingsAtom();
   const motherboardTemps = useAtomValue(motherboardTempsAtom);
   const motherboardFanSpeeds = useAtomValue(motherboardFanSpeedsAtom);
+  // Empty atoms mean "nothing has arrived yet" until the monitor stream has
+  // delivered at least one sample; only then is absence a fact rather than a
+  // startup state.
+  const hasSample = useAtomValue(cpuUsageHistoryAtom).length > 0;
   const temperatureUnit = settings.temperatureUnit === "C" ? "°C" : "°F";
 
   if (motherboardTemps.length === 0 && motherboardFanSpeeds.length === 0) {
-    return (
+    return hasSample ? (
       <p className="px-4 pb-4 text-muted-foreground text-sm">
         {t("pages.performance.motherboardSensorsUnavailable")}
       </p>
+    ) : (
+      <div className="px-4 pb-4">
+        <Skeleton
+          className="h-16 w-full rounded-md"
+          data-testid="motherboard-sensors-loading"
+        />
+      </div>
     );
   }
 
