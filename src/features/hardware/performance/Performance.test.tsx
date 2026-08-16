@@ -474,6 +474,28 @@ describe("Performance", () => {
     );
   });
 
+  it("says why a Compact row is dashed when its adapter is silent", () => {
+    const store = createStore();
+    state.view = "compact";
+    store.set(selectedGpuIdAtom, "gpu-2");
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const strip = screen.getByTestId("performance-compact-strip");
+    expect(strip).toHaveTextContent("pages.performance.gpuNoLiveReadings");
+    // And it is still the selected adapter's row, not the reporting one's.
+    expect(strip).not.toHaveTextContent("25%");
+  });
+
   it("carries the selected adapter into the Compact strip", () => {
     const store = createStore();
     state.view = "compact";

@@ -134,6 +134,7 @@ export const CompactStrip = ({
     live: gpuLive,
     effectiveGpuId,
     effectiveAdapter: activeGpuAdapter,
+    hasNoReadings: gpuHasNoReadings,
   } = useGpuAdapters();
 
   const rows: CompactMetricRow[] = [
@@ -177,26 +178,32 @@ export const CompactStrip = ({
   // The GPU row carries one adapter's numbers, so the strip says which one.
   // It goes in the footer rather than the row: the row's tracks are sized for
   // the mini monitor's small corner window and cannot hold a device name.
-  const footerItems: CompactFooterItem[] =
-    activeGpuAdapter != null
-      ? [
-          {
-            id: "gpu-adapter",
-            text: t("pages.performance.compactGpuAdapter", {
-              name: activeGpuAdapter.label,
-            }),
-            // The visible text is shortened to fit a corner window; the full
-            // name is still announced and still available on hover. Where two
-            // identical cards share that name it says nothing, so the
-            // ordinal-bearing label is what gets announced instead.
-            fullText: t("pages.performance.compactGpuAdapter", {
-              name: activeGpuAdapter.isNameAmbiguous
-                ? activeGpuAdapter.label
-                : activeGpuAdapter.name,
-            }),
-          },
-        ]
-      : [];
+  const footerItems: CompactFooterItem[] = [];
+  if (activeGpuAdapter != null) {
+    footerItems.push({
+      id: "gpu-adapter",
+      text: t("pages.performance.compactGpuAdapter", {
+        name: activeGpuAdapter.label,
+      }),
+      // The visible text is shortened to fit a corner window; the full
+      // name is still announced and still available on hover. Where two
+      // identical cards share that name it says nothing, so the
+      // ordinal-bearing label is what gets announced instead.
+      fullText: t("pages.performance.compactGpuAdapter", {
+        name: activeGpuAdapter.isNameAmbiguous
+          ? activeGpuAdapter.label
+          : activeGpuAdapter.name,
+      }),
+    });
+  }
+  // A dash in the row means "no number". Only the footer can say whether that
+  // is because the adapter is silent or because nothing has been measured yet.
+  if (gpuHasNoReadings) {
+    footerItems.push({
+      id: "gpu-unavailable",
+      text: t("pages.performance.gpuNoLiveReadings"),
+    });
+  }
 
   return (
     <section
