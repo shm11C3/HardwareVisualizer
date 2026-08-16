@@ -212,6 +212,7 @@
   "navigation": {
     "performance": "パフォーマンス",
     "systemSpecifications": "システム仕様",
+    "openDestination": "{{name}}を開く",
     "notice": {
       "title": "ナビゲーションが新しくなりました",
       "description": "パフォーマンスとシステム仕様は、サイドメニューの独立した項目になりました。設定から以前のナビゲーションに戻すこともできます。",

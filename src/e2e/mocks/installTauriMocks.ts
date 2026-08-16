@@ -42,6 +42,8 @@ type FixtureOverrides = {
   storageDeviceCount: number | null;
   showNavigationNotice: boolean;
   classicNavigation: boolean;
+  /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
+  storedDisplayTarget: string | null;
 };
 type TauriInternalsWindow = Window & {
   __TAURI_INTERNALS__?: {
@@ -77,6 +79,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     classicNavigation:
       new URLSearchParams(window.location.search).get("navigationLayout") ===
       "classic",
+    storedDisplayTarget: new URLSearchParams(window.location.search).get(
+      "storedDisplay",
+    ),
   };
 };
 
@@ -264,6 +269,9 @@ export const installTauriMocks = () => {
   const store = new Map<string, unknown>(Object.entries(storeFixture));
   const eventListeners = new Map<string, Set<number>>();
   const fixtureOverrides = readFixtureOverrides();
+  if (fixtureOverrides.storedDisplayTarget != null) {
+    store.set("display", fixtureOverrides.storedDisplayTarget);
+  }
   const handlers = buildInvokeHandlers(store, eventListeners, fixtureOverrides);
   const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;

@@ -2,10 +2,18 @@
 
 Status: accepted
 
-The single Grouped Dashboard destination described here was replaced by
-[ADR 0015](0015-performance-and-system-specifications-destinations.md), which
-promotes Performance and System Specifications to peer sidebar destinations.
-Everything else in this record still holds.
+[ADR 0015](0015-performance-and-system-specifications-destinations.md) replaced
+the destination structure described here: Performance and System Specifications
+are peer sidebar destinations, not tabs inside one Grouped Dashboard. Read every
+passage below that describes tabs, the Grouped Dashboard destination, or
+switching between them as the state this record shipped, not as current
+behavior.
+
+The rest of this decision still holds: the Classic Navigation fallback and its
+opt-out preference, the rule that sidebar destinations, in-screen tabs, and
+content sections are distinct levels named explicitly, the requirement that
+rendering cost follows visible value, and the Application Preference
+classifications.
 
 The sidebar previously exposed five flat entries: Hardware Dashboard, Usage,
 CPU, Insights, and Settings. Grouped navigation restructures those entry

@@ -71,9 +71,23 @@ export const seedHardwareHistory = async (page: Page) => {
   await page.waitForTimeout(600);
 };
 
+/** Localized destination titles used by the side menu's accessible names. */
+const DESTINATION_TITLES = {
+  dashboard: "Dashboard",
+  performance: "Performance",
+  systemSpecifications: "System Specifications",
+  usage: "Usage",
+  cpuDetail: "CPU",
+  insights: "Insights",
+  settings: "Settings",
+} as const;
+
+const destinationName = (type: keyof typeof DESTINATION_TITLES) =>
+  `Open ${DESTINATION_TITLES[type]}`;
+
 /**
  * Navigate via the closed side menu's accessible buttons
- * (`aria-label="open <type>"`, see SideMenu.tsx).
+ * (`aria-label="Open <destination>"`, see SideMenu.tsx).
  */
 export const navigateTo = async (
   page: Page,
@@ -86,17 +100,19 @@ export const navigateTo = async (
     | "insights"
     | "settings",
 ) => {
-  const target = page.getByRole("button", { name: `open ${type}` });
+  const target = page.getByRole("button", { name: destinationName(type) });
   await expect(page.locator('[data-settings-loaded="true"]')).toBeAttached({
     timeout: BOOTSTRAP_TIMEOUT,
   });
-  await expect(page.getByRole("button", { name: "open settings" })).toBeVisible(
-    { timeout: BOOTSTRAP_TIMEOUT },
-  );
+  await expect(
+    page.getByRole("button", { name: destinationName("settings") }),
+  ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
 
   if (type === "usage" || type === "cpuDetail") {
     if ((await target.count()) === 0) {
-      await page.getByRole("button", { name: "open settings" }).click();
+      await page
+        .getByRole("button", { name: destinationName("settings") })
+        .click();
       const classicNavigation = page.getByRole("switch", {
         name: "Classic navigation",
       });

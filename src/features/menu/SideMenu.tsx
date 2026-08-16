@@ -88,17 +88,7 @@ const MenuItem = memo(
     selected: boolean;
     handleMenuClick: (type: SelectedDisplayType) => void;
   }) => {
-    const { t } = useTranslation();
-
-    const menuTitles: Record<SelectedDisplayType, string> = {
-      dashboard: t("pages.dashboard.name"),
-      performance: t("navigation.performance"),
-      systemSpecifications: t("navigation.systemSpecifications"),
-      usage: t("pages.usage.name"),
-      cpuDetail: "CPU",
-      insights: t("pages.insights.name"),
-      settings: t("pages.settings.name"),
-    };
+    const menuTitles = useMenuTitles();
 
     const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
       dashboard: <SquaresFourIcon size={20} />,
@@ -126,7 +116,6 @@ const MenuItem = memo(
           onClick={() => handleMenuClick(type)}
           onMouseEnter={() => prefetchScreen(type)}
           onFocus={() => prefetchScreen(type)}
-          aria-label={`${menuTitles[type]} tab`}
           aria-selected={selected}
           role="tab"
         >
@@ -138,6 +127,24 @@ const MenuItem = memo(
   },
 );
 
+/**
+ * Destination titles shared by both menu states. The closed rail shows icons
+ * only, so its accessible name is the sole way to tell the destinations apart.
+ */
+const useMenuTitles = (): Record<SelectedDisplayType, string> => {
+  const { t } = useTranslation();
+
+  return {
+    dashboard: t("pages.dashboard.name"),
+    performance: t("navigation.performance"),
+    systemSpecifications: t("navigation.systemSpecifications"),
+    usage: t("pages.usage.name"),
+    cpuDetail: "CPU",
+    insights: t("pages.insights.name"),
+    settings: t("pages.settings.name"),
+  };
+};
+
 const ClosedSideMenu = ({
   type,
   selected,
@@ -147,6 +154,8 @@ const ClosedSideMenu = ({
   selected: boolean;
   handleMenuClick: (type: SelectedDisplayType) => void;
 }) => {
+  const { t } = useTranslation();
+  const menuTitles = useMenuTitles();
   const menuIcons: Record<SelectedDisplayType, JSX.Element> = {
     dashboard: <SquaresFourIcon size={24} />,
     performance: <GaugeIcon size={24} />,
@@ -173,7 +182,9 @@ const ClosedSideMenu = ({
         onClick={() => handleMenuClick(type)}
         onMouseEnter={() => prefetchScreen(type)}
         onFocus={() => prefetchScreen(type)}
-        aria-label={`open ${type}`}
+        aria-label={t("navigation.openDestination", {
+          name: menuTitles[type],
+        })}
       >
         {menuIcons[type]}
       </button>

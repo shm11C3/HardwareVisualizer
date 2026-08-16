@@ -14,9 +14,13 @@ test.describe("Grouped navigation destinations", () => {
 
     // Both screens are side-menu destinations now, not tabs inside one screen,
     // so selection lives on the menu entries.
-    const performanceEntry = page.getByRole("tab", { name: "Performance tab" });
+    const performanceEntry = page.getByRole("tab", {
+      name: "Performance",
+      exact: true,
+    });
     const specificationsEntry = page.getByRole("tab", {
-      name: "System Specifications tab",
+      name: "System Specifications",
+      exact: true,
     });
     await expect(performanceEntry).toHaveAttribute("aria-selected", "true");
     await expect(specificationsEntry).toHaveAttribute("aria-selected", "false");
@@ -51,6 +55,25 @@ test.describe("Grouped navigation destinations", () => {
 
     await navigateTo(page, "performance");
     await expect(page.getByTestId("performance-screen")).toBeVisible();
+  });
+
+  test("lands upgrading users on a destination that still exists", async ({
+    page,
+  }) => {
+    // A stored selection from the retired Grouped Dashboard destination.
+    await gotoApp(page, { path: "/?storedDisplay=groupedDashboard" });
+    await expect(page.getByTestId("performance-screen")).toBeVisible();
+
+    // Classic-only screens are not destinations in grouped navigation either.
+    await gotoApp(page, { path: "/?storedDisplay=usage" });
+    await expect(page.getByTestId("performance-screen")).toBeVisible();
+
+    // A destination both layouts share survives untouched.
+    await page.goto("/?storedDisplay=insights");
+    await expect(
+      page.getByRole("button", { name: "Open Performance" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("performance-screen")).toHaveCount(0);
   });
 
   test("switches views and unmounts content outside the active view", async ({
@@ -180,7 +203,7 @@ test.describe("Grouped navigation destinations", () => {
       page.getByRole("heading", { name: "Performance" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "open settings" }),
+      page.getByRole("button", { name: "Open Settings" }),
     ).toHaveCount(0);
     await expect(
       page.getByTestId("performance-compact-collapse"),
@@ -198,7 +221,7 @@ test.describe("Grouped navigation destinations", () => {
     await expect(fullScreen).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Compact" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "open settings" }),
+      page.getByRole("button", { name: "Open Settings" }),
     ).toBeVisible();
 
     // The labelled control exits as well as Escape.
