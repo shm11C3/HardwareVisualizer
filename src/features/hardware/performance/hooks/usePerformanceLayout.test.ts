@@ -93,11 +93,18 @@ describe("usePerformanceLayout", () => {
   });
 
   it("stays pending until the mini-monitor store resolves", () => {
-    vi.mocked(useTauriStore).mockImplementation((key) =>
-      key === "performanceCompactExpanded"
-        ? ([null, setCompactExpanded, true] as never)
-        : ([view, setView, false] as never),
-    );
+    vi.mocked(useTauriStore).mockImplementation((key) => {
+      if (key === "performanceLayoutPreset") {
+        return [view, setView, false] as never;
+      }
+      if (key === "performanceCustomLayout") {
+        return [customLayout, setCustomLayout, false] as never;
+      }
+      if (key === "performancePanelColumns") {
+        return [columns, setColumns, false] as never;
+      }
+      return [null, setCompactExpanded, true] as never;
+    });
 
     const { result } = renderHook(() => usePerformanceLayout());
 

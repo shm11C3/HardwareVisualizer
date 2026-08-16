@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "@/components/ui/skeleton";
 import { processorsUsageHistoryAtom } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { toCssColor } from "./InstrumentStrip";
@@ -17,10 +18,19 @@ export const PerCorePanel = () => {
   const color = toCssColor(settings.lineGraphColor.cpu);
 
   if (currentUsages.length === 0) {
-    return (
+    // An empty history means no hardware-monitor sample has arrived yet;
+    // absence is only a fact once a sample exists without per-core data.
+    return processorsUsageHistory.length > 0 ? (
       <p className="px-4 pb-4 text-muted-foreground text-sm">
         {t("pages.performance.perCoreUnavailable")}
       </p>
+    ) : (
+      <div className="px-4 pb-4">
+        <Skeleton
+          className="h-16 w-full rounded-md"
+          data-testid="per-core-loading"
+        />
+      </div>
     );
   }
 
