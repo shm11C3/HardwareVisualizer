@@ -96,8 +96,10 @@ announced exactly when the raw name cannot tell the cards apart.
 
 A duplicated name also disqualifies the name as a join key. The VRAM total,
 the one place the inventory and the live side have to meet, is dropped rather
-than guessed when two adapters share a name: showing a live reading against
-the wrong card's capacity is worse than showing no denominator.
+than guessed when the name is ambiguous on *either* side: two live adapters
+sharing it, or two inventory entries sharing it while only one reports.
+Showing a live reading against the wrong card's capacity is worse than showing
+no denominator.
 
 ## Placement
 

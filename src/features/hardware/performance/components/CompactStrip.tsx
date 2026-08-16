@@ -224,9 +224,13 @@ export const CompactStrip = ({
               name: activeGpuAdapter.label,
             }),
             // The visible text is shortened to fit a corner window; the full
-            // name is still announced and still available on hover.
+            // name is still announced and still available on hover. Where two
+            // identical cards share that name it says nothing, so the
+            // ordinal-bearing label is what gets announced instead.
             fullText: t("pages.performance.compactGpuAdapter", {
-              name: activeGpuAdapter.name,
+              name: activeGpuAdapter.isNameAmbiguous
+                ? activeGpuAdapter.label
+                : activeGpuAdapter.name,
             }),
           },
         ]

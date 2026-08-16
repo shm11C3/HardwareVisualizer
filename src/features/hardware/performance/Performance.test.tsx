@@ -3,6 +3,7 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cpuUsageHistoryAtom,
+  gpuDedicatedMemoryKbMapAtom,
   gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
@@ -322,6 +323,48 @@ describe("Performance", () => {
       "GeForce RTX 4080",
     );
     expect(screen.queryByTestId("performance-gpu-selector")).toBeNull();
+  });
+
+  it("drops the VRAM total when the inventory name cannot pick out one card", () => {
+    const store = createStore();
+    // Two identical cards in the inventory, only one of them reporting. The
+    // live side looks unambiguous, but the name still cannot say which
+    // capacity belongs to the reading.
+    state.gpus = [
+      gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090"),
+      gpuFixture("inventory-b", "NVIDIA GeForce RTX 4090"),
+    ];
+    store.set(gpuNamesAtom, { "nvapi:1": "NVIDIA GeForce RTX 4090" });
+    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [40] });
+    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4 * 1024 * 1024 });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const gpuMetric = screen.getByTestId("performance-metric-gpu");
+    expect(gpuMetric).toHaveTextContent("VRAM 4.0 GB");
+    expect(gpuMetric).not.toHaveTextContent("VRAM 4.0/8 GB");
+  });
+
+  it("keeps the VRAM total when exactly one inventory entry matches", () => {
+    const store = createStore();
+    state.gpus = [gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090")];
+    store.set(gpuNamesAtom, { "nvapi:1": "NVIDIA GeForce RTX 4090" });
+    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [40] });
+    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4 * 1024 * 1024 });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId("performance-metric-gpu")).toHaveTextContent(
+      "VRAM 4.0/8 GB",
+    );
   });
 
   it("moves every GPU reading to the adapter the user picks", () => {

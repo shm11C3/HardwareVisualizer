@@ -265,11 +265,20 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         // always misses and silently drops the total. Two identical cards
         // make the name ambiguous, and a total attributed to the wrong one
         // of them is worse than no total, so the denominator is dropped.
-        const totalLabel =
-          effectiveGpuAdapter != null && !effectiveGpuAdapter.isNameAmbiguous
-            ? hardwareInfo.gpus?.find(
+        // Both sides have to be unambiguous, not just the live one: the
+        // inventory can hold two identically named cards while only one of
+        // them reports, and `.find()` would then pick a capacity at random.
+        const inventoryMatches =
+          effectiveGpuAdapter == null
+            ? []
+            : (hardwareInfo.gpus?.filter(
                 (gpu) => gpu.name === effectiveGpuAdapter.name,
-              )?.memorySizeDedicated
+              ) ?? []);
+        const totalLabel =
+          effectiveGpuAdapter != null &&
+          !effectiveGpuAdapter.isNameAmbiguous &&
+          inventoryMatches.length === 1
+            ? inventoryMatches[0].memorySizeDedicated
             : undefined;
         const usedGb = (usedKb / 1024 / 1024).toFixed(1);
         substats.push({
