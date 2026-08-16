@@ -71,6 +71,18 @@ enumeration order and the stream's are different enumerations.
 monitor stream reported. An adapter that names itself and reports no values is
 still listed and still selectable; that is what the unavailable state is for.
 
+The derived atoms the classic Usage screen, the classic dashboard, and the
+Monitor graph read (`graphicUsageHistoryAtom`, `gpuUsageSourceAtom`,
+`gpuDedicatedMemoryKbAtom`) resolve the selection through the same rule. They
+previously fell back to the first adapter whenever the selected key was
+missing, which would have let Monitor name one adapter in its toolbar and
+graph another underneath it.
+
+The subscription that answers these questions lives in the component that
+renders the answer, never in a screen's parent: the underlying atoms are
+rewritten on every sample, so subscribing higher up would rerender unrelated
+panels once a second and break the ADR 0010 rendering-cost rule.
+
 ## All four live maps, or none of the conclusions
 
 Usage, temperature, fan speed, and dedicated memory are populated

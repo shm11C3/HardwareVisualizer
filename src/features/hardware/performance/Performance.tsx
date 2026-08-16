@@ -10,13 +10,11 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BurnInShift } from "@/components/shared/BurnInShift";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
 import { CompactStrip } from "./components/CompactStrip";
-import { GpuAdapterSelector } from "./components/GpuAdapterSelector";
 import { InstrumentStrip } from "./components/InstrumentStrip";
+import { MonitorGpuSelector } from "./components/MonitorGpuSelector";
 import { PanelColumnsSelector } from "./components/PanelColumnsSelector";
 import { PanelGrid } from "./components/PanelGrid";
 import { PerformanceViewSwitcher } from "./components/PerformanceViewSwitcher";
@@ -43,13 +41,7 @@ export const Performance = ({
     isPending,
   } = usePerformanceLayout();
   const [editing, setEditing] = useState(false);
-  const { settings } = useSettingsAtom();
-  const { adapters, effectiveGpuId, selectGpu } = useGpuAdapters();
   const isMonitor = view === "monitor";
-  // Monitor is only the graph, so the adapter behind its GPU series has
-  // nowhere else to be named. The Instrument Strip that normally carries this
-  // is not mounted here.
-  const showsGpuSeries = settings.displayTargets.includes("gpu");
   const isCompactFullScreen = view === "compact" && compactExpanded;
 
   useEffect(() => {
@@ -113,13 +105,10 @@ export const Performance = ({
               {t("pages.performance.expandCompact")}
             </button>
           )}
-          {isMonitor && showsGpuSeries && (
-            <GpuAdapterSelector
-              adapters={adapters}
-              selectedId={effectiveGpuId}
-              onSelect={selectGpu}
-            />
-          )}
+          {/* Monitor is only the graph, so the adapter behind its GPU series
+              has nowhere else to be named: the Instrument Strip that normally
+              carries that is not mounted here. */}
+          {isMonitor && <MonitorGpuSelector />}
           {view === "panels" && (
             <PanelColumnsSelector
               columns={columns}

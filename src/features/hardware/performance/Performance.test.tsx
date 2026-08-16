@@ -191,6 +191,27 @@ describe("Performance", () => {
     expect(state.processRenders).toBe(1);
   });
 
+  it("keeps a GPU tick out of the panels that do not show GPU data", () => {
+    // The GPU atoms are rewritten on every sample. A subscription in the
+    // Performance parent would rerender the whole screen once a second.
+    const store = createStore();
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const before = { ...state.chartRenders, process: state.processRenders };
+
+    act(() => store.set(gpuUsageHistoriesAtom, { "gpu-1": [25, 40] }));
+
+    expect(state.processRenders).toBe(before.process);
+    expect(state.chartRenders.cpu).toBe(before.cpu);
+    expect(state.chartRenders.memory).toBe(before.memory);
+  });
+
   it("mounts only the dense strip in Compact", () => {
     state.view = "compact";
 

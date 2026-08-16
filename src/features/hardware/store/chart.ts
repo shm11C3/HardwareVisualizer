@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import { getEffectiveGpuId } from "@/features/hardware/gpuIdentity";
 import type {
   MotherboardFanSpeedValues,
   MotherboardTemperatureValues,
@@ -79,29 +80,45 @@ export const gpuFanSpeedAtom = atom<NameValues>((get) =>
 
 // ── Derived atoms for backward compatibility ──
 
-/** Resolves to the selected (or first) GPU's usage history */
+/**
+ * The adapter every derived atom below describes.
+ *
+ * It has to be the same answer the GPU selectors show, or a surface would
+ * label one adapter and render another's numbers. In particular an explicit
+ * selection that reports no usage resolves to itself, so the consumers below
+ * return nothing rather than borrowing the first adapter's values.
+ */
+const effectiveGpuIdAtom = atom<string | undefined>((get) =>
+  getEffectiveGpuId(
+    get(selectedGpuIdAtom),
+    {
+      usageHistories: get(gpuUsageHistoriesAtom),
+      temperatures: get(gpuTempMapAtom),
+      fanSpeeds: get(gpuFanSpeedMapAtom),
+      dedicatedMemoryKb: get(gpuDedicatedMemoryKbMapAtom),
+    },
+    Object.keys(get(gpuNamesAtom)),
+  ),
+);
+
+/** Resolves to the effective GPU's usage history */
 export const graphicUsageHistoryAtom = atom<(number | null)[]>((get) => {
-  const selected = get(selectedGpuIdAtom);
-  const histories = get(gpuUsageHistoriesAtom);
-  if (selected && histories[selected]) return histories[selected];
-  const keys = Object.keys(histories);
-  return keys.length > 0 ? histories[keys[0]] : [];
+  const effective = get(effectiveGpuIdAtom);
+  return effective != null ? (get(gpuUsageHistoriesAtom)[effective] ?? []) : [];
 });
 
-/** Resolves to the selected (or first) GPU's usage source */
+/** Resolves to the effective GPU's usage source */
 export const gpuUsageSourceAtom = atom<string | null>((get) => {
-  const selected = get(selectedGpuIdAtom);
-  const sources = get(gpuUsageSourcesAtom);
-  if (selected && selected in sources) return sources[selected];
-  const keys = Object.keys(sources);
-  return keys.length > 0 ? (sources[keys[0]] ?? null) : null;
+  const effective = get(effectiveGpuIdAtom);
+  return effective != null
+    ? (get(gpuUsageSourcesAtom)[effective] ?? null)
+    : null;
 });
 
-/** Resolves to the selected (or first) GPU's dedicated memory (KB) */
+/** Resolves to the effective GPU's dedicated memory (KB) */
 export const gpuDedicatedMemoryKbAtom = atom<number | null>((get) => {
-  const selected = get(selectedGpuIdAtom);
-  const map = get(gpuDedicatedMemoryKbMapAtom);
-  if (selected && selected in map) return map[selected];
-  const keys = Object.keys(map);
-  return keys.length > 0 ? (map[keys[0]] ?? null) : null;
+  const effective = get(effectiveGpuIdAtom);
+  return effective != null
+    ? (get(gpuDedicatedMemoryKbMapAtom)[effective] ?? null)
+    : null;
 });
