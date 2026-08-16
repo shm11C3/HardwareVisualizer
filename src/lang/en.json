@@ -113,9 +113,9 @@
       "enter": "Enter Fullscreen",
       "exit": "Exit Fullscreen"
     },
-    "title": "Title"
+    "title": "Title",
+    "expandProcessTable": "Expand the process table"
   },
-
   "trayWidgetFlyout": {
     "openMainWindow": "Open main window",
     "close": "Close tray widget",
@@ -126,7 +126,6 @@
       "gpu-temp": "GPU temperature"
     }
   },
-
   "errorBoundary": {
     "title": "An unexpected error has occurred",
     "description": "Reset the UI and settings, or report this issue if it persists.",
@@ -141,7 +140,6 @@
       "linux": "Linux: ~/.config/HardwareVisualizer/settings.json"
     }
   },
-
   "closeToTray": {
     "startupDialog": {
       "title": "Try system tray mode?",
@@ -164,7 +162,6 @@
       "listenerReady": "Failed to initialize the close-to-tray dialog."
     }
   },
-
   "externalComponentGuidance": {
     "title": "Optional components can enable more data",
     "labels": {
@@ -212,7 +209,6 @@
       "openDetails": "Failed to open the details page."
     }
   },
-
   "navigation": {
     "dashboardSection": "Dashboard",
     "performance": "Performance",
@@ -234,7 +230,11 @@
       },
       "copyHardwareReport": "Copy hardware report",
       "systemSpecifications": {
-        "networkUnavailable": "Network information is unavailable on this system."
+        "networkUnavailable": "Network information is unavailable on this system.",
+        "platform": "Platform",
+        "operatingSystem": "Operating system",
+        "architecture": "Architecture",
+        "deviceCount": "{{count}} devices"
       },
       "visibleItems": "Visible Items",
       "selectItems": "Select items to display on the dashboard",
@@ -287,39 +287,41 @@
       }
     },
     "performance": {
-      "description": "Live values and the last 60 seconds, arranged for the way you are monitoring.",
-      "shortWindow": "Last 60 seconds",
-      "layoutPreset": "Performance layout",
-      "customizePanels": "Custom panels",
-      "customizePanelsDescription": "Choose what stays live and drag panels into the order you need.",
+      "viewSwitcher": "Performance view",
+      "editPanels": "Edit panels",
+      "doneEditing": "Done",
+      "hiddenPanels": "Hidden panels:",
+      "showPanel": "Show {{panel}}",
+      "hidePanel": "Hide {{panel}}",
       "reorderPanel": "Reorder {{panel}}",
+      "currentValues": "Current values",
+      "perCoreUnavailable": "Per-core usage is not available on this system.",
+      "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
       "metrics": {
         "cpu": "CPU",
         "memory": "RAM",
         "gpu": "GPU"
       },
-      "presets": {
-        "compact": {
-          "name": "Compact"
-        },
-        "monitor": {
-          "name": "Monitor"
-        },
-        "detailed": {
-          "name": "Detailed"
-        },
-        "custom": {
-          "name": "Custom"
-        }
+      "views": {
+        "panels": "Panels",
+        "compact": "Compact",
+        "monitor": "Monitor"
       },
       "panels": {
-        "currentValues": "Current values",
         "usageGraphs": "Usage graphs",
-        "processTable": "Live processes"
+        "processTable": "Live processes",
+        "perCore": "Per-core usage",
+        "motherboardSensors": "Motherboard sensors"
       },
-      "panelDescriptions": {
-        "usageGraphs": "CPU, RAM, and GPU activity over the short window.",
-        "processTable": "Processes currently using CPU and memory."
+      "panelColumns": "Panel columns",
+      "columns": {
+        "1": "One column",
+        "2": "Two columns"
+      },
+      "expandCompact": "Expand",
+      "exitCompactFullScreen": "Exit full screen",
+      "substats": {
+        "fan": "fan {{value}}%"
       }
     },
     "usage": {
@@ -554,7 +556,6 @@
       "needRestart": "Please restart the application to complete the update."
     }
   },
-
   "error": {
     "title": {
       "info": "Info",

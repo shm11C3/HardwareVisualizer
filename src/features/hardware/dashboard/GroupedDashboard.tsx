@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import { cn } from "@/lib/utils";
-import type { DashboardItemType } from "./types/dashboardItem";
 
 const Performance = lazy(() =>
   import("../performance/Performance").then((module) => ({
@@ -18,8 +17,10 @@ const Performance = lazy(() =>
   })),
 );
 
-const Dashboard = lazy(() =>
-  import("./Dashboard").then((module) => ({ default: module.Dashboard })),
+const SystemSpecifications = lazy(() =>
+  import("../specifications/SystemSpecifications").then((module) => ({
+    default: module.SystemSpecifications,
+  })),
 );
 
 export type GroupedDashboardTab = "performance" | "systemSpecifications";
@@ -30,10 +31,6 @@ export const DEFAULT_GROUPED_DASHBOARD_TAB =
 const GROUPED_DASHBOARD_TABS: readonly GroupedDashboardTab[] = [
   "performance",
   "systemSpecifications",
-];
-
-const SYSTEM_SPECIFICATIONS_EXCLUDED_ITEMS: readonly DashboardItemType[] = [
-  "process",
 ];
 
 export const normalizeGroupedDashboardTab = (
@@ -118,11 +115,7 @@ export const GroupedDashboard = ({
           >
             {activeTab === "systemSpecifications" ? (
               <Suspense fallback={<DashboardTabSkeleton />}>
-                <Dashboard
-                  excludedItems={SYSTEM_SPECIFICATIONS_EXCLUDED_ITEMS}
-                  responsive
-                  specificationsMode
-                />
+                <SystemSpecifications />
               </Suspense>
             ) : null}
           </TabsContent>

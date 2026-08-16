@@ -22,9 +22,13 @@ _Avoid_: Hardware Dashboard, Performance Tab, dashboard section
 The Grouped Dashboard tab for inspecting current hardware state together with short-window Usage Graphs.
 _Avoid_: Performance Screen, Insights Screen, Hardware Insight, hardware specifications
 
-**Performance Layout Preset**:
-A UI-local arrangement of panels on the Performance Tab, such as Compact, Monitor, Detailed, or Custom.
-_Avoid_: Insights tab, saved report, navigation layout
+**Performance View**:
+A UI-local Performance Tab mode: Panels (Instrument Strip plus reorderable panels), Compact (dense small-window strip), or Monitor (full-height graph).
+_Avoid_: Performance Layout Preset, Detailed preset, Custom preset, Insights tab, saved report, navigation layout
+
+**Instrument Strip**:
+The always-mounted live header of the Panels view: one hue-coded CPU, RAM, and GPU instrument combining a doughnut gauge, a short-window sparkline, and platform-dependent secondary readings.
+_Avoid_: Current Values panel, metric cards, gauge row
 
 **System Specifications Tab**:
 The Grouped Dashboard tab that presents available hardware configuration, platform facts, capability-dependent observations, and Hardware Report access as one surface.
@@ -149,7 +153,7 @@ _Avoid_: Rescan, reload, auto-detection, live polling
 ### Motherboard Sensors
 
 **Motherboard Sensor Display**:
-Presenting all available live motherboard temperature and fan-speed readings on the Hardware Dashboard.
+Presenting all available live motherboard temperature and fan-speed readings on the Performance Tab's Motherboard Sensors panel and on the Hardware Dashboard.
 _Avoid_: CPU thermal zones, GPU sensors, Storage Health Display
 
 **Sensor Source Label**:

@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import {
   DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
-  DEFAULT_PERFORMANCE_PRESET,
+  DEFAULT_PERFORMANCE_PANEL_COLUMNS,
+  DEFAULT_PERFORMANCE_VIEW,
   normalizePerformanceCustomLayout,
-  normalizePerformancePreset,
-  type PerformanceLayoutPreset,
+  normalizePerformancePanelColumns,
+  normalizePerformanceView,
+  type PerformancePanelColumns,
   type PerformancePanelId,
+  type PerformanceView,
   performanceCustomLayoutsEqual,
 } from "../types/performanceLayout";
 
@@ -17,18 +20,29 @@ const reportCustomLayoutPersistenceError = (error: unknown) => {
 };
 
 export const usePerformanceLayout = () => {
-  const [storedPreset, setStoredPreset, isPresetPending] =
-    useTauriStore<unknown>(
-      "performanceLayoutPreset",
-      DEFAULT_PERFORMANCE_PRESET,
-    );
+  // The store key predates the preset-to-view consolidation; legacy preset
+  // values keep resolving through normalizePerformanceView.
+  const [storedView, setStoredView, isViewPending] = useTauriStore<unknown>(
+    "performanceLayoutPreset",
+    DEFAULT_PERFORMANCE_VIEW,
+  );
   const [storedCustomLayout, setStoredCustomLayout, isCustomLayoutPending] =
     useTauriStore<unknown>(
       "performanceCustomLayout",
       DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
     );
+  const [storedColumns, setStoredColumns, isColumnsPending] =
+    useTauriStore<unknown>(
+      "performancePanelColumns",
+      DEFAULT_PERFORMANCE_PANEL_COLUMNS,
+    );
+  // Mini-monitor mode survives a restart so a dedicated screen keeps showing
+  // only the strip without being re-armed on every launch.
+  const [storedCompactExpanded, setStoredCompactExpanded, isExpandedPending] =
+    useTauriStore<boolean>("performanceCompactExpanded", false);
 
-  const preset = normalizePerformancePreset(storedPreset);
+  const view = normalizePerformanceView(storedView);
+  const columns = normalizePerformancePanelColumns(storedColumns);
   const customLayout = normalizePerformanceCustomLayout(storedCustomLayout);
   const latestCustomLayoutRef = useRef(customLayout);
   const customLayoutMutationQueueRef = useRef(Promise.resolve());
@@ -82,11 +96,11 @@ export const usePerformanceLayout = () => {
   );
 
   useEffect(() => {
-    if (isPresetPending || storedPreset === preset) {
+    if (isViewPending || storedView === view) {
       return;
     }
-    void setStoredPreset(preset);
-  }, [isPresetPending, preset, setStoredPreset, storedPreset]);
+    void setStoredView(view);
+  }, [isViewPending, view, setStoredView, storedView]);
 
   useEffect(() => {
     if (
@@ -105,16 +119,14 @@ export const usePerformanceLayout = () => {
     storedCustomLayout,
   ]);
 
-  const setPreset = (nextPreset: PerformanceLayoutPreset) =>
-    setStoredPreset(nextPreset);
+  const setView = (nextView: PerformanceView) => setStoredView(nextView);
+
+  const setColumns = (nextColumns: PerformancePanelColumns) =>
+    setStoredColumns(nextColumns);
 
   const togglePanel = (panel: PerformancePanelId) =>
     enqueueCustomLayoutMutation((currentLayout) => {
       const isVisible = currentLayout.visible.includes(panel);
-      if (isVisible && currentLayout.visible.length === 1) {
-        return undefined;
-      }
-
       return {
         ...currentLayout,
         visible: isVisible
@@ -151,11 +163,21 @@ export const usePerformanceLayout = () => {
   };
 
   return {
-    preset,
-    setPreset,
+    view,
+    setView,
+    columns,
+    setColumns,
+    compactExpanded: storedCompactExpanded === true,
+    // Stable across renders (useTauriStore memoizes it), so effects can key
+    // off it without resubscribing every render.
+    setCompactExpanded: setStoredCompactExpanded,
     customLayout,
     togglePanel,
     handlePanelDragEnd,
-    isPending: isPresetPending || isCustomLayoutPending,
+    isPending:
+      isViewPending ||
+      isCustomLayoutPending ||
+      isColumnsPending ||
+      isExpandedPending,
   };
 };

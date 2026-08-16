@@ -3,17 +3,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
   PerformanceCustomLayout,
-  PerformanceLayoutPreset,
+  PerformanceView,
 } from "../types/performanceLayout";
 import { usePerformanceLayout } from "./usePerformanceLayout";
 
-const setPreset = vi.fn();
+const setView = vi.fn();
 const setCustomLayout = vi.fn();
+const setColumns = vi.fn();
+const setCompactExpanded = vi.fn();
+let columns: unknown = 1;
+let compactExpanded: unknown = false;
 
-let preset: PerformanceLayoutPreset = "detailed";
+let view: PerformanceView = "panels";
 let customLayout: PerformanceCustomLayout = {
-  order: ["currentValues", "usageGraphs", "processTable"],
-  visible: ["currentValues", "usageGraphs", "processTable"],
+  order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+  visible: ["usageGraphs", "processTable"],
 };
 
 vi.mock("@/hooks/useTauriStore", () => ({
@@ -23,66 +27,136 @@ vi.mock("@/hooks/useTauriStore", () => ({
 describe("usePerformanceLayout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    preset = "detailed";
+    view = "panels";
     customLayout = {
-      order: ["currentValues", "usageGraphs", "processTable"],
-      visible: ["currentValues", "usageGraphs", "processTable"],
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: ["usageGraphs", "processTable"],
     };
-    setPreset.mockResolvedValue(undefined);
+    columns = 1;
+    compactExpanded = false;
+    setView.mockResolvedValue(undefined);
     setCustomLayout.mockResolvedValue(undefined);
-    vi.mocked(useTauriStore).mockImplementation((key) =>
-      key === "performanceLayoutPreset"
-        ? ([preset, setPreset, false] as never)
-        : ([customLayout, setCustomLayout, false] as never),
-    );
+    setColumns.mockResolvedValue(undefined);
+    setCompactExpanded.mockResolvedValue(undefined);
+    vi.mocked(useTauriStore).mockImplementation((key) => {
+      if (key === "performanceLayoutPreset") {
+        return [view, setView, false] as never;
+      }
+      if (key === "performancePanelColumns") {
+        return [columns, setColumns, false] as never;
+      }
+      if (key === "performanceCompactExpanded") {
+        return [compactExpanded, setCompactExpanded, false] as never;
+      }
+      return [customLayout, setCustomLayout, false] as never;
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("persists preset selection in UI-local store", async () => {
+  it("persists view selection in UI-local store", async () => {
     const { result } = renderHook(() => usePerformanceLayout());
 
-    await act(async () => result.current.setPreset("monitor"));
+    await act(async () => result.current.setView("monitor"));
 
-    expect(setPreset).toHaveBeenCalledWith("monitor");
+    expect(setView).toHaveBeenCalledWith("monitor");
   });
 
-  it("reorders Custom panels without changing visibility", async () => {
+  it("persists the panel column count and repairs unusable values", async () => {
+    columns = 7;
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    expect(result.current.columns).toBe(1);
+
+    await act(async () => result.current.setColumns(2));
+
+    expect(setColumns).toHaveBeenCalledWith(2);
+  });
+
+  it("persists the mini-monitor choice and treats a non-true value as collapsed", async () => {
+    compactExpanded = true;
+    const { result, rerender } = renderHook(() => usePerformanceLayout());
+
+    expect(result.current.compactExpanded).toBe(true);
+
+    await act(async () => result.current.setCompactExpanded(false));
+
+    expect(setCompactExpanded).toHaveBeenCalledWith(false);
+
+    // A store that has not resolved yet must not read as expanded.
+    compactExpanded = null;
+    rerender();
+
+    expect(result.current.compactExpanded).toBe(false);
+  });
+
+  it("stays pending until the mini-monitor store resolves", () => {
+    vi.mocked(useTauriStore).mockImplementation((key) => {
+      if (key === "performanceLayoutPreset") {
+        return [view, setView, false] as never;
+      }
+      if (key === "performanceCustomLayout") {
+        return [customLayout, setCustomLayout, false] as never;
+      }
+      if (key === "performancePanelColumns") {
+        return [columns, setColumns, false] as never;
+      }
+      return [null, setCompactExpanded, true] as never;
+    });
+
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    // Otherwise the screen renders un-expanded for a frame and then snaps
+    // into the mini monitor once this store resolves.
+    expect(result.current.isPending).toBe(true);
+  });
+
+  it("normalizes a stored legacy preset onto a view", () => {
+    view = "detailed" as PerformanceView;
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    expect(result.current.view).toBe("panels");
+  });
+
+  it("reorders panels without changing visibility", async () => {
     const { result } = renderHook(() => usePerformanceLayout());
 
     await act(async () => {
       result.current.handlePanelDragEnd({
         active: { id: "processTable" },
-        over: { id: "currentValues" },
+        over: { id: "usageGraphs" },
       } as never);
       await Promise.resolve();
     });
 
     expect(setCustomLayout).toHaveBeenCalledWith({
-      order: ["processTable", "currentValues", "usageGraphs"],
-      visible: ["currentValues", "usageGraphs", "processTable"],
+      order: ["processTable", "usageGraphs", "perCore", "motherboardSensors"],
+      visible: ["usageGraphs", "processTable"],
     });
   });
 
-  it("prevents hiding the final visible Custom panel", async () => {
+  it("allows hiding the final visible panel because instruments stay mounted", async () => {
     customLayout = {
-      order: ["currentValues", "usageGraphs", "processTable"],
-      visible: ["currentValues"],
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: ["usageGraphs"],
     };
     const { result } = renderHook(() => usePerformanceLayout());
 
-    let changed = true;
+    let changed = false;
     await act(async () => {
-      changed = await result.current.togglePanel("currentValues");
+      changed = await result.current.togglePanel("usageGraphs");
     });
 
-    expect(changed).toBe(false);
-    expect(setCustomLayout).not.toHaveBeenCalled();
+    expect(changed).toBe(true);
+    expect(setCustomLayout).toHaveBeenCalledWith({
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: [],
+    });
   });
 
-  it("serializes rapid Custom mutations against the latest layout", async () => {
+  it("serializes rapid panel mutations against the latest layout", async () => {
     let resolveFirstWrite: (() => void) | undefined;
     setCustomLayout
       .mockImplementationOnce(
@@ -97,14 +171,14 @@ describe("usePerformanceLayout", () => {
     let firstMutation: Promise<boolean> | undefined;
     let secondMutation: Promise<boolean> | undefined;
     act(() => {
-      firstMutation = result.current.togglePanel("currentValues");
-      secondMutation = result.current.togglePanel("usageGraphs");
+      firstMutation = result.current.togglePanel("usageGraphs");
+      secondMutation = result.current.togglePanel("processTable");
     });
 
     await waitFor(() => expect(setCustomLayout).toHaveBeenCalledOnce());
     expect(setCustomLayout).toHaveBeenLastCalledWith({
-      order: ["currentValues", "usageGraphs", "processTable"],
-      visible: ["usageGraphs", "processTable"],
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: ["processTable"],
     });
 
     rerender();
@@ -116,8 +190,8 @@ describe("usePerformanceLayout", () => {
 
     expect(setCustomLayout).toHaveBeenCalledTimes(2);
     expect(setCustomLayout).toHaveBeenLastCalledWith({
-      order: ["currentValues", "usageGraphs", "processTable"],
-      visible: ["processTable"],
+      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      visible: [],
     });
   });
 
@@ -131,7 +205,7 @@ describe("usePerformanceLayout", () => {
 
     let changed = true;
     await act(async () => {
-      changed = await result.current.togglePanel("currentValues");
+      changed = await result.current.togglePanel("usageGraphs");
     });
 
     expect(changed).toBe(false);
@@ -152,7 +226,7 @@ describe("usePerformanceLayout", () => {
     act(() => {
       result.current.handlePanelDragEnd({
         active: { id: "processTable" },
-        over: { id: "currentValues" },
+        over: { id: "usageGraphs" },
       } as never);
     });
 
