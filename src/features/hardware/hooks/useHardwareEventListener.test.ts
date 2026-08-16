@@ -11,6 +11,7 @@ import {
   gpuDedicatedMemoryKbMapAtom,
   gpuFanSpeedAtom,
   gpuFanSpeedMapAtom,
+  gpuNamesAtom,
   gpuTempAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
@@ -887,6 +888,45 @@ describe("useHardwareEventListener", () => {
         { name: "GPU A", value: 40 },
         { name: "GPU B", value: 65 },
       ]);
+    });
+
+    it("tracks the reported name for every GPU, whatever it reports", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [names] = useAtom(gpuNamesAtom);
+          return names;
+        },
+        { wrapper: Provider },
+      );
+
+      act(() =>
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:12345",
+                gpuName: "NVIDIA GeForce RTX 4080",
+              }),
+              // Reports nothing but its own identity: the Performance screen
+              // still has to be able to name and select it.
+              makeGpu({
+                gpuId: "pci:0:2:0",
+                gpuName: "Intel UHD Graphics 770",
+                gpuUsage: null,
+                gpuTemperature: null,
+                gpuCoolerLevel: null,
+                gpuDedicatedMemoryUsageKb: null,
+              }),
+            ],
+          }),
+        ),
+      );
+
+      expect(result.current).toEqual({
+        "nvapi:12345": "NVIDIA GeForce RTX 4080",
+        "pci:0:2:0": "Intel UHD Graphics 770",
+      });
     });
 
     it("tracks usage sources for all GPUs", () => {

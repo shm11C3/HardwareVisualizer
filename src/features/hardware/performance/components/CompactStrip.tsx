@@ -27,6 +27,16 @@ import { Sparkline } from "./Sparkline";
  * so metrics that are not collected yet (disk activity, network throughput)
  * become new builders here instead of new layout work.
  */
+/**
+ * One footer entry. `fullText` carries the unshortened form for assistive
+ * technology and hover when the visible text had to be abbreviated.
+ */
+export type CompactFooterItem = {
+  id: string;
+  text: string;
+  fullText?: string | undefined;
+};
+
 export type CompactMetricRow = {
   id: string;
   label: string;
@@ -205,12 +215,20 @@ export const CompactStrip = ({
   // The GPU row carries one adapter's numbers, so the strip says which one.
   // It goes in the footer rather than the row: the row's tracks are sized for
   // the mini monitor's small corner window and cannot hold a device name.
-  const footerItems: string[] =
+  const footerItems: CompactFooterItem[] =
     activeGpuAdapter != null
       ? [
-          t("pages.performance.compactGpuAdapter", {
-            name: activeGpuAdapter.label,
-          }),
+          {
+            id: "gpu-adapter",
+            text: t("pages.performance.compactGpuAdapter", {
+              name: activeGpuAdapter.label,
+            }),
+            // The visible text is shortened to fit a corner window; the full
+            // name is still announced and still available on hover.
+            fullText: t("pages.performance.compactGpuAdapter", {
+              name: activeGpuAdapter.name,
+            }),
+          },
         ]
       : [];
 
@@ -231,7 +249,16 @@ export const CompactStrip = ({
       {footerItems.length > 0 && (
         <div className="flex gap-4 border-border/60 border-t py-2 font-mono text-[11px] text-muted-foreground tabular-nums">
           {footerItems.map((item) => (
-            <span key={item}>{item}</span>
+            <span key={item.id} title={item.fullText ?? item.text}>
+              {item.fullText == null || item.fullText === item.text ? (
+                item.text
+              ) : (
+                <>
+                  <span aria-hidden="true">{item.text}</span>
+                  <span className="sr-only">{item.fullText}</span>
+                </>
+              )}
+            </span>
           ))}
         </div>
       )}
