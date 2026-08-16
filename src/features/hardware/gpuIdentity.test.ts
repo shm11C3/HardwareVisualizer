@@ -293,6 +293,26 @@ describe("findInventoryGpu", () => {
     ).toBeUndefined();
   });
 
+  it("refuses rather than pairing by position when both sides have twins", () => {
+    // Positional pairing would look plausible and be a guess: the inventory's
+    // enumeration order and the stream's are different enumerations.
+    const twins = [
+      { id: "inv-a", name: "NVIDIA GeForce RTX 4090" },
+      { id: "inv-b", name: "NVIDIA GeForce RTX 4090" },
+    ];
+
+    expect(
+      findInventoryGpu(
+        twins,
+        {
+          "nvapi:1": "NVIDIA GeForce RTX 4090",
+          "nvapi:2": "NVIDIA GeForce RTX 4090",
+        },
+        "nvapi:2",
+      ),
+    ).toBeUndefined();
+  });
+
   it("has nothing to resolve without a selection", () => {
     expect(findInventoryGpu(inventory, {}, null)).toBeUndefined();
   });

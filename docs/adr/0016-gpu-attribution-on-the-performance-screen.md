@@ -61,6 +61,12 @@ that join, so the shared selection is written in the live namespace by every
 surface and read back through the name by the one surface that needs the
 inventory.
 
+Where the join is ambiguous, the caller refuses rather than falls back: the
+classic card claims no adapter identity for a selection it cannot resolve,
+instead of labelling one adapter's readings with another's name. Pairing the
+two sides by position would look plausible and is a guess — the inventory's
+enumeration order and the stream's are different enumerations.
+
 "Every detected adapter is represented" therefore means every adapter the
 monitor stream reported. An adapter that names itself and reports no values is
 still listed and still selectable; that is what the unavailable state is for.
@@ -114,7 +120,10 @@ tabpanel, no roving tabindex, and no arrow-key contract, so announcing tabs
 would promise a keyboard model the control does not implement.
 
 A single-adapter machine gets the name alone, because naming is the whole job
-when there is no choice to make. Compact names its adapter in the footer
+when there is no choice to make. Monitor carries the same control in its
+toolbar whenever the GPU is among the graph's display targets: it mounts only
+the graph, so there is nowhere else for the adapter behind the GPU series to
+be named. Compact names its adapter in the footer
 rather than in the GPU row: the row's tracks are sized for the mini monitor's
 small corner window and cannot hold a device name. Compact does not offer
 selection; it follows the choice made in Panels.

@@ -147,6 +147,16 @@ test.describe("Grouped navigation destinations", () => {
       page.getByRole("button", { name: "HV Fixture iGPU" }),
     ).toHaveAttribute("aria-pressed", "true");
 
+    // Monitor mounts only the graph, so the selector is its sole attribution.
+    await page.getByRole("tab", { name: "Monitor" }).click();
+    await expect(page.getByTestId("performance-usage-graphs")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "HV Fixture iGPU" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await saveCapture(page, "performance-gpu-selector-monitor");
+
+    await page.getByRole("tab", { name: "Panels" }).click();
+
     // ...and the Compact strip reports the same adapter rather than its own.
     await page.getByRole("tab", { name: "Compact" }).click();
     // The label drops the words both fixture adapters share, so a narrow strip

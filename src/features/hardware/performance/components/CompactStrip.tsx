@@ -1,21 +1,11 @@
 import { useAtomValue } from "jotai";
-import { type CSSProperties, memo, useMemo } from "react";
+import { type CSSProperties, memo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  type GpuLiveMaps,
-  getEffectiveGpuId,
-  listGpuAdapters,
-} from "@/features/hardware/gpuIdentity";
+import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
-  gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedMapAtom,
-  gpuNamesAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
-  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -139,40 +129,12 @@ export const CompactStrip = ({
   const { settings } = useSettingsAtom();
   const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
   const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
-  const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
-  const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
-  const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
-  const gpuNames = useAtomValue(gpuNamesAtom);
-  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
-  const selectedGpuId = useAtomValue(selectedGpuIdAtom);
-
-  const gpuLive = useMemo<GpuLiveMaps>(
-    () => ({
-      usageHistories: gpuUsageHistories,
-      temperatures: gpuTemperatureMap,
-      fanSpeeds: gpuFanSpeedMap,
-      dedicatedMemoryKb: gpuDedicatedMemoryKbMap,
-    }),
-    [
-      gpuUsageHistories,
-      gpuTemperatureMap,
-      gpuFanSpeedMap,
-      gpuDedicatedMemoryKbMap,
-    ],
-  );
-  const gpuAdapters = useMemo(
-    () => listGpuAdapters(gpuNames, gpuLive),
-    [gpuNames, gpuLive],
-  );
-  const effectiveGpuId = getEffectiveGpuId(
-    selectedGpuId,
-    gpuLive,
-    gpuAdapters.map((adapter) => adapter.id),
-  );
-  const activeGpuAdapter = gpuAdapters.find(
-    (adapter) => adapter.id === effectiveGpuId,
-  );
+  const {
+    live: gpuLive,
+    effectiveGpuId,
+    effectiveAdapter: activeGpuAdapter,
+  } = useGpuAdapters();
 
   const rows: CompactMetricRow[] = [
     {
@@ -197,9 +159,9 @@ export const CompactStrip = ({
             id: "gpu",
             label: t("pages.performance.metrics.gpu"),
             color: toCssColor(settings.lineGraphColor.gpu),
-            history: gpuUsageHistories[effectiveGpuId] ?? [],
+            history: gpuLive.usageHistories[effectiveGpuId] ?? [],
             detail: formatTemperature(
-              gpuTemperatureMap[effectiveGpuId]?.value,
+              gpuLive.temperatures[effectiveGpuId]?.value,
               settings.temperatureUnit,
             ),
           },

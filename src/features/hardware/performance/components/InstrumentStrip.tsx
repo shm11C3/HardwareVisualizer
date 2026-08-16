@@ -1,5 +1,5 @@
 import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 import {
   type CSSProperties,
   memo,
@@ -9,24 +9,15 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
-import {
-  type GpuLiveMaps,
-  getEffectiveGpuId,
-  hasNoLiveGpuReadings,
-  listGpuAdapters,
-} from "@/features/hardware/gpuIdentity";
+import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
-  gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedMapAtom,
-  gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
-  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
@@ -145,11 +136,15 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
-  const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
-  const gpuNames = useAtomValue(gpuNamesAtom);
-  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
-  const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
+  const {
+    adapters: gpuAdapters,
+    effectiveGpuId,
+    effectiveAdapter: effectiveGpuAdapter,
+    live: gpuLive,
+    hasNoReadings: gpuHasNoReadings,
+    selectGpu: setSelectedGpuId,
+  } = useGpuAdapters();
   const { settings } = useSettingsAtom();
   const { hardwareInfo, init } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
@@ -163,33 +158,6 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     void init();
   }, []);
 
-  const gpuLive = useMemo<GpuLiveMaps>(
-    () => ({
-      usageHistories: gpuUsageHistories,
-      temperatures: gpuTemperatureMap,
-      fanSpeeds: gpuFanSpeedMap,
-      dedicatedMemoryKb: gpuDedicatedMemoryKbMap,
-    }),
-    [
-      gpuUsageHistories,
-      gpuTemperatureMap,
-      gpuFanSpeedMap,
-      gpuDedicatedMemoryKbMap,
-    ],
-  );
-  const gpuAdapters = useMemo(
-    () => listGpuAdapters(gpuNames, gpuLive),
-    [gpuNames, gpuLive],
-  );
-  const effectiveGpuId = getEffectiveGpuId(
-    selectedGpuId,
-    gpuLive,
-    gpuAdapters.map((adapter) => adapter.id),
-  );
-  const effectiveGpuAdapter = gpuAdapters.find(
-    (adapter) => adapter.id === effectiveGpuId,
-  );
-  const gpuHasNoReadings = hasNoLiveGpuReadings(effectiveGpuId, gpuLive);
   const gpuHistory =
     effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
   const gpuTemperature =
@@ -258,7 +226,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const gpuSubstats = useMemo<Substat[]>(() => {
     const substats: Substat[] = [];
     if (effectiveGpuId != null) {
-      const usedKb = gpuDedicatedMemoryKbMap[effectiveGpuId];
+      const usedKb = gpuLive.dedicatedMemoryKb[effectiveGpuId];
       if (usedKb != null) {
         // Matched by name, not id: the inventory and the live samples use
         // different id namespaces (see `gpuNamesAtom`), so an id lookup here
@@ -290,7 +258,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         });
       }
 
-      const fan = gpuFanSpeedMap[effectiveGpuId];
+      const fan = gpuLive.fanSpeeds[effectiveGpuId];
       if (fan != null) {
         substats.push({
           key: "fan",
@@ -303,14 +271,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
       }
     }
     return substats;
-  }, [
-    effectiveGpuId,
-    effectiveGpuAdapter,
-    gpuDedicatedMemoryKbMap,
-    gpuFanSpeedMap,
-    hardwareInfo.gpus,
-    t,
-  ]);
+  }, [effectiveGpuId, effectiveGpuAdapter, gpuLive, hardwareInfo.gpus, t]);
 
   const currentMemoryUsage = memoryHistory.at(-1) ?? null;
 

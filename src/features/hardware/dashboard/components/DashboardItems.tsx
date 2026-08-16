@@ -152,8 +152,14 @@ export const GPUInfo = () => {
   // selector and by the event listener's auto-selection, so resolving it by
   // id alone would silently land on the first inventory entry and pair its
   // name and badge with another adapter's readings.
+  // With nothing selected yet, the first entry is the honest default. With a
+  // selection that cannot be resolved — two identically named cards, so the
+  // only available join is ambiguous — the card claims no identity at all
+  // rather than labelling one adapter's readings with another's name.
   const targetGpu =
-    findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? gpus[0] ?? null;
+    selectedGpuId == null
+      ? (gpus[0] ?? null)
+      : (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null);
   const hasMultipleGpus = gpus.length > 1;
 
   const getTargetInfo = (data: NameValues) => {
