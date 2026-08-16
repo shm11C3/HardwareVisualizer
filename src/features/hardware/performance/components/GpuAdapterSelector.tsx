@@ -45,20 +45,24 @@ export const GpuAdapterSelector = ({
   }
 
   return (
-    <div
-      role="tablist"
-      aria-label={t("pages.performance.gpuSelector")}
-      className={cn("flex min-w-0 justify-end gap-1", className)}
+    // A labelled group of toggles rather than a tablist: there is no tabpanel,
+    // no roving tabindex, and no arrow-key contract here, so announcing these
+    // as tabs would promise a keyboard model the control does not implement.
+    <fieldset
+      className={cn(
+        "m-0 flex min-w-0 justify-end gap-1 border-0 p-0",
+        className,
+      )}
       data-testid="performance-gpu-selector"
     >
+      <legend className="sr-only">{t("pages.performance.gpuSelector")}</legend>
       {adapters.map((adapter) => {
         const isSelected = adapter.id === selectedId;
         return (
           <button
             key={adapter.id}
             type="button"
-            role="tab"
-            aria-selected={isSelected}
+            aria-pressed={isSelected}
             // The visible label is shortened to fit the card, so the full name
             // the platform reported is what assistive technology announces.
             aria-label={adapter.name}
@@ -75,6 +79,6 @@ export const GpuAdapterSelector = ({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 };

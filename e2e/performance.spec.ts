@@ -118,16 +118,16 @@ test.describe("Grouped navigation destinations", () => {
     await seedHardwareHistory(page);
 
     const gpuInstrument = page.getByTestId("performance-metric-gpu");
-    const primary = page.getByRole("tab", { name: "HV Fixture GPU 8GB" });
-    const secondary = page.getByRole("tab", { name: "HV Fixture iGPU" });
+    const primary = page.getByRole("button", { name: "HV Fixture GPU 8GB" });
+    const secondary = page.getByRole("button", { name: "HV Fixture iGPU" });
 
     // Both adapters are reachable and the readings say which one they are.
-    await expect(primary).toHaveAttribute("aria-selected", "true");
-    await expect(secondary).toHaveAttribute("aria-selected", "false");
+    await expect(primary).toHaveAttribute("aria-pressed", "true");
+    await expect(secondary).toHaveAttribute("aria-pressed", "false");
     await expect(gpuInstrument).toContainText("VRAM 4.0/8 GB");
 
     await secondary.click();
-    await expect(secondary).toHaveAttribute("aria-selected", "true");
+    await expect(secondary).toHaveAttribute("aria-pressed", "true");
     await expect(gpuInstrument).toContainText("VRAM 1.0/2 GB");
     await expect(gpuInstrument).not.toContainText("VRAM 4.0/8 GB");
 
@@ -137,8 +137,8 @@ test.describe("Grouped navigation destinations", () => {
     await navigateTo(page, "systemSpecifications");
     await navigateTo(page, "performance");
     await expect(
-      page.getByRole("tab", { name: "HV Fixture iGPU" }),
-    ).toHaveAttribute("aria-selected", "true");
+      page.getByRole("button", { name: "HV Fixture iGPU" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     // ...and the Compact strip reports the same adapter rather than its own.
     await page.getByRole("tab", { name: "Compact" }).click();

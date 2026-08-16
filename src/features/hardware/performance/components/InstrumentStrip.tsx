@@ -25,6 +25,7 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
 import {
+  type GpuLiveMaps,
   getEffectiveGpuId,
   hasNoLiveGpuReadings,
   listGpuAdapters,
@@ -70,7 +71,7 @@ const MetricInstrument = memo(
     badge?: string | undefined;
     /** Names the physical device the readings came from, e.g. the GPU adapter. */
     identity?: ReactNode;
-    /** Stated instead of substats when the device reports nothing. */
+    /** Added below the substats when the device reports nothing. */
     note?: string | undefined;
     substats: Substat[];
     /** Classic Hardware Dashboard card icon, colored per metric hue. */
@@ -114,16 +115,17 @@ const MetricInstrument = memo(
       <div className="mt-2 text-muted-foreground">
         <Sparkline values={history} color={color} />
       </div>
-      {note != null ? (
+      {substats.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
+          {substats.map((substat) => (
+            <span key={substat.key}>{substat.text}</span>
+          ))}
+        </div>
+      )}
+      {/* Additive, never a replacement: the note says what is missing, so it
+          must not take the place of whatever the device did report. */}
+      {note != null && (
         <p className="mt-1.5 text-[11px] text-muted-foreground">{note}</p>
-      ) : (
-        substats.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
-            {substats.map((substat) => (
-              <span key={substat.key}>{substat.text}</span>
-            ))}
-          </div>
-        )
       )}
     </article>
   ),
@@ -159,26 +161,30 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     void init();
   }, []);
 
+  const gpuLive = useMemo<GpuLiveMaps>(
+    () => ({
+      usageHistories: gpuUsageHistories,
+      temperatures: gpuTemperatureMap,
+      fanSpeeds: gpuFanSpeedMap,
+      dedicatedMemoryKb: gpuDedicatedMemoryKbMap,
+    }),
+    [
+      gpuUsageHistories,
+      gpuTemperatureMap,
+      gpuFanSpeedMap,
+      gpuDedicatedMemoryKbMap,
+    ],
+  );
   const gpuAdapters = useMemo(
-    () =>
-      listGpuAdapters(
-        hardwareInfo.gpus,
-        gpuTemperatureMap,
-        Object.keys(gpuUsageHistories),
-      ),
-    [hardwareInfo.gpus, gpuTemperatureMap, gpuUsageHistories],
+    () => listGpuAdapters(hardwareInfo.gpus, gpuLive),
+    [hardwareInfo.gpus, gpuLive],
   );
   const effectiveGpuId = getEffectiveGpuId(
     selectedGpuId,
-    gpuUsageHistories,
-    gpuTemperatureMap,
+    gpuLive,
     gpuAdapters.map((adapter) => adapter.id),
   );
-  const gpuHasNoReadings = hasNoLiveGpuReadings(
-    effectiveGpuId,
-    gpuUsageHistories,
-    gpuTemperatureMap,
-  );
+  const gpuHasNoReadings = hasNoLiveGpuReadings(effectiveGpuId, gpuLive);
   const gpuHistory =
     effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
   const gpuTemperature =

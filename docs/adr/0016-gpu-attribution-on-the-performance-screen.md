@@ -36,16 +36,30 @@ selection pointing at an adapter that no longer exists is discarded, because
 there is no longer anything to honor.
 
 An adapter list is therefore needed, not just the live maps. It is the union of
-the adapters the one-shot hardware fetch detected and any id that appears only
-in a live map, so a reading is never rendered without an owner and a detected
-adapter is never unreachable.
+the adapters the one-shot hardware fetch detected and any id that appears in
+any live map, so a reading is never rendered without an owner and a detected
+adapter is never unreachable. An id the static fetch has not returned — because
+it is slow, or because it failed — is named from the temperature or fan map,
+which carry the platform's own name for each adapter; only an id no source
+names at all is shown as itself.
+
+## All four live maps, or none of the conclusions
+
+Usage, temperature, fan speed, and dedicated memory are populated
+independently: an adapter can report a fan speed and no usage. Every question
+of the form "did this adapter report anything" therefore has to consult all
+four. Consulting a subset turns a partially reporting adapter into a silent
+one, which is the same misattribution this decision exists to prevent, one
+level down.
 
 ## Not measured yet is not unavailable
 
 "This adapter is not reporting live readings" may only be stated once some
-adapter has reported and this one still has not. Empty maps at startup mean the
-first sample has not arrived, and claiming unavailability there would turn a
-timing gap into a hardware conclusion.
+adapter has reported and this one still has not, in any of the four maps.
+Empty maps at startup mean the first sample has not arrived, and claiming
+unavailability there would turn a timing gap into a hardware conclusion. The
+note is additive rather than a replacement: it appears alongside whatever the
+adapter did report, never in place of it.
 
 ## Adapter labels
 
@@ -61,7 +75,9 @@ falls back to the full name.
 ## Placement
 
 The selector sits in the GPU instrument's header, where the readings it governs
-are. A single-adapter machine gets the name alone, because naming is the whole
+are. It is a labelled group of toggle buttons, not a tablist: there is no
+tabpanel, no roving tabindex, and no arrow-key contract, so announcing tabs
+would promise a keyboard model the control does not implement. A single-adapter machine gets the name alone, because naming is the whole
 job when there is no choice to make. Compact names its adapter in the footer
 rather than in the GPU row: the row's tracks are sized for the mini monitor's
 small corner window and cannot hold a device name. Compact does not offer
@@ -87,6 +103,11 @@ selection; it follows the choice made in Panels.
   is only available on hover or to assistive technology.
 - Compact fetches the static hardware facts itself, adding one one-shot IPC
   call to a view that previously needed none.
+- The unavailable state only covers an adapter that has never reported. The
+  live maps are append-only, so an adapter that reports and then goes silent
+  keeps its last value on screen; distinguishing a stale reading from a current
+  one needs per-sample presence tracking in the event listener, which this
+  decision does not add.
 
 ### Non-goals
 

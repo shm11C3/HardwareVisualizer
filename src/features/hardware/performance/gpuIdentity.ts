@@ -12,6 +12,28 @@ export type GpuAdapter = {
 };
 
 /**
+ * The live per-GPU maps, together.
+ *
+ * They are populated independently — an adapter can report a fan speed with no
+ * usage, or VRAM with no temperature — so anything that asks "did this adapter
+ * report" has to ask all four. Asking a subset is what turns a partially
+ * reporting adapter into a silent one.
+ */
+export type GpuLiveMaps = {
+  usageHistories: Record<string, (number | null)[]>;
+  temperatures: Record<string, { name: string; value: number }>;
+  fanSpeeds: Record<string, { name: string; value: number }>;
+  dedicatedMemoryKb: Record<string, number | null>;
+};
+
+const liveMapsInOrder = (live: GpuLiveMaps) => [
+  live.usageHistories,
+  live.temperatures,
+  live.fanSpeeds,
+  live.dedicatedMemoryKb,
+];
+
+/**
  * Vendor words that every adapter of a given brand repeats, so they carry no
  * information in a control that exists to tell two adapters apart. Anything
  * else in the name is kept: shortening must not invent a distinction or drop
@@ -71,8 +93,8 @@ const dropSharedPrefixWords = (labels: string[]) => {
 
 /**
  * Every adapter the Performance screens can attribute a reading to: the ones
- * the one-shot hardware fetch detected, plus any id that only ever shows up in
- * the live maps. The second part matters because a reading rendered without an
+ * the one-shot hardware fetch detected, plus any id that only shows up in the
+ * live maps. The second part matters because a reading rendered without an
  * owner is exactly the misattribution this list exists to prevent.
  *
  * Labels are shortened only while they stay unique; when two adapters shorten
@@ -81,22 +103,29 @@ const dropSharedPrefixWords = (labels: string[]) => {
  */
 export const listGpuAdapters = (
   gpus: GraphicInfo[] | null | undefined,
-  liveNamesById: Record<string, { name: string }>,
-  liveIds: readonly string[] = [],
+  live: GpuLiveMaps,
 ): GpuAdapter[] => {
   const named = new Map<string, string>();
 
   for (const gpu of gpus ?? []) {
     named.set(gpu.id, gpu.name);
   }
-  for (const id of liveIds) {
-    if (!named.has(id)) {
-      named.set(id, liveNamesById[id]?.name ?? id);
+
+  // The sensor maps carry the platform's own name for each adapter, so they
+  // can identify an id the static fetch has not returned (or never will,
+  // when it failed). Only an id no map names at all falls back to the id.
+  for (const map of [live.temperatures, live.fanSpeeds]) {
+    for (const [id, value] of Object.entries(map)) {
+      if (!named.has(id)) {
+        named.set(id, value.name);
+      }
     }
   }
-  for (const [id, value] of Object.entries(liveNamesById)) {
-    if (!named.has(id)) {
-      named.set(id, value.name);
+  for (const map of liveMapsInOrder(live)) {
+    for (const id of Object.keys(map)) {
+      if (!named.has(id)) {
+        named.set(id, id);
+      }
     }
   }
 
@@ -123,43 +152,43 @@ export const listGpuAdapters = (
  */
 export const getEffectiveGpuId = (
   selectedGpuId: string | null,
-  gpuUsageHistories: Record<string, (number | null)[]>,
-  gpuTemperatureMap: Record<string, { name: string; value: number }>,
+  live: GpuLiveMaps,
   detectedGpuIds: readonly string[] = [],
 ) => {
   if (
     selectedGpuId != null &&
-    (Object.hasOwn(gpuUsageHistories, selectedGpuId) ||
-      detectedGpuIds.includes(selectedGpuId))
+    (detectedGpuIds.includes(selectedGpuId) ||
+      liveMapsInOrder(live).some((map) => Object.hasOwn(map, selectedGpuId)))
   ) {
     return selectedGpuId;
   }
 
-  return Object.keys(gpuUsageHistories)[0] ?? Object.keys(gpuTemperatureMap)[0];
+  for (const map of liveMapsInOrder(live)) {
+    const [first] = Object.keys(map);
+    if (first != null) {
+      return first;
+    }
+  }
+  return undefined;
 };
 
 /**
  * Whether the screen may state that an adapter has no live readings.
  *
  * Empty maps before the first sample mean "not measured yet", so the claim is
- * only allowed once some adapter has reported and this one still has not.
+ * only allowed once some adapter has reported and this one still has not — in
+ * any of the maps, since a fan speed alone is still a live reading.
  */
 export const hasNoLiveGpuReadings = (
   gpuId: string | undefined,
-  gpuUsageHistories: Record<string, (number | null)[]>,
-  gpuTemperatureMap: Record<string, { name: string; value: number }>,
+  live: GpuLiveMaps,
 ) => {
   if (gpuId == null) {
     return false;
   }
 
-  const anyAdapterReported =
-    Object.keys(gpuUsageHistories).length > 0 ||
-    Object.keys(gpuTemperatureMap).length > 0;
+  const maps = liveMapsInOrder(live);
+  const anyAdapterReported = maps.some((map) => Object.keys(map).length > 0);
 
-  return (
-    anyAdapterReported &&
-    !Object.hasOwn(gpuUsageHistories, gpuId) &&
-    !Object.hasOwn(gpuTemperatureMap, gpuId)
-  );
+  return anyAdapterReported && !maps.some((map) => Object.hasOwn(map, gpuId));
 };

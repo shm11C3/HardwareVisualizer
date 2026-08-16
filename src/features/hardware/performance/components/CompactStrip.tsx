@@ -5,6 +5,8 @@ import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAt
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
+  gpuDedicatedMemoryKbMapAtom,
+  gpuFanSpeedMapAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
@@ -12,7 +14,11 @@ import {
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
-import { getEffectiveGpuId, listGpuAdapters } from "../gpuIdentity";
+import {
+  type GpuLiveMaps,
+  getEffectiveGpuId,
+  listGpuAdapters,
+} from "../gpuIdentity";
 import { formatTemperature, toCssColor } from "./InstrumentStrip";
 import { Sparkline } from "./Sparkline";
 
@@ -126,6 +132,8 @@ export const CompactStrip = ({
   const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
+  const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
+  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
   const selectedGpuId = useAtomValue(selectedGpuIdAtom);
   const { hardwareInfo, init } = useHardwareInfoAtom();
 
@@ -138,19 +146,27 @@ export const CompactStrip = ({
     }
   }, []);
 
+  const gpuLive = useMemo<GpuLiveMaps>(
+    () => ({
+      usageHistories: gpuUsageHistories,
+      temperatures: gpuTemperatureMap,
+      fanSpeeds: gpuFanSpeedMap,
+      dedicatedMemoryKb: gpuDedicatedMemoryKbMap,
+    }),
+    [
+      gpuUsageHistories,
+      gpuTemperatureMap,
+      gpuFanSpeedMap,
+      gpuDedicatedMemoryKbMap,
+    ],
+  );
   const gpuAdapters = useMemo(
-    () =>
-      listGpuAdapters(
-        hardwareInfo.gpus,
-        gpuTemperatureMap,
-        Object.keys(gpuUsageHistories),
-      ),
-    [hardwareInfo.gpus, gpuTemperatureMap, gpuUsageHistories],
+    () => listGpuAdapters(hardwareInfo.gpus, gpuLive),
+    [hardwareInfo.gpus, gpuLive],
   );
   const effectiveGpuId = getEffectiveGpuId(
     selectedGpuId,
-    gpuUsageHistories,
-    gpuTemperatureMap,
+    gpuLive,
     gpuAdapters.map((adapter) => adapter.id),
   );
   const activeGpuAdapter = gpuAdapters.find(
@@ -200,7 +216,11 @@ export const CompactStrip = ({
   // the mini monitor's small corner window and cannot hold a device name.
   const footerItems: string[] =
     activeGpuAdapter != null
-      ? [`${t("pages.performance.metrics.gpu")}: ${activeGpuAdapter.label}`]
+      ? [
+          t("pages.performance.compactGpuAdapter", {
+            name: activeGpuAdapter.label,
+          }),
+        ]
       : [];
 
   return (

@@ -64,7 +64,10 @@ const settings = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    // Interpolated values are appended so tests can assert on what the string
+    // actually carries, not just which key was reached.
+    t: (key: string, params?: Record<string, unknown>) =>
+      params == null ? key : `${key} ${Object.values(params).join(" ")}`,
   }),
 }));
 
@@ -342,7 +345,7 @@ describe("Performance", () => {
     expect(gpuMetric).toHaveTextContent("45°C");
 
     act(() => {
-      screen.getByRole("tab", { name: "Intel UHD Graphics 770" }).click();
+      screen.getByRole("button", { name: "Intel UHD Graphics 770" }).click();
     });
 
     expect(store.get(selectedGpuIdAtom)).toBe("gpu-2");
@@ -350,8 +353,8 @@ describe("Performance", () => {
     expect(gpuMetric).toHaveTextContent("67°C");
     expect(gpuMetric).not.toHaveTextContent("45°C");
     expect(
-      screen.getByRole("tab", { name: "Intel UHD Graphics 770" }),
-    ).toHaveAttribute("aria-selected", "true");
+      screen.getByRole("button", { name: "Intel UHD Graphics 770" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("keeps a silent adapter selected and says so instead of borrowing readings", () => {
@@ -376,8 +379,8 @@ describe("Performance", () => {
     expect(gpuMetric).not.toHaveTextContent("45°C");
     // The rest of the adapter's information stays reachable.
     expect(
-      screen.getByRole("tab", { name: "Intel UHD Graphics 770" }),
-    ).toHaveAttribute("aria-selected", "true");
+      screen.getByRole("button", { name: "Intel UHD Graphics 770" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("does not call an adapter unavailable before the first sample arrives", () => {
@@ -412,7 +415,9 @@ describe("Performance", () => {
     );
 
     const strip = screen.getByTestId("performance-compact-strip");
-    expect(strip).toHaveTextContent("UHD Graphics 770");
+    expect(strip).toHaveTextContent(
+      "pages.performance.compactGpuAdapter UHD Graphics 770",
+    );
     expect(screen.getByTestId("performance-compact-row-gpu")).toHaveTextContent(
       "50%",
     );
@@ -443,7 +448,7 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-hidden-panels")).toBeVisible();
     expect(
       screen.getAllByRole("button", {
-        name: "pages.performance.showPanel",
+        name: /^pages\.performance\.showPanel/,
       }),
     ).toHaveLength(2);
   });

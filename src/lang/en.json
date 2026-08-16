@@ -294,6 +294,7 @@
       "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
       "gpuSelector": "Select GPU",
       "gpuNoLiveReadings": "This adapter is not reporting live readings.",
+      "compactGpuAdapter": "GPU: {{name}}",
       "metrics": {
         "cpu": "CPU",
         "memory": "RAM",
