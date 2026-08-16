@@ -402,7 +402,9 @@ const runSmoke = async (driver: WebDriver) => {
   await driver.wait(until.stalenessOf(closeDialogButton), DEFAULT_TIMEOUT_MS);
 
   log("opening Settings");
-  await clickVisible(driver, By.css('button[aria-label="open settings"]'));
+  // The side menu builds its accessible name from the translated destination
+  // title (see SideMenu.tsx), so match the title rather than the identifier.
+  await clickVisible(driver, By.css('button[aria-label="Open Settings"]'));
 
   await waitForVisible(
     driver,

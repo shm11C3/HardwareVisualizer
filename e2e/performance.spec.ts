@@ -6,25 +6,33 @@ import {
   seedHardwareHistory,
 } from "./helpers";
 
-test.describe("Grouped Dashboard", () => {
-  test("switches between Performance and System Specifications without keeping inactive content mounted", async ({
+test.describe("Grouped navigation destinations", () => {
+  test("moves between the Performance and System Specifications destinations without keeping the other mounted", async ({
     page,
   }) => {
     await gotoApp(page);
 
-    const performanceTab = page.getByRole("tab", { name: "Performance" });
-    const specificationsTab = page.getByRole("tab", {
-      name: "System Specifications",
+    // Both screens are side-menu destinations now, so selection is reported as
+    // the current page on the menu entries rather than as a selected tab.
+    const performanceEntry = page.getByRole("button", {
+      name: "Open Performance",
     });
-
-    await expect(performanceTab).toHaveAttribute("data-state", "active");
+    const specificationsEntry = page.getByRole("button", {
+      name: "Open System Specifications",
+    });
+    await expect(performanceEntry).toHaveAttribute("aria-current", "page");
+    await expect(specificationsEntry).not.toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await expect(page.getByTestId("performance-screen")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Copy hardware report" }),
     ).toHaveCount(0);
 
-    await specificationsTab.click();
-    await expect(specificationsTab).toHaveAttribute("data-state", "active");
+    await navigateTo(page, "systemSpecifications");
+    await expect(specificationsEntry).toHaveAttribute("aria-current", "page");
+    await expect(performanceEntry).not.toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("performance-screen")).toHaveCount(0);
     await expect(page.getByTestId("system-specifications-sheet")).toBeVisible();
     await expect(
@@ -39,15 +47,34 @@ test.describe("Grouped Dashboard", () => {
     ).toBeVisible();
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "dashboard");
-    await expect(specificationsTab).toHaveAttribute("data-state", "active");
-    await saveCapture(page, "dashboard-system-specifications-desktop");
+    await navigateTo(page, "systemSpecifications");
+    await expect(page.getByTestId("system-specifications-sheet")).toBeVisible();
+    await saveCapture(page, "system-specifications-desktop");
 
     await page.setViewportSize({ width: 520, height: 800 });
-    await saveCapture(page, "dashboard-system-specifications-compact-window");
+    await saveCapture(page, "system-specifications-compact-window");
 
-    await performanceTab.click();
+    await navigateTo(page, "performance");
     await expect(page.getByTestId("performance-screen")).toBeVisible();
+  });
+
+  test("lands upgrading users on a destination that still exists", async ({
+    page,
+  }) => {
+    // A stored selection from the retired Grouped Dashboard destination.
+    await gotoApp(page, { path: "/?storedDisplay=groupedDashboard" });
+    await expect(page.getByTestId("performance-screen")).toBeVisible();
+
+    // Classic-only screens are not destinations in grouped navigation either.
+    await gotoApp(page, { path: "/?storedDisplay=usage" });
+    await expect(page.getByTestId("performance-screen")).toBeVisible();
+
+    // A destination both layouts share survives untouched.
+    await page.goto("/?storedDisplay=insights");
+    await expect(
+      page.getByRole("button", { name: "Open Insights" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(page.getByTestId("performance-screen")).toHaveCount(0);
   });
 
   test("switches views and unmounts content outside the active view", async ({
@@ -71,7 +98,7 @@ test.describe("Grouped Dashboard", () => {
     await expect(page.getByTestId("live-process-table")).toHaveCount(0);
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "dashboard");
+    await navigateTo(page, "performance");
     await expect(page.getByRole("tab", { name: "Compact" })).toHaveAttribute(
       "data-state",
       "active",
@@ -102,7 +129,7 @@ test.describe("Grouped Dashboard", () => {
     await expect(page.getByTestId("performance-hidden-panels")).toHaveCount(0);
 
     await navigateTo(page, "settings");
-    await navigateTo(page, "dashboard");
+    await navigateTo(page, "performance");
     await expect(page.getByTestId("performance-usage-graphs")).toHaveCount(0);
     await expect(page.getByTestId("live-process-table")).toBeVisible();
 
@@ -173,11 +200,11 @@ test.describe("Grouped Dashboard", () => {
     // Nothing else is reachable: the rest of the app is inert behind the
     // layer, so no tabs, headings, or side-menu buttons remain exposed.
     await expect(page.getByRole("tab")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toHaveCount(
-      0,
-    );
     await expect(
-      page.getByRole("button", { name: "open settings" }),
+      page.getByRole("heading", { name: "Performance" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Open Settings" }),
     ).toHaveCount(0);
     await expect(
       page.getByTestId("performance-compact-collapse"),
@@ -195,7 +222,7 @@ test.describe("Grouped Dashboard", () => {
     await expect(fullScreen).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Compact" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "open settings" }),
+      page.getByRole("button", { name: "Open Settings" }),
     ).toBeVisible();
 
     // The labelled control exits as well as Escape.

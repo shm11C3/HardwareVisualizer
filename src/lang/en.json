@@ -210,12 +210,12 @@
     }
   },
   "navigation": {
-    "dashboardSection": "Dashboard",
     "performance": "Performance",
-    "insightSection": "Insight",
+    "systemSpecifications": "System Specifications",
+    "openDestination": "Open {{name}}",
     "notice": {
       "title": "Navigation has been reorganized",
-      "description": "Live monitoring and system specifications now start from Dashboard. You can return to the previous navigation from Settings.",
+      "description": "Performance and System Specifications are now separate entries in the side menu. You can switch back to the previous navigation in Settings.",
       "openSettings": "Open navigation settings",
       "dismiss": "Dismiss navigation notice"
     }
@@ -223,11 +223,6 @@
   "pages": {
     "dashboard": {
       "name": "Dashboard",
-      "viewTabs": "Dashboard views",
-      "tabs": {
-        "performance": "Performance",
-        "systemSpecifications": "System Specifications"
-      },
       "copyHardwareReport": "Copy hardware report",
       "systemSpecifications": {
         "networkUnavailable": "Network information is unavailable on this system.",

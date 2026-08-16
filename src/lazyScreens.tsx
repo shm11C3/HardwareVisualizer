@@ -8,12 +8,6 @@ export const Dashboard = React.lazy(() =>
   })),
 );
 
-export const GroupedDashboard = React.lazy(() =>
-  import("./features/hardware/dashboard/GroupedDashboard").then((m) => ({
-    default: m.GroupedDashboard,
-  })),
-);
-
 export const ChartTemplate = React.lazy(() =>
   import("./features/hardware/usage/Usage").then((m) => ({
     default: m.ChartTemplate,
@@ -24,6 +18,12 @@ export const Performance = React.lazy(() =>
   import("./features/hardware/performance/Performance").then((m) => ({
     default: m.Performance,
   })),
+);
+
+export const SystemSpecifications = React.lazy(() =>
+  import("./features/hardware/specifications/SystemSpecifications").then(
+    (m) => ({ default: m.SystemSpecifications }),
+  ),
 );
 
 export const CpuUsages = React.lazy(() =>
@@ -50,11 +50,11 @@ export const prefetchScreen = async (type: SelectedDisplayType) => {
     case "dashboard":
       await import("./features/hardware/dashboard/Dashboard");
       break;
-    case "groupedDashboard":
-      await import("./features/hardware/dashboard/GroupedDashboard");
-      break;
     case "performance":
       await import("./features/hardware/performance/Performance");
+      break;
+    case "systemSpecifications":
+      await import("./features/hardware/specifications/SystemSpecifications");
       break;
     case "usage":
       await import("./features/hardware/usage/Usage");

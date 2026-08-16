@@ -22,18 +22,21 @@ test.describe("settings captures", () => {
   }) => {
     await gotoApp(page);
 
+    // Grouped navigation lists Performance and System Specifications as their
+    // own destinations; the classic-only screens stay hidden.
     await expect(
-      page.getByRole("button", { name: "open dashboard" }),
+      page.getByRole("button", { name: "Open Performance" }),
     ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
-    await expect(page.getByRole("button", { name: "open usage" })).toHaveCount(
+    await expect(
+      page.getByRole("button", { name: "Open System Specifications" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Open Dashboard" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open Usage" })).toHaveCount(
       0,
     );
-    await expect(
-      page.getByRole("button", { name: "open cpuDetail" }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "open performance" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open CPU" })).toHaveCount(0);
 
     await navigateTo(page, "settings");
     const classicNavigation = page.getByRole("switch", {
@@ -43,14 +46,15 @@ test.describe("settings captures", () => {
 
     await expect(classicNavigation).toBeChecked();
     await expect(
-      page.getByRole("button", { name: "open dashboard" }),
+      page.getByRole("button", { name: "Open Dashboard" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "open usage" }),
+      page.getByRole("button", { name: "Open Usage" }),
     ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open CPU" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "open cpuDetail" }),
-    ).toBeVisible();
+      page.getByRole("button", { name: "Open System Specifications" }),
+    ).toHaveCount(0);
   });
 
   test("navigation notice links to Settings and can be dismissed", async ({

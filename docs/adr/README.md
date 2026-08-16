@@ -35,3 +35,4 @@ ADR status describes decision maturity, not release status.
 - [0012 Native-first Windows Storage Health Collection](0012-native-first-windows-storage-health-collection.md)
 - [0013 Centralized Live Process Polling](0013-centralized-live-process-polling.md)
 - [0014 Performance Views and the Specification Sheet](0014-performance-views-and-specification-sheet.md)
+- [0015 Performance and System Specifications as Sidebar Destinations](0015-performance-and-system-specifications-destinations.md)

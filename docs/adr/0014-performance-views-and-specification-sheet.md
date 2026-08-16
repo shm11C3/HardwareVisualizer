@@ -4,26 +4,31 @@ Status: accepted
 
 Refines: [ADR 0010](0010-grouped-navigation-with-classic-fallback.md)
 
-The first Grouped Dashboard implementation shipped four Performance Layout
-Presets (Compact, Monitor, Detailed, Custom) and reused the Hardware Dashboard
-card grid for the System Specifications tab. Maintainer review of the rendered
+This decision was made while both surfaces were tabs inside one Grouped
+Dashboard destination. [ADR 0015](0015-performance-and-system-specifications-destinations.md)
+promoted them to peer sidebar destinations. Every presentation decision below
+still applies; read "Performance Tab" and "System Specifications tab" as the
+Performance Screen and the System Specifications Screen.
+
+The first implementation shipped four Performance Layout Presets (Compact,
+Monitor, Detailed, Custom) and reused the Hardware Dashboard card grid for the
+specifications surface. Maintainer review of the rendered
 result identified concrete problems: every panel explained itself with heading
 plus description prose, the "Last 60 seconds" caption repeated once per metric
-card, two stacked pill rows (Dashboard tabs plus preset tabs) read as redundant
+card, two stacked pill rows (navigation tabs plus preset tabs) read as redundant
 chrome, Compact carried too little information to justify a preset, Detailed
 and Custom differed only in whether an always-visible editor panel occupied the
 top of the screen, and the specifications card grid produced large blank areas
 because card heights did not match while static facts stayed mixed with live
 readings.
 
-This decision keeps the ADR 0010 navigation hierarchy (Grouped Dashboard with
-peer Performance and System Specifications tabs) and replaces the presentation
-inside both tabs.
+This decision keeps the navigation hierarchy it inherited and replaces the
+presentation inside both surfaces.
 
 ## Performance Views
 
-The Performance Tab exposes three Performance Views: Panels (default), Compact,
-and Monitor. The retired Detailed and Custom presets both normalize onto
+The Performance Screen exposes three Performance Views: Panels (default),
+Compact, and Monitor. The retired Detailed and Custom presets both normalize onto
 Panels; Compact and Monitor stored values remain valid. The UI-local store keys
 (`performanceLayoutPreset`, `performanceCustomLayout`) are reused with
 normalization instead of migrated.
@@ -80,7 +85,7 @@ the time axis is stated once by the graph.
 
 ## System Specifications sheet
 
-The System Specifications tab renders a flat single-column sheet of sections
+The System Specifications Screen renders a flat single-column sheet of sections
 (CPU, GPU, Memory, Storage, Motherboard, Platform, Network) with hairline
 key-value rows. Section height follows content, so the card-grid blank areas
 disappear. The sheet has no drag-and-drop arrangement and no visibility
