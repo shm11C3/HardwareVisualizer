@@ -113,7 +113,8 @@
       "enter": "フルスクリーン",
       "exit": "フルスクリーンを終了"
     },
-    "title": "タイトル"
+    "title": "タイトル",
+    "expandProcessTable": "プロセス一覧を拡大"
   },
   "trayWidgetFlyout": {
     "openMainWindow": "メインウィンドウを開く",
@@ -318,7 +319,10 @@
         "2": "2列"
       },
       "expandCompact": "拡大",
-      "exitCompactFullScreen": "全画面を終了"
+      "exitCompactFullScreen": "全画面を終了",
+      "substats": {
+        "fan": "ファン {{value}}%"
+      }
     },
     "usage": {
       "name": "ハードウェア使用率"

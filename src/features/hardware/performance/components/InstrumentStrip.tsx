@@ -202,7 +202,9 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     return {
       badge: `${used} / ${total} ${unit}`,
       usedValue: used,
-      usedUnit: unit === "GB" ? "GB" : "MB",
+      // Report the unit the platform gave rather than assuming MB for
+      // anything that is not GB.
+      usedUnit: unit,
     };
   }, [memoryHistory, hardwareInfo.memory]);
 
@@ -243,7 +245,14 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
 
       const fan = gpuFanSpeedMap[effectiveGpuId];
       if (fan != null) {
-        substats.push({ key: "fan", text: `fan ${Math.round(fan.value)}%` });
+        substats.push({
+          key: "fan",
+          // VRAM stays an acronym in every supported language; "fan" is a
+          // word, so it comes from the language files.
+          text: t("pages.performance.substats.fan", {
+            value: Math.round(fan.value),
+          }),
+        });
       }
     }
     return substats;
@@ -252,6 +261,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     gpuDedicatedMemoryKbMap,
     gpuFanSpeedMap,
     hardwareInfo.gpus,
+    t,
   ]);
 
   const currentMemoryUsage = memoryHistory.at(-1) ?? null;

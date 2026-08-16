@@ -113,7 +113,8 @@
       "enter": "Enter Fullscreen",
       "exit": "Exit Fullscreen"
     },
-    "title": "Title"
+    "title": "Title",
+    "expandProcessTable": "Expand the process table"
   },
   "trayWidgetFlyout": {
     "openMainWindow": "Open main window",
@@ -318,7 +319,10 @@
         "2": "Two columns"
       },
       "expandCompact": "Expand",
-      "exitCompactFullScreen": "Exit full screen"
+      "exitCompactFullScreen": "Exit full screen",
+      "substats": {
+        "fan": "fan {{value}}%"
+      }
     },
     "usage": {
       "name": "Usage"

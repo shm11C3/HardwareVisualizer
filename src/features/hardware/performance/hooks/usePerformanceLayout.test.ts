@@ -10,7 +10,9 @@ import { usePerformanceLayout } from "./usePerformanceLayout";
 const setView = vi.fn();
 const setCustomLayout = vi.fn();
 const setColumns = vi.fn();
+const setCompactExpanded = vi.fn();
 let columns: unknown = 1;
+let compactExpanded: unknown = false;
 
 let view: PerformanceView = "panels";
 let customLayout: PerformanceCustomLayout = {
@@ -31,15 +33,20 @@ describe("usePerformanceLayout", () => {
       visible: ["usageGraphs", "processTable"],
     };
     columns = 1;
+    compactExpanded = false;
     setView.mockResolvedValue(undefined);
     setCustomLayout.mockResolvedValue(undefined);
     setColumns.mockResolvedValue(undefined);
+    setCompactExpanded.mockResolvedValue(undefined);
     vi.mocked(useTauriStore).mockImplementation((key) => {
       if (key === "performanceLayoutPreset") {
         return [view, setView, false] as never;
       }
       if (key === "performancePanelColumns") {
         return [columns, setColumns, false] as never;
+      }
+      if (key === "performanceCompactExpanded") {
+        return [compactExpanded, setCompactExpanded, false] as never;
       }
       return [customLayout, setCustomLayout, false] as never;
     });
@@ -66,6 +73,37 @@ describe("usePerformanceLayout", () => {
     await act(async () => result.current.setColumns(2));
 
     expect(setColumns).toHaveBeenCalledWith(2);
+  });
+
+  it("persists the mini-monitor choice and treats a non-true value as collapsed", async () => {
+    compactExpanded = true;
+    const { result, rerender } = renderHook(() => usePerformanceLayout());
+
+    expect(result.current.compactExpanded).toBe(true);
+
+    await act(async () => result.current.setCompactExpanded(false));
+
+    expect(setCompactExpanded).toHaveBeenCalledWith(false);
+
+    // A store that has not resolved yet must not read as expanded.
+    compactExpanded = null;
+    rerender();
+
+    expect(result.current.compactExpanded).toBe(false);
+  });
+
+  it("stays pending until the mini-monitor store resolves", () => {
+    vi.mocked(useTauriStore).mockImplementation((key) =>
+      key === "performanceCompactExpanded"
+        ? ([null, setCompactExpanded, true] as never)
+        : ([view, setView, false] as never),
+    );
+
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    // Otherwise the screen renders un-expanded for a frame and then snaps
+    // into the mini monitor once this store resolves.
+    expect(result.current.isPending).toBe(true);
   });
 
   it("normalizes a stored legacy preset onto a view", () => {

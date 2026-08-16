@@ -118,7 +118,8 @@ export const ProcessesTable = ({
             </h4>
             <DialogTrigger
               type="button"
-              className="ml-auto flex cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground focus:outline-hidden"
+              aria-label={t("shared.expandProcessTable")}
+              className="ml-auto flex cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <ArrowsOutIcon size={20} />
             </DialogTrigger>

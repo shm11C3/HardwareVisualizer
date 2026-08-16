@@ -153,7 +153,7 @@ _Avoid_: Rescan, reload, auto-detection, live polling
 ### Motherboard Sensors
 
 **Motherboard Sensor Display**:
-Presenting all available live motherboard temperature and fan-speed readings on the Hardware Dashboard.
+Presenting all available live motherboard temperature and fan-speed readings on the Performance Tab's Motherboard Sensors panel and on the Hardware Dashboard.
 _Avoid_: CPU thermal zones, GPU sensors, Storage Health Display
 
 **Sensor Source Label**:

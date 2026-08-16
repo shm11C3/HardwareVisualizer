@@ -31,7 +31,10 @@ export const SpecList = ({ rows }: { rows: SpecListRow[] }) => {
           className="flex items-baseline justify-between gap-6 border-border/60 border-b py-1.5 text-sm"
         >
           <span className="shrink-0 text-muted-foreground">{row.label}</span>
-          <span className="break-words text-right font-mono tabular-nums">
+          {/* min-w-0 lets break-words apply: a flex item's automatic minimum
+              size is min-content, so a long serial would otherwise widen the
+              row instead of wrapping. */}
+          <span className="min-w-0 break-words text-right font-mono tabular-nums">
             {row.value}
           </span>
         </div>
