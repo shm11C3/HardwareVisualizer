@@ -182,6 +182,58 @@ export const listGpuAdapters = (
 };
 
 /**
+ * The inventory entry a selection describes.
+ *
+ * `selectedGpuIdAtom` is shared by every GPU surface, but the inventory and
+ * the monitor stream use different id namespaces (see `gpuNamesAtom`), so a
+ * live id — which is what the Performance selector and the event listener's
+ * auto-selection both write — never matches an inventory id directly. Joining
+ * on the name both sources report is what keeps the classic card from pairing
+ * one adapter's name with another adapter's readings.
+ *
+ * The join is refused when the name picks out more than one entry; the caller
+ * then falls back rather than guessing.
+ */
+export const findInventoryGpu = <T extends { id: string; name: string }>(
+  gpus: readonly T[],
+  gpuNames: Record<string, string>,
+  selectedGpuId: string | null,
+): T | undefined => {
+  if (selectedGpuId == null) {
+    return undefined;
+  }
+
+  const byId = gpus.find((gpu) => gpu.id === selectedGpuId);
+  if (byId != null) {
+    return byId;
+  }
+
+  const liveName = gpuNames[selectedGpuId];
+  if (liveName == null) {
+    return undefined;
+  }
+
+  const matches = gpus.filter((gpu) => gpu.name === liveName);
+  return matches.length === 1 ? matches[0] : undefined;
+};
+
+/**
+ * The live id that names the same adapter as an inventory entry, so a surface
+ * holding inventory entries can write the shared selection in the namespace
+ * every reading is keyed by. Falls back to the inventory id when no live
+ * adapter reports that name, or when more than one does.
+ */
+export const toLiveGpuId = (
+  gpu: { id: string; name: string },
+  gpuNames: Record<string, string>,
+): string => {
+  const matches = Object.entries(gpuNames).filter(
+    ([, name]) => name === gpu.name,
+  );
+  return matches.length === 1 ? matches[0][0] : gpu.id;
+};
+
+/**
  * The GPU both Performance views agree on.
  *
  * An explicit selection wins while the adapter is still detected, even when it

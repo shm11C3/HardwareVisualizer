@@ -9,6 +9,12 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
+import {
+  type GpuLiveMaps,
+  getEffectiveGpuId,
+  hasNoLiveGpuReadings,
+  listGpuAdapters,
+} from "@/features/hardware/gpuIdentity";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
@@ -25,12 +31,6 @@ import {
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
-import {
-  type GpuLiveMaps,
-  getEffectiveGpuId,
-  hasNoLiveGpuReadings,
-  listGpuAdapters,
-} from "../gpuIdentity";
 import { GpuAdapterSelector } from "./GpuAdapterSelector";
 import { Sparkline } from "./Sparkline";
 

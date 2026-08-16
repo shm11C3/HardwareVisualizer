@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  findInventoryGpu,
   type GpuLiveMaps,
   getEffectiveGpuId,
   hasNoLiveGpuReadings,
   listGpuAdapters,
+  toLiveGpuId,
 } from "./gpuIdentity";
+
+const inventory = [
+  { id: "12345", name: "NVIDIA GeForce RTX 4080" },
+  { id: "67890", name: "Intel UHD Graphics 770" },
+];
 
 /** The live name map, as the event listener builds it from each sample. */
 const names = (...pairs: [string, string][]) => Object.fromEntries(pairs);
@@ -250,5 +257,67 @@ describe("hasNoLiveGpuReadings", () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("findInventoryGpu", () => {
+  it("resolves a live id to its inventory entry through the shared name", () => {
+    // Selecting the second adapter on Performance writes a live id. Resolving
+    // it by id alone would land on the first inventory entry and pair its
+    // name with the second adapter's readings.
+    expect(
+      findInventoryGpu(
+        inventory,
+        { "pci:0:2:0": "Intel UHD Graphics 770" },
+        "pci:0:2:0",
+      ),
+    ).toEqual(inventory[1]);
+  });
+
+  it("still accepts an id the inventory itself uses", () => {
+    expect(findInventoryGpu(inventory, {}, "67890")).toEqual(inventory[1]);
+  });
+
+  it("refuses the join when the name picks out more than one entry", () => {
+    const twins = [
+      { id: "a", name: "NVIDIA GeForce RTX 4090" },
+      { id: "b", name: "NVIDIA GeForce RTX 4090" },
+    ];
+
+    expect(
+      findInventoryGpu(
+        twins,
+        { "nvapi:1": "NVIDIA GeForce RTX 4090" },
+        "nvapi:1",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("has nothing to resolve without a selection", () => {
+    expect(findInventoryGpu(inventory, {}, null)).toBeUndefined();
+  });
+});
+
+describe("toLiveGpuId", () => {
+  it("writes the shared selection in the namespace readings are keyed by", () => {
+    expect(
+      toLiveGpuId(inventory[1], { "pci:0:2:0": "Intel UHD Graphics 770" }),
+    ).toBe("pci:0:2:0");
+  });
+
+  it("keeps the inventory id when no live adapter reports that name", () => {
+    expect(toLiveGpuId(inventory[1], {})).toBe("67890");
+  });
+
+  it("keeps the inventory id when the name is ambiguous", () => {
+    expect(
+      toLiveGpuId(
+        { id: "a", name: "NVIDIA GeForce RTX 4090" },
+        {
+          "nvapi:1": "NVIDIA GeForce RTX 4090",
+          "nvapi:2": "NVIDIA GeForce RTX 4090",
+        },
+      ),
+    ).toBe("a");
   });
 });

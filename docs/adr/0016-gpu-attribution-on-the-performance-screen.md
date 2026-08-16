@@ -52,9 +52,14 @@ silent — the exact misattribution this decision exists to prevent. The
 inventory's surface is the System Specifications sheet, which lists every
 detected adapter as a static fact and attributes no readings.
 
-Where the two sides do have to meet — the VRAM total that labels a live VRAM
-reading — they meet on the name, which both sources report, the same join the
-classic Hardware Dashboard already uses.
+Where the two sides do have to meet, they meet on the name, which both sources
+report — and only while that name picks out exactly one entry on each side.
+There are two such places: the VRAM total that labels a live VRAM reading, and
+the classic Hardware Dashboard, which holds inventory entries but shares
+`selectedGpuIdAtom` with Performance. `findInventoryGpu` and `toLiveGpuId` are
+that join, so the shared selection is written in the live namespace by every
+surface and read back through the name by the one surface that needs the
+inventory.
 
 "Every detected adapter is represented" therefore means every adapter the
 monitor stream reported. An adapter that names itself and reports no values is
@@ -151,6 +156,7 @@ selection; it follows the choice made in Panels.
 - Changing GPU collection providers, archive semantics, or the Insights GPU
   view.
 - Adding selection or live readings to the System Specifications sheet.
-- Changing the classic Hardware Dashboard GPU card, whose own selector writes
-  inventory ids into the same atom and therefore does not resolve against the
-  live maps. That mismatch predates this decision and is tracked separately.
+- Redesigning the classic Hardware Dashboard GPU card. Its selection is
+  reconciled with the shared atom here, because making a second adapter
+  selectable on Performance would otherwise let the classic card pair one
+  adapter's name with another's readings, but nothing else about it changes.

@@ -2,6 +2,11 @@ import { useAtomValue } from "jotai";
 import { type CSSProperties, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  type GpuLiveMaps,
+  getEffectiveGpuId,
+  listGpuAdapters,
+} from "@/features/hardware/gpuIdentity";
+import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
@@ -14,11 +19,6 @@ import {
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
-import {
-  type GpuLiveMaps,
-  getEffectiveGpuId,
-  listGpuAdapters,
-} from "../gpuIdentity";
 import { formatTemperature, toCssColor } from "./InstrumentStrip";
 import { Sparkline } from "./Sparkline";
 

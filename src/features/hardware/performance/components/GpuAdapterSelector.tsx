@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
+import type { GpuAdapter } from "@/features/hardware/gpuIdentity";
 import { cn } from "@/lib/utils";
-import type { GpuAdapter } from "../gpuIdentity";
 
 /**
  * The full name, except where two identical cards report the same one — then
