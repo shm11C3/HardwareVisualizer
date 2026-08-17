@@ -267,19 +267,28 @@ export const getEffectiveGpuId = (
  * Whether the screen may state that an adapter has no live readings.
  *
  * Empty maps before the first sample mean "not measured yet", so the claim is
- * only allowed once some adapter has reported and this one still has not — in
- * any of the maps, since a fan speed alone is still a live reading.
+ * only allowed once sampling has actually happened and this adapter still has
+ * no value — in any of the maps, since a fan speed alone is still a live
+ * reading.
+ *
+ * A detected adapter is itself proof that a sample arrived: a machine whose
+ * only GPU reports its name and nothing else leaves every value map empty
+ * forever, and treating that as "not measured yet" would suppress the
+ * explanation for exactly the user who most needs it.
  */
 export const hasNoLiveGpuReadings = (
   gpuId: string | undefined,
   live: GpuLiveMaps,
+  detectedGpuIds: readonly string[] = [],
 ) => {
   if (gpuId == null) {
     return false;
   }
 
   const maps = liveMapsInOrder(live);
-  const anyAdapterReported = maps.some((map) => Object.keys(map).length > 0);
+  const sampled =
+    detectedGpuIds.length > 0 ||
+    maps.some((map) => Object.keys(map).length > 0);
 
-  return anyAdapterReported && !maps.some((map) => Object.hasOwn(map, gpuId));
+  return sampled && !maps.some((map) => Object.hasOwn(map, gpuId));
 };

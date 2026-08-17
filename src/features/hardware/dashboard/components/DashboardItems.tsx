@@ -162,24 +162,6 @@ export const GPUInfo = () => {
       : (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null);
   const hasMultipleGpus = gpus.length > 1;
 
-  // A selection made from the inventory before the first sample arrived can
-  // only be an inventory id, which addresses no readings. Adopt the live id
-  // for the same adapter as soon as the stream names exactly one, so the
-  // highlight here and the graphs elsewhere stop describing different cards.
-  useEffect(() => {
-    if (selectedGpuId == null || gpuNames[selectedGpuId] != null) {
-      return;
-    }
-    const stillInventory = gpus.find((gpu) => gpu.id === selectedGpuId);
-    if (stillInventory == null) {
-      return;
-    }
-    const liveId = toLiveGpuId(stillInventory, gpuNames);
-    if (liveId !== selectedGpuId) {
-      setSelectedGpuId(liveId);
-    }
-  }, [selectedGpuId, gpus, gpuNames, setSelectedGpuId]);
-
   const getTargetInfo = (data: NameValues) => {
     if (!targetGpu || data.length === 0) return undefined;
     // Prefer an exact name match for the currently selected GPU.

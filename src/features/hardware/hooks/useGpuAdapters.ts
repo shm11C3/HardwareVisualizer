@@ -50,18 +50,18 @@ export const useGpuAdapters = () => {
     () => listGpuAdapters(gpuNames, live),
     [gpuNames, live],
   );
-  const effectiveGpuId = getEffectiveGpuId(
-    selectedGpuId,
-    live,
-    adapters.map((adapter) => adapter.id),
+  const detectedGpuIds = useMemo(
+    () => adapters.map((adapter) => adapter.id),
+    [adapters],
   );
+  const effectiveGpuId = getEffectiveGpuId(selectedGpuId, live, detectedGpuIds);
 
   return {
     live,
     adapters,
     effectiveGpuId,
     effectiveAdapter: adapters.find((adapter) => adapter.id === effectiveGpuId),
-    hasNoReadings: hasNoLiveGpuReadings(effectiveGpuId, live),
+    hasNoReadings: hasNoLiveGpuReadings(effectiveGpuId, live, detectedGpuIds),
     selectGpu: setSelectedGpuId,
   };
 };

@@ -62,8 +62,13 @@ surface and read back through the name by the one surface that needs the
 inventory.
 
 The classic card is reachable before the first sample, when no live id exists
-yet, so a selection made there starts as an inventory id and is reconciled to
-the live id as soon as the stream names that adapter. Committing an id that
+yet, so a selection made there starts as an inventory id. So do the selections
+already on disk from shipped versions, whose classic card wrote inventory ids
+into the same store key. Both are translated to the live id as soon as the
+stream names that adapter, and the translation lives in
+`useSelectedGpuPersistence` — mounted for the whole app — rather than in a GPU
+screen, because grouped navigation never mounts the classic card and the
+stored choice would otherwise stay inert forever. Committing an id that
 cannot address readings is what would otherwise leave the card's highlight and
 the graphs describing different adapters.
 
@@ -103,7 +108,11 @@ level down.
 "This adapter is not reporting live readings" may only be stated once some
 adapter has reported and this one still has not, in any of the four maps.
 Empty maps at startup mean the first sample has not arrived, and claiming
-unavailability there would turn a timing gap into a hardware conclusion. The
+unavailability there would turn a timing gap into a hardware conclusion. A
+detected adapter counts as evidence that sampling happened: a machine whose
+only GPU reports its name and no values at all leaves every value map empty
+permanently, and waiting for one of them would suppress the explanation for
+exactly the user who needs it. The
 note is additive rather than a replacement: it appears alongside whatever the
 adapter did report, never in place of it.
 

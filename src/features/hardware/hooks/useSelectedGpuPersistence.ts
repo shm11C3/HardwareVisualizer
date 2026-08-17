@@ -1,6 +1,11 @@
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
-import { selectedGpuIdAtom } from "@/features/hardware/store/chart";
+import { toLiveGpuId } from "@/features/hardware/gpuIdentity";
+import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import {
+  gpuNamesAtom,
+  selectedGpuIdAtom,
+} from "@/features/hardware/store/chart";
 import { useTauriStore } from "@/hooks/useTauriStore";
 
 const STORE_KEY = "selectedGpuId";
@@ -31,6 +36,8 @@ export const useSelectedGpuPersistence = () => {
   // `selectedGpuId` is still the pre-hydration value — so it would persist
   // that stale value straight over the preference just restored.
   const [hydrated, setHydrated] = useState(false);
+  const gpuNames = useAtomValue(gpuNamesAtom);
+  const { hardwareInfo } = useHardwareInfoAtom();
 
   useEffect(() => {
     if (isPending || hydrated) return;
@@ -47,4 +54,24 @@ export const useSelectedGpuPersistence = () => {
     if (selectedGpuId === storedId) return;
     setStoredId(selectedGpuId);
   }, [hydrated, selectedGpuId, storedId, setStoredId]);
+
+  // Selections written before this hook existed — and any made in the classic
+  // card before the first sample — are inventory ids, which address no
+  // readings. Translating them here rather than inside a GPU screen matters:
+  // grouped navigation never mounts the classic card, so a stored choice would
+  // otherwise stay inert for the whole life of the installation.
+  useEffect(() => {
+    if (!hydrated || selectedGpuId == null) return;
+    if (gpuNames[selectedGpuId] != null) return;
+
+    const inventoryEntry = hardwareInfo.gpus?.find(
+      (gpu) => gpu.id === selectedGpuId,
+    );
+    if (inventoryEntry == null) return;
+
+    const liveId = toLiveGpuId(inventoryEntry, gpuNames);
+    if (liveId !== selectedGpuId) {
+      setSelectedGpuId(liveId);
+    }
+  }, [hydrated, selectedGpuId, gpuNames, hardwareInfo.gpus, setSelectedGpuId]);
 };

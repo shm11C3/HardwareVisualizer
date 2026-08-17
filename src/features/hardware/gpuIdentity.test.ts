@@ -260,6 +260,21 @@ describe("hasNoLiveGpuReadings", () => {
   });
 });
 
+describe("hasNoLiveGpuReadings with an all-null sample", () => {
+  it("explains a lone adapter that reports only its own name", () => {
+    // An Intel GPU whose PDH usage query fails: the sample arrives, the name
+    // is recorded, and all four value maps stay empty forever. Treating that
+    // as "not measured yet" would blank the explanation permanently.
+    expect(
+      hasNoLiveGpuReadings("pdh:UHD Graphics", live({}), ["pdh:UHD Graphics"]),
+    ).toBe(true);
+  });
+
+  it("still says nothing before any adapter is detected", () => {
+    expect(hasNoLiveGpuReadings("pdh:UHD Graphics", live({}), [])).toBe(false);
+  });
+});
+
 describe("findInventoryGpu", () => {
   it("resolves a live id to its inventory entry through the shared name", () => {
     // Selecting the second adapter on Performance writes a live id. Resolving

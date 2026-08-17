@@ -2,17 +2,28 @@ import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { selectedGpuIdAtom } from "@/features/hardware/store/chart";
+import {
+  gpuNamesAtom,
+  selectedGpuIdAtom,
+} from "@/features/hardware/store/chart";
 import { useSelectedGpuPersistence } from "./useSelectedGpuPersistence";
 
 const mocks = vi.hoisted(() => ({
   storeValue: null as string | null,
   setStored: vi.fn(),
   isPending: false,
+  gpus: null as { id: string; name: string }[] | null,
 }));
 
 vi.mock("@/hooks/useTauriStore", () => ({
   useTauriStore: () => [mocks.storeValue, mocks.setStored, mocks.isPending],
+}));
+
+vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
+  useHardwareInfoAtom: () => ({
+    hardwareInfo: { gpus: mocks.gpus },
+    init: vi.fn(),
+  }),
 }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -22,7 +33,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 const useHarness = () => {
   useSelectedGpuPersistence();
   const [selected, setSelected] = useAtom(selectedGpuIdAtom);
-  return { selected, setSelected };
+  const [, setNames] = useAtom(gpuNamesAtom);
+  return { selected, setSelected, setNames };
 };
 
 describe("useSelectedGpuPersistence", () => {
@@ -30,6 +42,7 @@ describe("useSelectedGpuPersistence", () => {
     mocks.storeValue = null;
     mocks.isPending = false;
     mocks.setStored.mockClear();
+    mocks.gpus = null;
   });
 
   it("restores the persisted GPU selection on mount", () => {
@@ -67,6 +80,43 @@ describe("useSelectedGpuPersistence", () => {
     mocks.storeValue = "nvapi:absent";
 
     const { result } = renderHook(() => useHarness(), { wrapper });
+
+    expect(result.current.selected).toBe("nvapi:absent");
+    expect(mocks.setStored).not.toHaveBeenCalled();
+  });
+
+  it("migrates an inventory id stored by the pre-change classic card", () => {
+    // Shipped versions wrote GraphicInfo.id here. Grouped navigation never
+    // mounts the classic card, so translating it anywhere but app level would
+    // leave the choice inert for the life of the installation.
+    mocks.storeValue = "67890";
+    mocks.gpus = [
+      { id: "12345", name: "NVIDIA GeForce RTX 4080" },
+      { id: "67890", name: "Intel UHD Graphics 770" },
+    ];
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    expect(result.current.selected).toBe("67890");
+
+    act(() =>
+      result.current.setNames({
+        "nvapi:1": "NVIDIA GeForce RTX 4080",
+        "pci:0:2:0": "Intel UHD Graphics 770",
+      }),
+    );
+
+    expect(result.current.selected).toBe("pci:0:2:0");
+    expect(mocks.setStored).toHaveBeenLastCalledWith("pci:0:2:0");
+  });
+
+  it("leaves a live id that is simply absent this session alone", () => {
+    mocks.storeValue = "nvapi:absent";
+    mocks.gpus = [{ id: "12345", name: "NVIDIA GeForce RTX 4080" }];
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames({ "nvapi:1": "NVIDIA GeForce RTX 4080" }),
+    );
 
     expect(result.current.selected).toBe("nvapi:absent");
     expect(mocks.setStored).not.toHaveBeenCalled();
