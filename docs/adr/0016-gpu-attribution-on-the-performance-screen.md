@@ -68,9 +68,8 @@ into the same store key. Both are translated to the live id as soon as the
 stream names that adapter, and the translation lives in
 `useSelectedGpuPersistence` — mounted for the whole app — rather than in a GPU
 screen, because grouped navigation never mounts the classic card and the
-stored choice would otherwise stay inert forever. Committing an id that
-cannot address readings is what would otherwise leave the card's highlight and
-the graphs describing different adapters.
+stored choice would stay inert forever. An id that cannot address readings is
+what leaves the card's highlight and the graphs describing different adapters.
 
 Where the join is ambiguous, the caller refuses rather than falls back: the
 classic card claims no adapter identity for a selection it cannot resolve,
@@ -112,9 +111,10 @@ unavailability there would turn a timing gap into a hardware conclusion. A
 detected adapter counts as evidence that sampling happened: a machine whose
 only GPU reports its name and no values at all leaves every value map empty
 permanently, and waiting for one of them would suppress the explanation for
-exactly the user who needs it. The
-note is additive rather than a replacement: it appears alongside whatever the
-adapter did report, never in place of it.
+exactly the user who needs it.
+
+The note is additive rather than a replacement: it appears alongside whatever
+the adapter did report, never in place of it.
 
 ## Adapter labels
 
