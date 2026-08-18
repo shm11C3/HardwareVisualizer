@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   setStored: vi.fn(),
   isPending: false,
   gpus: null as { id: string; name: string }[] | null,
+  init: vi.fn(),
 }));
 
 vi.mock("@/hooks/useTauriStore", () => ({
@@ -22,7 +23,7 @@ vi.mock("@/hooks/useTauriStore", () => ({
 vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
   useHardwareInfoAtom: () => ({
     hardwareInfo: { gpus: mocks.gpus },
-    init: vi.fn(),
+    init: mocks.init,
   }),
 }));
 
@@ -43,6 +44,7 @@ describe("useSelectedGpuPersistence", () => {
     mocks.isPending = false;
     mocks.setStored.mockClear();
     mocks.gpus = null;
+    mocks.init.mockClear();
   });
 
   it("restores the persisted GPU selection on mount", () => {
@@ -120,6 +122,32 @@ describe("useSelectedGpuPersistence", () => {
 
     expect(result.current.selected).toBe("nvapi:absent");
     expect(mocks.setStored).not.toHaveBeenCalled();
+  });
+
+  it("fetches the inventory itself when a stored id cannot be resolved", () => {
+    // A restart into Monitor or Compact mounts nothing that fetches the
+    // inventory, and the migration cannot read what nothing has fetched.
+    mocks.storeValue = "67890";
+    mocks.gpus = null;
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames({ "pci:0:2:0": "Intel UHD Graphics 770" }),
+    );
+
+    expect(mocks.init).toHaveBeenCalled();
+  });
+
+  it("does not fetch the inventory while the stored id resolves live", () => {
+    mocks.storeValue = "pci:0:2:0";
+    mocks.gpus = null;
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames({ "pci:0:2:0": "Intel UHD Graphics 770" }),
+    );
+
+    expect(mocks.init).not.toHaveBeenCalled();
   });
 
   it("waits for the store to load before hydrating", () => {

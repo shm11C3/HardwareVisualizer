@@ -37,7 +37,7 @@ export const useSelectedGpuPersistence = () => {
   // that stale value straight over the preference just restored.
   const [hydrated, setHydrated] = useState(false);
   const gpuNames = useAtomValue(gpuNamesAtom);
-  const { hardwareInfo } = useHardwareInfoAtom();
+  const { hardwareInfo, init } = useHardwareInfoAtom();
 
   useEffect(() => {
     if (isPending || hydrated) return;
@@ -62,9 +62,22 @@ export const useSelectedGpuPersistence = () => {
   // otherwise stay inert for the whole life of the installation.
   useEffect(() => {
     if (!hydrated || selectedGpuId == null) return;
+    // Before the first sample every id looks unresolved; there is nothing to
+    // decide yet, so wait rather than fetch an inventory that may never be
+    // needed.
+    if (Object.keys(gpuNames).length === 0) return;
     if (gpuNames[selectedGpuId] != null) return;
 
-    const inventoryEntry = hardwareInfo.gpus?.find(
+    // A restart can land on a view that never fetches the inventory (Monitor,
+    // Compact), and the migration cannot read what nothing has fetched. Only
+    // an unresolved id triggers the fetch, so steady-state startups where the
+    // stored id is already live cost no extra IPC.
+    if (hardwareInfo.gpus == null) {
+      void init();
+      return;
+    }
+
+    const inventoryEntry = hardwareInfo.gpus.find(
       (gpu) => gpu.id === selectedGpuId,
     );
     if (inventoryEntry == null) return;
@@ -73,5 +86,7 @@ export const useSelectedGpuPersistence = () => {
     if (liveId !== selectedGpuId) {
       setSelectedGpuId(liveId);
     }
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `init` is
+    // recreated every render; depending on it would refetch in a loop.
   }, [hydrated, selectedGpuId, gpuNames, hardwareInfo.gpus, setSelectedGpuId]);
 };

@@ -68,7 +68,10 @@ into the same store key. Both are translated to the live id as soon as the
 stream names that adapter, and the translation lives in
 `useSelectedGpuPersistence` — mounted for the whole app — rather than in a GPU
 screen, because grouped navigation never mounts the classic card and the
-stored choice would stay inert forever. An id that cannot address readings is
+stored choice would stay inert forever. The migration fetches the inventory
+itself when an id needs translating, since a restart can land on a view
+(Monitor, Compact) that never fetches it; it waits for the first sample
+before deciding, because until then every id looks unresolved. An id that cannot address readings is
 what leaves the card's highlight and the graphs describing different adapters.
 
 Where the join is ambiguous, the caller refuses rather than falls back: the
