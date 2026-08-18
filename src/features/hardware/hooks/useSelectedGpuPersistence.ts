@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
@@ -36,6 +36,7 @@ export const useSelectedGpuPersistence = () => {
   // `selectedGpuId` is still the pre-hydration value — so it would persist
   // that stale value straight over the preference just restored.
   const [hydrated, setHydrated] = useState(false);
+  const inventoryRequestedRef = useRef(false);
   const gpuNames = useAtomValue(gpuNamesAtom);
   const { hardwareInfo, init } = useHardwareInfoAtom();
 
@@ -71,9 +72,14 @@ export const useSelectedGpuPersistence = () => {
     // A restart can land on a view that never fetches the inventory (Monitor,
     // Compact), and the migration cannot read what nothing has fetched. Only
     // an unresolved id triggers the fetch, so steady-state startups where the
-    // stored id is already live cost no extra IPC.
+    // stored id is already live cost no extra IPC. The ref keeps the request
+    // single-shot: `init` is a new function every render, so it re-triggers
+    // this effect while the fetch is still in flight.
     if (hardwareInfo.gpus == null) {
-      void init();
+      if (!inventoryRequestedRef.current) {
+        inventoryRequestedRef.current = true;
+        void init();
+      }
       return;
     }
 
@@ -86,7 +92,12 @@ export const useSelectedGpuPersistence = () => {
     if (liveId !== selectedGpuId) {
       setSelectedGpuId(liveId);
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `init` is
-    // recreated every render; depending on it would refetch in a loop.
-  }, [hydrated, selectedGpuId, gpuNames, hardwareInfo.gpus, setSelectedGpuId]);
+  }, [
+    hydrated,
+    selectedGpuId,
+    gpuNames,
+    hardwareInfo.gpus,
+    setSelectedGpuId,
+    init,
+  ]);
 };
