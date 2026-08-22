@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  asLiveGpuId,
   findInventoryGpu,
   type GpuLiveMaps,
   getEffectiveGpuId,
   hasNoLiveGpuReadings,
+  type LiveGpuId,
   listGpuAdapters,
   toLiveGpuId,
 } from "./gpuIdentity";
@@ -14,15 +16,33 @@ const inventory = [
 ];
 
 /** The live name map, as the event listener builds it from each sample. */
-const names = (...pairs: [string, string][]) => Object.fromEntries(pairs);
+const names = (...pairs: [string, string][]) =>
+  Object.fromEntries(
+    pairs.map(([id, name]) => [asLiveGpuId(id), name]),
+  ) as Record<LiveGpuId, string>;
 
-const live = (maps: Partial<GpuLiveMaps> = {}): GpuLiveMaps => ({
-  usageHistories: {},
-  temperatures: {},
-  fanSpeeds: {},
-  dedicatedMemoryKb: {},
-  ...maps,
-});
+/** Test seeds mint ids the way the event listener does. */
+const id = asLiveGpuId;
+
+/**
+ * Seeds take plain string keys and mint them here, the same way the event
+ * listener mints ids at the payload boundary.
+ */
+const live = (
+  maps: {
+    usageHistories?: Record<string, (number | null)[]>;
+    temperatures?: Record<string, { name: string; value: number }>;
+    fanSpeeds?: Record<string, { name: string; value: number }>;
+    dedicatedMemoryKb?: Record<string, number | null>;
+  } = {},
+): GpuLiveMaps =>
+  ({
+    usageHistories: {},
+    temperatures: {},
+    fanSpeeds: {},
+    dedicatedMemoryKb: {},
+    ...maps,
+  }) as GpuLiveMaps;
 
 describe("listGpuAdapters", () => {
   it("lists one adapter per live id, never unioned with the inventory namespace", () => {
@@ -178,19 +198,20 @@ describe("listGpuAdapters", () => {
 describe("getEffectiveGpuId", () => {
   it("keeps an explicit selection that reports nothing yet", () => {
     expect(
-      getEffectiveGpuId("gpu-2", live({ usageHistories: { "gpu-1": [20] } }), [
-        "gpu-1",
-        "gpu-2",
-      ]),
+      getEffectiveGpuId(
+        id("gpu-2"),
+        live({ usageHistories: { "gpu-1": [20] } }),
+        [id("gpu-1"), id("gpu-2")],
+      ),
     ).toBe("gpu-2");
   });
 
   it("drops a selection whose adapter is gone instead of showing nothing", () => {
     expect(
       getEffectiveGpuId(
-        "removed",
+        id("removed"),
         live({ usageHistories: { "gpu-1": [20] } }),
-        ["gpu-1"],
+        [id("gpu-1")],
       ),
     ).toBe("gpu-1");
   });
@@ -211,13 +232,13 @@ describe("getEffectiveGpuId", () => {
 
 describe("hasNoLiveGpuReadings", () => {
   it("stays silent before the first sample, which is 'not yet' rather than 'unavailable'", () => {
-    expect(hasNoLiveGpuReadings("gpu-2", live())).toBe(false);
+    expect(hasNoLiveGpuReadings(id("gpu-2"), live())).toBe(false);
   });
 
   it("reports an adapter that stayed silent while another one answered", () => {
     expect(
       hasNoLiveGpuReadings(
-        "gpu-2",
+        id("gpu-2"),
         live({ usageHistories: { "gpu-1": [20] } }),
       ),
     ).toBe(true);
@@ -226,7 +247,7 @@ describe("hasNoLiveGpuReadings", () => {
   it("counts a temperature-only adapter as reporting", () => {
     expect(
       hasNoLiveGpuReadings(
-        "gpu-2",
+        id("gpu-2"),
         live({
           usageHistories: { "gpu-1": [20] },
           temperatures: { "gpu-2": { name: "GPU 2", value: 51 } },
@@ -238,7 +259,7 @@ describe("hasNoLiveGpuReadings", () => {
   it("counts a fan-only adapter as reporting, so its fan speed is not called absent", () => {
     expect(
       hasNoLiveGpuReadings(
-        "gpu-2",
+        id("gpu-2"),
         live({
           usageHistories: { "gpu-1": [20] },
           fanSpeeds: { "gpu-2": { name: "GPU 2", value: 40 } },
@@ -250,7 +271,7 @@ describe("hasNoLiveGpuReadings", () => {
   it("counts a VRAM-only adapter as reporting", () => {
     expect(
       hasNoLiveGpuReadings(
-        "gpu-2",
+        id("gpu-2"),
         live({
           usageHistories: { "gpu-1": [20] },
           dedicatedMemoryKb: { "gpu-2": 1_048_576 },
@@ -266,12 +287,16 @@ describe("hasNoLiveGpuReadings with an all-null sample", () => {
     // is recorded, and all four value maps stay empty forever. Treating that
     // as "not measured yet" would blank the explanation permanently.
     expect(
-      hasNoLiveGpuReadings("pdh:UHD Graphics", live({}), ["pdh:UHD Graphics"]),
+      hasNoLiveGpuReadings(id("pdh:UHD Graphics"), live({}), [
+        id("pdh:UHD Graphics"),
+      ]),
     ).toBe(true);
   });
 
   it("still says nothing before any adapter is detected", () => {
-    expect(hasNoLiveGpuReadings("pdh:UHD Graphics", live({}), [])).toBe(false);
+    expect(hasNoLiveGpuReadings(id("pdh:UHD Graphics"), live({}), [])).toBe(
+      false,
+    );
   });
 });
 
@@ -283,14 +308,14 @@ describe("findInventoryGpu", () => {
     expect(
       findInventoryGpu(
         inventory,
-        { "pci:0:2:0": "Intel UHD Graphics 770" },
-        "pci:0:2:0",
+        names(["pci:0:2:0", "Intel UHD Graphics 770"]),
+        id("pci:0:2:0"),
       ),
     ).toEqual(inventory[1]);
   });
 
   it("still accepts an id the inventory itself uses", () => {
-    expect(findInventoryGpu(inventory, {}, "67890")).toEqual(inventory[1]);
+    expect(findInventoryGpu(inventory, {}, id("67890"))).toEqual(inventory[1]);
   });
 
   it("refuses the join when the name picks out more than one entry", () => {
@@ -302,8 +327,8 @@ describe("findInventoryGpu", () => {
     expect(
       findInventoryGpu(
         twins,
-        { "nvapi:1": "NVIDIA GeForce RTX 4090" },
-        "nvapi:1",
+        names(["nvapi:1", "NVIDIA GeForce RTX 4090"]),
+        id("nvapi:1"),
       ),
     ).toBeUndefined();
   });
@@ -319,11 +344,11 @@ describe("findInventoryGpu", () => {
     expect(
       findInventoryGpu(
         twins,
-        {
-          "nvapi:1": "NVIDIA GeForce RTX 4090",
-          "nvapi:2": "NVIDIA GeForce RTX 4090",
-        },
-        "nvapi:2",
+        names(
+          ["nvapi:1", "NVIDIA GeForce RTX 4090"],
+          ["nvapi:2", "NVIDIA GeForce RTX 4090"],
+        ),
+        id("nvapi:2"),
       ),
     ).toBeUndefined();
   });
@@ -336,7 +361,7 @@ describe("findInventoryGpu", () => {
 describe("toLiveGpuId", () => {
   it("writes the shared selection in the namespace readings are keyed by", () => {
     expect(
-      toLiveGpuId(inventory[1], { "pci:0:2:0": "Intel UHD Graphics 770" }),
+      toLiveGpuId(inventory[1], names(["pci:0:2:0", "Intel UHD Graphics 770"])),
     ).toBe("pci:0:2:0");
   });
 
@@ -355,10 +380,10 @@ describe("toLiveGpuId", () => {
     expect(
       toLiveGpuId(
         { id: "a", name: "NVIDIA GeForce RTX 4090" },
-        {
-          "nvapi:1": "NVIDIA GeForce RTX 4090",
-          "nvapi:2": "NVIDIA GeForce RTX 4090",
-        },
+        names(
+          ["nvapi:1", "NVIDIA GeForce RTX 4090"],
+          ["nvapi:2", "NVIDIA GeForce RTX 4090"],
+        ),
       ),
     ).toBe("a");
   });

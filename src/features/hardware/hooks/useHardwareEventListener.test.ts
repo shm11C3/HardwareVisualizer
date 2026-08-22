@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 import { chartConfig } from "@/features/hardware/consts/chart";
+import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
   cpuTempAtom,
@@ -679,8 +679,9 @@ describe("useHardwareEventListener", () => {
       );
 
       const histories = result.current;
-      expect(histories["nvapi:0"][histories["nvapi:0"].length - 1]).toBe(50);
-      expect(histories["nvapi:1"][histories["nvapi:1"].length - 1]).toBe(80);
+      const [gpu0, gpu1] = [asLiveGpuId("nvapi:0"), asLiveGpuId("nvapi:1")];
+      expect(histories[gpu0][histories[gpu0].length - 1]).toBe(50);
+      expect(histories[gpu1][histories[gpu1].length - 1]).toBe(80);
     });
 
     it("auto-selects first GPU ID when selectedGpuIdAtom is null", () => {

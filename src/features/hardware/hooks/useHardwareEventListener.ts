@@ -1,6 +1,7 @@
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
+import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
@@ -80,11 +81,11 @@ export const useHardwareEventListener = () => {
       setGpuHistories((prev) =>
         gpus.reduce(
           (acc, gpu) => {
+            // The payload is the one place live ids enter the app, so the
+            // brand is minted here and nowhere downstream.
+            const gpuId = asLiveGpuId(gpu.gpuId);
             if (gpu.gpuUsage != null) {
-              acc[gpu.gpuId] = padHistory([
-                ...(acc[gpu.gpuId] ?? []),
-                gpu.gpuUsage,
-              ]);
+              acc[gpuId] = padHistory([...(acc[gpuId] ?? []), gpu.gpuUsage]);
             }
             return acc;
           },
@@ -101,7 +102,7 @@ export const useHardwareEventListener = () => {
                 g.gpuTemperature != null,
             )
             .map((g) => [
-              g.gpuId,
+              asLiveGpuId(g.gpuId),
               { name: g.gpuName, value: g.gpuTemperature },
             ]),
         ),
@@ -116,12 +117,16 @@ export const useHardwareEventListener = () => {
       // would jump to another GPU on a transient hiccup.
       setGpuNames((prev) => ({
         ...prev,
-        ...Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuName])),
+        ...Object.fromEntries(
+          gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuName]),
+        ),
       }));
 
       // Usage sources from all GPUs
       setGpuSources(
-        Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuSource])),
+        Object.fromEntries(
+          gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuSource]),
+        ),
       );
 
       // Dedicated memory from all GPUs (only update when not null)
@@ -129,7 +134,7 @@ export const useHardwareEventListener = () => {
         gpus.reduce(
           (acc, gpu) => {
             if (gpu.gpuDedicatedMemoryUsageKb != null) {
-              acc[gpu.gpuId] = gpu.gpuDedicatedMemoryUsageKb;
+              acc[asLiveGpuId(gpu.gpuId)] = gpu.gpuDedicatedMemoryUsageKb;
             }
             return acc;
           },
@@ -146,7 +151,7 @@ export const useHardwareEventListener = () => {
                 g.gpuCoolerLevel != null,
             )
             .map((g) => [
-              g.gpuId,
+              asLiveGpuId(g.gpuId),
               { name: g.gpuName, value: g.gpuCoolerLevel },
             ]),
         ),
@@ -154,7 +159,11 @@ export const useHardwareEventListener = () => {
 
       // Auto-select first GPU if none selected
       setSelectedGpuId((prev) =>
-        prev != null ? prev : gpus.length > 0 ? gpus[0].gpuId : null,
+        prev != null
+          ? prev
+          : gpus.length > 0
+            ? asLiveGpuId(gpus[0].gpuId)
+            : null,
       );
 
       setProcessorsHistory((prev) => {

@@ -1,5 +1,6 @@
 import { createStore } from "jotai";
 import { describe, expect, it } from "vitest";
+import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
   gpuDedicatedMemoryKbAtom,
   gpuDedicatedMemoryKbMapAtom,
@@ -19,19 +20,29 @@ import {
  * label one adapter and graph another.
  */
 describe("derived GPU atoms", () => {
+  /** Seeds mint live ids the way the event listener does at the boundary. */
+  const liveMap = <T>(map: Record<string, T>) =>
+    map as unknown as Record<LiveGpuId, T>;
+
   const withSelection = (selected: string) => {
     const store = createStore();
-    store.set(selectedGpuIdAtom, selected);
-    store.set(gpuNamesAtom, {
-      "nvapi:1": "GeForce RTX 4080",
-      "pci:0:2:0": "UHD Graphics 770",
-    });
-    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [70] });
-    store.set(gpuUsageSourcesAtom, { "nvapi:1": "NVAPI" });
-    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4096 });
-    store.set(gpuTempMapAtom, {
-      "pci:0:2:0": { name: "UHD Graphics 770", value: 48 },
-    });
+    store.set(selectedGpuIdAtom, asLiveGpuId(selected));
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "nvapi:1": "GeForce RTX 4080",
+        "pci:0:2:0": "UHD Graphics 770",
+      }),
+    );
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [70] }));
+    store.set(gpuUsageSourcesAtom, liveMap({ "nvapi:1": "NVAPI" }));
+    store.set(gpuDedicatedMemoryKbMapAtom, liveMap({ "nvapi:1": 4096 }));
+    store.set(
+      gpuTempMapAtom,
+      liveMap({
+        "pci:0:2:0": { name: "UHD Graphics 770", value: 48 },
+      }),
+    );
     return store;
   };
 

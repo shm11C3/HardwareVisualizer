@@ -1,10 +1,32 @@
+declare const liveGpuIdBrand: unique symbol;
+
+/**
+ * An id from the monitor stream — the namespace every live map and the
+ * shared selection are keyed by.
+ *
+ * The inventory (`GraphicInfo.id`) uses a different namespace on every
+ * platform (see ADR 0016), so it is deliberately NOT this type: the compiler
+ * rejects writing an inventory id into the selection or indexing a live map
+ * with one — the bug class behind most of PR #1944's review rounds.
+ */
+export type LiveGpuId = string & { readonly [liveGpuIdBrand]: true };
+
+/**
+ * Mint a `LiveGpuId`. Only namespace boundaries may call this: the monitor
+ * payload (`useHardwareEventListener`), the persisted selection
+ * (`useSelectedGpuPersistence`), test seeds, and the joins in this module.
+ * Casting an inventory id defeats the type — resolve through `toLiveGpuId`
+ * instead.
+ */
+export const asLiveGpuId = (id: string): LiveGpuId => id as LiveGpuId;
+
 /**
  * One adapter as the Performance screens need it: the stable id every live
  * value is keyed by, the name the platform reported, and a short label for
  * controls that cannot fit the full name.
  */
 export type GpuAdapter = {
-  id: string;
+  id: LiveGpuId;
   /** The raw platform name. Two identical cards report the same one. */
   name: string;
   /** Always unique across the list, so a control can never be ambiguous. */
@@ -26,11 +48,17 @@ export type GpuAdapter = {
  * reporting adapter into a silent one.
  */
 export type GpuLiveMaps = {
-  usageHistories: Record<string, (number | null)[]>;
-  temperatures: Record<string, { name: string; value: number }>;
-  fanSpeeds: Record<string, { name: string; value: number }>;
-  dedicatedMemoryKb: Record<string, number | null>;
+  usageHistories: Record<LiveGpuId, (number | null)[]>;
+  temperatures: Record<LiveGpuId, { name: string; value: number }>;
+  fanSpeeds: Record<LiveGpuId, { name: string; value: number }>;
+  dedicatedMemoryKb: Record<LiveGpuId, number | null>;
 };
+
+/** `Object.keys` erases the brand; these two restate what the maps guarantee. */
+const liveKeys = (map: Record<LiveGpuId, unknown>) =>
+  Object.keys(map) as LiveGpuId[];
+const liveEntries = <T>(map: Record<LiveGpuId, T>) =>
+  Object.entries(map) as [LiveGpuId, T][];
 
 const liveMapsInOrder = (live: GpuLiveMaps) => [
   live.usageHistories,
@@ -114,19 +142,19 @@ const dropSharedPrefixWords = (labels: string[]) => {
  * that read identically.
  */
 export const listGpuAdapters = (
-  gpuNames: Record<string, string>,
+  gpuNames: Record<LiveGpuId, string>,
   live: GpuLiveMaps,
 ): GpuAdapter[] => {
-  const named = new Map<string, string>();
+  const named = new Map<LiveGpuId, string>();
 
   // Every adapter the stream named, in payload order — including one that
   // named itself and reported nothing else, which is the case the unavailable
   // state exists for.
-  for (const [id, name] of Object.entries(gpuNames)) {
+  for (const [id, name] of liveEntries(gpuNames)) {
     named.set(id, name);
   }
   for (const map of liveMapsInOrder(live)) {
-    for (const id of Object.keys(map)) {
+    for (const id of liveKeys(map)) {
       if (!named.has(id)) {
         named.set(id, id);
       }
@@ -135,7 +163,7 @@ export const listGpuAdapters = (
   // The sensor maps carry a name too, so they can still identify an adapter
   // if the name map has not caught up with them.
   for (const map of [live.temperatures, live.fanSpeeds]) {
-    for (const [id, value] of Object.entries(map)) {
+    for (const [id, value] of liveEntries(map)) {
       if (named.get(id) === id) {
         named.set(id, value.name);
       }
@@ -196,8 +224,8 @@ export const listGpuAdapters = (
  */
 export const findInventoryGpu = <T extends { id: string; name: string }>(
   gpus: readonly T[],
-  gpuNames: Record<string, string>,
-  selectedGpuId: string | null,
+  gpuNames: Record<LiveGpuId, string>,
+  selectedGpuId: LiveGpuId | null,
 ): T | undefined => {
   if (selectedGpuId == null) {
     return undefined;
@@ -225,12 +253,13 @@ export const findInventoryGpu = <T extends { id: string; name: string }>(
  */
 export const toLiveGpuId = (
   gpu: { id: string; name: string },
-  gpuNames: Record<string, string>,
-): string => {
-  const matches = Object.entries(gpuNames).filter(
-    ([, name]) => name === gpu.name,
-  );
-  return matches.length === 1 ? matches[0][0] : gpu.id;
+  gpuNames: Record<LiveGpuId, string>,
+): LiveGpuId => {
+  const matches = liveEntries(gpuNames).filter(([, name]) => name === gpu.name);
+  // The fallback deliberately mints the inventory id as intent: it addresses
+  // no readings yet, but the app-level migration re-resolves it once the
+  // stream names the adapter, and discarding the click would be worse.
+  return matches.length === 1 ? matches[0][0] : asLiveGpuId(gpu.id);
 };
 
 /**
@@ -242,10 +271,10 @@ export const toLiveGpuId = (
  * no longer exists falls back to the first GPU that reports anything.
  */
 export const getEffectiveGpuId = (
-  selectedGpuId: string | null,
+  selectedGpuId: LiveGpuId | null,
   live: GpuLiveMaps,
-  detectedGpuIds: readonly string[] = [],
-) => {
+  detectedGpuIds: readonly LiveGpuId[] = [],
+): LiveGpuId | undefined => {
   if (
     selectedGpuId != null &&
     (detectedGpuIds.includes(selectedGpuId) ||
@@ -255,7 +284,7 @@ export const getEffectiveGpuId = (
   }
 
   for (const map of liveMapsInOrder(live)) {
-    const [first] = Object.keys(map);
+    const [first] = liveKeys(map);
     if (first != null) {
       return first;
     }
@@ -277,9 +306,9 @@ export const getEffectiveGpuId = (
  * explanation for exactly the user who most needs it.
  */
 export const hasNoLiveGpuReadings = (
-  gpuId: string | undefined,
+  gpuId: LiveGpuId | undefined,
   live: GpuLiveMaps,
-  detectedGpuIds: readonly string[] = [],
+  detectedGpuIds: readonly LiveGpuId[] = [],
 ) => {
   if (gpuId == null) {
     return false;
@@ -287,8 +316,7 @@ export const hasNoLiveGpuReadings = (
 
   const maps = liveMapsInOrder(live);
   const sampled =
-    detectedGpuIds.length > 0 ||
-    maps.some((map) => Object.keys(map).length > 0);
+    detectedGpuIds.length > 0 || maps.some((map) => liveKeys(map).length > 0);
 
   return sampled && !maps.some((map) => Object.hasOwn(map, gpuId));
 };

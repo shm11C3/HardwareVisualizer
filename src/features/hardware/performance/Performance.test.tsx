@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
@@ -11,6 +12,12 @@ import {
   selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { Performance } from "./Performance";
+
+/** Seeds mint live ids the way the event listener does at the boundary. */
+// biome-ignore format: keep the generic arrow readable
+const liveMap = <T,>(map: Record<string, T>) =>
+  map as unknown as Record<LiveGpuId, T>;
+
 import type {
   PerformanceCustomLayout,
   PerformancePanelColumns,
@@ -195,7 +202,7 @@ describe("Performance", () => {
     // The GPU atoms are rewritten on every sample. A subscription in the
     // Performance parent would rerender the whole screen once a second.
     const store = createStore();
-    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25] }));
 
     render(
       <Provider store={store}>
@@ -205,7 +212,7 @@ describe("Performance", () => {
 
     const before = { ...state.chartRenders, process: state.processRenders };
 
-    act(() => store.set(gpuUsageHistoriesAtom, { "gpu-1": [25, 40] }));
+    act(() => store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25, 40] })));
 
     expect(state.processRenders).toBe(before.process);
     expect(state.chartRenders.cpu).toBe(before.cpu);
@@ -267,15 +274,21 @@ describe("Performance", () => {
 
   it("shows the temperature for the GPU selected by the usage history", () => {
     const store = createStore();
-    store.set(selectedGpuIdAtom, "gpu-2");
-    store.set(gpuUsageHistoriesAtom, {
-      "gpu-1": [25],
-      "gpu-2": [50],
-    });
-    store.set(gpuTempMapAtom, {
-      "gpu-1": { name: "GPU 1", value: 45 },
-      "gpu-2": { name: "GPU 2", value: 67 },
-    });
+    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(
+      gpuUsageHistoriesAtom,
+      liveMap({
+        "gpu-1": [25],
+        "gpu-2": [50],
+      }),
+    );
+    store.set(
+      gpuTempMapAtom,
+      liveMap({
+        "gpu-1": { name: "GPU 1", value: 45 },
+        "gpu-2": { name: "GPU 2", value: 67 },
+      }),
+    );
 
     render(
       <Provider store={store}>
@@ -307,14 +320,20 @@ describe("Performance", () => {
     const store = createStore();
     // A selection left over from an adapter that is no longer detected: it
     // appears in no live map and in no detected list, so it cannot be honored.
-    store.set(selectedGpuIdAtom, "removed-gpu");
-    store.set(gpuUsageHistoriesAtom, {
-      "gpu-1": [25],
-    });
-    store.set(gpuTempMapAtom, {
-      "gpu-1": { name: "GPU 1", value: 45 },
-      "gpu-2": { name: "GPU 2", value: 67 },
-    });
+    store.set(selectedGpuIdAtom, asLiveGpuId("removed-gpu"));
+    store.set(
+      gpuUsageHistoriesAtom,
+      liveMap({
+        "gpu-1": [25],
+      }),
+    );
+    store.set(
+      gpuTempMapAtom,
+      liveMap({
+        "gpu-1": { name: "GPU 1", value: 45 },
+        "gpu-2": { name: "GPU 2", value: 67 },
+      }),
+    );
 
     render(
       <Provider store={store}>
@@ -331,8 +350,8 @@ describe("Performance", () => {
   it("names the adapter behind the GPU readings without offering a choice there is none of", () => {
     const store = createStore();
     state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
-    store.set(gpuNamesAtom, { "gpu-1": "NVIDIA GeForce RTX 4080" });
-    store.set(gpuUsageHistoriesAtom, { "gpu-1": [42] });
+    store.set(gpuNamesAtom, liveMap({ "gpu-1": "NVIDIA GeForce RTX 4080" }));
+    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [42] }));
 
     render(
       <Provider store={store}>
@@ -355,9 +374,12 @@ describe("Performance", () => {
       gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090"),
       gpuFixture("inventory-b", "NVIDIA GeForce RTX 4090"),
     ];
-    store.set(gpuNamesAtom, { "nvapi:1": "NVIDIA GeForce RTX 4090" });
-    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [40] });
-    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4 * 1024 * 1024 });
+    store.set(gpuNamesAtom, liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4090" }));
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [40] }));
+    store.set(
+      gpuDedicatedMemoryKbMapAtom,
+      liveMap({ "nvapi:1": 4 * 1024 * 1024 }),
+    );
 
     render(
       <Provider store={store}>
@@ -373,9 +395,12 @@ describe("Performance", () => {
   it("keeps the VRAM total when exactly one inventory entry matches", () => {
     const store = createStore();
     state.gpus = [gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090")];
-    store.set(gpuNamesAtom, { "nvapi:1": "NVIDIA GeForce RTX 4090" });
-    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [40] });
-    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4 * 1024 * 1024 });
+    store.set(gpuNamesAtom, liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4090" }));
+    store.set(gpuUsageHistoriesAtom, liveMap({ "nvapi:1": [40] }));
+    store.set(
+      gpuDedicatedMemoryKbMapAtom,
+      liveMap({ "nvapi:1": 4 * 1024 * 1024 }),
+    );
 
     render(
       <Provider store={store}>
@@ -394,15 +419,21 @@ describe("Performance", () => {
       gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
-    store.set(gpuNamesAtom, {
-      "gpu-1": "NVIDIA GeForce RTX 4080",
-      "gpu-2": "Intel UHD Graphics 770",
-    });
-    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25], "gpu-2": [50] });
-    store.set(gpuTempMapAtom, {
-      "gpu-1": { name: "GPU 1", value: 45 },
-      "gpu-2": { name: "GPU 2", value: 67 },
-    });
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "gpu-1": "NVIDIA GeForce RTX 4080",
+        "gpu-2": "Intel UHD Graphics 770",
+      }),
+    );
+    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25], "gpu-2": [50] }));
+    store.set(
+      gpuTempMapAtom,
+      liveMap({
+        "gpu-1": { name: "GPU 1", value: 45 },
+        "gpu-2": { name: "GPU 2", value: 67 },
+      }),
+    );
 
     render(
       <Provider store={store}>
@@ -433,14 +464,20 @@ describe("Performance", () => {
       gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
-    store.set(selectedGpuIdAtom, "gpu-2");
+    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
     // gpu-2 named itself in the stream but reported no values at all.
-    store.set(gpuNamesAtom, {
-      "gpu-1": "NVIDIA GeForce RTX 4080",
-      "gpu-2": "Intel UHD Graphics 770",
-    });
-    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
-    store.set(gpuTempMapAtom, { "gpu-1": { name: "GPU 1", value: 45 } });
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "gpu-1": "NVIDIA GeForce RTX 4080",
+        "gpu-2": "Intel UHD Graphics 770",
+      }),
+    );
+    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25] }));
+    store.set(
+      gpuTempMapAtom,
+      liveMap({ "gpu-1": { name: "GPU 1", value: 45 } }),
+    );
 
     render(
       <Provider store={store}>
@@ -461,7 +498,7 @@ describe("Performance", () => {
   it("does not call an adapter unavailable before the first sample arrives", () => {
     const store = createStore();
     state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
-    store.set(gpuNamesAtom, { "gpu-1": "NVIDIA GeForce RTX 4080" });
+    store.set(gpuNamesAtom, liveMap({ "gpu-1": "NVIDIA GeForce RTX 4080" }));
 
     render(
       <Provider store={store}>
@@ -477,12 +514,15 @@ describe("Performance", () => {
   it("says why a Compact row is dashed when its adapter is silent", () => {
     const store = createStore();
     state.view = "compact";
-    store.set(selectedGpuIdAtom, "gpu-2");
-    store.set(gpuNamesAtom, {
-      "gpu-1": "NVIDIA GeForce RTX 4080",
-      "gpu-2": "Intel UHD Graphics 770",
-    });
-    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "gpu-1": "NVIDIA GeForce RTX 4080",
+        "gpu-2": "Intel UHD Graphics 770",
+      }),
+    );
+    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25] }));
 
     render(
       <Provider store={store}>
@@ -503,12 +543,15 @@ describe("Performance", () => {
       gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
       gpuFixture("gpu-2", "Intel UHD Graphics 770"),
     ];
-    store.set(selectedGpuIdAtom, "gpu-2");
-    store.set(gpuNamesAtom, {
-      "gpu-1": "NVIDIA GeForce RTX 4080",
-      "gpu-2": "Intel UHD Graphics 770",
-    });
-    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25], "gpu-2": [50] });
+    store.set(selectedGpuIdAtom, asLiveGpuId("gpu-2"));
+    store.set(
+      gpuNamesAtom,
+      liveMap({
+        "gpu-1": "NVIDIA GeForce RTX 4080",
+        "gpu-2": "Intel UHD Graphics 770",
+      }),
+    );
+    store.set(gpuUsageHistoriesAtom, liveMap({ "gpu-1": [25], "gpu-2": [50] }));
 
     render(
       <Provider store={store}>

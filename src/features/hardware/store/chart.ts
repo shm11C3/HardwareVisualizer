@@ -1,5 +1,8 @@
 import { atom } from "jotai";
-import { getEffectiveGpuId } from "@/features/hardware/gpuIdentity";
+import {
+  getEffectiveGpuId,
+  type LiveGpuId,
+} from "@/features/hardware/gpuIdentity";
 import type {
   MotherboardFanSpeedValues,
   MotherboardTemperatureValues,
@@ -13,7 +16,7 @@ export const memoryUsageHistoryAtom = atom<(number | null)[]>([]);
 // ── Multi-GPU state ──
 
 /** Per-GPU usage histories keyed by gpuId */
-export const gpuUsageHistoriesAtom = atom<Record<string, (number | null)[]>>(
+export const gpuUsageHistoriesAtom = atom<Record<LiveGpuId, (number | null)[]>>(
   {},
 );
 
@@ -27,30 +30,30 @@ export const gpuUsageHistoriesAtom = atom<Record<string, (number | null)[]>>(
  * BDF. So a live id cannot be resolved against the inventory, and every
  * sample carries its own name for exactly that reason.
  */
-export const gpuNamesAtom = atom<Record<string, string>>({});
+export const gpuNamesAtom = atom<Record<LiveGpuId, string>>({});
 
 /** Currently selected GPU ID for dashboard/usage view */
-export const selectedGpuIdAtom = atom<string | null>(null);
+export const selectedGpuIdAtom = atom<LiveGpuId | null>(null);
 
 /** Currently selected storage device id for the Storage Health Display */
 export const selectedStorageDeviceIdAtom = atom<string | null>(null);
 
 /** Per-GPU usage source keyed by gpuId */
-export const gpuUsageSourcesAtom = atom<Record<string, string | null>>({});
+export const gpuUsageSourcesAtom = atom<Record<LiveGpuId, string | null>>({});
 
 /** Per-GPU dedicated memory (KB) keyed by gpuId */
-export const gpuDedicatedMemoryKbMapAtom = atom<Record<string, number | null>>(
-  {},
-);
+export const gpuDedicatedMemoryKbMapAtom = atom<
+  Record<LiveGpuId, number | null>
+>({});
 
 /** Per-GPU temperature keyed by gpuId */
 export const gpuTempMapAtom = atom<
-  Record<string, { name: string; value: number }>
+  Record<LiveGpuId, { name: string; value: number }>
 >({});
 
 /** Per-GPU fan speed keyed by gpuId */
 export const gpuFanSpeedMapAtom = atom<
-  Record<string, { name: string; value: number }>
+  Record<LiveGpuId, { name: string; value: number }>
 >({});
 
 export const cpuTempAtom = atom<NameValues>([]);
@@ -88,7 +91,7 @@ export const gpuFanSpeedAtom = atom<NameValues>((get) =>
  * selection that reports no usage resolves to itself, so the consumers below
  * return nothing rather than borrowing the first adapter's values.
  */
-const effectiveGpuIdAtom = atom<string | undefined>((get) =>
+const effectiveGpuIdAtom = atom<LiveGpuId | undefined>((get) =>
   getEffectiveGpuId(
     get(selectedGpuIdAtom),
     {
@@ -97,7 +100,7 @@ const effectiveGpuIdAtom = atom<string | undefined>((get) =>
       fanSpeeds: get(gpuFanSpeedMapAtom),
       dedicatedMemoryKb: get(gpuDedicatedMemoryKbMapAtom),
     },
-    Object.keys(get(gpuNamesAtom)),
+    Object.keys(get(gpuNamesAtom)) as LiveGpuId[],
   ),
 );
 
