@@ -245,6 +245,15 @@ describe("hasNoLiveGpuReadings", () => {
     ).toBe(true);
   });
 
+  it("does not treat an older usage value as a current reading after a gap", () => {
+    expect(
+      hasNoLiveGpuReadings(
+        id("gpu-2"),
+        live({ usageHistories: { "gpu-1": [20], "gpu-2": [40, null] } }),
+      ),
+    ).toBe(true);
+  });
+
   it("counts a temperature-only adapter as reporting", () => {
     expect(
       hasNoLiveGpuReadings(

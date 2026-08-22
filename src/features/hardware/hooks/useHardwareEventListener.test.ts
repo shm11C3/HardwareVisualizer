@@ -964,6 +964,120 @@ describe("useHardwareEventListener", () => {
       });
     });
 
+    it("marks one omitted sample as unavailable without retiring the adapter", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [histories] = useAtom(gpuUsageHistoriesAtom);
+          const [names] = useAtom(gpuNamesAtom);
+          const [temperatures] = useAtom(gpuTempMapAtom);
+          const [fanSpeeds] = useAtom(gpuFanSpeedMapAtom);
+          const [memory] = useAtom(gpuDedicatedMemoryKbMapAtom);
+          return { histories, names, temperatures, fanSpeeds, memory };
+        },
+        { wrapper: Provider },
+      );
+
+      act(() => {
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({
+                gpuId: "nvapi:0",
+                gpuName: "GPU A",
+                gpuUsage: 40,
+                gpuTemperature: 60,
+                gpuCoolerLevel: 50,
+                gpuDedicatedMemoryUsageKb: 2048,
+              }),
+              makeGpu({ gpuId: "nvapi:1", gpuName: "GPU B" }),
+            ],
+          }),
+        );
+        emit(
+          makePayload({
+            gpus: [makeGpu({ gpuId: "nvapi:1", gpuName: "GPU B" })],
+          }),
+        );
+      });
+
+      expect(result.current.names[asLiveGpuId("nvapi:0")]).toBe("GPU A");
+      expect(
+        result.current.histories[asLiveGpuId("nvapi:0")].at(-1),
+      ).toBeNull();
+      expect(result.current.temperatures).not.toHaveProperty("nvapi:0");
+      expect(result.current.fanSpeeds).not.toHaveProperty("nvapi:0");
+      expect(result.current.memory).not.toHaveProperty("nvapi:0");
+    });
+
+    it("retires an adapter after three omitted samples and falls back without deleting intent", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [histories] = useAtom(gpuUsageHistoriesAtom);
+          const [names] = useAtom(gpuNamesAtom);
+          const [selectedGpuId] = useAtom(selectedGpuIdAtom);
+          const [effectiveHistory] = useAtom(graphicUsageHistoryAtom);
+          return { histories, names, selectedGpuId, effectiveHistory };
+        },
+        { wrapper: Provider },
+      );
+
+      act(() => {
+        emit(
+          makePayload({
+            gpus: [
+              makeGpu({ gpuId: "nvapi:0", gpuName: "GPU A", gpuUsage: 40 }),
+              makeGpu({ gpuId: "nvapi:1", gpuName: "GPU B", gpuUsage: 70 }),
+            ],
+          }),
+        );
+        for (let missed = 0; missed < 3; missed += 1) {
+          emit(
+            makePayload({
+              gpus: [
+                makeGpu({
+                  gpuId: "nvapi:1",
+                  gpuName: "GPU B",
+                  gpuUsage: 70 + missed,
+                }),
+              ],
+            }),
+          );
+        }
+      });
+
+      expect(result.current.names).not.toHaveProperty("nvapi:0");
+      expect(result.current.histories).not.toHaveProperty("nvapi:0");
+      expect(result.current.selectedGpuId).toBe("nvapi:0");
+      expect(result.current.effectiveHistory.at(-1)).toBe(72);
+    });
+
+    it("resets the retirement grace period when an adapter reports again", () => {
+      const { result } = renderHook(
+        () => {
+          useHardwareEventListener();
+          const [names] = useAtom(gpuNamesAtom);
+          return names;
+        },
+        { wrapper: Provider },
+      );
+
+      const gpuA = makeGpu({ gpuId: "nvapi:0", gpuName: "GPU A" });
+      const gpuB = makeGpu({ gpuId: "nvapi:1", gpuName: "GPU B" });
+
+      act(() => {
+        emit(makePayload({ gpus: [gpuA, gpuB] }));
+        emit(makePayload({ gpus: [gpuB] }));
+        emit(makePayload({ gpus: [gpuB] }));
+        emit(makePayload({ gpus: [gpuA, gpuB] }));
+        emit(makePayload({ gpus: [gpuB] }));
+        emit(makePayload({ gpus: [gpuB] }));
+      });
+
+      expect(result.current[asLiveGpuId("nvapi:0")]).toBe("GPU A");
+    });
+
     it("tracks usage sources for all GPUs", () => {
       const { result } = renderHook(
         () => {

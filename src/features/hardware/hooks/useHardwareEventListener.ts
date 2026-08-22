@@ -1,7 +1,11 @@
 import { useSetAtom } from "jotai";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
-import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
+import {
+  asLiveGpuId,
+  type LiveGpuId,
+  liveGpuRecord,
+} from "@/features/hardware/gpuIdentity";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
@@ -27,11 +31,17 @@ const padHistory = (arr: (number | null)[]): (number | null)[] => {
   return padded.slice(-chartConfig.historyLengthSec);
 };
 
+// One omitted sample can be a provider hiccup. Three consecutive visible
+// samples establish that the adapter is no longer part of the live set while
+// keeping unplug/fallback feedback within a few seconds at the 1 Hz cadence.
+const GPU_RETIREMENT_MISSED_SAMPLES = 3;
+
 /**
  * Listen for hardware monitor update events pushed from the backend.
  * Replaces the 4x useUsageUpdater polling hooks with a single event listener.
  */
 export const useHardwareEventListener = () => {
+  const gpuMissedSamples = useRef(new Map<LiveGpuId, number>());
   const setCpuHistory = useSetAtom(cpuUsageHistoryAtom);
   const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
   const setGpuHistories = useSetAtom(gpuUsageHistoriesAtom);
@@ -64,6 +74,30 @@ export const useHardwareEventListener = () => {
         motherboardFanSpeeds,
       } = event.payload;
 
+      const currentGpuIds = gpus.map((gpu) => asLiveGpuId(gpu.gpuId));
+      const currentGpuIdSet = new Set(currentGpuIds);
+      const retiredGpuIds = new Set<LiveGpuId>();
+
+      for (const gpuId of currentGpuIds) {
+        gpuMissedSamples.current.set(gpuId, 0);
+      }
+      for (const [gpuId, missedSamples] of gpuMissedSamples.current) {
+        if (currentGpuIdSet.has(gpuId)) {
+          continue;
+        }
+
+        const nextMissedSamples = missedSamples + 1;
+        if (nextMissedSamples >= GPU_RETIREMENT_MISSED_SAMPLES) {
+          retiredGpuIds.add(gpuId);
+          gpuMissedSamples.current.delete(gpuId);
+        } else {
+          gpuMissedSamples.current.set(gpuId, nextMissedSamples);
+        }
+      }
+      const absentGpuIds = [...gpuMissedSamples.current.keys()].filter(
+        (gpuId) => !currentGpuIdSet.has(gpuId),
+      );
+
       setCpuHistory((prev) => padHistory([...prev, cpuUsage]));
       setMemoryHistory((prev) => padHistory([...prev, memoryUsage]));
 
@@ -78,22 +112,32 @@ export const useHardwareEventListener = () => {
       setMotherboardFanSpeeds(motherboardFanSpeeds);
 
       // Per-GPU usage histories
-      setGpuHistories((prev) =>
-        gpus.reduce(
-          (acc, gpu) => {
-            // The monitor-payload boundary: ids from the stream are branded
-            // here. The other minting sites are the restored stored intent in
-            // `useSelectedGpuPersistence` and the unresolved fallback in
-            // `toLiveGpuId`; nothing else may mint.
-            const gpuId = asLiveGpuId(gpu.gpuId);
-            if (gpu.gpuUsage != null) {
-              acc[gpuId] = padHistory([...(acc[gpuId] ?? []), gpu.gpuUsage]);
-            }
-            return acc;
-          },
-          { ...prev },
-        ),
-      );
+      setGpuHistories((prev) => {
+        const next = { ...prev };
+
+        for (const gpuId of retiredGpuIds) {
+          delete next[gpuId];
+        }
+        for (const gpuId of absentGpuIds) {
+          const history = next[gpuId];
+          if (history != null) {
+            next[gpuId] = padHistory([...history, null]);
+          }
+        }
+        for (const gpu of gpus) {
+          // The monitor-payload boundary: ids from the stream are branded
+          // here. The other minting sites are the restored stored intent in
+          // `useSelectedGpuPersistence` and the unresolved fallback in
+          // `toLiveGpuId`; nothing else may mint.
+          const gpuId = asLiveGpuId(gpu.gpuId);
+          const history = next[gpuId];
+          if (gpu.gpuUsage != null || history != null) {
+            next[gpuId] = padHistory([...(history ?? []), gpu.gpuUsage]);
+          }
+        }
+
+        return next;
+      });
 
       // Temperature from all GPUs
       setGpuTempMap(
@@ -117,12 +161,18 @@ export const useHardwareEventListener = () => {
       // provider that drops one adapter from a single sample must not erase
       // the only record that the adapter exists, or the Performance selector
       // would jump to another GPU on a transient hiccup.
-      setGpuNames((prev) => ({
-        ...prev,
-        ...liveGpuRecord(
-          gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuName]),
-        ),
-      }));
+      setGpuNames((prev) => {
+        const next = {
+          ...prev,
+          ...liveGpuRecord(
+            gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuName]),
+          ),
+        };
+        for (const gpuId of retiredGpuIds) {
+          delete next[gpuId];
+        }
+        return next;
+      });
 
       // Usage sources from all GPUs
       setGpuSources(
@@ -131,16 +181,19 @@ export const useHardwareEventListener = () => {
         ),
       );
 
-      // Dedicated memory from all GPUs (only update when not null)
-      setGpuMemoryMap((prev) =>
-        gpus.reduce(
-          (acc, gpu) => {
-            if (gpu.gpuDedicatedMemoryUsageKb != null) {
-              acc[asLiveGpuId(gpu.gpuId)] = gpu.gpuDedicatedMemoryUsageKb;
-            }
-            return acc;
-          },
-          { ...prev },
+      // Dedicated memory is a per-sample reading. Replacing the map clears a
+      // value when the adapter or the metric is absent instead of freezing it.
+      setGpuMemoryMap(
+        liveGpuRecord(
+          gpus
+            .filter(
+              (g): g is typeof g & { gpuDedicatedMemoryUsageKb: number } =>
+                g.gpuDedicatedMemoryUsageKb != null,
+            )
+            .map((gpu) => [
+              asLiveGpuId(gpu.gpuId),
+              gpu.gpuDedicatedMemoryUsageKb,
+            ]),
         ),
       );
 

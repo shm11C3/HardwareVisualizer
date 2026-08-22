@@ -354,5 +354,11 @@ export const hasNoLiveGpuReadings = (
   const sampled =
     detectedGpuIds.length > 0 || maps.some((map) => liveKeys(map).length > 0);
 
-  return sampled && !maps.some((map) => Object.hasOwn(map, gpuId));
+  const hasCurrentReading =
+    live.usageHistories[gpuId]?.at(-1) != null ||
+    live.temperatures[gpuId] != null ||
+    live.fanSpeeds[gpuId] != null ||
+    live.dedicatedMemoryKb[gpuId] != null;
+
+  return sampled && !hasCurrentReading;
 };
