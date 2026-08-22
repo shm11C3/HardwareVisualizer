@@ -38,11 +38,11 @@ describe("performance layout normalization", () => {
         "motherboardSensors",
         "power",
       ],
-      visible: ["processTable", "power"],
+      visible: ["processTable"],
     });
   });
 
-  it("appends new panels according to their default visibility", () => {
+  it("appends new panels without overriding stored visibility", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs", "processTable"],
@@ -56,11 +56,11 @@ describe("performance layout normalization", () => {
         "motherboardSensors",
         "power",
       ],
-      visible: ["usageGraphs", "processTable", "power"],
+      visible: ["usageGraphs", "processTable"],
     });
   });
 
-  it("makes a missing default-visible panel visible again", () => {
+  it("preserves a limited stored visibility selection", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs"],
@@ -74,17 +74,17 @@ describe("performance layout normalization", () => {
         "motherboardSensors",
         "power",
       ],
-      visible: ["usageGraphs", "processTable", "power"],
+      visible: ["usageGraphs"],
     });
   });
 
-  it("adds a newly introduced default-visible panel to an older empty layout", () => {
+  it("preserves an explicit empty stored visibility selection", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
         visible: [],
       }).visible,
-    ).toEqual(["power"]);
+    ).toEqual([]);
   });
 
   it("drops the retired currentValues panel from legacy layouts", () => {
@@ -101,8 +101,17 @@ describe("performance layout normalization", () => {
         "motherboardSensors",
         "power",
       ],
-      visible: ["usageGraphs", "power"],
+      visible: ["usageGraphs"],
     });
+  });
+
+  it("uses default visibility when the stored field is malformed", () => {
+    expect(
+      normalizePerformanceCustomLayout({
+        order: ["usageGraphs"],
+        visible: "usageGraphs",
+      }).visible,
+    ).toEqual(DEFAULT_PERFORMANCE_CUSTOM_LAYOUT.visible);
   });
 
   it("falls back to the default layout for malformed values", () => {

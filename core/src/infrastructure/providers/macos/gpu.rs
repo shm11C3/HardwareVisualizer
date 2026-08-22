@@ -43,12 +43,14 @@ pub fn init_gpu_usage_sampler_thread() -> Result<(), String> {
         std::thread::sleep(Duration::from_millis(1000));
 
         let sample = sampler.sample().unwrap_or_default();
-        if let Some(a) = GPU_USAGE_BITS.get() {
-          a.store(
-            sample.gpu_usage.unwrap_or(f32::NAN).to_bits(),
-            Ordering::Relaxed,
-          );
+        if let Some(gpu_usage) = sample.gpu_usage
+          && let Some(cache) = GPU_USAGE_BITS.get()
+        {
+          cache.store(gpu_usage.to_bits(), Ordering::Relaxed);
         }
+        // Power is a per-tick reading: missing or invalid intervals must
+        // publish None rather than repeating a stale wattage. The frontend
+        // latches capability separately so these gaps do not reflow the UI.
         if let Some(power) = POWER_DRAW.get()
           && let Ok(mut cached) = power.lock()
         {

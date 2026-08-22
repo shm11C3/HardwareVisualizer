@@ -93,9 +93,10 @@ const uniqueKnownPanels = (value: unknown): PerformancePanelId[] => {
 
 /**
  * Normalize a stored layout: unknown panels are dropped, panels the stored
- * layout has never seen are appended to the order and become visible only if
- * they are visible by default. An empty visible set is valid because the
- * Instrument Strip stays mounted regardless of panel visibility.
+ * layout has never seen are appended to the order. Existing visibility is
+ * preserved exactly; defaults apply only when the stored visibility is absent
+ * or malformed. An empty visible set is valid because the Instrument Strip
+ * stays mounted regardless of panel visibility.
  */
 export const normalizePerformanceCustomLayout = (
   value: unknown,
@@ -112,18 +113,13 @@ export const normalizePerformanceCustomLayout = (
   const missingPanels = performancePanelIds.filter(
     (panel) => !knownOrder.includes(panel),
   );
-  const storedVisible = uniqueKnownPanels(candidate.visible);
+  const visible = Array.isArray(candidate.visible)
+    ? uniqueKnownPanels(candidate.visible)
+    : [...DEFAULT_VISIBLE_PANELS];
 
   return {
     order: [...knownOrder, ...missingPanels],
-    visible: [
-      ...storedVisible,
-      ...missingPanels.filter(
-        (panel) =>
-          DEFAULT_VISIBLE_PANELS.includes(panel) &&
-          !storedVisible.includes(panel),
-      ),
-    ],
+    visible,
   };
 };
 
