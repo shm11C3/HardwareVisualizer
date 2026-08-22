@@ -123,6 +123,8 @@ pub fn restore_main_window(app: &AppHandle) {
     return;
   };
 
+  crate::webview_memory::resume(&window);
+
   // Best-effort: each call may legitimately fail (window already
   // visible, already in the foreground, OS denying focus) without
   // affecting the others. Logging keeps the trail without aborting.
@@ -259,7 +261,9 @@ pub fn is_close_to_tray_available(app: &AppHandle) -> bool {
 }
 
 fn hide_window_on_close(window: &Window) -> Result<(), tauri::Error> {
-  window.hide()
+  window.hide()?;
+  crate::webview_memory::suspend_for_window(window);
+  Ok(())
 }
 
 struct CloseToTraySettings {

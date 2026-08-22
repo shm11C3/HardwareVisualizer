@@ -112,3 +112,4 @@ shared enforcement surface.
 - [Keep shared system refresh ownership explicit](keep-shared-system-refresh-ownership-explicit.md)
 - [Read id producers before identity UI](read-id-producers-before-identity-ui.md)
 - [Bound bot review loops](bound-bot-review-loops.md)
+- [WebView2 suspension requires hiding the controller](webview2-suspend-requires-hidden-controller.md)

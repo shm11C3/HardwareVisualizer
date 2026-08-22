@@ -54,6 +54,7 @@ src-tauri/src/
 ├── app/                  ← App lifecycle helpers
 │   └── startup.rs          DB preflight error dialog + reset-and-restart flow
 ├── lifecycle.rs          ← close-to-tray, second instance, and run-event policy
+├── webview_memory.rs     ← Windows hidden-WebView suspend and resume lifecycle
 ├── workers/              ← WorkersState — holds Core controller / adapter handles
 ├── tray/                 ← tray widget windows, surface helpers, and UI policy
 ├── infrastructure/       ← App-only DB code
