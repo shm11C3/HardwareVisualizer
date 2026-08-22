@@ -20,7 +20,9 @@ test.describe("dashboard captures", () => {
     await seedHardwareHistory(page);
 
     const gpuCard = page.getByTestId("dashboard-gpu-readings");
-    const readingsBefore = await gpuCard.innerText();
+    const usageValue = gpuCard.locator("svg").first().locator("text").first();
+    await expect(usageValue).toBeVisible();
+    const usageBefore = await usageValue.textContent();
 
     const secondaryGpuTab = page.getByRole("tab", {
       name: GPU_FIXTURES[1].name,
@@ -28,11 +30,13 @@ test.describe("dashboard captures", () => {
     await secondaryGpuTab.click();
     await expect(secondaryGpuTab).toHaveAttribute("aria-selected", "true");
 
-    // The pressed state is not the point: the card has to actually describe
-    // the other adapter. The selection is shared with Performance and is
-    // written in the live id namespace, so a card that resolved it by id
-    // alone would keep rendering the first adapter's readings here.
-    await expect.poll(async () => gpuCard.innerText()).not.toBe(readingsBefore);
+    // The pressed state is not the point: the usage gauge has to render the
+    // other adapter's value. The fixtures keep inventory and live ids in
+    // different namespaces, so an inventory id written to the shared
+    // selection would leave the live usage map on GPU #1.
+    await expect
+      .poll(async () => usageValue.textContent())
+      .not.toBe(usageBefore);
 
     await saveCapture(page, "dashboard-gpu-secondary");
   });
