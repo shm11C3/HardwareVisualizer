@@ -32,7 +32,7 @@ type ChartProps = {
 
 type SingleChartProps = {
   chartData: (number | null)[];
-  dataType: ChartDataType | GpuDataType;
+  dataType: ChartDataType | GpuDataType | "power";
   lineGraphMix: false;
 } & ChartProps;
 

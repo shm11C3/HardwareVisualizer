@@ -18,6 +18,10 @@ pub enum ArchiveDataStats {
 pub enum DataArchiveHardwareType {
   Cpu,
   CpuTemperature,
+  CpuPower,
+  GpuPower,
+  AnePower,
+  PackagePower,
   Memory,
 }
 
@@ -36,6 +40,18 @@ impl DataArchiveHardwareType {
       (Self::CpuTemperature, ArchiveDataStats::Min) => {
         DataArchiveColumn::CpuTemperatureMin
       }
+      (Self::CpuPower, ArchiveDataStats::Avg) => DataArchiveColumn::CpuPowerAvg,
+      (Self::CpuPower, ArchiveDataStats::Max) => DataArchiveColumn::CpuPowerMax,
+      (Self::CpuPower, ArchiveDataStats::Min) => DataArchiveColumn::CpuPowerMin,
+      (Self::GpuPower, ArchiveDataStats::Avg) => DataArchiveColumn::GpuPowerAvg,
+      (Self::GpuPower, ArchiveDataStats::Max) => DataArchiveColumn::GpuPowerMax,
+      (Self::GpuPower, ArchiveDataStats::Min) => DataArchiveColumn::GpuPowerMin,
+      (Self::AnePower, ArchiveDataStats::Avg) => DataArchiveColumn::AnePowerAvg,
+      (Self::AnePower, ArchiveDataStats::Max) => DataArchiveColumn::AnePowerMax,
+      (Self::AnePower, ArchiveDataStats::Min) => DataArchiveColumn::AnePowerMin,
+      (Self::PackagePower, ArchiveDataStats::Avg) => DataArchiveColumn::PackagePowerAvg,
+      (Self::PackagePower, ArchiveDataStats::Max) => DataArchiveColumn::PackagePowerMax,
+      (Self::PackagePower, ArchiveDataStats::Min) => DataArchiveColumn::PackagePowerMin,
       (Self::Memory, ArchiveDataStats::Avg) => DataArchiveColumn::RamAvg,
       (Self::Memory, ArchiveDataStats::Max) => DataArchiveColumn::RamMax,
       (Self::Memory, ArchiveDataStats::Min) => DataArchiveColumn::RamMin,
@@ -131,5 +147,40 @@ mod tests {
       DataArchiveHardwareType::CpuTemperature.column(ArchiveDataStats::Min),
       DataArchiveColumn::CpuTemperatureMin
     );
+  }
+
+  #[test]
+  fn power_stats_map_to_component_columns() {
+    let cases = [
+      (
+        DataArchiveHardwareType::CpuPower,
+        DataArchiveColumn::CpuPowerAvg,
+        DataArchiveColumn::CpuPowerMax,
+        DataArchiveColumn::CpuPowerMin,
+      ),
+      (
+        DataArchiveHardwareType::GpuPower,
+        DataArchiveColumn::GpuPowerAvg,
+        DataArchiveColumn::GpuPowerMax,
+        DataArchiveColumn::GpuPowerMin,
+      ),
+      (
+        DataArchiveHardwareType::AnePower,
+        DataArchiveColumn::AnePowerAvg,
+        DataArchiveColumn::AnePowerMax,
+        DataArchiveColumn::AnePowerMin,
+      ),
+      (
+        DataArchiveHardwareType::PackagePower,
+        DataArchiveColumn::PackagePowerAvg,
+        DataArchiveColumn::PackagePowerMax,
+        DataArchiveColumn::PackagePowerMin,
+      ),
+    ];
+    for (hardware_type, avg, max, min) in cases {
+      assert_eq!(hardware_type.column(ArchiveDataStats::Avg), avg);
+      assert_eq!(hardware_type.column(ArchiveDataStats::Max), max);
+      assert_eq!(hardware_type.column(ArchiveDataStats::Min), min);
+    }
   }
 }

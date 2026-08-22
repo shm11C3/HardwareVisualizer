@@ -45,6 +45,9 @@ const err = (error: string) => ({ status: "error" as const, error });
 describe("useInsightChart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useSettingsAtom).mockReturnValue({
+      settings: { temperatureUnit: "C" },
+    } as ReturnType<typeof useSettingsAtom>);
   });
 
   it("should fetch and aggregate data for non-GPU hardware", async () => {
@@ -127,6 +130,37 @@ describe("useInsightChart", () => {
       expect.any(String),
     );
     expect(result.current.chartData).toContain(52);
+  });
+
+  it("should fetch package power without temperature conversion", async () => {
+    vi.mocked(useSettingsAtom).mockReturnValue({
+      settings: { temperatureUnit: "F" },
+    } as ReturnType<typeof useSettingsAtom>);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
+      ok([{ id: 1, value: 18.4, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "packagePower",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(commands.getDataArchiveRecords).toHaveBeenCalledWith(
+      "packagePower",
+      "avg",
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(result.current.chartData).toContain(18.4);
   });
 
   it("should fetch and aggregate data for GPU hardware", async () => {

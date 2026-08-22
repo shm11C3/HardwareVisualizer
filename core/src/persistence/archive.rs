@@ -20,7 +20,9 @@ use tokio::time::{Duration, MissedTickBehavior, interval};
 
 use crate::event_bus::EventBus;
 use crate::models::{MetricsSnapshot, ProcessSample};
-use crate::persistence::archive_data::{GpuData, HardwareData, ProcessStatData};
+use crate::persistence::archive_data::{
+  GpuData, HardwareArchiveRow, HardwareData, ProcessStatData,
+};
 use crate::{log_info, log_warn};
 
 /// Interval between archive writes. Matches the 60-sample history
@@ -200,6 +202,10 @@ struct ProcessAccumulator {
 struct ArchiveTracker {
   cpu_history: VecDeque<f32>,
   cpu_temperature_history: VecDeque<Option<f32>>,
+  cpu_power_history: VecDeque<Option<f32>>,
+  gpu_power_history: VecDeque<Option<f32>>,
+  ane_power_history: VecDeque<Option<f32>>,
+  package_power_history: VecDeque<Option<f32>>,
   memory_history: VecDeque<f32>,
   gpu_usage_histories: HashMap<String, VecDeque<f32>>,
   gpu_temperature_histories: HashMap<String, VecDeque<i32>>,
@@ -233,6 +239,13 @@ impl ArchiveTracker {
     self.tick_counter = self.tick_counter.saturating_add(1);
     push_capped(&mut self.cpu_history, snapshot.cpu_usage);
     push_capped_optional(&mut self.cpu_temperature_history, snapshot.cpu_temperature);
+    push_capped_optional(&mut self.cpu_power_history, snapshot.power_draw.cpu_watts);
+    push_capped_optional(&mut self.gpu_power_history, snapshot.power_draw.gpu_watts);
+    push_capped_optional(&mut self.ane_power_history, snapshot.power_draw.ane_watts);
+    push_capped_optional(
+      &mut self.package_power_history,
+      snapshot.power_draw.package_watts,
+    );
     push_capped(&mut self.memory_history, snapshot.memory_usage);
 
     if !snapshot.processors_usage.is_empty() {
@@ -326,9 +339,26 @@ impl ArchiveTracker {
       self.cpu_temperature_history.iter().copied().flatten(),
     );
     let memory = StatsCalculator::compute_stats(self.memory_history.iter().copied());
+    let cpu_power =
+      StatsCalculator::compute_stats(self.cpu_power_history.iter().copied().flatten());
+    let gpu_power =
+      StatsCalculator::compute_stats(self.gpu_power_history.iter().copied().flatten());
+    let ane_power =
+      StatsCalculator::compute_stats(self.ane_power_history.iter().copied().flatten());
+    let package_power = StatsCalculator::compute_stats(
+      self.package_power_history.iter().copied().flatten(),
+    );
 
-    if let Err(e) = database::hardware_archive::insert(cpu, memory, cpu_temperature).await
-    {
+    let row = HardwareArchiveRow {
+      cpu,
+      memory,
+      cpu_temperature,
+      cpu_power,
+      gpu_power,
+      ane_power,
+      package_power,
+    };
+    if let Err(e) = database::hardware_archive::insert(row).await {
       log_error!(
         "Failed to insert hardware archive data",
         "persistence::archive::write_archive",
@@ -698,6 +728,61 @@ mod tests {
 
     assert_eq!(t.cpu_temperature_history.len(), PROCESS_HISTORY_BUFFER);
     assert!(t.cpu_temperature_history.iter().all(Option::is_none));
+  }
+
+  #[test]
+  fn ingest_preserves_missing_power_samples_as_none() {
+    let mut tracker = ArchiveTracker::new();
+    let mut available = make_snapshot(10.0, 50.0, 4);
+    available.power_draw.cpu_watts = Some(8.0);
+    available.power_draw.gpu_watts = Some(4.0);
+    available.power_draw.ane_watts = Some(1.0);
+    available.power_draw.package_watts = Some(13.0);
+
+    tracker.ingest(available);
+    tracker.ingest(make_snapshot(20.0, 60.0, 4));
+
+    assert_eq!(tracker.cpu_power_history, [Some(8.0), None]);
+    assert_eq!(tracker.gpu_power_history, [Some(4.0), None]);
+    assert_eq!(tracker.ane_power_history, [Some(1.0), None]);
+    assert_eq!(tracker.package_power_history, [Some(13.0), None]);
+  }
+
+  #[test]
+  fn ingest_expires_stale_power_from_rolling_window() {
+    let mut tracker = ArchiveTracker::new();
+    let mut available = make_snapshot(10.0, 50.0, 4);
+    available.power_draw.package_watts = Some(13.0);
+    tracker.ingest(available);
+
+    for _ in 0..PROCESS_HISTORY_BUFFER {
+      tracker.ingest(make_snapshot(10.0, 50.0, 4));
+    }
+
+    assert_eq!(tracker.package_power_history.len(), PROCESS_HISTORY_BUFFER);
+    assert!(tracker.package_power_history.iter().all(Option::is_none));
+  }
+
+  #[test]
+  fn package_power_stats_use_per_tick_package_values() {
+    let mut tracker = ArchiveTracker::new();
+    for watts in [10.0, 30.0, 20.0] {
+      let mut snapshot = make_snapshot(10.0, 50.0, 4);
+      snapshot.power_draw.package_watts = Some(watts);
+      tracker.ingest(snapshot);
+    }
+
+    let stats = StatsCalculator::compute_stats(
+      tracker.package_power_history.iter().copied().flatten(),
+    );
+    assert_eq!(
+      stats,
+      HardwareData {
+        avg: Some(20.0),
+        max: Some(30.0),
+        min: Some(10.0),
+      }
+    );
   }
 
   #[test]

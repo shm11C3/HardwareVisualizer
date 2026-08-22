@@ -8,6 +8,18 @@ pub enum DataArchiveColumn {
   CpuTemperatureAvg,
   CpuTemperatureMax,
   CpuTemperatureMin,
+  CpuPowerAvg,
+  CpuPowerMax,
+  CpuPowerMin,
+  GpuPowerAvg,
+  GpuPowerMax,
+  GpuPowerMin,
+  AnePowerAvg,
+  AnePowerMax,
+  AnePowerMin,
+  PackagePowerAvg,
+  PackagePowerMax,
+  PackagePowerMin,
   RamAvg,
   RamMax,
   RamMin,
@@ -22,6 +34,18 @@ impl DataArchiveColumn {
       Self::CpuTemperatureAvg => "cpu_temperature_avg",
       Self::CpuTemperatureMax => "cpu_temperature_max",
       Self::CpuTemperatureMin => "cpu_temperature_min",
+      Self::CpuPowerAvg => "cpu_power_avg",
+      Self::CpuPowerMax => "cpu_power_max",
+      Self::CpuPowerMin => "cpu_power_min",
+      Self::GpuPowerAvg => "gpu_power_avg",
+      Self::GpuPowerMax => "gpu_power_max",
+      Self::GpuPowerMin => "gpu_power_min",
+      Self::AnePowerAvg => "ane_power_avg",
+      Self::AnePowerMax => "ane_power_max",
+      Self::AnePowerMin => "ane_power_min",
+      Self::PackagePowerAvg => "package_power_avg",
+      Self::PackagePowerMax => "package_power_max",
+      Self::PackagePowerMin => "package_power_min",
       Self::RamAvg => "ram_avg",
       Self::RamMax => "ram_max",
       Self::RamMin => "ram_min",
@@ -204,6 +228,27 @@ mod tests {
     assert_eq!(DataArchiveColumn::RamAvg.sql(), "ram_avg");
     assert_eq!(DataArchiveColumn::RamMax.sql(), "ram_max");
     assert_eq!(DataArchiveColumn::RamMin.sql(), "ram_min");
+    assert_eq!(DataArchiveColumn::CpuPowerAvg.sql(), "cpu_power_avg");
+    assert_eq!(DataArchiveColumn::CpuPowerMax.sql(), "cpu_power_max");
+    assert_eq!(DataArchiveColumn::CpuPowerMin.sql(), "cpu_power_min");
+    assert_eq!(DataArchiveColumn::GpuPowerAvg.sql(), "gpu_power_avg");
+    assert_eq!(DataArchiveColumn::GpuPowerMax.sql(), "gpu_power_max");
+    assert_eq!(DataArchiveColumn::GpuPowerMin.sql(), "gpu_power_min");
+    assert_eq!(DataArchiveColumn::AnePowerAvg.sql(), "ane_power_avg");
+    assert_eq!(DataArchiveColumn::AnePowerMax.sql(), "ane_power_max");
+    assert_eq!(DataArchiveColumn::AnePowerMin.sql(), "ane_power_min");
+    assert_eq!(
+      DataArchiveColumn::PackagePowerAvg.sql(),
+      "package_power_avg"
+    );
+    assert_eq!(
+      DataArchiveColumn::PackagePowerMax.sql(),
+      "package_power_max"
+    );
+    assert_eq!(
+      DataArchiveColumn::PackagePowerMin.sql(),
+      "package_power_min"
+    );
   }
 
   #[test]
@@ -295,6 +340,48 @@ mod tests {
 
     assert_eq!(rows[0].value, Some(52.5));
     assert_eq!(rows[1].value, None);
+  }
+
+  #[tokio::test]
+  async fn data_archive_returns_each_power_series_and_preserves_null() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    sqlx::query(
+      "CREATE TABLE DATA_ARCHIVE (
+        id INTEGER PRIMARY KEY,
+        cpu_power_avg REAL,
+        gpu_power_avg REAL,
+        ane_power_avg REAL,
+        package_power_avg REAL,
+        timestamp DATETIME
+      )",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (
+        id, cpu_power_avg, gpu_power_avg, ane_power_avg, package_power_avg, timestamp
+      ) VALUES (1, 8.5, 4.25, NULL, 13.75, '2026-06-08T00:00:00.000Z')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let cases = [
+      (DataArchiveColumn::CpuPowerAvg, Some(8.5)),
+      (DataArchiveColumn::GpuPowerAvg, Some(4.25)),
+      (DataArchiveColumn::AnePowerAvg, None),
+      (DataArchiveColumn::PackagePowerAvg, Some(13.75)),
+    ];
+    for (column, expected) in cases {
+      let rows = sqlx::query_as::<_, ArchiveRecord>(&data_archive_select_sql(column))
+        .bind("2026-06-08T00:00:00.000Z")
+        .bind("2026-06-08T00:01:00.000Z")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+      assert_eq!(rows[0].value, expected);
+    }
   }
 
   #[tokio::test]

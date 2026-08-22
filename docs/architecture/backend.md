@@ -212,8 +212,9 @@ Startup flow:
 5. DB-dependent Core workers start only when startup preflight allows it.
 
 Hardware Archive rows summarize one-minute windows of CPU, memory, GPU, and
-process metrics, including available CPU and GPU temperatures. Missing
-temperature readings remain unavailable rather than becoming zero. The
+process metrics, including available CPU and GPU temperatures and Apple Silicon
+CPU, GPU, ANE, and package power draw. Missing temperature and power readings
+remain unavailable rather than becoming zero. The
 Hardware Archive Retention Period is controlled by
 `hardwareArchive.retentionDays`. The `scheduledDataDeletion` flag controls
 whether cleanup for records older than the Retention Period runs at startup; it

@@ -6,7 +6,7 @@ import {
   MemoryIcon,
   ThermometerIcon,
 } from "@phosphor-icons/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZapIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { tv } from "tailwind-variants";
@@ -180,6 +180,15 @@ const CoolingInsights = () => {
   const [periodMinCpuTemperature, setPeriodMinCpuTemperature] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodMinCpuTemperature", 60);
+  const [periodAvgPackagePower, setPeriodAvgPackagePower] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodAvgPackagePower", 60);
+  const [periodMaxPackagePower, setPeriodMaxPackagePower] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMaxPackagePower", 60);
+  const [periodMinPackagePower, setPeriodMinPackagePower] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMinPackagePower", 60);
 
   const periods: Record<(typeof archivePeriods)[number], string> = {
     "10": `10 ${t("shared.time.minutes")}`,
@@ -202,6 +211,9 @@ const CoolingInsights = () => {
     periodAvgCpuTemperature,
     periodMaxCpuTemperature,
     periodMinCpuTemperature,
+    periodAvgPackagePower,
+    periodMaxPackagePower,
+    periodMinPackagePower,
   ];
 
   const chartData: {
@@ -227,6 +239,21 @@ const CoolingInsights = () => {
       stats: "min",
       period: [periodMinCpuTemperature, setPeriodMinCpuTemperature],
     },
+    {
+      type: "packagePower",
+      stats: "avg",
+      period: [periodAvgPackagePower, setPeriodAvgPackagePower],
+    },
+    {
+      type: "packagePower",
+      stats: "max",
+      period: [periodMaxPackagePower, setPeriodMaxPackagePower],
+    },
+    {
+      type: "packagePower",
+      stats: "min",
+      period: [periodMinPackagePower, setPeriodMinPackagePower],
+    },
   ];
 
   return (
@@ -243,6 +270,9 @@ const CoolingInsights = () => {
             setPeriodAvgCpuTemperature(v);
             setPeriodMaxCpuTemperature(v);
             setPeriodMinCpuTemperature(v);
+            setPeriodAvgPackagePower(v);
+            setPeriodMaxPackagePower(v);
+            setPeriodMinPackagePower(v);
           }}
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
@@ -437,7 +467,9 @@ const ChartArea = (data: {
   const title =
     type === "cpuTemperature"
       ? `CPU ${t("shared.temperature.full")}`
-      : t(type === "cpu" ? "shared.cpuUsage" : "shared.memoryUsage");
+      : type === "packagePower"
+        ? `${t("pages.insights.cooling.packagePower")} (W)`
+        : t(type === "cpu" ? "shared.cpuUsage" : "shared.memoryUsage");
 
   const handleMouseDown = (increment: number) => {
     if (intervalId) return;
@@ -463,6 +495,10 @@ const ChartArea = (data: {
               {
                 cpu: <CpuIcon className="pr-1" />,
                 cpuTemperature: <ThermometerIcon className="pr-1" />,
+                cpuPower: <ZapIcon className="pr-1" />,
+                gpuPower: <ZapIcon className="pr-1" />,
+                anePower: <ZapIcon className="pr-1" />,
+                packagePower: <ZapIcon className="pr-1" />,
                 memory: <MemoryIcon className="pr-1" />,
               }[data.type]
             }
