@@ -359,8 +359,26 @@ impl models::settings::Settings {
     &mut self,
     new_targets: Vec<enums::hardware::PowerDisplayTarget>,
   ) -> Result<(), String> {
-    self.power_display_targets = new_targets;
-    self.write_file()
+    self.set_power_display_targets_with_writer(new_targets, |settings| {
+      settings.write_file()
+    })
+  }
+
+  fn set_power_display_targets_with_writer<F>(
+    &mut self,
+    new_targets: Vec<enums::hardware::PowerDisplayTarget>,
+    writer: F,
+  ) -> Result<(), String>
+  where
+    F: FnOnce(&Self) -> Result<(), String>,
+  {
+    let previous_targets =
+      std::mem::replace(&mut self.power_display_targets, new_targets);
+    if let Err(error) = writer(self) {
+      self.power_display_targets = previous_targets;
+      return Err(error);
+    }
+    Ok(())
   }
 
   pub fn set_graph_size(
@@ -853,6 +871,22 @@ mod tests {
     let mut settings = models::settings::Settings::default();
     read_settings_from_str(&mut settings, r#"{"powerDisplayTargets":[]}"#).unwrap();
     assert!(settings.power_display_targets.is_empty());
+  }
+
+  #[test]
+  fn set_power_display_targets_restores_value_when_writer_fails() {
+    let mut settings = models::settings::Settings::default();
+    let previous_targets = settings.power_display_targets.clone();
+
+    let error = settings
+      .set_power_display_targets_with_writer(
+        vec![enums::hardware::PowerDisplayTarget::Ane],
+        |_| Err("write failed".to_string()),
+      )
+      .unwrap_err();
+
+    assert_eq!(error, "write failed");
+    assert_eq!(settings.power_display_targets, previous_targets);
   }
 
   #[test]

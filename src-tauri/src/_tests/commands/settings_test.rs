@@ -70,6 +70,10 @@ mod tests {
       expected.ui_announcement_version
     );
     assert_eq!(settings.display_targets, expected.display_targets,);
+    assert_eq!(
+      settings.power_display_targets,
+      expected.power_display_targets
+    );
     assert_eq!(settings.line_graph_border, expected.line_graph_border);
     assert_eq!(settings.graph_size, expected.graph_size);
     assert_eq!(settings.graph_fit_to_window, expected.graph_fit_to_window);
