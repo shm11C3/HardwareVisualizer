@@ -1,12 +1,12 @@
 use crate::models::hardware::MemoryInfo;
+use hardviz_core::enums::error::PlatformError;
 use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// ## Get detailed memory information via Platform
-/// Returns `MemoryInfo` on success, error message on failure
+/// Returns `MemoryInfo` on success, a [`PlatformError`] on failure
 ///
-pub async fn fetch_memory_detail() -> Result<MemoryInfo, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+pub async fn fetch_memory_detail() -> Result<MemoryInfo, PlatformError> {
+  let platform = PlatformFactory::create()?;
   Ok(platform.get_memory_info_detail().await?.into())
 }

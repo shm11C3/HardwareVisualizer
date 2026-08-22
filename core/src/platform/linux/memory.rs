@@ -1,3 +1,4 @@
+use crate::enums::error::PlatformError;
 use crate::infrastructure::providers;
 use crate::log_warn;
 use crate::models;
@@ -7,7 +8,9 @@ use crate::utils;
 use std;
 
 pub fn get_memory_info() -> std::pin::Pin<
-  Box<dyn std::future::Future<Output = Result<MemoryInfo, String>> + Send + 'static>,
+  Box<
+    dyn std::future::Future<Output = Result<MemoryInfo, PlatformError>> + Send + 'static,
+  >,
 > {
   Box::pin(async {
     if let Ok(cached) = get_memory_info_cached_detail() {
@@ -16,7 +19,7 @@ pub fn get_memory_info() -> std::pin::Pin<
 
     // fallback: Only get memory capacity
     let mem_kb = providers::procfs::get_mem_total_kb()
-      .map_err(|e| format!("Failed to read /proc/meminfo: {e}"))?;
+      .map_err(|e| PlatformError::fault(format!("Failed to read /proc/meminfo: {e}")))?;
 
     Ok(models::hardware::MemoryInfo {
       size: utils::formatter::format_size(mem_kb * 1024, 1),
@@ -31,10 +34,14 @@ pub fn get_memory_info() -> std::pin::Pin<
 }
 
 pub fn get_memory_info_detail() -> std::pin::Pin<
-  Box<dyn std::future::Future<Output = Result<MemoryInfo, String>> + Send + 'static>,
+  Box<
+    dyn std::future::Future<Output = Result<MemoryInfo, PlatformError>> + Send + 'static,
+  >,
 > {
   Box::pin(async {
-    let raw = providers::dmidecode::get_raw_dmidecode().await?;
+    let raw = providers::dmidecode::get_raw_dmidecode()
+      .await
+      .map_err(PlatformError::fault)?;
     let parsed = providers::dmidecode::parse_dmidecode_memory_info(&raw);
 
     if let Err(e) =

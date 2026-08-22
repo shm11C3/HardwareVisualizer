@@ -1,3 +1,4 @@
+use crate::enums::error::PlatformError;
 use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
 use windows::Win32::Foundation::CloseHandle;
@@ -7,13 +8,14 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::core::PCWSTR;
 
-pub fn is_process_elevated() -> Result<bool, String> {
+pub fn is_process_elevated() -> Result<bool, PlatformError> {
   Ok(unsafe { IsUserAnAdmin().as_bool() })
 }
 
-pub fn relaunch_current_process_elevated() -> Result<(), String> {
-  let exe_path = std::env::current_exe()
-    .map_err(|e| format!("Failed to obtain executable file path: {e}"))?;
+pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
+  let exe_path = std::env::current_exe().map_err(|e| {
+    PlatformError::fault(format!("Failed to obtain executable file path: {e}"))
+  })?;
   let params = std::env::args_os()
     .skip(1)
     .map(|arg| quote_windows_arg(&arg))
@@ -34,8 +36,9 @@ pub fn relaunch_current_process_elevated() -> Result<(), String> {
     ..Default::default()
   };
 
-  unsafe { ShellExecuteExW(&mut execute_info) }
-    .map_err(|e| format!("Failed to restart as administrator: {e}"))?;
+  unsafe { ShellExecuteExW(&mut execute_info) }.map_err(|e| {
+    PlatformError::fault(format!("Failed to restart as administrator: {e}"))
+  })?;
 
   if !execute_info.hProcess.is_invalid() {
     let _ = unsafe { CloseHandle(execute_info.hProcess) };

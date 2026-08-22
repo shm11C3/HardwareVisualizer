@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-  enums::error::BackendError, infrastructure, models::hardware::NetworkInfo, utils::ip,
+  enums::error::PlatformError, infrastructure, models::hardware::NetworkInfo, utils::ip,
 };
 
 type GatewayV4ByIfIndex = HashMap<u32, Vec<Ipv4Addr>>;
@@ -16,12 +16,12 @@ type GatewayV6ByIfIndex = HashMap<u32, Vec<Ipv6Addr>>;
 /// - pulls raw interface facts (name, flags, MAC, IPs) from the provider
 /// - pulls default gateways (v4/v6) from PF_ROUTE via the provider
 /// - filters to active, non-loopback interfaces and formats fields for the UI
-pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+pub fn get_network_info() -> Result<Vec<NetworkInfo>, PlatformError> {
   let raw = infrastructure::providers::net_sys::get_raw_interfaces()
-    .map_err(|_| BackendError::UnexpectedError)?;
+    .map_err(PlatformError::fault)?;
   let (gw_v4_by_index, gw_v6_by_index) =
     infrastructure::providers::net_sys::get_default_gateways_by_ifindex()
-      .map_err(|_| BackendError::UnexpectedError)?;
+      .map_err(PlatformError::fault)?;
 
   Ok(create_network_info(raw, &gw_v4_by_index, &gw_v6_by_index))
 }

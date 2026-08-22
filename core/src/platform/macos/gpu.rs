@@ -1,24 +1,27 @@
 use crate::{
+  enums::error::PlatformError,
   infrastructure::providers::macos::{gpu, gpu_info, io_kit::iokit_info},
   models,
 };
 
-pub async fn get_gpu_usage() -> Result<(f32, String), String> {
-  gpu::init_gpu_usage_sampler_thread()?;
+pub async fn get_gpu_usage() -> Result<(f32, String), PlatformError> {
+  gpu::init_gpu_usage_sampler_thread().map_err(PlatformError::fault)?;
 
   match gpu::read_gpu_usage_cached() {
     Some(v) => Ok((v * 100.0, "IOKit".to_string())),
-    None => Err("GPU usage is not ready yet".into()),
+    None => Err(PlatformError::unavailable("GPU usage is not ready yet")),
   }
 }
 
-pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
-  gpu_info::get_gpu_info().await
+pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, PlatformError> {
+  gpu_info::get_gpu_info().await.map_err(PlatformError::fault)
 }
 
 pub async fn get_gpu_memory_usage()
--> Result<Option<models::hardware::GpuMemoryUsage>, String> {
-  gpu_info::get_gpu_memory_usage().await
+-> Result<Option<models::hardware::GpuMemoryUsage>, PlatformError> {
+  gpu_info::get_gpu_memory_usage()
+    .await
+    .map_err(PlatformError::fault)
 }
 
 pub async fn sample_gpus() -> Vec<models::GpuSample> {

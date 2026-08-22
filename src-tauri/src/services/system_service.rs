@@ -1,3 +1,4 @@
+use hardviz_core::enums::error::PlatformError;
 use hardviz_core::platform::factory::PlatformFactory;
 use tauri::Manager;
 
@@ -19,7 +20,9 @@ pub async fn restart_app(app_handle: &tauri::AppHandle) {
   app_handle.exit(0);
 }
 
-pub async fn restart_app_elevated(app_handle: &tauri::AppHandle) -> Result<(), String> {
+pub async fn restart_app_elevated(
+  app_handle: &tauri::AppHandle,
+) -> Result<(), PlatformError> {
   let state = app_handle.state::<crate::workers::WorkersState>();
   state.terminate_all().await;
 
@@ -30,7 +33,7 @@ pub async fn restart_app_elevated(app_handle: &tauri::AppHandle) -> Result<(), S
 
 pub fn relaunch_for_elevated_startup_if_needed(
   app_handle: &tauri::AppHandle,
-) -> Result<bool, String> {
+) -> Result<bool, PlatformError> {
   if is_process_elevated()? {
     return Ok(false);
   }
@@ -40,14 +43,12 @@ pub fn relaunch_for_elevated_startup_if_needed(
   Ok(true)
 }
 
-pub fn is_process_elevated() -> Result<bool, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+pub fn is_process_elevated() -> Result<bool, PlatformError> {
+  let platform = PlatformFactory::create()?;
   platform.is_process_elevated()
 }
 
-pub fn relaunch_current_process_elevated() -> Result<(), String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
+  let platform = PlatformFactory::create()?;
   platform.relaunch_current_process_elevated()
 }

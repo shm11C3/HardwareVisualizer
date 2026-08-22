@@ -1,3 +1,4 @@
+use crate::enums::error::PlatformError;
 use crate::infrastructure::providers::macos::system_profiler_hardware::{
   self, SpHardwareDetails,
 };
@@ -23,17 +24,19 @@ const APPLE_MANUFACTURER: &str = "Apple Inc.";
 /// - `bios_version` is the system firmware (boot ROM) version.
 /// - `bios_release_date` is left empty (macOS does not expose it).
 pub fn get_motherboard_info()
--> Pin<Box<dyn Future<Output = Result<MotherboardInfo, String>> + Send>> {
+-> Pin<Box<dyn Future<Output = Result<MotherboardInfo, PlatformError>> + Send>> {
   Box::pin(async {
     tokio::task::spawn_blocking(collect_motherboard_info)
       .await
-      .map_err(|e| format!("Join error: {e}"))?
+      .map_err(|e| PlatformError::fault(format!("Join error: {e}")))?
   })
 }
 
-fn collect_motherboard_info() -> Result<MotherboardInfo, String> {
-  let raw = system_profiler_hardware::get_raw_sphardware_json()?;
-  let details = system_profiler_hardware::parse_sphardware_json(&raw)?;
+fn collect_motherboard_info() -> Result<MotherboardInfo, PlatformError> {
+  let raw =
+    system_profiler_hardware::get_raw_sphardware_json().map_err(PlatformError::fault)?;
+  let details = system_profiler_hardware::parse_sphardware_json(&raw)
+    .map_err(PlatformError::fault)?;
   Ok(map_motherboard_info(details))
 }
 

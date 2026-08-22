@@ -1,8 +1,9 @@
+use crate::enums::error::PlatformError;
 use crate::infrastructure;
 use crate::models::GpuSample;
 use crate::{log_error, log_warn};
 
-pub async fn get_gpu_usage() -> Result<(f32, String), String> {
+pub async fn get_gpu_usage() -> Result<(f32, String), PlatformError> {
   use infrastructure::providers::pdh_provider::GpuEngineType;
 
   // 1. NVAPI (NVIDIA)
@@ -47,16 +48,16 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   .await
   {
     Ok(usage) => Ok(((usage * 100.0).round(), "PDH".to_string())),
-    Err(e) => Err(format!(
+    Err(e) => Err(PlatformError::unavailable(format!(
       "Failed to get GPU usage from NVIDIA API, AMD ADL, and PDH: {e:?}"
-    )),
+    ))),
   }
 }
 
 /// Always returns raw degrees Celsius. Presentation conversion lives at
 /// the App-side boundary.
 pub async fn get_gpu_temperature()
--> Result<Vec<crate::models::hardware::NameValue>, String> {
+-> Result<Vec<crate::models::hardware::NameValue>, PlatformError> {
   let mut all_temps: Vec<crate::models::hardware::NameValue> = Vec::new();
 
   // 1. NVAPI (NVIDIA)
@@ -84,13 +85,16 @@ pub async fn get_gpu_temperature()
   }
 
   if all_temps.is_empty() {
-    Err("Failed to get GPU temperature from any provider".to_string())
+    Err(PlatformError::unavailable(
+      "Failed to get GPU temperature from any provider",
+    ))
   } else {
     Ok(all_temps)
   }
 }
 
-pub async fn get_gpu_info() -> Result<Vec<crate::models::hardware::GraphicInfo>, String> {
+pub async fn get_gpu_info()
+-> Result<Vec<crate::models::hardware::GraphicInfo>, PlatformError> {
   let (nvidia_res, amd_res, intel_res) = tokio::join!(
     infrastructure::providers::nvapi_provider::get_nvidia_gpu_info(),
     infrastructure::providers::directx::get_amd_gpu_info(),

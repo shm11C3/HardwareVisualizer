@@ -1,4 +1,4 @@
-use crate::enums::error::BackendError;
+use crate::enums::error::PlatformError;
 use crate::models::hardware::{
   GpuMemoryUsage, GraphicInfo, MotherboardInfo, NetworkInfo, SuperIoChipIdDiagnostics,
 };
@@ -20,7 +20,7 @@ pub mod sensors;
 pub struct WindowsPlatform;
 
 impl WindowsPlatform {
-  pub fn new() -> Result<Self, String> {
+  pub fn new() -> Result<Self, PlatformError> {
     Ok(Self)
   }
 }
@@ -30,7 +30,7 @@ impl MemoryPlatform for WindowsPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, PlatformError>>
         + Send
         + '_,
     >,
@@ -42,7 +42,7 @@ impl MemoryPlatform for WindowsPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, PlatformError>>
         + Send
         + '_,
     >,
@@ -54,8 +54,11 @@ impl MemoryPlatform for WindowsPlatform {
 impl GpuPlatform for WindowsPlatform {
   fn get_gpu_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<super::traits::GpuUsageRaw, String>> + Send + '_>>
-  {
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<super::traits::GpuUsageRaw, PlatformError>> + Send + '_,
+    >,
+  > {
     Box::pin(gpu::get_gpu_usage())
   }
 
@@ -63,7 +66,7 @@ impl GpuPlatform for WindowsPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, String>>
+      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, PlatformError>>
         + Send
         + '_,
     >,
@@ -73,14 +76,16 @@ impl GpuPlatform for WindowsPlatform {
 
   fn get_gpu_info(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
+  ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, PlatformError>> + Send + '_>>
+  {
     Box::pin(gpu::get_gpu_info())
   }
 
   fn get_gpu_memory_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, String>> + Send + '_>>
-  {
+  ) -> Pin<
+    Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, PlatformError>> + Send + '_>,
+  > {
     Box::pin(async { Ok(None) })
   }
 
@@ -92,7 +97,7 @@ impl GpuPlatform for WindowsPlatform {
 }
 
 impl NetworkPlatform for WindowsPlatform {
-  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
+  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, PlatformError> {
     network::get_network_info()
   }
 }
@@ -100,7 +105,8 @@ impl NetworkPlatform for WindowsPlatform {
 impl MotherboardPlatform for WindowsPlatform {
   fn get_motherboard_info(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MotherboardInfo, String>> + Send + '_>> {
+  ) -> Pin<Box<dyn Future<Output = Result<MotherboardInfo, PlatformError>> + Send + '_>>
+  {
     motherboard::get_motherboard_info()
   }
 }
@@ -122,11 +128,11 @@ impl SensorPlatform for WindowsPlatform {
 }
 
 impl ProcessElevationPlatform for WindowsPlatform {
-  fn is_process_elevated(&self) -> Result<bool, String> {
+  fn is_process_elevated(&self) -> Result<bool, PlatformError> {
     process_elevation::is_process_elevated()
   }
 
-  fn relaunch_current_process_elevated(&self) -> Result<(), String> {
+  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
     process_elevation::relaunch_current_process_elevated()
   }
 }

@@ -1,8 +1,11 @@
+use crate::enums::error::PlatformError;
 use crate::infrastructure;
 use crate::models;
 
-pub async fn get_gpu_usage() -> Result<(f32, String), String> {
-  let cards = infrastructure::providers::drm_sys::get_card_ids().await?;
+pub async fn get_gpu_usage() -> Result<(f32, String), PlatformError> {
+  let cards = infrastructure::providers::drm_sys::get_card_ids()
+    .await
+    .map_err(PlatformError::fault)?;
 
   for card in cards {
     // TODO Also handle Vendor ID detection in infrastructure layer
@@ -24,10 +27,12 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
     }
   }
 
-  Err("Failed to get GPU usage on Linux (non-NVIDIA fallback)".to_string())
+  Err(PlatformError::unavailable(
+    "Failed to get GPU usage on Linux (non-NVIDIA fallback)",
+  ))
 }
 
-pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String> {
+pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, PlatformError> {
   use tokio::task::JoinSet;
 
   let card_ids = infrastructure::providers::drm_sys::get_all_card_ids();
@@ -63,7 +68,7 @@ pub async fn get_gpu_info() -> Result<Vec<models::hardware::GraphicInfo>, String
 
 async fn get_amd_graphic_info(
   card_id: u8,
-) -> Result<models::hardware::GraphicInfo, String> {
+) -> Result<models::hardware::GraphicInfo, PlatformError> {
   let name = infrastructure::providers::drm_sys::get_card_bdf(card_id)
     .and_then(|bdf| {
       infrastructure::providers::lspci::get_gpu_name_from_lspci_by_bdf(&bdf)
@@ -87,7 +92,7 @@ async fn get_amd_graphic_info(
 
 pub async fn get_intel_graphic_info(
   card_id: u8,
-) -> Result<models::hardware::GraphicInfo, String> {
+) -> Result<models::hardware::GraphicInfo, PlatformError> {
   Ok(models::hardware::GraphicInfo {
     id: format!("card{card_id}"),
     name: "Intel Integrated Graphics".into(),
@@ -101,7 +106,8 @@ pub async fn get_intel_graphic_info(
 
 /// Always returns raw degrees Celsius. Presentation conversion lives at
 /// the App-side boundary.
-pub async fn get_gpu_temperature() -> Result<Vec<models::hardware::NameValue>, String> {
+pub async fn get_gpu_temperature()
+-> Result<Vec<models::hardware::NameValue>, PlatformError> {
   let cards = infrastructure::providers::drm_sys::get_all_card_ids();
   let mut all_temps: Vec<models::hardware::NameValue> = Vec::new();
 
@@ -125,7 +131,9 @@ pub async fn get_gpu_temperature() -> Result<Vec<models::hardware::NameValue>, S
   }
 
   if all_temps.is_empty() {
-    Err("No GPU temperature sensors found on Linux".to_string())
+    Err(PlatformError::unavailable(
+      "No GPU temperature sensors found on Linux",
+    ))
   } else {
     Ok(all_temps)
   }

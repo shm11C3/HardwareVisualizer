@@ -1,14 +1,14 @@
 use crate::enums;
 use crate::models::hardware::{GpuMemoryUsage, GpuUsageResult, NameValue};
+use hardviz_core::enums::error::PlatformError;
 use hardviz_core::platform::factory::PlatformFactory;
 
 ///
 /// Get GPU usage (%) together with the data-source name
 /// For multiple GPUs, depends on Platform implementation policy
 ///
-pub async fn fetch_gpu_usage() -> Result<GpuUsageResult, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+pub async fn fetch_gpu_usage() -> Result<GpuUsageResult, PlatformError> {
+  let platform = PlatformFactory::create()?;
   let (usage, source) = platform.get_gpu_usage().await?;
   Ok(GpuUsageResult {
     usage: usage.round() as i32,
@@ -24,14 +24,10 @@ pub async fn fetch_gpu_usage() -> Result<GpuUsageResult, String> {
 ///
 pub async fn fetch_gpu_temperature(
   temperature_unit: enums::settings::TemperatureUnit,
-) -> Result<Vec<NameValue>, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+) -> Result<Vec<NameValue>, PlatformError> {
+  let platform = PlatformFactory::create()?;
 
-  let core_temps = platform
-    .get_gpu_temperature()
-    .await
-    .map_err(|e| format!("Failed to get GPU temperature: {e:?}"))?;
+  let core_temps = platform.get_gpu_temperature().await?;
 
   let unit: hardviz_core::enums::settings::TemperatureUnit = temperature_unit.into();
   Ok(
@@ -67,9 +63,8 @@ pub async fn fetch_gpu_temperature(
 /// defined by that type (typically mebibytes, MiB). See
 /// [`GpuMemoryUsage`] for field-level details.
 ///
-pub async fn fetch_gpu_memory_usage() -> Result<Option<GpuMemoryUsage>, String> {
-  let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+pub async fn fetch_gpu_memory_usage() -> Result<Option<GpuMemoryUsage>, PlatformError> {
+  let platform = PlatformFactory::create()?;
 
   let core_mem = platform.get_gpu_memory_usage().await?;
   Ok(core_mem.map(GpuMemoryUsage::from))

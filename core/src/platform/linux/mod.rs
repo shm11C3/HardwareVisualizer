@@ -1,4 +1,4 @@
-use crate::enums::error::BackendError;
+use crate::enums::error::PlatformError;
 use crate::models::hardware::{
   GpuMemoryUsage, GraphicInfo, NetworkInfo, SuperIoChipIdDiagnostics,
 };
@@ -17,7 +17,7 @@ pub mod network;
 pub struct LinuxPlatform;
 
 impl LinuxPlatform {
-  pub fn new() -> Result<Self, String> {
+  pub fn new() -> Result<Self, PlatformError> {
     Ok(Self)
   }
 }
@@ -27,7 +27,7 @@ impl MemoryPlatform for LinuxPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, PlatformError>>
         + Send
         + '_,
     >,
@@ -39,7 +39,7 @@ impl MemoryPlatform for LinuxPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, PlatformError>>
         + Send
         + '_,
     >,
@@ -51,8 +51,11 @@ impl MemoryPlatform for LinuxPlatform {
 impl GpuPlatform for LinuxPlatform {
   fn get_gpu_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<super::traits::GpuUsageRaw, String>> + Send + '_>>
-  {
+  ) -> Pin<
+    Box<
+      dyn Future<Output = Result<super::traits::GpuUsageRaw, PlatformError>> + Send + '_,
+    >,
+  > {
     Box::pin(gpu::get_gpu_usage())
   }
 
@@ -60,7 +63,7 @@ impl GpuPlatform for LinuxPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, String>>
+      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, PlatformError>>
         + Send
         + '_,
     >,
@@ -70,14 +73,16 @@ impl GpuPlatform for LinuxPlatform {
 
   fn get_gpu_info(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, String>> + Send + '_>> {
+  ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, PlatformError>> + Send + '_>>
+  {
     Box::pin(gpu::get_gpu_info())
   }
 
   fn get_gpu_memory_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, String>> + Send + '_>>
-  {
+  ) -> Pin<
+    Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, PlatformError>> + Send + '_>,
+  > {
     Box::pin(async { Ok(None) })
   }
 
@@ -89,7 +94,7 @@ impl GpuPlatform for LinuxPlatform {
 }
 
 impl NetworkPlatform for LinuxPlatform {
-  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, BackendError> {
+  fn get_network_info(&self) -> Result<Vec<NetworkInfo>, PlatformError> {
     network::get_network_info()
   }
 }
@@ -99,13 +104,15 @@ impl MotherboardPlatform for LinuxPlatform {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<crate::models::hardware::MotherboardInfo, String>>
+      dyn Future<Output = Result<crate::models::hardware::MotherboardInfo, PlatformError>>
         + Send
         + '_,
     >,
   > {
     Box::pin(async {
-      Err("get_motherboard_info is not implemented for LinuxPlatform".to_string())
+      Err(PlatformError::unsupported(
+        "get_motherboard_info is not implemented for LinuxPlatform",
+      ))
     })
   }
 }
@@ -131,12 +138,14 @@ impl SensorPlatform for LinuxPlatform {
 }
 
 impl ProcessElevationPlatform for LinuxPlatform {
-  fn is_process_elevated(&self) -> Result<bool, String> {
+  fn is_process_elevated(&self) -> Result<bool, PlatformError> {
     Ok(false)
   }
 
-  fn relaunch_current_process_elevated(&self) -> Result<(), String> {
-    Err("Elevated Startup Mode is only supported on Windows.".to_string())
+  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
+    Err(PlatformError::unsupported(
+      "Elevated Startup Mode is only supported on Windows.",
+    ))
   }
 }
 
