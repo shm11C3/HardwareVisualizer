@@ -31,36 +31,54 @@ describe("performance layout normalization", () => {
         visible: ["processTable", "futurePanel"],
       }),
     ).toEqual({
-      order: ["processTable", "usageGraphs", "perCore", "motherboardSensors"],
+      order: [
+        "processTable",
+        "usageGraphs",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
       visible: ["processTable"],
     });
   });
 
-  it("appends newly introduced default-hidden panels as hidden", () => {
+  it("appends new panels without overriding stored visibility", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs", "processTable"],
         visible: ["usageGraphs", "processTable"],
       }),
     ).toEqual({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
       visible: ["usageGraphs", "processTable"],
     });
   });
 
-  it("makes a missing default-visible panel visible again", () => {
+  it("preserves a limited stored visibility selection", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs"],
         visible: ["usageGraphs"],
       }),
     ).toEqual({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs", "processTable"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs"],
     });
   });
 
-  it("preserves an intentionally empty visible selection", () => {
+  it("preserves an explicit empty stored visibility selection", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
@@ -76,9 +94,24 @@ describe("performance layout normalization", () => {
         visible: ["currentValues", "usageGraphs"],
       }),
     ).toEqual({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
       visible: ["usageGraphs"],
     });
+  });
+
+  it("uses default visibility when the stored field is malformed", () => {
+    expect(
+      normalizePerformanceCustomLayout({
+        order: ["usageGraphs"],
+        visible: "usageGraphs",
+      }).visible,
+    ).toEqual(DEFAULT_PERFORMANCE_CUSTOM_LAYOUT.visible);
   });
 
   it("falls back to the default layout for malformed values", () => {

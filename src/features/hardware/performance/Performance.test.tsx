@@ -9,6 +9,8 @@ import {
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
+  powerDrawAtom,
+  powerDrawAvailableAtom,
   selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { Performance } from "./Performance";
@@ -29,8 +31,14 @@ const state = vi.hoisted(() => ({
   columns: 1 as PerformancePanelColumns,
   compactExpanded: false,
   customLayout: {
-    order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-    visible: ["usageGraphs", "processTable"],
+    order: [
+      "usageGraphs",
+      "processTable",
+      "perCore",
+      "motherboardSensors",
+      "power",
+    ],
+    visible: ["usageGraphs", "processTable", "power"],
   } as PerformanceCustomLayout,
   chartRenders: { cpu: 0, memory: 0, gpu: 0 },
   processRenders: 0,
@@ -169,8 +177,14 @@ describe("Performance", () => {
     state.columns = 1;
     state.compactExpanded = false;
     state.customLayout = {
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs", "processTable"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
     };
     state.chartRenders = { cpu: 0, memory: 0, gpu: 0 };
     state.processRenders = 0;
@@ -260,7 +274,13 @@ describe("Performance", () => {
 
   it("keeps hidden panels unmounted in the panels view", () => {
     state.customLayout = {
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
       visible: ["usageGraphs"],
     };
 
@@ -270,6 +290,41 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
     expect(screen.queryByTestId("live-process-table")).toBeNull();
     expect(screen.queryByTestId("performance-panel-perCore")).toBeNull();
+  });
+
+  it("keeps the Power panel mounted after capability is established", () => {
+    const store = createStore();
+    const view = render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.queryByTestId("performance-panel-power")).toBeNull();
+
+    act(() => {
+      store.set(powerDrawAtom, {
+        cpuWatts: 10.1,
+        gpuWatts: 2.2,
+        aneWatts: 0.3,
+        packageWatts: 12.6,
+      });
+      store.set(powerDrawAvailableAtom, true);
+    });
+
+    expect(screen.getByTestId("performance-panel-power")).toBeVisible();
+
+    act(() =>
+      store.set(powerDrawAtom, {
+        cpuWatts: null,
+        gpuWatts: null,
+        aneWatts: null,
+        packageWatts: null,
+      }),
+    );
+
+    expect(screen.getByTestId("performance-panel-power")).toBeVisible();
+    view.unmount();
   });
 
   it("shows the temperature for the GPU selected by the usage history", () => {

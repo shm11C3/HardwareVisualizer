@@ -292,6 +292,12 @@
       "currentValues": "Current values",
       "perCoreUnavailable": "Per-core usage is not available on this system.",
       "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
+      "power": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "ane": "ANE",
+        "package": "Package"
+      },
       "gpuSelector": "Select GPU",
       "gpuNoLiveReadings": "This adapter is not reporting live readings.",
       "compactGpuAdapter": "GPU: {{name}}",
@@ -309,7 +315,8 @@
         "usageGraphs": "Usage graphs",
         "processTable": "Live processes",
         "perCore": "Per-core usage",
-        "motherboardSensors": "Motherboard sensors"
+        "motherboardSensors": "Motherboard sensors",
+        "power": "Power draw"
       },
       "panelColumns": "Panel columns",
       "columns": {

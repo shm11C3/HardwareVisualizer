@@ -395,6 +395,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     }
   }

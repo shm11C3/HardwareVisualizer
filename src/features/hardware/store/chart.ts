@@ -68,6 +68,23 @@ export const motherboardTempsAtom = atom<MotherboardTemperatureValues>([]);
 /** Live motherboard fan speeds from the Super I/O provider */
 export const motherboardFanSpeedsAtom = atom<MotherboardFanSpeedValues>([]);
 
+export type PowerDraw = {
+  cpuWatts: number | null;
+  gpuWatts: number | null;
+  aneWatts: number | null;
+  packageWatts: number | null;
+};
+
+export const powerDrawAtom = atom<PowerDraw>({
+  cpuWatts: null,
+  gpuWatts: null,
+  aneWatts: null,
+  packageWatts: null,
+});
+
+/** Whether this runtime has produced at least one power reading. */
+export const powerDrawAvailableAtom = atom(false);
+
 /** All GPUs temperature as NameValues (read-write: write clears the map) */
 export const gpuTempAtom = atom<NameValues, [NameValues], void>(
   (get) => Object.values(get(gpuTempMapAtom)),

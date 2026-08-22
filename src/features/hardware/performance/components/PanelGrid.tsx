@@ -20,11 +20,14 @@ import {
   CpuIcon,
   DesktopIcon,
   EyeSlashIcon,
+  LightningIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
+import { useAtomValue } from "jotai";
 import { GripVerticalIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ProcessesTable } from "@/features/hardware/dashboard/components/ProcessTable";
+import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
@@ -35,6 +38,7 @@ import type {
 } from "../types/performanceLayout";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
 import { PerCorePanel } from "./PerCorePanel";
+import { PowerPanel } from "./PowerPanel";
 
 const PanelBody = ({ panel }: { panel: PerformancePanelId }) => {
   if (panel === "usageGraphs") {
@@ -53,6 +57,10 @@ const PanelBody = ({ panel }: { panel: PerformancePanelId }) => {
 
   if (panel === "perCore") {
     return <PerCorePanel />;
+  }
+
+  if (panel === "power") {
+    return <PowerPanel />;
   }
 
   return <MotherboardSensorsPanel />;
@@ -82,6 +90,7 @@ const SortablePanel = ({
       <CpuIcon size={18} color={`rgb(${settings.lineGraphColor.cpu})`} />
     ),
     motherboardSensors: <DesktopIcon size={18} color="oklch(70% 0.14 150)" />,
+    power: <LightningIcon size={18} color="oklch(78% 0.15 85)" />,
   };
   // The Live Process Table already renders as its own card, so it gets no
   // outer panel chrome; its edit controls appear as a slim row above it.
@@ -160,13 +169,17 @@ export const PanelGrid = ({
   onPanelDragEnd: (event: DragEndEvent) => void;
 }) => {
   const { t } = useTranslation();
+  const powerAvailable = useAtomValue(powerDrawAvailableAtom);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-  const hiddenPanels = layout.order.filter(
+  const availablePanels = layout.order.filter(
+    (panel) => panel !== "power" || powerAvailable,
+  );
+  const hiddenPanels = availablePanels.filter(
     (panel) => !layout.visible.includes(panel),
   );
   const isTwoColumn = columns === 2;
@@ -179,7 +192,7 @@ export const PanelGrid = ({
         onDragEnd={onPanelDragEnd}
       >
         <SortableContext
-          items={layout.order}
+          items={availablePanels}
           strategy={
             isTwoColumn ? rectSortingStrategy : verticalListSortingStrategy
           }
@@ -193,7 +206,7 @@ export const PanelGrid = ({
             )}
             data-panel-columns={columns}
           >
-            {layout.order.map((panel) =>
+            {availablePanels.map((panel) =>
               layout.visible.includes(panel) ? (
                 <SortablePanel
                   key={panel}

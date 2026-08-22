@@ -169,10 +169,15 @@ fn to_hardware_monitor_update(
   snapshot: MetricsSnapshot,
   temp_unit: &TemperatureUnit,
 ) -> HardwareMonitorUpdate {
+  let power_draw = snapshot.power_draw;
   HardwareMonitorUpdate {
     cpu_usage: snapshot.cpu_usage,
     memory_usage: snapshot.memory_usage,
     processors_usage: snapshot.processors_usage,
+    cpu_power_watts: power_draw.cpu_watts,
+    gpu_power_watts: power_draw.gpu_watts,
+    ane_power_watts: power_draw.ane_watts,
+    package_power_watts: power_draw.package_watts,
     gpus: snapshot
       .gpus
       .into_iter()
@@ -277,6 +282,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     }
   }
@@ -293,6 +299,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -302,6 +309,19 @@ mod tests {
     assert!(update.gpus.is_empty());
     assert!(update.cpu_temperature.is_none());
     assert!(update.sensor_temperatures.is_empty());
+  }
+
+  #[test]
+  fn translation_carries_nullable_power_watts_without_unit_conversion() {
+    let mut snapshot = make_snapshot(0.0);
+    snapshot.power_draw.cpu_watts = Some(10.1);
+    snapshot.power_draw.gpu_watts = Some(2.2);
+    let update = to_hardware_monitor_update(snapshot, &TemperatureUnit::Fahrenheit);
+
+    assert_eq!(update.cpu_power_watts, Some(10.1));
+    assert_eq!(update.gpu_power_watts, Some(2.2));
+    assert_eq!(update.ane_power_watts, None);
+    assert_eq!(update.package_power_watts, None);
   }
 
   #[test]
@@ -319,6 +339,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -353,6 +374,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -379,6 +401,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -405,6 +428,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -435,6 +459,7 @@ mod tests {
       ],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -461,6 +486,7 @@ mod tests {
       }],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -489,6 +515,7 @@ mod tests {
         status: hardviz_core::models::FanSpeedStatus::Inactive,
         source: "NCT6799D / Super I/O".into(),
       }],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     };
 

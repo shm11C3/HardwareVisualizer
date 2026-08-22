@@ -85,6 +85,10 @@ impl GpuPlatform for MacOSPlatform {
   ) -> Pin<Box<dyn Future<Output = Vec<crate::models::GpuSample>> + Send + '_>> {
     Box::pin(gpu::sample_gpus())
   }
+
+  fn sample_power_draw(&self) -> crate::models::PowerDraw {
+    gpu::sample_power_draw()
+  }
 }
 
 impl NetworkPlatform for MacOSPlatform {

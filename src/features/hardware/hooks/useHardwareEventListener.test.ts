@@ -21,6 +21,8 @@ import {
   memoryUsageHistoryAtom,
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
+  powerDrawAtom,
+  powerDrawAvailableAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -74,6 +76,10 @@ const makePayload = (
     memoryUsage: 60,
     gpus: gpus ?? [makeGpu()],
     processorsUsage: [40, 50],
+    cpuPowerWatts: null,
+    gpuPowerWatts: null,
+    anePowerWatts: null,
+    packagePowerWatts: null,
     cpuTemperature: null,
     sensorTemperatures: [],
     motherboardTemperatures: [],
@@ -374,6 +380,60 @@ describe("useHardwareEventListener", () => {
   });
 
   // Motherboard Super I/O sensors
+
+  it("replaces all power readings on every live update", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [power] = useAtom(powerDrawAtom);
+        return power;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() =>
+      emit(
+        makePayload({
+          cpuPowerWatts: 10.1,
+          gpuPowerWatts: 2.2,
+          anePowerWatts: null,
+          packagePowerWatts: null,
+        }),
+      ),
+    );
+
+    expect(result.current).toEqual({
+      cpuWatts: 10.1,
+      gpuWatts: 2.2,
+      aneWatts: null,
+      packageWatts: null,
+    });
+  });
+
+  it("keeps power capability after a transient empty update", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [available] = useAtom(powerDrawAvailableAtom);
+        const [power] = useAtom(powerDrawAtom);
+        return { available, power };
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(makePayload({ cpuPowerWatts: 10.1 }));
+      emit(makePayload());
+    });
+
+    expect(result.current.available).toBe(true);
+    expect(result.current.power).toEqual({
+      cpuWatts: null,
+      gpuWatts: null,
+      aneWatts: null,
+      packageWatts: null,
+    });
+  });
 
   it("sets motherboardTempsAtom from motherboardTemperatures", () => {
     const { result } = renderHook(

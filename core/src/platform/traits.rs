@@ -68,6 +68,11 @@ pub trait GpuPlatform: Send + Sync {
   fn sample_gpus(
     &self,
   ) -> Pin<Box<dyn Future<Output = Vec<models::GpuSample>> + Send + '_>>;
+
+  /// Read the latest platform-wide live power sample.
+  fn sample_power_draw(&self) -> models::PowerDraw {
+    models::PowerDraw::default()
+  }
 }
 
 /// Trait that defines platform-specific network operations

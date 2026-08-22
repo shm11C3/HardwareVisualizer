@@ -584,6 +584,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     }
   }
@@ -749,6 +750,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
     assert_eq!(t.gpu_name_map.get("gpu:0").unwrap(), "RTX");
@@ -777,6 +779,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     }
   }
@@ -892,6 +895,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
@@ -916,6 +920,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
     let stats = t.collect_process_stats();
@@ -943,6 +948,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
     assert!(t.collect_process_stats().is_empty());
@@ -971,6 +977,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
     let gpus = t.collect_gpu_data();
@@ -1014,6 +1021,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
 
@@ -1035,6 +1043,7 @@ mod tests {
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
+      power_draw: Default::default(),
       external_component_guidance_candidates: vec![],
     });
 
