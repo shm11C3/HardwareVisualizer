@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
+import { startVisiblePolling } from "@/lib/visiblePolling";
 import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
@@ -86,12 +87,13 @@ export const ExternalComponentGuidanceDialog = ({
       }
     };
 
-    void loadCandidates();
-    const intervalId = window.setInterval(loadCandidates, 60_000);
+    const stopPolling = startVisiblePolling(() => {
+      void loadCandidates();
+    }, 60_000);
 
     return () => {
       isCancelled = true;
-      window.clearInterval(intervalId);
+      stopPolling();
     };
   }, [settingsLoaded, view]);
 

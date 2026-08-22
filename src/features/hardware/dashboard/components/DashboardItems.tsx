@@ -53,6 +53,7 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { formatBytes } from "@/lib/formatter";
 import { cn } from "@/lib/utils";
+import { startVisiblePolling } from "@/lib/visiblePolling";
 import type {
   LiveStorageHealth,
   StorageHealthRecord,
@@ -554,12 +555,11 @@ export const StorageDataInfo = () => {
       setStorageHealthRecords(result.data);
     };
 
-    loadStorageHealthDevices();
-    const intervalId = window.setInterval(loadStorageHealthDevices, 60_000);
+    const stopPolling = startVisiblePolling(loadStorageHealthDevices, 60_000);
 
     return () => {
       isMounted = false;
-      window.clearInterval(intervalId);
+      stopPolling();
     };
   }, [storageHealthEnabled, error, t]);
 
@@ -592,12 +592,11 @@ export const StorageDataInfo = () => {
       setLiveStorageHealth(result.data);
     };
 
-    loadLiveStorageHealth();
-    const intervalId = window.setInterval(loadLiveStorageHealth, 10_000);
+    const stopPolling = startVisiblePolling(loadLiveStorageHealth, 10_000);
 
     return () => {
       isMounted = false;
-      window.clearInterval(intervalId);
+      stopPolling();
     };
   }, [storageHealthEnabled, error, t]);
 
