@@ -111,3 +111,4 @@ shared enforcement surface.
 - [Deliver pull requests through review](deliver-pull-requests-through-review.md)
 - [Keep shared system refresh ownership explicit](keep-shared-system-refresh-ownership-explicit.md)
 - [Read id producers before identity UI](read-id-producers-before-identity-ui.md)
+- [Bound bot review loops](bound-bot-review-loops.md)

@@ -77,6 +77,38 @@ When changes are made, include:
 - validation commands and results
 - whether GitHub replies/resolution were left untouched
 
+## Convergence
+
+Bot reviewers are generators, not gates: they re-review every push and can
+always produce another finding, so "respond until silent" never terminates.
+The PR #1944-#1958 cycle showed the failure shape — each round's fix became
+the next round's finding, and prose grew conditional structure that outweighed
+the content it guarded. These rules bound the loop:
+
+1. Split findings by evidence class before responding.
+   - Reproducible (code, tests, types, CI): verify by reproducing, and fix
+     only what reproduces. These converge — defects are finite.
+   - Prose and design shape (docs, skills, naming, structure): there is no
+     experiment that proves the bot right, so these do not converge. Fix only
+     a self-contradiction or a factual error against current code; decline
+     the rest with the reasoning stated once.
+
+2. Never restructure in response to bot review. If a finding truly implies a
+   different structure — a type model, a document's architecture, a module
+   boundary — file an issue or put it to the maintainer. Restructuring
+   mid-review is how each round manufactures the next round's findings.
+
+3. Watch for the oscillation signature: a finding that targets text or code
+   added in response to the previous finding. When it appears, stop
+   forward-fixing; prefer reverting the accumulated response-structure to
+   something simpler, or freeze and decline.
+
+4. Stop-loss: after two response rounds on the same PR, stop editing.
+   Summarize the remaining findings as declined-with-evidence or filed
+   issues, resolve the threads, and hand the trade-off to the maintainer.
+   An approval obtained by satisfying a generator is not worth a document
+   shaped by one.
+
 ## Heuristics
 
 - AI approvals and bot overview comments usually do not require code changes.
