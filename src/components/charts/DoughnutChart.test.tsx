@@ -6,7 +6,6 @@ import { DoughnutChart, gaugeAnimationDurationMs } from "./DoughnutChart";
 const HARDWARE_UPDATE_INTERVAL_MS = 1_000;
 
 const mocks = vi.hoisted(() => ({
-  radialBarProps: [] as Record<string, unknown>[],
   settings: {
     temperatureUnit: "C",
     selectedBackgroundImg: null,
@@ -26,62 +25,69 @@ vi.mock("@/hooks/useWindowSize", () => ({
   useWindowSize: () => ({ isBreak: () => true }),
 }));
 
-vi.mock("@/components/ui/chart", () => ({
-  ChartContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="chart-container">{children}</div>
-  ),
-}));
+const gaugeRing = (container: HTMLElement) =>
+  container.querySelector("circle[stroke-dasharray]");
 
-vi.mock("recharts", () => ({
-  RadialBarChart: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="radial-bar-chart">{children}</div>
-  ),
-  RadialBar: (props: Record<string, unknown>) => {
-    mocks.radialBarProps.push(props);
-    return <div data-testid="radial-bar" />;
-  },
-  PolarGrid: () => <div />,
-  PolarRadiusAxis: () => <div />,
-  Label: () => <div />,
-}));
+const sweptFraction = (container: HTMLElement) => {
+  const ring = gaugeRing(container);
+  const dashArray = Number(ring?.getAttribute("stroke-dasharray"));
+  const dashOffset = Number(ring?.getAttribute("stroke-dashoffset"));
 
-afterEach(() => {
-  mocks.radialBarProps.length = 0;
-  cleanup();
-});
+  return 1 - dashOffset / dashArray;
+};
+
+afterEach(cleanup);
 
 describe("DoughnutChart", () => {
   it("finishes its tween within one hardware update interval", () => {
-    render(<DoughnutChart chartValue={42} dataType="usage" />);
-
-    expect(mocks.radialBarProps).toHaveLength(1);
-    // Recharts' 1500ms default outlives the 1Hz tick, so every update restarts
-    // a tween that never settles. The gauge then never shows the current value
-    // and the WebKit compositor never idles, which is what spins up the fan on
-    // macOS (measured: WebContent 22.1% at 1500ms vs 10.3% at 300ms).
-    expect(mocks.radialBarProps[0]?.["animationDuration"]).toBeLessThan(
-      HARDWARE_UPDATE_INTERVAL_MS,
-    );
-  });
-
-  it("keeps the tween bounded across metric updates", () => {
-    const { rerender } = render(
+    const { container } = render(
       <DoughnutChart chartValue={42} dataType="usage" />,
     );
+
+    // A tween longer than the tick restarts before it settles, so the gauge
+    // never shows the current value and the compositor never idles — that is
+    // what spun up the fan on macOS.
+    expect(gaugeAnimationDurationMs).toBeLessThan(HARDWARE_UPDATE_INTERVAL_MS);
+    expect(gaugeRing(container)).toHaveStyle({
+      transitionDuration: `${gaugeAnimationDurationMs}ms`,
+    });
+  });
+
+  it("moves only the dash offset when the value changes", () => {
+    const { container, rerender } = render(
+      <DoughnutChart chartValue={42} dataType="usage" />,
+    );
+    const before = gaugeRing(container)?.getAttribute("stroke-dasharray");
+
     rerender(<DoughnutChart chartValue={57} dataType="usage" />);
 
-    expect(mocks.radialBarProps.length).toBeGreaterThan(1);
-    for (const props of mocks.radialBarProps) {
-      expect(props["animationDuration"]).toBe(gaugeAnimationDurationMs);
-    }
+    // The ring geometry is stable across ticks; only the offset moves, which
+    // is what lets the transition run without a React frame per step.
+    expect(gaugeRing(container)?.getAttribute("stroke-dasharray")).toBe(before);
+    expect(sweptFraction(container)).toBeCloseTo(0.57, 5);
+  });
+
+  it("sweeps the ring in proportion to the value", () => {
+    const { container } = render(
+      <DoughnutChart chartValue={25} dataType="usage" />,
+    );
+
+    expect(sweptFraction(container)).toBeCloseTo(0.25, 5);
   });
 
   it("renders a placeholder instead of the gauge when no value is available", () => {
-    const { queryByTestId } = render(
+    const { container } = render(
       <DoughnutChart chartValue={null} dataType="usage" />,
     );
 
-    expect(queryByTestId("radial-bar")).toBeNull();
-    expect(mocks.radialBarProps).toHaveLength(0);
+    expect(gaugeRing(container)).toBeNull();
+  });
+
+  it("shows the reading and its unit", () => {
+    const { getByText } = render(
+      <DoughnutChart chartValue={42} dataType="usage" />,
+    );
+
+    expect(getByText("42%")).toBeInTheDocument();
   });
 });

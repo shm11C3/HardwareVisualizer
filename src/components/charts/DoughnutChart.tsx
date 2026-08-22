@@ -7,13 +7,9 @@ import {
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Label,
-  PolarGrid,
-  PolarRadiusAxis,
-  RadialBar,
-  RadialBarChart,
-} from "recharts";
-import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+  gaugeFraction,
+  gaugeRingDash,
+} from "@/components/charts/gaugeGeometry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { minOpacity } from "@/consts/style";
 import type { HardwareDataType } from "@/features/hardware/types/hardwareDataType";
@@ -42,6 +38,29 @@ type DoughnutChartProps =
  */
 export const gaugeAnimationDurationMs = 300;
 
+/**
+ * Drawing box of the gauge. Fixed so the ring geometry can be written as plain
+ * numbers; the SVG scales to whatever the container gives it.
+ */
+const viewBoxSize = 200;
+const center = viewBoxSize / 2;
+
+/**
+ * Ring and backing-disc radii, matching the sizes the Recharts gauge used at
+ * each breakpoint.
+ */
+const ringLayout = {
+  xl: { radius: 55, width: 10, outerDisc: 70, innerDisc: 60 },
+  base: { radius: 40, width: 10, outerDisc: 50, innerDisc: 42.5 },
+} as const;
+
+const dataTypeColors: Record<HardwareDataType, string> = {
+  usage: "hsl(var(--chart-2))",
+  temp: "hsl(var(--chart-3))",
+  clock: "hsl(var(--chart-4))",
+  memoryUsageValue: "hsl(var(--chart-5))",
+};
+
 const dataType2Units = (
   dataType: Exclude<HardwareDataType, "memoryUsageValue">,
   temperatureUnit: Settings["temperatureUnit"],
@@ -69,32 +88,14 @@ export const DoughnutChart = ({
   const { isBreak } = useWindowSize();
 
   const isXl = isBreak("xl");
+  const layout = isXl ? ringLayout.xl : ringLayout.base;
 
-  const chartConfig: Record<
-    HardwareDataType,
-    { label: string; color: string }
-  > = {
-    usage: {
-      label: t("shared.usage"),
-      color: "hsl(var(--chart-2))",
-    },
-    temp: {
-      label: t("shared.temperature.abbrev"),
-      color: "hsl(var(--chart-3))",
-    },
-    clock: {
-      label: t("shared.clock"),
-      color: "hsl(var(--chart-4))",
-    },
-    memoryUsageValue: {
-      label: t("shared.usageValue"),
-      color: "hsl(var(--chart-5))",
-    },
-  } satisfies ChartConfig;
-
-  const chartData = [
-    { type: dataType, value: chartValue, fill: `var(--color-${dataType})` },
-  ];
+  const labels: Record<HardwareDataType, string> = {
+    usage: t("shared.usage"),
+    temp: t("shared.temperature.abbrev"),
+    clock: t("shared.clock"),
+    memoryUsageValue: t("shared.usageValue"),
+  };
 
   const dataTypeIcons: Record<HardwareDataType, JSX.Element> = {
     usage: <LightningIcon className="mr-1" size={12} weight="duotone" />,
@@ -105,100 +106,114 @@ export const DoughnutChart = ({
     ),
   };
 
+  const discOpacity =
+    settings.selectedBackgroundImg != null
+      ? Math.max((1 - settings.backgroundImgOpacity / 100) ** 2, minOpacity)
+      : 1;
+
+  const containerClassName = cn(
+    "aspect-square max-h-[100px] xl:max-h-[200px]",
+    className,
+  );
+
+  if (chartValue == null) {
+    return (
+      <div
+        className={cn(containerClassName, "flex items-center justify-center")}
+      >
+        <Skeleton className="h-32 w-32 rounded-full" />
+      </div>
+    );
+  }
+
+  const label = labels[dataType];
+  const dash = gaugeRingDash(
+    gaugeFraction({
+      chartValue,
+      dataType,
+      usagePercentage,
+      temperatureUnit: settings.temperatureUnit,
+    }),
+    layout.radius,
+  );
+
   return (
-    <ChartContainer
-      config={chartConfig}
-      className={cn("aspect-square max-h-[100px] xl:max-h-[200px]", className)}
-    >
-      {chartValue != null ? (
-        <RadialBarChart
-          data={chartData}
-          startAngle={0}
-          endAngle={(() => {
-            if (dataType === "memoryUsageValue") {
-              return usagePercentage * 3.6;
-            }
-
-            return dataType === "temp" && settings.temperatureUnit === "F"
-              ? ((chartValue - 32) / 1.8) * 3.6 // Convert Fahrenheit to Celsius and scale to 100 max
-              : chartValue * 3.6;
-          })()}
-          innerRadius={isXl ? 50 : 35}
-          outerRadius={isXl ? 60 : 45}
+    <div className={containerClassName}>
+      <svg
+        className="h-full w-full"
+        viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+        role="presentation"
+      >
+        <circle
+          cx={center}
+          cy={center}
+          r={layout.outerDisc}
+          className="fill-zinc-100 dark:fill-muted"
+          style={{ opacity: discOpacity }}
+        />
+        <circle
+          cx={center}
+          cy={center}
+          r={layout.innerDisc}
+          className="fill-[var(--chart-base)]"
+          style={{ opacity: discOpacity }}
+        />
+        {/*
+          The ring starts at 3 o'clock and fills anticlockwise. A stroked
+          circle runs clockwise, so the group is mirrored on Y rather than the
+          arc being rebuilt as a path.
+        */}
+        <g
+          transform={`translate(${center}, ${center}) scale(1, -1) translate(${-center}, ${-center})`}
         >
-          <PolarGrid
-            gridType="circle"
-            radialLines={false}
-            stroke="none"
-            className="first:fill-zinc-100 last:fill-[var(--chart-base)] dark:first:fill-muted"
-            style={{
-              opacity:
-                settings.selectedBackgroundImg != null
-                  ? Math.max(
-                      (1 - settings.backgroundImgOpacity / 100) ** 2,
-                      minOpacity,
-                    )
-                  : 1,
-            }}
-            polarRadius={isXl ? [70, 60] : [50, 42.5]}
-          />
           {/*
-            Hardware metrics arrive every second. Recharts' 1500ms default
-            outlives that interval, so each tick restarts a tween that never
-            settles: the gauge never reaches the current value and the WebKit
-            compositor never goes idle. Keep the tween shorter than the update
-            interval so it completes between ticks.
+            Hardware metrics arrive every second, and the gauge used to tween
+            with a JS animation that re-rendered the chart on every frame.
+            Transitioning the dash offset hands those frames to the compositor:
+            React renders once per tick, and the tween still has to finish
+            inside the interval or it would restart before settling.
           */}
-          <RadialBar
-            dataKey="value"
-            background
-            cornerRadius={10}
-            animationDuration={gaugeAnimationDurationMs}
+          <circle
+            cx={center}
+            cy={center}
+            r={layout.radius}
+            fill="none"
+            stroke={dataTypeColors[dataType]}
+            strokeWidth={layout.width}
+            strokeLinecap="round"
+            strokeDasharray={dash.strokeDasharray}
+            strokeDashoffset={dash.strokeDashoffset}
+            className="transition-[stroke-dashoffset] ease-out motion-reduce:transition-none"
+            style={{ transitionDuration: `${gaugeAnimationDurationMs}ms` }}
           />
-          <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-            <Label
-              content={({ viewBox }) => {
-                const label = chartConfig[dataType].label;
+        </g>
 
-                if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                  return (
-                    <g>
-                      {/* Display main value */}
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        className="fill-foreground font-bold text-lg xl:text-2xl"
-                      >
-                        {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
-                      </text>
-                      {/* Display label and icon */}
-                      <foreignObject
-                        x={(viewBox.cx || 0) - (isXl ? 42 : 38)}
-                        y={(viewBox.cy || 0) + (isXl ? 25 : 15)}
-                        width="80"
-                        height="40"
-                      >
-                        <div className="flex items-center justify-center text-xs">
-                          {dataTypeIcons[dataType]}
-                          {isXl && label.length <= 5 && <span>{label}</span>}
-                        </div>
-                      </foreignObject>
-                    </g>
-                  );
-                }
-
-                return null;
-              }}
-            />
-          </PolarRadiusAxis>
-        </RadialBarChart>
-      ) : (
-        <div className="flex h-full items-center justify-center">
-          <Skeleton className="h-32 w-32 rounded-full" />
-        </div>
-      )}
-    </ChartContainer>
+        {/*
+          The readout lives inside the view box so it scales with the gauge.
+          The container is half size below xl, and CSS pixel sizes on an HTML
+          overlay would not follow it — the text would swamp the ring.
+        */}
+        <text
+          x={center}
+          y={center}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-foreground font-bold text-lg xl:text-2xl"
+        >
+          {`${chartValue}${dataType === "memoryUsageValue" ? unit : dataType2Units(dataType, settings.temperatureUnit)}`}
+        </text>
+        <foreignObject
+          x={center - (isXl ? 42 : 38)}
+          y={center + (isXl ? 25 : 15)}
+          width="80"
+          height="40"
+        >
+          <div className="flex items-center justify-center text-xs">
+            {dataTypeIcons[dataType]}
+            {isXl && label.length <= 5 && <span>{label}</span>}
+          </div>
+        </foreignObject>
+      </svg>
+    </div>
   );
 };
