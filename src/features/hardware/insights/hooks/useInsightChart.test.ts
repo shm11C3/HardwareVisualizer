@@ -101,6 +101,34 @@ describe("useInsightChart", () => {
     expect(result.current.chartData).toContain(3000);
   });
 
+  it("should fetch CPU temperature from the CPU temperature archive column", async () => {
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
+      ok([{ id: 1, value: 52, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpuTemperature",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(commands.getDataArchiveRecords).toHaveBeenCalledWith(
+      "cpuTemperature",
+      "avg",
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(result.current.chartData).toContain(52);
+  });
+
   it("should fetch and aggregate data for GPU hardware", async () => {
     const mockData = [
       { id: 1, value: 30, timestamp: "2023-01-01T00:00:00Z" },
@@ -330,6 +358,31 @@ describe("useInsightChart – formatValue branches", () => {
 
     // 100°C → 212°F
     expect(result.current.chartData).toContain(212);
+  });
+
+  it("should convert CPU temperature from Celsius to Fahrenheit", async () => {
+    vi.mocked(useSettingsAtom).mockReturnValue({
+      settings: { temperatureUnit: "F" },
+    } as ReturnType<typeof useSettingsAtom>);
+    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
+      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    );
+    vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
+
+    const { result } = renderHook(() =>
+      useInsightChart({
+        hardwareType: "cpuTemperature",
+        dataStats: "avg",
+        period: 10,
+        offset: 0,
+      }),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(result.current.chartData).toContain(122);
   });
 
   it("should convert dedicatedMemory values from KB to GB", async () => {

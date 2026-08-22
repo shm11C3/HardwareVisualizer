@@ -200,9 +200,13 @@ const buildInvokeHandlers = (
   get_gpu_archive_names: () => GPU_FIXTURES.map((gpu) => gpu.name),
   get_data_archive_records: (args) => {
     const a = args as { hardwareType: string; start: string; end: string };
-    return a.hardwareType === "cpu"
-      ? buildArchiveRecords(a.start, a.end, 45, 20)
-      : buildArchiveRecords(a.start, a.end, 60, 8);
+    if (a.hardwareType === "cpu") {
+      return buildArchiveRecords(a.start, a.end, 45, 20);
+    }
+    if (a.hardwareType === "cpuTemperature") {
+      return buildArchiveRecords(a.start, a.end, 58, 6);
+    }
+    return buildArchiveRecords(a.start, a.end, 60, 8);
   },
   get_gpu_archive_records: (args) => {
     const a = args as { dataType: string; start: string; end: string };

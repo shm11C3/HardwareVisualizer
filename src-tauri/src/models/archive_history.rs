@@ -17,6 +17,7 @@ pub enum ArchiveDataStats {
 #[serde(rename_all = "camelCase")]
 pub enum DataArchiveHardwareType {
   Cpu,
+  CpuTemperature,
   Memory,
 }
 
@@ -26,6 +27,15 @@ impl DataArchiveHardwareType {
       (Self::Cpu, ArchiveDataStats::Avg) => DataArchiveColumn::CpuAvg,
       (Self::Cpu, ArchiveDataStats::Max) => DataArchiveColumn::CpuMax,
       (Self::Cpu, ArchiveDataStats::Min) => DataArchiveColumn::CpuMin,
+      (Self::CpuTemperature, ArchiveDataStats::Avg) => {
+        DataArchiveColumn::CpuTemperatureAvg
+      }
+      (Self::CpuTemperature, ArchiveDataStats::Max) => {
+        DataArchiveColumn::CpuTemperatureMax
+      }
+      (Self::CpuTemperature, ArchiveDataStats::Min) => {
+        DataArchiveColumn::CpuTemperatureMin
+      }
       (Self::Memory, ArchiveDataStats::Avg) => DataArchiveColumn::RamAvg,
       (Self::Memory, ArchiveDataStats::Max) => DataArchiveColumn::RamMax,
       (Self::Memory, ArchiveDataStats::Min) => DataArchiveColumn::RamMin,
@@ -100,5 +110,26 @@ impl From<CoreProcessStatRecord> for ProcessStatRecord {
       total_execution_sec: record.total_execution_sec,
       latest_timestamp: record.latest_timestamp,
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn cpu_temperature_stats_map_to_temperature_columns() {
+    assert_eq!(
+      DataArchiveHardwareType::CpuTemperature.column(ArchiveDataStats::Avg),
+      DataArchiveColumn::CpuTemperatureAvg
+    );
+    assert_eq!(
+      DataArchiveHardwareType::CpuTemperature.column(ArchiveDataStats::Max),
+      DataArchiveColumn::CpuTemperatureMax
+    );
+    assert_eq!(
+      DataArchiveHardwareType::CpuTemperature.column(ArchiveDataStats::Min),
+      DataArchiveColumn::CpuTemperatureMin
+    );
   }
 }

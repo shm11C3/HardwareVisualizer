@@ -4,6 +4,7 @@ import {
   GearIcon,
   GraphicsCardIcon,
   MemoryIcon,
+  ThermometerIcon,
 } from "@phosphor-icons/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
@@ -17,11 +18,11 @@ import {
   InsightChart,
 } from "@/features/hardware/insights/components/InsightChart";
 import type {
-  ChartDataType,
   DataStats,
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useTauriStore } from "@/hooks/useTauriStore";
+import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
 import { SnapshotIcon } from "./icons/snapshot";
@@ -61,7 +62,15 @@ const MainInsights = () => {
   const [periodMinRAM, setPeriodMinRAM] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodMinRAM", 60);
-
+  const [periodAvgCpuTemperature, setPeriodAvgCpuTemperature] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodAvgCpuTemperature", 60);
+  const [periodMaxCpuTemperature, setPeriodMaxCpuTemperature] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMaxCpuTemperature", 60);
+  const [periodMinCpuTemperature, setPeriodMinCpuTemperature] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMinCpuTemperature", 60);
   const periods: Record<(typeof archivePeriods)[number], string> = {
     "10": `10 ${t("shared.time.minutes")}`,
     "30": `30 ${t("shared.time.minutes")}`,
@@ -86,10 +95,13 @@ const MainInsights = () => {
     periodMaxRAM,
     periodMinCPU,
     periodMinRAM,
+    periodAvgCpuTemperature,
+    periodMaxCpuTemperature,
+    periodMinCpuTemperature,
   ];
 
   const chartData: {
-    type: Exclude<ChartDataType, "gpu">;
+    type: DataArchiveHardwareType;
     stats: DataStats;
     period: [
       (typeof archivePeriods)[number] | null,
@@ -102,6 +114,21 @@ const MainInsights = () => {
     { type: "memory", stats: "max", period: [periodMaxRAM, setPeriodMaxRAM] },
     { type: "cpu", stats: "min", period: [periodMinCPU, setPeriodMinCPU] },
     { type: "memory", stats: "min", period: [periodMinRAM, setPeriodMinRAM] },
+    {
+      type: "cpuTemperature",
+      stats: "avg",
+      period: [periodAvgCpuTemperature, setPeriodAvgCpuTemperature],
+    },
+    {
+      type: "cpuTemperature",
+      stats: "max",
+      period: [periodMaxCpuTemperature, setPeriodMaxCpuTemperature],
+    },
+    {
+      type: "cpuTemperature",
+      stats: "min",
+      period: [periodMinCpuTemperature, setPeriodMinCpuTemperature],
+    },
   ];
 
   return (
@@ -119,6 +146,9 @@ const MainInsights = () => {
             setPeriodMaxRAM(v);
             setPeriodMinCPU(v);
             setPeriodMinRAM(v);
+            setPeriodAvgCpuTemperature(v);
+            setPeriodMaxCpuTemperature(v);
+            setPeriodMinCpuTemperature(v);
           }}
           showDefaultOption={!selections.every((s) => s === selections[0])}
         />
@@ -134,6 +164,98 @@ const MainInsights = () => {
             />
           );
         })}
+      </div>
+    </div>
+  );
+};
+
+const CoolingInsights = () => {
+  const { t } = useTranslation();
+  const [periodAvgCpuTemperature, setPeriodAvgCpuTemperature] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodAvgCpuTemperature", 60);
+  const [periodMaxCpuTemperature, setPeriodMaxCpuTemperature] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMaxCpuTemperature", 60);
+  const [periodMinCpuTemperature, setPeriodMinCpuTemperature] = useTauriStore<
+    (typeof archivePeriods)[number]
+  >("periodMinCpuTemperature", 60);
+
+  const periods: Record<(typeof archivePeriods)[number], string> = {
+    "10": `10 ${t("shared.time.minutes")}`,
+    "30": `30 ${t("shared.time.minutes")}`,
+    "60": `1 ${t("shared.time.hours")}`,
+    "180": `3 ${t("shared.time.hours")}`,
+    "720": `12 ${t("shared.time.hours")}`,
+    "1440": `1 ${t("shared.time.days")}`,
+    "10080": `7 ${t("shared.time.days")}`,
+    "20160": `14 ${t("shared.time.days")}`,
+    "43200": `30 ${t("shared.time.days")}`,
+  };
+
+  const options = archivePeriods.map((period) => ({
+    label: periods[period],
+    value: period,
+  }));
+
+  const selections = [
+    periodAvgCpuTemperature,
+    periodMaxCpuTemperature,
+    periodMinCpuTemperature,
+  ];
+
+  const chartData: {
+    type: DataArchiveHardwareType;
+    stats: DataStats;
+    period: [
+      (typeof archivePeriods)[number] | null,
+      (newValue: (typeof archivePeriods)[number]) => Promise<void>,
+    ];
+  }[] = [
+    {
+      type: "cpuTemperature",
+      stats: "avg",
+      period: [periodAvgCpuTemperature, setPeriodAvgCpuTemperature],
+    },
+    {
+      type: "cpuTemperature",
+      stats: "max",
+      period: [periodMaxCpuTemperature, setPeriodMaxCpuTemperature],
+    },
+    {
+      type: "cpuTemperature",
+      stats: "min",
+      period: [periodMinCpuTemperature, setPeriodMinCpuTemperature],
+    },
+  ];
+
+  return (
+    <div className="pb-6">
+      <div className="flex items-center justify-end">
+        <SelectPeriod
+          options={options}
+          selected={
+            selections.every((s) => s === selections[0])
+              ? periodAvgCpuTemperature
+              : null
+          }
+          onChange={(v) => {
+            setPeriodAvgCpuTemperature(v);
+            setPeriodMaxCpuTemperature(v);
+            setPeriodMinCpuTemperature(v);
+          }}
+          showDefaultOption={!selections.every((s) => s === selections[0])}
+        />
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-6">
+        {chartData.map((data) => (
+          <ChartArea
+            key={`${data.type}-${data.stats}-${data.period[0]}`}
+            {...data}
+            options={options}
+          />
+        ))}
       </div>
     </div>
   );
@@ -297,7 +419,7 @@ const GPUInsights = ({ gpuName }: { gpuName: string }) => {
 };
 
 const ChartArea = (data: {
-  type: Exclude<ChartDataType, "gpu">;
+  type: DataArchiveHardwareType;
   stats: DataStats;
   period: [
     (typeof archivePeriods)[number] | null,
@@ -312,6 +434,10 @@ const ChartArea = (data: {
     typeof setInterval
   > | null>(null);
   const { t } = useTranslation();
+  const title =
+    type === "cpuTemperature"
+      ? `CPU ${t("shared.temperature.full")}`
+      : t(type === "cpu" ? "shared.cpuUsage" : "shared.memoryUsage");
 
   const handleMouseDown = (increment: number) => {
     if (intervalId) return;
@@ -336,10 +462,11 @@ const ChartArea = (data: {
             {
               {
                 cpu: <CpuIcon className="pr-1" />,
+                cpuTemperature: <ThermometerIcon className="pr-1" />,
                 memory: <MemoryIcon className="pr-1" />,
               }[data.type]
             }
-            {t(`shared.${data.type}Usage`)} ({t(`shared.${data.stats}`)})
+            {title} ({t(`shared.${data.stats}`)})
           </h3>
           <SelectPeriod
             options={options}
@@ -488,6 +615,7 @@ const GpuChartArea = (data: {
 const Icon = ({ type }: { type: InsightType }) => {
   const iconMap: Record<InsightType, JSX.Element> = {
     main: <ComputerTowerIcon size={32} />,
+    cooling: <ThermometerIcon size={32} />,
     gpu: <GraphicsCardIcon size={32} />,
     process: <GearIcon size={32} />,
     snapshot: <SnapshotIcon size={32} color="currentColor" />,
@@ -515,6 +643,11 @@ export const Insights = () => {
     element: JSX.Element;
   }[] = [
     { name: "main", type: "main", element: <MainInsights /> },
+    {
+      name: "cooling",
+      type: "cooling",
+      element: <CoolingInsights />,
+    },
     ...(gpuNames.length
       ? gpuNames.map(
           (
@@ -560,7 +693,7 @@ export const Insights = () => {
                   onClick={() => setDisplayTarget(name)}
                 >
                   <Icon type={type} />
-                  {["main", "process", "snapshot"].includes(name)
+                  {["main", "cooling", "process", "snapshot"].includes(name)
                     ? t(`pages.insights.${name}.title`, {
                         defaultValue: name,
                       })

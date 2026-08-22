@@ -5,6 +5,9 @@ pub enum DataArchiveColumn {
   CpuAvg,
   CpuMax,
   CpuMin,
+  CpuTemperatureAvg,
+  CpuTemperatureMax,
+  CpuTemperatureMin,
   RamAvg,
   RamMax,
   RamMin,
@@ -16,6 +19,9 @@ impl DataArchiveColumn {
       Self::CpuAvg => "cpu_avg",
       Self::CpuMax => "cpu_max",
       Self::CpuMin => "cpu_min",
+      Self::CpuTemperatureAvg => "cpu_temperature_avg",
+      Self::CpuTemperatureMax => "cpu_temperature_max",
+      Self::CpuTemperatureMin => "cpu_temperature_min",
       Self::RamAvg => "ram_avg",
       Self::RamMax => "ram_max",
       Self::RamMin => "ram_min",
@@ -183,6 +189,18 @@ mod tests {
     assert_eq!(DataArchiveColumn::CpuAvg.sql(), "cpu_avg");
     assert_eq!(DataArchiveColumn::CpuMax.sql(), "cpu_max");
     assert_eq!(DataArchiveColumn::CpuMin.sql(), "cpu_min");
+    assert_eq!(
+      DataArchiveColumn::CpuTemperatureAvg.sql(),
+      "cpu_temperature_avg"
+    );
+    assert_eq!(
+      DataArchiveColumn::CpuTemperatureMax.sql(),
+      "cpu_temperature_max"
+    );
+    assert_eq!(
+      DataArchiveColumn::CpuTemperatureMin.sql(),
+      "cpu_temperature_min"
+    );
     assert_eq!(DataArchiveColumn::RamAvg.sql(), "ram_avg");
     assert_eq!(DataArchiveColumn::RamMax.sql(), "ram_max");
     assert_eq!(DataArchiveColumn::RamMin.sql(), "ram_min");
@@ -241,6 +259,42 @@ mod tests {
     .unwrap();
 
     assert_eq!(rows[0].value, Some(42.0));
+  }
+
+  #[tokio::test]
+  async fn data_archive_cpu_temperature_preserves_values_and_missing_readings() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    sqlx::query(
+      "CREATE TABLE DATA_ARCHIVE (
+        id INTEGER PRIMARY KEY,
+        cpu_temperature_avg REAL,
+        timestamp DATETIME
+      )",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (id, cpu_temperature_avg, timestamp)
+       VALUES
+         (1, 52.5, '2026-06-08T00:00:00.000Z'),
+         (2, NULL, '2026-06-08T00:01:00.000Z')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let rows = sqlx::query_as::<_, ArchiveRecord>(&data_archive_select_sql(
+      DataArchiveColumn::CpuTemperatureAvg,
+    ))
+    .bind("2026-06-08T00:00:00.000Z")
+    .bind("2026-06-08T00:02:00.000Z")
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(rows[0].value, Some(52.5));
+    assert_eq!(rows[1].value, None);
   }
 
   #[tokio::test]

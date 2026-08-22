@@ -1,1 +1,1 @@
-export type InsightType = "main" | "gpu" | "process" | "snapshot";
+export type InsightType = "main" | "cooling" | "gpu" | "process" | "snapshot";

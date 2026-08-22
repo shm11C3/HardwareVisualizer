@@ -10,7 +10,11 @@ import type {
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { commands, type HardwareType } from "@/rspc/bindings";
+import {
+  commands,
+  type DataArchiveHardwareType,
+  type HardwareType,
+} from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 // Aggregation function definitions for each type
@@ -30,7 +34,7 @@ type UseInsightChartGpuProps = {
 };
 
 type UseInsightChartProps = {
-  hardwareType: Exclude<HardwareType, "gpu">;
+  hardwareType: DataArchiveHardwareType;
   dataStats: DataStats;
   period: (typeof archivePeriods)[number];
   offset: number;
@@ -116,7 +120,9 @@ export const useInsightChart = (
         return null;
       }
 
-      if (dataType === "temp" && settings.temperatureUnit === "F") {
+      const isTemperature =
+        dataType === "temp" || hardwareType === "cpuTemperature";
+      if (isTemperature && settings.temperatureUnit === "F") {
         return (value * 9) / 5 + 32;
       }
 
@@ -127,7 +133,7 @@ export const useInsightChart = (
 
       return Number.parseFloat(value.toFixed(1));
     },
-    [settings.temperatureUnit, dataType],
+    [settings.temperatureUnit, dataType, hardwareType],
   );
 
   useEffect(() => {

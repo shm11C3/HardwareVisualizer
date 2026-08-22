@@ -330,6 +330,9 @@
       "main": {
         "title": "CPU・メモリ"
       },
+      "cooling": {
+        "title": "冷却"
+      },
       "gpu": {
         "title": "GPU"
       },

@@ -211,7 +211,10 @@ Startup flow:
    DB is compatible.
 5. DB-dependent Core workers start only when startup preflight allows it.
 
-The Hardware Archive Retention Period is controlled by
+Hardware Archive rows summarize one-minute windows of CPU, memory, GPU, and
+process metrics, including available CPU and GPU temperatures. Missing
+temperature readings remain unavailable rather than becoming zero. The
+Hardware Archive Retention Period is controlled by
 `hardwareArchive.retentionDays`. The `scheduledDataDeletion` flag controls
 whether cleanup for records older than the Retention Period runs at startup; it
 does not create a continuously scheduled deletion task. This was a deliberate
