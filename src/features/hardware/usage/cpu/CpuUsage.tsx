@@ -1,14 +1,12 @@
 import { useAtom } from "jotai";
 import { memo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  LineChartComponent,
-  SingleLineChart,
-} from "@/components/charts/LineChart";
+import { LineChartComponent } from "@/components/charts/LineChart";
+import { Sparkline } from "@/components/charts/Sparkline";
 import { InfoTable } from "@/components/shared/InfoTable";
-import type { ChartConfig } from "@/components/ui/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { transpose } from "@/lib/array";
+import { cn } from "@/lib/utils";
 import { chartConfig } from "../../consts/chart";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useProcessInfo } from "../../hooks/useProcessInfo";
@@ -16,6 +14,13 @@ import {
   cpuUsageHistoryAtom,
   processorsUsageHistoryAtom,
 } from "../../store/chart";
+
+/** Right-align a partially filled per-core history against the chart window. */
+const padHistory = (data: number[]): (number | null)[] =>
+  Array<number | null>(Math.max(chartConfig.historyLengthSec - data.length, 0))
+    .fill(null)
+    .concat(data)
+    .slice(-chartConfig.historyLengthSec);
 
 export const CpuUsages = () => {
   return (
@@ -85,32 +90,27 @@ const ProcessorChart = memo(
     const { settings } = useSettingsAtom();
     const { t } = useTranslation();
 
-    const config = {
-      cpu: {
-        label: `Processor-${processorNumber}`,
-        color: settings.lineGraphColor.cpu,
-      },
-    } satisfies ChartConfig;
-
     return (
-      <div className="max-h-[200px] max-w-[300px]">
-        <SingleLineChart
-          labels={Array(chartConfig.historyLengthSec).fill("")}
-          chartData={Array(
-            Math.max(chartConfig.historyLengthSec - data.length, 0),
-          )
-            .fill(null)
-            .concat(data)}
-          dataType="cpu"
-          size="md"
-          lineGraphMix={false}
-          chartConfig={config}
-          border={settings.lineGraphBorder}
-          lineGraphShowScale={settings.lineGraphShowScale}
-          lineGraphShowTooltip={settings.lineGraphShowTooltip}
+      <div
+        className={cn(
+          "h-[160px] max-h-[200px] max-w-[300px]",
+          settings.lineGraphBorder &&
+            "rounded-xl border-2 border-slate-400 p-2 dark:border-zinc-600",
+        )}
+      >
+        <Sparkline
+          values={padHistory(data)}
+          colorRgb={settings.lineGraphColor.cpu}
           lineGraphType={settings.lineGraphType}
-          lineGraphShowLegend={false}
-          dataKey={`${t("shared.usage")} (%)`}
+          fill={settings.lineGraphFill}
+          showScale={settings.lineGraphShowScale}
+          {...(settings.lineGraphShowTooltip && {
+            tooltip: {
+              label: `Processor-${processorNumber}`,
+              format: (value: number) =>
+                `${value}% ${t("shared.usage").toLowerCase()}`,
+            },
+          })}
         />
       </div>
     );
