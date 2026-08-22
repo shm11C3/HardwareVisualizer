@@ -160,6 +160,21 @@ iteration and state the verdict with its rationale. On `INSUFFICIENT`, fix
 and re-judge. On `UNCERTAIN`, put the open question to the maintainer instead
 of iterating further.
 
+## Reviewer Commands
+
+Explicit bot commands shape the loop as much as the responses do:
+
+- Do not use `@coderabbitai review` as a routine step. It triggers a full
+  re-review — a fresh finding-generation run over unchanged code — which is
+  fuel for the loop. Reserve it for a push that genuinely changes direction
+  or scope; otherwise let the per-push incremental review run on its own.
+- After a `SUFFICIENT` verdict, clear a stale `CHANGES_REQUESTED` with
+  `@coderabbitai approve` (with the usual explicit authorization for GitHub
+  writes). It updates the verdict without inviting another full pass, which
+  is exactly what the sufficiency gate calls for. Approval is the outcome of
+  the judgment, never the goal — do not use the command to bypass an
+  `INSUFFICIENT` state.
+
 ## Heuristics
 
 - AI approvals and bot overview comments usually do not require code changes.
