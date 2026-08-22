@@ -39,19 +39,16 @@ type DoughnutChartProps =
 export const gaugeAnimationDurationMs = 300;
 
 /**
- * Drawing box of the gauge. Fixed so the ring geometry can be written as plain
- * numbers; the SVG scales to whatever the container gives it.
- */
-const viewBoxSize = 200;
-const center = viewBoxSize / 2;
-
-/**
- * Ring and backing-disc radii, matching the sizes the Recharts gauge used at
- * each breakpoint.
+ * Ring and backing-disc geometry per breakpoint.
+ *
+ * The view box matches the container's pixel size at each breakpoint rather
+ * than being fixed, because these radii are the ones the Recharts gauge used
+ * and Recharts sized its canvas to the container. Drawing the compact radii
+ * into the larger box would scale the whole gauge to half the surface.
  */
 const ringLayout = {
-  xl: { radius: 55, width: 10, outerDisc: 70, innerDisc: 60 },
-  base: { radius: 40, width: 10, outerDisc: 50, innerDisc: 42.5 },
+  xl: { viewBox: 200, radius: 55, width: 10, outerDisc: 70, innerDisc: 60 },
+  base: { viewBox: 100, radius: 40, width: 10, outerDisc: 50, innerDisc: 42.5 },
 } as const;
 
 const dataTypeColors: Record<HardwareDataType, string> = {
@@ -89,6 +86,7 @@ export const DoughnutChart = ({
 
   const isXl = isBreak("xl");
   const layout = isXl ? ringLayout.xl : ringLayout.base;
+  const center = layout.viewBox / 2;
 
   const labels: Record<HardwareDataType, string> = {
     usage: t("shared.usage"),
@@ -121,7 +119,9 @@ export const DoughnutChart = ({
       <div
         className={cn(containerClassName, "flex items-center justify-center")}
       >
-        <Skeleton className="h-32 w-32 rounded-full" />
+        {/* Sized per breakpoint: the compact surface is 100px square, which a
+            fixed 128px placeholder would overflow. */}
+        <Skeleton className="h-24 w-24 rounded-full xl:h-32 xl:w-32" />
       </div>
     );
   }
@@ -141,7 +141,7 @@ export const DoughnutChart = ({
     <div className={containerClassName}>
       <svg
         className="h-full w-full"
-        viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+        viewBox={`0 0 ${layout.viewBox} ${layout.viewBox}`}
         role="presentation"
       >
         <circle
