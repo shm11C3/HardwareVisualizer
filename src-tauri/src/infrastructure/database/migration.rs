@@ -95,6 +95,15 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
       description: "add_process_stats_timestamp_index",
       sql: "CREATE INDEX IF NOT EXISTS idx_process_stats_timestamp ON PROCESS_STATS(timestamp);",
     },
+    SchemaMigration {
+      version: 9,
+      description: "add_cpu_temperature_archive_columns",
+      sql: r#"
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_temperature_avg REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_temperature_max REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_temperature_min REAL;
+      "#,
+    },
   ]
 }
 
@@ -152,14 +161,27 @@ mod tests {
   }
 
   #[test]
+  fn migration_v9_adds_cpu_temperature_archive_columns() {
+    let migrations = get_migrations();
+    let v9 = migrations
+      .iter()
+      .find(|m| m.version == 9)
+      .expect("Version 9 up migration must exist");
+    assert!(v9.sql.contains("cpu_temperature_avg REAL"));
+    assert!(v9.sql.contains("cpu_temperature_max REAL"));
+    assert!(v9.sql.contains("cpu_temperature_min REAL"));
+    assert!(v9.sql.contains("DATA_ARCHIVE"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 8);
+    assert_eq!(get_max_migration_version(), 9);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 8);
+    assert_eq!(migrations.len(), 9);
   }
 
   #[test]
@@ -200,6 +222,38 @@ mod tests {
       .unwrap();
       assert_eq!(exists.0, 1, "table `{table}` must exist after migrations");
     }
+
+    let cpu_temperature_columns: (i64,) = sqlx::query_as(
+      "SELECT COUNT(*)
+       FROM pragma_table_info('DATA_ARCHIVE')
+       WHERE name IN (
+         'cpu_temperature_avg',
+         'cpu_temperature_max',
+         'cpu_temperature_min'
+       )",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(cpu_temperature_columns.0, 3);
+
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (
+         cpu_avg,
+         cpu_max,
+         cpu_min,
+         ram_avg,
+         ram_max,
+         ram_min,
+         cpu_temperature_avg,
+         cpu_temperature_max,
+         cpu_temperature_min,
+         timestamp
+       ) VALUES (25, 50, 10, 40, 45, 35, 52.5, 61, 44, '2026-06-21T00:00:00Z')",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert with CPU temperature archive columns must succeed");
 
     // The exact statement shape that used to fail now succeeds.
     sqlx::query(

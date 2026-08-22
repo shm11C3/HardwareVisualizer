@@ -4,12 +4,11 @@ import { SingleLineChart } from "@/components/charts/LineChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { archivePeriods } from "@/features/hardware/consts/chart";
 import type {
-  ChartDataType,
   DataStats,
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { HardwareType } from "@/rspc/bindings";
+import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import { useHardwareInfoAtom } from "../../hooks/useHardwareInfoAtom";
 import { useInsightChart } from "../hooks/useInsightChart";
 
@@ -19,22 +18,24 @@ export const InsightChart = ({
   dataStats,
   offset,
 }: {
-  hardwareType: Exclude<HardwareType, "gpu">;
+  hardwareType: DataArchiveHardwareType;
   period: (typeof archivePeriods)[number];
   dataStats: DataStats;
   offset: number;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { labels, chartData } = useInsightChart({
+  const { labels, chartData, hasData } = useInsightChart({
     hardwareType,
     dataStats,
     period,
     offset,
   });
 
+  const isTemperature = hardwareType === "cpuTemperature";
+  const dataType = isTemperature ? "temp" : hardwareType;
   const chartConfig: Record<
-    Exclude<ChartDataType, "gpu">,
+    "cpu" | "memory" | "temp",
     { label: string; color: string }
   > = {
     cpu: {
@@ -45,7 +46,21 @@ export const InsightChart = ({
       label: "RAM",
       color: settings.lineGraphColor.memory,
     },
+    temp: {
+      label: "CPU",
+      color: "254, 192, 57",
+    },
   } satisfies ChartConfig;
+
+  if (isTemperature && !hasData) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <span className="text-muted-foreground">
+          {t("pages.insights.noDataForPeriod")}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full">
@@ -53,7 +68,7 @@ export const InsightChart = ({
         className="mt-5"
         labels={labels}
         chartData={chartData}
-        dataType={hardwareType}
+        dataType={dataType}
         chartConfig={chartConfig}
         border={false}
         size="lg"
@@ -62,7 +77,18 @@ export const InsightChart = ({
         lineGraphShowTooltip={true}
         lineGraphType={settings.lineGraphType}
         lineGraphShowLegend={false}
-        dataKey={`${t("shared.usage")} (%)`}
+        dataKey={
+          isTemperature
+            ? `CPU ${t("shared.temperature.full")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`
+            : `${t("shared.usage")} (%)`
+        }
+        range={
+          isTemperature
+            ? settings.temperatureUnit === "C"
+              ? [0, 100]
+              : [0, 220]
+            : [0, 100]
+        }
       />
     </div>
   );

@@ -330,6 +330,9 @@
       "main": {
         "title": "CPU / Memory"
       },
+      "cooling": {
+        "title": "Cooling"
+      },
       "gpu": {
         "title": "GPU"
       },

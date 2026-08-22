@@ -1,13 +1,17 @@
 use super::db;
 use crate::persistence::archive_data::HardwareData;
 
-pub async fn insert(cpu: HardwareData, ram: HardwareData) -> Result<(), sqlx::Error> {
+pub async fn insert(
+  cpu: HardwareData,
+  ram: HardwareData,
+  cpu_temperature: HardwareData,
+) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
 
   sqlx::query(
-    "INSERT INTO DATA_ARCHIVE (cpu_avg, cpu_max, cpu_min, ram_avg, ram_max, ram_min, timestamp)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)",
-  ).bind(cpu.avg).bind(cpu.max).bind(cpu.min).bind(ram.avg).bind(ram.max).bind(ram.min).bind(chrono::Utc::now()).execute(&pool).await?;
+    "INSERT INTO DATA_ARCHIVE (cpu_avg, cpu_max, cpu_min, ram_avg, ram_max, ram_min, cpu_temperature_avg, cpu_temperature_max, cpu_temperature_min, timestamp)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+  ).bind(cpu.avg).bind(cpu.max).bind(cpu.min).bind(ram.avg).bind(ram.max).bind(ram.min).bind(cpu_temperature.avg).bind(cpu_temperature.max).bind(cpu_temperature.min).bind(chrono::Utc::now()).execute(&pool).await?;
 
   Ok(())
 }

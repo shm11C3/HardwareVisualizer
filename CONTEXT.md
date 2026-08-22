@@ -57,12 +57,16 @@ _Avoid_: Dashboard item, visible item, insight tab
 ### Historical Views
 
 **Hardware Insight**:
-A historical view of archived hardware utilization, shown over a user-selected period.
+A historical view of archived hardware performance metrics grouped by CPU, memory, or GPU subject and shown over a user-selected period.
 _Avoid_: History, live graph, dashboard graph
 
 **Insights Screen**:
-The app screen that groups historical views such as Hardware Insight, Process Insight, and Insight Snapshot.
+The app screen that groups historical views such as Hardware Insight, Cooling Insight, Process Insight, and Insight Snapshot.
 _Avoid_: Hardware Insight, Storage Health Display, dashboard
+
+**Cooling Insight**:
+A historical view for archived cooling-related metrics. Its initial display is CPU temperature; later displays remain capability dependent as supported temperature, power, or fan data becomes available.
+_Avoid_: CPU/Memory Insight, live sensor panel, cooling dashboard
 
 **Process Insight**:
 A historical view of notable processes from the Hardware Archive.
@@ -75,7 +79,7 @@ _Avoid_: Snapshot, storage health snapshot, live metrics snapshot, screenshot
 ### Persistence And History
 
 **Hardware Archive**:
-Persisted CPU, memory, GPU, and process utilization history used to power Hardware Insights.
+Persisted CPU, memory, GPU, and process history, including available CPU and GPU temperature summaries, used to power Hardware Insights.
 _Avoid_: Storage health history, live history, dashboard state, settings archive
 
 **Retention Period**:

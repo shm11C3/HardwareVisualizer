@@ -199,6 +199,7 @@ struct ProcessAccumulator {
 #[derive(Default)]
 struct ArchiveTracker {
   cpu_history: VecDeque<f32>,
+  cpu_temperature_history: VecDeque<Option<f32>>,
   memory_history: VecDeque<f32>,
   gpu_usage_histories: HashMap<String, VecDeque<f32>>,
   gpu_temperature_histories: HashMap<String, VecDeque<i32>>,
@@ -231,6 +232,7 @@ impl ArchiveTracker {
     self.dirty = true;
     self.tick_counter = self.tick_counter.saturating_add(1);
     push_capped(&mut self.cpu_history, snapshot.cpu_usage);
+    push_capped_optional(&mut self.cpu_temperature_history, snapshot.cpu_temperature);
     push_capped(&mut self.memory_history, snapshot.memory_usage);
 
     if !snapshot.processors_usage.is_empty() {
@@ -320,9 +322,13 @@ impl ArchiveTracker {
     self.dirty = false;
 
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
+    let cpu_temperature = StatsCalculator::compute_stats(
+      self.cpu_temperature_history.iter().copied().flatten(),
+    );
     let memory = StatsCalculator::compute_stats(self.memory_history.iter().copied());
 
-    if let Err(e) = database::hardware_archive::insert(cpu, memory).await {
+    if let Err(e) = database::hardware_archive::insert(cpu, memory, cpu_temperature).await
+    {
       log_error!(
         "Failed to insert hardware archive data",
         "persistence::archive::write_archive",
@@ -496,6 +502,13 @@ fn push_capped(buf: &mut VecDeque<f32>, value: f32) {
   buf.push_back(value);
 }
 
+fn push_capped_optional(buf: &mut VecDeque<Option<f32>>, value: Option<f32>) {
+  if buf.len() >= PROCESS_HISTORY_BUFFER {
+    buf.pop_front();
+  }
+  buf.push_back(value);
+}
+
 fn push_capped_i32(buf: &mut VecDeque<i32>, value: i32) {
   if buf.len() >= PROCESS_HISTORY_BUFFER {
     buf.pop_front();
@@ -646,6 +659,44 @@ mod tests {
       vec![50.0, 60.0]
     );
     assert_eq!(t.cores, 4.0);
+  }
+
+  #[test]
+  fn ingest_preserves_missing_cpu_temperature_samples() {
+    let mut t = ArchiveTracker::new();
+    let mut available = make_snapshot(10.0, 50.0, 4);
+    available.cpu_temperature = Some(52.0);
+
+    t.ingest(available);
+    t.ingest(make_snapshot(20.0, 60.0, 4));
+
+    assert_eq!(
+      t.cpu_temperature_history
+        .iter()
+        .copied()
+        .collect::<Vec<_>>(),
+      vec![Some(52.0), None]
+    );
+    let stats =
+      StatsCalculator::compute_stats(t.cpu_temperature_history.iter().copied().flatten());
+    assert_eq!(stats.avg, Some(52.0));
+    assert_eq!(stats.max, Some(52.0));
+    assert_eq!(stats.min, Some(52.0));
+  }
+
+  #[test]
+  fn ingest_expires_unavailable_cpu_temperature_from_rolling_window() {
+    let mut t = ArchiveTracker::new();
+    let mut available = make_snapshot(10.0, 50.0, 4);
+    available.cpu_temperature = Some(52.0);
+    t.ingest(available);
+
+    for _ in 0..PROCESS_HISTORY_BUFFER {
+      t.ingest(make_snapshot(10.0, 50.0, 4));
+    }
+
+    assert_eq!(t.cpu_temperature_history.len(), PROCESS_HISTORY_BUFFER);
+    assert!(t.cpu_temperature_history.iter().all(Option::is_none));
   }
 
   #[test]
