@@ -16,9 +16,14 @@ Any of these, whether or not the change is UI work:
 - an id is persisted and restored across sessions;
 - a fixture, factory, or seed supplies ids for any of the above.
 
-Every step below applies to each of these triggers. Attribution UI and fixture
-work are not exempt: the contract is what makes an attribution honest, and a
-fixture is where a wrong contract gets certified as correct.
+Step 1 applies to all of them, in any layer. Steps 2-5 describe how `src/`
+consumes a contract, so they apply when the change has frontend consumers —
+a Core or `src-tauri/` change that only produces or persists ids owes the
+contract, not a React hook.
+
+Within their scope no trigger is exempt. Attribution UI and fixture work in
+particular are covered: the contract is what makes an attribution honest, and
+a fixture is where a wrong contract gets certified as correct.
 
 The motivating failure: the `getHardwareInfo` inventory and the monitor stream
 key GPUs in different id namespaces on every platform (ADR 0016). Building a
@@ -26,6 +31,8 @@ selector on an assumed shared namespace produced eleven review rounds of
 consequence bugs, all discoverable up front by reading the producers.
 
 ## 1. Write The Contract Table Before Any Consuming Code
+
+*Applies to every trigger, in every layer.*
 
 For every id the change consumes — including one that only a fixture supplies
 — read the *producing* Rust code and record:
@@ -44,6 +51,12 @@ needs the reading — it does not need paperwork.
 Do not infer the contract from fixtures, tests, or frontend types — those can
 encode the same wrong assumption the change is about to build on.
 
+## Frontend Consumption
+
+The remaining steps apply when `src/` consumes the contract. Skip them for a
+change that only produces or persists ids in `core/` or `src-tauri/`; keep the
+fact where its layer owns it rather than moving it into the frontend.
+
 ## 2. One Resolution Rule, One Owner
 
 Grep every consumer of the shared selection atom or key. The question "which
@@ -58,10 +71,13 @@ value, never in a screen parent (ADR 0010 rendering-cost rule).
 
 ## 3. Fixtures Must Reproduce The Namespace Split
 
-An e2e or unit fixture may share one id across two sources only if production
-does. A fixture that flattens a real namespace difference certifies broken
-joins: the classic GPU selector shipped non-functional on real hardware while
-its e2e passed, because `GPU_FIXTURES` used one id for both sources.
+A fixture may share one id across two sources only if production does. One
+that flattens a real namespace difference certifies broken joins: the classic
+GPU selector shipped non-functional on real hardware while its e2e passed,
+because `GPU_FIXTURES` used one id for both sources.
+
+This one holds in any layer — a Rust test fixture can flatten a namespace just
+as an e2e one can — so apply it wherever the change supplies ids.
 
 ## 4. Persistence And Migration
 
@@ -85,6 +101,8 @@ produce — unavailable, ambiguous, not-yet-measured — must render on each of
 them; a blank on one surface reads as idle, not as missing.
 
 ## Exit Checklist
+
+Step 1 always; the rest when the change has frontend consumers.
 
 - [ ] Contract recorded at its smallest durable owner, sourced from
       producer code
