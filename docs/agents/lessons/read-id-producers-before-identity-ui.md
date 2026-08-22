@@ -8,7 +8,7 @@ failure_signature: "PR #1944 needed eleven review rounds because the GPU adapter
 root_cause: the frontend id contract was inferred from fixtures and frontend types instead of read from the producing Rust code, and effective-entity resolution was duplicated per surface instead of owned in one place
 guardrail: .agents/skills/verify-identity-contracts/SKILL.md
 canonical_refs: .agents/skills/verify-identity-contracts/SKILL.md, docs/adr/0016-gpu-attribution-on-the-performance-screen.md
-verification: before identity-touching UI work, the PR records a producer-sourced contract table and names the single resolution owner; src/e2e/fixtures/hardware.ts keeps distinct inventory and live ids
+verification: "before identity-touching work, a producer-sourced contract is recorded at its smallest durable owner (focused test, join-adjacent comment, commit/PR context, or ADR) and the resolution owner is singular; src/e2e/fixtures/hardware.ts keeps distinct inventory and live ids"
 evidence: "PR #1944 review history; core/src/platform/{windows,macos,linux}/gpu.rs id producers vs core/src/infrastructure/providers GraphicInfo ids; src/e2e/fixtures/hardware.ts GPU_FIXTURES id/liveId split; src/features/hardware/gpuIdentity.ts"
 revalidate_when: "backend id namespaces are unified (issue #1948 direction) or the monitor stream starts carrying inventory ids"
 ---

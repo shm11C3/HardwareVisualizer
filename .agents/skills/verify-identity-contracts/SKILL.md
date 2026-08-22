@@ -45,8 +45,9 @@ consequence bugs, all discoverable up front by reading the producers.
 
 *Applies to every trigger, in every layer.*
 
-For every id the change consumes — including one that only a fixture supplies
-— read the *producing* Rust code and record:
+For every id the change consumes or produces — including one that only a
+fixture supplies — read the producing code (or the change itself, when it is
+the producer) and record:
 the source, the per-platform id shape, and whether any two sources share a
 namespace. When they do not, name the join key the sources actually share
 (typically the reported name) and state where the join must refuse
@@ -67,10 +68,12 @@ encode the same wrong assumption the change is about to build on.
 *Applies wherever the change supplies ids — a Rust test fixture can flatten a
 namespace exactly as an e2e one can.*
 
-A fixture may share one id across two sources only if production does. One
-that flattens a real namespace difference certifies broken joins: the classic
-GPU selector shipped non-functional on real hardware while its e2e passed,
-because `GPU_FIXTURES` used one id for both sources.
+A fixture may share one id across two sources only if production does, and
+its ids take their shapes from the contract table — `nvapi:12345` beside
+`12345` — not two arbitrary strings that merely differ. One that flattens a
+real namespace difference certifies broken joins: the classic GPU selector
+shipped non-functional on real hardware while its e2e passed, because
+`GPU_FIXTURES` used one id for both sources.
 
 ## Frontend Consumption
 
@@ -95,11 +98,12 @@ value, never in a screen parent (ADR 0010 rendering-cost rule).
 
 ## 4. Persistence And Migration
 
-*Applies when the change stores, restores, or re-namespaces an id. Skip it
-when nothing is persisted.*
+*Applies when the change stores, restores, or re-namespaces an id; skip it
+only when it does none of those.*
 
 State: which namespace is stored today, which namespace shipped versions
-stored, and what translates one to the other. The migration must run at an
+stored, and what translates one to the other. An id persisted for the first
+time has no shipped value — state that, and the translation work is done. The migration must run at an
 always-mounted boundary (an app-level hook), never inside a screen — some
 navigation layouts never mount that screen. It must fetch its own inputs,
 because a restart can land on a view that fetches nothing.
