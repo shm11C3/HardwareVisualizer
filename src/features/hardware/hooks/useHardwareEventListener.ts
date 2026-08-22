@@ -19,6 +19,7 @@ import {
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
   powerDrawAtom,
+  powerDrawAvailableAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -57,6 +58,7 @@ export const useHardwareEventListener = () => {
   const setSensorTemps = useSetAtom(sensorTempsAtom);
   const setMotherboardTemps = useSetAtom(motherboardTempsAtom);
   const setMotherboardFanSpeeds = useSetAtom(motherboardFanSpeedsAtom);
+  const setPowerDrawAvailable = useSetAtom(powerDrawAvailableAtom);
   const setPowerDraw = useSetAtom(powerDrawAtom);
 
   const handleHardwareUpdate = useCallback(
@@ -116,12 +118,16 @@ export const useHardwareEventListener = () => {
       setSensorTemps(sensorTemperatures);
       setMotherboardTemps(motherboardTemperatures);
       setMotherboardFanSpeeds(motherboardFanSpeeds);
-      setPowerDraw({
+      const powerDraw = {
         cpuWatts: cpuPowerWatts,
         gpuWatts: gpuPowerWatts,
         aneWatts: anePowerWatts,
         packageWatts: packagePowerWatts,
-      });
+      };
+      setPowerDraw(powerDraw);
+      if (Object.values(powerDraw).some((value) => value != null)) {
+        setPowerDrawAvailable(true);
+      }
 
       // Per-GPU usage histories
       setGpuHistories((prev) => {
@@ -253,6 +259,7 @@ export const useHardwareEventListener = () => {
       setSensorTemps,
       setMotherboardTemps,
       setMotherboardFanSpeeds,
+      setPowerDrawAvailable,
       setPowerDraw,
     ],
   );

@@ -139,7 +139,10 @@ fn copy_channels(group: &str, subgroup: Option<&str>) -> Option<CFDictionaryRef>
 
 fn build_channels() -> WithError<CFMutableDictionaryRef> {
   let gpu = copy_channels("GPU Stats", Some("GPU Performance States"));
+  #[cfg(target_arch = "aarch64")]
   let energy = copy_channels("Energy Model", None);
+  #[cfg(not(target_arch = "aarch64"))]
+  let energy = None;
   let base = gpu
     .or(energy)
     .ok_or("IOReport channel groups are unavailable")?;

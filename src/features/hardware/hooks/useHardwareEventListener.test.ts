@@ -22,6 +22,7 @@ import {
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
   powerDrawAtom,
+  powerDrawAvailableAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -404,6 +405,31 @@ describe("useHardwareEventListener", () => {
     expect(result.current).toEqual({
       cpuWatts: 10.1,
       gpuWatts: 2.2,
+      aneWatts: null,
+      packageWatts: null,
+    });
+  });
+
+  it("keeps power capability after a transient empty update", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [available] = useAtom(powerDrawAvailableAtom);
+        const [power] = useAtom(powerDrawAtom);
+        return { available, power };
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(makePayload({ cpuPowerWatts: 10.1 }));
+      emit(makePayload());
+    });
+
+    expect(result.current.available).toBe(true);
+    expect(result.current.power).toEqual({
+      cpuWatts: null,
+      gpuWatts: null,
       aneWatts: null,
       packageWatts: null,
     });

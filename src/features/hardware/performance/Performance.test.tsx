@@ -10,6 +10,7 @@ import {
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
   powerDrawAtom,
+  powerDrawAvailableAtom,
   selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { Performance } from "./Performance";
@@ -291,7 +292,7 @@ describe("Performance", () => {
     expect(screen.queryByTestId("performance-panel-perCore")).toBeNull();
   });
 
-  it("mounts the Power panel only after power data becomes available", () => {
+  it("keeps the Power panel mounted after capability is established", () => {
     const store = createStore();
     const view = render(
       <Provider store={store}>
@@ -301,12 +302,24 @@ describe("Performance", () => {
 
     expect(screen.queryByTestId("performance-panel-power")).toBeNull();
 
-    act(() =>
+    act(() => {
       store.set(powerDrawAtom, {
         cpuWatts: 10.1,
         gpuWatts: 2.2,
         aneWatts: 0.3,
         packageWatts: 12.6,
+      });
+      store.set(powerDrawAvailableAtom, true);
+    });
+
+    expect(screen.getByTestId("performance-panel-power")).toBeVisible();
+
+    act(() =>
+      store.set(powerDrawAtom, {
+        cpuWatts: null,
+        gpuWatts: null,
+        aneWatts: null,
+        packageWatts: null,
       }),
     );
 

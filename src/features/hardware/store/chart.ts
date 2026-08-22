@@ -82,9 +82,8 @@ export const powerDrawAtom = atom<PowerDraw>({
   packageWatts: null,
 });
 
-export const powerDrawAvailableAtom = atom((get) =>
-  Object.values(get(powerDrawAtom)).some((value) => value != null),
-);
+/** Whether this runtime has produced at least one power reading. */
+export const powerDrawAvailableAtom = atom(false);
 
 /** All GPUs temperature as NameValues (read-write: write clears the map) */
 export const gpuTempAtom = atom<NameValues, [NameValues], void>(
