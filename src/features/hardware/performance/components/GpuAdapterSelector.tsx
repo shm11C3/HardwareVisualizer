@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { GpuAdapter } from "@/features/hardware/gpuIdentity";
+import type { GpuAdapter, LiveGpuId } from "@/features/hardware/gpuIdentity";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,8 +25,8 @@ export const GpuAdapterSelector = ({
   className,
 }: {
   adapters: GpuAdapter[];
-  selectedId: string | undefined;
-  onSelect: (gpuId: string) => void;
+  selectedId: LiveGpuId | undefined;
+  onSelect: (gpuId: LiveGpuId) => void;
   className?: string;
 }) => {
   const { t } = useTranslation();

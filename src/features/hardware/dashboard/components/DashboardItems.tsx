@@ -265,7 +265,19 @@ export const GPUInfo = () => {
               </div>
             )}
             {(() => {
-              const dedicatedMemoryKb = gpuDedicatedMemoryKbMap[gpu.id] ?? null;
+              // gpu.id is an inventory id; the map is keyed by live ids. The
+              // branded types surfaced this: the old direct index could never
+              // match, so this row always showed the total without usage.
+              //
+              // The name join has to be unique on BOTH sides. `toLiveGpuId`
+              // only checks the live side, so two identically named inventory
+              // rows would each resolve to the one reporting adapter and show
+              // its usage twice (ADR 0016).
+              const inventoryTwin =
+                gpus.filter((entry) => entry.name === gpu.name).length > 1;
+              const dedicatedMemoryKb = inventoryTwin
+                ? null
+                : (gpuDedicatedMemoryKbMap[toLiveGpuId(gpu, gpuNames)] ?? null);
               const hasMemorySize = gpu.memorySize !== "N/A";
               const hasMemoryUsage = dedicatedMemoryKb != null;
               const formattedMemoryUsage = hasMemoryUsage

@@ -42,7 +42,19 @@ different namespaces on every platform. Windows NVIDIA reports the raw NVAPI id
 as `GraphicInfo.id` but samples as `nvapi:<id>`; macOS pairs
 `0x<registry_id>` with `iokit:<name>`; Linux pairs `card<n>` with the PCI BDF.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
-across.
+across. The frontend enforces this at compile time: live ids carry the branded
+`LiveGpuId` type, minted only where samples enter (`useHardwareEventListener`)
+and where stored intent is restored, so writing an inventory id into the
+shared selection or indexing a live map with one is a type error rather than a
+review finding. The minting
+sites are the monitor payload, the restored stored intent, and the classic
+card's `toLiveGpuId` write. Live maps are built through `liveGpuRecord`, because
+`Object.fromEntries` returns a `string`-indexed object that TypeScript accepts
+for a branded record — indexing is checked by the brand alone, construction
+needed the gate. Two tests back the types up deterministically: the e2e fixture
+must keep its inventory and live ids distinct the way every platform does, and
+`selectedGpuIdAtom` may only be reached by an allowlisted set of resolution
+owners — by named or namespace import alike.
 
 The adapter list is therefore built from the live side alone: every id the
 stream reported, named by the `gpuName` each sample carries, plus any id that

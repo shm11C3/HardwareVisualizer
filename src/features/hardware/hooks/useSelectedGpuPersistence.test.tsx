@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
 import {
   gpuNamesAtom,
   selectedGpuIdAtom,
@@ -30,6 +31,10 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
 const wrapper = ({ children }: { children: ReactNode }) => (
   <Provider>{children}</Provider>
 );
+
+/** Seeds mint live ids the way the event listener does at the boundary. */
+const liveMap = (map: Record<string, string>) =>
+  map as unknown as Record<LiveGpuId, string>;
 
 const useHarness = () => {
   useSelectedGpuPersistence();
@@ -70,7 +75,7 @@ describe("useSelectedGpuPersistence", () => {
     mocks.storeValue = "nvapi:12345";
 
     const { result } = renderHook(() => useHarness(), { wrapper });
-    act(() => result.current.setSelected("pci:0:2:0"));
+    act(() => result.current.setSelected(asLiveGpuId("pci:0:2:0")));
 
     expect(mocks.setStored).toHaveBeenCalledWith("pci:0:2:0");
   });
@@ -101,10 +106,12 @@ describe("useSelectedGpuPersistence", () => {
     expect(result.current.selected).toBe("67890");
 
     act(() =>
-      result.current.setNames({
-        "nvapi:1": "NVIDIA GeForce RTX 4080",
-        "pci:0:2:0": "Intel UHD Graphics 770",
-      }),
+      result.current.setNames(
+        liveMap({
+          "nvapi:1": "NVIDIA GeForce RTX 4080",
+          "pci:0:2:0": "Intel UHD Graphics 770",
+        }),
+      ),
     );
 
     expect(result.current.selected).toBe("pci:0:2:0");
@@ -117,7 +124,9 @@ describe("useSelectedGpuPersistence", () => {
 
     const { result } = renderHook(() => useHarness(), { wrapper });
     act(() =>
-      result.current.setNames({ "nvapi:1": "NVIDIA GeForce RTX 4080" }),
+      result.current.setNames(
+        liveMap({ "nvapi:1": "NVIDIA GeForce RTX 4080" }),
+      ),
     );
 
     expect(result.current.selected).toBe("nvapi:absent");
@@ -132,7 +141,9 @@ describe("useSelectedGpuPersistence", () => {
 
     const { result } = renderHook(() => useHarness(), { wrapper });
     act(() =>
-      result.current.setNames({ "pci:0:2:0": "Intel UHD Graphics 770" }),
+      result.current.setNames(
+        liveMap({ "pci:0:2:0": "Intel UHD Graphics 770" }),
+      ),
     );
 
     expect(mocks.init).toHaveBeenCalled();
@@ -144,7 +155,9 @@ describe("useSelectedGpuPersistence", () => {
 
     const { result } = renderHook(() => useHarness(), { wrapper });
     act(() =>
-      result.current.setNames({ "pci:0:2:0": "Intel UHD Graphics 770" }),
+      result.current.setNames(
+        liveMap({ "pci:0:2:0": "Intel UHD Graphics 770" }),
+      ),
     );
 
     expect(mocks.init).not.toHaveBeenCalled();

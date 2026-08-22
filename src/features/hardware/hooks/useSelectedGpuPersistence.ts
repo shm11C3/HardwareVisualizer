@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
-import { toLiveGpuId } from "@/features/hardware/gpuIdentity";
+import { asLiveGpuId, toLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   gpuNamesAtom,
@@ -26,6 +26,9 @@ const STORE_KEY = "selectedGpuId";
  * disk so it applies again when the adapter comes back.
  */
 export const useSelectedGpuPersistence = () => {
+  // Stored as a plain string on disk. Minted as intent on restore: shipped
+  // versions wrote inventory ids into this key, which is exactly what the
+  // migration effect below translates once the stream names the adapter.
   const [storedId, setStoredId, isPending] = useTauriStore<string | null>(
     STORE_KEY,
     null,
@@ -45,7 +48,7 @@ export const useSelectedGpuPersistence = () => {
     if (storedId != null) {
       // Explicit intent outranks the event listener's auto-selection of the
       // first reporting adapter, whichever of the two lands first.
-      setSelectedGpuId(storedId);
+      setSelectedGpuId(asLiveGpuId(storedId));
     }
     setHydrated(true);
   }, [isPending, hydrated, storedId, setSelectedGpuId]);

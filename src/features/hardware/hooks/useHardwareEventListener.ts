@@ -1,6 +1,7 @@
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
+import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
@@ -80,11 +81,13 @@ export const useHardwareEventListener = () => {
       setGpuHistories((prev) =>
         gpus.reduce(
           (acc, gpu) => {
+            // The monitor-payload boundary: ids from the stream are branded
+            // here. The other minting sites are the restored stored intent in
+            // `useSelectedGpuPersistence` and the unresolved fallback in
+            // `toLiveGpuId`; nothing else may mint.
+            const gpuId = asLiveGpuId(gpu.gpuId);
             if (gpu.gpuUsage != null) {
-              acc[gpu.gpuId] = padHistory([
-                ...(acc[gpu.gpuId] ?? []),
-                gpu.gpuUsage,
-              ]);
+              acc[gpuId] = padHistory([...(acc[gpuId] ?? []), gpu.gpuUsage]);
             }
             return acc;
           },
@@ -94,14 +97,14 @@ export const useHardwareEventListener = () => {
 
       // Temperature from all GPUs
       setGpuTempMap(
-        Object.fromEntries(
+        liveGpuRecord(
           gpus
             .filter(
               (g): g is typeof g & { gpuTemperature: number } =>
                 g.gpuTemperature != null,
             )
             .map((g) => [
-              g.gpuId,
+              asLiveGpuId(g.gpuId),
               { name: g.gpuName, value: g.gpuTemperature },
             ]),
         ),
@@ -116,12 +119,16 @@ export const useHardwareEventListener = () => {
       // would jump to another GPU on a transient hiccup.
       setGpuNames((prev) => ({
         ...prev,
-        ...Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuName])),
+        ...liveGpuRecord(
+          gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuName]),
+        ),
       }));
 
       // Usage sources from all GPUs
       setGpuSources(
-        Object.fromEntries(gpus.map((gpu) => [gpu.gpuId, gpu.gpuSource])),
+        liveGpuRecord(
+          gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuSource]),
+        ),
       );
 
       // Dedicated memory from all GPUs (only update when not null)
@@ -129,7 +136,7 @@ export const useHardwareEventListener = () => {
         gpus.reduce(
           (acc, gpu) => {
             if (gpu.gpuDedicatedMemoryUsageKb != null) {
-              acc[gpu.gpuId] = gpu.gpuDedicatedMemoryUsageKb;
+              acc[asLiveGpuId(gpu.gpuId)] = gpu.gpuDedicatedMemoryUsageKb;
             }
             return acc;
           },
@@ -139,14 +146,14 @@ export const useHardwareEventListener = () => {
 
       // Fan speed from all GPUs
       setGpuFanSpeedMap(
-        Object.fromEntries(
+        liveGpuRecord(
           gpus
             .filter(
               (g): g is typeof g & { gpuCoolerLevel: number } =>
                 g.gpuCoolerLevel != null,
             )
             .map((g) => [
-              g.gpuId,
+              asLiveGpuId(g.gpuId),
               { name: g.gpuName, value: g.gpuCoolerLevel },
             ]),
         ),
@@ -154,7 +161,11 @@ export const useHardwareEventListener = () => {
 
       // Auto-select first GPU if none selected
       setSelectedGpuId((prev) =>
-        prev != null ? prev : gpus.length > 0 ? gpus[0].gpuId : null,
+        prev != null
+          ? prev
+          : gpus.length > 0
+            ? asLiveGpuId(gpus[0].gpuId)
+            : null,
       );
 
       setProcessorsHistory((prev) => {
