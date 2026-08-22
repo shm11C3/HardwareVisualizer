@@ -19,6 +19,7 @@ vi.mock("@/rspc/bindings", () => ({
     getSettings: vi.fn(),
     setTheme: vi.fn(),
     setDisplayTargets: vi.fn(),
+    setPowerDisplayTargets: vi.fn(),
     setGraphSize: vi.fn(),
     setGraphFitToWindow: vi.fn(),
     setGraphMarginPx: vi.fn(),
@@ -75,6 +76,7 @@ describe("useSettingsAtom", () => {
       language: "ja",
       theme: "dark",
       displayTargets: ["cpu"],
+      powerDisplayTargets: ["cpu", "gpu", "package"],
       graphSize: "lg",
       graphFitToWindow: true,
       graphMarginPx: 24,
@@ -202,6 +204,23 @@ describe("useSettingsAtom", () => {
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     // On error, remains at initial state (empty array)
     expect(result.current.settings.displayTargets).toEqual([]);
+  });
+
+  it("togglePowerDisplayTarget persists opt-in and opt-out selections", async () => {
+    (commands.setPowerDisplayTargets as Mock).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.togglePowerDisplayTarget("ane");
+    });
+    expect(result.current.settings.powerDisplayTargets).toContain("ane");
+
+    await act(async () => {
+      await result.current.togglePowerDisplayTarget("gpu");
+    });
+    expect(result.current.settings.powerDisplayTargets).not.toContain("gpu");
   });
 
   it("updateLineGraphColorAtom: lineGraphColor is updated on success", async () => {

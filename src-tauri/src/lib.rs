@@ -106,6 +106,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::set_navigation_layout,
       settings::commands::acknowledge_navigation_restructure_announcement,
       settings::commands::set_display_targets,
+      settings::commands::set_power_display_targets,
       settings::commands::set_graph_size,
       settings::commands::set_graph_fit_to_window,
       settings::commands::set_graph_margin_px,

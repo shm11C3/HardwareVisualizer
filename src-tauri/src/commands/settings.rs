@@ -138,6 +138,7 @@ pub mod commands {
       current_ui_announcement_version:
         services::settings_service::GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION,
       display_targets: settings.display_targets,
+      power_display_targets: settings.power_display_targets,
       graph_size: settings.graph_size,
       graph_fit_to_window: settings.graph_fit_to_window,
       graph_margin_px: settings.graph_margin_px,
@@ -250,6 +251,21 @@ pub mod commands {
     let mut settings = state.settings.lock().unwrap();
 
     if let Err(e) = settings.set_display_targets(new_targets) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_power_display_targets(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_targets: Vec<enums::hardware::PowerDisplayTarget>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    if let Err(e) = settings.set_power_display_targets(new_targets) {
       emit_error(&window)?;
       return Err(e);
     }

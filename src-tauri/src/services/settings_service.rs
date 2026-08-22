@@ -212,6 +212,7 @@ impl models::settings::Settings {
     try_field!(navigation_layout, "navigationLayout");
     try_field!(ui_announcement_version, "uiAnnouncementVersion");
     try_field!(display_targets, "displayTargets");
+    try_field!(power_display_targets, "powerDisplayTargets");
     try_field!(graph_size, "graphSize");
     try_field!(graph_fit_to_window, "graphFitToWindow");
     try_field!(graph_margin_px, "graphMarginPx");
@@ -351,6 +352,14 @@ impl models::settings::Settings {
     new_targets: Vec<enums::hardware::HardwareType>,
   ) -> Result<(), String> {
     self.display_targets = new_targets;
+    self.write_file()
+  }
+
+  pub fn set_power_display_targets(
+    &mut self,
+    new_targets: Vec<enums::hardware::PowerDisplayTarget>,
+  ) -> Result<(), String> {
+    self.power_display_targets = new_targets;
     self.write_file()
   }
 
@@ -820,6 +829,33 @@ mod tests {
   }
 
   #[test]
+  fn invalid_power_display_targets_recover_to_defaults() {
+    let mut settings = models::settings::Settings {
+      language: "ja".to_string(),
+      ..Default::default()
+    };
+
+    read_settings_from_str(
+      &mut settings,
+      r#"{"language":"en","powerDisplayTargets":["cpu","invalid"]}"#,
+    )
+    .unwrap();
+
+    assert_eq!(settings.language, "en");
+    assert_eq!(
+      settings.power_display_targets,
+      models::settings::Settings::default().power_display_targets
+    );
+  }
+
+  #[test]
+  fn valid_empty_power_display_targets_preserve_explicit_intent() {
+    let mut settings = models::settings::Settings::default();
+    read_settings_from_str(&mut settings, r#"{"powerDisplayTargets":[]}"#).unwrap();
+    assert!(settings.power_display_targets.is_empty());
+  }
+
+  #[test]
   fn set_elevated_startup_mode_persists_when_writer_succeeds() {
     let mut settings = models::settings::Settings::default();
     let mut persisted_value = false;
@@ -884,6 +920,13 @@ mod tests {
       Some("v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
     );
     assert!(value.get("language").is_some());
+    assert_eq!(
+      value
+        .get("powerDisplayTargets")
+        .and_then(|targets| targets.as_array())
+        .map(Vec::len),
+      Some(3)
+    );
   }
 
   #[test]

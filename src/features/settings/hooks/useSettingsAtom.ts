@@ -16,6 +16,7 @@ const settingsAtom = atom<ClientSettings>({
   uiAnnouncementVersion: 0,
   currentUiAnnouncementVersion: 0,
   displayTargets: [],
+  powerDisplayTargets: ["cpu", "gpu", "package"],
   graphSize: "xl",
   graphFitToWindow: false,
   graphMarginPx: 32,
@@ -90,6 +91,7 @@ export const useSettingsAtom = () => {
   } = {
     theme: commands.setTheme,
     displayTargets: commands.setDisplayTargets,
+    powerDisplayTargets: commands.setPowerDisplayTargets,
     graphSize: commands.setGraphSize,
     graphFitToWindow: commands.setGraphFitToWindow,
     graphMarginPx: commands.setGraphMarginPx,
@@ -188,6 +190,21 @@ export const useSettingsAtom = () => {
     }
 
     setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
+  };
+
+  const togglePowerDisplayTarget = async (
+    target: ClientSettings["powerDisplayTargets"][number],
+  ) => {
+    const newTargets = settings.powerDisplayTargets.includes(target)
+      ? settings.powerDisplayTargets.filter((value) => value !== target)
+      : [...settings.powerDisplayTargets, target];
+    const result = await commands.setPowerDisplayTargets(newTargets);
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return;
+    }
+    setSettings((prev) => ({ ...prev, powerDisplayTargets: newTargets }));
   };
 
   const setNavigationLayoutAtom = async (
@@ -448,6 +465,7 @@ export const useSettingsAtom = () => {
     settings,
     loadSettings,
     toggleDisplayTarget,
+    togglePowerDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,
     toggleHardwareArchiveAtom,

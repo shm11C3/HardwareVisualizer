@@ -21,6 +21,11 @@ mod tests {
         hardware::HardwareType::Memory,
         hardware::HardwareType::Gpu,
       ],
+      power_display_targets: vec![
+        enums::hardware::PowerDisplayTarget::Cpu,
+        enums::hardware::PowerDisplayTarget::Gpu,
+        enums::hardware::PowerDisplayTarget::Package,
+      ],
       graph_size: enums::settings::GraphSize::XL,
       graph_fit_to_window: false,
       graph_margin_px: 32,

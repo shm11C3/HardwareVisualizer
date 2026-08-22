@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { powerDrawAtom } from "@/features/hardware/store/chart";
 import { PowerPanel } from "./PowerPanel";
 
+let powerDisplayTargets = ["cpu", "gpu", "package"];
+
+vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
+  useSettingsAtom: () => ({ settings: { powerDisplayTargets } }),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -11,7 +17,8 @@ vi.mock("react-i18next", () => ({
 describe("PowerPanel", () => {
   afterEach(cleanup);
 
-  it("shows every component while preserving missing readings", () => {
+  it("shows only selected components while preserving missing readings", () => {
+    powerDisplayTargets = ["cpu", "ane", "package"];
     const store = createStore();
     store.set(powerDrawAtom, {
       cpuWatts: 10.1,
@@ -27,7 +34,9 @@ describe("PowerPanel", () => {
     );
 
     expect(screen.getByText("10.1 W")).toBeVisible();
-    expect(screen.getByText("2.2 W")).toBeVisible();
+    expect(screen.queryByText("2.2 W")).toBeNull();
     expect(screen.getAllByText("—")).toHaveLength(2);
+    expect(screen.getByText("pages.performance.power.ane")).toBeVisible();
+    expect(screen.queryByText("pages.performance.power.gpu")).toBeNull();
   });
 });

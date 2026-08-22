@@ -21,6 +21,7 @@ import type {
   DataStats,
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
+import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import { useGpuNames } from "../hooks/useGpuNames";
@@ -171,6 +172,7 @@ const MainInsights = () => {
 
 const CoolingInsights = () => {
   const { t } = useTranslation();
+  const { settings } = useSettingsAtom();
   const [periodAvgCpuTemperature, setPeriodAvgCpuTemperature] = useTauriStore<
     (typeof archivePeriods)[number]
   >("periodAvgCpuTemperature", 60);
@@ -239,21 +241,35 @@ const CoolingInsights = () => {
       stats: "min",
       period: [periodMinCpuTemperature, setPeriodMinCpuTemperature],
     },
-    {
-      type: "packagePower",
-      stats: "avg",
-      period: [periodAvgPackagePower, setPeriodAvgPackagePower],
-    },
-    {
-      type: "packagePower",
-      stats: "max",
-      period: [periodMaxPackagePower, setPeriodMaxPackagePower],
-    },
-    {
-      type: "packagePower",
-      stats: "min",
-      period: [periodMinPackagePower, setPeriodMinPackagePower],
-    },
+    ...settings.powerDisplayTargets.flatMap((target) => {
+      const type = `${target}Power` as DataArchiveHardwareType;
+      return [
+        {
+          type,
+          stats: "avg" as const,
+          period: [periodAvgPackagePower, setPeriodAvgPackagePower] as [
+            typeof periodAvgPackagePower,
+            typeof setPeriodAvgPackagePower,
+          ],
+        },
+        {
+          type,
+          stats: "max" as const,
+          period: [periodMaxPackagePower, setPeriodMaxPackagePower] as [
+            typeof periodMaxPackagePower,
+            typeof setPeriodMaxPackagePower,
+          ],
+        },
+        {
+          type,
+          stats: "min" as const,
+          period: [periodMinPackagePower, setPeriodMinPackagePower] as [
+            typeof periodMinPackagePower,
+            typeof setPeriodMinPackagePower,
+          ],
+        },
+      ];
+    }),
   ];
 
   return (
@@ -464,11 +480,18 @@ const ChartArea = (data: {
     typeof setInterval
   > | null>(null);
   const { t } = useTranslation();
+  const powerTitles: Partial<Record<DataArchiveHardwareType, string>> = {
+    cpuPower: t("pages.performance.power.cpu"),
+    gpuPower: t("pages.performance.power.gpu"),
+    anePower: t("pages.performance.power.ane"),
+    packagePower: t("pages.performance.power.package"),
+  };
+  const powerTitle = powerTitles[type];
   const title =
     type === "cpuTemperature"
       ? `CPU ${t("shared.temperature.full")}`
-      : type === "packagePower"
-        ? `${t("pages.insights.cooling.packagePower")} (W)`
+      : powerTitle
+        ? `${powerTitle} (W)`
         : t(type === "cpu" ? "shared.cpuUsage" : "shared.memoryUsage");
 
   const handleMouseDown = (increment: number) => {

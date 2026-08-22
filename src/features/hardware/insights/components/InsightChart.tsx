@@ -34,6 +34,15 @@ export const InsightChart = ({
 
   const isTemperature = hardwareType === "cpuTemperature";
   const isPower = hardwareType.endsWith("Power");
+  const powerLabels = {
+    cpuPower: t("pages.performance.power.cpu"),
+    gpuPower: t("pages.performance.power.gpu"),
+    anePower: t("pages.performance.power.ane"),
+    packagePower: t("pages.performance.power.package"),
+  } as const;
+  const powerLabel = isPower
+    ? powerLabels[hardwareType as keyof typeof powerLabels]
+    : powerLabels.packagePower;
   const dataType: "cpu" | "memory" | "temp" | "power" = isTemperature
     ? "temp"
     : isPower
@@ -58,7 +67,7 @@ export const InsightChart = ({
       color: "254, 192, 57",
     },
     power: {
-      label: t("pages.insights.cooling.packagePower"),
+      label: powerLabel,
       color: "245, 158, 11",
     },
   } satisfies ChartConfig;
@@ -92,7 +101,7 @@ export const InsightChart = ({
           isTemperature
             ? `CPU ${t("shared.temperature.full")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`
             : isPower
-              ? `${t("pages.insights.cooling.packagePower")} (W)`
+              ? `${powerLabel} (W)`
               : `${t("shared.usage")} (%)`
         }
         range={

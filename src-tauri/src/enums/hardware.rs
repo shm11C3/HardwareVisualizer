@@ -13,6 +13,15 @@ pub enum HardwareType {
   Gpu,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Type, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PowerDisplayTarget {
+  Cpu,
+  Gpu,
+  Ane,
+  Package,
+}
+
 impl<'de> Deserialize<'de> for HardwareType {
   fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
   where
