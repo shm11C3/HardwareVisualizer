@@ -1,6 +1,7 @@
 use std::{
   collections::{HashMap, VecDeque},
   sync::{Arc, Mutex},
+  time::Instant,
 };
 
 use serde::Serialize;
@@ -12,9 +13,9 @@ use tauri::{
   tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
 };
 
-use crate::log_warn;
 use crate::tray::TRAY_WIDGET_FLYOUT_LABEL;
 use crate::tray::widget::{MetricState, TrayFrame, TrayFrameItem, TrayMetric};
+use crate::{log_debug, log_warn};
 
 use super::TraySurface;
 
@@ -49,7 +50,8 @@ struct WindowsTrayState {
 impl WindowsTraySurface {
   pub fn new(app: &tauri::App) -> tauri::Result<Self> {
     let app_handle = app.handle().clone();
-    ensure_flyout_window(&app_handle)?;
+    let flyout = ensure_flyout_window(&app_handle)?;
+    crate::webview_memory::suspend(&flyout);
     register_flyout_event_handlers(&app_handle);
 
     let open_item = MenuItem::with_id(app, MENU_OPEN_ID, "Open", true, None::<&str>)?;
@@ -199,6 +201,7 @@ fn toggle_flyout_window(
   click_position: PhysicalPosition<f64>,
   tray_rect: Rect,
 ) {
+  let restore_started_at = Instant::now();
   let Some(window) = app_handle.get_webview_window(TRAY_WIDGET_FLYOUT_LABEL) else {
     log_warn!(
       "Windows tray flyout window was not available",
@@ -209,13 +212,7 @@ fn toggle_flyout_window(
   };
 
   if window.is_visible().unwrap_or(false) {
-    if let Err(e) = window.hide() {
-      log_warn!(
-        &format!("failed to hide Windows tray flyout: {e}"),
-        "tray::surface::windows::toggle_flyout_window",
-        None::<&str>
-      );
-    }
+    hide_flyout_window(app_handle);
     return;
   }
 
@@ -251,6 +248,8 @@ fn toggle_flyout_window(
     );
   }
 
+  crate::webview_memory::resume(&window);
+
   if let Some(frame) = state.latest_frame.lock().unwrap().clone() {
     emit_flyout_frame_to_window(&window, &frame);
   }
@@ -261,6 +260,8 @@ fn toggle_flyout_window(
       "tray::surface::windows::toggle_flyout_window",
       None::<&str>
     );
+    crate::webview_memory::suspend(&window);
+    return;
   }
 
   if let Err(e) = window.set_focus() {
@@ -270,17 +271,27 @@ fn toggle_flyout_window(
       None::<&str>
     );
   }
+
+  log_debug!(
+    &format!(
+      "Windows tray flyout restored in {} ms",
+      restore_started_at.elapsed().as_millis()
+    ),
+    "tray::surface::windows::toggle_flyout_window",
+    None::<&str>
+  );
 }
 
 fn hide_flyout_window(app_handle: &AppHandle) {
-  if let Some(window) = app_handle.get_webview_window(TRAY_WIDGET_FLYOUT_LABEL)
-    && let Err(e) = window.hide()
-  {
-    log_warn!(
-      &format!("failed to hide Windows tray flyout: {e}"),
-      "tray::surface::windows::hide_flyout_window",
-      None::<&str>
-    );
+  if let Some(window) = app_handle.get_webview_window(TRAY_WIDGET_FLYOUT_LABEL) {
+    match window.hide() {
+      Ok(()) => crate::webview_memory::suspend(&window),
+      Err(e) => log_warn!(
+        &format!("failed to hide Windows tray flyout: {e}"),
+        "tray::surface::windows::hide_flyout_window",
+        None::<&str>
+      ),
+    }
   }
 }
 
@@ -347,8 +358,17 @@ fn clamp_to_bounds(value: f64, size: f64, min: f64, max: f64) -> f64 {
 
 fn emit_flyout_frame(app_handle: &AppHandle, frame: &WindowsFlyoutFrame) {
   if let Some(window) = app_handle.get_webview_window(TRAY_WIDGET_FLYOUT_LABEL) {
+    // WebView2 APIs can resume a suspended WebView implicitly. The latest
+    // frame is retained in WindowsTrayState and emitted when the flyout opens.
+    if !should_emit_flyout_frame(window.is_visible().unwrap_or(false)) {
+      return;
+    }
     emit_flyout_frame_to_window(&window, frame);
   }
+}
+
+fn should_emit_flyout_frame(is_visible: bool) -> bool {
+  is_visible
 }
 
 fn emit_flyout_frame_to_window(window: &WebviewWindow, frame: &WindowsFlyoutFrame) {
@@ -846,6 +866,12 @@ fn rounded_rect_signed_distance(px: f32, py: f32, rect: RectF, radius: f32) -> f
 mod tests {
   use super::*;
   use crate::tray::widget::TrayMetricIcon;
+
+  #[test]
+  fn hidden_flyout_does_not_receive_frames() {
+    assert!(!should_emit_flyout_frame(false));
+    assert!(should_emit_flyout_frame(true));
+  }
 
   fn item(metric: TrayMetric, value: &str, state: MetricState) -> TrayFrameItem {
     TrayFrameItem {

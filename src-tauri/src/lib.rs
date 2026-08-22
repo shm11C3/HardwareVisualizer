@@ -17,6 +17,7 @@ mod models;
 mod services;
 mod tray;
 mod utils;
+mod webview_memory;
 mod workers;
 
 #[cfg(test)]
@@ -149,6 +150,7 @@ fn build_specta_builder() -> Builder<Wry> {
       system::quit_app,
       system::is_close_to_tray_available,
       system::mark_close_to_tray_listener_ready,
+      system::hide_main_window_to_tray,
     ])
 }
 
@@ -421,10 +423,17 @@ pub fn run() {
         match ev {
           tauri::WindowEvent::CloseRequested { api, .. } => {
             api.prevent_close();
-            let _ = win.hide();
+            if win.hide().is_ok() {
+              webview_memory::suspend_for_window(win);
+            }
           }
-          tauri::WindowEvent::Focused(false) => {
-            let _ = win.hide();
+          // An explicit flyout hide also emits Focused(false). Only the
+          // focus-loss path for a still-visible flyout owns another hide and
+          // suspend transition.
+          tauri::WindowEvent::Focused(false)
+            if win.is_visible().unwrap_or(false) && win.hide().is_ok() =>
+          {
+            webview_memory::suspend_for_window(win);
           }
           _ => {}
         }

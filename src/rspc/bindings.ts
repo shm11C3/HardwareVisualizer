@@ -218,6 +218,8 @@ export const commands = {
 	isCloseToTrayAvailable: () => typedError<boolean, string>(__TAURI_INVOKE("is_close_to_tray_available")),
 	// Mark the frontend close-to-tray dialog listener as ready.
 	markCloseToTrayListenerReady: () => typedError<null, string>(__TAURI_INVOKE("mark_close_to_tray_listener_ready")),
+	// Hide the main window through the App-owned close-to-tray lifecycle.
+	hideMainWindowToTray: () => typedError<null, string>(__TAURI_INVOKE("hide_main_window_to_tray")),
 };
 
 /** Events */

@@ -37,3 +37,4 @@ ADR status describes decision maturity, not release status.
 - [0014 Performance Views and the Specification Sheet](0014-performance-views-and-specification-sheet.md)
 - [0015 Performance and System Specifications as Sidebar Destinations](0015-performance-and-system-specifications-destinations.md)
 - [0016 GPU Attribution on the Performance Screen](0016-gpu-attribution-on-the-performance-screen.md)
+- [0017 Suspend Hidden Windows WebViews](0017-suspend-hidden-windows-webviews.md)
