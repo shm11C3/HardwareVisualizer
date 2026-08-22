@@ -7,6 +7,6 @@ use hardviz_core::platform::factory::PlatformFactory;
 /// Returns `MemoryInfo` on success, a [`PlatformError`] on failure
 ///
 pub async fn fetch_memory_detail() -> Result<MemoryInfo, PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
   Ok(platform.get_memory_info_detail().await?.into())
 }

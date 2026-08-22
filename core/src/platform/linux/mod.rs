@@ -1,13 +1,12 @@
 use crate::enums::error::PlatformError;
 use crate::models::hardware::{
-  GpuMemoryUsage, GraphicInfo, NetworkInfo, SuperIoChipIdDiagnostics,
+  GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo, SuperIoChipIdDiagnostics,
 };
 use crate::platform::traits::{
-  GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
+  GpuPlatform, GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform,
+  Platform, ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
 };
-use std::future::Future;
-use std::pin::Pin;
+use async_trait::async_trait;
 
 pub mod cache;
 pub mod gpu;
@@ -22,74 +21,39 @@ impl LinuxPlatform {
   }
 }
 
+#[async_trait]
 impl MemoryPlatform for LinuxPlatform {
-  fn get_memory_info(
-    &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  > {
-    memory::get_memory_info()
+  async fn get_memory_info(&self) -> Result<MemoryInfo, PlatformError> {
+    memory::get_memory_info().await
   }
 
-  fn get_memory_info_detail(
-    &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<crate::models::hardware::MemoryInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  > {
-    memory::get_memory_info_detail()
+  async fn get_memory_info_detail(&self) -> Result<MemoryInfo, PlatformError> {
+    memory::get_memory_info_detail().await
   }
 }
 
+#[async_trait]
 impl GpuPlatform for LinuxPlatform {
-  fn get_gpu_usage(
-    &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<super::traits::GpuUsageRaw, PlatformError>> + Send + '_,
-    >,
-  > {
-    Box::pin(gpu::get_gpu_usage())
+  async fn get_gpu_usage(&self) -> Result<GpuUsageRaw, PlatformError> {
+    gpu::get_gpu_usage().await
   }
 
-  fn get_gpu_temperature(
+  async fn get_gpu_temperature(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, PlatformError>>
-        + Send
-        + '_,
-    >,
-  > {
-    Box::pin(gpu::get_gpu_temperature())
+  ) -> Result<Vec<crate::models::hardware::NameValue>, PlatformError> {
+    gpu::get_gpu_temperature().await
   }
 
-  fn get_gpu_info(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, PlatformError>> + Send + '_>>
-  {
-    Box::pin(gpu::get_gpu_info())
+  async fn get_gpu_info(&self) -> Result<Vec<GraphicInfo>, PlatformError> {
+    gpu::get_gpu_info().await
   }
 
-  fn get_gpu_memory_usage(
-    &self,
-  ) -> Pin<
-    Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, PlatformError>> + Send + '_>,
-  > {
-    Box::pin(async { Ok(None) })
+  async fn get_gpu_memory_usage(&self) -> Result<Option<GpuMemoryUsage>, PlatformError> {
+    Ok(None)
   }
 
-  fn sample_gpus(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Vec<crate::models::GpuSample>> + Send + '_>> {
-    Box::pin(gpu::sample_gpus())
+  async fn sample_gpus(&self) -> Vec<crate::models::GpuSample> {
+    gpu::sample_gpus().await
   }
 }
 
@@ -99,21 +63,14 @@ impl NetworkPlatform for LinuxPlatform {
   }
 }
 
+#[async_trait]
 impl MotherboardPlatform for LinuxPlatform {
-  fn get_motherboard_info(
+  async fn get_motherboard_info(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<crate::models::hardware::MotherboardInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  > {
-    Box::pin(async {
-      Err(PlatformError::unsupported(
-        "get_motherboard_info is not implemented for LinuxPlatform",
-      ))
-    })
+  ) -> Result<crate::models::hardware::MotherboardInfo, PlatformError> {
+    Err(PlatformError::unsupported(
+      "get_motherboard_info is not implemented for LinuxPlatform",
+    ))
   }
 }
 

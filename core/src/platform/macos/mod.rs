@@ -3,11 +3,10 @@ use crate::models::hardware::{
   GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo, SuperIoChipIdDiagnostics,
 };
 use crate::platform::traits::{
-  GpuPlatform, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
+  GpuPlatform, GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform,
+  Platform, ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
 };
-use std::future::Future;
-use std::pin::Pin;
+use async_trait::async_trait;
 use tokio::task;
 
 mod gpu;
@@ -23,76 +22,47 @@ impl MacOSPlatform {
   }
 }
 
+#[async_trait]
 impl MemoryPlatform for MacOSPlatform {
-  fn get_memory_info(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, PlatformError>> + Send + '_>> {
-    Box::pin(async {
-      task::spawn_blocking(memory::get_memory_info)
-        .await
-        .map_err(|e| PlatformError::fault(format!("Failed to join memory task: {e}")))?
-    })
+  async fn get_memory_info(&self) -> Result<MemoryInfo, PlatformError> {
+    task::spawn_blocking(memory::get_memory_info)
+      .await
+      .map_err(|e| PlatformError::fault(format!("Failed to join memory task: {e}")))?
   }
 
-  fn get_memory_info_detail(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Result<MemoryInfo, PlatformError>> + Send + '_>> {
-    Box::pin(async {
-      // macOS is not supported yet (build-only stub)
-      Err(PlatformError::unsupported(
-        "get_memory_info_detail is not implemented for MacOSPlatform",
-      ))
-    })
+  async fn get_memory_info_detail(&self) -> Result<MemoryInfo, PlatformError> {
+    // macOS is not supported yet (build-only stub)
+    Err(PlatformError::unsupported(
+      "get_memory_info_detail is not implemented for MacOSPlatform",
+    ))
   }
 }
 
+#[async_trait]
 impl GpuPlatform for MacOSPlatform {
-  fn get_gpu_usage(
-    &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<super::traits::GpuUsageRaw, PlatformError>> + Send + '_,
-    >,
-  > {
-    Box::pin(async { gpu::get_gpu_usage().await })
+  async fn get_gpu_usage(&self) -> Result<GpuUsageRaw, PlatformError> {
+    gpu::get_gpu_usage().await
   }
 
-  fn get_gpu_temperature(
+  async fn get_gpu_temperature(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<Vec<crate::models::hardware::NameValue>, PlatformError>>
-        + Send
-        + '_,
-    >,
-  > {
-    Box::pin(async {
-      // macOS is not supported yet (build-only stub)
-      Err(PlatformError::unsupported(
-        "get_gpu_temperature is not implemented for MacOSPlatform",
-      ))
-    })
+  ) -> Result<Vec<crate::models::hardware::NameValue>, PlatformError> {
+    // macOS is not supported yet (build-only stub)
+    Err(PlatformError::unsupported(
+      "get_gpu_temperature is not implemented for MacOSPlatform",
+    ))
   }
 
-  fn get_gpu_info(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Result<Vec<GraphicInfo>, PlatformError>> + Send + '_>>
-  {
-    Box::pin(async { gpu::get_gpu_info().await })
+  async fn get_gpu_info(&self) -> Result<Vec<GraphicInfo>, PlatformError> {
+    gpu::get_gpu_info().await
   }
 
-  fn get_gpu_memory_usage(
-    &self,
-  ) -> Pin<
-    Box<dyn Future<Output = Result<Option<GpuMemoryUsage>, PlatformError>> + Send + '_>,
-  > {
-    Box::pin(async { gpu::get_gpu_memory_usage().await })
+  async fn get_gpu_memory_usage(&self) -> Result<Option<GpuMemoryUsage>, PlatformError> {
+    gpu::get_gpu_memory_usage().await
   }
 
-  fn sample_gpus(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Vec<crate::models::GpuSample>> + Send + '_>> {
-    Box::pin(gpu::sample_gpus())
+  async fn sample_gpus(&self) -> Vec<crate::models::GpuSample> {
+    gpu::sample_gpus().await
   }
 
   fn sample_power_draw(&self) -> crate::models::PowerDraw {
@@ -106,17 +76,12 @@ impl NetworkPlatform for MacOSPlatform {
   }
 }
 
+#[async_trait]
 impl MotherboardPlatform for MacOSPlatform {
-  fn get_motherboard_info(
+  async fn get_motherboard_info(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<crate::models::hardware::MotherboardInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  > {
-    motherboard::get_motherboard_info()
+  ) -> Result<crate::models::hardware::MotherboardInfo, PlatformError> {
+    motherboard::get_motherboard_info().await
   }
 }
 

@@ -6,7 +6,7 @@ use hardviz_core::platform::factory::PlatformFactory;
 /// Fetch motherboard and BIOS information
 ///
 pub async fn fetch_motherboard_info() -> Result<MotherboardInfo, PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
 
   Ok(platform.get_motherboard_info().await?.into())
 }

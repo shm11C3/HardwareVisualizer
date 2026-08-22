@@ -1,85 +1,49 @@
 use crate::enums::error::PlatformError;
 use crate::models;
-use std::future::Future;
-use std::pin::Pin;
+use async_trait::async_trait;
 
 /// Return type for [`GpuPlatform::get_gpu_usage`]: `(percentage, source_name)`.
 pub type GpuUsageRaw = (f32, String);
 
 /// Trait that defines platform-specific memory operations
+#[async_trait]
 pub trait MemoryPlatform: Send + Sync {
   /// Get basic memory information
-  fn get_memory_info(
-    &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<models::hardware::MemoryInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  >;
+  async fn get_memory_info(&self) -> Result<models::hardware::MemoryInfo, PlatformError>;
 
   /// Get detailed memory information (supported platforms only)
-  fn get_memory_info_detail(
+  async fn get_memory_info_detail(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<models::hardware::MemoryInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  >;
+  ) -> Result<models::hardware::MemoryInfo, PlatformError>;
 }
 
 /// Trait that defines platform-specific GPU operations
-#[allow(clippy::type_complexity)]
+#[async_trait]
 pub trait GpuPlatform: Send + Sync {
   /// Get GPU usage together with the data-source name
-  fn get_gpu_usage(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Result<GpuUsageRaw, PlatformError>> + Send + '_>>;
+  async fn get_gpu_usage(&self) -> Result<GpuUsageRaw, PlatformError>;
 
   /// Get GPU temperatures, always in raw degrees Celsius.
   ///
   /// Presentation conversion (Celsius/Fahrenheit) is the App's
   /// responsibility — Core never reads the user's preferred unit so the
   /// trait stays decoupled from UI preferences.
-  fn get_gpu_temperature(
+  async fn get_gpu_temperature(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<Vec<models::hardware::NameValue>, PlatformError>>
-        + Send
-        + '_,
-    >,
-  >;
+  ) -> Result<Vec<models::hardware::NameValue>, PlatformError>;
 
   /// Get GPU information
-  fn get_gpu_info(
+  async fn get_gpu_info(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<Vec<models::hardware::GraphicInfo>, PlatformError>>
-        + Send
-        + '_,
-    >,
-  >;
+  ) -> Result<Vec<models::hardware::GraphicInfo>, PlatformError>;
 
   /// Get realtime GPU memory usage (best-effort)
-  fn get_gpu_memory_usage(
+  async fn get_gpu_memory_usage(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<Option<models::hardware::GpuMemoryUsage>, PlatformError>>
-        + Send
-        + '_,
-    >,
-  >;
+  ) -> Result<Option<models::hardware::GpuMemoryUsage>, PlatformError>;
 
   /// Collect per-GPU realtime metrics for the monitoring pipeline.
-  fn sample_gpus(
-    &self,
-  ) -> Pin<Box<dyn Future<Output = Vec<models::GpuSample>> + Send + '_>>;
+  async fn sample_gpus(&self) -> Vec<models::GpuSample>;
 
   /// Read the latest platform-wide live power sample.
   fn sample_power_draw(&self) -> models::PowerDraw {
@@ -97,17 +61,12 @@ pub trait NetworkPlatform: Send + Sync {
 }
 
 /// Trait that defines platform-specific motherboard operations
+#[async_trait]
 pub trait MotherboardPlatform: Send + Sync {
   /// Get motherboard and BIOS information
-  fn get_motherboard_info(
+  async fn get_motherboard_info(
     &self,
-  ) -> Pin<
-    Box<
-      dyn Future<Output = Result<models::hardware::MotherboardInfo, PlatformError>>
-        + Send
-        + '_,
-    >,
-  >;
+  ) -> Result<models::hardware::MotherboardInfo, PlatformError>;
 }
 
 /// Trait that defines platform-specific Super I/O chip-id diagnostics.

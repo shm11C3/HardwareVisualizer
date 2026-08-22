@@ -11,7 +11,7 @@ use hardviz_core::platform::factory::PlatformFactory;
 ///
 pub fn fetch_network_info() -> Result<Vec<NetworkInfo>, enums::error::BackendError> {
   let platform =
-    PlatformFactory::create().map_err(|_| enums::error::BackendError::UnexpectedError)?;
+    PlatformFactory::shared().map_err(|_| enums::error::BackendError::UnexpectedError)?;
   let core_list = platform.get_network_info().map_err(wire_network_error)?;
   Ok(core_list.into_iter().map(NetworkInfo::from).collect())
 }

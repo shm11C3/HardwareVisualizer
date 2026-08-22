@@ -44,11 +44,11 @@ pub fn relaunch_for_elevated_startup_if_needed(
 }
 
 pub fn is_process_elevated() -> Result<bool, PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
   platform.is_process_elevated()
 }
 
 pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
   platform.relaunch_current_process_elevated()
 }

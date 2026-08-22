@@ -13,7 +13,8 @@ use crate::models::{
   MotherboardSensorCollection, MotherboardSensorSample, PowerDraw, ProcessSample,
   SensorTemperature, TemperatureSample,
 };
-use crate::platform::factory::PlatformFactory;
+use crate::platform::factory::PlatformHandle;
+use crate::platform::traits::Platform;
 
 pub struct SystemSample {
   pub cpu_usage: f32,
@@ -22,18 +23,43 @@ pub struct SystemSample {
   pub processes: Vec<ProcessSample>,
 }
 
-pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
-  match PlatformFactory::create() {
-    Ok(platform) => platform.sample_motherboard_sensors(),
-    Err(error) => MotherboardSensorCollection::unavailable(error.to_string()),
-  }
-}
+/// Run one full sampling cycle against the platform resolved once at
+/// collector startup and compose the resulting [`MetricsSnapshot`].
+///
+/// A failed platform resolution is reported per cycle: sensor samples
+/// become unavailable with the initialization error as the reason, GPU
+/// samples stay empty, and power falls back to the default. Returns
+/// `None` only when the system sample itself is unavailable.
+pub async fn collect_snapshot(
+  store: &HistoryStore,
+  platform: &PlatformHandle,
+) -> Option<MetricsSnapshot> {
+  let system_sample = sample_system(store)?;
 
-pub fn sample_temperatures() -> TemperatureSample {
-  match PlatformFactory::create() {
-    Ok(platform) => platform.sample_temperatures(),
-    Err(error) => TemperatureSample::unavailable(error.to_string()),
-  }
+  let (gpu_samples, power_draw, temperature_sample, motherboard_collection) =
+    match platform {
+      Ok(platform) => (
+        sample_gpu(store, platform.as_ref()).await,
+        platform.sample_power_draw(),
+        platform.sample_temperatures(),
+        platform.sample_motherboard_sensors(),
+      ),
+      Err(error) => (
+        Vec::new(),
+        PowerDraw::default(),
+        TemperatureSample::unavailable(error.to_string()),
+        MotherboardSensorCollection::unavailable(error.to_string()),
+      ),
+    };
+
+  Some(build_metrics_snapshot(
+    &system_sample,
+    &gpu_samples,
+    power_draw,
+    &temperature_sample,
+    &motherboard_collection.sample,
+    &motherboard_collection.guidance_candidates,
+  ))
 }
 
 /// Run one CPU / memory / process refresh and append samples to the
@@ -112,23 +138,14 @@ fn calculate_memory_usage_percentage(used: u64, total: u64) -> f32 {
   }
 }
 
-pub async fn sample_gpu(store: &HistoryStore) -> Vec<GpuSample> {
-  let gpu_metrics = match PlatformFactory::create() {
-    Ok(platform) => platform.sample_gpus().await,
-    Err(_) => Vec::new(),
-  };
+pub async fn sample_gpu(store: &HistoryStore, platform: &dyn Platform) -> Vec<GpuSample> {
+  let gpu_metrics = platform.sample_gpus().await;
 
   if !gpu_metrics.is_empty() {
     store.update_gpu_histories(&gpu_metrics);
   }
 
   gpu_metrics
-}
-
-pub fn sample_power_draw() -> PowerDraw {
-  PlatformFactory::create()
-    .map(|platform| platform.sample_power_draw())
-    .unwrap_or_default()
 }
 
 /// Build the per-GPU metrics carried in [`MetricsSnapshot`]. Temperatures
@@ -198,7 +215,155 @@ pub fn build_metrics_snapshot(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::enums::error::PlatformError;
   use crate::models::SensorAvailability;
+  use crate::models::hardware::{
+    GpuMemoryUsage, GraphicInfo, MemoryInfo, MotherboardInfo, NameValue, NetworkInfo,
+    SuperIoChipIdDiagnostics,
+  };
+  use crate::platform::traits::{
+    GpuPlatform, GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform,
+    ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
+  };
+  use async_trait::async_trait;
+  use std::sync::Arc;
+
+  /// Deterministic Platform used to exercise the collector cycle without
+  /// touching OS providers — the injection seam introduced by the shared
+  /// platform handle.
+  struct FakePlatform;
+
+  #[async_trait]
+  impl MemoryPlatform for FakePlatform {
+    async fn get_memory_info(&self) -> Result<MemoryInfo, PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+
+    async fn get_memory_info_detail(&self) -> Result<MemoryInfo, PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+  }
+
+  #[async_trait]
+  impl GpuPlatform for FakePlatform {
+    async fn get_gpu_usage(&self) -> Result<GpuUsageRaw, PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+
+    async fn get_gpu_temperature(&self) -> Result<Vec<NameValue>, PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+
+    async fn get_gpu_info(&self) -> Result<Vec<GraphicInfo>, PlatformError> {
+      Ok(Vec::new())
+    }
+
+    async fn get_gpu_memory_usage(
+      &self,
+    ) -> Result<Option<GpuMemoryUsage>, PlatformError> {
+      Ok(None)
+    }
+
+    async fn sample_gpus(&self) -> Vec<GpuSample> {
+      vec![GpuSample {
+        gpu_id: "fake:0".to_string(),
+        name: "Fake GPU".to_string(),
+        usage: Some(12.4),
+        temperature: Some(55.6),
+        dedicated_memory_kb: None,
+        cooler_level: None,
+        source: "Fake".to_string(),
+      }]
+    }
+
+    fn sample_power_draw(&self) -> PowerDraw {
+      PowerDraw {
+        cpu_watts: Some(1.5),
+        gpu_watts: Some(2.5),
+        ane_watts: None,
+        package_watts: Some(4.0),
+      }
+    }
+  }
+
+  impl NetworkPlatform for FakePlatform {
+    fn get_network_info(&self) -> Result<Vec<NetworkInfo>, PlatformError> {
+      Ok(Vec::new())
+    }
+  }
+
+  #[async_trait]
+  impl MotherboardPlatform for FakePlatform {
+    async fn get_motherboard_info(&self) -> Result<MotherboardInfo, PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+  }
+
+  impl SuperIoPlatform for FakePlatform {
+    fn get_super_io_chip_id_diagnostics(&self) -> SuperIoChipIdDiagnostics {
+      SuperIoChipIdDiagnostics::unsupported_platform()
+    }
+  }
+
+  impl SensorPlatform for FakePlatform {
+    fn sample_temperatures(&self) -> TemperatureSample {
+      TemperatureSample {
+        cpu_temperature: Some(42.4),
+        ..TemperatureSample::default()
+      }
+    }
+
+    fn sample_motherboard_sensors(&self) -> MotherboardSensorCollection {
+      MotherboardSensorCollection::default()
+    }
+  }
+
+  impl ProcessElevationPlatform for FakePlatform {
+    fn is_process_elevated(&self) -> Result<bool, PlatformError> {
+      Ok(false)
+    }
+
+    fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+  }
+
+  impl Platform for FakePlatform {}
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn collect_snapshot_uses_the_injected_platform() {
+    let store = HistoryStore::new();
+    let platform: PlatformHandle = Ok(Arc::new(FakePlatform));
+
+    let snapshot = collect_snapshot(&store, &platform)
+      .await
+      .expect("system sample must be available in tests");
+
+    assert_eq!(snapshot.gpus.len(), 1);
+    assert_eq!(snapshot.gpus[0].gpu_id, "fake:0");
+    assert_eq!(snapshot.gpus[0].gpu_usage, Some(12.0));
+    assert_eq!(snapshot.gpus[0].gpu_temperature, Some(56.0));
+    assert_eq!(snapshot.cpu_temperature, Some(42.0));
+    assert_eq!(snapshot.power_draw.package_watts, Some(4.0));
+    // The fake GPU sample also landed in the history rings.
+    assert_eq!(store.gpu_history("fake:0", 60).len(), 1);
+  }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn collect_snapshot_degrades_when_the_platform_is_unavailable() {
+    let store = HistoryStore::new();
+    let platform: PlatformHandle = Err(PlatformError::initialization_failed("boom"));
+
+    let snapshot = collect_snapshot(&store, &platform)
+      .await
+      .expect("system sample must be available in tests");
+
+    assert!(snapshot.gpus.is_empty());
+    assert_eq!(snapshot.power_draw, PowerDraw::default());
+    assert_eq!(snapshot.cpu_temperature, None);
+    assert!(snapshot.sensor_temperatures.is_empty());
+    assert!(snapshot.motherboard_temperatures.is_empty());
+  }
 
   fn make_sample(
     gpu_id: &str,

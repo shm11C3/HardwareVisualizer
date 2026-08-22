@@ -3,8 +3,6 @@ use crate::infrastructure::providers::macos::system_profiler_hardware::{
   self, SpHardwareDetails,
 };
 use crate::models::hardware::MotherboardInfo;
-use std::future::Future;
-use std::pin::Pin;
 
 /// macOS does not expose a baseboard / BIOS pair, so both the board and
 /// firmware vendor are reported as Apple.
@@ -23,13 +21,10 @@ const APPLE_MANUFACTURER: &str = "Apple Inc.";
 /// - `serial_number` is the system serial number.
 /// - `bios_version` is the system firmware (boot ROM) version.
 /// - `bios_release_date` is left empty (macOS does not expose it).
-pub fn get_motherboard_info()
--> Pin<Box<dyn Future<Output = Result<MotherboardInfo, PlatformError>> + Send>> {
-  Box::pin(async {
-    tokio::task::spawn_blocking(collect_motherboard_info)
-      .await
-      .map_err(|e| PlatformError::fault(format!("Join error: {e}")))?
-  })
+pub async fn get_motherboard_info() -> Result<MotherboardInfo, PlatformError> {
+  tokio::task::spawn_blocking(collect_motherboard_info)
+    .await
+    .map_err(|e| PlatformError::fault(format!("Join error: {e}")))?
 }
 
 fn collect_motherboard_info() -> Result<MotherboardInfo, PlatformError> {
