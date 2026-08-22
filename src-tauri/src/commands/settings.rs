@@ -928,7 +928,7 @@ pub mod commands {
                 "{e}; additionally failed to restore setting: {save_err}"
               ));
             }
-            return Err(e);
+            return Err(e.to_string());
           }
         }
       }

@@ -1,7 +1,11 @@
-use hardviz_core::enums::error as core_err;
 use serde::Serialize;
 use specta::Type;
 
+/// Wire error enum exposed to the frontend through tauri-specta.
+///
+/// Core reports platform failures as
+/// `hardviz_core::enums::error::PlatformError`; the App services and
+/// commands translate them into these frontend-stable variants.
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Type, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,20 +18,6 @@ pub enum BackendError {
   NetworkUsageNotAvailable,
   UnexpectedError,
   // SystemError(String),
-}
-
-impl From<core_err::BackendError> for BackendError {
-  fn from(src: core_err::BackendError) -> Self {
-    match src {
-      core_err::BackendError::CpuInfoNotAvailable => Self::CpuInfoNotAvailable,
-      core_err::BackendError::StorageInfoNotAvailable => Self::StorageInfoNotAvailable,
-      core_err::BackendError::MemoryInfoNotAvailable => Self::MemoryInfoNotAvailable,
-      core_err::BackendError::GraphicInfoNotAvailable => Self::GraphicInfoNotAvailable,
-      core_err::BackendError::NetworkInfoNotAvailable => Self::NetworkInfoNotAvailable,
-      core_err::BackendError::NetworkUsageNotAvailable => Self::NetworkUsageNotAvailable,
-      core_err::BackendError::UnexpectedError => Self::UnexpectedError,
-    }
-  }
 }
 
 #[cfg(test)]

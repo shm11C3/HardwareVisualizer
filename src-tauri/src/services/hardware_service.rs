@@ -49,7 +49,11 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
   let gpus = match gpus_res {
     Ok(v) => Some(v.into_iter().map(Into::into).collect()),
     Err(e) => {
-      log_error!("gpu_info_failed", "collect_hardware_info", Some(e));
+      log_error!(
+        "gpu_info_failed",
+        "collect_hardware_info",
+        Some(e.to_string())
+      );
       None
     }
   };
@@ -57,7 +61,11 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
   let memory = match memory_res {
     Ok(v) => Some(v.into()),
     Err(e) => {
-      log_error!("memory_info_failed", "collect_hardware_info", Some(e));
+      log_error!(
+        "memory_info_failed",
+        "collect_hardware_info",
+        Some(e.to_string())
+      );
       None
     }
   };
@@ -75,7 +83,11 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
   let motherboard = match motherboard_res {
     Ok(v) => Some(v),
     Err(e) => {
-      log_error!("motherboard_info_failed", "collect_hardware_info", Some(e));
+      log_error!(
+        "motherboard_info_failed",
+        "collect_hardware_info",
+        Some(e.to_string())
+      );
       None
     }
   };

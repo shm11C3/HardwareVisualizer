@@ -1,4 +1,4 @@
-use crate::enums::error::BackendError;
+use crate::enums::error::PlatformError;
 use crate::models;
 use std::future::Future;
 use std::pin::Pin;
@@ -12,14 +12,22 @@ pub trait MemoryPlatform: Send + Sync {
   fn get_memory_info(
     &self,
   ) -> Pin<
-    Box<dyn Future<Output = Result<models::hardware::MemoryInfo, String>> + Send + '_>,
+    Box<
+      dyn Future<Output = Result<models::hardware::MemoryInfo, PlatformError>>
+        + Send
+        + '_,
+    >,
   >;
 
   /// Get detailed memory information (supported platforms only)
   fn get_memory_info_detail(
     &self,
   ) -> Pin<
-    Box<dyn Future<Output = Result<models::hardware::MemoryInfo, String>> + Send + '_>,
+    Box<
+      dyn Future<Output = Result<models::hardware::MemoryInfo, PlatformError>>
+        + Send
+        + '_,
+    >,
   >;
 }
 
@@ -29,7 +37,7 @@ pub trait GpuPlatform: Send + Sync {
   /// Get GPU usage together with the data-source name
   fn get_gpu_usage(
     &self,
-  ) -> Pin<Box<dyn Future<Output = Result<GpuUsageRaw, String>> + Send + '_>>;
+  ) -> Pin<Box<dyn Future<Output = Result<GpuUsageRaw, PlatformError>> + Send + '_>>;
 
   /// Get GPU temperatures, always in raw degrees Celsius.
   ///
@@ -40,7 +48,9 @@ pub trait GpuPlatform: Send + Sync {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<models::hardware::NameValue>, String>> + Send + '_,
+      dyn Future<Output = Result<Vec<models::hardware::NameValue>, PlatformError>>
+        + Send
+        + '_,
     >,
   >;
 
@@ -49,7 +59,9 @@ pub trait GpuPlatform: Send + Sync {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Vec<models::hardware::GraphicInfo>, String>> + Send + '_,
+      dyn Future<Output = Result<Vec<models::hardware::GraphicInfo>, PlatformError>>
+        + Send
+        + '_,
     >,
   >;
 
@@ -58,7 +70,7 @@ pub trait GpuPlatform: Send + Sync {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<Option<models::hardware::GpuMemoryUsage>, String>>
+      dyn Future<Output = Result<Option<models::hardware::GpuMemoryUsage>, PlatformError>>
         + Send
         + '_,
     >,
@@ -81,7 +93,7 @@ pub trait NetworkPlatform: Send + Sync {
   #[allow(dead_code)]
   fn get_network_info(
     &self,
-  ) -> Result<Vec<crate::models::hardware::NetworkInfo>, BackendError>;
+  ) -> Result<Vec<crate::models::hardware::NetworkInfo>, PlatformError>;
 }
 
 /// Trait that defines platform-specific motherboard operations
@@ -91,7 +103,9 @@ pub trait MotherboardPlatform: Send + Sync {
     &self,
   ) -> Pin<
     Box<
-      dyn Future<Output = Result<models::hardware::MotherboardInfo, String>> + Send + '_,
+      dyn Future<Output = Result<models::hardware::MotherboardInfo, PlatformError>>
+        + Send
+        + '_,
     >,
   >;
 }
@@ -120,10 +134,10 @@ pub trait SensorPlatform: Send + Sync {
 /// Trait that defines process elevation operations.
 pub trait ProcessElevationPlatform: Send + Sync {
   /// Returns whether the current process is running with elevated privileges.
-  fn is_process_elevated(&self) -> Result<bool, String>;
+  fn is_process_elevated(&self) -> Result<bool, PlatformError>;
 
   /// Relaunch the current executable with elevated privileges.
-  fn relaunch_current_process_elevated(&self) -> Result<(), String>;
+  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError>;
 }
 
 /// Trait that integrates all platform functionality

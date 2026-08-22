@@ -27,7 +27,7 @@ pub async fn restart_app(app_handle: tauri::AppHandle) {
 #[tauri::command]
 #[specta::specta]
 pub fn is_process_elevated() -> Result<bool, String> {
-  crate::services::system_service::is_process_elevated()
+  crate::services::system_service::is_process_elevated().map_err(|e| e.to_string())
 }
 
 /// Stop monitoring and exit the process.

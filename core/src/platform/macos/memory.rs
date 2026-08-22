@@ -1,3 +1,4 @@
+use crate::enums::error::PlatformError;
 use crate::infrastructure::providers;
 use crate::models::hardware::MemoryInfo;
 use crate::utils::formatter::format_size;
@@ -9,9 +10,10 @@ use crate::utils::formatter::format_size;
 ///   `system_profiler SPMemoryDataType -json`.
 ///
 /// `is_detailed` is set to `true` only when at least one detailed field can be extracted.
-pub fn get_memory_info() -> Result<MemoryInfo, String> {
+pub fn get_memory_info() -> Result<MemoryInfo, PlatformError> {
   // Total physical memory bytes.
-  let total_bytes = providers::sysctl::sysctl_u64("hw.memsize")?;
+  let total_bytes =
+    providers::sysctl::sysctl_u64("hw.memsize").map_err(PlatformError::fault)?;
 
   let details = providers::system_profiler_memory::get_raw_spmemory_json()
     .ok()

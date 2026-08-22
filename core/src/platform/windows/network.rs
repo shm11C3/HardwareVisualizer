@@ -1,6 +1,6 @@
-use crate::{enums::error::BackendError, infrastructure, models::hardware::NetworkInfo};
+use crate::{enums::error::PlatformError, infrastructure, models::hardware::NetworkInfo};
 
-pub fn get_network_info() -> Result<Vec<NetworkInfo>, BackendError> {
+pub fn get_network_info() -> Result<Vec<NetworkInfo>, PlatformError> {
   infrastructure::providers::wmi_provider::query_network_info()
-    .map_err(|_| BackendError::UnexpectedError)
+    .map_err(PlatformError::fault)
 }

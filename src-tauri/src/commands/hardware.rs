@@ -67,7 +67,9 @@ pub async fn get_hardware_info(
 pub async fn get_memory_info_detail() -> Result<models::hardware::MemoryInfo, String> {
   use crate::services::memory_service;
 
-  memory_service::fetch_memory_detail().await
+  memory_service::fetch_memory_detail()
+    .await
+    .map_err(|e| e.to_string())
 }
 
 ///
@@ -93,7 +95,9 @@ pub fn get_memory_usage(state: tauri::State<'_, Arc<HistoryStore>>) -> i32 {
 pub async fn get_gpu_usage() -> Result<models::hardware::GpuUsageResult, String> {
   use crate::services::gpu_service;
 
-  gpu_service::fetch_gpu_usage().await
+  gpu_service::fetch_gpu_usage()
+    .await
+    .map_err(|e| e.to_string())
 }
 
 ///
@@ -111,7 +115,9 @@ pub async fn get_gpu_temperature(
     config.temperature_unit.clone()
   };
 
-  gpu_service::fetch_gpu_temperature(temperature_unit).await
+  gpu_service::fetch_gpu_temperature(temperature_unit)
+    .await
+    .map_err(|e| e.to_string())
 }
 
 ///
@@ -127,7 +133,9 @@ pub async fn get_gpu_memory_usage()
 -> Result<Option<models::hardware::GpuMemoryUsage>, String> {
   use crate::services::gpu_service;
 
-  gpu_service::fetch_gpu_memory_usage().await
+  gpu_service::fetch_gpu_memory_usage()
+    .await
+    .map_err(|e| e.to_string())
 }
 
 ///
