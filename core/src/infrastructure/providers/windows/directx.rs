@@ -3,6 +3,7 @@ use crate::{log_debug, log_error};
 
 use dxgi::Factory;
 use dxgi::adapter::AdapterDesc;
+use std::collections::HashMap;
 use tokio::task::spawn_blocking;
 
 /// Lightweight LUID info for a GPU adapter, used to match PDH counters.
@@ -10,6 +11,8 @@ pub struct GpuLuidInfo {
   pub name: String,
   pub luid_high: i32,
   pub luid_low: u32,
+  /// PnP identity, when SetupDi can associate it with this DXGI LUID.
+  pub device_instance_id: Option<String>,
 }
 
 /// Get Intel GPU LUID information for matching with PDH performance counters.
@@ -17,6 +20,15 @@ pub async fn get_intel_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
   let handle = spawn_blocking(|| {
     let factory =
       Factory::new().map_err(|e| format!("Failed to create DXGI Factory: {e:?}"))?;
+    let stable_ids: HashMap<(i32, u32), String> = crate::infrastructure::providers::windows::
+      setupdi_provider::enumerate_display_adapters()
+      .into_iter()
+      .filter_map(|adapter| {
+        let luid = adapter.adapter_luid?;
+        let stable_id = adapter.device_instance_id?;
+        Some((luid, stable_id))
+      })
+      .collect();
     let mut result = Vec::new();
 
     for adapter in factory.adapters() {
@@ -28,6 +40,7 @@ pub async fn get_intel_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
           name: gpu_name.trim_end_matches('\0').to_string(),
           luid_high: luid.HighPart,
           luid_low: luid.LowPart,
+          device_instance_id: stable_ids.get(&(luid.HighPart, luid.LowPart)).cloned(),
         });
       }
     }

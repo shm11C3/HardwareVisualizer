@@ -7,6 +7,7 @@ import {
   hasNoLiveGpuReadings,
   type LiveGpuId,
   listGpuAdapters,
+  migrateLegacyPdhGpuId,
   toLiveGpuId,
 } from "./gpuIdentity";
 
@@ -386,5 +387,49 @@ describe("toLiveGpuId", () => {
         ),
       ),
     ).toBe("a");
+  });
+});
+
+describe("migrateLegacyPdhGpuId", () => {
+  it("migrates a legacy name id when one current PDH adapter matches", () => {
+    expect(
+      migrateLegacyPdhGpuId(
+        "pdh:Intel(R) UHD Graphics 770",
+        names(["pdh:1:2", "Intel(R) UHD Graphics 770"]),
+      ),
+    ).toBe("pdh:1:2");
+  });
+
+  it("refuses to guess when same-name PDH adapters are ambiguous", () => {
+    expect(
+      migrateLegacyPdhGpuId(
+        "pdh:Intel(R) UHD Graphics 770",
+        names(
+          ["pdh:1:2", "Intel(R) UHD Graphics 770"],
+          ["pdh:3:4", "Intel(R) UHD Graphics 770"],
+        ),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("does not rewrite an already current LUID id", () => {
+    expect(
+      migrateLegacyPdhGpuId(
+        "pdh:1:2",
+        names(["pdh:1:2", "Intel(R) UHD Graphics 770"]),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("does not rewrite an already current PnP instance id", () => {
+    expect(
+      migrateLegacyPdhGpuId(
+        "pdh:instance:PCI\\VEN_8086&DEV_1234&1",
+        names([
+          "pdh:instance:PCI\\VEN_8086&DEV_1234&1",
+          "Intel(R) UHD Graphics 770",
+        ]),
+      ),
+    ).toBeUndefined();
   });
 });

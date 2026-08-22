@@ -279,7 +279,11 @@ async fn sample_intel_gpus(gpu_metrics: &mut Vec<GpuSample>) {
     .map(|v| (v * 100.0).round());
 
     gpu_metrics.push(GpuSample {
-      gpu_id: format!("pdh:{}", gpu.name),
+      gpu_id: pdh_gpu_id(
+        gpu.device_instance_id.as_deref(),
+        gpu.luid_high,
+        gpu.luid_low,
+      ),
       name: gpu.name.clone(),
       usage,
       temperature: None,
@@ -288,6 +292,16 @@ async fn sample_intel_gpus(gpu_metrics: &mut Vec<GpuSample>) {
       source: "PDH".to_string(),
     });
   }
+}
+
+/// Build the live id for an Intel adapter sampled through PDH.
+///
+/// The DXGI LUID identifies the physical adapter independently of its display
+/// name, which is not unique when Windows exposes two same-model adapters.
+fn pdh_gpu_id(device_instance_id: Option<&str>, luid_high: i32, luid_low: u32) -> String {
+  device_instance_id
+    .map(|id| format!("pdh:instance:{id}"))
+    .unwrap_or_else(|| format!("pdh:{luid_high}:{luid_low}"))
 }
 
 #[cfg(test)]
@@ -327,5 +341,19 @@ mod tests {
       resolve_gpu_name_from_bdf_map(&map, "fallback", 9, 0, 0),
       "fallback"
     );
+  }
+
+  #[test]
+  fn pdh_gpu_id_prefers_reboot_stable_device_identity() {
+    assert_eq!(
+      pdh_gpu_id(Some(r"PCI\VEN_8086&DEV_1234&1"), 1, 2),
+      r"pdh:instance:PCI\VEN_8086&DEV_1234&1"
+    );
+  }
+
+  #[test]
+  fn pdh_gpu_id_falls_back_to_luid_when_device_identity_is_unavailable() {
+    assert_eq!(pdh_gpu_id(None, 1, 2), "pdh:1:2");
+    assert_ne!(pdh_gpu_id(None, 1, 2), pdh_gpu_id(None, 3, 4));
   }
 }

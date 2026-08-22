@@ -133,6 +133,39 @@ describe("useSelectedGpuPersistence", () => {
     expect(mocks.setStored).not.toHaveBeenCalled();
   });
 
+  it("migrates a legacy Intel PDH name id when one current adapter matches", () => {
+    mocks.storeValue = "pdh:Intel(R) UHD Graphics 770";
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames(
+        liveMap({ "pdh:1:2": "Intel(R) UHD Graphics 770" }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("pdh:1:2");
+    expect(mocks.setStored).toHaveBeenLastCalledWith("pdh:1:2");
+    expect(mocks.init).not.toHaveBeenCalled();
+  });
+
+  it("keeps an ambiguous legacy Intel PDH intent instead of guessing", () => {
+    mocks.storeValue = "pdh:Intel(R) UHD Graphics 770";
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() =>
+      result.current.setNames(
+        liveMap({
+          "pdh:1:2": "Intel(R) UHD Graphics 770",
+          "pdh:3:4": "Intel(R) UHD Graphics 770",
+        }),
+      ),
+    );
+
+    expect(result.current.selected).toBe("pdh:Intel(R) UHD Graphics 770");
+    expect(mocks.setStored).not.toHaveBeenCalled();
+    expect(mocks.init).not.toHaveBeenCalled();
+  });
+
   it("fetches the inventory itself when a stored id cannot be resolved", () => {
     // A restart into Monitor or Compact mounts nothing that fetches the
     // inventory, and the migration cannot read what nothing has fetched.
