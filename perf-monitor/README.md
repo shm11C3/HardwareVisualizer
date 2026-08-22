@@ -18,8 +18,8 @@ cargo perf-test -- --binary src-tauri/target/release/hardware-visualizer.exe
 | ---------------------- | ---------------------- | ---------------------------------- |
 | `--binary <PATH>`      | _(required)_           | Path to the target binary          |
 | `--config <PATH>`      | `perf-thresholds.toml` | Path to the threshold config file  |
-| `--warmup <SECONDS>`   | From config (10)       | Warmup duration before measurement |
-| `--duration <SECONDS>` | From config (30)       | Measurement duration               |
+| `--warmup <SECONDS>`   | From config (15)       | Minimum warmup before stabilization |
+| `--duration <SECONDS>` | From config (60)       | Measurement duration               |
 | `--output <FORMAT>`    | `text`                 | Output format: `text` or `json`    |
 
 ### Examples
@@ -50,8 +50,9 @@ max_p95_memory_mb = 500.0      # 95th percentile process-tree RSS in MB, includi
 max_memory_growth_mb = 50.0    # Process-tree memory growth over measurement
 
 [timing]
-warmup_seconds = 10            # Skip initial startup spike
-measurement_seconds = 30       # Measurement window
+warmup_seconds = 15            # Minimum delay before stabilization checks
+stabilization_timeout_seconds = 45 # Maximum additional stabilization wait
+measurement_seconds = 60       # Measurement window
 sample_interval_ms = 1000      # Sampling frequency
 ```
 
@@ -84,10 +85,16 @@ Only the fields you specify are overridden; others inherit from `[thresholds]`.
 ## How It Works
 
 1. **Launch** - Spawns the target binary as a subprocess
-2. **Warmup** - Waits for the app to stabilize (skips initialization spike)
-3. **Measure** - Samples CPU and process-tree RSS at `sample_interval_ms` intervals using `sysinfo`
-4. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
-5. **Report** - Computes statistics (avg, max, P95, memory growth) and checks against thresholds
+2. **Minimum warmup** - Waits for the configured startup delay
+3. **Stabilize** - Samples once per second until the same helper PID set and stable component RSS are observed for 10 consecutive samples, or fails after `stabilization_timeout_seconds`
+4. **Measure** - Samples CPU and process-tree RSS at `sample_interval_ms` intervals using `sysinfo`
+5. **Terminate** - Kills the process (RAII guard ensures cleanup on errors)
+6. **Report** - Computes statistics (avg, max, P95, memory growth) and checks against thresholds
+
+RSS is considered stable when the median shift between the first and second
+halves of the 10-sample window is at most 5 MiB for the app, WebView, and other
+helper components. A fixed delay alone is insufficient because shared runners
+can finish WebView startup at different times.
 
 Memory samples track both the launched app process RSS and the total process-tree RSS that includes associated helper processes. Helpers are discovered by walking the `parent()` chain from the launched PID. Windows and macOS also include WebView helper processes that were created after launch and expose the target app identity in process metadata, because WebView helpers are not always reliably parented under the app PID.
 
@@ -98,7 +105,7 @@ Memory samples track both the launched app process RSS and the total process-tre
 | CPU Avg / P95    | Launched process CPU usage normalized by logical CPU count (0-100%)      |
 | App Memory Avg / P95 | Launched app process Resident Set Size (RSS) in MB                   |
 | Total Memory Avg / P95 | Total process-tree RSS in MB, including WebView                  |
-| Memory Growth    | Last RSS sample minus first sample for each memory budget                 |
+| Memory Growth    | Median of the last five RSS samples minus the median of the first five samples for each memory budget |
 | Memory Breakdown | Parent, WebView, and other helper RSS breakdown in text and JSON reports |
 
 ### Exit Code

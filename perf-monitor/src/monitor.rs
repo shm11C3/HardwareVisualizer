@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -8,9 +8,11 @@ use std::time::Duration;
 
 use sysinfo::{Pid, Process, ProcessesToUpdate, System};
 
-use crate::config::Timing;
+use crate::config::{STABILITY_WINDOW_SAMPLES, Timing};
 
 const BYTES_PER_MIB: f64 = 1024.0 * 1024.0;
+const GROWTH_WINDOW_SAMPLES: usize = 5;
+const STABILITY_MAX_MEDIAN_SHIFT_MB: f64 = 5.0;
 const STDERR_BUFFER_LIMIT_BYTES: usize = 64 * 1024;
 const STDERR_READ_CHUNK_BYTES: usize = 8 * 1024;
 const WEBVIEW_PROCESS_MARKERS: &[&str] = &[
@@ -94,6 +96,14 @@ struct ProcessMemoryBreakdown {
   other_process_memory_bytes: u64,
   process_count: usize,
   webview_process_count: usize,
+}
+
+#[derive(Debug)]
+struct StabilitySample {
+  process_ids: HashSet<Pid>,
+  parent_memory_rss_mb: f64,
+  webview_memory_rss_mb: f64,
+  other_process_memory_rss_mb: f64,
 }
 
 /// RAII guard that ensures the child process is terminated on drop.
@@ -203,9 +213,14 @@ pub fn run_monitor(
   // Initial refresh to establish CPU baselines and discover helper processes.
   system.refresh_processes(ProcessesToUpdate::All, true);
 
-  eprintln!("Warming up for {} seconds...", timing.warmup_seconds);
+  eprintln!(
+    "Warming up for at least {} seconds...",
+    timing.warmup_seconds
+  );
 
-  // Warmup phase: wait for app to stabilize
+  // Keep the configured warmup as a minimum. Startup work can take longer on
+  // shared runners, so measurement starts only after both the tracked helper
+  // set and component RSS have remained stable for a rolling window.
   for _ in 0..timing.warmup_seconds {
     thread::sleep(Duration::from_secs(1));
     if guard.child.try_wait()?.is_some() {
@@ -213,6 +228,58 @@ pub fn run_monitor(
     }
     system.refresh_processes(ProcessesToUpdate::All, true);
   }
+
+  eprintln!(
+    "Waiting up to {} seconds for process memory and helpers to stabilize...",
+    timing.stabilization_timeout_seconds
+  );
+
+  let mut stability_samples = VecDeque::with_capacity(STABILITY_WINDOW_SAMPLES);
+  let mut stabilization_seconds = 0;
+  let mut stabilized = false;
+
+  for _ in 0..timing.stabilization_timeout_seconds {
+    thread::sleep(Duration::from_secs(1));
+    stabilization_seconds += 1;
+
+    if guard.child.try_wait()?.is_some() {
+      return Err(format_exit_error(&mut guard, "stabilization", binary_path));
+    }
+
+    system.refresh_processes(ProcessesToUpdate::All, true);
+
+    let Some((metrics, process_ids)) = tracker.sample_with_process_ids(&system, num_cpus)
+    else {
+      if guard.child.try_wait()?.is_some() {
+        return Err(format_exit_error(&mut guard, "stabilization", binary_path));
+      }
+      return Err("Process disappeared during stabilization".into());
+    };
+
+    if stability_samples.len() == STABILITY_WINDOW_SAMPLES {
+      stability_samples.pop_front();
+    }
+    stability_samples.push_back(StabilitySample::new(metrics, process_ids));
+
+    if process_tree_is_stable(&stability_samples) {
+      stabilized = true;
+      break;
+    }
+  }
+
+  if !stabilized {
+    return Err(format!(
+      "Process tree did not stabilize within {} seconds after the {}-second minimum warmup",
+      timing.stabilization_timeout_seconds, timing.warmup_seconds
+    )
+    .into());
+  }
+
+  let actual_warmup_seconds = timing.warmup_seconds + stabilization_seconds;
+  eprintln!(
+    "Process tree stabilized after {} seconds ({} consecutive samples).",
+    actual_warmup_seconds, STABILITY_WINDOW_SAMPLES
+  );
 
   eprintln!(
     "Measuring for {} seconds (interval: {}ms)...",
@@ -253,8 +320,59 @@ pub fn run_monitor(
   Ok(compute_result(
     samples,
     timing.measurement_seconds,
-    timing.warmup_seconds,
+    actual_warmup_seconds,
   ))
+}
+
+impl StabilitySample {
+  fn new(metrics: ProcessMetrics, process_ids: HashSet<Pid>) -> Self {
+    Self {
+      process_ids,
+      parent_memory_rss_mb: metrics.parent_memory_rss_mb,
+      webview_memory_rss_mb: metrics.webview_memory_rss_mb,
+      other_process_memory_rss_mb: metrics.other_process_memory_rss_mb,
+    }
+  }
+}
+
+fn process_tree_is_stable(samples: &VecDeque<StabilitySample>) -> bool {
+  if samples.len() < STABILITY_WINDOW_SAMPLES {
+    return false;
+  }
+
+  let Some(first) = samples.front() else {
+    return false;
+  };
+
+  if samples
+    .iter()
+    .any(|sample| sample.process_ids != first.process_ids)
+  {
+    return false;
+  }
+
+  memory_component_is_stable(samples.iter().map(|sample| sample.parent_memory_rss_mb))
+    && memory_component_is_stable(
+      samples.iter().map(|sample| sample.webview_memory_rss_mb),
+    )
+    && memory_component_is_stable(
+      samples
+        .iter()
+        .map(|sample| sample.other_process_memory_rss_mb),
+    )
+}
+
+fn memory_component_is_stable(values: impl Iterator<Item = f64>) -> bool {
+  let values = values.collect::<Vec<_>>();
+  let midpoint = values.len() / 2;
+  if midpoint == 0 {
+    return false;
+  }
+
+  let first_median = percentile_f64(&values[..midpoint], 50.0);
+  let last_median = percentile_f64(&values[midpoint..], 50.0);
+
+  (last_median - first_median).abs() <= STABILITY_MAX_MEDIAN_SHIFT_MB
 }
 
 impl ProcessTracker {
@@ -290,15 +408,36 @@ impl ProcessTracker {
   }
 
   fn sample(&self, system: &System, num_cpus: f32) -> Option<ProcessMetrics> {
-    let processes = snapshot_processes(system);
-    self.sample_from_snapshots(&processes, num_cpus)
+    self
+      .sample_with_process_ids(system, num_cpus)
+      .map(|(metrics, _)| metrics)
   }
 
+  fn sample_with_process_ids(
+    &self,
+    system: &System,
+    num_cpus: f32,
+  ) -> Option<(ProcessMetrics, HashSet<Pid>)> {
+    let processes = snapshot_processes(system);
+    self.sample_with_process_ids_from_snapshots(&processes, num_cpus)
+  }
+
+  #[cfg(test)]
   fn sample_from_snapshots(
     &self,
     processes: &HashMap<Pid, ProcessSnapshot>,
     num_cpus: f32,
   ) -> Option<ProcessMetrics> {
+    self
+      .sample_with_process_ids_from_snapshots(processes, num_cpus)
+      .map(|(metrics, _)| metrics)
+  }
+
+  fn sample_with_process_ids_from_snapshots(
+    &self,
+    processes: &HashMap<Pid, ProcessSnapshot>,
+    num_cpus: f32,
+  ) -> Option<(ProcessMetrics, HashSet<Pid>)> {
     let root_process = processes.get(&self.root_pid)?;
     let tracked_pids = self.tracked_pids_from_snapshots(processes);
     let breakdown = process_memory_breakdown(&tracked_pids, self.root_pid, processes);
@@ -306,7 +445,7 @@ impl ProcessTracker {
       + breakdown.webview_memory_bytes
       + breakdown.other_process_memory_bytes;
 
-    Some(ProcessMetrics {
+    let metrics = ProcessMetrics {
       // Keep CPU semantics scoped to the launched process; issue #1579 changes
       // the RSS accounting that feeds memory thresholds.
       cpu_usage: root_process.cpu_usage / num_cpus,
@@ -316,7 +455,9 @@ impl ProcessTracker {
       other_process_memory_rss_mb: bytes_to_mib(breakdown.other_process_memory_bytes),
       process_count: breakdown.process_count,
       webview_process_count: breakdown.webview_process_count,
-    })
+    };
+
+    Some((metrics, tracked_pids))
   }
 
   fn tracked_pids_from_snapshots(
@@ -709,8 +850,11 @@ where
   let avg_mb = values.iter().sum::<f64>() / values.len() as f64;
   let max_mb = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
   let p95_mb = percentile_f64(&values, 95.0);
-  let first_mb = values.first().copied().unwrap_or(0.0);
-  let last_mb = values.last().copied().unwrap_or(0.0);
+  // Endpoint medians preserve the start-to-end growth signal without letting
+  // one allocation or reclamation sample decide the gate.
+  let growth_window_samples = GROWTH_WINDOW_SAMPLES.min(values.len() / 2).max(1);
+  let first_mb = percentile_f64(&values[..growth_window_samples], 50.0);
+  let last_mb = percentile_f64(&values[values.len() - growth_window_samples..], 50.0);
 
   MemoryStats {
     avg_mb,
@@ -743,6 +887,7 @@ fn percentile_f64(values: &[f64], pct: f64) -> f64 {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::collections::VecDeque;
 
   #[test]
   fn percentile_f32_empty_returns_zero() {
@@ -828,6 +973,75 @@ mod tests {
     assert!((result.webview_memory.growth_mb - 45.0).abs() < 0.01);
     assert_eq!(result.max_process_count, 3);
     assert_eq!(result.max_webview_process_count, 1);
+  }
+
+  #[test]
+  fn memory_growth_uses_endpoint_window_medians() {
+    let values = [
+      900.0, 100.0, 102.0, 98.0, 101.0, 150.0, 148.0, 151.0, 149.0, 1000.0,
+    ];
+    let samples = values
+      .into_iter()
+      .map(|memory| sample(0.0, memory, memory, 0.0, 0.0))
+      .collect::<Vec<_>>();
+
+    let stats = memory_stats(&samples, |sample| sample.memory_rss_mb);
+
+    // First-window median = 101 MB, last-window median = 150 MB. The
+    // individual 900/1000 MB endpoints must not determine growth.
+    assert!((stats.growth_mb - 49.0).abs() < 0.01);
+  }
+
+  #[test]
+  fn process_tree_stability_requires_a_full_window_with_the_same_helpers() {
+    let mut samples = VecDeque::from(
+      (0..STABILITY_WINDOW_SAMPLES)
+        .map(|_| stability_sample(&[10, 11], 70.0, 400.0, 0.0))
+        .collect::<Vec<_>>(),
+    );
+    samples[STABILITY_WINDOW_SAMPLES / 2] =
+      stability_sample(&[10, 11, 12], 70.0, 400.0, 0.0);
+
+    assert!(!process_tree_is_stable(&samples));
+
+    samples.pop_front();
+    samples.push_back(stability_sample(&[10, 11], 70.0, 400.0, 0.0));
+    assert!(!process_tree_is_stable(&samples));
+
+    while samples
+      .iter()
+      .any(|sample| sample.process_ids.contains(&pid(12)))
+    {
+      samples.pop_front();
+      samples.push_back(stability_sample(&[10, 11], 70.0, 400.0, 0.0));
+    }
+
+    assert!(process_tree_is_stable(&samples));
+  }
+
+  #[test]
+  fn process_tree_stability_waits_for_rss_growth_to_settle() {
+    let mut samples = VecDeque::from(
+      (0..STABILITY_WINDOW_SAMPLES)
+        .map(|index| {
+          let webview_memory = if index < STABILITY_WINDOW_SAMPLES / 2 {
+            100.0
+          } else {
+            130.0
+          };
+          stability_sample(&[10, 11], 70.0, webview_memory, 0.0)
+        })
+        .collect::<Vec<_>>(),
+    );
+
+    assert!(!process_tree_is_stable(&samples));
+
+    for _ in 0..STABILITY_WINDOW_SAMPLES {
+      samples.pop_front();
+      samples.push_back(stability_sample(&[10, 11], 70.0, 130.0, 0.0));
+    }
+
+    assert!(process_tree_is_stable(&samples));
   }
 
   #[test]
@@ -1127,6 +1341,20 @@ mod tests {
       other_process_memory_rss_mb,
       process_count: 3,
       webview_process_count: 1,
+    }
+  }
+
+  fn stability_sample(
+    process_ids: &[u32],
+    parent_memory_rss_mb: f64,
+    webview_memory_rss_mb: f64,
+    other_process_memory_rss_mb: f64,
+  ) -> StabilitySample {
+    StabilitySample {
+      process_ids: process_ids.iter().copied().map(pid).collect(),
+      parent_memory_rss_mb,
+      webview_memory_rss_mb,
+      other_process_memory_rss_mb,
     }
   }
 }
