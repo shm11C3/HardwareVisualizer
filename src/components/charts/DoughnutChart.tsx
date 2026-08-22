@@ -189,9 +189,10 @@ export const DoughnutChart = ({
         </g>
 
         {/*
-          The readout lives inside the view box so it scales with the gauge.
-          The container is half size below xl, and CSS pixel sizes on an HTML
-          overlay would not follow it — the text would swamp the ring.
+          The readout is drawn in the view box rather than as an overlay so it
+          shares one coordinate system with the ring: its offsets are stated
+          against the same centre, and any future change to the view box moves
+          both together.
         */}
         <text
           x={center}
