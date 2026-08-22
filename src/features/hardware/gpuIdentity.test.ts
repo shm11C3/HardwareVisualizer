@@ -420,4 +420,16 @@ describe("migrateLegacyPdhGpuId", () => {
       ),
     ).toBeUndefined();
   });
+
+  it("does not rewrite an already current PnP instance id", () => {
+    expect(
+      migrateLegacyPdhGpuId(
+        "pdh:instance:PCI\\VEN_8086&DEV_1234&1",
+        names([
+          "pdh:instance:PCI\\VEN_8086&DEV_1234&1",
+          "Intel(R) UHD Graphics 770",
+        ]),
+      ),
+    ).toBeUndefined();
+  });
 });

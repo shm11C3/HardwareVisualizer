@@ -44,7 +44,13 @@ sqlx = { version = "0.8.6", features = [
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"
 dxgi = "0.1.7"
-winapi = { version = "0.3", features = ["dxgi", "setupapi", "devguid"] }
+winapi = { version = "0.3", features = [
+    "dxgi",
+    "setupapi",
+    "devguid",
+    "devpkey",
+    "devpropdef",
+] }
 windows = { version = "0.62.2", features = [
     "Data_Xml_Dom",
     "Win32_Foundation",

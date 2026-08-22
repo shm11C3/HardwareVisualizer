@@ -275,7 +275,7 @@ export const toLiveGpuId = (
   return matches.length === 1 ? matches[0][0] : asLiveGpuId(gpu.id);
 };
 
-const CURRENT_PDH_GPU_ID = /^pdh:-?\d+:\d+$/;
+const CURRENT_PDH_GPU_ID = /^pdh:(?:instance:.+|-?\d+:\d+)$/;
 
 /**
  * Translate the pre-LUID Intel PDH id when the current live stream can name

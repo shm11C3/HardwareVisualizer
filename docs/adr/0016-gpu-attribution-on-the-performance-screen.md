@@ -40,7 +40,10 @@ there is no longer anything to honor.
 The `getHardwareInfo` inventory and the monitor stream key their GPUs in
 different namespaces on every platform. Windows NVIDIA reports the raw NVAPI id
 as `GraphicInfo.id` but samples as `nvapi:<id>`; Windows Intel PDH samples use
-the DXGI adapter LUID as `pdh:<luid_high>:<luid_low>`; macOS pairs
+the reboot-stable PnP device instance id as
+`pdh:instance:<device_instance_id>` when SetupDi can associate it with the
+DXGI adapter LUID, and fall back to `pdh:<luid_high>:<luid_low>` when it
+cannot; macOS pairs
 `0x<registry_id>` with `iokit:<name>`; Linux pairs `card<n>` with the PCI BDF.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
 across. The frontend enforces this at compile time: live ids carry the branded
@@ -91,10 +94,11 @@ old intent is preserved and the display fallback is used rather than guessing.
 An id that cannot address readings is what leaves the card's highlight and the
 graphs describing different adapters.
 
-The Hardware Archive stores both GPU id and name, but archive queries select by
-name. Changing the live Intel id therefore separates future per-id collection
-and archive rows without requiring a historical id migration or changing name
-based archive retrieval.
+The Hardware Archive stores both GPU id and name for distinct live identities,
+but archive queries select by name. When multiple live identities share one
+name, the archive writer aggregates them into one row per name and interval;
+this preserves the existing name-based archive API without interleaving two
+devices into one chart. No historical id migration is required.
 
 Where the join is ambiguous, the caller refuses rather than falls back: the
 classic card claims no adapter identity for a selection it cannot resolve,
