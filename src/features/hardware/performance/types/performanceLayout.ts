@@ -7,6 +7,7 @@ export const performancePanelIds = [
   "processTable",
   "perCore",
   "motherboardSensors",
+  "power",
 ] as const;
 
 export type PerformancePanelId = (typeof performancePanelIds)[number];
@@ -45,6 +46,7 @@ export const DEFAULT_PERFORMANCE_VIEW: PerformanceView = "panels";
 const DEFAULT_VISIBLE_PANELS: readonly PerformancePanelId[] = [
   "usageGraphs",
   "processTable",
+  "power",
 ];
 
 export const DEFAULT_PERFORMANCE_CUSTOM_LAYOUT: PerformanceCustomLayout = {

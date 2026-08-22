@@ -31,20 +31,32 @@ describe("performance layout normalization", () => {
         visible: ["processTable", "futurePanel"],
       }),
     ).toEqual({
-      order: ["processTable", "usageGraphs", "perCore", "motherboardSensors"],
-      visible: ["processTable"],
+      order: [
+        "processTable",
+        "usageGraphs",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["processTable", "power"],
     });
   });
 
-  it("appends newly introduced default-hidden panels as hidden", () => {
+  it("appends new panels according to their default visibility", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs", "processTable"],
         visible: ["usageGraphs", "processTable"],
       }),
     ).toEqual({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs", "processTable"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
     });
   });
 
@@ -55,18 +67,24 @@ describe("performance layout normalization", () => {
         visible: ["usageGraphs"],
       }),
     ).toEqual({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs", "processTable"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
     });
   });
 
-  it("preserves an intentionally empty visible selection", () => {
+  it("adds a newly introduced default-visible panel to an older empty layout", () => {
     expect(
       normalizePerformanceCustomLayout({
         order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
         visible: [],
       }).visible,
-    ).toEqual([]);
+    ).toEqual(["power"]);
   });
 
   it("drops the retired currentValues panel from legacy layouts", () => {
@@ -76,8 +94,14 @@ describe("performance layout normalization", () => {
         visible: ["currentValues", "usageGraphs"],
       }),
     ).toEqual({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "power"],
     });
   });
 

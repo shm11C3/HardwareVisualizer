@@ -292,6 +292,12 @@
       "currentValues": "現在値",
       "perCoreUnavailable": "このシステムではコア別使用率を利用できません。",
       "motherboardSensorsUnavailable": "このシステムではマザーボードセンサーを検出できません。",
+      "power": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "ane": "ANE",
+        "package": "パッケージ"
+      },
       "gpuSelector": "GPU を選択",
       "gpuNoLiveReadings": "このアダプタはライブ値を報告していません。",
       "compactGpuAdapter": "GPU: {{name}}",
@@ -309,7 +315,8 @@
         "usageGraphs": "使用率グラフ",
         "processTable": "ライブプロセス",
         "perCore": "コア別使用率",
-        "motherboardSensors": "マザーボードセンサー"
+        "motherboardSensors": "マザーボードセンサー",
+        "power": "消費電力"
       },
       "panelColumns": "パネルの列数",
       "columns": {

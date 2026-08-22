@@ -10,8 +10,8 @@
 use crate::collector::HistoryStore;
 use crate::models::{
   ExternalComponentGuidanceCandidate, GpuMetric, GpuSample, MetricsSnapshot,
-  MotherboardSensorCollection, MotherboardSensorSample, ProcessSample, SensorTemperature,
-  TemperatureSample,
+  MotherboardSensorCollection, MotherboardSensorSample, PowerDraw, ProcessSample,
+  SensorTemperature, TemperatureSample,
 };
 use crate::platform::factory::PlatformFactory;
 
@@ -125,6 +125,12 @@ pub async fn sample_gpu(store: &HistoryStore) -> Vec<GpuSample> {
   gpu_metrics
 }
 
+pub fn sample_power_draw() -> PowerDraw {
+  PlatformFactory::create()
+    .map(|platform| platform.sample_power_draw())
+    .unwrap_or_default()
+}
+
 /// Build the per-GPU metrics carried in [`MetricsSnapshot`]. Temperatures
 /// are forwarded as raw °C; the App-side adapter applies the user's
 /// preferred unit.
@@ -149,6 +155,7 @@ fn build_gpu_metrics(gpu_samples: &[GpuSample]) -> Vec<GpuMetric> {
 pub fn build_metrics_snapshot(
   system_sample: &SystemSample,
   gpu_samples: &[GpuSample],
+  power_draw: PowerDraw,
   temperature_sample: &TemperatureSample,
   motherboard_sample: &MotherboardSensorSample,
   motherboard_guidance_candidates: &[ExternalComponentGuidanceCandidate],
@@ -158,6 +165,7 @@ pub fn build_metrics_snapshot(
     memory_usage: system_sample.memory_usage,
     processors_usage: system_sample.processors_usage.clone(),
     gpus: build_gpu_metrics(gpu_samples),
+    power_draw,
     processes: system_sample.processes.clone(),
     cpu_temperature: temperature_sample.cpu_temperature.map(|t| t.round()),
     sensor_temperatures: temperature_sample
@@ -402,6 +410,7 @@ mod tests {
     let snap = build_metrics_snapshot(
       &sys,
       &gpus,
+      PowerDraw::default(),
       &TemperatureSample::default(),
       &MotherboardSensorSample::default(),
       &[],
@@ -416,6 +425,32 @@ mod tests {
     assert_eq!(snap.processes[0].name, "init");
     assert_eq!(snap.cpu_temperature, None);
     assert!(snap.sensor_temperatures.is_empty());
+  }
+
+  #[test]
+  fn snapshot_carries_live_power_without_filling_missing_components() {
+    let snapshot = build_metrics_snapshot(
+      &SystemSample {
+        cpu_usage: 0.0,
+        memory_usage: 0.0,
+        processors_usage: vec![],
+        processes: vec![],
+      },
+      &[make_sample("gpu:0", "GPU", Some(50.0), None)],
+      PowerDraw {
+        cpu_watts: Some(10.1),
+        gpu_watts: Some(2.2),
+        ..Default::default()
+      },
+      &TemperatureSample::default(),
+      &MotherboardSensorSample::default(),
+      &[],
+    );
+
+    assert_eq!(snapshot.power_draw.cpu_watts, Some(10.1));
+    assert_eq!(snapshot.power_draw.gpu_watts, Some(2.2));
+    assert_eq!(snapshot.power_draw.ane_watts, None);
+    assert_eq!(snapshot.power_draw.package_watts, None);
   }
 
   #[test]
@@ -441,8 +476,14 @@ mod tests {
       availability: SensorAvailability::Available,
       guidance_candidates: Vec::new(),
     };
-    let snap =
-      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default(), &[]);
+    let snap = build_metrics_snapshot(
+      &sys,
+      &[],
+      PowerDraw::default(),
+      &temps,
+      &MotherboardSensorSample::default(),
+      &[],
+    );
     assert_eq!(snap.cpu_temperature, Some(50.0));
     assert_eq!(
       snap.sensor_temperatures,
@@ -484,6 +525,7 @@ mod tests {
     let snap = build_metrics_snapshot(
       &sys,
       &[],
+      PowerDraw::default(),
       &TemperatureSample::default(),
       &motherboard_sample,
       &[],
@@ -519,8 +561,14 @@ mod tests {
       guidance_candidates: vec![candidate.clone()],
     };
 
-    let snap =
-      build_metrics_snapshot(&sys, &[], &temps, &MotherboardSensorSample::default(), &[]);
+    let snap = build_metrics_snapshot(
+      &sys,
+      &[],
+      PowerDraw::default(),
+      &temps,
+      &MotherboardSensorSample::default(),
+      &[],
+    );
 
     assert_eq!(snap.external_component_guidance_candidates, vec![candidate]);
   }
@@ -540,6 +588,7 @@ mod tests {
     let snap = build_metrics_snapshot(
       &sys,
       &[],
+      PowerDraw::default(),
       &TemperatureSample::default(),
       &MotherboardSensorSample::default(),
       std::slice::from_ref(&candidate),

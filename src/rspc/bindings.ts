@@ -448,6 +448,10 @@ export type HardwareMonitorUpdate = {
 	memoryUsage: number,
 	gpus: GpuMonitorData[],
 	processorsUsage: number[],
+	cpuPowerWatts: number | null,
+	gpuPowerWatts: number | null,
+	anePowerWatts: number | null,
+	packagePowerWatts: number | null,
 	// Headline CPU temperature in the user's preferred unit. Currently Windows only.
 	cpuTemperature: number | null,
 	// All named temperature sensors (thermal zones) in the user's preferred unit.

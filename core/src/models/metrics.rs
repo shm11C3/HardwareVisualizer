@@ -14,6 +14,14 @@ pub struct GpuSample {
   pub source: String,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct PowerDraw {
+  pub cpu_watts: Option<f32>,
+  pub gpu_watts: Option<f32>,
+  pub ane_watts: Option<f32>,
+  pub package_watts: Option<f32>,
+}
+
 /// One sample of per-GPU metrics, normalized across vendors and platforms.
 ///
 /// `None` indicates the metric is unavailable for this vendor/platform.
@@ -190,6 +198,9 @@ pub struct MetricsSnapshot {
   pub memory_usage: f32,
   pub processors_usage: Vec<f32>,
   pub gpus: Vec<GpuMetric>,
+  /// Live Apple Silicon power readings in watts. All fields are `None` when
+  /// unsupported, not sampled yet, or invalid for the current tick.
+  pub power_draw: PowerDraw,
   pub processes: Vec<ProcessSample>,
   /// Headline CPU temperature in raw °C. `None` when no readable sensor
   /// exists on this platform (currently collected on Windows only).

@@ -50,6 +50,12 @@ _Avoid_: Hardware Dashboard, Hardware Archive, utilization report, debug log
 A short-window live history chart of recent hardware utilization.
 _Avoid_: History, insight chart, hardware archive, snapshot chart
 
+**Power Draw**:
+The live electrical power consumed by the CPU, GPU, Apple Neural Engine (ANE),
+and their derived package total, expressed in watts when the platform reports
+the required energy readings.
+_Avoid_: Energy usage, battery usage, power history, estimated TDP
+
 **Display Target**:
 A hardware category selected for display in Usage Graphs.
 _Avoid_: Dashboard item, visible item, insight tab

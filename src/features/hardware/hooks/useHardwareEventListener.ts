@@ -18,6 +18,7 @@ import {
   memoryUsageHistoryAtom,
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
+  powerDrawAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -56,6 +57,7 @@ export const useHardwareEventListener = () => {
   const setSensorTemps = useSetAtom(sensorTempsAtom);
   const setMotherboardTemps = useSetAtom(motherboardTempsAtom);
   const setMotherboardFanSpeeds = useSetAtom(motherboardFanSpeedsAtom);
+  const setPowerDraw = useSetAtom(powerDrawAtom);
 
   const handleHardwareUpdate = useCallback(
     (event: { payload: HardwareMonitorUpdate }) => {
@@ -72,6 +74,10 @@ export const useHardwareEventListener = () => {
         sensorTemperatures,
         motherboardTemperatures,
         motherboardFanSpeeds,
+        cpuPowerWatts,
+        gpuPowerWatts,
+        anePowerWatts,
+        packagePowerWatts,
       } = event.payload;
 
       const currentGpuIds = gpus.map((gpu) => asLiveGpuId(gpu.gpuId));
@@ -110,6 +116,12 @@ export const useHardwareEventListener = () => {
       setSensorTemps(sensorTemperatures);
       setMotherboardTemps(motherboardTemperatures);
       setMotherboardFanSpeeds(motherboardFanSpeeds);
+      setPowerDraw({
+        cpuWatts: cpuPowerWatts,
+        gpuWatts: gpuPowerWatts,
+        aneWatts: anePowerWatts,
+        packageWatts: packagePowerWatts,
+      });
 
       // Per-GPU usage histories
       setGpuHistories((prev) => {
@@ -241,6 +253,7 @@ export const useHardwareEventListener = () => {
       setSensorTemps,
       setMotherboardTemps,
       setMotherboardFanSpeeds,
+      setPowerDraw,
     ],
   );
   useEffect(() => {

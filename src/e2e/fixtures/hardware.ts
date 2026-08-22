@@ -239,6 +239,10 @@ export const buildHardwareUpdateSeries = (
     processorsUsage: Array.from({ length: 8 }, (_, core) =>
       round1(40 + 30 * Math.sin(i / 4 + core)),
     ),
+    cpuPowerWatts: round1(12 + 3 * Math.sin(i / 5)),
+    gpuPowerWatts: round1(4 + 2 * Math.sin(i / 4)),
+    anePowerWatts: 0.5,
+    packagePowerWatts: round1(16.5 + 3 * Math.sin(i / 5) + 2 * Math.sin(i / 4)),
     cpuTemperature: Math.round(50 + 8 * Math.sin(i / 5)),
     sensorTemperatures: [
       { name: "CPUZ", value: Math.round(50 + 8 * Math.sin(i / 5)) },

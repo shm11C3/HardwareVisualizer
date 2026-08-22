@@ -16,8 +16,14 @@ let compactExpanded: unknown = false;
 
 let view: PerformanceView = "panels";
 let customLayout: PerformanceCustomLayout = {
-  order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-  visible: ["usageGraphs", "processTable"],
+  order: [
+    "usageGraphs",
+    "processTable",
+    "perCore",
+    "motherboardSensors",
+    "power",
+  ],
+  visible: ["usageGraphs", "processTable", "power"],
 };
 
 vi.mock("@/hooks/useTauriStore", () => ({
@@ -29,8 +35,14 @@ describe("usePerformanceLayout", () => {
     vi.clearAllMocks();
     view = "panels";
     customLayout = {
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs", "processTable"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
     };
     columns = 1;
     compactExpanded = false;
@@ -132,14 +144,26 @@ describe("usePerformanceLayout", () => {
     });
 
     expect(setCustomLayout).toHaveBeenCalledWith({
-      order: ["processTable", "usageGraphs", "perCore", "motherboardSensors"],
-      visible: ["usageGraphs", "processTable"],
+      order: [
+        "processTable",
+        "usageGraphs",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["usageGraphs", "processTable", "power"],
     });
   });
 
   it("allows hiding the final visible panel because instruments stay mounted", async () => {
     customLayout = {
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
       visible: ["usageGraphs"],
     };
     const { result } = renderHook(() => usePerformanceLayout());
@@ -151,7 +175,13 @@ describe("usePerformanceLayout", () => {
 
     expect(changed).toBe(true);
     expect(setCustomLayout).toHaveBeenCalledWith({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
       visible: [],
     });
   });
@@ -177,8 +207,14 @@ describe("usePerformanceLayout", () => {
 
     await waitFor(() => expect(setCustomLayout).toHaveBeenCalledOnce());
     expect(setCustomLayout).toHaveBeenLastCalledWith({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: ["processTable"],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["processTable", "power"],
     });
 
     rerender();
@@ -190,8 +226,14 @@ describe("usePerformanceLayout", () => {
 
     expect(setCustomLayout).toHaveBeenCalledTimes(2);
     expect(setCustomLayout).toHaveBeenLastCalledWith({
-      order: ["usageGraphs", "processTable", "perCore", "motherboardSensors"],
-      visible: [],
+      order: [
+        "usageGraphs",
+        "processTable",
+        "perCore",
+        "motherboardSensors",
+        "power",
+      ],
+      visible: ["power"],
     });
   });
 

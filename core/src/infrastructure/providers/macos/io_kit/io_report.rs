@@ -19,6 +19,8 @@ use core_foundation::{
   string::CFString,
 };
 
+use crate::models::PowerDraw;
+
 pub type WithError<T> = Result<T, Box<dyn std::error::Error>>;
 pub type CVoidRef = *const std::ffi::c_void;
 
@@ -70,6 +72,10 @@ unsafe extern "C" {
   fn IOReportChannelGetChannelName(
     item: CFDictionaryRef,
   ) -> core_foundation::string::CFStringRef;
+  fn IOReportChannelGetUnitLabel(
+    item: CFDictionaryRef,
+  ) -> core_foundation::string::CFStringRef;
+  fn IOReportSimpleGetIntegerValue(item: CFDictionaryRef, scale: i32) -> i64;
 
   fn IOReportStateGetCount(item: CFDictionaryRef) -> i32;
   fn IOReportStateGetNameForIndex(
@@ -115,29 +121,48 @@ fn get_residencies(item: CFDictionaryRef) -> Vec<(String, i64)> {
   out
 }
 
-fn build_channels_gpu_only() -> WithError<CFMutableDictionaryRef> {
-  let g = CFString::new("GPU Stats");
-  let sg = CFString::new("GPU Performance States");
-
+fn copy_channels(group: &str, subgroup: Option<&str>) -> Option<CFDictionaryRef> {
+  let g = CFString::new(group);
+  let sg = subgroup.map(CFString::new);
   unsafe {
     let raw = IOReportCopyChannelsInGroup(
       g.as_concrete_TypeRef(),
-      sg.as_concrete_TypeRef(),
+      sg.as_ref()
+        .map_or(null(), |value| value.as_concrete_TypeRef()),
       0,
       0,
       0,
     );
-    if raw.is_null() {
-      return Err("IOReportCopyChannelsInGroup returned null".into());
-    }
+    if raw.is_null() { None } else { Some(raw) }
+  }
+}
 
-    let size = CFDictionaryGetCount(raw);
+fn build_channels() -> WithError<CFMutableDictionaryRef> {
+  let gpu = copy_channels("GPU Stats", Some("GPU Performance States"));
+  let energy = copy_channels("Energy Model", None);
+  let base = gpu
+    .or(energy)
+    .ok_or("IOReport channel groups are unavailable")?;
+
+  unsafe {
+    let size = CFDictionaryGetCount(base);
     let chan = CFDictionaryCreateMutableCopy(
       core_foundation::base::kCFAllocatorDefault,
       size,
-      raw,
+      base,
     );
-    CFRelease(raw as _);
+    CFRelease(base as _);
+    if chan.is_null() {
+      if let Some(extra) = if gpu.is_some() { energy } else { gpu } {
+        CFRelease(extra as _);
+      }
+      return Err("CFDictionaryCreateMutableCopy returned null".into());
+    }
+
+    if let Some(extra) = if gpu.is_some() { energy } else { gpu } {
+      IOReportMergeChannels(chan as _, extra, null());
+      CFRelease(extra as _);
+    }
 
     // Treat as failure if IOReportChannels is missing.
     if dict_get(chan as _, "IOReportChannels").is_none() {
@@ -173,9 +198,15 @@ pub struct GpuUsageIOReport {
   gpu_freqs: Vec<u32>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct IOReportSample {
+  pub gpu_usage: Option<f32>,
+  pub power: PowerDraw,
+}
+
 impl GpuUsageIOReport {
   pub fn new() -> WithError<Self> {
-    let chan = build_channels_gpu_only()?;
+    let chan = build_channels()?;
     let subs = create_subscription(chan)?;
 
     // Read the GPU frequency table from the PMGR IOKit node.
@@ -208,12 +239,12 @@ impl GpuUsageIOReport {
   }
 
   /// Returns usage for the interval since the previous call (keeps prev, delta-based).
-  pub fn sample_usage(&mut self) -> WithError<f32> {
+  pub fn sample(&mut self) -> WithError<IOReportSample> {
     // Initialize prev if needed. A null sample (transient IOReport failure,
     // e.g. the GPU is power-gated) is surfaced as an error rather than stored.
-    let prev = match self.prev.take() {
-      Some(p) => p,
-      None => self.raw_sample()?,
+    let Some(prev) = self.prev.take() else {
+      self.prev = Some(self.raw_sample()?);
+      return Ok(IOReportSample::default());
     };
 
     // Next sample. If it fails, release `prev` and reset state so the next
@@ -240,9 +271,11 @@ impl GpuUsageIOReport {
 
     // Compute usage, then release `delta` on every path (success or error) so
     // a failed computation does not leak a CF dictionary on each sample tick.
-    let usage = compute_gpu_usage_from_delta(delta, &self.gpu_freqs);
+    let elapsed = next.1.duration_since(prev.1).as_secs_f64();
+    let gpu_usage = compute_gpu_usage_from_delta(delta, &self.gpu_freqs).ok();
+    let power = compute_power_from_delta(delta, elapsed);
     unsafe { CFRelease(delta as _) };
-    usage
+    Ok(IOReportSample { gpu_usage, power })
   }
 }
 
@@ -256,6 +289,76 @@ impl Drop for GpuUsageIOReport {
       CFRelease(self.subs as _);
     }
   }
+}
+
+fn unit_joule_multiplier(unit: &str) -> Option<f64> {
+  match unit.trim() {
+    "J" => Some(1.0),
+    "mJ" => Some(1e-3),
+    "uJ" | "µJ" | "μJ" => Some(1e-6),
+    "nJ" => Some(1e-9),
+    _ => None,
+  }
+}
+
+fn power_from_delta(delta: i64, unit: &str, elapsed_seconds: f64) -> Option<f32> {
+  if delta < 0 || !elapsed_seconds.is_finite() || elapsed_seconds <= 0.0 {
+    return None;
+  }
+  let watts = delta as f64 * unit_joule_multiplier(unit)? / elapsed_seconds;
+  if !watts.is_finite() || watts > 2000.0 {
+    return None;
+  }
+  Some(((watts * 10.0).round() / 10.0) as f32)
+}
+
+fn derive_package_power(
+  cpu: Option<f32>,
+  gpu: Option<f32>,
+  ane: Option<f32>,
+) -> Option<f32> {
+  Some((((cpu? + gpu? + ane?) * 10.0).round()) / 10.0)
+}
+
+fn compute_power_from_delta(delta: CFDictionaryRef, elapsed_seconds: f64) -> PowerDraw {
+  let Some(arr) = dict_get(delta, "IOReportChannels") else {
+    return PowerDraw::default();
+  };
+  let arr = arr as CFArrayRef;
+  let mut power = PowerDraw::default();
+  let mut gpu_energy = None;
+  let mut gpu_fallback = None;
+  let mut ane_total = None;
+  for i in 0..unsafe { CFArrayGetCount(arr) } {
+    let item = unsafe { CFArrayGetValueAtIndex(arr, i) } as CFDictionaryRef;
+    if get_group(item) != "Energy Model" {
+      continue;
+    }
+    let channel = get_channel(item);
+    let is_ane = channel.starts_with("ANE") && !channel.contains("SRAM");
+    if channel != "CPU Energy" && channel != "GPU Energy" && channel != "GPU" && !is_ane {
+      continue;
+    }
+    let unit = cfstr_to_string(unsafe { IOReportChannelGetUnitLabel(item) });
+    let value = unsafe { IOReportSimpleGetIntegerValue(item, 0) };
+    let watts = power_from_delta(value, &unit, elapsed_seconds);
+    match channel.as_str() {
+      "CPU Energy" => power.cpu_watts = watts,
+      "GPU Energy" => gpu_energy = Some(watts),
+      "GPU" => gpu_fallback = watts,
+      _ if is_ane => {
+        if let Some(watts) = watts {
+          ane_total = Some(ane_total.unwrap_or(0.0) + watts);
+        }
+      }
+      _ => {}
+    }
+  }
+  power.gpu_watts = gpu_energy.unwrap_or(gpu_fallback);
+  power.ane_watts = ane_total.map(|watts| (watts * 10.0_f32).round() / 10.0_f32);
+  power.package_watts =
+    derive_package_power(power.cpu_watts, power.gpu_watts, power.ane_watts);
+  power
 }
 
 /// Compute GPU usage from the GPUPH channel in the IOReport delta.
@@ -388,6 +491,29 @@ fn is_idle_state(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn converts_reported_energy_units_to_watts() {
+    assert_eq!(power_from_delta(1250, "mJ", 0.5), Some(2.5));
+    assert_eq!(power_from_delta(2_500_000, "uJ", 1.0), Some(2.5));
+    assert_eq!(power_from_delta(2_500_000_000, "nJ", 1.0), Some(2.5));
+  }
+
+  #[test]
+  fn rejects_unknown_units_and_implausible_deltas() {
+    assert_eq!(power_from_delta(1, "kJ", 1.0), None);
+    assert_eq!(power_from_delta(-1, "mJ", 1.0), None);
+    assert_eq!(power_from_delta(2_001_000, "mJ", 1.0), None);
+  }
+
+  #[test]
+  fn package_requires_every_component() {
+    assert_eq!(
+      derive_package_power(Some(10.0), Some(2.0), Some(0.3)),
+      Some(12.3)
+    );
+    assert_eq!(derive_package_power(Some(10.0), Some(2.0), None), None);
+  }
 
   // ── is_idle_state ──
 

@@ -57,3 +57,14 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
     source: "IOKit".to_string(),
   }]
 }
+
+pub fn sample_power_draw() -> models::PowerDraw {
+  #[cfg(target_arch = "aarch64")]
+  {
+    gpu::read_power_draw_cached()
+  }
+  #[cfg(not(target_arch = "aarch64"))]
+  {
+    models::PowerDraw::default()
+  }
+}

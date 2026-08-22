@@ -47,11 +47,13 @@ impl SystemMonitorController {
       // Prime the snapshot once so the first emit lands without waiting a tick.
       if let Some(system_sample) = sampling::sample_system(&store) {
         let gpu_samples = sampling::sample_gpu(&store).await;
+        let power_draw = sampling::sample_power_draw();
         let temperature_sample = sampling::sample_temperatures();
         let motherboard_collection = sampling::sample_motherboard_sensors();
         let snapshot = sampling::build_metrics_snapshot(
           &system_sample,
           &gpu_samples,
+          power_draw,
           &temperature_sample,
           &motherboard_collection.sample,
           &motherboard_collection.guidance_candidates,
@@ -66,11 +68,13 @@ impl SystemMonitorController {
 
             if let Some(system_sample) = sampling::sample_system(&store) {
               let gpu_samples = sampling::sample_gpu(&store).await;
+              let power_draw = sampling::sample_power_draw();
               let temperature_sample = sampling::sample_temperatures();
               let motherboard_collection = sampling::sample_motherboard_sensors();
               let snapshot = sampling::build_metrics_snapshot(
                 &system_sample,
                 &gpu_samples,
+                power_draw,
                 &temperature_sample,
                 &motherboard_collection.sample,
                 &motherboard_collection.guidance_candidates,
