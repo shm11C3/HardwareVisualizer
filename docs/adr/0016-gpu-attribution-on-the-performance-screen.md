@@ -39,7 +39,8 @@ there is no longer anything to honor.
 
 The `getHardwareInfo` inventory and the monitor stream key their GPUs in
 different namespaces on every platform. Windows NVIDIA reports the raw NVAPI id
-as `GraphicInfo.id` but samples as `nvapi:<id>`; macOS pairs
+as `GraphicInfo.id` but samples as `nvapi:<id>`; Windows Intel PDH samples use
+the DXGI adapter LUID as `pdh:<luid_high>:<luid_low>`; macOS pairs
 `0x<registry_id>` with `iokit:<name>`; Linux pairs `card<n>` with the PCI BDF.
 The two id spaces are disjoint, so they cannot be joined, unioned, or looked up
 across. The frontend enforces this at compile time: live ids carry the branded
@@ -83,8 +84,17 @@ screen, because grouped navigation never mounts the classic card and the
 stored choice would stay inert forever. The migration fetches the inventory
 itself when an id needs translating, since a restart can land on a view
 (Monitor, Compact) that never fetches it; it waits for the first sample
-before deciding, because until then every id looks unresolved. An id that cannot address readings is
-what leaves the card's highlight and the graphs describing different adapters.
+before deciding, because until then every id looks unresolved. Legacy Intel PDH
+ids in the form `pdh:<name>` are migrated at that same app-level boundary only
+when exactly one current PDH entry has that name. If the name is ambiguous, the
+old intent is preserved and the display fallback is used rather than guessing.
+An id that cannot address readings is what leaves the card's highlight and the
+graphs describing different adapters.
+
+The Hardware Archive stores both GPU id and name, but archive queries select by
+name. Changing the live Intel id therefore separates future per-id collection
+and archive rows without requiring a historical id migration or changing name
+based archive retrieval.
 
 Where the join is ambiguous, the caller refuses rather than falls back: the
 classic card claims no adapter identity for a selection it cannot resolve,

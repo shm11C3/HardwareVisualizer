@@ -1,6 +1,10 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
-import { asLiveGpuId, toLiveGpuId } from "@/features/hardware/gpuIdentity";
+import {
+  asLiveGpuId,
+  migrateLegacyPdhGpuId,
+  toLiveGpuId,
+} from "@/features/hardware/gpuIdentity";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   gpuNamesAtom,
@@ -71,6 +75,16 @@ export const useSelectedGpuPersistence = () => {
     // needed.
     if (Object.keys(gpuNames).length === 0) return;
     if (gpuNames[selectedGpuId] != null) return;
+
+    const migratedPdhId = migrateLegacyPdhGpuId(selectedGpuId, gpuNames);
+    if (migratedPdhId != null) {
+      setSelectedGpuId(migratedPdhId);
+      return;
+    }
+    // A PDH id is already in the live namespace. If it is not present, the
+    // inventory cannot resolve it, so preserve the intent without an
+    // unnecessary inventory fetch.
+    if (selectedGpuId.startsWith("pdh:")) return;
 
     // A restart can land on a view that never fetches the inventory (Monitor,
     // Compact), and the migration cannot read what nothing has fetched. Only

@@ -275,6 +275,29 @@ export const toLiveGpuId = (
   return matches.length === 1 ? matches[0][0] : asLiveGpuId(gpu.id);
 };
 
+const CURRENT_PDH_GPU_ID = /^pdh:-?\d+:\d+$/;
+
+/**
+ * Translate the pre-LUID Intel PDH id when the current live stream can name
+ * exactly one matching PDH adapter. An old name cannot identify either
+ * adapter when two same-model devices exist, so ambiguity deliberately keeps
+ * the stored intent unresolved instead of guessing.
+ */
+export const migrateLegacyPdhGpuId = (
+  storedGpuId: string,
+  gpuNames: Record<LiveGpuId, string>,
+): LiveGpuId | undefined => {
+  if (!storedGpuId.startsWith("pdh:") || CURRENT_PDH_GPU_ID.test(storedGpuId)) {
+    return undefined;
+  }
+
+  const legacyName = storedGpuId.slice("pdh:".length);
+  const matches = liveEntries(gpuNames).filter(
+    ([id, name]) => CURRENT_PDH_GPU_ID.test(id) && name === legacyName,
+  );
+  return matches.length === 1 ? matches[0][0] : undefined;
+};
+
 /**
  * The GPU both Performance views agree on.
  *
