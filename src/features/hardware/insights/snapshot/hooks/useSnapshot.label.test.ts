@@ -47,11 +47,12 @@ vi.mock("react-i18next", () => ({
 describe("useSnapshot - Label Formatting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const mockData = [
-      { id: 1, value: 50, timestamp: "2023-01-01T10:30:00Z" },
-      { id: 2, value: 60, timestamp: "2023-01-01T11:00:00Z" },
-    ];
-    mockGetArchivedRecord.mockResolvedValue(mockData);
+    mockGetArchivedRecord.mockImplementation(
+      async (_hardwareType, start, end) => [
+        { value: 50, timestamp: start.getTime() },
+        { value: 60, timestamp: end.getTime() },
+      ],
+    );
 
     // Mock process data
     const mockProcessData = [

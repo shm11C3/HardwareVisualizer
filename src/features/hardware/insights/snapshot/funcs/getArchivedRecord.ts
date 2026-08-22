@@ -1,5 +1,4 @@
-import type { SingleDataArchive } from "@/features/hardware/types/chart";
-import { commands } from "@/rspc/bindings";
+import { type ArchiveSeriesPoint, commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import type { ProcessStat } from "../../types/processStats";
 import {
@@ -32,16 +31,19 @@ export const getArchivedRecord = async (
   hardwareType: "cpu" | "ram",
   start: Date,
   end: Date,
-): Promise<SingleDataArchive[]> => {
-  const result = await commands.getDataArchiveRecords(
+  bucketWidthMs: number,
+): Promise<ArchiveSeriesPoint[]> => {
+  const result = await commands.getDataArchiveSeries(
     hardwareType === "ram" ? "memory" : "cpu",
     "avg",
     start.toISOString(),
     end.toISOString(),
+    bucketWidthMs,
+    "start",
   );
   if (isError(result)) {
     throw new Error(
-      `Failed to fetch archived hardware records: ${result.error}`,
+      `Failed to fetch archived hardware series: ${result.error}`,
     );
   }
 

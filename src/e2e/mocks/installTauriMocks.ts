@@ -1,6 +1,9 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import type { HardwareMonitorUpdate } from "@/rspc/bindings";
-import { buildArchiveRecords, buildProcessStats } from "../fixtures/archive";
+import type {
+  ArchiveBucketTimestamp,
+  HardwareMonitorUpdate,
+} from "@/rspc/bindings";
+import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
 import {
   buildHardwareUpdateSeries,
   buildStorageHealthFixture,
@@ -198,28 +201,89 @@ const buildInvokeHandlers = (
 
   // --- insights archive commands (synthesized from requested range) ---
   get_gpu_archive_names: () => GPU_FIXTURES.map((gpu) => gpu.name),
-  get_data_archive_records: (args) => {
-    const a = args as { hardwareType: string; start: string; end: string };
+  get_data_archive_series: (args) => {
+    const a = args as {
+      hardwareType: string;
+      start: string;
+      end: string;
+      bucketWidthMs: number;
+      bucketTimestamp: ArchiveBucketTimestamp;
+    };
     if (a.hardwareType === "cpu") {
-      return buildArchiveRecords(a.start, a.end, 45, 20);
+      return buildArchiveSeries(
+        a.start,
+        a.end,
+        a.bucketWidthMs,
+        a.bucketTimestamp,
+        45,
+        20,
+      );
     }
     if (a.hardwareType === "cpuTemperature") {
-      return buildArchiveRecords(a.start, a.end, 58, 6);
+      return buildArchiveSeries(
+        a.start,
+        a.end,
+        a.bucketWidthMs,
+        a.bucketTimestamp,
+        58,
+        6,
+      );
     }
     if (a.hardwareType.endsWith("Power")) {
-      return buildArchiveRecords(a.start, a.end, 18, 7);
+      return buildArchiveSeries(
+        a.start,
+        a.end,
+        a.bucketWidthMs,
+        a.bucketTimestamp,
+        18,
+        7,
+      );
     }
-    return buildArchiveRecords(a.start, a.end, 60, 8);
+    return buildArchiveSeries(
+      a.start,
+      a.end,
+      a.bucketWidthMs,
+      a.bucketTimestamp,
+      60,
+      8,
+    );
   },
-  get_gpu_archive_records: (args) => {
-    const a = args as { dataType: string; start: string; end: string };
+  get_gpu_archive_series: (args) => {
+    const a = args as {
+      dataType: string;
+      start: string;
+      end: string;
+      bucketWidthMs: number;
+      bucketTimestamp: ArchiveBucketTimestamp;
+    };
     if (a.dataType === "temp") {
-      return buildArchiveRecords(a.start, a.end, 58, 6);
+      return buildArchiveSeries(
+        a.start,
+        a.end,
+        a.bucketWidthMs,
+        a.bucketTimestamp,
+        58,
+        6,
+      );
     }
     if (a.dataType === "dedicatedMemory") {
-      return buildArchiveRecords(a.start, a.end, 4_194_304, 524_288);
+      return buildArchiveSeries(
+        a.start,
+        a.end,
+        a.bucketWidthMs,
+        a.bucketTimestamp,
+        4_194_304,
+        524_288,
+      );
     }
-    return buildArchiveRecords(a.start, a.end, 55, 25);
+    return buildArchiveSeries(
+      a.start,
+      a.end,
+      a.bucketWidthMs,
+      a.bucketTimestamp,
+      55,
+      25,
+    );
   },
   get_process_stats: (args) =>
     buildProcessStats((args as { endAt: string }).endAt),

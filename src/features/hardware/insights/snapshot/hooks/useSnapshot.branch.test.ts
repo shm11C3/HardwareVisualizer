@@ -48,15 +48,16 @@ describe("useSnapshot - Branch Coverage", () => {
     mockGetProcessStatsInPeriod.mockResolvedValue([]);
   });
 
-  it("should skip records with null value when bucketing data", async () => {
-    // Records with null values should be excluded from bucketedData (line 125 branch)
+  it("should preserve null points returned by the archive series", async () => {
     mockGetArchivedRecord.mockResolvedValue([
       {
-        id: 1,
-        value: null as unknown as number,
-        timestamp: "2023-01-01T10:00:00Z",
+        value: null,
+        timestamp: new Date("2023-01-01T10:00:00Z").getTime(),
       },
-      { id: 2, value: 75, timestamp: "2023-01-01T10:01:00Z" },
+      {
+        value: 75,
+        timestamp: new Date("2023-01-01T10:01:00Z").getTime(),
+      },
     ]);
 
     const { result } = renderHook(() => useSnapshot());
@@ -72,7 +73,7 @@ describe("useSnapshot - Branch Coverage", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    // Chart data should only include the non-null value (75)
+    expect(result.current.filledChartData).toContain(null);
     const nonNullValues = result.current.filledChartData.filter(
       (v) => v !== null,
     );
@@ -80,7 +81,7 @@ describe("useSnapshot - Branch Coverage", () => {
     expect(nonNullValues.every((v) => v === 75)).toBe(true);
   });
 
-  it("should return empty arrays when period start is equal to end (line 205-206 branch)", async () => {
+  it("should return empty arrays when period start is equal to end", async () => {
     const { result } = renderHook(() => useSnapshot());
 
     act(() => {
@@ -98,7 +99,7 @@ describe("useSnapshot - Branch Coverage", () => {
     expect(result.current.filledChartData).toHaveLength(0);
   });
 
-  it("should return empty arrays when period start is after end (line 205-206 branch)", async () => {
+  it("should return empty arrays when period start is after end", async () => {
     const { result } = renderHook(() => useSnapshot());
 
     act(() => {
@@ -116,7 +117,7 @@ describe("useSnapshot - Branch Coverage", () => {
     expect(result.current.filledChartData).toHaveLength(0);
   });
 
-  it("should return empty filteredProcessData when processData is null (line 175-176 branch)", async () => {
+  it("should return empty filteredProcessData when processData is null", async () => {
     // getProcessStatsInPeriod returning null simulates a defensive guard scenario
     mockGetProcessStatsInPeriod.mockResolvedValue(
       null as unknown as Awaited<ReturnType<typeof getProcessStatsInPeriod>>,
@@ -188,10 +189,33 @@ describe("useSnapshot - Branch Coverage", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    // With equal start/end, filledChartData and filledLabels are both empty
-    // (early return on line 206 is reached, which uses step internally but returns empty)
+    // With equal start/end, filledChartData and filledLabels are both empty.
     expect(result.current.filledLabels).toHaveLength(0);
     expect(result.current.filledChartData).toHaveLength(0);
+  });
+
+  it("should round the bucket width up for non-divisible periods", async () => {
+    const start = new Date("2023-01-01T00:00:00.000Z");
+    const end = new Date(start.getTime() + 6_000_001);
+    const { result } = renderHook(() => useSnapshot());
+
+    act(() => {
+      result.current.setPeriod({
+        start: start.toISOString(),
+        end: end.toISOString(),
+      });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(mockGetArchivedRecord).toHaveBeenLastCalledWith(
+      "cpu",
+      start,
+      end,
+      60_001,
+    );
   });
 
   it.each([

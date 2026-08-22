@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
   getProcessStatsMock: vi.fn(),
-  getDataArchiveRecordsMock: vi.fn(),
+  getDataArchiveSeriesMock: vi.fn(),
   getProcessStatsInPeriodMock: vi.fn(),
 }));
 
 vi.mock("@/rspc/bindings", () => ({
   commands: {
     getProcessStats: hoisted.getProcessStatsMock,
-    getDataArchiveRecords: hoisted.getDataArchiveRecordsMock,
+    getDataArchiveSeries: hoisted.getDataArchiveSeriesMock,
     getProcessStatsInPeriod: hoisted.getProcessStatsInPeriodMock,
   },
 }));
@@ -89,9 +89,12 @@ describe("getArchivedRecord functions", () => {
       const start = new Date("2023-06-01T00:00:00.000Z");
       const end = new Date("2023-06-01T01:00:00.000Z");
       const mockRows = [
-        { id: 1, value: 45.2, timestamp: "2023-06-01T00:30:00.000Z" },
+        {
+          value: 45.2,
+          timestamp: new Date("2023-06-01T00:30:00.000Z").getTime(),
+        },
       ];
-      hoisted.getDataArchiveRecordsMock.mockResolvedValue({
+      hoisted.getDataArchiveSeriesMock.mockResolvedValue({
         status: "ok",
         data: mockRows,
       });
@@ -99,19 +102,21 @@ describe("getArchivedRecord functions", () => {
       const { getArchivedRecord } = await import(
         "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
       );
-      const result = await getArchivedRecord("cpu", start, end);
+      const result = await getArchivedRecord("cpu", start, end, 60_000);
 
-      expect(hoisted.getDataArchiveRecordsMock).toHaveBeenCalledWith(
+      expect(hoisted.getDataArchiveSeriesMock).toHaveBeenCalledWith(
         "cpu",
         "avg",
         start.toISOString(),
         end.toISOString(),
+        60_000,
+        "start",
       );
       expect(result).toEqual(mockRows);
     });
 
     it("queries DATA_ARCHIVE for ram", async () => {
-      hoisted.getDataArchiveRecordsMock.mockResolvedValue({
+      hoisted.getDataArchiveSeriesMock.mockResolvedValue({
         status: "ok",
         data: [],
       });
@@ -123,18 +128,21 @@ describe("getArchivedRecord functions", () => {
         "ram",
         new Date("2023-06-01T00:00:00.000Z"),
         new Date("2023-06-01T01:00:00.000Z"),
+        60_000,
       );
 
-      expect(hoisted.getDataArchiveRecordsMock).toHaveBeenCalledWith(
+      expect(hoisted.getDataArchiveSeriesMock).toHaveBeenCalledWith(
         "memory",
         "avg",
         "2023-06-01T00:00:00.000Z",
         "2023-06-01T01:00:00.000Z",
+        60_000,
+        "start",
       );
     });
 
     it("throws when the archive command returns an error result", async () => {
-      hoisted.getDataArchiveRecordsMock.mockResolvedValue({
+      hoisted.getDataArchiveSeriesMock.mockResolvedValue({
         status: "error",
         error: "archive failed",
       });
@@ -148,9 +156,10 @@ describe("getArchivedRecord functions", () => {
           "cpu",
           new Date("2023-06-01T00:00:00.000Z"),
           new Date("2023-06-01T01:00:00.000Z"),
+          60_000,
         ),
       ).rejects.toThrow(
-        "Failed to fetch archived hardware records: archive failed",
+        "Failed to fetch archived hardware series: archive failed",
       );
     });
   });

@@ -6,11 +6,11 @@ import { commands } from "@/rspc/bindings";
 
 const hoisted = vi.hoisted(() => ({
   errorMock: vi.fn(),
-  getDataArchiveRecordsMock: vi.fn().mockResolvedValue({
+  getDataArchiveSeriesMock: vi.fn().mockResolvedValue({
     status: "ok",
     data: [],
   }),
-  getGpuArchiveRecordsMock: vi.fn().mockResolvedValue({
+  getGpuArchiveSeriesMock: vi.fn().mockResolvedValue({
     status: "ok",
     data: [],
   }),
@@ -22,8 +22,8 @@ vi.mock("@/hooks/useTauriDialog", () => ({
 
 vi.mock("@/rspc/bindings", () => ({
   commands: {
-    getDataArchiveRecords: hoisted.getDataArchiveRecordsMock,
-    getGpuArchiveRecords: hoisted.getGpuArchiveRecordsMock,
+    getDataArchiveSeries: hoisted.getDataArchiveSeriesMock,
+    getGpuArchiveSeries: hoisted.getGpuArchiveSeriesMock,
   },
 }));
 
@@ -50,12 +50,12 @@ describe("useInsightChart", () => {
     } as ReturnType<typeof useSettingsAtom>);
   });
 
-  it("should fetch and aggregate data for non-GPU hardware", async () => {
+  it("should render the Core-owned series without frontend aggregation", async () => {
     const mockData = [
-      { id: 1, value: 10, timestamp: "2023-01-01T00:00:00Z" },
-      { id: 2, value: 20, timestamp: "2023-01-01T00:01:00Z" },
+      { value: 10, timestamp: new Date("2023-01-01T00:00:00Z").getTime() },
+      { value: 20, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
     ];
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok(mockData));
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -73,17 +73,24 @@ describe("useInsightChart", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    expect(result.current.labels).toHaveLength(11);
-    expect(result.current.chartData).toContain(10);
-    expect(result.current.chartData).toContain(20);
+    expect(result.current.labels).toHaveLength(2);
+    expect(result.current.chartData).toEqual([10, 20]);
+    expect(commands.getDataArchiveSeries).toHaveBeenCalledWith(
+      "cpu",
+      "avg",
+      expect.any(String),
+      expect.any(String),
+      60_000,
+      "end",
+    );
   });
 
-  it("should fetch and aggregate memory max", async () => {
+  it("should render memory max series values", async () => {
     const mockData = [
-      { id: 1, value: 2000, timestamp: "2023-01-01T00:00:00Z" },
-      { id: 2, value: 3000, timestamp: "2023-01-01T00:01:00Z" },
+      { value: 2000, timestamp: new Date("2023-01-01T00:00:00Z").getTime() },
+      { value: 3000, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
     ];
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok(mockData));
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -105,8 +112,10 @@ describe("useInsightChart", () => {
   });
 
   it("should fetch CPU temperature from the CPU temperature archive column", async () => {
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
-      ok([{ id: 1, value: 52, timestamp: "2023-01-01T00:01:00Z" }]),
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 52, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
@@ -123,11 +132,13 @@ describe("useInsightChart", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    expect(commands.getDataArchiveRecords).toHaveBeenCalledWith(
+    expect(commands.getDataArchiveSeries).toHaveBeenCalledWith(
       "cpuTemperature",
       "avg",
       expect.any(String),
       expect.any(String),
+      60_000,
+      "end",
     );
     expect(result.current.chartData).toContain(52);
   });
@@ -136,8 +147,10 @@ describe("useInsightChart", () => {
     vi.mocked(useSettingsAtom).mockReturnValue({
       settings: { temperatureUnit: "F" },
     } as ReturnType<typeof useSettingsAtom>);
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
-      ok([{ id: 1, value: 18.4, timestamp: "2023-01-01T00:01:00Z" }]),
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 18.4, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
@@ -154,21 +167,23 @@ describe("useInsightChart", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    expect(commands.getDataArchiveRecords).toHaveBeenCalledWith(
+    expect(commands.getDataArchiveSeries).toHaveBeenCalledWith(
       "packagePower",
       "avg",
       expect.any(String),
       expect.any(String),
+      60_000,
+      "end",
     );
     expect(result.current.chartData).toContain(18.4);
   });
 
-  it("should fetch and aggregate data for GPU hardware", async () => {
+  it("should render a GPU archive series", async () => {
     const mockData = [
-      { id: 1, value: 30, timestamp: "2023-01-01T00:00:00Z" },
-      { id: 2, value: 40, timestamp: "2023-01-01T00:01:00Z" },
+      { value: 30, timestamp: new Date("2023-01-01T00:00:00Z").getTime() },
+      { value: 40, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
     ];
-    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(ok(mockData));
+    vi.mocked(commands.getGpuArchiveSeries).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -188,16 +203,16 @@ describe("useInsightChart", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    expect(result.current.labels).toHaveLength(11);
+    expect(result.current.labels).toHaveLength(2);
     expect(result.current.chartData).toContain(40); // Max of mockData
   });
 
-  it("should fetch and aggregate GPU temperature with min", async () => {
+  it("should render a minimum GPU temperature series", async () => {
     const mockData = [
-      { id: 1, value: 60, timestamp: "2023-01-01T00:00:00Z" },
-      { id: 2, value: 50, timestamp: "2023-01-01T00:01:00Z" },
+      { value: 60, timestamp: new Date("2023-01-01T00:00:00Z").getTime() },
+      { value: 50, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
     ];
-    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(ok(mockData));
+    vi.mocked(commands.getGpuArchiveSeries).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -224,7 +239,11 @@ describe("useInsightChart", () => {
   vi.setSystemTime(mockedTime);
 
   it("should handle empty data gracefully", async () => {
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok([]));
+    const nullSeries = Array.from({ length: 11 }, (_, index) => ({
+      timestamp: new Date("2023-01-01T00:00:00Z").getTime() + index * 60_000,
+      value: null,
+    }));
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(ok(nullSeries));
 
     const { result } = renderHook(() =>
       useInsightChart({
@@ -244,7 +263,14 @@ describe("useInsightChart", () => {
   });
 
   it("should calculate labels correctly for long periods", async () => {
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok([]));
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        {
+          timestamp: new Date("2023-01-01T00:00:00Z").getTime(),
+          value: null,
+        },
+      ]),
+    );
 
     const { result } = renderHook(() =>
       useInsightChart({
@@ -264,8 +290,10 @@ describe("useInsightChart", () => {
   });
 
   it("should shift time correctly when offset is applied", async () => {
-    const mockData = [{ id: 1, value: 15, timestamp: "2023-01-01T00:00:00Z" }];
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(ok(mockData));
+    const mockData = [
+      { value: 15, timestamp: new Date("2023-01-01T00:00:00Z").getTime() },
+    ];
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(ok(mockData));
 
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
@@ -287,8 +315,10 @@ describe("useInsightChart", () => {
   });
 
   it("should clear chart data when the archive command returns an error", async () => {
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
-      ok([{ id: 1, value: 15, timestamp: "2023-01-01T00:01:00Z" }]),
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 15, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
     const consoleErrorSpy = vi
       .spyOn(console, "error")
@@ -312,7 +342,7 @@ describe("useInsightChart", () => {
 
     expect(result.current.chartData).toContain(15);
 
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValueOnce(
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValueOnce(
       err("decode failed"),
     );
     rerender({ offset: 1 });
@@ -324,11 +354,11 @@ describe("useInsightChart", () => {
     expect(result.current.hasData).toBe(false);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: "Failed to fetch archived hardware records: decode failed",
+        message: "Failed to fetch archived hardware series: decode failed",
       }),
     );
     expect(hoisted.errorMock).toHaveBeenCalledWith(
-      "Error: Failed to fetch archived hardware records: decode failed",
+      "Error: Failed to fetch archived hardware series: decode failed",
     );
     consoleErrorSpy.mockRestore();
   });
@@ -343,8 +373,10 @@ describe("useInsightChart – formatValue branches", () => {
   });
 
   it("should propagate null values from sqlite as null chart data", async () => {
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
-      ok([{ id: 1, value: null, timestamp: "2023-01-01T00:01:00Z" }]),
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: null, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
@@ -370,8 +402,10 @@ describe("useInsightChart – formatValue branches", () => {
     vi.mocked(useSettingsAtom).mockReturnValue({
       settings: { temperatureUnit: "F" },
     } as ReturnType<typeof useSettingsAtom>);
-    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(
-      ok([{ id: 1, value: 100, timestamp: "2023-01-01T00:01:00Z" }]),
+    vi.mocked(commands.getGpuArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 100, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
@@ -398,8 +432,10 @@ describe("useInsightChart – formatValue branches", () => {
     vi.mocked(useSettingsAtom).mockReturnValue({
       settings: { temperatureUnit: "F" },
     } as ReturnType<typeof useSettingsAtom>);
-    vi.mocked(commands.getDataArchiveRecords).mockResolvedValue(
-      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    vi.mocked(commands.getDataArchiveSeries).mockResolvedValue(
+      ok([
+        { value: 50, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
 
@@ -420,9 +456,12 @@ describe("useInsightChart – formatValue branches", () => {
   });
 
   it("should convert dedicatedMemory values from KB to GB", async () => {
-    vi.mocked(commands.getGpuArchiveRecords).mockResolvedValue(
+    vi.mocked(commands.getGpuArchiveSeries).mockResolvedValue(
       ok([
-        { id: 1, value: 1048576, timestamp: "2023-01-01T00:01:00Z" }, // 1 GiB in KiB
+        {
+          value: 1048576,
+          timestamp: new Date("2023-01-01T00:01:00Z").getTime(),
+        }, // 1 GiB in KiB
       ]),
     );
     vi.setSystemTime(new Date("2023-01-01T00:02:00Z"));
@@ -462,9 +501,11 @@ describe("useInsightChart – auto-refresh interval", () => {
   });
 
   it("should poll getData via interval when offset is 0", async () => {
-    const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
-    getDataArchiveRecordsMock.mockResolvedValue(
-      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
+    getDataArchiveSeriesMock.mockResolvedValue(
+      ok([
+        { value: 50, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
 
     renderHook(() =>
@@ -482,7 +523,7 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    const callsAfterMount = getDataArchiveRecordsMock.mock.calls.length;
+    const callsAfterMount = getDataArchiveSeriesMock.mock.calls.length;
 
     // Advance past archiveUpdateIntervalMilSec (60 000 ms) to trigger interval
     await act(async () => {
@@ -490,14 +531,14 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    expect(getDataArchiveRecordsMock.mock.calls.length).toBeGreaterThan(
+    expect(getDataArchiveSeriesMock.mock.calls.length).toBeGreaterThan(
       callsAfterMount,
     );
   });
 
   it("should not start auto-refresh when offset is non-zero", async () => {
-    const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
-    getDataArchiveRecordsMock.mockResolvedValue(ok([]));
+    const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
+    getDataArchiveSeriesMock.mockResolvedValue(ok([]));
 
     renderHook(() =>
       useInsightChart({
@@ -514,7 +555,7 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    const callsAfterMount = getDataArchiveRecordsMock.mock.calls.length;
+    const callsAfterMount = getDataArchiveSeriesMock.mock.calls.length;
 
     // Advance well past the interval – should NOT trigger additional fetches
     await act(async () => {
@@ -522,7 +563,7 @@ describe("useInsightChart – auto-refresh interval", () => {
       await Promise.resolve();
     });
 
-    expect(getDataArchiveRecordsMock.mock.calls.length).toBe(callsAfterMount);
+    expect(getDataArchiveSeriesMock.mock.calls.length).toBe(callsAfterMount);
   });
 
   it("cleanup: cancels pending debounce timeout on unmount", () => {
@@ -546,9 +587,11 @@ describe("useInsightChart – auto-refresh interval", () => {
   });
 
   it("handles getData rejection in interval and clears stale chart data", async () => {
-    const getDataArchiveRecordsMock = vi.mocked(commands.getDataArchiveRecords);
-    getDataArchiveRecordsMock.mockResolvedValue(
-      ok([{ id: 1, value: 50, timestamp: "2023-01-01T00:01:00Z" }]),
+    const getDataArchiveSeriesMock = vi.mocked(commands.getDataArchiveSeries);
+    getDataArchiveSeriesMock.mockResolvedValue(
+      ok([
+        { value: 50, timestamp: new Date("2023-01-01T00:01:00Z").getTime() },
+      ]),
     );
 
     const consoleErrorSpy = vi
@@ -573,7 +616,7 @@ describe("useInsightChart – auto-refresh interval", () => {
     expect(result.current.hasData).toBe(true);
 
     // Make the command reject on the next call (inside the interval tick)
-    getDataArchiveRecordsMock.mockRejectedValueOnce(new Error("DB error"));
+    getDataArchiveSeriesMock.mockRejectedValueOnce(new Error("DB error"));
 
     await act(async () => {
       vi.advanceTimersByTime(60000);

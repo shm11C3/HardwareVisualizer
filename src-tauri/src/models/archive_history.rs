@@ -1,5 +1,6 @@
 use hardviz_core::infrastructure::database::archive_queries::{
-  ArchiveRecord as CoreArchiveRecord, DataArchiveColumn, GpuArchiveColumn,
+  ArchiveBucketTimestamp as CoreArchiveBucketTimestamp,
+  ArchiveSeriesPoint as CoreArchiveSeriesPoint, DataArchiveColumn, GpuArchiveColumn,
   ProcessStatRecord as CoreProcessStatRecord,
 };
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,22 @@ pub enum ArchiveDataStats {
   Avg,
   Max,
   Min,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ArchiveBucketTimestamp {
+  Start,
+  End,
+}
+
+impl From<ArchiveBucketTimestamp> for CoreArchiveBucketTimestamp {
+  fn from(value: ArchiveBucketTimestamp) -> Self {
+    match value {
+      ArchiveBucketTimestamp::Start => Self::Start,
+      ArchiveBucketTimestamp::End => Self::End,
+    }
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
@@ -90,18 +107,16 @@ impl GpuArchiveDataType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Type)]
-pub struct ArchiveRecord {
-  pub id: i64,
+pub struct ArchiveSeriesPoint {
+  pub timestamp: i64,
   pub value: Option<f64>,
-  pub timestamp: String,
 }
 
-impl From<CoreArchiveRecord> for ArchiveRecord {
-  fn from(record: CoreArchiveRecord) -> Self {
+impl From<CoreArchiveSeriesPoint> for ArchiveSeriesPoint {
+  fn from(point: CoreArchiveSeriesPoint) -> Self {
     Self {
-      id: record.id,
-      value: record.value,
-      timestamp: record.timestamp,
+      timestamp: point.timestamp,
+      value: point.value,
     }
   }
 }
