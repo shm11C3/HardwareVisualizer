@@ -16,6 +16,7 @@ const settingsAtom = atom<ClientSettings>({
   uiAnnouncementVersion: 0,
   currentUiAnnouncementVersion: 0,
   displayTargets: [],
+  powerDisplayTargets: ["cpu", "gpu", "package"],
   graphSize: "xl",
   graphFitToWindow: false,
   graphMarginPx: 32,
@@ -68,6 +69,17 @@ const settingsAtom = atom<ClientSettings>({
 
 export const navigationMutationPendingAtom = atom(false);
 let navigationMutationInFlight = false;
+type PowerDisplayTargets = ClientSettings["powerDisplayTargets"];
+let desiredPowerDisplayTargets: PowerDisplayTargets | null = null;
+let persistedPowerDisplayTargets: PowerDisplayTargets | null = null;
+let powerDisplayTargetMutation: Promise<boolean> | null = null;
+
+const samePowerDisplayTargets = (
+  left: PowerDisplayTargets,
+  right: PowerDisplayTargets,
+) =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index]);
 
 export const useSettingsAtom = () => {
   const { error } = useTauriDialog();
@@ -90,6 +102,7 @@ export const useSettingsAtom = () => {
   } = {
     theme: commands.setTheme,
     displayTargets: commands.setDisplayTargets,
+    powerDisplayTargets: commands.setPowerDisplayTargets,
     graphSize: commands.setGraphSize,
     graphFitToWindow: commands.setGraphFitToWindow,
     graphMarginPx: commands.setGraphMarginPx,
@@ -188,6 +201,61 @@ export const useSettingsAtom = () => {
     }
 
     setSettings((prev) => ({ ...prev, displayTargets: newTargets }));
+  };
+
+  const togglePowerDisplayTarget = async (
+    target: ClientSettings["powerDisplayTargets"][number],
+  ) => {
+    if (desiredPowerDisplayTargets === null) {
+      desiredPowerDisplayTargets = [...settings.powerDisplayTargets];
+      persistedPowerDisplayTargets = [...settings.powerDisplayTargets];
+    }
+
+    desiredPowerDisplayTargets = desiredPowerDisplayTargets.includes(target)
+      ? desiredPowerDisplayTargets.filter((value) => value !== target)
+      : [...desiredPowerDisplayTargets, target];
+    setSettings((prev) => ({
+      ...prev,
+      powerDisplayTargets:
+        desiredPowerDisplayTargets ?? prev.powerDisplayTargets,
+    }));
+
+    if (powerDisplayTargetMutation === null) {
+      powerDisplayTargetMutation = (async () => {
+        while (
+          desiredPowerDisplayTargets !== null &&
+          persistedPowerDisplayTargets !== null &&
+          !samePowerDisplayTargets(
+            desiredPowerDisplayTargets,
+            persistedPowerDisplayTargets,
+          )
+        ) {
+          const nextTargets = [...desiredPowerDisplayTargets];
+          const result = await commands.setPowerDisplayTargets(nextTargets);
+          if (isError(result)) {
+            await error(result.error);
+            console.error(result.error);
+            const rollbackTargets = persistedPowerDisplayTargets;
+            setSettings((prev) => ({
+              ...prev,
+              powerDisplayTargets: rollbackTargets,
+            }));
+            desiredPowerDisplayTargets = null;
+            persistedPowerDisplayTargets = null;
+            powerDisplayTargetMutation = null;
+            return false;
+          }
+          persistedPowerDisplayTargets = nextTargets;
+        }
+
+        desiredPowerDisplayTargets = null;
+        persistedPowerDisplayTargets = null;
+        powerDisplayTargetMutation = null;
+        return true;
+      })();
+    }
+
+    return powerDisplayTargetMutation;
   };
 
   const setNavigationLayoutAtom = async (
@@ -448,6 +516,7 @@ export const useSettingsAtom = () => {
     settings,
     loadSettings,
     toggleDisplayTarget,
+    togglePowerDisplayTarget,
     updateSettingAtom,
     updateLineGraphColorAtom,
     toggleHardwareArchiveAtom,

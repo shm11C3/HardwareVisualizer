@@ -376,6 +376,7 @@
           "espresso": "Espresso"
         },
         "hardwareType": "Hardware Type",
+        "powerDisplayTargets": "Power Display Targets",
         "temperatureUnit": {
           "name": "Temperature Unit",
           "celsius": "Celsius (°C)",

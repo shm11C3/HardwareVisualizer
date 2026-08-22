@@ -376,6 +376,7 @@
           "espresso": "エスプレッソ"
         },
         "hardwareType": "ハードウェア種別",
+        "powerDisplayTargets": "消費電力の表示対象",
         "temperatureUnit": {
           "name": "温度の単位",
           "celsius": "摂氏（℃）",

@@ -130,6 +130,7 @@ export const commands = {
 	setNavigationLayout: (newLayout: NavigationLayout) => typedError<null, string>(__TAURI_INVOKE("set_navigation_layout", { newLayout })),
 	acknowledgeNavigationRestructureAnnouncement: () => typedError<null, string>(__TAURI_INVOKE("acknowledge_navigation_restructure_announcement")),
 	setDisplayTargets: (newTargets: HardwareType[]) => typedError<null, string>(__TAURI_INVOKE("set_display_targets", { newTargets })),
+	setPowerDisplayTargets: (newTargets: PowerDisplayTarget[]) => typedError<null, string>(__TAURI_INVOKE("set_power_display_targets", { newTargets })),
 	setGraphSize: (newSize: GraphSize) => typedError<null, string>(__TAURI_INVOKE("set_graph_size", { newSize })),
 	setGraphFitToWindow: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_graph_fit_to_window", { newValue })),
 	setGraphMarginPx: (newValue: number) => typedError<null, string>(__TAURI_INVOKE("set_graph_margin_px", { newValue })),
@@ -276,6 +277,7 @@ export type ClientSettings_Deserialize = {
 	 */
 	currentUiAnnouncementVersion: number,
 	displayTargets: HardwareType[],
+	powerDisplayTargets: PowerDisplayTarget[],
 	graphSize: GraphSize,
 	graphFitToWindow: boolean,
 	graphMarginPx: number,
@@ -320,6 +322,7 @@ export type ClientSettings_Serialize = {
 	 */
 	currentUiAnnouncementVersion: number,
 	displayTargets: HardwareType[],
+	powerDisplayTargets: PowerDisplayTarget[],
 	graphSize: GraphSize,
 	graphFitToWindow: boolean,
 	graphMarginPx: number,
@@ -548,6 +551,8 @@ export type PawnIoRuntimeDiagnostics = {
 	version: number | null,
 	fallbackReason: string | null,
 };
+
+export type PowerDisplayTarget = "cpu" | "gpu" | "ane" | "package";
 
 export type ProcessInfo = ProcessInfo_Serialize | ProcessInfo_Deserialize;
 

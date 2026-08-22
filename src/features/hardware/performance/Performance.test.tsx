@@ -72,6 +72,7 @@ const settings = vi.hoisted(() => ({
   lineGraphMix: false,
   temperatureUnit: "C" as const,
   displayTargets: ["cpu", "memory", "gpu"],
+  powerDisplayTargets: ["cpu", "gpu", "package"],
   lineGraphColor: {
     cpu: "75, 192, 192",
     memory: "255, 99, 132",

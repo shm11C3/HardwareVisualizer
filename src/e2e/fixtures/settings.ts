@@ -16,6 +16,7 @@ export const settingsFixture: ClientSettings_Serialize = {
   uiAnnouncementVersion: 1,
   currentUiAnnouncementVersion: 1,
   displayTargets: ["cpu", "memory", "gpu"],
+  powerDisplayTargets: ["cpu", "gpu", "package"],
   graphSize: "xl",
   graphFitToWindow: false,
   graphMarginPx: 32,

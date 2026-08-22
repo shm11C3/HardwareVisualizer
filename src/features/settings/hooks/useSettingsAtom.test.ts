@@ -19,6 +19,7 @@ vi.mock("@/rspc/bindings", () => ({
     getSettings: vi.fn(),
     setTheme: vi.fn(),
     setDisplayTargets: vi.fn(),
+    setPowerDisplayTargets: vi.fn(),
     setGraphSize: vi.fn(),
     setGraphFitToWindow: vi.fn(),
     setGraphMarginPx: vi.fn(),
@@ -75,6 +76,7 @@ describe("useSettingsAtom", () => {
       language: "ja",
       theme: "dark",
       displayTargets: ["cpu"],
+      powerDisplayTargets: ["cpu", "gpu", "package"],
       graphSize: "lg",
       graphFitToWindow: true,
       graphMarginPx: 24,
@@ -202,6 +204,91 @@ describe("useSettingsAtom", () => {
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
     // On error, remains at initial state (empty array)
     expect(result.current.settings.displayTargets).toEqual([]);
+  });
+
+  it("togglePowerDisplayTarget persists opt-in and opt-out selections", async () => {
+    (commands.setPowerDisplayTargets as Mock).mockResolvedValue({ data: null });
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    await act(async () => {
+      await result.current.togglePowerDisplayTarget("ane");
+    });
+    expect(commands.setPowerDisplayTargets).toHaveBeenNthCalledWith(1, [
+      "cpu",
+      "gpu",
+      "package",
+      "ane",
+    ]);
+    expect(result.current.settings.powerDisplayTargets).toContain("ane");
+
+    await act(async () => {
+      await result.current.togglePowerDisplayTarget("gpu");
+    });
+    expect(commands.setPowerDisplayTargets).toHaveBeenNthCalledWith(2, [
+      "cpu",
+      "package",
+      "ane",
+    ]);
+    expect(result.current.settings.powerDisplayTargets).not.toContain("gpu");
+  });
+
+  it("togglePowerDisplayTarget serializes rapid changes and persists the latest selection", async () => {
+    let resolveFirst: ((value: { data: null }) => void) | undefined;
+    let resolveSecond: ((value: { data: null }) => void) | undefined;
+    (commands.setPowerDisplayTargets as Mock)
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ data: null }>((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ data: null }>((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    let firstMutation: Promise<boolean> | undefined;
+    let secondMutation: Promise<boolean> | undefined;
+    act(() => {
+      firstMutation = result.current.togglePowerDisplayTarget("ane");
+      secondMutation = result.current.togglePowerDisplayTarget("gpu");
+    });
+
+    expect(commands.setPowerDisplayTargets).toHaveBeenCalledTimes(1);
+    expect(commands.setPowerDisplayTargets).toHaveBeenNthCalledWith(1, [
+      "cpu",
+      "gpu",
+      "package",
+      "ane",
+    ]);
+
+    await act(async () => {
+      resolveFirst?.({ data: null });
+      await Promise.resolve();
+    });
+    expect(commands.setPowerDisplayTargets).toHaveBeenCalledTimes(2);
+    expect(commands.setPowerDisplayTargets).toHaveBeenNthCalledWith(2, [
+      "cpu",
+      "package",
+      "ane",
+    ]);
+
+    await act(async () => {
+      resolveSecond?.({ data: null });
+      await Promise.all([firstMutation, secondMutation]);
+    });
+    expect(result.current.settings.powerDisplayTargets).toEqual([
+      "cpu",
+      "package",
+      "ane",
+    ]);
   });
 
   it("updateLineGraphColorAtom: lineGraphColor is updated on success", async () => {

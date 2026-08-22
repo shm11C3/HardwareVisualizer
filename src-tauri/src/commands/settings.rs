@@ -138,6 +138,7 @@ pub mod commands {
       current_ui_announcement_version:
         services::settings_service::GROUPED_NAVIGATION_ANNOUNCEMENT_VERSION,
       display_targets: settings.display_targets,
+      power_display_targets: settings.power_display_targets,
       graph_size: settings.graph_size,
       graph_fit_to_window: settings.graph_fit_to_window,
       graph_margin_px: settings.graph_margin_px,
@@ -254,6 +255,34 @@ pub mod commands {
       return Err(e);
     }
     Ok(())
+  }
+
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_power_display_targets(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_targets: Vec<enums::hardware::PowerDisplayTarget>,
+  ) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    if let Err(e) =
+      settings.set_power_display_targets(normalize_power_display_targets(new_targets))
+    {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  fn normalize_power_display_targets(
+    targets: Vec<enums::hardware::PowerDisplayTarget>,
+  ) -> Vec<enums::hardware::PowerDisplayTarget> {
+    targets.into_iter().fold(Vec::new(), |mut unique, target| {
+      if !unique.contains(&target) {
+        unique.push(target);
+      }
+      unique
+    })
   }
 
   #[tauri::command]
@@ -953,5 +982,31 @@ pub mod commands {
       .opener()
       .open_path(path_str, None::<&str>)
       .map_err(|e| format!("Failed to open LICENSE file path: {}", e))
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::normalize_power_display_targets;
+    use crate::enums::hardware::PowerDisplayTarget;
+
+    #[test]
+    fn power_display_targets_are_deduplicated_in_first_seen_order() {
+      let targets = vec![
+        PowerDisplayTarget::Cpu,
+        PowerDisplayTarget::Gpu,
+        PowerDisplayTarget::Cpu,
+        PowerDisplayTarget::Ane,
+        PowerDisplayTarget::Gpu,
+      ];
+
+      assert_eq!(
+        normalize_power_display_targets(targets),
+        vec![
+          PowerDisplayTarget::Cpu,
+          PowerDisplayTarget::Gpu,
+          PowerDisplayTarget::Ane,
+        ]
+      );
+    }
   }
 }

@@ -9,6 +9,7 @@ import { GraphColorSettings } from "./GraphColorSettings";
 import { GraphSizeSlider } from "./GraphSizeSlider";
 import { GraphStyleSettings } from "./GraphStyleSettings";
 import { GraphTypeSelector } from "./GraphTypeSelector";
+import { PowerDisplayTargetSelector } from "./PowerDisplayTargetSelector";
 
 export const GraphSettings = () => {
   const { t } = useTranslation();
@@ -34,6 +35,10 @@ export const GraphSettings = () => {
                 {t("pages.settings.general.hardwareType")}
               </h4>
               <GraphTypeSelector />
+              <h4 className="font-bold text-xl">
+                {t("pages.settings.general.powerDisplayTargets")}
+              </h4>
+              <PowerDisplayTargetSelector />
             </div>
           </div>
           <div className="col-span-3">

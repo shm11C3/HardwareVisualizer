@@ -46,6 +46,7 @@ pub struct Settings {
   pub navigation_layout: enums::settings::NavigationLayout,
   pub ui_announcement_version: u32,
   pub display_targets: Vec<enums::hardware::HardwareType>,
+  pub power_display_targets: Vec<enums::hardware::PowerDisplayTarget>,
   pub graph_size: enums::settings::GraphSize,
   pub graph_fit_to_window: bool,
   pub graph_margin_px: u32,
@@ -99,6 +100,7 @@ pub struct ClientSettings {
   /// persisted user preference.
   pub current_ui_announcement_version: u32,
   pub display_targets: Vec<enums::hardware::HardwareType>,
+  pub power_display_targets: Vec<enums::hardware::PowerDisplayTarget>,
   pub graph_size: enums::settings::GraphSize,
   pub graph_fit_to_window: bool,
   pub graph_margin_px: u32,
@@ -143,6 +145,11 @@ impl Default for Settings {
         enums::hardware::HardwareType::Cpu,
         enums::hardware::HardwareType::Memory,
         enums::hardware::HardwareType::Gpu,
+      ],
+      power_display_targets: vec![
+        enums::hardware::PowerDisplayTarget::Cpu,
+        enums::hardware::PowerDisplayTarget::Gpu,
+        enums::hardware::PowerDisplayTarget::Package,
       ],
       graph_size: enums::settings::GraphSize::XL,
       graph_fit_to_window: false,
@@ -293,6 +300,11 @@ mod tests {
       ui_announcement_version: 1,
       current_ui_announcement_version: 1,
       display_targets: vec![enums::hardware::HardwareType::Cpu],
+      power_display_targets: vec![
+        enums::hardware::PowerDisplayTarget::Cpu,
+        enums::hardware::PowerDisplayTarget::Gpu,
+        enums::hardware::PowerDisplayTarget::Package,
+      ],
       graph_size: enums::settings::GraphSize::XL,
       graph_fit_to_window: false,
       graph_margin_px: 32,
@@ -345,6 +357,7 @@ mod tests {
     let serialized = serde_json::to_string(&settings).unwrap();
 
     assert!(serialized.contains("\"displayTargets\""));
+    assert!(serialized.contains("\"powerDisplayTargets\""));
     assert!(serialized.contains("\"graphSize\""));
     assert!(serialized.contains("\"graphFitToWindow\""));
     assert!(serialized.contains("\"graphMarginPx\""));

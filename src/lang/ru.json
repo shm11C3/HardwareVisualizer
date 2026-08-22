@@ -366,6 +366,7 @@
           "espresso": "Эспрессо"
         },
         "hardwareType": "Тип оборудования",
+        "powerDisplayTargets": "Отображаемая мощность",
         "temperatureUnit": {
           "name": "Единица измерения температуры",
           "celsius": "Цельсий (°C)",
