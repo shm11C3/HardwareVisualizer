@@ -492,7 +492,7 @@
         "name": "Insights",
         "about": {
           "title": "About Insights",
-          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses 1 to 2 MB of storage per month. \nWe recommend that the n-insight feature be enabled unless there are capacity or other issues."
+          "description": "Insights is a feature that provides you with useful information about your hardware and system. It helps you to understand the current state of your system and make better decisions.\nThe Insight feature uses approximately 6 MB of storage per month when all power readings are available. \nWe recommend that the n-insight feature be enabled unless there are capacity or other issues."
         },
         "enable": "Start Recording Insights",
         "disable": "Stop recording insights",

@@ -58,7 +58,7 @@ export const InsightChart = ({
       color: "254, 192, 57",
     },
     power: {
-      label: "Package",
+      label: t("pages.insights.cooling.packagePower"),
       color: "245, 158, 11",
     },
   } satisfies ChartConfig;
