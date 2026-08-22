@@ -76,6 +76,104 @@ When changes are made, include:
 - which comments were intentionally ignored and why
 - validation commands and results
 - whether GitHub replies/resolution were left untouched
+- the sufficiency verdict (`SUFFICIENT` / `INSUFFICIENT` / `UNCERTAIN`) with
+  its rationale, anchored on what would concretely break by merging now
+
+## Convergence
+
+Bot reviewers are generators, not gates: they re-review every push and can
+always produce another finding, so "respond until silent" never terminates.
+The PR #1944-#1958 cycle showed the failure shape — each round's fix became
+the next round's finding, and prose grew conditional structure that outweighed
+the content it guarded. These rules bound the loop:
+
+1. Split findings by evidence class before responding.
+   - Reproducible: anything a deterministic check can verify — code, tests,
+     types, CI, and also guidance failures such as validator errors, broken
+     links, or invalid frontmatter. Verify by reproducing, and fix what
+     reproduces. These converge — defects are finite.
+   - Subjective (wording, naming, document or design shape): there is no
+     experiment that proves the bot right, so these do not converge. Fix only
+     a self-contradiction or a factual error against current code; decline
+     the rest with the reasoning stated once.
+
+2. Do not restructure in response to a subjective finding. If such a finding
+   implies a different structure — a type model, a document's architecture, a
+   module boundary — file an issue or put it to the maintainer; restructuring
+   mid-review is how each round manufactures the next round's findings. A
+   verified `Required` defect whose necessary fix changes structure is fixed,
+   not deferred — the ban is on reshaping to satisfy taste, never on
+   repairing a reproduced defect.
+
+3. Watch for the oscillation signature: a finding that targets text or code
+   added in response to the previous finding. Verify it like any other first —
+   a response can introduce a real regression, and that gets fixed. When it
+   does not reproduce, stop forward-fixing; prefer reverting the accumulated
+   response-structure to something simpler, or freeze and decline.
+
+4. Stop-loss: the normal exit from review iteration is a `SUFFICIENT`
+   verdict (next section); this round limit is the backstop for when rounds
+   keep ending without one. After two response rounds on the same PR, stop
+   editing for subjective findings — a newly verified `Required` defect is still fixed,
+   in any round. Summarize the remainder as declined-with-evidence or filed
+   issues and hand the trade-off to the maintainer; resolve the threads only
+   under the same explicit authorization Step 6 requires for any GitHub
+   write action. An approval obtained by satisfying a generator is not worth
+   a document shaped by one.
+
+## Sufficiency Judgment
+
+Finding discovery, validation, and fixing end with an explicit shippability
+verdict, not with silence. Processing a round's valid findings means deciding
+fix, decline, or file-an-issue for each, with stated reasoning — processing is
+not the same as fixing. After processing, judge the change as a whole:
+
+| Verdict | Meaning |
+| --- | --- |
+| `SUFFICIENT` | the change achieves its purpose; no remaining item justifies blocking the merge |
+| `INSUFFICIENT` | a problem affecting correctness, safety, or the acceptance criteria remains |
+| `UNCERTAIN` | agent-available evidence cannot settle it; a human decides |
+
+Sufficient does not mean zero findings. It means all of:
+
+- the task's purpose and acceptance criteria are met;
+- no credible correctness, security, or regression concern is open;
+- the required verification (CI, tests, guidance checks) passes;
+- no remaining finding has a rational reason to be fixed in this PR rather
+  than declined or filed — additional fixing now costs more than it returns.
+
+Answer these before the verdict:
+
+1. Does the change meet its purpose and acceptance criteria?
+2. Is any credible correctness / security / regression concern open?
+3. Do CI and the required verifications pass?
+4. Does any remaining finding have to land in this PR, rather than an issue?
+5. Is a proposed addition actually a fix — or refactoring, taste, or future
+   work wearing a finding's clothes?
+6. What concretely breaks if this merges now?
+
+Question 6 is the gate that ends loops. "This function could be split
+further" sounds reasonable, but if merging now causes no specific problem for
+the PR's purpose, correctness, safety, or maintainability, the verdict is
+`SUFFICIENT` — however polished the suggestion. On `SUFFICIENT`, end the
+iteration and state the verdict with its rationale. On `INSUFFICIENT`, fix
+and re-judge. On `UNCERTAIN`, put the open question to the maintainer instead
+of iterating further.
+
+## Reviewer Commands
+
+Explicit bot commands shape the loop as much as the responses do:
+
+- Do not use `@coderabbitai review` as a routine step. It triggers a full
+  re-review — a fresh finding-generation run over unchanged code — which is
+  fuel for the loop. Reserve it for a push that genuinely changes direction
+  or scope; otherwise let the per-push incremental review run on its own.
+- After a `SUFFICIENT` verdict, clear a stale `CHANGES_REQUESTED` with
+  `@coderabbitai approve` (with the usual explicit authorization for GitHub
+  writes). It updates the verdict without inviting another full pass, which
+  is exactly what the sufficiency gate calls for. Approval is the outcome of
+  the judgment, never the goal — do not use the command to bypass an
+  `INSUFFICIENT` state.
 
 ## Heuristics
 
