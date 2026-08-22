@@ -311,6 +311,7 @@ pub async fn get_data_archive_series(
 
   let start = parse_datetime(&start)?;
   let end = parse_datetime(&end)?;
+  validate_bucket_width_ms(bucket_width_ms)?;
 
   archive_history_service::fetch_data_archive_series(
     hardware_type.column(data_stats),
@@ -341,6 +342,7 @@ pub async fn get_gpu_archive_series(
 
   let start = parse_datetime(&start)?;
   let end = parse_datetime(&end)?;
+  validate_bucket_width_ms(bucket_width_ms)?;
 
   archive_history_service::fetch_gpu_archive_series(
     data_type.column(data_stats),
@@ -413,6 +415,14 @@ fn parse_datetime(input: &str) -> Result<DateTime<Utc>, String> {
     .map_err(|e| format!("Invalid datetime '{input}': {e}"))
 }
 
+fn validate_bucket_width_ms(bucket_width_ms: i64) -> Result<(), String> {
+  if bucket_width_ms <= 0 {
+    return Err("bucket_width_ms must be positive".to_string());
+  }
+
+  Ok(())
+}
+
 fn format_datetime(datetime: DateTime<Utc>) -> String {
   datetime.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
@@ -450,5 +460,14 @@ mod tests {
         .unwrap_err()
         .contains(input)
     );
+  }
+
+  #[test]
+  fn bucket_width_validation_rejects_non_positive_values() {
+    assert_eq!(
+      validate_bucket_width_ms(0).unwrap_err(),
+      "bucket_width_ms must be positive"
+    );
+    assert!(validate_bucket_width_ms(1).is_ok());
   }
 }

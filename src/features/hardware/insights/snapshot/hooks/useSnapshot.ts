@@ -91,7 +91,7 @@ export const useSnapshot = () => {
 
     if (diff <= 0) return 60000;
 
-    return Math.floor(Math.max(diff / BUCKET_COUNT, 60000));
+    return Math.ceil(Math.max(diff / BUCKET_COUNT, 60000));
   }, [period]);
 
   useEffect(() => {

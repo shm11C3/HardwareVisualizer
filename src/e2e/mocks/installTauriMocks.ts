@@ -1,5 +1,8 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import type { HardwareMonitorUpdate } from "@/rspc/bindings";
+import type {
+  ArchiveBucketTimestamp,
+  HardwareMonitorUpdate,
+} from "@/rspc/bindings";
 import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
 import {
   buildHardwareUpdateSeries,
@@ -204,7 +207,7 @@ const buildInvokeHandlers = (
       start: string;
       end: string;
       bucketWidthMs: number;
-      bucketTimestamp: "start" | "end";
+      bucketTimestamp: ArchiveBucketTimestamp;
     };
     if (a.hardwareType === "cpu") {
       return buildArchiveSeries(
@@ -251,7 +254,7 @@ const buildInvokeHandlers = (
       start: string;
       end: string;
       bucketWidthMs: number;
-      bucketTimestamp: "start" | "end";
+      bucketTimestamp: ArchiveBucketTimestamp;
     };
     if (a.dataType === "temp") {
       return buildArchiveSeries(

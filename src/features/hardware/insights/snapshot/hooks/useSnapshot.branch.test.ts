@@ -194,6 +194,30 @@ describe("useSnapshot - Branch Coverage", () => {
     expect(result.current.filledChartData).toHaveLength(0);
   });
 
+  it("should round the bucket width up for non-divisible periods", async () => {
+    const start = new Date("2023-01-01T00:00:00.000Z");
+    const end = new Date(start.getTime() + 6_000_001);
+    const { result } = renderHook(() => useSnapshot());
+
+    act(() => {
+      result.current.setPeriod({
+        start: start.toISOString(),
+        end: end.toISOString(),
+      });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(mockGetArchivedRecord).toHaveBeenLastCalledWith(
+      "cpu",
+      start,
+      end,
+      60_001,
+    );
+  });
+
   it.each([
     ["128MB", 128],
     ["256MB", 256],

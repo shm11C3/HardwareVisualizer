@@ -3,7 +3,6 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use sqlx::SqlitePool;
 use std::fmt;
 
-const ARCHIVE_INTERVAL_MILLISECONDS: i64 = 60_000;
 const MAX_ARCHIVE_SERIES_POINTS: i64 = 10_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,16 +336,25 @@ impl ArchiveSeriesBounds {
       return Err(ArchiveSeriesError::InvalidTimeRange);
     }
 
+    let overflow_error = || ArchiveSeriesError::TooManyPoints {
+      requested: MAX_ARCHIVE_SERIES_POINTS + 1,
+      maximum: MAX_ARCHIVE_SERIES_POINTS,
+    };
     let (first, last) = match bucket_timestamp {
-      ArchiveBucketTimestamp::Start => {
-        (floor_to_bucket(start, width), floor_to_bucket(end, width))
-      }
+      ArchiveBucketTimestamp::Start => (
+        floor_to_bucket(start, width).ok_or_else(overflow_error)?,
+        floor_to_bucket(end, width).ok_or_else(overflow_error)?,
+      ),
       ArchiveBucketTimestamp::End => (
-        ceil_to_bucket(start.saturating_sub(ARCHIVE_INTERVAL_MILLISECONDS), width),
-        ceil_to_bucket(end, width),
+        ceil_to_bucket(start, width).ok_or_else(overflow_error)?,
+        ceil_to_bucket(end, width).ok_or_else(overflow_error)?,
       ),
     };
-    let point_count = (last - first) / width + 1;
+    let point_count = last
+      .checked_sub(first)
+      .and_then(|span| span.checked_div(width))
+      .and_then(|count| count.checked_add(1))
+      .ok_or_else(overflow_error)?;
     if point_count > MAX_ARCHIVE_SERIES_POINTS {
       return Err(ArchiveSeriesError::TooManyPoints {
         requested: point_count,
@@ -365,16 +373,16 @@ impl ArchiveSeriesBounds {
   }
 }
 
-fn floor_to_bucket(timestamp: i64, width: i64) -> i64 {
-  timestamp.div_euclid(width) * width
+fn floor_to_bucket(timestamp: i64, width: i64) -> Option<i64> {
+  timestamp.div_euclid(width).checked_mul(width)
 }
 
-fn ceil_to_bucket(timestamp: i64, width: i64) -> i64 {
-  let floor = floor_to_bucket(timestamp, width);
+fn ceil_to_bucket(timestamp: i64, width: i64) -> Option<i64> {
+  let floor = floor_to_bucket(timestamp, width)?;
   if floor == timestamp {
-    floor
+    Some(floor)
   } else {
-    floor + width
+    floor.checked_add(width)
   }
 }
 
@@ -473,7 +481,10 @@ fn fill_archive_series(
       });
     }
 
-    timestamp += bounds.width;
+    if timestamp == bounds.last {
+      break;
+    }
+    timestamp = timestamp.saturating_add(bounds.width);
   }
 
   series
@@ -941,7 +952,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn end_timestamp_buckets_keep_exact_boundaries_and_advance_fractional_ones() {
+  async fn end_timestamp_buckets_use_query_start_and_omit_empty_trailing_bucket() {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     sqlx::query(
       "CREATE TABLE DATA_ARCHIVE (
@@ -978,10 +989,6 @@ mod tests {
     assert_eq!(
       series,
       vec![
-        ArchiveSeriesPoint {
-          timestamp: utc("2026-06-08T00:00:00.000Z").timestamp_millis(),
-          value: None,
-        },
         ArchiveSeriesPoint {
           timestamp: utc("2026-06-08T00:01:00.000Z").timestamp_millis(),
           value: Some(15.0),
@@ -1041,6 +1048,19 @@ mod tests {
       &utc("2026-07-01T00:00:00.000Z"),
       1,
       ArchiveBucketTimestamp::Start,
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, ArchiveSeriesError::TooManyPoints { .. }));
+  }
+
+  #[test]
+  fn archive_series_bounds_reject_extreme_point_counts() {
+    let error = ArchiveSeriesBounds::new(
+      &DateTime::<Utc>::MIN_UTC,
+      &DateTime::<Utc>::MAX_UTC,
+      1,
+      ArchiveBucketTimestamp::End,
     )
     .unwrap_err();
 
