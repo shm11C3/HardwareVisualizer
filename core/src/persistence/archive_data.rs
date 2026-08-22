@@ -12,6 +12,17 @@ pub struct HardwareData {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct HardwareArchiveRow {
+  pub cpu: HardwareData,
+  pub memory: HardwareData,
+  pub cpu_temperature: HardwareData,
+  pub cpu_power: HardwareData,
+  pub gpu_power: HardwareData,
+  pub ane_power: HardwareData,
+  pub package_power: HardwareData,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct GpuData {
   pub gpu_id: Option<String>,
   pub gpu_name: String,

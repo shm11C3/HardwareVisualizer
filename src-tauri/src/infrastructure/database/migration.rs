@@ -104,6 +104,24 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_temperature_min REAL;
       "#,
     },
+    SchemaMigration {
+      version: 10,
+      description: "add_power_archive_columns",
+      sql: r#"
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_power_avg REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_power_max REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN cpu_power_min REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN gpu_power_avg REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN gpu_power_max REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN gpu_power_min REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN ane_power_avg REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN ane_power_max REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN ane_power_min REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN package_power_avg REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN package_power_max REAL;
+        ALTER TABLE DATA_ARCHIVE ADD COLUMN package_power_min REAL;
+      "#,
+    },
   ]
 }
 
@@ -174,14 +192,31 @@ mod tests {
   }
 
   #[test]
+  fn migration_v10_adds_power_archive_columns() {
+    let migration = get_migrations()
+      .into_iter()
+      .find(|migration| migration.version == 10)
+      .expect("Version 10 up migration must exist");
+    for component in ["cpu", "gpu", "ane", "package"] {
+      for stats in ["avg", "max", "min"] {
+        assert!(
+          migration
+            .sql
+            .contains(&format!("{component}_power_{stats} REAL"))
+        );
+      }
+    }
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 9);
+    assert_eq!(get_max_migration_version(), 10);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 9);
+    assert_eq!(migrations.len(), 10);
   }
 
   #[test]
@@ -237,6 +272,20 @@ mod tests {
     .unwrap();
     assert_eq!(cpu_temperature_columns.0, 3);
 
+    let power_columns: (i64,) = sqlx::query_as(
+      "SELECT COUNT(*) FROM pragma_table_info('DATA_ARCHIVE')
+       WHERE name IN (
+         'cpu_power_avg', 'cpu_power_max', 'cpu_power_min',
+         'gpu_power_avg', 'gpu_power_max', 'gpu_power_min',
+         'ane_power_avg', 'ane_power_max', 'ane_power_min',
+         'package_power_avg', 'package_power_max', 'package_power_min'
+       )",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(power_columns.0, 12);
+
     sqlx::query(
       "INSERT INTO DATA_ARCHIVE (
          cpu_avg,
@@ -248,12 +297,20 @@ mod tests {
          cpu_temperature_avg,
          cpu_temperature_max,
          cpu_temperature_min,
+         cpu_power_avg, cpu_power_max, cpu_power_min,
+         gpu_power_avg, gpu_power_max, gpu_power_min,
+         ane_power_avg, ane_power_max, ane_power_min,
+         package_power_avg, package_power_max, package_power_min,
          timestamp
-       ) VALUES (25, 50, 10, 40, 45, 35, 52.5, 61, 44, '2026-06-21T00:00:00Z')",
+       ) VALUES (
+         25, 50, 10, 40, 45, 35, 52.5, 61, 44,
+         8, 12, 4, 5, 9, 2, 1, 2, 0.5, 14, 20, 8,
+         '2026-06-21T00:00:00Z'
+       )",
     )
     .execute(&pool)
     .await
-    .expect("insert with CPU temperature archive columns must succeed");
+    .expect("insert with temperature and power archive columns must succeed");
 
     // The exact statement shape that used to fail now succeeds.
     sqlx::query(

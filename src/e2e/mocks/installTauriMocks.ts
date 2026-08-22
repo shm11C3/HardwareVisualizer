@@ -206,6 +206,9 @@ const buildInvokeHandlers = (
     if (a.hardwareType === "cpuTemperature") {
       return buildArchiveRecords(a.start, a.end, 58, 6);
     }
+    if (a.hardwareType.endsWith("Power")) {
+      return buildArchiveRecords(a.start, a.end, 18, 7);
+    }
     return buildArchiveRecords(a.start, a.end, 60, 8);
   },
   get_gpu_archive_records: (args) => {

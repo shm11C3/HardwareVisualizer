@@ -361,7 +361,7 @@ export type CpuInfo = {
 	cpuName: string,
 };
 
-export type DataArchiveHardwareType = "cpu" | "cpuTemperature" | "memory";
+export type DataArchiveHardwareType = "cpu" | "cpuTemperature" | "cpuPower" | "gpuPower" | "anePower" | "packagePower" | "memory";
 
 export type DiskKind = "hdd" | "ssd" | "other";
 

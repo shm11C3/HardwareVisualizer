@@ -338,7 +338,8 @@
         "title": "CPU・メモリ"
       },
       "cooling": {
-        "title": "冷却"
+        "title": "冷却",
+        "packagePower": "パッケージ消費電力"
       },
       "gpu": {
         "title": "GPU"

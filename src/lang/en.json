@@ -338,7 +338,8 @@
         "title": "CPU / Memory"
       },
       "cooling": {
-        "title": "Cooling"
+        "title": "Cooling",
+        "packagePower": "Package power"
       },
       "gpu": {
         "title": "GPU"

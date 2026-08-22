@@ -33,9 +33,16 @@ export const InsightChart = ({
   });
 
   const isTemperature = hardwareType === "cpuTemperature";
-  const dataType = isTemperature ? "temp" : hardwareType;
+  const isPower = hardwareType.endsWith("Power");
+  const dataType: "cpu" | "memory" | "temp" | "power" = isTemperature
+    ? "temp"
+    : isPower
+      ? "power"
+      : hardwareType === "cpu"
+        ? "cpu"
+        : "memory";
   const chartConfig: Record<
-    "cpu" | "memory" | "temp",
+    "cpu" | "memory" | "temp" | "power",
     { label: string; color: string }
   > = {
     cpu: {
@@ -50,9 +57,13 @@ export const InsightChart = ({
       label: "CPU",
       color: "254, 192, 57",
     },
+    power: {
+      label: "Package",
+      color: "245, 158, 11",
+    },
   } satisfies ChartConfig;
 
-  if (isTemperature && !hasData) {
+  if ((isTemperature || isPower) && !hasData) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <span className="text-muted-foreground">
@@ -80,14 +91,31 @@ export const InsightChart = ({
         dataKey={
           isTemperature
             ? `CPU ${t("shared.temperature.full")} (${settings.temperatureUnit === "C" ? "°C" : "°F"})`
-            : `${t("shared.usage")} (%)`
+            : isPower
+              ? `${t("pages.insights.cooling.packagePower")} (W)`
+              : `${t("shared.usage")} (%)`
         }
         range={
           isTemperature
             ? settings.temperatureUnit === "C"
               ? [0, 100]
               : [0, 220]
-            : [0, 100]
+            : isPower
+              ? [
+                  0,
+                  Math.max(
+                    10,
+                    Math.ceil(
+                      Math.max(
+                        ...chartData.flatMap((value) =>
+                          value == null ? [] : [value],
+                        ),
+                        0,
+                      ) * 1.1,
+                    ),
+                  ),
+                ]
+              : [0, 100]
         }
       />
     </div>
