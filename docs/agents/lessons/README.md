@@ -113,3 +113,4 @@ shared enforcement surface.
 - [Read id producers before identity UI](read-id-producers-before-identity-ui.md)
 - [Bound bot review loops](bound-bot-review-loops.md)
 - [WebView2 suspension requires hiding the controller](webview2-suspend-requires-hidden-controller.md)
+- [Stabilize performance memory baselines](stabilize-perf-memory-baselines.md)

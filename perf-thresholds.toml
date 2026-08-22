@@ -9,7 +9,10 @@ max_p95_memory_mb = 500.0
 max_memory_growth_mb = 50.0
 
 [timing]
+# Wait at least 15s, then allow up to 45s for a stable helper set and RSS
+# baseline before the measurement window starts.
 warmup_seconds = 15
+stabilization_timeout_seconds = 45
 measurement_seconds = 60
 sample_interval_ms = 1000
 

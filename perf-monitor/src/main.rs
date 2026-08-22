@@ -23,7 +23,7 @@ struct Cli {
   #[arg(long, default_value = "perf-thresholds.toml")]
   config: PathBuf,
 
-  /// Warmup duration in seconds (skip initial spike)
+  /// Minimum warmup duration before process-tree stabilization
   #[arg(long)]
   warmup: Option<u64>,
 

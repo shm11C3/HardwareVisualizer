@@ -4,6 +4,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+pub const STABILITY_WINDOW_SAMPLES: usize = 10;
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
   pub thresholds: Thresholds,
@@ -30,6 +32,8 @@ pub struct Thresholds {
 #[derive(Debug, Deserialize)]
 pub struct Timing {
   pub warmup_seconds: u64,
+  #[serde(default = "default_stabilization_timeout_seconds")]
+  pub stabilization_timeout_seconds: u64,
   pub measurement_seconds: u64,
   pub sample_interval_ms: u64,
 }
@@ -61,6 +65,7 @@ impl Default for Timing {
   fn default() -> Self {
     Self {
       warmup_seconds: 15,
+      stabilization_timeout_seconds: default_stabilization_timeout_seconds(),
       measurement_seconds: 60,
       sample_interval_ms: 1000,
     }
@@ -87,6 +92,13 @@ impl Config {
       return Err(ValidationError(format!(
         "measurement_seconds ({}s) must be >= sample_interval_ms ({}ms)",
         self.timing.measurement_seconds, self.timing.sample_interval_ms
+      )));
+    }
+
+    if self.timing.stabilization_timeout_seconds < STABILITY_WINDOW_SAMPLES as u64 {
+      return Err(ValidationError(format!(
+        "stabilization_timeout_seconds ({}s) must be at least {}s",
+        self.timing.stabilization_timeout_seconds, STABILITY_WINDOW_SAMPLES
       )));
     }
 
@@ -128,6 +140,10 @@ impl Config {
   }
 }
 
+fn default_stabilization_timeout_seconds() -> u64 {
+  45
+}
+
 fn current_platform() -> &'static str {
   if cfg!(target_os = "windows") {
     "windows"
@@ -137,5 +153,24 @@ fn current_platform() -> &'static str {
     "macos"
   } else {
     "unknown"
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn timing_defaults_stabilization_timeout_for_older_configs() {
+    let timing: Timing = toml::from_str(
+      r#"
+        warmup_seconds = 15
+        measurement_seconds = 60
+        sample_interval_ms = 1000
+      "#,
+    )
+    .expect("legacy timing config should deserialize");
+
+    assert_eq!(timing.stabilization_timeout_seconds, 45);
   }
 }
