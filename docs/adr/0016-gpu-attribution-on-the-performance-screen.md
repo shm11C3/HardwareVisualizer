@@ -46,7 +46,9 @@ across. The frontend enforces this at compile time: live ids carry the branded
 `LiveGpuId` type, minted only where samples enter (`useHardwareEventListener`)
 and where stored intent is restored, so writing an inventory id into the
 shared selection or indexing a live map with one is a type error rather than a
-review finding. Live maps are built through `liveGpuRecord`, because
+review finding. The minting
+sites are the monitor payload, the restored stored intent, and the classic
+card's `toLiveGpuId` write. Live maps are built through `liveGpuRecord`, because
 `Object.fromEntries` returns a `string`-indexed object that TypeScript accepts
 for a branded record — indexing is checked by the brand alone, construction
 needed the gate. Two tests back the types up deterministically: the e2e fixture
