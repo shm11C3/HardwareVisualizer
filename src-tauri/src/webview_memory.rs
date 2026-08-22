@@ -2,6 +2,7 @@
 
 use tauri::{Manager, WebviewWindow, Window};
 
+#[cfg(target_os = "windows")]
 use crate::{log_debug, log_warn};
 
 pub fn suspend_for_window(window: &Window) {
