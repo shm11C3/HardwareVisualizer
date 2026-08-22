@@ -41,7 +41,7 @@ const ATOM = /\bselectedGpuIdAtom\b/;
  * TypeScript 7 parser lives behind `unstable/` entry points, so depending on
  * it here would trade one fragility for another.
  */
-export const codeOnly = (source: string) => {
+const codeOnly = (source: string) => {
   let out = "";
   let i = 0;
   while (i < source.length) {
