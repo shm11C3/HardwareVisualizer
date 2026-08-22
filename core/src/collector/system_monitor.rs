@@ -45,10 +45,11 @@ impl SystemMonitorController {
       let mut ticker = interval(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
       ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-      // Resolve the shared platform once for the lifetime of the loop.
-      // On failure every cycle reports unavailable sensor samples with
-      // this error as the reason.
-      let platform = PlatformFactory::shared();
+      // Resolve the shared platform once. While resolution fails, each
+      // cycle reports unavailable sensor samples with the error as the
+      // reason and the next tick retries, so a transient startup
+      // failure cannot degrade the rest of the process lifetime.
+      let mut platform = PlatformFactory::shared();
       if let Err(error) = &platform {
         log_error!(
           "platform unavailable for the collector loop",
@@ -67,6 +68,9 @@ impl SystemMonitorController {
           _ = ticker.tick() => {
             let start = std::time::Instant::now();
 
+            if platform.is_err() {
+              platform = PlatformFactory::shared();
+            }
             if let Some(snapshot) = sampling::collect_snapshot(&store, &platform).await {
               bus.publish(snapshot);
             }

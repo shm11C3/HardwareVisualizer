@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::enums::error::PlatformError;
 use crate::platform::traits::Platform;
@@ -9,6 +9,11 @@ use crate::platform::traits::Platform;
 pub type PlatformHandle = Result<Arc<dyn Platform>, PlatformError>;
 
 static SHARED: OnceLock<Arc<dyn Platform>> = OnceLock::new();
+/// Serializes construction so at most one caller runs the platform
+/// constructor, even when first callers race. Platform implementations
+/// may acquire provider handles at construction time, so a discarded
+/// duplicate instance is not acceptable.
+static INIT_LOCK: Mutex<()> = Mutex::new(());
 
 /// Factory that resolves the process-wide Platform instance
 pub struct PlatformFactory;
@@ -25,9 +30,15 @@ impl PlatformFactory {
     if let Some(platform) = SHARED.get() {
       return Ok(Arc::clone(platform));
     }
+
+    // A panicking constructor must not permanently poison resolution.
+    let _guard = INIT_LOCK
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(platform) = SHARED.get() {
+      return Ok(Arc::clone(platform));
+    }
     let platform: Arc<dyn Platform> = Arc::from(Self::create_platform()?);
-    // On a construction race the first stored instance wins; platforms
-    // hold no exclusive resources at construction time.
     Ok(Arc::clone(SHARED.get_or_init(|| platform)))
   }
 
