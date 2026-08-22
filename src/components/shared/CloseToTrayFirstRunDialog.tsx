@@ -1,5 +1,4 @@
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -129,7 +128,11 @@ export const CloseToTrayFirstRunDialog = ({
       }
 
       if (promptReason === "close") {
-        await getCurrentWindow().hide();
+        const hidden = await commands.hideMainWindowToTray();
+
+        if (isError(hidden)) {
+          throw new Error(hidden.error);
+        }
       }
 
       setPromptReason(null);

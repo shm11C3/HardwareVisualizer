@@ -7,7 +7,7 @@ import { CloseToTrayFirstRunDialog } from "./CloseToTrayFirstRunDialog";
 
 const mocks = vi.hoisted(() => ({
   error: vi.fn(),
-  hide: vi.fn(),
+  hideMainWindowToTray: vi.fn(),
   isCloseToTrayAvailable: vi.fn(),
   listen: vi.fn(),
   markCloseToTrayListenerReady: vi.fn(),
@@ -22,12 +22,6 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mocks.listen,
 }));
 
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({
-    hide: mocks.hide,
-  }),
-}));
-
 vi.mock("@/hooks/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: mocks.error,
@@ -36,6 +30,7 @@ vi.mock("@/hooks/useTauriDialog", () => ({
 
 vi.mock("@/rspc/bindings", () => ({
   commands: {
+    hideMainWindowToTray: mocks.hideMainWindowToTray,
     isCloseToTrayAvailable: mocks.isCloseToTrayAvailable,
     markCloseToTrayListenerReady: mocks.markCloseToTrayListenerReady,
     quitApp: mocks.quitApp,
@@ -69,6 +64,10 @@ describe("CloseToTrayFirstRunDialog", () => {
       status: "ok",
       data: true,
     });
+    mocks.hideMainWindowToTray.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     mocks.setCloseToTrayPreference.mockResolvedValue({
       status: "ok",
       data: null,
@@ -101,7 +100,7 @@ describe("CloseToTrayFirstRunDialog", () => {
       visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
-    expect(mocks.hide).not.toHaveBeenCalled();
+    expect(mocks.hideMainWindowToTray).not.toHaveBeenCalled();
     expect(mocks.quitApp).not.toHaveBeenCalled();
   });
 
@@ -176,8 +175,31 @@ describe("CloseToTrayFirstRunDialog", () => {
       visibleMetrics: ["cpu", "gpu", "gpu-temp"],
       updateIntervalSecs: 1,
     });
-    expect(mocks.hide).toHaveBeenCalled();
+    expect(mocks.hideMainWindowToTray).toHaveBeenCalledTimes(1);
     expect(mocks.quitApp).not.toHaveBeenCalled();
+  });
+
+  it("reports an error when the App-owned hide transition fails", async () => {
+    const user = userEvent.setup();
+    mocks.hideMainWindowToTray.mockResolvedValue({
+      status: "error",
+      error: "hide failed",
+    });
+
+    renderDialog(<CloseToTrayFirstRunDialog closeToTrayChoiceMade />);
+
+    await waitFor(() => expect(mocks.closeHandler).toBeDefined());
+    act(() => {
+      mocks.closeHandler?.();
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Continue in background" }),
+    );
+
+    expect(mocks.error).toHaveBeenCalledWith(
+      "Failed to keep the app running in the background.",
+    );
   });
 
   it("does not show a second error dialog when rejecting tray mode fails", async () => {

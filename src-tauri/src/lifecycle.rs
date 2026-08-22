@@ -125,16 +125,20 @@ pub fn restore_main_window(app: &AppHandle) {
 
   crate::webview_memory::resume(&window);
 
-  // Best-effort: each call may legitimately fail (window already
-  // visible, already in the foreground, OS denying focus) without
-  // affecting the others. Logging keeps the trail without aborting.
+  // Showing the native window is the ownership handoff that makes a resumed
+  // WebView useful. Restore the suspended state if that handoff fails.
   if let Err(e) = window.show() {
     log_warn!(
       &format!("failed to show main window: {e}"),
       "lifecycle::restore_main_window",
       None::<&str>
     );
+    crate::webview_memory::suspend(&window);
+    return;
   }
+
+  // Unminimize and focus are best-effort: each may legitimately fail when the
+  // window is already in the requested state or the OS denies focus.
   if let Err(e) = window.unminimize() {
     log_warn!(
       &format!("failed to unminimize main window: {e}"),
@@ -148,6 +152,16 @@ pub fn restore_main_window(app: &AppHandle) {
       "lifecycle::restore_main_window",
       None::<&str>
     );
+  }
+
+  if matches!(window.is_visible(), Ok(false)) {
+    log_warn!(
+      "main window remained hidden after restore",
+      "lifecycle::restore_main_window",
+      None::<&str>
+    );
+    crate::webview_memory::suspend(&window);
+    return;
   }
 
   emit_latest_window_snapshot(app);
@@ -258,6 +272,17 @@ pub fn is_close_to_tray_available(app: &AppHandle) -> bool {
     .try_state::<CloseToTrayRuntimeState>()
     .map(|state| state.is_available())
     .unwrap_or(true)
+}
+
+/// Hide the main window and suspend its WebView for tray-resident operation.
+pub fn hide_main_window_to_tray(app: &AppHandle) -> Result<(), String> {
+  let window = app
+    .get_webview_window("main")
+    .ok_or_else(|| "main window not found while hiding to tray".to_string())?;
+
+  window.hide().map_err(|e| e.to_string())?;
+  crate::webview_memory::suspend(&window);
+  Ok(())
 }
 
 fn hide_window_on_close(window: &Window) -> Result<(), tauri::Error> {

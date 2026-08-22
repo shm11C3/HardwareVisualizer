@@ -50,8 +50,9 @@ window lifecycle.
 
 ## Consequences
 
-- The measured Windows tray-resident process tree stays intact while its stable
-  Private Working Set falls by 78.9% in the tested environment.
+- The final production validation kept the Windows tray-resident process tree
+  intact while its stable Private Working Set fell from 173.7 MiB to 31.9 MiB
+  (81.6%) in the tested environment.
 - Hidden WebView scripts, timers, and animations stop without stopping Core
   collection, the native tray, Hardware Archive, or other background behavior.
 - Showing either window now has a platform lifecycle transition before WebView

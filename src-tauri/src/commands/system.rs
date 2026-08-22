@@ -64,6 +64,13 @@ pub async fn mark_close_to_tray_listener_ready(
   crate::lifecycle::mark_close_to_tray_listener_ready(app_handle).await
 }
 
+/// Hide the main window through the App-owned close-to-tray lifecycle.
+#[tauri::command]
+#[specta::specta]
+pub fn hide_main_window_to_tray(app_handle: tauri::AppHandle) -> Result<(), String> {
+  crate::lifecycle::hide_main_window_to_tray(&app_handle)
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

@@ -150,6 +150,7 @@ fn build_specta_builder() -> Builder<Wry> {
       system::quit_app,
       system::is_close_to_tray_available,
       system::mark_close_to_tray_listener_ready,
+      system::hide_main_window_to_tray,
     ])
 }
 

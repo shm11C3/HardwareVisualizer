@@ -254,17 +254,15 @@ fn toggle_flyout_window(
     emit_flyout_frame_to_window(&window, &frame);
   }
 
-  let show_succeeded = match window.show() {
-    Ok(()) => true,
-    Err(e) => {
-      log_warn!(
-        &format!("failed to show Windows tray flyout: {e}"),
-        "tray::surface::windows::toggle_flyout_window",
-        None::<&str>
-      );
-      false
-    }
-  };
+  if let Err(e) = window.show() {
+    log_warn!(
+      &format!("failed to show Windows tray flyout: {e}"),
+      "tray::surface::windows::toggle_flyout_window",
+      None::<&str>
+    );
+    crate::webview_memory::suspend(&window);
+    return;
+  }
 
   if let Err(e) = window.set_focus() {
     log_warn!(
@@ -274,16 +272,14 @@ fn toggle_flyout_window(
     );
   }
 
-  if show_succeeded {
-    log_debug!(
-      &format!(
-        "Windows tray flyout restored in {} ms",
-        restore_started_at.elapsed().as_millis()
-      ),
-      "tray::surface::windows::toggle_flyout_window",
-      None::<&str>
-    );
-  }
+  log_debug!(
+    &format!(
+      "Windows tray flyout restored in {} ms",
+      restore_started_at.elapsed().as_millis()
+    ),
+    "tray::surface::windows::toggle_flyout_window",
+    None::<&str>
+  );
 }
 
 fn hide_flyout_window(app_handle: &AppHandle) {
