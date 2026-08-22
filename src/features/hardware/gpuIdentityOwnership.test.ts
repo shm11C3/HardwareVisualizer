@@ -151,9 +151,9 @@ describe("codeOnly", () => {
 
   it("keeps a reference inside a template interpolation", () => {
     // eslint-style template: the text is a literal, the ${} is code.
-    expect(codeOnly("const s = `atom: ${chart.selectedGpuIdAtom}`;")).toContain(
-      "selectedGpuIdAtom",
-    );
+    // Concatenated so the ${} is data here, not a lint-visible placeholder.
+    const source = "const s = `atom: $" + "{chart.selectedGpuIdAtom}`;";
+    expect(codeOnly(source)).toContain("selectedGpuIdAtom");
   });
 
   it("treats division as code, not as a regex opener", () => {
