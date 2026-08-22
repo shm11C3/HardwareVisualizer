@@ -364,40 +364,44 @@ impl ArchiveTracker {
       .chain(self.gpu_dedicated_memory_histories.keys())
       .collect();
 
-    let per_id = gpu_ids
+    // The archive API selects GPU data by display name. Keep one row per
+    // name and interval so distinct live ids cannot interleave into one chart
+    // when two adapters share the same name. Group the raw histories before
+    // calculating aggregates so an adapter with fewer samples does not have
+    // the same weight as an adapter with a full history.
+    let mut ids_by_name: HashMap<String, Vec<&String>> = HashMap::new();
+    for gpu_id in gpu_ids {
+      let gpu_name = self
+        .gpu_name_map
+        .get(gpu_id)
+        .cloned()
+        .unwrap_or_else(|| gpu_id.clone());
+      ids_by_name.entry(gpu_name).or_default().push(gpu_id);
+    }
+
+    ids_by_name
       .into_iter()
-      .map(|gpu_id| {
+      .map(|(gpu_name, ids)| {
         let (usage_avg, usage_max, usage_min) = StatsCalculator::compute_f32_aggregates(
-          self
-            .gpu_usage_histories
-            .get(gpu_id)
-            .map(|h| h.iter().copied())
-            .into_iter()
-            .flatten(),
+          ids
+            .iter()
+            .filter_map(|gpu_id| self.gpu_usage_histories.get(*gpu_id))
+            .flat_map(|history| history.iter().copied()),
         );
         let (temp_avg, temp_max, temp_min) = StatsCalculator::compute_i32_aggregates(
-          self
-            .gpu_temperature_histories
-            .get(gpu_id)
-            .map(|h| h.iter().copied())
-            .into_iter()
-            .flatten(),
+          ids
+            .iter()
+            .filter_map(|gpu_id| self.gpu_temperature_histories.get(*gpu_id))
+            .flat_map(|history| history.iter().copied()),
         );
         let (mem_avg_f32, mem_max, mem_min) = StatsCalculator::compute_i32_aggregates(
-          self
-            .gpu_dedicated_memory_histories
-            .get(gpu_id)
-            .map(|h| h.iter().copied())
-            .into_iter()
-            .flatten(),
+          ids
+            .iter()
+            .filter_map(|gpu_id| self.gpu_dedicated_memory_histories.get(*gpu_id))
+            .flat_map(|history| history.iter().copied()),
         );
-        let gpu_name = self
-          .gpu_name_map
-          .get(gpu_id)
-          .cloned()
-          .unwrap_or_else(|| gpu_id.clone());
         GpuData {
-          gpu_id: Some(gpu_id.clone()),
+          gpu_id: (ids.len() == 1).then(|| ids[0].clone()),
           gpu_name,
           usage_avg,
           usage_max,
@@ -410,19 +414,7 @@ impl ArchiveTracker {
           dedicated_memory_min: mem_min,
         }
       })
-      .collect::<Vec<_>>();
-
-    // The archive API selects GPU data by display name. Keep one row per
-    // name and interval so distinct live ids cannot interleave into one
-    // chart when two adapters share the same name.
-    let mut by_name = HashMap::new();
-    for gpu in per_id {
-      by_name
-        .entry(gpu.gpu_name.clone())
-        .and_modify(|existing: &mut GpuData| merge_gpu_data(existing, &gpu))
-        .or_insert(gpu);
-    }
-    by_name.into_values().collect()
+      .collect()
   }
 
   fn collect_process_stats(&self) -> Vec<ProcessStatData> {
@@ -455,73 +447,6 @@ impl ArchiveTracker {
       .collect();
 
     rank_top_processes(all_stats)
-  }
-}
-
-fn merge_gpu_data(existing: &mut GpuData, incoming: &GpuData) {
-  existing.gpu_id = None;
-  existing.usage_avg = average_optional(existing.usage_avg, incoming.usage_avg);
-  existing.usage_max = max_f32_optional(existing.usage_max, incoming.usage_max);
-  existing.usage_min = min_f32_optional(existing.usage_min, incoming.usage_min);
-  existing.temperature_avg =
-    average_optional(existing.temperature_avg, incoming.temperature_avg);
-  existing.temperature_max =
-    max_optional(existing.temperature_max, incoming.temperature_max);
-  existing.temperature_min =
-    min_optional(existing.temperature_min, incoming.temperature_min);
-  existing.dedicated_memory_avg =
-    average_i32_optional(existing.dedicated_memory_avg, incoming.dedicated_memory_avg);
-  existing.dedicated_memory_max =
-    max_optional(existing.dedicated_memory_max, incoming.dedicated_memory_max);
-  existing.dedicated_memory_min =
-    min_optional(existing.dedicated_memory_min, incoming.dedicated_memory_min);
-}
-
-fn average_optional(left: Option<f32>, right: Option<f32>) -> Option<f32> {
-  match (left, right) {
-    (Some(left), Some(right)) => Some((left + right) / 2.0),
-    (Some(value), None) | (None, Some(value)) => Some(value),
-    (None, None) => None,
-  }
-}
-
-fn average_i32_optional(left: Option<i32>, right: Option<i32>) -> Option<i32> {
-  average_optional(
-    left.map(|value| value as f32),
-    right.map(|value| value as f32),
-  )
-  .map(|value| value.round() as i32)
-}
-
-fn max_f32_optional(left: Option<f32>, right: Option<f32>) -> Option<f32> {
-  match (left, right) {
-    (Some(left), Some(right)) => Some(left.max(right)),
-    (Some(value), None) | (None, Some(value)) => Some(value),
-    (None, None) => None,
-  }
-}
-
-fn min_f32_optional(left: Option<f32>, right: Option<f32>) -> Option<f32> {
-  match (left, right) {
-    (Some(left), Some(right)) => Some(left.min(right)),
-    (Some(value), None) | (None, Some(value)) => Some(value),
-    (None, None) => None,
-  }
-}
-
-fn max_optional<T: Ord>(left: Option<T>, right: Option<T>) -> Option<T> {
-  match (left, right) {
-    (Some(left), Some(right)) => Some(left.max(right)),
-    (Some(value), None) | (None, Some(value)) => Some(value),
-    (None, None) => None,
-  }
-}
-
-fn min_optional<T: Ord>(left: Option<T>, right: Option<T>) -> Option<T> {
-  match (left, right) {
-    (Some(left), Some(right)) => Some(left.min(right)),
-    (Some(value), None) | (None, Some(value)) => Some(value),
-    (None, None) => None,
   }
 }
 
@@ -1007,7 +932,7 @@ mod tests {
   }
 
   #[test]
-  fn collect_gpu_data_aggregates_same_name_ids_for_name_based_archive() {
+  fn collect_gpu_data_aggregates_raw_same_name_histories_for_archive() {
     let mut t = ArchiveTracker::new();
     t.ingest(MetricsSnapshot {
       cpu_usage: 0.0,
@@ -1033,6 +958,27 @@ mod tests {
           gpu_cooler_level: None,
         },
       ],
+      processes: vec![],
+      cpu_temperature: None,
+      sensor_temperatures: vec![],
+      motherboard_temperatures: vec![],
+      motherboard_fan_speeds: vec![],
+      external_component_guidance_candidates: vec![],
+    });
+
+    t.ingest(MetricsSnapshot {
+      cpu_usage: 0.0,
+      memory_usage: 0.0,
+      processors_usage: vec![0.0],
+      gpus: vec![GpuMetric {
+        gpu_id: "pdh:instance:adapter-a".into(),
+        gpu_name: "Intel UHD Graphics".into(),
+        gpu_usage: Some(20.0),
+        gpu_temperature: Some(50.0),
+        gpu_source: "PDH".into(),
+        gpu_dedicated_memory_usage_kb: Some(200.0),
+        gpu_cooler_level: None,
+      }],
       processes: vec![],
       cpu_temperature: None,
       sensor_temperatures: vec![],

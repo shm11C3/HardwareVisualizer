@@ -25,9 +25,7 @@ pub async fn get_intel_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
       .into_iter()
       .filter_map(|adapter| {
         let luid = adapter.adapter_luid?;
-        let stable_id = adapter.device_instance_id.unwrap_or_else(|| {
-          format!("pci:{}:{}:{}", adapter.bus, adapter.device, adapter.function)
-        });
+        let stable_id = adapter.device_instance_id?;
         Some((luid, stable_id))
       })
       .collect();
