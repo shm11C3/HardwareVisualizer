@@ -20,8 +20,6 @@ const ALLOWED_CONSUMERS = new Set([
   "/src/features/hardware/hooks/useSelectedGpuPersistence.ts",
   // Writes the auto-selection when nothing is selected yet.
   "/src/features/hardware/hooks/useHardwareEventListener.ts",
-  // The classic card resolves through findInventoryGpu/toLiveGpuId.
-  "/src/features/hardware/dashboard/components/DashboardItems.tsx",
 ]);
 
 const sources = import.meta.glob("/src/**/*.{ts,tsx}", {

@@ -59,6 +59,7 @@ export const useGpuAdapters = () => {
   return {
     live,
     adapters,
+    selectedGpuId,
     effectiveGpuId,
     effectiveAdapter: adapters.find((adapter) => adapter.id === effectiveGpuId),
     hasNoReadings: hasNoLiveGpuReadings(effectiveGpuId, live, detectedGpuIds),
