@@ -282,6 +282,9 @@
       "currentValues": "Текущие значения",
       "perCoreUnavailable": "Загрузка по ядрам недоступна в этой системе.",
       "motherboardSensorsUnavailable": "Датчики материнской платы не обнаружены в этой системе.",
+      "gpuSelector": "Выберите ГП",
+      "gpuNoLiveReadings": "Этот адаптер не передаёт текущие показания.",
+      "compactGpuAdapter": "ГП: {{name}}",
       "metrics": {
         "cpu": "ЦП",
         "memory": "Память",

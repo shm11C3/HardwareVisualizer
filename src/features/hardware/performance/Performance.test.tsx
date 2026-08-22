@@ -3,6 +3,8 @@ import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cpuUsageHistoryAtom,
+  gpuDedicatedMemoryKbMapAtom,
+  gpuNamesAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
@@ -25,7 +27,28 @@ const state = vi.hoisted(() => ({
   } as PerformanceCustomLayout,
   chartRenders: { cpu: 0, memory: 0, gpu: 0 },
   processRenders: 0,
+  gpus: null as
+    | null
+    | {
+        id: string;
+        name: string;
+        vendorName: string;
+        clock: number;
+        memorySize: string;
+        memorySizeDedicated: string;
+        coreCount: string | null;
+      }[],
 }));
+
+const gpuFixture = (id: string, name: string) => ({
+  id,
+  name,
+  vendorName: "Vendor",
+  clock: 2100,
+  memorySize: "8 GB",
+  memorySizeDedicated: "8 GB",
+  coreCount: null,
+});
 
 const settings = vi.hoisted(() => ({
   graphFitToWindow: false,
@@ -43,7 +66,10 @@ const settings = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    // Interpolated values are appended so tests can assert on what the string
+    // actually carries, not just which key was reached.
+    t: (key: string, params?: Record<string, unknown>) =>
+      params == null ? key : `${key} ${Object.values(params).join(" ")}`,
   }),
 }));
 
@@ -65,7 +91,7 @@ vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
     hardwareInfo: {
       cpu: null,
       memory: null,
-      gpus: null,
+      gpus: state.gpus,
       storage: [],
       motherboard: null,
     },
@@ -141,6 +167,7 @@ describe("Performance", () => {
     };
     state.chartRenders = { cpu: 0, memory: 0, gpu: 0 };
     state.processRenders = 0;
+    state.gpus = null;
   });
 
   afterEach(cleanup);
@@ -162,6 +189,27 @@ describe("Performance", () => {
 
     expect(state.chartRenders).toEqual({ cpu: 2, memory: 1, gpu: 1 });
     expect(state.processRenders).toBe(1);
+  });
+
+  it("keeps a GPU tick out of the panels that do not show GPU data", () => {
+    // The GPU atoms are rewritten on every sample. A subscription in the
+    // Performance parent would rerender the whole screen once a second.
+    const store = createStore();
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const before = { ...state.chartRenders, process: state.processRenders };
+
+    act(() => store.set(gpuUsageHistoriesAtom, { "gpu-1": [25, 40] }));
+
+    expect(state.processRenders).toBe(before.process);
+    expect(state.chartRenders.cpu).toBe(before.cpu);
+    expect(state.chartRenders.memory).toBe(before.memory);
   });
 
   it("mounts only the dense strip in Compact", () => {
@@ -257,13 +305,15 @@ describe("Performance", () => {
 
   it("uses one effective GPU for history and temperature fallbacks", () => {
     const store = createStore();
-    store.set(selectedGpuIdAtom, "stale-gpu");
+    // A selection left over from an adapter that is no longer detected: it
+    // appears in no live map and in no detected list, so it cannot be honored.
+    store.set(selectedGpuIdAtom, "removed-gpu");
     store.set(gpuUsageHistoriesAtom, {
       "gpu-1": [25],
     });
     store.set(gpuTempMapAtom, {
       "gpu-1": { name: "GPU 1", value: 45 },
-      "stale-gpu": { name: "Stale GPU", value: 67 },
+      "gpu-2": { name: "GPU 2", value: 67 },
     });
 
     render(
@@ -276,6 +326,203 @@ describe("Performance", () => {
     expect(gpuMetric).toHaveTextContent("25%");
     expect(gpuMetric).toHaveTextContent("45°C");
     expect(gpuMetric).not.toHaveTextContent("67°C");
+  });
+
+  it("names the adapter behind the GPU readings without offering a choice there is none of", () => {
+    const store = createStore();
+    state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
+    store.set(gpuNamesAtom, { "gpu-1": "NVIDIA GeForce RTX 4080" });
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [42] });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId("performance-gpu-adapter")).toHaveTextContent(
+      "GeForce RTX 4080",
+    );
+    expect(screen.queryByTestId("performance-gpu-selector")).toBeNull();
+  });
+
+  it("drops the VRAM total when the inventory name cannot pick out one card", () => {
+    const store = createStore();
+    // Two identical cards in the inventory, only one of them reporting. The
+    // live side looks unambiguous, but the name still cannot say which
+    // capacity belongs to the reading.
+    state.gpus = [
+      gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090"),
+      gpuFixture("inventory-b", "NVIDIA GeForce RTX 4090"),
+    ];
+    store.set(gpuNamesAtom, { "nvapi:1": "NVIDIA GeForce RTX 4090" });
+    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [40] });
+    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4 * 1024 * 1024 });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const gpuMetric = screen.getByTestId("performance-metric-gpu");
+    expect(gpuMetric).toHaveTextContent("VRAM 4.0 GB");
+    expect(gpuMetric).not.toHaveTextContent("VRAM 4.0/8 GB");
+  });
+
+  it("keeps the VRAM total when exactly one inventory entry matches", () => {
+    const store = createStore();
+    state.gpus = [gpuFixture("inventory-a", "NVIDIA GeForce RTX 4090")];
+    store.set(gpuNamesAtom, { "nvapi:1": "NVIDIA GeForce RTX 4090" });
+    store.set(gpuUsageHistoriesAtom, { "nvapi:1": [40] });
+    store.set(gpuDedicatedMemoryKbMapAtom, { "nvapi:1": 4 * 1024 * 1024 });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId("performance-metric-gpu")).toHaveTextContent(
+      "VRAM 4.0/8 GB",
+    );
+  });
+
+  it("moves every GPU reading to the adapter the user picks", () => {
+    const store = createStore();
+    state.gpus = [
+      gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
+      gpuFixture("gpu-2", "Intel UHD Graphics 770"),
+    ];
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25], "gpu-2": [50] });
+    store.set(gpuTempMapAtom, {
+      "gpu-1": { name: "GPU 1", value: 45 },
+      "gpu-2": { name: "GPU 2", value: 67 },
+    });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const gpuMetric = screen.getByTestId("performance-metric-gpu");
+    expect(gpuMetric).toHaveTextContent("25%");
+    expect(gpuMetric).toHaveTextContent("45°C");
+
+    act(() => {
+      screen.getByRole("button", { name: "Intel UHD Graphics 770" }).click();
+    });
+
+    expect(store.get(selectedGpuIdAtom)).toBe("gpu-2");
+    expect(gpuMetric).toHaveTextContent("50%");
+    expect(gpuMetric).toHaveTextContent("67°C");
+    expect(gpuMetric).not.toHaveTextContent("45°C");
+    expect(
+      screen.getByRole("button", { name: "Intel UHD Graphics 770" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps a silent adapter selected and says so instead of borrowing readings", () => {
+    const store = createStore();
+    state.gpus = [
+      gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
+      gpuFixture("gpu-2", "Intel UHD Graphics 770"),
+    ];
+    store.set(selectedGpuIdAtom, "gpu-2");
+    // gpu-2 named itself in the stream but reported no values at all.
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+    store.set(gpuTempMapAtom, { "gpu-1": { name: "GPU 1", value: 45 } });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const gpuMetric = screen.getByTestId("performance-metric-gpu");
+    expect(gpuMetric).toHaveTextContent("pages.performance.gpuNoLiveReadings");
+    expect(gpuMetric).not.toHaveTextContent("25%");
+    expect(gpuMetric).not.toHaveTextContent("45°C");
+    // The rest of the adapter's information stays reachable.
+    expect(
+      screen.getByRole("button", { name: "Intel UHD Graphics 770" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("does not call an adapter unavailable before the first sample arrives", () => {
+    const store = createStore();
+    state.gpus = [gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080")];
+    store.set(gpuNamesAtom, { "gpu-1": "NVIDIA GeForce RTX 4080" });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId("performance-metric-gpu")).not.toHaveTextContent(
+      "pages.performance.gpuNoLiveReadings",
+    );
+  });
+
+  it("says why a Compact row is dashed when its adapter is silent", () => {
+    const store = createStore();
+    state.view = "compact";
+    store.set(selectedGpuIdAtom, "gpu-2");
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25] });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const strip = screen.getByTestId("performance-compact-strip");
+    expect(strip).toHaveTextContent("pages.performance.gpuNoLiveReadings");
+    // And it is still the selected adapter's row, not the reporting one's.
+    expect(strip).not.toHaveTextContent("25%");
+  });
+
+  it("carries the selected adapter into the Compact strip", () => {
+    const store = createStore();
+    state.view = "compact";
+    state.gpus = [
+      gpuFixture("gpu-1", "NVIDIA GeForce RTX 4080"),
+      gpuFixture("gpu-2", "Intel UHD Graphics 770"),
+    ];
+    store.set(selectedGpuIdAtom, "gpu-2");
+    store.set(gpuNamesAtom, {
+      "gpu-1": "NVIDIA GeForce RTX 4080",
+      "gpu-2": "Intel UHD Graphics 770",
+    });
+    store.set(gpuUsageHistoriesAtom, { "gpu-1": [25], "gpu-2": [50] });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const strip = screen.getByTestId("performance-compact-strip");
+    expect(strip).toHaveTextContent(
+      "pages.performance.compactGpuAdapter UHD Graphics 770",
+    );
+    expect(screen.getByTestId("performance-compact-row-gpu")).toHaveTextContent(
+      "50%",
+    );
   });
 
   it("keeps the two-column request collapsible to one column", () => {
@@ -303,7 +550,7 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-hidden-panels")).toBeVisible();
     expect(
       screen.getAllByRole("button", {
-        name: "pages.performance.showPanel",
+        name: /^pages\.performance\.showPanel/,
       }),
     ).toHaveLength(2);
   });

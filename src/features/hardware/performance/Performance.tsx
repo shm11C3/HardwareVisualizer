@@ -14,6 +14,7 @@ import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { cn } from "@/lib/utils";
 import { CompactStrip } from "./components/CompactStrip";
 import { InstrumentStrip } from "./components/InstrumentStrip";
+import { MonitorGpuSelector } from "./components/MonitorGpuSelector";
 import { PanelColumnsSelector } from "./components/PanelColumnsSelector";
 import { PanelGrid } from "./components/PanelGrid";
 import { PerformanceViewSwitcher } from "./components/PerformanceViewSwitcher";
@@ -104,6 +105,10 @@ export const Performance = ({
               {t("pages.performance.expandCompact")}
             </button>
           )}
+          {/* Monitor is only the graph, so the adapter behind its GPU series
+              has nowhere else to be named: the Instrument Strip that normally
+              carries that is not mounted here. */}
+          {isMonitor && <MonitorGpuSelector />}
           {view === "panels" && (
             <PanelColumnsSelector
               columns={columns}

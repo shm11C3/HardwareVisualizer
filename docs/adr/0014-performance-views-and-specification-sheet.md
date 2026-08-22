@@ -9,6 +9,8 @@ Dashboard destination. [ADR 0015](0015-performance-and-system-specifications-des
 promoted them to peer sidebar destinations. Every presentation decision below
 still applies; read "Performance Tab" and "System Specifications tab" as the
 Performance Screen and the System Specifications Screen.
+[ADR 0016](0016-gpu-attribution-on-the-performance-screen.md) adds adapter
+identity and selection to this decision's GPU instrument.
 
 The first implementation shipped four Performance Layout Presets (Compact,
 Monitor, Detailed, Custom) and reused the Hardware Dashboard card grid for the

@@ -1,21 +1,15 @@
 import { useAtomValue } from "jotai";
 import { type CSSProperties, memo } from "react";
 import { useTranslation } from "react-i18next";
+import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
-  gpuTempMapAtom,
-  gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
-  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { cn } from "@/lib/utils";
-import {
-  formatTemperature,
-  getEffectiveGpuId,
-  toCssColor,
-} from "./InstrumentStrip";
+import { formatTemperature, toCssColor } from "./InstrumentStrip";
 import { Sparkline } from "./Sparkline";
 
 /**
@@ -23,6 +17,16 @@ import { Sparkline } from "./Sparkline";
  * so metrics that are not collected yet (disk activity, network throughput)
  * become new builders here instead of new layout work.
  */
+/**
+ * One footer entry. `fullText` carries the unshortened form for assistive
+ * technology and hover when the visible text had to be abbreviated.
+ */
+export type CompactFooterItem = {
+  id: string;
+  text: string;
+  fullText?: string | undefined;
+};
+
 export type CompactMetricRow = {
   id: string;
   label: string;
@@ -125,16 +129,13 @@ export const CompactStrip = ({
   const { settings } = useSettingsAtom();
   const cpuHistory = useAtomValue(cpuUsageHistoryAtom);
   const memoryHistory = useAtomValue(memoryUsageHistoryAtom);
-  const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
-  const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
-  const selectedGpuId = useAtomValue(selectedGpuIdAtom);
-
-  const effectiveGpuId = getEffectiveGpuId(
-    selectedGpuId,
-    gpuUsageHistories,
-    gpuTemperatureMap,
-  );
+  const {
+    live: gpuLive,
+    effectiveGpuId,
+    effectiveAdapter: activeGpuAdapter,
+    hasNoReadings: gpuHasNoReadings,
+  } = useGpuAdapters();
 
   const rows: CompactMetricRow[] = [
     {
@@ -159,9 +160,9 @@ export const CompactStrip = ({
             id: "gpu",
             label: t("pages.performance.metrics.gpu"),
             color: toCssColor(settings.lineGraphColor.gpu),
-            history: gpuUsageHistories[effectiveGpuId] ?? [],
+            history: gpuLive.usageHistories[effectiveGpuId] ?? [],
             detail: formatTemperature(
-              gpuTemperatureMap[effectiveGpuId]?.value,
+              gpuLive.temperatures[effectiveGpuId]?.value,
               settings.temperatureUnit,
             ),
           },
@@ -173,7 +174,36 @@ export const CompactStrip = ({
   // strip once the backend collects them; they join `rows` / `footerItems`
   // without further layout changes. Storage capacity deliberately stays out:
   // it is a specification fact, not a live reading (see ADR 0014).
-  const footerItems: string[] = [];
+  //
+  // The GPU row carries one adapter's numbers, so the strip says which one.
+  // It goes in the footer rather than the row: the row's tracks are sized for
+  // the mini monitor's small corner window and cannot hold a device name.
+  const footerItems: CompactFooterItem[] = [];
+  if (activeGpuAdapter != null) {
+    footerItems.push({
+      id: "gpu-adapter",
+      text: t("pages.performance.compactGpuAdapter", {
+        name: activeGpuAdapter.label,
+      }),
+      // The visible text is shortened to fit a corner window; the full
+      // name is still announced and still available on hover. Where two
+      // identical cards share that name it says nothing, so the
+      // ordinal-bearing label is what gets announced instead.
+      fullText: t("pages.performance.compactGpuAdapter", {
+        name: activeGpuAdapter.isNameAmbiguous
+          ? activeGpuAdapter.label
+          : activeGpuAdapter.name,
+      }),
+    });
+  }
+  // A dash in the row means "no number". Only the footer can say whether that
+  // is because the adapter is silent or because nothing has been measured yet.
+  if (gpuHasNoReadings) {
+    footerItems.push({
+      id: "gpu-unavailable",
+      text: t("pages.performance.gpuNoLiveReadings"),
+    });
+  }
 
   return (
     <section
@@ -192,7 +222,16 @@ export const CompactStrip = ({
       {footerItems.length > 0 && (
         <div className="flex gap-4 border-border/60 border-t py-2 font-mono text-[11px] text-muted-foreground tabular-nums">
           {footerItems.map((item) => (
-            <span key={item}>{item}</span>
+            <span key={item.id} title={item.fullText ?? item.text}>
+              {item.fullText == null || item.fullText === item.text ? (
+                item.text
+              ) : (
+                <>
+                  <span aria-hidden="true">{item.text}</span>
+                  <span className="sr-only">{item.fullText}</span>
+                </>
+              )}
+            </span>
           ))}
         </div>
       )}

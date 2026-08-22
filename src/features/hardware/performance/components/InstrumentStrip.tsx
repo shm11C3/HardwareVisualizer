@@ -9,38 +9,24 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
+import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
-  gpuDedicatedMemoryKbMapAtom,
-  gpuFanSpeedMapAtom,
   gpuTempMapAtom,
   gpuUsageHistoriesAtom,
   memoryUsageHistoryAtom,
   processorsUsageHistoryAtom,
-  selectedGpuIdAtom,
 } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { cn } from "@/lib/utils";
+import { GpuAdapterSelector } from "./GpuAdapterSelector";
 import { Sparkline } from "./Sparkline";
 
 export const toCssColor = (value: string) =>
   value.startsWith("rgb(") ? value : `rgb(${value})`;
-
-/**
- * The GPU both Performance views agree on: the explicit selection while it is
- * still reporting usage, otherwise the first GPU that reports anything.
- */
-export const getEffectiveGpuId = (
-  selectedGpuId: string | null,
-  gpuUsageHistories: Record<string, (number | null)[]>,
-  gpuTemperatureMap: Record<string, { name: string; value: number }>,
-) =>
-  selectedGpuId != null && Object.hasOwn(gpuUsageHistories, selectedGpuId)
-    ? selectedGpuId
-    : (Object.keys(gpuUsageHistories)[0] ?? Object.keys(gpuTemperatureMap)[0]);
 
 export const formatTemperature = (
   value: number | null | undefined,
@@ -63,6 +49,8 @@ const MetricInstrument = memo(
     history,
     color,
     badge,
+    identity,
+    note,
     substats,
     gauges,
     icon,
@@ -73,6 +61,10 @@ const MetricInstrument = memo(
     history: (number | null)[];
     color: string;
     badge?: string | undefined;
+    /** Names the physical device the readings came from, e.g. the GPU adapter. */
+    identity?: ReactNode;
+    /** Added below the substats when the device reports nothing. */
+    note?: string | undefined;
     substats: Substat[];
     /** Classic Hardware Dashboard card icon, colored per metric hue. */
     icon: ReactNode;
@@ -90,9 +82,9 @@ const MetricInstrument = memo(
         className="absolute inset-x-0 top-0 h-0.5 bg-[var(--metric-color)]"
         aria-hidden="true"
       />
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {icon}
-        <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+        <p className="shrink-0 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
           {label}
         </p>
         {badge != null && (
@@ -100,6 +92,7 @@ const MetricInstrument = memo(
             {badge}
           </p>
         )}
+        {identity != null && <div className="ml-auto min-w-0">{identity}</div>}
       </div>
       {/* Two side-by-side doughnuts must fit a one-third-width card, so the
           xl row stays below the classic 200px dashboard height. */}
@@ -121,6 +114,11 @@ const MetricInstrument = memo(
           ))}
         </div>
       )}
+      {/* Additive, never a replacement: the note says what is missing, so it
+          must not take the place of whatever the device did report. */}
+      {note != null && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{note}</p>
+      )}
     </article>
   ),
 );
@@ -138,10 +136,15 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const gpuUsageHistories = useAtomValue(gpuUsageHistoriesAtom);
   const cpuTemperatures = useAtomValue(cpuTempAtom);
   const gpuTemperatureMap = useAtomValue(gpuTempMapAtom);
-  const gpuFanSpeedMap = useAtomValue(gpuFanSpeedMapAtom);
-  const gpuDedicatedMemoryKbMap = useAtomValue(gpuDedicatedMemoryKbMapAtom);
   const processorsUsageHistory = useAtomValue(processorsUsageHistoryAtom);
-  const selectedGpuId = useAtomValue(selectedGpuIdAtom);
+  const {
+    adapters: gpuAdapters,
+    effectiveGpuId,
+    effectiveAdapter: effectiveGpuAdapter,
+    live: gpuLive,
+    hasNoReadings: gpuHasNoReadings,
+    selectGpu: setSelectedGpuId,
+  } = useGpuAdapters();
   const { settings } = useSettingsAtom();
   const { hardwareInfo, init } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
@@ -155,11 +158,6 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
     void init();
   }, []);
 
-  const effectiveGpuId = getEffectiveGpuId(
-    selectedGpuId,
-    gpuUsageHistories,
-    gpuTemperatureMap,
-  );
   const gpuHistory =
     effectiveGpuId != null ? (gpuUsageHistories[effectiveGpuId] ?? []) : [];
   const gpuTemperature =
@@ -228,11 +226,28 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
   const gpuSubstats = useMemo<Substat[]>(() => {
     const substats: Substat[] = [];
     if (effectiveGpuId != null) {
-      const usedKb = gpuDedicatedMemoryKbMap[effectiveGpuId];
+      const usedKb = gpuLive.dedicatedMemoryKb[effectiveGpuId];
       if (usedKb != null) {
-        const totalLabel = hardwareInfo.gpus?.find(
-          (gpu) => gpu.id === effectiveGpuId,
-        )?.memorySizeDedicated;
+        // Matched by name, not id: the inventory and the live samples use
+        // different id namespaces (see `gpuNamesAtom`), so an id lookup here
+        // always misses and silently drops the total. Two identical cards
+        // make the name ambiguous, and a total attributed to the wrong one
+        // of them is worse than no total, so the denominator is dropped.
+        // Both sides have to be unambiguous, not just the live one: the
+        // inventory can hold two identically named cards while only one of
+        // them reports, and `.find()` would then pick a capacity at random.
+        const inventoryMatches =
+          effectiveGpuAdapter == null
+            ? []
+            : (hardwareInfo.gpus?.filter(
+                (gpu) => gpu.name === effectiveGpuAdapter.name,
+              ) ?? []);
+        const totalLabel =
+          effectiveGpuAdapter != null &&
+          !effectiveGpuAdapter.isNameAmbiguous &&
+          inventoryMatches.length === 1
+            ? inventoryMatches[0].memorySizeDedicated
+            : undefined;
         const usedGb = (usedKb / 1024 / 1024).toFixed(1);
         substats.push({
           key: "vram",
@@ -243,7 +258,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         });
       }
 
-      const fan = gpuFanSpeedMap[effectiveGpuId];
+      const fan = gpuLive.fanSpeeds[effectiveGpuId];
       if (fan != null) {
         substats.push({
           key: "fan",
@@ -256,13 +271,7 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
       }
     }
     return substats;
-  }, [
-    effectiveGpuId,
-    gpuDedicatedMemoryKbMap,
-    gpuFanSpeedMap,
-    hardwareInfo.gpus,
-    t,
-  ]);
+  }, [effectiveGpuId, effectiveGpuAdapter, gpuLive, hardwareInfo.gpus, t]);
 
   const currentMemoryUsage = memoryHistory.at(-1) ?? null;
 
@@ -331,6 +340,18 @@ export const InstrumentStrip = ({ className }: { className?: string }) => {
         history={gpuHistory}
         color={toCssColor(settings.lineGraphColor.gpu)}
         substats={gpuSubstats}
+        note={
+          gpuHasNoReadings
+            ? t("pages.performance.gpuNoLiveReadings")
+            : undefined
+        }
+        identity={
+          <GpuAdapterSelector
+            adapters={gpuAdapters}
+            selectedId={effectiveGpuId}
+            onSelect={setSelectedGpuId}
+          />
+        }
         icon={
           <GraphicsCardIcon
             size={22}

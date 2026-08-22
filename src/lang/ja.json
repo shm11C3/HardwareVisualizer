@@ -292,6 +292,9 @@
       "currentValues": "現在値",
       "perCoreUnavailable": "このシステムではコア別使用率を利用できません。",
       "motherboardSensorsUnavailable": "このシステムではマザーボードセンサーを検出できません。",
+      "gpuSelector": "GPU を選択",
+      "gpuNoLiveReadings": "このアダプタはライブ値を報告していません。",
+      "compactGpuAdapter": "GPU: {{name}}",
       "metrics": {
         "cpu": "CPU",
         "memory": "メモリ",

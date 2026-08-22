@@ -19,11 +19,20 @@ test.describe("dashboard captures", () => {
     await gotoApp(page, { path: "/?navigationLayout=classic" });
     await seedHardwareHistory(page);
 
+    const gpuCard = page.getByTestId("dashboard-gpu-readings");
+    const readingsBefore = await gpuCard.innerText();
+
     const secondaryGpuTab = page.getByRole("tab", {
       name: GPU_FIXTURES[1].name,
     });
     await secondaryGpuTab.click();
     await expect(secondaryGpuTab).toHaveAttribute("aria-selected", "true");
+
+    // The pressed state is not the point: the card has to actually describe
+    // the other adapter. The selection is shared with Performance and is
+    // written in the live id namespace, so a card that resolved it by id
+    // alone would keep rendering the first adapter's readings here.
+    await expect.poll(async () => gpuCard.innerText()).not.toBe(readingsBefore);
 
     await saveCapture(page, "dashboard-gpu-secondary");
   });

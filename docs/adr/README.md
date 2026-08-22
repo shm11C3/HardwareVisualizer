@@ -36,3 +36,4 @@ ADR status describes decision maturity, not release status.
 - [0013 Centralized Live Process Polling](0013-centralized-live-process-polling.md)
 - [0014 Performance Views and the Specification Sheet](0014-performance-views-and-specification-sheet.md)
 - [0015 Performance and System Specifications as Sidebar Destinations](0015-performance-and-system-specifications-destinations.md)
+- [0016 GPU Attribution on the Performance Screen](0016-gpu-attribution-on-the-performance-screen.md)

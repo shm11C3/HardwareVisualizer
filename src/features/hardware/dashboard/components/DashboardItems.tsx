@@ -25,11 +25,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { minOpacity } from "@/consts/style";
+import { findInventoryGpu, toLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
+  gpuNamesAtom,
   gpuTempAtom,
   gpuUsageSourceAtom,
   graphicUsageHistoryAtom,
@@ -142,10 +144,22 @@ export const GPUInfo = () => {
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
   const [gpuDedicatedMemoryKbMap] = useAtom(gpuDedicatedMemoryKbMapAtom);
+  const [gpuNames] = useAtom(gpuNamesAtom);
   const os = useMemo(() => platform(), []);
 
   const gpus = hardwareInfo.gpus ?? [];
-  const targetGpu = gpus.find((g) => g.id === selectedGpuId) ?? gpus[0] ?? null;
+  // The shared selection is written in the live namespace by the Performance
+  // selector and by the event listener's auto-selection, so resolving it by
+  // id alone would silently land on the first inventory entry and pair its
+  // name and badge with another adapter's readings.
+  // With nothing selected yet, the first entry is the honest default. With a
+  // selection that cannot be resolved — two identically named cards, so the
+  // only available join is ambiguous — the card claims no identity at all
+  // rather than labelling one adapter's readings with another's name.
+  const targetGpu =
+    selectedGpuId == null
+      ? (gpus[0] ?? null)
+      : (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null);
   const hasMultipleGpus = gpus.length > 1;
 
   const getTargetInfo = (data: NameValues) => {
@@ -182,7 +196,9 @@ export const GPUInfo = () => {
                       role="tab"
                       aria-selected={isSelected}
                       aria-label={gpu.name}
-                      onClick={() => setSelectedGpuId(gpu.id)}
+                      onClick={() =>
+                        setSelectedGpuId(toLiveGpuId(gpu, gpuNames))
+                      }
                       className={cn(
                         "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                         isSelected
@@ -200,7 +216,7 @@ export const GPUInfo = () => {
           </div>
         </TooltipProvider>
       )}
-      <div className="relative">
+      <div className="relative" data-testid="dashboard-gpu-readings">
         <div
           className={cn(
             "flex justify-around",

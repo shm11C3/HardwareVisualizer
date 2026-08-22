@@ -26,6 +26,10 @@ _Avoid_: Performance Layout Preset, Detailed preset, Custom preset, Insights tab
 The always-mounted live header of the Panels view: one hue-coded CPU, RAM, and GPU instrument combining a doughnut gauge, a short-window sparkline, and platform-dependent secondary readings.
 _Avoid_: Current Values panel, metric cards, gauge row
 
+**Selected GPU**:
+The adapter whose live readings the Performance Screen shows, chosen explicitly by the user and kept while that adapter is still detected, even when it reports nothing.
+_Avoid_: active GPU, primary GPU, current graphics card, GPU tab
+
 **System Specifications Screen**:
 The grouped-navigation destination that presents available hardware configuration, platform facts, capability-dependent observations, and Hardware Report access as one surface.
 _Avoid_: System Specifications Tab, Grouped Dashboard, Hardware Category Screen, standalone CPU screen, standalone GPU screen, System screen

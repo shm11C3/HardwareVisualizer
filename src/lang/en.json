@@ -292,6 +292,9 @@
       "currentValues": "Current values",
       "perCoreUnavailable": "Per-core usage is not available on this system.",
       "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
+      "gpuSelector": "Select GPU",
+      "gpuNoLiveReadings": "This adapter is not reporting live readings.",
+      "compactGpuAdapter": "GPU: {{name}}",
       "metrics": {
         "cpu": "CPU",
         "memory": "RAM",

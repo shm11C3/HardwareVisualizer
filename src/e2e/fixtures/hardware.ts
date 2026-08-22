@@ -7,14 +7,23 @@ import type {
 } from "@/rspc/bindings";
 
 /**
- * GPU ids must match between `sysInfoFixture.gpus[].id` and the
- * `hardware-monitor-update` payloads (`gpus[].gpuId`) — the dashboard joins
- * them to resolve the selected GPU. Two GPUs are provided so the GPU selector
- * tablist renders and can be driven via accessible selectors.
+ * The inventory id and the live sampling id are deliberately different, as
+ * they are on every real platform: Windows NVIDIA pairs `<nvapi id>` with
+ * `nvapi:<id>`, macOS pairs `0x<registry_id>` with `iokit:<name>`, Linux
+ * pairs `card<n>` with the PCI BDF. A fixture that used one id for both would
+ * let id-based joins across the two sources pass here and fail on hardware.
+ * The name is what the two sources actually share.
+ *
+ * Two GPUs are provided so the adapter selector renders and can be driven via
+ * accessible selectors.
  */
 export const GPU_FIXTURES = [
-  { id: "e2e-gpu-0", name: "HV Fixture GPU 8GB" },
-  { id: "e2e-gpu-1", name: "HV Fixture iGPU" },
+  {
+    id: "e2e-gpu-inventory-0",
+    liveId: "e2e-gpu-0",
+    name: "HV Fixture GPU 8GB",
+  },
+  { id: "e2e-gpu-inventory-1", liveId: "e2e-gpu-1", name: "HV Fixture iGPU" },
 ] as const;
 
 export const sysInfoFixture: SysInfo = {
@@ -209,7 +218,7 @@ export const buildHardwareUpdateSeries = (
     memoryUsage: round1(62 + 6 * Math.sin(i / 6 + 1)),
     gpus: [
       {
-        gpuId: GPU_FIXTURES[0].id,
+        gpuId: GPU_FIXTURES[0].liveId,
         gpuName: GPU_FIXTURES[0].name,
         gpuUsage: round1(55 + 35 * Math.sin(i / 3 + 2)),
         gpuTemperature: round1(58 + 6 * Math.sin(i / 5)),
@@ -218,7 +227,7 @@ export const buildHardwareUpdateSeries = (
         gpuCoolerLevel: 42,
       },
       {
-        gpuId: GPU_FIXTURES[1].id,
+        gpuId: GPU_FIXTURES[1].liveId,
         gpuName: GPU_FIXTURES[1].name,
         gpuUsage: round1(20 + 10 * Math.sin(i / 4 + 1)),
         gpuTemperature: round1(45 + 4 * Math.sin(i / 5 + 1)),
