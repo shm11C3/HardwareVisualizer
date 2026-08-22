@@ -236,6 +236,13 @@ export type ArchiveRecord = {
 	timestamp: string,
 };
 
+/**
+ *  Wire error enum exposed to the frontend through tauri-specta.
+ * 
+ *  Core reports platform failures as
+ *  `hardviz_core::enums::error::PlatformError`; the App services and
+ *  commands translate them into these frontend-stable variants.
+ */
 export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "memoryInfoNotAvailable" | "graphicInfoNotAvailable" | "networkInfoNotAvailable" | "networkUsageNotAvailable" | "unexpectedError";
 
 /**
