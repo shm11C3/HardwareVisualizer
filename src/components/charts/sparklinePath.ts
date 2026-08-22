@@ -78,17 +78,35 @@ export const buildSparklinePath = ({
   };
 };
 
+export type SparklineTick = {
+  value: number;
+  /** Position within the view box, top-down. */
+  y: number;
+};
+
 /**
- * Evenly spaced horizontal grid positions, matching the tick count Recharts
- * was configured with.
+ * Evenly spaced scale ticks, highest first.
+ *
+ * `count` is honoured exactly rather than widened to a "nice" step: the
+ * ranges these charts use divide evenly at the counts they ask for, and a
+ * caller that asks for a tick per grid line must get the labels to match it.
  */
-export const sparklineGridLines = (tickCount: number): number[] => {
-  if (tickCount < 2) {
+export const sparklineTicks = (
+  range: [number, number],
+  count: number,
+): SparklineTick[] => {
+  if (count < 2) {
     return [];
   }
 
-  return Array.from(
-    { length: tickCount },
-    (_, index) => (index / (tickCount - 1)) * sparklineViewBox.height,
-  );
+  const [min, max] = range;
+
+  return Array.from({ length: count }, (_, index) => {
+    const ratio = index / (count - 1);
+
+    return {
+      value: Math.round(max - ratio * (max - min)),
+      y: ratio * sparklineViewBox.height,
+    };
+  });
 };

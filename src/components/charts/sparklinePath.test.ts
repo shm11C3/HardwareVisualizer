@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSparklinePath,
-  sparklineGridLines,
+  sparklineTicks,
   sparklineViewBox,
 } from "@/components/charts/sparklinePath";
 
@@ -101,13 +101,31 @@ describe("buildSparklinePath", () => {
   });
 });
 
-describe("sparklineGridLines", () => {
-  it("spans the full height inclusive of both edges", () => {
-    expect(sparklineGridLines(3)).toEqual([0, 50, 100]);
+describe("sparklineTicks", () => {
+  it("labels the range highest-first, spanning both edges", () => {
+    expect(sparklineTicks([0, 100], 3)).toEqual([
+      { value: 100, y: 0 },
+      { value: 50, y: 50 },
+      { value: 0, y: 100 },
+    ]);
   });
 
-  it("returns nothing when a grid cannot be drawn", () => {
-    expect(sparklineGridLines(1)).toEqual([]);
-    expect(sparklineGridLines(0)).toEqual([]);
+  it("labels every 20 across a 0-100 range at the scale tick count", () => {
+    const ticks = sparklineTicks([0, 100], 6);
+
+    expect(ticks).toHaveLength(6);
+    expect(ticks.map((tick) => tick.value)).toEqual([100, 80, 60, 40, 20, 0]);
+    expect(ticks.map((tick) => tick.y)).toEqual([0, 20, 40, 60, 80, 100]);
+  });
+
+  it("labels a non-default range", () => {
+    expect(sparklineTicks([0, 4000], 5).map((tick) => tick.value)).toEqual([
+      4000, 3000, 2000, 1000, 0,
+    ]);
+  });
+
+  it("returns nothing when a scale cannot be drawn", () => {
+    expect(sparklineTicks([0, 100], 1)).toEqual([]);
+    expect(sparklineTicks([0, 100], 0)).toEqual([]);
   });
 });
