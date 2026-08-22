@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/tooltip";
 import { minOpacity } from "@/consts/style";
 import { findInventoryGpu, toLiveGpuId } from "@/features/hardware/gpuIdentity";
+import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
 import {
   cpuTempAtom,
@@ -39,7 +40,6 @@ import {
   motherboardFanSpeedsAtom,
   motherboardTempsAtom,
   processorsUsageHistoryAtom,
-  selectedGpuIdAtom,
   selectedStorageDeviceIdAtom,
   sensorTempsAtom,
 } from "@/features/hardware/store/chart";
@@ -140,7 +140,7 @@ export const GPUInfo = () => {
   const [graphicUsageHistory] = useAtom(graphicUsageHistoryAtom);
   const [gpuTemp] = useAtom(gpuTempAtom);
   const [gpuUsageSource] = useAtom(gpuUsageSourceAtom);
-  const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
+  const { effectiveGpuId, selectedGpuId, selectGpu } = useGpuAdapters();
   const { hardwareInfo } = useHardwareInfoAtom();
   const { isBreak } = useWindowSize();
   const [showGpuUsageSource] = useTauriStore("showGpuUsageSource", false);
@@ -149,18 +149,19 @@ export const GPUInfo = () => {
   const os = useMemo(() => platform(), []);
 
   const gpus = hardwareInfo.gpus ?? [];
-  // The shared selection is written in the live namespace by the Performance
-  // selector and by the event listener's auto-selection, so resolving it by
-  // id alone would silently land on the first inventory entry and pair its
-  // name and badge with another adapter's readings.
-  // With nothing selected yet, the first entry is the honest default. With a
-  // selection that cannot be resolved — two identically named cards, so the
-  // only available join is ambiguous — the card claims no identity at all
-  // rather than labelling one adapter's readings with another's name.
+  // The live resolver owns fallback after a selected adapter is retired. The
+  // stored selection remains untouched, while this surface follows the same
+  // effective adapter as the readings it renders.
+  //
+  // Before the first live sample, an inventory id restored from an older
+  // version can still resolve directly. Ambiguous name joins continue to
+  // refuse identity rather than labelling one adapter with another's values.
   const targetGpu =
-    selectedGpuId == null
-      ? (gpus[0] ?? null)
-      : (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null);
+    effectiveGpuId != null
+      ? (findInventoryGpu(gpus, gpuNames, effectiveGpuId) ?? null)
+      : selectedGpuId != null
+        ? (findInventoryGpu(gpus, gpuNames, selectedGpuId) ?? null)
+        : (gpus[0] ?? null);
   const hasMultipleGpus = gpus.length > 1;
 
   const getTargetInfo = (data: NameValues) => {
@@ -197,9 +198,7 @@ export const GPUInfo = () => {
                       role="tab"
                       aria-selected={isSelected}
                       aria-label={gpu.name}
-                      onClick={() =>
-                        setSelectedGpuId(toLiveGpuId(gpu, gpuNames))
-                      }
+                      onClick={() => selectGpu(toLiveGpuId(gpu, gpuNames))}
                       className={cn(
                         "min-w-7 rounded-md border px-2 py-0.5 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                         isSelected

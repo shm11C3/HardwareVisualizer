@@ -217,6 +217,21 @@ describe("getEffectiveGpuId", () => {
     ).toBe("gpu-1");
   });
 
+  it("skips a gapped adapter when falling back to a current reading", () => {
+    expect(
+      getEffectiveGpuId(
+        id("removed"),
+        live({
+          usageHistories: {
+            "gpu-1": [40, null],
+            "gpu-2": [70],
+          },
+        }),
+        [id("gpu-1"), id("gpu-2")],
+      ),
+    ).toBe("gpu-2");
+  });
+
   it("falls back through every map, so a fan-only adapter is still reachable", () => {
     expect(
       getEffectiveGpuId(
@@ -241,6 +256,15 @@ describe("hasNoLiveGpuReadings", () => {
       hasNoLiveGpuReadings(
         id("gpu-2"),
         live({ usageHistories: { "gpu-1": [20] } }),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not treat an older usage value as a current reading after a gap", () => {
+    expect(
+      hasNoLiveGpuReadings(
+        id("gpu-2"),
+        live({ usageHistories: { "gpu-1": [20], "gpu-2": [40, null] } }),
       ),
     ).toBe(true);
   });

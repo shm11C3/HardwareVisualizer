@@ -80,6 +80,12 @@ const liveMapsInOrder = (live: GpuLiveMaps) => [
   live.dedicatedMemoryKb,
 ];
 
+const hasCurrentGpuReading = (gpuId: LiveGpuId, live: GpuLiveMaps) =>
+  live.usageHistories[gpuId]?.at(-1) != null ||
+  live.temperatures[gpuId] != null ||
+  live.fanSpeeds[gpuId] != null ||
+  live.dedicatedMemoryKb[gpuId] != null;
+
 /**
  * Vendor words that every adapter of a given brand repeats, so they carry no
  * information in a control that exists to tell two adapters apart. Anything
@@ -320,9 +326,10 @@ export const getEffectiveGpuId = (
   }
 
   for (const map of liveMapsInOrder(live)) {
-    const [first] = liveKeys(map);
-    if (first != null) {
-      return first;
+    for (const gpuId of liveKeys(map)) {
+      if (hasCurrentGpuReading(gpuId, live)) {
+        return gpuId;
+      }
     }
   }
   return undefined;
@@ -354,5 +361,5 @@ export const hasNoLiveGpuReadings = (
   const sampled =
     detectedGpuIds.length > 0 || maps.some((map) => liveKeys(map).length > 0);
 
-  return sampled && !maps.some((map) => Object.hasOwn(map, gpuId));
+  return sampled && !hasCurrentGpuReading(gpuId, live);
 };

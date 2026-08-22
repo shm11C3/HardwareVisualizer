@@ -131,6 +131,20 @@ four. Consulting a subset turns a partially reporting adapter into a silent
 one, which is the same misattribution this decision exists to prevent, one
 level down.
 
+## Per-sample presence and adapter retirement
+
+The event listener treats the current sample as the owner of current readings.
+When a previously named adapter is omitted, its Usage Graph receives a `null`
+gap and its temperature, fan-speed, and dedicated-memory readings are cleared.
+One omission does not prove removal: the name stays in the live adapter list
+through a grace period so a provider hiccup does not make the selector flap.
+
+Three consecutive visible samples without the adapter establish retirement for
+the current live session. The listener then removes its name and live maps, so
+the effective adapter falls back to one that is currently detected. The stored
+selection is not deleted: it remains explicit user intent and applies again if
+the same live id returns.
+
 ## Not measured yet is not unavailable
 
 "This adapter is not reporting live readings" may only be stated once some
@@ -198,6 +212,8 @@ selection; it follows the choice made in Panels.
   validating it against the inventory, which it could never match. A selection
   made for an adapter that is absent at the next launch is kept on disk rather
   than overwritten, so it applies again when the adapter returns.
+- A skipped GPU sample renders a gap instead of freezing the previous reading,
+  and a continuously absent adapter leaves the selector after the grace period.
 
 ### Negative
 
@@ -210,12 +226,10 @@ selection; it follows the choice made in Panels.
 - A GPU that the inventory lists but the monitor stream never reports does not
   appear on Performance at all. It is still on the System Specifications sheet,
   but Performance cannot name a device it has no reading from.
-- The unavailable state only covers an adapter that has never reported. The
-  live maps, including the name map, are append-only, so an adapter that
-  reports and then goes silent keeps its last value on screen and stays in the
-  selector for the rest of the session. Distinguishing a stale reading from a
-  current one, and an unplugged adapter from a skipped sample, needs per-sample
-  presence tracking in the event listener, which this decision does not add.
+- A connected adapter omitted for three consecutive visible samples is treated
+  as retired until it reports again. This keeps unplug feedback prompt, but a
+  provider outage longer than the grace period can temporarily remove a still
+  connected adapter from the live selector.
 
 ### Non-goals
 
