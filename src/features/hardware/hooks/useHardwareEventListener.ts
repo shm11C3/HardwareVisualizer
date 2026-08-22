@@ -1,7 +1,7 @@
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
-import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
+import { asLiveGpuId, liveGpuRecord } from "@/features/hardware/gpuIdentity";
 import {
   cpuTempAtom,
   cpuUsageHistoryAtom,
@@ -97,7 +97,7 @@ export const useHardwareEventListener = () => {
 
       // Temperature from all GPUs
       setGpuTempMap(
-        Object.fromEntries(
+        liveGpuRecord(
           gpus
             .filter(
               (g): g is typeof g & { gpuTemperature: number } =>
@@ -119,14 +119,14 @@ export const useHardwareEventListener = () => {
       // would jump to another GPU on a transient hiccup.
       setGpuNames((prev) => ({
         ...prev,
-        ...Object.fromEntries(
+        ...liveGpuRecord(
           gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuName]),
         ),
       }));
 
       // Usage sources from all GPUs
       setGpuSources(
-        Object.fromEntries(
+        liveGpuRecord(
           gpus.map((gpu) => [asLiveGpuId(gpu.gpuId), gpu.gpuSource]),
         ),
       );
@@ -146,7 +146,7 @@ export const useHardwareEventListener = () => {
 
       // Fan speed from all GPUs
       setGpuFanSpeedMap(
-        Object.fromEntries(
+        liveGpuRecord(
           gpus
             .filter(
               (g): g is typeof g & { gpuCoolerLevel: number } =>

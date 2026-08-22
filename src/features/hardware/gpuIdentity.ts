@@ -21,6 +21,19 @@ export type LiveGpuId = string & { readonly [liveGpuIdBrand]: true };
 export const asLiveGpuId = (id: string): LiveGpuId => id as LiveGpuId;
 
 /**
+ * Build a live-keyed map from entries whose keys are already minted.
+ *
+ * `Object.fromEntries` returns a `string`-indexed object, and TypeScript
+ * accepts that for a `Record<LiveGpuId, T>` — so constructing a live map
+ * wholesale would otherwise bypass the brand entirely and let an
+ * inventory-keyed dictionary into the atoms. Indexing is checked; only
+ * construction needed this gate.
+ */
+export const liveGpuRecord = <T>(
+  entries: readonly (readonly [LiveGpuId, T])[],
+): Record<LiveGpuId, T> => Object.fromEntries(entries) as Record<LiveGpuId, T>;
+
+/**
  * One adapter as the Performance screens need it: the stable id every live
  * value is keyed by, the name the platform reported, and a short label for
  * controls that cannot fit the full name.
