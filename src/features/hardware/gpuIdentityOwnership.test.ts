@@ -30,14 +30,26 @@ const sources = import.meta.glob("/src/**/*.{ts,tsx}", {
   eager: true,
 }) as Record<string, string>;
 
-const importsAtom = (source: string) =>
-  /import[^;]*\bselectedGpuIdAtom\b[^;]*from/s.test(source);
+/**
+ * Comments name the atom without consuming it (`gpuIdentity.ts` documents the
+ * contract), so they are removed before looking for a real reference.
+ */
+const stripComments = (source: string) =>
+  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+/**
+ * Any reference to the identifier counts, not just a named import: a file can
+ * reach the atom through a namespace import (`import * as chart` then
+ * `chart.selectedGpuIdAtom`), and member access still contains the name.
+ */
+const consumesAtom = (source: string) =>
+  /\bselectedGpuIdAtom\b/.test(stripComments(source));
 
 describe("selectedGpuIdAtom ownership", () => {
   it("is consumed only by the allowlisted resolution owners", () => {
     const offenders = Object.entries(sources)
       .filter(([path]) => !/\.test\.tsx?$/.test(path))
-      .filter(([, source]) => importsAtom(source))
+      .filter(([, source]) => consumesAtom(source))
       .map(([path]) => path)
       .filter((path) => !ALLOWED_CONSUMERS.has(path));
 
@@ -48,8 +60,7 @@ describe("selectedGpuIdAtom ownership", () => {
     for (const path of ALLOWED_CONSUMERS) {
       const source = sources[path];
       expect(source, `${path} does not exist`).toBeDefined();
-      const touchesAtom =
-        importsAtom(source) || /export const selectedGpuIdAtom\b/.test(source);
+      const touchesAtom = consumesAtom(source);
       expect(
         touchesAtom,
         `${path} no longer defines or imports selectedGpuIdAtom; remove it from the allowlist`,

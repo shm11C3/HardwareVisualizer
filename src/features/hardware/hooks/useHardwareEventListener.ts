@@ -81,8 +81,10 @@ export const useHardwareEventListener = () => {
       setGpuHistories((prev) =>
         gpus.reduce(
           (acc, gpu) => {
-            // The payload is the one place live ids enter the app, so the
-            // brand is minted here and nowhere downstream.
+            // The monitor-payload boundary: ids from the stream are branded
+            // here. The other minting sites are the restored stored intent in
+            // `useSelectedGpuPersistence` and the unresolved fallback in
+            // `toLiveGpuId`; nothing else may mint.
             const gpuId = asLiveGpuId(gpu.gpuId);
             if (gpu.gpuUsage != null) {
               acc[gpuId] = padHistory([...(acc[gpuId] ?? []), gpu.gpuUsage]);
