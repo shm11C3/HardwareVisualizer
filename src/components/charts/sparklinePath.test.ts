@@ -124,6 +124,17 @@ describe("sparklineTicks", () => {
     ]);
   });
 
+  it("keeps positions distinct even where rounding repeats a label", () => {
+    // A range narrower than the tick count rounds several labels to the same
+    // number, so `y` is what identifies a tick.
+    const ticks = sparklineTicks([0, 1], 6);
+
+    expect(new Set(ticks.map((tick) => tick.value)).size).toBeLessThan(
+      ticks.length,
+    );
+    expect(new Set(ticks.map((tick) => tick.y)).size).toBe(ticks.length);
+  });
+
   it("returns nothing when a scale cannot be drawn", () => {
     expect(sparklineTicks([0, 100], 1)).toEqual([]);
     expect(sparklineTicks([0, 100], 0)).toEqual([]);

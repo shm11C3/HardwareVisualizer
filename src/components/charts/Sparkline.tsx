@@ -87,7 +87,7 @@ export const Sparkline = ({
         >
           {ticks.map((tick) => (
             <span
-              key={tick.value}
+              key={tick.y}
               className="absolute right-0 -translate-y-1/2"
               style={{ top: `${tick.y}%` }}
             >
@@ -112,7 +112,7 @@ export const Sparkline = ({
         >
           {ticks.map((tick) => (
             <line
-              key={tick.value}
+              key={tick.y}
               x1={0}
               x2={sparklineViewBox.width}
               y1={tick.y}

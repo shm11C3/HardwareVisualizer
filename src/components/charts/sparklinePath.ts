@@ -90,6 +90,10 @@ export type SparklineTick = {
  * `count` is honoured exactly rather than widened to a "nice" step: the
  * ranges these charts use divide evenly at the counts they ask for, and a
  * caller that asks for a tick per grid line must get the labels to match it.
+ *
+ * Values are rounded to integers, which suits the integer-scaled ranges these
+ * charts plot. A range narrower than `count` would repeat labels, so `y` —
+ * which is distinct per tick by construction — is the identity to key on.
  */
 export const sparklineTicks = (
   range: [number, number],
