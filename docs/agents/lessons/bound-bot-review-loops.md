@@ -8,7 +8,7 @@ failure_signature: "across PRs #1944-#1958, eleven-plus response rounds each fix
 root_cause: "bot reviewers are generators that always produce another finding, and fixing every finding each round - including unfalsifiable prose findings - manufactures the next round's material; the existing triage skill was also not loaded at all during the cycle"
 guardrail: .agents/skills/gh-ai-review-triage/SKILL.md
 canonical_refs: .agents/skills/gh-ai-review-triage/SKILL.md
-verification: "review responses split findings by evidence class, fix only reproduced defects and self-contradictions, never restructure mid-review, and stop editing after two response rounds"
+verification: "review responses split findings by evidence class, fix reproduced defects in any round, fix only self-contradictions among subjective findings, restructure only for verified defects, and stop subjective editing after two response rounds"
 evidence: "PR #1944 (11 rounds), #1957 (4 restructures of one skill), #1958; the oscillation narrow-wide-narrow on verify-identity-contracts SKILL.md"
 revalidate_when: "review bots gain a converging notion of sufficiency, or the repository changes its bot-review tooling"
 ---
@@ -17,15 +17,19 @@ revalidate_when: "review bots gain a converging notion of sufficiency, or the re
 
 A bot reviewer re-reviews every push and can always produce another finding,
 so "respond until silent" is not a terminating strategy. Reproducible findings
-(code, tests, types, CI) converge because defects are finite — verify by
-reproducing and fix what reproduces. Prose and design-shape findings do not
-converge, because no experiment can prove the bot right; fix only
-self-contradictions and factual errors, decline the rest once, with reasoning.
+— anything a deterministic check can verify: code, tests, types, CI, guidance
+validators — converge because defects are finite; verify by reproducing and
+fix what reproduces, in any round. Subjective findings (wording, naming,
+document or design shape) do not converge, because no experiment can prove
+the bot right; fix only self-contradictions and factual errors, decline the
+rest once, with reasoning.
 
-The loop signature is a finding that targets the previous response. When it
-appears, stop forward-fixing: revert accumulated response-structure or freeze.
-Never restructure a document, type model, or module boundary in response to
-bot review — file an issue or ask the maintainer.
+The loop signature is a finding that targets the previous response. Verify it
+first — a response can introduce a real regression, which gets fixed — and
+when it does not reproduce, stop forward-fixing: revert accumulated
+response-structure or freeze. Do not restructure a document, type model, or
+module boundary to satisfy a subjective finding — file an issue or ask the
+maintainer; a verified defect that requires structural repair is fixed.
 
 The [`gh-ai-review-triage`](../../../.agents/skills/gh-ai-review-triage/SKILL.md)
 skill carries the rules (Convergence section). It must actually be loaded when

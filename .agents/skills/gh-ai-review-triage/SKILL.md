@@ -86,28 +86,36 @@ the next round's finding, and prose grew conditional structure that outweighed
 the content it guarded. These rules bound the loop:
 
 1. Split findings by evidence class before responding.
-   - Reproducible (code, tests, types, CI): verify by reproducing, and fix
-     only what reproduces. These converge — defects are finite.
-   - Prose and design shape (docs, skills, naming, structure): there is no
+   - Reproducible: anything a deterministic check can verify — code, tests,
+     types, CI, and also guidance failures such as validator errors, broken
+     links, or invalid frontmatter. Verify by reproducing, and fix what
+     reproduces. These converge — defects are finite.
+   - Subjective (wording, naming, document or design shape): there is no
      experiment that proves the bot right, so these do not converge. Fix only
      a self-contradiction or a factual error against current code; decline
      the rest with the reasoning stated once.
 
-2. Never restructure in response to bot review. If a finding truly implies a
-   different structure — a type model, a document's architecture, a module
-   boundary — file an issue or put it to the maintainer. Restructuring
-   mid-review is how each round manufactures the next round's findings.
+2. Do not restructure in response to a subjective finding. If such a finding
+   implies a different structure — a type model, a document's architecture, a
+   module boundary — file an issue or put it to the maintainer; restructuring
+   mid-review is how each round manufactures the next round's findings. A
+   verified `Required` defect whose necessary fix changes structure is fixed,
+   not deferred — the ban is on reshaping to satisfy taste, never on
+   repairing a reproduced defect.
 
 3. Watch for the oscillation signature: a finding that targets text or code
-   added in response to the previous finding. When it appears, stop
-   forward-fixing; prefer reverting the accumulated response-structure to
-   something simpler, or freeze and decline.
+   added in response to the previous finding. Verify it like any other first —
+   a response can introduce a real regression, and that gets fixed. When it
+   does not reproduce, stop forward-fixing; prefer reverting the accumulated
+   response-structure to something simpler, or freeze and decline.
 
-4. Stop-loss: after two response rounds on the same PR, stop editing.
-   Summarize the remaining findings as declined-with-evidence or filed
-   issues, resolve the threads, and hand the trade-off to the maintainer.
-   An approval obtained by satisfying a generator is not worth a document
-   shaped by one.
+4. Stop-loss: after two response rounds on the same PR, stop editing for
+   subjective findings — a newly verified `Required` defect is still fixed,
+   in any round. Summarize the remainder as declined-with-evidence or filed
+   issues and hand the trade-off to the maintainer; resolve the threads only
+   under the same explicit authorization Step 6 requires for any GitHub
+   write action. An approval obtained by satisfying a generator is not worth
+   a document shaped by one.
 
 ## Heuristics
 
