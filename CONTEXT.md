@@ -65,7 +65,7 @@ The app screen that groups historical views such as Hardware Insight, Cooling In
 _Avoid_: Hardware Insight, Storage Health Display, dashboard
 
 **Cooling Insight**:
-A historical view for archived cooling-related metrics. Its initial display is CPU temperature; later displays remain capability dependent as supported temperature, power, or fan data becomes available.
+A historical view for archived cooling-related metrics. Its initial display is CPU temperature; later displays remain capability-dependent as supported temperature, power, or fan data becomes available.
 _Avoid_: CPU/Memory Insight, live sensor panel, cooling dashboard
 
 **Process Insight**:
