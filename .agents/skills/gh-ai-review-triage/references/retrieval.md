@@ -3,6 +3,9 @@
 Prefer thread-aware data over flat comments: resolution and outdated state
 matter. Fetch inline review threads, top-level PR comments, and review
 submissions (bot summaries, approvals, nitpick-only reviews live there).
+Record each item's author: classification treats maintainer comments as
+binding and bot comments as advisory-until-verified, which is impossible if
+the association is lost.
 
 Tool order:
 

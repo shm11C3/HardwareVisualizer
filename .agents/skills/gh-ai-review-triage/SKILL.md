@@ -22,6 +22,8 @@ explicit shippability verdict rather than with silence.
    [references/classification.md](references/classification.md).
 4. Act: fix `Required`, `Should Fix`, and `Worth Fixing` by default ("only
    required" from the user narrows this); leave `Optional`/`Ignore` alone.
+   A "needs verification" tag excludes a finding from default fixing — never
+   edit code on an unverified claim; take it to the maintainer instead.
    Keep fixes scoped to the comment; run the smallest relevant checks first.
 5. No GitHub writes — replies, thread resolution, review submission, issue
    filing — without the user's explicit request.
