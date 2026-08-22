@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::Duration;
 
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
+use sqlx::sqlite::{
+  SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqliteSynchronous,
+};
 
 /// Process-wide database location. Set once at App startup via [`init`]
 /// (typically `<AppData>/<bundle-id>/hv-database.db`). Core has no way
@@ -48,7 +51,10 @@ async fn open_pool(path: &Path) -> Result<SqlitePool, sqlx::Error> {
   ensure_parent_dir(path).await?;
   let options = SqliteConnectOptions::new()
     .filename(path)
-    .create_if_missing(true);
+    .create_if_missing(true)
+    .journal_mode(SqliteJournalMode::Wal)
+    .busy_timeout(Duration::from_secs(5))
+    .synchronous(SqliteSynchronous::Normal);
   SqlitePool::connect_with(options).await
 }
 
@@ -81,6 +87,32 @@ mod tests {
     pool.close().await;
 
     assert!(db_path.exists());
+  }
+
+  #[tokio::test]
+  async fn open_pool_configures_sqlite_for_concurrent_access() {
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("hv-database.db");
+
+    let pool = open_pool(&db_path).await.unwrap();
+    let journal_mode: String = sqlx::query_scalar("PRAGMA journal_mode")
+      .fetch_one(&pool)
+      .await
+      .unwrap();
+    let busy_timeout: i64 = sqlx::query_scalar("PRAGMA busy_timeout")
+      .fetch_one(&pool)
+      .await
+      .unwrap();
+    let synchronous: i64 = sqlx::query_scalar("PRAGMA synchronous")
+      .fetch_one(&pool)
+      .await
+      .unwrap();
+    pool.close().await;
+
+    assert_eq!(journal_mode.to_ascii_lowercase(), "wal");
+    assert_eq!(busy_timeout, 5_000);
+    // SQLite represents NORMAL as the integer value 1.
+    assert_eq!(synchronous, 1);
   }
 
   #[tokio::test]
