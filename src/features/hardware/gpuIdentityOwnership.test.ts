@@ -30,7 +30,9 @@ const sources = import.meta.glob("/src/**/*.{ts,tsx}", {
   eager: true,
 }) as Record<string, string>;
 
-const ATOM = /\bselectedGpuIdAtom\b/;
+// `$` is not a word character, so a bare \b would let the distinct
+// identifier `$selectedGpuIdAtom` count as a reference.
+const ATOM = /(?<![$\w])selectedGpuIdAtom\b/;
 
 /**
  * Blank out comments, strings, templates, and regex literals so only code
@@ -154,6 +156,13 @@ describe("codeOnly", () => {
     // Concatenated so the ${} is data here, not a lint-visible placeholder.
     const source = "const s = `atom: $" + "{chart.selectedGpuIdAtom}`;";
     expect(codeOnly(source)).toContain("selectedGpuIdAtom");
+  });
+
+  it("does not count the distinct identifier $selectedGpuIdAtom", () => {
+    expect(codeOnly("const $selectedGpuIdAtom = 1;")).toContain(
+      "$selectedGpuIdAtom",
+    );
+    expect(ATOM.test(codeOnly("const $selectedGpuIdAtom = 1;"))).toBe(false);
   });
 
   it("treats division as code, not as a regex opener", () => {
