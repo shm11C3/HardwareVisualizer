@@ -171,16 +171,18 @@ unsafe fn read_adapter_luid(
   let mut property_type: DEVPROPTYPE = 0;
   let mut required_size: DWORD = 0;
   let mut value: u64 = 0;
-  let ok = SetupDiGetDevicePropertyW(
-    dev_info,
-    dev_info_data,
-    &DEVPKEY_DEVICE_ADAPTER_LUID,
-    &mut property_type,
-    &mut value as *mut u64 as *mut BYTE,
-    std::mem::size_of::<u64>() as DWORD,
-    &mut required_size,
-    0,
-  );
+  let ok = unsafe {
+    SetupDiGetDevicePropertyW(
+      dev_info,
+      dev_info_data,
+      &DEVPKEY_DEVICE_ADAPTER_LUID,
+      &mut property_type,
+      &mut value as *mut u64 as *mut BYTE,
+      std::mem::size_of::<u64>() as DWORD,
+      &mut required_size,
+      0,
+    )
+  };
   if ok == FALSE
     || property_type & DEVPROP_MASK_TYPE != DEVPROP_TYPE_UINT64
     || required_size < std::mem::size_of::<u64>() as DWORD
@@ -203,25 +205,29 @@ unsafe fn read_device_instance_id(
 
   let mut buffer = vec![0u16; 256];
   let mut required_size: DWORD = 0;
-  if SetupDiGetDeviceInstanceIdW(
-    dev_info,
-    dev_info_data,
-    buffer.as_mut_ptr(),
-    buffer.len() as DWORD,
-    &mut required_size,
-  ) == FALSE
-  {
-    if GetLastError() != ERROR_INSUFFICIENT_BUFFER || required_size == 0 {
-      return None;
-    }
-    buffer.resize(required_size as usize, 0);
-    if SetupDiGetDeviceInstanceIdW(
+  if unsafe {
+    SetupDiGetDeviceInstanceIdW(
       dev_info,
       dev_info_data,
       buffer.as_mut_ptr(),
       buffer.len() as DWORD,
       &mut required_size,
-    ) == FALSE
+    )
+  } == FALSE
+  {
+    if unsafe { GetLastError() } != ERROR_INSUFFICIENT_BUFFER || required_size == 0 {
+      return None;
+    }
+    buffer.resize(required_size as usize, 0);
+    if unsafe {
+      SetupDiGetDeviceInstanceIdW(
+        dev_info,
+        dev_info_data,
+        buffer.as_mut_ptr(),
+        buffer.len() as DWORD,
+        &mut required_size,
+      )
+    } == FALSE
     {
       return None;
     }
