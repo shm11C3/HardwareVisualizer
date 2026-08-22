@@ -8,7 +8,7 @@ use hardviz_core::platform::factory::PlatformFactory;
 /// For multiple GPUs, depends on Platform implementation policy
 ///
 pub async fn fetch_gpu_usage() -> Result<GpuUsageResult, PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
   let (usage, source) = platform.get_gpu_usage().await?;
   Ok(GpuUsageResult {
     usage: usage.round() as i32,
@@ -25,7 +25,7 @@ pub async fn fetch_gpu_usage() -> Result<GpuUsageResult, PlatformError> {
 pub async fn fetch_gpu_temperature(
   temperature_unit: enums::settings::TemperatureUnit,
 ) -> Result<Vec<NameValue>, PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
 
   let core_temps = platform.get_gpu_temperature().await?;
 
@@ -64,7 +64,7 @@ pub async fn fetch_gpu_temperature(
 /// [`GpuMemoryUsage`] for field-level details.
 ///
 pub async fn fetch_gpu_memory_usage() -> Result<Option<GpuMemoryUsage>, PlatformError> {
-  let platform = PlatformFactory::create()?;
+  let platform = PlatformFactory::shared()?;
 
   let core_mem = platform.get_gpu_memory_usage().await?;
   Ok(core_mem.map(GpuMemoryUsage::from))

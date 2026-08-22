@@ -10,7 +10,8 @@ use tokio::time::{Duration, MissedTickBehavior, interval};
 
 use crate::collector::{HistoryStore, sampling};
 use crate::event_bus::EventBus;
-use crate::{log_info, log_warn};
+use crate::platform::factory::PlatformFactory;
+use crate::{log_error, log_info, log_warn};
 
 /// Cadence of the collector loop in seconds.
 const SYSTEM_INFO_INIT_INTERVAL: u64 = 1; // TODO move to a shared constants module
@@ -44,20 +45,21 @@ impl SystemMonitorController {
       let mut ticker = interval(Duration::from_secs(SYSTEM_INFO_INIT_INTERVAL));
       ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-      // Prime the snapshot once so the first emit lands without waiting a tick.
-      if let Some(system_sample) = sampling::sample_system(&store) {
-        let gpu_samples = sampling::sample_gpu(&store).await;
-        let power_draw = sampling::sample_power_draw();
-        let temperature_sample = sampling::sample_temperatures();
-        let motherboard_collection = sampling::sample_motherboard_sensors();
-        let snapshot = sampling::build_metrics_snapshot(
-          &system_sample,
-          &gpu_samples,
-          power_draw,
-          &temperature_sample,
-          &motherboard_collection.sample,
-          &motherboard_collection.guidance_candidates,
+      // Resolve the shared platform once. While resolution fails, each
+      // cycle reports unavailable sensor samples with the error as the
+      // reason and the next tick retries, so a transient startup
+      // failure cannot degrade the rest of the process lifetime.
+      let mut platform = PlatformFactory::shared();
+      if let Err(error) = &platform {
+        log_error!(
+          "platform unavailable for the collector loop",
+          "collector::system_monitor",
+          Some(error.to_string())
         );
+      }
+
+      // Prime the snapshot once so the first emit lands without waiting a tick.
+      if let Some(snapshot) = sampling::collect_snapshot(&store, &platform).await {
         bus.publish(snapshot);
       }
 
@@ -66,19 +68,10 @@ impl SystemMonitorController {
           _ = ticker.tick() => {
             let start = std::time::Instant::now();
 
-            if let Some(system_sample) = sampling::sample_system(&store) {
-              let gpu_samples = sampling::sample_gpu(&store).await;
-              let power_draw = sampling::sample_power_draw();
-              let temperature_sample = sampling::sample_temperatures();
-              let motherboard_collection = sampling::sample_motherboard_sensors();
-              let snapshot = sampling::build_metrics_snapshot(
-                &system_sample,
-                &gpu_samples,
-                power_draw,
-                &temperature_sample,
-                &motherboard_collection.sample,
-                &motherboard_collection.guidance_candidates,
-              );
+            if platform.is_err() {
+              platform = PlatformFactory::shared();
+            }
+            if let Some(snapshot) = sampling::collect_snapshot(&store, &platform).await {
               bus.publish(snapshot);
             }
 

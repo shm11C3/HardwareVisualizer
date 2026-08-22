@@ -36,7 +36,7 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
   };
 
   let platform =
-    PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+    PlatformFactory::shared().map_err(|e| format!("Failed to create platform: {e}"))?;
 
   // Execute GPU / Memory / Storage / Motherboard in parallel
   let (gpus_res, memory_res, storage_res, motherboard_res) = tokio::join!(
@@ -114,7 +114,7 @@ pub async fn get_super_io_chip_id_diagnostics()
 -> hardviz_core::models::hardware::SuperIoChipIdDiagnostics {
   tokio::task::spawn_blocking(|| {
     let platform =
-      PlatformFactory::create().map_err(|e| format!("Failed to create platform: {e}"))?;
+      PlatformFactory::shared().map_err(|e| format!("Failed to create platform: {e}"))?;
     Ok::<_, String>(platform.get_super_io_chip_id_diagnostics())
   })
   .await
