@@ -33,10 +33,17 @@ type DoughnutChartProps =
     };
 
 /**
- * Gauge tween length. Must stay below the 1Hz hardware update interval, and
- * shorter still keeps the per-tick repaint cost down.
+ * Gauge tween length.
+ *
+ * Must stay below the 1Hz hardware update interval. A tween that outlives the
+ * tick restarts before it settles, so the gauge never reaches the reading it
+ * is showing and the drawing pipeline never gets an idle gap between ticks.
+ *
+ * Within that limit the length is a trade: `stroke-dashoffset` repaints as it
+ * animates, so a longer tween is smoother but spends more of each second
+ * painting.
  */
-export const gaugeAnimationDurationMs = 300;
+export const gaugeAnimationDurationMs = 500;
 
 /**
  * Ring and backing-disc geometry per breakpoint.
@@ -169,9 +176,11 @@ export const DoughnutChart = ({
           {/*
             Hardware metrics arrive every second, and the gauge used to tween
             with a JS animation that re-rendered the chart on every frame.
-            Transitioning the dash offset hands those frames to the compositor:
-            React renders once per tick, and the tween still has to finish
-            inside the interval or it would restart before settling.
+            Transitioning the dash offset takes React out of the tween: it
+            renders once per tick and the browser interpolates the rest. The
+            frames are still painted — `stroke-dashoffset` is not a
+            compositor-only property — which is why the duration has to stay
+            under the tick.
           */}
           <circle
             cx={center}
