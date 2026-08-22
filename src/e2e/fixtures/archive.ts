@@ -1,36 +1,52 @@
-import type { ArchiveRecord, ProcessStatRecord } from "@/rspc/bindings";
+import type {
+  ArchiveBucketTimestamp,
+  ArchiveSeriesPoint,
+  ProcessStatRecord,
+} from "@/rspc/bindings";
 
 /**
- * Synthesize deterministic archive records for the requested time range.
- * Values follow a fixed sine wave; the step is chosen so a range yields at
- * most ~120 points. Timestamps are derived purely from the requested
- * start/end args, so results are stable for a fixed test clock.
+ * Synthesize the compact series returned by the Core archive API.
+ * Values follow a fixed sine wave and timestamps honor the requested bucket
+ * width/alignment, so results remain stable for a fixed test clock.
  */
-export const buildArchiveRecords = (
+export const buildArchiveSeries = (
   start: string,
   end: string,
+  bucketWidthMs: number,
+  bucketTimestamp: ArchiveBucketTimestamp,
   base: number,
   amplitude: number,
-): ArchiveRecord[] => {
+): ArchiveSeriesPoint[] => {
   const startMs = Date.parse(start);
   const endMs = Date.parse(end);
 
-  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+  if (
+    Number.isNaN(startMs) ||
+    Number.isNaN(endMs) ||
+    endMs < startMs ||
+    bucketWidthMs <= 0
+  ) {
     return [];
   }
 
-  const stepMs = Math.max(60_000, Math.ceil((endMs - startMs) / 120));
-  const records: ArchiveRecord[] = [];
+  const firstBucket =
+    bucketTimestamp === "start"
+      ? Math.floor(startMs / bucketWidthMs) * bucketWidthMs
+      : Math.ceil((startMs - 60_000) / bucketWidthMs) * bucketWidthMs;
+  const lastBucket =
+    bucketTimestamp === "start"
+      ? Math.floor(endMs / bucketWidthMs) * bucketWidthMs
+      : Math.ceil(endMs / bucketWidthMs) * bucketWidthMs;
+  const series: ArchiveSeriesPoint[] = [];
 
-  for (let t = startMs, i = 0; t <= endMs; t += stepMs, i++) {
-    records.push({
-      id: i + 1,
+  for (let t = firstBucket, i = 0; t <= lastBucket; t += bucketWidthMs, i++) {
+    series.push({
       value: Math.round((base + amplitude * Math.sin(i / 5)) * 10) / 10,
-      timestamp: new Date(t).toISOString(),
+      timestamp: t,
     });
   }
 
-  return records;
+  return series;
 };
 
 export const buildProcessStats = (

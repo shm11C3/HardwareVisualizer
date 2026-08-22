@@ -2,8 +2,8 @@ use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::models;
 use crate::models::archive_history::{
-  ArchiveDataStats, ArchiveRecord, DataArchiveHardwareType, GpuArchiveDataType,
-  ProcessStatRecord,
+  ArchiveBucketTimestamp, ArchiveDataStats, ArchiveSeriesPoint, DataArchiveHardwareType,
+  GpuArchiveDataType, ProcessStatRecord,
 };
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
@@ -295,55 +295,63 @@ pub async fn refresh_storage_devices(
 }
 
 ///
-/// ## Get archived CPU/RAM records
+/// ## Get an aggregated CPU/RAM archive series
 ///
 #[command]
 #[specta::specta]
-pub async fn get_data_archive_records(
+pub async fn get_data_archive_series(
   hardware_type: DataArchiveHardwareType,
   data_stats: ArchiveDataStats,
   start: String,
   end: String,
-) -> Result<Vec<ArchiveRecord>, String> {
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<Vec<ArchiveSeriesPoint>, String> {
   use crate::services::archive_history_service;
 
-  let start = normalize_datetime_string(&start)?;
-  let end = normalize_datetime_string(&end)?;
+  let start = parse_datetime(&start)?;
+  let end = parse_datetime(&end)?;
 
-  archive_history_service::fetch_data_archive_records(
+  archive_history_service::fetch_data_archive_series(
     hardware_type.column(data_stats),
     &start,
     &end,
+    bucket_width_ms,
+    bucket_timestamp.into(),
   )
   .await
-  .map(|records| records.into_iter().map(Into::into).collect())
+  .map(|series| series.into_iter().map(Into::into).collect())
 }
 
 ///
-/// ## Get archived GPU records
+/// ## Get an aggregated GPU archive series
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_archive_records(
+pub async fn get_gpu_archive_series(
   data_type: GpuArchiveDataType,
   data_stats: ArchiveDataStats,
   gpu_name: String,
   start: String,
   end: String,
-) -> Result<Vec<ArchiveRecord>, String> {
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<Vec<ArchiveSeriesPoint>, String> {
   use crate::services::archive_history_service;
 
-  let start = normalize_datetime_string(&start)?;
-  let end = normalize_datetime_string(&end)?;
+  let start = parse_datetime(&start)?;
+  let end = parse_datetime(&end)?;
 
-  archive_history_service::fetch_gpu_archive_records(
+  archive_history_service::fetch_gpu_archive_series(
     data_type.column(data_stats),
     &gpu_name,
     &start,
     &end,
+    bucket_width_ms,
+    bucket_timestamp.into(),
   )
   .await
-  .map(|records| records.into_iter().map(Into::into).collect())
+  .map(|series| series.into_iter().map(Into::into).collect())
 }
 
 ///

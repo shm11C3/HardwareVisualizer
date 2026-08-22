@@ -114,10 +114,10 @@ export const commands = {
 	refreshStorageDevices: () => typedError<StorageHealthRecord[], string>(__TAURI_INVOKE("refresh_storage_devices")),
 	getExternalComponentGuidanceCandidates: (view: ExternalComponentGuidanceView) => typedError<ExternalComponentGuidanceCandidate[], string>(__TAURI_INVOKE("get_external_component_guidance_candidates", { view })),
 	deferExternalComponentGuidanceForSession: (key: string) => typedError<null, string>(__TAURI_INVOKE("defer_external_component_guidance_for_session", { key })),
-	// ## Get archived CPU/RAM records
-	getDataArchiveRecords: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string) => typedError<ArchiveRecord[], string>(__TAURI_INVOKE("get_data_archive_records", { hardwareType, dataStats, start, end })),
-	// ## Get archived GPU records
-	getGpuArchiveRecords: (dataType: GpuArchiveDataType, dataStats: ArchiveDataStats, gpuName: string, start: string, end: string) => typedError<ArchiveRecord[], string>(__TAURI_INVOKE("get_gpu_archive_records", { dataType, dataStats, gpuName, start, end })),
+	// ## Get an aggregated CPU/RAM archive series
+	getDataArchiveSeries: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<ArchiveSeriesPoint[], string>(__TAURI_INVOKE("get_data_archive_series", { hardwareType, dataStats, start, end, bucketWidthMs, bucketTimestamp })),
+	// ## Get an aggregated GPU archive series
+	getGpuArchiveSeries: (dataType: GpuArchiveDataType, dataStats: ArchiveDataStats, gpuName: string, start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<ArchiveSeriesPoint[], string>(__TAURI_INVOKE("get_gpu_archive_series", { dataType, dataStats, gpuName, start, end, bucketWidthMs, bucketTimestamp })),
 	// ## Get archived process stats for a period ending at `end_at`
 	getProcessStats: (period: number, endAt: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats", { period, endAt })),
 	// ## Get archived process stats between two timestamps
@@ -229,12 +229,13 @@ export const events = {
 };
 
 /* Types */
+export type ArchiveBucketTimestamp = "start" | "end";
+
 export type ArchiveDataStats = "avg" | "max" | "min";
 
-export type ArchiveRecord = {
-	id: number,
+export type ArchiveSeriesPoint = {
+	timestamp: number,
 	value: number | null,
-	timestamp: string,
 };
 
 export type BackendError = "cpuInfoNotAvailable" | "storageInfoNotAvailable" | "memoryInfoNotAvailable" | "graphicInfoNotAvailable" | "networkInfoNotAvailable" | "networkUsageNotAvailable" | "unexpectedError";

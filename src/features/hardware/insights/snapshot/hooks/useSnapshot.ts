@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
-import type { SingleDataArchive } from "@/features/hardware/types/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
+import type { ArchiveSeriesPoint } from "@/rspc/bindings";
 import type { ProcessStat } from "../../types/processStats";
 import {
   getArchivedRecord,
@@ -42,7 +42,7 @@ export const useSnapshot = () => {
   const [selectedDataType, setSelectedDataType] = useState<"cpu" | "memory">(
     "cpu",
   );
-  const [archivedData, setArchivedData] = useState<SingleDataArchive[]>([]);
+  const [archivedData, setArchivedData] = useState<ArchiveSeriesPoint[]>([]);
   const [processData, setProcessData] = useState<ProcessStat[]>([]);
   const [memoryMaxOption, setMemoryMaxOption] = useState<
     "128MB" | "256MB" | "512MB" | "1GB" | "2GB" | "8GB" | "device"
@@ -81,6 +81,19 @@ export const useSnapshot = () => {
     }));
   }, [selectedMemoryMaxMB]);
 
+  /** Maximum number of data points to display in the chart. */
+  const BUCKET_COUNT = 100;
+
+  const step = useMemo(() => {
+    const startTime = new Date(period.start).getTime();
+    const endTime = new Date(period.end).getTime();
+    const diff = endTime - startTime;
+
+    if (diff <= 0) return 60000;
+
+    return Math.floor(Math.max(diff / BUCKET_COUNT, 60000));
+  }, [period]);
+
   useEffect(() => {
     const fetchData = async () => {
       const startDate = new Date(period.start);
@@ -93,6 +106,7 @@ export const useSnapshot = () => {
           hardwareType,
           startDate,
           endDate,
+          step,
         );
         setArchivedData(archivedResult);
 
@@ -108,46 +122,7 @@ export const useSnapshot = () => {
     };
 
     void fetchData();
-  }, [period, selectedDataType, error]);
-
-  /**
-   * Maximum number of data points to display in chart
-   * Aggregate data into 100 buckets regardless of period
-   */
-  const BUCKET_COUNT = 100;
-
-  const step = useMemo(() => {
-    const startTime = new Date(period.start).getTime();
-    const endTime = new Date(period.end).getTime();
-    const diff = endTime - startTime;
-
-    // Invalid if start time is after end time
-    if (diff <= 0) return 60000;
-
-    // Keep step as integer for calculation consistency
-    return Math.floor(Math.max(diff / BUCKET_COUNT, 60000));
-  }, [period]);
-
-  const bucketedData = useMemo(() => {
-    const result = archivedData.reduce(
-      (acc, record, _index) => {
-        if (record.value == null) return acc;
-
-        const recordTime = new Date(record.timestamp).getTime();
-        const bucketTimestamp = Math.floor(recordTime / step) * step;
-
-        if (!acc[bucketTimestamp]) {
-          acc[bucketTimestamp] = [];
-        }
-        acc[bucketTimestamp].push(record.value);
-
-        return acc;
-      },
-      {} as Record<number, number[]>,
-    );
-
-    return result;
-  }, [archivedData, step]);
+  }, [period, selectedDataType, step, error]);
 
   const dateFormatter = useMemo(() => {
     const periodMinutes =
@@ -204,58 +179,23 @@ export const useSnapshot = () => {
   }, [processData, cpuRange, memoryRange]);
 
   const { filledLabels, filledChartData } = useMemo(() => {
-    const filledChartData: Array<number | null> = [];
-    const filledLabels: string[] = [];
-
     const startAt = new Date(period.start);
     const endAt = new Date(period.end);
 
     // Return empty data if start time is after end time
     if (startAt.getTime() >= endAt.getTime()) {
-      return { filledLabels, filledChartData };
+      return { filledLabels: [], filledChartData: [] };
     }
 
-    const startBucket = Math.floor(startAt.getTime() / step) * step;
-    const endBucket = Math.floor(endAt.getTime() / step) * step;
-
-    for (let t = startBucket; t <= endBucket; t += step) {
-      const bucketTime = new Date(t);
-      const timeLabel = dateFormatter.format(bucketTime);
-
-      // Check for direct match first
-      const bucketData = bucketedData[t];
-      if (bucketData && bucketData.length > 0) {
-        const aggregatedValue =
-          bucketData.reduce((sum, v) => sum + v, 0) / bucketData.length;
-        filledChartData.push(Math.round(aggregatedValue * 100) / 100);
-        filledLabels.push(timeLabel);
-        continue;
-      }
-
-      // Search nearby buckets
-      let foundData = null;
-      const tolerance = step * 0.5;
-
-      for (const bucketKey of Object.keys(bucketedData)) {
-        const bucketTimestamp = Number(bucketKey);
-        if (
-          Math.abs(bucketTimestamp - t) <= tolerance &&
-          bucketedData[bucketTimestamp]?.length > 0
-        ) {
-          const aggregatedValue =
-            bucketedData[bucketTimestamp].reduce((sum, v) => sum + v, 0) /
-            bucketedData[bucketTimestamp].length;
-          foundData = Math.round(aggregatedValue * 100) / 100;
-          break;
-        }
-      }
-
-      filledChartData.push(foundData);
-      filledLabels.push(timeLabel);
-    }
-
-    return { filledLabels, filledChartData };
-  }, [bucketedData, step, period, dateFormatter]);
+    return {
+      filledLabels: archivedData.map((point) =>
+        dateFormatter.format(new Date(point.timestamp)),
+      ),
+      filledChartData: archivedData.map((point) =>
+        point.value == null ? null : Math.round(point.value * 100) / 100,
+      ),
+    };
+  }, [archivedData, period, dateFormatter]);
 
   return {
     period,

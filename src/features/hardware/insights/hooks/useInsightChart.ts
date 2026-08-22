@@ -3,7 +3,6 @@ import {
   type archivePeriods,
   chartConfig,
 } from "@/features/hardware/consts/chart";
-import type { SingleDataArchive } from "@/features/hardware/types/chart";
 import type {
   DataStats,
   GpuDataType,
@@ -11,18 +10,12 @@ import type {
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
+  type ArchiveSeriesPoint,
   commands,
   type DataArchiveHardwareType,
   type HardwareType,
 } from "@/rspc/bindings";
 import { isError } from "@/types/result";
-
-// Aggregation function definitions for each type
-const aggregatorMap: Record<DataStats, (values: number[]) => number> = {
-  avg: (vals) => vals.reduce((sum, v) => sum + v, 0) / vals.length,
-  max: (vals) => Math.max(...vals),
-  min: (vals) => Math.min(...vals),
-};
 
 type UseInsightChartGpuProps = {
   hardwareType: Extract<HardwareType, "gpu">;
@@ -50,7 +43,7 @@ export const useInsightChart = (
   const gpuName = hardwareType === "gpu" ? props.gpuName : "";
   const dataType = hardwareType === "gpu" ? props.dataType : undefined;
 
-  const [data, setData] = useState<Array<SingleDataArchive>>([]);
+  const [data, setData] = useState<ArchiveSeriesPoint[]>([]);
 
   const prevOffsetRef = useRef(offset);
   const activeRequestIdRef = useRef(0);
@@ -71,7 +64,7 @@ export const useInsightChart = (
   const step =
     (stepMultiplierMap[period] ?? 1) * chartConfig.archiveUpdateIntervalMilSec;
 
-  const getData = useCallback(async (): Promise<SingleDataArchive[]> => {
+  const getData = useCallback(async (): Promise<ArchiveSeriesPoint[]> => {
     const endAt = new Date(Date.now() - offset * step);
     const adjustedEndAt = new Date(
       endAt.getTime() - chartConfig.archiveUpdateIntervalMilSec,
@@ -83,31 +76,33 @@ export const useInsightChart = (
         throw new Error("Data type is required for GPU");
       }
 
-      const result = await commands.getGpuArchiveRecords(
+      const result = await commands.getGpuArchiveSeries(
         dataType,
         dataStats,
         gpuName,
         startTime.toISOString(),
         adjustedEndAt.toISOString(),
+        step,
+        "end",
       );
       if (isError(result)) {
-        throw new Error(
-          `Failed to fetch archived GPU records: ${result.error}`,
-        );
+        throw new Error(`Failed to fetch archived GPU series: ${result.error}`);
       }
 
       return result.data;
     }
 
-    const result = await commands.getDataArchiveRecords(
+    const result = await commands.getDataArchiveSeries(
       hardwareType,
       dataStats,
       startTime.toISOString(),
       adjustedEndAt.toISOString(),
+      step,
+      "end",
     );
     if (isError(result)) {
       throw new Error(
-        `Failed to fetch archived hardware records: ${result.error}`,
+        `Failed to fetch archived hardware series: ${result.error}`,
       );
     }
 
@@ -206,45 +201,6 @@ export const useInsightChart = (
     return () => clearInterval(intervalId);
   }, [getData, formatValue, offset, error]);
 
-  const endAtForBucket = useMemo(
-    () => new Date(Date.now() - offset * step),
-    [offset, step],
-  );
-
-  const startTime = useMemo(
-    () => new Date(endAtForBucket.getTime() - period * 60 * 1000),
-    [endAtForBucket, period],
-  );
-
-  const startBucket =
-    Math.ceil(
-      (startTime.getTime() - chartConfig.archiveUpdateIntervalMilSec) / step,
-    ) * step;
-  const endBucket =
-    Math.ceil(
-      (endAtForBucket.getTime() - chartConfig.archiveUpdateIntervalMilSec) /
-        step,
-    ) * step;
-
-  const bucketedData = useMemo(() => {
-    return data.reduce(
-      (acc, record) => {
-        const recordTime = new Date(record.timestamp).getTime();
-        const bucketTimestamp = Math.ceil(recordTime / step) * step;
-        if (!acc[bucketTimestamp]) {
-          acc[bucketTimestamp] = [];
-        }
-        if (record.value != null) {
-          acc[bucketTimestamp].push(record.value);
-        }
-        return acc;
-      },
-      {} as Record<number, number[]>,
-    );
-  }, [data, step]);
-
-  const aggregateFn = aggregatorMap[dataStats];
-
   const dateFormatter = useMemo(() => {
     // Define display options (set properties based on conditions)
     const dateTimeFormatOptions: Intl.DateTimeFormatOptions = (() => {
@@ -271,40 +227,14 @@ export const useInsightChart = (
     return new Intl.DateTimeFormat(undefined, dateTimeFormatOptions);
   }, [period]);
 
-  // Loop from startBucket to endBucket by step, aggregating data in each bucket
   const { filledLabels, filledChartData } = useMemo(() => {
-    const filledChartData: Array<number | null> = [];
-    const filledLabels: string[] = [];
-
-    for (let t = startBucket; t <= endBucket; t += step) {
-      const bucketData = bucketedData[t];
-      if (!bucketData || bucketData.length <= 0) {
-        if (
-          t <=
-          endAtForBucket.getTime() - chartConfig.archiveUpdateIntervalMilSec
-        ) {
-          filledChartData.push(null);
-          filledLabels.push(dateFormatter.format(new Date(t)));
-        }
-
-        continue;
-      }
-
-      const aggregatedValue = aggregateFn(bucketData);
-      filledChartData.push(aggregatedValue);
-      filledLabels.push(dateFormatter.format(new Date(t)));
-    }
-
-    return { filledLabels, filledChartData };
-  }, [
-    aggregateFn,
-    bucketedData,
-    endBucket,
-    endAtForBucket,
-    startBucket,
-    step,
-    dateFormatter,
-  ]);
+    return {
+      filledLabels: data.map((point) =>
+        dateFormatter.format(new Date(point.timestamp)),
+      ),
+      filledChartData: data.map((point) => point.value),
+    };
+  }, [data, dateFormatter]);
 
   const hasData = filledChartData.some((v) => v != null);
 
