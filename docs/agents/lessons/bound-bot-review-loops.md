@@ -8,7 +8,7 @@ failure_signature: "across PRs #1944-#1958, eleven-plus response rounds each fix
 root_cause: "bot reviewers are generators that always produce another finding, and fixing every finding each round - including unfalsifiable prose findings - manufactures the next round's material; the existing triage skill was also not loaded at all during the cycle"
 guardrail: .agents/skills/gh-ai-review-triage/SKILL.md
 canonical_refs: .agents/skills/gh-ai-review-triage/SKILL.md
-verification: "review responses split findings by evidence class, fix reproduced defects in any round, fix only self-contradictions among subjective findings, restructure only for verified defects, and stop subjective editing after two response rounds"
+verification: "review responses split findings by evidence class, process every valid finding as fix, decline, or filed issue with reasoning, and end with an explicit sufficiency verdict anchored on what concretely breaks by merging now"
 evidence: "PR #1944 (11 rounds), #1957 (4 restructures of one skill), #1958; the oscillation narrow-wide-narrow on verify-identity-contracts SKILL.md"
 revalidate_when: "review bots gain a converging notion of sufficiency, or the repository changes its bot-review tooling"
 ---
@@ -31,6 +31,14 @@ response-structure or freeze. Do not restructure a document, type model, or
 module boundary to satisfy a subjective finding — file an issue or ask the
 maintainer; a verified defect that requires structural repair is fixed.
 
+The missing piece was a positive termination condition, not only limits: the
+loop ends when the change is judged shippable, not when findings run out.
+Every valid finding is processed — fixed, declined, or filed, with reasoning —
+and then the change gets a sufficiency verdict (`SUFFICIENT` /
+`INSUFFICIENT` / `UNCERTAIN`) anchored on one question: what concretely
+breaks if this merges now? A finding that cannot answer it does not block,
+however reasonable it sounds.
+
 The [`gh-ai-review-triage`](../../../.agents/skills/gh-ai-review-triage/SKILL.md)
-skill carries the rules (Convergence section). It must actually be loaded when
+skill carries the rules (Convergence and Sufficiency Judgment sections). It must actually be loaded when
 responding to bot reviews — the #1944 cycle happened with it sitting unused.
