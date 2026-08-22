@@ -17,8 +17,8 @@ set of canonical sources:
 - For design-changing work, use the
   [`hardwarevisualizer-design-review`](.agents/skills/hardwarevisualizer-design-review/SKILL.md)
   skill before or alongside implementation.
-- For work that joins, selects, or persists entities keyed by
-  backend-produced ids, use the
+- For work that joins, selects, attributes, persists, or supplies fixture ids
+  for entities keyed by backend-produced ids, use the
   [`verify-identity-contracts`](.agents/skills/verify-identity-contracts/SKILL.md)
   skill before implementation.
 
