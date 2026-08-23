@@ -1,5 +1,5 @@
 use crate::models::hardware::GraphicInfo;
-use crate::{log_debug, log_error};
+use crate::{log_debug, log_error, log_warn};
 
 use super::setupdi_provider;
 use dxgi::Factory;
@@ -73,14 +73,28 @@ pub async fn get_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
 }
 
 /// Get GPU LUID information, cached for the process lifetime.
-/// Returns an empty slice if the initial query fails.
+///
+/// Only a successful query is cached. A failure returns an empty slice for
+/// this call and leaves the cell uninitialized so the next sample retries:
+/// caching a transient DXGI or SetupDi failure would declare every
+/// vendor-uncovered adapter absent for the rest of the process, and absence
+/// of discovery is uncertainty, not evidence of absence.
 pub async fn get_gpu_luid_info_cached() -> &'static [GpuLuidInfo] {
   static INFO: tokio::sync::OnceCell<Vec<GpuLuidInfo>> =
     tokio::sync::OnceCell::const_new();
+  static FAILURE_LOGGED: std::sync::Once = std::sync::Once::new();
 
-  INFO
-    .get_or_init(|| async { get_gpu_luid_info().await.unwrap_or_default() })
-    .await
+  match INFO.get_or_try_init(get_gpu_luid_info).await {
+    Ok(info) => info,
+    Err(e) => {
+      // Once, not per sample: the retry runs at the monitor cadence, and a
+      // machine where discovery never succeeds would flood the log.
+      FAILURE_LOGGED.call_once(|| {
+        log_warn!("discovery_failed", "get_gpu_luid_info_cached", Some(e));
+      });
+      &[]
+    }
+  }
 }
 
 /// Get Intel GPU information
