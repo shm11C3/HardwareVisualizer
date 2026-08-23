@@ -331,11 +331,13 @@ const NVIDIA_VENDOR_ID: u32 = 0x10DE;
 /// one physical GPU as two adapters, and the duplicated name would make the
 /// inventory join ambiguous enough to drop the VRAM total.
 ///
-/// ADL ids carry the adapter's PCI address, so an AMD adapter is matched
-/// exactly — an APU that ADL enumerates but cannot read still falls through to
-/// PDH. NVAPI ids carry neither address nor LUID, so any NVAPI sample claims
-/// every NVIDIA adapter. The reported name is the last resort, and the only
-/// join key the two sources share when SetupDi cannot supply a PCI address.
+/// ADL ids carry the adapter's PCI address, so an AMD adapter with one is
+/// decided by that comparison alone — an APU that ADL enumerates but cannot
+/// read still falls through to PDH, and a same-name sibling the vendor API did
+/// read must not claim coverage for it. NVAPI ids carry neither address nor
+/// LUID, so any NVAPI sample claims every NVIDIA adapter. The reported name is
+/// consulted only when SetupDi cannot supply a PCI address, because it is then
+/// the only join key the two sources share.
 fn is_covered_by_vendor_api(
   vendor_id: u32,
   name: &str,
@@ -350,9 +352,7 @@ fn is_covered_by_vendor_api(
 
   if let Some((bus, device, function)) = bdf {
     let pci_id = format!("pci:{bus}:{device}:{function}");
-    if sampled.iter().any(|(id, _)| *id == pci_id) {
-      return true;
-    }
+    return sampled.iter().any(|(id, _)| *id == pci_id);
   }
 
   sampled
@@ -455,6 +455,20 @@ mod tests {
       AMD_VENDOR_ID,
       "AMD Radeon(TM) Graphics",
       Some((101, 0, 0)),
+      &sampled
+    ));
+  }
+
+  #[test]
+  fn same_name_sibling_does_not_cover_an_adapter_with_a_different_pci_address() {
+    // Two identical cards; ADL read only the one on bus 3. The one on bus 6
+    // must stay uncovered, or the name match would hide it from PDH — the
+    // exact disappearance this module exists to prevent.
+    let sampled = [("pci:3:0:0", "AMD Radeon RX 7900 XTX")];
+    assert!(!is_covered_by_vendor_api(
+      AMD_VENDOR_ID,
+      "AMD Radeon RX 7900 XTX",
+      Some((6, 0, 0)),
       &sampled
     ));
   }
