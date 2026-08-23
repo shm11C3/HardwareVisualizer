@@ -95,7 +95,10 @@ if (mode === "pre" && paths.size === 0) {
   // shapes that store the real target elsewhere.
   const hasOutsideRepoPath = rawPaths.some(
     (candidate) =>
-      candidate.trim().replace(/^['"]|['"]$/g, "").trim().length > 0,
+      candidate
+        .trim()
+        .replace(/^['"]|['"]$/g, "")
+        .trim().length > 0,
   );
   if (hasOutsideRepoPath) {
     process.exit(0);
