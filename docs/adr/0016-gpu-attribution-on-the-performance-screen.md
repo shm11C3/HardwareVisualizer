@@ -39,7 +39,9 @@ there is no longer anything to honor.
 
 The `getHardwareInfo` inventory and the monitor stream key their GPUs in
 different namespaces on every platform. Windows NVIDIA reports the raw NVAPI id
-as `GraphicInfo.id` but samples as `nvapi:<id>`; Windows Intel PDH samples use
+as `GraphicInfo.id` but samples as `nvapi:<id>`; Windows AMD ADL samples use the
+PCI address as `pci:<bus>:<device>:<function>`; Windows PDH samples — the
+fallback for every adapter no vendor API reported, not Intel alone — use
 the reboot-stable PnP device instance id as
 `pdh:instance:<device_instance_id>` when SetupDi can associate it with the
 DXGI adapter LUID, and fall back to `pdh:<luid_high>:<luid_low>` when it
