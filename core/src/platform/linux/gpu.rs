@@ -200,15 +200,12 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
     .collect::<Vec<_>>();
 
   // lspci is the name source for every vendor except Intel, whose live
-  // name is fixed — an Intel-only machine still skips the fork.
+  // name is fixed — an Intel-only machine never touches the cache.
   let lspci_output = if card_vendors
     .iter()
     .any(|(_, vendor)| *vendor != GpuVendor::Intel)
   {
-    tokio::task::spawn_blocking(infrastructure::providers::lspci::get_lspci_nn_output)
-      .await
-      .ok()
-      .flatten()
+    lspci_output_cached().await
   } else {
     None
   };
@@ -262,6 +259,32 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
   }
 
   metrics
+}
+
+/// The `lspci -nn` output, fetched once and cached for the process
+/// lifetime.
+///
+/// `sample_gpus` runs at the monitor cadence, and forking `lspci` every
+/// second to re-read a static adapter name would make the monitor its own
+/// workload. Only a successful run is cached; a failure returns `None` for
+/// that tick and the next tick retries, which costs no more than the
+/// uncached behavior did. A card hot-plugged after the first success reads
+/// a stale listing and falls back to its vendor placeholder name.
+#[cfg(target_os = "linux")]
+async fn lspci_output_cached() -> Option<&'static str> {
+  static OUTPUT: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
+
+  OUTPUT
+    .get_or_try_init(|| async {
+      tokio::task::spawn_blocking(infrastructure::providers::lspci::get_lspci_nn_output)
+        .await
+        .ok()
+        .flatten()
+        .ok_or(())
+    })
+    .await
+    .ok()
+    .map(String::as_str)
 }
 
 /// How one DRM card presents itself, resolved from the vendor alone so a
