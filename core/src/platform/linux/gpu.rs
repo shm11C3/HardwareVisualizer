@@ -214,7 +214,6 @@ pub async fn sample_gpus() -> Vec<models::GpuSample> {
     let bdf = infrastructure::providers::drm_sys::get_card_bdf(card_id);
     let lspci_name = bdf.as_deref().and_then(|bdf| {
       lspci_output
-        .as_deref()
         .and_then(|out| infrastructure::providers::lspci::parse_gpu_name_by_bdf(out, bdf))
     });
     let identity = resolve_card_identity(vendor, card_id, lspci_name.as_deref());
