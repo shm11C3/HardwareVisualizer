@@ -343,7 +343,8 @@ fn join_adl_metrics_by_bdf(
 /// read the usage ADL could not. The reading is borrowed into the vendor
 /// sample in place; identity stays vendor-keyed (the `pci:` id), because a
 /// second id for the same adapter is the duplication
-/// `is_covered_by_vendor_api` exists to prevent.
+/// `is_covered_by_vendor_api` exists to prevent. The `source` field follows
+/// the reading, because downstream it labels the usage, not the identity.
 async fn sample_pdh_gpus(gpu_metrics: &mut Vec<GpuSample>) {
   use crate::infrastructure::providers::pdh_provider::{self, GpuEngineType};
 
@@ -384,11 +385,7 @@ async fn sample_pdh_gpus(gpu_metrics: &mut Vec<GpuSample>) {
 
     match assignment {
       PdhAssignment::FillUsage(index) => {
-        // Only a successful PDH read may overwrite: `None` is already the
-        // vendor sample's honest answer.
-        if let Some(value) = usage {
-          gpu_metrics[index].usage = Some(value);
-        }
+        fill_usage_from_pdh(&mut gpu_metrics[index], usage);
       }
       PdhAssignment::AddAdapter => gpu_metrics.push(GpuSample {
         gpu_id: pdh_gpu_id(
@@ -441,13 +438,33 @@ fn pdh_assignment_for_adapter(
     .map(PdhAssignment::FillUsage)
 }
 
+/// Apply a PDH usage reading to the vendor sample that covers an adapter.
+///
+/// Only a successful read may overwrite: `None` is already the vendor
+/// sample's honest answer. `source` follows the reading — the field labels
+/// the usage downstream (`gpu_source` is surfaced as the usage source), so a
+/// usage PDH produced must credit PDH even though the sample's id and
+/// temperature stay vendor-owned.
+fn fill_usage_from_pdh(sample: &mut GpuSample, usage: Option<f32>) {
+  if let Some(value) = usage {
+    sample.usage = Some(value);
+    sample.source = "PDH".to_string();
+  }
+}
+
 /// The vendor sample that speaks for this adapter, joined the way coverage
 /// was decided: by PCI address when SetupDi supplied one, by name otherwise.
 ///
-/// An NVAPI claim resolves to no single sample — NVAPI ids carry neither a
-/// PCI address nor a LUID, so a missing usage could not be attributed to this
-/// adapter rather than a sibling. NVAPI samples always carry usage, so there
-/// is nothing to fill there anyway.
+/// Unlike coverage, a fill is a write, so the join must be unambiguous:
+///
+/// - An NVAPI claim resolves to no single sample — NVAPI ids carry neither a
+///   PCI address nor a LUID, so a missing usage could not be attributed to
+///   this adapter rather than a sibling. NVAPI samples always carry usage, so
+///   there is nothing to fill there anyway.
+/// - A name resolves a sample only while exactly one sample carries it. With
+///   two same-name candidates — two identical cards — the reading could land
+///   on the sibling's sample, and a misattributed reading is worse than a
+///   missing one (ADR 0016 refuses ambiguous joins rather than guessing).
 fn covering_sample_index(
   name: &str,
   bdf: Option<(i32, i32, i32)>,
@@ -457,9 +474,17 @@ fn covering_sample_index(
     let pci_id = adl_gpu_id(bus, device, function);
     return sampled.iter().position(|(id, _, _)| *id == pci_id);
   }
-  sampled
+
+  let mut name_matches = sampled
     .iter()
-    .position(|(_, sampled_name, _)| *sampled_name == name)
+    .enumerate()
+    .filter(|(_, (_, sampled_name, _))| *sampled_name == name)
+    .map(|(index, _)| index);
+  let first = name_matches.next()?;
+  match name_matches.next() {
+    None => Some(first),
+    Some(_) => None,
+  }
 }
 
 /// PCI vendor id NVIDIA adapters report through DXGI.
@@ -773,5 +798,64 @@ mod tests {
       ),
       None
     );
+  }
+
+  #[test]
+  fn unique_name_only_match_still_selects_the_fill_target() {
+    let sampled = [("pci:3:0:0", "AMD Radeon RX 7900 XTX", None)];
+    assert_eq!(
+      pdh_assignment_for_adapter(AMD_VENDOR_ID, "AMD Radeon RX 7900 XTX", None, &sampled),
+      Some(PdhAssignment::FillUsage(0))
+    );
+  }
+
+  #[test]
+  fn ambiguous_name_only_match_declines_the_fill() {
+    // Two identical cards and no SetupDi PCI address: the name cannot say
+    // which sample the reading belongs to. The adapter stays covered — no
+    // `pdh:` sample is added — but nothing is filled either, because a
+    // misattributed reading is worse than a missing one.
+    let sampled = [
+      ("pci:3:0:0", "AMD Radeon RX 7900 XTX", None),
+      ("pci:6:0:0", "AMD Radeon RX 7900 XTX", None),
+    ];
+    assert_eq!(
+      pdh_assignment_for_adapter(AMD_VENDOR_ID, "AMD Radeon RX 7900 XTX", None, &sampled),
+      None
+    );
+  }
+
+  fn temperature_only_adl_sample() -> GpuSample {
+    GpuSample {
+      gpu_id: "pci:101:0:0".to_string(),
+      name: "AMD Radeon(TM) Graphics".to_string(),
+      usage: None,
+      temperature: Some(55.0),
+      dedicated_memory_kb: None,
+      cooler_level: None,
+      source: "ADL".to_string(),
+    }
+  }
+
+  #[test]
+  fn pdh_fill_updates_usage_and_its_provenance() {
+    let mut sample = temperature_only_adl_sample();
+
+    fill_usage_from_pdh(&mut sample, Some(12.0));
+
+    assert_eq!(sample.usage, Some(12.0));
+    assert_eq!(sample.source, "PDH");
+    // Identity and the vendor's own reading stay untouched.
+    assert_eq!(sample.gpu_id, "pci:101:0:0");
+    assert_eq!(sample.temperature, Some(55.0));
+  }
+
+  #[test]
+  fn failed_pdh_read_leaves_the_vendor_sample_untouched() {
+    let mut sample = temperature_only_adl_sample();
+
+    fill_usage_from_pdh(&mut sample, None);
+
+    assert_eq!(sample, temperature_only_adl_sample());
   }
 }
