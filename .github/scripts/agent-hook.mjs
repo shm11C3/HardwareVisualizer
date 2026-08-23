@@ -94,7 +94,8 @@ if (mode === "pre" && paths.size === 0) {
   // an outside path, and treating it as one would fail open for payload
   // shapes that store the real target elsewhere.
   const hasOutsideRepoPath = rawPaths.some(
-    (candidate) => candidate.trim().replace(/^['"]|['"]$/g, "").length > 0,
+    (candidate) =>
+      candidate.trim().replace(/^['"]|['"]$/g, "").trim().length > 0,
   );
   if (hasOutsideRepoPath) {
     process.exit(0);
