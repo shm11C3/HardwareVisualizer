@@ -1,10 +1,16 @@
 use crate::models::hardware::GraphicInfo;
-use crate::{log_debug, log_error};
+use crate::{log_debug, log_error, log_warn};
 
+use super::setupdi_provider;
 use dxgi::Factory;
 use dxgi::adapter::AdapterDesc;
 use std::collections::HashMap;
 use tokio::task::spawn_blocking;
+
+/// `DXGI_ADAPTER_FLAG_SOFTWARE`: a software rasterizer such as WARP or the
+/// "Microsoft Basic Render Driver". It has no device behind it to report on,
+/// so offering it as a GPU to attribute readings to would be a fiction.
+const DXGI_ADAPTER_FLAG_SOFTWARE: u32 = 2;
 
 /// Lightweight LUID info for a GPU adapter, used to match PDH counters.
 pub struct GpuLuidInfo {
@@ -13,56 +19,82 @@ pub struct GpuLuidInfo {
   pub luid_low: u32,
   /// PnP identity, when SetupDi can associate it with this DXGI LUID.
   pub device_instance_id: Option<String>,
+  /// PCI vendor id as DXGI reports it, used to tell which vendor API — if
+  /// any — already speaks for this adapter.
+  pub vendor_id: u32,
+  /// PCI address, when SetupDi can associate it with this DXGI LUID. It is
+  /// the id ADL samples are keyed by, so it is how a PDH candidate
+  /// recognises an adapter ADL already reported.
+  pub bdf: Option<(i32, i32, i32)>,
 }
 
-/// Get Intel GPU LUID information for matching with PDH performance counters.
-pub async fn get_intel_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
+/// LUID information for every hardware GPU adapter Windows exposes.
+///
+/// Deliberately vendor-agnostic: PDH is the only usage source left for an
+/// adapter whose vendor API is missing or refuses to answer — an AMD APU
+/// whose ADL usage query fails, for one — and an adapter absent from the
+/// sample stream cannot be named, attributed, or selected at all.
+pub async fn get_gpu_luid_info() -> Result<Vec<GpuLuidInfo>, String> {
   let handle = spawn_blocking(|| {
     let factory =
       Factory::new().map_err(|e| format!("Failed to create DXGI Factory: {e:?}"))?;
-    let stable_ids: HashMap<(i32, u32), String> = crate::infrastructure::providers::windows::
+    let pnp_by_luid: HashMap<(i32, u32), setupdi_provider::DisplayAdapterBdf> =
       setupdi_provider::enumerate_display_adapters()
-      .into_iter()
-      .filter_map(|adapter| {
-        let luid = adapter.adapter_luid?;
-        let stable_id = adapter.device_instance_id?;
-        Some((luid, stable_id))
-      })
-      .collect();
+        .into_iter()
+        .filter_map(|adapter| Some((adapter.adapter_luid?, adapter)))
+        .collect();
     let mut result = Vec::new();
 
     for adapter in factory.adapters() {
       let desc: AdapterDesc = adapter.get_desc();
-      let gpu_name = desc.description();
-      if gpu_name.contains("Intel") {
-        let luid = desc.adapter_luid();
-        result.push(GpuLuidInfo {
-          name: gpu_name.trim_end_matches('\0').to_string(),
-          luid_high: luid.HighPart,
-          luid_low: luid.LowPart,
-          device_instance_id: stable_ids.get(&(luid.HighPart, luid.LowPart)).cloned(),
-        });
+      if desc.flags() & DXGI_ADAPTER_FLAG_SOFTWARE != 0 {
+        continue;
       }
+
+      let luid = desc.adapter_luid();
+      let pnp = pnp_by_luid.get(&(luid.HighPart, luid.LowPart));
+      result.push(GpuLuidInfo {
+        name: desc.description().trim_end_matches('\0').to_string(),
+        luid_high: luid.HighPart,
+        luid_low: luid.LowPart,
+        device_instance_id: pnp.and_then(|a| a.device_instance_id.clone()),
+        vendor_id: desc.vendor_id(),
+        bdf: pnp.map(|a| (a.bus, a.device, a.function)),
+      });
     }
 
     Ok(result)
   });
 
   handle.await.map_err(|e| {
-    log_error!("join_error", "get_intel_gpu_luid_info", Some(e.to_string()));
-    "Intel GPU LUID info retrieval failed".to_string()
+    log_error!("join_error", "get_gpu_luid_info", Some(e.to_string()));
+    "GPU LUID info retrieval failed".to_string()
   })?
 }
 
-/// Get Intel GPU LUID information, cached for the process lifetime.
-/// Returns an empty slice if the initial query fails.
-pub async fn get_intel_gpu_luid_info_cached() -> &'static [GpuLuidInfo] {
+/// Get GPU LUID information, cached for the process lifetime.
+///
+/// Only a successful query is cached. A failure returns an empty slice for
+/// this call and leaves the cell uninitialized so the next sample retries:
+/// caching a transient DXGI or SetupDi failure would declare every
+/// vendor-uncovered adapter absent for the rest of the process, and absence
+/// of discovery is uncertainty, not evidence of absence.
+pub async fn get_gpu_luid_info_cached() -> &'static [GpuLuidInfo] {
   static INFO: tokio::sync::OnceCell<Vec<GpuLuidInfo>> =
     tokio::sync::OnceCell::const_new();
+  static FAILURE_LOGGED: std::sync::Once = std::sync::Once::new();
 
-  INFO
-    .get_or_init(|| async { get_intel_gpu_luid_info().await.unwrap_or_default() })
-    .await
+  match INFO.get_or_try_init(get_gpu_luid_info).await {
+    Ok(info) => info,
+    Err(e) => {
+      // Once, not per sample: the retry runs at the monitor cadence, and a
+      // machine where discovery never succeeds would flood the log.
+      FAILURE_LOGGED.call_once(|| {
+        log_warn!("discovery_failed", "get_gpu_luid_info_cached", Some(e));
+      });
+      &[]
+    }
+  }
 }
 
 /// Get Intel GPU information
