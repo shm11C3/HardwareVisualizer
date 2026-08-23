@@ -90,8 +90,13 @@ const paths = new Set(rawPaths.map(normalizeRepoPath).filter(Boolean));
 if (mode === "pre" && paths.size === 0) {
   // Paths outside the repository (user settings, scratchpad files) cannot be
   // the generated file this guard protects, so let them through. Only a
-  // payload with no extractable path at all is refused.
-  if (rawPaths.length > 0) {
+  // verified non-empty path counts: an empty or whitespace candidate is not
+  // an outside path, and treating it as one would fail open for payload
+  // shapes that store the real target elsewhere.
+  const hasOutsideRepoPath = rawPaths.some(
+    (candidate) => candidate.trim().replace(/^['"]|['"]$/g, "").length > 0,
+  );
+  if (hasOutsideRepoPath) {
     process.exit(0);
   }
   console.error("Cannot determine edited paths from agent hook payload.");
