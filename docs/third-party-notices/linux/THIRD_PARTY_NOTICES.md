@@ -701,7 +701,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## @hookform/resolvers@5.6.0
+## @hookform/resolvers@5.8.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/resolvers](https://github.com/react-hook-form/resolvers)
@@ -2974,7 +2974,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## baseline-browser-mapping@2.10.43
+## baseline-browser-mapping@2.11.14
 
 - License: Apache-2.0
 - Repository: [https://github.com/web-platform-dx/baseline-browser-mapping](https://github.com/web-platform-dx/baseline-browser-mapping)
@@ -3183,7 +3183,7 @@ Apache License
    limitations under the License.
 ```
 
-## browserslist@4.28.6
+## browserslist@4.28.8
 
 - License: MIT
 - Repository: [https://github.com/browserslist/browserslist](https://github.com/browserslist/browserslist)
@@ -3213,7 +3213,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## caniuse-lite@1.0.30001805
+## caniuse-lite@1.0.30001809
 
 - License: CC-BY-4.0
 - Repository: [https://github.com/browserslist/caniuse-lite](https://github.com/browserslist/caniuse-lite)
@@ -4217,7 +4217,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## electron-to-chromium@1.5.389
+## electron-to-chromium@1.5.405
 
 - License: ISC
 - Repository: [https://github.com/Kilian/electron-to-chromium](https://github.com/Kilian/electron-to-chromium)
@@ -4250,7 +4250,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-## es-toolkit@1.49.0
+## es-toolkit@1.50.0
 
 - License: MIT
 - Repository: [https://github.com/toss/es-toolkit](https://github.com/toss/es-toolkit)
@@ -4467,7 +4467,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## immer@11.1.11
+## immer@11.1.16
 
 - License: MIT
 - Repository: [https://github.com/immerjs/immer](https://github.com/immerjs/immer)
@@ -4791,7 +4791,7 @@ will be liable to anyone for any damages related to this
 software or this license, under any kind of legal claim.***
 ```
 
-## lucide-react@1.28.0
+## lucide-react@1.31.0
 
 - License: ISC
 - Repository: [https://github.com/lucide-icons/lucide](https://github.com/lucide-icons/lucide)
@@ -4843,7 +4843,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## node-releases@2.0.51
+## node-releases@2.0.53
 
 - License: MIT
 - Repository: [https://github.com/chicoxyzzy/node-releases](https://github.com/chicoxyzzy/node-releases)
@@ -4874,7 +4874,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## obug@2.1.3
+## obug@2.1.4
 
 - License: MIT
 - Repository: [https://github.com/sxzz/obug](https://github.com/sxzz/obug)
@@ -4990,7 +4990,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-hook-form@7.84.0
+## react-hook-form@7.85.0
 
 - License: MIT
 - Repository: [https://github.com/react-hook-form/react-hook-form](https://github.com/react-hook-form/react-hook-form)
@@ -5052,10 +5052,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## react-is@19.2.7
+## react-is@19.2.8
 
 - License: MIT
-- Repository: [https://github.com/facebook/react](https://github.com/facebook/react)
+- Repository: [https://github.com/react/react](https://github.com/react/react)
 
 ```LICENSE
 MIT License
@@ -5466,7 +5466,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## tailwind-variants@3.3.0
+## tailwind-variants@3.3.1
 
 - License: MIT
 - Repository: [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
@@ -5672,17 +5672,17 @@ If the Work includes a "NOTICE" text file as part of its distribution, then any 
 END OF TERMS AND CONDITIONS
 ```
 
-## update-browserslist-db@1.2.3
+## update-browserslist-db@1.3.1
 
 - License: MIT
 - Repository: [https://github.com/browserslist/update-db](https://github.com/browserslist/update-db)
 - Publisher: Andrey Sitnik
-- Email: <andrey@sitnik.ru>
+- Email: <andrey@sitnik.es>
 
 ```LICENSE
 The MIT License (MIT)
 
-Copyright 2022 Andrey Sitnik <andrey@sitnik.ru> and other contributors
+Copyright 2022 Andrey Sitnik <andrey@sitnik.es> and other contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
