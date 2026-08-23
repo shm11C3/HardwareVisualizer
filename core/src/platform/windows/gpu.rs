@@ -26,9 +26,11 @@ pub async fn get_gpu_usage() -> Result<(f32, String), String> {
   }
 
   // 3. Intel via PDH + DXGI LUID (cached)
-  let intel_gpus =
-    infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
-  if let Some(gpu) = intel_gpus.first()
+  let intel_gpu = infrastructure::providers::directx::get_gpu_luid_info_cached()
+    .await
+    .iter()
+    .find(|gpu| gpu.name.contains("Intel"));
+  if let Some(gpu) = intel_gpu
     && let Ok(usage) =
       infrastructure::providers::pdh_provider::query_gpu_usage_by_luid_and_engine(
         gpu.luid_high,
@@ -153,7 +155,7 @@ pub async fn sample_gpus() -> Vec<GpuSample> {
     sample_amd_gpus(&mut gpu_metrics).await;
   }
 
-  sample_intel_gpus(&mut gpu_metrics).await;
+  sample_pdh_gpus(&mut gpu_metrics).await;
 
   gpu_metrics
 }
@@ -258,17 +260,42 @@ async fn sample_amd_gpus(gpu_metrics: &mut Vec<GpuSample>) {
   }
 }
 
-/// Collect Intel GPU usage via PDH performance counters, filtered by LUID.
-async fn sample_intel_gpus(gpu_metrics: &mut Vec<GpuSample>) {
+/// Collect usage via PDH performance counters for every adapter no vendor API
+/// spoke for.
+///
+/// The vendor APIs come first because they carry temperature, VRAM, and fan
+/// readings PDH does not expose; PDH is what keeps an adapter they cannot read
+/// from disappearing entirely. An adapter absent from the sample stream has no
+/// name, no readings, and no entry in the GPU switcher, which is how an AMD APU
+/// that ADL enumerates but cannot measure became invisible next to a working
+/// discrete card.
+async fn sample_pdh_gpus(gpu_metrics: &mut Vec<GpuSample>) {
   use crate::infrastructure::providers::pdh_provider::{self, GpuEngineType};
 
-  let intel_gpus =
-    crate::infrastructure::providers::directx::get_intel_gpu_luid_info_cached().await;
-  if intel_gpus.is_empty() {
+  let adapters =
+    crate::infrastructure::providers::directx::get_gpu_luid_info_cached().await;
+  if adapters.is_empty() {
     return;
   }
 
-  for gpu in intel_gpus {
+  // Decided up front because the check borrows `gpu_metrics` while the loop
+  // below writes to it. Nothing is lost by deciding early: a sample PDH adds
+  // is this loop's own output, and can never be the vendor API's answer for a
+  // later adapter.
+  let uncovered: Vec<_> = {
+    let sampled: Vec<(&str, &str)> = gpu_metrics
+      .iter()
+      .map(|sample| (sample.gpu_id.as_str(), sample.name.as_str()))
+      .collect();
+    adapters
+      .iter()
+      .filter(|gpu| {
+        !is_covered_by_vendor_api(gpu.vendor_id, &gpu.name, gpu.bdf, &sampled)
+      })
+      .collect()
+  };
+
+  for gpu in uncovered {
     let usage = pdh_provider::query_gpu_usage_by_luid_and_engine(
       gpu.luid_high,
       gpu.luid_low,
@@ -294,7 +321,46 @@ async fn sample_intel_gpus(gpu_metrics: &mut Vec<GpuSample>) {
   }
 }
 
-/// Build the live id for an Intel adapter sampled through PDH.
+/// PCI vendor id NVIDIA adapters report through DXGI.
+const NVIDIA_VENDOR_ID: u32 = 0x10DE;
+
+/// Whether a vendor API already produced a sample for this DXGI adapter.
+///
+/// Sampling the same card twice is worse than sampling it through the weaker
+/// source: the two ids live in the same namespace, so the switcher would offer
+/// one physical GPU as two adapters, and the duplicated name would make the
+/// inventory join ambiguous enough to drop the VRAM total.
+///
+/// ADL ids carry the adapter's PCI address, so an AMD adapter with one is
+/// decided by that comparison alone — an APU that ADL enumerates but cannot
+/// read still falls through to PDH, and a same-name sibling the vendor API did
+/// read must not claim coverage for it. NVAPI ids carry neither address nor
+/// LUID, so any NVAPI sample claims every NVIDIA adapter. The reported name is
+/// consulted only when SetupDi cannot supply a PCI address, because it is then
+/// the only join key the two sources share.
+fn is_covered_by_vendor_api(
+  vendor_id: u32,
+  name: &str,
+  bdf: Option<(i32, i32, i32)>,
+  sampled: &[(&str, &str)],
+) -> bool {
+  if vendor_id == NVIDIA_VENDOR_ID
+    && sampled.iter().any(|(id, _)| id.starts_with("nvapi:"))
+  {
+    return true;
+  }
+
+  if let Some((bus, device, function)) = bdf {
+    let pci_id = format!("pci:{bus}:{device}:{function}");
+    return sampled.iter().any(|(id, _)| *id == pci_id);
+  }
+
+  sampled
+    .iter()
+    .any(|(_, sampled_name)| *sampled_name == name)
+}
+
+/// Build the live id for an adapter sampled through PDH.
 ///
 /// The DXGI LUID identifies the physical adapter independently of its display
 /// name, which is not unique when Windows exposes two same-model adapters.
@@ -307,6 +373,8 @@ fn pdh_gpu_id(device_instance_id: Option<&str>, luid_high: i32, luid_low: u32) -
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  const AMD_VENDOR_ID: u32 = 0x1002;
 
   #[test]
   fn resolve_gpu_name_returns_dxgi_name_on_bdf_hit() {
@@ -341,6 +409,79 @@ mod tests {
       resolve_gpu_name_from_bdf_map(&map, "fallback", 9, 0, 0),
       "fallback"
     );
+  }
+
+  #[test]
+  fn nvidia_adapter_is_covered_once_nvapi_reported_anything() {
+    let sampled = [("nvapi:4294967295", "NVIDIA GeForce RTX 5080")];
+    assert!(is_covered_by_vendor_api(
+      NVIDIA_VENDOR_ID,
+      "NVIDIA GeForce RTX 5080",
+      Some((1, 0, 0)),
+      &sampled
+    ));
+  }
+
+  #[test]
+  fn nvidia_adapter_falls_through_to_pdh_when_nvapi_reported_nothing() {
+    assert!(!is_covered_by_vendor_api(
+      NVIDIA_VENDOR_ID,
+      "NVIDIA GeForce RTX 5080",
+      Some((1, 0, 0)),
+      &[]
+    ));
+  }
+
+  #[test]
+  fn amd_adapter_is_covered_by_the_adl_sample_at_its_pci_address() {
+    let sampled = [("pci:3:0:0", "AMD Radeon RX 7900 XTX")];
+    assert!(is_covered_by_vendor_api(
+      AMD_VENDOR_ID,
+      "AMD Radeon RX 7900 XTX",
+      Some((3, 0, 0)),
+      &sampled
+    ));
+  }
+
+  #[test]
+  fn amd_adapter_adl_could_not_read_still_falls_through_to_pdh() {
+    // ADL reported the discrete card only; the APU's integrated Radeon is the
+    // adapter that used to vanish from the switcher entirely.
+    let sampled = [
+      ("nvapi:1", "NVIDIA GeForce RTX 5080"),
+      ("pci:3:0:0", "AMD Radeon RX 7900 XTX"),
+    ];
+    assert!(!is_covered_by_vendor_api(
+      AMD_VENDOR_ID,
+      "AMD Radeon(TM) Graphics",
+      Some((101, 0, 0)),
+      &sampled
+    ));
+  }
+
+  #[test]
+  fn same_name_sibling_does_not_cover_an_adapter_with_a_different_pci_address() {
+    // Two identical cards; ADL read only the one on bus 3. The one on bus 6
+    // must stay uncovered, or the name match would hide it from PDH — the
+    // exact disappearance this module exists to prevent.
+    let sampled = [("pci:3:0:0", "AMD Radeon RX 7900 XTX")];
+    assert!(!is_covered_by_vendor_api(
+      AMD_VENDOR_ID,
+      "AMD Radeon RX 7900 XTX",
+      Some((6, 0, 0)),
+      &sampled
+    ));
+  }
+
+  #[test]
+  fn adapter_without_a_pci_address_is_covered_by_a_matching_name() {
+    let sampled = [("pci:3:0:0", "AMD Radeon RX 7900 XTX")];
+    assert!(is_covered_by_vendor_api(
+      AMD_VENDOR_ID,
+      "AMD Radeon RX 7900 XTX",
+      None,
+      &sampled
+    ));
   }
 
   #[test]
