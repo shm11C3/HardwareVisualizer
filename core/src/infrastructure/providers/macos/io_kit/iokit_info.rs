@@ -548,7 +548,7 @@ pub fn read_gpu_dvfs_freqs_mhz() -> Option<Vec<u32>> {
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
 
     let mut freqs = Vec::with_capacity(len / 8);
-    for chunk in bytes.chunks_exact(8) {
+    for chunk in bytes.as_chunks::<8>().0 {
       let freq_hz = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
       freqs.push(freq_hz / 1_000_000); // Hz → MHz
     }

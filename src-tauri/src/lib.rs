@@ -1,6 +1,5 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![macro_use]
 
 // Re-export the logging macros from `hardviz_core` so existing
 // `use crate::{log_internal, log_warn};` sites keep compiling. The macros

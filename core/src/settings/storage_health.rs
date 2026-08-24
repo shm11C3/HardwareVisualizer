@@ -66,7 +66,7 @@ impl StorageHealthIdentitySettings {
     }
 
     let mut key = [0u8; STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES];
-    for (index, chunk) in encoded.as_bytes().chunks_exact(2).enumerate() {
+    for (index, chunk) in encoded.as_bytes().as_chunks::<2>().0.iter().enumerate() {
       key[index] = decode_hex_pair(chunk).ok_or_else(|| {
         "Storage Health identity hash key contains invalid hex".to_string()
       })?;
