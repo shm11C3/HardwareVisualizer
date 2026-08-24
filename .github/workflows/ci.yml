@@ -58,12 +58,14 @@ jobs:
               - 'src-tauri/**'
               - 'Cargo.*'
               - '.cargo/**'
+              - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             core:
               - 'core/**'
               - 'Cargo.*'
               - '.cargo/**'
+              - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             tauri:
@@ -71,6 +73,7 @@ jobs:
               - 'e2e-native/**'
               - 'Cargo.*'
               - '.cargo/**'
+              - 'rust-toolchain*'
               - '.github/actions/**'
               - '.github/scripts/**'
             frontend-deps:
