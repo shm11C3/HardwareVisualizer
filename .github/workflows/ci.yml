@@ -25,6 +25,7 @@ jobs:
       cargo-license-config-changed: ${{ steps.changes.outputs.cargo-license-config }}
       tauri-deps-changed: ${{ steps.tauri-deps.outputs.changed }}
       actions-changed: ${{ steps.changes.outputs.actions }}
+      unclassified-changed: ${{ steps.unclassified.outputs.unclassified }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -96,6 +97,48 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
 
+      # Catch-all: true when a changed file matches none of the filters above.
+      # A file this repo has not classified yet must not let every Rust and
+      # frontend job silently skip (#2003/#2008/#2009), so every change-gated
+      # job below also runs on `unclassified-changed == 'true'`.
+      #
+      # This needs its own paths-filter step: `predicate-quantifier` is
+      # step-scoped, and the filters above depend on the default 'some'
+      # ("matches at least one pattern"). Under 'some' the leading '**' would
+      # match every file and make this filter always true, so it uses
+      # 'some-with-excludes' ("matches a positive pattern and no negated one")
+      # to actually compute the complement.
+      #
+      # The negations below mirror the positive patterns above. Forgetting to
+      # mirror a newly added pattern is the safe direction: the file simply
+      # falls through to unclassified and over-runs CI rather than skipping it.
+      - name: Check unclassified changed files
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: unclassified
+        background: true
+        with:
+          predicate-quantifier: "some-with-excludes"
+          filters: |
+            unclassified:
+              - '**'
+              - '!src/**'
+              - '!e2e/**'
+              - '!e2e-native/**'
+              - '!package*.json'
+              - '!vite.config.ts'
+              - '!playwright.config.ts'
+              - '!playwright.perf.config.ts'
+              - '!playwright.memory.config.ts'
+              - '!tsconfig*.json'
+              - '!core/**'
+              - '!src-tauri/**'
+              - '!Cargo.*'
+              - '!.cargo/**'
+              - '!rust-toolchain*'
+              - '!.github/actions/**'
+              - '!.github/scripts/**'
+              - '!.github/workflows/**'
+
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
         with:
@@ -121,7 +164,7 @@ jobs:
           node .github/scripts/check-tauri-deps-changed.ts "$base_ref"
 
       - name: Wait for changed file detection
-        wait: changes
+        wait-all: true
 
   #
   # GitHub Actions lint
@@ -150,7 +193,7 @@ jobs:
   #
   rust-format:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.backend-changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -169,7 +212,7 @@ jobs:
   #
   lint-core:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.core-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.core-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -194,7 +237,7 @@ jobs:
   #
   test-core:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.core-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.core-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -221,7 +264,7 @@ jobs:
   #
   lint-tauri:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -246,7 +289,7 @@ jobs:
   #
   test-tauri:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
@@ -343,7 +386,7 @@ jobs:
   #
   check-tauri-bindings:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.core-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.actions-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.core-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.actions-changed == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -375,7 +418,7 @@ jobs:
   test-build:
     needs: change-detection
     # Tauri dependency updates use the Tauri CLI build path to keep npm/Cargo version consistency checks.
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.tauri-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.tauri-deps-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -499,7 +542,7 @@ jobs:
   #
   check-frontend:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: read
       pull-requests: write
@@ -532,7 +575,7 @@ jobs:
   #
   test-e2e-web:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     permissions:
       contents: write
       pull-requests: write
@@ -652,7 +695,7 @@ jobs:
   #
   test-e2e-native:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -693,7 +736,7 @@ jobs:
   #
   build-frontend:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -710,7 +753,7 @@ jobs:
   #
   license-check-npm:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-deps-changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -730,7 +773,7 @@ jobs:
 
   license-check-cargo:
     needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.cargo-license-config-changed == 'true'
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true' || needs.change-detection.outputs.cargo-license-config-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
