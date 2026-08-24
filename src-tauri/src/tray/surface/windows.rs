@@ -902,7 +902,14 @@ mod tests {
     assert_eq!(image.width(), ICON_SIZE);
     assert_eq!(image.height(), ICON_SIZE);
     assert_eq!(image.rgba().len(), (ICON_SIZE * ICON_SIZE * 4) as usize);
-    assert!(image.rgba().chunks_exact(4).any(|pixel| pixel[3] > 0));
+    assert!(
+      image
+        .rgba()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|pixel| pixel[3] > 0)
+    );
   }
 
   #[test]
@@ -956,7 +963,9 @@ mod tests {
     assert!(
       image
         .rgba()
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .any(|pixel| pixel[0..3] == CRITICAL_COLOR.0[0..3] && pixel[3] > 0)
     );
   }
@@ -974,7 +983,9 @@ mod tests {
     assert!(
       image
         .rgba()
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .any(|pixel| pixel[0..3] == ICON_COLOR.0[0..3] && pixel[3] > 0)
     );
   }
