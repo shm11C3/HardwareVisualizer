@@ -116,6 +116,22 @@ describe("usePerformanceLayout", () => {
     );
   });
 
+  it("reports a rejected user-selected Monitor Power Draw mode", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    setMonitorPowerMode.mockRejectedValueOnce(persistenceError);
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    await act(async () => result.current.setMonitorPowerMode("graph"));
+
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to persist Performance Monitor Power Draw mode:",
+      persistenceError,
+    );
+  });
+
   it("keeps the latest Monitor Power Draw mode after delayed writes", async () => {
     let resolveGraphWrite: (() => void) | undefined;
     setMonitorPowerMode

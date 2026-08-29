@@ -126,7 +126,7 @@ export const usePerformanceLayout = () => {
         () => undefined,
         () => undefined,
       );
-      return mutation;
+      return mutation.catch(reportMonitorPowerModePersistenceError);
     },
     [setStoredMonitorPowerMode],
   );
@@ -161,9 +161,7 @@ export const usePerformanceLayout = () => {
     }
     // Persist the normalized fallback too, so an obsolete value cannot keep
     // being re-read as unknown on every launch.
-    void setMonitorPowerMode(monitorPowerMode).catch(
-      reportMonitorPowerModePersistenceError,
-    );
+    void setMonitorPowerMode(monitorPowerMode);
   }, [
     isPowerModePending,
     monitorPowerMode,
