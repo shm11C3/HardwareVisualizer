@@ -114,22 +114,29 @@ const EstablishedObservation = ({
     temperatureUnit,
   );
 
+  // A null delta renders as "not available", never as a fabricated ±0.0°
+  // (DP-02: missing hardware data must not look like a measured zero).
+  const formatDelta = (value: number | null) =>
+    value == null
+      ? t("shared.notAvailable")
+      : formatSignedTemperatureDelta(value, unitSuffix);
+
   const label = (() => {
     switch (display.kind) {
       case "notComparable":
         return t("pages.insights.cooling.observationStrip.notComparable");
       case "withinRange":
         return t("pages.insights.cooling.observationStrip.withinRange", {
-          delta: formatSignedTemperatureDelta(display.delta, unitSuffix),
+          delta: formatDelta(display.delta),
         });
       case "sustainedMildRise":
         return t("pages.insights.cooling.observationStrip.sustainedMildRise", {
-          delta: formatSignedTemperatureDelta(display.delta, unitSuffix),
+          delta: formatDelta(display.delta),
           days: display.sustainedDays,
         });
       case "sustainedLargeRise":
         return t("pages.insights.cooling.observationStrip.sustainedLargeRise", {
-          delta: formatSignedTemperatureDelta(display.delta, unitSuffix),
+          delta: formatDelta(display.delta),
           days: display.sustainedDays,
         });
     }

@@ -19,17 +19,17 @@ export type ObservationTone = "muted" | "positive" | "mild" | "large";
  */
 export type ObservationDisplay =
   | { kind: "notComparable"; tone: "muted" }
-  | { kind: "withinRange"; tone: "positive"; delta: number }
+  | { kind: "withinRange"; tone: "positive"; delta: number | null }
   | {
       kind: "sustainedMildRise";
       tone: "mild";
-      delta: number;
+      delta: number | null;
       sustainedDays: number;
     }
   | {
       kind: "sustainedLargeRise";
       tone: "large";
-      delta: number;
+      delta: number | null;
       sustainedDays: number;
     };
 
@@ -53,7 +53,12 @@ export const resolveObservationDisplay = (
     return { kind: "notComparable", tone: "muted" };
   }
 
-  const delta = convertTemperatureDelta(deltaCelsius ?? 0, temperatureUnit);
+  // A missing delta stays missing: coercing to 0 would label unavailable
+  // hardware data as a measured zero-degree difference (DP-02).
+  const delta =
+    deltaCelsius == null
+      ? null
+      : convertTemperatureDelta(deltaCelsius, temperatureUnit);
 
   if (observation === "withinRange") {
     return { kind: "withinRange", tone: "positive", delta };

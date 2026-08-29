@@ -17,6 +17,23 @@ describe("resolveObservationDisplay", () => {
     });
   });
 
+  it("keeps a missing delta missing instead of coercing it to zero", () => {
+    // A null delta must never render as a measured ±0.0° (DP-02).
+    expect(resolveObservationDisplay("withinRange", null, 0, "F")).toEqual({
+      kind: "withinRange",
+      tone: "positive",
+      delta: null,
+    });
+    expect(
+      resolveObservationDisplay("sustainedMildRise", null, 3, "C"),
+    ).toEqual({
+      kind: "sustainedMildRise",
+      tone: "mild",
+      delta: null,
+      sustainedDays: 3,
+    });
+  });
+
   it("converts the delta to Fahrenheit as a span, not a point conversion", () => {
     const result = resolveObservationDisplay("withinRange", 5, 0, "F");
     expect(result.kind).toBe("withinRange");

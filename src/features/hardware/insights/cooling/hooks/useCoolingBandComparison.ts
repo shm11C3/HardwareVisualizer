@@ -17,6 +17,9 @@ export const useCoolingBandComparison = () => {
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    // A rerun starts a fresh request: a failure from the previous run
+    // must not stick to it.
+    setHasError(false);
 
     void (async () => {
       try {
