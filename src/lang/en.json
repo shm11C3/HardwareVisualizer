@@ -358,7 +358,8 @@
         "observationStrip": {
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
           "notComparable": "Not comparable — recent idle samples are insufficient.",
-          "withinRange": "Idle temperature is within the baseline range ({{delta}}).",
+          "withinRange": "No sustained rise above the baseline ({{delta}}).",
+          "loadFailed": "Failed to load the baseline comparison.",
           "sustainedMildRise": "Idle temperature has been {{delta}} above baseline for {{days}} days.",
           "sustainedLargeRise": "Idle temperature has been substantially higher than baseline ({{delta}}) for {{days}} days.",
           "comparisonWindow": "Last {{days}} days vs. baseline {{startDate}}–{{endDate}} · compared under similar load conditions",
@@ -411,6 +412,7 @@
         },
         "loadBandComparison": {
           "title": "Load-Band Comparison",
+          "loadFailed": "Failed to load the load-band comparison.",
           "legend": {
             "baseline": "Baseline",
             "recent": "Recent"
@@ -423,7 +425,7 @@
           "sampleMinutes": "{{baseline}} / {{recent}} min",
           "temperatureSource": {
             "label": "Temperature source",
-            "value": "CPU package (1 sensor)"
+            "value": "CPU temperature (1 series)"
           },
           "unsupported": {
             "label": "Power / fan",

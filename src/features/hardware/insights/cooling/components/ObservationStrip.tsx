@@ -35,8 +35,10 @@ const TONE_DOT_CLASSES: Record<ObservationDisplay["tone"], string> = {
  */
 export const ObservationStrip = ({
   baselineDelta,
+  hasError = false,
 }: {
   baselineDelta: CoolingBaselineDelta | null;
+  hasError?: boolean;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -47,7 +49,12 @@ export const ObservationStrip = ({
       className="space-y-2 rounded-2xl bg-card p-4"
       data-testid="cooling-observation-strip"
     >
-      {lifecycle.kind === "loading" && (
+      {hasError && (
+        <p className="text-muted-foreground text-sm">
+          {t("pages.insights.cooling.observationStrip.loadFailed")}
+        </p>
+      )}
+      {!hasError && lifecycle.kind === "loading" && (
         <div aria-busy="true" data-testid="cooling-observation-strip-loading">
           <span className="sr-only">{t("shared.loading")}</span>
           <div className="flex items-center gap-2">
@@ -143,13 +150,17 @@ const EstablishedObservation = ({
         <p className="text-sm">{label}</p>
       </div>
 
-      <p className="text-muted-foreground text-xs">
-        {t("pages.insights.cooling.observationStrip.comparisonWindow", {
-          days: daysInclusive(recent.windowStartDate, recent.windowEndDate),
-          startDate: baseline.windowStartDate,
-          endDate: baseline.windowEndDate,
-        })}
-      </p>
+      {/* A comparison claim would contradict the not-comparable message
+          right above it - the windows were NOT compared in that state. */}
+      {display.kind !== "notComparable" && (
+        <p className="text-muted-foreground text-xs">
+          {t("pages.insights.cooling.observationStrip.comparisonWindow", {
+            days: daysInclusive(recent.windowStartDate, recent.windowEndDate),
+            startDate: baseline.windowStartDate,
+            endDate: baseline.windowEndDate,
+          })}
+        </p>
+      )}
 
       {showDisclaimer && (
         <p className="text-muted-foreground text-xs">

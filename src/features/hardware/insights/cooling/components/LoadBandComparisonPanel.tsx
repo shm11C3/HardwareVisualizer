@@ -15,8 +15,10 @@ import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
  */
 export const LoadBandComparisonPanel = ({
   bandComparison,
+  hasError = false,
 }: {
   bandComparison: CoolingBandComparison | null;
+  hasError?: boolean;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -40,7 +42,12 @@ export const LoadBandComparisonPanel = ({
         <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
           {t("pages.insights.cooling.loadBandComparison.title")}
         </h3>
-        {lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
+        {hasError && (
+          <p className="text-muted-foreground text-sm">
+            {t("pages.insights.cooling.loadBandComparison.loadFailed")}
+          </p>
+        )}
+        {!hasError && lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
         {lifecycle.kind === "establishing" && (
           <p className="text-muted-foreground text-sm">
             {t("pages.insights.cooling.dataState.establishing", {
@@ -60,7 +67,12 @@ export const LoadBandComparisonPanel = ({
         <h3 className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
           {t("pages.insights.cooling.dataState.title")}
         </h3>
-        {lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
+        {hasError && (
+          <p className="text-muted-foreground text-sm">
+            {t("pages.insights.cooling.loadBandComparison.loadFailed")}
+          </p>
+        )}
+        {!hasError && lifecycle.kind === "loading" && <PanelLoadingSkeleton />}
         {lifecycle.kind === "establishing" && (
           <p className="text-muted-foreground text-sm">
             {t("pages.insights.cooling.dataState.establishing", {

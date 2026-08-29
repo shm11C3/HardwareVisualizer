@@ -358,7 +358,8 @@
         "observationStrip": {
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
           "notComparable": "比較不能 — 直近のアイドルサンプルが不足しています",
-          "withinRange": "アイドル時温度はベースライン範囲内({{delta}})",
+          "withinRange": "ベースラインからの持続的な上昇はありません({{delta}})",
+          "loadFailed": "ベースライン比較の取得に失敗しました。",
           "sustainedMildRise": "アイドル時温度がベースラインより {{delta}} 高い状態が {{days}} 日間続いています",
           "sustainedLargeRise": "アイドル時温度がベースラインより {{delta}} 大幅に高い状態が {{days}} 日間続いています",
           "comparisonWindow": "直近 {{days}} 日 vs ベースライン {{startDate}}–{{endDate}} · 同等負荷条件での比較",
@@ -411,6 +412,7 @@
         },
         "loadBandComparison": {
           "title": "負荷帯域比較",
+          "loadFailed": "負荷帯域比較の取得に失敗しました。",
           "legend": {
             "baseline": "ベースライン",
             "recent": "直近"
@@ -423,7 +425,7 @@
           "sampleMinutes": "{{baseline}} / {{recent}} 分",
           "temperatureSource": {
             "label": "温度ソース",
-            "value": "CPU パッケージ(1 系統)"
+            "value": "CPU 温度(1 系統)"
           },
           "unsupported": {
             "label": "電力・ファン",
