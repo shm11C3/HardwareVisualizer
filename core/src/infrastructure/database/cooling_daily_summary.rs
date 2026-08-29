@@ -8,6 +8,7 @@
 
 use super::archive_queries::sqlite_epoch_milliseconds;
 use super::db;
+use crate::persistence::cooling_baseline::DailyIdleSample;
 use crate::persistence::cooling_rollup::{
   ArchiveMinuteSample, BandSummary, DailyCoolingSummary,
 };
@@ -104,6 +105,53 @@ async fn earliest_archived_timestamp_from_pool(
   )
   .fetch_one(pool)
   .await
+}
+
+/// Every summarized day's idle-band facts, oldest first, for the cooling
+/// baseline derivation (see
+/// [`crate::persistence::cooling_baseline`]). Reads the whole table:
+/// it holds at most `COOLING_DAILY_SUMMARY_RETENTION_DAYS` rows of three
+/// narrow columns, and the baseline is defined over the *first*
+/// qualifying days, so there is no useful `LIMIT` to push into SQL.
+pub async fn select_daily_idle_samples() -> Result<Vec<DailyIdleSample>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  select_daily_idle_samples_from_pool(&pool).await
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, sqlx::FromRow)]
+struct DailyIdleRow {
+  date: NaiveDate,
+  idle_cpu_temperature_avg: Option<f64>,
+  idle_sample_minutes: i64,
+}
+
+impl From<DailyIdleRow> for DailyIdleSample {
+  fn from(row: DailyIdleRow) -> Self {
+    Self {
+      date: row.date,
+      idle_temperature_avg: row.idle_cpu_temperature_avg.map(|v| v as f32),
+      // The column is `NOT NULL DEFAULT 0` and only ever written from a
+      // `u32`; clamp rather than wrap if a hand-edited database ever
+      // carries a negative count.
+      idle_sample_minutes: row.idle_sample_minutes.max(0) as u32,
+    }
+  }
+}
+
+async fn select_daily_idle_samples_from_pool(
+  pool: &SqlitePool,
+) -> Result<Vec<DailyIdleSample>, sqlx::Error> {
+  // `date` is stored as "%Y-%m-%d", which sorts lexicographically the
+  // same as chronologically (same assumption as `delete_old_data`).
+  let rows = sqlx::query_as::<_, DailyIdleRow>(
+    "SELECT date, idle_cpu_temperature_avg, idle_sample_minutes
+     FROM cooling_daily_summary
+     ORDER BY date ASC",
+  )
+  .fetch_all(pool)
+  .await?;
+
+  Ok(rows.into_iter().map(DailyIdleSample::from).collect())
 }
 
 pub async fn upsert(summary: &DailyCoolingSummary) -> Result<(), sqlx::Error> {
@@ -382,6 +430,72 @@ mod tests {
     assert_eq!(
       earliest_archived_timestamp_from_pool(&pool).await.unwrap(),
       None
+    );
+  }
+
+  async fn insert_idle_summary_row(
+    pool: &SqlitePool,
+    date: &str,
+    idle_temperature_avg: Option<f64>,
+    idle_sample_minutes: i64,
+  ) {
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary
+         (date, idle_cpu_temperature_avg, idle_sample_minutes, coverage_minutes)
+       VALUES ($1, $2, $3, 1440)",
+    )
+    .bind(date)
+    .bind(idle_temperature_avg)
+    .bind(idle_sample_minutes)
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  #[tokio::test]
+  async fn select_daily_idle_samples_returns_rows_in_ascending_date_order() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    // Inserted out of order on purpose: the baseline derivation takes the
+    // *first* qualifying days, so it depends on this ordering rather than
+    // sorting the rows itself.
+    insert_idle_summary_row(&pool, "2026-08-20", Some(42.0), 120).await;
+    insert_idle_summary_row(&pool, "2026-08-10", Some(40.0), 60).await;
+    insert_idle_summary_row(&pool, "2026-08-15", Some(41.0), 90).await;
+
+    let samples = select_daily_idle_samples_from_pool(&pool).await.unwrap();
+
+    assert_eq!(
+      samples.iter().map(|s| s.date).collect::<Vec<_>>(),
+      vec![date(2026, 8, 10), date(2026, 8, 15), date(2026, 8, 20)]
+    );
+    assert_eq!(samples[0].idle_temperature_avg, Some(40.0));
+    assert_eq!(samples[0].idle_sample_minutes, 60);
+  }
+
+  #[tokio::test]
+  async fn select_daily_idle_samples_preserves_a_null_idle_temperature() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    // A day the machine ran but never spent in the idle band: the band
+    // stays absent, never zero degrees.
+    insert_idle_summary_row(&pool, "2026-08-15", None, 0).await;
+
+    let samples = select_daily_idle_samples_from_pool(&pool).await.unwrap();
+
+    assert_eq!(samples.len(), 1);
+    assert_eq!(samples[0].idle_temperature_avg, None);
+    assert_eq!(samples[0].idle_sample_minutes, 0);
+  }
+
+  #[tokio::test]
+  async fn select_daily_idle_samples_is_empty_for_an_empty_rollup() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    assert_eq!(
+      select_daily_idle_samples_from_pool(&pool).await.unwrap(),
+      Vec::new()
     );
   }
 

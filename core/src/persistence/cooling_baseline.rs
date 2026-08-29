@@ -258,6 +258,27 @@ fn weighted_idle_temperature<'a>(
   })
 }
 
+/// [`derive_cooling_baseline`] over the whole `cooling_daily_summary`
+/// table.
+///
+/// Reads every row - at most
+/// [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`](crate::persistence::cooling_rollup::COOLING_DAILY_SUMMARY_RETENTION_DAYS)
+/// of them, three narrow columns each - which is cheap enough that
+/// caching the result, or pinning it into a dedicated row, would only add
+/// state to keep in sync with the rollup it is derived from.
+pub async fn load_cooling_baseline() -> Result<CoolingBaseline, sqlx::Error> {
+  use crate::infrastructure::database;
+
+  let days = database::cooling_daily_summary::select_daily_idle_samples().await?;
+  // The rollup only ever summarizes completed local days, so the newest
+  // day that can carry a row is yesterday. Anchoring the recent window
+  // to the calendar (not to the newest row present) is what makes a long
+  // gap in usage report "not comparable" instead of presenting a stale
+  // reading as recent.
+  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+  Ok(derive_cooling_baseline(&days, yesterday))
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
