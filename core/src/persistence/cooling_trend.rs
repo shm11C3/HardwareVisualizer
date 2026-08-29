@@ -14,14 +14,26 @@
 
 use chrono::{Duration, NaiveDate};
 
-use crate::persistence::cooling_rollup::DailyCoolingSummary;
+use crate::persistence::cooling_rollup::{
+  COOLING_DAILY_SUMMARY_RETENTION_DAYS, DailyCoolingSummary,
+};
+
+/// Upper bound for a requested trend window, matching the rollup's own
+/// retention: no window can show more days than the table can hold.
+/// Clamping here also keeps the `NaiveDate` arithmetic below safely
+/// inside chrono's supported range for any `u32` the IPC boundary lets
+/// through, instead of panicking on an oversized request.
+pub const COOLING_TREND_MAX_DAYS: u32 = COOLING_DAILY_SUMMARY_RETENTION_DAYS;
 
 /// First local day of the trailing `days`-day window ending at (and
-/// including) `window_end_date`. `days == 0` degenerates to a
+/// including) `window_end_date`. `days` is clamped to
+/// `1..=`[`COOLING_TREND_MAX_DAYS`]: `days == 0` degenerates to a
 /// single-day window at `window_end_date`, matching `days == 1`, rather
-/// than producing a start date after the end date.
+/// than producing a start date after the end date, and an oversized
+/// request degenerates to the widest window the rollup can back.
 pub fn trend_window_start_date(days: u32, window_end_date: NaiveDate) -> NaiveDate {
-  window_end_date - Duration::days(days.saturating_sub(1) as i64)
+  let days = days.clamp(1, COOLING_TREND_MAX_DAYS);
+  window_end_date - Duration::days((days - 1) as i64)
 }
 
 /// The subset of `days` whose date falls within `[start, end]`
@@ -97,6 +109,18 @@ mod tests {
   fn a_one_day_window_starts_and_ends_on_the_same_day() {
     let end = date(2026, 8, 29);
     assert_eq!(trend_window_start_date(1, end), end);
+  }
+
+  #[test]
+  fn an_oversized_request_clamps_to_the_retention_window_instead_of_panicking() {
+    let end = date(2026, 8, 29);
+    // u32::MAX days would push the NaiveDate arithmetic outside chrono's
+    // supported range; the clamp degrades it to the widest window the
+    // rollup can back.
+    assert_eq!(
+      trend_window_start_date(u32::MAX, end),
+      trend_window_start_date(COOLING_TREND_MAX_DAYS, end)
+    );
   }
 
   #[test]

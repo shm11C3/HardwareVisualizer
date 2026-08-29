@@ -335,12 +335,24 @@ pub(crate) async fn resolve_baseline_state_from_pool(
     None => {
       let derived = derive_baseline_state(days);
       if let Some(baseline) = EstablishedBaseline::from_state(&derived) {
-        database::cooling_baseline::insert_established_baseline_from_pool(
+        // Pinning is write-once bookkeeping (`INSERT OR IGNORE`), not
+        // part of the answer: a transient write failure (e.g.
+        // SQLITE_BUSY while the rollup worker holds the database) must
+        // not turn a valid derivation into a read error. The pin is
+        // simply retried on the next resolution.
+        if let Err(e) = database::cooling_baseline::insert_established_baseline_from_pool(
           pool,
           &baseline,
           chrono::Utc::now(),
         )
-        .await?;
+        .await
+        {
+          crate::log_error!(
+            "Failed to pin the established cooling baseline; retrying on the next resolution",
+            "persistence::cooling_baseline::resolve_baseline_state_from_pool",
+            Some(e.to_string())
+          );
+        }
       }
       Ok(derived)
     }
@@ -380,6 +392,23 @@ pub(crate) async fn load_cooling_baseline_from_pool(
 pub async fn load_cooling_baseline() -> Result<CoolingBaseline, sqlx::Error> {
   let pool = crate::infrastructure::database::db::get_pool().await?;
   load_cooling_baseline_from_pool(&pool, chrono::Local::now().date_naive()).await
+}
+
+/// Resolve — and, on first establishment, pin — the baseline in the
+/// background. The rollup worker calls this after every catch-up pass,
+/// so establishment never depends on Cooling Insight being opened
+/// before retention cleanup erases the establishment-window rows. The
+/// `scheduledDataDeletion` cleanup itself only runs after a successful
+/// catch-up, which orders it after this call too. Failures are logged
+/// and retried on the next pass.
+pub(crate) async fn ensure_baseline_pinned() {
+  if let Err(e) = load_cooling_baseline().await {
+    crate::log_error!(
+      "Failed to resolve the cooling baseline after a rollup catch-up",
+      "persistence::cooling_baseline::ensure_baseline_pinned",
+      Some(e.to_string())
+    );
+  }
 }
 
 #[cfg(test)]

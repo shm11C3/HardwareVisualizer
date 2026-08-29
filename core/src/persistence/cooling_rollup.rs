@@ -418,6 +418,14 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
     roll_up_day(date).await?;
   }
 
+  // Resolve (and, once established, pin) the baseline right after the
+  // rollup advances, so establishment happens in the background rather
+  // than only when Cooling Insight is read — otherwise a user who never
+  // opens the view before retention cleanup erases the
+  // establishment-window rows would get a drifted baseline pinned on
+  // their first read.
+  crate::persistence::cooling_baseline::ensure_baseline_pinned().await;
+
   Ok(())
 }
 
