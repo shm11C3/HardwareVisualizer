@@ -2,26 +2,35 @@
 //! when it is not doing anything, used later as the reference that recent
 //! idle temperatures are compared against (#1666 Phase 1 MVP).
 //!
-//! The baseline is *derived on read* from `cooling_daily_summary` (see
-//! [`crate::persistence::cooling_rollup`]) rather than stored in a table
-//! of its own. Two properties of the rollup make that work:
+//! The baseline is *established by derivation, then pinned*: it is
+//! derived from `cooling_daily_summary` (see
+//! [`crate::persistence::cooling_rollup`]) only while it has not been
+//! established yet, and the first derivation that reaches
+//! [`BaselineState::Established`] is written once into the single-row
+//! `cooling_baseline` table. Every later read returns that pinned row.
 //!
-//! - The rollup already expresses "idle" per completed local day: the
-//!   [`CpuLoadBand::Idle`](crate::persistence::cooling_rollup::CpuLoadBand)
-//!   band's `sample_minutes` is exactly how many one-minute samples that
-//!   day spent in the idle band. "Sustained low load" therefore becomes a
-//!   per-day minimum ([`COOLING_BASELINE_QUALIFYING_IDLE_MINUTES`])
-//!   instead of a separate run-length scan over one-minute archive rows.
-//! - The baseline is defined as the *first*
-//!   [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] qualifying days, which
-//!   never change once they are in the past, so the derived value is
-//!   stable across reads without being pinned into a row.
+//! Deriving expresses the idle requirement cheaply: the rollup already
+//! records, per completed local day, how many one-minute samples that day
+//! spent in the
+//! [`CpuLoadBand::Idle`](crate::persistence::cooling_rollup::CpuLoadBand)
+//! band, so "low load sustained for a minimum duration" becomes a per-day
+//! minimum ([`COOLING_BASELINE_QUALIFYING_IDLE_MINUTES`]) instead of a
+//! run-length scan over one-minute archive rows.
 //!
-//! Deriving also makes the explicit-reset requirement fall out for free:
-//! the Insights data reset clears `cooling_daily_summary`, and the
-//! baseline goes with it. A dedicated baseline table would instead need
-//! its own reset path, its own migration, and a stored lifecycle state
-//! that could drift out of sync with the rollup it was computed from.
+//! Pinning is what keeps it *stable*. The baseline is defined as the
+//! first [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] qualifying days,
+//! which never change once they are in the past - but the rows recording
+//! them do: `cooling_daily_summary` is cleaned up after
+//! [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`](crate::persistence::cooling_rollup::COOLING_DAILY_SUMMARY_RETENTION_DAYS).
+//! Re-deriving forever would therefore let "the first N qualifying days"
+//! silently advance as the original days aged out, drifting the very
+//! reference that deltas are measured against (or regressing an
+//! established baseline to `Establishing` once fewer than N days
+//! remained). Writing the value down at establishment time is what makes
+//! the reference outlive the rows it was computed from.
+//!
+//! The recent window and its comparability are still derived on every
+//! read: those describe the present, not the fixed reference.
 
 use chrono::{Duration, NaiveDate};
 
@@ -102,6 +111,51 @@ pub enum BaselineState {
     window_end_date: NaiveDate,
     sample_minutes: u32,
   },
+}
+
+/// The established baseline as pinned into `cooling_baseline`: the value
+/// together with the collection period it was computed from.
+///
+/// Written exactly once, the first time the derivation reaches
+/// [`BaselineState::Established`], so the reference outlives the
+/// `cooling_daily_summary` rows it was derived from (see the module
+/// docs).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EstablishedBaseline {
+  pub idle_temperature_avg: f32,
+  pub window_start_date: NaiveDate,
+  pub window_end_date: NaiveDate,
+  pub sample_minutes: u32,
+}
+
+impl EstablishedBaseline {
+  /// The record to pin for `state`, or `None` while still establishing -
+  /// nothing is written before the baseline exists.
+  pub fn from_state(state: &BaselineState) -> Option<Self> {
+    match *state {
+      BaselineState::Established {
+        idle_temperature_avg,
+        window_start_date,
+        window_end_date,
+        sample_minutes,
+      } => Some(Self {
+        idle_temperature_avg,
+        window_start_date,
+        window_end_date,
+        sample_minutes,
+      }),
+      BaselineState::Establishing { .. } => None,
+    }
+  }
+
+  pub fn into_state(self) -> BaselineState {
+    BaselineState::Established {
+      idle_temperature_avg: self.idle_temperature_avg,
+      window_start_date: self.window_start_date,
+      window_end_date: self.window_end_date,
+      sample_minutes: self.sample_minutes,
+    }
+  }
 }
 
 /// Trailing-window idle summary: how much idle evidence the recent past
@@ -258,30 +312,109 @@ fn weighted_idle_temperature<'a>(
   })
 }
 
-/// [`derive_cooling_baseline`] over the whole `cooling_daily_summary`
-/// table.
+/// Resolve the baseline lifecycle state for any Cooling Insight query:
+/// the pinned row if one exists, otherwise derive it from `days` and pin
+/// it the moment it reaches [`BaselineState::Established`].
 ///
-/// Reads every row - at most
-/// [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`](crate::persistence::cooling_rollup::COOLING_DAILY_SUMMARY_RETENTION_DAYS)
-/// of them, three narrow columns each - which is cheap enough that
-/// caching the result, or pinning it into a dedicated row, would only add
-/// state to keep in sync with the rollup it is derived from.
-pub async fn load_cooling_baseline() -> Result<CoolingBaseline, sqlx::Error> {
+/// Every loader that needs the baseline state (the baseline card itself,
+/// the band comparison, the baseline delta, ...) must go through this
+/// function rather than calling [`derive_baseline_state`] directly -
+/// otherwise it silently ignores the pinned row and drifts as the
+/// `cooling_daily_summary` rows the original establishment was derived
+/// from age out (see the module docs). Keeping the write-back in this one
+/// place is what keeps that guarantee from depending on every call site
+/// remembering it.
+pub(crate) async fn resolve_baseline_state_from_pool(
+  pool: &sqlx::SqlitePool,
+  days: &[DailyIdleSample],
+) -> Result<BaselineState, sqlx::Error> {
   use crate::infrastructure::database;
 
-  let days = database::cooling_daily_summary::select_daily_idle_samples().await?;
+  match database::cooling_baseline::select_established_baseline_from_pool(pool).await? {
+    Some(pinned) => Ok(pinned.into_state()),
+    None => {
+      let derived = derive_baseline_state(days);
+      if let Some(baseline) = EstablishedBaseline::from_state(&derived) {
+        // Pinning is write-once bookkeeping (`INSERT OR IGNORE`), not
+        // part of the answer: a transient write failure (e.g.
+        // SQLITE_BUSY while the rollup worker holds the database) must
+        // not turn a valid derivation into a read error. The pin is
+        // simply retried on the next resolution.
+        if let Err(e) = database::cooling_baseline::insert_established_baseline_from_pool(
+          pool,
+          &baseline,
+          chrono::Utc::now(),
+        )
+        .await
+        {
+          crate::log_error!(
+            "Failed to pin the established cooling baseline; retrying on the next resolution",
+            "persistence::cooling_baseline::resolve_baseline_state_from_pool",
+            Some(e.to_string())
+          );
+        }
+      }
+      Ok(derived)
+    }
+  }
+}
+
+/// Load the cooling baseline, pinning it the first time it establishes.
+///
+/// Reads the pinned row first: once established, the baseline is a fixed
+/// reference, and re-deriving it would let it drift as the rollup rows it
+/// came from age out (see the module docs). Only while nothing is pinned
+/// does this derive from the rollup, and that derivation is written back
+/// as soon as it reaches [`BaselineState::Established`].
+///
+/// The recent window is always derived - it describes the present, not
+/// the fixed reference.
+pub(crate) async fn load_cooling_baseline_from_pool(
+  pool: &sqlx::SqlitePool,
+  today: NaiveDate,
+) -> Result<CoolingBaseline, sqlx::Error> {
+  use crate::infrastructure::database;
+
+  let days =
+    database::cooling_daily_summary::select_daily_idle_samples_from_pool(pool).await?;
   // The rollup only ever summarizes completed local days, so the newest
   // day that can carry a row is yesterday. Anchoring the recent window
   // to the calendar (not to the newest row present) is what makes a long
   // gap in usage report "not comparable" instead of presenting a stale
   // reading as recent.
-  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
-  Ok(derive_cooling_baseline(&days, yesterday))
+  let recent = summarize_recent_idle(&days, today - Duration::days(1));
+  let state = resolve_baseline_state_from_pool(pool, &days).await?;
+
+  Ok(CoolingBaseline { state, recent })
+}
+
+/// [`load_cooling_baseline_from_pool`] against Core's process-wide pool.
+pub async fn load_cooling_baseline() -> Result<CoolingBaseline, sqlx::Error> {
+  let pool = crate::infrastructure::database::db::get_pool().await?;
+  load_cooling_baseline_from_pool(&pool, chrono::Local::now().date_naive()).await
+}
+
+/// Resolve — and, on first establishment, pin — the baseline in the
+/// background. The rollup worker calls this after every catch-up pass,
+/// so establishment never depends on Cooling Insight being opened
+/// before retention cleanup erases the establishment-window rows. The
+/// `scheduledDataDeletion` cleanup itself only runs after a successful
+/// catch-up, which orders it after this call too. Failures are logged
+/// and retried on the next pass.
+pub(crate) async fn ensure_baseline_pinned() {
+  if let Err(e) = load_cooling_baseline().await {
+    crate::log_error!(
+      "Failed to resolve the cooling baseline after a rollup catch-up",
+      "persistence::cooling_baseline::ensure_baseline_pinned",
+      Some(e.to_string())
+    );
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use sqlx::SqlitePool;
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
@@ -528,24 +661,159 @@ mod tests {
     );
   }
 
-  #[test]
-  fn clearing_the_rollup_returns_the_baseline_to_establishing() {
-    // The Insights data reset deletes every `cooling_daily_summary` row;
-    // with the baseline derived from those rows, re-establishment
-    // restarts from whatever is recorded afterwards.
-    let established = qualifying_days(
-      date(2026, 8, 1),
-      COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
-      42.0,
+  // ── establish-then-persist (DB-backed) ──
+
+  async fn setup_tables(pool: &SqlitePool) {
+    sqlx::query(
+      "CREATE TABLE cooling_daily_summary (
+        date TEXT PRIMARY KEY,
+        idle_cpu_temperature_avg REAL,
+        idle_cpu_temperature_max REAL,
+        idle_cpu_temperature_min REAL,
+        idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
+        low_cpu_temperature_avg REAL,
+        low_cpu_temperature_max REAL,
+        low_cpu_temperature_min REAL,
+        low_sample_minutes INTEGER NOT NULL DEFAULT 0,
+        mid_cpu_temperature_avg REAL,
+        mid_cpu_temperature_max REAL,
+        mid_cpu_temperature_min REAL,
+        mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
+        high_cpu_temperature_avg REAL,
+        high_cpu_temperature_max REAL,
+        high_cpu_temperature_min REAL,
+        high_sample_minutes INTEGER NOT NULL DEFAULT 0,
+        coverage_minutes INTEGER NOT NULL
+      )",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    sqlx::query(
+      "CREATE TABLE cooling_baseline (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        window_start_date TEXT NOT NULL,
+        window_end_date TEXT NOT NULL,
+        idle_temperature_avg REAL NOT NULL,
+        sample_minutes INTEGER NOT NULL,
+        established_at TEXT NOT NULL
+      )",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  async fn insert_idle_day(
+    pool: &SqlitePool,
+    date: NaiveDate,
+    temperature: f32,
+    minutes: u32,
+  ) {
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary
+         (date, idle_cpu_temperature_avg, idle_sample_minutes, coverage_minutes)
+       VALUES ($1, $2, $3, 1440)",
+    )
+    .bind(date.format("%Y-%m-%d").to_string())
+    .bind(temperature)
+    .bind(minutes as i64)
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  /// Record `COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS` qualifying days
+  /// starting at `start`, enough to establish the baseline.
+  async fn insert_establishing_days(
+    pool: &SqlitePool,
+    start: NaiveDate,
+    temperature: f32,
+  ) {
+    for offset in 0..COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS {
+      insert_idle_day(
+        pool,
+        start + Duration::days(offset as i64),
+        temperature,
+        COOLING_BASELINE_QUALIFYING_IDLE_MINUTES,
+      )
+      .await;
+    }
+  }
+
+  #[tokio::test]
+  async fn the_baseline_survives_the_rollup_rows_it_was_derived_from_being_deleted() {
+    // The regression this whole design exists for: the rollup is cleaned
+    // up after COOLING_DAILY_SUMMARY_RETENTION_DAYS, so the days the
+    // baseline was established from eventually disappear. Once pinned,
+    // the reference must not move when that happens - neither drifting to
+    // a later set of qualifying days nor regressing to Establishing.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_tables(&pool).await;
+    let start = date(2026, 8, 1);
+    insert_establishing_days(&pool, start, 42.0).await;
+
+    let established = load_cooling_baseline_from_pool(&pool, date(2026, 8, 20))
+      .await
+      .unwrap();
+    assert!(
+      matches!(
+        established.state,
+        BaselineState::Established {
+          idle_temperature_avg: 42.0,
+          ..
+        }
+      ),
+      "expected an established baseline, got {:?}",
+      established.state
     );
+
+    // Age out every row the baseline was derived from, and record a
+    // hotter stretch of days that would establish a different value.
+    sqlx::query("DELETE FROM cooling_daily_summary")
+      .execute(&pool)
+      .await
+      .unwrap();
+    insert_establishing_days(&pool, date(2027, 6, 1), 70.0).await;
+
+    let after_cleanup = load_cooling_baseline_from_pool(&pool, date(2027, 6, 20))
+      .await
+      .unwrap();
+
+    assert_eq!(
+      after_cleanup.state, established.state,
+      "the pinned baseline must not drift when its source rows are deleted"
+    );
+  }
+
+  #[tokio::test]
+  async fn clearing_the_rollup_and_the_pinned_row_returns_the_baseline_to_establishing() {
+    // The Insights data reset clears both tables. Only then does the
+    // baseline go back to establishing and re-derive from whatever is
+    // recorded afterwards.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_tables(&pool).await;
+    insert_establishing_days(&pool, date(2026, 8, 1), 42.0).await;
     assert!(matches!(
-      derive_baseline_state(&established),
+      load_cooling_baseline_from_pool(&pool, date(2026, 8, 20))
+        .await
+        .unwrap()
+        .state,
       BaselineState::Established { .. }
     ));
 
-    let after_reset: Vec<DailyIdleSample> = Vec::new();
+    for table in ["cooling_daily_summary", "cooling_baseline"] {
+      sqlx::query(&format!("DELETE FROM {table}"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
     assert_eq!(
-      derive_baseline_state(&after_reset),
+      load_cooling_baseline_from_pool(&pool, date(2026, 8, 20))
+        .await
+        .unwrap()
+        .state,
       BaselineState::Establishing {
         qualifying_days: 0,
         required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
@@ -554,13 +822,12 @@ mod tests {
 
     // Days recorded after the reset establish a fresh baseline at the new
     // temperature rather than restoring the old one.
-    let re_established = qualifying_days(
-      date(2026, 10, 1),
-      COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
-      55.0,
-    );
+    insert_establishing_days(&pool, date(2026, 10, 1), 55.0).await;
     assert_eq!(
-      derive_baseline_state(&re_established),
+      load_cooling_baseline_from_pool(&pool, date(2026, 10, 20))
+        .await
+        .unwrap()
+        .state,
       BaselineState::Established {
         idle_temperature_avg: 55.0,
         window_start_date: date(2026, 10, 1),
@@ -570,6 +837,59 @@ mod tests {
           * COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
       }
     );
+  }
+
+  #[tokio::test]
+  async fn a_baseline_still_establishing_is_not_pinned_yet() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_tables(&pool).await;
+    for offset in 0..(COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS - 1) {
+      insert_idle_day(
+        &pool,
+        date(2026, 8, 1) + Duration::days(offset as i64),
+        42.0,
+        COOLING_BASELINE_QUALIFYING_IDLE_MINUTES,
+      )
+      .await;
+    }
+
+    let baseline = load_cooling_baseline_from_pool(&pool, date(2026, 8, 20))
+      .await
+      .unwrap();
+
+    assert_eq!(
+      baseline.state,
+      BaselineState::Establishing {
+        qualifying_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS - 1,
+        required_days: COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      }
+    );
+    let pinned: i64 = sqlx::query_scalar("SELECT COUNT(1) FROM cooling_baseline")
+      .fetch_one(&pool)
+      .await
+      .unwrap();
+    assert_eq!(pinned, 0, "nothing may be pinned before establishment");
+  }
+
+  #[tokio::test]
+  async fn the_recent_window_still_tracks_the_present_after_the_baseline_is_pinned() {
+    // Pinning fixes the reference, not the comparison: recent idle must
+    // keep following current data.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_tables(&pool).await;
+    insert_establishing_days(&pool, date(2026, 8, 1), 42.0).await;
+    load_cooling_baseline_from_pool(&pool, date(2026, 8, 20))
+      .await
+      .unwrap();
+
+    insert_idle_day(&pool, date(2026, 9, 10), 61.0, 120).await;
+    let baseline = load_cooling_baseline_from_pool(&pool, date(2026, 9, 11))
+      .await
+      .unwrap();
+
+    assert_eq!(baseline.recent.idle_temperature_avg, Some(61.0));
+    assert_eq!(baseline.recent.sample_minutes, 120);
+    assert!(baseline.recent.is_comparable());
   }
 
   // ── recent idle window ──

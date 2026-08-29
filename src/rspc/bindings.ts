@@ -124,6 +124,12 @@ export const commands = {
 	getProcessStatsInPeriod: (start: string, end: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats_in_period", { start, end })),
 	// ## Get GPU names that have archive records
 	getGpuArchiveNames: () => typedError<string[], string>(__TAURI_INVOKE("get_gpu_archive_names")),
+	// ## Get the long-range cooling trend (90-day / 1-year)
+	getCoolingTrend: (days: number) => typedError<CoolingDailyTrendPoint[], string>(__TAURI_INVOKE("get_cooling_trend", { days })),
+	// ## Get the per-load-band baseline-vs-recent cooling comparison
+	getCoolingBandComparison: () => typedError<CoolingBandComparison, string>(__TAURI_INVOKE("get_cooling_band_comparison")),
+	// ## Get the idle cooling baseline delta and its observation state
+	getCoolingBaselineDelta: () => typedError<CoolingBaselineDelta, string>(__TAURI_INVOKE("get_cooling_baseline_delta")),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -361,6 +367,101 @@ export type ClientSettings_Serialize = {
 	externalComponentGuidance: ExternalComponentGuidanceSettings,
 	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Serialize,
+};
+
+/**
+ *  Cooling Insight's load-band comparison, gated by the same baseline
+ *  lifecycle as [`CoolingBaselineState`]: no comparison exists yet while
+ *  the baseline is still establishing.
+ */
+export type CoolingBandComparison = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; baselineWindowStartDate: string; baselineWindowEndDate: string; recentWindowStartDate: string; recentWindowEndDate: string; bands: CoolingBandComparisonEntry[] };
+
+// One CPU-load band's baseline-vs-recent comparison.
+export type CoolingBandComparisonEntry = {
+	band: CoolingLoadBand,
+	baseline: CoolingBandWindowSummary,
+	recent: CoolingBandWindowSummary,
+	comparable: boolean,
+};
+
+// One CPU-load band's temperature summary for a single day.
+export type CoolingBandTemperature = {
+	avg: number | null,
+	max: number | null,
+	min: number | null,
+	sampleMinutes: number,
+};
+
+/**
+ *  One band's weighted-average temperature and sample coverage over a
+ *  date window (either the baseline window or the recent window).
+ */
+export type CoolingBandWindowSummary = {
+	temperatureAvg: number | null,
+	sampleMinutes: number,
+};
+
+/**
+ *  Cooling Insight's baseline delta card: the current drift, its
+ *  classification, and the daily series that classification was derived
+ *  from.
+ */
+export type CoolingBaselineDelta = {
+	baseline: CoolingBaselineState,
+	recent: CoolingRecentIdleSummary,
+	delta: number | null,
+	observation: CoolingDeltaObservation,
+	dailyDeltas: CoolingDailyDelta[],
+	sustainedDays: number,
+};
+
+/**
+ *  Lifecycle of the idle cooling baseline (see
+ *  `hardviz_core::persistence::cooling_baseline::BaselineState`).
+ */
+export type CoolingBaselineState = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; idleTemperatureAvg: number; windowStartDate: string; windowEndDate: string; sampleMinutes: number };
+
+/**
+ *  One trailing-7-day-window delta against the baseline, ending on
+ *  `date`.
+ */
+export type CoolingDailyDelta = {
+	date: string,
+	delta: number,
+};
+
+/**
+ *  One day's `cooling_daily_summary` row, for the 90-day/1-year Cooling
+ *  Insight trend. A date the rollup has no row for is simply absent from
+ *  the response array - never a zero-filled entry.
+ */
+export type CoolingDailyTrendPoint = {
+	date: string,
+	coverageMinutes: number,
+	idle: CoolingBandTemperature,
+	low: CoolingBandTemperature,
+	mid: CoolingBandTemperature,
+	high: CoolingBandTemperature,
+};
+
+/**
+ *  Cooling Insight's read of the current idle-temperature drift. The
+ *  frontend renders this enum as-is; the +5/+10 degC thresholds and the
+ *  3-day sustain requirement stay behind Core's boundary (#1666).
+ */
+export type CoolingDeltaObservation = "establishing" | "notComparable" | "withinRange" | "sustainedMildRise" | "sustainedLargeRise";
+
+export type CoolingLoadBand = "idle" | "low" | "mid" | "high";
+
+/**
+ *  The trailing recent-window idle summary the baseline is compared
+ *  against.
+ */
+export type CoolingRecentIdleSummary = {
+	windowStartDate: string,
+	windowEndDate: string,
+	idleTemperatureAvg: number | null,
+	sampleMinutes: number,
 };
 
 export type CpuInfo = {
