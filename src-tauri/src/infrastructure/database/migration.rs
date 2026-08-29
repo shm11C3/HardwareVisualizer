@@ -122,6 +122,32 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         ALTER TABLE DATA_ARCHIVE ADD COLUMN package_power_min REAL;
       "#,
     },
+    SchemaMigration {
+      version: 11,
+      description: "create_cooling_daily_summary",
+      sql: r#"
+        CREATE TABLE cooling_daily_summary (
+          date TEXT PRIMARY KEY,
+          idle_cpu_temperature_avg REAL,
+          idle_cpu_temperature_max REAL,
+          idle_cpu_temperature_min REAL,
+          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          low_cpu_temperature_avg REAL,
+          low_cpu_temperature_max REAL,
+          low_cpu_temperature_min REAL,
+          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          mid_cpu_temperature_avg REAL,
+          mid_cpu_temperature_max REAL,
+          mid_cpu_temperature_min REAL,
+          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          high_cpu_temperature_avg REAL,
+          high_cpu_temperature_max REAL,
+          high_cpu_temperature_min REAL,
+          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          coverage_minutes INTEGER NOT NULL
+        );
+      "#,
+    },
   ]
 }
 
@@ -209,14 +235,44 @@ mod tests {
   }
 
   #[test]
+  fn migration_v11_creates_cooling_daily_summary_table() {
+    let migrations = get_migrations();
+    let v11 = migrations
+      .iter()
+      .find(|m| m.version == 11)
+      .expect("Version 11 up migration must exist");
+    assert!(v11.sql.contains("CREATE TABLE cooling_daily_summary"));
+    assert!(v11.sql.contains("date TEXT PRIMARY KEY"));
+    for band in ["idle", "low", "mid", "high"] {
+      assert!(
+        v11.sql
+          .contains(&format!("{band}_cpu_temperature_avg REAL"))
+      );
+      assert!(
+        v11.sql
+          .contains(&format!("{band}_cpu_temperature_max REAL"))
+      );
+      assert!(
+        v11.sql
+          .contains(&format!("{band}_cpu_temperature_min REAL"))
+      );
+      assert!(
+        v11.sql
+          .contains(&format!("{band}_sample_minutes INTEGER NOT NULL DEFAULT 0"))
+      );
+    }
+    assert!(v11.sql.contains("coverage_minutes INTEGER NOT NULL"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 10);
+    assert_eq!(get_max_migration_version(), 11);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 10);
+    assert_eq!(migrations.len(), 11);
   }
 
   #[test]
@@ -320,5 +376,63 @@ mod tests {
     .execute(&pool)
     .await
     .expect("insert into storage_devices must succeed after migrations");
+  }
+
+  /// Regression guard for the cooling daily rollup (#2015): the shipped
+  /// migration set must create `cooling_daily_summary` with one row per
+  /// local day and let a full 4-band insert succeed.
+  #[tokio::test]
+  async fn shipped_migrations_create_cooling_daily_summary_table_and_allow_insert() {
+    use hardviz_core::infrastructure::database::migrate;
+    use sqlx::sqlite::SqlitePool;
+
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let url = format!("sqlite:{}", file.path().to_string_lossy());
+    let pool = SqlitePool::connect(&url).await.unwrap();
+
+    migrate::run_on_pool(&pool, get_migrations())
+      .await
+      .expect("the shipped migration set must apply cleanly");
+
+    let exists: (i64,) = sqlx::query_as(
+      "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'cooling_daily_summary'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(exists.0, 1, "table `cooling_daily_summary` must exist after migrations");
+
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date,
+         idle_cpu_temperature_avg, idle_cpu_temperature_max, idle_cpu_temperature_min, idle_sample_minutes,
+         low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
+         mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
+         high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
+         coverage_minutes
+       ) VALUES (
+         '2026-06-21',
+         35.0, 40.0, 30.0, 600,
+         45.0, 50.0, 40.0, 300,
+         NULL, NULL, NULL, 0,
+         70.0, 80.0, 60.0, 120,
+         1020
+       )",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert into cooling_daily_summary must succeed after migrations");
+
+    // `date` is the primary key: a second row for the same local day must
+    // be rejected rather than silently duplicating the day.
+    let duplicate = sqlx::query(
+      "INSERT INTO cooling_daily_summary (date, coverage_minutes) VALUES ('2026-06-21', 1)",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      duplicate.is_err(),
+      "date must be a primary key: one row per local day"
+    );
   }
 }
