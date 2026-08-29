@@ -98,6 +98,24 @@ describe("usePerformanceLayout", () => {
     expect(setMonitorPowerMode).toHaveBeenLastCalledWith("graph");
   });
 
+  it("reports a rejected Monitor Power Draw mode repair", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    monitorPowerMode = "overlay";
+    setMonitorPowerMode.mockRejectedValueOnce(persistenceError);
+
+    renderHook(() => usePerformanceLayout());
+
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to persist Performance Monitor Power Draw mode:",
+        persistenceError,
+      ),
+    );
+  });
+
   it("keeps the latest Monitor Power Draw mode after delayed writes", async () => {
     let resolveGraphWrite: (() => void) | undefined;
     setMonitorPowerMode

@@ -22,6 +22,13 @@ const reportCustomLayoutPersistenceError = (error: unknown) => {
   console.error("Failed to persist custom Performance layout:", error);
 };
 
+const reportMonitorPowerModePersistenceError = (error: unknown) => {
+  console.error(
+    "Failed to persist Performance Monitor Power Draw mode:",
+    error,
+  );
+};
+
 export const usePerformanceLayout = () => {
   // The store key predates the preset-to-view consolidation; legacy preset
   // values keep resolving through normalizePerformanceView.
@@ -154,7 +161,9 @@ export const usePerformanceLayout = () => {
     }
     // Persist the normalized fallback too, so an obsolete value cannot keep
     // being re-read as unknown on every launch.
-    void setMonitorPowerMode(monitorPowerMode);
+    void setMonitorPowerMode(monitorPowerMode).catch(
+      reportMonitorPowerModePersistenceError,
+    );
   }, [
     isPowerModePending,
     monitorPowerMode,
