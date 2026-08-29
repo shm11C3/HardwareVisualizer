@@ -7,10 +7,16 @@ import { isError } from "@/types/result";
  * Fetches the daily cooling rollup for the 90d/1y routes
  * (`resolveCoolingPeriodRoute`). `days: null` means the current period
  * routes to the archive bucket query instead, so this simply idles.
+ *
+ * `data` distinguishes three states the strip must not conflate:
+ * `null` while nothing has been established yet (idle, in flight, or
+ * failed - see `hasError`), `[]` only when the backend really answered
+ * with an empty window, and a non-empty array otherwise. A failed fetch
+ * never masquerades as an empty period.
  */
 export const useCoolingDailyTrend = (days: 90 | 365 | null) => {
   const [data, setData] = useState<CoolingDailyTrendPoint[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
 
@@ -18,13 +24,14 @@ export const useCoolingDailyTrend = (days: 90 | 365 | null) => {
     if (days == null) {
       requestIdRef.current += 1;
       setData(null);
-      setIsLoading(false);
+      setHasError(false);
       return;
     }
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    setIsLoading(true);
+    setData(null);
+    setHasError(false);
 
     void (async () => {
       try {
@@ -37,17 +44,15 @@ export const useCoolingDailyTrend = (days: 90 | 365 | null) => {
         }
       } catch (e) {
         console.error(e);
+        // A stale request must neither flip the state nor open a dialog:
+        // the user has already moved on to a newer period.
         if (requestIdRef.current === requestId) {
-          setData([]);
-        }
-        void error(String(e));
-      } finally {
-        if (requestIdRef.current === requestId) {
-          setIsLoading(false);
+          setHasError(true);
+          void error(String(e));
         }
       }
     })();
   }, [days, error]);
 
-  return { data, isLoading };
+  return { data, hasError };
 };
