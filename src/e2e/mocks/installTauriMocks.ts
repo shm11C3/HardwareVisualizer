@@ -5,6 +5,13 @@ import type {
 } from "@/rspc/bindings";
 import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
 import {
+  buildCoolingDailyTrendFixture,
+  coolingBandComparisonEstablishingFixture,
+  coolingBandComparisonFixture,
+  coolingBaselineDeltaEstablishingFixture,
+  coolingBaselineDeltaFixture,
+} from "../fixtures/cooling";
+import {
   buildHardwareUpdateSeries,
   buildStorageHealthFixture,
   buildStorageInfoFixture,
@@ -47,6 +54,11 @@ type FixtureOverrides = {
   classicNavigation: boolean;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
+  /** `?coolingBaseline=establishing` switches the Cooling tab's idle-baseline
+   * fixtures (`get_cooling_baseline_delta`/`get_cooling_band_comparison`)
+   * from "established" to "establishing" so both empty states are
+   * reachable from a URL. */
+  coolingBaselineEstablishing: boolean;
 };
 type TauriInternalsWindow = Window & {
   __TAURI_INTERNALS__?: {
@@ -85,6 +97,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
     storedDisplayTarget: new URLSearchParams(window.location.search).get(
       "storedDisplay",
     ),
+    coolingBaselineEstablishing:
+      new URLSearchParams(window.location.search).get("coolingBaseline") ===
+      "establishing",
   };
 };
 
@@ -289,6 +304,18 @@ const buildInvokeHandlers = (
     buildProcessStats((args as { endAt: string }).endAt),
   get_process_stats_in_period: (args) =>
     buildProcessStats((args as { end: string }).end),
+
+  // --- cooling insight commands (#2018) ---
+  get_cooling_trend: (args) =>
+    buildCoolingDailyTrendFixture((args as { days: number }).days),
+  get_cooling_band_comparison: () =>
+    fixtureOverrides.coolingBaselineEstablishing
+      ? coolingBandComparisonEstablishingFixture
+      : coolingBandComparisonFixture,
+  get_cooling_baseline_delta: () =>
+    fixtureOverrides.coolingBaselineEstablishing
+      ? coolingBaselineDeltaEstablishingFixture
+      : coolingBaselineDeltaFixture,
 });
 
 const dispatchTauriEvent = (
