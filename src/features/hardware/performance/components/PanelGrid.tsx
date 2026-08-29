@@ -35,12 +35,21 @@ import type {
   PerformanceCustomLayout,
   PerformancePanelColumns,
   PerformancePanelId,
+  PerformancePowerMode,
 } from "../types/performanceLayout";
 import { MotherboardSensorsPanel } from "./MotherboardSensorsPanel";
 import { PerCorePanel } from "./PerCorePanel";
+import { PowerDisplayModeSwitcher } from "./PowerDisplayModeSwitcher";
+import { PowerDrawChart } from "./PowerDrawChart";
 import { PowerPanel } from "./PowerPanel";
 
-const PanelBody = ({ panel }: { panel: PerformancePanelId }) => {
+const PanelBody = ({
+  panel,
+  powerMode,
+}: {
+  panel: PerformancePanelId;
+  powerMode: PerformancePowerMode;
+}) => {
   if (panel === "usageGraphs") {
     return (
       <UsageGraphPanel
@@ -60,7 +69,11 @@ const PanelBody = ({ panel }: { panel: PerformancePanelId }) => {
   }
 
   if (panel === "power") {
-    return <PowerPanel />;
+    return powerMode === "graph" ? (
+      <PowerDrawChart showHeading={false} variant="panel" />
+    ) : (
+      <PowerPanel />
+    );
   }
 
   return <MotherboardSensorsPanel />;
@@ -70,10 +83,14 @@ const SortablePanel = ({
   panel,
   editing,
   onHide,
+  powerMode,
+  onPowerModeChange,
 }: {
   panel: PerformancePanelId;
   editing: boolean;
   onHide: (panel: PerformancePanelId) => void;
+  powerMode: PerformancePowerMode;
+  onPowerModeChange: (mode: PerformancePowerMode) => void;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -121,6 +138,14 @@ const SortablePanel = ({
             <h3 className="font-mono font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
               {label}
             </h3>
+            {panel === "power" && (
+              <PowerDisplayModeSwitcher
+                mode={powerMode}
+                onModeChange={onPowerModeChange}
+                compact
+                className="ml-auto"
+              />
+            )}
           </>
         )}
         {editing && (
@@ -145,7 +170,7 @@ const SortablePanel = ({
           </>
         )}
       </div>
-      <PanelBody panel={panel} />
+      <PanelBody panel={panel} powerMode={powerMode} />
     </section>
   );
 };
@@ -159,17 +184,22 @@ export const PanelGrid = ({
   layout,
   columns,
   editing,
+  powerMode,
+  onPowerModeChange,
   onPanelToggle,
   onPanelDragEnd,
 }: {
   layout: PerformanceCustomLayout;
   columns: PerformancePanelColumns;
   editing: boolean;
+  powerMode: PerformancePowerMode;
+  onPowerModeChange: (mode: PerformancePowerMode) => void;
   onPanelToggle: (panel: PerformancePanelId) => Promise<boolean>;
   onPanelDragEnd: (event: DragEndEvent) => void;
 }) => {
   const { t } = useTranslation();
   const powerAvailable = useAtomValue(powerDrawAvailableAtom);
+  const { settings } = useSettingsAtom();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -177,7 +207,9 @@ export const PanelGrid = ({
     }),
   );
   const availablePanels = layout.order.filter(
-    (panel) => panel !== "power" || powerAvailable,
+    (panel) =>
+      panel !== "power" ||
+      (powerAvailable && settings.powerDisplayTargets.length > 0),
   );
   const hiddenPanels = availablePanels.filter(
     (panel) => !layout.visible.includes(panel),
@@ -212,6 +244,8 @@ export const PanelGrid = ({
                   key={panel}
                   panel={panel}
                   editing={editing}
+                  powerMode={powerMode}
+                  onPowerModeChange={onPowerModeChange}
                   onHide={(hidden) => void onPanelToggle(hidden)}
                 />
               ) : null,

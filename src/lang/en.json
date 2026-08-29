@@ -290,6 +290,14 @@
       "hidePanel": "Hide {{panel}}",
       "reorderPanel": "Reorder {{panel}}",
       "currentValues": "Current values",
+      "powerModeSwitcher": "Power draw display",
+      "powerModes": {
+        "current": "Current",
+        "graph": "Graph"
+      },
+      "shortWindow": "Last {{seconds}} seconds",
+      "now": "Now",
+      "secondsAgo": "{{seconds}}s ago",
       "perCoreUnavailable": "Per-core usage is not available on this system.",
       "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
       "power": {
@@ -375,8 +383,9 @@
           "cappuccino": "Cappuccino",
           "espresso": "Espresso"
         },
-        "hardwareType": "Hardware Type",
-        "powerDisplayTargets": "Power Display Targets",
+        "displayTargets": "Display Targets",
+        "usageGraphDisplayTargets": "Usage Graph",
+        "powerDisplayTargets": "Power Draw",
         "temperatureUnit": {
           "name": "Temperature Unit",
           "celsius": "Celsius (°C)",

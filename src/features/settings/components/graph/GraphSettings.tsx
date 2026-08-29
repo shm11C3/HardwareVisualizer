@@ -32,13 +32,22 @@ export const GraphSettings = () => {
             <GraphColorSettings />
             <div className="py-6">
               <h4 className="font-bold text-xl">
-                {t("pages.settings.general.hardwareType")}
+                {t("pages.settings.general.displayTargets")}
               </h4>
-              <GraphTypeSelector />
-              <h4 className="font-bold text-xl">
-                {t("pages.settings.general.powerDisplayTargets")}
-              </h4>
-              <PowerDisplayTargetSelector />
+              <div className="divide-y divide-border/60">
+                <section className="pb-4">
+                  <h5 className="font-semibold text-muted-foreground text-sm">
+                    {t("pages.settings.general.usageGraphDisplayTargets")}
+                  </h5>
+                  <GraphTypeSelector />
+                </section>
+                <section className="pt-4">
+                  <h5 className="font-semibold text-muted-foreground text-sm">
+                    {t("pages.settings.general.powerDisplayTargets")}
+                  </h5>
+                  <PowerDisplayTargetSelector />
+                </section>
+              </div>
             </div>
           </div>
           <div className="col-span-3">

@@ -75,11 +75,22 @@ export type PowerDraw = {
   packageWatts: number | null;
 };
 
+export type PowerDrawHistory = {
+  [K in keyof PowerDraw]: (number | null)[];
+};
+
 export const powerDrawAtom = atom<PowerDraw>({
   cpuWatts: null,
   gpuWatts: null,
   aneWatts: null,
   packageWatts: null,
+});
+
+export const powerDrawHistoryAtom = atom<PowerDrawHistory>({
+  cpuWatts: [],
+  gpuWatts: [],
+  aneWatts: [],
+  packageWatts: [],
 });
 
 /** Whether this runtime has produced at least one power reading. */

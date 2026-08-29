@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider, useAtom } from "jotai";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
@@ -23,6 +23,7 @@ import {
   motherboardTempsAtom,
   powerDrawAtom,
   powerDrawAvailableAtom,
+  powerDrawHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -102,6 +103,10 @@ describe("useHardwareEventListener", () => {
     vi.clearAllMocks();
     capturedCallback = null;
     setDocumentHidden(false);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // ── Listener registration / cleanup ──
@@ -432,6 +437,133 @@ describe("useHardwareEventListener", () => {
       gpuWatts: null,
       aneWatts: null,
       packageWatts: null,
+    });
+  });
+
+  it("retains nullable Power Draw samples for the full short window", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [history] = useAtom(powerDrawHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(
+        makePayload({
+          cpuPowerWatts: 10.1,
+          gpuPowerWatts: 2.2,
+          anePowerWatts: null,
+          packagePowerWatts: null,
+        }),
+      );
+      emit(makePayload());
+    });
+
+    expect(result.current.cpuWatts).toHaveLength(chartConfig.historyLengthSec);
+    expect(result.current.cpuWatts.slice(-2)).toEqual([10.1, null]);
+    expect(result.current.gpuWatts.slice(-2)).toEqual([2.2, null]);
+    expect(result.current.aneWatts.slice(-2)).toEqual([null, null]);
+    expect(result.current.packageWatts.slice(-2)).toEqual([null, null]);
+  });
+
+  it("inserts nullable Power Draw gaps for elapsed hidden time", () => {
+    const dateNow = vi
+      .spyOn(Date, "now")
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(5_000);
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [history] = useAtom(powerDrawHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() =>
+      emit(
+        makePayload({
+          cpuPowerWatts: 10.1,
+          gpuPowerWatts: 2.2,
+          anePowerWatts: 3.3,
+          packagePowerWatts: 15.6,
+        }),
+      ),
+    );
+    setDocumentHidden(true);
+    act(() =>
+      emit(
+        makePayload({
+          cpuPowerWatts: 99.9,
+          gpuPowerWatts: 99.9,
+          anePowerWatts: 99.9,
+          packagePowerWatts: 99.9,
+        }),
+      ),
+    );
+    setDocumentHidden(false);
+    act(() =>
+      emit(
+        makePayload({
+          cpuPowerWatts: 20.2,
+          gpuPowerWatts: 4.4,
+          anePowerWatts: 6.6,
+          packagePowerWatts: 31.2,
+        }),
+      ),
+    );
+
+    expect(result.current.cpuWatts.slice(-5)).toEqual([
+      10.1,
+      null,
+      null,
+      null,
+      20.2,
+    ]);
+    expect(result.current.gpuWatts.slice(-5)).toEqual([
+      2.2,
+      null,
+      null,
+      null,
+      4.4,
+    ]);
+    expect(result.current.aneWatts.slice(-5)).toEqual([
+      3.3,
+      null,
+      null,
+      null,
+      6.6,
+    ]);
+    expect(result.current.packageWatts.slice(-5)).toEqual([
+      15.6,
+      null,
+      null,
+      null,
+      31.2,
+    ]);
+    expect(dateNow).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not allocate Power Draw history before capability is established", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [history] = useAtom(powerDrawHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload()));
+
+    expect(result.current).toEqual({
+      cpuWatts: [],
+      gpuWatts: [],
+      aneWatts: [],
+      packageWatts: [],
     });
   });
 

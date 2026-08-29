@@ -10,14 +10,15 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { BurnInShift } from "@/components/shared/BurnInShift";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { cn } from "@/lib/utils";
 import { CompactStrip } from "./components/CompactStrip";
 import { InstrumentStrip } from "./components/InstrumentStrip";
 import { MonitorGpuSelector } from "./components/MonitorGpuSelector";
+import { MonitorView } from "./components/MonitorView";
 import { PanelColumnsSelector } from "./components/PanelColumnsSelector";
 import { PanelGrid } from "./components/PanelGrid";
 import { PerformanceViewSwitcher } from "./components/PerformanceViewSwitcher";
+import { PowerDisplayModeSwitcher } from "./components/PowerDisplayModeSwitcher";
 import { usePerformanceLayout } from "./hooks/usePerformanceLayout";
 
 export const Performance = ({
@@ -33,6 +34,8 @@ export const Performance = ({
     setView,
     columns,
     setColumns,
+    powerMode,
+    setPowerMode,
     compactExpanded,
     setCompactExpanded,
     customLayout,
@@ -72,7 +75,8 @@ export const Performance = ({
   const content = (
     <main
       className={cn(
-        "mx-auto min-h-screen w-full pt-12 pr-4 pb-8",
+        "mx-auto w-full pt-12 pr-4 pb-8",
+        isMonitor ? "flex h-screen min-h-0 flex-col" : "min-h-screen",
         isFullScreen ? "pl-4" : "pl-16",
         !isMonitor && "2xl:w-3/4 2xl:px-4",
       )}
@@ -82,6 +86,7 @@ export const Performance = ({
       <header
         className={cn(
           "mb-4 flex flex-wrap items-center gap-3",
+          isMonitor && "shrink-0",
           !showTitle && "justify-end",
         )}
       >
@@ -93,7 +98,17 @@ export const Performance = ({
             </h2>
           </div>
         )}
-        <div className={cn("flex items-center gap-2", showTitle && "ml-auto")}>
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            isMonitor && "min-w-0 flex-wrap",
+            isMonitor
+              ? showTitle
+                ? "ml-auto w-full sm:w-auto"
+                : "justify-end"
+              : showTitle && "ml-auto",
+          )}
+        >
           {view === "compact" && (
             <button
               type="button"
@@ -105,10 +120,17 @@ export const Performance = ({
               {t("pages.performance.expandCompact")}
             </button>
           )}
-          {/* Monitor is only the graph, so the adapter behind its GPU series
-              has nowhere else to be named: the Instrument Strip that normally
-              carries that is not mounted here. */}
-          {isMonitor && <MonitorGpuSelector />}
+          {/* Monitor omits the Instrument Strip, so the adapter behind its GPU
+              series needs a compact selector in the toolbar. */}
+          {isMonitor && (
+            <>
+              <MonitorGpuSelector />
+              <PowerDisplayModeSwitcher
+                mode={powerMode}
+                onModeChange={(mode) => void setPowerMode(mode)}
+              />
+            </>
+          )}
           {view === "panels" && (
             <PanelColumnsSelector
               columns={columns}
@@ -147,11 +169,7 @@ export const Performance = ({
       ) : view === "compact" ? (
         <CompactStrip />
       ) : isMonitor ? (
-        <UsageGraphPanel
-          fitToContainer
-          height="calc(100dvh - 8rem)"
-          testId="performance-usage-graphs"
-        />
+        <MonitorView powerMode={powerMode} />
       ) : (
         <div className="space-y-4">
           <InstrumentStrip />
@@ -159,6 +177,8 @@ export const Performance = ({
             layout={customLayout}
             columns={columns}
             editing={editing}
+            powerMode={powerMode}
+            onPowerModeChange={(mode) => void setPowerMode(mode)}
             onPanelToggle={togglePanel}
             onPanelDragEnd={handlePanelDragEnd}
           />
