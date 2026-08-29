@@ -245,19 +245,23 @@ mod tests {
     assert!(v11.sql.contains("date TEXT PRIMARY KEY"));
     for band in ["idle", "low", "mid", "high"] {
       assert!(
-        v11.sql
+        v11
+          .sql
           .contains(&format!("{band}_cpu_temperature_avg REAL"))
       );
       assert!(
-        v11.sql
+        v11
+          .sql
           .contains(&format!("{band}_cpu_temperature_max REAL"))
       );
       assert!(
-        v11.sql
+        v11
+          .sql
           .contains(&format!("{band}_cpu_temperature_min REAL"))
       );
       assert!(
-        v11.sql
+        v11
+          .sql
           .contains(&format!("{band}_sample_minutes INTEGER NOT NULL DEFAULT 0"))
       );
     }
@@ -400,7 +404,10 @@ mod tests {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(exists.0, 1, "table `cooling_daily_summary` must exist after migrations");
+    assert_eq!(
+      exists.0, 1,
+      "table `cooling_daily_summary` must exist after migrations"
+    );
 
     sqlx::query(
       "INSERT INTO cooling_daily_summary (
