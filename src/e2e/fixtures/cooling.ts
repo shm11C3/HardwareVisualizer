@@ -89,6 +89,80 @@ export const coolingBaselineDeltaFixture: CoolingBaselineDelta = {
   sustainedDays: 3,
 };
 
+/**
+ * `observation: "notComparable"` - baseline established, but the trailing
+ * recent window does not carry enough idle evidence to compare against it.
+ */
+export const coolingBaselineDeltaNotComparableFixture: CoolingBaselineDelta = {
+  baseline: {
+    status: "established",
+    idleTemperatureAvg: 32,
+    windowStartDate: "2025-11-01",
+    windowEndDate: "2025-11-14",
+    sampleMinutes: 12_600,
+  },
+  recent: {
+    windowStartDate: "2026-01-09",
+    windowEndDate: "2026-01-15",
+    idleTemperatureAvg: null,
+    sampleMinutes: 12,
+  },
+  delta: null,
+  observation: "notComparable",
+  dailyDeltas: [],
+  sustainedDays: 0,
+};
+
+/** `observation: "sustainedMildRise"` - a 3-day streak at a +5..10degC drift. */
+export const coolingBaselineDeltaMildRiseFixture: CoolingBaselineDelta = {
+  baseline: {
+    status: "established",
+    idleTemperatureAvg: 32,
+    windowStartDate: "2025-11-01",
+    windowEndDate: "2025-11-14",
+    sampleMinutes: 12_600,
+  },
+  recent: {
+    windowStartDate: "2026-01-09",
+    windowEndDate: "2026-01-15",
+    idleTemperatureAvg: 38.2,
+    sampleMinutes: 6_300,
+  },
+  delta: 6.2,
+  observation: "sustainedMildRise",
+  dailyDeltas: [
+    { date: "2026-01-13", delta: 5.6 },
+    { date: "2026-01-14", delta: 5.9 },
+    { date: "2026-01-15", delta: 6.2 },
+  ],
+  sustainedDays: 3,
+};
+
+/** `observation: "sustainedLargeRise"` - a 3-day streak at a +10degC+ drift. */
+export const coolingBaselineDeltaLargeRiseFixture: CoolingBaselineDelta = {
+  baseline: {
+    status: "established",
+    idleTemperatureAvg: 32,
+    windowStartDate: "2025-11-01",
+    windowEndDate: "2025-11-14",
+    sampleMinutes: 12_600,
+  },
+  recent: {
+    windowStartDate: "2026-01-09",
+    windowEndDate: "2026-01-15",
+    idleTemperatureAvg: 43.5,
+    sampleMinutes: 6_300,
+  },
+  delta: 11.5,
+  observation: "sustainedLargeRise",
+  dailyDeltas: [
+    { date: "2026-01-13", delta: 10.2 },
+    { date: "2026-01-14", delta: 10.8 },
+    { date: "2026-01-15", delta: 11.5 },
+  ],
+  sustainedDays: 3,
+};
+
 export const coolingBandComparisonEstablishingFixture: CoolingBandComparison = {
   status: "establishing",
   qualifyingDays: 4,
