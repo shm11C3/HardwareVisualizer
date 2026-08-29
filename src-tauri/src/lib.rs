@@ -334,6 +334,18 @@ pub fn run() {
           }
         }
 
+        // The cooling daily rollup derives its summary from whatever
+        // Hardware Archive rows already exist in the database, so it
+        // starts independently of `hardware_archive.enabled`: even when
+        // live archive collection is currently turned off, already
+        // archived days it hasn't caught up on yet still get rolled up.
+        {
+          let cooling_rollup =
+            hardviz_core::persistence::CoolingRollupController::setup(runtime_handle.clone());
+          let ws = app.state::<workers::WorkersState>();
+          ws.cooling_rollup.lock().unwrap().replace(cooling_rollup);
+        }
+
         if core_settings.storage_health.enabled {
           match core_settings.storage_health_identity.hash_key_bytes() {
             Ok(identity_hash_key) => {
