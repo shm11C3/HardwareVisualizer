@@ -172,20 +172,35 @@ fn to_idle_sample(
 }
 
 /// [`derive_band_comparison`] over the whole `cooling_daily_summary`
-/// table, deriving the baseline lifecycle state from the same rows
-/// (their idle-band projection) instead of a second query.
-pub async fn load_cooling_band_comparison() -> Result<CoolingBandComparison, sqlx::Error>
-{
+/// table, resolving the baseline lifecycle state through
+/// [`crate::persistence::cooling_baseline::resolve_baseline_state_from_pool`]
+/// (their idle-band projection, so no second query) rather than
+/// re-deriving it - the pinned baseline row must win once one exists, or
+/// this comparison would silently drift once the rollup rows the
+/// original establishment came from age out.
+pub(crate) async fn load_cooling_band_comparison_from_pool(
+  pool: &sqlx::SqlitePool,
+  today: NaiveDate,
+) -> Result<CoolingBandComparison, sqlx::Error> {
   use crate::infrastructure::database;
-  use crate::persistence::cooling_baseline::derive_baseline_state;
+  use crate::persistence::cooling_baseline::resolve_baseline_state_from_pool;
 
   let days =
-    database::cooling_daily_summary::select_all_daily_cooling_summaries().await?;
+    database::cooling_daily_summary::select_all_daily_cooling_summaries_from_pool(pool)
+      .await?;
   let idle_samples: Vec<_> = days.iter().map(to_idle_sample).collect();
-  let baseline_state = derive_baseline_state(&idle_samples);
-  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+  let baseline_state = resolve_baseline_state_from_pool(pool, &idle_samples).await?;
+  let yesterday = today - Duration::days(1);
 
   Ok(derive_band_comparison(&days, baseline_state, yesterday))
+}
+
+/// [`load_cooling_band_comparison_from_pool`] against Core's process-wide
+/// pool.
+pub async fn load_cooling_band_comparison() -> Result<CoolingBandComparison, sqlx::Error>
+{
+  let pool = crate::infrastructure::database::db::get_pool().await?;
+  load_cooling_band_comparison_from_pool(&pool, chrono::Local::now().date_naive()).await
 }
 
 #[cfg(test)]
@@ -433,5 +448,141 @@ mod tests {
       sample.idle_sample_minutes,
       COOLING_BASELINE_QUALIFYING_IDLE_MINUTES
     );
+  }
+
+  // ── pinned baseline (DB-backed) ──
+
+  mod pinned_baseline {
+    use super::*;
+    use sqlx::SqlitePool;
+
+    async fn setup_tables(pool: &SqlitePool) {
+      sqlx::query(
+        "CREATE TABLE cooling_daily_summary (
+          date TEXT PRIMARY KEY,
+          idle_cpu_temperature_avg REAL,
+          idle_cpu_temperature_max REAL,
+          idle_cpu_temperature_min REAL,
+          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          low_cpu_temperature_avg REAL,
+          low_cpu_temperature_max REAL,
+          low_cpu_temperature_min REAL,
+          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          mid_cpu_temperature_avg REAL,
+          mid_cpu_temperature_max REAL,
+          mid_cpu_temperature_min REAL,
+          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          high_cpu_temperature_avg REAL,
+          high_cpu_temperature_max REAL,
+          high_cpu_temperature_min REAL,
+          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          coverage_minutes INTEGER NOT NULL
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+      sqlx::query(
+        "CREATE TABLE cooling_baseline (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          window_start_date TEXT NOT NULL,
+          window_end_date TEXT NOT NULL,
+          idle_temperature_avg REAL NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          established_at TEXT NOT NULL
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn insert_idle_day(
+      pool: &SqlitePool,
+      date: NaiveDate,
+      temperature: f32,
+      minutes: u32,
+    ) {
+      sqlx::query(
+        "INSERT INTO cooling_daily_summary
+           (date, idle_cpu_temperature_avg, idle_sample_minutes, coverage_minutes)
+         VALUES ($1, $2, $3, 1440)",
+      )
+      .bind(date.format("%Y-%m-%d").to_string())
+      .bind(temperature)
+      .bind(minutes as i64)
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn insert_establishing_days(
+      pool: &SqlitePool,
+      start: NaiveDate,
+      temperature: f32,
+    ) {
+      use crate::persistence::cooling_baseline::{
+        COOLING_BASELINE_QUALIFYING_IDLE_MINUTES,
+        COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS,
+      };
+      for offset in 0..COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS {
+        insert_idle_day(
+          pool,
+          start + Duration::days(offset as i64),
+          temperature,
+          COOLING_BASELINE_QUALIFYING_IDLE_MINUTES,
+        )
+        .await;
+      }
+    }
+
+    #[tokio::test]
+    async fn the_baseline_window_does_not_drift_when_its_source_rows_are_deleted() {
+      // Same regression as cooling_baseline's own pinning test, but for
+      // the band comparison's loader: it must resolve the pinned row
+      // through the shared resolver instead of re-deriving from whatever
+      // `cooling_daily_summary` rows currently exist.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      setup_tables(&pool).await;
+      let start = date(2026, 8, 1);
+      insert_establishing_days(&pool, start, 42.0).await;
+
+      let established = load_cooling_band_comparison_from_pool(&pool, date(2026, 8, 20))
+        .await
+        .unwrap();
+      let CoolingBandComparison::Established {
+        baseline_window_start_date,
+        ..
+      } = established
+      else {
+        panic!("expected an established comparison");
+      };
+      assert_eq!(baseline_window_start_date, start);
+
+      // Age out the rows the baseline was derived from, and record a
+      // hotter stretch that would establish a different window if the
+      // pinned row were ignored.
+      sqlx::query("DELETE FROM cooling_daily_summary")
+        .execute(&pool)
+        .await
+        .unwrap();
+      insert_establishing_days(&pool, date(2027, 6, 1), 70.0).await;
+
+      let after_cleanup =
+        load_cooling_band_comparison_from_pool(&pool, date(2027, 6, 20))
+          .await
+          .unwrap();
+      let CoolingBandComparison::Established {
+        baseline_window_start_date,
+        ..
+      } = after_cleanup
+      else {
+        panic!("expected an established comparison");
+      };
+      assert_eq!(
+        baseline_window_start_date, start,
+        "the pinned baseline window must not drift when its source rows are deleted"
+      );
+    }
   }
 }
