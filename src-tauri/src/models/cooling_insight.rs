@@ -142,7 +142,11 @@ impl From<CoreBandComparison> for CoolingBandComparisonEntry {
 /// lifecycle as [`CoolingBaselineState`]: no comparison exists yet while
 /// the baseline is still establishing.
 #[derive(Debug, Clone, PartialEq, Serialize, Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
+#[serde(
+  tag = "status",
+  rename_all = "camelCase",
+  rename_all_fields = "camelCase"
+)]
 pub enum CoolingBandComparison {
   Establishing {
     qualifying_days: u32,
@@ -187,7 +191,11 @@ impl From<CoreCoolingBandComparison> for CoolingBandComparison {
 /// Lifecycle of the idle cooling baseline (see
 /// `hardviz_core::persistence::cooling_baseline::BaselineState`).
 #[derive(Debug, Clone, PartialEq, Serialize, Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
+#[serde(
+  tag = "status",
+  rename_all = "camelCase",
+  rename_all_fields = "camelCase"
+)]
 pub enum CoolingBaselineState {
   Establishing {
     qualifying_days: u32,
@@ -341,6 +349,55 @@ mod tests {
     let wire: CoolingDailyTrendPoint = core.into();
 
     assert_eq!(wire.date, "2026-08-05");
+  }
+
+  // `rename_all` on a tagged enum only renames variant tags, not the
+  // fields inside struct variants - that needs `rename_all_fields` too.
+  // These assert on the actual serialized JSON (not just the Rust
+  // struct), since a `PartialEq` comparison against another Rust value
+  // would not have caught the enum's fields serializing as snake_case.
+
+  #[test]
+  fn an_established_baseline_state_serializes_its_fields_as_camel_case() {
+    let wire = CoolingBaselineState::Established {
+      idle_temperature_avg: 32.5,
+      window_start_date: "2026-01-01".to_string(),
+      window_end_date: "2026-01-07".to_string(),
+      sample_minutes: 210,
+    };
+
+    let json = serde_json::to_value(&wire).unwrap();
+
+    assert_eq!(json["status"], "established");
+    assert_eq!(json["idleTemperatureAvg"], 32.5);
+    assert_eq!(json["windowStartDate"], "2026-01-01");
+    assert_eq!(json["windowEndDate"], "2026-01-07");
+    assert_eq!(json["sampleMinutes"], 210);
+    assert!(
+      json.get("idle_temperature_avg").is_none(),
+      "must not also serialize the snake_case field name"
+    );
+  }
+
+  #[test]
+  fn an_established_band_comparison_serializes_its_fields_as_camel_case() {
+    let wire = CoolingBandComparison::Established {
+      baseline_window_start_date: "2026-01-01".to_string(),
+      baseline_window_end_date: "2026-01-07".to_string(),
+      recent_window_start_date: "2026-08-14".to_string(),
+      recent_window_end_date: "2026-08-20".to_string(),
+      bands: Vec::new(),
+    };
+
+    let json = serde_json::to_value(&wire).unwrap();
+
+    assert_eq!(json["status"], "established");
+    assert_eq!(json["baselineWindowStartDate"], "2026-01-01");
+    assert_eq!(json["recentWindowEndDate"], "2026-08-20");
+    assert!(
+      json.get("baseline_window_start_date").is_none(),
+      "must not also serialize the snake_case field name"
+    );
   }
 
   #[test]
