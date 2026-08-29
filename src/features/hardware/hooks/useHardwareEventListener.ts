@@ -34,6 +34,14 @@ const padHistory = (arr: (number | null)[]): (number | null)[] => {
   return padded.slice(-chartConfig.historyLengthSec);
 };
 
+const MONITOR_SAMPLE_INTERVAL_MS = 1000;
+
+const getMissingSampleCount = (elapsedMs: number): number =>
+  Math.min(
+    Math.max(Math.round(elapsedMs / MONITOR_SAMPLE_INTERVAL_MS) - 1, 0),
+    chartConfig.historyLengthSec - 1,
+  );
+
 // One omitted sample can be a provider hiccup. Three consecutive visible
 // samples establish that the adapter is no longer part of the live set while
 // keeping unplug/fallback feedback within a few seconds at the 1 Hz cadence.
@@ -45,6 +53,7 @@ const GPU_RETIREMENT_MISSED_SAMPLES = 3;
  */
 export const useHardwareEventListener = () => {
   const gpuMissedSamples = useRef(new Map<LiveGpuId, number>());
+  const lastVisibleUpdateAt = useRef<number | null>(null);
   const setCpuHistory = useSetAtom(cpuUsageHistoryAtom);
   const setMemoryHistory = useSetAtom(memoryUsageHistoryAtom);
   const setGpuHistories = useSetAtom(gpuUsageHistoriesAtom);
@@ -68,6 +77,21 @@ export const useHardwareEventListener = () => {
       if (document.hidden) {
         return;
       }
+
+      const updateReceivedAt = Date.now();
+      // The App stops forwarding snapshots while the main window is hidden.
+      // Keep the Power Draw graph's one-sample-per-second positions honest
+      // when delivery resumes instead of presenting pre-hide values as recent.
+      const missingSampleCount =
+        lastVisibleUpdateAt.current == null
+          ? 0
+          : getMissingSampleCount(
+              updateReceivedAt - lastVisibleUpdateAt.current,
+            );
+      lastVisibleUpdateAt.current = updateReceivedAt;
+      const missingPowerDrawSamples = Array<number | null>(
+        missingSampleCount,
+      ).fill(null);
 
       const {
         cpuUsage,
@@ -142,11 +166,24 @@ export const useHardwareEventListener = () => {
         }
 
         return {
-          cpuWatts: padHistory([...previous.cpuWatts, powerDraw.cpuWatts]),
-          gpuWatts: padHistory([...previous.gpuWatts, powerDraw.gpuWatts]),
-          aneWatts: padHistory([...previous.aneWatts, powerDraw.aneWatts]),
+          cpuWatts: padHistory([
+            ...previous.cpuWatts,
+            ...missingPowerDrawSamples,
+            powerDraw.cpuWatts,
+          ]),
+          gpuWatts: padHistory([
+            ...previous.gpuWatts,
+            ...missingPowerDrawSamples,
+            powerDraw.gpuWatts,
+          ]),
+          aneWatts: padHistory([
+            ...previous.aneWatts,
+            ...missingPowerDrawSamples,
+            powerDraw.aneWatts,
+          ]),
           packageWatts: padHistory([
             ...previous.packageWatts,
+            ...missingPowerDrawSamples,
             powerDraw.packageWatts,
           ]),
         };
