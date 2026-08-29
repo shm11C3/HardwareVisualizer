@@ -58,8 +58,6 @@ pub enum CpuLoadBand {
 }
 
 impl CpuLoadBand {
-  pub const ALL: [Self; 4] = [Self::Idle, Self::Low, Self::Mid, Self::High];
-
   pub fn classify(cpu_usage_percent: f32) -> Self {
     if cpu_usage_percent < 10.0 {
       Self::Idle
