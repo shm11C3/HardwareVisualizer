@@ -154,6 +154,107 @@ pub(crate) async fn select_daily_idle_samples_from_pool(
   Ok(rows.into_iter().map(DailyIdleSample::from).collect())
 }
 
+/// Every summarized day's full band breakdown, oldest first, for Cooling
+/// Insight's long-range trend and load-band comparison queries (#2017).
+/// Reads the whole table - see [`select_daily_idle_samples`] for why that
+/// is cheap enough not to need a bounded `WHERE date >= ...` clause.
+pub async fn select_all_daily_cooling_summaries()
+-> Result<Vec<DailyCoolingSummary>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  select_all_daily_cooling_summaries_from_pool(&pool).await
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, sqlx::FromRow)]
+struct DailyCoolingSummaryRow {
+  date: NaiveDate,
+  idle_cpu_temperature_avg: Option<f64>,
+  idle_cpu_temperature_max: Option<f64>,
+  idle_cpu_temperature_min: Option<f64>,
+  idle_sample_minutes: i64,
+  low_cpu_temperature_avg: Option<f64>,
+  low_cpu_temperature_max: Option<f64>,
+  low_cpu_temperature_min: Option<f64>,
+  low_sample_minutes: i64,
+  mid_cpu_temperature_avg: Option<f64>,
+  mid_cpu_temperature_max: Option<f64>,
+  mid_cpu_temperature_min: Option<f64>,
+  mid_sample_minutes: i64,
+  high_cpu_temperature_avg: Option<f64>,
+  high_cpu_temperature_max: Option<f64>,
+  high_cpu_temperature_min: Option<f64>,
+  high_sample_minutes: i64,
+  coverage_minutes: i64,
+}
+
+impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
+  fn from(row: DailyCoolingSummaryRow) -> Self {
+    fn band(
+      avg: Option<f64>,
+      max: Option<f64>,
+      min: Option<f64>,
+      minutes: i64,
+    ) -> BandSummary {
+      BandSummary {
+        avg: avg.map(|v| v as f32),
+        max: max.map(|v| v as f32),
+        min: min.map(|v| v as f32),
+        // Same defensive clamp as `select_daily_idle_samples`: the
+        // column is `NOT NULL DEFAULT 0` and only ever written from a
+        // `u32`.
+        sample_minutes: minutes.max(0) as u32,
+      }
+    }
+
+    Self {
+      date: row.date,
+      coverage_minutes: row.coverage_minutes.max(0) as u32,
+      idle: band(
+        row.idle_cpu_temperature_avg,
+        row.idle_cpu_temperature_max,
+        row.idle_cpu_temperature_min,
+        row.idle_sample_minutes,
+      ),
+      low: band(
+        row.low_cpu_temperature_avg,
+        row.low_cpu_temperature_max,
+        row.low_cpu_temperature_min,
+        row.low_sample_minutes,
+      ),
+      mid: band(
+        row.mid_cpu_temperature_avg,
+        row.mid_cpu_temperature_max,
+        row.mid_cpu_temperature_min,
+        row.mid_sample_minutes,
+      ),
+      high: band(
+        row.high_cpu_temperature_avg,
+        row.high_cpu_temperature_max,
+        row.high_cpu_temperature_min,
+        row.high_sample_minutes,
+      ),
+    }
+  }
+}
+
+async fn select_all_daily_cooling_summaries_from_pool(
+  pool: &SqlitePool,
+) -> Result<Vec<DailyCoolingSummary>, sqlx::Error> {
+  let rows = sqlx::query_as::<_, DailyCoolingSummaryRow>(
+    "SELECT date,
+       idle_cpu_temperature_avg, idle_cpu_temperature_max, idle_cpu_temperature_min, idle_sample_minutes,
+       low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
+       mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
+       high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
+       coverage_minutes
+     FROM cooling_daily_summary
+     ORDER BY date ASC",
+  )
+  .fetch_all(pool)
+  .await?;
+
+  Ok(rows.into_iter().map(DailyCoolingSummary::from).collect())
+}
+
 pub async fn upsert(summary: &DailyCoolingSummary) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
   upsert_from_pool(&pool, summary).await
@@ -532,6 +633,103 @@ mod tests {
       min: None,
       sample_minutes: 0,
     }
+  }
+
+  async fn insert_full_summary_row(
+    pool: &SqlitePool,
+    date: &str,
+    idle: BandSummary,
+    low: BandSummary,
+    mid: BandSummary,
+    high: BandSummary,
+    coverage_minutes: i64,
+  ) {
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date,
+         idle_cpu_temperature_avg, idle_cpu_temperature_max, idle_cpu_temperature_min, idle_sample_minutes,
+         low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
+         mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
+         high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
+         coverage_minutes
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+    )
+    .bind(date)
+    .bind(idle.avg)
+    .bind(idle.max)
+    .bind(idle.min)
+    .bind(idle.sample_minutes as i64)
+    .bind(low.avg)
+    .bind(low.max)
+    .bind(low.min)
+    .bind(low.sample_minutes as i64)
+    .bind(mid.avg)
+    .bind(mid.max)
+    .bind(mid.min)
+    .bind(mid.sample_minutes as i64)
+    .bind(high.avg)
+    .bind(high.max)
+    .bind(high.min)
+    .bind(high.sample_minutes as i64)
+    .bind(coverage_minutes)
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  #[tokio::test]
+  async fn select_all_daily_cooling_summaries_returns_every_band_in_ascending_date_order()
+  {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    // Inserted out of order to verify the `ORDER BY date ASC` clause.
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      full_band(40.0, 300),
+      empty_band(),
+      full_band(70.0, 100),
+      1000,
+    )
+    .await;
+    insert_full_summary_row(
+      &pool,
+      "2026-08-10",
+      full_band(28.0, 1440),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    let summaries = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(
+      summaries.iter().map(|s| s.date).collect::<Vec<_>>(),
+      vec![date(2026, 8, 10), date(2026, 8, 20)]
+    );
+    assert_eq!(summaries[1].idle, full_band(30.0, 600));
+    assert_eq!(summaries[1].low, full_band(40.0, 300));
+    assert_eq!(summaries[1].mid, empty_band());
+    assert_eq!(summaries[1].high, full_band(70.0, 100));
+    assert_eq!(summaries[1].coverage_minutes, 1000);
+  }
+
+  #[tokio::test]
+  async fn select_all_daily_cooling_summaries_is_empty_for_an_empty_rollup() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    assert_eq!(
+      select_all_daily_cooling_summaries_from_pool(&pool)
+        .await
+        .unwrap(),
+      Vec::new()
+    );
   }
 
   #[tokio::test]

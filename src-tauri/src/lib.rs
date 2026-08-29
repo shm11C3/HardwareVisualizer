@@ -23,6 +23,7 @@ mod workers;
 mod _tests;
 
 use commands::background_image;
+use commands::cooling_insight;
 use commands::external_component_guidance;
 use commands::hardware;
 use commands::settings;
@@ -99,6 +100,9 @@ fn build_specta_builder() -> Builder<Wry> {
       hardware::get_process_stats,
       hardware::get_process_stats_in_period,
       hardware::get_gpu_archive_names,
+      cooling_insight::get_cooling_trend,
+      cooling_insight::get_cooling_band_comparison,
+      cooling_insight::get_cooling_baseline_delta,
       settings::commands::get_settings,
       settings::commands::set_language,
       settings::commands::set_theme,
