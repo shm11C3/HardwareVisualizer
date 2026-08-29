@@ -38,7 +38,13 @@ const fixedSeriesRgb = {
   package: "245, 158, 11",
 } as const;
 
-export const PowerDrawChart = () => {
+export const PowerDrawChart = ({
+  showHeading = true,
+  variant = "monitor",
+}: {
+  showHeading?: boolean;
+  variant?: "monitor" | "panel";
+} = {}) => {
   const { t } = useTranslation();
   const history = useAtomValue(powerDrawHistoryAtom);
   const { settings } = useSettingsAtom();
@@ -88,23 +94,38 @@ export const PowerDrawChart = () => {
 
   return (
     <section
-      className="flex min-h-30 flex-[2] flex-col"
+      className={cn(
+        "flex min-h-30 flex-col",
+        variant === "monitor" ? "flex-[2]" : "h-56 w-full px-4 pb-4",
+      )}
       aria-label={t("pages.performance.panels.power")}
-      data-testid="performance-monitor-power-graph"
+      data-testid="performance-power-graph"
     >
-      <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <LightningIcon size={18} className="text-amber-400" />
-          <h3 className="font-mono font-semibold text-[11px] uppercase tracking-[0.18em]">
-            {t("pages.performance.panels.power")}
-          </h3>
-          <span className="text-[10px]">
-            {t("pages.performance.shortWindow", {
-              seconds: chartConfig.historyLengthSec,
-            })}
-          </span>
-        </div>
-        <div className="ml-auto flex flex-wrap justify-end gap-x-4 gap-y-1">
+      <div
+        className={cn(
+          "mb-1 flex flex-wrap items-center gap-x-4 gap-y-1",
+          showHeading && "px-1",
+        )}
+      >
+        {showHeading ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <LightningIcon size={18} className="text-amber-400" />
+            <h3 className="font-mono font-semibold text-[11px] uppercase tracking-[0.18em]">
+              {t("pages.performance.panels.power")}
+            </h3>
+            <span className="text-[10px]">
+              {t("pages.performance.shortWindow", {
+                seconds: chartConfig.historyLengthSec,
+              })}
+            </span>
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            "flex flex-wrap gap-x-4 gap-y-1",
+            showHeading && "ml-auto justify-end",
+          )}
+        >
           {targets.map((target) => {
             const value = history[historyKey[target]].at(-1) ?? null;
             return (

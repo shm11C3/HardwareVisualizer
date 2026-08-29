@@ -3,14 +3,14 @@ import type { CSSProperties } from "react";
 import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
 import { UsageGraphPanel } from "@/features/hardware/usage/Usage";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
-import type { PerformanceMonitorPowerMode } from "../types/performanceLayout";
+import type { PerformancePowerMode } from "../types/performanceLayout";
 import { PowerDrawChart } from "./PowerDrawChart";
 import { PowerDrawRail } from "./PowerDrawRail";
 
 export const MonitorView = ({
   powerMode,
 }: {
-  powerMode: PerformanceMonitorPowerMode;
+  powerMode: PerformancePowerMode;
 }) => {
   const powerAvailable = useAtomValue(powerDrawAvailableAtom);
   const { settings } = useSettingsAtom();

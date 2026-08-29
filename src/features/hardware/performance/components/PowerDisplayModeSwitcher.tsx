@@ -4,22 +4,27 @@ import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { powerDrawAvailableAtom } from "@/features/hardware/store/chart";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { cn } from "@/lib/utils";
 import {
-  type PerformanceMonitorPowerMode,
-  performanceMonitorPowerModes,
+  type PerformancePowerMode,
+  performancePowerModes,
 } from "../types/performanceLayout";
 
 const modeIcons = {
   current: <LightningIcon />,
   graph: <ChartLineUpIcon />,
-} satisfies Record<PerformanceMonitorPowerMode, React.ReactNode>;
+} satisfies Record<PerformancePowerMode, React.ReactNode>;
 
-export const MonitorPowerModeSwitcher = ({
+export const PowerDisplayModeSwitcher = ({
   mode,
   onModeChange,
+  compact = false,
+  className,
 }: {
-  mode: PerformanceMonitorPowerMode;
-  onModeChange: (mode: PerformanceMonitorPowerMode) => void;
+  mode: PerformancePowerMode;
+  onModeChange: (mode: PerformancePowerMode) => void;
+  compact?: boolean;
+  className?: string;
 }) => {
   const { t } = useTranslation();
   const powerAvailable = useAtomValue(powerDrawAvailableAtom);
@@ -32,24 +37,25 @@ export const MonitorPowerModeSwitcher = ({
   return (
     <Tabs
       value={mode}
-      onValueChange={(value) =>
-        onModeChange(value as PerformanceMonitorPowerMode)
-      }
-      className="min-w-0"
+      onValueChange={(value) => onModeChange(value as PerformancePowerMode)}
+      className={cn("min-w-0", className)}
     >
       <TabsList
-        className="h-auto max-w-full justify-start overflow-x-auto"
-        aria-label={t("pages.performance.monitorPowerModeSwitcher")}
-        data-testid="performance-monitor-power-mode-switcher"
+        className={cn(
+          "h-auto max-w-full justify-start overflow-x-auto",
+          compact && "gap-0.5 p-0.5",
+        )}
+        aria-label={t("pages.performance.powerModeSwitcher")}
+        data-testid="performance-power-mode-switcher"
       >
-        {performanceMonitorPowerModes.map((candidate) => (
+        {performancePowerModes.map((candidate) => (
           <TabsTrigger
             key={candidate}
             value={candidate}
-            className="min-h-9 px-3"
+            className={cn("min-h-9 px-3", compact && "min-h-8 px-2 text-xs")}
           >
             {modeIcons[candidate]}
-            {t(`pages.performance.monitorPowerModes.${candidate}`)}
+            {t(`pages.performance.powerModes.${candidate}`)}
           </TabsTrigger>
         ))}
       </TabsList>

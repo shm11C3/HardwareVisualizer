@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +23,8 @@ const liveMap = <T,>(map: Record<string, T>) =>
 
 import type {
   PerformanceCustomLayout,
-  PerformanceMonitorPowerMode,
   PerformancePanelColumns,
+  PerformancePowerMode,
   PerformanceView,
 } from "./types/performanceLayout";
 
@@ -32,8 +32,8 @@ const state = vi.hoisted(() => ({
   view: "panels" as PerformanceView,
   columns: 1 as PerformancePanelColumns,
   compactExpanded: false,
-  monitorPowerMode: "current" as PerformanceMonitorPowerMode,
-  setMonitorPowerMode: vi.fn(),
+  powerMode: "current" as PerformancePowerMode,
+  setPowerMode: vi.fn(),
   customLayout: {
     order: [
       "usageGraphs",
@@ -167,8 +167,8 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
     setView: vi.fn(),
     columns: state.columns,
     setColumns: vi.fn(),
-    monitorPowerMode: state.monitorPowerMode,
-    setMonitorPowerMode: state.setMonitorPowerMode,
+    powerMode: state.powerMode,
+    setPowerMode: state.setPowerMode,
     compactExpanded: state.compactExpanded,
     setCompactExpanded: vi.fn(),
     customLayout: state.customLayout,
@@ -179,7 +179,7 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
 }));
 
 vi.mock("./components/PowerDrawChart", () => ({
-  PowerDrawChart: () => <div data-testid="performance-monitor-power-graph" />,
+  PowerDrawChart: () => <div data-testid="performance-power-graph" />,
 }));
 
 describe("Performance", () => {
@@ -187,8 +187,8 @@ describe("Performance", () => {
     state.view = "panels";
     state.columns = 1;
     state.compactExpanded = false;
-    state.monitorPowerMode = "current";
-    state.setMonitorPowerMode.mockClear();
+    state.powerMode = "current";
+    state.setPowerMode.mockClear();
     state.customLayout = {
       order: [
         "usageGraphs",
@@ -304,24 +304,22 @@ describe("Performance", () => {
       </Provider>,
     );
 
-    expect(
-      screen.getByTestId("performance-monitor-power-mode-switcher"),
-    ).toBeVisible();
+    expect(screen.getByTestId("performance-power-mode-switcher")).toBeVisible();
     expect(screen.getByTestId("performance-monitor-power-rail")).toBeVisible();
-    expect(screen.queryByTestId("performance-monitor-power-graph")).toBeNull();
+    expect(screen.queryByTestId("performance-power-graph")).toBeNull();
 
     await user.click(
       screen.getByRole("tab", {
-        name: "pages.performance.monitorPowerModes.graph",
+        name: "pages.performance.powerModes.graph",
       }),
     );
 
-    expect(state.setMonitorPowerMode).toHaveBeenCalledWith("graph");
+    expect(state.setPowerMode).toHaveBeenCalledWith("graph");
   });
 
   it("shows the short-window Power Draw graph in Graph mode", () => {
     state.view = "monitor";
-    state.monitorPowerMode = "graph";
+    state.powerMode = "graph";
     const store = createStore();
     store.set(powerDrawAvailableAtom, true);
 
@@ -331,9 +329,60 @@ describe("Performance", () => {
       </Provider>,
     );
 
-    expect(screen.getByTestId("performance-monitor-power-graph")).toBeVisible();
+    expect(screen.getByTestId("performance-power-graph")).toBeVisible();
     expect(screen.queryByTestId("performance-monitor-power-rail")).toBeNull();
     expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
+  });
+
+  it("shares the Power Draw mode between the Panels power panel and Monitor", async () => {
+    const user = userEvent.setup();
+    const store = createStore();
+    store.set(powerDrawAvailableAtom, true);
+    store.set(powerDrawAtom, {
+      cpuWatts: 10.1,
+      gpuWatts: 2.2,
+      aneWatts: null,
+      packageWatts: 12.3,
+    });
+    const view = render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const powerPanel = screen.getByTestId("performance-panel-power");
+    expect(
+      within(powerPanel).getByTestId("performance-power-mode-switcher"),
+    ).toBeVisible();
+    expect(screen.getByText("10.1 W")).toBeVisible();
+
+    await user.click(
+      within(powerPanel).getByRole("tab", {
+        name: "pages.performance.powerModes.graph",
+      }),
+    );
+    expect(state.setPowerMode).toHaveBeenCalledWith("graph");
+
+    state.powerMode = "graph";
+    view.rerender(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+    expect(
+      within(screen.getByTestId("performance-panel-power")).getByTestId(
+        "performance-power-graph",
+      ),
+    ).toBeVisible();
+
+    state.view = "monitor";
+    view.rerender(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+    expect(screen.getByTestId("performance-power-graph")).toBeVisible();
+    expect(screen.getByTestId("performance-power-mode-switcher")).toBeVisible();
   });
 
   it("keeps Power Draw controls and surfaces hidden without a selected target", () => {
@@ -348,11 +397,24 @@ describe("Performance", () => {
       </Provider>,
     );
 
-    expect(
-      screen.queryByTestId("performance-monitor-power-mode-switcher"),
-    ).toBeNull();
+    expect(screen.queryByTestId("performance-power-mode-switcher")).toBeNull();
     expect(screen.queryByTestId("performance-monitor-power-rail")).toBeNull();
-    expect(screen.queryByTestId("performance-monitor-power-graph")).toBeNull();
+    expect(screen.queryByTestId("performance-power-graph")).toBeNull();
+    expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
+  });
+
+  it("keeps the Panels Power panel hidden without a selected target", () => {
+    settings.powerDisplayTargets = [];
+    const store = createStore();
+    store.set(powerDrawAvailableAtom, true);
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.queryByTestId("performance-panel-power")).toBeNull();
     expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
   });
 

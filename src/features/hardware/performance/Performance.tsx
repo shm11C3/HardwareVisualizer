@@ -14,11 +14,11 @@ import { cn } from "@/lib/utils";
 import { CompactStrip } from "./components/CompactStrip";
 import { InstrumentStrip } from "./components/InstrumentStrip";
 import { MonitorGpuSelector } from "./components/MonitorGpuSelector";
-import { MonitorPowerModeSwitcher } from "./components/MonitorPowerModeSwitcher";
 import { MonitorView } from "./components/MonitorView";
 import { PanelColumnsSelector } from "./components/PanelColumnsSelector";
 import { PanelGrid } from "./components/PanelGrid";
 import { PerformanceViewSwitcher } from "./components/PerformanceViewSwitcher";
+import { PowerDisplayModeSwitcher } from "./components/PowerDisplayModeSwitcher";
 import { usePerformanceLayout } from "./hooks/usePerformanceLayout";
 
 export const Performance = ({
@@ -34,8 +34,8 @@ export const Performance = ({
     setView,
     columns,
     setColumns,
-    monitorPowerMode,
-    setMonitorPowerMode,
+    powerMode,
+    setPowerMode,
     compactExpanded,
     setCompactExpanded,
     customLayout,
@@ -121,14 +121,13 @@ export const Performance = ({
             </button>
           )}
           {/* Monitor omits the Instrument Strip, so the adapter behind its GPU
-              series needs a compact selector in the toolbar. Power Draw mode
-              is kept beside it because both controls affect Monitor only. */}
+              series needs a compact selector in the toolbar. */}
           {isMonitor && (
             <>
               <MonitorGpuSelector />
-              <MonitorPowerModeSwitcher
-                mode={monitorPowerMode}
-                onModeChange={(mode) => void setMonitorPowerMode(mode)}
+              <PowerDisplayModeSwitcher
+                mode={powerMode}
+                onModeChange={(mode) => void setPowerMode(mode)}
               />
             </>
           )}
@@ -170,7 +169,7 @@ export const Performance = ({
       ) : view === "compact" ? (
         <CompactStrip />
       ) : isMonitor ? (
-        <MonitorView powerMode={monitorPowerMode} />
+        <MonitorView powerMode={powerMode} />
       ) : (
         <div className="space-y-4">
           <InstrumentStrip />
@@ -178,6 +177,8 @@ export const Performance = ({
             layout={customLayout}
             columns={columns}
             editing={editing}
+            powerMode={powerMode}
+            onPowerModeChange={(mode) => void setPowerMode(mode)}
             onPanelToggle={togglePanel}
             onPanelDragEnd={handlePanelDragEnd}
           />

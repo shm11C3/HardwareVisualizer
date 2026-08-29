@@ -290,8 +290,8 @@
       "hidePanel": "Hide {{panel}}",
       "reorderPanel": "Reorder {{panel}}",
       "currentValues": "Current values",
-      "monitorPowerModeSwitcher": "Power draw display",
-      "monitorPowerModes": {
+      "powerModeSwitcher": "Power draw display",
+      "powerModes": {
         "current": "Current",
         "graph": "Graph"
       },
@@ -383,8 +383,9 @@
           "cappuccino": "Cappuccino",
           "espresso": "Espresso"
         },
-        "hardwareType": "Hardware Type",
-        "powerDisplayTargets": "Power Display Targets",
+        "displayTargets": "Display Targets",
+        "usageGraphDisplayTargets": "Usage Graph",
+        "powerDisplayTargets": "Power Draw",
         "temperatureUnit": {
           "name": "Temperature Unit",
           "celsius": "Celsius (°C)",

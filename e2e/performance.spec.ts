@@ -111,15 +111,36 @@ test.describe("Grouped navigation destinations", () => {
     await saveCapture(page, "performance-monitor-desktop");
   });
 
-  test("switches Monitor Power Draw between current and graph modes", async ({
+  test("shares Power Draw modes between the Panels power panel and Monitor", async ({
     page,
   }) => {
     await gotoApp(page);
     await seedHardwareHistory(page);
+
+    const powerPanel = page.getByTestId("performance-panel-power");
+    await expect(powerPanel).toBeVisible();
+    await expect(
+      powerPanel.getByTestId("performance-power-mode-switcher"),
+    ).toBeVisible();
+    await expect(
+      powerPanel.getByRole("tab", { name: "Current" }),
+    ).toHaveAttribute("data-state", "active");
+    await powerPanel.getByRole("tab", { name: "Graph" }).click();
+    await expect(
+      powerPanel.getByTestId("performance-power-graph"),
+    ).toBeVisible();
+    await saveCapture(page, "performance-panels-power-graph");
+
     await page.getByRole("tab", { name: "Monitor" }).click();
+    await expect(page.getByRole("tab", { name: "Graph" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    await expect(page.getByTestId("performance-power-graph")).toBeVisible();
+    await page.getByRole("tab", { name: "Current" }).click();
 
     await expect(
-      page.getByTestId("performance-monitor-power-mode-switcher"),
+      page.getByTestId("performance-power-mode-switcher"),
     ).toBeVisible();
     await expect(page.getByRole("tab", { name: "Current" })).toHaveAttribute(
       "data-state",
@@ -131,9 +152,7 @@ test.describe("Grouped navigation destinations", () => {
     await saveCapture(page, "performance-monitor-power-current");
 
     await page.getByRole("tab", { name: "Graph" }).click();
-    await expect(
-      page.getByTestId("performance-monitor-power-graph"),
-    ).toBeVisible();
+    await expect(page.getByTestId("performance-power-graph")).toBeVisible();
     await expect(
       page.getByTestId("performance-monitor-power-rail"),
     ).toHaveCount(0);
@@ -141,11 +160,9 @@ test.describe("Grouped navigation destinations", () => {
 
     await page.setViewportSize({ width: 520, height: 800 });
     await expect(
-      page.getByTestId("performance-monitor-power-mode-switcher"),
+      page.getByTestId("performance-power-mode-switcher"),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("performance-monitor-power-graph"),
-    ).toBeVisible();
+    await expect(page.getByTestId("performance-power-graph")).toBeVisible();
     const assertNoMonitorOverflow = async () => {
       const overflow = await page.evaluate(() => {
         const screen = document.querySelector<HTMLElement>(
@@ -183,9 +200,7 @@ test.describe("Grouped navigation destinations", () => {
     await expect(
       page.getByTestId("performance-monitor-power-rail"),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("performance-monitor-power-graph"),
-    ).toHaveCount(0);
+    await expect(page.getByTestId("performance-power-graph")).toHaveCount(0);
     await assertNoMonitorOverflow();
     await saveCapture(page, "performance-monitor-power-current-compact-window");
 
@@ -201,9 +216,25 @@ test.describe("Grouped navigation destinations", () => {
       "data-state",
       "active",
     );
+    await expect(page.getByTestId("performance-power-graph")).toBeVisible();
+  });
+
+  test("labels Usage Graph and Power Draw targets separately in Settings", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await navigateTo(page, "settings");
+
     await expect(
-      page.getByTestId("performance-monitor-power-graph"),
+      page.getByRole("heading", { name: "Display Targets" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Usage Graph", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Power Draw", exact: true }),
+    ).toBeVisible();
+    await saveCapture(page, "settings-display-targets");
   });
 
   test("attributes the GPU readings to a named adapter the user can change", async ({

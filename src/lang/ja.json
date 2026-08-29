@@ -290,8 +290,8 @@
       "hidePanel": "{{panel}}を非表示",
       "reorderPanel": "{{panel}}を並べ替え",
       "currentValues": "現在値",
-      "monitorPowerModeSwitcher": "消費電力の表示",
-      "monitorPowerModes": {
+      "powerModeSwitcher": "消費電力の表示",
+      "powerModes": {
         "current": "現在値",
         "graph": "グラフ"
       },
@@ -383,8 +383,9 @@
           "cappuccino": "カプチーノ",
           "espresso": "エスプレッソ"
         },
-        "hardwareType": "ハードウェア種別",
-        "powerDisplayTargets": "消費電力の表示対象",
+        "displayTargets": "表示対象",
+        "usageGraphDisplayTargets": "使用率グラフ",
+        "powerDisplayTargets": "消費電力",
         "temperatureUnit": {
           "name": "温度の単位",
           "celsius": "摂氏（℃）",

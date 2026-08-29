@@ -280,8 +280,8 @@
       "hidePanel": "Скрыть {{panel}}",
       "reorderPanel": "Изменить порядок: {{panel}}",
       "currentValues": "Текущие значения",
-      "monitorPowerModeSwitcher": "Отображение мощности",
-      "monitorPowerModes": {
+      "powerModeSwitcher": "Отображение мощности",
+      "powerModes": {
         "current": "Текущее",
         "graph": "График"
       },
@@ -373,8 +373,9 @@
           "cappuccino": "Капучино",
           "espresso": "Эспрессо"
         },
-        "hardwareType": "Тип оборудования",
-        "powerDisplayTargets": "Отображаемая мощность",
+        "displayTargets": "Цели отображения",
+        "usageGraphDisplayTargets": "График использования",
+        "powerDisplayTargets": "Мощность",
         "temperatureUnit": {
           "name": "Единица измерения температуры",
           "celsius": "Цельсий (°C)",

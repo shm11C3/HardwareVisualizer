@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { powerDrawHistoryAtom } from "@/features/hardware/store/chart";
 import { PowerDrawChart } from "./PowerDrawChart";
 
@@ -55,6 +55,8 @@ vi.mock("recharts", () => ({
 }));
 
 describe("PowerDrawChart", () => {
+  afterEach(cleanup);
+
   it("renders selected series while retaining null gaps in the chart data", () => {
     const store = createStore();
     store.set(powerDrawHistoryAtom, {
@@ -81,5 +83,31 @@ describe("PowerDrawChart", () => {
     );
     expect(data.at(-1)).toMatchObject({ cpu: null, package: null });
     expect(data.at(-2)).toMatchObject({ cpu: 10.1, package: 12.3 });
+  });
+
+  it("uses a full-width layout when embedded in the Power panel", () => {
+    const store = createStore();
+    store.set(powerDrawHistoryAtom, {
+      cpuWatts: [10],
+      gpuWatts: [],
+      aneWatts: [],
+      packageWatts: [12],
+    });
+
+    render(
+      <Provider store={store}>
+        <PowerDrawChart showHeading={false} variant="panel" />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId("performance-power-graph")).toHaveClass(
+      "w-full",
+      "h-56",
+    );
+    expect(screen.getByTestId("performance-power-graph")).not.toHaveClass(
+      "flex-[2]",
+    );
+    expect(screen.getByText("pages.performance.power.cpu")).toBeVisible();
+    expect(screen.getByText("10.0 W")).toBeVisible();
   });
 });
