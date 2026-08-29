@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ZapIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { InsightChart } from "@/features/hardware/insights/components/InsightChart";
 import type { ArchivePeriod } from "@/features/hardware/insights/utils/archivePeriod";
@@ -27,6 +27,17 @@ const PowerChart = ({
   const [intervalId, setIntervalId] = useState<ReturnType<
     typeof setInterval
   > | null>(null);
+
+  // Unmounting while the pointer is held (e.g. switching to 90d/1y mid
+  // long-press) would otherwise leave the hold interval calling setOffset
+  // on an unmounted component for the lifetime of the window.
+  useEffect(() => {
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [intervalId]);
 
   const powerTitles: Partial<Record<DataArchiveHardwareType, string>> = {
     cpuPower: t("pages.performance.power.cpu"),

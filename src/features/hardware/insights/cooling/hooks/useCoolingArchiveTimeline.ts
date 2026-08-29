@@ -37,8 +37,14 @@ export const useCoolingArchiveTimeline = (
   minutes: CoolingArchivePeriod | null,
 ) => {
   const [series, setSeries] = useState<ArchiveTimelineSeries>(EMPTY_SERIES);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
+  // The dialog fires once per failure streak, not once per refresh tick:
+  // the interval below reruns every archive-write interval, and a machine
+  // with a persistent failure must not stack a dialog per minute.
+  const hasReportedErrorRef = useRef(false);
 
   const stepMs =
     minutes == null
@@ -90,8 +96,17 @@ export const useCoolingArchiveTimeline = (
     if (minutes == null) {
       requestIdRef.current += 1;
       setSeries(EMPTY_SERIES);
+      setHasLoaded(false);
+      setHasError(false);
+      hasReportedErrorRef.current = false;
       return;
     }
+
+    // A new period starts a fresh load: consumers show a loading state
+    // instead of mislabeling the not-yet-fetched window as absent data.
+    setHasLoaded(false);
+    setHasError(false);
+    hasReportedErrorRef.current = false;
 
     const run = () => {
       const requestId = requestIdRef.current + 1;
@@ -101,14 +116,23 @@ export const useCoolingArchiveTimeline = (
         .then((next) => {
           if (requestIdRef.current === requestId) {
             setSeries(next);
+            setHasLoaded(true);
+            setHasError(false);
+            hasReportedErrorRef.current = false;
           }
         })
         .catch((e) => {
           console.error(e);
+          // A stale request must neither flip the state nor open a dialog.
           if (requestIdRef.current === requestId) {
             setSeries(EMPTY_SERIES);
+            setHasLoaded(true);
+            setHasError(true);
+            if (!hasReportedErrorRef.current) {
+              hasReportedErrorRef.current = true;
+              void error(String(e));
+            }
           }
-          void error(String(e));
         });
     };
 
@@ -118,8 +142,12 @@ export const useCoolingArchiveTimeline = (
       chartConfig.archiveUpdateIntervalMilSec,
     );
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      // Unmounting invalidates the in-flight request (see the guard above).
+      requestIdRef.current += 1;
+    };
   }, [fetchSeries, minutes, error]);
 
-  return { series, stepMs };
+  return { series, stepMs, hasLoaded, hasError };
 };
