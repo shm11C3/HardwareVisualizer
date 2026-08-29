@@ -37,6 +37,12 @@ export const useCoolingBandComparison = () => {
         }
       }
     })();
+
+    return () => {
+      // Unmounting invalidates the in-flight request so a late rejection
+      // can neither flip state nor open a dialog after the view is gone.
+      requestIdRef.current += 1;
+    };
   }, [error]);
 
   return { data };
