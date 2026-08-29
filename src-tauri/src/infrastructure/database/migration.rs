@@ -148,6 +148,20 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         );
       "#,
     },
+    SchemaMigration {
+      version: 12,
+      description: "create_cooling_baseline",
+      sql: r#"
+        CREATE TABLE cooling_baseline (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          window_start_date TEXT NOT NULL,
+          window_end_date TEXT NOT NULL,
+          idle_temperature_avg REAL NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          established_at TEXT NOT NULL
+        );
+      "#,
+    },
   ]
 }
 
@@ -269,14 +283,33 @@ mod tests {
   }
 
   #[test]
+  fn migration_v12_creates_the_single_row_cooling_baseline_table() {
+    let migrations = get_migrations();
+    let v12 = migrations
+      .iter()
+      .find(|m| m.version == 12)
+      .expect("Version 12 up migration must exist");
+    assert!(v12.sql.contains("CREATE TABLE cooling_baseline"));
+    // The established baseline is a single row. The CHECK constraint is
+    // what makes the insert idempotent: a second establishment can never
+    // add a competing row, so the value cannot drift once pinned.
+    assert!(v12.sql.contains("id INTEGER PRIMARY KEY CHECK (id = 1)"));
+    assert!(v12.sql.contains("window_start_date TEXT NOT NULL"));
+    assert!(v12.sql.contains("window_end_date TEXT NOT NULL"));
+    assert!(v12.sql.contains("idle_temperature_avg REAL NOT NULL"));
+    assert!(v12.sql.contains("sample_minutes INTEGER NOT NULL"));
+    assert!(v12.sql.contains("established_at TEXT NOT NULL"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 11);
+    assert_eq!(get_max_migration_version(), 12);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 11);
+    assert_eq!(migrations.len(), 12);
   }
 
   #[test]
