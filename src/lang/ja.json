@@ -363,6 +363,7 @@
         "timeline": {
           "title": "サーマルタイムライン",
           "temperatureLane": "CPU 温度 ({{unit}})",
+          "temperatureUnavailable": "この期間の温度の記録はありません。CPU 負荷のみ表示しています。",
           "loadLaneUsage": "CPU 負荷 (%)",
           "loadLaneComposition": "負荷帯の構成 (1 日あたりの割合)",
           "legend": {

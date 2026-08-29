@@ -251,6 +251,100 @@ const TimelineTooltipContent = ({
  * series uses `connectNulls`, so an unrecorded period is a gap in both lanes
  * instead of a line drawn straight through it.
  */
+const TemperatureLaneChart = ({
+  rows,
+  domain,
+  baseline,
+  temperatureUnit,
+  loadMode,
+}: {
+  rows: ThermalTimelineRow[];
+  domain: [number, number];
+  baseline: BaselineBand | null;
+  temperatureUnit: TemperatureUnit;
+  loadMode: LoadLaneMode;
+}) => {
+  const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
+  const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
+
+  return (
+    <ChartContainer
+      className="aspect-auto h-50 w-full"
+      config={chartConfig}
+      data-testid="cooling-temperature-lane"
+    >
+      <ComposedChart data={rows} syncId={TIMELINE_SYNC_ID} margin={LANE_MARGIN}>
+        <CartesianGrid horizontal vertical={false} />
+        <XAxis dataKey="label" hide />
+        <YAxis
+          domain={domain}
+          width={AXIS_WIDTH}
+          tickLine={false}
+          axisLine={false}
+          tickCount={6}
+          allowDecimals={false}
+          unit={unitSuffix}
+        />
+        {baseline != null && (
+          <ReferenceArea
+            y1={baseline.lower}
+            y2={baseline.upper}
+            fill="var(--muted-foreground)"
+            fillOpacity={0.12}
+            ifOverflow="hidden"
+          />
+        )}
+        {baseline != null && (
+          <ReferenceLine
+            y={baseline.value}
+            stroke="var(--muted-foreground)"
+            strokeDasharray="4 4"
+            ifOverflow="hidden"
+          />
+        )}
+        <ChartTooltip
+          filterNull={false}
+          content={
+            <TimelineTooltipContent
+              unitSuffix={unitSuffix}
+              baseline={baseline}
+              loadMode={loadMode}
+            />
+          }
+        />
+        <Area
+          dataKey="temperatureRange"
+          stroke={seriesColor("temperatureRange")}
+          strokeOpacity={0.4}
+          strokeWidth={1}
+          fill={seriesColor("temperatureRange")}
+          fillOpacity={0.18}
+          isAnimationActive={false}
+          activeDot={false}
+        />
+        <Line
+          dataKey="temperatureAvg"
+          type="monotone"
+          stroke={seriesColor("temperatureAvg")}
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
+        {hasIdleSeries && (
+          <Line
+            dataKey="idleTemperature"
+            type="monotone"
+            stroke={seriesColor("idleTemperature")}
+            strokeWidth={1.5}
+            dot={false}
+            isAnimationActive={false}
+          />
+        )}
+      </ComposedChart>
+    </ChartContainer>
+  );
+};
+
 export const TimelineLanes = ({
   rows,
   domain,
@@ -259,7 +353,13 @@ export const TimelineLanes = ({
   temperatureUnit,
 }: {
   rows: ThermalTimelineRow[];
-  domain: [number, number];
+  /**
+   * `null` when the period recorded no temperature at all: the
+   * temperature lane then degrades to an honest notice while the load
+   * lane below keeps rendering - archived CPU usage without a working
+   * temperature sensor is still useful partial data (DP-02).
+   */
+  domain: [number, number] | null;
   baseline: BaselineBand | null;
   loadMode: LoadLaneMode;
   temperatureUnit: TemperatureUnit;
@@ -270,114 +370,54 @@ export const TimelineLanes = ({
 
   return (
     <div className="space-y-2" data-testid="cooling-timeline-lanes">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="font-medium text-sm">
-          {t("pages.insights.cooling.timeline.temperatureLane", {
-            unit: unitSuffix,
-          })}
-        </span>
-        <LegendSwatch
-          label={t("pages.insights.cooling.timeline.legend.average")}
-          color={seriesColor("temperatureAvg")}
-        />
-        <LegendSwatch
-          label={t("pages.insights.cooling.timeline.legend.range")}
-          color={seriesColor("temperatureRange")}
-          variant="band"
-        />
-        {hasIdleSeries && (
-          <LegendSwatch
-            label={t("pages.insights.cooling.timeline.legend.idle")}
-            color={seriesColor("idleTemperature")}
-          />
-        )}
-        {baseline != null && (
-          <LegendSwatch
-            label={t("pages.insights.cooling.timeline.legend.baseline")}
-            color="var(--muted-foreground)"
-            variant="dashed"
-          />
-        )}
-      </div>
-
-      <ChartContainer
-        className="aspect-auto h-50 w-full"
-        config={chartConfig}
-        data-testid="cooling-temperature-lane"
-      >
-        <ComposedChart
-          data={rows}
-          syncId={TIMELINE_SYNC_ID}
-          margin={LANE_MARGIN}
+      {domain == null ? (
+        <p
+          className="text-muted-foreground text-sm"
+          data-testid="cooling-temperature-lane-unavailable"
         >
-          <CartesianGrid horizontal vertical={false} />
-          <XAxis dataKey="label" hide />
-          <YAxis
-            domain={domain}
-            width={AXIS_WIDTH}
-            tickLine={false}
-            axisLine={false}
-            tickCount={6}
-            allowDecimals={false}
-            unit={unitSuffix}
-          />
-          {baseline != null && (
-            <ReferenceArea
-              y1={baseline.lower}
-              y2={baseline.upper}
-              fill="var(--muted-foreground)"
-              fillOpacity={0.12}
-              ifOverflow="hidden"
+          {t("pages.insights.cooling.timeline.temperatureUnavailable")}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-medium text-sm">
+              {t("pages.insights.cooling.timeline.temperatureLane", {
+                unit: unitSuffix,
+              })}
+            </span>
+            <LegendSwatch
+              label={t("pages.insights.cooling.timeline.legend.average")}
+              color={seriesColor("temperatureAvg")}
             />
-          )}
-          {baseline != null && (
-            <ReferenceLine
-              y={baseline.value}
-              stroke="var(--muted-foreground)"
-              strokeDasharray="4 4"
-              ifOverflow="hidden"
+            <LegendSwatch
+              label={t("pages.insights.cooling.timeline.legend.range")}
+              color={seriesColor("temperatureRange")}
+              variant="band"
             />
-          )}
-          <ChartTooltip
-            filterNull={false}
-            content={
-              <TimelineTooltipContent
-                unitSuffix={unitSuffix}
-                baseline={baseline}
-                loadMode={loadMode}
+            {hasIdleSeries && (
+              <LegendSwatch
+                label={t("pages.insights.cooling.timeline.legend.idle")}
+                color={seriesColor("idleTemperature")}
               />
-            }
+            )}
+            {baseline != null && (
+              <LegendSwatch
+                label={t("pages.insights.cooling.timeline.legend.baseline")}
+                color="var(--muted-foreground)"
+                variant="dashed"
+              />
+            )}
+          </div>
+
+          <TemperatureLaneChart
+            rows={rows}
+            domain={domain}
+            baseline={baseline}
+            temperatureUnit={temperatureUnit}
+            loadMode={loadMode}
           />
-          <Area
-            dataKey="temperatureRange"
-            stroke={seriesColor("temperatureRange")}
-            strokeOpacity={0.4}
-            strokeWidth={1}
-            fill={seriesColor("temperatureRange")}
-            fillOpacity={0.18}
-            isAnimationActive={false}
-            activeDot={false}
-          />
-          <Line
-            dataKey="temperatureAvg"
-            type="monotone"
-            stroke={seriesColor("temperatureAvg")}
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
-          />
-          {hasIdleSeries && (
-            <Line
-              dataKey="idleTemperature"
-              type="monotone"
-              stroke={seriesColor("idleTemperature")}
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={false}
-            />
-          )}
-        </ComposedChart>
-      </ChartContainer>
+        </>
+      )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-medium text-muted-foreground text-xs">

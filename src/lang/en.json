@@ -363,6 +363,7 @@
         "timeline": {
           "title": "Thermal Timeline",
           "temperatureLane": "CPU temperature ({{unit}})",
+          "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
           "loadLaneUsage": "CPU load (%)",
           "loadLaneComposition": "Load bands (% of day)",
           "legend": {

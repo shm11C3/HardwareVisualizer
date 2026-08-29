@@ -353,6 +353,7 @@
         "timeline": {
           "title": "Тепловая шкала",
           "temperatureLane": "Температура CPU ({{unit}})",
+          "temperatureUnavailable": "За этот период нет показаний температуры. Ниже отображается только нагрузка CPU.",
           "loadLaneUsage": "Нагрузка CPU (%)",
           "loadLaneComposition": "Диапазоны нагрузки (% суток)",
           "legend": {
