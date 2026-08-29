@@ -18,7 +18,7 @@
 use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 
 use tokio::runtime::Handle;
-use tokio::sync::watch;
+use tokio::sync::{oneshot, watch};
 use tokio::task::JoinHandle;
 use tokio::time::{MissedTickBehavior, interval};
 
@@ -84,6 +84,9 @@ pub struct ArchiveMinuteSample {
 /// CPU temperature summary for one [`CpuLoadBand`] on one local day.
 /// `sample_minutes == 0` implies `avg`/`max`/`min` are all `None`: a band
 /// with no contributing minute is absent, never zero.
+/// `sample_minutes` counts contributing archived rows; a shutdown-flush
+/// partial-window row counts as one minute (see
+/// [`DailyCoolingSummary::coverage_minutes`]).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct BandSummary {
   pub avg: Option<f32>,
@@ -92,15 +95,24 @@ pub struct BandSummary {
   pub sample_minutes: u32,
 }
 
+/// Minutes in a local calendar day; the cap for [`DailyCoolingSummary::coverage_minutes`].
+const MINUTES_PER_DAY: u32 = 24 * 60;
+
 /// One `cooling_daily_summary` row: the derived cooling profile for a
 /// single completed local day.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DailyCoolingSummary {
   pub date: NaiveDate,
-  /// Count of archived one-minute rows found for this local day,
-  /// regardless of whether they carried a usable CPU usage or
-  /// temperature reading. Represents how much of the day was actually
-  /// recorded (the app running), distinct from `sample_minutes` per band.
+  /// Count of archived rows found for this local day, regardless of
+  /// whether they carried a usable CPU usage or temperature reading.
+  /// Represents how much of the day was actually recorded (the app
+  /// running), distinct from `sample_minutes` per band.
+  ///
+  /// Approximation: an archived row is normally a one-minute window,
+  /// but `ArchiveController` also flushes a final partial window on
+  /// shutdown, so repeated short launches can produce more rows than
+  /// elapsed minutes. The count is capped at [`MINUTES_PER_DAY`] so a
+  /// day never reports more than a full day of coverage.
   pub coverage_minutes: u32,
   pub idle: BandSummary,
   pub low: BandSummary,
@@ -156,7 +168,7 @@ pub fn summarize_day(
 
   Some(DailyCoolingSummary {
     date,
-    coverage_minutes: minutes.len() as u32,
+    coverage_minutes: (minutes.len() as u32).min(MINUTES_PER_DAY),
     idle: idle.finish(),
     low: low.finish(),
     mid: mid.finish(),
@@ -311,11 +323,22 @@ impl CoolingRollupController {
   /// rollup, or since the earliest archived day on a first run), then
   /// checks once per [`COOLING_ROLLUP_CHECK_INTERVAL_SECONDS`] whether
   /// the local day has advanced far enough to catch up again.
-  pub fn setup(runtime: Handle) -> Self {
+  ///
+  /// Also returns a receiver that resolves once that first catch-up
+  /// pass has finished (or the worker died), so callers can order work
+  /// that deletes archive rows — the `scheduledDataDeletion` retention
+  /// cleanup — after the backfill has read the rows it needs. Rows
+  /// older than the archive Retention Period can still be present at
+  /// startup (cleanup was disabled, or the app was simply not running
+  /// past the cutoff), and racing the cleanup would silently lose those
+  /// days from the rollup forever.
+  pub fn setup(runtime: Handle) -> (Self, oneshot::Receiver<()>) {
     let (stop_tx, mut stop_rx) = watch::channel(false);
+    let (first_catch_up_tx, first_catch_up_rx) = oneshot::channel();
 
     let handle = runtime.spawn(async move {
       run_catch_up().await;
+      let _ = first_catch_up_tx.send(());
       let mut last_checked_date = Some(chrono::Local::now().date_naive());
 
       let mut ticker = interval(tokio::time::Duration::from_secs(
@@ -348,7 +371,7 @@ impl CoolingRollupController {
       }
     });
 
-    Self { handle, stop_tx }
+    (Self { handle, stop_tx }, first_catch_up_rx)
   }
 
   pub async fn terminate(self) {
@@ -585,6 +608,17 @@ mod tests {
 
     assert_eq!(summary.coverage_minutes, 500);
     assert_eq!(summary.idle.sample_minutes, 500);
+  }
+
+  #[test]
+  fn summarize_day_caps_coverage_at_a_full_day() {
+    // Shutdown flushes can archive a partial window as an extra row, so
+    // a day can hold more rows than minutes; coverage must not exceed a
+    // full day.
+    let minutes: Vec<_> = (0..1445).map(|_| full_sample(2.0, 35.0)).collect();
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.coverage_minutes, 1440);
   }
 
   // ── days_to_roll_up ──
