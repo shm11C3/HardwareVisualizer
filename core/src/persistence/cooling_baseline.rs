@@ -312,6 +312,41 @@ fn weighted_idle_temperature<'a>(
   })
 }
 
+/// Resolve the baseline lifecycle state for any Cooling Insight query:
+/// the pinned row if one exists, otherwise derive it from `days` and pin
+/// it the moment it reaches [`BaselineState::Established`].
+///
+/// Every loader that needs the baseline state (the baseline card itself,
+/// the band comparison, the baseline delta, ...) must go through this
+/// function rather than calling [`derive_baseline_state`] directly -
+/// otherwise it silently ignores the pinned row and drifts as the
+/// `cooling_daily_summary` rows the original establishment was derived
+/// from age out (see the module docs). Keeping the write-back in this one
+/// place is what keeps that guarantee from depending on every call site
+/// remembering it.
+pub(crate) async fn resolve_baseline_state_from_pool(
+  pool: &sqlx::SqlitePool,
+  days: &[DailyIdleSample],
+) -> Result<BaselineState, sqlx::Error> {
+  use crate::infrastructure::database;
+
+  match database::cooling_baseline::select_established_baseline_from_pool(pool).await? {
+    Some(pinned) => Ok(pinned.into_state()),
+    None => {
+      let derived = derive_baseline_state(days);
+      if let Some(baseline) = EstablishedBaseline::from_state(&derived) {
+        database::cooling_baseline::insert_established_baseline_from_pool(
+          pool,
+          &baseline,
+          chrono::Utc::now(),
+        )
+        .await?;
+      }
+      Ok(derived)
+    }
+  }
+}
+
 /// Load the cooling baseline, pinning it the first time it establishes.
 ///
 /// Reads the pinned row first: once established, the baseline is a fixed
@@ -336,26 +371,7 @@ pub(crate) async fn load_cooling_baseline_from_pool(
   // gap in usage report "not comparable" instead of presenting a stale
   // reading as recent.
   let recent = summarize_recent_idle(&days, today - Duration::days(1));
-
-  let state = match database::cooling_baseline::select_established_baseline_from_pool(
-    pool,
-  )
-  .await?
-  {
-    Some(pinned) => pinned.into_state(),
-    None => {
-      let derived = derive_baseline_state(&days);
-      if let Some(baseline) = EstablishedBaseline::from_state(&derived) {
-        database::cooling_baseline::insert_established_baseline_from_pool(
-          pool,
-          &baseline,
-          chrono::Utc::now(),
-        )
-        .await?;
-      }
-      derived
-    }
-  };
+  let state = resolve_baseline_state_from_pool(pool, &days).await?;
 
   Ok(CoolingBaseline { state, recent })
 }

@@ -104,11 +104,18 @@ pub fn derive_baseline_delta(
     };
   }
 
-  // `recent.is_comparable()` guarantees an average is present.
-  let delta = recent.idle_temperature_avg.unwrap() - baseline_temperature;
-  let (daily_deltas, sustained_days) =
+  let (daily_deltas, mild_sustained_days, large_sustained_days) =
     trailing_daily_deltas(days, baseline_temperature, window_end_date);
-  let observation = classify_observation(delta, sustained_days);
+  let (observation, sustained_days) =
+    classify_observation(mild_sustained_days, large_sustained_days);
+  // `recent.is_comparable()` guarantees an average is present. This is
+  // the same quantity `trailing_daily_deltas` computes for `cursor ==
+  // window_end_date` (when that day has its own rollup row), kept as a
+  // direct computation here so a day recent enough to be "comparable" as
+  // a trailing window, but too sparse to itself carry an idle-sample row
+  // exactly on `window_end_date` (see `has_idle_sample_on`), still gets a
+  // reported delta - only the sustain streak requires a same-day row.
+  let delta = recent.idle_temperature_avg.unwrap() - baseline_temperature;
 
   CoolingBaselineDelta {
     baseline_state,
@@ -130,72 +137,136 @@ fn established_temperature(state: BaselineState) -> Option<f32> {
   }
 }
 
-fn classify_observation(delta: f32, sustained_days: u32) -> CoolingDeltaObservation {
-  if sustained_days < COOLING_DELTA_SUSTAIN_DAYS {
-    return CoolingDeltaObservation::WithinRange;
-  }
-  if delta >= COOLING_DELTA_LARGE_RISE_THRESHOLD {
-    CoolingDeltaObservation::SustainedLargeRise
-  } else if delta >= COOLING_DELTA_MILD_RISE_THRESHOLD {
-    CoolingDeltaObservation::SustainedMildRise
+/// Classify the observation from the two independently-counted streaks
+/// [`trailing_daily_deltas`] returns, and report the streak length that
+/// backs the returned observation (so the UI's "n days in a row" always
+/// matches what actually triggered it).
+///
+/// A large rise requires [`COOLING_DELTA_SUSTAIN_DAYS`] consecutive days
+/// at or above [`COOLING_DELTA_LARGE_RISE_THRESHOLD`] specifically - not
+/// merely a mild-or-above streak whose *most recent* day happens to have
+/// crossed the large threshold. Two days at +7 followed by a today at
+/// +10 is a 3-day mild streak, not a 3-day large one.
+fn classify_observation(
+  mild_sustained_days: u32,
+  large_sustained_days: u32,
+) -> (CoolingDeltaObservation, u32) {
+  if large_sustained_days >= COOLING_DELTA_SUSTAIN_DAYS {
+    (
+      CoolingDeltaObservation::SustainedLargeRise,
+      large_sustained_days,
+    )
+  } else if mild_sustained_days >= COOLING_DELTA_SUSTAIN_DAYS {
+    (
+      CoolingDeltaObservation::SustainedMildRise,
+      mild_sustained_days,
+    )
   } else {
-    CoolingDeltaObservation::WithinRange
+    (CoolingDeltaObservation::WithinRange, mild_sustained_days)
   }
+}
+
+/// Whether `date` itself has a rollup row carrying idle-band evidence.
+///
+/// Required before a cursor day may extend either streak in
+/// [`trailing_daily_deltas`]: without it, a single real day's minutes can
+/// still appear (weighted) inside several different 7-day trailing
+/// windows a few calendar days apart, since those windows overlap. Only
+/// gating on window comparability would let that overlap alone report
+/// several "sustained" days from one real observation - exactly the
+/// streak the day itself never spanned (DP-02).
+fn has_idle_sample_on(days: &[DailyIdleSample], date: NaiveDate) -> bool {
+  days
+    .iter()
+    .any(|day| day.date == date && day.idle_sample_minutes > 0)
 }
 
 /// Walk backward day by day from `window_end_date`, recomputing the
 /// trailing 7-day idle average at each day and comparing it against
-/// `baseline_temperature`. Stops (without including that day) at the
-/// first day whose trailing window is not comparable, and stops
-/// (including that day) at the first day whose delta drops below
-/// [`COOLING_DELTA_MILD_RISE_THRESHOLD`] - the walk only needs to go far
-/// enough to explain `sustained_days`, not the whole rollup history.
+/// `baseline_temperature`. A day only extends either streak - and is
+/// only added to the series - when it carries its own rollup row (see
+/// [`has_idle_sample_on`]); the walk stops there otherwise, since an
+/// unobserved day cannot be counted as part of a sustained trend. It
+/// also stops (including that day) at the first day whose delta drops
+/// below [`COOLING_DELTA_MILD_RISE_THRESHOLD`] - the walk only needs to
+/// go far enough to explain the streak lengths, not the whole rollup
+/// history.
 ///
-/// Returned oldest-first, so the series reads left-to-right as a
-/// timeline.
+/// Returns `(daily_deltas, mild_sustained_days, large_sustained_days)`.
+/// `daily_deltas` is oldest first, so the series reads left-to-right as a
+/// timeline. `mild_sustained_days` counts the streak at
+/// [`COOLING_DELTA_MILD_RISE_THRESHOLD`] or above; `large_sustained_days`
+/// counts the streak at [`COOLING_DELTA_LARGE_RISE_THRESHOLD`] or above,
+/// and stops growing (without ending the walk) the first time a day
+/// falls below the large threshold while still at or above the mild one.
 fn trailing_daily_deltas(
   days: &[DailyIdleSample],
   baseline_temperature: f32,
   window_end_date: NaiveDate,
-) -> (Vec<DailyDelta>, u32) {
+) -> (Vec<DailyDelta>, u32, u32) {
   let mut series = Vec::new();
-  let mut sustained_days = 0u32;
+  let mut mild_sustained_days = 0u32;
+  let mut large_sustained_days = 0u32;
+  let mut large_streak_intact = true;
   let mut cursor = window_end_date;
 
   loop {
+    if !has_idle_sample_on(days, cursor) {
+      break;
+    }
     let window = summarize_recent_idle(days, cursor);
     if !window.is_comparable() {
       break;
     }
     // `is_comparable()` guarantees an average is present.
     let delta = window.idle_temperature_avg.unwrap() - baseline_temperature;
-    let sustained = delta >= COOLING_DELTA_MILD_RISE_THRESHOLD;
+    let is_mild = delta >= COOLING_DELTA_MILD_RISE_THRESHOLD;
     series.push(DailyDelta {
       date: cursor,
       delta,
     });
-    if !sustained {
+    if !is_mild {
       break;
     }
-    sustained_days += 1;
+    mild_sustained_days += 1;
+    if large_streak_intact && delta >= COOLING_DELTA_LARGE_RISE_THRESHOLD {
+      large_sustained_days += 1;
+    } else {
+      large_streak_intact = false;
+    }
     cursor -= Duration::days(1);
   }
 
   series.reverse();
-  (series, sustained_days)
+  (series, mild_sustained_days, large_sustained_days)
 }
 
 /// [`derive_baseline_delta`] over the whole `cooling_daily_summary`
-/// table.
-pub async fn load_cooling_baseline_delta() -> Result<CoolingBaselineDelta, sqlx::Error> {
+/// table, resolving the baseline lifecycle state through
+/// [`crate::persistence::cooling_baseline::resolve_baseline_state_from_pool`]
+/// rather than re-deriving it - the pinned baseline row must win once one
+/// exists, or this delta would silently drift once the rollup rows the
+/// original establishment came from age out.
+pub(crate) async fn load_cooling_baseline_delta_from_pool(
+  pool: &sqlx::SqlitePool,
+  today: NaiveDate,
+) -> Result<CoolingBaselineDelta, sqlx::Error> {
   use crate::infrastructure::database;
-  use crate::persistence::cooling_baseline::derive_baseline_state;
+  use crate::persistence::cooling_baseline::resolve_baseline_state_from_pool;
 
-  let days = database::cooling_daily_summary::select_daily_idle_samples().await?;
-  let baseline_state = derive_baseline_state(&days);
-  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+  let days =
+    database::cooling_daily_summary::select_daily_idle_samples_from_pool(pool).await?;
+  let baseline_state = resolve_baseline_state_from_pool(pool, &days).await?;
+  let yesterday = today - Duration::days(1);
 
   Ok(derive_baseline_delta(&days, baseline_state, yesterday))
+}
+
+/// [`load_cooling_baseline_delta_from_pool`] against Core's process-wide
+/// pool.
+pub async fn load_cooling_baseline_delta() -> Result<CoolingBaselineDelta, sqlx::Error> {
+  let pool = crate::infrastructure::database::db::get_pool().await?;
+  load_cooling_baseline_delta_from_pool(&pool, chrono::Local::now().date_naive()).await
 }
 
 #[cfg(test)]
@@ -400,5 +471,227 @@ mod tests {
 
     assert_eq!(result.sustained_days, 2);
     assert_eq!(result.daily_deltas.len(), 2);
+  }
+
+  // ── gap days must not inflate the streak via window overlap ──
+
+  #[test]
+  fn a_single_real_day_does_not_inflate_the_streak_through_overlapping_windows() {
+    // Regression: a real day's minutes can appear (weighted) in several
+    // different 7-day trailing windows a few calendar days apart, since
+    // those windows overlap. Before requiring the cursor day to carry
+    // its own rollup row, walking backward from `end` through
+    // `end - 6` would all land on windows that still contain this one
+    // real day 3 days back, reporting several "sustained" days from a
+    // single observation.
+    let end = date(2026, 8, 20);
+    let real_day = end - Duration::days(3);
+    let days = vec![day(real_day, 60.0, 1440)];
+
+    let result = derive_baseline_delta(&days, established(30.0), end);
+
+    assert_eq!(result.sustained_days, 0);
+    assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
+    assert!(result.daily_deltas.is_empty());
+  }
+
+  #[test]
+  fn a_gap_immediately_before_the_most_recent_day_still_stops_the_streak() {
+    // `end` itself has no rollup row (e.g. the app was not running
+    // yesterday); a real day 2 days back must not let the walk treat
+    // `end` as part of an ongoing streak.
+    let end = date(2026, 8, 20);
+    let days = vec![day(end - Duration::days(2), 60.0, 1440)];
+
+    let result = derive_baseline_delta(&days, established(30.0), end);
+
+    assert_eq!(result.sustained_days, 0);
+    assert!(result.daily_deltas.is_empty());
+  }
+
+  // ── mild vs large streaks are counted independently ──
+
+  #[test]
+  fn two_days_at_a_large_rise_followed_by_a_milder_third_day_report_sustained_mild_rise()
+  {
+    // Two consecutive days whose trailing window average clears the
+    // large threshold, then (going further back) a third day whose
+    // trailing window is only mild: the *mild* streak reaches 3 days,
+    // but the *large* streak stops at 2 - the large threshold must not
+    // be granted on the strength of a 3-day streak that only mostly
+    // cleared it.
+    let end = date(2026, 8, 20);
+    // Chosen so each cursor's 7-day trailing window (which accumulates
+    // every real row already seen, since all three days sit within 7
+    // days of each other) averages out to the target delta at that
+    // cursor: end-2 alone -> +7, end-1 blended with end-2 -> +10, end
+    // blended with both -> +10.
+    let days = vec![
+      day(
+        end - Duration::days(2),
+        37.0,
+        COOLING_BASELINE_COMPARABLE_IDLE_MINUTES,
+      ),
+      day(
+        end - Duration::days(1),
+        43.0,
+        COOLING_BASELINE_COMPARABLE_IDLE_MINUTES,
+      ),
+      day(end, 40.0, COOLING_BASELINE_COMPARABLE_IDLE_MINUTES),
+    ];
+
+    let result = derive_baseline_delta(&days, established(30.0), end);
+
+    assert_eq!(
+      result.observation,
+      CoolingDeltaObservation::SustainedMildRise
+    );
+    assert_eq!(result.sustained_days, 3);
+  }
+
+  #[test]
+  fn three_consecutive_days_at_a_large_rise_report_sustained_large_rise() {
+    let end = date(2026, 8, 20);
+    let days = days_ending_at(end, 3, 40.0);
+
+    let result = derive_baseline_delta(&days, established(30.0), end);
+
+    assert_eq!(
+      result.observation,
+      CoolingDeltaObservation::SustainedLargeRise
+    );
+    assert_eq!(result.sustained_days, 3);
+  }
+
+  #[test]
+  fn two_large_rise_days_are_not_yet_enough_for_a_large_verdict() {
+    let end = date(2026, 8, 20);
+    let days = days_ending_at(end, 2, 45.0);
+
+    let result = derive_baseline_delta(&days, established(30.0), end);
+
+    assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
+    assert_eq!(result.sustained_days, 2);
+  }
+
+  // ── pinned baseline (DB-backed) ──
+
+  mod pinned_baseline {
+    use super::*;
+    use sqlx::SqlitePool;
+
+    async fn setup_tables(pool: &SqlitePool) {
+      sqlx::query(
+        "CREATE TABLE cooling_daily_summary (
+          date TEXT PRIMARY KEY,
+          idle_cpu_temperature_avg REAL,
+          idle_cpu_temperature_max REAL,
+          idle_cpu_temperature_min REAL,
+          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          low_cpu_temperature_avg REAL,
+          low_cpu_temperature_max REAL,
+          low_cpu_temperature_min REAL,
+          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          mid_cpu_temperature_avg REAL,
+          mid_cpu_temperature_max REAL,
+          mid_cpu_temperature_min REAL,
+          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          high_cpu_temperature_avg REAL,
+          high_cpu_temperature_max REAL,
+          high_cpu_temperature_min REAL,
+          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          coverage_minutes INTEGER NOT NULL
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+      sqlx::query(
+        "CREATE TABLE cooling_baseline (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          window_start_date TEXT NOT NULL,
+          window_end_date TEXT NOT NULL,
+          idle_temperature_avg REAL NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          established_at TEXT NOT NULL
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn insert_idle_day(
+      pool: &SqlitePool,
+      date: NaiveDate,
+      temperature: f32,
+      minutes: u32,
+    ) {
+      sqlx::query(
+        "INSERT INTO cooling_daily_summary
+           (date, idle_cpu_temperature_avg, idle_sample_minutes, coverage_minutes)
+         VALUES ($1, $2, $3, 1440)",
+      )
+      .bind(date.format("%Y-%m-%d").to_string())
+      .bind(temperature)
+      .bind(minutes as i64)
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn insert_establishing_days(
+      pool: &SqlitePool,
+      start: NaiveDate,
+      temperature: f32,
+    ) {
+      use crate::persistence::cooling_baseline::COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS;
+      for offset in 0..COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS {
+        insert_idle_day(
+          pool,
+          start + Duration::days(offset as i64),
+          temperature,
+          COOLING_BASELINE_COMPARABLE_IDLE_MINUTES,
+        )
+        .await;
+      }
+    }
+
+    #[tokio::test]
+    async fn the_baseline_temperature_does_not_drift_when_its_source_rows_are_deleted() {
+      // Same regression as cooling_baseline's own pinning test, but for
+      // the delta loader: it must resolve the pinned row through the
+      // shared resolver instead of re-deriving from whatever
+      // `cooling_daily_summary` rows currently exist.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      setup_tables(&pool).await;
+      insert_establishing_days(&pool, date(2026, 8, 1), 42.0).await;
+      // A comparable recent window so the delta actually gets computed.
+      insert_idle_day(&pool, date(2026, 8, 19), 42.0, 120).await;
+
+      let established = load_cooling_baseline_delta_from_pool(&pool, date(2026, 8, 20))
+        .await
+        .unwrap();
+      assert_eq!(established.delta, Some(0.0));
+
+      // Age out the rows the baseline was derived from, and record a
+      // hotter stretch that would establish a different baseline value
+      // if the pinned row were ignored.
+      sqlx::query("DELETE FROM cooling_daily_summary")
+        .execute(&pool)
+        .await
+        .unwrap();
+      insert_establishing_days(&pool, date(2027, 6, 1), 70.0).await;
+      insert_idle_day(&pool, date(2027, 6, 19), 42.0, 120).await;
+
+      let after_cleanup = load_cooling_baseline_delta_from_pool(&pool, date(2027, 6, 20))
+        .await
+        .unwrap();
+      assert_eq!(
+        after_cleanup.delta,
+        Some(0.0),
+        "the pinned baseline must not drift when its source rows are deleted"
+      );
+    }
   }
 }

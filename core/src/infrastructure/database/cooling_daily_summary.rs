@@ -236,7 +236,7 @@ impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
   }
 }
 
-async fn select_all_daily_cooling_summaries_from_pool(
+pub(crate) async fn select_all_daily_cooling_summaries_from_pool(
   pool: &SqlitePool,
 ) -> Result<Vec<DailyCoolingSummary>, sqlx::Error> {
   let rows = sqlx::query_as::<_, DailyCoolingSummaryRow>(
