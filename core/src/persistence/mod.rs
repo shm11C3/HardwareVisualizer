@@ -11,8 +11,11 @@
 
 pub mod archive;
 pub mod archive_data;
+pub mod cooling_band_comparison;
 pub mod cooling_baseline;
+pub mod cooling_baseline_delta;
 pub mod cooling_rollup;
+pub mod cooling_trend;
 pub mod preflight;
 pub mod storage_health;
 
