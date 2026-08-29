@@ -111,6 +111,101 @@ test.describe("Grouped navigation destinations", () => {
     await saveCapture(page, "performance-monitor-desktop");
   });
 
+  test("switches Monitor Power Draw between current and graph modes", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await seedHardwareHistory(page);
+    await page.getByRole("tab", { name: "Monitor" }).click();
+
+    await expect(
+      page.getByTestId("performance-monitor-power-mode-switcher"),
+    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Current" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    await expect(
+      page.getByTestId("performance-monitor-power-rail"),
+    ).toContainText("Package");
+    await saveCapture(page, "performance-monitor-power-current");
+
+    await page.getByRole("tab", { name: "Graph" }).click();
+    await expect(
+      page.getByTestId("performance-monitor-power-graph"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("performance-monitor-power-rail"),
+    ).toHaveCount(0);
+    await saveCapture(page, "performance-monitor-power-graph");
+
+    await page.setViewportSize({ width: 520, height: 800 });
+    await expect(
+      page.getByTestId("performance-monitor-power-mode-switcher"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("performance-monitor-power-graph"),
+    ).toBeVisible();
+    const assertNoMonitorOverflow = async () => {
+      const overflow = await page.evaluate(() => {
+        const screen = document.querySelector<HTMLElement>(
+          '[data-testid="performance-screen"]',
+        );
+        return {
+          documentScrollWidth: document.documentElement.scrollWidth,
+          documentClientWidth: document.documentElement.clientWidth,
+          documentScrollHeight: document.documentElement.scrollHeight,
+          documentClientHeight: document.documentElement.clientHeight,
+          screenScrollWidth: screen?.scrollWidth ?? 0,
+          screenClientWidth: screen?.clientWidth ?? 0,
+          screenScrollHeight: screen?.scrollHeight ?? 0,
+          screenClientHeight: screen?.clientHeight ?? 0,
+        };
+      });
+      expect(overflow.documentScrollWidth).toBeLessThanOrEqual(
+        overflow.documentClientWidth,
+      );
+      expect(overflow.documentScrollHeight).toBeLessThanOrEqual(
+        overflow.documentClientHeight,
+      );
+      expect(overflow.screenScrollWidth).toBeLessThanOrEqual(
+        overflow.screenClientWidth,
+      );
+      expect(overflow.screenScrollHeight).toBeLessThanOrEqual(
+        overflow.screenClientHeight,
+      );
+    };
+
+    await assertNoMonitorOverflow();
+    await saveCapture(page, "performance-monitor-power-graph-compact-window");
+
+    await page.getByRole("tab", { name: "Current" }).click();
+    await expect(
+      page.getByTestId("performance-monitor-power-rail"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("performance-monitor-power-graph"),
+    ).toHaveCount(0);
+    await assertNoMonitorOverflow();
+    await saveCapture(page, "performance-monitor-power-current-compact-window");
+
+    await page.getByRole("tab", { name: "Graph" }).click();
+
+    await navigateTo(page, "settings");
+    await navigateTo(page, "performance");
+    await expect(page.getByRole("tab", { name: "Monitor" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    await expect(page.getByRole("tab", { name: "Graph" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    await expect(
+      page.getByTestId("performance-monitor-power-graph"),
+    ).toBeVisible();
+  });
+
   test("attributes the GPU readings to a named adapter the user can change", async ({
     page,
   }) => {

@@ -280,6 +280,14 @@
       "hidePanel": "Скрыть {{panel}}",
       "reorderPanel": "Изменить порядок: {{panel}}",
       "currentValues": "Текущие значения",
+      "monitorPowerModeSwitcher": "Отображение мощности",
+      "monitorPowerModes": {
+        "current": "Текущее",
+        "graph": "График"
+      },
+      "shortWindow": "Последние {{seconds}} с",
+      "now": "Сейчас",
+      "secondsAgo": "{{seconds}} с назад",
       "perCoreUnavailable": "Загрузка по ядрам недоступна в этой системе.",
       "motherboardSensorsUnavailable": "Датчики материнской платы не обнаружены в этой системе.",
       "power": {

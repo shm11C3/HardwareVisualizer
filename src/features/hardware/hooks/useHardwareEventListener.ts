@@ -20,6 +20,7 @@ import {
   motherboardTempsAtom,
   powerDrawAtom,
   powerDrawAvailableAtom,
+  powerDrawHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -60,6 +61,7 @@ export const useHardwareEventListener = () => {
   const setMotherboardFanSpeeds = useSetAtom(motherboardFanSpeedsAtom);
   const setPowerDrawAvailable = useSetAtom(powerDrawAvailableAtom);
   const setPowerDraw = useSetAtom(powerDrawAtom);
+  const setPowerDrawHistory = useSetAtom(powerDrawHistoryAtom);
 
   const handleHardwareUpdate = useCallback(
     (event: { payload: HardwareMonitorUpdate }) => {
@@ -125,9 +127,30 @@ export const useHardwareEventListener = () => {
         packageWatts: packagePowerWatts,
       };
       setPowerDraw(powerDraw);
-      if (Object.values(powerDraw).some((value) => value != null)) {
+      const hasPowerReading = Object.values(powerDraw).some(
+        (value) => value != null,
+      );
+      if (hasPowerReading) {
         setPowerDrawAvailable(true);
       }
+      setPowerDrawHistory((previous) => {
+        const historyStarted = Object.values(previous).some(
+          (history) => history.length > 0,
+        );
+        if (!hasPowerReading && !historyStarted) {
+          return previous;
+        }
+
+        return {
+          cpuWatts: padHistory([...previous.cpuWatts, powerDraw.cpuWatts]),
+          gpuWatts: padHistory([...previous.gpuWatts, powerDraw.gpuWatts]),
+          aneWatts: padHistory([...previous.aneWatts, powerDraw.aneWatts]),
+          packageWatts: padHistory([
+            ...previous.packageWatts,
+            powerDraw.packageWatts,
+          ]),
+        };
+      });
 
       // Per-GPU usage histories
       setGpuHistories((prev) => {
@@ -261,6 +284,7 @@ export const useHardwareEventListener = () => {
       setMotherboardFanSpeeds,
       setPowerDrawAvailable,
       setPowerDraw,
+      setPowerDrawHistory,
     ],
   );
   useEffect(() => {

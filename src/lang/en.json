@@ -290,6 +290,14 @@
       "hidePanel": "Hide {{panel}}",
       "reorderPanel": "Reorder {{panel}}",
       "currentValues": "Current values",
+      "monitorPowerModeSwitcher": "Power draw display",
+      "monitorPowerModes": {
+        "current": "Current",
+        "graph": "Graph"
+      },
+      "shortWindow": "Last {{seconds}} seconds",
+      "now": "Now",
+      "secondsAgo": "{{seconds}}s ago",
       "perCoreUnavailable": "Per-core usage is not available on this system.",
       "motherboardSensorsUnavailable": "No motherboard sensors detected on this system.",
       "power": {

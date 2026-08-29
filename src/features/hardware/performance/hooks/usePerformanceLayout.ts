@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef } from "react";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import {
   DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
+  DEFAULT_PERFORMANCE_MONITOR_POWER_MODE,
   DEFAULT_PERFORMANCE_PANEL_COLUMNS,
   DEFAULT_PERFORMANCE_VIEW,
   normalizePerformanceCustomLayout,
+  normalizePerformanceMonitorPowerMode,
   normalizePerformancePanelColumns,
   normalizePerformanceView,
+  type PerformanceMonitorPowerMode,
   type PerformancePanelColumns,
   type PerformancePanelId,
   type PerformanceView,
@@ -40,10 +43,21 @@ export const usePerformanceLayout = () => {
   // only the strip without being re-armed on every launch.
   const [storedCompactExpanded, setStoredCompactExpanded, isExpandedPending] =
     useTauriStore<boolean>("performanceCompactExpanded", false);
+  const [
+    storedMonitorPowerMode,
+    setStoredMonitorPowerMode,
+    isPowerModePending,
+  ] = useTauriStore<unknown>(
+    "performanceMonitorPowerMode",
+    DEFAULT_PERFORMANCE_MONITOR_POWER_MODE,
+  );
 
   const view = normalizePerformanceView(storedView);
   const columns = normalizePerformancePanelColumns(storedColumns);
   const customLayout = normalizePerformanceCustomLayout(storedCustomLayout);
+  const monitorPowerMode = normalizePerformanceMonitorPowerMode(
+    storedMonitorPowerMode,
+  );
   const latestCustomLayoutRef = useRef(customLayout);
   const customLayoutMutationQueueRef = useRef(Promise.resolve());
   const pendingCustomLayoutMutationCountRef = useRef(0);
@@ -119,10 +133,27 @@ export const usePerformanceLayout = () => {
     storedCustomLayout,
   ]);
 
+  useEffect(() => {
+    if (isPowerModePending || storedMonitorPowerMode === monitorPowerMode) {
+      return;
+    }
+    // Persist the normalized fallback too, so an obsolete value cannot keep
+    // being re-read as unknown on every launch.
+    void setStoredMonitorPowerMode(monitorPowerMode);
+  }, [
+    isPowerModePending,
+    monitorPowerMode,
+    setStoredMonitorPowerMode,
+    storedMonitorPowerMode,
+  ]);
+
   const setView = (nextView: PerformanceView) => setStoredView(nextView);
 
   const setColumns = (nextColumns: PerformancePanelColumns) =>
     setStoredColumns(nextColumns);
+
+  const setMonitorPowerMode = (nextMode: PerformanceMonitorPowerMode) =>
+    setStoredMonitorPowerMode(nextMode);
 
   const togglePanel = (panel: PerformancePanelId) =>
     enqueueCustomLayoutMutation((currentLayout) => {
@@ -167,6 +198,8 @@ export const usePerformanceLayout = () => {
     setView,
     columns,
     setColumns,
+    monitorPowerMode,
+    setMonitorPowerMode,
     compactExpanded: storedCompactExpanded === true,
     // Stable across renders (useTauriStore memoizes it), so effects can key
     // off it without resubscribing every render.
@@ -178,6 +211,7 @@ export const usePerformanceLayout = () => {
       isViewPending ||
       isCustomLayoutPending ||
       isColumnsPending ||
-      isExpandedPending,
+      isExpandedPending ||
+      isPowerModePending,
   };
 };

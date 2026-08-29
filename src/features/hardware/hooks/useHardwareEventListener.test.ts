@@ -23,6 +23,7 @@ import {
   motherboardTempsAtom,
   powerDrawAtom,
   powerDrawAvailableAtom,
+  powerDrawHistoryAtom,
   processorsUsageHistoryAtom,
   selectedGpuIdAtom,
   sensorTempsAtom,
@@ -432,6 +433,55 @@ describe("useHardwareEventListener", () => {
       gpuWatts: null,
       aneWatts: null,
       packageWatts: null,
+    });
+  });
+
+  it("retains nullable Power Draw samples for the full short window", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [history] = useAtom(powerDrawHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => {
+      emit(
+        makePayload({
+          cpuPowerWatts: 10.1,
+          gpuPowerWatts: 2.2,
+          anePowerWatts: null,
+          packagePowerWatts: null,
+        }),
+      );
+      emit(makePayload());
+    });
+
+    expect(result.current.cpuWatts).toHaveLength(chartConfig.historyLengthSec);
+    expect(result.current.cpuWatts.slice(-2)).toEqual([10.1, null]);
+    expect(result.current.gpuWatts.slice(-2)).toEqual([2.2, null]);
+    expect(result.current.aneWatts.slice(-2)).toEqual([null, null]);
+    expect(result.current.packageWatts.slice(-2)).toEqual([null, null]);
+  });
+
+  it("does not allocate Power Draw history before capability is established", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [history] = useAtom(powerDrawHistoryAtom);
+        return history;
+      },
+      { wrapper: Provider },
+    );
+
+    act(() => emit(makePayload()));
+
+    expect(result.current).toEqual({
+      cpuWatts: [],
+      gpuWatts: [],
+      aneWatts: [],
+      packageWatts: [],
     });
   });
 

@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createStore, Provider } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asLiveGpuId, type LiveGpuId } from "@/features/hardware/gpuIdentity";
@@ -22,6 +23,7 @@ const liveMap = <T,>(map: Record<string, T>) =>
 
 import type {
   PerformanceCustomLayout,
+  PerformanceMonitorPowerMode,
   PerformancePanelColumns,
   PerformanceView,
 } from "./types/performanceLayout";
@@ -30,6 +32,8 @@ const state = vi.hoisted(() => ({
   view: "panels" as PerformanceView,
   columns: 1 as PerformancePanelColumns,
   compactExpanded: false,
+  monitorPowerMode: "current" as PerformanceMonitorPowerMode,
+  setMonitorPowerMode: vi.fn(),
   customLayout: {
     order: [
       "usageGraphs",
@@ -163,6 +167,8 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
     setView: vi.fn(),
     columns: state.columns,
     setColumns: vi.fn(),
+    monitorPowerMode: state.monitorPowerMode,
+    setMonitorPowerMode: state.setMonitorPowerMode,
     compactExpanded: state.compactExpanded,
     setCompactExpanded: vi.fn(),
     customLayout: state.customLayout,
@@ -172,11 +178,17 @@ vi.mock("./hooks/usePerformanceLayout", () => ({
   }),
 }));
 
+vi.mock("./components/PowerDrawChart", () => ({
+  PowerDrawChart: () => <div data-testid="performance-monitor-power-graph" />,
+}));
+
 describe("Performance", () => {
   beforeEach(() => {
     state.view = "panels";
     state.columns = 1;
     state.compactExpanded = false;
+    state.monitorPowerMode = "current";
+    state.setMonitorPowerMode.mockClear();
     state.customLayout = {
       order: [
         "usageGraphs",
@@ -190,6 +202,7 @@ describe("Performance", () => {
     state.chartRenders = { cpu: 0, memory: 0, gpu: 0 };
     state.processRenders = 0;
     state.gpus = null;
+    settings.powerDisplayTargets = ["cpu", "gpu", "package"];
   });
 
   afterEach(cleanup);
@@ -271,6 +284,101 @@ describe("Performance", () => {
     expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
     expect(screen.queryByTestId("performance-current-values")).toBeNull();
     expect(screen.queryByTestId("live-process-table")).toBeNull();
+  });
+
+  it("shows a switchable current Power Draw rail after capability is established", async () => {
+    state.view = "monitor";
+    const user = userEvent.setup();
+    const store = createStore();
+    store.set(powerDrawAvailableAtom, true);
+    store.set(powerDrawAtom, {
+      cpuWatts: 10.1,
+      gpuWatts: 2.2,
+      aneWatts: null,
+      packageWatts: 12.3,
+    });
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(
+      screen.getByTestId("performance-monitor-power-mode-switcher"),
+    ).toBeVisible();
+    expect(screen.getByTestId("performance-monitor-power-rail")).toBeVisible();
+    expect(screen.queryByTestId("performance-monitor-power-graph")).toBeNull();
+
+    await user.click(
+      screen.getByRole("tab", {
+        name: "pages.performance.monitorPowerModes.graph",
+      }),
+    );
+
+    expect(state.setMonitorPowerMode).toHaveBeenCalledWith("graph");
+  });
+
+  it("shows the short-window Power Draw graph in Graph mode", () => {
+    state.view = "monitor";
+    state.monitorPowerMode = "graph";
+    const store = createStore();
+    store.set(powerDrawAvailableAtom, true);
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId("performance-monitor-power-graph")).toBeVisible();
+    expect(screen.queryByTestId("performance-monitor-power-rail")).toBeNull();
+    expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
+  });
+
+  it("keeps Power Draw controls and surfaces hidden without a selected target", () => {
+    state.view = "monitor";
+    settings.powerDisplayTargets = [];
+    const store = createStore();
+    store.set(powerDrawAvailableAtom, true);
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    expect(
+      screen.queryByTestId("performance-monitor-power-mode-switcher"),
+    ).toBeNull();
+    expect(screen.queryByTestId("performance-monitor-power-rail")).toBeNull();
+    expect(screen.queryByTestId("performance-monitor-power-graph")).toBeNull();
+    expect(screen.getByTestId("performance-usage-graphs")).toBeVisible();
+  });
+
+  it("keeps Usage Graphs out of the 1 Hz current Power Draw render path", () => {
+    state.view = "monitor";
+    const store = createStore();
+    store.set(powerDrawAvailableAtom, true);
+
+    render(
+      <Provider store={store}>
+        <Performance />
+      </Provider>,
+    );
+
+    const before = { ...state.chartRenders };
+
+    act(() =>
+      store.set(powerDrawAtom, {
+        cpuWatts: 10.1,
+        gpuWatts: 2.2,
+        aneWatts: null,
+        packageWatts: 12.3,
+      }),
+    );
+
+    expect(state.chartRenders).toEqual(before);
   });
 
   it("keeps hidden panels unmounted in the panels view", () => {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
   PerformanceCustomLayout,
+  PerformanceMonitorPowerMode,
   PerformanceView,
 } from "../types/performanceLayout";
 import { usePerformanceLayout } from "./usePerformanceLayout";
@@ -11,8 +12,10 @@ const setView = vi.fn();
 const setCustomLayout = vi.fn();
 const setColumns = vi.fn();
 const setCompactExpanded = vi.fn();
+const setMonitorPowerMode = vi.fn();
 let columns: unknown = 1;
 let compactExpanded: unknown = false;
+let monitorPowerMode: unknown = "current" satisfies PerformanceMonitorPowerMode;
 
 let view: PerformanceView = "panels";
 let customLayout: PerformanceCustomLayout = {
@@ -46,10 +49,12 @@ describe("usePerformanceLayout", () => {
     };
     columns = 1;
     compactExpanded = false;
+    monitorPowerMode = "current";
     setView.mockResolvedValue(undefined);
     setCustomLayout.mockResolvedValue(undefined);
     setColumns.mockResolvedValue(undefined);
     setCompactExpanded.mockResolvedValue(undefined);
+    setMonitorPowerMode.mockResolvedValue(undefined);
     vi.mocked(useTauriStore).mockImplementation((key) => {
       if (key === "performanceLayoutPreset") {
         return [view, setView, false] as never;
@@ -59,6 +64,9 @@ describe("usePerformanceLayout", () => {
       }
       if (key === "performanceCompactExpanded") {
         return [compactExpanded, setCompactExpanded, false] as never;
+      }
+      if (key === "performanceMonitorPowerMode") {
+        return [monitorPowerMode, setMonitorPowerMode, false] as never;
       }
       return [customLayout, setCustomLayout, false] as never;
     });
@@ -74,6 +82,18 @@ describe("usePerformanceLayout", () => {
     await act(async () => result.current.setView("monitor"));
 
     expect(setView).toHaveBeenCalledWith("monitor");
+  });
+
+  it("persists the Monitor Power Draw mode and repairs unknown values", async () => {
+    monitorPowerMode = "overlay";
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    expect(result.current.monitorPowerMode).toBe("current");
+    expect(setMonitorPowerMode).toHaveBeenCalledWith("current");
+
+    await act(async () => result.current.setMonitorPowerMode("graph"));
+
+    expect(setMonitorPowerMode).toHaveBeenLastCalledWith("graph");
   });
 
   it("persists the panel column count and repairs unusable values", async () => {
@@ -114,6 +134,9 @@ describe("usePerformanceLayout", () => {
       }
       if (key === "performancePanelColumns") {
         return [columns, setColumns, false] as never;
+      }
+      if (key === "performanceMonitorPowerMode") {
+        return [monitorPowerMode, setMonitorPowerMode, false] as never;
       }
       return [null, setCompactExpanded, true] as never;
     });
