@@ -9,8 +9,11 @@ import type { CoolingInsightPeriod } from "../types";
  *   an enormous row count for a single chart); Core precomputes daily
  *   summaries for exactly this range via `getCoolingTrend`.
  */
+/** The archive bucket widths the Cooling tab's 24h/7d/30d periods map to. */
+export type CoolingArchivePeriod = Extract<ArchivePeriod, 1440 | 10080 | 43200>;
+
 export type CoolingPeriodRoute =
-  | { kind: "archive"; minutes: ArchivePeriod }
+  | { kind: "archive"; minutes: CoolingArchivePeriod }
   | { kind: "dailyTrend"; days: 90 | 365 };
 
 export const resolveCoolingPeriodRoute = (
