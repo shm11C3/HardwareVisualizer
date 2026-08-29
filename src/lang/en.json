@@ -359,12 +359,13 @@
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
           "placeholder": "Idle temperature drift insight is coming in a future update."
         },
-        "unsupportedSensorsNote": "Package power and fan speed are not supported yet. They will be added as lanes once their collectors are implemented.",
+        "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
         "timeline": {
           "dailyPlaceholder": "The long-range daily thermal timeline is coming in a future update. Select 30 days or shorter to see the temperature chart."
         },
         "coverage": {
-          "title": "Recording Coverage"
+          "title": "Recording Coverage",
+          "loadFailed": "Failed to load recording coverage."
         },
         "loadBandComparison": {
           "title": "Load-Band Comparison",

@@ -30,10 +30,11 @@ export const useCoolingBandComparison = () => {
         }
       } catch (e) {
         console.error(e);
+        // A stale request must neither flip the state nor open a dialog.
         if (requestIdRef.current === requestId) {
           setData(null);
+          void error(String(e));
         }
-        void error(String(e));
       }
     })();
   }, [error]);

@@ -57,9 +57,8 @@ const CoolingInsightBody = ({
   bandComparison: CoolingBandComparison | null;
 }) => {
   const route = resolveCoolingPeriodRoute(period);
-  const { data: dailyTrend } = useCoolingDailyTrend(
-    route.kind === "dailyTrend" ? route.days : null,
-  );
+  const { data: dailyTrend, hasError: dailyTrendHasError } =
+    useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
 
   return (
     <div className="space-y-4 pb-6">
@@ -71,7 +70,11 @@ const CoolingInsightBody = ({
       <ThermalTimelineLane route={route} />
       <UnsupportedSensorNote />
       {route.kind === "dailyTrend" && (
-        <CoverageStrip points={dailyTrend ?? []} days={route.days} />
+        <CoverageStrip
+          points={dailyTrend}
+          days={route.days}
+          hasError={dailyTrendHasError}
+        />
       )}
       <LoadBandComparisonPanel bandComparison={bandComparison} />
     </div>
