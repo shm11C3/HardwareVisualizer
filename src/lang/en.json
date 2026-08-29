@@ -378,6 +378,7 @@
         "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
         "timeline": {
           "title": "Thermal Timeline",
+          "loadFailed": "Failed to load the thermal timeline.",
           "temperatureLane": "CPU temperature ({{unit}})",
           "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
           "loadLaneUsage": "CPU load (%)",

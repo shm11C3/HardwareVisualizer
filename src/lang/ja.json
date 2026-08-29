@@ -378,6 +378,7 @@
         "unsupportedSensorsNote": "タイムラインへの電力・ファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
         "timeline": {
           "title": "サーマルタイムライン",
+          "loadFailed": "サーマルタイムラインの取得に失敗しました。",
           "temperatureLane": "CPU 温度 ({{unit}})",
           "temperatureUnavailable": "この期間の温度の記録はありません。CPU 負荷のみ表示しています。",
           "loadLaneUsage": "CPU 負荷 (%)",

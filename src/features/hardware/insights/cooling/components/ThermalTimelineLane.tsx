@@ -18,10 +18,13 @@ import {
 } from "../utils/thermalTimeline";
 import { type LoadLaneMode, TimelineLanes } from "./TimelineLanes";
 
+// Day keys are UTC-midnight anchored (`${isoDate}T00:00:00Z`); the labels
+// must be formatted in UTC too, or a negative local offset would label
+// every row with the previous local day.
 const dailyDateFormatOptions = (days: number): Intl.DateTimeFormatOptions =>
   days > 90
-    ? { year: "numeric", month: "numeric", day: "2-digit" }
-    : { month: "numeric", day: "2-digit" };
+    ? { year: "numeric", month: "numeric", day: "2-digit", timeZone: "UTC" }
+    : { month: "numeric", day: "2-digit", timeZone: "UTC" };
 
 /** Same axis-label density `useInsightChart` uses for the archive periods. */
 const archiveDateFormatOptions = (
@@ -66,7 +69,12 @@ export const ThermalTimelineLane = ({
   const { settings } = useSettingsAtom();
   const temperatureUnit = settings.temperatureUnit;
 
-  const { series, stepMs } = useCoolingArchiveTimeline(
+  const {
+    series,
+    stepMs,
+    hasLoaded: archiveLoaded,
+    hasError: archiveHasError,
+  } = useCoolingArchiveTimeline(
     route.kind === "archive" ? route.minutes : null,
   );
 
@@ -147,7 +155,12 @@ export const ThermalTimelineLane = ({
       <h3 className="mb-3 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
         {t("pages.insights.cooling.timeline.title")}
       </h3>
-      {route.kind === "dailyTrend" && dailyTrend == null ? (
+      {route.kind === "archive" && archiveHasError ? (
+        <p className="text-muted-foreground text-sm">
+          {t("pages.insights.cooling.timeline.loadFailed")}
+        </p>
+      ) : (route.kind === "dailyTrend" && dailyTrend == null) ||
+        (route.kind === "archive" && !archiveLoaded) ? (
         <Skeleton
           aria-busy="true"
           className="h-50 w-full"
