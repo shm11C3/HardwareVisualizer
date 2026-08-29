@@ -357,7 +357,22 @@
         },
         "observationStrip": {
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
-          "placeholder": "アイドル時温度ドリフトのインサイトは今後のアップデートで追加予定です。"
+          "notComparable": "比較不能 — 直近のアイドルサンプルが不足しています",
+          "withinRange": "アイドル時温度はベースライン範囲内({{delta}})",
+          "sustainedMildRise": "アイドル時温度がベースラインより {{delta}} 高い状態が {{days}} 日間続いています",
+          "sustainedLargeRise": "アイドル時温度がベースラインより {{delta}} 大幅に高い状態が {{days}} 日間続いています",
+          "comparisonWindow": "直近 {{days}} 日 vs ベースライン {{startDate}}–{{endDate}} · 同等負荷条件での比較",
+          "disclaimer": "室温・電源プラン・BIOS 設定・ソフトウェア構成の変化でも同じ傾向は生じます。この表示だけで部品の劣化を断定することはできません。",
+          "checklist": {
+            "trigger": "確認するとよい項目",
+            "items": {
+              "dust": "吸気口・フィルター・ヒートシンクのほこり",
+              "airflow": "ケース内エアフロー",
+              "fanCurve": "ファン設定・ファンカーブの変更有無",
+              "thermalPaste": "CPU グリス・クーラーの状態(長期使用時)"
+            },
+            "footnote": "これは観察に基づく確認候補であり、故障診断ではありません。"
+          }
         },
         "unsupportedSensorsNote": "パッケージ電力・ファン回転数は未対応です。コレクター実装後にレーンとして追加されます。",
         "timeline": {

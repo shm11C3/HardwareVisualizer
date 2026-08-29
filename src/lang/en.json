@@ -357,7 +357,22 @@
         },
         "observationStrip": {
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
-          "placeholder": "Idle temperature drift insight is coming in a future update."
+          "notComparable": "Not comparable — recent idle samples are insufficient.",
+          "withinRange": "Idle temperature is within the baseline range ({{delta}}).",
+          "sustainedMildRise": "Idle temperature has been {{delta}} above baseline for {{days}} days.",
+          "sustainedLargeRise": "Idle temperature has been substantially higher than baseline ({{delta}}) for {{days}} days.",
+          "comparisonWindow": "Last {{days}} days vs. baseline {{startDate}}–{{endDate}} · compared under similar load conditions",
+          "disclaimer": "Room temperature, power plan, BIOS settings, or software changes can produce the same pattern. This alone cannot confirm component wear.",
+          "checklist": {
+            "trigger": "Things worth checking",
+            "items": {
+              "dust": "Dust in intake vents, filters, or the heatsink",
+              "airflow": "Case airflow",
+              "fanCurve": "Recent fan or fan-curve changes",
+              "thermalPaste": "Thermal paste and cooler condition (after extended use)"
+            },
+            "footnote": "These are observation-based points to check, not a fault diagnosis."
+          }
         },
         "unsupportedSensorsNote": "Package power and fan speed are not supported yet. They will be added as lanes once their collectors are implemented.",
         "timeline": {

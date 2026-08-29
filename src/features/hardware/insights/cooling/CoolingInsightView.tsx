@@ -19,9 +19,9 @@ import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
 /**
  * The Cooling tab: zone structure, single period selector, and
  * empty/coverage states. Zone (2) is the synchronized thermal timeline
- * (#2019); zones (1) observation strip and (5) load-band comparison still
- * hold placeholder content pending #2020 - see each component's doc comment
- * for what is deferred.
+ * (#2019); zone (1) is the idle-drift observation strip and zone (5) is the
+ * load-band comparison (#2020) - see each component's doc comment for its
+ * own responsibilities.
  */
 export const CoolingInsightView = () => {
   const periodState = useCoolingInsightPeriod();
