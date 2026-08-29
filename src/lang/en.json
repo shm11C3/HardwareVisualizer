@@ -409,12 +409,24 @@
         },
         "loadBandComparison": {
           "title": "Load-Band Comparison",
-          "placeholder": "Detailed load-band comparison charts are coming in a future update."
+          "legend": {
+            "baseline": "Baseline",
+            "recent": "Recent"
+          },
+          "notComparable": "Not enough samples to compare"
         },
         "dataState": {
           "title": "Data State",
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
-          "ready": "Baseline established. Comparison charts are coming in a future update."
+          "sampleMinutes": "{{baseline}} / {{recent}} min",
+          "temperatureSource": {
+            "label": "Temperature source",
+            "value": "CPU package (1 sensor)"
+          },
+          "unsupported": {
+            "label": "Power / fan",
+            "value": "Not supported yet"
+          }
         }
       },
       "gpu": {

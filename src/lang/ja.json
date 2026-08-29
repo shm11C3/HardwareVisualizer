@@ -409,12 +409,24 @@
         },
         "loadBandComparison": {
           "title": "負荷帯域比較",
-          "placeholder": "詳細な負荷帯域比較チャートは今後のアップデートで追加予定です。"
+          "legend": {
+            "baseline": "ベースライン",
+            "recent": "直近"
+          },
+          "notComparable": "サンプル不足のため比較保留"
         },
         "dataState": {
           "title": "データ状態",
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
-          "ready": "ベースラインが確立されました。比較チャートは今後のアップデートで追加予定です。"
+          "sampleMinutes": "{{baseline}} / {{recent}} 分",
+          "temperatureSource": {
+            "label": "温度ソース",
+            "value": "CPU パッケージ(1 系統)"
+          },
+          "unsupported": {
+            "label": "電力・ファン",
+            "value": "未対応"
+          }
         }
       },
       "gpu": {
