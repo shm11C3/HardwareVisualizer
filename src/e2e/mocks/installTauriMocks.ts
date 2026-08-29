@@ -219,19 +219,29 @@ const buildInvokeHandlers = (
   get_data_archive_series: (args) => {
     const a = args as {
       hardwareType: string;
+      dataStats: string;
       start: string;
       end: string;
       bucketWidthMs: number;
       bucketTimestamp: ArchiveBucketTimestamp;
     };
+    // Separate the avg/max/min series the way a real archive does, so a
+    // chart drawing all three (the Cooling tab's temperature lane) shows a
+    // real band instead of three identical curves.
+    const spread = (width: number) =>
+      a.dataStats === "max" ? width : a.dataStats === "min" ? -width : 0;
+
     if (a.hardwareType === "cpu") {
       return buildArchiveSeries(
         a.start,
         a.end,
         a.bucketWidthMs,
         a.bucketTimestamp,
-        45,
+        45 + spread(18),
         20,
+        // The CPU series shares the temperature series' gaps so the Cooling
+        // tab's two lanes break at the same buckets.
+        { gapEvery: 17 },
       );
     }
     if (a.hardwareType === "cpuTemperature") {
@@ -240,8 +250,9 @@ const buildInvokeHandlers = (
         a.end,
         a.bucketWidthMs,
         a.bucketTimestamp,
-        58,
+        58 + spread(7),
         6,
+        { gapEvery: 17 },
       );
     }
     if (a.hardwareType.endsWith("Power")) {
@@ -250,7 +261,7 @@ const buildInvokeHandlers = (
         a.end,
         a.bucketWidthMs,
         a.bucketTimestamp,
-        18,
+        18 + spread(5),
         7,
       );
     }
@@ -259,7 +270,7 @@ const buildInvokeHandlers = (
       a.end,
       a.bucketWidthMs,
       a.bucketTimestamp,
-      60,
+      60 + spread(10),
       8,
     );
   },

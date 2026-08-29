@@ -58,21 +58,24 @@ const chartConfig = {
     label: "cpu",
     color: "hsl(var(--chart-4))",
   },
+  // `--chart-1` stays reserved for the temperature series, so the load
+  // bands take the remaining tokens rather than reusing the lane color that
+  // already means "temperature" one lane above.
   loadIdle: {
     label: "idle",
     color: "hsl(var(--chart-2))",
   },
   loadLow: {
     label: "low",
-    color: "hsl(var(--chart-4))",
+    color: "hsl(var(--chart-3))",
   },
   loadMid: {
     label: "mid",
-    color: "hsl(var(--chart-5))",
+    color: "hsl(var(--chart-4))",
   },
   loadHigh: {
     label: "high",
-    color: "hsl(var(--chart-1))",
+    color: "hsl(var(--chart-5))",
   },
 } satisfies ChartConfig;
 
@@ -347,7 +350,9 @@ export const TimelineLanes = ({
           />
           <Area
             dataKey="temperatureRange"
-            stroke="none"
+            stroke={seriesColor("temperatureRange")}
+            strokeOpacity={0.4}
+            strokeWidth={1}
             fill={seriesColor("temperatureRange")}
             fillOpacity={0.18}
             isAnimationActive={false}
