@@ -347,7 +347,34 @@
       },
       "cooling": {
         "title": "冷却",
-        "packagePower": "パッケージ消費電力"
+        "packagePower": "パッケージ消費電力",
+        "periods": {
+          "24h": "24時間",
+          "7d": "7日間",
+          "30d": "30日間",
+          "90d": "90日間",
+          "1y": "1年間"
+        },
+        "observationStrip": {
+          "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
+          "placeholder": "アイドル時温度ドリフトのインサイトは今後のアップデートで追加予定です。"
+        },
+        "unsupportedSensorsNote": "パッケージ電力・ファン回転数は未対応です。コレクター実装後にレーンとして追加されます。",
+        "timeline": {
+          "dailyPlaceholder": "長期間の日次サーマルタイムラインは今後のアップデートで追加予定です。温度チャートを見るには30日以下の期間を選択してください。"
+        },
+        "coverage": {
+          "title": "記録カバレッジ"
+        },
+        "loadBandComparison": {
+          "title": "負荷帯域比較",
+          "placeholder": "詳細な負荷帯域比較チャートは今後のアップデートで追加予定です。"
+        },
+        "dataState": {
+          "title": "データ状態",
+          "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
+          "ready": "ベースラインが確立されました。比較チャートは今後のアップデートで追加予定です。"
+        }
       },
       "gpu": {
         "title": "GPU"

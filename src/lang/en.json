@@ -347,7 +347,34 @@
       },
       "cooling": {
         "title": "Cooling",
-        "packagePower": "Package power"
+        "packagePower": "Package power",
+        "periods": {
+          "24h": "24 Hours",
+          "7d": "7 Days",
+          "30d": "30 Days",
+          "90d": "90 Days",
+          "1y": "1 Year"
+        },
+        "observationStrip": {
+          "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
+          "placeholder": "Idle temperature drift insight is coming in a future update."
+        },
+        "unsupportedSensorsNote": "Package power and fan speed are not supported yet. They will be added as lanes once their collectors are implemented.",
+        "timeline": {
+          "dailyPlaceholder": "The long-range daily thermal timeline is coming in a future update. Select 30 days or shorter to see the temperature chart."
+        },
+        "coverage": {
+          "title": "Recording Coverage"
+        },
+        "loadBandComparison": {
+          "title": "Load-Band Comparison",
+          "placeholder": "Detailed load-band comparison charts are coming in a future update."
+        },
+        "dataState": {
+          "title": "Data State",
+          "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
+          "ready": "Baseline established. Comparison charts are coming in a future update."
+        }
       },
       "gpu": {
         "title": "GPU"

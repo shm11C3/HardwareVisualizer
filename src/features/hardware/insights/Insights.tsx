@@ -21,11 +21,11 @@ import type {
   DataStats,
   GpuDataType,
 } from "@/features/hardware/types/hardwareDataType";
-import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type { DataArchiveHardwareType } from "@/rspc/bindings";
 import { useGpuNames } from "../hooks/useGpuNames";
 import { SelectPeriod } from "./components/SelectPeriod";
+import { CoolingInsightView } from "./cooling/CoolingInsightView";
 import { SnapshotIcon } from "./icons/snapshot";
 import { ProcessInsight } from "./process/ProcessInsight";
 import { Snapshot } from "./snapshot/Snapshot";
@@ -165,143 +165,6 @@ const MainInsights = () => {
             />
           );
         })}
-      </div>
-    </div>
-  );
-};
-
-const CoolingInsights = () => {
-  const { t } = useTranslation();
-  const { settings } = useSettingsAtom();
-  const [periodAvgCpuTemperature, setPeriodAvgCpuTemperature] = useTauriStore<
-    (typeof archivePeriods)[number]
-  >("periodAvgCpuTemperature", 60);
-  const [periodMaxCpuTemperature, setPeriodMaxCpuTemperature] = useTauriStore<
-    (typeof archivePeriods)[number]
-  >("periodMaxCpuTemperature", 60);
-  const [periodMinCpuTemperature, setPeriodMinCpuTemperature] = useTauriStore<
-    (typeof archivePeriods)[number]
-  >("periodMinCpuTemperature", 60);
-  const [periodAvgPackagePower, setPeriodAvgPackagePower] = useTauriStore<
-    (typeof archivePeriods)[number]
-  >("periodAvgPackagePower", 60);
-  const [periodMaxPackagePower, setPeriodMaxPackagePower] = useTauriStore<
-    (typeof archivePeriods)[number]
-  >("periodMaxPackagePower", 60);
-  const [periodMinPackagePower, setPeriodMinPackagePower] = useTauriStore<
-    (typeof archivePeriods)[number]
-  >("periodMinPackagePower", 60);
-
-  const periods: Record<(typeof archivePeriods)[number], string> = {
-    "10": `10 ${t("shared.time.minutes")}`,
-    "30": `30 ${t("shared.time.minutes")}`,
-    "60": `1 ${t("shared.time.hours")}`,
-    "180": `3 ${t("shared.time.hours")}`,
-    "720": `12 ${t("shared.time.hours")}`,
-    "1440": `1 ${t("shared.time.days")}`,
-    "10080": `7 ${t("shared.time.days")}`,
-    "20160": `14 ${t("shared.time.days")}`,
-    "43200": `30 ${t("shared.time.days")}`,
-  };
-
-  const options = archivePeriods.map((period) => ({
-    label: periods[period],
-    value: period,
-  }));
-
-  const selections = [
-    periodAvgCpuTemperature,
-    periodMaxCpuTemperature,
-    periodMinCpuTemperature,
-    periodAvgPackagePower,
-    periodMaxPackagePower,
-    periodMinPackagePower,
-  ];
-
-  const chartData: {
-    type: DataArchiveHardwareType;
-    stats: DataStats;
-    period: [
-      (typeof archivePeriods)[number] | null,
-      (newValue: (typeof archivePeriods)[number]) => Promise<void>,
-    ];
-  }[] = [
-    {
-      type: "cpuTemperature",
-      stats: "avg",
-      period: [periodAvgCpuTemperature, setPeriodAvgCpuTemperature],
-    },
-    {
-      type: "cpuTemperature",
-      stats: "max",
-      period: [periodMaxCpuTemperature, setPeriodMaxCpuTemperature],
-    },
-    {
-      type: "cpuTemperature",
-      stats: "min",
-      period: [periodMinCpuTemperature, setPeriodMinCpuTemperature],
-    },
-    ...settings.powerDisplayTargets.flatMap((target) => {
-      const type = `${target}Power` as DataArchiveHardwareType;
-      return [
-        {
-          type,
-          stats: "avg" as const,
-          period: [periodAvgPackagePower, setPeriodAvgPackagePower] as [
-            typeof periodAvgPackagePower,
-            typeof setPeriodAvgPackagePower,
-          ],
-        },
-        {
-          type,
-          stats: "max" as const,
-          period: [periodMaxPackagePower, setPeriodMaxPackagePower] as [
-            typeof periodMaxPackagePower,
-            typeof setPeriodMaxPackagePower,
-          ],
-        },
-        {
-          type,
-          stats: "min" as const,
-          period: [periodMinPackagePower, setPeriodMinPackagePower] as [
-            typeof periodMinPackagePower,
-            typeof setPeriodMinPackagePower,
-          ],
-        },
-      ];
-    }),
-  ];
-
-  return (
-    <div className="pb-6">
-      <div className="flex items-center justify-end">
-        <SelectPeriod
-          options={options}
-          selected={
-            selections.every((s) => s === selections[0])
-              ? periodAvgCpuTemperature
-              : null
-          }
-          onChange={(v) => {
-            setPeriodAvgCpuTemperature(v);
-            setPeriodMaxCpuTemperature(v);
-            setPeriodMinCpuTemperature(v);
-            setPeriodAvgPackagePower(v);
-            setPeriodMaxPackagePower(v);
-            setPeriodMinPackagePower(v);
-          }}
-          showDefaultOption={!selections.every((s) => s === selections[0])}
-        />
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 gap-6">
-        {chartData.map((data) => (
-          <ChartArea
-            key={`${data.type}-${data.stats}-${data.period[0]}`}
-            {...data}
-            options={options}
-          />
-        ))}
       </div>
     </div>
   );
@@ -705,7 +568,7 @@ export const Insights = () => {
     {
       name: "cooling",
       type: "cooling",
-      element: <CoolingInsights />,
+      element: <CoolingInsightView />,
     },
     ...(gpuNames.length
       ? gpuNames.map(
