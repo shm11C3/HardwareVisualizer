@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type {
   CoolingBaselineState,
@@ -69,10 +70,6 @@ export const ThermalTimelineLane = ({
     route.kind === "archive" ? route.minutes : null,
   );
 
-  // The daily window ends today; keying the reference date on the UTC day
-  // keeps the rows stable across renders within the same day.
-  const todayKey = new Date().toISOString().slice(0, 10);
-
   const rows = useMemo<ThermalTimelineRow[]>(() => {
     if (route.kind === "archive") {
       const formatter = new Intl.DateTimeFormat(
@@ -87,18 +84,32 @@ export const ThermalTimelineLane = ({
       );
     }
 
+    const points = dailyTrend ?? [];
+    if (points.length === 0) {
+      return [];
+    }
+    // Anchor the daily grid to the latest summarized local day Core
+    // returned - its trailing window ends yesterday in the machine's
+    // local timezone, so anchoring on the frontend's own clock would
+    // shift the whole grid by a day (dropping the oldest returned day
+    // and appending a false empty one), and further across timezone
+    // boundaries. "YYYY-MM-DD" sorts lexicographically as chronologically.
+    const latestDate = points.reduce(
+      (max, point) => (point.date > max ? point.date : max),
+      points[0].date,
+    );
     const formatter = new Intl.DateTimeFormat(
       undefined,
       dailyDateFormatOptions(route.days),
     );
     return buildDailyTimelineRows(
-      dailyTrend ?? [],
+      points,
       route.days,
-      new Date(`${todayKey}T00:00:00Z`),
+      new Date(`${latestDate}T00:00:00Z`),
       temperatureUnit,
       (isoDate) => formatter.format(new Date(`${isoDate}T00:00:00Z`)),
     );
-  }, [route, series, stepMs, dailyTrend, temperatureUnit, todayKey]);
+  }, [route, series, stepMs, dailyTrend, temperatureUnit]);
 
   const baselineBand = useMemo(
     () => resolveBaselineBand(baseline, temperatureUnit),
@@ -119,6 +130,15 @@ export const ThermalTimelineLane = ({
   const loadMode: LoadLaneMode =
     route.kind === "archive" ? "usage" : "composition";
 
+  const hasLoadData = rows.some(
+    (row) =>
+      row.cpuUsage != null ||
+      row.loadIdle != null ||
+      row.loadLow != null ||
+      row.loadMid != null ||
+      row.loadHigh != null,
+  );
+
   return (
     <section
       className="rounded-2xl bg-card p-4"
@@ -127,11 +147,20 @@ export const ThermalTimelineLane = ({
       <h3 className="mb-3 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
         {t("pages.insights.cooling.timeline.title")}
       </h3>
-      {domain == null ? (
+      {route.kind === "dailyTrend" && dailyTrend == null ? (
+        <Skeleton
+          aria-busy="true"
+          className="h-50 w-full"
+          data-testid="cooling-timeline-loading"
+        />
+      ) : domain == null && !hasLoadData ? (
         <p className="text-muted-foreground text-sm">
           {t("pages.insights.noDataForPeriod")}
         </p>
       ) : (
+        // `domain == null` with load data still renders: archived CPU
+        // usage without a working temperature sensor is useful partial
+        // data, so only the temperature lane degrades (DP-02).
         <TimelineLanes
           rows={rows}
           domain={domain}

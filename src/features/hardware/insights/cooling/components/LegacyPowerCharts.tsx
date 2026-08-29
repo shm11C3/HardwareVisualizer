@@ -80,13 +80,13 @@ const PowerChart = ({
         <button
           type="button"
           className="h-40 cursor-pointer text-muted-foreground disabled:pointer-events-none disabled:opacity-50"
-          onClick={() => setOffset(offset - 1)}
+          onClick={() => setOffset((prev) => Math.max(0, prev - 1))}
           onMouseDown={() => handleMouseDown(-1)}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onTouchStart={() => handleMouseDown(-1)}
           onTouchEnd={handleMouseUp}
-          disabled={offset < 0}
+          disabled={offset <= 0}
         >
           <ChevronRight size={32} />
         </button>

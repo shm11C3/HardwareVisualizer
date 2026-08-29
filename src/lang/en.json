@@ -374,10 +374,11 @@
             "footnote": "These are observation-based points to check, not a fault diagnosis."
           }
         },
-        "unsupportedSensorsNote": "Package power and fan speed are not supported yet. They will be added as lanes once their collectors are implemented.",
+        "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
         "timeline": {
           "title": "Thermal Timeline",
           "temperatureLane": "CPU temperature ({{unit}})",
+          "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
           "loadLaneUsage": "CPU load (%)",
           "loadLaneComposition": "Load bands (% of day)",
           "legend": {
@@ -405,7 +406,8 @@
           "title": "Power Charts"
         },
         "coverage": {
-          "title": "Recording Coverage"
+          "title": "Recording Coverage",
+          "loadFailed": "Failed to load recording coverage."
         },
         "loadBandComparison": {
           "title": "Load-Band Comparison",
