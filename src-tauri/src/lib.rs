@@ -403,13 +403,22 @@ pub fn run() {
         // rows older than the retention cutoff can still be present at
         // startup, and the backfill must read them before they are
         // deleted or those days would be lost from the rollup forever.
-        // The receiver also resolves if the rollup worker dies, so
-        // cleanup can never be blocked indefinitely.
+        // Cleanup runs only when that pass actually succeeded — after a
+        // failed pass (or a dead worker, which closes the channel) this
+        // boot's cleanup is skipped so a transient DB error cannot let
+        // deletion outrun the rollup; the next boot retries both.
         if core_settings.hardware_archive.scheduled_data_deletion {
           let retention_days = core_settings.hardware_archive.retention_days;
           tauri::async_runtime::spawn(async move {
-            let _ = cooling_rollup_first_catch_up.await;
-            hardviz_core::persistence::cleanup_old_data(retention_days).await;
+            if cooling_rollup_first_catch_up.await == Ok(true) {
+              hardviz_core::persistence::cleanup_old_data(retention_days).await;
+            } else {
+              log_warn!(
+                "Skipping this boot's retention cleanup: the cooling rollup's first catch-up did not succeed",
+                "lib::run",
+                None::<&str>
+              );
+            }
           });
         }
       } else {

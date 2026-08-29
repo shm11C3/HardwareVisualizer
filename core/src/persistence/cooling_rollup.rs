@@ -324,21 +324,23 @@ impl CoolingRollupController {
   /// checks once per [`COOLING_ROLLUP_CHECK_INTERVAL_SECONDS`] whether
   /// the local day has advanced far enough to catch up again.
   ///
-  /// Also returns a receiver that resolves once that first catch-up
-  /// pass has finished (or the worker died), so callers can order work
-  /// that deletes archive rows — the `scheduledDataDeletion` retention
-  /// cleanup — after the backfill has read the rows it needs. Rows
-  /// older than the archive Retention Period can still be present at
-  /// startup (cleanup was disabled, or the app was simply not running
-  /// past the cutoff), and racing the cleanup would silently lose those
-  /// days from the rollup forever.
-  pub fn setup(runtime: Handle) -> (Self, oneshot::Receiver<()>) {
+  /// Also returns a receiver that resolves with the *outcome* of that
+  /// first catch-up pass, so callers can gate work that deletes archive
+  /// rows — the `scheduledDataDeletion` retention cleanup — on the
+  /// backfill having actually read the rows it needs. Rows older than
+  /// the archive Retention Period can still be present at startup
+  /// (cleanup was disabled, or the app was simply not running past the
+  /// cutoff); racing the cleanup, or running it after a failed pass,
+  /// would silently lose those days from the rollup forever. `false`
+  /// (or a closed channel, meaning the worker died) tells the caller to
+  /// skip this boot's cleanup and let the next boot retry both.
+  pub fn setup(runtime: Handle) -> (Self, oneshot::Receiver<bool>) {
     let (stop_tx, mut stop_rx) = watch::channel(false);
     let (first_catch_up_tx, first_catch_up_rx) = oneshot::channel();
 
     let handle = runtime.spawn(async move {
-      run_catch_up().await;
-      let _ = first_catch_up_tx.send(());
+      let first_pass_succeeded = run_catch_up().await;
+      let _ = first_catch_up_tx.send(first_pass_succeeded);
       let mut last_checked_date = Some(chrono::Local::now().date_naive());
 
       let mut ticker = interval(tokio::time::Duration::from_secs(
@@ -363,7 +365,7 @@ impl CoolingRollupController {
           _ = ticker.tick() => {
             let today = chrono::Local::now().date_naive();
             if last_checked_date != Some(today) {
-              run_catch_up().await;
+              let _ = run_catch_up().await;
               last_checked_date = Some(today);
             }
           }
@@ -380,13 +382,18 @@ impl CoolingRollupController {
   }
 }
 
-async fn run_catch_up() {
-  if let Err(e) = catch_up_cooling_rollup().await {
-    log_error!(
-      "Failed to catch up cooling daily rollup",
-      "persistence::cooling_rollup::run_catch_up",
-      Some(e.to_string())
-    );
+/// Run one catch-up pass; `true` when every pending day was rolled up.
+async fn run_catch_up() -> bool {
+  match catch_up_cooling_rollup().await {
+    Ok(()) => true,
+    Err(e) => {
+      log_error!(
+        "Failed to catch up cooling daily rollup",
+        "persistence::cooling_rollup::run_catch_up",
+        Some(e.to_string())
+      );
+      false
+    }
   }
 }
 
