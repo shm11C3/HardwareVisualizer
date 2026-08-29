@@ -334,6 +334,19 @@ pub fn run() {
           }
         }
 
+        // The cooling daily rollup derives its summary from whatever
+        // Hardware Archive rows already exist in the database, so it
+        // starts independently of `hardware_archive.enabled`: even when
+        // live archive collection is currently turned off, already
+        // archived days it hasn't caught up on yet still get rolled up.
+        let cooling_rollup_first_catch_up = {
+          let (cooling_rollup, first_catch_up) =
+            hardviz_core::persistence::CoolingRollupController::setup(runtime_handle.clone());
+          let ws = app.state::<workers::WorkersState>();
+          ws.cooling_rollup.lock().unwrap().replace(cooling_rollup);
+          first_catch_up
+        };
+
         if core_settings.storage_health.enabled {
           match core_settings.storage_health_identity.hash_key_bytes() {
             Ok(identity_hash_key) => {
@@ -385,10 +398,28 @@ pub fn run() {
         // The `scheduled_data_deletion` flag still means startup cleanup,
         // not a recurring background schedule.
         // See `hardviz_core::persistence::cleanup_old_data` doc comment.
+        //
+        // It waits for the cooling rollup's first catch-up pass: archive
+        // rows older than the retention cutoff can still be present at
+        // startup, and the backfill must read them before they are
+        // deleted or those days would be lost from the rollup forever.
+        // Cleanup runs only when that pass actually succeeded — after a
+        // failed pass (or a dead worker, which closes the channel) this
+        // boot's cleanup is skipped so a transient DB error cannot let
+        // deletion outrun the rollup; the next boot retries both.
         if core_settings.hardware_archive.scheduled_data_deletion {
-          tauri::async_runtime::spawn(hardviz_core::persistence::cleanup_old_data(
-            core_settings.hardware_archive.retention_days,
-          ));
+          let retention_days = core_settings.hardware_archive.retention_days;
+          tauri::async_runtime::spawn(async move {
+            if cooling_rollup_first_catch_up.await == Ok(true) {
+              hardviz_core::persistence::cleanup_old_data(retention_days).await;
+            } else {
+              log_warn!(
+                "Skipping this boot's retention cleanup: the cooling rollup's first catch-up did not succeed",
+                "lib::run",
+                None::<&str>
+              );
+            }
+          });
         }
       } else {
         // Database schema is incompatible — show error dialog

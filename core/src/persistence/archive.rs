@@ -146,6 +146,14 @@ impl ArchiveController {
 /// enabled - that matches the pre-Phase-4 behavior of the previous
 /// `batch_delete_old_data` wrapper. The cleanup trigger is still
 /// "next process boot", not a recurring schedule.
+///
+/// Also runs the cooling daily rollup's own retention cleanup at this
+/// same `scheduled_data_deletion`-gated startup site. It intentionally
+/// does **not** use `retention_days` (that is `hardwareArchive.retentionDays`,
+/// user-configurable and defaulting to 30 days): the whole point of the
+/// daily rollup is to outlive the one-minute archive rows it is derived
+/// from, so it keeps its own fixed, independent retention window - see
+/// `crate::persistence::cooling_rollup::COOLING_DAILY_SUMMARY_RETENTION_DAYS`.
 pub async fn cleanup_old_data(retention_days: u32) {
   use crate::infrastructure::database;
   use crate::log_error;
@@ -173,6 +181,8 @@ pub async fn cleanup_old_data(retention_days: u32) {
       Some(e.to_string())
     );
   }
+
+  crate::persistence::cooling_rollup::cleanup_old_data().await;
 }
 
 // ── Internal: per-snapshot accumulator ────────────────────────────────

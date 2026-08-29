@@ -10,6 +10,7 @@ pub struct WorkersState {
   pub monitor: Mutex<Option<hardviz_core::collector::SystemMonitorController>>,
   pub window_adapter: Mutex<Option<WindowAdapter>>,
   pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
+  pub cooling_rollup: Mutex<Option<hardviz_core::persistence::CoolingRollupController>>,
   pub storage_health: Mutex<Option<hardviz_core::persistence::StorageHealthController>>,
   /// On-demand Live Storage Health collector (ADR 0006). Not a worker —
   /// no background task, so `terminate_all` leaves it alone. `None` when
@@ -44,6 +45,7 @@ impl WorkersState {
     let monitor = self.monitor.lock().unwrap().take();
     let window_adapter = self.window_adapter.lock().unwrap().take();
     let hw_archive = self.hw_archive.lock().unwrap().take();
+    let cooling_rollup = self.cooling_rollup.lock().unwrap().take();
     let storage_health = self.storage_health.lock().unwrap().take();
     let tray = self.tray.lock().unwrap().take();
 
@@ -63,6 +65,10 @@ impl WorkersState {
 
     if let Some(hw_archive) = hw_archive {
       hw_archive.terminate().await;
+    }
+
+    if let Some(cooling_rollup) = cooling_rollup {
+      cooling_rollup.terminate().await;
     }
 
     if let Some(storage_health) = storage_health {
