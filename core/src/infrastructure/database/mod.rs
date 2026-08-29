@@ -8,6 +8,7 @@
 //! read / write that Core executes goes through this module.
 
 pub mod archive_queries;
+pub mod cooling_baseline;
 pub mod cooling_daily_summary;
 pub mod db;
 pub mod gpu_archive;
