@@ -5,18 +5,25 @@ import { useTauriStore } from "@/hooks/useTauriStore";
 import {
   DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
   DEFAULT_PERFORMANCE_PANEL_COLUMNS,
+  DEFAULT_PERFORMANCE_POWER_MODE,
   DEFAULT_PERFORMANCE_VIEW,
   normalizePerformanceCustomLayout,
   normalizePerformancePanelColumns,
+  normalizePerformancePowerMode,
   normalizePerformanceView,
   type PerformancePanelColumns,
   type PerformancePanelId,
+  type PerformancePowerMode,
   type PerformanceView,
   performanceCustomLayoutsEqual,
 } from "../types/performanceLayout";
 
 const reportCustomLayoutPersistenceError = (error: unknown) => {
   console.error("Failed to persist custom Performance layout:", error);
+};
+
+const reportPowerModePersistenceError = (error: unknown) => {
+  console.error("Failed to persist Performance Power Draw mode:", error);
 };
 
 export const usePerformanceLayout = () => {
@@ -40,13 +47,22 @@ export const usePerformanceLayout = () => {
   // only the strip without being re-armed on every launch.
   const [storedCompactExpanded, setStoredCompactExpanded, isExpandedPending] =
     useTauriStore<boolean>("performanceCompactExpanded", false);
+  const [storedPowerMode, setStoredPowerMode, isPowerModePending] =
+    useTauriStore<unknown>(
+      // The persisted key predates sharing this mode with Panels. Keep it so
+      // existing Monitor selections continue to apply to both views.
+      "performanceMonitorPowerMode",
+      DEFAULT_PERFORMANCE_POWER_MODE,
+    );
 
   const view = normalizePerformanceView(storedView);
   const columns = normalizePerformancePanelColumns(storedColumns);
   const customLayout = normalizePerformanceCustomLayout(storedCustomLayout);
+  const powerMode = normalizePerformancePowerMode(storedPowerMode);
   const latestCustomLayoutRef = useRef(customLayout);
   const customLayoutMutationQueueRef = useRef(Promise.resolve());
   const pendingCustomLayoutMutationCountRef = useRef(0);
+  const powerModeMutationQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     if (pendingCustomLayoutMutationCountRef.current === 0) {
@@ -95,6 +111,20 @@ export const usePerformanceLayout = () => {
     [setStoredCustomLayout],
   );
 
+  const setPowerMode = useCallback(
+    (nextMode: PerformancePowerMode) => {
+      const mutation = powerModeMutationQueueRef.current.then(() =>
+        setStoredPowerMode(nextMode),
+      );
+      powerModeMutationQueueRef.current = mutation.then(
+        () => undefined,
+        () => undefined,
+      );
+      return mutation.catch(reportPowerModePersistenceError);
+    },
+    [setStoredPowerMode],
+  );
+
   useEffect(() => {
     if (isViewPending || storedView === view) {
       return;
@@ -118,6 +148,15 @@ export const usePerformanceLayout = () => {
     isCustomLayoutPending,
     storedCustomLayout,
   ]);
+
+  useEffect(() => {
+    if (isPowerModePending || storedPowerMode === powerMode) {
+      return;
+    }
+    // Persist the normalized fallback too, so an obsolete value cannot keep
+    // being re-read as unknown on every launch.
+    void setPowerMode(powerMode);
+  }, [isPowerModePending, powerMode, setPowerMode, storedPowerMode]);
 
   const setView = (nextView: PerformanceView) => setStoredView(nextView);
 
@@ -167,6 +206,8 @@ export const usePerformanceLayout = () => {
     setView,
     columns,
     setColumns,
+    powerMode,
+    setPowerMode,
     compactExpanded: storedCompactExpanded === true,
     // Stable across renders (useTauriStore memoizes it), so effects can key
     // off it without resubscribing every render.
@@ -178,6 +219,7 @@ export const usePerformanceLayout = () => {
       isViewPending ||
       isCustomLayoutPending ||
       isColumnsPending ||
-      isExpandedPending,
+      isExpandedPending ||
+      isPowerModePending,
   };
 };

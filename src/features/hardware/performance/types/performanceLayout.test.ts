@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PERFORMANCE_CUSTOM_LAYOUT,
+  DEFAULT_PERFORMANCE_POWER_MODE,
   DEFAULT_PERFORMANCE_VIEW,
   normalizePerformanceCustomLayout,
+  normalizePerformancePowerMode,
   normalizePerformanceView,
   performanceCustomLayoutsEqual,
 } from "./performanceLayout";
@@ -20,6 +22,19 @@ describe("performance view normalization", () => {
   it("keeps Compact and Monitor selections", () => {
     expect(normalizePerformanceView("compact")).toBe("compact");
     expect(normalizePerformanceView("monitor")).toBe("monitor");
+  });
+});
+
+describe("Performance Power Draw mode normalization", () => {
+  it("keeps supported modes", () => {
+    expect(normalizePerformancePowerMode("current")).toBe("current");
+    expect(normalizePerformancePowerMode("graph")).toBe("graph");
+  });
+
+  it("falls back to Current for an unknown mode", () => {
+    expect(normalizePerformancePowerMode("overlay")).toBe(
+      DEFAULT_PERFORMANCE_POWER_MODE,
+    );
   });
 });
 

@@ -2,6 +2,19 @@ export const performanceViews = ["panels", "compact", "monitor"] as const;
 
 export type PerformanceView = (typeof performanceViews)[number];
 
+export const performancePowerModes = ["current", "graph"] as const;
+
+export type PerformancePowerMode = (typeof performancePowerModes)[number];
+
+export const DEFAULT_PERFORMANCE_POWER_MODE: PerformancePowerMode = "current";
+
+export const normalizePerformancePowerMode = (
+  value: unknown,
+): PerformancePowerMode =>
+  performancePowerModes.includes(value as PerformancePowerMode)
+    ? (value as PerformancePowerMode)
+    : DEFAULT_PERFORMANCE_POWER_MODE;
+
 export const performancePanelIds = [
   "usageGraphs",
   "processTable",

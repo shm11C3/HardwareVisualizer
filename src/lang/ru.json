@@ -280,6 +280,14 @@
       "hidePanel": "Скрыть {{panel}}",
       "reorderPanel": "Изменить порядок: {{panel}}",
       "currentValues": "Текущие значения",
+      "powerModeSwitcher": "Отображение мощности",
+      "powerModes": {
+        "current": "Текущее",
+        "graph": "График"
+      },
+      "shortWindow": "Последние {{seconds}} с",
+      "now": "Сейчас",
+      "secondsAgo": "{{seconds}} с назад",
       "perCoreUnavailable": "Загрузка по ядрам недоступна в этой системе.",
       "motherboardSensorsUnavailable": "Датчики материнской платы не обнаружены в этой системе.",
       "power": {
@@ -365,8 +373,9 @@
           "cappuccino": "Капучино",
           "espresso": "Эспрессо"
         },
-        "hardwareType": "Тип оборудования",
-        "powerDisplayTargets": "Отображаемая мощность",
+        "displayTargets": "Цели отображения",
+        "usageGraphDisplayTargets": "График использования",
+        "powerDisplayTargets": "Мощность",
         "temperatureUnit": {
           "name": "Единица измерения температуры",
           "celsius": "Цельсий (°C)",

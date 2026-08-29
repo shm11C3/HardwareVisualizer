@@ -138,7 +138,7 @@ impl From<DailyIdleRow> for DailyIdleSample {
   }
 }
 
-async fn select_daily_idle_samples_from_pool(
+pub(crate) async fn select_daily_idle_samples_from_pool(
   pool: &SqlitePool,
 ) -> Result<Vec<DailyIdleSample>, sqlx::Error> {
   // `date` is stored as "%Y-%m-%d", which sorts lexicographically the

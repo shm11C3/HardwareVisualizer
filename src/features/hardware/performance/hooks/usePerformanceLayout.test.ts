@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTauriStore } from "@/hooks/useTauriStore";
 import type {
   PerformanceCustomLayout,
+  PerformancePowerMode,
   PerformanceView,
 } from "../types/performanceLayout";
 import { usePerformanceLayout } from "./usePerformanceLayout";
@@ -11,8 +12,10 @@ const setView = vi.fn();
 const setCustomLayout = vi.fn();
 const setColumns = vi.fn();
 const setCompactExpanded = vi.fn();
+const setPowerMode = vi.fn();
 let columns: unknown = 1;
 let compactExpanded: unknown = false;
+let powerMode: unknown = "current" satisfies PerformancePowerMode;
 
 let view: PerformanceView = "panels";
 let customLayout: PerformanceCustomLayout = {
@@ -46,10 +49,12 @@ describe("usePerformanceLayout", () => {
     };
     columns = 1;
     compactExpanded = false;
+    powerMode = "current";
     setView.mockResolvedValue(undefined);
     setCustomLayout.mockResolvedValue(undefined);
     setColumns.mockResolvedValue(undefined);
     setCompactExpanded.mockResolvedValue(undefined);
+    setPowerMode.mockResolvedValue(undefined);
     vi.mocked(useTauriStore).mockImplementation((key) => {
       if (key === "performanceLayoutPreset") {
         return [view, setView, false] as never;
@@ -59,6 +64,9 @@ describe("usePerformanceLayout", () => {
       }
       if (key === "performanceCompactExpanded") {
         return [compactExpanded, setCompactExpanded, false] as never;
+      }
+      if (key === "performanceMonitorPowerMode") {
+        return [powerMode, setPowerMode, false] as never;
       }
       return [customLayout, setCustomLayout, false] as never;
     });
@@ -74,6 +82,90 @@ describe("usePerformanceLayout", () => {
     await act(async () => result.current.setView("monitor"));
 
     expect(setView).toHaveBeenCalledWith("monitor");
+  });
+
+  it("persists the shared Power Draw mode and repairs unknown values", async () => {
+    powerMode = "overlay";
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    expect(result.current.powerMode).toBe("current");
+    await waitFor(() => expect(setPowerMode).toHaveBeenCalledWith("current"));
+
+    await act(async () => result.current.setPowerMode("graph"));
+
+    expect(setPowerMode).toHaveBeenLastCalledWith("graph");
+  });
+
+  it("reports a rejected shared Power Draw mode repair", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    powerMode = "overlay";
+    setPowerMode.mockRejectedValueOnce(persistenceError);
+
+    renderHook(() => usePerformanceLayout());
+
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to persist Performance Power Draw mode:",
+        persistenceError,
+      ),
+    );
+  });
+
+  it("reports a rejected user-selected shared Power Draw mode", async () => {
+    const persistenceError = new Error("store unavailable");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    setPowerMode.mockRejectedValueOnce(persistenceError);
+    const { result } = renderHook(() => usePerformanceLayout());
+
+    await act(async () => result.current.setPowerMode("graph"));
+
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to persist Performance Power Draw mode:",
+      persistenceError,
+    );
+  });
+
+  it("keeps the latest shared Power Draw mode after delayed writes", async () => {
+    let resolveGraphWrite: (() => void) | undefined;
+    setPowerMode
+      .mockImplementationOnce(
+        (nextMode: PerformancePowerMode) =>
+          new Promise<void>((resolve) => {
+            resolveGraphWrite = () => {
+              powerMode = nextMode;
+              resolve();
+            };
+          }),
+      )
+      .mockImplementationOnce(async (nextMode: PerformancePowerMode) => {
+        powerMode = nextMode;
+      });
+    const { result, rerender } = renderHook(() => usePerformanceLayout());
+
+    let graphWrite: Promise<void> | undefined;
+    let currentWrite: Promise<void> | undefined;
+    act(() => {
+      graphWrite = result.current.setPowerMode("graph");
+      currentWrite = result.current.setPowerMode("current");
+    });
+
+    await waitFor(() => expect(setPowerMode).toHaveBeenCalledOnce());
+    expect(setPowerMode).toHaveBeenLastCalledWith("graph");
+
+    await act(async () => {
+      resolveGraphWrite?.();
+      await Promise.all([graphWrite, currentWrite]);
+    });
+    rerender();
+
+    expect(setPowerMode).toHaveBeenCalledTimes(2);
+    expect(setPowerMode).toHaveBeenLastCalledWith("current");
+    expect(result.current.powerMode).toBe("current");
   });
 
   it("persists the panel column count and repairs unusable values", async () => {
@@ -114,6 +206,9 @@ describe("usePerformanceLayout", () => {
       }
       if (key === "performancePanelColumns") {
         return [columns, setColumns, false] as never;
+      }
+      if (key === "performanceMonitorPowerMode") {
+        return [powerMode, setPowerMode, false] as never;
       }
       return [null, setCompactExpanded, true] as never;
     });
