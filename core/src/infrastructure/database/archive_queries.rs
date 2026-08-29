@@ -390,7 +390,13 @@ fn format_datetime(datetime: &DateTime<Utc>) -> String {
   datetime.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
-fn sqlite_epoch_milliseconds() -> &'static str {
+/// SQL fragment converting the `timestamp` TEXT column to epoch
+/// milliseconds. `pub(crate)` so other Core query modules (e.g.
+/// `cooling_daily_summary`) can filter/compare against `DATA_ARCHIVE`
+/// timestamps without duplicating this conversion or relying on raw TEXT
+/// comparison, which only sorts correctly when every writer produces the
+/// exact same string shape.
+pub(crate) fn sqlite_epoch_milliseconds() -> &'static str {
   "(CAST(strftime('%s', timestamp) AS INTEGER) * 1000 + \
    CAST(substr(strftime('%f', timestamp), 4, 3) AS INTEGER))"
 }
