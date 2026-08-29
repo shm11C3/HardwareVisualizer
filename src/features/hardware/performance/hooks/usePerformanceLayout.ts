@@ -49,7 +49,9 @@ export const usePerformanceLayout = () => {
     useTauriStore<boolean>("performanceCompactExpanded", false);
   const [storedPowerMode, setStoredPowerMode, isPowerModePending] =
     useTauriStore<unknown>(
-      "performancePowerMode",
+      // The persisted key predates sharing this mode with Panels. Keep it so
+      // existing Monitor selections continue to apply to both views.
+      "performanceMonitorPowerMode",
       DEFAULT_PERFORMANCE_POWER_MODE,
     );
 

@@ -65,7 +65,7 @@ describe("usePerformanceLayout", () => {
       if (key === "performanceCompactExpanded") {
         return [compactExpanded, setCompactExpanded, false] as never;
       }
-      if (key === "performancePowerMode") {
+      if (key === "performanceMonitorPowerMode") {
         return [powerMode, setPowerMode, false] as never;
       }
       return [customLayout, setCustomLayout, false] as never;
@@ -207,7 +207,7 @@ describe("usePerformanceLayout", () => {
       if (key === "performancePanelColumns") {
         return [columns, setColumns, false] as never;
       }
-      if (key === "performancePowerMode") {
+      if (key === "performanceMonitorPowerMode") {
         return [powerMode, setPowerMode, false] as never;
       }
       return [null, setCompactExpanded, true] as never;
