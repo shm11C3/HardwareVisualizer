@@ -89,11 +89,51 @@ describe("usePerformanceLayout", () => {
     const { result } = renderHook(() => usePerformanceLayout());
 
     expect(result.current.monitorPowerMode).toBe("current");
-    expect(setMonitorPowerMode).toHaveBeenCalledWith("current");
+    await waitFor(() =>
+      expect(setMonitorPowerMode).toHaveBeenCalledWith("current"),
+    );
 
     await act(async () => result.current.setMonitorPowerMode("graph"));
 
     expect(setMonitorPowerMode).toHaveBeenLastCalledWith("graph");
+  });
+
+  it("keeps the latest Monitor Power Draw mode after delayed writes", async () => {
+    let resolveGraphWrite: (() => void) | undefined;
+    setMonitorPowerMode
+      .mockImplementationOnce(
+        (nextMode: PerformanceMonitorPowerMode) =>
+          new Promise<void>((resolve) => {
+            resolveGraphWrite = () => {
+              monitorPowerMode = nextMode;
+              resolve();
+            };
+          }),
+      )
+      .mockImplementationOnce(async (nextMode: PerformanceMonitorPowerMode) => {
+        monitorPowerMode = nextMode;
+      });
+    const { result, rerender } = renderHook(() => usePerformanceLayout());
+
+    let graphWrite: Promise<void> | undefined;
+    let currentWrite: Promise<void> | undefined;
+    act(() => {
+      graphWrite = result.current.setMonitorPowerMode("graph");
+      currentWrite = result.current.setMonitorPowerMode("current");
+    });
+
+    await waitFor(() => expect(setMonitorPowerMode).toHaveBeenCalledOnce());
+    expect(setMonitorPowerMode).toHaveBeenLastCalledWith("graph");
+
+    await act(async () => {
+      resolveGraphWrite?.();
+      await Promise.all([graphWrite, currentWrite]);
+    });
+    rerender();
+
+    expect(setMonitorPowerMode).toHaveBeenCalledTimes(2);
+    expect(setMonitorPowerMode).toHaveBeenLastCalledWith("current");
+    expect(result.current.monitorPowerMode).toBe("current");
   });
 
   it("persists the panel column count and repairs unusable values", async () => {

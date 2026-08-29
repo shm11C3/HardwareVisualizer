@@ -61,6 +61,7 @@ export const usePerformanceLayout = () => {
   const latestCustomLayoutRef = useRef(customLayout);
   const customLayoutMutationQueueRef = useRef(Promise.resolve());
   const pendingCustomLayoutMutationCountRef = useRef(0);
+  const monitorPowerModeMutationQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     if (pendingCustomLayoutMutationCountRef.current === 0) {
@@ -109,6 +110,20 @@ export const usePerformanceLayout = () => {
     [setStoredCustomLayout],
   );
 
+  const setMonitorPowerMode = useCallback(
+    (nextMode: PerformanceMonitorPowerMode) => {
+      const mutation = monitorPowerModeMutationQueueRef.current.then(() =>
+        setStoredMonitorPowerMode(nextMode),
+      );
+      monitorPowerModeMutationQueueRef.current = mutation.then(
+        () => undefined,
+        () => undefined,
+      );
+      return mutation;
+    },
+    [setStoredMonitorPowerMode],
+  );
+
   useEffect(() => {
     if (isViewPending || storedView === view) {
       return;
@@ -139,11 +154,11 @@ export const usePerformanceLayout = () => {
     }
     // Persist the normalized fallback too, so an obsolete value cannot keep
     // being re-read as unknown on every launch.
-    void setStoredMonitorPowerMode(monitorPowerMode);
+    void setMonitorPowerMode(monitorPowerMode);
   }, [
     isPowerModePending,
     monitorPowerMode,
-    setStoredMonitorPowerMode,
+    setMonitorPowerMode,
     storedMonitorPowerMode,
   ]);
 
@@ -151,9 +166,6 @@ export const usePerformanceLayout = () => {
 
   const setColumns = (nextColumns: PerformancePanelColumns) =>
     setStoredColumns(nextColumns);
-
-  const setMonitorPowerMode = (nextMode: PerformanceMonitorPowerMode) =>
-    setStoredMonitorPowerMode(nextMode);
 
   const togglePanel = (panel: PerformancePanelId) =>
     enqueueCustomLayoutMutation((currentLayout) => {
