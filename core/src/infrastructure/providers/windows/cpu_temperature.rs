@@ -406,25 +406,25 @@ impl ActiveCpuTemperatureSource {
             });
           }
         };
-        return Ok((
+        Ok((
           Self::Intel {
             client,
             target_celsius,
             enablement: candidate.enablement,
           },
           discovery,
-        ));
+        ))
       }
       CpuTemperatureSource::AmdZenSmnTctl => {
         let (client, discovery) = PawnIoClient::open(candidate.module.clone())?;
-        return Ok((
+        Ok((
           Self::Amd {
             client,
             tctl_offset_celsius: amd_tctl_offset_celsius(&cpu.brand),
             enablement: candidate.enablement,
           },
           discovery,
-        ));
+        ))
       }
     }
   }
