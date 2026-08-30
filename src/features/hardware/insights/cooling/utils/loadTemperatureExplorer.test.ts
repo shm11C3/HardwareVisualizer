@@ -241,6 +241,20 @@ describe("buildExplorerMinimapSegments", () => {
     expect(baselineSegment.widthPercent).toBeGreaterThan(0);
   });
 
+  it("measures each window inclusively, so a 1-day window is a seventh of a 7-day one", () => {
+    // A 10-day total span holding a 1-day window and a 7-day window: the
+    // widths must be 1/10 and 7/10, not the 0/10 and 6/10 an exclusive
+    // end-date subtraction would give.
+    const [oneDay, sevenDay] = buildExplorerMinimapSegments(
+      { startDate: "2026-01-01", endDate: "2026-01-01" },
+      { startDate: "2026-01-04", endDate: "2026-01-10" },
+    );
+
+    expect(oneDay.widthPercent).toBeCloseTo(10);
+    expect(sevenDay.widthPercent).toBeCloseTo(70);
+    expect(sevenDay.offsetPercent).toBeCloseTo(30);
+  });
+
   it("lays both windows across the full width when they share a single day", () => {
     const segments = buildExplorerMinimapSegments(
       { startDate: "2026-01-01", endDate: "2026-01-01" },

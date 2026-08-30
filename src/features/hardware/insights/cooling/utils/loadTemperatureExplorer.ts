@@ -212,6 +212,8 @@ export type ExplorerMinimapSegment = {
 /** Smallest width a window occupies on the minimap, in percent. */
 const MINIMAP_MIN_WIDTH_PERCENT = 1.5;
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 const parseIsoDate = (isoDate: string): number | null => {
   // Anchored at UTC midnight so the minimap's arithmetic is unaffected by
   // the viewer's offset; only the span between dates matters here.
@@ -246,9 +248,12 @@ export const buildExplorerMinimapSegments = (
   const ends = bounds.map(({ end }) => end as number);
   const spanStart = Math.min(...starts);
   const spanEnd = Math.max(...ends);
-  // A single-day total span (both windows on the same day) would divide by
-  // zero; fall back to laying both out across the full width.
-  const span = spanEnd - spanStart;
+  // Both window lengths and the overall span are inclusive of their end
+  // day: a window is "2026-01-01 through 2026-01-07", seven days, not the
+  // six-day gap between those two midnights. Measuring exclusively would
+  // give a single-day window zero width and every other window one day
+  // less than it covers.
+  const span = spanEnd - spanStart + MS_PER_DAY;
 
   return [
     { kind: "baseline" as const, window: baseline, index: 0 },
@@ -267,7 +272,7 @@ export const buildExplorerMinimapSegments = (
     const offsetPercent = ((starts[index] - spanStart) / span) * 100;
     const widthPercent = Math.max(
       MINIMAP_MIN_WIDTH_PERCENT,
-      ((ends[index] - starts[index]) / span) * 100,
+      ((ends[index] - starts[index] + MS_PER_DAY) / span) * 100,
     );
 
     return {

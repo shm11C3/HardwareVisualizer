@@ -22,15 +22,16 @@ export const useCoolingLoadTemperatureExplorer = (
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    // A rerun starts a fresh request: a failure from the previous run
-    // must not stick to it.
+    // A rerun starts a fresh request: neither a failure nor the windows
+    // fetched for the *previous* `recentDays` may stick to it. Dropping
+    // the data returns the panel to its loading state, so a preset change
+    // never leaves the old period's scatter on screen labelled as the new
+    // one.
     setHasError(false);
+    setData(null);
 
     if (recentDays == null) {
-      // Collapsed: drop any previously fetched window so re-expanding
-      // shows the loading state rather than a stale one, and issue no
-      // request.
-      setData(null);
+      // Collapsed: issue no request at all.
       return;
     }
 
