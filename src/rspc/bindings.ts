@@ -471,6 +471,12 @@ export type CoolingDailyTrendPoint = {
 	low: CoolingBandTemperature,
 	mid: CoolingBandTemperature,
 	high: CoolingBandTemperature,
+	/**
+	 *  The day's CPU package power, independent of the bands above. Absent
+	 *  on a machine with no CPU power source, which is what makes the
+	 *  timeline's power lane capability-dependent.
+	 */
+	power: CoolingPowerSummary,
 };
 
 /**
@@ -510,6 +516,22 @@ export type CoolingLoadTemperaturePoint = {
 	hourStart: string,
 	cpuUsageAvg: number,
 	cpuTemperatureAvg: number,
+	sampleMinutes: number,
+};
+
+/**
+ *  One day's CPU package power draw in watts (#2021).
+ * 
+ *  Not a [`CoolingBandTemperature`] despite the identical shape: power is
+ *  summarized over the whole day rather than per CPU-load band, and it is
+ *  a different unit. `sampleMinutes == 0` means no archived minute that
+ *  day carried a power reading, and `avg`/`max`/`min` are then all null -
+ *  the machine has no CPU power source, not 0 W.
+ */
+export type CoolingPowerSummary = {
+	avg: number | null,
+	max: number | null,
+	min: number | null,
 	sampleMinutes: number,
 };
 

@@ -27,7 +27,7 @@ use hardviz_core::persistence::cooling_load_temperature_explorer::{
 };
 use hardviz_core::persistence::cooling_rollup::{
   BandSummary as CoreBandSummary, CpuLoadBand as CoreCpuLoadBand,
-  DailyCoolingSummary as CoreDailyCoolingSummary,
+  DailyCoolingSummary as CoreDailyCoolingSummary, PowerSummary as CorePowerSummary,
 };
 use serde::Serialize;
 use specta::Type;
@@ -57,6 +57,33 @@ impl From<CoreBandSummary> for CoolingBandTemperature {
   }
 }
 
+/// One day's CPU package power draw in watts (#2021).
+///
+/// Not a [`CoolingBandTemperature`] despite the identical shape: power is
+/// summarized over the whole day rather than per CPU-load band, and it is
+/// a different unit. `sampleMinutes == 0` means no archived minute that
+/// day carried a power reading, and `avg`/`max`/`min` are then all null -
+/// the machine has no CPU power source, not 0 W.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingPowerSummary {
+  pub avg: Option<f32>,
+  pub max: Option<f32>,
+  pub min: Option<f32>,
+  pub sample_minutes: u32,
+}
+
+impl From<CorePowerSummary> for CoolingPowerSummary {
+  fn from(value: CorePowerSummary) -> Self {
+    Self {
+      avg: value.avg,
+      max: value.max,
+      min: value.min,
+      sample_minutes: value.sample_minutes,
+    }
+  }
+}
+
 /// One day's `cooling_daily_summary` row, for the 90-day/1-year Cooling
 /// Insight trend. A date the rollup has no row for is simply absent from
 /// the response array - never a zero-filled entry.
@@ -69,6 +96,10 @@ pub struct CoolingDailyTrendPoint {
   pub low: CoolingBandTemperature,
   pub mid: CoolingBandTemperature,
   pub high: CoolingBandTemperature,
+  /// The day's CPU package power, independent of the bands above. Absent
+  /// on a machine with no CPU power source, which is what makes the
+  /// timeline's power lane capability-dependent.
+  pub power: CoolingPowerSummary,
 }
 
 impl From<CoreDailyCoolingSummary> for CoolingDailyTrendPoint {
@@ -80,6 +111,7 @@ impl From<CoreDailyCoolingSummary> for CoolingDailyTrendPoint {
       low: value.low.into(),
       mid: value.mid.into(),
       high: value.high.into(),
+      power: value.power.into(),
     }
   }
 }
@@ -484,11 +516,58 @@ mod tests {
       low: CoreBandSummary::default(),
       mid: CoreBandSummary::default(),
       high: CoreBandSummary::default(),
+      power: CorePowerSummary::default(),
     };
 
     let wire: CoolingDailyTrendPoint = core.into();
 
     assert_eq!(wire.date, "2026-08-05");
+  }
+
+  #[test]
+  fn a_day_without_power_readings_crosses_the_wire_as_absent_not_zero() {
+    let core = CoreDailyCoolingSummary {
+      date: date(2026, 8, 5),
+      coverage_minutes: 1440,
+      idle: CoreBandSummary::default(),
+      low: CoreBandSummary::default(),
+      mid: CoreBandSummary::default(),
+      high: CoreBandSummary::default(),
+      power: CorePowerSummary::default(),
+    };
+
+    let json = serde_json::to_value(CoolingDailyTrendPoint::from(core)).unwrap();
+
+    assert!(json["power"]["avg"].is_null());
+    assert!(json["power"]["max"].is_null());
+    assert!(json["power"]["min"].is_null());
+    assert_eq!(json["power"]["sampleMinutes"], 0);
+  }
+
+  #[test]
+  fn a_days_power_summary_crosses_the_wire_in_camel_case() {
+    let core = CoreDailyCoolingSummary {
+      date: date(2026, 8, 5),
+      coverage_minutes: 1440,
+      idle: CoreBandSummary::default(),
+      low: CoreBandSummary::default(),
+      mid: CoreBandSummary::default(),
+      high: CoreBandSummary::default(),
+      power: CorePowerSummary {
+        avg: Some(18.5),
+        max: Some(42.0),
+        min: Some(4.5),
+        sample_minutes: 1200,
+      },
+    };
+
+    let json = serde_json::to_value(CoolingDailyTrendPoint::from(core)).unwrap();
+
+    assert_eq!(json["power"]["avg"], 18.5);
+    assert_eq!(json["power"]["max"], 42.0);
+    assert_eq!(json["power"]["min"], 4.5);
+    assert_eq!(json["power"]["sampleMinutes"], 1200);
+    assert!(json["power"].get("sample_minutes").is_none());
   }
 
   // `rename_all` on a tagged enum only renames variant tags, not the
