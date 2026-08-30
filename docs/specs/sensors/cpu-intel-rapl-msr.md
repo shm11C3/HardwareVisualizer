@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 1 |
-| Status | Implementation-ready (rev 1) |
+| Revision | 2 |
+| Status | Implementation-ready (rev 2) |
 | Scope | CPU package power (Watts) on Intel x86-64 CPUs, derived from the RAPL package-domain energy counter MSRs (`MSR_RAPL_POWER_UNIT`, `MSR_PKG_ENERGY_STATUS`). Covers Sandy Bridge-and-newer Core/Xeon parts with the standard RAPL unit semantics. Excludes: power-limit programming, PP0/PP1/DRAM/PSys domains, Atom parts with deviant RAPL unit semantics (see Quirks), pre-Sandy-Bridge CPUs. |
 | Issue phase | Phase 5 (#1635) — sensor model extension beyond temperature |
 
@@ -78,21 +78,36 @@ Notes:
    Keep the counter's low 32 bits (bits 63:32 are reserved).
 4. The first sample only establishes the baseline; it publishes no
    power value.
-5. For each subsequent sample compute, in 32-bit unsigned modular
-   arithmetic:
+5. **Wrap-safe gap check (normative).** Derive once per session the
+   maximum wrap-safe sampling gap
+   `T_max = (2^32 × 2^-ESU J) / P_gate`, where `P_gate = 1000 W` is
+   the same assumed maximum package power as the plausibility gate in
+   step 7 (at the default `ESU = 16`: `65 536 J / 1000 W ≈ 65 s`).
+   If `t_now − t_prev > T_max`, do **not** compute or publish a power
+   value: treat the tick as a missing sample and restart by taking
+   the current reading as the new baseline. Rationale: the modular
+   difference cannot detect `k ≥ 1` complete counter wraps, so an
+   oversized gap (system sleep, timer suspension, collector delay)
+   would otherwise yield a plausible-looking but understated power
+   value that the range gate in step 7 cannot catch. Dropping the
+   sample instead of publishing a fabricated number follows DP-02 in
+   [`docs/design-principles.md`](../../design-principles.md).
+   (Project policy; arithmetic from the S1 units and counter width)
+6. Otherwise compute, in 32-bit unsigned modular arithmetic:
    - `delta = (counter_now − counter_prev) mod 2^32`
    - `energy_J = delta × 2^-ESU`
    - `power_W = energy_J / (t_now − t_prev)` with the monotonic
      timestamps in seconds.
    The modular difference is exact across a single counter wrap;
    validity requires the true energy delta to be below `2^32` energy
-   units (see Quirks for the resulting sampling-interval bound).
-6. Publish `power_W` as the CPU package power. Plausibility gate
+   units, which the step 5 bound guarantees (see Quirks for the
+   sampling-interval numbers).
+7. Publish `power_W` as the CPU package power. Plausibility gate
    before publishing (this project's own policy, not an SDM fact):
    accept only `0 ≤ power_W ≤ 1000` and `t_now − t_prev > 0`;
    otherwise drop the sample and re-baseline from the current
    reading.
-7. A failed MSR read invalidates the baseline: skip the sample and
+8. A failed MSR read invalidates the baseline: skip the sample and
    re-baseline on the next successful read (an unknown gap may span
    multiple wraps).
 
@@ -106,7 +121,9 @@ Notes:
   modular-difference decode is exact for any single wrap; a sampling
   interval of at most 30 s keeps the decode unambiguous below
   ~2 185 W average package power and is therefore safe for any
-  plausible package. (S1; arithmetic)
+  plausible package. Gaps exceeding the `T_max` bound of Read
+  procedure step 5 (e.g. after system sleep) are rejected and
+  re-baselined instead of decoded. (S1; arithmetic)
 - **`ESU` varies by product.** For example, the Goldmont Atom table
   documents a default of `01110b` (61 µJ) instead of 15.3 µJ (SDM
   Vol. 4 Table 2-12, same 1/2^ESU semantics). The decode must always
@@ -157,3 +174,4 @@ Notes:
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-08-30 | Initial version, authored with all provenance pinned against SDM 325462-076US (Vol 3B §14.10.1/§14.10.3, Vol 4 Tables 2-20 and 2-8) and PawnIO.Modules tag 0.2.8. Proposed Implementation-ready per the README status-transition checklist; effective upon maintainer approval of the introducing PR. |
+| 2 | 2026-08-30 | PR #2033 review follow-up. Normative addition: wrap-safe gap check — gaps exceeding `T_max = 2^32 × 2^-ESU J / 1000 W` (≈ 65 s at `ESU = 16`) publish no power value and re-baseline (DP-02), because the modular difference cannot detect complete wraps across oversized gaps (sleep, timer suspension, collector delay). No register facts changed. Status remains Implementation-ready. |
