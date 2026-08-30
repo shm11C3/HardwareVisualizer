@@ -73,8 +73,14 @@ impl CpuLoadBand {
 
 /// One archived one-minute row's fields relevant to the cooling rollup.
 /// `None` means the minute has no reading for that field, not zero.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+///
+/// `timestamp` is the archived row's own instant. The daily rollup does
+/// not need it (its caller already fetched exactly one local day), but the
+/// hourly rollup derived from the same fetch does - see
+/// [`crate::persistence::cooling_hourly_rollup`].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ArchiveMinuteSample {
+  pub timestamp: DateTime<Utc>,
   pub cpu_usage_avg: Option<f32>,
   pub cpu_temperature_avg: Option<f32>,
   pub cpu_temperature_max: Option<f32>,
@@ -429,6 +435,13 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   Ok(())
 }
 
+/// Roll one completed local day up into both projections the Cooling
+/// Insight queries read: the per-band daily summary and the per-hour
+/// load/temperature pairs (#2023).
+///
+/// Both are folded from the *same* fetch rather than by a second worker or
+/// a second query - they answer different questions about identical rows,
+/// and the day's archive range has already been read here.
 async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -437,19 +450,31 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
     database::cooling_daily_summary::select_archive_minutes_for_range(&start, &end)
       .await?;
 
-  match summarize_day(date, &minutes) {
-    Some(summary) => database::cooling_daily_summary::upsert(&summary).await,
+  if let Some(summary) = summarize_day(date, &minutes) {
     // Day without samples stays absent - never insert a zeroed row.
-    None => Ok(()),
+    database::cooling_daily_summary::upsert(&summary).await?;
   }
+
+  for hour in
+    crate::persistence::cooling_hourly_rollup::summarize_hours(&minutes, &chrono::Local)
+  {
+    database::cooling_hourly_summary::upsert(&hour).await?;
+  }
+
+  Ok(())
 }
 
-/// Delete `cooling_daily_summary` rows older than
-/// [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`]. Called from
+/// Delete `cooling_daily_summary` and `cooling_hourly_summary` rows older
+/// than [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`]. Called from
 /// `crate::persistence::archive::cleanup_old_data` at the same
 /// `scheduledDataDeletion`-gated startup site as the Hardware Archive
 /// cleanup, but with its own fixed retention window rather than the
 /// user-configurable `hardwareArchive.retentionDays`.
+///
+/// Both rollups share one retention constant on purpose: they are two
+/// projections of the same archived minutes, so a window Cooling Insight
+/// can show daily but not hourly (or the reverse) would only be a source
+/// of inconsistent answers.
 pub async fn cleanup_old_data() {
   use crate::infrastructure::database;
 
@@ -459,6 +484,18 @@ pub async fn cleanup_old_data() {
   {
     log_error!(
       "Failed to delete old cooling daily summary data",
+      "persistence::cooling_rollup::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
+  if let Err(e) = database::cooling_hourly_summary::delete_old_data(
+    COOLING_DAILY_SUMMARY_RETENTION_DAYS,
+  )
+  .await
+  {
+    log_error!(
+      "Failed to delete old cooling hourly summary data",
       "persistence::cooling_rollup::cleanup_old_data",
       Some(e.to_string())
     );
@@ -516,6 +553,10 @@ mod tests {
     temp_min: Option<f32>,
   ) -> ArchiveMinuteSample {
     ArchiveMinuteSample {
+      // `summarize_day` folds a range its caller already narrowed to one
+      // local day, so the instant is irrelevant here (only the hourly
+      // rollup reads it).
+      timestamp: utc("2026-08-20T12:00:00Z"),
       cpu_usage_avg,
       cpu_temperature_avg: temp_avg,
       cpu_temperature_max: temp_max,

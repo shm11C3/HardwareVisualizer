@@ -25,6 +25,11 @@ pub async fn select_archive_minutes_for_range(
 
 #[derive(Debug, Clone, Copy, PartialEq, sqlx::FromRow)]
 struct ArchiveMinuteRow {
+  // Decoded through sqlx's own chrono codec for the same reason
+  // `earliest_archived_timestamp` does: the column's exact TEXT shape is
+  // whatever `hardware_archive::insert`'s native `DateTime<Utc>` bind
+  // produced.
+  timestamp: DateTime<Utc>,
   cpu_avg: Option<f64>,
   cpu_temperature_avg: Option<f64>,
   cpu_temperature_max: Option<f64>,
@@ -34,6 +39,7 @@ struct ArchiveMinuteRow {
 impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
   fn from(row: ArchiveMinuteRow) -> Self {
     Self {
+      timestamp: row.timestamp,
       cpu_usage_avg: row.cpu_avg.map(|v| v as f32),
       cpu_temperature_avg: row.cpu_temperature_avg.map(|v| v as f32),
       cpu_temperature_max: row.cpu_temperature_max.map(|v| v as f32),
@@ -57,6 +63,7 @@ async fn select_archive_minutes_for_range_from_pool(
   let epoch_ms = sqlite_epoch_milliseconds();
   let sql = format!(
     "SELECT
+       timestamp,
        CAST(cpu_avg AS REAL) AS cpu_avg,
        CAST(cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
        CAST(cpu_temperature_max AS REAL) AS cpu_temperature_max,
@@ -474,6 +481,44 @@ mod tests {
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].cpu_usage_avg, Some(6.0));
     assert_eq!(rows[1].cpu_usage_avg, Some(7.0));
+  }
+
+  #[tokio::test]
+  async fn select_archive_minutes_carries_each_rows_own_timestamp() {
+    // The hourly rollup buckets these rows by their instant, so a lost or
+    // truncated timestamp would silently collapse a day into one hour.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(6.0),
+      Some(41.0),
+      utc("2026-08-15T09:17:00.000Z"),
+    )
+    .await;
+    insert_archive_row(
+      &pool,
+      Some(7.0),
+      Some(42.0),
+      utc("2026-08-15T22:43:00.000Z"),
+    )
+    .await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      rows.iter().map(|r| r.timestamp).collect::<Vec<_>>(),
+      vec![
+        utc("2026-08-15T09:17:00.000Z"),
+        utc("2026-08-15T22:43:00.000Z")
+      ]
+    );
   }
 
   #[tokio::test]

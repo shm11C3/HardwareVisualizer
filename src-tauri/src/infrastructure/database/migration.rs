@@ -162,6 +162,18 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         );
       "#,
     },
+    SchemaMigration {
+      version: 13,
+      description: "create_cooling_hourly_summary",
+      sql: r#"
+        CREATE TABLE cooling_hourly_summary (
+          hour_start TEXT PRIMARY KEY,
+          cpu_usage_avg REAL,
+          cpu_temperature_avg REAL,
+          sample_minutes INTEGER NOT NULL
+        );
+      "#,
+    },
   ]
 }
 
@@ -302,14 +314,30 @@ mod tests {
   }
 
   #[test]
+  fn migration_v13_creates_cooling_hourly_summary_table() {
+    let migrations = get_migrations();
+    let v13 = migrations
+      .iter()
+      .find(|m| m.version == 13)
+      .expect("Version 13 up migration must exist");
+    assert!(v13.sql.contains("CREATE TABLE cooling_hourly_summary"));
+    // The key is the local wall-clock hour string, so it stays
+    // prefix-comparable with `cooling_daily_summary.date`.
+    assert!(v13.sql.contains("hour_start TEXT PRIMARY KEY"));
+    assert!(v13.sql.contains("cpu_usage_avg REAL"));
+    assert!(v13.sql.contains("cpu_temperature_avg REAL"));
+    assert!(v13.sql.contains("sample_minutes INTEGER NOT NULL"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 12);
+    assert_eq!(get_max_migration_version(), 13);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 12);
+    assert_eq!(migrations.len(), 13);
   }
 
   #[test]
