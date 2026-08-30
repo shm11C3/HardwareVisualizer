@@ -13,6 +13,8 @@ import {
   coolingBaselineDeltaLargeRiseFixture,
   coolingBaselineDeltaMildRiseFixture,
   coolingBaselineDeltaNotComparableFixture,
+  coolingLoadTemperatureExplorerEstablishingFixture,
+  coolingLoadTemperatureExplorerFixture,
 } from "../fixtures/cooling";
 import {
   buildHardwareUpdateSeries,
@@ -349,6 +351,12 @@ const buildInvokeHandlers = (
     fixtureOverrides.coolingBaselineEstablishing
       ? coolingBandComparisonEstablishingFixture
       : coolingBandComparisonFixture,
+  // The Explorer (#2023) only invokes this once expanded, so a capture
+  // that never opens it must never reach this handler.
+  get_cooling_load_temperature_explorer: () =>
+    fixtureOverrides.coolingBaselineEstablishing
+      ? coolingLoadTemperatureExplorerEstablishingFixture
+      : coolingLoadTemperatureExplorerFixture,
   get_cooling_baseline_delta: () => {
     if (fixtureOverrides.coolingBaselineEstablishing) {
       return coolingBaselineDeltaEstablishingFixture;

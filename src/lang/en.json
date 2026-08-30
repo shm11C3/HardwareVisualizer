@@ -420,6 +420,24 @@
           },
           "notComparable": "Not enough samples to compare"
         },
+        "explorer": {
+          "title": "Load × Temperature Explorer",
+          "description": "Each dot is one recorded hour: its average CPU load against its average CPU temperature.",
+          "loadFailed": "Failed to load the load-temperature explorer.",
+          "recentWindow": "Last {{days}} days",
+          "loadAxis": "CPU load (%)",
+          "temperatureAxis": "CPU temperature ({{unit}})",
+          "legend": {
+            "baseline": "Baseline period",
+            "recent": "Recent period",
+            "median": "Band median"
+          },
+          "minimap": {
+            "title": "Compared periods"
+          },
+          "notComparable": "Not comparable ({{baselineHours}} / {{recentHours}} h)",
+          "footnote": "Band medians and differences are computed over recorded hours only; a band with few hours is reported as not comparable rather than estimated."
+        },
         "dataState": {
           "title": "Data State",
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",

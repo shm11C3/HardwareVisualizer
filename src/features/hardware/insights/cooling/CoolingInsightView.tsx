@@ -6,6 +6,7 @@ import { CoolingPeriodSelect } from "./components/CoolingPeriodSelect";
 import { CoverageStrip } from "./components/CoverageStrip";
 import { LegacyPowerCharts } from "./components/LegacyPowerCharts";
 import { LoadBandComparisonPanel } from "./components/LoadBandComparisonPanel";
+import { LoadTemperatureExplorerPanel } from "./components/LoadTemperatureExplorerPanel";
 import { ObservationStrip } from "./components/ObservationStrip";
 import { ThermalTimelineLane } from "./components/ThermalTimelineLane";
 import { UnsupportedSensorNote } from "./components/UnsupportedSensorNote";
@@ -21,7 +22,8 @@ import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
  * empty/coverage states. Zone (2) is the synchronized thermal timeline
  * (#2019); zone (1) is the idle-drift observation strip and zone (5) is the
  * load-band comparison (#2020) - see each component's doc comment for its
- * own responsibilities.
+ * own responsibilities. The load-vs-temperature Explorer (#2023) closes the
+ * view as a collapsed secondary analysis below the comparison.
  */
 export const CoolingInsightView = () => {
   const periodState = useCoolingInsightPeriod();
@@ -98,6 +100,7 @@ const CoolingInsightBody = ({
         bandComparison={bandComparison}
         hasError={bandComparisonHasError}
       />
+      <LoadTemperatureExplorerPanel />
     </div>
   );
 };

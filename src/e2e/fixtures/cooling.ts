@@ -3,6 +3,9 @@ import type {
   CoolingBandTemperature,
   CoolingBaselineDelta,
   CoolingDailyTrendPoint,
+  CoolingExplorerWindow,
+  CoolingLoadTemperatureExplorer,
+  CoolingLoadTemperaturePoint,
 } from "@/rspc/bindings";
 
 const band = (
@@ -162,6 +165,80 @@ export const coolingBaselineDeltaLargeRiseFixture: CoolingBaselineDelta = {
   ],
   sustainedDays: 3,
 };
+
+/**
+ * Deterministic hourly (load, temperature) pairs for one Explorer window.
+ * Loads walk a fixed cycle so every CPU-load band is populated, and the
+ * temperature follows the load plus a fixed per-window offset, so a
+ * capture shows two visibly separated clouds.
+ */
+const buildExplorerWindow = (
+  startDate: string,
+  endDate: string,
+  temperatureOffset: number,
+): CoolingExplorerWindow => {
+  const loads = [3, 6, 14, 22, 38, 47, 66, 82];
+  const points: CoolingLoadTemperaturePoint[] = [];
+
+  for (let index = 0; index < 48; index++) {
+    const cpuUsageAvg = loads[index % loads.length];
+    points.push({
+      hourStart: `${endDate} ${String(index % 24).padStart(2, "0")}:00`,
+      cpuUsageAvg,
+      cpuTemperatureAvg:
+        30 + cpuUsageAvg * 0.45 + temperatureOffset + (index % 3),
+      sampleMinutes: 60,
+    });
+  }
+
+  return { startDate, endDate, points };
+};
+
+export const coolingLoadTemperatureExplorerFixture: CoolingLoadTemperatureExplorer =
+  {
+    status: "established",
+    baseline: buildExplorerWindow("2025-11-01", "2025-11-14", 0),
+    recent: buildExplorerWindow("2025-12-19", "2026-01-15", 4),
+    bandDeltas: [
+      {
+        band: "idle",
+        baseline: { temperatureMedian: 32, pointCount: 12, sampleMinutes: 720 },
+        recent: {
+          temperatureMedian: 36.2,
+          pointCount: 12,
+          sampleMinutes: 720,
+        },
+        delta: 4.2,
+        comparable: true,
+      },
+      {
+        band: "low",
+        baseline: { temperatureMedian: 38, pointCount: 12, sampleMinutes: 720 },
+        recent: { temperatureMedian: 42.5, pointCount: 12, sampleMinutes: 720 },
+        delta: 4.5,
+        comparable: true,
+      },
+      {
+        band: "mid",
+        baseline: { temperatureMedian: 49, pointCount: 12, sampleMinutes: 720 },
+        recent: { temperatureMedian: 53.1, pointCount: 12, sampleMinutes: 720 },
+        delta: 4.1,
+        comparable: true,
+      },
+      // Deliberately below the comparability bar on the recent side, so a
+      // capture always shows the not-comparable row too.
+      {
+        band: "high",
+        baseline: { temperatureMedian: 66, pointCount: 12, sampleMinutes: 720 },
+        recent: { temperatureMedian: null, pointCount: 1, sampleMinutes: 12 },
+        delta: null,
+        comparable: false,
+      },
+    ],
+  };
+
+export const coolingLoadTemperatureExplorerEstablishingFixture: CoolingLoadTemperatureExplorer =
+  { status: "establishing", qualifyingDays: 4, requiredDays: 7 };
 
 export const coolingBandComparisonEstablishingFixture: CoolingBandComparison = {
   status: "establishing",
