@@ -203,6 +203,12 @@ mod tests {
       cpu_temperature_avg,
       cpu_temperature_max: cpu_temperature_avg,
       cpu_temperature_min: cpu_temperature_avg,
+      // The hourly fold is a (load, temperature) projection and never
+      // reads power (#2021 keeps power in the daily rollup only), so the
+      // power columns stay absent throughout these cases.
+      cpu_power_avg: None,
+      cpu_power_max: None,
+      cpu_power_min: None,
     }
   }
 
@@ -359,6 +365,9 @@ mod tests {
       cpu_temperature_avg: Some(40.0),
       cpu_temperature_max: None,
       cpu_temperature_min: None,
+      cpu_power_avg: None,
+      cpu_power_max: None,
+      cpu_power_min: None,
     }];
 
     assert_eq!(summarize_hours(&minutes, &Utc), Vec::new());

@@ -14,6 +14,13 @@
 //! no CPU temperature reading contributes nothing; a day with zero
 //! archived minutes stays absent from the table entirely rather than
 //! becoming a zeroed-out row (see `summarize_day`).
+//!
+//! The same pass also folds the day's CPU package power ([`PowerSummary`],
+//! #2021), which the Cooling Insight timeline's power lane reads for the
+//! 90d/1y windows. Power is a separate hardware capability from CPU
+//! temperature, so it is folded outside the band gate: neither reading's
+//! absence suppresses the other, and a missing reading stays absent rather
+//! than becoming 0 W.
 
 use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 
@@ -78,6 +85,11 @@ impl CpuLoadBand {
 /// not need it (its caller already fetched exactly one local day), but the
 /// hourly rollup derived from the same fetch does - see
 /// [`crate::persistence::cooling_hourly_rollup`].
+///
+/// `cpu_power_*` is the CPU package-domain power draw the Hardware Archive
+/// stores in its `cpu_power_*` columns - Apple Silicon's CPU domain and,
+/// since #2035, the Windows RAPL package domain. Both publish through
+/// `PowerDraw::cpu_watts`, so one archive column backs both.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ArchiveMinuteSample {
   pub timestamp: DateTime<Utc>,
@@ -85,6 +97,9 @@ pub struct ArchiveMinuteSample {
   pub cpu_temperature_avg: Option<f32>,
   pub cpu_temperature_max: Option<f32>,
   pub cpu_temperature_min: Option<f32>,
+  pub cpu_power_avg: Option<f32>,
+  pub cpu_power_max: Option<f32>,
+  pub cpu_power_min: Option<f32>,
 }
 
 /// CPU temperature summary for one [`CpuLoadBand`] on one local day.
@@ -95,6 +110,24 @@ pub struct ArchiveMinuteSample {
 /// [`DailyCoolingSummary::coverage_minutes`]).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct BandSummary {
+  pub avg: Option<f32>,
+  pub max: Option<f32>,
+  pub min: Option<f32>,
+  pub sample_minutes: u32,
+}
+
+/// One local day's CPU package power draw, in watts (#2021).
+///
+/// Deliberately *not* a [`BandSummary`]: power is folded over the whole day
+/// rather than per CPU-load band, because the timeline's power lane reads
+/// one series per period and the load split is already carried by the
+/// temperature bands.
+///
+/// `sample_minutes == 0` implies `avg`/`max`/`min` are all `None`. A
+/// machine whose platform provider publishes no CPU power reports absent
+/// power for every day, never 0 W (DP-02).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PowerSummary {
   pub avg: Option<f32>,
   pub max: Option<f32>,
   pub min: Option<f32>,
@@ -124,6 +157,12 @@ pub struct DailyCoolingSummary {
   pub low: BandSummary,
   pub mid: BandSummary,
   pub high: BandSummary,
+  /// The day's CPU package power draw, folded independently of the bands
+  /// above (#2021). A machine with a temperature sensor and no power
+  /// sampler keeps full band summaries with absent power, and one with a
+  /// power sampler and no temperature sensor keeps power with empty
+  /// bands: neither capability gates the other.
+  pub power: PowerSummary,
 }
 
 /// Fold one local day's archived one-minute rows into a
@@ -137,12 +176,27 @@ pub fn summarize_day(
     return None;
   }
 
-  let mut idle = BandAccumulator::default();
-  let mut low = BandAccumulator::default();
-  let mut mid = BandAccumulator::default();
-  let mut high = BandAccumulator::default();
+  let mut idle = ReadingAccumulator::default();
+  let mut low = ReadingAccumulator::default();
+  let mut mid = ReadingAccumulator::default();
+  let mut high = ReadingAccumulator::default();
+  let mut power = ReadingAccumulator::default();
 
   for minute in minutes {
+    // Power is folded before the band gate below and never `continue`s
+    // past it: a minute can carry power without a usable CPU usage or
+    // temperature reading, and dropping it would make the power lane
+    // depend on sensors it has nothing to do with.
+    //
+    // All three of avg/max/min are required, matching the temperature
+    // gate. `hardware_archive::insert` writes the triple together, so a
+    // partial triple means a hand-edited row rather than real data.
+    if let (Some(power_avg), Some(power_max), Some(power_min)) =
+      (minute.cpu_power_avg, minute.cpu_power_max, minute.cpu_power_min)
+    {
+      power.push(power_avg, power_max, power_min);
+    }
+
     // A minute without a CPU usage reading cannot be classified into any
     // band; a minute without a temperature reading has nothing to
     // contribute even once classified. Either way it contributes nothing
@@ -175,27 +229,29 @@ pub fn summarize_day(
   Some(DailyCoolingSummary {
     date,
     coverage_minutes: (minutes.len() as u32).min(MINUTES_PER_DAY),
-    idle: idle.finish(),
-    low: low.finish(),
-    mid: mid.finish(),
-    high: high.finish(),
+    idle: idle.finish_band(),
+    low: low.finish_band(),
+    mid: mid.finish_band(),
+    high: high.finish_band(),
+    power: power.finish_power(),
   })
 }
 
-/// Accumulates one [`CpuLoadBand`]'s temperature readings for a single
-/// day. `avg` is the average of the per-minute averages (consistent with
+/// Accumulates one series of per-minute avg/max/min readings for a single
+/// day - one [`CpuLoadBand`]'s temperatures, or the day's CPU package
+/// power. `avg` is the average of the per-minute averages (consistent with
 /// how `archive_queries` already aggregates `DATA_ARCHIVE` rows, since
 /// each row is itself already a one-minute average); `max`/`min` are the
 /// extremes across the per-minute extremes.
 #[derive(Default)]
-struct BandAccumulator {
+struct ReadingAccumulator {
   sum: f64,
   count: u32,
   max: Option<f32>,
   min: Option<f32>,
 }
 
-impl BandAccumulator {
+impl ReadingAccumulator {
   fn push(&mut self, avg: f32, max: f32, min: f32) {
     self.sum += avg as f64;
     self.count += 1;
@@ -203,9 +259,22 @@ impl BandAccumulator {
     self.min = Some(self.min.map_or(min, |current| current.min(min)));
   }
 
-  fn finish(self) -> BandSummary {
+  fn avg(&self) -> Option<f32> {
+    (self.count > 0).then(|| (self.sum / self.count as f64) as f32)
+  }
+
+  fn finish_band(self) -> BandSummary {
     BandSummary {
-      avg: (self.count > 0).then(|| (self.sum / self.count as f64) as f32),
+      avg: self.avg(),
+      max: self.max,
+      min: self.min,
+      sample_minutes: self.count,
+    }
+  }
+
+  fn finish_power(self) -> PowerSummary {
+    PowerSummary {
+      avg: self.avg(),
       max: self.max,
       min: self.min,
       sample_minutes: self.count,
@@ -653,6 +722,29 @@ mod tests {
       cpu_temperature_avg: temp_avg,
       cpu_temperature_max: temp_max,
       cpu_temperature_min: temp_min,
+      cpu_power_avg: None,
+      cpu_power_max: None,
+      cpu_power_min: None,
+    }
+  }
+
+  /// A minute carrying a CPU package power reading on top of `sample`'s
+  /// temperature fields.
+  fn powered_sample(
+    cpu_usage_avg: Option<f32>,
+    temp: Option<f32>,
+    power: Option<f32>,
+  ) -> ArchiveMinuteSample {
+    ArchiveMinuteSample {
+      cpu_power_avg: power,
+      cpu_power_max: power.map(|w| w + 2.0),
+      cpu_power_min: power.map(|w| w - 2.0),
+      ..sample(
+        cpu_usage_avg,
+        temp,
+        temp.map(|t| t + 1.0),
+        temp.map(|t| t - 1.0),
+      )
     }
   }
 
@@ -767,6 +859,97 @@ mod tests {
     let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
 
     assert_eq!(summary.coverage_minutes, 1440);
+  }
+
+  // ── summarize_day: CPU package power (#2021) ──
+
+  #[test]
+  fn summarize_day_leaves_power_absent_when_no_minute_carried_a_reading() {
+    let summary = summarize_day(date(2026, 8, 20), &[full_sample(5.0, 40.0)]).unwrap();
+
+    assert_eq!(
+      summary.power,
+      PowerSummary::default(),
+      "a machine with no power sensor must report absent power, never 0 W"
+    );
+  }
+
+  #[test]
+  fn summarize_day_aggregates_power_avg_of_avgs_and_extremes() {
+    let minutes = [
+      powered_sample(Some(5.0), Some(40.0), Some(10.0)),
+      powered_sample(Some(65.0), Some(80.0), Some(30.0)),
+      powered_sample(Some(35.0), Some(60.0), Some(20.0)),
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.power.avg, Some(20.0));
+    // `powered_sample` uses power + 2.0 / power - 2.0 for max/min.
+    assert_eq!(summary.power.max, Some(32.0));
+    assert_eq!(summary.power.min, Some(8.0));
+    assert_eq!(summary.power.sample_minutes, 3);
+  }
+
+  #[test]
+  fn summarize_day_folds_power_independently_of_the_load_band_gate() {
+    // The minute has a power reading but no CPU usage, so it contributes
+    // to no band - power collection and temperature/load pairing are
+    // separate capabilities and must not gate each other.
+    let minutes = [powered_sample(None, Some(40.0), Some(25.0))];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    let band_minutes: u32 = [summary.idle, summary.low, summary.mid, summary.high]
+      .iter()
+      .map(|band| band.sample_minutes)
+      .sum();
+    assert_eq!(band_minutes, 0);
+    assert_eq!(summary.power.avg, Some(25.0));
+    assert_eq!(summary.power.sample_minutes, 1);
+  }
+
+  #[test]
+  fn summarize_day_folds_power_on_a_machine_without_a_temperature_sensor() {
+    let minutes = [powered_sample(Some(5.0), None, Some(12.0))];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.idle.sample_minutes, 0);
+    assert_eq!(summary.power.avg, Some(12.0));
+  }
+
+  #[test]
+  fn summarize_day_skips_a_minute_whose_power_reading_is_incomplete() {
+    let minutes = [
+      powered_sample(Some(5.0), Some(40.0), Some(10.0)),
+      // The collector writes avg/max/min together, so a partial triple
+      // means a hand-edited or half-migrated row: drop it rather than
+      // averaging an extreme-less reading into the day.
+      ArchiveMinuteSample {
+        cpu_power_avg: Some(999.0),
+        cpu_power_max: None,
+        cpu_power_min: None,
+        ..sample(Some(5.0), Some(40.0), Some(41.0), Some(39.0))
+      },
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.power.avg, Some(10.0));
+    assert_eq!(summary.power.sample_minutes, 1);
+  }
+
+  #[test]
+  fn summarize_day_counts_only_powered_minutes_toward_power_sample_minutes() {
+    let minutes = [
+      powered_sample(Some(5.0), Some(40.0), Some(10.0)),
+      // Archived, temperature-paired, but the power sampler was
+      // unavailable that minute.
+      powered_sample(Some(5.0), Some(40.0), None),
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.coverage_minutes, 2);
+    assert_eq!(summary.idle.sample_minutes, 2);
+    assert_eq!(summary.power.sample_minutes, 1);
+    assert_eq!(summary.power.avg, Some(10.0));
   }
 
   // ── days_to_roll_up ──
@@ -910,7 +1093,11 @@ mod tests {
           high_cpu_temperature_max REAL,
           high_cpu_temperature_min REAL,
           high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          coverage_minutes INTEGER NOT NULL
+          coverage_minutes INTEGER NOT NULL,
+          cpu_power_avg REAL,
+          cpu_power_max REAL,
+          cpu_power_min REAL,
+          power_sample_minutes INTEGER NOT NULL DEFAULT 0
         )",
       )
       .execute(pool)

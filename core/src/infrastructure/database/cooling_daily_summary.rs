@@ -10,7 +10,7 @@ use super::archive_queries::sqlite_epoch_milliseconds;
 use super::db;
 use crate::persistence::cooling_baseline::DailyIdleSample;
 use crate::persistence::cooling_rollup::{
-  ArchiveMinuteSample, BandSummary, DailyCoolingSummary,
+  ArchiveMinuteSample, BandSummary, DailyCoolingSummary, PowerSummary,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::SqlitePool;
@@ -34,6 +34,12 @@ struct ArchiveMinuteRow {
   cpu_temperature_avg: Option<f64>,
   cpu_temperature_max: Option<f64>,
   cpu_temperature_min: Option<f64>,
+  // The CPU package-domain power columns (#2021). `cpu_power_*` is the
+  // column `PowerDraw::cpu_watts` is archived into on every platform that
+  // publishes one, so the cooling power lane needs no per-platform branch.
+  cpu_power_avg: Option<f64>,
+  cpu_power_max: Option<f64>,
+  cpu_power_min: Option<f64>,
 }
 
 impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
@@ -44,6 +50,9 @@ impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
       cpu_temperature_avg: row.cpu_temperature_avg.map(|v| v as f32),
       cpu_temperature_max: row.cpu_temperature_max.map(|v| v as f32),
       cpu_temperature_min: row.cpu_temperature_min.map(|v| v as f32),
+      cpu_power_avg: row.cpu_power_avg.map(|v| v as f32),
+      cpu_power_max: row.cpu_power_max.map(|v| v as f32),
+      cpu_power_min: row.cpu_power_min.map(|v| v as f32),
     }
   }
 }
@@ -67,7 +76,10 @@ async fn select_archive_minutes_for_range_from_pool(
        CAST(cpu_avg AS REAL) AS cpu_avg,
        CAST(cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
        CAST(cpu_temperature_max AS REAL) AS cpu_temperature_max,
-       CAST(cpu_temperature_min AS REAL) AS cpu_temperature_min
+       CAST(cpu_temperature_min AS REAL) AS cpu_temperature_min,
+       CAST(cpu_power_avg AS REAL) AS cpu_power_avg,
+       CAST(cpu_power_max AS REAL) AS cpu_power_max,
+       CAST(cpu_power_min AS REAL) AS cpu_power_min
      FROM DATA_ARCHIVE
      WHERE {epoch_ms} >= $1 AND {epoch_ms} < $2
      ORDER BY timestamp ASC"
@@ -191,6 +203,10 @@ struct DailyCoolingSummaryRow {
   high_cpu_temperature_min: Option<f64>,
   high_sample_minutes: i64,
   coverage_minutes: i64,
+  cpu_power_avg: Option<f64>,
+  cpu_power_max: Option<f64>,
+  cpu_power_min: Option<f64>,
+  power_sample_minutes: i64,
 }
 
 impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
@@ -239,6 +255,12 @@ impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
         row.high_cpu_temperature_min,
         row.high_sample_minutes,
       ),
+      power: PowerSummary {
+        avg: row.cpu_power_avg.map(|v| v as f32),
+        max: row.cpu_power_max.map(|v| v as f32),
+        min: row.cpu_power_min.map(|v| v as f32),
+        sample_minutes: row.power_sample_minutes.max(0) as u32,
+      },
     }
   }
 }
@@ -252,7 +274,8 @@ pub(crate) async fn select_all_daily_cooling_summaries_from_pool(
        low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
        mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
        high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
-       coverage_minutes
+       coverage_minutes,
+       cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
      FROM cooling_daily_summary
      ORDER BY date ASC",
   )
@@ -298,9 +321,10 @@ where
       low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
       mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
       high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
-      coverage_minutes
+      coverage_minutes,
+      cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
     ON CONFLICT(date) DO UPDATE SET
       idle_cpu_temperature_avg = excluded.idle_cpu_temperature_avg,
       idle_cpu_temperature_max = excluded.idle_cpu_temperature_max,
@@ -318,7 +342,11 @@ where
       high_cpu_temperature_max = excluded.high_cpu_temperature_max,
       high_cpu_temperature_min = excluded.high_cpu_temperature_min,
       high_sample_minutes = excluded.high_sample_minutes,
-      coverage_minutes = excluded.coverage_minutes
+      coverage_minutes = excluded.coverage_minutes,
+      cpu_power_avg = excluded.cpu_power_avg,
+      cpu_power_max = excluded.cpu_power_max,
+      cpu_power_min = excluded.cpu_power_min,
+      power_sample_minutes = excluded.power_sample_minutes
     "#,
   )
   .bind(summary.date.format("%Y-%m-%d").to_string())
@@ -339,6 +367,10 @@ where
   .bind(summary.high.min)
   .bind(minutes(&summary.high))
   .bind(summary.coverage_minutes as i64)
+  .bind(summary.power.avg)
+  .bind(summary.power.max)
+  .bind(summary.power.min)
+  .bind(summary.power.sample_minutes as i64)
   .execute(executor)
   .await?;
 
@@ -437,6 +469,9 @@ mod tests {
         cpu_temperature_avg REAL,
         cpu_temperature_max REAL,
         cpu_temperature_min REAL,
+        cpu_power_avg REAL,
+        cpu_power_max REAL,
+        cpu_power_min REAL,
         timestamp DATETIME
       )",
     )
@@ -465,7 +500,11 @@ mod tests {
         high_cpu_temperature_max REAL,
         high_cpu_temperature_min REAL,
         high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-        coverage_minutes INTEGER NOT NULL
+        coverage_minutes INTEGER NOT NULL,
+        cpu_power_avg REAL,
+        cpu_power_max REAL,
+        cpu_power_min REAL,
+        power_sample_minutes INTEGER NOT NULL DEFAULT 0
       )",
     )
     .execute(pool)
@@ -858,11 +897,18 @@ mod tests {
       low: full_band(40.0, 300),
       mid: empty_band(),
       high: full_band(70.0, 100),
+      power: PowerSummary {
+        avg: Some(18.5),
+        max: Some(42.0),
+        min: Some(4.5),
+        sample_minutes: 950,
+      },
     };
     upsert_from_pool(&pool, &summary).await.unwrap();
 
     let row = sqlx::query(
-      "SELECT idle_cpu_temperature_avg, idle_sample_minutes, mid_cpu_temperature_avg, mid_sample_minutes, coverage_minutes
+      "SELECT idle_cpu_temperature_avg, idle_sample_minutes, mid_cpu_temperature_avg, mid_sample_minutes, coverage_minutes,
+              cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
        FROM cooling_daily_summary WHERE date = $1",
     )
     .bind("2026-08-15")
@@ -875,6 +921,74 @@ mod tests {
     assert_eq!(row.get::<Option<f64>, _>("mid_cpu_temperature_avg"), None);
     assert_eq!(row.get::<i64, _>("mid_sample_minutes"), 0);
     assert_eq!(row.get::<i64, _>("coverage_minutes"), 1000);
+    assert_eq!(row.get::<f64, _>("cpu_power_avg"), 18.5);
+    assert_eq!(row.get::<f64, _>("cpu_power_max"), 42.0);
+    assert_eq!(row.get::<f64, _>("cpu_power_min"), 4.5);
+    assert_eq!(row.get::<i64, _>("power_sample_minutes"), 950);
+  }
+
+  #[tokio::test]
+  async fn a_day_without_power_readings_reads_back_absent_rather_than_zero() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 15),
+        coverage_minutes: 1000,
+        idle: full_band(30.0, 600),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power: PowerSummary::default(),
+      },
+    )
+    .await
+    .unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days.len(), 1);
+    assert_eq!(days[0].power, PowerSummary::default());
+    assert_eq!(days[0].power.avg, None);
+  }
+
+  #[tokio::test]
+  async fn a_persisted_power_summary_round_trips_through_the_daily_read() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    let power = PowerSummary {
+      avg: Some(21.5),
+      max: Some(55.0),
+      min: Some(3.25),
+      sample_minutes: 1200,
+    };
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 15),
+        coverage_minutes: 1440,
+        // A machine that reports power but has no temperature sensor
+        // keeps its power series: the two capabilities are independent.
+        idle: empty_band(),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power,
+      },
+    )
+    .await
+    .unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days[0].power, power);
   }
 
   #[tokio::test]
@@ -889,6 +1003,7 @@ mod tests {
       low: empty_band(),
       mid: empty_band(),
       high: empty_band(),
+      power: PowerSummary::default(),
     };
     upsert_from_pool(&pool, &summary).await.unwrap();
 

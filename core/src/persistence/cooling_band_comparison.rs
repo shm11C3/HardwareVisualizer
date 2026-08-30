@@ -16,7 +16,11 @@ use chrono::{Duration, NaiveDate};
 use crate::persistence::cooling_baseline::{
   BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS,
 };
-use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingSummary};
+use crate::persistence::cooling_rollup::{
+  BandSummary, CpuLoadBand, DailyCoolingSummary,
+};
+#[cfg(test)]
+use crate::persistence::cooling_rollup::PowerSummary;
 
 /// Minimum sample minutes a band's window must carry before that band's
 /// comparison is meaningful. Applied independently to the baseline side
@@ -270,6 +274,7 @@ mod tests {
         low: band(40.0, 30),
         mid: empty_band(),
         high: empty_band(),
+        power: PowerSummary::default(),
       },
       DailyCoolingSummary {
         date: baseline_end,
@@ -278,6 +283,7 @@ mod tests {
         low: band(42.0, 90),
         mid: empty_band(),
         high: empty_band(),
+        power: PowerSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -286,6 +292,7 @@ mod tests {
         low: empty_band(),
         mid: empty_band(),
         high: band(70.0, 40),
+        power: PowerSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_end,
@@ -294,6 +301,7 @@ mod tests {
         low: empty_band(),
         mid: empty_band(),
         high: band(72.0, 20),
+        power: PowerSummary::default(),
       },
     ];
 
@@ -364,6 +372,7 @@ mod tests {
         low: empty_band(),
         mid: empty_band(),
         high: empty_band(),
+        power: PowerSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -372,6 +381,7 @@ mod tests {
         low: empty_band(),
         mid: empty_band(),
         high: empty_band(),
+        power: PowerSummary::default(),
       },
     ];
 
@@ -405,6 +415,7 @@ mod tests {
         low: empty_band(),
         mid: empty_band(),
         high: empty_band(),
+        power: PowerSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -413,6 +424,7 @@ mod tests {
         low: empty_band(),
         mid: empty_band(),
         high: empty_band(),
+        power: PowerSummary::default(),
       },
     ];
 
@@ -438,6 +450,7 @@ mod tests {
       low: band(40.0, 300),
       mid: empty_band(),
       high: empty_band(),
+      power: PowerSummary::default(),
     };
 
     let sample = to_idle_sample(&day);
@@ -476,7 +489,11 @@ mod tests {
           high_cpu_temperature_max REAL,
           high_cpu_temperature_min REAL,
           high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          coverage_minutes INTEGER NOT NULL
+          coverage_minutes INTEGER NOT NULL,
+          cpu_power_avg REAL,
+          cpu_power_max REAL,
+          cpu_power_min REAL,
+          power_sample_minutes INTEGER NOT NULL DEFAULT 0
         )",
       )
       .execute(pool)
