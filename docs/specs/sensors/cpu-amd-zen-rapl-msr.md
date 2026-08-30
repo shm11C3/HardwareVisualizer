@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Implementation-ready (rev 2) |
+| Revision | 3 |
+| Status | Implementation-ready (rev 3) |
 | Scope | CPU package/socket power (Watts) on AMD Family 17h (Zen/Zen+/Zen 2), 19h (Zen 3/Zen 4), and 1Ah (Zen 5) processors, derived from the RAPL energy counter MSRs (`MSRC001_0299` RAPL Power Unit, `MSRC001_029B` Package Energy Status). Excludes: per-core energy (`MSRC001_029A`, recorded as a future extension), power-limit interfaces, SMU PM-table power telemetry, pre-Zen families. |
 | Issue phase | Phase 5 (#1635) — sensor model extension beyond temperature |
 
@@ -116,14 +116,17 @@ Notes:
    `T_max = (2^32 × 2^-ESU J) / P_gate`, where `P_gate = 1000 W` is
    the same assumed maximum package power as the plausibility gate in
    step 7 (at the default `ESU = 16`: `65 536 J / 1000 W ≈ 65 s`).
-   If `t_now − t_prev > T_max`, do **not** compute or publish a power
+   If `t_now − t_prev ≥ T_max`, do **not** compute or publish a power
    value: treat the tick as a missing sample and restart by taking
-   the current reading as the new baseline. Rationale: the modular
-   difference cannot detect `k ≥ 1` complete counter wraps, so an
-   oversized gap (system sleep, timer suspension, collector delay)
-   would otherwise yield a plausible-looking but understated power
-   value that the range gate in step 7 cannot catch. Dropping the
-   sample instead of publishing a fabricated number follows DP-02 in
+   the current reading as the new baseline. At equality, a package
+   averaging exactly `P_gate` consumes `2^32` energy units, whose low
+   32-bit modular difference is zero; validity therefore requires a
+   strict gap below `T_max`. At or beyond that boundary, the modular
+   difference cannot detect `k ≥ 1` complete counter wraps, so a gap
+   caused by system sleep, timer suspension, or collector delay could
+   otherwise yield a plausible-looking but understated power value
+   that the range gate in step 7 cannot catch. Dropping the sample
+   instead of publishing a fabricated number follows DP-02 in
    [`docs/design-principles.md`](../../design-principles.md).
    (Project policy; arithmetic from the S1–S5 units and widths)
 6. Otherwise compute, in 32-bit unsigned modular arithmetic:
@@ -153,8 +156,8 @@ Width-agnostic decode rationale (why step 3 truncates to 32 bits):
   `2^32 × 2^-ESU J = 65 536 J` at the default `ESU = 16` — ~327 s
   (≈ 5.5 min) of headroom at a continuous 200 W, ~65 s at 1000 W. A
   sampling interval of at most 30 s keeps the decode unambiguous
-  below ~2 185 W average package power, and any gap exceeding the
-  `T_max` bound of step 5 is rejected and re-baselined instead of
+  below ~2 185 W average package power, and any gap at or exceeding
+  the `T_max` bound of step 5 is rejected and re-baselined instead of
   decoded. This removes the counter width as a runtime dependency,
   which is what makes the experimental (width-unverified) scopes in
   Detection safe to attempt. (S1–S5 for the widths and units;
@@ -233,3 +236,4 @@ Width-agnostic decode rationale (why step 3 truncates to 32 bits):
 | --- | --- | --- |
 | 1 | 2026-08-30 | Initial version, authored with all provenance pinned against AMD PPRs 54945 Rev 3.03, 56214-B0 Rev 3.05, 56713-B1 Rev 3.05, 57238 Rev 0.24, 57896-B0 Rev 3.00 and PawnIO.Modules tag 0.2.8. Proposed Implementation-ready per the README status-transition checklist; effective upon maintainer approval of the introducing PR. |
 | 2 | 2026-08-30 | PR #2033 review follow-up. Provenance: `CPUID_Fn80000007_EDX[14]` (`RAPL`) pinned for all five models — added S2 §2.1.13.1 p. 84, S4 §2.1.14.1 p. 120, S5 §2.1.12.1 p. 98; corrected the S3 CPUID section number to §2.1.11.1 (p. 99 unchanged). Normative addition: wrap-safe gap check — gaps exceeding `T_max = 2^32 × 2^-ESU J / 1000 W` (≈ 65 s at `ESU = 16`) publish no power value and re-baseline (DP-02), because the modular difference cannot detect complete wraps across oversized gaps. Status remains Implementation-ready. |
+| 3 | 2026-08-30 | Corrected the normative wrap-safe boundary from `> T_max` to `≥ T_max`: at equality and `P_gate`, the true delta is exactly `2^32` energy units and decodes as a zero low-32-bit modular difference. Maintainer approved the revision 3 status transition; status is Implementation-ready. |
