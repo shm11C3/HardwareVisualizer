@@ -6,8 +6,10 @@ import type {
 import {
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
+  collectPowerDomainValues,
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
+  computePowerDomain,
   resolveBaselineBand,
   type ThermalTimelineRow,
   toDisplayTemperature,
@@ -37,6 +39,7 @@ const trendPoint = (
   low: EMPTY_BAND,
   mid: EMPTY_BAND,
   high: EMPTY_BAND,
+  power: { avg: null, max: null, min: null, sampleMinutes: 0 },
   ...overrides,
 });
 
@@ -320,8 +323,177 @@ describe("buildDailyTimelineRows", () => {
   });
 });
 
+describe("buildDailyTimelineRows power lane", () => {
+  const referenceDate = new Date("2026-01-15T12:00:00Z");
+
+  it("carries the day's power summary onto the row", () => {
+    const rows = buildDailyTimelineRows(
+      [
+        trendPoint("2026-01-15", {
+          power: { avg: 18.5, max: 42, min: 4.5, sampleMinutes: 1200 },
+        }),
+      ],
+      1,
+      referenceDate,
+      "C",
+      identityLabel,
+    );
+
+    expect(rows[0]).toMatchObject({
+      powerAvg: 18.5,
+      powerMin: 4.5,
+      powerMax: 42,
+      powerRange: [4.5, 42],
+    });
+  });
+
+  it("keeps a day without power readings absent rather than zeroed", () => {
+    const rows = buildDailyTimelineRows(
+      [trendPoint("2026-01-15", { idle: band(30, 28, 33, 600) })],
+      1,
+      referenceDate,
+      "C",
+      identityLabel,
+    );
+
+    expect(rows[0]).toMatchObject({
+      temperatureAvg: 30,
+      powerAvg: null,
+      powerMin: null,
+      powerMax: null,
+      powerRange: null,
+    });
+  });
+
+  it("breaks the power band when only one edge was recorded", () => {
+    const rows = buildDailyTimelineRows(
+      [
+        trendPoint("2026-01-15", {
+          power: { avg: 18.5, max: 42, min: null, sampleMinutes: 1200 },
+        }),
+      ],
+      1,
+      referenceDate,
+      "C",
+      identityLabel,
+    );
+
+    expect(rows[0].powerAvg).toBe(18.5);
+    expect(rows[0].powerRange).toBeNull();
+  });
+
+  it("keeps power in watts regardless of the temperature display unit", () => {
+    const rows = buildDailyTimelineRows(
+      [
+        trendPoint("2026-01-15", {
+          idle: band(30, 28, 33, 600),
+          power: { avg: 18.5, max: 42, min: 4.5, sampleMinutes: 1200 },
+        }),
+      ],
+      1,
+      referenceDate,
+      "F",
+      identityLabel,
+    );
+
+    expect(rows[0].temperatureAvg).toBe(86);
+    expect(rows[0].powerAvg).toBe(18.5);
+  });
+});
+
+describe("computePowerDomain", () => {
+  it("returns null when nothing was recorded", () => {
+    expect(computePowerDomain([null, null])).toBeNull();
+  });
+
+  it("returns null for an empty window rather than assuming support", () => {
+    expect(computePowerDomain([])).toBeNull();
+  });
+
+  it("anchors the lower bound at zero so draw reads against no load", () => {
+    expect(computePowerDomain([12, 40])).toEqual([0, 44]);
+  });
+
+  it("keeps headroom above a flat series instead of a zero-height lane", () => {
+    expect(computePowerDomain([20, 20])).toEqual([0, 22]);
+  });
+});
+
 describe("buildArchiveTimelineRows", () => {
   const identityBucketLabel = (timestamp: number) => String(timestamp);
+
+  const EMPTY_POWER = {
+    powerAvg: [],
+    powerMax: [],
+    powerMin: [],
+  } as const;
+
+  it("merges the CPU power series onto the same bucket axis", () => {
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        powerAvg: [{ timestamp: 0, value: 18.55 }],
+        powerMax: [{ timestamp: 0, value: 42 }],
+        powerMin: [{ timestamp: 0, value: 4.5 }],
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+    );
+
+    expect(rows[0]).toMatchObject({
+      powerAvg: 18.6,
+      powerMin: 4.5,
+      powerMax: 42,
+      powerRange: [4.5, 42],
+    });
+  });
+
+  it("keeps a machine without a power source at absent power, not 0 W", () => {
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        ...EMPTY_POWER,
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+    );
+
+    expect(rows[0].powerAvg).toBeNull();
+    expect(rows[0].powerRange).toBeNull();
+    // Which is exactly what makes the lane's gate close.
+    expect(computePowerDomain(collectPowerDomainValues(rows))).toBeNull();
+  });
+
+  it("extends the bucket axis to cover a power-only bucket", () => {
+    // The power series can outlive the temperature series on a machine
+    // whose temperature sensor dropped out; the shared axis must still
+    // cover it or the power lane would silently lose its newest bucket.
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        powerAvg: [{ timestamp: 60_000, value: 20 }],
+        powerMax: [],
+        powerMin: [],
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+    );
+
+    expect(rows.map((r) => r.key)).toEqual(["0", "60000"]);
+    expect(rows[1].powerAvg).toBe(20);
+  });
 
   it("returns no rows when every series is empty", () => {
     expect(
@@ -331,6 +503,7 @@ describe("buildArchiveTimelineRows", () => {
           temperatureMax: [],
           temperatureMin: [],
           cpuUsage: [],
+          ...EMPTY_POWER,
         },
         60_000,
         "C",
@@ -346,6 +519,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [{ timestamp: 0, value: 60 }],
         temperatureMin: [{ timestamp: 0, value: 40 }],
         cpuUsage: [{ timestamp: 0, value: 25.55 }],
+        ...EMPTY_POWER,
       },
       60_000,
       "C",
@@ -373,6 +547,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [],
         temperatureMin: [],
         cpuUsage: [],
+        ...EMPTY_POWER,
       },
       60_000,
       "C",
@@ -394,6 +569,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [{ timestamp: 0, value: 60 }],
         temperatureMin: [{ timestamp: 0, value: null }],
         cpuUsage: [],
+        ...EMPTY_POWER,
       },
       60_000,
       "C",
@@ -410,6 +586,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [],
         temperatureMin: [],
         cpuUsage: [{ timestamp: 0, value: 30 }],
+        ...EMPTY_POWER,
       },
       60_000,
       "F",
@@ -428,6 +605,7 @@ describe("buildArchiveTimelineRows", () => {
           temperatureMax: [],
           temperatureMin: [],
           cpuUsage: [],
+          ...EMPTY_POWER,
         },
         0,
         "C",

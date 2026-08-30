@@ -6,13 +6,15 @@ import type {
   CoolingBaselineState,
   CoolingDailyTrendPoint,
 } from "@/rspc/bindings";
-import { useCoolingArchiveTimeline } from "../hooks/useCoolingArchiveTimeline";
+import type { CoolingArchiveTimeline } from "../hooks/useCoolingArchiveTimeline";
 import type { CoolingPeriodRoute } from "../utils/coolingPeriodRoute";
 import {
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
+  collectPowerDomainValues,
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
+  computePowerDomain,
   resolveBaselineBand,
   type ThermalTimelineRow,
 } from "../utils/thermalTimeline";
@@ -60,10 +62,18 @@ export const ThermalTimelineLane = ({
   route,
   baseline,
   dailyTrend,
+  archive,
 }: {
   route: CoolingPeriodRoute;
   baseline: CoolingBaselineState | null;
   dailyTrend: CoolingDailyTrendPoint[] | null;
+  /**
+   * The archive fetch for 24h/7d/30d, owned by `CoolingInsightView` rather
+   * than by this lane: the pending-sensors note beside the timeline reads
+   * the same power series to decide whether to keep naming power, and a
+   * second fetch to answer that would double the archive round trips.
+   */
+  archive: CoolingArchiveTimeline;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -74,9 +84,7 @@ export const ThermalTimelineLane = ({
     stepMs,
     hasLoaded: archiveLoaded,
     hasError: archiveHasError,
-  } = useCoolingArchiveTimeline(
-    route.kind === "archive" ? route.minutes : null,
-  );
+  } = archive;
 
   const rows = useMemo<ThermalTimelineRow[]>(() => {
     if (route.kind === "archive") {
@@ -135,6 +143,13 @@ export const ThermalTimelineLane = ({
     [rows, baselineBand],
   );
 
+  // Null here is the power lane's capability gate: no recorded watts in
+  // the window means no lane, not a lane pinned at zero.
+  const powerDomain = useMemo(
+    () => computePowerDomain(collectPowerDomainValues(rows)),
+    [rows],
+  );
+
   const loadMode: LoadLaneMode =
     route.kind === "archive" ? "usage" : "composition";
 
@@ -177,6 +192,7 @@ export const ThermalTimelineLane = ({
         <TimelineLanes
           rows={rows}
           domain={domain}
+          powerDomain={powerDomain}
           baseline={baselineBand}
           loadMode={loadMode}
           temperatureUnit={temperatureUnit}

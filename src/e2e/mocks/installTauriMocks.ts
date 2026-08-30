@@ -70,6 +70,12 @@ type FixtureOverrides = {
    * when `coolingBaselineEstablishing` is set; unset/unrecognized falls
    * back to the default `withinRange` fixture. */
   coolingObservationOverride: CoolingObservationOverride;
+  /** `?coolingPower=none` empties every CPU-power source the Cooling tab
+   * reads (the archive `cpuPower` series and the daily trend's `power`),
+   * simulating a machine whose platform publishes no CPU package power.
+   * The timeline then draws no power lane and the pending-sensors note
+   * keeps naming power (#2021). */
+  coolingPowerUnsupported: boolean;
 };
 type CoolingObservationOverride =
   | "notComparable"
@@ -117,6 +123,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get("coolingBaseline") ===
       "establishing",
     coolingObservationOverride: readCoolingObservationOverride(),
+    coolingPowerUnsupported:
+      new URLSearchParams(window.location.search).get("coolingPower") ===
+      "none",
   };
 };
 
@@ -284,6 +293,11 @@ const buildInvokeHandlers = (
       );
     }
     if (a.hardwareType.endsWith("Power")) {
+      if (fixtureOverrides.coolingPowerUnsupported) {
+        // The archive returns no buckets at all when nothing was ever
+        // recorded - not buckets holding zero.
+        return [];
+      }
       return buildArchiveSeries(
         a.start,
         a.end,
@@ -291,6 +305,10 @@ const buildInvokeHandlers = (
         a.bucketTimestamp,
         18 + spread(5),
         7,
+        // The power series is archived from the same one-minute rows as
+        // the temperature and CPU series, so it must break at the same
+        // buckets - the Cooling tab's three lanes share one axis.
+        { gapEvery: 17 },
       );
     }
     return buildArchiveSeries(
@@ -346,7 +364,11 @@ const buildInvokeHandlers = (
 
   // --- cooling insight commands (#2018) ---
   get_cooling_trend: (args) =>
-    buildCoolingDailyTrendFixture((args as { days: number }).days),
+    buildCoolingDailyTrendFixture(
+      (args as { days: number }).days,
+      undefined,
+      !fixtureOverrides.coolingPowerUnsupported,
+    ),
   get_cooling_band_comparison: () =>
     fixtureOverrides.coolingBaselineEstablishing
       ? coolingBandComparisonEstablishingFixture

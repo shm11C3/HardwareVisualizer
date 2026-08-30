@@ -376,6 +376,7 @@
           }
         },
         "unsupportedSensorsNote": "タイムラインへの電力・ファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
+        "unsupportedSensorsNoteFanOnly": "タイムラインへのファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
         "timeline": {
           "title": "サーマルタイムライン",
           "loadFailed": "サーマルタイムラインの取得に失敗しました。",
@@ -383,6 +384,7 @@
           "temperatureUnavailable": "この期間の温度の記録はありません。CPU 負荷のみ表示しています。",
           "loadLaneUsage": "CPU 負荷 (%)",
           "loadLaneComposition": "負荷帯の構成 (1 日あたりの割合)",
+          "powerLane": "CPU パッケージ電力 (W)",
           "legend": {
             "average": "平均",
             "range": "最小 - 最大",
@@ -395,6 +397,8 @@
             "idle": "アイドル",
             "baselineDelta": "ベースライン比",
             "cpuUsage": "CPU 負荷",
+            "power": "パッケージ電力",
+            "powerRange": "電力 最小 - 最大",
             "noRecording": "記録なし"
           }
         },
@@ -403,9 +407,6 @@
           "low": "低負荷",
           "mid": "中負荷",
           "high": "高負荷"
-        },
-        "legacyPowerCharts": {
-          "title": "電力チャート"
         },
         "coverage": {
           "title": "記録カバレッジ",
@@ -448,6 +449,7 @@
           },
           "unsupported": {
             "label": "電力・ファン",
+            "labelFanOnly": "ファン",
             "value": "未対応"
           }
         }

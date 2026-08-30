@@ -376,6 +376,7 @@
           }
         },
         "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
+        "unsupportedSensorsNoteFanOnly": "The timeline does not have a fan lane yet. It will be added as its collector and archive become available.",
         "timeline": {
           "title": "Thermal Timeline",
           "loadFailed": "Failed to load the thermal timeline.",
@@ -383,6 +384,7 @@
           "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
           "loadLaneUsage": "CPU load (%)",
           "loadLaneComposition": "Load bands (% of day)",
+          "powerLane": "CPU package power (W)",
           "legend": {
             "average": "Average",
             "range": "Min-max",
@@ -395,6 +397,8 @@
             "idle": "Idle",
             "baselineDelta": "vs baseline",
             "cpuUsage": "CPU load",
+            "power": "Package power",
+            "powerRange": "Power min-max",
             "noRecording": "Not recorded"
           }
         },
@@ -403,9 +407,6 @@
           "low": "Low",
           "mid": "Mid",
           "high": "High"
-        },
-        "legacyPowerCharts": {
-          "title": "Power Charts"
         },
         "coverage": {
           "title": "Recording Coverage",
@@ -448,6 +449,7 @@
           },
           "unsupported": {
             "label": "Power / fan",
+            "labelFanOnly": "Fan",
             "value": "Not supported yet"
           }
         }

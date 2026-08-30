@@ -22,20 +22,36 @@ const EMPTY_SERIES: ArchiveTimelineSeries = {
   temperatureMax: [],
   temperatureMin: [],
   cpuUsage: [],
+  powerAvg: [],
+  powerMax: [],
+  powerMin: [],
 };
 
 /**
- * Fetch the four archive series the 24h/7d/30d timeline lanes are built
- * from - CPU temperature avg/max/min plus CPU usage - over one shared time
- * range and bucket width, so every series lands on the same bucket grid.
+ * Fetch the archive series the 24h/7d/30d timeline lanes are built from -
+ * CPU temperature avg/max/min, CPU usage, and CPU package power avg/max/min
+ * - over one shared time range and bucket width, so every series lands on
+ * the same bucket grid.
+ *
+ * The power series are requested unconditionally: the archive answers with
+ * empty buckets on a machine that never recorded power, which is exactly
+ * the signal the power lane's capability gate reads. Asking first would
+ * need a second round trip to learn the same thing.
  *
  * Unlike `useInsightChart` this always reads the current window: the decided
  * layout scrubs history with the single period selector rather than
  * per-chart offset paging.
  */
+export type CoolingArchiveTimeline = {
+  series: ArchiveTimelineSeries;
+  stepMs: number;
+  hasLoaded: boolean;
+  hasError: boolean;
+};
+
 export const useCoolingArchiveTimeline = (
   minutes: CoolingArchivePeriod | null,
-) => {
+): CoolingArchiveTimeline => {
   const [series, setSeries] = useState<ArchiveTimelineSeries>(EMPTY_SERIES);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -62,7 +78,7 @@ export const useCoolingArchiveTimeline = (
     const startAt = new Date(endAt.getTime() - minutes * 60 * 1000);
 
     const read = async (
-      hardwareType: "cpuTemperature" | "cpu",
+      hardwareType: "cpuTemperature" | "cpu" | "cpuPower",
       stats: "avg" | "max" | "min",
     ): Promise<ArchiveSeriesPoint[]> => {
       const result = await commands.getDataArchiveSeries(
@@ -81,15 +97,33 @@ export const useCoolingArchiveTimeline = (
       return result.data;
     };
 
-    const [temperatureAvg, temperatureMax, temperatureMin, cpuUsage] =
-      await Promise.all([
-        read("cpuTemperature", "avg"),
-        read("cpuTemperature", "max"),
-        read("cpuTemperature", "min"),
-        read("cpu", "avg"),
-      ]);
+    const [
+      temperatureAvg,
+      temperatureMax,
+      temperatureMin,
+      cpuUsage,
+      powerAvg,
+      powerMax,
+      powerMin,
+    ] = await Promise.all([
+      read("cpuTemperature", "avg"),
+      read("cpuTemperature", "max"),
+      read("cpuTemperature", "min"),
+      read("cpu", "avg"),
+      read("cpuPower", "avg"),
+      read("cpuPower", "max"),
+      read("cpuPower", "min"),
+    ]);
 
-    return { temperatureAvg, temperatureMax, temperatureMin, cpuUsage };
+    return {
+      temperatureAvg,
+      temperatureMax,
+      temperatureMin,
+      cpuUsage,
+      powerAvg,
+      powerMax,
+      powerMin,
+    };
   }, [minutes, stepMs]);
 
   useEffect(() => {

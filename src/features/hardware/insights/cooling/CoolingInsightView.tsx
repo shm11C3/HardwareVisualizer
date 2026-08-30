@@ -4,18 +4,19 @@ import type {
 } from "@/rspc/bindings";
 import { CoolingPeriodSelect } from "./components/CoolingPeriodSelect";
 import { CoverageStrip } from "./components/CoverageStrip";
-import { LegacyPowerCharts } from "./components/LegacyPowerCharts";
 import { LoadBandComparisonPanel } from "./components/LoadBandComparisonPanel";
 import { LoadTemperatureExplorerPanel } from "./components/LoadTemperatureExplorerPanel";
 import { ObservationStrip } from "./components/ObservationStrip";
 import { ThermalTimelineLane } from "./components/ThermalTimelineLane";
 import { UnsupportedSensorNote } from "./components/UnsupportedSensorNote";
+import { useCoolingArchiveTimeline } from "./hooks/useCoolingArchiveTimeline";
 import { useCoolingBandComparison } from "./hooks/useCoolingBandComparison";
 import { useCoolingBaselineDelta } from "./hooks/useCoolingBaselineDelta";
 import { useCoolingDailyTrend } from "./hooks/useCoolingDailyTrend";
 import { useCoolingInsightPeriod } from "./hooks/useCoolingInsightPeriod";
 import type { CoolingInsightPeriod } from "./types";
 import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
+import { hasRoutedPowerData } from "./utils/thermalTimeline";
 
 /**
  * The Cooling tab: zone structure, single period selector, and
@@ -71,6 +72,14 @@ const CoolingInsightBody = ({
   const route = resolveCoolingPeriodRoute(period);
   const { data: dailyTrend, hasError: dailyTrendHasError } =
     useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
+  // Owned here rather than inside the timeline: both the timeline's power
+  // lane and the pending-sensors note below it read the same power series,
+  // and fetching it twice would double the archive round trips.
+  const archive = useCoolingArchiveTimeline(
+    route.kind === "archive" ? route.minutes : null,
+  );
+
+  const powerSupported = hasRoutedPowerData(route, archive.series, dailyTrend);
 
   return (
     <div className="space-y-4 pb-6">
@@ -86,9 +95,9 @@ const CoolingInsightBody = ({
         route={route}
         baseline={baselineDelta?.baseline ?? null}
         dailyTrend={dailyTrend}
+        archive={archive}
       />
-      <UnsupportedSensorNote />
-      <LegacyPowerCharts route={route} />
+      <UnsupportedSensorNote powerSupported={powerSupported} />
       {route.kind === "dailyTrend" && (
         <CoverageStrip
           points={dailyTrend}
@@ -99,6 +108,7 @@ const CoolingInsightBody = ({
       <LoadBandComparisonPanel
         bandComparison={bandComparison}
         hasError={bandComparisonHasError}
+        powerSupported={powerSupported}
       />
       <LoadTemperatureExplorerPanel />
     </div>
