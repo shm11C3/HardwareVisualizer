@@ -474,6 +474,9 @@ export const TimelineLanes = ({
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
   const showsPowerLane = powerDomain != null;
+  // The temperature lane carries the shared tooltip whenever it renders;
+  // the load lane is always mounted, so it is the fallback owner.
+  const ownsSharedTooltip = domain == null;
 
   return (
     <div className="space-y-2" data-testid="cooling-timeline-lanes">
@@ -573,8 +576,25 @@ export const TimelineLanes = ({
             tickLine={false}
             axisLine={false}
           />
-          {/* Cursor only - the shared tooltip is rendered by the lane above. */}
-          <ChartTooltip filterNull={false} content={() => null} />
+          {/* The shared tooltip belongs to the topmost lane that is
+              actually mounted. Normally that is the temperature lane
+              above; when the period recorded no temperature at all it is
+              this one, so the load and power readings stay inspectable
+              instead of silently losing their readout (DP-02). */}
+          <ChartTooltip
+            filterNull={false}
+            content={
+              ownsSharedTooltip ? (
+                <TimelineTooltipContent
+                  unitSuffix={unitSuffix}
+                  baseline={baseline}
+                  loadMode={loadMode}
+                />
+              ) : (
+                () => null
+              )
+            }
+          />
           {loadMode === "usage" ? (
             <Area
               dataKey="cpuUsage"
