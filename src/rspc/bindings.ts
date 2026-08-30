@@ -520,9 +520,8 @@ export type CoolingLoadTemperaturePoint = {
 };
 
 /**
- *  One day's CPU package power draw in watts (#2021).
- * 
- *  Not a [`CoolingBandTemperature`] despite the identical shape: power is
+ *  One day's CPU package power draw in watts (#2021). Not a
+ *  [`CoolingBandTemperature`] despite the identical shape: power is
  *  summarized over the whole day rather than per CPU-load band, and it is
  *  a different unit. `sampleMinutes == 0` means no archived minute that
  *  day carried a power reading, and `avg`/`max`/`min` are then all null -

@@ -57,13 +57,17 @@ impl From<CoreBandSummary> for CoolingBandTemperature {
   }
 }
 
-/// One day's CPU package power draw in watts (#2021).
-///
-/// Not a [`CoolingBandTemperature`] despite the identical shape: power is
+/// One day's CPU package power draw in watts (#2021). Not a
+/// [`CoolingBandTemperature`] despite the identical shape: power is
 /// summarized over the whole day rather than per CPU-load band, and it is
 /// a different unit. `sampleMinutes == 0` means no archived minute that
 /// day carried a power reading, and `avg`/`max`/`min` are then all null -
 /// the machine has no CPU power source, not 0 W.
+//
+// Kept to a single paragraph deliberately: tauri-specta renders a blank
+// `///` line as `" * "` in `bindings.ts`, whose trailing space fails CI's
+// `git diff --check`. The generated file must not be hand-edited, so the
+// paragraph break has to go here.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CoolingPowerSummary {
