@@ -2,6 +2,7 @@ use std::ffi::{CString, c_char};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use libloading::Library;
@@ -15,10 +16,12 @@ use windows::Win32::System::Threading::{
 use windows::core::PCWSTR;
 
 const PAWNIO_DLL_NAME: &str = "PawnIOLib.dll";
-const INTEL_MSR_MODULE_FILE: &str = "IntelMSR.amx";
-const INTEL_MSR_LEGACY_MODULE_FILE: &str = "IntelMSR.bin";
-const RYZEN_SMU_MODULE_FILE: &str = "RyzenSMU.amx";
-const RYZEN_SMU_LEGACY_MODULE_FILE: &str = "RyzenSMU.bin";
+const INTEL_MSR_MODULE_FILE: &str = "IntelMSR.bin";
+const INTEL_MSR_LEGACY_MODULE_FILE: &str = "IntelMSR.amx";
+const RYZEN_SMU_MODULE_FILE: &str = "RyzenSMU.bin";
+const RYZEN_SMU_LEGACY_MODULE_FILE: &str = "RyzenSMU.amx";
+const AMD_FAMILY17_MODULE_FILE: &str = "AMDFamily17.bin";
+const AMD_FAMILY17_LEGACY_MODULE_FILE: &str = "AMDFamily17.amx";
 const LPC_IO_MODULE_FILE: &str = "LpcIO.bin";
 const LPC_IO_LEGACY_MODULE_FILE: &str = "LpcIO.amx";
 
@@ -29,6 +32,7 @@ pub(crate) const ACCESS_ISABUS_MUTEX: &str = "Global\\Access_ISABUS.HTP.Method";
 pub(crate) enum PawnIoModule {
   IntelMsr,
   RyzenSmu,
+  AmdFamily17,
   LpcIo,
 }
 
@@ -37,6 +41,7 @@ impl PawnIoModule {
     match self {
       Self::IntelMsr => &[INTEL_MSR_MODULE_FILE, INTEL_MSR_LEGACY_MODULE_FILE],
       Self::RyzenSmu => &[RYZEN_SMU_MODULE_FILE, RYZEN_SMU_LEGACY_MODULE_FILE],
+      Self::AmdFamily17 => &[AMD_FAMILY17_MODULE_FILE, AMD_FAMILY17_LEGACY_MODULE_FILE],
       Self::LpcIo => &[LPC_IO_MODULE_FILE, LPC_IO_LEGACY_MODULE_FILE],
     }
   }
@@ -103,6 +108,7 @@ pub(crate) struct PawnIoClient {
   handle: HANDLE,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct PawnIoInitError {
   pub(crate) discovery: Box<PawnIoDiscovery>,
   pub(crate) reason: String,
@@ -290,6 +296,22 @@ impl PawnIoClient {
 
     Ok(output[..return_size.min(output_cells)].to_vec())
   }
+}
+
+type SharedIntelMsr =
+  Result<(Arc<Mutex<PawnIoClient>>, PawnIoDiscovery), PawnIoInitError>;
+
+static SHARED_INTEL_MSR: OnceLock<SharedIntelMsr> = OnceLock::new();
+
+/// Open the IntelMSR module once and share its executor handle across CPU
+/// temperature and power providers.
+pub(crate) fn open_shared_intel_msr() -> SharedIntelMsr {
+  SHARED_INTEL_MSR
+    .get_or_init(|| {
+      PawnIoClient::open(PawnIoModule::IntelMsr)
+        .map(|(client, discovery)| (Arc::new(Mutex::new(client)), discovery))
+    })
+    .clone()
 }
 
 impl Drop for PawnIoClient {
@@ -510,4 +532,26 @@ fn format_hresult(hr: i32) -> String {
 
 fn wide_null(value: &str) -> Vec<u16> {
   value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn production_signed_modules_are_preferred() {
+    assert_eq!(
+      PawnIoModule::IntelMsr.file_names(),
+      ["IntelMSR.bin", "IntelMSR.amx"]
+    );
+    assert_eq!(
+      PawnIoModule::RyzenSmu.file_names(),
+      ["RyzenSMU.bin", "RyzenSMU.amx"]
+    );
+    assert_eq!(
+      PawnIoModule::AmdFamily17.file_names(),
+      ["AMDFamily17.bin", "AMDFamily17.amx"]
+    );
+    assert_eq!(PawnIoModule::LpcIo.file_names(), ["LpcIO.bin", "LpcIO.amx"]);
+  }
 }

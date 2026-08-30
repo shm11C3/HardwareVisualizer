@@ -14,6 +14,10 @@ pub struct GpuSample {
   pub source: String,
 }
 
+/// Live platform power readings in watts.
+///
+/// `package_watts`, when available, is the derived CPU + GPU + ANE total;
+/// a CPU package-domain reading belongs in `cpu_watts`.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PowerDraw {
   pub cpu_watts: Option<f32>,
@@ -198,7 +202,7 @@ pub struct MetricsSnapshot {
   pub memory_usage: f32,
   pub processors_usage: Vec<f32>,
   pub gpus: Vec<GpuMetric>,
-  /// Live Apple Silicon power readings in watts. All fields are `None` when
+  /// Live platform power readings in watts. All fields are `None` when
   /// unsupported, not sampled yet, or invalid for the current tick.
   pub power_draw: PowerDraw,
   pub processes: Vec<ProcessSample>,

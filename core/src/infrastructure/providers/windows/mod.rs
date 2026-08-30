@@ -1,4 +1,7 @@
 pub mod adl_provider;
+mod cpu_identity;
+pub mod cpu_power;
+mod cpu_power_decode;
 pub mod cpu_temperature;
 mod cpu_temperature_decode;
 pub mod device_io;

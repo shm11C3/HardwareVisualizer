@@ -58,6 +58,10 @@ impl GpuPlatform for WindowsPlatform {
   async fn sample_gpus(&self) -> Vec<crate::models::GpuSample> {
     gpu::sample_gpus().await
   }
+
+  fn sample_power_draw(&self) -> crate::models::PowerDraw {
+    sensors::sample_power_draw()
+  }
 }
 
 impl NetworkPlatform for WindowsPlatform {

@@ -85,7 +85,7 @@ _Avoid_: Snapshot, storage health snapshot, live metrics snapshot, screenshot
 ### Persistence And History
 
 **Hardware Archive**:
-Persisted CPU, memory, GPU, and process history, including available CPU and GPU temperature summaries and Apple Silicon power-draw summaries, used to power Hardware Insights.
+Persisted CPU, memory, GPU, and process history, including available CPU and GPU temperature summaries and platform power-draw summaries, used to power Hardware Insights.
 _Avoid_: Storage health history, live history, dashboard state, settings archive
 
 **Retention Period**:
