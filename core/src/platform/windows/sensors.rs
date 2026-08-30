@@ -30,7 +30,7 @@ pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
 
       let availability =
         if reason
-          == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+          == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
         {
           SensorAvailability::unsupported(reason.clone())
         } else {
@@ -50,7 +50,10 @@ fn motherboard_guidance_candidates_for_reason(
   reason: String,
 ) -> Vec<ExternalComponentGuidanceCandidate> {
   if reason
-    == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+    == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
+    || reason.starts_with(
+      crate::infrastructure::providers::windows::super_io_motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX,
+    )
   {
     return Vec::new();
   }
@@ -195,7 +198,7 @@ mod tests {
   #[test]
   fn motherboard_guidance_suppresses_unsupported_super_io_path() {
     let candidates = motherboard_guidance_candidates_for_reason(
-      crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_NUVOTON_HM_PATH_REASON
+      crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
         .to_string(),
     );
 
@@ -216,6 +219,30 @@ mod tests {
     assert_eq!(
       candidates[0].reason_kind,
       crate::models::ExternalComponentReasonKind::Permission
+    );
+  }
+
+  #[test]
+  fn motherboard_guidance_suppresses_experimental_ite_hardware_state_failure() {
+    let candidates = motherboard_guidance_candidates_for_reason(format!(
+      "{}: no eligible physical TMPIN channels are enabled",
+      crate::infrastructure::providers::windows::super_io_motherboard::ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX
+    ));
+
+    assert!(candidates.is_empty());
+  }
+
+  #[test]
+  fn motherboard_guidance_remains_for_experimental_ite_runtime_failure() {
+    let candidates = motherboard_guidance_candidates_for_reason(format!(
+      "{}: EC port authorization probe failed: pawnio_execute ioctl_pio_inb failed",
+      crate::infrastructure::providers::windows::super_io_motherboard::ITE_EXPERIMENTAL_FAILURE_PREFIX
+    ));
+
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(
+      candidates[0].key,
+      crate::models::external_component_guidance::PAWNIO_MOTHERBOARD_SENSORS_KEY
     );
   }
 
