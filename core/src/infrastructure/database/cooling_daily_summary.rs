@@ -25,6 +25,11 @@ pub async fn select_archive_minutes_for_range(
 
 #[derive(Debug, Clone, Copy, PartialEq, sqlx::FromRow)]
 struct ArchiveMinuteRow {
+  // Decoded through sqlx's own chrono codec for the same reason
+  // `earliest_archived_timestamp` does: the column's exact TEXT shape is
+  // whatever `hardware_archive::insert`'s native `DateTime<Utc>` bind
+  // produced.
+  timestamp: DateTime<Utc>,
   cpu_avg: Option<f64>,
   cpu_temperature_avg: Option<f64>,
   cpu_temperature_max: Option<f64>,
@@ -34,6 +39,7 @@ struct ArchiveMinuteRow {
 impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
   fn from(row: ArchiveMinuteRow) -> Self {
     Self {
+      timestamp: row.timestamp,
       cpu_usage_avg: row.cpu_avg.map(|v| v as f32),
       cpu_temperature_avg: row.cpu_temperature_avg.map(|v| v as f32),
       cpu_temperature_max: row.cpu_temperature_max.map(|v| v as f32),
@@ -57,6 +63,7 @@ async fn select_archive_minutes_for_range_from_pool(
   let epoch_ms = sqlite_epoch_milliseconds();
   let sql = format!(
     "SELECT
+       timestamp,
        CAST(cpu_avg AS REAL) AS cpu_avg,
        CAST(cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
        CAST(cpu_temperature_max AS REAL) AS cpu_temperature_max,
@@ -264,6 +271,21 @@ async fn upsert_from_pool(
   pool: &SqlitePool,
   summary: &DailyCoolingSummary,
 ) -> Result<(), sqlx::Error> {
+  upsert_with(pool, summary).await
+}
+
+/// [`upsert`] against any executor, so the daily and hourly writes for one
+/// rolled-up day can share a transaction (see
+/// `cooling_rollup::persist_day_rollup_from_pool`). A half-written day -
+/// daily present, hourly missing - would otherwise be invisible to the
+/// catch-up cursor's consistency check.
+pub(crate) async fn upsert_with<'e, E>(
+  executor: E,
+  summary: &DailyCoolingSummary,
+) -> Result<(), sqlx::Error>
+where
+  E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
   fn minutes(band: &BandSummary) -> i64 {
     band.sample_minutes as i64
   }
@@ -317,20 +339,59 @@ async fn upsert_from_pool(
   .bind(summary.high.min)
   .bind(minutes(&summary.high))
   .bind(summary.coverage_minutes as i64)
-  .execute(pool)
+  .execute(executor)
   .await?;
 
   Ok(())
 }
 
-pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
+/// The latest summarized day that recorded at least one minute carrying
+/// both a CPU usage and a CPU temperature reading.
+///
+/// By `summarize_day`'s own rule a band only accrues `sample_minutes` for
+/// such a minute, so a day with any band samples is exactly a day the
+/// hourly rollup must also have produced a row for. That equivalence is
+/// what lets the catch-up cursor tell "hourly is behind" apart from
+/// "there was never anything for hourly to record" - see
+/// `cooling_rollup::rollup_catch_up_cursor`.
+pub async fn max_pairable_summarized_date() -> Result<Option<NaiveDate>, sqlx::Error> {
   let pool = db::get_pool().await?;
-  delete_old_data_from_pool(&pool, retention_days).await
+  max_pairable_summarized_date_from_pool(&pool).await
 }
 
-async fn delete_old_data_from_pool(
+pub(crate) async fn max_pairable_summarized_date_from_pool(
+  pool: &SqlitePool,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+  sqlx::query_scalar::<_, Option<NaiveDate>>(
+    "SELECT MAX(date) FROM cooling_daily_summary
+     WHERE idle_sample_minutes + low_sample_minutes
+         + mid_sample_minutes + high_sample_minutes > 0",
+  )
+  .fetch_one(pool)
+  .await
+}
+
+pub async fn delete_old_data(
+  retention_days: u32,
+  preserved_window: Option<(NaiveDate, NaiveDate)>,
+) -> Result<(), sqlx::Error> {
+  let pool = db::get_pool().await?;
+  delete_old_data_from_pool(&pool, retention_days, preserved_window).await
+}
+
+/// Delete rows older than `retention_days`, except those inside
+/// `preserved_window`.
+///
+/// `preserved_window` is the pinned baseline's calendar window. Once that
+/// window ages past the retention cutoff, deleting its rows would leave
+/// every baseline-side comparison permanently empty while the pinned
+/// baseline itself still claims that period as the reference - so the
+/// window is exempt. It is at most a week of rows, kept for as long as the
+/// baseline it backs.
+pub(crate) async fn delete_old_data_from_pool(
   pool: &SqlitePool,
   retention_days: u32,
+  preserved_window: Option<(NaiveDate, NaiveDate)>,
 ) -> Result<(), sqlx::Error> {
   // Same cutoff style as `storage_health::delete_old_data`: a local-date
   // TEXT comparison, since `date` is stored as "%Y-%m-%d" and compares
@@ -340,10 +401,25 @@ async fn delete_old_data_from_pool(
   .format("%Y-%m-%d")
   .to_string();
 
-  sqlx::query("DELETE FROM cooling_daily_summary WHERE date < $1")
-    .bind(cutoff)
-    .execute(pool)
-    .await?;
+  match preserved_window {
+    Some((start, end)) => {
+      sqlx::query(
+        "DELETE FROM cooling_daily_summary
+         WHERE date < $1 AND NOT (date >= $2 AND date <= $3)",
+      )
+      .bind(cutoff)
+      .bind(start.format("%Y-%m-%d").to_string())
+      .bind(end.format("%Y-%m-%d").to_string())
+      .execute(pool)
+      .await?;
+    }
+    None => {
+      sqlx::query("DELETE FROM cooling_daily_summary WHERE date < $1")
+        .bind(cutoff)
+        .execute(pool)
+        .await?;
+    }
+  }
 
   Ok(())
 }
@@ -474,6 +550,44 @@ mod tests {
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].cpu_usage_avg, Some(6.0));
     assert_eq!(rows[1].cpu_usage_avg, Some(7.0));
+  }
+
+  #[tokio::test]
+  async fn select_archive_minutes_carries_each_rows_own_timestamp() {
+    // The hourly rollup buckets these rows by their instant, so a lost or
+    // truncated timestamp would silently collapse a day into one hour.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(6.0),
+      Some(41.0),
+      utc("2026-08-15T09:17:00.000Z"),
+    )
+    .await;
+    insert_archive_row(
+      &pool,
+      Some(7.0),
+      Some(42.0),
+      utc("2026-08-15T22:43:00.000Z"),
+    )
+    .await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      rows.iter().map(|r| r.timestamp).collect::<Vec<_>>(),
+      vec![
+        utc("2026-08-15T09:17:00.000Z"),
+        utc("2026-08-15T22:43:00.000Z")
+      ]
+    );
   }
 
   #[tokio::test]
@@ -824,7 +938,7 @@ mod tests {
       .unwrap();
     }
 
-    delete_old_data_from_pool(&pool, 400).await.unwrap();
+    delete_old_data_from_pool(&pool, 400, None).await.unwrap();
 
     let remaining: Vec<String> =
       sqlx::query_scalar("SELECT date FROM cooling_daily_summary")
@@ -836,6 +950,102 @@ mod tests {
       remaining,
       vec![just_inside],
       "the row exactly at the retention boundary must survive; only the older row is deleted"
+    );
+  }
+
+  #[tokio::test]
+  async fn delete_old_data_keeps_the_pinned_baseline_window_past_the_cutoff() {
+    // The pinned baseline never expires, so once its window ages past the
+    // retention cutoff its rows must still survive - otherwise every
+    // baseline-side comparison goes permanently empty while the baseline
+    // still names that period as the reference.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    let today = chrono::Local::now().date_naive();
+    let window_start = today - chrono::Duration::days(500);
+    let window_end = window_start + chrono::Duration::days(6);
+    let outside_window = window_start - chrono::Duration::days(1);
+
+    for d in [outside_window, window_start, window_end] {
+      sqlx::query(
+        "INSERT INTO cooling_daily_summary (date, coverage_minutes) VALUES ($1, 0)",
+      )
+      .bind(d.format("%Y-%m-%d").to_string())
+      .execute(&pool)
+      .await
+      .unwrap();
+    }
+
+    delete_old_data_from_pool(&pool, 400, Some((window_start, window_end)))
+      .await
+      .unwrap();
+
+    let remaining: Vec<String> =
+      sqlx::query_scalar("SELECT date FROM cooling_daily_summary ORDER BY date")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+
+    assert_eq!(
+      remaining,
+      vec![
+        window_start.format("%Y-%m-%d").to_string(),
+        window_end.format("%Y-%m-%d").to_string(),
+      ],
+      "both window edges must survive, and the day just outside it must not"
+    );
+  }
+
+  #[tokio::test]
+  async fn max_pairable_summarized_date_ignores_days_that_recorded_no_pair() {
+    // A machine with no CPU temperature sensor accrues coverage but no
+    // band samples. Those days are not evidence that the hourly rollup
+    // fell behind.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    insert_full_summary_row(
+      &pool,
+      "2026-08-10",
+      full_band(30.0, 120),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+    // Later day, recorded but with no usable pair in any band.
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (date, coverage_minutes) VALUES ('2026-08-20', 1440)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      max_pairable_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 10))
+    );
+    assert_eq!(
+      max_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 20)),
+      "the plain cursor still tracks the latest summarized day"
+    );
+  }
+
+  #[tokio::test]
+  async fn max_pairable_summarized_date_is_none_when_no_day_ever_paired() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (date, coverage_minutes) VALUES ('2026-08-20', 1440)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      max_pairable_summarized_date_from_pool(&pool).await.unwrap(),
+      None
     );
   }
 }

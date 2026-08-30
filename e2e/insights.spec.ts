@@ -218,6 +218,85 @@ test.describe("insights captures", () => {
     await saveCapture(page, "insights-cooling-timeline-90d");
   });
 
+  test("insights cooling tab keeps the load-temperature explorer collapsed until opened", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    const panel = page.getByTestId("cooling-explorer-panel");
+    await expect(panel).toBeVisible();
+    // Collapsed by default: the scatter is not rendered, and - the point
+    // of collapsing a secondary analysis - no query has been issued.
+    await expect(page.getByTestId("cooling-explorer-scatter")).toHaveCount(0);
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("get_cooling_load_temperature_explorer"),
+      ),
+    ).toBe(0);
+
+    await page.getByTestId("cooling-explorer-trigger").click();
+
+    await expect(page.getByTestId("cooling-explorer-scatter")).toBeVisible();
+    await expect(page.getByTestId("cooling-explorer-minimap")).toBeVisible();
+    // Both windows scatter, plus one median trend line each.
+    await expect(panel.locator(".recharts-scatter").first()).toBeVisible();
+    // Core reported the high band as not comparable; the row says so
+    // instead of showing a delta.
+    const deltas = page.getByTestId("cooling-explorer-deltas");
+    await expect(deltas.getByText(/Not comparable/)).toBeVisible();
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("get_cooling_load_temperature_explorer"),
+      ),
+    ).toBe(1);
+
+    await page.waitForTimeout(600);
+
+    await saveCapture(page, "insights-cooling-explorer");
+  });
+
+  test("insights cooling tab refetches the explorer when the recent window changes", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    // Switch to a daily period first: it drops the four archive-backed
+    // power charts, which otherwise push the Explorer's window selector
+    // so far down the page that its popover opens outside the viewport.
+    await page.getByTestId("cooling-period-select").click();
+    await page.getByRole("option", { name: "90 Days" }).click();
+    await expect(page.getByTestId("cooling-legacy-power-charts")).toHaveCount(
+      0,
+    );
+
+    await page.getByTestId("cooling-explorer-trigger").click();
+    await expect(page.getByTestId("cooling-explorer-scatter")).toBeVisible();
+
+    const windowSelect = page.getByTestId("cooling-explorer-window-select");
+    await expect(windowSelect).toHaveText("Last 28 days");
+    await windowSelect.scrollIntoViewIfNeeded();
+    await windowSelect.click();
+    await page.getByRole("option", { name: "Last 90 days" }).click();
+
+    await expect(windowSelect).toHaveText("Last 90 days");
+    await expect(page.getByTestId("cooling-explorer-scatter")).toBeVisible();
+    expect(
+      await page.evaluate(() =>
+        window.__E2E__?.getInvokeCount("get_cooling_load_temperature_explorer"),
+      ),
+    ).toBe(2);
+  });
+
   test("insights process tab lists fixture process stats", async ({ page }) => {
     await gotoApp(page);
     await navigateTo(page, "insights");

@@ -73,8 +73,14 @@ impl CpuLoadBand {
 
 /// One archived one-minute row's fields relevant to the cooling rollup.
 /// `None` means the minute has no reading for that field, not zero.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+///
+/// `timestamp` is the archived row's own instant. The daily rollup does
+/// not need it (its caller already fetched exactly one local day), but the
+/// hourly rollup derived from the same fetch does - see
+/// [`crate::persistence::cooling_hourly_rollup`].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ArchiveMinuteSample {
+  pub timestamp: DateTime<Utc>,
   pub cpu_usage_avg: Option<f32>,
   pub cpu_temperature_avg: Option<f32>,
   pub cpu_temperature_max: Option<f32>,
@@ -397,12 +403,55 @@ async fn run_catch_up() -> bool {
   }
 }
 
+/// Where the catch-up must resume from, given how far each rollup
+/// projection has actually got.
+///
+/// The daily cursor alone is not enough. `cooling_hourly_summary` was
+/// added by a later migration, so an existing install starts with a full
+/// daily table and an empty hourly one; resuming from the daily cursor
+/// would leave every past day's hourly rows missing forever. Resuming from
+/// the *slower* projection regenerates them, and re-running a day is
+/// harmless because both upserts are idempotent.
+///
+/// "Slower", though, cannot just be `min`: a machine with no CPU
+/// temperature sensor produces daily rows and no hourly rows at all, and a
+/// plain `min` would make it re-read its whole archive on every cycle
+/// forever. `last_pairable_daily_date` is the latest day that actually had
+/// a (load, temperature) pair to record, which is exactly the latest day
+/// hourly is *expected* to cover - so "hourly is behind" is only claimed
+/// when there was something for it to miss.
+///
+/// A `None` result means "resume from the earliest archived day", the same
+/// first-run backfill [`days_to_roll_up`] already performs. Only days the
+/// one-minute archive still holds can be regenerated; older days no longer
+/// have source rows, and reporting them as absent is the honest outcome.
+pub fn rollup_catch_up_cursor(
+  last_daily_date: Option<NaiveDate>,
+  last_pairable_daily_date: Option<NaiveDate>,
+  last_hourly_date: Option<NaiveDate>,
+) -> Option<NaiveDate> {
+  match last_pairable_daily_date {
+    // No summarized day ever carried a pair, so the hourly rollup has
+    // nothing it could be missing.
+    None => last_daily_date,
+    Some(pairable) => match last_hourly_date {
+      // Hourly has reached every day that had something to record.
+      Some(hourly) if hourly >= pairable => last_daily_date,
+      // Hourly is genuinely behind: resume from where it actually got to.
+      behind => behind,
+    },
+  }
+}
+
 async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
-  let last_summarized_date =
-    database::cooling_daily_summary::max_summarized_date().await?;
+  let last_summarized_date = rollup_catch_up_cursor(
+    database::cooling_daily_summary::max_summarized_date().await?,
+    database::cooling_daily_summary::max_pairable_summarized_date().await?,
+    database::cooling_hourly_summary::max_summarized_date().await?,
+  );
   let earliest_archived_local_date = match last_summarized_date {
     Some(_) => None,
     None => database::cooling_daily_summary::earliest_archived_timestamp()
@@ -429,6 +478,13 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   Ok(())
 }
 
+/// Roll one completed local day up into both projections the Cooling
+/// Insight queries read: the per-band daily summary and the per-hour
+/// load/temperature pairs (#2023).
+///
+/// Both are folded from the *same* fetch rather than by a second worker or
+/// a second query - they answer different questions about identical rows,
+/// and the day's archive range has already been read here.
 async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -437,28 +493,101 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
     database::cooling_daily_summary::select_archive_minutes_for_range(&start, &end)
       .await?;
 
-  match summarize_day(date, &minutes) {
-    Some(summary) => database::cooling_daily_summary::upsert(&summary).await,
-    // Day without samples stays absent - never insert a zeroed row.
-    None => Ok(()),
-  }
+  // A day without samples stays absent - never insert a zeroed row.
+  let summary = summarize_day(date, &minutes);
+  let hours =
+    crate::persistence::cooling_hourly_rollup::summarize_hours(&minutes, &chrono::Local);
+
+  let pool = database::db::get_pool().await?;
+  persist_day_rollup_from_pool(&pool, summary.as_ref(), &hours).await
 }
 
-/// Delete `cooling_daily_summary` rows older than
-/// [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`]. Called from
+/// Write one day's two rollup projections in a single transaction.
+///
+/// Atomic on purpose: a committed daily row with its hourly rows missing
+/// is exactly the half-written state
+/// [`rollup_catch_up_cursor`] would have to repair, and the cursor cannot
+/// tell that case apart from a day that legitimately had no pairs once the
+/// archive rows behind it age out. Failing the day as a whole leaves the
+/// cursor unmoved, so the next pass simply retries it.
+pub(crate) async fn persist_day_rollup_from_pool(
+  pool: &sqlx::SqlitePool,
+  summary: Option<&DailyCoolingSummary>,
+  hours: &[crate::persistence::cooling_hourly_rollup::HourlyCoolingSummary],
+) -> Result<(), sqlx::Error> {
+  use crate::infrastructure::database;
+
+  let mut tx = pool.begin().await?;
+
+  if let Some(summary) = summary {
+    database::cooling_daily_summary::upsert_with(&mut *tx, summary).await?;
+  }
+  for hour in hours {
+    database::cooling_hourly_summary::upsert_with(&mut *tx, hour).await?;
+  }
+
+  tx.commit().await
+}
+
+/// Delete `cooling_daily_summary` and `cooling_hourly_summary` rows older
+/// than [`COOLING_DAILY_SUMMARY_RETENTION_DAYS`]. Called from
 /// `crate::persistence::archive::cleanup_old_data` at the same
 /// `scheduledDataDeletion`-gated startup site as the Hardware Archive
 /// cleanup, but with its own fixed retention window rather than the
 /// user-configurable `hardwareArchive.retentionDays`.
+///
+/// Both rollups share one retention constant on purpose: they are two
+/// projections of the same archived minutes, so a window Cooling Insight
+/// can show daily but not hourly (or the reverse) would only be a source
+/// of inconsistent answers.
+///
+/// The pinned baseline's own window is exempt from both deletes. The
+/// baseline is a fixed reference that never expires (that is the point of
+/// pinning it), so once its window drifts past the retention cutoff,
+/// deleting the rows inside it would permanently empty every
+/// baseline-side comparison (the load-band comparison, and the Explorer's
+/// baseline medians) while the baseline still names that period as the
+/// reference. The exemption costs at most a week of rows.
 pub async fn cleanup_old_data() {
   use crate::infrastructure::database;
 
-  if let Err(e) =
-    database::cooling_daily_summary::delete_old_data(COOLING_DAILY_SUMMARY_RETENTION_DAYS)
-      .await
+  let preserved_window =
+    match database::cooling_baseline::select_established_baseline().await {
+      Ok(baseline) => baseline.map(|b| (b.window_start_date, b.window_end_date)),
+      Err(e) => {
+        // Deleting without knowing the protected window could erase the
+        // baseline's evidence irrecoverably, so skip this cleanup pass and
+        // let the next boot retry rather than risk it.
+        log_error!(
+          "Failed to read the pinned cooling baseline; skipping cooling rollup cleanup",
+          "persistence::cooling_rollup::cleanup_old_data",
+          Some(e.to_string())
+        );
+        return;
+      }
+    };
+
+  if let Err(e) = database::cooling_daily_summary::delete_old_data(
+    COOLING_DAILY_SUMMARY_RETENTION_DAYS,
+    preserved_window,
+  )
+  .await
   {
     log_error!(
       "Failed to delete old cooling daily summary data",
+      "persistence::cooling_rollup::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
+  if let Err(e) = database::cooling_hourly_summary::delete_old_data(
+    COOLING_DAILY_SUMMARY_RETENTION_DAYS,
+    preserved_window,
+  )
+  .await
+  {
+    log_error!(
+      "Failed to delete old cooling hourly summary data",
       "persistence::cooling_rollup::cleanup_old_data",
       Some(e.to_string())
     );
@@ -516,6 +645,10 @@ mod tests {
     temp_min: Option<f32>,
   ) -> ArchiveMinuteSample {
     ArchiveMinuteSample {
+      // `summarize_day` folds a range its caller already narrowed to one
+      // local day, so the instant is irrelevant here (only the hourly
+      // rollup reads it).
+      timestamp: utc("2026-08-20T12:00:00Z"),
       cpu_usage_avg,
       cpu_temperature_avg: temp_avg,
       cpu_temperature_max: temp_max,
@@ -678,6 +811,186 @@ mod tests {
   fn days_to_roll_up_is_empty_when_last_summarized_is_not_before_yesterday() {
     let days = days_to_roll_up(Some(date(2026, 8, 25)), None, date(2026, 8, 20));
     assert_eq!(days, Vec::new());
+  }
+
+  // ── rollup_catch_up_cursor ──
+
+  #[test]
+  fn the_cursor_follows_the_daily_rollup_when_hourly_has_kept_up() {
+    assert_eq!(
+      rollup_catch_up_cursor(
+        Some(date(2026, 8, 20)),
+        Some(date(2026, 8, 20)),
+        Some(date(2026, 8, 20)),
+      ),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn an_empty_hourly_table_rewinds_the_cursor_for_a_full_backfill() {
+    // The v13 upgrade path: a long-running install has a full daily table
+    // and no hourly rows at all. Following the daily cursor would leave
+    // every past day's hourly rows missing forever.
+    assert_eq!(
+      rollup_catch_up_cursor(Some(date(2026, 8, 20)), Some(date(2026, 8, 20)), None),
+      None,
+      "an empty hourly table must fall back to the earliest-archived-day backfill"
+    );
+  }
+
+  #[test]
+  fn a_lagging_hourly_table_resumes_from_the_slower_of_the_two_cursors() {
+    assert_eq!(
+      rollup_catch_up_cursor(
+        Some(date(2026, 8, 20)),
+        Some(date(2026, 8, 20)),
+        Some(date(2026, 8, 15)),
+      ),
+      Some(date(2026, 8, 15)),
+      "the days between the two cursors must be regenerated"
+    );
+  }
+
+  #[test]
+  fn a_machine_that_never_recorded_a_pair_does_not_rewind_every_cycle() {
+    // No CPU temperature sensor: daily rows accrue coverage but no band
+    // samples, so the hourly table is legitimately empty. Treating that
+    // as "behind" would re-read the whole archive on every catch-up,
+    // forever.
+    assert_eq!(
+      rollup_catch_up_cursor(Some(date(2026, 8, 20)), None, None),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn hourly_ahead_of_the_last_pairable_day_is_still_caught_up() {
+    // Recent days recorded coverage but no pairs, so the latest pairable
+    // day is older than the daily cursor. Hourly has nothing to add.
+    assert_eq!(
+      rollup_catch_up_cursor(
+        Some(date(2026, 8, 20)),
+        Some(date(2026, 8, 10)),
+        Some(date(2026, 8, 10)),
+      ),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_first_ever_run_still_backfills_from_the_earliest_archived_day() {
+    assert_eq!(rollup_catch_up_cursor(None, None, None), None);
+  }
+
+  // ── persist_day_rollup_from_pool ──
+
+  mod persist_day_rollup {
+    use super::*;
+    use crate::persistence::cooling_hourly_rollup::HourlyCoolingSummary;
+    use sqlx::SqlitePool;
+
+    async fn create_daily_table(pool: &SqlitePool) {
+      sqlx::query(
+        "CREATE TABLE cooling_daily_summary (
+          date TEXT PRIMARY KEY,
+          idle_cpu_temperature_avg REAL,
+          idle_cpu_temperature_max REAL,
+          idle_cpu_temperature_min REAL,
+          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          low_cpu_temperature_avg REAL,
+          low_cpu_temperature_max REAL,
+          low_cpu_temperature_min REAL,
+          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          mid_cpu_temperature_avg REAL,
+          mid_cpu_temperature_max REAL,
+          mid_cpu_temperature_min REAL,
+          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          high_cpu_temperature_avg REAL,
+          high_cpu_temperature_max REAL,
+          high_cpu_temperature_min REAL,
+          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          coverage_minutes INTEGER NOT NULL
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    async fn create_hourly_table(pool: &SqlitePool) {
+      sqlx::query(
+        "CREATE TABLE cooling_hourly_summary (
+          hour_start TEXT PRIMARY KEY,
+          cpu_usage_avg REAL,
+          cpu_temperature_avg REAL,
+          sample_minutes INTEGER NOT NULL
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    fn summary() -> DailyCoolingSummary {
+      summarize_day(date(2026, 8, 20), &[full_sample(5.0, 40.0)]).unwrap()
+    }
+
+    fn hour() -> HourlyCoolingSummary {
+      HourlyCoolingSummary {
+        hour_start: date(2026, 8, 20).and_hms_opt(12, 0, 0).unwrap(),
+        cpu_usage_avg: Some(5.0),
+        cpu_temperature_avg: Some(40.0),
+        sample_minutes: 60,
+      }
+    }
+
+    async fn daily_row_count(pool: &SqlitePool) -> i64 {
+      sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM cooling_daily_summary")
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_successful_day_commits_both_projections() {
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      create_hourly_table(&pool).await;
+
+      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()])
+        .await
+        .unwrap();
+
+      assert_eq!(daily_row_count(&pool).await, 1);
+      assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM cooling_hourly_summary")
+          .fetch_one(&pool)
+          .await
+          .unwrap(),
+        1
+      );
+    }
+
+    #[tokio::test]
+    async fn a_failed_hourly_write_rolls_the_daily_row_back() {
+      // The two projections must land together: a committed daily row
+      // with its hourly rows missing is a half-written day the catch-up
+      // cursor cannot reliably distinguish from a day that had no pairs.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      // `cooling_hourly_summary` deliberately absent, so the hourly
+      // upsert fails after the daily one has already been issued.
+
+      let result = persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()]).await;
+
+      assert!(result.is_err(), "the day must fail as a whole");
+      assert_eq!(
+        daily_row_count(&pool).await,
+        0,
+        "the daily row must not survive a failed hourly write"
+      );
+    }
   }
 
   // ── day_utc_bounds_for_offset / utc_to_date_for_offset ──

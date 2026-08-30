@@ -420,6 +420,24 @@
           },
           "notComparable": "サンプル不足のため比較保留"
         },
+        "explorer": {
+          "title": "負荷 × 温度 Explorer",
+          "description": "点は記録された 1 時間分の平均 CPU 負荷と平均 CPU 温度の組み合わせです。",
+          "loadFailed": "負荷 × 温度 Explorer の取得に失敗しました。",
+          "recentWindow": "直近 {{days}} 日",
+          "loadAxis": "CPU 負荷 (%)",
+          "temperatureAxis": "CPU 温度 ({{unit}})",
+          "legend": {
+            "baseline": "ベースライン期間",
+            "recent": "直近期間",
+            "median": "帯域中央値"
+          },
+          "minimap": {
+            "title": "比較している期間"
+          },
+          "notComparable": "比較保留 ({{baselineHours}} / {{recentHours}} 時間)",
+          "footnote": "帯域中央値と差分は記録された時間のみから求めています。時間数が少ない帯域は推定せず比較保留として扱います。"
+        },
         "dataState": {
           "title": "データ状態",
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",

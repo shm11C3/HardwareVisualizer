@@ -5,6 +5,9 @@
 
 use hardviz_core::persistence::cooling_band_comparison::{self, CoolingBandComparison};
 use hardviz_core::persistence::cooling_baseline_delta::{self, CoolingBaselineDelta};
+use hardviz_core::persistence::cooling_load_temperature_explorer::{
+  self, CoolingLoadTemperatureExplorer,
+};
 use hardviz_core::persistence::cooling_rollup::DailyCoolingSummary;
 use hardviz_core::persistence::cooling_trend;
 
@@ -24,4 +27,12 @@ pub async fn fetch_cooling_baseline_delta() -> Result<CoolingBaselineDelta, Stri
   cooling_baseline_delta::load_cooling_baseline_delta()
     .await
     .map_err(|e| format!("Failed to load cooling baseline delta: {e}"))
+}
+
+pub async fn fetch_cooling_load_temperature_explorer(
+  recent_days: u32,
+) -> Result<CoolingLoadTemperatureExplorer, String> {
+  cooling_load_temperature_explorer::load_cooling_load_temperature_explorer(recent_days)
+    .await
+    .map_err(|e| format!("Failed to load cooling load-temperature explorer: {e}"))
 }
