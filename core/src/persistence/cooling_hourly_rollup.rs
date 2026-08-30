@@ -20,6 +20,12 @@
 //! actually observed. An hour with no such minute produces no row at all
 //! rather than a zeroed one (DP-02), which is why a persisted row always
 //! carries both averages even though the columns are nullable.
+//!
+//! "Carrying a temperature reading" means the same thing here as in
+//! `summarize_day`: all three of avg/max/min present. Only the averages
+//! are stored, but holding the two folds to one condition is what lets
+//! `cooling_rollup::rollup_catch_up_cursor` infer from the daily table
+//! whether this rollup has fallen behind - see [`summarize_hours`].
 
 use std::collections::BTreeMap;
 
@@ -80,11 +86,33 @@ pub fn summarize_hours<Tz: TimeZone>(
   let mut hours: BTreeMap<NaiveDateTime, HourAccumulator> = BTreeMap::new();
 
   for minute in minutes {
-    // A minute missing either reading cannot contribute a (load,
-    // temperature) pair, so it contributes to neither average and to no
-    // sample count.
-    let (Some(cpu_usage_avg), Some(cpu_temperature_avg)) =
-      (minute.cpu_usage_avg, minute.cpu_temperature_avg)
+    // Exactly `summarize_day`'s band condition, field for field: a
+    // minute counts only when its CPU usage *and* all three CPU
+    // temperature readings are present.
+    //
+    // Only the two averages are stored, so requiring max/min looks
+    // stricter than this projection needs - but the equality with the
+    // daily fold is load-bearing. `rollup_catch_up_cursor` decides
+    // whether the hourly rollup is behind from the daily table's band
+    // sample counts, which is sound only while "the day accrued band
+    // samples" and "the day produced hourly rows" are the same
+    // condition. A looser rule here would let an avg-only minute create
+    // an hourly row on a day the daily fold recorded no band samples,
+    // silently breaking that equivalence.
+    //
+    // No real data is lost: the collector writes the three temperature
+    // fields together, so a minute never carries avg without max/min.
+    let (
+      Some(cpu_usage_avg),
+      Some(cpu_temperature_avg),
+      Some(_temperature_max),
+      Some(_temperature_min),
+    ) = (
+      minute.cpu_usage_avg,
+      minute.cpu_temperature_avg,
+      minute.cpu_temperature_max,
+      minute.cpu_temperature_min,
+    )
     else {
       continue;
     };
@@ -316,6 +344,38 @@ mod tests {
     assert_eq!(hours.len(), 1);
     assert_eq!(hours[0].cpu_temperature_avg, Some(40.0));
     assert_eq!(hours[0].sample_minutes, 1);
+  }
+
+  #[test]
+  fn a_minute_with_an_average_but_no_temperature_extremes_contributes_nothing() {
+    // Regression: this fold used to accept a minute on `avg` alone while
+    // `summarize_day` required avg/max/min, so such a minute produced an
+    // hourly row on a day whose daily bands stayed empty. That broke the
+    // equivalence `rollup_catch_up_cursor` relies on, letting the hourly
+    // rollup be skipped. Both folds must reject it identically.
+    let minutes = [ArchiveMinuteSample {
+      timestamp: utc("2026-08-15T09:00:00Z"),
+      cpu_usage_avg: Some(5.0),
+      cpu_temperature_avg: Some(40.0),
+      cpu_temperature_max: None,
+      cpu_temperature_min: None,
+    }];
+
+    assert_eq!(summarize_hours(&minutes, &Utc), Vec::new());
+
+    let day = crate::persistence::cooling_rollup::summarize_day(
+      utc("2026-08-15T09:00:00Z").date_naive(),
+      &minutes,
+    )
+    .expect("the day was recorded, so it still has a summary row");
+    let band_sample_minutes: u32 = [day.idle, day.low, day.mid, day.high]
+      .iter()
+      .map(|band| band.sample_minutes)
+      .sum();
+    assert_eq!(
+      band_sample_minutes, 0,
+      "the daily fold rejects this minute, so the hourly fold must too"
+    );
   }
 
   #[test]
