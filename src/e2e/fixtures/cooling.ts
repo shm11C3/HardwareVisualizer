@@ -1,9 +1,12 @@
 import type {
   CoolingBandComparison,
+  CoolingBandMedian,
+  CoolingBandMedianDelta,
   CoolingBandTemperature,
   CoolingBaselineDelta,
   CoolingDailyTrendPoint,
   CoolingExplorerWindow,
+  CoolingLoadBand,
   CoolingLoadTemperatureExplorer,
   CoolingLoadTemperaturePoint,
 } from "@/rspc/bindings";
@@ -168,16 +171,20 @@ export const coolingBaselineDeltaLargeRiseFixture: CoolingBaselineDelta = {
 
 /**
  * Deterministic hourly (load, temperature) pairs for one Explorer window.
- * Loads walk a fixed cycle so every CPU-load band is populated, and the
- * temperature follows the load plus a fixed per-window offset, so a
- * capture shows two visibly separated clouds.
+ * Loads walk a fixed cycle and the temperature follows the load plus a
+ * fixed per-window offset, so a capture shows two visibly separated
+ * clouds.
+ *
+ * `extraPoints` appends points the cycle would not produce - used to give
+ * the recent window a single, under-sampled high-band hour.
  */
 const buildExplorerWindow = (
   startDate: string,
   endDate: string,
+  loads: number[],
   temperatureOffset: number,
+  extraPoints: CoolingLoadTemperaturePoint[] = [],
 ): CoolingExplorerWindow => {
-  const loads = [3, 6, 14, 22, 38, 47, 66, 82];
   const points: CoolingLoadTemperaturePoint[] = [];
 
   for (let index = 0; index < 48; index++) {
@@ -191,50 +198,108 @@ const buildExplorerWindow = (
     });
   }
 
-  return { startDate, endDate, points };
+  return { startDate, endDate, points: [...points, ...extraPoints] };
 };
+
+/** The CPU-load band a usage percentage falls in (mirrors Core). */
+const classifyLoadBand = (cpuUsageAvg: number): CoolingLoadBand => {
+  if (cpuUsageAvg < 10) return "idle";
+  if (cpuUsageAvg < 30) return "low";
+  if (cpuUsageAvg < 60) return "mid";
+  return "high";
+};
+
+const median = (values: number[]): number | null => {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+/**
+ * Summarize one band from the window's own points, so the band deltas can
+ * never contradict the scatter they are shown beside. Core derives these
+ * the same way; the fixture mirrors it rather than hardcoding numbers that
+ * drift out of step with the generated points.
+ */
+const summarizeBand = (
+  window: CoolingExplorerWindow,
+  band: CoolingLoadBand,
+): CoolingBandMedian => {
+  const inBand = window.points.filter(
+    (point) => classifyLoadBand(point.cpuUsageAvg) === band,
+  );
+  return {
+    temperatureMedian: median(inBand.map((point) => point.cpuTemperatureAvg)),
+    pointCount: inBand.length,
+    sampleMinutes: inBand.reduce((sum, point) => sum + point.sampleMinutes, 0),
+  };
+};
+
+/** Core's `COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES`. */
+const MINIMUM_COMPARABLE_SAMPLE_MINUTES = 30;
+
+const buildBandDeltas = (
+  baseline: CoolingExplorerWindow,
+  recent: CoolingExplorerWindow,
+): CoolingBandMedianDelta[] =>
+  (["idle", "low", "mid", "high"] as const).map((band) => {
+    const baselineMedian = summarizeBand(baseline, band);
+    const recentMedian = summarizeBand(recent, band);
+    const comparable =
+      baselineMedian.sampleMinutes >= MINIMUM_COMPARABLE_SAMPLE_MINUTES &&
+      recentMedian.sampleMinutes >= MINIMUM_COMPARABLE_SAMPLE_MINUTES;
+
+    return {
+      band,
+      baseline: baselineMedian,
+      recent: recentMedian,
+      delta:
+        comparable &&
+        baselineMedian.temperatureMedian != null &&
+        recentMedian.temperatureMedian != null
+          ? recentMedian.temperatureMedian - baselineMedian.temperatureMedian
+          : null,
+      comparable,
+    };
+  });
+
+const explorerBaselineWindow = buildExplorerWindow(
+  "2025-11-01",
+  "2025-11-14",
+  [3, 6, 14, 22, 38, 47, 66, 82],
+  0,
+);
+
+/**
+ * The recent window's cycle stays below the high band, and a single
+ * under-sampled high-band hour is appended, so Core's comparability bar
+ * genuinely rejects that band - the capture shows a real not-comparable
+ * row rather than one asserted against contradicting points.
+ */
+const explorerRecentWindow = buildExplorerWindow(
+  "2025-12-19",
+  "2026-01-15",
+  [3, 6, 14, 22, 38, 47, 52, 58],
+  4,
+  [
+    {
+      hourStart: "2026-01-15 23:00",
+      cpuUsageAvg: 74,
+      cpuTemperatureAvg: 71,
+      sampleMinutes: 12,
+    },
+  ],
+);
 
 export const coolingLoadTemperatureExplorerFixture: CoolingLoadTemperatureExplorer =
   {
     status: "established",
-    baseline: buildExplorerWindow("2025-11-01", "2025-11-14", 0),
-    recent: buildExplorerWindow("2025-12-19", "2026-01-15", 4),
-    bandDeltas: [
-      {
-        band: "idle",
-        baseline: { temperatureMedian: 32, pointCount: 12, sampleMinutes: 720 },
-        recent: {
-          temperatureMedian: 36.2,
-          pointCount: 12,
-          sampleMinutes: 720,
-        },
-        delta: 4.2,
-        comparable: true,
-      },
-      {
-        band: "low",
-        baseline: { temperatureMedian: 38, pointCount: 12, sampleMinutes: 720 },
-        recent: { temperatureMedian: 42.5, pointCount: 12, sampleMinutes: 720 },
-        delta: 4.5,
-        comparable: true,
-      },
-      {
-        band: "mid",
-        baseline: { temperatureMedian: 49, pointCount: 12, sampleMinutes: 720 },
-        recent: { temperatureMedian: 53.1, pointCount: 12, sampleMinutes: 720 },
-        delta: 4.1,
-        comparable: true,
-      },
-      // Deliberately below the comparability bar on the recent side, so a
-      // capture always shows the not-comparable row too.
-      {
-        band: "high",
-        baseline: { temperatureMedian: 66, pointCount: 12, sampleMinutes: 720 },
-        recent: { temperatureMedian: null, pointCount: 1, sampleMinutes: 12 },
-        delta: null,
-        comparable: false,
-      },
-    ],
+    baseline: explorerBaselineWindow,
+    recent: explorerRecentWindow,
+    bandDeltas: buildBandDeltas(explorerBaselineWindow, explorerRecentWindow),
   };
 
 export const coolingLoadTemperatureExplorerEstablishingFixture: CoolingLoadTemperatureExplorer =
