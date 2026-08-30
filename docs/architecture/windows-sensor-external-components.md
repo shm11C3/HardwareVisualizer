@@ -5,29 +5,28 @@ sensor collection. It is an operational checklist, not a hardware fact source.
 The clean-room implementation remains derived from the pinned
 `docs/specs/sensors/**` implementation-ready specs and this repository.
 
-## Phase 1 CPU Package Temperature
+## CPU Package Temperature
 
 Windows CPU package temperature collection through PawnIO requires an existing
 local PawnIO installation. HardwareVisualizer does not install, bundle, or
-bootstrap PawnIO in Phase 1.
+bootstrap PawnIO.
 
 Required components:
 
 - A working PawnIO driver installation that `pawnio_open` can open.
 - `PawnIOLib.dll`, loaded dynamically from the existing installation.
 - One CPU-specific PawnIO module blob:
-  - Intel package temperature path: `IntelMSR.amx` or `IntelMSR.bin`.
-  - AMD Family 17h / 19h package temperature path: `RyzenSMU.amx` or
-    `RyzenSMU.bin`.
+  - Intel package temperature path: signed `IntelMSR.bin`.
+  - AMD Family 17h / 19h package temperature path: signed `RyzenSMU.bin`.
 
 The CPU-specific module blob is not installed by the PawnIO runtime itself.
 Users must download a release asset from
 <https://github.com/namazso/PawnIO.Modules/releases>, extract the module blob,
 and place the required file under `C:\Program Files\PawnIO`.
 
-The collector prefers the implementation-ready spec names (`*.amx`) and then
-falls back to the installed module names observed during local validation
-(`*.bin`). The module extension is an operational compatibility detail only; it
+Production setup should use the signed `.bin` module files. An `.amx` file is
+only an optional fallback for an unrestricted PawnIO driver in Windows
+test-signing mode; it is not a normal end-user setup path. The module extension
 does not change the CPU register decode path.
 
 The process that opens PawnIO must have enough Windows privileges to access the
@@ -58,14 +57,33 @@ unavailable reason instead of publishing a CPU temperature. Example reasons
 include:
 
 - `PawnIOLib.dll not found`.
-- `IntelMSR.amx or IntelMSR.bin not found`.
-- `RyzenSMU.amx or RyzenSMU.bin not found`.
+- `IntelMSR.bin or IntelMSR.amx not found`.
+- `RyzenSMU.bin or RyzenSMU.amx not found`.
 - `pawnio_open failed: ...`.
 - `pawnio_load failed: ...`.
 
+## CPU Package Power (RAPL)
+
+Windows CPU package power uses the same local PawnIO runtime and is sampled
+through the read-only RAPL MSR path. Intel temperature and power share one
+`IntelMSR` executor. AMD package temperature and power use their separate
+module paths.
+
+Required module blobs are:
+
+- Intel temperature and power: signed `IntelMSR.bin`.
+- AMD package temperature: signed `RyzenSMU.bin`.
+- AMD package power: signed `AMDFamily17.bin`.
+
+The signed `.bin` files are the normal production setup. An `.amx` file may be
+used only with the unrestricted PawnIO driver and Windows test-signing mode;
+HardwareVisualizer does not install, bundle, or enable either form. Missing or
+unusable power data remains unavailable and does not populate the derived
+`package_watts` total.
+
 ## Scope Boundaries
 
-The Phase 1 implementation uses read-only CPU package temperature paths:
+The current implementation uses read-only CPU package temperature paths:
 
 - Intel: `MSR_TEMPERATURE_TARGET` and `IA32_PACKAGE_THERM_STATUS` through
   `IntelMSR`.
@@ -85,15 +103,14 @@ ability to open the PawnIO driver. A non-elevated process can fail at
 `pawnio:motherboard-sensors:v1` guidance and offers the existing elevated
 startup action.
 
-The following are not covered by this runtime checklist or by the Phase 1
-implementation:
+The following are not covered by this runtime checklist:
 
 - Installing PawnIO.
 - Bundling `PawnIOLib.dll` or module blobs.
 - Driver installer integration or bootstrapper work.
-- AMD Family 1Ah / Zen 5 *verified* enablement (it is enabled experimentally in
-  the current implementation; verification against a primary source is still
-  future work).
+- AMD Family 1Ah / Zen 5 *verified* temperature enablement (it is enabled
+  experimentally in the current implementation; verification against a
+  primary source is still future work).
 - AMD per-CCD temperatures or SMU PM-table metrics.
 - Threadripper / EPYC multi-die-specific behavior.
 - Super I/O chips outside the scoped NCT6799D read path.

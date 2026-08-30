@@ -5,8 +5,8 @@ use crate::infrastructure::providers::windows::cpu_temperature::{
 };
 use crate::log_warn;
 use crate::models::{
-  ExternalComponentGuidanceCandidate, MotherboardSensorCollection, SensorAvailability,
-  SensorTemperature, TemperatureSample,
+  ExternalComponentGuidanceCandidate, MotherboardSensorCollection, PowerDraw,
+  SensorAvailability, SensorTemperature, TemperatureSample,
 };
 
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -73,6 +73,23 @@ pub fn sample_temperatures() -> TemperatureSample {
     cpu_temperature::sample_cpu_package_temperature(),
     sensor_temperatures,
   )
+}
+
+/// Read the Windows CPU package power path while leaving non-CPU fields
+/// unavailable. The RAPL package domain is exposed as `cpu_watts`; the
+/// product's derived `package_watts` total is intentionally not populated by
+/// this CPU-only source.
+pub fn sample_power_draw() -> PowerDraw {
+  build_power_draw(
+    crate::infrastructure::providers::windows::cpu_power::sample_cpu_package_power(),
+  )
+}
+
+fn build_power_draw(cpu_watts: Option<f32>) -> PowerDraw {
+  PowerDraw {
+    cpu_watts,
+    ..PowerDraw::default()
+  }
 }
 
 fn build_temperature_sample(
@@ -156,6 +173,24 @@ fn cpu_package_sensor_name(sample: &CpuPackageTemperature) -> &'static str {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn power_draw_maps_only_cpu_watts() {
+    assert_eq!(
+      build_power_draw(Some(42.5)),
+      PowerDraw {
+        cpu_watts: Some(42.5),
+        gpu_watts: None,
+        ane_watts: None,
+        package_watts: None,
+      }
+    );
+  }
+
+  #[test]
+  fn power_draw_preserves_an_unavailable_cpu_value() {
+    assert_eq!(build_power_draw(None), PowerDraw::default());
+  }
 
   #[test]
   fn motherboard_guidance_suppresses_unsupported_super_io_path() {

@@ -1,14 +1,17 @@
 use std::fmt;
+use std::sync::Arc;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
+pub use super::cpu_identity::{CpuIdentity, CpuVendor};
+use super::cpu_identity::{cpuid_leaf, detect_cpu_identity};
 use super::cpu_temperature_decode::{
   CpuTemperatureDecodeError, decode_amd_zen_package_temperature,
   decode_intel_package_temperature, decode_intel_temperature_target,
 };
 use super::pawn_io::{
   ACCESS_PCI_MUTEX, NamedMutex, PawnIoClient, PawnIoDiscovery, PawnIoInitError,
-  PawnIoModule,
+  PawnIoModule, open_shared_intel_msr,
 };
 use crate::models::SensorEnablement;
 use crate::{log_debug, log_warn};
@@ -17,22 +20,6 @@ const PAWNIO_MUTEX_TIMEOUT: Duration = Duration::from_millis(50);
 const MSR_TEMPERATURE_TARGET: u64 = 0x1a2;
 const IA32_PACKAGE_THERM_STATUS: u64 = 0x1b1;
 const AMD_THM_TCON_CUR_TMP: u64 = 0x0005_9800;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CpuVendor {
-  Intel,
-  Amd,
-  Other,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CpuIdentity {
-  pub vendor: CpuVendor,
-  pub vendor_id: String,
-  pub brand: String,
-  pub family: u32,
-  pub model: u32,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IntelThermalCapabilities {
@@ -177,7 +164,7 @@ pub struct CpuPackageTemperature {
 
 enum ActiveCpuTemperatureSource {
   Intel {
-    client: PawnIoClient,
+    client: Arc<Mutex<PawnIoClient>>,
     target_celsius: u32,
     enablement: SensorEnablement,
   },
@@ -334,8 +321,7 @@ impl CpuTemperatureSampler {
         client,
         target_celsius,
         enablement: _,
-      }) => client
-        .read_msr(IA32_PACKAGE_THERM_STATUS)
+      }) => read_shared_msr(client, IA32_PACKAGE_THERM_STATUS)
         .and_then(|status| {
           decode_intel_package_temperature(*target_celsius, status)
             .map_err(format_decode_error)
@@ -396,10 +382,10 @@ impl ActiveCpuTemperatureSource {
     cpu: &CpuIdentity,
     candidate: &CpuTemperatureCandidate,
   ) -> Result<(Self, PawnIoDiscovery), PawnIoInitError> {
-    let (client, mut discovery) = PawnIoClient::open(candidate.module.clone())?;
-    let active = match candidate.source {
+    match candidate.source {
       CpuTemperatureSource::IntelDtsPackageMsr => {
-        let target_msr = match client.read_msr(MSR_TEMPERATURE_TARGET) {
+        let (client, mut discovery) = open_shared_intel_msr()?;
+        let target_msr = match read_shared_msr(&client, MSR_TEMPERATURE_TARGET) {
           Ok(value) => value,
           Err(reason) => {
             discovery.fallback_reason = Some(reason.clone());
@@ -420,41 +406,39 @@ impl ActiveCpuTemperatureSource {
             });
           }
         };
-        Self::Intel {
-          client,
-          target_celsius,
-          enablement: candidate.enablement,
-        }
+        return Ok((
+          Self::Intel {
+            client,
+            target_celsius,
+            enablement: candidate.enablement,
+          },
+          discovery,
+        ));
       }
-      CpuTemperatureSource::AmdZenSmnTctl => Self::Amd {
-        client,
-        tctl_offset_celsius: amd_tctl_offset_celsius(&cpu.brand),
-        enablement: candidate.enablement,
-      },
-    };
-
-    Ok((active, discovery))
+      CpuTemperatureSource::AmdZenSmnTctl => {
+        let (client, discovery) = PawnIoClient::open(candidate.module.clone())?;
+        return Ok((
+          Self::Amd {
+            client,
+            tctl_offset_celsius: amd_tctl_offset_celsius(&cpu.brand),
+            enablement: candidate.enablement,
+          },
+          discovery,
+        ));
+      }
+    }
   }
+}
+
+fn read_shared_msr(client: &Arc<Mutex<PawnIoClient>>, msr: u64) -> Result<u64, String> {
+  client
+    .lock()
+    .map_err(|_| "shared IntelMSR client lock poisoned".to_string())?
+    .read_msr(msr)
 }
 
 fn format_decode_error(error: CpuTemperatureDecodeError) -> String {
   format!("CPU temperature decode failed: {error:?}")
-}
-
-fn detect_cpu_identity() -> CpuIdentity {
-  detect_cpu_identity_x86().unwrap_or_else(CpuIdentity::unknown)
-}
-
-impl CpuIdentity {
-  fn unknown() -> Self {
-    Self {
-      vendor: CpuVendor::Other,
-      vendor_id: "unknown".to_string(),
-      brand: String::new(),
-      family: 0,
-      model: 0,
-    }
-  }
 }
 
 fn detect_intel_thermal_capabilities() -> Option<IntelThermalCapabilities> {
@@ -473,163 +457,6 @@ fn amd_tctl_offset_celsius(brand: &str) -> f32 {
   } else {
     0.0
   }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct CpuidLeaf {
-  eax: u32,
-  ebx: u32,
-  ecx: u32,
-  edx: u32,
-}
-
-#[cfg(target_arch = "x86_64")]
-fn cpuid_leaf(leaf: u32) -> Option<CpuidLeaf> {
-  use core::arch::x86_64::__cpuid;
-  let max_leaf = if leaf >= 0x8000_0000 {
-    __cpuid(0x8000_0000).eax
-  } else {
-    __cpuid(0).eax
-  };
-  (leaf <= max_leaf).then(|| {
-    let result = __cpuid(leaf);
-    CpuidLeaf {
-      eax: result.eax,
-      ebx: result.ebx,
-      ecx: result.ecx,
-      edx: result.edx,
-    }
-  })
-}
-
-#[cfg(target_arch = "x86")]
-fn cpuid_leaf(leaf: u32) -> Option<CpuidLeaf> {
-  use core::arch::x86::__cpuid;
-  let max_leaf = if leaf >= 0x8000_0000 {
-    __cpuid(0x8000_0000).eax
-  } else {
-    __cpuid(0).eax
-  };
-  (leaf <= max_leaf).then(|| {
-    let result = __cpuid(leaf);
-    CpuidLeaf {
-      eax: result.eax,
-      ebx: result.ebx,
-      ecx: result.ecx,
-      edx: result.edx,
-    }
-  })
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-fn cpuid_leaf(_leaf: u32) -> Option<CpuidLeaf> {
-  None
-}
-
-#[cfg(target_arch = "x86_64")]
-fn cpuid_leaf_unchecked(leaf: u32) -> CpuidLeaf {
-  use core::arch::x86_64::__cpuid;
-  let result = __cpuid(leaf);
-  CpuidLeaf {
-    eax: result.eax,
-    ebx: result.ebx,
-    ecx: result.ecx,
-    edx: result.edx,
-  }
-}
-
-#[cfg(target_arch = "x86")]
-fn cpuid_leaf_unchecked(leaf: u32) -> CpuidLeaf {
-  use core::arch::x86::__cpuid;
-  let result = __cpuid(leaf);
-  CpuidLeaf {
-    eax: result.eax,
-    ebx: result.ebx,
-    ecx: result.ecx,
-    edx: result.edx,
-  }
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-fn cpuid_leaf_unchecked(_leaf: u32) -> CpuidLeaf {
-  CpuidLeaf {
-    eax: 0,
-    ebx: 0,
-    ecx: 0,
-    edx: 0,
-  }
-}
-
-fn detect_cpu_identity_x86() -> Option<CpuIdentity> {
-  let leaf0 = cpuid_leaf(0)?;
-  let vendor_id = vendor_id_from_leaf0(leaf0);
-  let leaf1 = cpuid_leaf(1)?;
-  let (family, model) = effective_family_model(leaf1.eax);
-  let brand = cpu_brand_string();
-  let vendor = match vendor_id.as_str() {
-    "GenuineIntel" => CpuVendor::Intel,
-    "AuthenticAMD" => CpuVendor::Amd,
-    _ => CpuVendor::Other,
-  };
-
-  Some(CpuIdentity {
-    vendor,
-    vendor_id,
-    brand,
-    family,
-    model,
-  })
-}
-
-fn vendor_id_from_leaf0(leaf: CpuidLeaf) -> String {
-  let mut bytes = Vec::with_capacity(12);
-  bytes.extend_from_slice(&leaf.ebx.to_le_bytes());
-  bytes.extend_from_slice(&leaf.edx.to_le_bytes());
-  bytes.extend_from_slice(&leaf.ecx.to_le_bytes());
-  String::from_utf8_lossy(&bytes).trim().to_string()
-}
-
-fn cpu_brand_string() -> String {
-  let Some(extended) = cpuid_leaf(0x8000_0000) else {
-    return String::new();
-  };
-  if extended.eax < 0x8000_0004 {
-    return String::new();
-  }
-
-  let mut bytes = Vec::with_capacity(48);
-  for leaf in 0x8000_0002..=0x8000_0004 {
-    let result = cpuid_leaf_unchecked(leaf);
-    bytes.extend_from_slice(&result.eax.to_le_bytes());
-    bytes.extend_from_slice(&result.ebx.to_le_bytes());
-    bytes.extend_from_slice(&result.ecx.to_le_bytes());
-    bytes.extend_from_slice(&result.edx.to_le_bytes());
-  }
-
-  String::from_utf8_lossy(&bytes)
-    .trim_matches(char::from(0))
-    .trim()
-    .to_string()
-}
-
-fn effective_family_model(eax: u32) -> (u32, u32) {
-  let base_family = (eax >> 8) & 0x0f;
-  let base_model = (eax >> 4) & 0x0f;
-  let extended_family = (eax >> 20) & 0xff;
-  let extended_model = (eax >> 16) & 0x0f;
-
-  let family = if base_family == 0x0f {
-    base_family + extended_family
-  } else {
-    base_family
-  };
-  let model = if base_family == 0x06 || base_family == 0x0f {
-    base_model + (extended_model << 4)
-  } else {
-    base_model
-  };
-
-  (family, model)
 }
 
 #[cfg(test)]
@@ -729,20 +556,6 @@ mod tests {
       enablement: SensorEnablement::Verified,
     };
     assert_eq!(verified_error.to_string(), "CPU temperature decode failed");
-  }
-
-  #[test]
-  fn effective_family_model_adds_extended_family_for_amd_zen() {
-    let eax = (0x8 << 20) | (0x1 << 16) | (0xf << 8) | (0x1 << 4);
-
-    assert_eq!(effective_family_model(eax), (0x17, 0x11));
-  }
-
-  #[test]
-  fn effective_family_model_adds_extended_model_for_intel_family_6() {
-    let eax = (0xa << 16) | (0x6 << 8) | (0x5 << 4);
-
-    assert_eq!(effective_family_model(eax), (0x6, 0xa5));
   }
 
   #[test]

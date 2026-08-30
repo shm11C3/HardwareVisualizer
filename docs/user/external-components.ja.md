@@ -27,36 +27,44 @@ External Component Guidance は、HardwareVisualizer が任意コンポーネン
 
 ## PawnIO
 
-PawnIO は、対応している CPU で PawnIO 経由の取得経路が利用できる場合に、Windows の CPU パッケージ温度を取得するために使われます。
+PawnIO は、対応している CPU で PawnIO 経由の取得経路が利用できる場合に、Windows の CPU パッケージ温度と CPU パッケージ電力を取得するために使われます。
 
 ダッシュボードで CPU 温度を表示できない場合、PawnIO が関係していることがあります。HardwareVisualizer が ACPI thermal zone 経由で CPU 温度を表示できている場合、PawnIO の案内は表示しません。
 
 ### PawnIO で表示できる項目
 
-PawnIO は、CPU ごとのセンサー経路から Windows の CPU パッケージ温度を取得できます。
+PawnIO は、CPU ごとのセンサー経路から Windows の CPU 情報を取得できます。
 
 - Intel MSR モジュール経由の Intel パッケージ温度
+- Intel MSR RAPL レジスター経由の Intel CPU パッケージ電力
 - Ryzen SMU モジュール経由の AMD Family 17h / Family 19h パッケージ温度
+- AMDFamily17 RAPL モジュール経由の AMD CPU パッケージ電力
 
 ### ユーザー側で必要な準備
 
-PawnIO 経由で CPU パッケージ温度を取得するには、対象の PC に次のものが必要です。
+PawnIO 経由で CPU パッケージ温度または電力を取得するには、対象の PC に次のものが必要です。
 
 - 正しく動作する PawnIO driver/runtime
 - PawnIO runtime に含まれる `PawnIOLib.dll`
-- PawnIO.Modules のリリースアセットに含まれる CPU 別モジュール
-  - 対応 Intel CPU では `IntelMSR.amx` または `IntelMSR.bin`
-  - 対応 AMD CPU では `RyzenSMU.amx` または `RyzenSMU.bin`
+- PawnIO.Modules のリリースアセットに含まれる署名済み CPU 別モジュール
+  - Intel パッケージ温度と電力では `IntelMSR.bin`
+  - AMD パッケージ温度では `RyzenSMU.bin`
+  - AMD パッケージ電力では `AMDFamily17.bin`
 - HardwareVisualizer のプロセスが PawnIO driver を開ける Windows 権限
+
+未署名の `.amx` は、unrestricted PawnIO driver と Windows test-signing
+mode を使う場合だけのフォールバックです。通常の production setup では
+使用しません。
 
 モジュールを配置する手順:
 
 1. PawnIO runtime をインストールします。
 2. [namazso/PawnIO.Modules](https://github.com/namazso/PawnIO.Modules/releases) からリリースアセットをダウンロードします。
 3. アーカイブを展開し、必要な CPU モジュールファイルを `C:\Program Files\PawnIO` にコピーします。
-   - Intel パッケージ温度を取得する場合は、`IntelMSR.amx` または `IntelMSR.bin` をコピーします。
-   - 対応 AMD パッケージ温度を取得する場合は、`RyzenSMU.amx` または `RyzenSMU.bin` をコピーします。
-   - どちらの CPU 経路が必要かわからない場合は、両方のモジュールファイルをコピーしても問題ありません。
+   - Intel パッケージ温度または電力を取得する場合は、`IntelMSR.bin` をコピーします。
+   - 対応 AMD パッケージ温度を取得する場合は、`RyzenSMU.bin` をコピーします。
+   - AMD パッケージ電力を取得する場合は、`AMDFamily17.bin` をコピーします。
+   - どの CPU 経路が必要かわからない場合は、必要な署名済みモジュールをすべてコピーしても問題ありません。
 4. HardwareVisualizer を再起動します。
 
 `C:\Program Files\PawnIO` への書き込みには、通常は管理者権限が必要です。
