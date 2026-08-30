@@ -25,6 +25,9 @@ pub(crate) const ITE_EXPERIMENTAL_FAILURE_PREFIX: &str =
   "Experimental IT8728F/EX motherboard temperature path failed";
 pub(crate) const ITE_EXPERIMENTAL_NON_COMPONENT_FAILURE_PREFIX: &str =
   "Experimental IT8728F/EX motherboard temperature path failed: hardware state";
+const ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT: &str = "configuration exit failed";
+const ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT: &str =
+  "EC port authorization probe failed";
 
 const CHIP_ID_HIGH_REGISTER: u8 = 0x20;
 const CHIP_ID_LOW_REGISTER: u8 = 0x21;
@@ -412,14 +415,14 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
         read_ite_ec_byte(client, discovered.ec_base, ITE_EC_CONFIGURATION_REGISTER)
           .map_err(|reason| {
             ite_experimental_failure(format!(
-              "EC port authorization probe failed: {reason}"
+              "{ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT}: {reason}"
             ))
           })?;
         Ok(Some(discovered))
       }
       (Ok(None), Ok(())) => Ok(None),
       (Ok(Some(_)), Err(exit_error)) => Err(ite_experimental_failure(format!(
-        "configuration exit failed: {exit_error}"
+        "{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"
       ))),
       (Ok(None), Err(exit_error)) => Err(format!("ITE config exit failed: {exit_error}")),
       (Err(reason), Ok(())) => Err(reason),
@@ -738,8 +741,13 @@ fn ite_experimental_non_component_failure(reason: impl AsRef<str>) -> String {
 }
 
 fn is_retryable_init_error(reason: &str) -> bool {
+  let requires_ite_rediscovery = reason.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX)
+    && (reason.contains(ITE_EC_AUTHORIZATION_PROBE_FAILURE_CONTEXT)
+      || reason.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT));
+
   reason.contains("timed out waiting for mutex")
     || reason.contains("failed waiting for mutex")
+    || requires_ite_rediscovery
 }
 
 #[cfg(test)]
@@ -1154,9 +1162,19 @@ mod tests {
 
     assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
     assert!(error.contains("EC port authorization probe failed"));
+    assert!(is_retryable_init_error(&error));
     assert_eq!(client.find_bars_calls.get(), 1);
     assert_eq!(client.config_exit_calls.get(), 1);
     assert_eq!(client.read_registers.borrow().as_slice(), &[0x00]);
+  }
+
+  #[test]
+  fn ite_configuration_exit_failure_requires_rediscovery() {
+    let error = ite_experimental_failure(format!(
+      "{ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: simulated exit failure"
+    ));
+
+    assert!(is_retryable_init_error(&error));
   }
 
   #[test]
