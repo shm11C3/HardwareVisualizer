@@ -10,6 +10,7 @@ import {
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
   computePowerDomain,
+  hasRoutedPowerData,
   resolveBaselineBand,
   type ThermalTimelineRow,
   toDisplayTemperature,
@@ -398,6 +399,72 @@ describe("buildDailyTimelineRows power lane", () => {
 
     expect(rows[0].temperatureAvg).toBe(86);
     expect(rows[0].powerAvg).toBe(18.5);
+  });
+});
+
+describe("hasRoutedPowerData", () => {
+  const NO_SERIES = {
+    temperatureAvg: [],
+    temperatureMax: [],
+    temperatureMin: [],
+    cpuUsage: [],
+    powerAvg: [],
+    powerMax: [],
+    powerMin: [],
+  };
+  const ARCHIVE = { kind: "archive" } as const;
+  const DAILY = { kind: "dailyTrend" } as const;
+
+  it("reads the archive power series on the archive routes", () => {
+    expect(
+      hasRoutedPowerData(
+        ARCHIVE,
+        { ...NO_SERIES, powerAvg: [{ timestamp: 0, value: 18 }] },
+        null,
+      ),
+    ).toBe(true);
+  });
+
+  it("treats an archive bucket with no value as no power", () => {
+    expect(
+      hasRoutedPowerData(
+        ARCHIVE,
+        { ...NO_SERIES, powerAvg: [{ timestamp: 0, value: null }] },
+        null,
+      ),
+    ).toBe(false);
+  });
+
+  it("ignores the daily trend while an archive route is selected", () => {
+    // Otherwise a 24h window on a machine that only ever recorded power
+    // months ago would claim the lane is available.
+    expect(
+      hasRoutedPowerData(ARCHIVE, NO_SERIES, [
+        trendPoint("2026-01-15", {
+          power: { avg: 18, max: 42, min: 4, sampleMinutes: 900 },
+        }),
+      ]),
+    ).toBe(false);
+  });
+
+  it("reads the daily trend on the long-range routes", () => {
+    expect(
+      hasRoutedPowerData(DAILY, NO_SERIES, [
+        trendPoint("2026-01-15", {
+          power: { avg: 18, max: 42, min: 4, sampleMinutes: 900 },
+        }),
+      ]),
+    ).toBe(true);
+  });
+
+  it("is false for a daily window whose days recorded no power", () => {
+    expect(
+      hasRoutedPowerData(DAILY, NO_SERIES, [trendPoint("2026-01-15")]),
+    ).toBe(false);
+  });
+
+  it("is false while the daily trend is still loading", () => {
+    expect(hasRoutedPowerData(DAILY, NO_SERIES, null)).toBe(false);
   });
 });
 
