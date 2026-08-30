@@ -15,6 +15,7 @@ pub mod cooling_band_comparison;
 pub mod cooling_baseline;
 pub mod cooling_baseline_delta;
 pub mod cooling_hourly_rollup;
+pub mod cooling_load_temperature_explorer;
 pub mod cooling_rollup;
 pub mod cooling_trend;
 pub mod preflight;
