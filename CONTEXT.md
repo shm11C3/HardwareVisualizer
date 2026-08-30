@@ -192,9 +192,9 @@ _Avoid_: Failed fan, broken fan
 A room-temperature observation, optionally carrying relative humidity, taken by an environmental sensor outside the machine and used to explain machine temperatures.
 _Avoid_: CPU temperature, motherboard temperature, thermal zone, weather data
 
-**Ambient Sensor Connection State**:
-Whether a registered environmental sensor is currently delivering Ambient Temperature Readings, shown together with when it last succeeded.
-_Avoid_: Sensor availability, pairing status, device health
+**Ambient Sensor Availability**:
+Whether an environmental sensor's readings are currently arriving, reported as available, stale, or never received, together with when it last succeeded.
+_Avoid_: Connection state, pairing status, link status, device health
 
 **Ambient Reading Freshness Window**:
 How recently an Ambient Temperature Reading must have been observed to stand for the archive minute being written; an older reading leaves that minute without ambient data instead of repeating a past value.

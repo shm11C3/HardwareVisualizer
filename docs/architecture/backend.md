@@ -238,8 +238,18 @@ value across hours. A minute with no fresh reading has no ambient row, and one
 quiet sensor never suppresses another. Ambient rows carry the archive tick's
 timestamp so they join the Hardware Archive row for the same minute, and they
 age out on the same `hardwareArchive.retentionDays` cycle as the rows they
-explain. Provider connection state and last-success timestamps are exposed from
-the registry for the Cooling Insight data-state panel.
+explain.
+
+The provider contract is deliberately availability-based rather than
+connection-based: the first concrete provider reads passive BLE advertisements
+and never establishes a connection, so a link concept has no shared meaning.
+A provider reports only its Sensor Source Label and its latest reading; the
+registry derives Ambient Sensor Availability (available / stale / never
+received) and the last-success timestamp for the Cooling Insight data-state
+panel, using the same freshness window the archive writes by, so the panel can
+never call a source available while no rows are being written for it.
+Transport-specific causes such as an unavailable radio or a stopped scan stay
+inside the concrete provider and surface only as readings that stop arriving.
 
 Process Insight data is a sampled and ranked summary derived from realtime
 process observations. It is not a complete process audit log, and persistence

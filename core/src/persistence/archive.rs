@@ -1222,8 +1222,7 @@ mod tests {
   mod ambient {
     use super::*;
     use crate::infrastructure::providers::environmental::{
-      AMBIENT_READING_MAX_AGE_SECONDS, EnvironmentalConnectionState,
-      EnvironmentalReading, EnvironmentalSensorProvider,
+      AMBIENT_READING_MAX_AGE_SECONDS, EnvironmentalReading, EnvironmentalSensorProvider,
     };
     use chrono::{DateTime, Utc};
 
@@ -1239,10 +1238,6 @@ mod tests {
 
       fn latest_reading(&self) -> Option<EnvironmentalReading> {
         self.reading.clone()
-      }
-
-      fn connection_state(&self) -> EnvironmentalConnectionState {
-        EnvironmentalConnectionState::Connected
       }
     }
 
