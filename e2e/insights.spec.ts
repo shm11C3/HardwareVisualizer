@@ -110,6 +110,59 @@ test.describe("insights captures", () => {
     await saveCapture(page, "insights-cooling-establishing");
   });
 
+  test("insights cooling tab shows a sustained mild rise observation", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?coolingObservation=sustainedMildRise" });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    const strip = page.getByTestId("cooling-observation-strip");
+    await expect(strip.getByText(/above baseline for 3 days/)).toBeVisible();
+    await expect(page.getByTestId("cooling-load-band-dumbbell")).toBeVisible();
+
+    // The confirmation checklist starts collapsed and expands on click,
+    // revealing the observation-not-diagnosis footnote.
+    const checklistTrigger = strip.getByText("Things worth checking");
+    await expect(checklistTrigger).toBeVisible();
+    await expect(strip.getByText("Case airflow")).not.toBeVisible();
+    await checklistTrigger.click();
+    await expect(strip.getByText("Case airflow")).toBeVisible();
+    await expect(
+      strip.getByText(
+        "These are observation-based points to check, not a fault diagnosis.",
+      ),
+    ).toBeVisible();
+
+    await page.waitForTimeout(600);
+
+    await saveCapture(page, "insights-cooling-observation-mild");
+  });
+
+  test("insights cooling tab shows a not-comparable observation", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?coolingObservation=notComparable" });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    const strip = page.getByTestId("cooling-observation-strip");
+    await expect(
+      strip.getByText("Not comparable — recent idle samples are insufficient."),
+    ).toBeVisible();
+    await expect(page.getByTestId("cooling-load-band-dumbbell")).toBeVisible();
+
+    await page.waitForTimeout(600);
+
+    await saveCapture(page, "insights-cooling-observation-not-comparable");
+  });
+
   test("insights cooling tab renders the coverage strip at 90 days", async ({
     page,
   }) => {

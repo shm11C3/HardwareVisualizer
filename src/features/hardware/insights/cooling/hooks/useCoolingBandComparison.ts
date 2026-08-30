@@ -10,12 +10,16 @@ import { isError } from "@/types/result";
  */
 export const useCoolingBandComparison = () => {
   const [data, setData] = useState<CoolingBandComparison | null>(null);
+  const [hasError, setHasError] = useState(false);
   const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
 
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    // A rerun starts a fresh request: a failure from the previous run
+    // must not stick to it.
+    setHasError(false);
 
     void (async () => {
       try {
@@ -33,6 +37,9 @@ export const useCoolingBandComparison = () => {
         // A stale request must neither flip the state nor open a dialog.
         if (requestIdRef.current === requestId) {
           setData(null);
+          // A failure is not "still loading": consumers render a
+          // load-failure line instead of keeping the skeleton forever.
+          setHasError(true);
           void error(String(e));
         }
       }
@@ -45,5 +52,5 @@ export const useCoolingBandComparison = () => {
     };
   }, [error]);
 
-  return { data };
+  return { data, hasError };
 };

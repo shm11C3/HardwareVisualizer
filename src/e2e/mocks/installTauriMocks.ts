@@ -10,6 +10,9 @@ import {
   coolingBandComparisonFixture,
   coolingBaselineDeltaEstablishingFixture,
   coolingBaselineDeltaFixture,
+  coolingBaselineDeltaLargeRiseFixture,
+  coolingBaselineDeltaMildRiseFixture,
+  coolingBaselineDeltaNotComparableFixture,
 } from "../fixtures/cooling";
 import {
   buildHardwareUpdateSeries,
@@ -59,7 +62,18 @@ type FixtureOverrides = {
    * from "established" to "establishing" so both empty states are
    * reachable from a URL. */
   coolingBaselineEstablishing: boolean;
+  /** `?coolingObservation=notComparable|sustainedMildRise|sustainedLargeRise`
+   * swaps `get_cooling_baseline_delta`'s established-baseline fixture to
+   * exercise the other `CoolingDeltaObservation` states from a URL. Ignored
+   * when `coolingBaselineEstablishing` is set; unset/unrecognized falls
+   * back to the default `withinRange` fixture. */
+  coolingObservationOverride: CoolingObservationOverride;
 };
+type CoolingObservationOverride =
+  | "notComparable"
+  | "sustainedMildRise"
+  | "sustainedLargeRise"
+  | null;
 type TauriInternalsWindow = Window & {
   __TAURI_INTERNALS__?: {
     runCallback?: (id: number, data: unknown) => void;
@@ -100,7 +114,19 @@ const readFixtureOverrides = (): FixtureOverrides => {
     coolingBaselineEstablishing:
       new URLSearchParams(window.location.search).get("coolingBaseline") ===
       "establishing",
+    coolingObservationOverride: readCoolingObservationOverride(),
   };
+};
+
+const readCoolingObservationOverride = (): CoolingObservationOverride => {
+  const raw = new URLSearchParams(window.location.search).get(
+    "coolingObservation",
+  );
+  return raw === "notComparable" ||
+    raw === "sustainedMildRise" ||
+    raw === "sustainedLargeRise"
+    ? raw
+    : null;
 };
 
 /**
@@ -323,10 +349,21 @@ const buildInvokeHandlers = (
     fixtureOverrides.coolingBaselineEstablishing
       ? coolingBandComparisonEstablishingFixture
       : coolingBandComparisonFixture,
-  get_cooling_baseline_delta: () =>
-    fixtureOverrides.coolingBaselineEstablishing
-      ? coolingBaselineDeltaEstablishingFixture
-      : coolingBaselineDeltaFixture,
+  get_cooling_baseline_delta: () => {
+    if (fixtureOverrides.coolingBaselineEstablishing) {
+      return coolingBaselineDeltaEstablishingFixture;
+    }
+    switch (fixtureOverrides.coolingObservationOverride) {
+      case "notComparable":
+        return coolingBaselineDeltaNotComparableFixture;
+      case "sustainedMildRise":
+        return coolingBaselineDeltaMildRiseFixture;
+      case "sustainedLargeRise":
+        return coolingBaselineDeltaLargeRiseFixture;
+      default:
+        return coolingBaselineDeltaFixture;
+    }
+  },
 });
 
 const dispatchTauriEvent = (

@@ -357,7 +357,23 @@
         },
         "observationStrip": {
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
-          "placeholder": "Idle temperature drift insight is coming in a future update."
+          "notComparable": "Not comparable — recent idle samples are insufficient.",
+          "withinRange": "No sustained rise above the baseline ({{delta}}).",
+          "loadFailed": "Failed to load the baseline comparison.",
+          "sustainedMildRise": "Idle temperature has been {{delta}} above baseline for {{days}} days.",
+          "sustainedLargeRise": "Idle temperature has been substantially higher than baseline ({{delta}}) for {{days}} days.",
+          "comparisonWindow": "Last {{days}} days vs. baseline {{startDate}}–{{endDate}} · compared under similar load conditions",
+          "disclaimer": "Room temperature, power plan, BIOS settings, or software changes can produce the same pattern. This alone cannot confirm component wear.",
+          "checklist": {
+            "trigger": "Things worth checking",
+            "items": {
+              "dust": "Dust in intake vents, filters, or the heatsink",
+              "airflow": "Case airflow",
+              "fanCurve": "Recent fan or fan-curve changes",
+              "thermalPaste": "Thermal paste and cooler condition (after extended use)"
+            },
+            "footnote": "These are observation-based points to check, not a fault diagnosis."
+          }
         },
         "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
         "timeline": {
@@ -397,12 +413,25 @@
         },
         "loadBandComparison": {
           "title": "Load-Band Comparison",
-          "placeholder": "Detailed load-band comparison charts are coming in a future update."
+          "loadFailed": "Failed to load the load-band comparison.",
+          "legend": {
+            "baseline": "Baseline",
+            "recent": "Recent"
+          },
+          "notComparable": "Not enough samples to compare"
         },
         "dataState": {
           "title": "Data State",
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",
-          "ready": "Baseline established. Comparison charts are coming in a future update."
+          "sampleMinutes": "{{baseline}} / {{recent}} min",
+          "temperatureSource": {
+            "label": "Temperature source",
+            "value": "CPU temperature (1 series)"
+          },
+          "unsupported": {
+            "label": "Power / fan",
+            "value": "Not supported yet"
+          }
         }
       },
       "gpu": {

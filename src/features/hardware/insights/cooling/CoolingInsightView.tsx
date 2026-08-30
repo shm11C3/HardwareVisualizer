@@ -19,14 +19,16 @@ import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
 /**
  * The Cooling tab: zone structure, single period selector, and
  * empty/coverage states. Zone (2) is the synchronized thermal timeline
- * (#2019); zones (1) observation strip and (5) load-band comparison still
- * hold placeholder content pending #2020 - see each component's doc comment
- * for what is deferred.
+ * (#2019); zone (1) is the idle-drift observation strip and zone (5) is the
+ * load-band comparison (#2020) - see each component's doc comment for its
+ * own responsibilities.
  */
 export const CoolingInsightView = () => {
   const periodState = useCoolingInsightPeriod();
-  const { data: baselineDelta } = useCoolingBaselineDelta();
-  const { data: bandComparison } = useCoolingBandComparison();
+  const { data: baselineDelta, hasError: baselineDeltaHasError } =
+    useCoolingBaselineDelta();
+  const { data: bandComparison, hasError: bandComparisonHasError } =
+    useCoolingBandComparison();
 
   // The store-backed period is not ready yet; bail out before mounting
   // `CoolingInsightBody`, which calls one more hook (the daily-trend fetch)
@@ -42,7 +44,9 @@ export const CoolingInsightView = () => {
       period={period}
       onPeriodChange={setPeriod}
       baselineDelta={baselineDelta}
+      baselineDeltaHasError={baselineDeltaHasError}
       bandComparison={bandComparison}
+      bandComparisonHasError={bandComparisonHasError}
     />
   );
 };
@@ -51,12 +55,16 @@ const CoolingInsightBody = ({
   period,
   onPeriodChange,
   baselineDelta,
+  baselineDeltaHasError,
   bandComparison,
+  bandComparisonHasError,
 }: {
   period: CoolingInsightPeriod;
   onPeriodChange: (period: CoolingInsightPeriod) => Promise<void>;
   baselineDelta: CoolingBaselineDelta | null;
+  baselineDeltaHasError: boolean;
   bandComparison: CoolingBandComparison | null;
+  bandComparisonHasError: boolean;
 }) => {
   const route = resolveCoolingPeriodRoute(period);
   const { data: dailyTrend, hasError: dailyTrendHasError } =
@@ -68,7 +76,10 @@ const CoolingInsightBody = ({
         <CoolingPeriodSelect value={period} onChange={onPeriodChange} />
       </div>
 
-      <ObservationStrip baselineDelta={baselineDelta} />
+      <ObservationStrip
+        baselineDelta={baselineDelta}
+        hasError={baselineDeltaHasError}
+      />
       <ThermalTimelineLane
         route={route}
         baseline={baselineDelta?.baseline ?? null}
@@ -83,7 +94,10 @@ const CoolingInsightBody = ({
           hasError={dailyTrendHasError}
         />
       )}
-      <LoadBandComparisonPanel bandComparison={bandComparison} />
+      <LoadBandComparisonPanel
+        bandComparison={bandComparison}
+        hasError={bandComparisonHasError}
+      />
     </div>
   );
 };
