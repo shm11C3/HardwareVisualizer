@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 2 |
-| Status | Implementation-ready (rev 2) |
+| Revision | 3 |
+| Status | Implementation-ready (rev 3) |
 | Scope | CPU package/socket power (Watts) on AMD Family 17h (Zen/Zen+/Zen 2), 19h (Zen 3/Zen 4), and 1Ah (Zen 5) processors, derived from the RAPL energy counter MSRs (`MSRC001_0299` RAPL Power Unit, `MSRC001_029B` Package Energy Status). Excludes: per-core energy (`MSRC001_029A`, recorded as a future extension), power-limit interfaces, SMU PM-table power telemetry, pre-Zen families. |
 | Issue phase | Phase 5 (#1635) — sensor model extension beyond temperature |
 
@@ -116,14 +116,23 @@ Notes:
    `T_max = (2^32 × 2^-ESU J) / P_gate`, where `P_gate = 1000 W` is
    the same assumed maximum package power as the plausibility gate in
    step 7 (at the default `ESU = 16`: `65 536 J / 1000 W ≈ 65 s`).
-   If `t_now − t_prev > T_max`, do **not** compute or publish a power
+   If `t_now − t_prev ≥ T_max`, do **not** compute or publish a power
    value: treat the tick as a missing sample and restart by taking
    the current reading as the new baseline. Rationale: the modular
    difference cannot detect `k ≥ 1` complete counter wraps, so an
    oversized gap (system sleep, timer suspension, collector delay)
    would otherwise yield a plausible-looking but understated power
-   value that the range gate in step 7 cannot catch. Dropping the
-   sample instead of publishing a fabricated number follows DP-02 in
+   value that the range gate in step 7 cannot catch. The rejection
+   must include the boundary itself: at `t_now − t_prev = T_max` a
+   package sustaining exactly `P_gate` (admitted by the inclusive
+   gate in step 7) consumes exactly
+   `P_gate × T_max = 2^32 × 2^-ESU J` — one full wrap — so the
+   modular difference reads 0 and the computed power is a
+   plausible-looking 0 W. Correctness of the modular difference
+   requires the true delta to be **strictly** below `2^32` energy
+   units, which `P ≤ P_gate` guarantees only for
+   `t_now − t_prev < T_max`. Dropping the sample instead of
+   publishing a fabricated number follows DP-02 in
    [`docs/design-principles.md`](../../design-principles.md).
    (Project policy; arithmetic from the S1–S5 units and widths)
 6. Otherwise compute, in 32-bit unsigned modular arithmetic:
@@ -149,13 +158,15 @@ Width-agnostic decode rationale (why step 3 truncates to 32 bits):
   difference is exact provided the true energy delta between samples
   is below `2^32` energy units.
 - Both cases therefore share one correctness condition: the energy
-  consumed between two samples must be below
+  consumed between two samples must be **strictly** below
   `2^32 × 2^-ESU J = 65 536 J` at the default `ESU = 16` — ~327 s
   (≈ 5.5 min) of headroom at a continuous 200 W, ~65 s at 1000 W. A
   sampling interval of at most 30 s keeps the decode unambiguous
-  below ~2 185 W average package power, and any gap exceeding the
-  `T_max` bound of step 5 is rejected and re-baselined instead of
-  decoded. This removes the counter width as a runtime dependency,
+  below ~2 185 W average package power, and any gap reaching or
+  exceeding the `T_max` bound of step 5 is rejected and re-baselined
+  instead of decoded (the same 2^32-based `T_max` applies to both
+  counter widths, because the decode truncates to 32 bits in step 3).
+  This removes the counter width as a runtime dependency,
   which is what makes the experimental (width-unverified) scopes in
   Detection safe to attempt. (S1–S5 for the widths and units;
   arithmetic)
@@ -233,3 +244,4 @@ Width-agnostic decode rationale (why step 3 truncates to 32 bits):
 | --- | --- | --- |
 | 1 | 2026-08-30 | Initial version, authored with all provenance pinned against AMD PPRs 54945 Rev 3.03, 56214-B0 Rev 3.05, 56713-B1 Rev 3.05, 57238 Rev 0.24, 57896-B0 Rev 3.00 and PawnIO.Modules tag 0.2.8. Proposed Implementation-ready per the README status-transition checklist; effective upon maintainer approval of the introducing PR. |
 | 2 | 2026-08-30 | PR #2033 review follow-up. Provenance: `CPUID_Fn80000007_EDX[14]` (`RAPL`) pinned for all five models — added S2 §2.1.13.1 p. 84, S4 §2.1.14.1 p. 120, S5 §2.1.12.1 p. 98; corrected the S3 CPUID section number to §2.1.11.1 (p. 99 unchanged). Normative addition: wrap-safe gap check — gaps exceeding `T_max = 2^32 × 2^-ESU J / 1000 W` (≈ 65 s at `ESU = 16`) publish no power value and re-baseline (DP-02), because the modular difference cannot detect complete wraps across oversized gaps. Status remains Implementation-ready. |
+| 3 | 2026-08-30 | Maintainer audit finding: the wrap-safe gap rejection changed from `> T_max` to `≥ T_max`. At `elapsed = T_max` with sustained power exactly `P_gate` (admitted by the inclusive plausibility gate), the energy delta equals exactly `2^32` units — one full wrap — so the modular difference reads 0 and a plausible 0 W would slip past the strict-only rejection; correctness of the modular difference requires the true delta strictly below `2^32` units, i.e. accepted gaps must satisfy `elapsed < T_max`. No register facts changed. Status remains Implementation-ready. |
