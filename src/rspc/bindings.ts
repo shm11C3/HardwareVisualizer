@@ -130,6 +130,13 @@ export const commands = {
 	getCoolingBandComparison: () => typedError<CoolingBandComparison, string>(__TAURI_INVOKE("get_cooling_band_comparison")),
 	// ## Get the idle cooling baseline delta and its observation state
 	getCoolingBaselineDelta: () => typedError<CoolingBaselineDelta, string>(__TAURI_INVOKE("get_cooling_baseline_delta")),
+	/**
+	 *  ## Get the CPU load vs. CPU temperature Explorer for two windows
+	 * 
+	 *  `recent_days` is the requested length of the trailing window; Core
+	 *  clamps it to the range the hourly rollup can answer for.
+	 */
+	getCoolingLoadTemperatureExplorer: (recentDays: number) => typedError<CoolingLoadTemperatureExplorer, string>(__TAURI_INVOKE("get_cooling_load_temperature_explorer", { recentDays })),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -384,6 +391,28 @@ export type CoolingBandComparisonEntry = {
 	comparable: boolean,
 };
 
+/**
+ *  One band's temperature median within one Explorer window, with the
+ *  evidence behind it.
+ */
+export type CoolingBandMedian = {
+	temperatureMedian: number | null,
+	pointCount: number,
+	sampleMinutes: number,
+};
+
+/**
+ *  One band's two window medians and the delta between them. `delta` is
+ *  absent whenever `comparable` is `false`.
+ */
+export type CoolingBandMedianDelta = {
+	band: CoolingLoadBand,
+	baseline: CoolingBandMedian,
+	recent: CoolingBandMedian,
+	delta: number | null,
+	comparable: boolean,
+};
+
 // One CPU-load band's temperature summary for a single day.
 export type CoolingBandTemperature = {
 	avg: number | null,
@@ -451,7 +480,38 @@ export type CoolingDailyTrendPoint = {
  */
 export type CoolingDeltaObservation = "establishing" | "notComparable" | "withinRange" | "sustainedMildRise" | "sustainedLargeRise";
 
+/**
+ *  One of the Explorer's two windows: its calendar range and its scatter
+ *  points. Per-band medians live on [`CoolingBandMedianDelta`], which
+ *  pairs both windows' values for a band.
+ */
+export type CoolingExplorerWindow = {
+	startDate: string,
+	endDate: string,
+	points: CoolingLoadTemperaturePoint[],
+};
+
 export type CoolingLoadBand = "idle" | "low" | "mid" | "high";
+
+/**
+ *  Cooling Insight's load-vs-temperature Explorer, gated by the same
+ *  baseline lifecycle as [`CoolingBandComparison`].
+ */
+export type CoolingLoadTemperatureExplorer = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; baseline: CoolingExplorerWindow; recent: CoolingExplorerWindow; bandDeltas: CoolingBandMedianDelta[] };
+
+/**
+ *  One hour's (load, temperature) pair, as scattered by the Explorer.
+ * 
+ *  `hourStart` is the local wall-clock hour string the hourly rollup
+ *  stores (`"%Y-%m-%d %H:00"`), for the same reason dates cross as
+ *  `"%Y-%m-%d"`: it is already the key Core compares and sorts on.
+ */
+export type CoolingLoadTemperaturePoint = {
+	hourStart: string,
+	cpuUsageAvg: number,
+	cpuTemperatureAvg: number,
+	sampleMinutes: number,
+};
 
 /**
  *  The trailing recent-window idle summary the baseline is compared

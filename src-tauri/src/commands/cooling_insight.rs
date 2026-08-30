@@ -10,6 +10,7 @@
 
 use crate::models::cooling_insight::{
   CoolingBandComparison, CoolingBaselineDelta, CoolingDailyTrendPoint,
+  CoolingLoadTemperatureExplorer,
 };
 use tauri::command;
 
@@ -48,6 +49,24 @@ pub async fn get_cooling_baseline_delta() -> Result<CoolingBaselineDelta, String
   use crate::services::cooling_insight_service;
 
   cooling_insight_service::fetch_cooling_baseline_delta()
+    .await
+    .map(Into::into)
+}
+
+///
+/// ## Get the CPU load vs. CPU temperature Explorer for two windows
+///
+/// `recent_days` is the requested length of the trailing window; Core
+/// clamps it to the range the hourly rollup can answer for.
+///
+#[command]
+#[specta::specta]
+pub async fn get_cooling_load_temperature_explorer(
+  recent_days: u32,
+) -> Result<CoolingLoadTemperatureExplorer, String> {
+  use crate::services::cooling_insight_service;
+
+  cooling_insight_service::fetch_cooling_load_temperature_explorer(recent_days)
     .await
     .map(Into::into)
 }

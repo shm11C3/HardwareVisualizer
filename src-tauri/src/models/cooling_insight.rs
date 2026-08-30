@@ -20,6 +20,11 @@ use hardviz_core::persistence::cooling_baseline_delta::{
   CoolingBaselineDelta as CoreCoolingBaselineDelta,
   CoolingDeltaObservation as CoreCoolingDeltaObservation, DailyDelta as CoreDailyDelta,
 };
+use hardviz_core::persistence::cooling_load_temperature_explorer::{
+  BandMedian as CoreBandMedian, BandMedianDelta as CoreBandMedianDelta,
+  CoolingLoadTemperatureExplorer as CoreCoolingLoadTemperatureExplorer,
+  ExplorerWindow as CoreExplorerWindow, LoadTemperaturePoint as CoreLoadTemperaturePoint,
+};
 use hardviz_core::persistence::cooling_rollup::{
   BandSummary as CoreBandSummary, CpuLoadBand as CoreCpuLoadBand,
   DailyCoolingSummary as CoreDailyCoolingSummary,
@@ -326,6 +331,141 @@ impl From<CoreCoolingBaselineDelta> for CoolingBaselineDelta {
   }
 }
 
+/// One hour's (load, temperature) pair, as scattered by the Explorer.
+///
+/// `hourStart` is the local wall-clock hour string the hourly rollup
+/// stores (`"%Y-%m-%d %H:00"`), for the same reason dates cross as
+/// `"%Y-%m-%d"`: it is already the key Core compares and sorts on.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingLoadTemperaturePoint {
+  pub hour_start: String,
+  pub cpu_usage_avg: f32,
+  pub cpu_temperature_avg: f32,
+  pub sample_minutes: u32,
+}
+
+impl From<CoreLoadTemperaturePoint> for CoolingLoadTemperaturePoint {
+  fn from(value: CoreLoadTemperaturePoint) -> Self {
+    Self {
+      hour_start: hardviz_core::persistence::cooling_hourly_rollup::format_hour_start(
+        value.hour_start,
+      ),
+      cpu_usage_avg: value.cpu_usage_avg,
+      cpu_temperature_avg: value.cpu_temperature_avg,
+      sample_minutes: value.sample_minutes,
+    }
+  }
+}
+
+/// One band's temperature median within one Explorer window, with the
+/// evidence behind it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingBandMedian {
+  pub temperature_median: Option<f32>,
+  pub point_count: u32,
+  pub sample_minutes: u32,
+}
+
+impl From<CoreBandMedian> for CoolingBandMedian {
+  fn from(value: CoreBandMedian) -> Self {
+    Self {
+      temperature_median: value.temperature_median,
+      point_count: value.point_count,
+      sample_minutes: value.sample_minutes,
+    }
+  }
+}
+
+/// One of the Explorer's two windows: its calendar range and its scatter
+/// points. Per-band medians live on [`CoolingBandMedianDelta`], which
+/// pairs both windows' values for a band.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingExplorerWindow {
+  pub start_date: String,
+  pub end_date: String,
+  pub points: Vec<CoolingLoadTemperaturePoint>,
+}
+
+impl From<CoreExplorerWindow> for CoolingExplorerWindow {
+  fn from(value: CoreExplorerWindow) -> Self {
+    Self {
+      start_date: format_date(value.start_date),
+      end_date: format_date(value.end_date),
+      points: value.points.into_iter().map(Into::into).collect(),
+    }
+  }
+}
+
+/// One band's two window medians and the delta between them. `delta` is
+/// absent whenever `comparable` is `false`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingBandMedianDelta {
+  pub band: CoolingLoadBand,
+  pub baseline: CoolingBandMedian,
+  pub recent: CoolingBandMedian,
+  pub delta: Option<f32>,
+  pub comparable: bool,
+}
+
+impl From<CoreBandMedianDelta> for CoolingBandMedianDelta {
+  fn from(value: CoreBandMedianDelta) -> Self {
+    Self {
+      band: value.band.into(),
+      baseline: value.baseline.into(),
+      recent: value.recent.into(),
+      delta: value.delta,
+      comparable: value.comparable,
+    }
+  }
+}
+
+/// Cooling Insight's load-vs-temperature Explorer, gated by the same
+/// baseline lifecycle as [`CoolingBandComparison`].
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(
+  tag = "status",
+  rename_all = "camelCase",
+  rename_all_fields = "camelCase"
+)]
+pub enum CoolingLoadTemperatureExplorer {
+  Establishing {
+    qualifying_days: u32,
+    required_days: u32,
+  },
+  Established {
+    baseline: CoolingExplorerWindow,
+    recent: CoolingExplorerWindow,
+    band_deltas: Vec<CoolingBandMedianDelta>,
+  },
+}
+
+impl From<CoreCoolingLoadTemperatureExplorer> for CoolingLoadTemperatureExplorer {
+  fn from(value: CoreCoolingLoadTemperatureExplorer) -> Self {
+    match value {
+      CoreCoolingLoadTemperatureExplorer::Establishing {
+        qualifying_days,
+        required_days,
+      } => Self::Establishing {
+        qualifying_days,
+        required_days,
+      },
+      CoreCoolingLoadTemperatureExplorer::Established {
+        baseline,
+        recent,
+        band_deltas,
+      } => Self::Established {
+        baseline: baseline.into(),
+        recent: recent.into(),
+        band_deltas: band_deltas.into_iter().map(Into::into).collect(),
+      },
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -569,6 +709,148 @@ mod tests {
         .map(|d| d.date.clone())
         .collect::<Vec<_>>(),
       vec!["2026-08-18", "2026-08-19", "2026-08-20"]
+    );
+  }
+
+  // ── load-vs-temperature Explorer (#2023) ──
+
+  fn hour(input: &str) -> chrono::NaiveDateTime {
+    chrono::NaiveDateTime::parse_from_str(input, "%Y-%m-%d %H:%M").unwrap()
+  }
+
+  fn core_explorer_window(start: NaiveDate, end: NaiveDate) -> CoreExplorerWindow {
+    CoreExplorerWindow {
+      start_date: start,
+      end_date: end,
+      points: vec![CoreLoadTemperaturePoint {
+        hour_start: hour("2026-08-20 13:00"),
+        cpu_usage_avg: 45.5,
+        cpu_temperature_avg: 62.25,
+        sample_minutes: 60,
+      }],
+    }
+  }
+
+  #[test]
+  fn an_explorer_point_carries_its_local_wall_clock_hour_as_a_string() {
+    let wire: CoolingLoadTemperaturePoint = CoreLoadTemperaturePoint {
+      hour_start: hour("2026-08-05 09:00"),
+      cpu_usage_avg: 5.0,
+      cpu_temperature_avg: 40.0,
+      sample_minutes: 60,
+    }
+    .into();
+
+    assert_eq!(wire.hour_start, "2026-08-05 09:00");
+  }
+
+  #[test]
+  fn an_established_explorer_formats_both_window_ranges_and_every_band() {
+    let core = CoreCoolingLoadTemperatureExplorer::Established {
+      baseline: core_explorer_window(date(2026, 1, 1), date(2026, 1, 7)),
+      recent: core_explorer_window(date(2026, 7, 24), date(2026, 8, 20)),
+      band_deltas: vec![
+        CoreBandMedianDelta {
+          band: CpuLoadBand::Idle,
+          baseline: CoreBandMedian {
+            temperature_median: Some(30.0),
+            point_count: 12,
+            sample_minutes: 720,
+          },
+          recent: CoreBandMedian {
+            temperature_median: Some(36.5),
+            point_count: 20,
+            sample_minutes: 1_200,
+          },
+          delta: Some(6.5),
+          comparable: true,
+        },
+        CoreBandMedianDelta {
+          band: CpuLoadBand::High,
+          baseline: CoreBandMedian::default(),
+          recent: CoreBandMedian::default(),
+          delta: None,
+          comparable: false,
+        },
+      ],
+    };
+
+    let wire: CoolingLoadTemperatureExplorer = core.into();
+
+    match wire {
+      CoolingLoadTemperatureExplorer::Established {
+        baseline,
+        recent,
+        band_deltas,
+      } => {
+        assert_eq!(baseline.start_date, "2026-01-01");
+        assert_eq!(baseline.end_date, "2026-01-07");
+        assert_eq!(recent.start_date, "2026-07-24");
+        assert_eq!(recent.points.len(), 1);
+        assert_eq!(band_deltas[0].band, CoolingLoadBand::Idle);
+        assert_eq!(band_deltas[0].delta, Some(6.5));
+        assert!(band_deltas[0].comparable);
+        assert_eq!(
+          band_deltas[1].delta, None,
+          "an uncomparable band must not carry a delta across the wire"
+        );
+      }
+      other => panic!("expected an established explorer, got {other:?}"),
+    }
+  }
+
+  #[test]
+  fn an_established_explorer_serializes_its_fields_as_camel_case() {
+    let wire = CoolingLoadTemperatureExplorer::Established {
+      baseline: CoolingExplorerWindow {
+        start_date: "2026-01-01".to_string(),
+        end_date: "2026-01-07".to_string(),
+        points: vec![CoolingLoadTemperaturePoint {
+          hour_start: "2026-01-01 09:00".to_string(),
+          cpu_usage_avg: 5.0,
+          cpu_temperature_avg: 40.0,
+          sample_minutes: 60,
+        }],
+      },
+      recent: CoolingExplorerWindow {
+        start_date: "2026-07-24".to_string(),
+        end_date: "2026-08-20".to_string(),
+        points: Vec::new(),
+      },
+      band_deltas: Vec::new(),
+    };
+
+    let json = serde_json::to_value(&wire).unwrap();
+
+    assert_eq!(json["status"], "established");
+    assert_eq!(json["baseline"]["startDate"], "2026-01-01");
+    assert_eq!(json["baseline"]["points"][0]["cpuUsageAvg"], 5.0);
+    assert_eq!(
+      json["baseline"]["points"][0]["hourStart"],
+      "2026-01-01 09:00"
+    );
+    assert!(
+      json.get("band_deltas").is_none(),
+      "must not also serialize the snake_case field name"
+    );
+    assert!(json.get("bandDeltas").is_some());
+  }
+
+  #[test]
+  fn an_establishing_explorer_carries_its_progress_through() {
+    let core = CoreCoolingLoadTemperatureExplorer::Establishing {
+      qualifying_days: 3,
+      required_days: 7,
+    };
+
+    let wire: CoolingLoadTemperatureExplorer = core.into();
+
+    assert_eq!(
+      wire,
+      CoolingLoadTemperatureExplorer::Establishing {
+        qualifying_days: 3,
+        required_days: 7,
+      }
     );
   }
 }
