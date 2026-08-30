@@ -19,7 +19,7 @@ small and scoped so clean-room boundaries and PR scope stay clean.
   direct fan RPM are **Implementation-ready (rev 5)** and implemented in
   the current motherboard-sensor provider and presentation pipeline.
 - ✅ **Phase 4 spec** — exact `0x8728` / IT8728F/EX generic
-  `TMPIN1`-`TMPIN3` is **Implementation-ready (rev 1)** as an
+  `TMPIN1`-`TMPIN3` is **Implementation-ready (rev 2)** as an
   Experimental read-only scope. Its implementation is the next separate
   clean-room task. ITE fans and every other IT86xx/IT87xx ID remain
   disabled or Unsupported.
@@ -45,7 +45,7 @@ scopes.
 | [01-spec-gate.md](01-spec-gate.md) | Resolve the `superio-access.md` draft gate | spec author | ✅ Done (#1734 / `a8c167b1`) |
 | [02-hardware-validation.md](02-hardware-validation.md) | Validate chip-id + capture register dumps on real Windows hardware | tester | ✅ Nuvoton ready evidence completed; ITE manual feedback and environment/concurrency cases remain follow-up |
 | [07-phase3-nuvoton-spec.md](07-phase3-nuvoton-spec.md) | Author the Nuvoton register-map spec | spec author | ✅ Done: exact `0xD802` / NCT6799D normal-HM scope ready in rev 5 |
-| [08-phase4-ite-spec.md](08-phase4-ite-spec.md) | Author the ITE register-map spec | spec author | ✅ Done: exact `0x8728` Experimental TMPIN1-3 scope ready in rev 1; ITE fan and broader-family scopes remain disabled |
+| [08-phase4-ite-spec.md](08-phase4-ite-spec.md) | Author the ITE register-map spec | spec author | ✅ Done: exact `0x8728` Experimental TMPIN1-3 scope ready in rev 2; ITE fan and broader-family scopes remain disabled |
 | [03-chip-id-mapping.md](03-chip-id-mapping.md) | chip-id -> model mapping + hardware-monitor base discovery | clean-room implementer | ✅ Nuvoton done; exact `0x8728` ITE mapping/base implementation is ready for a separate clean-room session |
 | [04-nuvoton-ite-decode.md](04-nuvoton-ite-decode.md) | Nuvoton or ITE decode, one family per change | clean-room implementer | ✅ Nuvoton done; ITE Experimental TMPIN1-3 implementation pending and unblocked; ITE fan remains blocked |
 | [05-metrics-ui.md](05-metrics-ui.md) | Wire motherboard temps/fans into metrics stream + dashboard | implementer | ✅ Shipped; ITE temperatures reuse the existing pipeline without a successful-reading Experimental badge |
@@ -88,7 +88,7 @@ Recommended order from here:
 - Phase 3 Nuvoton は exact `0xD802` / NCT6799D normal-HM scope が
   `superio-nuvoton-nct67xx.md` rev 5 で ready・実装済み。
 - Phase 4 ITE は exact `0x8728` / IT8728F/EX TMPIN1-3 のみ
-  `superio-ite-it86xx-it87xx.md` rev 1 で Experimental ready。
+  `superio-ite-it86xx-it87xx.md` rev 2 で Experimental ready。
 - ITE fan とその他 ID は disabled/Unsupported のため実装しない。
 ```
 
@@ -106,7 +106,7 @@ Recommended order from here:
 External Component Guidance は実装済み。
 
 次の ITE 作業は別ブランチ・別PRの clean-room implementation とし、
-ready rev 1 の exact `0x8728` TMPIN1-3 だけを既存pipelineへ追加する。
+ready rev 2 の exact `0x8728` TMPIN1-3 だけを既存pipelineへ追加する。
 ITE fan RPM、その他 IT86xx/IT87xx ID、成功値へのExperimental badge、
 新しいtelemetry/guidance pathは追加しない。
 ```

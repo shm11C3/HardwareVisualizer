@@ -2,14 +2,15 @@
 
 ## Goal
 
-Author an implementation-ready clean-room spec for ITE IT86xx/IT87xx
-motherboard temperature and fan RPM reads.
+Author an implementation-ready clean-room spec for the exact `0x8728` /
+IT8728F/EX read-only motherboard temperature path. Fan RPM remains a
+future spec-revision scope and is not part of this session's ready goal.
 
 ## Completion snapshot (2026-08-30)
 
 Completed in
 [`superio-ite-it86xx-it87xx.md`](../../specs/sensors/superio-ite-it86xx-it87xx.md)
-revision 1:
+revision 2:
 
 - exact raw chip ID `0x8728` / IT8728F/EX only;
 - generic `TMPIN1`-`TMPIN3` read-only temperatures are
