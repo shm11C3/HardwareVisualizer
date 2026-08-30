@@ -426,9 +426,9 @@ impl<C: LpcIoOps> ActiveIteMotherboardSensors<C> {
       ))),
       (Ok(None), Err(exit_error)) => Err(format!("ITE config exit failed: {exit_error}")),
       (Err(reason), Ok(())) => Err(reason),
-      (Err(reason), Err(exit_error)) => {
-        Err(format!("{reason}; exit failed: {exit_error}"))
-      }
+      (Err(reason), Err(exit_error)) => Err(format!(
+        "{reason}; {ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT}: {exit_error}"
+      )),
     }
   }
 
@@ -912,6 +912,7 @@ mod tests {
     channel_configuration: Cell<u8>,
     temperature_values: Cell<[u8; 3]>,
     failed_temperature_register: Cell<Option<u8>>,
+    fail_config_exit: Cell<bool>,
     selected_slot_calls: Cell<u32>,
     find_bars_calls: Cell<u32>,
     config_exit_calls: Cell<u32>,
@@ -935,6 +936,7 @@ mod tests {
         channel_configuration: Cell::new(0b0010_1000),
         temperature_values: Cell::new([25, 30, 35]),
         failed_temperature_register: Cell::new(None),
+        fail_config_exit: Cell::new(false),
         selected_slot_calls: Cell::new(0),
         find_bars_calls: Cell::new(0),
         config_exit_calls: Cell::new(0),
@@ -1059,6 +1061,9 @@ mod tests {
         }
         (0x02, 0x02) => {
           self.config_exit_calls.set(self.config_exit_calls.get() + 1);
+          if self.fail_config_exit.get() {
+            return Err("simulated ITE config exit failure".to_string());
+          }
         }
         _ => {}
       }
@@ -1175,6 +1180,20 @@ mod tests {
     ));
 
     assert!(is_retryable_init_error(&error));
+  }
+
+  #[test]
+  fn ite_discovery_and_configuration_exit_failure_requires_rediscovery() {
+    let client = FakeIteLpcIo::new();
+    client.activation.set(0x00);
+    client.fail_config_exit.set(true);
+
+    let error = ActiveIteMotherboardSensors::discover_slot(&client, 0).unwrap_err();
+
+    assert!(error.starts_with(ITE_EXPERIMENTAL_FAILURE_PREFIX));
+    assert!(error.contains(ITE_CONFIGURATION_EXIT_FAILURE_CONTEXT));
+    assert!(is_retryable_init_error(&error));
+    assert_eq!(client.config_exit_calls.get(), 1);
   }
 
   #[test]
