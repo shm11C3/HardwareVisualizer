@@ -189,6 +189,27 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         ALTER TABLE cooling_daily_summary ADD COLUMN power_sample_minutes INTEGER NOT NULL DEFAULT 0;
       "#,
     },
+    SchemaMigration {
+      version: 15,
+      description: "create_ambient_archive",
+      // Row-per-source (#2043): more than one ambient sensor in a room is
+      // plausible, and each one is a distinct Sensor Source Label rather
+      // than a column. `temperature` is NOT NULL because a row only
+      // exists when a fresh reading backs it - a minute with no usable
+      // ambient sample has no row at all, never a zeroed one (DP-02).
+      // `humidity` is nullable: temperature-only sensors are common.
+      sql: r#"
+        CREATE TABLE AMBIENT_ARCHIVE (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source TEXT NOT NULL,
+          temperature REAL NOT NULL,
+          humidity REAL,
+          timestamp DATETIME NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ambient_archive_timestamp ON AMBIENT_ARCHIVE(timestamp);
+      "#,
+    },
   ]
 }
 
@@ -365,14 +386,33 @@ mod tests {
   }
 
   #[test]
+  fn migration_v15_creates_the_row_per_source_ambient_archive_table() {
+    let migrations = get_migrations();
+    let v15 = migrations
+      .iter()
+      .find(|m| m.version == 15)
+      .expect("Version 15 up migration must exist");
+    assert!(v15.sql.contains("CREATE TABLE AMBIENT_ARCHIVE"));
+    // `source` identifies the row rather than being one column per
+    // sensor, so several ambient sources can share one minute.
+    assert!(v15.sql.contains("source TEXT NOT NULL"));
+    // A row exists only when a fresh reading backs it, so the temperature
+    // can never be a placeholder.
+    assert!(v15.sql.contains("temperature REAL NOT NULL"));
+    assert!(v15.sql.contains("humidity REAL"));
+    assert!(v15.sql.contains("timestamp DATETIME NOT NULL"));
+    assert!(v15.sql.contains("idx_ambient_archive_timestamp"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 14);
+    assert_eq!(get_max_migration_version(), 15);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 14);
+    assert_eq!(migrations.len(), 15);
   }
 
   #[test]
@@ -558,5 +598,56 @@ mod tests {
     .execute(&pool)
     .await
     .expect("insert with the power columns must succeed after migrations");
+  }
+
+  /// The ambient archive (#2043) is row-per-source: the shipped migration
+  /// set must let two ambient sources share one minute, accept a
+  /// temperature-only sensor, and reject a row with no temperature.
+  #[tokio::test]
+  async fn shipped_migrations_create_ambient_archive_and_allow_row_per_source_insert() {
+    use hardviz_core::infrastructure::database::migrate;
+    use sqlx::sqlite::SqlitePool;
+
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let url = format!("sqlite:{}", file.path().to_string_lossy());
+    let pool = SqlitePool::connect(&url).await.unwrap();
+
+    migrate::run_on_pool(&pool, get_migrations())
+      .await
+      .expect("the shipped migration set must apply cleanly");
+
+    sqlx::query(
+      "INSERT INTO AMBIENT_ARCHIVE (source, temperature, humidity, timestamp) VALUES
+         ('Living Room', 24.5, 48.0, '2026-08-30T12:00:00Z'),
+         ('Desk', 26.0, NULL, '2026-08-30T12:00:00Z')",
+    )
+    .execute(&pool)
+    .await
+    .expect("two ambient sources must be able to share one archive minute");
+
+    let rows: Vec<(String, f64, Option<f64>)> = sqlx::query_as(
+      "SELECT source, temperature, humidity FROM AMBIENT_ARCHIVE ORDER BY source",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+      rows,
+      vec![
+        ("Desk".to_string(), 26.0, None),
+        ("Living Room".to_string(), 24.5, Some(48.0)),
+      ]
+    );
+
+    let without_temperature = sqlx::query(
+      "INSERT INTO AMBIENT_ARCHIVE (source, temperature, timestamp)
+       VALUES ('Broken', NULL, '2026-08-30T12:01:00Z')",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      without_temperature.is_err(),
+      "a minute without a usable ambient reading must have no row at all"
+    );
   }
 }
