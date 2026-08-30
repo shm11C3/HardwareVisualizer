@@ -88,6 +88,30 @@ pub(crate) async fn select_hours_in_date_range_from_pool(
   )
 }
 
+/// The local day of the most recent hourly row, or `None` when the table
+/// is empty (no hourly rollup has ever run - notably right after the
+/// migration that added this table to an install whose daily rollup is
+/// already far ahead).
+///
+/// `hour_start` sorts lexicographically as it does chronologically, so
+/// `MAX` picks the latest hour and its date prefix is that hour's local
+/// day.
+pub async fn max_summarized_date() -> Result<Option<NaiveDate>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_summarized_date_from_pool(&pool).await
+}
+
+pub(crate) async fn max_summarized_date_from_pool(
+  pool: &SqlitePool,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+  let latest: Option<String> =
+    sqlx::query_scalar("SELECT MAX(hour_start) FROM cooling_hourly_summary")
+      .fetch_one(pool)
+      .await?;
+
+  Ok(latest.and_then(|raw| parse_hour_start(&raw).map(|hour| hour.date())))
+}
+
 pub async fn upsert(summary: &HourlyCoolingSummary) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
   upsert_from_pool(&pool, summary).await
@@ -97,6 +121,19 @@ pub(crate) async fn upsert_from_pool(
   pool: &SqlitePool,
   summary: &HourlyCoolingSummary,
 ) -> Result<(), sqlx::Error> {
+  upsert_with(pool, summary).await
+}
+
+/// [`upsert`] against any executor, so one rolled-up day's daily and
+/// hourly writes can share a transaction (see
+/// `cooling_rollup::persist_day_rollup_from_pool`).
+pub(crate) async fn upsert_with<'e, E>(
+  executor: E,
+  summary: &HourlyCoolingSummary,
+) -> Result<(), sqlx::Error>
+where
+  E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
   sqlx::query(
     "INSERT INTO cooling_hourly_summary
        (hour_start, cpu_usage_avg, cpu_temperature_avg, sample_minutes)
@@ -110,20 +147,28 @@ pub(crate) async fn upsert_from_pool(
   .bind(summary.cpu_usage_avg)
   .bind(summary.cpu_temperature_avg)
   .bind(summary.sample_minutes as i64)
-  .execute(pool)
+  .execute(executor)
   .await?;
 
   Ok(())
 }
 
-pub async fn delete_old_data(retention_days: u32) -> Result<(), sqlx::Error> {
+pub async fn delete_old_data(
+  retention_days: u32,
+  preserved_window: Option<(NaiveDate, NaiveDate)>,
+) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
-  delete_old_data_from_pool(&pool, retention_days).await
+  delete_old_data_from_pool(&pool, retention_days, preserved_window).await
 }
 
+/// Delete rows older than `retention_days`, except those inside
+/// `preserved_window` (the pinned baseline's calendar window - see
+/// [`super::cooling_daily_summary::delete_old_data_from_pool`] for why it
+/// is exempt).
 pub(crate) async fn delete_old_data_from_pool(
   pool: &SqlitePool,
   retention_days: u32,
+  preserved_window: Option<(NaiveDate, NaiveDate)>,
 ) -> Result<(), sqlx::Error> {
   // Same local-date cutoff as `cooling_daily_summary::delete_old_data`, so
   // both tables age out on exactly the same boundary. Comparing an hour
@@ -134,10 +179,32 @@ pub(crate) async fn delete_old_data_from_pool(
   .format("%Y-%m-%d")
   .to_string();
 
-  sqlx::query("DELETE FROM cooling_hourly_summary WHERE hour_start < $1")
-    .bind(cutoff)
-    .execute(pool)
-    .await?;
+  match preserved_window {
+    Some((start, end)) => {
+      // The upper bound is the day *after* `end` so the exemption covers
+      // that day's 23:00 hour, matching the half-open bound the range
+      // read uses.
+      sqlx::query(
+        "DELETE FROM cooling_hourly_summary
+         WHERE hour_start < $1 AND NOT (hour_start >= $2 AND hour_start < $3)",
+      )
+      .bind(cutoff)
+      .bind(start.format("%Y-%m-%d").to_string())
+      .bind(
+        (end + chrono::Duration::days(1))
+          .format("%Y-%m-%d")
+          .to_string(),
+      )
+      .execute(pool)
+      .await?;
+    }
+    None => {
+      sqlx::query("DELETE FROM cooling_hourly_summary WHERE hour_start < $1")
+        .bind(cutoff)
+        .execute(pool)
+        .await?;
+    }
+  }
 
   Ok(())
 }
@@ -293,7 +360,7 @@ mod tests {
       }
     }
 
-    delete_old_data_from_pool(&pool, 400).await.unwrap();
+    delete_old_data_from_pool(&pool, 400, None).await.unwrap();
 
     let remaining: Vec<String> = sqlx::query_scalar(
       "SELECT hour_start FROM cooling_hourly_summary ORDER BY hour_start",
@@ -309,6 +376,79 @@ mod tests {
         format_hour_start(just_inside.and_hms_opt(23, 0, 0).unwrap()),
       ],
       "the whole boundary day must survive, including its first hour; only the older day is deleted"
+    );
+  }
+
+  #[tokio::test]
+  async fn delete_old_data_keeps_the_pinned_baseline_window_past_the_cutoff() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup(&pool).await;
+    let today = chrono::Local::now().date_naive();
+    let window_start = today - chrono::Duration::days(500);
+    let window_end = window_start + chrono::Duration::days(6);
+    let outside_window = window_start - chrono::Duration::days(1);
+
+    for (day, hour_of_day) in [
+      (outside_window, 23),
+      (window_start, 0),
+      // The last hour of the window's final day must be inside the
+      // exemption too, not just its first.
+      (window_end, 23),
+    ] {
+      upsert_from_pool(
+        &pool,
+        &HourlyCoolingSummary {
+          hour_start: day.and_hms_opt(hour_of_day, 0, 0).unwrap(),
+          cpu_usage_avg: Some(10.0),
+          cpu_temperature_avg: Some(40.0),
+          sample_minutes: 60,
+        },
+      )
+      .await
+      .unwrap();
+    }
+
+    delete_old_data_from_pool(&pool, 400, Some((window_start, window_end)))
+      .await
+      .unwrap();
+
+    let remaining: Vec<String> = sqlx::query_scalar(
+      "SELECT hour_start FROM cooling_hourly_summary ORDER BY hour_start",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      remaining,
+      vec![
+        format_hour_start(window_start.and_hms_opt(0, 0, 0).unwrap()),
+        format_hour_start(window_end.and_hms_opt(23, 0, 0).unwrap()),
+      ]
+    );
+  }
+
+  #[tokio::test]
+  async fn max_summarized_date_is_none_for_an_empty_table() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup(&pool).await;
+
+    assert_eq!(max_summarized_date_from_pool(&pool).await.unwrap(), None);
+  }
+
+  #[tokio::test]
+  async fn max_summarized_date_returns_the_local_day_of_the_latest_hour() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup(&pool).await;
+    for hour_start in ["2026-08-15 23:00", "2026-08-16 09:00", "2026-08-14 10:00"] {
+      upsert_from_pool(&pool, &hour(hour_start, 10.0, 40.0))
+        .await
+        .unwrap();
+    }
+
+    assert_eq!(
+      max_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 16))
     );
   }
 }
