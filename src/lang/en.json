@@ -361,7 +361,35 @@
         },
         "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
         "timeline": {
-          "dailyPlaceholder": "The long-range daily thermal timeline is coming in a future update. Select 30 days or shorter to see the temperature chart."
+          "title": "Thermal Timeline",
+          "loadFailed": "Failed to load the thermal timeline.",
+          "temperatureLane": "CPU temperature ({{unit}})",
+          "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
+          "loadLaneUsage": "CPU load (%)",
+          "loadLaneComposition": "Load bands (% of day)",
+          "legend": {
+            "average": "Average",
+            "range": "Min-max",
+            "idle": "Idle",
+            "baseline": "Baseline"
+          },
+          "tooltip": {
+            "average": "Average",
+            "range": "Min-max",
+            "idle": "Idle",
+            "baselineDelta": "vs baseline",
+            "cpuUsage": "CPU load",
+            "noRecording": "Not recorded"
+          }
+        },
+        "loadBands": {
+          "idle": "Idle",
+          "low": "Low",
+          "mid": "Mid",
+          "high": "High"
+        },
+        "legacyPowerCharts": {
+          "title": "Power Charts"
         },
         "coverage": {
           "title": "Recording Coverage",

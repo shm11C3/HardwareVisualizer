@@ -4,6 +4,14 @@ import type {
   ProcessStatRecord,
 } from "@/rspc/bindings";
 
+export type ArchiveSeriesOptions = {
+  /**
+   * Drop every Nth bucket, the way the archive omits a bucket it recorded
+   * nothing for. Lets captures show that a gap stays a gap.
+   */
+  gapEvery?: number;
+};
+
 /**
  * Synthesize the compact series returned by the Core archive API.
  * Values follow a fixed sine wave and timestamps honor the requested bucket
@@ -16,6 +24,7 @@ export const buildArchiveSeries = (
   bucketTimestamp: ArchiveBucketTimestamp,
   base: number,
   amplitude: number,
+  options: ArchiveSeriesOptions = {},
 ): ArchiveSeriesPoint[] => {
   const startMs = Date.parse(start);
   const endMs = Date.parse(end);
@@ -39,7 +48,13 @@ export const buildArchiveSeries = (
       : Math.ceil(endMs / bucketWidthMs) * bucketWidthMs;
   const series: ArchiveSeriesPoint[] = [];
 
+  const { gapEvery } = options;
+
   for (let t = firstBucket, i = 0; t <= lastBucket; t += bucketWidthMs, i++) {
+    if (gapEvery != null && gapEvery > 0 && i % gapEvery === gapEvery - 1) {
+      continue;
+    }
+
     series.push({
       value: Math.round((base + amplitude * Math.sin(i / 5)) * 10) / 10,
       timestamp: t,

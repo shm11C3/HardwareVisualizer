@@ -4,6 +4,7 @@ import type {
 } from "@/rspc/bindings";
 import { CoolingPeriodSelect } from "./components/CoolingPeriodSelect";
 import { CoverageStrip } from "./components/CoverageStrip";
+import { LegacyPowerCharts } from "./components/LegacyPowerCharts";
 import { LoadBandComparisonPanel } from "./components/LoadBandComparisonPanel";
 import { ObservationStrip } from "./components/ObservationStrip";
 import { ThermalTimelineLane } from "./components/ThermalTimelineLane";
@@ -16,10 +17,11 @@ import type { CoolingInsightPeriod } from "./types";
 import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
 
 /**
- * The Cooling tab (#2018): zone structure, single period selector, and
- * empty/coverage states. Zones (1) observation strip, (2) thermal timeline,
- * and (5) load-band comparison hold placeholder content pending #2019/#2020
- * - see each component's doc comment for what is deferred.
+ * The Cooling tab: zone structure, single period selector, and
+ * empty/coverage states. Zone (2) is the synchronized thermal timeline
+ * (#2019); zones (1) observation strip and (5) load-band comparison still
+ * hold placeholder content pending #2020 - see each component's doc comment
+ * for what is deferred.
  */
 export const CoolingInsightView = () => {
   const periodState = useCoolingInsightPeriod();
@@ -67,8 +69,13 @@ const CoolingInsightBody = ({
       </div>
 
       <ObservationStrip baselineDelta={baselineDelta} />
-      <ThermalTimelineLane route={route} />
+      <ThermalTimelineLane
+        route={route}
+        baseline={baselineDelta?.baseline ?? null}
+        dailyTrend={dailyTrend}
+      />
       <UnsupportedSensorNote />
+      <LegacyPowerCharts route={route} />
       {route.kind === "dailyTrend" && (
         <CoverageStrip
           points={dailyTrend}
