@@ -1376,4 +1376,114 @@ mod tests {
       None
     );
   }
+  // ── archive to daily summary, end to end (#2021) ──
+
+  #[tokio::test]
+  async fn archived_power_reaches_the_persisted_daily_summary() {
+    // The whole path in one test: real archive rows, the real range read,
+    // the real fold, the real write, the real read-back. The unit tests
+    // above each cover one hop; this is what catches a column name that
+    // only two of the four hops agree on.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    setup_cooling_daily_summary(&pool).await;
+
+    for (minute, power) in [(0, 10.0), (1, 20.0), (2, 30.0)] {
+      sqlx::query(
+        "INSERT INTO DATA_ARCHIVE
+           (cpu_avg, cpu_temperature_avg, cpu_temperature_max, cpu_temperature_min,
+            cpu_power_avg, cpu_power_max, cpu_power_min, timestamp)
+         VALUES (5.0, 40.0, 41.0, 39.0, $1, $2, $3, $4)",
+      )
+      .bind(power)
+      .bind(power + 2.0)
+      .bind(power - 2.0)
+      .bind(utc(&format!("2026-08-15T12:0{minute}:00.000Z")))
+      .execute(&pool)
+      .await
+      .unwrap();
+    }
+
+    let minutes = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+    let summary =
+      crate::persistence::cooling_rollup::summarize_day(date(2026, 8, 15), &minutes)
+        .expect("the day was archived, so it must produce a summary");
+    upsert_from_pool(&pool, &summary).await.unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days.len(), 1);
+    assert_eq!(
+      days[0].power,
+      PowerSummary {
+        avg: Some(20.0),
+        max: Some(32.0),
+        min: Some(8.0),
+        sample_minutes: 3,
+      }
+    );
+    // And the backfill cursor now agrees the power columns are current.
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[tokio::test]
+  async fn an_archive_without_power_persists_a_daily_summary_with_absent_power() {
+    // The same path on a machine with no CPU power source: temperature
+    // still lands, power stays absent rather than becoming 0 W, and the
+    // backfill cursor reports nothing to catch up.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    setup_cooling_daily_summary(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:00.000Z"),
+    )
+    .await;
+
+    let minutes = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+    let summary =
+      crate::persistence::cooling_rollup::summarize_day(date(2026, 8, 15), &minutes)
+        .unwrap();
+    upsert_from_pool(&pool, &summary).await.unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days[0].idle.avg, Some(40.0));
+    assert_eq!(days[0].power, PowerSummary::default());
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+    assert_eq!(
+      max_powered_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-16T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None,
+      "neither side has power, so the catch-up must never claim to be behind"
+    );
+  }
 }
