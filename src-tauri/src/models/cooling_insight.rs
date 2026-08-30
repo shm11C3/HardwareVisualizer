@@ -20,6 +20,8 @@ use hardviz_core::persistence::cooling_baseline_delta::{
   CoolingBaselineDelta as CoreCoolingBaselineDelta,
   CoolingDeltaObservation as CoreCoolingDeltaObservation, DailyDelta as CoreDailyDelta,
 };
+use hardviz_core::persistence::cooling_fan_rollup::FanDailySummary as CoreFanDailySummary;
+use hardviz_core::persistence::cooling_fan_trend::FanTrendSeries as CoreFanTrendSeries;
 use hardviz_core::persistence::cooling_load_temperature_explorer::{
   BandMedian as CoreBandMedian, BandMedianDelta as CoreBandMedianDelta,
   CoolingLoadTemperatureExplorer as CoreCoolingLoadTemperatureExplorer,
@@ -116,6 +118,53 @@ impl From<CoreDailyCoolingSummary> for CoolingDailyTrendPoint {
       mid: value.mid.into(),
       high: value.high.into(),
       power: value.power.into(),
+    }
+  }
+}
+
+/// One fan's daily series for the 90-day / 1-year fan lane (#2022). One
+/// series per fan rather than one row per day, because how many fans a
+/// machine exposes is configuration-dependent; an empty response is how a
+/// machine with no readable fan reports itself.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingFanTrendSeries {
+  /// The fan's stable channel-derived identifier, as archived.
+  pub source: String,
+  pub days: Vec<CoolingFanDay>,
+}
+
+/// One `(date, fan)` row of the fan rollup, carried with its own date so a
+/// day the fan recorded nothing is simply absent from the series rather
+/// than present as 0 RPM. Not `Option`-shaped: every row that exists
+/// carries a real measurement, and an Inactive Fan Reading is a real 0.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingFanDay {
+  pub date: String,
+  pub rpm_avg: f32,
+  pub rpm_max: u32,
+  pub rpm_min: u32,
+  pub sample_minutes: u32,
+}
+
+impl From<CoreFanDailySummary> for CoolingFanDay {
+  fn from(value: CoreFanDailySummary) -> Self {
+    Self {
+      date: format_date(value.date),
+      rpm_avg: value.rpm_avg,
+      rpm_max: value.rpm_max,
+      rpm_min: value.rpm_min,
+      sample_minutes: value.sample_minutes,
+    }
+  }
+}
+
+impl From<CoreFanTrendSeries> for CoolingFanTrendSeries {
+  fn from(value: CoreFanTrendSeries) -> Self {
+    Self {
+      source: value.source,
+      days: value.days.into_iter().map(Into::into).collect(),
     }
   }
 }

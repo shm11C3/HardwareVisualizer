@@ -118,6 +118,8 @@ export const commands = {
 	getDataArchiveSeries: (hardwareType: DataArchiveHardwareType, dataStats: ArchiveDataStats, start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<ArchiveSeriesPoint[], string>(__TAURI_INVOKE("get_data_archive_series", { hardwareType, dataStats, start, end, bucketWidthMs, bucketTimestamp })),
 	// ## Get an aggregated GPU archive series
 	getGpuArchiveSeries: (dataType: GpuArchiveDataType, dataStats: ArchiveDataStats, gpuName: string, start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<ArchiveSeriesPoint[], string>(__TAURI_INVOKE("get_gpu_archive_series", { dataType, dataStats, gpuName, start, end, bucketWidthMs, bucketTimestamp })),
+	// ## Get every archived fan's bucketed RPM series
+	getFanArchiveSeries: (start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<FanArchiveSeries[], string>(__TAURI_INVOKE("get_fan_archive_series", { start, end, bucketWidthMs, bucketTimestamp })),
 	// ## Get archived process stats for a period ending at `end_at`
 	getProcessStats: (period: number, endAt: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats", { period, endAt })),
 	// ## Get archived process stats between two timestamps
@@ -126,6 +128,8 @@ export const commands = {
 	getGpuArchiveNames: () => typedError<string[], string>(__TAURI_INVOKE("get_gpu_archive_names")),
 	// ## Get the long-range cooling trend (90-day / 1-year)
 	getCoolingTrend: (days: number) => typedError<CoolingDailyTrendPoint[], string>(__TAURI_INVOKE("get_cooling_trend", { days })),
+	// ## Get the long-range per-fan speed trend (90-day / 1-year)
+	getCoolingFanTrend: (days: number) => typedError<CoolingFanTrendSeries[], string>(__TAURI_INVOKE("get_cooling_fan_trend", { days })),
 	// ## Get the per-load-band baseline-vs-recent cooling comparison
 	getCoolingBandComparison: () => typedError<CoolingBandComparison, string>(__TAURI_INVOKE("get_cooling_band_comparison")),
 	// ## Get the idle cooling baseline delta and its observation state
@@ -497,6 +501,32 @@ export type CoolingExplorerWindow = {
 	points: CoolingLoadTemperaturePoint[],
 };
 
+/**
+ *  One `(date, fan)` row of the fan rollup, carried with its own date so a
+ *  day the fan recorded nothing is simply absent from the series rather
+ *  than present as 0 RPM. Not `Option`-shaped: every row that exists
+ *  carries a real measurement, and an Inactive Fan Reading is a real 0.
+ */
+export type CoolingFanDay = {
+	date: string,
+	rpmAvg: number,
+	rpmMax: number,
+	rpmMin: number,
+	sampleMinutes: number,
+};
+
+/**
+ *  One fan's daily series for the 90-day / 1-year fan lane (#2022). One
+ *  series per fan rather than one row per day, because how many fans a
+ *  machine exposes is configuration-dependent; an empty response is how a
+ *  machine with no readable fan reports itself.
+ */
+export type CoolingFanTrendSeries = {
+	// The fan's stable channel-derived identifier, as archived.
+	source: string,
+	days: CoolingFanDay[],
+};
+
 export type CoolingLoadBand = "idle" | "low" | "mid" | "high";
 
 /**
@@ -585,6 +615,18 @@ export type ExternalComponentGuidanceView = "dashboard" | "cpuDetail" | "storage
 export type ExternalComponentReasonKind = "missing" | "permission" | "misconfigured" | "failed";
 
 export type ExternalComponentUsage = "cpuPackageTemperature" | "motherboardSensors" | "storageHealth";
+
+/**
+ *  One archived fan's bucketed RPM series (#2022). Row-per-fan on disk, so
+ *  how many series come back depends on the machine's configuration rather
+ *  than on a fixed set the caller names; an empty response is exactly how a
+ *  machine with no readable fan reports itself.
+ */
+export type FanArchiveSeries = {
+	// The fan's stable channel-derived identifier, as archived.
+	source: string,
+	points: ArchiveSeriesPoint[],
+};
 
 export type FanSpeedStatus = "active" | "inactive" | "invalid";
 

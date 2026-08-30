@@ -3,7 +3,7 @@ use crate::enums::error::BackendError;
 use crate::models;
 use crate::models::archive_history::{
   ArchiveBucketTimestamp, ArchiveDataStats, ArchiveSeriesPoint, DataArchiveHardwareType,
-  GpuArchiveDataType, ProcessStatRecord,
+  FanArchiveSeries, GpuArchiveDataType, ProcessStatRecord,
 };
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
@@ -355,6 +355,39 @@ pub async fn get_gpu_archive_series(
   archive_history_service::fetch_gpu_archive_series(
     data_type.column(data_stats),
     &gpu_name,
+    &start,
+    &end,
+    bucket_width_ms,
+    bucket_timestamp.into(),
+  )
+  .await
+  .map(|series| series.into_iter().map(Into::into).collect())
+}
+
+///
+/// ## Get every archived fan's bucketed RPM series
+///
+// Answers with the fans the archive actually holds rather than a set the
+// caller names: `FAN_ARCHIVE` is row-per-fan because the fan count is
+// configuration-dependent. An empty response is how a machine with no
+// readable fan reports itself. Kept out of the doc comment because
+// tauri-specta renders a blank `///` line as a trailing-space `" * "` in
+// the generated `bindings.ts`, which fails CI's `git diff --check`.
+#[command]
+#[specta::specta]
+pub async fn get_fan_archive_series(
+  start: String,
+  end: String,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<Vec<FanArchiveSeries>, String> {
+  use crate::services::archive_history_service;
+
+  let start = parse_datetime(&start)?;
+  let end = parse_datetime(&end)?;
+  validate_bucket_width_ms(bucket_width_ms)?;
+
+  archive_history_service::fetch_fan_archive_series(
     &start,
     &end,
     bucket_width_ms,

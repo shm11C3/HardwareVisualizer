@@ -10,7 +10,7 @@
 
 use crate::models::cooling_insight::{
   CoolingBandComparison, CoolingBaselineDelta, CoolingDailyTrendPoint,
-  CoolingLoadTemperatureExplorer,
+  CoolingFanTrendSeries, CoolingLoadTemperatureExplorer,
 };
 use tauri::command;
 
@@ -25,6 +25,21 @@ pub async fn get_cooling_trend(days: u32) -> Result<Vec<CoolingDailyTrendPoint>,
   cooling_insight_service::fetch_cooling_trend(days)
     .await
     .map(|days| days.into_iter().map(Into::into).collect())
+}
+
+///
+/// ## Get the long-range per-fan speed trend (90-day / 1-year)
+///
+#[command]
+#[specta::specta]
+pub async fn get_cooling_fan_trend(
+  days: u32,
+) -> Result<Vec<CoolingFanTrendSeries>, String> {
+  use crate::services::cooling_insight_service;
+
+  cooling_insight_service::fetch_cooling_fan_trend(days)
+    .await
+    .map(|series| series.into_iter().map(Into::into).collect())
 }
 
 ///
