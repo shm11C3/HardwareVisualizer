@@ -22,6 +22,7 @@ const trendPoint = (
   low: EMPTY_BAND,
   mid: EMPTY_BAND,
   high: EMPTY_BAND,
+  power: { avg: null, max: null, min: null, sampleMinutes: 0 },
 });
 
 describe("buildCoverageCells", () => {

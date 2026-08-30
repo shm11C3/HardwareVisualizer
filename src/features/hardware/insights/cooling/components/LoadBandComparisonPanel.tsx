@@ -16,9 +16,17 @@ import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
 export const LoadBandComparisonPanel = ({
   bandComparison,
   hasError = false,
+  powerUnsupported = false,
 }: {
   bandComparison: CoolingBandComparison | null;
   hasError?: boolean;
+  /**
+   * Whether the routed period is known to carry no CPU package power
+   * (#2021). The data-state row below names the sensors still missing, so
+   * it may only name power on evidence - never while the answer is still
+   * unknown, and never on a machine whose timeline draws a power lane.
+   */
+  powerUnsupported?: boolean;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -83,7 +91,10 @@ export const LoadBandComparisonPanel = ({
         )}
         {lifecycle.kind === "ready" &&
           bandComparison?.status === "established" && (
-            <DataStateDetails bandComparison={bandComparison} />
+            <DataStateDetails
+              bandComparison={bandComparison}
+              powerUnsupported={powerUnsupported}
+            />
           )}
       </div>
     </section>
@@ -113,8 +124,10 @@ const PanelLoadingSkeleton = () => {
 
 const DataStateDetails = ({
   bandComparison,
+  powerUnsupported,
 }: {
   bandComparison: Extract<CoolingBandComparison, { status: "established" }>;
+  powerUnsupported: boolean;
 }) => {
   const { t } = useTranslation();
 
@@ -144,7 +157,11 @@ const DataStateDetails = ({
       </div>
       <div className="flex items-center justify-between gap-2">
         <dt className="text-muted-foreground">
-          {t("pages.insights.cooling.dataState.unsupported.label")}
+          {t(
+            powerUnsupported
+              ? "pages.insights.cooling.dataState.unsupported.label"
+              : "pages.insights.cooling.dataState.unsupported.labelFanOnly",
+          )}
         </dt>
         <dd>{t("pages.insights.cooling.dataState.unsupported.value")}</dd>
       </div>

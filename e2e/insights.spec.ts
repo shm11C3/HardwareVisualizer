@@ -49,9 +49,12 @@ test.describe("insights captures", () => {
     ).toBeVisible();
     await expect(page.getByTestId("cooling-temperature-lane")).toBeVisible();
     await expect(page.getByTestId("cooling-load-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-power-lane")).toBeVisible();
+    // The power lane renders, so the note no longer claims power is
+    // missing - only the fan lane is still pending.
     await expect(
       page.getByTestId("cooling-unsupported-sensor-note"),
-    ).toBeVisible();
+    ).toHaveText(/fan lane/);
     await expect(page.getByTestId("cooling-load-band-panel")).toBeVisible();
     // Default period (24h) routes to the archive query, so no coverage strip.
     await expect(page.getByTestId("cooling-coverage-strip")).toHaveCount(0);
@@ -60,6 +63,31 @@ test.describe("insights captures", () => {
     await page.waitForTimeout(1_000);
 
     await saveCapture(page, "insights-cooling");
+  });
+
+  test("insights cooling tab hides the power lane without a power source", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?coolingPower=none" });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    // The temperature and load lanes are unaffected: power is a separate
+    // capability, so its absence must not degrade what does work.
+    await expect(page.getByTestId("cooling-temperature-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-load-lane")).toBeVisible();
+    // No lane at all rather than one pinned at 0 W.
+    await expect(page.getByTestId("cooling-power-lane")).toHaveCount(0);
+    await expect(
+      page.getByTestId("cooling-unsupported-sensor-note"),
+    ).toHaveText(/power or fan lanes/);
+
+    await page.waitForTimeout(1_000);
+
+    await saveCapture(page, "insights-cooling-no-power");
   });
 
   test("insights cooling tab merges avg/max/min into one lane at 30 days", async ({
@@ -81,10 +109,12 @@ test.describe("insights captures", () => {
     // the band and both lines.
     await expect(page.getByTestId("cooling-temperature-lane")).toHaveCount(1);
     await expect(page.getByTestId("cooling-load-lane")).toHaveCount(1);
-    await expect(lane.getByText("Average")).toBeVisible();
-    await expect(lane.getByText("Min-max")).toBeVisible();
-    // The power charts stay available below the timeline.
-    await expect(page.getByTestId("cooling-legacy-power-charts")).toBeVisible();
+    await expect(lane.getByText("Average").first()).toBeVisible();
+    await expect(lane.getByText("Min-max").first()).toBeVisible();
+    // The separate power charts are gone: package power is now a lane on
+    // the same synchronized axis (#2021).
+    await expect(page.getByTestId("cooling-power-lane")).toHaveCount(1);
+    await expect(lane.getByText("CPU package power (W)")).toBeVisible();
 
     await page.waitForTimeout(1_000);
 
@@ -208,10 +238,9 @@ test.describe("insights captures", () => {
     const averageLine = lane.locator(".recharts-line-curve").first();
     const path = await averageLine.getAttribute("d");
     expect((path?.match(/M/g) ?? []).length).toBeGreaterThan(1);
-    // No archive-backed power charts exist for the daily routes.
-    await expect(page.getByTestId("cooling-legacy-power-charts")).toHaveCount(
-      0,
-    );
+    // The daily rollup now carries power too, so the lane is present on
+    // the long-range routes as well as the archive-backed ones.
+    await expect(page.getByTestId("cooling-power-lane")).toBeVisible();
 
     await page.waitForTimeout(600);
 
@@ -270,14 +299,11 @@ test.describe("insights captures", () => {
     await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
     await coolingTab.click();
 
-    // Switch to a daily period first: it drops the four archive-backed
-    // power charts, which otherwise push the Explorer's window selector
-    // so far down the page that its popover opens outside the viewport.
+    // Switch to a daily period first, matching the 90d capture above; the
+    // Explorer's window selector then sits well inside the viewport.
     await page.getByTestId("cooling-period-select").click();
     await page.getByRole("option", { name: "90 Days" }).click();
-    await expect(page.getByTestId("cooling-legacy-power-charts")).toHaveCount(
-      0,
-    );
+    await expect(page.getByTestId("cooling-coverage-strip")).toBeVisible();
 
     await page.getByTestId("cooling-explorer-trigger").click();
     await expect(page.getByTestId("cooling-explorer-scatter")).toBeVisible();

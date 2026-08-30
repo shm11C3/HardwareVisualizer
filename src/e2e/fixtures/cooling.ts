@@ -27,9 +27,23 @@ const band = (
  * (`FIXED_TIME` in `e2e/insights.spec.ts`) regardless of which `days` window
  * the frontend requested.
  */
+/** A day with no CPU package power source: absent, never 0 W. */
+const NO_POWER = {
+  avg: null,
+  max: null,
+  min: null,
+  sampleMinutes: 0,
+} as const satisfies CoolingDailyTrendPoint["power"];
+
 export const buildCoolingDailyTrendFixture = (
   days: number,
   endDate = new Date("2026-01-15T12:00:00Z"),
+  /**
+   * `false` simulates a machine whose platform publishes no CPU package
+   * power, so the timeline draws no power lane and the pending-sensors
+   * note keeps naming power (#2021).
+   */
+  hasPower = true,
 ): CoolingDailyTrendPoint[] => {
   const points: CoolingDailyTrendPoint[] = [];
 
@@ -51,6 +65,16 @@ export const buildCoolingDailyTrendFixture = (
       low: band(idleAvg + 8, idleAvg + 12, idleAvg + 4, 300),
       mid: band(idleAvg + 18, idleAvg + 24, idleAvg + 12, 180),
       high: band(idleAvg + 30, idleAvg + 38, idleAvg + 22, 60),
+      power: hasPower
+        ? {
+            // Tracks the temperature wave so a capture shows the two lanes
+            // rising together, which is what the lane is there to reveal.
+            avg: Math.round((18 + 6 * Math.sin(dayIndex / 9)) * 10) / 10,
+            max: Math.round((42 + 6 * Math.sin(dayIndex / 9)) * 10) / 10,
+            min: 4.5,
+            sampleMinutes: 1380,
+          }
+        : NO_POWER,
     });
   }
 

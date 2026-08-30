@@ -70,7 +70,7 @@ pub async fn load_cooling_trend(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::persistence::cooling_rollup::BandSummary;
+  use crate::persistence::cooling_rollup::{BandSummary, PowerSummary};
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
@@ -88,6 +88,7 @@ mod tests {
       low: empty_band(),
       mid: empty_band(),
       high: empty_band(),
+      power: PowerSummary::default(),
     }
   }
 

@@ -10,7 +10,7 @@ use super::archive_queries::sqlite_epoch_milliseconds;
 use super::db;
 use crate::persistence::cooling_baseline::DailyIdleSample;
 use crate::persistence::cooling_rollup::{
-  ArchiveMinuteSample, BandSummary, DailyCoolingSummary,
+  ArchiveMinuteSample, BandSummary, DailyCoolingSummary, PowerSummary,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::SqlitePool;
@@ -34,6 +34,12 @@ struct ArchiveMinuteRow {
   cpu_temperature_avg: Option<f64>,
   cpu_temperature_max: Option<f64>,
   cpu_temperature_min: Option<f64>,
+  // The CPU package-domain power columns (#2021). `cpu_power_*` is the
+  // column `PowerDraw::cpu_watts` is archived into on every platform that
+  // publishes one, so the cooling power lane needs no per-platform branch.
+  cpu_power_avg: Option<f64>,
+  cpu_power_max: Option<f64>,
+  cpu_power_min: Option<f64>,
 }
 
 impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
@@ -44,6 +50,9 @@ impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
       cpu_temperature_avg: row.cpu_temperature_avg.map(|v| v as f32),
       cpu_temperature_max: row.cpu_temperature_max.map(|v| v as f32),
       cpu_temperature_min: row.cpu_temperature_min.map(|v| v as f32),
+      cpu_power_avg: row.cpu_power_avg.map(|v| v as f32),
+      cpu_power_max: row.cpu_power_max.map(|v| v as f32),
+      cpu_power_min: row.cpu_power_min.map(|v| v as f32),
     }
   }
 }
@@ -67,7 +76,10 @@ async fn select_archive_minutes_for_range_from_pool(
        CAST(cpu_avg AS REAL) AS cpu_avg,
        CAST(cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
        CAST(cpu_temperature_max AS REAL) AS cpu_temperature_max,
-       CAST(cpu_temperature_min AS REAL) AS cpu_temperature_min
+       CAST(cpu_temperature_min AS REAL) AS cpu_temperature_min,
+       CAST(cpu_power_avg AS REAL) AS cpu_power_avg,
+       CAST(cpu_power_max AS REAL) AS cpu_power_max,
+       CAST(cpu_power_min AS REAL) AS cpu_power_min
      FROM DATA_ARCHIVE
      WHERE {epoch_ms} >= $1 AND {epoch_ms} < $2
      ORDER BY timestamp ASC"
@@ -191,6 +203,10 @@ struct DailyCoolingSummaryRow {
   high_cpu_temperature_min: Option<f64>,
   high_sample_minutes: i64,
   coverage_minutes: i64,
+  cpu_power_avg: Option<f64>,
+  cpu_power_max: Option<f64>,
+  cpu_power_min: Option<f64>,
+  power_sample_minutes: i64,
 }
 
 impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
@@ -239,6 +255,12 @@ impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
         row.high_cpu_temperature_min,
         row.high_sample_minutes,
       ),
+      power: PowerSummary {
+        avg: row.cpu_power_avg.map(|v| v as f32),
+        max: row.cpu_power_max.map(|v| v as f32),
+        min: row.cpu_power_min.map(|v| v as f32),
+        sample_minutes: row.power_sample_minutes.max(0) as u32,
+      },
     }
   }
 }
@@ -252,7 +274,8 @@ pub(crate) async fn select_all_daily_cooling_summaries_from_pool(
        low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
        mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
        high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
-       coverage_minutes
+       coverage_minutes,
+       cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
      FROM cooling_daily_summary
      ORDER BY date ASC",
   )
@@ -298,9 +321,10 @@ where
       low_cpu_temperature_avg, low_cpu_temperature_max, low_cpu_temperature_min, low_sample_minutes,
       mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
       high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
-      coverage_minutes
+      coverage_minutes,
+      cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
     ON CONFLICT(date) DO UPDATE SET
       idle_cpu_temperature_avg = excluded.idle_cpu_temperature_avg,
       idle_cpu_temperature_max = excluded.idle_cpu_temperature_max,
@@ -318,7 +342,11 @@ where
       high_cpu_temperature_max = excluded.high_cpu_temperature_max,
       high_cpu_temperature_min = excluded.high_cpu_temperature_min,
       high_sample_minutes = excluded.high_sample_minutes,
-      coverage_minutes = excluded.coverage_minutes
+      coverage_minutes = excluded.coverage_minutes,
+      cpu_power_avg = excluded.cpu_power_avg,
+      cpu_power_max = excluded.cpu_power_max,
+      cpu_power_min = excluded.cpu_power_min,
+      power_sample_minutes = excluded.power_sample_minutes
     "#,
   )
   .bind(summary.date.format("%Y-%m-%d").to_string())
@@ -339,6 +367,10 @@ where
   .bind(summary.high.min)
   .bind(minutes(&summary.high))
   .bind(summary.coverage_minutes as i64)
+  .bind(summary.power.avg)
+  .bind(summary.power.max)
+  .bind(summary.power.min)
+  .bind(summary.power.sample_minutes as i64)
   .execute(executor)
   .await?;
 
@@ -369,6 +401,67 @@ pub(crate) async fn max_pairable_summarized_date_from_pool(
   )
   .fetch_one(pool)
   .await
+}
+
+/// The latest summarized day that recorded any CPU package power (#2021).
+///
+/// Paired with [`max_powered_archive_timestamp_before`] this is how the
+/// catch-up detects that the daily rollup's power columns are behind the
+/// archive - see `cooling_rollup::power_rollup_is_behind`.
+pub async fn max_powered_summarized_date() -> Result<Option<NaiveDate>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_powered_summarized_date_from_pool(&pool).await
+}
+
+pub(crate) async fn max_powered_summarized_date_from_pool(
+  pool: &SqlitePool,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+  sqlx::query_scalar::<_, Option<NaiveDate>>(
+    "SELECT MAX(date) FROM cooling_daily_summary WHERE power_sample_minutes > 0",
+  )
+  .fetch_one(pool)
+  .await
+}
+
+/// The most recent archived timestamp strictly before `before` whose row
+/// carries a full CPU package power triple (#2021).
+///
+/// `before` is the start of today in local time, so the answer only ever
+/// names a *completed* day. The rollup never summarizes today, so today's
+/// archived power is not evidence that a day was missed - counting it
+/// would make a machine that is recording power right now rewind the
+/// catch-up on every cycle, forever.
+///
+/// All three columns are required, matching `summarize_day`'s own power
+/// gate: a partial triple contributes nothing there, so it must not count
+/// as power the rollup failed to pick up either.
+pub async fn max_powered_archive_timestamp_before(
+  before: &DateTime<Utc>,
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_powered_archive_timestamp_before_from_pool(&pool, before).await
+}
+
+pub(crate) async fn max_powered_archive_timestamp_before_from_pool(
+  pool: &SqlitePool,
+  before: &DateTime<Utc>,
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  // Same epoch-millisecond comparison as
+  // `select_archive_minutes_for_range_from_pool`, and for the same reason:
+  // the bind value's TEXT shape is not guaranteed to sort against the
+  // written column at exact-second boundaries.
+  let epoch_ms = sqlite_epoch_milliseconds();
+  let sql = format!(
+    "SELECT MAX(timestamp) FROM DATA_ARCHIVE
+     WHERE {epoch_ms} < $1
+       AND cpu_power_avg IS NOT NULL
+       AND cpu_power_max IS NOT NULL
+       AND cpu_power_min IS NOT NULL"
+  );
+  sqlx::query_scalar::<_, Option<DateTime<Utc>>>(&sql)
+    .bind(before.timestamp_millis())
+    .fetch_one(pool)
+    .await
 }
 
 pub async fn delete_old_data(
@@ -437,6 +530,9 @@ mod tests {
         cpu_temperature_avg REAL,
         cpu_temperature_max REAL,
         cpu_temperature_min REAL,
+        cpu_power_avg REAL,
+        cpu_power_max REAL,
+        cpu_power_min REAL,
         timestamp DATETIME
       )",
     )
@@ -465,7 +561,11 @@ mod tests {
         high_cpu_temperature_max REAL,
         high_cpu_temperature_min REAL,
         high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-        coverage_minutes INTEGER NOT NULL
+        coverage_minutes INTEGER NOT NULL,
+        cpu_power_avg REAL,
+        cpu_power_max REAL,
+        cpu_power_min REAL,
+        power_sample_minutes INTEGER NOT NULL DEFAULT 0
       )",
     )
     .execute(pool)
@@ -858,11 +958,18 @@ mod tests {
       low: full_band(40.0, 300),
       mid: empty_band(),
       high: full_band(70.0, 100),
+      power: PowerSummary {
+        avg: Some(18.5),
+        max: Some(42.0),
+        min: Some(4.5),
+        sample_minutes: 950,
+      },
     };
     upsert_from_pool(&pool, &summary).await.unwrap();
 
     let row = sqlx::query(
-      "SELECT idle_cpu_temperature_avg, idle_sample_minutes, mid_cpu_temperature_avg, mid_sample_minutes, coverage_minutes
+      "SELECT idle_cpu_temperature_avg, idle_sample_minutes, mid_cpu_temperature_avg, mid_sample_minutes, coverage_minutes,
+              cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
        FROM cooling_daily_summary WHERE date = $1",
     )
     .bind("2026-08-15")
@@ -875,6 +982,74 @@ mod tests {
     assert_eq!(row.get::<Option<f64>, _>("mid_cpu_temperature_avg"), None);
     assert_eq!(row.get::<i64, _>("mid_sample_minutes"), 0);
     assert_eq!(row.get::<i64, _>("coverage_minutes"), 1000);
+    assert_eq!(row.get::<f64, _>("cpu_power_avg"), 18.5);
+    assert_eq!(row.get::<f64, _>("cpu_power_max"), 42.0);
+    assert_eq!(row.get::<f64, _>("cpu_power_min"), 4.5);
+    assert_eq!(row.get::<i64, _>("power_sample_minutes"), 950);
+  }
+
+  #[tokio::test]
+  async fn a_day_without_power_readings_reads_back_absent_rather_than_zero() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 15),
+        coverage_minutes: 1000,
+        idle: full_band(30.0, 600),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power: PowerSummary::default(),
+      },
+    )
+    .await
+    .unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days.len(), 1);
+    assert_eq!(days[0].power, PowerSummary::default());
+    assert_eq!(days[0].power.avg, None);
+  }
+
+  #[tokio::test]
+  async fn a_persisted_power_summary_round_trips_through_the_daily_read() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    let power = PowerSummary {
+      avg: Some(21.5),
+      max: Some(55.0),
+      min: Some(3.25),
+      sample_minutes: 1200,
+    };
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 15),
+        coverage_minutes: 1440,
+        // A machine that reports power but has no temperature sensor
+        // keeps its power series: the two capabilities are independent.
+        idle: empty_band(),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power,
+      },
+    )
+    .await
+    .unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days[0].power, power);
   }
 
   #[tokio::test]
@@ -889,6 +1064,7 @@ mod tests {
       low: empty_band(),
       mid: empty_band(),
       high: empty_band(),
+      power: PowerSummary::default(),
     };
     upsert_from_pool(&pool, &summary).await.unwrap();
 
@@ -1046,6 +1222,268 @@ mod tests {
     assert_eq!(
       max_pairable_summarized_date_from_pool(&pool).await.unwrap(),
       None
+    );
+  }
+
+  // ── CPU package power backfill cursor (#2021) ──
+
+  /// One archived minute carrying a full CPU package power triple, or -
+  /// with `power` as `None` - one recorded with no power reading at all.
+  async fn insert_powered_archive_row(
+    pool: &SqlitePool,
+    power: Option<f64>,
+    timestamp: DateTime<Utc>,
+  ) {
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE
+         (cpu_avg, cpu_temperature_avg, cpu_temperature_max, cpu_temperature_min,
+          cpu_power_avg, cpu_power_max, cpu_power_min, timestamp)
+       VALUES (5.0, 40.0, 41.0, 39.0, $1, $1, $1, $2)",
+    )
+    .bind(power)
+    .bind(timestamp)
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  #[tokio::test]
+  async fn max_powered_summarized_date_ignores_days_that_recorded_no_power() {
+    // The state migration 14 leaves behind: rows exist, their power
+    // columns are NULL, and `power_sample_minutes` defaulted to 0.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 10),
+        coverage_minutes: 1440,
+        idle: full_band(30.0, 600),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power: PowerSummary {
+          avg: Some(18.0),
+          max: Some(30.0),
+          min: Some(5.0),
+          sample_minutes: 900,
+        },
+      },
+    )
+    .await
+    .unwrap();
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 10)),
+      "a NULL-power row must not advance the power cursor past the last real reading"
+    );
+  }
+
+  #[tokio::test]
+  async fn max_powered_summarized_date_is_none_when_no_day_recorded_power() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+  }
+
+  #[tokio::test]
+  async fn max_powered_archive_timestamp_only_sees_rows_before_the_bound() {
+    // The bound is the start of today: today's archived power must not
+    // count, or a machine recording power right now would look
+    // permanently behind and rewind the catch-up on every cycle.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_powered_archive_row(&pool, Some(18.0), utc("2026-08-19T23:59:59.000Z")).await;
+    insert_powered_archive_row(&pool, Some(22.0), utc("2026-08-20T00:00:00.000Z")).await;
+
+    let latest = max_powered_archive_timestamp_before_from_pool(
+      &pool,
+      &utc("2026-08-20T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(latest, Some(utc("2026-08-19T23:59:59.000Z")));
+  }
+
+  #[tokio::test]
+  async fn max_powered_archive_timestamp_is_none_without_a_power_source() {
+    // Rows were archived, but the platform publishes no CPU power. This
+    // is what stops the backfill check from firing forever.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_powered_archive_row(&pool, None, utc("2026-08-19T10:00:00.000Z")).await;
+
+    assert_eq!(
+      max_powered_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-20T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None
+    );
+  }
+
+  #[tokio::test]
+  async fn max_powered_archive_timestamp_skips_an_incomplete_power_triple() {
+    // `summarize_day` folds nothing from a partial triple, so it must not
+    // count as power the rollup failed to pick up either - otherwise the
+    // catch-up would rewind chasing a day it can never fill.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (cpu_avg, cpu_power_avg, timestamp)
+       VALUES (5.0, 18.0, $1)",
+    )
+    .bind(utc("2026-08-19T10:00:00.000Z"))
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      max_powered_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-20T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None
+    );
+  }
+  // ── archive to daily summary, end to end (#2021) ──
+
+  #[tokio::test]
+  async fn archived_power_reaches_the_persisted_daily_summary() {
+    // The whole path in one test: real archive rows, the real range read,
+    // the real fold, the real write, the real read-back. The unit tests
+    // above each cover one hop; this is what catches a column name that
+    // only two of the four hops agree on.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    setup_cooling_daily_summary(&pool).await;
+
+    for (minute, power) in [(0, 10.0), (1, 20.0), (2, 30.0)] {
+      sqlx::query(
+        "INSERT INTO DATA_ARCHIVE
+           (cpu_avg, cpu_temperature_avg, cpu_temperature_max, cpu_temperature_min,
+            cpu_power_avg, cpu_power_max, cpu_power_min, timestamp)
+         VALUES (5.0, 40.0, 41.0, 39.0, $1, $2, $3, $4)",
+      )
+      .bind(power)
+      .bind(power + 2.0)
+      .bind(power - 2.0)
+      .bind(utc(&format!("2026-08-15T12:0{minute}:00.000Z")))
+      .execute(&pool)
+      .await
+      .unwrap();
+    }
+
+    let minutes = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+    let summary =
+      crate::persistence::cooling_rollup::summarize_day(date(2026, 8, 15), &minutes)
+        .expect("the day was archived, so it must produce a summary");
+    upsert_from_pool(&pool, &summary).await.unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days.len(), 1);
+    assert_eq!(
+      days[0].power,
+      PowerSummary {
+        avg: Some(20.0),
+        max: Some(32.0),
+        min: Some(8.0),
+        sample_minutes: 3,
+      }
+    );
+    // And the backfill cursor now agrees the power columns are current.
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[tokio::test]
+  async fn an_archive_without_power_persists_a_daily_summary_with_absent_power() {
+    // The same path on a machine with no CPU power source: temperature
+    // still lands, power stays absent rather than becoming 0 W, and the
+    // backfill cursor reports nothing to catch up.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    setup_cooling_daily_summary(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:00.000Z"),
+    )
+    .await;
+
+    let minutes = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+    let summary =
+      crate::persistence::cooling_rollup::summarize_day(date(2026, 8, 15), &minutes)
+        .unwrap();
+    upsert_from_pool(&pool, &summary).await.unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days[0].idle.avg, Some(40.0));
+    assert_eq!(days[0].power, PowerSummary::default());
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+    assert_eq!(
+      max_powered_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-16T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None,
+      "neither side has power, so the catch-up must never claim to be behind"
     );
   }
 }

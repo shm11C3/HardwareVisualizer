@@ -44,6 +44,18 @@ export type ThermalTimelineRow = {
   loadMid: number | null;
   /** Share of the day's samples spent in the high band, 0-100 (90d/1y only). */
   loadHigh: number | null;
+  /**
+   * CPU package power average for the period, in watts. Watts on every
+   * period and in every locale - the temperature unit preference does not
+   * reach this lane.
+   */
+  powerAvg: number | null;
+  /** Lowest recorded CPU package power for the period, in watts. */
+  powerMin: number | null;
+  /** Highest recorded CPU package power for the period, in watts. */
+  powerMax: number | null;
+  /** `[min, max]` for the power lane's range `Area`, null when either end is missing. */
+  powerRange: [number, number] | null;
 };
 
 /** Smallest headroom kept above and below the data, in display degrees. */
@@ -52,6 +64,11 @@ export const TEMPERATURE_DOMAIN_MIN_PADDING = 2;
 export const TEMPERATURE_DOMAIN_PADDING_RATIO = 0.1;
 
 const LOAD_PERCENT_TOTAL = 100;
+
+/** Smallest headroom kept above the power data, in watts. */
+export const POWER_DOMAIN_MIN_PADDING = 2;
+/** Extra power headroom as a share of the observed peak. */
+export const POWER_DOMAIN_PADDING_RATIO = 0.1;
 
 export const toDisplayTemperature = (
   value: number | null,
@@ -109,6 +126,152 @@ export const collectTemperatureDomainValues = (
   ]),
   ...extra,
 ];
+
+/** One watt value rounded for display, or null for an absent reading. */
+const toDisplayWatts = (value: number | null | undefined): number | null =>
+  value == null || !Number.isFinite(value)
+    ? null
+    : Number.parseFloat(value.toFixed(1));
+
+/**
+ * Y-axis domain for the power lane, in watts, and the lane's capability
+ * gate: null means no period in the window recorded power, and the lane is
+ * then not drawn at all rather than as an empty axis reading "0 W
+ * measured".
+ *
+ * Anchored at 0 rather than following the data the way the temperature
+ * lane does: draw is meaningful against no draw, so a rise from 8 W to
+ * 12 W should read as the modest change it is, not fill the lane.
+ */
+export const computePowerDomain = (
+  values: readonly (number | null)[],
+): [number, number] | null => {
+  const recorded = values.filter(
+    (value): value is number => value != null && Number.isFinite(value),
+  );
+
+  if (recorded.length === 0) {
+    return null;
+  }
+
+  const max = Math.max(...recorded);
+  const padding = Math.max(
+    POWER_DOMAIN_MIN_PADDING,
+    max * POWER_DOMAIN_PADDING_RATIO,
+  );
+
+  return [0, Math.ceil(max + padding)];
+};
+
+/** Every watt value a row contributes to the power lane's domain. */
+export const collectPowerDomainValues = (
+  rows: readonly ThermalTimelineRow[],
+): (number | null)[] =>
+  rows.flatMap((row) => [row.powerAvg, row.powerMin, row.powerMax]);
+
+/**
+ * What is known about this machine's CPU package power, from the currently
+ * routed period.
+ *
+ * Three states rather than a boolean, because "no power in this window"
+ * has two very different causes and only one of them licenses telling the
+ * user power is unsupported:
+ * - `present`: the window carries power. The lane renders.
+ * - `absent`: the window recorded *something* and none of it was power.
+ *   The archive writes every column from the same tick, so a window with
+ *   temperature or load but no watts is real evidence of no power source.
+ * - `unknown`: the fetch has not resolved, it failed, or the window
+ *   recorded nothing at all. Nothing may be claimed either way.
+ */
+export type PowerCapability = "unknown" | "present" | "absent";
+
+const hasFiniteValue = (points: readonly ArchiveSeriesPoint[]): boolean =>
+  points.some((point) => point.value != null && Number.isFinite(point.value));
+
+/**
+ * Whether a period carries power, checking `avg`, `min` and `max` rather
+ * than `avg` alone.
+ *
+ * The lane's own gate ([`computePowerDomain`] over
+ * [`collectPowerDomainValues`]) reads all three, so checking fewer here
+ * would let the lane render while the note beside it called power
+ * unsupported - a window whose average dropped out but whose extremes
+ * survived is exactly that case.
+ */
+const seriesHasPower = (series: ArchiveTimelineSeries): boolean =>
+  hasFiniteValue(series.powerAvg) ||
+  hasFiniteValue(series.powerMin) ||
+  hasFiniteValue(series.powerMax);
+
+const pointHasPower = (point: CoolingDailyTrendPoint): boolean =>
+  [point.power.avg, point.power.min, point.power.max].some(
+    (value) => value != null && Number.isFinite(value),
+  );
+
+/**
+ * Resolve [`PowerCapability`] for the currently routed period, answered
+ * from the fetched sources rather than from built rows.
+ *
+ * The pending-sensors note and the data-state row sit beside the timeline,
+ * not inside it, and need the same answer the power lane's gate reaches;
+ * deriving it here keeps the two from disagreeing while the row builders
+ * stay a rendering concern.
+ *
+ * Each route reads only its own source. A 24h window on a machine that
+ * last recorded power months ago must not inherit `present` from the daily
+ * trend - the lane it would be describing is the one for *this* window.
+ */
+export const resolveRoutedPowerCapability = (
+  route: { kind: "archive" | "dailyTrend" },
+  archive: {
+    series: ArchiveTimelineSeries;
+    hasLoaded: boolean;
+    hasError: boolean;
+  },
+  daily: {
+    points: readonly CoolingDailyTrendPoint[] | null;
+    hasError: boolean;
+  },
+): PowerCapability => {
+  if (route.kind === "archive") {
+    if (archive.hasError || !archive.hasLoaded) {
+      return "unknown";
+    }
+    if (seriesHasPower(archive.series)) {
+      return "present";
+    }
+    // A window that recorded nothing at all says nothing about the
+    // machine's sensors - only that the app was not running.
+    const recordedAnything =
+      hasFiniteValue(archive.series.temperatureAvg) ||
+      hasFiniteValue(archive.series.temperatureMin) ||
+      hasFiniteValue(archive.series.temperatureMax) ||
+      hasFiniteValue(archive.series.cpuUsage);
+    return recordedAnything ? "absent" : "unknown";
+  }
+
+  if (daily.hasError || daily.points == null) {
+    return "unknown";
+  }
+  if (daily.points.some(pointHasPower)) {
+    return "present";
+  }
+  // A rollup row exists only for a day that was actually recorded, so any
+  // point at all is evidence; an empty trend is not.
+  return daily.points.length > 0 ? "absent" : "unknown";
+};
+
+/**
+ * Whether the pending-sensors note and the data-state row may name power
+ * as unsupported.
+ *
+ * Only `absent` licenses that claim. `unknown` deliberately reads the same
+ * as `present` here: both leave power unmentioned, which under-claims
+ * rather than telling a user with a working power sensor that their
+ * machine has none while the fetch is still in flight.
+ */
+export const claimsPowerUnsupported = (capability: PowerCapability): boolean =>
+  capability === "absent";
 
 /**
  * Half-width of the band drawn around the established idle baseline.
@@ -246,6 +409,10 @@ const EMPTY_ROW = {
   loadLow: null,
   loadMid: null,
   loadHigh: null,
+  powerAvg: null,
+  powerMin: null,
+  powerMax: null,
+  powerRange: null,
 } as const satisfies Omit<ThermalTimelineRow, "key" | "label">;
 
 const toRange = (
@@ -292,6 +459,10 @@ export const buildDailyTimelineRows = (
       maxOf(bands.map((band) => band.max)),
       temperatureUnit,
     );
+    // Core folds power outside the load bands, so it is read straight off
+    // the point rather than recomposed from the band weights.
+    const powerMin = toDisplayWatts(point.power.min);
+    const powerMax = toDisplayWatts(point.power.max);
 
     rows.push({
       ...base,
@@ -305,18 +476,30 @@ export const buildDailyTimelineRows = (
       temperatureRange: toRange(temperatureMin, temperatureMax),
       idleTemperature: toDisplayTemperature(point.idle.avg, temperatureUnit),
       ...loadComposition(point),
+      powerAvg: toDisplayWatts(point.power.avg),
+      powerMin,
+      powerMax,
+      powerRange: toRange(powerMin, powerMax),
     });
   }
 
   return rows;
 };
 
-/** The four archive series the 24h/7d/30d lanes are composed from. */
+/** The archive series the 24h/7d/30d lanes are composed from. */
 export type ArchiveTimelineSeries = {
   temperatureAvg: readonly ArchiveSeriesPoint[];
   temperatureMax: readonly ArchiveSeriesPoint[];
   temperatureMin: readonly ArchiveSeriesPoint[];
   cpuUsage: readonly ArchiveSeriesPoint[];
+  /**
+   * CPU package power. Read from the archive's `cpuPower` columns, which
+   * every platform publishing a CPU power domain writes to, so these stay
+   * empty exactly on machines with no such source.
+   */
+  powerAvg: readonly ArchiveSeriesPoint[];
+  powerMax: readonly ArchiveSeriesPoint[];
+  powerMin: readonly ArchiveSeriesPoint[];
 };
 
 const valueByTimestamp = (
@@ -343,12 +526,21 @@ export const buildArchiveTimelineRows = (
   const max = valueByTimestamp(series.temperatureMax);
   const min = valueByTimestamp(series.temperatureMin);
   const usage = valueByTimestamp(series.cpuUsage);
+  const powerAvgByBucket = valueByTimestamp(series.powerAvg);
+  const powerMaxByBucket = valueByTimestamp(series.powerMax);
+  const powerMinByBucket = valueByTimestamp(series.powerMin);
 
   const timestamps = [
     ...series.temperatureAvg,
     ...series.temperatureMax,
     ...series.temperatureMin,
     ...series.cpuUsage,
+    // The power series joins the shared axis rather than getting its own:
+    // the lanes must break at the same buckets, and a power-only bucket
+    // would otherwise fall outside the grid entirely.
+    ...series.powerAvg,
+    ...series.powerMax,
+    ...series.powerMin,
   ].map((point) => point.timestamp);
 
   if (timestamps.length === 0 || stepMs <= 0) {
@@ -369,6 +561,8 @@ export const buildArchiveTimelineRows = (
       temperatureUnit,
     );
     const cpuUsage = usage.get(timestamp) ?? null;
+    const powerMin = toDisplayWatts(powerMinByBucket.get(timestamp));
+    const powerMax = toDisplayWatts(powerMaxByBucket.get(timestamp));
 
     rows.push({
       ...EMPTY_ROW,
@@ -383,6 +577,10 @@ export const buildArchiveTimelineRows = (
       temperatureRange: toRange(temperatureMin, temperatureMax),
       cpuUsage:
         cpuUsage == null ? null : Number.parseFloat(cpuUsage.toFixed(1)),
+      powerAvg: toDisplayWatts(powerAvgByBucket.get(timestamp)),
+      powerMin,
+      powerMax,
+      powerRange: toRange(powerMin, powerMax),
     });
   }
 

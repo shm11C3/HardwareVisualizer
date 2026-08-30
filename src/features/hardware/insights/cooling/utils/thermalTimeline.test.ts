@@ -4,11 +4,16 @@ import type {
   CoolingDailyTrendPoint,
 } from "@/rspc/bindings";
 import {
+  type ArchiveTimelineSeries,
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
+  claimsPowerUnsupported,
+  collectPowerDomainValues,
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
+  computePowerDomain,
   resolveBaselineBand,
+  resolveRoutedPowerCapability,
   type ThermalTimelineRow,
   toDisplayTemperature,
 } from "./thermalTimeline";
@@ -37,6 +42,7 @@ const trendPoint = (
   low: EMPTY_BAND,
   mid: EMPTY_BAND,
   high: EMPTY_BAND,
+  power: { avg: null, max: null, min: null, sampleMinutes: 0 },
   ...overrides,
 });
 
@@ -320,8 +326,350 @@ describe("buildDailyTimelineRows", () => {
   });
 });
 
+describe("buildDailyTimelineRows power lane", () => {
+  const referenceDate = new Date("2026-01-15T12:00:00Z");
+
+  it("carries the day's power summary onto the row", () => {
+    const rows = buildDailyTimelineRows(
+      [
+        trendPoint("2026-01-15", {
+          power: { avg: 18.5, max: 42, min: 4.5, sampleMinutes: 1200 },
+        }),
+      ],
+      1,
+      referenceDate,
+      "C",
+      identityLabel,
+    );
+
+    expect(rows[0]).toMatchObject({
+      powerAvg: 18.5,
+      powerMin: 4.5,
+      powerMax: 42,
+      powerRange: [4.5, 42],
+    });
+  });
+
+  it("keeps a day without power readings absent rather than zeroed", () => {
+    const rows = buildDailyTimelineRows(
+      [trendPoint("2026-01-15", { idle: band(30, 28, 33, 600) })],
+      1,
+      referenceDate,
+      "C",
+      identityLabel,
+    );
+
+    expect(rows[0]).toMatchObject({
+      temperatureAvg: 30,
+      powerAvg: null,
+      powerMin: null,
+      powerMax: null,
+      powerRange: null,
+    });
+  });
+
+  it("breaks the power band when only one edge was recorded", () => {
+    const rows = buildDailyTimelineRows(
+      [
+        trendPoint("2026-01-15", {
+          power: { avg: 18.5, max: 42, min: null, sampleMinutes: 1200 },
+        }),
+      ],
+      1,
+      referenceDate,
+      "C",
+      identityLabel,
+    );
+
+    expect(rows[0].powerAvg).toBe(18.5);
+    expect(rows[0].powerRange).toBeNull();
+  });
+
+  it("keeps power in watts regardless of the temperature display unit", () => {
+    const rows = buildDailyTimelineRows(
+      [
+        trendPoint("2026-01-15", {
+          idle: band(30, 28, 33, 600),
+          power: { avg: 18.5, max: 42, min: 4.5, sampleMinutes: 1200 },
+        }),
+      ],
+      1,
+      referenceDate,
+      "F",
+      identityLabel,
+    );
+
+    expect(rows[0].temperatureAvg).toBe(86);
+    expect(rows[0].powerAvg).toBe(18.5);
+  });
+});
+
+describe("resolveRoutedPowerCapability", () => {
+  const NO_SERIES: ArchiveTimelineSeries = {
+    temperatureAvg: [],
+    temperatureMax: [],
+    temperatureMin: [],
+    cpuUsage: [],
+    powerAvg: [],
+    powerMax: [],
+    powerMin: [],
+  };
+  /** A window that recorded temperature, so "no power" is real evidence. */
+  const RECORDED: ArchiveTimelineSeries = {
+    ...NO_SERIES,
+    temperatureAvg: [{ timestamp: 0, value: 50 }],
+  };
+  const ARCHIVE = { kind: "archive" } as const;
+  const DAILY = { kind: "dailyTrend" } as const;
+  const loaded = (series: ArchiveTimelineSeries) => ({
+    series,
+    hasLoaded: true,
+    hasError: false,
+  });
+  const NO_DAILY = { points: null, hasError: false };
+  const poweredDay = () =>
+    trendPoint("2026-01-15", {
+      power: { avg: 18, max: 42, min: 4, sampleMinutes: 900 },
+    });
+
+  it("reads the archive power series on the archive routes", () => {
+    expect(
+      resolveRoutedPowerCapability(
+        ARCHIVE,
+        loaded({ ...RECORDED, powerAvg: [{ timestamp: 0, value: 18 }] }),
+        NO_DAILY,
+      ),
+    ).toBe("present");
+  });
+
+  it("is present when only the extremes survived the bucket", () => {
+    // The lane's own gate reads avg/min/max, so it would render here. A
+    // capability check on `avg` alone would call power unsupported on the
+    // very window whose lane is on screen.
+    expect(
+      resolveRoutedPowerCapability(
+        ARCHIVE,
+        loaded({
+          ...RECORDED,
+          powerAvg: [{ timestamp: 0, value: null }],
+          powerMin: [{ timestamp: 0, value: 4 }],
+        }),
+        NO_DAILY,
+      ),
+    ).toBe("present");
+  });
+
+  it("is absent when a recorded window carried no power at all", () => {
+    expect(
+      resolveRoutedPowerCapability(ARCHIVE, loaded(RECORDED), NO_DAILY),
+    ).toBe("absent");
+  });
+
+  it("is unknown while the archive fetch is still in flight", () => {
+    // The regression: claiming "not supported yet" here tells a user with
+    // a working power sensor their machine has none.
+    expect(
+      resolveRoutedPowerCapability(
+        ARCHIVE,
+        { series: NO_SERIES, hasLoaded: false, hasError: false },
+        NO_DAILY,
+      ),
+    ).toBe("unknown");
+  });
+
+  it("is unknown when the archive fetch failed", () => {
+    expect(
+      resolveRoutedPowerCapability(
+        ARCHIVE,
+        { series: NO_SERIES, hasLoaded: true, hasError: true },
+        NO_DAILY,
+      ),
+    ).toBe("unknown");
+  });
+
+  it("is unknown for a window that recorded nothing at all", () => {
+    // The app simply was not running: that says nothing about sensors.
+    expect(
+      resolveRoutedPowerCapability(ARCHIVE, loaded(NO_SERIES), NO_DAILY),
+    ).toBe("unknown");
+  });
+
+  it("ignores the daily trend while an archive route is selected", () => {
+    // Otherwise a 24h window on a machine that only ever recorded power
+    // months ago would claim this window's lane is available.
+    expect(
+      resolveRoutedPowerCapability(ARCHIVE, loaded(RECORDED), {
+        points: [poweredDay()],
+        hasError: false,
+      }),
+    ).toBe("absent");
+  });
+
+  it("reads the daily trend on the long-range routes", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [poweredDay()],
+        hasError: false,
+      }),
+    ).toBe("present");
+  });
+
+  it("is present on a daily point carrying only the extremes", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [
+          trendPoint("2026-01-15", {
+            power: { avg: null, max: 42, min: null, sampleMinutes: 900 },
+          }),
+        ],
+        hasError: false,
+      }),
+    ).toBe("present");
+  });
+
+  it("is absent for a daily window whose recorded days carried no power", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [trendPoint("2026-01-15")],
+        hasError: false,
+      }),
+    ).toBe("absent");
+  });
+
+  it("is unknown while the daily trend is still loading", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), NO_DAILY),
+    ).toBe("unknown");
+  });
+
+  it("is unknown when the daily trend failed", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: null,
+        hasError: true,
+      }),
+    ).toBe("unknown");
+  });
+
+  it("is unknown for a daily window the rollup has no day for", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [],
+        hasError: false,
+      }),
+    ).toBe("unknown");
+  });
+});
+
+describe("claimsPowerUnsupported", () => {
+  it("only names power as unsupported on evidence", () => {
+    expect(claimsPowerUnsupported("absent")).toBe(true);
+  });
+
+  it("stays silent about power while the answer is unknown", () => {
+    // Under-claiming is the safe direction: the fan clause is true either
+    // way, so an unresolved fetch simply does not mention power.
+    expect(claimsPowerUnsupported("unknown")).toBe(false);
+  });
+
+  it("stays silent about power when the lane renders", () => {
+    expect(claimsPowerUnsupported("present")).toBe(false);
+  });
+});
+
+describe("computePowerDomain", () => {
+  it("returns null when nothing was recorded", () => {
+    expect(computePowerDomain([null, null])).toBeNull();
+  });
+
+  it("returns null for an empty window rather than assuming support", () => {
+    expect(computePowerDomain([])).toBeNull();
+  });
+
+  it("anchors the lower bound at zero so draw reads against no load", () => {
+    expect(computePowerDomain([12, 40])).toEqual([0, 44]);
+  });
+
+  it("keeps headroom above a flat series instead of a zero-height lane", () => {
+    expect(computePowerDomain([20, 20])).toEqual([0, 22]);
+  });
+});
+
 describe("buildArchiveTimelineRows", () => {
   const identityBucketLabel = (timestamp: number) => String(timestamp);
+
+  const EMPTY_POWER = {
+    powerAvg: [],
+    powerMax: [],
+    powerMin: [],
+  } as const;
+
+  it("merges the CPU power series onto the same bucket axis", () => {
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        powerAvg: [{ timestamp: 0, value: 18.55 }],
+        powerMax: [{ timestamp: 0, value: 42 }],
+        powerMin: [{ timestamp: 0, value: 4.5 }],
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+    );
+
+    expect(rows[0]).toMatchObject({
+      powerAvg: 18.6,
+      powerMin: 4.5,
+      powerMax: 42,
+      powerRange: [4.5, 42],
+    });
+  });
+
+  it("keeps a machine without a power source at absent power, not 0 W", () => {
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        ...EMPTY_POWER,
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+    );
+
+    expect(rows[0].powerAvg).toBeNull();
+    expect(rows[0].powerRange).toBeNull();
+    // Which is exactly what makes the lane's gate close.
+    expect(computePowerDomain(collectPowerDomainValues(rows))).toBeNull();
+  });
+
+  it("extends the bucket axis to cover a power-only bucket", () => {
+    // The power series can outlive the temperature series on a machine
+    // whose temperature sensor dropped out; the shared axis must still
+    // cover it or the power lane would silently lose its newest bucket.
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        powerAvg: [{ timestamp: 60_000, value: 20 }],
+        powerMax: [],
+        powerMin: [],
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+    );
+
+    expect(rows.map((r) => r.key)).toEqual(["0", "60000"]);
+    expect(rows[1].powerAvg).toBe(20);
+  });
 
   it("returns no rows when every series is empty", () => {
     expect(
@@ -331,6 +679,7 @@ describe("buildArchiveTimelineRows", () => {
           temperatureMax: [],
           temperatureMin: [],
           cpuUsage: [],
+          ...EMPTY_POWER,
         },
         60_000,
         "C",
@@ -346,6 +695,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [{ timestamp: 0, value: 60 }],
         temperatureMin: [{ timestamp: 0, value: 40 }],
         cpuUsage: [{ timestamp: 0, value: 25.55 }],
+        ...EMPTY_POWER,
       },
       60_000,
       "C",
@@ -373,6 +723,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [],
         temperatureMin: [],
         cpuUsage: [],
+        ...EMPTY_POWER,
       },
       60_000,
       "C",
@@ -394,6 +745,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [{ timestamp: 0, value: 60 }],
         temperatureMin: [{ timestamp: 0, value: null }],
         cpuUsage: [],
+        ...EMPTY_POWER,
       },
       60_000,
       "C",
@@ -410,6 +762,7 @@ describe("buildArchiveTimelineRows", () => {
         temperatureMax: [],
         temperatureMin: [],
         cpuUsage: [{ timestamp: 0, value: 30 }],
+        ...EMPTY_POWER,
       },
       60_000,
       "F",
@@ -428,6 +781,7 @@ describe("buildArchiveTimelineRows", () => {
           temperatureMax: [],
           temperatureMin: [],
           cpuUsage: [],
+          ...EMPTY_POWER,
         },
         0,
         "C",

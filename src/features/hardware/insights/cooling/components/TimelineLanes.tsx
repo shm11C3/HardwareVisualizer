@@ -32,7 +32,7 @@ import type {
  */
 export type LoadLaneMode = "usage" | "composition";
 
-/** Both lanes share this id so Recharts keeps their cursors in step. */
+/** Every lane shares this id so Recharts keeps their cursors in step. */
 const TIMELINE_SYNC_ID = "cooling-thermal-timeline";
 
 /** Identical on both charts so the two plot areas line up horizontally. */
@@ -76,6 +76,17 @@ const chartConfig = {
   loadHigh: {
     label: "high",
     color: "hsl(var(--chart-5))",
+  },
+  // `--chart-1` means temperature and `--chart-4` already means CPU load
+  // in the lane directly above, so power takes the remaining token rather
+  // than borrowing a meaning the reader has already learned.
+  powerRange: {
+    label: "range",
+    color: "hsl(var(--chart-3))",
+  },
+  powerAvg: {
+    label: "avg",
+    color: "hsl(var(--chart-3))",
   },
 } satisfies ChartConfig;
 
@@ -161,6 +172,8 @@ const TimelineTooltipContent = ({
     value == null ? null : `${value.toFixed(1)}${unitSuffix}`;
   const percent = (value: number | null) =>
     value == null ? null : `${value.toFixed(0)}%`;
+  const watts = (value: number | null) =>
+    value == null ? null : `${value.toFixed(1)} W`;
 
   const baselineDelta =
     baseline == null || row.idleTemperature == null
@@ -172,7 +185,8 @@ const TimelineTooltipContent = ({
     row.temperatureRange != null ||
     row.idleTemperature != null ||
     row.cpuUsage != null ||
-    row.loadIdle != null;
+    row.loadIdle != null ||
+    row.powerAvg != null;
 
   const entries: { label: string; value: string }[] = [];
   const push = (label: string, value: string | null) => {
@@ -215,6 +229,14 @@ const TimelineTooltipContent = ({
       );
     }
   }
+
+  push(t("pages.insights.cooling.timeline.tooltip.power"), watts(row.powerAvg));
+  push(
+    t("pages.insights.cooling.timeline.tooltip.powerRange"),
+    row.powerRange == null
+      ? null
+      : `${row.powerRange[0].toFixed(1)} - ${row.powerRange[1].toFixed(1)} W`,
+  );
 
   return (
     <div className="grid min-w-[10rem] gap-1 rounded-lg border border-neutral-200/50 bg-white px-2.5 py-1.5 text-xs shadow-xl dark:border-neutral-800/50 dark:bg-neutral-950">
@@ -345,9 +367,85 @@ const TemperatureLaneChart = ({
   );
 };
 
+/**
+ * The third lane: CPU package power draw, in watts.
+ *
+ * Deliberately shorter than the load lane. It answers "how much electrical
+ * input produced the temperature above", which is context for the
+ * temperature lane rather than a reading to scrub in its own right - and a
+ * third full-height lane would push the load-band comparison below the
+ * fold.
+ *
+ * Only mounted when the period actually recorded power (see
+ * `hasPowerReadings`): rendering an empty axis on a machine with no CPU
+ * power source would read as a measured flat zero.
+ */
+const PowerLaneChart = ({
+  rows,
+  domain,
+}: {
+  rows: ThermalTimelineRow[];
+  domain: [number, number];
+}) => {
+  const hasRangeSeries = rows.some((row) => row.powerRange != null);
+
+  return (
+    <ChartContainer
+      className="aspect-auto h-24 w-full"
+      config={chartConfig}
+      data-testid="cooling-power-lane"
+    >
+      <ComposedChart data={rows} syncId={TIMELINE_SYNC_ID} margin={LANE_MARGIN}>
+        {/* The shared time axis is labeled on whichever lane is last, so
+            it reads as the stack's axis rather than a divider between
+            two lanes. */}
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          minTickGap={32}
+          height={18}
+        />
+        <YAxis
+          domain={domain}
+          width={AXIS_WIDTH}
+          tickLine={false}
+          axisLine={false}
+          tickCount={3}
+          allowDecimals={false}
+          unit="W"
+        />
+        {/* Cursor only - the shared tooltip is rendered by the temperature lane. */}
+        <ChartTooltip filterNull={false} content={() => null} />
+        {hasRangeSeries && (
+          <Area
+            dataKey="powerRange"
+            stroke={seriesColor("powerRange")}
+            strokeOpacity={0.4}
+            strokeWidth={1}
+            fill={seriesColor("powerRange")}
+            fillOpacity={0.18}
+            isAnimationActive={false}
+            activeDot={false}
+          />
+        )}
+        <Line
+          dataKey="powerAvg"
+          type="monotone"
+          stroke={seriesColor("powerAvg")}
+          strokeWidth={1.5}
+          dot={false}
+          isAnimationActive={false}
+        />
+      </ComposedChart>
+    </ChartContainer>
+  );
+};
+
 export const TimelineLanes = ({
   rows,
   domain,
+  powerDomain,
   baseline,
   loadMode,
   temperatureUnit,
@@ -360,6 +458,14 @@ export const TimelineLanes = ({
    * temperature sensor is still useful partial data (DP-02).
    */
   domain: [number, number] | null;
+  /**
+   * `null` when the period recorded no CPU package power - either the
+   * machine has no such source, or none was archived yet. The power lane
+   * is then not rendered at all rather than degrading to a notice: unlike
+   * temperature it is not what this view is primarily about, so its
+   * absence belongs in the pending-sensors note, not in the timeline.
+   */
+  powerDomain: [number, number] | null;
   baseline: BaselineBand | null;
   loadMode: LoadLaneMode;
   temperatureUnit: TemperatureUnit;
@@ -367,6 +473,10 @@ export const TimelineLanes = ({
   const { t } = useTranslation();
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
+  const showsPowerLane = powerDomain != null;
+  // The temperature lane carries the shared tooltip whenever it renders;
+  // the load lane is always mounted, so it is the fallback owner.
+  const ownsSharedTooltip = domain == null;
 
   return (
     <div className="space-y-2" data-testid="cooling-timeline-lanes">
@@ -448,13 +558,17 @@ export const TimelineLanes = ({
           syncId={TIMELINE_SYNC_ID}
           margin={LANE_MARGIN}
         >
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            axisLine={false}
-            minTickGap={32}
-            height={18}
-          />
+          {showsPowerLane ? (
+            <XAxis dataKey="label" hide />
+          ) : (
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              minTickGap={32}
+              height={18}
+            />
+          )}
           <YAxis
             domain={LOAD_LANE_DOMAIN}
             width={AXIS_WIDTH}
@@ -462,8 +576,25 @@ export const TimelineLanes = ({
             tickLine={false}
             axisLine={false}
           />
-          {/* Cursor only - the shared tooltip is rendered by the lane above. */}
-          <ChartTooltip filterNull={false} content={() => null} />
+          {/* The shared tooltip belongs to the topmost lane that is
+              actually mounted. Normally that is the temperature lane
+              above; when the period recorded no temperature at all it is
+              this one, so the load and power readings stay inspectable
+              instead of silently losing their readout (DP-02). */}
+          <ChartTooltip
+            filterNull={false}
+            content={
+              ownsSharedTooltip ? (
+                <TimelineTooltipContent
+                  unitSuffix={unitSuffix}
+                  baseline={baseline}
+                  loadMode={loadMode}
+                />
+              ) : (
+                () => null
+              )
+            }
+          />
           {loadMode === "usage" ? (
             <Area
               dataKey="cpuUsage"
@@ -488,6 +619,26 @@ export const TimelineLanes = ({
           )}
         </ComposedChart>
       </ChartContainer>
+
+      {showsPowerLane && (
+        <>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-medium text-muted-foreground text-xs">
+              {t("pages.insights.cooling.timeline.powerLane")}
+            </span>
+            <LegendSwatch
+              label={t("pages.insights.cooling.timeline.legend.average")}
+              color={seriesColor("powerAvg")}
+            />
+            <LegendSwatch
+              label={t("pages.insights.cooling.timeline.legend.range")}
+              color={seriesColor("powerRange")}
+              variant="band"
+            />
+          </div>
+          <PowerLaneChart rows={rows} domain={powerDomain} />
+        </>
+      )}
     </div>
   );
 };

@@ -236,14 +236,18 @@ health even if short-window utilization archive settings are reduced.
 The cooling daily rollup (`core/src/persistence/cooling_rollup.rs`) derives one
 `cooling_daily_summary` row per completed local day from the one-minute
 Hardware Archive rows: CPU temperature avg/min/max per CPU-load band
-(idle/low/mid/high) plus per-band sample-minute counts and a day coverage
-count. It keeps its own fixed retention window
+(idle/low/mid/high) plus per-band sample-minute counts, the day's CPU package
+power avg/min/max with its own sample-minute count, and a day coverage count.
+Power is folded over the whole day rather than per band, and outside the band
+gate: CPU power and CPU temperature are separate hardware capabilities, so
+neither one's absence suppresses the other. It keeps its own fixed retention
+window
 (`cooling_rollup::COOLING_DAILY_SUMMARY_RETENTION_DAYS`, about 400 days),
 independent of `hardwareArchive.retentionDays`, so Cooling Insight can show
 90-day and 1-year trends without extending how long raw one-minute rows are
-kept. A day with zero archived minutes has no row at all, and a CPU-load band
-with zero contributing minutes leaves its temperature columns absent - never
-zero. Its cleanup runs from the same `scheduledDataDeletion`-gated startup
+kept. A day with zero archived minutes has no row at all; a CPU-load band with
+zero contributing minutes leaves its temperature columns absent, and a day with
+no powered minute leaves its power columns absent - never zero. Its cleanup runs from the same `scheduledDataDeletion`-gated startup
 site as the Hardware Archive cleanup (see ADR 0018).
 
 ## Settings Ownership

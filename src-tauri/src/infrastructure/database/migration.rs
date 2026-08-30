@@ -174,6 +174,21 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         );
       "#,
     },
+    SchemaMigration {
+      version: 14,
+      description: "add_cooling_daily_summary_power_columns",
+      // The CPU package power the timeline's power lane reads for 90d/1y
+      // (#2021). Nullable so a machine with no power sampler keeps
+      // reporting absent power rather than 0 W; `power_sample_minutes`
+      // defaults to 0 so rows written before this migration read back as
+      // "no powered minutes" instead of failing the NOT NULL constraint.
+      sql: r#"
+        ALTER TABLE cooling_daily_summary ADD COLUMN cpu_power_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN cpu_power_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN cpu_power_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN power_sample_minutes INTEGER NOT NULL DEFAULT 0;
+      "#,
+    },
   ]
 }
 
@@ -330,14 +345,34 @@ mod tests {
   }
 
   #[test]
+  fn migration_v14_adds_cooling_daily_summary_power_columns() {
+    let migrations = get_migrations();
+    let v14 = migrations
+      .iter()
+      .find(|m| m.version == 14)
+      .expect("Version 14 up migration must exist");
+    assert!(v14.sql.contains("ALTER TABLE cooling_daily_summary"));
+    for stats in ["avg", "max", "min"] {
+      assert!(v14.sql.contains(&format!("cpu_power_{stats} REAL")));
+    }
+    // Existing rows predate power collection, so the counter must default
+    // rather than be NOT NULL without one.
+    assert!(
+      v14
+        .sql
+        .contains("power_sample_minutes INTEGER NOT NULL DEFAULT 0")
+    );
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 13);
+    assert_eq!(get_max_migration_version(), 14);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 13);
+    assert_eq!(migrations.len(), 14);
   }
 
   #[test]
@@ -502,5 +537,26 @@ mod tests {
       duplicate.is_err(),
       "date must be a primary key: one row per local day"
     );
+
+    // A day written before #2021 (no power columns supplied) must read
+    // back as absent power rather than 0 W.
+    let power: (Option<f64>, i64) = sqlx::query_as(
+      "SELECT cpu_power_avg, power_sample_minutes
+       FROM cooling_daily_summary WHERE date = '2026-06-21'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(power, (None, 0));
+
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date, coverage_minutes,
+         cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
+       ) VALUES ('2026-06-22', 1440, 18.5, 42.0, 4.5, 1300)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert with the power columns must succeed after migrations");
   }
 }
