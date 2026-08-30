@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 4 |
-| Status | Implementation-ready (rev 4) |
-| Scope | Facts needed to integrate a Rust user-mode client with PawnIO: installation/detection, the PawnIOLib API, the module execution model, and the IOCTL contracts of the `IntelMSR`, `RyzenSMU`, and `LpcIO` modules. Excludes: writing new Pawn modules, driver internals. |
+| Revision | 5 |
+| Status | Implementation-ready (rev 5) |
+| Scope | Facts needed to integrate a Rust user-mode client with PawnIO: installation/detection, the PawnIOLib API, the module execution model, and the IOCTL contracts of the `IntelMSR`, `RyzenSMU`, `AMDFamily17`, and `LpcIO` modules. Excludes: writing new Pawn modules, driver internals. |
 | Issue phase | Phase 1 (#1635) |
 
 ## Sources
@@ -15,7 +15,7 @@
 | S2 | namazso, *PawnIO.Modules* repository, <https://github.com/namazso/PawnIO.Modules> | Primary; module list, license |
 | S3 | PawnIO.Modules wiki, "Using PawnIO Modules", <https://github.com/namazso/PawnIO.Modules/wiki/Using-PawnIO-Modules> | Primary; user-mode API |
 | S4 | PawnIO.Modules wiki, "Getting started with PawnIO", <https://github.com/namazso/PawnIO.Modules/wiki/Getting-started-with-PawnIO> | Primary; toolchain, signing |
-| S5 | Module sources `IntelMSR.p`, `RyzenSMU.p`, `LpcIO.p` in S2 (LGPL-2.1-or-later) | Upstream-published interface definitions of the API this project calls across the IOCTL boundary (public `ioctl_*` contracts, allow-lists, caller-mutex `@warning` docs); the PawnIO project is the authoritative source for its own interfaces. Not used as a source for any hardware register fact. No code was copied. |
+| S5 | Module sources `IntelMSR.p`, `RyzenSMU.p`, `AMDFamily17.p`, `LpcIO.p` in S2 (LGPL-2.1-or-later); `IntelMSR.p` and `AMDFamily17.p` re-verified at tag `0.2.8` (commit `754635b`) | Upstream-published interface definitions of the API this project calls across the IOCTL boundary (public `ioctl_*` contracts, allow-lists, caller-mutex `@warning` docs); the PawnIO project is the authoritative source for its own interfaces. Not used as a source for any hardware register fact. No code was copied. |
 | S6 | `PawnIOLib/include/PawnIOLib.h` in S1 (LGPL-2.1-or-later, © 2026 namazso) | Primary; exact user-mode API prototypes and doc comments |
 | S7 | PawnIO driver source in S1 (GPL-2.0 with IOCTL exception): `PawnIO/src/natives_impl_windows.cpp`, `PawnIO/include/pawnio_um.h` | Native semantics (execution context of `msr_read`, affinity natives) and device path. Interface facts only; no code was copied. |
 | S8 | PawnIO.Modules `README.md` and GitHub Releases, <https://github.com/namazso/PawnIO.Modules/releases>; CI workflow `.github/workflows/ci.yml` in S2 | Primary; module-blob distribution channels and signing status. Release 0.2.8 assets (via the release `expanded_assets` fragment): `release_0_2_8.zip` + source archives |
@@ -114,7 +114,8 @@
   configuration (default `.bin`).
 - Consequence for this project: bundle the **signed `.bin`** modules
   from a pinned PawnIO.Modules release (`RyzenSMU.bin` and
-  `IntelMSR.bin` for Phase 1), not self-built `.amx` copies.
+  `IntelMSR.bin` for Phase 1; `AMDFamily17.bin` additionally for the
+  CPU package-power phase), not self-built `.amx` copies.
   Redistribution must comply with the modules' LGPL-2.1 terms (see
   Licensing facts).
 - Absence of PawnIO is a supported state: the client must detect the
@@ -182,6 +183,13 @@ Target: Intel x86-64 CPUs only; other vendors get
   `is_allowed_msr_read`. Reads of MSRs outside the allow-list fail
   with `STATUS_ACCESS_DENIED`. `ioctl_read_msr` is declared with
   exactly 1 input and 1 output cell. (S5)
+- The read allow-list also includes the RAPL MSRs used by
+  [`cpu-intel-rapl-msr.md`](cpu-intel-rapl-msr.md): `0x606`
+  (MSR_RAPL_POWER_UNIT) and `0x611` (MSR_PKG_ENERGY_STATUS), plus
+  further RAPL-domain registers this project does not decode
+  (`0x610`, `0x613`, `0x614`, `0x619`, `0x61B`, `0x61C`, `0x639`,
+  `0x641`, `0x64D`, …). `0x611` is not on the write allow-list.
+  Verified at tag `0.2.8`. (S5)
 - **Execution context:** the driver's `msr_read` native executes
   `__readmsr` on the calling thread's current processor and sets no
   affinity; the `IntelMSR` module does not use the
@@ -218,6 +226,41 @@ Target: AMD x86-64 CPUs, families `0x17`, `0x19`, `0x1A` only.
   documented with: "You should acquire the
   `\BaseNamedObjects\Access_PCI` mutant before calling this" — i.e.
   the **caller** must hold it. (S5)
+
+### `AMDFamily17`
+
+Target: AMD x86-64 CPUs, families `0x17`–`0x1A` only; other vendors,
+architectures, and families get `STATUS_NOT_SUPPORTED` at module
+load. (S5, tag `0.2.8`)
+
+| Function | Input cells | Output cells | Semantics |
+| --- | --- | --- | --- |
+| `ioctl_read_msr` | `in[0]` = MSR index | `out[0]` = MSR value | Read an allow-listed MSR |
+| `ioctl_write_msr` | `in[0]` = MSR index, `in[1]` = value | — | Write an allow-listed MSR (NOT used by this project — read-only policy) |
+| `ioctl_read_smn` | `in[0]` = SMN address | `out[0]` = 32-bit register value | Read an SMN register (not used by this project; the SMN path goes through `RyzenSMU`) |
+
+- The read allow-list includes the RAPL MSRs used by
+  [`cpu-amd-zen-rapl-msr.md`](cpu-amd-zen-rapl-msr.md):
+  `0xC0010299` (RAPL_PWR_UNIT), `0xC001029A` (CORE_ENERGY_STAT),
+  `0xC001029B` (PKG_ENERGY_STAT), plus P-state/CPPC/performance
+  registers this project does not decode. Reads outside the
+  allow-list fail with `STATUS_ACCESS_DENIED`. None of the three
+  RAPL MSRs is on the write allow-list. `ioctl_read_msr` is declared
+  with exactly 1 input and 1 output cell. (S5)
+- `ioctl_read_msr` carries **no caller-mutex requirement**; only
+  `ioctl_read_smn` is documented with "You should acquire the
+  `\BaseNamedObjects\Access_PCI` mutant before calling this". (S5)
+- **Execution context:** as with `IntelMSR`, the driver's `msr_read`
+  native executes `RDMSR` on the calling thread's current processor,
+  and the module uses no affinity natives; the targeted CPU is
+  controlled by the user-mode caller's thread affinity. (S5, S7)
+- The module's SMN read goes through a host-bridge index/data pair at
+  PCI config offsets `0x60`/`0x64` and requires the host bridge
+  vendor ID `0x1022`; informative internal detail only — this
+  project performs SMN access via `RyzenSMU`, not this module. (S5)
+- The signed blob `AMDFamily17.bin` is contained in the 0.2.8 release
+  archive `release_0_2_8.zip` alongside `IntelMSR.bin` /
+  `RyzenSMU.bin` (verified by listing the downloaded archive). (S8)
 
 ### `LpcIO`
 
@@ -302,3 +345,4 @@ phase of #1635, not part of the Phase 1 read path.
 | 2 | 2026-06-11 | Provenance resolved against upstream sources: exact `PawnIOLib.h` API (incl. `pawnio_close`, cell-count semantics), device path, `msr_read` execution context and affinity natives, blob naming. Corrected mutex ownership: modules document caller-held mutants and acquire none themselves. Status → Implementation-ready. |
 | 3 | 2026-06-13 | Added "Module blob distribution" section: signed blobs ship via the PawnIO.Modules GitHub Releases (README-stated; latest 0.2.8, 2026-06-12, verified against the upstream git tag), CI artifacts/self-builds are unsigned, driver/PawnIOLib from pawnio.eu. Resolved the blob-source open question (asset packaging left as a narrow non-blocking confirmation). Added source S8. Status remains Implementation-ready. |
 | 4 | 2026-06-13 | Implementer field-validation corrections (Ryzen 7 7800X3D, S10), all cross-checked against PawnIO primary sources (S9): signed modules are `*.bin` (`PawnIOUtil sign` blob layout) shipped inside the release archive `release_0_2_8.zip`, vs unsigned `*.amx` build output — `pawnio_load` is extension-agnostic, so dropped the `.amx`-only naming claim; `pawnio_open` requires elevation (device DACL `D:P(A;;GA;;;SY)(A;;GA;;;BA)`; non-elevated → `0x80070005`), added three-state detection; core installer excludes modules; mutex acquisition must open-before-create to avoid ACL failures on shared mutants; added a follow-up-scope note for installer UX. Resolved the asset-packaging open question. Status remains Implementation-ready. |
+| 5 | 2026-08-30 | Added the `AMDFamily17` module contract for the CPU package-power phase (family gate `0x17`–`0x1A`, `ioctl_read_msr`/`ioctl_write_msr`/`ioctl_read_smn`, RAPL MSR read allow-list membership, no caller mutex on MSR reads, execution context, `AMDFamily17.bin` in the 0.2.8 release archive), verified against tag `0.2.8` (commit `754635b`). Recorded the `IntelMSR` RAPL read allow-list additions (`0x606`, `0x611`, and other RAPL-domain registers). Status remains Implementation-ready. |
