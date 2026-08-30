@@ -2,8 +2,35 @@
 
 ## Goal
 
-Author an implementation-ready clean-room spec for ITE IT86xx/IT87xx
-motherboard temperature and fan RPM reads.
+Author an implementation-ready clean-room spec for the exact `0x8728` /
+IT8728F/EX read-only motherboard temperature path. Fan RPM remains a
+future spec-revision scope and is not part of this session's ready goal.
+
+## Completion snapshot (2026-08-30)
+
+Completed in
+[`superio-ite-it86xx-it87xx.md`](../../specs/sensors/superio-ite-it86xx-it87xx.md)
+revision 2:
+
+- exact raw chip ID `0x8728` / IT8728F/EX only;
+- generic `TMPIN1`-`TMPIN3` read-only temperatures are
+  Implementation-ready and enabled as Experimental pending a manual
+  user hardware dump;
+- successful values receive no Experimental UI badge; a surfaced
+  failure may carry experimental context;
+- FAN1-3 remain disabled because the active divisor, split-counter
+  consistency, and stopped/invalid values are not closed by the
+  available primary document;
+- FAN4/5, voltages, controls, board-specific labels, and every other
+  IT86xx/IT87xx ID remain disabled or Unsupported.
+
+The prompt below is retained as the historical authoring handoff. A
+future spec-author session should revise the ready document only when
+new primary evidence or a maintainer-accepted manual dump is available.
+The next implementation work belongs in a separate clean-room
+implementer session: add only the scoped ITE Experimental temperature
+provider and reuse the existing motherboard-sensor collection,
+presentation, and diagnostic pipeline.
 
 ## Paste this prompt into the next session
 

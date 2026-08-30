@@ -170,8 +170,14 @@ or unresolved blocking open question invalidates the flip.
 | [`cpu-amd-zen-rapl-msr.md`](cpu-amd-zen-rapl-msr.md) | AMD Zen (17h/19h/1Ah) CPU package power via RAPL energy MSRs (`0xC0010299`/`0xC001029B`), per-model counter widths, width-agnostic modular decode with wrap-safe gap handling, 1Ah 44h domain-semantics open question | Phase 5 | Implementation-ready (rev 3) |
 | [`superio-access.md`](superio-access.md) | Phase 2 raw Super I/O chip-id diagnostic: config port pairs, Nuvoton/ITE enter/exit, chip-id registers, absent-id classification, ISA mutex | Phase 2 | Implementation-ready (rev 3) |
 | [`superio-nuvoton-nct67xx.md`](superio-nuvoton-nct67xx.md) | Nuvoton NCT67xx/NCT679x hardware-monitor map for motherboard temperatures and fan RPM. Rev 5 is implementation-ready for scoped `0xD802` / `NCT6799D` normal HM bank 4 byte temperatures (`0x90`-`0x95`) and direct RPM pairs (`0xC0`-`0xCB`), validated by local elevated PawnIO dump plus an independent AIDA64 dump. NCT6796D, read-only HM, count-based RPM, AUXFANIN4/seventh fan, voltages, and PWM remain disabled or out of scope. | Phase 3 | Implementation-ready (rev 5) |
+| [`superio-ite-it86xx-it87xx.md`](superio-ite-it86xx-it87xx.md) | ITE Environment Controller discovery and read-only motherboard temperatures. Rev 2 is implementation-ready only for exact raw chip ID `0x8728` / IT8728F/EX generic `TMPIN1`-`TMPIN3`, enabled as Experimental pending a user-submitted hardware dump. It requires an explicit post-exit EC index/data-port authorization read before caching the PawnIO path. FAN1-5, voltages, controls, physical labels, and every other IT86xx/IT87xx ID remain disabled or unsupported. | Phase 4 | Implementation-ready (rev 2) |
 
-The Nuvoton Phase 3 document is implementation-ready only for the scoped `0xD802` / `NCT6799D` normal HM read path listed above. The ITE IT86xx/87xx register map and hardware-monitor base discovery for ITE are still not written and remain the Phase 4 deliverable. The current `superio-access.md` readiness is intentionally limited to the Phase 2 raw chip-id diagnostic scope.
+The Nuvoton Phase 3 document is implementation-ready only for the scoped
+`0xD802` / `NCT6799D` normal HM read path listed above. The ITE Phase 4
+document is implementation-ready only for the exact `0x8728` Experimental
+temperature path; it does not make the broader IT86xx/IT87xx family or any
+ITE fan path ready. The current `superio-access.md` readiness remains
+intentionally limited to the Phase 2 raw chip-id diagnostic scope.
 
 ## Safety policy (applies to all documents and implementations)
 
