@@ -16,16 +16,17 @@ import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
 export const LoadBandComparisonPanel = ({
   bandComparison,
   hasError = false,
-  powerSupported = false,
+  powerUnsupported = false,
 }: {
   bandComparison: CoolingBandComparison | null;
   hasError?: boolean;
   /**
-   * Whether the routed period carries CPU package power (#2021). The
-   * data-state row below names the sensors still missing, so it must drop
-   * power on a machine whose timeline now draws a power lane.
+   * Whether the routed period is known to carry no CPU package power
+   * (#2021). The data-state row below names the sensors still missing, so
+   * it may only name power on evidence - never while the answer is still
+   * unknown, and never on a machine whose timeline draws a power lane.
    */
-  powerSupported?: boolean;
+  powerUnsupported?: boolean;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -92,7 +93,7 @@ export const LoadBandComparisonPanel = ({
           bandComparison?.status === "established" && (
             <DataStateDetails
               bandComparison={bandComparison}
-              powerSupported={powerSupported}
+              powerUnsupported={powerUnsupported}
             />
           )}
       </div>
@@ -123,10 +124,10 @@ const PanelLoadingSkeleton = () => {
 
 const DataStateDetails = ({
   bandComparison,
-  powerSupported,
+  powerUnsupported,
 }: {
   bandComparison: Extract<CoolingBandComparison, { status: "established" }>;
-  powerSupported: boolean;
+  powerUnsupported: boolean;
 }) => {
   const { t } = useTranslation();
 
@@ -157,9 +158,9 @@ const DataStateDetails = ({
       <div className="flex items-center justify-between gap-2">
         <dt className="text-muted-foreground">
           {t(
-            powerSupported
-              ? "pages.insights.cooling.dataState.unsupported.labelFanOnly"
-              : "pages.insights.cooling.dataState.unsupported.label",
+            powerUnsupported
+              ? "pages.insights.cooling.dataState.unsupported.label"
+              : "pages.insights.cooling.dataState.unsupported.labelFanOnly",
           )}
         </dt>
         <dd>{t("pages.insights.cooling.dataState.unsupported.value")}</dd>

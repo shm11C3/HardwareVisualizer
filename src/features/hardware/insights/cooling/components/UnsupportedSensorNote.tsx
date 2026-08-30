@@ -6,14 +6,17 @@ import { useTranslation } from "react-i18next";
  *
  * The line is capability-dependent, not a fixed string: since #2021 the
  * power lane renders wherever the archive carries CPU package power, so on
- * those machines the note must stop claiming power is unavailable. Where
- * no power was recorded it keeps naming power alongside fan speed, because
- * from the reader's side those two absences are the same thing.
+ * those machines the note must stop claiming power is unavailable.
+ *
+ * `powerUnsupported` is only true on evidence (see
+ * `claimsPowerUnsupported`). While the answer is still unknown the note
+ * names the fan alone - true regardless of what the fetch returns - rather
+ * than asserting an absence it cannot yet see.
  */
 export const UnsupportedSensorNote = ({
-  powerSupported,
+  powerUnsupported,
 }: {
-  powerSupported: boolean;
+  powerUnsupported: boolean;
 }) => {
   const { t } = useTranslation();
 
@@ -23,9 +26,9 @@ export const UnsupportedSensorNote = ({
       data-testid="cooling-unsupported-sensor-note"
     >
       {t(
-        powerSupported
-          ? "pages.insights.cooling.unsupportedSensorsNoteFanOnly"
-          : "pages.insights.cooling.unsupportedSensorsNote",
+        powerUnsupported
+          ? "pages.insights.cooling.unsupportedSensorsNote"
+          : "pages.insights.cooling.unsupportedSensorsNoteFanOnly",
       )}
     </p>
   );

@@ -170,22 +170,108 @@ export const collectPowerDomainValues = (
   rows.flatMap((row) => [row.powerAvg, row.powerMin, row.powerMax]);
 
 /**
- * Whether the currently-routed period carries any CPU package power,
- * answered straight from the fetched sources rather than from built rows.
+ * What is known about this machine's CPU package power, from the currently
+ * routed period.
  *
- * The pending-sensors note sits beside the timeline, not inside it, and
- * needs the same answer the power lane's gate reaches; deriving it here
- * keeps the two from disagreeing while the row builders stay a rendering
- * concern.
+ * Three states rather than a boolean, because "no power in this window"
+ * has two very different causes and only one of them licenses telling the
+ * user power is unsupported:
+ * - `present`: the window carries power. The lane renders.
+ * - `absent`: the window recorded *something* and none of it was power.
+ *   The archive writes every column from the same tick, so a window with
+ *   temperature or load but no watts is real evidence of no power source.
+ * - `unknown`: the fetch has not resolved, it failed, or the window
+ *   recorded nothing at all. Nothing may be claimed either way.
  */
-export const hasRoutedPowerData = (
+export type PowerCapability = "unknown" | "present" | "absent";
+
+const hasFiniteValue = (points: readonly ArchiveSeriesPoint[]): boolean =>
+  points.some((point) => point.value != null && Number.isFinite(point.value));
+
+/**
+ * Whether a period carries power, checking `avg`, `min` and `max` rather
+ * than `avg` alone.
+ *
+ * The lane's own gate ([`computePowerDomain`] over
+ * [`collectPowerDomainValues`]) reads all three, so checking fewer here
+ * would let the lane render while the note beside it called power
+ * unsupported - a window whose average dropped out but whose extremes
+ * survived is exactly that case.
+ */
+const seriesHasPower = (series: ArchiveTimelineSeries): boolean =>
+  hasFiniteValue(series.powerAvg) ||
+  hasFiniteValue(series.powerMin) ||
+  hasFiniteValue(series.powerMax);
+
+const pointHasPower = (point: CoolingDailyTrendPoint): boolean =>
+  [point.power.avg, point.power.min, point.power.max].some(
+    (value) => value != null && Number.isFinite(value),
+  );
+
+/**
+ * Resolve [`PowerCapability`] for the currently routed period, answered
+ * from the fetched sources rather than from built rows.
+ *
+ * The pending-sensors note and the data-state row sit beside the timeline,
+ * not inside it, and need the same answer the power lane's gate reaches;
+ * deriving it here keeps the two from disagreeing while the row builders
+ * stay a rendering concern.
+ *
+ * Each route reads only its own source. A 24h window on a machine that
+ * last recorded power months ago must not inherit `present` from the daily
+ * trend - the lane it would be describing is the one for *this* window.
+ */
+export const resolveRoutedPowerCapability = (
   route: { kind: "archive" | "dailyTrend" },
-  series: ArchiveTimelineSeries,
-  dailyTrend: readonly CoolingDailyTrendPoint[] | null,
-): boolean =>
-  route.kind === "archive"
-    ? series.powerAvg.some((point) => point.value != null)
-    : (dailyTrend ?? []).some((point) => point.power.avg != null);
+  archive: {
+    series: ArchiveTimelineSeries;
+    hasLoaded: boolean;
+    hasError: boolean;
+  },
+  daily: {
+    points: readonly CoolingDailyTrendPoint[] | null;
+    hasError: boolean;
+  },
+): PowerCapability => {
+  if (route.kind === "archive") {
+    if (archive.hasError || !archive.hasLoaded) {
+      return "unknown";
+    }
+    if (seriesHasPower(archive.series)) {
+      return "present";
+    }
+    // A window that recorded nothing at all says nothing about the
+    // machine's sensors - only that the app was not running.
+    const recordedAnything =
+      hasFiniteValue(archive.series.temperatureAvg) ||
+      hasFiniteValue(archive.series.temperatureMin) ||
+      hasFiniteValue(archive.series.temperatureMax) ||
+      hasFiniteValue(archive.series.cpuUsage);
+    return recordedAnything ? "absent" : "unknown";
+  }
+
+  if (daily.hasError || daily.points == null) {
+    return "unknown";
+  }
+  if (daily.points.some(pointHasPower)) {
+    return "present";
+  }
+  // A rollup row exists only for a day that was actually recorded, so any
+  // point at all is evidence; an empty trend is not.
+  return daily.points.length > 0 ? "absent" : "unknown";
+};
+
+/**
+ * Whether the pending-sensors note and the data-state row may name power
+ * as unsupported.
+ *
+ * Only `absent` licenses that claim. `unknown` deliberately reads the same
+ * as `present` here: both leave power unmentioned, which under-claims
+ * rather than telling a user with a working power sensor that their
+ * machine has none while the fetch is still in flight.
+ */
+export const claimsPowerUnsupported = (capability: PowerCapability): boolean =>
+  capability === "absent";
 
 /**
  * Half-width of the band drawn around the established idle baseline.

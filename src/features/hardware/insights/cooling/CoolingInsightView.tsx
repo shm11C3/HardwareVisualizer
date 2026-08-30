@@ -16,7 +16,10 @@ import { useCoolingDailyTrend } from "./hooks/useCoolingDailyTrend";
 import { useCoolingInsightPeriod } from "./hooks/useCoolingInsightPeriod";
 import type { CoolingInsightPeriod } from "./types";
 import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
-import { hasRoutedPowerData } from "./utils/thermalTimeline";
+import {
+  claimsPowerUnsupported,
+  resolveRoutedPowerCapability,
+} from "./utils/thermalTimeline";
 
 /**
  * The Cooling tab: zone structure, single period selector, and
@@ -79,7 +82,15 @@ const CoolingInsightBody = ({
     route.kind === "archive" ? route.minutes : null,
   );
 
-  const powerSupported = hasRoutedPowerData(route, archive.series, dailyTrend);
+  // Only a resolved, non-empty window that recorded no watts licenses
+  // telling the user power is unsupported; loading, failure, and an empty
+  // window all leave the claim unmade.
+  const powerUnsupported = claimsPowerUnsupported(
+    resolveRoutedPowerCapability(route, archive, {
+      points: dailyTrend,
+      hasError: dailyTrendHasError,
+    }),
+  );
 
   return (
     <div className="space-y-4 pb-6">
@@ -97,7 +108,7 @@ const CoolingInsightBody = ({
         dailyTrend={dailyTrend}
         archive={archive}
       />
-      <UnsupportedSensorNote powerSupported={powerSupported} />
+      <UnsupportedSensorNote powerUnsupported={powerUnsupported} />
       {route.kind === "dailyTrend" && (
         <CoverageStrip
           points={dailyTrend}
@@ -108,7 +119,7 @@ const CoolingInsightBody = ({
       <LoadBandComparisonPanel
         bandComparison={bandComparison}
         hasError={bandComparisonHasError}
-        powerSupported={powerSupported}
+        powerUnsupported={powerUnsupported}
       />
       <LoadTemperatureExplorerPanel />
     </div>

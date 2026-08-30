@@ -4,14 +4,16 @@ import type {
   CoolingDailyTrendPoint,
 } from "@/rspc/bindings";
 import {
+  type ArchiveTimelineSeries,
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
+  claimsPowerUnsupported,
   collectPowerDomainValues,
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
   computePowerDomain,
-  hasRoutedPowerData,
   resolveBaselineBand,
+  resolveRoutedPowerCapability,
   type ThermalTimelineRow,
   toDisplayTemperature,
 } from "./thermalTimeline";
@@ -402,8 +404,8 @@ describe("buildDailyTimelineRows power lane", () => {
   });
 });
 
-describe("hasRoutedPowerData", () => {
-  const NO_SERIES = {
+describe("resolveRoutedPowerCapability", () => {
+  const NO_SERIES: ArchiveTimelineSeries = {
     temperatureAvg: [],
     temperatureMax: [],
     temperatureMin: [],
@@ -412,59 +414,166 @@ describe("hasRoutedPowerData", () => {
     powerMax: [],
     powerMin: [],
   };
+  /** A window that recorded temperature, so "no power" is real evidence. */
+  const RECORDED: ArchiveTimelineSeries = {
+    ...NO_SERIES,
+    temperatureAvg: [{ timestamp: 0, value: 50 }],
+  };
   const ARCHIVE = { kind: "archive" } as const;
   const DAILY = { kind: "dailyTrend" } as const;
+  const loaded = (series: ArchiveTimelineSeries) => ({
+    series,
+    hasLoaded: true,
+    hasError: false,
+  });
+  const NO_DAILY = { points: null, hasError: false };
+  const poweredDay = () =>
+    trendPoint("2026-01-15", {
+      power: { avg: 18, max: 42, min: 4, sampleMinutes: 900 },
+    });
 
   it("reads the archive power series on the archive routes", () => {
     expect(
-      hasRoutedPowerData(
+      resolveRoutedPowerCapability(
         ARCHIVE,
-        { ...NO_SERIES, powerAvg: [{ timestamp: 0, value: 18 }] },
-        null,
+        loaded({ ...RECORDED, powerAvg: [{ timestamp: 0, value: 18 }] }),
+        NO_DAILY,
       ),
-    ).toBe(true);
+    ).toBe("present");
   });
 
-  it("treats an archive bucket with no value as no power", () => {
+  it("is present when only the extremes survived the bucket", () => {
+    // The lane's own gate reads avg/min/max, so it would render here. A
+    // capability check on `avg` alone would call power unsupported on the
+    // very window whose lane is on screen.
     expect(
-      hasRoutedPowerData(
+      resolveRoutedPowerCapability(
         ARCHIVE,
-        { ...NO_SERIES, powerAvg: [{ timestamp: 0, value: null }] },
-        null,
+        loaded({
+          ...RECORDED,
+          powerAvg: [{ timestamp: 0, value: null }],
+          powerMin: [{ timestamp: 0, value: 4 }],
+        }),
+        NO_DAILY,
       ),
-    ).toBe(false);
+    ).toBe("present");
+  });
+
+  it("is absent when a recorded window carried no power at all", () => {
+    expect(
+      resolveRoutedPowerCapability(ARCHIVE, loaded(RECORDED), NO_DAILY),
+    ).toBe("absent");
+  });
+
+  it("is unknown while the archive fetch is still in flight", () => {
+    // The regression: claiming "not supported yet" here tells a user with
+    // a working power sensor their machine has none.
+    expect(
+      resolveRoutedPowerCapability(
+        ARCHIVE,
+        { series: NO_SERIES, hasLoaded: false, hasError: false },
+        NO_DAILY,
+      ),
+    ).toBe("unknown");
+  });
+
+  it("is unknown when the archive fetch failed", () => {
+    expect(
+      resolveRoutedPowerCapability(
+        ARCHIVE,
+        { series: NO_SERIES, hasLoaded: true, hasError: true },
+        NO_DAILY,
+      ),
+    ).toBe("unknown");
+  });
+
+  it("is unknown for a window that recorded nothing at all", () => {
+    // The app simply was not running: that says nothing about sensors.
+    expect(
+      resolveRoutedPowerCapability(ARCHIVE, loaded(NO_SERIES), NO_DAILY),
+    ).toBe("unknown");
   });
 
   it("ignores the daily trend while an archive route is selected", () => {
     // Otherwise a 24h window on a machine that only ever recorded power
-    // months ago would claim the lane is available.
+    // months ago would claim this window's lane is available.
     expect(
-      hasRoutedPowerData(ARCHIVE, NO_SERIES, [
-        trendPoint("2026-01-15", {
-          power: { avg: 18, max: 42, min: 4, sampleMinutes: 900 },
-        }),
-      ]),
-    ).toBe(false);
+      resolveRoutedPowerCapability(ARCHIVE, loaded(RECORDED), {
+        points: [poweredDay()],
+        hasError: false,
+      }),
+    ).toBe("absent");
   });
 
   it("reads the daily trend on the long-range routes", () => {
     expect(
-      hasRoutedPowerData(DAILY, NO_SERIES, [
-        trendPoint("2026-01-15", {
-          power: { avg: 18, max: 42, min: 4, sampleMinutes: 900 },
-        }),
-      ]),
-    ).toBe(true);
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [poweredDay()],
+        hasError: false,
+      }),
+    ).toBe("present");
   });
 
-  it("is false for a daily window whose days recorded no power", () => {
+  it("is present on a daily point carrying only the extremes", () => {
     expect(
-      hasRoutedPowerData(DAILY, NO_SERIES, [trendPoint("2026-01-15")]),
-    ).toBe(false);
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [
+          trendPoint("2026-01-15", {
+            power: { avg: null, max: 42, min: null, sampleMinutes: 900 },
+          }),
+        ],
+        hasError: false,
+      }),
+    ).toBe("present");
   });
 
-  it("is false while the daily trend is still loading", () => {
-    expect(hasRoutedPowerData(DAILY, NO_SERIES, null)).toBe(false);
+  it("is absent for a daily window whose recorded days carried no power", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [trendPoint("2026-01-15")],
+        hasError: false,
+      }),
+    ).toBe("absent");
+  });
+
+  it("is unknown while the daily trend is still loading", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), NO_DAILY),
+    ).toBe("unknown");
+  });
+
+  it("is unknown when the daily trend failed", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: null,
+        hasError: true,
+      }),
+    ).toBe("unknown");
+  });
+
+  it("is unknown for a daily window the rollup has no day for", () => {
+    expect(
+      resolveRoutedPowerCapability(DAILY, loaded(NO_SERIES), {
+        points: [],
+        hasError: false,
+      }),
+    ).toBe("unknown");
+  });
+});
+
+describe("claimsPowerUnsupported", () => {
+  it("only names power as unsupported on evidence", () => {
+    expect(claimsPowerUnsupported("absent")).toBe(true);
+  });
+
+  it("stays silent about power while the answer is unknown", () => {
+    // Under-claiming is the safe direction: the fan clause is true either
+    // way, so an unresolved fetch simply does not mention power.
+    expect(claimsPowerUnsupported("unknown")).toBe(false);
+  });
+
+  it("stays silent about power when the lane renders", () => {
+    expect(claimsPowerUnsupported("present")).toBe(false);
   });
 });
 
