@@ -191,9 +191,11 @@ pub fn summarize_day(
     // All three of avg/max/min are required, matching the temperature
     // gate. `hardware_archive::insert` writes the triple together, so a
     // partial triple means a hand-edited row rather than real data.
-    if let (Some(power_avg), Some(power_max), Some(power_min)) =
-      (minute.cpu_power_avg, minute.cpu_power_max, minute.cpu_power_min)
-    {
+    if let (Some(power_avg), Some(power_max), Some(power_min)) = (
+      minute.cpu_power_avg,
+      minute.cpu_power_max,
+      minute.cpu_power_min,
+    ) {
       power.push(power_avg, power_max, power_min);
     }
 
@@ -472,43 +474,132 @@ async fn run_catch_up() -> bool {
   }
 }
 
+/// How far each rollup projection has actually got, plus what the
+/// one-minute archive still holds - the facts
+/// [`rollup_catch_up_cursor`] decides from.
+///
+/// A struct rather than positional arguments: every field is an
+/// `Option<NaiveDate>` with a different meaning, and a transposed pair
+/// would compile silently while quietly disabling a backfill.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RollupProgress {
+  /// `MAX(date)` in `cooling_daily_summary`.
+  pub last_daily_date: Option<NaiveDate>,
+  /// The latest summarized day that recorded a (load, temperature) pair.
+  pub last_pairable_daily_date: Option<NaiveDate>,
+  /// The local day of `MAX(hour_start)` in `cooling_hourly_summary`.
+  pub last_hourly_date: Option<NaiveDate>,
+  /// The latest summarized day that recorded any CPU package power.
+  pub last_powered_daily_date: Option<NaiveDate>,
+  /// The latest *completed* local day whose archive rows carry a full CPU
+  /// package power triple, or `None` when the archive holds none.
+  /// Completed days only - see [`power_rollup_is_behind`].
+  pub last_powered_archive_date: Option<NaiveDate>,
+}
+
 /// Where the catch-up must resume from, given how far each rollup
 /// projection has actually got.
 ///
-/// The daily cursor alone is not enough. `cooling_hourly_summary` was
-/// added by a later migration, so an existing install starts with a full
-/// daily table and an empty hourly one; resuming from the daily cursor
-/// would leave every past day's hourly rows missing forever. Resuming from
-/// the *slower* projection regenerates them, and re-running a day is
-/// harmless because both upserts are idempotent.
+/// The daily cursor alone is not enough. Each later migration added a
+/// projection to a table an existing install has already summarized
+/// through yesterday, so following the daily cursor would leave the new
+/// projection empty for the whole retention window. Resuming from the
+/// *slowest* projection regenerates it, and re-running a day is harmless
+/// because every upsert is idempotent.
 ///
-/// "Slower", though, cannot just be `min`: a machine with no CPU
-/// temperature sensor produces daily rows and no hourly rows at all, and a
-/// plain `min` would make it re-read its whole archive on every cycle
-/// forever. `last_pairable_daily_date` is the latest day that actually had
-/// a (load, temperature) pair to record, which is exactly the latest day
-/// hourly is *expected* to cover - so "hourly is behind" is only claimed
-/// when there was something for it to miss.
+/// "Slowest", though, cannot just be `min` over the projections: a machine
+/// missing the sensor a projection needs legitimately has nothing there,
+/// and a plain `min` would make it re-read its whole archive on every
+/// cycle forever. Each projection therefore claims to be behind only on
+/// evidence that there was something for it to miss - see
+/// [`hourly_rollup_resume`] and [`power_rollup_is_behind`].
 ///
 /// A `None` result means "resume from the earliest archived day", the same
 /// first-run backfill [`days_to_roll_up`] already performs. Only days the
 /// one-minute archive still holds can be regenerated; older days no longer
 /// have source rows, and reporting them as absent is the honest outcome.
-pub fn rollup_catch_up_cursor(
-  last_daily_date: Option<NaiveDate>,
-  last_pairable_daily_date: Option<NaiveDate>,
-  last_hourly_date: Option<NaiveDate>,
-) -> Option<NaiveDate> {
-  match last_pairable_daily_date {
+pub fn rollup_catch_up_cursor(progress: RollupProgress) -> Option<NaiveDate> {
+  earlier_resume(
+    hourly_rollup_resume(progress),
+    power_rollup_resume(progress),
+  )
+}
+
+/// The earlier of two resume points. `None` means "from the earliest
+/// archived day", so it is earlier than any date rather than absent.
+fn earlier_resume(a: Option<NaiveDate>, b: Option<NaiveDate>) -> Option<NaiveDate> {
+  match (a, b) {
+    (Some(a), Some(b)) => Some(a.min(b)),
+    _ => None,
+  }
+}
+
+/// Where the hourly `(load, temperature)` projection needs the catch-up to
+/// resume from, or `last_daily_date` when it has kept up (#2023).
+///
+/// `last_pairable_daily_date` is the latest day that actually had a pair
+/// to record, which is exactly the latest day hourly is *expected* to
+/// cover - so "hourly is behind" is only claimed when there was something
+/// for it to miss. A machine with no CPU temperature sensor produces daily
+/// rows and no hourly rows at all, and must not rewind forever.
+fn hourly_rollup_resume(progress: RollupProgress) -> Option<NaiveDate> {
+  match progress.last_pairable_daily_date {
     // No summarized day ever carried a pair, so the hourly rollup has
     // nothing it could be missing.
-    None => last_daily_date,
-    Some(pairable) => match last_hourly_date {
+    None => progress.last_daily_date,
+    Some(pairable) => match progress.last_hourly_date {
       // Hourly has reached every day that had something to record.
-      Some(hourly) if hourly >= pairable => last_daily_date,
+      Some(hourly) if hourly >= pairable => progress.last_daily_date,
       // Hourly is genuinely behind: resume from where it actually got to.
       behind => behind,
     },
+  }
+}
+
+/// Where the daily rollup's CPU package power columns need the catch-up to
+/// resume from, or `last_daily_date` when they have kept up (#2021).
+fn power_rollup_resume(progress: RollupProgress) -> Option<NaiveDate> {
+  if power_rollup_is_behind(progress) {
+    progress.last_powered_daily_date
+  } else {
+    progress.last_daily_date
+  }
+}
+
+/// Whether the archive holds a completed day's CPU package power that no
+/// summarized day recorded.
+///
+/// Migration 14 added the power columns to a table an existing install has
+/// already summarized through yesterday, so every one of those rows
+/// carries NULL power. Without this check the daily cursor would never
+/// revisit them and the timeline's power lane would stay blank for the
+/// whole retention window, even though the one-minute archive still holds
+/// the readings.
+///
+/// Being behind is claimed only when the *archive* actually holds that
+/// power - never merely because the daily table has none. A machine with
+/// no CPU power source has neither side, so it never rewinds: the same
+/// trap `last_pairable_daily_date` avoids for the hourly rollup.
+///
+/// `last_powered_archive_date` must cover completed days only. The rollup
+/// never summarizes today, so today's archived power is not evidence that
+/// anything was missed - counting it would make a machine that is
+/// recording power right now rewind on every single cycle, forever. That
+/// bound is applied in SQL, where the day boundary already lives (see
+/// `cooling_daily_summary::max_powered_archive_timestamp_before`), so no
+/// clamp here can disagree with it.
+fn power_rollup_is_behind(progress: RollupProgress) -> bool {
+  let Some(archived) = progress.last_powered_archive_date else {
+    // The archive holds no CPU power at all, so there is nothing the
+    // rollup could have missed.
+    return false;
+  };
+
+  match progress.last_powered_daily_date {
+    // The archive has power and no summarized day carries any: exactly
+    // the post-migration state.
+    None => true,
+    Some(recorded) => recorded < archived,
   }
 }
 
@@ -516,11 +607,21 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
-  let last_summarized_date = rollup_catch_up_cursor(
-    database::cooling_daily_summary::max_summarized_date().await?,
-    database::cooling_daily_summary::max_pairable_summarized_date().await?,
-    database::cooling_hourly_summary::max_summarized_date().await?,
-  );
+  // The end of yesterday is the start of today, which is exactly the
+  // "completed days only" bound the power backfill check needs.
+  let (_, today_start) = local_day_utc_bounds(yesterday);
+  let last_summarized_date = rollup_catch_up_cursor(RollupProgress {
+    last_daily_date: database::cooling_daily_summary::max_summarized_date().await?,
+    last_pairable_daily_date:
+      database::cooling_daily_summary::max_pairable_summarized_date().await?,
+    last_hourly_date: database::cooling_hourly_summary::max_summarized_date().await?,
+    last_powered_daily_date:
+      database::cooling_daily_summary::max_powered_summarized_date().await?,
+    last_powered_archive_date:
+      database::cooling_daily_summary::max_powered_archive_timestamp_before(&today_start)
+        .await?
+        .map(utc_to_local_date),
+  });
   let earliest_archived_local_date = match last_summarized_date {
     Some(_) => None,
     None => database::cooling_daily_summary::earliest_archived_timestamp()
@@ -998,14 +1099,22 @@ mod tests {
 
   // ── rollup_catch_up_cursor ──
 
+  /// A fully caught-up install on a machine with every sensor: the
+  /// baseline each case below perturbs one fact of.
+  fn caught_up(day: NaiveDate) -> RollupProgress {
+    RollupProgress {
+      last_daily_date: Some(day),
+      last_pairable_daily_date: Some(day),
+      last_hourly_date: Some(day),
+      last_powered_daily_date: Some(day),
+      last_powered_archive_date: Some(day),
+    }
+  }
+
   #[test]
-  fn the_cursor_follows_the_daily_rollup_when_hourly_has_kept_up() {
+  fn the_cursor_follows_the_daily_rollup_when_every_projection_has_kept_up() {
     assert_eq!(
-      rollup_catch_up_cursor(
-        Some(date(2026, 8, 20)),
-        Some(date(2026, 8, 20)),
-        Some(date(2026, 8, 20)),
-      ),
+      rollup_catch_up_cursor(caught_up(date(2026, 8, 20))),
       Some(date(2026, 8, 20))
     );
   }
@@ -1016,7 +1125,10 @@ mod tests {
     // and no hourly rows at all. Following the daily cursor would leave
     // every past day's hourly rows missing forever.
     assert_eq!(
-      rollup_catch_up_cursor(Some(date(2026, 8, 20)), Some(date(2026, 8, 20)), None),
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: None,
+        ..caught_up(date(2026, 8, 20))
+      }),
       None,
       "an empty hourly table must fall back to the earliest-archived-day backfill"
     );
@@ -1025,11 +1137,10 @@ mod tests {
   #[test]
   fn a_lagging_hourly_table_resumes_from_the_slower_of_the_two_cursors() {
     assert_eq!(
-      rollup_catch_up_cursor(
-        Some(date(2026, 8, 20)),
-        Some(date(2026, 8, 20)),
-        Some(date(2026, 8, 15)),
-      ),
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 15)),
+        ..caught_up(date(2026, 8, 20))
+      }),
       Some(date(2026, 8, 15)),
       "the days between the two cursors must be regenerated"
     );
@@ -1042,7 +1153,11 @@ mod tests {
     // as "behind" would re-read the whole archive on every catch-up,
     // forever.
     assert_eq!(
-      rollup_catch_up_cursor(Some(date(2026, 8, 20)), None, None),
+      rollup_catch_up_cursor(RollupProgress {
+        last_pairable_daily_date: None,
+        last_hourly_date: None,
+        ..caught_up(date(2026, 8, 20))
+      }),
       Some(date(2026, 8, 20))
     );
   }
@@ -1052,18 +1167,127 @@ mod tests {
     // Recent days recorded coverage but no pairs, so the latest pairable
     // day is older than the daily cursor. Hourly has nothing to add.
     assert_eq!(
-      rollup_catch_up_cursor(
-        Some(date(2026, 8, 20)),
-        Some(date(2026, 8, 10)),
-        Some(date(2026, 8, 10)),
-      ),
+      rollup_catch_up_cursor(RollupProgress {
+        last_pairable_daily_date: Some(date(2026, 8, 10)),
+        last_hourly_date: Some(date(2026, 8, 10)),
+        ..caught_up(date(2026, 8, 20))
+      }),
       Some(date(2026, 8, 20))
     );
   }
 
   #[test]
   fn a_first_ever_run_still_backfills_from_the_earliest_archived_day() {
-    assert_eq!(rollup_catch_up_cursor(None, None, None), None);
+    assert_eq!(rollup_catch_up_cursor(RollupProgress::default()), None);
+  }
+
+  // ── rollup_catch_up_cursor: CPU package power backfill (#2021) ──
+
+  #[test]
+  fn a_daily_table_with_no_power_rewinds_while_the_archive_still_holds_power() {
+    // The v14 upgrade path: the daily table is summarized through
+    // yesterday but every row's power is NULL, and the one-minute archive
+    // still holds readings for the days inside its retention window.
+    // Following the daily cursor would leave the power lane blank for the
+    // whole window even though the source rows are right there.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_powered_daily_date: None,
+        last_powered_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      None,
+      "the days the archive can still back must be re-rolled so their power fills in"
+    );
+  }
+
+  #[test]
+  fn a_machine_without_a_power_source_does_not_rewind_every_cycle() {
+    // The regression this whole check has to avoid: no CPU power source
+    // means neither the daily table nor the archive has power, which is
+    // not evidence of a missed day. Claiming "behind" here would re-read
+    // the entire archive on every catch-up, forever - the same trap the
+    // hourly rollup's pairable cursor was built to dodge.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_powered_daily_date: None,
+        last_powered_archive_date: None,
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_partially_backfilled_power_column_resumes_from_the_last_powered_day() {
+    // A previous pass filled power up to 8-15 before failing. Only the
+    // remaining days need re-reading, not the whole archive.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_powered_daily_date: Some(date(2026, 8, 15)),
+        last_powered_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[test]
+  fn a_power_sampler_that_stopped_days_ago_is_not_treated_as_behind() {
+    // The sampler became unavailable after 8-15 (a driver or firmware
+    // change). Both sides agree it stopped there, so there is nothing to
+    // regenerate and the cursor must stay put.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_powered_daily_date: Some(date(2026, 8, 15)),
+        last_powered_archive_date: Some(date(2026, 8, 15)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_daily_power_column_ahead_of_the_archive_is_not_treated_as_behind() {
+    // Retention has since deleted the archive rows the rollup summarized,
+    // so the archive's latest powered day is older than the rollup's.
+    // Nothing to regenerate - and nothing that could be.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_powered_daily_date: Some(date(2026, 8, 20)),
+        last_powered_archive_date: Some(date(2026, 8, 1)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn the_power_and_hourly_backfills_resume_from_whichever_is_further_behind() {
+    // Both projections lag by different amounts; one pass has to satisfy
+    // the slower of the two.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 18)),
+        last_powered_daily_date: Some(date(2026, 8, 12)),
+        last_powered_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 12))
+    );
+  }
+
+  #[test]
+  fn a_power_backfill_does_not_stall_the_hourly_backfill() {
+    // Power is caught up but hourly is not: the power branch must not
+    // pull the cursor forward past what hourly still needs.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 12)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 12))
+    );
   }
 
   // ── persist_day_rollup_from_pool ──

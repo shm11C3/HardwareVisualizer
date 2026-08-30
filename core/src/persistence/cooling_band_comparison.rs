@@ -16,11 +16,9 @@ use chrono::{Duration, NaiveDate};
 use crate::persistence::cooling_baseline::{
   BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS,
 };
-use crate::persistence::cooling_rollup::{
-  BandSummary, CpuLoadBand, DailyCoolingSummary,
-};
 #[cfg(test)]
 use crate::persistence::cooling_rollup::PowerSummary;
+use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingSummary};
 
 /// Minimum sample minutes a band's window must carry before that band's
 /// comparison is meaningful. Applied independently to the baseline side

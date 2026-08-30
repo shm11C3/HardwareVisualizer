@@ -403,6 +403,67 @@ pub(crate) async fn max_pairable_summarized_date_from_pool(
   .await
 }
 
+/// The latest summarized day that recorded any CPU package power (#2021).
+///
+/// Paired with [`max_powered_archive_timestamp_before`] this is how the
+/// catch-up detects that the daily rollup's power columns are behind the
+/// archive - see `cooling_rollup::power_rollup_is_behind`.
+pub async fn max_powered_summarized_date() -> Result<Option<NaiveDate>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_powered_summarized_date_from_pool(&pool).await
+}
+
+pub(crate) async fn max_powered_summarized_date_from_pool(
+  pool: &SqlitePool,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+  sqlx::query_scalar::<_, Option<NaiveDate>>(
+    "SELECT MAX(date) FROM cooling_daily_summary WHERE power_sample_minutes > 0",
+  )
+  .fetch_one(pool)
+  .await
+}
+
+/// The most recent archived timestamp strictly before `before` whose row
+/// carries a full CPU package power triple (#2021).
+///
+/// `before` is the start of today in local time, so the answer only ever
+/// names a *completed* day. The rollup never summarizes today, so today's
+/// archived power is not evidence that a day was missed - counting it
+/// would make a machine that is recording power right now rewind the
+/// catch-up on every cycle, forever.
+///
+/// All three columns are required, matching `summarize_day`'s own power
+/// gate: a partial triple contributes nothing there, so it must not count
+/// as power the rollup failed to pick up either.
+pub async fn max_powered_archive_timestamp_before(
+  before: &DateTime<Utc>,
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_powered_archive_timestamp_before_from_pool(&pool, before).await
+}
+
+pub(crate) async fn max_powered_archive_timestamp_before_from_pool(
+  pool: &SqlitePool,
+  before: &DateTime<Utc>,
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  // Same epoch-millisecond comparison as
+  // `select_archive_minutes_for_range_from_pool`, and for the same reason:
+  // the bind value's TEXT shape is not guaranteed to sort against the
+  // written column at exact-second boundaries.
+  let epoch_ms = sqlite_epoch_milliseconds();
+  let sql = format!(
+    "SELECT MAX(timestamp) FROM DATA_ARCHIVE
+     WHERE {epoch_ms} < $1
+       AND cpu_power_avg IS NOT NULL
+       AND cpu_power_max IS NOT NULL
+       AND cpu_power_min IS NOT NULL"
+  );
+  sqlx::query_scalar::<_, Option<DateTime<Utc>>>(&sql)
+    .bind(before.timestamp_millis())
+    .fetch_one(pool)
+    .await
+}
+
 pub async fn delete_old_data(
   retention_days: u32,
   preserved_window: Option<(NaiveDate, NaiveDate)>,
@@ -1160,6 +1221,158 @@ mod tests {
 
     assert_eq!(
       max_pairable_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+  }
+
+  // ── CPU package power backfill cursor (#2021) ──
+
+  /// One archived minute carrying a full CPU package power triple, or -
+  /// with `power` as `None` - one recorded with no power reading at all.
+  async fn insert_powered_archive_row(
+    pool: &SqlitePool,
+    power: Option<f64>,
+    timestamp: DateTime<Utc>,
+  ) {
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE
+         (cpu_avg, cpu_temperature_avg, cpu_temperature_max, cpu_temperature_min,
+          cpu_power_avg, cpu_power_max, cpu_power_min, timestamp)
+       VALUES (5.0, 40.0, 41.0, 39.0, $1, $1, $1, $2)",
+    )
+    .bind(power)
+    .bind(timestamp)
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  #[tokio::test]
+  async fn max_powered_summarized_date_ignores_days_that_recorded_no_power() {
+    // The state migration 14 leaves behind: rows exist, their power
+    // columns are NULL, and `power_sample_minutes` defaulted to 0.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 10),
+        coverage_minutes: 1440,
+        idle: full_band(30.0, 600),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power: PowerSummary {
+          avg: Some(18.0),
+          max: Some(30.0),
+          min: Some(5.0),
+          sample_minutes: 900,
+        },
+      },
+    )
+    .await
+    .unwrap();
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 10)),
+      "a NULL-power row must not advance the power cursor past the last real reading"
+    );
+  }
+
+  #[tokio::test]
+  async fn max_powered_summarized_date_is_none_when_no_day_recorded_power() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    assert_eq!(
+      max_powered_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+  }
+
+  #[tokio::test]
+  async fn max_powered_archive_timestamp_only_sees_rows_before_the_bound() {
+    // The bound is the start of today: today's archived power must not
+    // count, or a machine recording power right now would look
+    // permanently behind and rewind the catch-up on every cycle.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_powered_archive_row(&pool, Some(18.0), utc("2026-08-19T23:59:59.000Z")).await;
+    insert_powered_archive_row(&pool, Some(22.0), utc("2026-08-20T00:00:00.000Z")).await;
+
+    let latest = max_powered_archive_timestamp_before_from_pool(
+      &pool,
+      &utc("2026-08-20T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(latest, Some(utc("2026-08-19T23:59:59.000Z")));
+  }
+
+  #[tokio::test]
+  async fn max_powered_archive_timestamp_is_none_without_a_power_source() {
+    // Rows were archived, but the platform publishes no CPU power. This
+    // is what stops the backfill check from firing forever.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_powered_archive_row(&pool, None, utc("2026-08-19T10:00:00.000Z")).await;
+
+    assert_eq!(
+      max_powered_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-20T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None
+    );
+  }
+
+  #[tokio::test]
+  async fn max_powered_archive_timestamp_skips_an_incomplete_power_triple() {
+    // `summarize_day` folds nothing from a partial triple, so it must not
+    // count as power the rollup failed to pick up either - otherwise the
+    // catch-up would rewind chasing a day it can never fill.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (cpu_avg, cpu_power_avg, timestamp)
+       VALUES (5.0, 18.0, $1)",
+    )
+    .bind(utc("2026-08-19T10:00:00.000Z"))
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+      max_powered_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-20T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
       None
     );
   }
