@@ -19,9 +19,11 @@ use tokio::task::JoinHandle;
 use tokio::time::{Duration, MissedTickBehavior, interval};
 
 use crate::event_bus::EventBus;
-use crate::models::{MetricsSnapshot, ProcessSample};
+use crate::models::{
+  FanSpeedStatus, MetricsSnapshot, MotherboardFanSpeed, ProcessSample,
+};
 use crate::persistence::archive_data::{
-  GpuData, HardwareArchiveRow, HardwareData, ProcessStatData,
+  FanArchiveRow, GpuData, HardwareArchiveRow, HardwareData, ProcessStatData,
 };
 use crate::{log_info, log_warn};
 
@@ -174,6 +176,14 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
+  if let Err(e) = database::fan_archive::delete_old_data(retention_days).await {
+    log_error!(
+      "Failed to delete old fan archive data",
+      "persistence::archive::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
   if let Err(e) = database::process_stats::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old process stats data",
@@ -221,6 +231,12 @@ struct ArchiveTracker {
   gpu_temperature_histories: HashMap<String, VecDeque<i32>>,
   gpu_dedicated_memory_histories: HashMap<String, VecDeque<i32>>,
   gpu_name_map: HashMap<String, String>,
+  /// One rolling window of per-second fan readings per fan, keyed by the
+  /// fan's stable channel-derived name (#2022). `None` marks a second the
+  /// fan reported nothing archivable, which is what lets a fan that stops
+  /// being reported age out of its own window instead of having its last
+  /// reading re-archived every minute.
+  fan_rpm_histories: HashMap<String, VecDeque<Option<u32>>>,
   processes: HashMap<u32, ProcessAccumulator>,
   /// Monotonic counter incremented on every `ingest` call. Used to age
   /// out vanished processes via [`PROCESS_GRACE_TICKS`].
@@ -293,7 +309,39 @@ impl ArchiveTracker {
       }
     }
 
+    self.ingest_fan_speeds(snapshot.motherboard_fan_speeds);
     self.update_process_accumulators(snapshot.processes);
+  }
+
+  /// Fold one snapshot's live fan readings into the per-fan rolling
+  /// windows, preserving the three distinct fan-reading meanings (#2022):
+  /// an Inactive Fan Reading (0 RPM) is stored as the real observation it
+  /// is, an Invalid Fan Reading contributes nothing, and a missing reading
+  /// stays absent. None of them collapse into each other.
+  fn ingest_fan_speeds(&mut self, fan_speeds: Vec<MotherboardFanSpeed>) {
+    let mut reported: HashSet<String> = HashSet::with_capacity(fan_speeds.len());
+
+    for fan in fan_speeds {
+      let rpm = archivable_fan_rpm(&fan);
+      reported.insert(fan.name.clone());
+      push_capped_optional_u32(self.fan_rpm_histories.entry(fan.name).or_default(), rpm);
+    }
+
+    // A fan the provider stopped reporting still ages through its own
+    // window, so its last reading cannot be re-archived minute after
+    // minute once the sensor is gone.
+    for (name, history) in self.fan_rpm_histories.iter_mut() {
+      if !reported.contains(name) {
+        push_capped_optional_u32(history, None);
+      }
+    }
+
+    // Once a window holds nothing but absences the fan has contributed
+    // nothing for a full interval; drop it so the map cannot grow without
+    // bound across provider or hardware changes.
+    self
+      .fan_rpm_histories
+      .retain(|_, history| history.iter().any(Option::is_some));
   }
 
   fn update_process_accumulators(&mut self, samples: Vec<ProcessSample>) {
@@ -386,6 +434,19 @@ impl ArchiveTracker {
       }
     }
 
+    // Written on the same tick as the row above so a fan reading and the
+    // temperature it belongs with share one minute boundary.
+    let fans = self.collect_fan_data();
+    if !fans.is_empty()
+      && let Err(e) = database::fan_archive::insert(fans).await
+    {
+      log_error!(
+        "Failed to insert fan archive data",
+        "persistence::archive::write_archive",
+        Some(e.to_string())
+      );
+    }
+
     let process_stats = self.collect_process_stats();
     if !process_stats.is_empty()
       && let Err(e) = database::process_stats::insert(process_stats).await
@@ -463,6 +524,29 @@ impl ArchiveTracker {
       .collect()
   }
 
+  /// One row per fan that contributed at least one archivable reading this
+  /// interval. A fan whose window holds only absences produces no row at
+  /// all rather than a zero-filled one (DP-02).
+  fn collect_fan_data(&self) -> Vec<FanArchiveRow> {
+    self
+      .fan_rpm_histories
+      .iter()
+      .filter_map(|(source, history)| {
+        let readings: Vec<u32> = history.iter().copied().flatten().collect();
+        if readings.is_empty() {
+          return None;
+        }
+        // Sum in u64: a full window of readings cannot overflow, but the
+        // accumulator should not depend on that being audited again.
+        let sum: u64 = readings.iter().map(|&rpm| rpm as u64).sum();
+        Some(FanArchiveRow {
+          source: source.clone(),
+          rpm: (sum / readings.len() as u64) as u32,
+        })
+      })
+      .collect()
+  }
+
   fn collect_process_stats(&self) -> Vec<ProcessStatData> {
     let core_divisor = self.cores.max(1.0);
     let all_stats: Vec<ProcessStatData> = self
@@ -493,6 +577,21 @@ impl ArchiveTracker {
       .collect();
 
     rank_top_processes(all_stats)
+  }
+}
+
+/// The RPM one live fan reading contributes to the archive, or `None` when
+/// it contributes nothing (#2022).
+///
+/// [`FanSpeedStatus::Invalid`] is excluded because the reported value is
+/// outside the accepted reading shape - archiving it would persist a number
+/// the live display already refuses to show. A `None` `rpm` is simply
+/// absent. Everything else, including an Inactive Fan Reading of 0 RPM, is
+/// a real observation and archived as such.
+fn archivable_fan_rpm(fan: &MotherboardFanSpeed) -> Option<u32> {
+  match fan.status {
+    FanSpeedStatus::Invalid => None,
+    FanSpeedStatus::Active | FanSpeedStatus::Inactive => fan.rpm,
   }
 }
 
@@ -543,6 +642,13 @@ fn push_capped(buf: &mut VecDeque<f32>, value: f32) {
 }
 
 fn push_capped_optional(buf: &mut VecDeque<Option<f32>>, value: Option<f32>) {
+  if buf.len() >= PROCESS_HISTORY_BUFFER {
+    buf.pop_front();
+  }
+  buf.push_back(value);
+}
+
+fn push_capped_optional_u32(buf: &mut VecDeque<Option<u32>>, value: Option<u32>) {
   if buf.len() >= PROCESS_HISTORY_BUFFER {
     buf.pop_front();
   }
@@ -670,6 +776,140 @@ mod tests {
     assert_eq!(
       StatsCalculator::compute_i32_aggregates([10, 20, 30]),
       (Some(20.0), Some(30), Some(10))
+    );
+  }
+
+  // ── fan speed archiving (#2022) ──
+
+  fn fan(name: &str, rpm: Option<u32>, status: FanSpeedStatus) -> MotherboardFanSpeed {
+    MotherboardFanSpeed {
+      name: name.to_string(),
+      rpm,
+      status,
+      source: "NCT6799D / Super I/O".to_string(),
+    }
+  }
+
+  fn fan_rows(tracker: &ArchiveTracker) -> Vec<FanArchiveRow> {
+    let mut rows = tracker.collect_fan_data();
+    rows.sort_by(|a, b| a.source.cmp(&b.source));
+    rows
+  }
+
+  #[test]
+  fn an_active_fan_reading_is_archived_per_fan() {
+    let mut tracker = ArchiveTracker::new();
+    let mut snapshot = make_snapshot(10.0, 50.0, 4);
+    snapshot.motherboard_fan_speeds = vec![
+      fan("Fan 1", Some(900), FanSpeedStatus::Active),
+      fan("Fan 2", Some(1500), FanSpeedStatus::Active),
+    ];
+    tracker.ingest(snapshot);
+
+    assert_eq!(
+      fan_rows(&tracker),
+      vec![
+        FanArchiveRow {
+          source: "Fan 1".to_string(),
+          rpm: 900,
+        },
+        FanArchiveRow {
+          source: "Fan 2".to_string(),
+          rpm: 1500,
+        },
+      ]
+    );
+  }
+
+  #[test]
+  fn an_inactive_fan_reading_is_archived_as_a_real_zero() {
+    // 0 RPM is an Inactive Fan Reading - a real observation that the fan is
+    // not reporting rotation, not a missing one. Dropping it would make a
+    // stopped fan indistinguishable from an unreadable one.
+    let mut tracker = ArchiveTracker::new();
+    let mut snapshot = make_snapshot(10.0, 50.0, 4);
+    snapshot.motherboard_fan_speeds =
+      vec![fan("Fan 3", Some(0), FanSpeedStatus::Inactive)];
+    tracker.ingest(snapshot);
+
+    assert_eq!(
+      fan_rows(&tracker),
+      vec![FanArchiveRow {
+        source: "Fan 3".to_string(),
+        rpm: 0,
+      }]
+    );
+  }
+
+  #[test]
+  fn an_invalid_fan_reading_is_excluded_rather_than_archived() {
+    let mut tracker = ArchiveTracker::new();
+    let mut snapshot = make_snapshot(10.0, 50.0, 4);
+    snapshot.motherboard_fan_speeds =
+      vec![fan("Fan 4", Some(65535), FanSpeedStatus::Invalid)];
+    tracker.ingest(snapshot);
+
+    assert_eq!(fan_rows(&tracker), Vec::new());
+  }
+
+  #[test]
+  fn an_absent_fan_reading_writes_no_row() {
+    let mut tracker = ArchiveTracker::new();
+    let mut snapshot = make_snapshot(10.0, 50.0, 4);
+    snapshot.motherboard_fan_speeds = vec![fan("Fan 5", None, FanSpeedStatus::Active)];
+    tracker.ingest(snapshot);
+
+    assert_eq!(fan_rows(&tracker), Vec::new());
+  }
+
+  #[test]
+  fn a_fan_row_averages_the_minutes_archivable_readings() {
+    // The excluded Invalid sample must not drag the average toward zero:
+    // it contributes nothing at all, exactly like an absent reading.
+    let mut tracker = ArchiveTracker::new();
+    for (rpm, status) in [
+      (Some(1000), FanSpeedStatus::Active),
+      (Some(0), FanSpeedStatus::Inactive),
+      (Some(65535), FanSpeedStatus::Invalid),
+    ] {
+      let mut snapshot = make_snapshot(10.0, 50.0, 4);
+      snapshot.motherboard_fan_speeds = vec![fan("Fan 1", rpm, status)];
+      tracker.ingest(snapshot);
+    }
+
+    assert_eq!(
+      fan_rows(&tracker),
+      vec![FanArchiveRow {
+        source: "Fan 1".to_string(),
+        rpm: 500,
+      }]
+    );
+  }
+
+  #[test]
+  fn a_machine_with_no_fan_readings_archives_no_fan_rows() {
+    let mut tracker = ArchiveTracker::new();
+    tracker.ingest(make_snapshot(10.0, 50.0, 4));
+
+    assert_eq!(fan_rows(&tracker), Vec::new());
+  }
+
+  #[test]
+  fn a_fan_that_stops_reporting_expires_from_the_rolling_window() {
+    let mut tracker = ArchiveTracker::new();
+    let mut snapshot = make_snapshot(10.0, 50.0, 4);
+    snapshot.motherboard_fan_speeds =
+      vec![fan("Fan 1", Some(900), FanSpeedStatus::Active)];
+    tracker.ingest(snapshot);
+
+    for _ in 0..PROCESS_HISTORY_BUFFER {
+      tracker.ingest(make_snapshot(10.0, 50.0, 4));
+    }
+
+    assert_eq!(
+      fan_rows(&tracker),
+      Vec::new(),
+      "a fan absent for a whole window must stop producing rows, not repeat its last reading"
     );
   }
 

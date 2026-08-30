@@ -495,6 +495,12 @@ pub struct RollupProgress {
   /// package power triple, or `None` when the archive holds none.
   /// Completed days only - see [`power_rollup_is_behind`].
   pub last_powered_archive_date: Option<NaiveDate>,
+  /// The local day of `MAX(date)` in `cooling_fan_daily_summary`.
+  pub last_fanned_daily_date: Option<NaiveDate>,
+  /// The latest *completed* local day the fan archive holds a reading for,
+  /// or `None` when it holds none. Completed days only - see
+  /// [`fan_rollup_is_behind`].
+  pub last_fanned_archive_date: Option<NaiveDate>,
 }
 
 /// Where the catch-up must resume from, given how far each rollup
@@ -520,8 +526,11 @@ pub struct RollupProgress {
 /// have source rows, and reporting them as absent is the honest outcome.
 pub fn rollup_catch_up_cursor(progress: RollupProgress) -> Option<NaiveDate> {
   earlier_resume(
-    hourly_rollup_resume(progress),
-    power_rollup_resume(progress),
+    earlier_resume(
+      hourly_rollup_resume(progress),
+      power_rollup_resume(progress),
+    ),
+    fan_rollup_resume(progress),
   )
 }
 
@@ -603,6 +612,40 @@ fn power_rollup_is_behind(progress: RollupProgress) -> bool {
   }
 }
 
+/// Where the fan daily rollup needs the catch-up to resume from, or
+/// `last_daily_date` when it has kept up (#2022).
+fn fan_rollup_resume(progress: RollupProgress) -> Option<NaiveDate> {
+  if fan_rollup_is_behind(progress) {
+    progress.last_fanned_daily_date
+  } else {
+    progress.last_daily_date
+  }
+}
+
+/// Whether the fan archive holds a completed day that no
+/// `cooling_fan_daily_summary` row covers.
+///
+/// The same shape as [`power_rollup_is_behind`], and for the same reason:
+/// the migration that adds `cooling_fan_daily_summary` lands on installs
+/// that have already summarized through yesterday, so following the daily
+/// cursor alone would leave the fan lane blank for the whole retention
+/// window even though `FAN_ARCHIVE` still holds the readings.
+///
+/// Being behind is claimed only when the *archive* actually holds fan
+/// readings. A machine with no fan source has neither side, so it never
+/// rewinds - without that guard it would re-read its entire archive on
+/// every cycle, forever.
+fn fan_rollup_is_behind(progress: RollupProgress) -> bool {
+  let Some(archived) = progress.last_fanned_archive_date else {
+    return false;
+  };
+
+  match progress.last_fanned_daily_date {
+    None => true,
+    Some(recorded) => recorded < archived,
+  }
+}
+
 async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -621,6 +664,13 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
       database::cooling_daily_summary::max_powered_archive_timestamp_before(&today_start)
         .await?
         .map(utc_to_local_date),
+    last_fanned_daily_date: database::cooling_fan_daily_summary::max_summarized_date()
+      .await?,
+    last_fanned_archive_date: database::fan_archive::max_fan_archive_timestamp_before(
+      &today_start,
+    )
+    .await?
+    .map(utc_to_local_date),
   });
   let earliest_archived_local_date = match last_summarized_date {
     Some(_) => None,
@@ -667,9 +717,17 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
   let summary = summarize_day(date, &minutes);
   let hours =
     crate::persistence::cooling_hourly_rollup::summarize_hours(&minutes, &chrono::Local);
+  // The fan archive is a separate table from `DATA_ARCHIVE` (fan count is
+  // configuration-dependent, so fans are rows rather than columns), so it
+  // needs its own read - but it is folded into the same day's transaction
+  // below rather than by a second worker.
+  let fan_minutes =
+    database::fan_archive::select_fan_minutes_for_range(&start, &end).await?;
+  let fans =
+    crate::persistence::cooling_fan_rollup::summarize_fan_day(date, &fan_minutes);
 
   let pool = database::db::get_pool().await?;
-  persist_day_rollup_from_pool(&pool, summary.as_ref(), &hours).await
+  persist_day_rollup_from_pool(&pool, summary.as_ref(), &hours, &fans).await
 }
 
 /// Write one day's two rollup projections in a single transaction.
@@ -684,6 +742,7 @@ pub(crate) async fn persist_day_rollup_from_pool(
   pool: &sqlx::SqlitePool,
   summary: Option<&DailyCoolingSummary>,
   hours: &[crate::persistence::cooling_hourly_rollup::HourlyCoolingSummary],
+  fans: &[crate::persistence::cooling_fan_rollup::FanDailySummary],
 ) -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -694,6 +753,9 @@ pub(crate) async fn persist_day_rollup_from_pool(
   }
   for hour in hours {
     database::cooling_hourly_summary::upsert_with(&mut *tx, hour).await?;
+  }
+  for fan in fans {
+    database::cooling_fan_daily_summary::upsert_with(&mut *tx, fan).await?;
   }
 
   tx.commit().await
@@ -758,6 +820,22 @@ pub async fn cleanup_old_data() {
   {
     log_error!(
       "Failed to delete old cooling hourly summary data",
+      "persistence::cooling_rollup::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
+  // The fan rollup shares the same retention constant - it is another
+  // projection of the same days - but not the baseline exemption: the
+  // pinned baseline is an idle CPU *temperature* reference, so preserving
+  // fan rows inside its window would keep data nothing reads.
+  if let Err(e) = database::cooling_fan_daily_summary::delete_old_data(
+    COOLING_DAILY_SUMMARY_RETENTION_DAYS,
+  )
+  .await
+  {
+    log_error!(
+      "Failed to delete old cooling fan daily summary data",
       "persistence::cooling_rollup::cleanup_old_data",
       Some(e.to_string())
     );
@@ -1108,6 +1186,8 @@ mod tests {
       last_hourly_date: Some(day),
       last_powered_daily_date: Some(day),
       last_powered_archive_date: Some(day),
+      last_fanned_daily_date: Some(day),
+      last_fanned_archive_date: Some(day),
     }
   }
 
@@ -1290,6 +1370,88 @@ mod tests {
     );
   }
 
+  // ── rollup_catch_up_cursor: fan backfill (#2022) ──
+
+  #[test]
+  fn an_empty_fan_table_rewinds_while_the_fan_archive_still_holds_readings() {
+    // The migration that adds `cooling_fan_daily_summary` lands on an
+    // install already summarized through yesterday. Following the daily
+    // cursor would leave the fan lane blank for the whole window even
+    // though `FAN_ARCHIVE` still holds the readings.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_fanned_daily_date: None,
+        last_fanned_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      None
+    );
+  }
+
+  #[test]
+  fn a_machine_without_any_fan_source_does_not_rewind_every_cycle() {
+    // Neither side has fan data, which is not evidence of a missed day.
+    // The same trap the power and hourly cursors were built to dodge.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_fanned_daily_date: None,
+        last_fanned_archive_date: None,
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_partially_backfilled_fan_table_resumes_from_the_last_summarized_fan_day() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_fanned_daily_date: Some(date(2026, 8, 15)),
+        last_fanned_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[test]
+  fn a_fan_sensor_that_stopped_days_ago_is_not_treated_as_behind() {
+    // Both sides agree the readings stopped on 8-15, so there is nothing
+    // to regenerate and the cursor must stay put.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_fanned_daily_date: Some(date(2026, 8, 15)),
+        last_fanned_archive_date: Some(date(2026, 8, 15)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn the_fan_backfill_joins_the_others_at_whichever_is_further_behind() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 18)),
+        last_powered_daily_date: Some(date(2026, 8, 16)),
+        last_fanned_daily_date: Some(date(2026, 8, 11)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 11))
+    );
+  }
+
+  #[test]
+  fn a_caught_up_fan_projection_does_not_stall_the_other_backfills() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 12)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 12))
+    );
+  }
+
   // ── persist_day_rollup_from_pool ──
 
   mod persist_day_rollup {
@@ -1347,6 +1509,34 @@ mod tests {
       summarize_day(date(2026, 8, 20), &[full_sample(5.0, 40.0)]).unwrap()
     }
 
+    async fn create_fan_table(pool: &SqlitePool) {
+      sqlx::query(
+        "CREATE TABLE cooling_fan_daily_summary (
+          date TEXT NOT NULL,
+          source TEXT NOT NULL,
+          rpm_avg REAL NOT NULL,
+          rpm_max INTEGER NOT NULL,
+          rpm_min INTEGER NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          PRIMARY KEY (date, source)
+        )",
+      )
+      .execute(pool)
+      .await
+      .unwrap();
+    }
+
+    fn fan() -> crate::persistence::cooling_fan_rollup::FanDailySummary {
+      crate::persistence::cooling_fan_rollup::FanDailySummary {
+        date: date(2026, 8, 20),
+        source: "Fan 1".to_string(),
+        rpm_avg: 950.0,
+        rpm_max: 1100,
+        rpm_min: 800,
+        sample_minutes: 60,
+      }
+    }
+
     fn hour() -> HourlyCoolingSummary {
       HourlyCoolingSummary {
         hour_start: date(2026, 8, 20).and_hms_opt(12, 0, 0).unwrap(),
@@ -1364,12 +1554,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_successful_day_commits_both_projections() {
+    async fn a_successful_day_commits_every_projection() {
       let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
       create_daily_table(&pool).await;
       create_hourly_table(&pool).await;
+      create_fan_table(&pool).await;
 
-      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()])
+      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()])
         .await
         .unwrap();
 
@@ -1381,19 +1572,50 @@ mod tests {
           .unwrap(),
         1
       );
+      assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM cooling_fan_daily_summary")
+          .fetch_one(&pool)
+          .await
+          .unwrap(),
+        1
+      );
+    }
+
+    #[tokio::test]
+    async fn a_day_without_fan_readings_still_commits_the_other_projections() {
+      // Fans are a separate hardware capability: a machine with no fan
+      // source must keep its temperature and load rollups.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      create_hourly_table(&pool).await;
+      create_fan_table(&pool).await;
+
+      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[])
+        .await
+        .unwrap();
+
+      assert_eq!(daily_row_count(&pool).await, 1);
+      assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM cooling_fan_daily_summary")
+          .fetch_one(&pool)
+          .await
+          .unwrap(),
+        0
+      );
     }
 
     #[tokio::test]
     async fn a_failed_hourly_write_rolls_the_daily_row_back() {
-      // The two projections must land together: a committed daily row
-      // with its hourly rows missing is a half-written day the catch-up
+      // The projections must land together: a committed daily row with
+      // its hourly rows missing is a half-written day the catch-up
       // cursor cannot reliably distinguish from a day that had no pairs.
       let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
       create_daily_table(&pool).await;
       // `cooling_hourly_summary` deliberately absent, so the hourly
       // upsert fails after the daily one has already been issued.
 
-      let result = persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()]).await;
+      let result =
+        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()]).await;
 
       assert!(result.is_err(), "the day must fail as a whole");
       assert_eq!(
@@ -1401,6 +1623,23 @@ mod tests {
         0,
         "the daily row must not survive a failed hourly write"
       );
+    }
+
+    #[tokio::test]
+    async fn a_failed_fan_write_rolls_the_whole_day_back() {
+      // Same contract for the fan projection: a day the fan cursor would
+      // report as summarized while its rows are missing is exactly the
+      // half-written state the transaction exists to prevent.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      create_hourly_table(&pool).await;
+      // `cooling_fan_daily_summary` deliberately absent.
+
+      let result =
+        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()]).await;
+
+      assert!(result.is_err(), "the day must fail as a whole");
+      assert_eq!(daily_row_count(&pool).await, 0);
     }
   }
 

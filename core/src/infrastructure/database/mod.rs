@@ -10,8 +10,10 @@
 pub mod archive_queries;
 pub mod cooling_baseline;
 pub mod cooling_daily_summary;
+pub mod cooling_fan_daily_summary;
 pub mod cooling_hourly_summary;
 pub mod db;
+pub mod fan_archive;
 pub mod gpu_archive;
 pub mod hardware_archive;
 pub mod migrate;

@@ -189,6 +189,44 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         ALTER TABLE cooling_daily_summary ADD COLUMN power_sample_minutes INTEGER NOT NULL DEFAULT 0;
       "#,
     },
+    SchemaMigration {
+      version: 15,
+      description: "create_fan_archive",
+      // The one-minute fan-speed archive behind the Cooling Insight fan
+      // lane (#2022). Row-per-fan rather than fixed columns because how
+      // many fans a machine exposes is configuration-dependent, and both
+      // value columns are NOT NULL because a row is only written for a
+      // reading that was actually taken: an unreadable fan is absent,
+      // never 0 RPM (which is a real Inactive Fan Reading).
+      sql: r#"
+        CREATE TABLE FAN_ARCHIVE (
+          id INTEGER PRIMARY KEY,
+          source TEXT NOT NULL,
+          rpm INTEGER NOT NULL,
+          timestamp DATETIME NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_fan_archive_timestamp ON FAN_ARCHIVE(timestamp);
+      "#,
+    },
+    SchemaMigration {
+      version: 16,
+      description: "create_cooling_fan_daily_summary",
+      // The long-lived per-fan daily rollup the 90d/1y fan lane reads
+      // (#2022). Keyed by (date, source) for the same row-per-fan reason
+      // as `FAN_ARCHIVE`; a fan with no archived reading that day simply
+      // has no row.
+      sql: r#"
+        CREATE TABLE cooling_fan_daily_summary (
+          date TEXT NOT NULL,
+          source TEXT NOT NULL,
+          rpm_avg REAL NOT NULL,
+          rpm_max INTEGER NOT NULL,
+          rpm_min INTEGER NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          PRIMARY KEY (date, source)
+        );
+      "#,
+    },
   ]
 }
 
@@ -365,14 +403,48 @@ mod tests {
   }
 
   #[test]
+  fn migration_v15_creates_the_fan_archive_table() {
+    let migrations = get_migrations();
+    let v15 = migrations
+      .iter()
+      .find(|m| m.version == 15)
+      .expect("Version 15 up migration must exist");
+    assert!(v15.sql.contains("CREATE TABLE FAN_ARCHIVE"));
+    // Row-per-fan: the identifier is a column, not one column per fan.
+    assert!(v15.sql.contains("source TEXT NOT NULL"));
+    // NOT NULL because a row only exists for a reading that was taken -
+    // an Inactive Fan Reading is a real 0, and an absent one has no row.
+    assert!(v15.sql.contains("rpm INTEGER NOT NULL"));
+    assert!(v15.sql.contains("timestamp DATETIME NOT NULL"));
+    assert!(v15.sql.contains("idx_fan_archive_timestamp"));
+  }
+
+  #[test]
+  fn migration_v16_creates_the_cooling_fan_daily_summary_table() {
+    let migrations = get_migrations();
+    let v16 = migrations
+      .iter()
+      .find(|m| m.version == 16)
+      .expect("Version 16 up migration must exist");
+    assert!(v16.sql.contains("CREATE TABLE cooling_fan_daily_summary"));
+    // The composite key is what makes a day carry one row per fan rather
+    // than one row with a fixed fan column set.
+    assert!(v16.sql.contains("PRIMARY KEY (date, source)"));
+    assert!(v16.sql.contains("rpm_avg REAL NOT NULL"));
+    assert!(v16.sql.contains("rpm_max INTEGER NOT NULL"));
+    assert!(v16.sql.contains("rpm_min INTEGER NOT NULL"));
+    assert!(v16.sql.contains("sample_minutes INTEGER NOT NULL"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 14);
+    assert_eq!(get_max_migration_version(), 16);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 14);
+    assert_eq!(migrations.len(), 16);
   }
 
   #[test]
