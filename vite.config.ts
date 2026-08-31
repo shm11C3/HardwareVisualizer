@@ -108,8 +108,17 @@ export default defineConfig(async ({ mode }) => ({
     port: 1520,
     strictPort: true,
     watch: {
-      // 3. tell vite to ignore Rust sources and build artifacts
-      ignored: ["**/src-tauri/**", "**/target/**"],
+      // 3. tell vite to ignore Rust sources and build artifacts, plus
+      // non-source generated output (agent worktrees/config, test coverage,
+      // and Playwright reports) whose churn would otherwise trigger
+      // spurious full-page reloads while other tooling runs concurrently.
+      ignored: [
+        "**/src-tauri/**",
+        "**/target/**",
+        "**/.claude/**",
+        "**/coverage/**",
+        "**/test-results/**",
+      ],
     },
   },
   resolve: {
