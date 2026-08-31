@@ -16,21 +16,30 @@ use crate::persistence::cooling_fan_rollup::FanArchiveMinuteSample;
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 
-pub async fn insert(rows: Vec<FanArchiveRow>) -> Result<(), sqlx::Error> {
+/// Write one archive interval's fan rows, all stamped `tick`.
+///
+/// `tick` is the write cycle's own instant, taken once by the archive
+/// worker rather than per table: two measurements folded from the same
+/// snapshots must not land in adjacent buckets, or the fan lane would
+/// break alignment with the lanes it is read against.
+pub async fn insert(
+  rows: Vec<FanArchiveRow>,
+  tick: DateTime<Utc>,
+) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
-  insert_from_pool(&pool, rows).await
+  insert_from_pool(&pool, rows, tick).await
 }
 
 pub(crate) async fn insert_from_pool(
   pool: &SqlitePool,
   rows: Vec<FanArchiveRow>,
+  timestamp: DateTime<Utc>,
 ) -> Result<(), sqlx::Error> {
   // One transaction for the interval's fans: a partially written minute
   // would show some fans dropping out of the lane for a single bucket
   // while the others kept going, which reads as a sensor glitch that
   // never happened.
   let mut tx = pool.begin().await?;
-  let timestamp = Utc::now();
 
   for row in rows {
     sqlx::query("INSERT INTO FAN_ARCHIVE (source, rpm, timestamp) VALUES ($1, $2, $3)")
@@ -138,7 +147,7 @@ pub(crate) async fn max_fan_archive_timestamp_before_from_pool(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
   use super::*;
 
   pub(crate) async fn setup_fan_archive(pool: &SqlitePool) {
@@ -172,9 +181,10 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn insert_writes_one_row_per_fan_sharing_a_timestamp() {
+  async fn insert_writes_one_row_per_fan_stamped_with_the_write_cycles_tick() {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     setup_fan_archive(&pool).await;
+    let tick = utc("2026-08-15T12:00:00.000Z");
 
     insert_from_pool(
       &pool,
@@ -188,11 +198,12 @@ mod tests {
           rpm: 0,
         },
       ],
+      tick,
     )
     .await
     .unwrap();
 
-    let rows: Vec<(String, i64, String)> =
+    let rows: Vec<(String, i64, DateTime<Utc>)> =
       sqlx::query_as("SELECT source, rpm, timestamp FROM FAN_ARCHIVE ORDER BY source")
         .fetch_all(&pool)
         .await
@@ -206,10 +217,11 @@ mod tests {
       rows[1].1, 0,
       "an Inactive Fan Reading is stored as the real 0 RPM observation it is"
     );
-    assert_eq!(
-      rows[0].2, rows[1].2,
-      "every fan in one interval shares the interval's timestamp"
-    );
+    // The caller's tick, not a fresh `Utc::now()` per table: a fan reading
+    // and the hardware row folded from the same snapshots must not land in
+    // adjacent buckets.
+    assert_eq!(rows[0].2, tick);
+    assert_eq!(rows[1].2, tick);
   }
 
   #[tokio::test]

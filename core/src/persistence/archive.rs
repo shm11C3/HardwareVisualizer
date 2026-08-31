@@ -392,6 +392,13 @@ impl ArchiveTracker {
 
     self.dirty = false;
 
+    // One instant for the whole write cycle. The fan rows are a separate
+    // table from the hardware row, so without a shared tick each would
+    // stamp its own `Utc::now()` - and two measurements folded from the
+    // same snapshots could land in adjacent buckets, breaking the very
+    // alignment the synchronized lanes depend on.
+    let tick = chrono::Utc::now();
+
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
     let cpu_temperature = StatsCalculator::compute_stats(
       self.cpu_temperature_history.iter().copied().flatten(),
@@ -438,7 +445,7 @@ impl ArchiveTracker {
     // temperature it belongs with share one minute boundary.
     let fans = self.collect_fan_data();
     if !fans.is_empty()
-      && let Err(e) = database::fan_archive::insert(fans).await
+      && let Err(e) = database::fan_archive::insert(fans, tick).await
     {
       log_error!(
         "Failed to insert fan archive data",
