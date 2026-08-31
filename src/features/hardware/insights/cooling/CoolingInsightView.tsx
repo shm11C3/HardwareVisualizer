@@ -16,6 +16,10 @@ import { useCoolingDailyTrend } from "./hooks/useCoolingDailyTrend";
 import { useCoolingFanTrend } from "./hooks/useCoolingFanTrend";
 import { useCoolingInsightPeriod } from "./hooks/useCoolingInsightPeriod";
 import type { CoolingInsightPeriod } from "./types";
+import {
+  namedAmbientSources,
+  resolveRoutedAmbientCapability,
+} from "./utils/ambientTimeline";
 import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
 import {
   claimsFanUnsupported,
@@ -119,6 +123,19 @@ const CoolingInsightBody = ({
       },
     ),
   );
+  // The same three-state contract once more, for the data-state panel's
+  // ambient row: only a routed window that actually carries ambient
+  // licenses naming the sensors behind it.
+  const ambientSources = namedAmbientSources(
+    resolveRoutedAmbientCapability(route, {
+      ambientSeries: archive.ambientSeries,
+      cpuSeries: archive.series,
+      hasLoaded: archive.hasLoaded,
+      hasError: archive.hasError,
+      ambientHasError: archive.ambientHasError,
+    }),
+    archive.ambientSeries,
+  );
 
   return (
     <div className="space-y-4 pb-6">
@@ -153,6 +170,7 @@ const CoolingInsightBody = ({
         hasError={bandComparisonHasError}
         powerUnsupported={powerUnsupported}
         fanUnsupported={fanUnsupported}
+        ambientSources={ambientSources}
       />
       <LoadTemperatureExplorerPanel />
     </div>

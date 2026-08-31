@@ -366,7 +366,7 @@
           "disclaimer": "室温・電源プラン・BIOS 設定・ソフトウェア構成の変化でも同じ傾向は生じます。この表示だけで部品の劣化を断定することはできません。",
           "ambientAdjusted": {
             "establishing": "周囲温度で補正したベースラインを確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
-            "reading": "周囲温度で補正すると、アイドル時温度は専用のベースラインに対して {{delta}} です",
+            "reading": "周囲温度で補正したアイドル時温度は、専用のベースラインに対して {{delta}} です",
             "window": "周囲温度で補正したベースライン {{startDate}}–{{endDate}}"
           },
           "checklist": {
@@ -392,17 +392,21 @@
           "loadLaneComposition": "負荷帯の構成 (1 日あたりの割合)",
           "powerLane": "CPU パッケージ電力 (W)",
           "fanLane": "ファン回転数 (rpm)",
+          "ambientLane": "周囲温度 ({{unit}})",
           "legend": {
             "average": "平均",
             "range": "最小 - 最大",
             "idle": "アイドル",
-            "baseline": "ベースライン"
+            "baseline": "ベースライン",
+            "ambient": "周囲温度"
           },
           "tooltip": {
             "average": "平均",
             "range": "最小 - 最大",
             "idle": "アイドル",
             "baselineDelta": "ベースライン比",
+            "ambient": "周囲温度",
+            "thermalDelta": "周囲温度との差",
             "cpuUsage": "CPU 負荷",
             "power": "パッケージ電力",
             "powerRange": "電力 最小 - 最大",

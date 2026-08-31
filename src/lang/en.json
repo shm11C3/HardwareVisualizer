@@ -366,7 +366,7 @@
           "disclaimer": "Room temperature, power plan, BIOS settings, or software changes can produce the same pattern. This alone cannot confirm component wear.",
           "ambientAdjusted": {
             "establishing": "Establishing ambient-adjusted baseline ({{qualifyingDays}} / {{requiredDays}} days)",
-            "reading": "Ambient-adjusted, idle temperature sits {{delta}} against its own baseline.",
+            "reading": "Ambient-adjusted idle temperature is {{delta}} against its own baseline.",
             "window": "Ambient-adjusted baseline {{startDate}}–{{endDate}}"
           },
           "checklist": {
@@ -392,17 +392,21 @@
           "loadLaneComposition": "Load bands (% of day)",
           "powerLane": "CPU package power (W)",
           "fanLane": "Fan speed (rpm)",
+          "ambientLane": "Ambient temperature ({{unit}})",
           "legend": {
             "average": "Average",
             "range": "Min-max",
             "idle": "Idle",
-            "baseline": "Baseline"
+            "baseline": "Baseline",
+            "ambient": "Ambient"
           },
           "tooltip": {
             "average": "Average",
             "range": "Min-max",
             "idle": "Idle",
             "baselineDelta": "vs baseline",
+            "ambient": "Ambient",
+            "thermalDelta": "Above ambient",
             "cpuUsage": "CPU load",
             "power": "Package power",
             "powerRange": "Power min-max",

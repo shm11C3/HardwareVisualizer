@@ -17,6 +17,7 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart";
 import type { TemperatureUnit } from "@/rspc/bindings";
+import type { AmbientLaneRow } from "../utils/ambientTimeline";
 import {
   type FanLaneRow,
   type FanSeries,
@@ -93,6 +94,17 @@ const chartConfig = {
   powerAvg: {
     label: "avg",
     color: "hsl(var(--chart-3))",
+  },
+  // Shares the temperature lane's token rather than taking a new one: the
+  // two lanes are the pair the Thermal Delta is drawn from, and one color
+  // across both says so. Each lane is labeled and they are separated by
+  // three others, so there is no question which reading is which - while
+  // `--chart-2`, the nearest unused token, is what the fan lane's first
+  // line takes, and two identical green lines in adjacent lanes would be a
+  // real ambiguity.
+  ambient: {
+    label: "ambient",
+    color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
 
@@ -181,11 +193,18 @@ const TimelineTooltipContent = ({
   loadMode,
   fanSeries,
   fanValuesByRowKey,
+  ambientByRowKey,
 }: TooltipRenderProps & {
   unitSuffix: string;
   baseline: BaselineBand | null;
   loadMode: LoadLaneMode;
   fanSeries: readonly FanSeries[];
+  /**
+   * The ambient lane's readings, looked up by the hovered row's key for
+   * the same reason the fan values are: the lane is driven by its own row
+   * array, and only the owning lane renders this tooltip.
+   */
+  ambientByRowKey: ReadonlyMap<string, AmbientLaneRow>;
   /**
    * The fan lane's readings, looked up by the hovered row's key rather
    * than read off the payload: the fan lane is driven by its own row
@@ -207,6 +226,7 @@ const TimelineTooltipContent = ({
   }
 
   const fanValues = fanValuesByRowKey.get(row.key);
+  const ambient = ambientByRowKey.get(row.key);
   const rpm = (value: number | null | undefined) =>
     value == null ? null : `${Math.round(value)} rpm`;
 
@@ -229,6 +249,7 @@ const TimelineTooltipContent = ({
     row.cpuUsage != null ||
     row.loadIdle != null ||
     row.powerAvg != null ||
+    ambient?.ambient != null ||
     fanSeries.some((fan) => fanValues?.[fan.key] != null);
 
   const entries: { label: string; value: string }[] = [];
@@ -257,6 +278,20 @@ const TimelineTooltipContent = ({
     baselineDelta == null
       ? null
       : `${baselineDelta >= 0 ? "+" : ""}${baselineDelta.toFixed(1)}${unitSuffix}`,
+  );
+
+  // Beside the CPU temperature rows above, since those two readings are
+  // what the Thermal Delta is drawn from. The delta itself is Core's
+  // paired value, never this tooltip's own subtraction of the two rows: a
+  // bucket's ambient and CPU averages cover different sample sets, so
+  // subtracting them would answer for no minute that was ever observed.
+  push(
+    t("pages.insights.cooling.timeline.tooltip.ambient"),
+    temperature(ambient?.ambient ?? null),
+  );
+  push(
+    t("pages.insights.cooling.timeline.tooltip.thermalDelta"),
+    temperature(ambient?.delta ?? null),
   );
 
   if (loadMode === "usage") {
@@ -331,6 +366,7 @@ const TemperatureLaneChart = ({
   loadMode,
   fanSeries,
   fanValuesByRowKey,
+  ambientByRowKey,
 }: {
   rows: ThermalTimelineRow[];
   domain: [number, number];
@@ -339,6 +375,7 @@ const TemperatureLaneChart = ({
   loadMode: LoadLaneMode;
   fanSeries: readonly FanSeries[];
   fanValuesByRowKey: ReadonlyMap<string, Record<string, number | null>>;
+  ambientByRowKey: ReadonlyMap<string, AmbientLaneRow>;
 }) => {
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
@@ -387,6 +424,7 @@ const TemperatureLaneChart = ({
               loadMode={loadMode}
               fanSeries={fanSeries}
               fanValuesByRowKey={fanValuesByRowKey}
+              ambientByRowKey={ambientByRowKey}
             />
           }
         />
@@ -572,6 +610,68 @@ const FanLaneChart = ({
   </ChartContainer>
 );
 
+/**
+ * The last lane: ambient temperature, in the display unit.
+ *
+ * Compact like the power and fan lanes, and placed below them rather than
+ * beside the CPU temperature it explains: the room is context for every
+ * lane above it, and a second full-height temperature lane would compete
+ * with the reading this view is actually about.
+ *
+ * The Thermal Delta is not drawn as a series of its own - it is the
+ * distance between this lane and the temperature lane, which the shared
+ * cursor already shows, and the tooltip reports Core's paired value for
+ * the hovered period.
+ *
+ * Only mounted when the period actually recorded ambient (see
+ * `computeAmbientDomain`): an empty axis on a machine with no
+ * environmental sensor would read as a measured room temperature.
+ */
+const AmbientLaneChart = ({
+  rows,
+  domain,
+  unitSuffix,
+}: {
+  rows: AmbientLaneRow[];
+  domain: [number, number];
+  unitSuffix: string;
+}) => (
+  <ChartContainer
+    className="aspect-auto h-24 w-full"
+    config={chartConfig}
+    data-testid="cooling-ambient-lane"
+  >
+    <ComposedChart data={rows} syncId={TIMELINE_SYNC_ID} margin={LANE_MARGIN}>
+      <XAxis
+        dataKey="label"
+        tickLine={false}
+        axisLine={false}
+        minTickGap={32}
+        height={18}
+      />
+      <YAxis
+        domain={domain}
+        width={AXIS_WIDTH}
+        tickLine={false}
+        axisLine={false}
+        tickCount={3}
+        allowDecimals={false}
+        unit={unitSuffix}
+      />
+      {/* Cursor only - the shared tooltip is rendered by a lane above. */}
+      <ChartTooltip filterNull={false} content={() => null} />
+      <Line
+        dataKey="ambient"
+        type="monotone"
+        stroke={seriesColor("ambient")}
+        strokeWidth={1.5}
+        dot={false}
+        isAnimationActive={false}
+      />
+    </ComposedChart>
+  </ChartContainer>
+);
+
 export const TimelineLanes = ({
   rows,
   domain,
@@ -579,6 +679,8 @@ export const TimelineLanes = ({
   fanRows,
   fanSeries,
   fanDomain,
+  ambientRows,
+  ambientDomain,
   baseline,
   loadMode,
   temperatureUnit,
@@ -612,6 +714,18 @@ export const TimelineLanes = ({
    * pending-sensors note, not in a lane pinned at a fabricated 0 RPM.
    */
   fanDomain: [number, number] | null;
+  /**
+   * The ambient lane's own rows, projected onto the same keys and labels
+   * as `rows` so the synchronized cursor lands on the same period in both.
+   */
+  ambientRows: AmbientLaneRow[];
+  /**
+   * `null` when the routed period carries no ambient temperature - either
+   * the machine has no environmental sensor, or the route reads a source
+   * that has none (the long-range rollup). Like power and fan the lane is
+   * then not rendered at all rather than pinned at a fabricated reading.
+   */
+  ambientDomain: [number, number] | null;
   baseline: BaselineBand | null;
   loadMode: LoadLaneMode;
   temperatureUnit: TemperatureUnit;
@@ -621,12 +735,23 @@ export const TimelineLanes = ({
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
   const showsPowerLane = powerDomain != null;
   const showsFanLane = fanDomain != null;
+  const showsAmbientLane = ambientDomain != null;
   // The shared time axis is labeled on whichever lane is last, so it reads
   // as the stack's axis rather than as a divider between two lanes.
-  const lastLaneIsFan = showsFanLane;
+  const lastLane = showsAmbientLane
+    ? "ambient"
+    : showsFanLane
+      ? "fan"
+      : showsPowerLane
+        ? "power"
+        : "load";
   const fanValuesByRowKey = useMemo(
     () => new Map(fanRows.map((row) => [row.key, row.values])),
     [fanRows],
+  );
+  const ambientByRowKey = useMemo(
+    () => new Map(ambientRows.map((row) => [row.key, row])),
+    [ambientRows],
   );
   // The temperature lane carries the shared tooltip whenever it renders;
   // the load lane is always mounted, so it is the fallback owner.
@@ -681,6 +806,7 @@ export const TimelineLanes = ({
             loadMode={loadMode}
             fanSeries={fanSeries}
             fanValuesByRowKey={fanValuesByRowKey}
+            ambientByRowKey={ambientByRowKey}
           />
         </>
       )}
@@ -714,7 +840,7 @@ export const TimelineLanes = ({
           syncId={TIMELINE_SYNC_ID}
           margin={LANE_MARGIN}
         >
-          {showsPowerLane || showsFanLane ? (
+          {lastLane !== "load" ? (
             <XAxis dataKey="label" hide />
           ) : (
             <XAxis
@@ -748,6 +874,7 @@ export const TimelineLanes = ({
                   loadMode={loadMode}
                   fanSeries={fanSeries}
                   fanValuesByRowKey={fanValuesByRowKey}
+                  ambientByRowKey={ambientByRowKey}
                 />
               ) : (
                 () => null
@@ -798,7 +925,7 @@ export const TimelineLanes = ({
           <PowerLaneChart
             rows={rows}
             domain={powerDomain}
-            showsSharedAxis={!lastLaneIsFan}
+            showsSharedAxis={lastLane === "power"}
           />
         </>
       )}
@@ -821,7 +948,28 @@ export const TimelineLanes = ({
             rows={fanRows}
             domain={fanDomain}
             series={fanSeries}
-            showsSharedAxis
+            showsSharedAxis={lastLane === "fan"}
+          />
+        </>
+      )}
+
+      {showsAmbientLane && (
+        <>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-medium text-muted-foreground text-xs">
+              {t("pages.insights.cooling.timeline.ambientLane", {
+                unit: unitSuffix,
+              })}
+            </span>
+            <LegendSwatch
+              label={t("pages.insights.cooling.timeline.legend.ambient")}
+              color={seriesColor("ambient")}
+            />
+          </div>
+          <AmbientLaneChart
+            rows={ambientRows}
+            domain={ambientDomain}
+            unitSuffix={unitSuffix}
           />
         </>
       )}

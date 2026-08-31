@@ -8,6 +8,10 @@ import type {
   CoolingFanTrendSeries,
 } from "@/rspc/bindings";
 import type { CoolingArchiveTimeline } from "../hooks/useCoolingArchiveTimeline";
+import {
+  buildAmbientLaneRows,
+  computeAmbientDomain,
+} from "../utils/ambientTimeline";
 import type { CoolingPeriodRoute } from "../utils/coolingPeriodRoute";
 import {
   buildFanLaneRows,
@@ -97,6 +101,7 @@ export const ThermalTimelineLane = ({
   const {
     series,
     fanSeries: archiveFanSeries,
+    ambientSeries,
     stepMs,
     hasLoaded: archiveLoaded,
     hasError: archiveHasError,
@@ -187,6 +192,23 @@ export const ThermalTimelineLane = ({
   // The fan lane's capability gate, same contract as `powerDomain`.
   const fanDomain = useMemo(() => computeFanDomain(fanRows), [fanRows]);
 
+  // Ambient reaches the timeline only through the archive routes: the
+  // daily rollup stores the per-band Thermal Delta but no ambient
+  // temperature, so 90d/1y has no series to draw and claims nothing.
+  const ambientRows = useMemo(
+    () =>
+      buildAmbientLaneRows(
+        rows,
+        route.kind === "archive" ? ambientSeries : null,
+        temperatureUnit,
+      ),
+    [rows, route.kind, ambientSeries, temperatureUnit],
+  );
+  const ambientDomain = useMemo(
+    () => computeAmbientDomain(ambientRows),
+    [ambientRows],
+  );
+
   const loadMode: LoadLaneMode =
     route.kind === "archive" ? "usage" : "composition";
 
@@ -233,6 +255,8 @@ export const ThermalTimelineLane = ({
           fanRows={fanRows}
           fanSeries={fanSeries}
           fanDomain={fanDomain}
+          ambientRows={ambientRows}
+          ambientDomain={ambientDomain}
           baseline={baselineBand}
           loadMode={loadMode}
           temperatureUnit={temperatureUnit}
