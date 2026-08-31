@@ -240,6 +240,20 @@ timestamp so they join the Hardware Archive row for the same minute, and they
 age out on the same `hardwareArchive.retentionDays` cycle as the rows they
 explain.
 
+`getAmbientArchiveSeries`
+(`archive_queries::select_ambient_archive_series`) reads that archive back for
+Cooling Insight's short-window timeline, bucketed on the same grid as the CPU,
+power and fan series. Each bucket carries the ambient average *and* the paired
+Thermal Delta, because the pairing rule below is normative and a caller handed
+only the two averages could not obey it: two CTEs collapse each side to one
+value per archived minute before the join, and the outer query averages the
+per-minute differences. The response also names the Sensor Source Labels that
+contributed to the window. There is no long-range equivalent -
+`cooling_daily_summary` stores the per-band Thermal Delta and the day's ambient
+coverage but no ambient temperature - so the 90-day and 1-year routes report
+the ambient capability as unknown rather than drawing a lane or claiming that
+no sensor exists.
+
 The provider contract is deliberately availability-based rather than
 connection-based: the first concrete provider reads passive BLE advertisements
 and never establishes a connection, so a link concept has no shared meaning.
