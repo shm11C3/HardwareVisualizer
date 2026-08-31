@@ -35,6 +35,21 @@ use crate::log_warn;
 /// across hours of history.
 pub const AMBIENT_READING_MAX_AGE_SECONDS: i64 = 5 * 60;
 
+/// How far ahead of the archive tick a reading may be stamped and still
+/// be believed.
+///
+/// Sixty seconds. Both stamps come from the same host - the transport
+/// callback records the observation, the archive tick reads it moments
+/// later - so the only legitimate future skew is clock jitter or a small
+/// adjustment in between, which is milliseconds in normal operation. A
+/// full archive interval of slack absorbs that with room to spare while
+/// still bounding the failure the window would otherwise have: without an
+/// upper bound, one reading stamped far into the future by a clock
+/// rewind, a bad NTP step, or a bogus device timestamp would count as
+/// fresh for as long as it stayed ahead of `now` - potentially days of
+/// identical rows. Past that bound the reading is refused instead.
+pub const AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS: i64 = 60;
+
 /// One ambient environment sample.
 ///
 /// `temperature_celsius` is the raw hardware fact in degrees Celsius;
@@ -57,16 +72,24 @@ pub struct EnvironmentalReading {
 /// is defined by observed readings alone: transport-specific causes
 /// (radio unavailable, scan not running, device out of range) stay inside
 /// the concrete provider and surface only as readings that stop arriving.
+///
+/// `Available` means exactly one thing: this source is eligible to have
+/// an ambient row written for the current archive minute. The panel and
+/// the archive read the same eligibility rule, so the panel can never
+/// call a source available while nothing is even being attempted for it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AmbientSensorAvailability {
-  /// A reading arrived inside the freshness window, so this source can
-  /// represent the current archive minute.
+  /// A usable reading arrived inside the freshness window, so this source
+  /// is eligible to represent the current archive minute.
   Available,
-  /// Readings arrived before, but the newest one is past the freshness
-  /// window. The archive stops writing rows for this source; the panel
-  /// still shows how long ago it last succeeded.
+  /// Usable readings arrived before, but the newest one is outside the
+  /// freshness window. The archive writes no row for this source; the
+  /// panel still shows how long ago it last succeeded.
   Stale,
-  /// No reading has ever arrived from this source.
+  /// Nothing usable is arriving: the source has never reported, or what
+  /// it reports cannot be archived (no Sensor Source Label, a non-finite
+  /// temperature, or a label another provider already claimed this
+  /// minute).
   Unavailable,
 }
 
@@ -74,12 +97,18 @@ pub enum AmbientSensorAvailability {
 /// arriving, and when did it last succeed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnvironmentalProviderStatus {
-  /// Sensor Source Label identifying the provider.
+  /// Sensor Source Label the panel shows. Once a usable reading exists
+  /// this is that reading's normalized label - the same key the ambient
+  /// row is written under - so a status line and its archive rows can
+  /// never disagree about which source they describe. Before any usable
+  /// reading it falls back to the provider's own declared label.
   pub source: String,
   pub availability: AmbientSensorAvailability,
-  /// Timestamp of the newest reading the provider holds, or `None` when
-  /// it has never produced one. Not filtered by freshness - the panel
-  /// wants to show how stale the last success is, not hide it.
+  /// Timestamp of the newest *usable* reading, or `None` when none has
+  /// arrived. An unusable reading does not advance it: reporting a fresh
+  /// success the archive rejected would misdescribe the source. Not
+  /// filtered by freshness - the panel wants to show how stale the last
+  /// success is, not hide it.
   pub last_reading_at: Option<DateTime<Utc>>,
 }
 
@@ -133,94 +162,162 @@ impl EnvironmentalSensorRegistry {
   /// a usable ambient sample must stay absent instead of being zeroed or
   /// interpolated (DP-02).
   pub fn fresh_readings(&self, now: DateTime<Utc>) -> Vec<EnvironmentalReading> {
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut readings = Vec::new();
-
-    for provider in &self.providers {
-      let Some(reading) = provider
-        .latest_reading()
-        .and_then(|reading| normalize_reading(reading, now))
-      else {
-        continue;
-      };
-
-      // Row-per-source only stays joinable if one source contributes one
-      // row per minute. Two providers claiming the same label would
-      // otherwise double-count in every downstream rollup.
-      if !seen.insert(reading.source.clone()) {
-        log_warn!(
-          &format!(
-            "duplicate ambient Sensor Source Label `{}`; keeping the first provider's reading",
-            reading.source
-          ),
-          "providers::environmental::fresh_readings",
-          None::<&str>
-        );
-        continue;
-      }
-
-      readings.push(reading);
-    }
-
-    readings
+    self
+      .observe(now)
+      .into_iter()
+      .filter_map(|observation| observation.eligible)
+      .collect()
   }
 
   /// Availability and last-success timestamp for every registered
   /// provider as of `now`, in registration order.
   ///
-  /// Availability follows exactly the same freshness rule the archive
-  /// uses, so the panel can never claim a source is fine while the
-  /// archive is writing no rows for it.
+  /// Derived from the same evaluation [`Self::fresh_readings`] writes
+  /// from, so `Available` and "a row is attempted" cannot drift apart.
   pub fn provider_statuses(
     &self,
     now: DateTime<Utc>,
   ) -> Vec<EnvironmentalProviderStatus> {
     self
+      .observe(now)
+      .into_iter()
+      .map(|observation| observation.status)
+      .collect()
+  }
+
+  /// Evaluate every provider once for the minute ending at `now`.
+  ///
+  /// This is the single place the eligibility rule lives. Both public
+  /// readers project out of it, which is what makes "the panel says
+  /// Available" and "the archive attempts a row" the same condition by
+  /// construction rather than by two rules kept in sync by hand.
+  fn observe(&self, now: DateTime<Utc>) -> Vec<ProviderObservation> {
+    let mut claimed: HashSet<String> = HashSet::new();
+
+    self
       .providers
       .iter()
       .map(|provider| {
-        let last_reading_at = provider.latest_reading().map(|reading| reading.timestamp);
-        EnvironmentalProviderStatus {
-          source: provider.source().to_string(),
-          availability: match last_reading_at {
-            None => AmbientSensorAvailability::Unavailable,
-            Some(observed_at) if is_fresh(observed_at, now) => {
-              AmbientSensorAvailability::Available
-            }
-            Some(_) => AmbientSensorAvailability::Stale,
-          },
-          last_reading_at,
+        // An unusable reading is not a success, so it neither yields a row
+        // nor advances the last-success timestamp the panel shows.
+        let Some(reading) = provider.latest_reading().and_then(normalize_reading) else {
+          return ProviderObservation::unusable(provider.source());
+        };
+
+        if !is_fresh(reading.timestamp, now) {
+          return ProviderObservation::stale(reading);
         }
+
+        // Row-per-source only stays joinable if one source contributes one
+        // row per minute. Two providers claiming the same label would
+        // otherwise double-count in every downstream rollup, so the later
+        // one is reported as contributing nothing rather than silently
+        // looking healthy.
+        if !claimed.insert(reading.source.clone()) {
+          log_warn!(
+            &format!(
+              "duplicate ambient Sensor Source Label `{}`; keeping the first provider's reading",
+              reading.source
+            ),
+            "providers::environmental::observe",
+            None::<&str>
+          );
+          return ProviderObservation::unclaimable(reading);
+        }
+
+        ProviderObservation::available(reading)
       })
       .collect()
+  }
+}
+
+/// One provider's evaluated contribution to a single archive minute.
+struct ProviderObservation {
+  status: EnvironmentalProviderStatus,
+  /// The row to write, present exactly when the status is
+  /// [`AmbientSensorAvailability::Available`].
+  eligible: Option<EnvironmentalReading>,
+}
+
+impl ProviderObservation {
+  /// Nothing usable has ever arrived, so the provider's own declared
+  /// label is all there is to identify it by.
+  fn unusable(source: &str) -> Self {
+    Self {
+      status: EnvironmentalProviderStatus {
+        source: source.trim().to_string(),
+        availability: AmbientSensorAvailability::Unavailable,
+        last_reading_at: None,
+      },
+      eligible: None,
+    }
+  }
+
+  fn stale(reading: EnvironmentalReading) -> Self {
+    Self {
+      status: EnvironmentalProviderStatus {
+        source: reading.source,
+        availability: AmbientSensorAvailability::Stale,
+        last_reading_at: Some(reading.timestamp),
+      },
+      eligible: None,
+    }
+  }
+
+  /// A usable, fresh reading whose label another provider already claimed
+  /// this minute. It did read successfully, so the last-success timestamp
+  /// stands, but no row can be attributed to it.
+  fn unclaimable(reading: EnvironmentalReading) -> Self {
+    Self {
+      status: EnvironmentalProviderStatus {
+        source: reading.source,
+        availability: AmbientSensorAvailability::Unavailable,
+        last_reading_at: Some(reading.timestamp),
+      },
+      eligible: None,
+    }
+  }
+
+  fn available(reading: EnvironmentalReading) -> Self {
+    Self {
+      status: EnvironmentalProviderStatus {
+        // The normalized reading's label is the key the row is written
+        // under, so the status must report that same key.
+        source: reading.source.clone(),
+        availability: AmbientSensorAvailability::Available,
+        last_reading_at: Some(reading.timestamp),
+      },
+      eligible: Some(reading),
+    }
   }
 }
 
 /// Whether a reading observed at `observed_at` still stands for the
 /// minute ending at `now`.
 ///
-/// A reading stamped slightly ahead of `now` (host clock jitter between
-/// the transport callback and the archive tick) is still current, so the
-/// window is one-sided.
+/// Bounded on both sides. A reading stamped slightly ahead of `now` is
+/// ordinary host clock jitter between the transport callback and the
+/// archive tick, so a little skew is accepted; past
+/// [`AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS`] it is refused, because a
+/// reading stamped far into the future would otherwise stay "fresh" for
+/// as long as it led the clock.
 fn is_fresh(observed_at: DateTime<Utc>, now: DateTime<Utc>) -> bool {
-  now.signed_duration_since(observed_at)
-    <= Duration::seconds(AMBIENT_READING_MAX_AGE_SECONDS)
+  let age = now.signed_duration_since(observed_at);
+  age <= Duration::seconds(AMBIENT_READING_MAX_AGE_SECONDS)
+    && age >= -Duration::seconds(AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS)
 }
 
-/// Normalize one reading for archiving, or `None` when it cannot honestly
-/// stand for the minute ending at `now`.
-fn normalize_reading(
-  reading: EnvironmentalReading,
-  now: DateTime<Utc>,
-) -> Option<EnvironmentalReading> {
+/// Normalize one reading's shape, or `None` when it could never be
+/// archived whatever its age.
+///
+/// Deliberately time-independent: freshness is a separate question, so
+/// that a well-formed but old reading can be reported as stale while a
+/// malformed one is reported as no reading at all.
+fn normalize_reading(reading: EnvironmentalReading) -> Option<EnvironmentalReading> {
   let source = reading.source.trim();
   // An ambient row is only meaningful attributed to a source: the table
   // is row-per-source and every consumer selects by label.
   if source.is_empty() || !reading.temperature_celsius.is_finite() {
-    return None;
-  }
-
-  if !is_fresh(reading.timestamp, now) {
     return None;
   }
 
@@ -341,6 +438,35 @@ mod tests {
     assert_eq!(registry.fresh_readings(now()).len(), 1);
   }
 
+  #[test]
+  fn a_reading_at_the_future_skew_limit_is_still_accepted() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    registry.register(MockProvider::reporting(
+      "Room",
+      reading("Room", -AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS),
+    ));
+
+    assert_eq!(registry.fresh_readings(now()).len(), 1);
+  }
+
+  #[test]
+  fn a_reading_stamped_far_in_the_future_is_refused() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    registry.register(MockProvider::reporting(
+      "Room",
+      reading("Room", -(AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS + 1)),
+    ));
+
+    assert!(
+      registry.fresh_readings(now()).is_empty(),
+      "a clock rewind must not leave one reading fresh for as long as it leads the clock"
+    );
+    assert_eq!(
+      registry.provider_statuses(now())[0].availability,
+      AmbientSensorAvailability::Stale
+    );
+  }
+
   // -- normalization --
 
   #[test]
@@ -393,9 +519,28 @@ mod tests {
     let mut registry = EnvironmentalSensorRegistry::new();
     let mut padded = reading("Room", 0);
     padded.source = "  Living Room  ".to_string();
-    registry.register(MockProvider::reporting("Room", padded));
+    registry.register(MockProvider::reporting("Living Room", padded));
 
     assert_eq!(registry.fresh_readings(now())[0].source, "Living Room");
+  }
+
+  // -- one source key for the row and its status --
+
+  /// A provider whose declared label disagrees with the label on the
+  /// reading it hands over must not split into two keys: the archive row
+  /// and the panel line have to describe the same source.
+  #[test]
+  fn the_archive_row_and_the_status_share_the_normalized_reading_label() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    let mut relabeled = reading("Room", 30);
+    relabeled.source = "  Living Room  ".to_string();
+    registry.register(MockProvider::reporting("stale-provider-label", relabeled));
+
+    let row_label = registry.fresh_readings(now())[0].source.clone();
+    let status_label = registry.provider_statuses(now())[0].source.clone();
+
+    assert_eq!(row_label, "Living Room");
+    assert_eq!(status_label, row_label);
   }
 
   // -- multiple sources --
@@ -440,6 +585,29 @@ mod tests {
     let fresh = registry.fresh_readings(now());
     assert_eq!(fresh.len(), 1);
     assert_eq!(fresh[0].temperature_celsius, 24.5);
+  }
+
+  #[test]
+  fn a_provider_whose_label_was_already_claimed_is_not_reported_available() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    registry.register(MockProvider::reporting("Room", reading("Room", 5)));
+    registry.register(MockProvider::reporting("Room", reading("Room", 5)));
+
+    let statuses = registry.provider_statuses(now());
+    assert_eq!(
+      statuses[0].availability,
+      AmbientSensorAvailability::Available
+    );
+    assert_eq!(
+      statuses[1].availability,
+      AmbientSensorAvailability::Unavailable,
+      "no row is written for the second provider, so it must not look healthy"
+    );
+    // It did read successfully, so the panel can still say when.
+    assert_eq!(
+      statuses[1].last_reading_at,
+      Some(now() - Duration::seconds(5))
+    );
   }
 
   // -- provider status --
@@ -512,5 +680,84 @@ mod tests {
       registry.provider_statuses(now())[0].availability,
       AmbientSensorAvailability::Available
     );
+  }
+
+  /// Regression: availability used to be derived from the raw reading's
+  /// timestamp alone, so a reading the archive rejects on shape still
+  /// reported as `Available` - "available but no row" by construction.
+  #[test]
+  fn an_unlabeled_but_fresh_reading_is_never_reported_available() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    let mut anonymous = reading("Room", 5);
+    anonymous.source = "   ".to_string();
+    registry.register(MockProvider::reporting("Room", anonymous));
+
+    assert!(registry.fresh_readings(now()).is_empty());
+    assert_eq!(
+      registry.provider_statuses(now()),
+      vec![EnvironmentalProviderStatus {
+        source: "Room".to_string(),
+        availability: AmbientSensorAvailability::Unavailable,
+        last_reading_at: None,
+      }]
+    );
+  }
+
+  #[test]
+  fn a_fresh_reading_with_a_non_finite_temperature_is_never_reported_available() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    let mut broken = reading("Room", 5);
+    broken.temperature_celsius = f32::NAN;
+    registry.register(MockProvider::reporting("Room", broken));
+
+    assert!(registry.fresh_readings(now()).is_empty());
+    let status = &registry.provider_statuses(now())[0];
+    assert_eq!(status.availability, AmbientSensorAvailability::Unavailable);
+    assert_eq!(
+      status.last_reading_at, None,
+      "a reading the archive rejected is not a success and must not be timestamped as one"
+    );
+  }
+
+  /// The invariant the whole status contract exists to protect, asserted
+  /// directly over a registry holding every rejection shape at once.
+  #[test]
+  fn available_is_reported_exactly_for_the_sources_that_get_a_row() {
+    let mut registry = EnvironmentalSensorRegistry::new();
+    let mut anonymous = reading("Anonymous", 5);
+    anonymous.source = "  ".to_string();
+    let mut broken = reading("Broken", 5);
+    broken.temperature_celsius = f32::NEG_INFINITY;
+
+    registry.register(MockProvider::reporting(
+      "Living Room",
+      reading("Living Room", 5),
+    ));
+    registry.register(MockProvider::silent("Never"));
+    registry.register(MockProvider::reporting("Anonymous", anonymous));
+    registry.register(MockProvider::reporting("Broken", broken));
+    registry.register(MockProvider::reporting(
+      "Quiet",
+      reading("Quiet", AMBIENT_READING_MAX_AGE_SECONDS + 1),
+    ));
+    registry.register(MockProvider::reporting("Desk", reading("Desk", 0)));
+
+    let archived: Vec<String> = registry
+      .fresh_readings(now())
+      .into_iter()
+      .map(|reading| reading.source)
+      .collect();
+    let available: Vec<String> = registry
+      .provider_statuses(now())
+      .into_iter()
+      .filter(|status| status.availability == AmbientSensorAvailability::Available)
+      .map(|status| status.source)
+      .collect();
+
+    assert_eq!(
+      archived,
+      vec!["Living Room".to_string(), "Desk".to_string()]
+    );
+    assert_eq!(available, archived);
   }
 }
