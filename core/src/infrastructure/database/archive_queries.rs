@@ -397,6 +397,166 @@ async fn select_fan_archive_series_from_pool(
   Ok(series)
 }
 
+/// One bucket of the Cooling Insight ambient lane (#2046).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AmbientArchiveBucket {
+  pub timestamp: i64,
+  /// Mean of the bucket's per-minute ambient values, each itself the mean
+  /// across that minute's sources. `None` when no minute in the bucket
+  /// carried an ambient row - never a measured 0 degC.
+  pub ambient_avg: Option<f64>,
+  /// Mean of the per-minute thermal deltas (CPU package temperature minus
+  /// that minute's ambient value), over the minutes carrying *both*
+  /// readings. `None` when the bucket has no paired minute - a present
+  /// `ambient_avg` beside a `None` here is how a stretch of ambient-only
+  /// history reports itself.
+  pub delta_avg: Option<f64>,
+}
+
+/// The ambient lane of one Cooling Insight timeline range (#2046).
+///
+/// A struct rather than a bare `Vec<AmbientArchiveBucket>` for the same
+/// reason [`FanArchiveSeries`] is one: `AMBIENT_ARCHIVE` is row-per-source,
+/// so which labels contributed is configuration-dependent and only known
+/// once the rows come back. The lane names them so the tooltip can say
+/// whose air it is showing.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AmbientArchiveSeries {
+  /// The distinct Sensor Source Labels that contributed to this window,
+  /// sorted. Empty when the window holds no ambient row at all - exactly
+  /// what the lane's capability gate reads.
+  pub sources: Vec<String>,
+  pub buckets: Vec<AmbientArchiveBucket>,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+struct AggregatedAmbientBucket {
+  timestamp: i64,
+  ambient_avg: Option<f64>,
+  delta_avg: Option<f64>,
+  minute_count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+struct AmbientSourceRow {
+  source: String,
+}
+
+/// The archived ambient temperature and its paired thermal delta over
+/// `[start, end]`, on the same bucket grid the CPU lanes use so the
+/// ambient lane lines up with them (#2046).
+///
+/// **Samples are paired before they are aggregated**, which is what makes
+/// this query the only honest source of a bucket ΔT: minutes are joined
+/// first - a minute needs both a CPU package temperature and an ambient
+/// row - and the per-minute differences are averaged second. Subtracting
+/// an independently aggregated bucket ambient average from an
+/// independently aggregated bucket CPU average is *not* the same number
+/// whenever the two archives cover different minutes, which they routinely
+/// do because ambient readings go missing independently of hardware ones.
+/// See `docs/architecture/backend.md`.
+///
+/// A minute's ambient value is the unweighted mean across that minute's
+/// sources, the same rule
+/// `cooling_daily_summary::select_archive_minutes_for_range` applies: Core
+/// has no ranking or calibration confidence that would justify preferring
+/// one label over another.
+pub async fn select_ambient_archive_series(
+  start: &DateTime<Utc>,
+  end: &DateTime<Utc>,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<AmbientArchiveSeries, ArchiveSeriesError> {
+  let pool = db::get_pool().await?;
+  select_ambient_archive_series_from_pool(
+    &pool,
+    start,
+    end,
+    bucket_width_ms,
+    bucket_timestamp,
+  )
+  .await
+}
+
+async fn select_ambient_archive_series_from_pool(
+  pool: &SqlitePool,
+  start: &DateTime<Utc>,
+  end: &DateTime<Utc>,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<AmbientArchiveSeries, ArchiveSeriesError> {
+  let bounds = ArchiveSeriesBounds::new(start, end, bucket_width_ms, bucket_timestamp)?;
+  // Compare via epoch milliseconds rather than raw TEXT, the same way the
+  // fan series and `cooling_daily_summary` do: both archive tables are
+  // written through sqlx's native `DateTime<Utc>` encoding, whose exact
+  // string shape is not guaranteed to sort against a differently shaped
+  // bind value at exact-second boundaries.
+  let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
+  let data_epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
+  // The minute is the pairing unit, so each side collapses to one value
+  // per minute *before* the join. `minute_epoch_ms` keeps a real instant
+  // from inside the minute so the bucket boundary is computed exactly as
+  // every other lane computes it, from an archived row's own timestamp.
+  let ambient_minute_key = format!("(({ambient_epoch_ms}) / 60000)");
+  let data_minute_key = format!("(({data_epoch_ms}) / 60000)");
+  let bucket = bucket_of_epoch_sql(bucket_timestamp, "ambient.minute_epoch_ms", "$3");
+  // `AVG` skips NULLs, so the unpaired minutes drop out of `delta_avg`
+  // while still counting towards `ambient_avg`: an ambient reading with no
+  // CPU temperature beside it is real data that simply has no delta.
+  let sql = format!(
+    "WITH ambient AS (
+       SELECT {ambient_minute_key} AS minute_key,
+              MIN({ambient_epoch_ms}) AS minute_epoch_ms,
+              AVG(CAST(AMBIENT_ARCHIVE.temperature AS REAL)) AS ambient_value
+       FROM AMBIENT_ARCHIVE
+       WHERE {ambient_epoch_ms} BETWEEN $1 AND $2
+       GROUP BY minute_key
+     ),
+     cpu AS (
+       SELECT {data_minute_key} AS minute_key,
+              AVG(CAST(DATA_ARCHIVE.cpu_temperature_avg AS REAL)) AS cpu_value
+       FROM DATA_ARCHIVE
+       WHERE {data_epoch_ms} BETWEEN $1 AND $2
+         AND DATA_ARCHIVE.cpu_temperature_avg IS NOT NULL
+       GROUP BY minute_key
+     )
+     SELECT {bucket} AS timestamp,
+            AVG(ambient.ambient_value) AS ambient_avg,
+            AVG(cpu.cpu_value - ambient.ambient_value) AS delta_avg,
+            COUNT(ambient.ambient_value) AS minute_count
+     FROM ambient
+     LEFT JOIN cpu ON cpu.minute_key = ambient.minute_key
+     GROUP BY 1
+     ORDER BY 1 ASC"
+  );
+  let rows = sqlx::query_as::<_, AggregatedAmbientBucket>(&sql)
+    .bind(start.timestamp_millis())
+    .bind(end.timestamp_millis())
+    .bind(bucket_width_ms)
+    .fetch_all(pool)
+    .await?;
+
+  // A second round trip rather than carrying the label through the
+  // aggregation: the labels belong to the window, not to any one bucket,
+  // and folding them into the grouped query would either multiply the
+  // rows or need a string concatenation to unpick in Rust.
+  let sources = sqlx::query_as::<_, AmbientSourceRow>(&format!(
+    "SELECT DISTINCT source
+     FROM AMBIENT_ARCHIVE
+     WHERE {ambient_epoch_ms} BETWEEN $1 AND $2
+     ORDER BY source ASC"
+  ))
+  .bind(start.timestamp_millis())
+  .bind(end.timestamp_millis())
+  .fetch_all(pool)
+  .await?;
+
+  Ok(AmbientArchiveSeries {
+    sources: sources.into_iter().map(|row| row.source).collect(),
+    buckets: fill_ambient_archive_series(rows, bounds),
+  })
+}
+
 async fn select_gpu_archive_series_from_pool(
   pool: &SqlitePool,
   column: GpuArchiveColumn,
@@ -525,13 +685,30 @@ fn bucket_timestamp_sql(
   bucket_timestamp: ArchiveBucketTimestamp,
   width_parameter: &str,
 ) -> String {
-  let timestamp = sqlite_epoch_milliseconds();
+  bucket_of_epoch_sql(
+    bucket_timestamp,
+    &sqlite_epoch_milliseconds(),
+    width_parameter,
+  )
+}
+
+/// [`bucket_timestamp_sql`] over an arbitrary epoch-millisecond
+/// expression, so a query that has already reduced rows to one instant per
+/// pairing unit (the ambient lane's per-minute join, #2046) buckets that
+/// instant on the exact same grid as the lanes reading a raw `timestamp`
+/// column.
+fn bucket_of_epoch_sql(
+  bucket_timestamp: ArchiveBucketTimestamp,
+  epoch_milliseconds: &str,
+  width_parameter: &str,
+) -> String {
   match bucket_timestamp {
     ArchiveBucketTimestamp::Start => {
-      format!("(({timestamp}) / {width_parameter}) * {width_parameter}")
+      format!("(({epoch_milliseconds}) / {width_parameter}) * {width_parameter}")
     }
     ArchiveBucketTimestamp::End => format!(
-      "((({timestamp}) + {width_parameter} - 1) / {width_parameter}) * {width_parameter}"
+      "((({epoch_milliseconds}) + {width_parameter} - 1) / \
+       {width_parameter}) * {width_parameter}"
     ),
   }
 }
@@ -604,6 +781,55 @@ fn fill_archive_series(
       series.push(ArchiveSeriesPoint {
         timestamp,
         value: row.and_then(|row| row.value),
+      });
+    }
+
+    if timestamp == bounds.last {
+      break;
+    }
+    timestamp = timestamp.saturating_add(bounds.width);
+  }
+
+  series
+}
+
+/// [`fill_archive_series`] for the ambient lane (#2046).
+///
+/// A separate walk rather than a generic one because the bucket carries
+/// two correlated readings instead of a single value, but the gap
+/// convention is deliberately identical: a bucket nobody recorded comes
+/// back absent on both readings, so the lane breaks where the other lanes
+/// break instead of drawing a line through air nobody measured.
+fn fill_ambient_archive_series(
+  rows: Vec<AggregatedAmbientBucket>,
+  bounds: ArchiveSeriesBounds,
+) -> Vec<AmbientArchiveBucket> {
+  let mut rows = rows.into_iter().peekable();
+  let mut series = Vec::with_capacity(bounds.point_count as usize);
+  let mut timestamp = bounds.first;
+
+  while timestamp <= bounds.last {
+    while rows.peek().is_some_and(|row| row.timestamp < timestamp) {
+      rows.next();
+    }
+
+    let row = if rows.peek().is_some_and(|row| row.timestamp == timestamp) {
+      rows.next()
+    } else {
+      None
+    };
+    let should_include = match bounds.bucket_timestamp {
+      ArchiveBucketTimestamp::Start => true,
+      ArchiveBucketTimestamp::End => {
+        timestamp <= bounds.end || row.as_ref().is_some_and(|row| row.minute_count > 0)
+      }
+    };
+
+    if should_include {
+      series.push(AmbientArchiveBucket {
+        timestamp,
+        ambient_avg: row.as_ref().and_then(|row| row.ambient_avg),
+        delta_avg: row.and_then(|row| row.delta_avg),
       });
     }
 
@@ -1346,6 +1572,278 @@ mod tests {
     .unwrap();
 
     assert_eq!(series, Vec::new());
+  }
+
+  // ── ambient archive series (#2046) ──
+
+  async fn setup_ambient_archive(pool: &SqlitePool) {
+    super::super::test_schema::create_tables(
+      pool,
+      &[
+        super::super::test_schema::AMBIENT_ARCHIVE_DDL,
+        super::super::test_schema::DATA_ARCHIVE_DDL,
+      ],
+    )
+    .await;
+  }
+
+  /// Binds the native `DateTime<Utc>` the real writer
+  /// (`ambient_archive::insert`) uses, so the range filter under test has
+  /// to compare against sqlx's own encoding.
+  async fn insert_ambient_row(
+    pool: &SqlitePool,
+    source: &str,
+    temperature: f64,
+    timestamp: &str,
+  ) {
+    sqlx::query(
+      "INSERT INTO AMBIENT_ARCHIVE (source, temperature, timestamp)
+       VALUES ($1, $2, $3)",
+    )
+    .bind(source)
+    .bind(temperature)
+    .bind(utc(timestamp))
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  async fn insert_cpu_temperature_row(
+    pool: &SqlitePool,
+    cpu_temperature_avg: f64,
+    timestamp: &str,
+  ) {
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE (cpu_temperature_avg, timestamp) VALUES ($1, $2)",
+    )
+    .bind(cpu_temperature_avg)
+    .bind(utc(timestamp))
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  fn assert_close(actual: Option<f64>, expected: f64) {
+    let actual = actual.expect("expected a value, got None");
+    assert!(
+      (actual - expected).abs() < 1e-9,
+      "expected {expected}, got {actual}"
+    );
+  }
+
+  #[tokio::test]
+  async fn ambient_archive_series_averages_a_minutes_sources_before_the_bucket() {
+    // `AMBIENT_ARCHIVE` is row-per-source, so a two-sensor minute must
+    // count once at its own mean rather than twice at each reading: a
+    // naive row-level average would answer 30.0 here instead of 32.5.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Window", 30.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 40.0, "2026-06-08T00:01:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 65.0, "2026-06-08T00:00:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 60.0, "2026-06-08T00:01:10.000Z").await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(series.buckets.len(), 1);
+    assert_close(series.buckets[0].ambient_avg, 32.5);
+    // Minute deltas are 65 - 25 = 40 and 60 - 40 = 20.
+    assert_close(series.buckets[0].delta_avg, 30.0);
+  }
+
+  #[tokio::test]
+  async fn an_ambient_minute_without_a_cpu_temperature_carries_ambient_but_no_delta() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 30.0, "2026-06-08T00:01:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 60.0, "2026-06-08T00:00:10.000Z").await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_close(series.buckets[0].ambient_avg, 25.0);
+    assert_close(
+      series.buckets[0].delta_avg,
+      // Only the 00:00 minute is paired: 60 - 20. The 00:01 ambient
+      // reading is real data that simply has no delta, so it moves
+      // `ambient_avg` without touching this.
+      40.0,
+    );
+  }
+
+  #[tokio::test]
+  async fn a_cpu_minute_without_an_ambient_row_contributes_to_neither_reading() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 60.0, "2026-06-08T00:00:10.000Z").await;
+    // A minute the machine archived but the sensor missed. Nothing here
+    // may be interpolated onto it.
+    insert_cpu_temperature_row(&pool, 90.0, "2026-06-08T00:01:10.000Z").await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_close(
+      series.buckets[0].ambient_avg,
+      // The CPU-only minute moved neither reading: 20.0, not (20+90)/2 or
+      // any interpolation onto the minute the sensor missed.
+      20.0,
+    );
+    assert_close(series.buckets[0].delta_avg, 40.0);
+  }
+
+  #[tokio::test]
+  async fn bucket_delta_is_the_mean_of_paired_minutes_not_a_difference_of_averages() {
+    // The normative pairing rule (`docs/architecture/backend.md`): pair
+    // first, aggregate second. This fixture is deliberately asymmetric -
+    // one ambient-only minute and one CPU-only minute - so the two
+    // answers cannot coincide:
+    //
+    //   paired mean          -> (40 + 30) / 2                = 35
+    //   difference of means  -> (60+90+54)/3 - (20+30+24)/3  ≈ 43.33
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 60.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 30.0, "2026-06-08T00:01:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 90.0, "2026-06-08T00:02:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 24.0, "2026-06-08T00:03:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 54.0, "2026-06-08T00:03:10.000Z").await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_close(series.buckets[0].delta_avg, 35.0);
+    assert_close(series.buckets[0].ambient_avg, 74.0 / 3.0);
+    let difference_of_averages = 204.0 / 3.0 - series.buckets[0].ambient_avg.unwrap();
+    assert!(
+      (series.buckets[0].delta_avg.unwrap() - difference_of_averages).abs() > 1.0,
+      "the fixture must actually distinguish the two rules"
+    );
+  }
+
+  #[tokio::test]
+  async fn ambient_archive_series_leaves_unrecorded_buckets_empty() {
+    // A bucket nobody recorded must never read as a measured 0 degC or a
+    // 0 K delta.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+    insert_cpu_temperature_row(&pool, 60.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 22.0, "2026-06-08T00:03:10.000Z").await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:03:59.999Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series
+        .buckets
+        .iter()
+        .map(|bucket| (bucket.ambient_avg, bucket.delta_avg))
+        .collect::<Vec<_>>(),
+      vec![
+        (Some(20.0), Some(40.0)),
+        (None, None),
+        (None, None),
+        (Some(22.0), None),
+      ]
+    );
+  }
+
+  #[tokio::test]
+  async fn an_empty_window_reports_no_sources_and_no_readings() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:01:59.999Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(series.sources, Vec::<String>::new());
+    assert_eq!(
+      series.buckets,
+      vec![
+        AmbientArchiveBucket {
+          timestamp: utc("2026-06-08T00:00:00.000Z").timestamp_millis(),
+          ambient_avg: None,
+          delta_avg: None,
+        },
+        AmbientArchiveBucket {
+          timestamp: utc("2026-06-08T00:01:00.000Z").timestamp_millis(),
+          ambient_avg: None,
+          delta_avg: None,
+        },
+      ]
+    );
+  }
+
+  #[tokio::test]
+  async fn ambient_sources_list_each_label_once_in_sorted_order() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Window", 21.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+    insert_ambient_row(&pool, "Desk", 20.5, "2026-06-08T00:01:10.000Z").await;
+    // Outside the window: a label that stopped reporting before the range
+    // must not be advertised as contributing to it.
+    insert_ambient_row(&pool, "Balcony", 15.0, "2026-06-07T23:00:10.000Z").await;
+
+    let series = select_ambient_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(series.sources, vec!["Desk", "Window"]);
   }
 
   #[test]

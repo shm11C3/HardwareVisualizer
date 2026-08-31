@@ -120,6 +120,8 @@ export const commands = {
 	getGpuArchiveSeries: (dataType: GpuArchiveDataType, dataStats: ArchiveDataStats, gpuName: string, start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<ArchiveSeriesPoint[], string>(__TAURI_INVOKE("get_gpu_archive_series", { dataType, dataStats, gpuName, start, end, bucketWidthMs, bucketTimestamp })),
 	// ## Get every archived fan's bucketed RPM series
 	getFanArchiveSeries: (start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<FanArchiveSeries[], string>(__TAURI_INVOKE("get_fan_archive_series", { start, end, bucketWidthMs, bucketTimestamp })),
+	// ## Get the bucketed ambient temperature and paired thermal delta series
+	getAmbientArchiveSeries: (start: string, end: string, bucketWidthMs: number, bucketTimestamp: ArchiveBucketTimestamp) => typedError<AmbientArchiveSeries, string>(__TAURI_INVOKE("get_ambient_archive_series", { start, end, bucketWidthMs, bucketTimestamp })),
 	// ## Get archived process stats for a period ending at `end_at`
 	getProcessStats: (period: number, endAt: string) => typedError<ProcessStatRecord[], string>(__TAURI_INVOKE("get_process_stats", { period, endAt })),
 	// ## Get archived process stats between two timestamps
@@ -246,6 +248,30 @@ export const events = {
 };
 
 /* Types */
+/**
+ *  One bucket of the Cooling Insight ambient lane (#2046). `ambientAvg`
+ *  null means no minute in the bucket carried an ambient row, and
+ *  `deltaAvg` null means none carried both an ambient row and a CPU
+ *  package temperature - neither is a measured zero, and the lane must
+ *  break there rather than interpolate.
+ */
+export type AmbientArchiveBucket = {
+	timestamp: number,
+	ambientAvg: number | null,
+	deltaAvg: number | null,
+};
+
+/**
+ *  The ambient lane of one Cooling Insight timeline range (#2046).
+ *  `AMBIENT_ARCHIVE` is row-per-source, so `sources` names the labels that
+ *  actually contributed to this window; an empty list is exactly how a
+ *  machine with no environmental sensor reports itself.
+ */
+export type AmbientArchiveSeries = {
+	sources: string[],
+	buckets: AmbientArchiveBucket[],
+};
+
 export type ArchiveBucketTimestamp = "start" | "end";
 
 export type ArchiveDataStats = "avg" | "max" | "min";
