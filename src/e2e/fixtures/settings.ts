@@ -50,6 +50,9 @@ export const settingsFixture: ClientSettings_Serialize = {
     enabled: true,
     retentionDays: 1095,
   },
+  environmentalSensors: {
+    switchbotMeterEnabled: false,
+  },
   burnInShift: false,
   burnInShiftMode: "jump",
   burnInShiftPreset: "aggressive",

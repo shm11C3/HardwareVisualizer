@@ -166,6 +166,15 @@ export const commands = {
 	setGlassBlur: (newValue: number) => typedError<null, string>(__TAURI_INVOKE("set_glass_blur", { newValue })),
 	setTemperatureUnit: (newUnit: TemperatureUnit) => typedError<null, string>(__TAURI_INVOKE("set_temperature_unit", { newUnit })),
 	setHardwareArchiveEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_enabled", { newValue })),
+	/**
+	 *  Turn the SwitchBot Meter ambient source on or off (#2044).
+	 * 
+	 *  Takes effect on the next launch, like the archive toggle beside it:
+	 *  the ambient registry is built once at startup and read-only
+	 *  afterwards, so the scan starts and stops with the process rather
+	 *  than mid-session. The settings screen says so.
+	 */
+	setSwitchbotMeterEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_enabled", { newValue })),
 	setHardwareArchiveRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_retention_days", { newRetentionDays })),
 	setHardwareArchiveScheduledDataDeletion: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue })),
 	setStorageHealthRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_storage_health_retention_days", { newRetentionDays })),
@@ -322,6 +331,7 @@ export type ClientSettings_Deserialize = {
 	temperatureUnit: TemperatureUnit,
 	hardwareArchive: HardwareArchiveSettings,
 	storageHealth: StorageHealthSettings,
+	environmentalSensors: EnvironmentalSensorSettings,
 	burnInShift: boolean,
 	burnInShiftMode: BurnInShiftMode,
 	burnInShiftPreset: BurnInShiftPreset,
@@ -367,6 +377,7 @@ export type ClientSettings_Serialize = {
 	temperatureUnit: TemperatureUnit,
 	hardwareArchive: HardwareArchiveSettings,
 	storageHealth: StorageHealthSettings,
+	environmentalSensors: EnvironmentalSensorSettings,
 	burnInShift: boolean,
 	burnInShiftMode: BurnInShiftMode,
 	burnInShiftPreset: BurnInShiftPreset,
@@ -675,6 +686,19 @@ export type DownloadEvent = { event: "started"; data: {
 } } | { event: "progress"; data: {
 	chunkLength: string,
 } } | { event: "finished" };
+
+/**
+ *  Wire-format mirror of
+ *  [`hardviz_core::settings::EnvironmentalSensorSettings`] (#2044).
+ * 
+ *  The canonical definition lives in `hardviz_core::settings` so the
+ *  ambient provider registration doesn't need to know about Tauri or
+ *  specta. This App-side struct exists only because the frontend wire
+ *  format requires `specta::Type`.
+ */
+export type EnvironmentalSensorSettings = {
+	switchbotMeterEnabled?: boolean,
+};
 
 export type ExternalComponent = "pawnio" | "smartctl";
 
