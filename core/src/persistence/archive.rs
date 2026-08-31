@@ -379,10 +379,15 @@ impl ArchiveTracker {
 
     self.dirty = false;
 
-    // Taken once at the top of the write cycle. The ambient rows are
-    // stamped with it rather than with a second `now()` read further
-    // down, so a write cycle that straddles a minute boundary cannot land
-    // its ambient rows in a different minute than the rest of the cycle.
+    // Taken once at the top of the write cycle and threaded into every
+    // insert below, so a cycle that straddles a minute boundary cannot
+    // scatter its rows across two minutes. Each table used to read the
+    // clock inside its own insert, which meant the hardware row and the
+    // ambient rows of one cycle could land in different minutes - and the
+    // ambient pairing join (#2045) is defined on exactly that minute, so
+    // the pair was simply lost. Worst of all it failed selectively: a
+    // slow cycle is a busy one, so the minutes most worth explaining were
+    // the likeliest to lose their ambient pairing.
     let tick_timestamp = chrono::Utc::now();
 
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
@@ -409,7 +414,7 @@ impl ArchiveTracker {
       ane_power,
       package_power,
     };
-    if let Err(e) = database::hardware_archive::insert(row).await {
+    if let Err(e) = database::hardware_archive::insert(row, tick_timestamp).await {
       log_error!(
         "Failed to insert hardware archive data",
         "persistence::archive::write_archive",
@@ -418,7 +423,7 @@ impl ArchiveTracker {
     }
 
     for gpu in self.collect_gpu_data() {
-      if let Err(e) = database::gpu_archive::insert(gpu).await {
+      if let Err(e) = database::gpu_archive::insert(gpu, tick_timestamp).await {
         log_error!(
           "Failed to insert GPU hardware archive data",
           "persistence::archive::write_archive",
@@ -429,7 +434,7 @@ impl ArchiveTracker {
 
     let process_stats = self.collect_process_stats();
     if !process_stats.is_empty()
-      && let Err(e) = database::process_stats::insert(process_stats).await
+      && let Err(e) = database::process_stats::insert(process_stats, tick_timestamp).await
     {
       log_error!(
         "Failed to insert process stats data",

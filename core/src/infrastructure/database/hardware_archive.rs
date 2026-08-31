@@ -1,7 +1,20 @@
 use super::db;
 use crate::persistence::archive_data::HardwareArchiveRow;
 
-pub async fn insert(row: HardwareArchiveRow) -> Result<(), sqlx::Error> {
+/// Insert one archived minute, stamped with the write cycle's own
+/// `timestamp` rather than a fresh `Utc::now()` read here.
+///
+/// The caller supplies the instant so every table this cycle writes -
+/// hardware, GPU, process stats, ambient - lands on one identical stamp
+/// (#2045). Reading the clock per insert meant a cycle that straddled a
+/// minute boundary could file its hardware row in one minute and its
+/// ambient rows in the next, and the ambient pairing join is defined on
+/// exactly that minute: the pair would simply be lost, silently and only
+/// for the minutes where it mattered most (a busy cycle is a slow one).
+pub async fn insert(
+  row: HardwareArchiveRow,
+  timestamp: chrono::DateTime<chrono::Utc>,
+) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
 
   sqlx::query(
@@ -15,7 +28,7 @@ pub async fn insert(row: HardwareArchiveRow) -> Result<(), sqlx::Error> {
   .bind(row.gpu_power.avg).bind(row.gpu_power.max).bind(row.gpu_power.min)
   .bind(row.ane_power.avg).bind(row.ane_power.max).bind(row.ane_power.min)
   .bind(row.package_power.avg).bind(row.package_power.max).bind(row.package_power.min)
-  .bind(chrono::Utc::now()).execute(&pool).await?;
+  .bind(timestamp).execute(&pool).await?;
 
   Ok(())
 }

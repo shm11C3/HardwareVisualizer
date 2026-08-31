@@ -1672,6 +1672,40 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn rows_split_across_a_minute_boundary_do_not_pair() {
+    // Why the write cycle must stamp every table from one shared instant
+    // rather than reading the clock per insert: one second of drift
+    // across a minute boundary puts the two rows in different minutes,
+    // and the pairing is defined on the minute. The join is right to
+    // refuse here - the fix belongs at the writer, which now threads the
+    // cycle's `tick_timestamp` into every insert.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:59.900Z"),
+    )
+    .await;
+    insert_ambient_row(&pool, "Living Room", 25.0, utc("2026-08-15T12:01:00.100Z")).await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(
+      rows[0].ambient_temperature_avg, None,
+      "a reading from the next minute must not stand in for this one"
+    );
+  }
+
+  #[tokio::test]
   async fn an_archive_with_no_ambient_rows_reads_back_exactly_as_before() {
     // The zero-ambient invariant at the query layer: every existing
     // field keeps its value and the new one is simply absent.
