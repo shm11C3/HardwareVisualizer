@@ -11,6 +11,7 @@ pub mod ambient_archive;
 pub mod archive_queries;
 pub mod cooling_baseline;
 pub mod cooling_daily_summary;
+pub mod cooling_delta_baseline;
 pub mod cooling_fan_daily_summary;
 pub mod cooling_hourly_summary;
 pub mod db;
@@ -20,3 +21,5 @@ pub mod hardware_archive;
 pub mod migrate;
 pub mod process_stats;
 pub mod storage_health;
+#[cfg(test)]
+pub(crate) mod test_schema;

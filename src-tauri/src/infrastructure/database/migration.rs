@@ -211,6 +211,41 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
       "#,
     },
     SchemaMigration {
+      version: 16,
+      description: "add_cooling_daily_summary_ambient_delta_columns",
+      // The per-band thermal delta (CPU package temperature minus ambient,
+      // #2045) plus how many of the day's archived minutes carried an
+      // ambient pair at all. Nullable delta columns and a defaulted
+      // `*_delta_sample_minutes` so every row written before this
+      // migration - and every row on a machine with no ambient sensor -
+      // reads back as absent rather than 0 K (DP-02).
+      //
+      // `ambient_coverage_minutes` is counted outside the load-band gate,
+      // the same way `power_sample_minutes` is: ambient availability is a
+      // separate capability from CPU temperature, and the backfill cursor
+      // needs a fact that a machine without a CPU temperature sensor can
+      // still record.
+      sql: r#"
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN ambient_coverage_minutes INTEGER NOT NULL DEFAULT 0;
+      "#,
+    },
+    SchemaMigration {
       version: 17,
       description: "create_fan_archive",
       // The one-minute fan-speed archive behind the Cooling Insight fan
@@ -245,6 +280,49 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
           rpm_min INTEGER NOT NULL,
           sample_minutes INTEGER NOT NULL,
           PRIMARY KEY (date, source)
+        );
+      "#,
+    },
+    SchemaMigration {
+      version: 19,
+      description: "add_data_archive_timestamp_index",
+      // `DATA_ARCHIVE` is the one archive table that never had a
+      // timestamp index, and it is also the largest: at one row per
+      // minute a year of history is over half a million rows.
+      //
+      // Every read of it is bounded by a time range - the cooling
+      // rollup's per-day fetch, the ambient pairing join (#2045), the
+      // retention delete - and without this index each of those is a
+      // full table scan. The pairing join made that acute, because it
+      // pairs `AMBIENT_ARCHIVE` against this table per archived minute.
+      //
+      // `IF NOT EXISTS` matches the other index migrations, so this is a
+      // no-op on a database that somehow already has it.
+      sql: r#"
+        CREATE INDEX IF NOT EXISTS idx_data_archive_timestamp ON DATA_ARCHIVE(timestamp);
+      "#,
+    },
+    SchemaMigration {
+      version: 20,
+      description: "create_cooling_delta_baseline",
+      // The pinned ambient-normalized (ΔT) cooling baseline (#2045).
+      //
+      // Its own table rather than columns on `cooling_baseline` because
+      // the two establish at different times: ambient collection
+      // commonly begins long after the absolute baseline was pinned.
+      // Pinning is write-once against a `CHECK (id = 1)` row, and that
+      // is exactly what makes an established baseline undriftable - two
+      // baselines sharing one such row would force the later one to
+      // arrive as an UPDATE, a weaker rule that has to be got right
+      // rather than being impossible to get wrong.
+      sql: r#"
+        CREATE TABLE cooling_delta_baseline (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          window_start_date TEXT NOT NULL,
+          window_end_date TEXT NOT NULL,
+          delta_temperature_avg REAL NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          established_at TEXT NOT NULL
         );
       "#,
     },
@@ -443,6 +521,35 @@ mod tests {
   }
 
   #[test]
+  fn migration_v16_adds_cooling_daily_summary_ambient_delta_columns() {
+    let migrations = get_migrations();
+    let v16 = migrations
+      .iter()
+      .find(|m| m.version == 16)
+      .expect("Version 16 up migration must exist");
+    assert!(v16.sql.contains("ALTER TABLE cooling_daily_summary"));
+    for band in ["idle", "low", "mid", "high"] {
+      for stats in ["avg", "max", "min"] {
+        assert!(
+          v16
+            .sql
+            .contains(&format!("{band}_delta_temperature_{stats} REAL"))
+        );
+      }
+      // Rows written before ambient collection existed must read back as
+      // "no paired minutes" rather than failing a NOT NULL constraint.
+      assert!(v16.sql.contains(&format!(
+        "{band}_delta_sample_minutes INTEGER NOT NULL DEFAULT 0"
+      )));
+    }
+    assert!(
+      v16
+        .sql
+        .contains("ambient_coverage_minutes INTEGER NOT NULL DEFAULT 0")
+    );
+  }
+
+  #[test]
   fn migration_v17_creates_the_fan_archive_table() {
     let migrations = get_migrations();
     let v17 = migrations
@@ -477,15 +584,61 @@ mod tests {
   }
 
   #[test]
+  fn migration_v19_indexes_the_data_archive_timestamp() {
+    let migrations = get_migrations();
+    let v19 = migrations
+      .iter()
+      .find(|m| m.version == 19)
+      .expect("Version 19 up migration must exist");
+    assert!(v19.sql.contains("CREATE INDEX IF NOT EXISTS"));
+    assert!(v19.sql.contains("idx_data_archive_timestamp"));
+    assert!(v19.sql.contains("DATA_ARCHIVE(timestamp)"));
+  }
+
+  #[test]
+  fn migration_v20_creates_the_single_row_cooling_delta_baseline_table() {
+    let migrations = get_migrations();
+    let v20 = migrations
+      .iter()
+      .find(|m| m.version == 20)
+      .expect("Version 20 up migration must exist");
+    assert!(v20.sql.contains("CREATE TABLE cooling_delta_baseline"));
+    // The CHECK constraint is what makes the pin write-once, so the ΔT
+    // baseline cannot drift once established - same as v12.
+    assert!(v20.sql.contains("id INTEGER PRIMARY KEY CHECK (id = 1)"));
+    assert!(v20.sql.contains("window_start_date TEXT NOT NULL"));
+    assert!(v20.sql.contains("window_end_date TEXT NOT NULL"));
+    assert!(v20.sql.contains("delta_temperature_avg REAL NOT NULL"));
+    assert!(v20.sql.contains("sample_minutes INTEGER NOT NULL"));
+    assert!(v20.sql.contains("established_at TEXT NOT NULL"));
+  }
+
+  #[test]
+  fn the_delta_baseline_is_a_separate_table_from_the_absolute_baseline() {
+    // The two must stay separate write-once rows: they establish at
+    // different times, and an UPDATE-based pin is a weaker rule than an
+    // insert-once one.
+    let migrations = get_migrations();
+    let v20 = migrations.iter().find(|m| m.version == 20).unwrap();
+    assert!(
+      !v20.sql.contains("ALTER TABLE cooling_baseline"),
+      "the ΔT baseline must not be bolted onto the absolute baseline's row"
+    );
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 18);
+    assert_eq!(get_max_migration_version(), 20);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    // 1..=15 plus the fan tables at 17 and 18; 16 stays reserved.
-    assert_eq!(migrations.len(), 17);
+    // 16 was reserved while the ambient delta columns were in flight and
+    // is now filled, so 1..=20 happens to be contiguous again. The
+    // assertion below still only requires unique and ascending - see it
+    // for why contiguity is not something to depend on.
+    assert_eq!(migrations.len(), 20);
   }
 
   #[test]
@@ -739,5 +892,54 @@ mod tests {
       without_temperature.is_err(),
       "a minute without a usable ambient reading must have no row at all"
     );
+  }
+
+  /// The ambient-normalized delta columns (#2045) must be additive: a day
+  /// written the way every pre-#2045 row was must read back with absent
+  /// deltas and zero ambient coverage, never a fabricated 0 K.
+  #[tokio::test]
+  async fn shipped_migrations_leave_pre_ambient_days_with_absent_deltas() {
+    use hardviz_core::infrastructure::database::migrate;
+    use sqlx::sqlite::SqlitePool;
+
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let url = format!("sqlite:{}", file.path().to_string_lossy());
+    let pool = SqlitePool::connect(&url).await.unwrap();
+
+    migrate::run_on_pool(&pool, get_migrations())
+      .await
+      .expect("the shipped migration set must apply cleanly");
+
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date, coverage_minutes,
+         idle_cpu_temperature_avg, idle_sample_minutes
+       ) VALUES ('2026-06-21', 1440, 35.0, 600)",
+    )
+    .execute(&pool)
+    .await
+    .expect("a pre-#2045 shaped insert must still succeed");
+
+    let row: (Option<f64>, i64, i64) = sqlx::query_as(
+      "SELECT idle_delta_temperature_avg, idle_delta_sample_minutes,
+              ambient_coverage_minutes
+       FROM cooling_daily_summary WHERE date = '2026-06-21'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row, (None, 0, 0));
+
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date, coverage_minutes,
+         idle_delta_temperature_avg, idle_delta_temperature_max,
+         idle_delta_temperature_min, idle_delta_sample_minutes,
+         ambient_coverage_minutes
+       ) VALUES ('2026-06-22', 1440, 22.0, 26.0, 18.0, 500, 720)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert with the ambient delta columns must succeed after migrations");
   }
 }

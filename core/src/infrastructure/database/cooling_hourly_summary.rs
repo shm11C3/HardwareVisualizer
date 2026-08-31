@@ -155,20 +155,20 @@ where
 
 pub async fn delete_old_data(
   retention_days: u32,
-  preserved_window: Option<(NaiveDate, NaiveDate)>,
+  preserved_windows: &[(NaiveDate, NaiveDate)],
 ) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
-  delete_old_data_from_pool(&pool, retention_days, preserved_window).await
+  delete_old_data_from_pool(&pool, retention_days, preserved_windows).await
 }
 
-/// Delete rows older than `retention_days`, except those inside
-/// `preserved_window` (the pinned baseline's calendar window - see
-/// [`super::cooling_daily_summary::delete_old_data_from_pool`] for why it
-/// is exempt).
+/// Delete rows older than `retention_days`, except those inside any of
+/// `preserved_windows` (the pinned baselines' calendar windows - see
+/// [`super::cooling_daily_summary::delete_old_data_from_pool`] for why
+/// they are exempt).
 pub(crate) async fn delete_old_data_from_pool(
   pool: &SqlitePool,
   retention_days: u32,
-  preserved_window: Option<(NaiveDate, NaiveDate)>,
+  preserved_windows: &[(NaiveDate, NaiveDate)],
 ) -> Result<(), sqlx::Error> {
   // Same local-date cutoff as `cooling_daily_summary::delete_old_data`, so
   // both tables age out on exactly the same boundary. Comparing an hour
@@ -179,32 +179,28 @@ pub(crate) async fn delete_old_data_from_pool(
   .format("%Y-%m-%d")
   .to_string();
 
-  match preserved_window {
-    Some((start, end)) => {
-      // The upper bound is the day *after* `end` so the exemption covers
-      // that day's 23:00 hour, matching the half-open bound the range
-      // read uses.
-      sqlx::query(
-        "DELETE FROM cooling_hourly_summary
-         WHERE hour_start < $1 AND NOT (hour_start >= $2 AND hour_start < $3)",
-      )
-      .bind(cutoff)
-      .bind(start.format("%Y-%m-%d").to_string())
-      .bind(
-        (end + chrono::Duration::days(1))
-          .format("%Y-%m-%d")
-          .to_string(),
-      )
-      .execute(pool)
-      .await?;
-    }
-    None => {
-      sqlx::query("DELETE FROM cooling_hourly_summary WHERE hour_start < $1")
-        .bind(cutoff)
-        .execute(pool)
-        .await?;
-    }
+  // Each window's upper bound is the day *after* its end, so the
+  // exemption covers that day's 23:00 hour - the same half-open bound the
+  // range read uses. `preserving_delete_sql` emits `<= $end`, so binding
+  // the following day as an *exclusive*-feeling bound would be off by an
+  // hour key; binding the end day itself is correct here because every
+  // hour key of that day sorts after the bare date string and before the
+  // next day's.
+  let sql = super::cooling_daily_summary::preserving_delete_sql(
+    "cooling_hourly_summary",
+    "hour_start",
+    preserved_windows.len(),
+  );
+  let mut query = sqlx::query(&sql).bind(cutoff);
+  for (start, end) in preserved_windows {
+    query = query.bind(start.format("%Y-%m-%d").to_string()).bind(
+      // `<= $end` against an hour key needs the end day's last hour to
+      // still compare as inside, so bind the day itself suffixed past
+      // any hour it can carry.
+      format!("{} 24", end.format("%Y-%m-%d")),
+    );
   }
+  query.execute(pool).await?;
 
   Ok(())
 }
@@ -360,7 +356,7 @@ mod tests {
       }
     }
 
-    delete_old_data_from_pool(&pool, 400, None).await.unwrap();
+    delete_old_data_from_pool(&pool, 400, &[]).await.unwrap();
 
     let remaining: Vec<String> = sqlx::query_scalar(
       "SELECT hour_start FROM cooling_hourly_summary ORDER BY hour_start",
@@ -408,7 +404,7 @@ mod tests {
       .unwrap();
     }
 
-    delete_old_data_from_pool(&pool, 400, Some((window_start, window_end)))
+    delete_old_data_from_pool(&pool, 400, &[(window_start, window_end)])
       .await
       .unwrap();
 

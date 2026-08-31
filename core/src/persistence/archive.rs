@@ -427,13 +427,17 @@ impl ArchiveTracker {
 
     self.dirty = false;
 
-    // Taken once at the top of the write cycle and shared by every table
-    // this cycle writes. The ambient and fan rows live in their own
-    // tables, so each reading a second `now()` further down would let a
-    // cycle that straddles a minute boundary stamp them into a different
-    // minute than the rest of the cycle - and measurements folded from
-    // the same snapshots would land in adjacent buckets, breaking the
-    // alignment the synchronized timeline lanes depend on.
+    // Taken once at the top of the write cycle and threaded into every
+    // insert below, so a cycle that straddles a minute boundary cannot
+    // scatter its rows across two minutes. Two things break when it does.
+    //
+    // Measurements folded from the same snapshots land in adjacent
+    // buckets, breaking the alignment the synchronized timeline lanes
+    // depend on (#2050). And the ambient pairing join (#2045) is defined
+    // on exactly that minute, so a hardware row and the ambient row
+    // explaining it stop pairing at all - selectively, and in the worst
+    // possible places: a slow cycle is a busy one, so the minutes most
+    // worth explaining were the likeliest to lose their ambient reading.
     let tick_timestamp = chrono::Utc::now();
 
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
@@ -460,7 +464,7 @@ impl ArchiveTracker {
       ane_power,
       package_power,
     };
-    if let Err(e) = database::hardware_archive::insert(row).await {
+    if let Err(e) = database::hardware_archive::insert(row, tick_timestamp).await {
       log_error!(
         "Failed to insert hardware archive data",
         "persistence::archive::write_archive",
@@ -469,7 +473,7 @@ impl ArchiveTracker {
     }
 
     for gpu in self.collect_gpu_data() {
-      if let Err(e) = database::gpu_archive::insert(gpu).await {
+      if let Err(e) = database::gpu_archive::insert(gpu, tick_timestamp).await {
         log_error!(
           "Failed to insert GPU hardware archive data",
           "persistence::archive::write_archive",
@@ -493,7 +497,7 @@ impl ArchiveTracker {
 
     let process_stats = self.collect_process_stats();
     if !process_stats.is_empty()
-      && let Err(e) = database::process_stats::insert(process_stats).await
+      && let Err(e) = database::process_stats::insert(process_stats, tick_timestamp).await
     {
       log_error!(
         "Failed to insert process stats data",

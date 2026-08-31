@@ -10,16 +10,21 @@
 
 use chrono::NaiveDate;
 use hardviz_core::persistence::cooling_band_comparison::{
-  BandComparison as CoreBandComparison, BandWindowSummary as CoreBandWindowSummary,
+  AmbientAdjustedBandComparison as CoreAmbientAdjustedBandComparison,
+  BandComparison as CoreBandComparison,
+  BandDeltaWindowSummary as CoreBandDeltaWindowSummary,
+  BandWindowSummary as CoreBandWindowSummary,
   CoolingBandComparison as CoreCoolingBandComparison,
 };
 use hardviz_core::persistence::cooling_baseline::{
   BaselineState as CoreBaselineState, RecentIdleSummary as CoreRecentIdleSummary,
 };
 use hardviz_core::persistence::cooling_baseline_delta::{
+  AmbientAdjustedBaselineDelta as CoreAmbientAdjustedBaselineDelta,
   CoolingBaselineDelta as CoreCoolingBaselineDelta,
   CoolingDeltaObservation as CoreCoolingDeltaObservation, DailyDelta as CoreDailyDelta,
 };
+use hardviz_core::persistence::cooling_delta_baseline::DeltaBaselineState as CoreDeltaBaselineState;
 use hardviz_core::persistence::cooling_fan_rollup::FanDailySummary as CoreFanDailySummary;
 use hardviz_core::persistence::cooling_fan_trend::{
   CoolingFanTrend as CoreCoolingFanTrend, FanTrendSeries as CoreFanTrendSeries,
@@ -29,6 +34,10 @@ use hardviz_core::persistence::cooling_load_temperature_explorer::{
   CoolingLoadTemperatureExplorer as CoreCoolingLoadTemperatureExplorer,
   ExplorerWindow as CoreExplorerWindow, LoadTemperaturePoint as CoreLoadTemperaturePoint,
 };
+// `AmbientDeltaSummary` is deliberately absent here: the daily trend
+// point carries no ambient field (#2045 exposes the thermal delta through
+// the baseline/recent aggregates, not the long-range series), so Core's
+// type is only ever named when building test fixtures.
 use hardviz_core::persistence::cooling_rollup::{
   BandSummary as CoreBandSummary, CpuLoadBand as CoreCpuLoadBand,
   DailyCoolingSummary as CoreDailyCoolingSummary, PowerSummary as CorePowerSummary,
@@ -231,6 +240,51 @@ impl From<CoreBandWindowSummary> for CoolingBandWindowSummary {
   }
 }
 
+/// One band's weighted-average thermal delta (CPU package temperature
+/// minus ambient) and its paired-sample coverage over a date window
+/// (#2045). Named `deltaAvg` rather than `temperatureAvg` because it is a
+/// difference, not an absolute temperature; `sampleMinutes` counts only
+/// minutes where both readings existed, so it is always at most the
+/// matching [`CoolingBandWindowSummary`]'s.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingBandDeltaWindowSummary {
+  pub delta_avg: Option<f32>,
+  pub sample_minutes: u32,
+}
+
+impl From<CoreBandDeltaWindowSummary> for CoolingBandDeltaWindowSummary {
+  fn from(value: CoreBandDeltaWindowSummary) -> Self {
+    Self {
+      delta_avg: value.delta_avg,
+      sample_minutes: value.sample_minutes,
+    }
+  }
+}
+
+/// One band's ambient-adjusted baseline-vs-recent comparison (#2045): the
+/// same two windows as the absolute comparison, but over the thermal
+/// delta, so a rise the weather explains can be told apart from a rise
+/// the cooling explains. `comparable` follows the same
+/// both-sides-or-nothing rule as the absolute reading.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingAmbientAdjustedBandComparison {
+  pub baseline: CoolingBandDeltaWindowSummary,
+  pub recent: CoolingBandDeltaWindowSummary,
+  pub comparable: bool,
+}
+
+impl From<CoreAmbientAdjustedBandComparison> for CoolingAmbientAdjustedBandComparison {
+  fn from(value: CoreAmbientAdjustedBandComparison) -> Self {
+    Self {
+      baseline: value.baseline.into(),
+      recent: value.recent.into(),
+      comparable: value.comparable,
+    }
+  }
+}
+
 /// One CPU-load band's baseline-vs-recent comparison.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -239,6 +293,12 @@ pub struct CoolingBandComparisonEntry {
   pub baseline: CoolingBandWindowSummary,
   pub recent: CoolingBandWindowSummary,
   pub comparable: bool,
+  /// The ambient-adjusted reading of the same two windows (#2045). Null
+  /// when neither window recorded a paired minute for this band, which is
+  /// the normal state on a machine with no environmental sensor; a
+  /// present value with `comparable: false` instead means ambient data
+  /// exists but one window is still too thin to compare.
+  pub ambient_adjusted: Option<CoolingAmbientAdjustedBandComparison>,
 }
 
 impl From<CoreBandComparison> for CoolingBandComparisonEntry {
@@ -248,6 +308,7 @@ impl From<CoreBandComparison> for CoolingBandComparisonEntry {
       baseline: value.baseline.into(),
       recent: value.recent.into(),
       comparable: value.comparable,
+      ambient_adjusted: value.ambient_adjusted.map(Into::into),
     }
   }
 }
@@ -272,6 +333,19 @@ pub enum CoolingBandComparison {
     recent_window_start_date: String,
     recent_window_end_date: String,
     bands: Vec<CoolingBandComparisonEntry>,
+    // `ambientAdjustedBaseline` carries the ΔT baseline's own lifecycle
+    // (#2045), once for all four bands because its window is a property
+    // of the baseline rather than of a band. It advances independently of
+    // the window dates above, so the two are generally different ranges;
+    // while it is still establishing every band's `ambientAdjusted` is
+    // null.
+    //
+    // A plain comment rather than a doc comment: tauri-specta renders an
+    // enum variant as a single-line type literal, and any doc comment on
+    // one of its fields leaves trailing whitespace in `bindings.ts` that
+    // fails CI's `git diff --check`. The struct fields elsewhere in this
+    // file are safe because they render as their own block.
+    ambient_adjusted_baseline: CoolingDeltaBaselineState,
   },
 }
 
@@ -291,12 +365,63 @@ impl From<CoreCoolingBandComparison> for CoolingBandComparison {
         recent_window_start_date,
         recent_window_end_date,
         bands,
+        ambient_adjusted_baseline,
       } => Self::Established {
         baseline_window_start_date: format_date(baseline_window_start_date),
         baseline_window_end_date: format_date(baseline_window_end_date),
         recent_window_start_date: format_date(recent_window_start_date),
         recent_window_end_date: format_date(recent_window_end_date),
         bands: bands.into_iter().map(Into::into).collect(),
+        ambient_adjusted_baseline: ambient_adjusted_baseline.into(),
+      },
+    }
+  }
+}
+
+/// Lifecycle of the ambient-normalized (ΔT) cooling baseline (#2045),
+/// mirroring [`CoolingBaselineState`]. It establishes over its own window
+/// of days that carry paired hardware/ambient minutes, which on a machine
+/// whose environmental sensor arrived late is a different - often much
+/// later - range than the absolute baseline's.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(
+  tag = "status",
+  rename_all = "camelCase",
+  rename_all_fields = "camelCase"
+)]
+pub enum CoolingDeltaBaselineState {
+  Establishing {
+    qualifying_days: u32,
+    required_days: u32,
+  },
+  Established {
+    delta_temperature_avg: f32,
+    window_start_date: String,
+    window_end_date: String,
+    sample_minutes: u32,
+  },
+}
+
+impl From<CoreDeltaBaselineState> for CoolingDeltaBaselineState {
+  fn from(value: CoreDeltaBaselineState) -> Self {
+    match value {
+      CoreDeltaBaselineState::Establishing {
+        qualifying_days,
+        required_days,
+      } => Self::Establishing {
+        qualifying_days,
+        required_days,
+      },
+      CoreDeltaBaselineState::Established {
+        delta_temperature_avg,
+        window_start_date,
+        window_end_date,
+        sample_minutes,
+      } => Self::Established {
+        delta_temperature_avg,
+        window_start_date: format_date(window_start_date),
+        window_end_date: format_date(window_end_date),
+        sample_minutes,
       },
     }
   }
@@ -413,6 +538,33 @@ impl From<CoreDailyDelta> for CoolingDailyDelta {
   }
 }
 
+/// The ambient-normalized reading of the same idle drift (#2045): how far
+/// the machine's idle rise *above ambient* has moved, rather than how far
+/// its absolute idle temperature has moved. A flat delta under a rising
+/// absolute temperature says the room warmed up; a rising delta says the
+/// machine did. `delta` is null unless `comparable`.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingAmbientAdjustedBaselineDelta {
+  /// The ΔT baseline's own lifecycle and window, which advance
+  /// independently of the absolute baseline beside it.
+  pub baseline: CoolingDeltaBaselineState,
+  pub recent: CoolingBandDeltaWindowSummary,
+  pub delta: Option<f32>,
+  pub comparable: bool,
+}
+
+impl From<CoreAmbientAdjustedBaselineDelta> for CoolingAmbientAdjustedBaselineDelta {
+  fn from(value: CoreAmbientAdjustedBaselineDelta) -> Self {
+    Self {
+      baseline: value.baseline_state.into(),
+      recent: value.recent.into(),
+      delta: value.delta,
+      comparable: value.comparable,
+    }
+  }
+}
+
 /// Cooling Insight's baseline delta card: the current drift, its
 /// classification, and the daily series that classification was derived
 /// from.
@@ -425,6 +577,12 @@ pub struct CoolingBaselineDelta {
   pub observation: CoolingDeltaObservation,
   pub daily_deltas: Vec<CoolingDailyDelta>,
   pub sustained_days: u32,
+  /// The ambient-normalized reading of the same drift (#2045). Always
+  /// present, carrying its own lifecycle: a machine with no environmental
+  /// sensor reports an establishing ΔT baseline at zero qualifying days
+  /// rather than a fabricated number. Every field above is computed
+  /// exactly as it was before #2045 whatever this one says.
+  pub ambient_adjusted: CoolingAmbientAdjustedBaselineDelta,
 }
 
 impl From<CoreCoolingBaselineDelta> for CoolingBaselineDelta {
@@ -436,6 +594,7 @@ impl From<CoreCoolingBaselineDelta> for CoolingBaselineDelta {
       observation: value.observation.into(),
       daily_deltas: value.daily_deltas.into_iter().map(Into::into).collect(),
       sustained_days: value.sustained_days,
+      ambient_adjusted: value.ambient_adjusted.into(),
     }
   }
 }
@@ -578,6 +737,7 @@ impl From<CoreCoolingLoadTemperatureExplorer> for CoolingLoadTemperatureExplorer
 #[cfg(test)]
 mod tests {
   use super::*;
+  use hardviz_core::persistence::cooling_rollup::AmbientDeltaSummary as CoreAmbientDeltaSummary;
   use hardviz_core::persistence::cooling_rollup::CpuLoadBand;
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
@@ -594,6 +754,7 @@ mod tests {
       mid: CoreBandSummary::default(),
       high: CoreBandSummary::default(),
       power: CorePowerSummary::default(),
+      ambient: CoreAmbientDeltaSummary::default(),
     };
 
     let wire: CoolingDailyTrendPoint = core.into();
@@ -611,6 +772,7 @@ mod tests {
       mid: CoreBandSummary::default(),
       high: CoreBandSummary::default(),
       power: CorePowerSummary::default(),
+      ambient: CoreAmbientDeltaSummary::default(),
     };
 
     let json = serde_json::to_value(CoolingDailyTrendPoint::from(core)).unwrap();
@@ -636,6 +798,7 @@ mod tests {
         min: Some(4.5),
         sample_minutes: 1200,
       },
+      ambient: CoreAmbientDeltaSummary::default(),
     };
 
     let json = serde_json::to_value(CoolingDailyTrendPoint::from(core)).unwrap();
@@ -683,6 +846,10 @@ mod tests {
       recent_window_start_date: "2026-08-14".to_string(),
       recent_window_end_date: "2026-08-20".to_string(),
       bands: Vec::new(),
+      ambient_adjusted_baseline: CoolingDeltaBaselineState::Establishing {
+        qualifying_days: 0,
+        required_days: 7,
+      },
     };
 
     let json = serde_json::to_value(&wire).unwrap();
@@ -763,7 +930,7 @@ mod tests {
       baseline_window_end_date: date(2026, 1, 7),
       recent_window_start_date: date(2026, 8, 14),
       recent_window_end_date: date(2026, 8, 20),
-      bands: [
+      bands: Box::new([
         CoreBandComparison {
           band: CpuLoadBand::Idle,
           baseline: CoreBandWindowSummary {
@@ -775,26 +942,46 @@ mod tests {
             sample_minutes: 210,
           },
           comparable: true,
+          ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
+            baseline: CoreBandDeltaWindowSummary {
+              delta_avg: Some(8.0),
+              sample_minutes: 210,
+            },
+            recent: CoreBandDeltaWindowSummary {
+              delta_avg: Some(9.5),
+              sample_minutes: 210,
+            },
+            comparable: true,
+          }),
         },
         CoreBandComparison {
           band: CpuLoadBand::Low,
           baseline: CoreBandWindowSummary::default(),
           recent: CoreBandWindowSummary::default(),
           comparable: false,
+          ambient_adjusted: None,
         },
         CoreBandComparison {
           band: CpuLoadBand::Mid,
           baseline: CoreBandWindowSummary::default(),
           recent: CoreBandWindowSummary::default(),
           comparable: false,
+          ambient_adjusted: None,
         },
         CoreBandComparison {
           band: CpuLoadBand::High,
           baseline: CoreBandWindowSummary::default(),
           recent: CoreBandWindowSummary::default(),
           comparable: false,
+          ambient_adjusted: None,
         },
-      ],
+      ]),
+      ambient_adjusted_baseline: CoreDeltaBaselineState::Established {
+        delta_temperature_avg: 11.5,
+        window_start_date: date(2026, 6, 1),
+        window_end_date: date(2026, 6, 7),
+        sample_minutes: 420,
+      },
     };
 
     let wire: CoolingBandComparison = core.into();
@@ -806,7 +993,19 @@ mod tests {
         recent_window_start_date,
         recent_window_end_date,
         bands,
+        ambient_adjusted_baseline,
       } => {
+        // The ΔT baseline's window is its own, and must cross the wire
+        // as such rather than echoing the absolute one above.
+        assert_eq!(
+          ambient_adjusted_baseline,
+          CoolingDeltaBaselineState::Established {
+            delta_temperature_avg: 11.5,
+            window_start_date: "2026-06-01".to_string(),
+            window_end_date: "2026-06-07".to_string(),
+            sample_minutes: 420,
+          }
+        );
         assert_eq!(baseline_window_start_date, "2026-01-01");
         assert_eq!(baseline_window_end_date, "2026-01-07");
         assert_eq!(recent_window_start_date, "2026-08-14");
@@ -851,6 +1050,17 @@ mod tests {
         },
       ],
       sustained_days: 3,
+      // This case is about the absolute daily series, so the ambient
+      // reading is the one a machine with no sensor reports.
+      ambient_adjusted: CoreAmbientAdjustedBaselineDelta {
+        baseline_state: CoreDeltaBaselineState::Establishing {
+          qualifying_days: 0,
+          required_days: 7,
+        },
+        recent: CoreBandDeltaWindowSummary::default(),
+        delta: None,
+        comparable: false,
+      },
     };
 
     let wire: CoolingBaselineDelta = core.into();
@@ -866,6 +1076,212 @@ mod tests {
         .collect::<Vec<_>>(),
       vec!["2026-08-18", "2026-08-19", "2026-08-20"]
     );
+  }
+
+  // ── ambient-adjusted wire shape (#2045) ──
+
+  fn establishing_delta_baseline() -> CoreDeltaBaselineState {
+    CoreDeltaBaselineState::Establishing {
+      qualifying_days: 0,
+      required_days: 7,
+    }
+  }
+
+  fn established_delta_baseline() -> CoreDeltaBaselineState {
+    CoreDeltaBaselineState::Established {
+      delta_temperature_avg: 12.0,
+      window_start_date: date(2026, 6, 1),
+      window_end_date: date(2026, 6, 7),
+      sample_minutes: 210,
+    }
+  }
+
+  fn core_baseline_delta(
+    ambient_adjusted: CoreAmbientAdjustedBaselineDelta,
+  ) -> CoreCoolingBaselineDelta {
+    CoreCoolingBaselineDelta {
+      baseline_state: CoreBaselineState::Established {
+        idle_temperature_avg: 30.0,
+        window_start_date: date(2026, 1, 1),
+        window_end_date: date(2026, 1, 7),
+        sample_minutes: 210,
+      },
+      recent: CoreRecentIdleSummary {
+        window_start_date: date(2026, 8, 14),
+        window_end_date: date(2026, 8, 20),
+        idle_temperature_avg: Some(37.0),
+        sample_minutes: 210,
+      },
+      delta: Some(7.0),
+      observation: CoreCoolingDeltaObservation::SustainedMildRise,
+      daily_deltas: Vec::new(),
+      sustained_days: 3,
+      ambient_adjusted,
+    }
+  }
+
+  #[test]
+  fn a_machine_without_ambient_data_sends_an_establishing_delta_baseline() {
+    // The zero-ambient wire invariant: every pre-#2045 field keeps its
+    // value, and the ambient reading reports progress rather than a
+    // fabricated number the frontend might render as "0 K of drift".
+    let json = serde_json::to_value(CoolingBaselineDelta::from(core_baseline_delta(
+      CoreAmbientAdjustedBaselineDelta {
+        baseline_state: establishing_delta_baseline(),
+        recent: CoreBandDeltaWindowSummary::default(),
+        delta: None,
+        comparable: false,
+      },
+    )))
+    .unwrap();
+
+    let adjusted = &json["ambientAdjusted"];
+    assert_eq!(adjusted["baseline"]["status"], "establishing");
+    assert_eq!(adjusted["baseline"]["qualifyingDays"], 0);
+    assert_eq!(adjusted["baseline"]["requiredDays"], 7);
+    assert!(adjusted["delta"].is_null());
+    assert_eq!(adjusted["comparable"], false);
+    assert!(adjusted["recent"]["deltaAvg"].is_null());
+    // ...and nothing above it moved.
+    assert_eq!(json["delta"], 7.0);
+    assert_eq!(json["observation"], "sustainedMildRise");
+    assert_eq!(json["sustainedDays"], 3);
+  }
+
+  #[test]
+  fn an_ambient_adjusted_baseline_delta_crosses_the_wire_in_camel_case() {
+    let core = core_baseline_delta(CoreAmbientAdjustedBaselineDelta {
+      baseline_state: established_delta_baseline(),
+      recent: CoreBandDeltaWindowSummary {
+        delta_avg: Some(12.5),
+        sample_minutes: 180,
+      },
+      delta: Some(0.5),
+      comparable: true,
+    });
+
+    let json = serde_json::to_value(CoolingBaselineDelta::from(core)).unwrap();
+
+    let adjusted = &json["ambientAdjusted"];
+    assert_eq!(adjusted["baseline"]["status"], "established");
+    assert_eq!(adjusted["baseline"]["deltaTemperatureAvg"], 12.0);
+    assert_eq!(adjusted["baseline"]["sampleMinutes"], 210);
+    assert_eq!(adjusted["recent"]["deltaAvg"], 12.5);
+    assert_eq!(adjusted["recent"]["sampleMinutes"], 180);
+    assert_eq!(adjusted["delta"], 0.5);
+    assert_eq!(adjusted["comparable"], true);
+  }
+
+  #[test]
+  fn the_delta_baseline_window_crosses_the_wire_as_its_own_dates() {
+    // The whole reason the window is on the wire (#2046 renders the
+    // comparison's conditions): it must show the ΔT window, which is a
+    // different range from the absolute baseline's.
+    let core = core_baseline_delta(CoreAmbientAdjustedBaselineDelta {
+      baseline_state: established_delta_baseline(),
+      recent: CoreBandDeltaWindowSummary {
+        delta_avg: Some(12.5),
+        sample_minutes: 180,
+      },
+      delta: Some(0.5),
+      comparable: true,
+    });
+
+    let json = serde_json::to_value(CoolingBaselineDelta::from(core)).unwrap();
+
+    assert_eq!(
+      json["ambientAdjusted"]["baseline"]["windowStartDate"],
+      "2026-06-01"
+    );
+    assert_eq!(
+      json["ambientAdjusted"]["baseline"]["windowEndDate"],
+      "2026-06-07"
+    );
+    // The absolute baseline's own window is untouched beside it.
+    assert_eq!(json["baseline"]["windowStartDate"], "2026-01-01");
+    assert_eq!(json["baseline"]["windowEndDate"], "2026-01-07");
+  }
+
+  #[test]
+  fn a_thin_recent_window_crosses_the_wire_present_with_a_null_delta() {
+    // Distinct from an establishing baseline: the reference exists and
+    // the evidence is reported, only the verdict is withheld.
+    let core = core_baseline_delta(CoreAmbientAdjustedBaselineDelta {
+      baseline_state: established_delta_baseline(),
+      recent: CoreBandDeltaWindowSummary {
+        delta_avg: Some(12.5),
+        sample_minutes: 5,
+      },
+      delta: None,
+      comparable: false,
+    });
+
+    let json = serde_json::to_value(CoolingBaselineDelta::from(core)).unwrap();
+
+    assert_eq!(json["ambientAdjusted"]["baseline"]["status"], "established");
+    assert!(json["ambientAdjusted"]["delta"].is_null());
+    assert_eq!(json["ambientAdjusted"]["comparable"], false);
+    assert_eq!(json["ambientAdjusted"]["recent"]["sampleMinutes"], 5);
+  }
+
+  #[test]
+  fn a_band_comparison_entry_carries_its_ambient_adjusted_reading_in_camel_case() {
+    let core = CoreBandComparison {
+      band: CpuLoadBand::Idle,
+      baseline: CoreBandWindowSummary {
+        temperature_avg: Some(30.0),
+        sample_minutes: 210,
+      },
+      recent: CoreBandWindowSummary {
+        temperature_avg: Some(35.0),
+        sample_minutes: 210,
+      },
+      comparable: true,
+      ambient_adjusted: Some(CoreAmbientAdjustedBandComparison {
+        baseline: CoreBandDeltaWindowSummary {
+          delta_avg: Some(8.0),
+          sample_minutes: 210,
+        },
+        recent: CoreBandDeltaWindowSummary {
+          delta_avg: Some(8.25),
+          sample_minutes: 200,
+        },
+        comparable: true,
+      }),
+    };
+
+    let json = serde_json::to_value(CoolingBandComparisonEntry::from(core)).unwrap();
+
+    assert_eq!(json["ambientAdjusted"]["baseline"]["deltaAvg"], 8.0);
+    assert_eq!(json["ambientAdjusted"]["recent"]["deltaAvg"], 8.25);
+    assert_eq!(json["ambientAdjusted"]["recent"]["sampleMinutes"], 200);
+    // The absolute reading is untouched beside it.
+    assert_eq!(json["baseline"]["temperatureAvg"], 30.0);
+    assert_eq!(json["comparable"], true);
+  }
+
+  #[test]
+  fn a_band_without_ambient_data_sends_a_null_ambient_adjusted_field() {
+    let core = CoreBandComparison {
+      band: CpuLoadBand::Idle,
+      baseline: CoreBandWindowSummary {
+        temperature_avg: Some(30.0),
+        sample_minutes: 210,
+      },
+      recent: CoreBandWindowSummary {
+        temperature_avg: Some(35.0),
+        sample_minutes: 210,
+      },
+      comparable: true,
+      ambient_adjusted: None,
+    };
+
+    let json = serde_json::to_value(CoolingBandComparisonEntry::from(core)).unwrap();
+
+    assert!(json["ambientAdjusted"].is_null());
+    assert_eq!(json["baseline"]["temperatureAvg"], 30.0);
+    assert_eq!(json["recent"]["temperatureAvg"], 35.0);
+    assert_eq!(json["comparable"], true);
   }
 
   // ── load-vs-temperature Explorer (#2023) ──

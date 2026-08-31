@@ -286,6 +286,77 @@ zero contributing minutes leaves its temperature columns absent, and a day with
 no powered minute leaves its power columns absent - never zero. Its cleanup runs from the same `scheduledDataDeletion`-gated startup
 site as the Hardware Archive cleanup (see ADR 0018).
 
+The same pass folds the ambient-normalized thermal delta
+(`ΔT = CPU package temperature − ambient temperature`) per CPU-load band, plus
+the day's ambient coverage count. **The pairing rule is normative: samples are
+paired first and aggregated second.** Independently aggregated CPU and ambient
+summaries must never be subtracted, because the two archives do not share a
+sample set - ambient readings go missing independently of hardware minutes, so
+subtracting summaries built over different sample sets produces a number
+corresponding to no minute that was ever observed. The rule is enforced
+structurally rather than by discipline: the day's archive query LEFT JOINs
+`AMBIENT_ARCHIVE` on the shared one-minute timeline, so each archive minute
+already carries the ambient temperature of its own minute before any fold
+begins. A minute with no ambient row yields no ΔT at all, never an interpolated
+one.
+
+Because `AMBIENT_ARCHIVE` is row-per-source, several sources can share one
+minute; that minute's ambient value is their unweighted mean. Core has no sensor
+ranking or calibration confidence that would justify preferring one Sensor
+Source Label over another, and with the common single sensor the mean
+degenerates to that sensor's own reading.
+
+The two gates nest. A minute contributes to a ΔT band only when it already
+contributed to that temperature band *and* had an ambient pair, so per-band ΔT
+sample minutes are always a subset of the band's own. Ambient coverage is
+counted outside that nesting, the way power already is: whether the room's air
+was readable is independent of whether the CPU's sensors were, so a machine with
+an ambient sensor and no CPU temperature sensor still records honest coverage.
+
+`getCoolingBandComparison` and `getCoolingBaselineDelta` each carry an
+`ambientAdjusted` variant of their result rather than a command of their own -
+same question, same recent window. It carries its own lifecycle rather than a
+null: a machine with no environmental sensor reports an establishing ΔT baseline
+at zero qualifying days, which is honest and fabricates nothing, while
+established-but-not-comparable means the reference exists and the recent window
+is still too thin. Both responses also carry the ΔT baseline's own window dates,
+because they differ from the absolute window the same response reports.
+
+**The ΔT baseline establishes independently of the absolute one**, over its own
+window, and is pinned into its own single-row `cooling_delta_baseline` table.
+This is the one place the ambient reading deviates from the absolute baseline's
+design, and it is not an optimization - anchoring ΔT to the absolute baseline's
+window is simply wrong. Ambient collection commonly begins *after* that window
+has passed: a user adds a sensor, or the feature ships to an install with months
+of history. The absolute window is then a stretch of past days with no ambient
+readings, and the archive cannot grow them retroactively - so that machine would
+report "not comparable" forever, no matter how much ambient data it went on to
+collect. Deriving a ΔT window from days that actually carry paired minutes lets
+it establish from the sensor's own first week instead.
+
+Both baselines run the *same* establishment rule (`derive_baseline_window`,
+shared so they cannot drift apart on what "established" means); they differ only
+in which projection of a day they read - idle temperature versus idle ΔT - and
+in the qualifying-minute bar, which for ΔT counts minutes that needed *both*
+archives to produce a reading.
+
+The two get separate tables rather than columns on one row. Pinning is
+write-once (`INSERT OR IGNORE` against a `CHECK (id = 1)` row), which is exactly
+what makes an established baseline undriftable; two baselines that establish at
+different times cannot share one such row without the later one arriving as an
+`UPDATE`, a weaker rule that must be got right rather than being impossible to
+get wrong.
+
+Both pinned windows are exempt from the rollup's retention cleanup, and they are
+generally different date ranges.
+
+Backfill follows the lag-aware cursor precedent set by the power columns: the
+catch-up claims the ΔT columns are behind only when the ambient archive holds a
+completed day's *pairable* reading that no summarized day recorded coverage for.
+A machine with no ambient sensor has neither side and so never rewinds, and an
+ambient row whose minute has no hardware row is excluded because re-rolling its
+day could never turn it into coverage.
+
 Fan speeds are archived beside the Hardware Archive rather than inside them.
 The archive worker writes one `FAN_ARCHIVE` row per fan per interval, stamped
 with the write cycle's single tick instant so a fan reading and the hardware

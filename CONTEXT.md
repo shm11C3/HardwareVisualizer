@@ -200,6 +200,18 @@ _Avoid_: Connection state, pairing status, link status, device health
 How recently an Ambient Temperature Reading must have been observed to stand for the archive minute being written; an older reading leaves that minute without ambient data instead of repeating a past value.
 _Avoid_: Polling interval, sample rate, Retention Period
 
+**Thermal Delta**:
+How far a machine's CPU package temperature sits above the Ambient Temperature Reading of the same archived minute, computed only for minutes carrying both readings so a warmer room can be told apart from worse cooling.
+_Avoid_: Temperature difference, delta T, temperature offset, cooling score
+
+**Ambient Coverage**:
+How many of a day's archived minutes carried an Ambient Temperature Reading at all, whether or not the machine's own temperature could be read that minute.
+_Avoid_: Sample minutes, uptime, sensor availability
+
+**Thermal Delta Baseline**:
+The Thermal Delta a machine settles at when idle, fixed from its first qualifying days once enough of them carry paired readings; established over its own collection period rather than the cooling baseline's, because a machine's ambient sensor is often added long after it started running.
+_Avoid_: Cooling baseline, reference temperature, calibration
+
 ### Sensor Availability
 
 **External Component Guidance**:

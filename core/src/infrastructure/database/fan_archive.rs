@@ -179,17 +179,8 @@ pub(crate) mod tests {
   use super::*;
 
   pub(crate) async fn setup_fan_archive(pool: &SqlitePool) {
-    sqlx::query(
-      "CREATE TABLE FAN_ARCHIVE (
-        id INTEGER PRIMARY KEY,
-        source TEXT NOT NULL,
-        rpm INTEGER NOT NULL,
-        timestamp DATETIME NOT NULL
-      )",
-    )
-    .execute(pool)
-    .await
-    .unwrap();
+    use super::super::test_schema::{FAN_ARCHIVE_DDL, create_tables};
+    create_tables(pool, &[FAN_ARCHIVE_DDL]).await;
   }
 
   fn utc(input: &str) -> DateTime<Utc> {

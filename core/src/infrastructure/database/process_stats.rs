@@ -1,7 +1,15 @@
 use super::db;
 use crate::persistence::archive_data::ProcessStatData;
 
-pub async fn insert(processes: Vec<ProcessStatData>) -> Result<(), sqlx::Error> {
+/// Insert one write cycle's process rows, all stamped with the cycle's
+/// own `timestamp` - see [`super::hardware_archive::insert`] for why
+/// every table of one cycle must share a single instant. Here it also
+/// means the rows of one cycle share a stamp with each other, which
+/// reading the clock per row inside the loop did not guarantee.
+pub async fn insert(
+  processes: Vec<ProcessStatData>,
+  timestamp: chrono::DateTime<chrono::Utc>,
+) -> Result<(), sqlx::Error> {
   if processes.is_empty() {
     return Ok(());
   }
@@ -19,7 +27,7 @@ pub async fn insert(processes: Vec<ProcessStatData>) -> Result<(), sqlx::Error> 
     .bind(proc.cpu_usage)
     .bind(proc.memory_usage)
     .bind(proc.execution_sec)
-    .bind(chrono::Utc::now())
+    .bind(timestamp)
     .execute(&mut *tx)
     .await?;
   }

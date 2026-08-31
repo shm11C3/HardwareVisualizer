@@ -144,20 +144,8 @@ pub(crate) mod tests {
   use super::*;
 
   pub(crate) async fn setup_cooling_fan_daily_summary(pool: &SqlitePool) {
-    sqlx::query(
-      "CREATE TABLE cooling_fan_daily_summary (
-        date TEXT NOT NULL,
-        source TEXT NOT NULL,
-        rpm_avg REAL NOT NULL,
-        rpm_max INTEGER NOT NULL,
-        rpm_min INTEGER NOT NULL,
-        sample_minutes INTEGER NOT NULL,
-        PRIMARY KEY (date, source)
-      )",
-    )
-    .execute(pool)
-    .await
-    .unwrap();
+    use super::super::test_schema::{COOLING_FAN_DAILY_SUMMARY_DDL, create_tables};
+    create_tables(pool, &[COOLING_FAN_DAILY_SUMMARY_DDL]).await;
   }
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
