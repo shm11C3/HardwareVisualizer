@@ -194,6 +194,12 @@ PawnIO and its CPU-specific module blobs, are documented in
 
 ### Persistence (`core/src/persistence/`, `src-tauri/src/infrastructure/`)
 
+This section describes the current row-based persistence implementation.
+[ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) records the accepted
+constraints for planned lossless chunked storage. Its persisted active tail,
+format migration, and recurring retention maintenance are not implemented by
+that decision; the startup flow and cleanup behavior below remain current.
+
 Persistence is split:
 
 - Core owns persistence workers and DB operations that are independent of Tauri.
@@ -363,9 +369,10 @@ with the write cycle's single tick instant so a fan reading and the hardware
 row folded from the same snapshots cannot land in adjacent buckets. The same
 rollup pass folds a completed day into one `cooling_fan_daily_summary` row per
 fan (`core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan
-because how many fans a machine exposes is configuration-dependent, and both
-share the daily rollup's retention window. The three fan-reading meanings stay
-distinct end to end: an Inactive Fan Reading (0 RPM) is stored as the real
+because how many fans a machine exposes is configuration-dependent. The
+one-minute fan archive follows `hardwareArchive.retentionDays`; the daily fan
+summary follows the separate cooling daily rollup retention window. The three
+fan-reading meanings stay distinct end to end: an Inactive Fan Reading (0 RPM) is stored as the real
 observation it is, an Invalid Fan Reading is excluded, and a missing reading
 has no row - so a stopped fan is never confused with an unreadable one. There
 is no hourly fan projection, because no view reads a fan axis at that
