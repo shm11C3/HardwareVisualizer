@@ -65,13 +65,40 @@ impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
 }
 
 /// SQL fragment bucketing an epoch-millisecond expression to the minute it
-/// falls in. The archive tick stamps a hardware row and every ambient row
-/// of the same write cycle with one identical instant, so exact equality
-/// would very nearly work - but bucketing to the minute is what the join
-/// actually means, and it keeps the pairing correct if a future writer
-/// ever stamps the two sides a few milliseconds apart.
+/// falls in. The archive tick stamps every table of one write cycle with
+/// a single instant, so exact equality would now very nearly work - but
+/// bucketing to the minute is what the join actually *means*, and rows
+/// archived before that fix still carry sub-minute drift between the two
+/// sides.
 fn sqlite_minute_key(epoch_milliseconds: &str) -> String {
   format!("({epoch_milliseconds} / 60000)")
+}
+
+/// How far to widen a raw-TEXT timestamp bound used purely as an
+/// index-prunable pre-filter.
+///
+/// The exact `strftime`-based epoch comparison is what decides which rows
+/// are in range, but it is a computed expression, so no index can serve
+/// it and SQLite falls back to scanning. A raw `timestamp >= ?` bound
+/// beside it *is* index-usable, and narrows the scan to a few days out of
+/// the retention window.
+///
+/// The raw bound must never exclude a row the exact predicate would keep,
+/// and raw TEXT comparison is only approximately chronological: writers
+/// may differ in offset suffix, fractional digits, or even the `T`/space
+/// separator. A full day of slack swamps every one of those differences
+/// (the largest, a timezone offset, tops out at 14 hours) while still
+/// pruning ~99% of a year's rows. Correctness rests entirely on the exact
+/// predicate; this only decides how much the index gets to skip.
+const RAW_TIMESTAMP_BOUND_SLACK_DAYS: i64 = 1;
+
+/// A raw-TEXT lower/upper bound for `instant`, widened by
+/// [`RAW_TIMESTAMP_BOUND_SLACK_DAYS`] in `direction` (-1 for a lower
+/// bound, +1 for an upper one).
+fn raw_timestamp_bound(instant: &DateTime<Utc>, direction: i64) -> String {
+  (*instant + chrono::Duration::days(direction * RAW_TIMESTAMP_BOUND_SLACK_DAYS))
+    .format("%Y-%m-%dT%H:%M:%S")
+    .to_string()
 }
 
 async fn select_archive_minutes_for_range_from_pool(
@@ -79,13 +106,21 @@ async fn select_archive_minutes_for_range_from_pool(
   start: &DateTime<Utc>,
   end: &DateTime<Utc>,
 ) -> Result<Vec<ArchiveMinuteSample>, sqlx::Error> {
-  // Compare via epoch milliseconds computed from `timestamp` in SQL,
-  // rather than a raw TEXT comparison: `DATA_ARCHIVE.timestamp` is
-  // written through sqlx's native `DateTime<Utc>` encoding (a `+00:00`
-  // offset suffix, no fractional part when it is exactly zero), which is
-  // not guaranteed to sort correctly against a differently-shaped bind
-  // string at exact-second boundaries. `strftime` accepts every ISO 8601
-  // shape chrono can produce, so this is robust regardless of writer.
+  // Which rows are in range is decided by epoch milliseconds computed
+  // from `timestamp` in SQL, not by a raw TEXT comparison:
+  // `DATA_ARCHIVE.timestamp` is written through sqlx's native
+  // `DateTime<Utc>` encoding (a `+00:00` offset suffix, no fractional
+  // part when it is exactly zero), which is not guaranteed to sort
+  // correctly against a differently-shaped bind string at exact-second
+  // boundaries. `strftime` accepts every ISO 8601 shape chrono can
+  // produce, so this is robust regardless of writer.
+  //
+  // That expression is not indexable, though, so a *widened* raw bound
+  // rides alongside it purely to let SQLite range-scan the timestamp
+  // index instead of reading the whole table (see
+  // `raw_timestamp_bound`). The pair is deliberate: the raw bound is
+  // generous enough that it can never exclude a row the exact predicate
+  // would keep, and the exact predicate then decides.
   let epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
   let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
   let minute_key = sqlite_minute_key(&epoch_ms);
@@ -122,15 +157,19 @@ async fn select_archive_minutes_for_range_from_pool(
        SELECT {ambient_minute_key} AS ambient_minute_key,
               AVG(CAST(AMBIENT_ARCHIVE.temperature AS REAL)) AS ambient_temperature_avg
        FROM AMBIENT_ARCHIVE
-       WHERE {ambient_epoch_ms} >= $1 AND {ambient_epoch_ms} < $2
+       WHERE AMBIENT_ARCHIVE.timestamp >= $3 AND AMBIENT_ARCHIVE.timestamp < $4
+         AND {ambient_epoch_ms} >= $1 AND {ambient_epoch_ms} < $2
        GROUP BY ambient_minute_key
      ) AS ambient ON ambient.ambient_minute_key = {minute_key}
-     WHERE {epoch_ms} >= $1 AND {epoch_ms} < $2
+     WHERE DATA_ARCHIVE.timestamp >= $3 AND DATA_ARCHIVE.timestamp < $4
+       AND {epoch_ms} >= $1 AND {epoch_ms} < $2
      ORDER BY DATA_ARCHIVE.timestamp ASC"
   );
   let rows = sqlx::query_as::<_, ArchiveMinuteRow>(&sql)
     .bind(start.timestamp_millis())
     .bind(end.timestamp_millis())
+    .bind(raw_timestamp_bound(start, -1))
+    .bind(raw_timestamp_bound(end, 1))
     .fetch_all(pool)
     .await?;
 
@@ -650,12 +689,28 @@ pub(crate) async fn max_pairable_ambient_archive_timestamp_before_from_pool(
   let hardware_epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
   let ambient_minute_key = sqlite_minute_key(&ambient_epoch_ms);
   let hardware_minute_key = sqlite_minute_key(&hardware_epoch_ms);
+  // The `EXISTS` correlates on a computed minute key, which no index can
+  // serve: on its own it re-scans all of `DATA_ARCHIVE` for every ambient
+  // row. The raw bracket beside it is what lets SQLite range-scan the
+  // timestamp index instead, and it is correlated to the ambient row's
+  // own timestamp so the scan covers minutes rather than years.
+  //
+  // Two minutes of slack, for the same reason `raw_timestamp_bound` uses
+  // a day: a genuine match is inside the same minute, so the bracket has
+  // room to spare, and the minute-key equality remains what actually
+  // decides. `strftime` normalizes whatever ISO 8601 shape the ambient
+  // row carries into the same `%Y-%m-%dT%H:%M:%S` prefix the hardware
+  // rows compare under.
   let sql = format!(
     "SELECT MAX(AMBIENT_ARCHIVE.timestamp) FROM AMBIENT_ARCHIVE
      WHERE {ambient_epoch_ms} < $1
        AND EXISTS (
          SELECT 1 FROM DATA_ARCHIVE
-         WHERE {hardware_minute_key} = {ambient_minute_key}
+         WHERE DATA_ARCHIVE.timestamp >= strftime(
+                 '%Y-%m-%dT%H:%M:%S', AMBIENT_ARCHIVE.timestamp, '-2 minutes')
+           AND DATA_ARCHIVE.timestamp <= strftime(
+                 '%Y-%m-%dT%H:%M:%S', AMBIENT_ARCHIVE.timestamp, '+2 minutes')
+           AND {hardware_minute_key} = {ambient_minute_key}
        )"
   );
   sqlx::query_scalar::<_, Option<DateTime<Utc>>>(&sql)
@@ -723,15 +778,26 @@ mod tests {
   use sqlx::Row;
 
   use super::super::test_schema::{
-    AMBIENT_ARCHIVE_DDL, COOLING_DAILY_SUMMARY_DDL, DATA_ARCHIVE_DDL, create_tables,
+    AMBIENT_ARCHIVE_DDL, AMBIENT_ARCHIVE_TIMESTAMP_INDEX_DDL, COOLING_DAILY_SUMMARY_DDL,
+    DATA_ARCHIVE_DDL, DATA_ARCHIVE_TIMESTAMP_INDEX_DDL, create_tables,
   };
 
   /// The hardware archive plus the ambient archive the minute query
-  /// LEFT JOINs against (#2045). Both are created together because the
-  /// join names `AMBIENT_ARCHIVE` unconditionally: an install with no
-  /// environmental sensor has an empty table, never a missing one.
+  /// LEFT JOINs against (#2045), with the indexes the shipped schema
+  /// carries. Both tables are created together because the join names
+  /// `AMBIENT_ARCHIVE` unconditionally: an install with no environmental
+  /// sensor has an empty table, never a missing one.
   async fn setup_data_archive(pool: &SqlitePool) {
-    create_tables(pool, &[DATA_ARCHIVE_DDL, AMBIENT_ARCHIVE_DDL]).await;
+    create_tables(
+      pool,
+      &[
+        DATA_ARCHIVE_DDL,
+        DATA_ARCHIVE_TIMESTAMP_INDEX_DDL,
+        AMBIENT_ARCHIVE_DDL,
+        AMBIENT_ARCHIVE_TIMESTAMP_INDEX_DDL,
+      ],
+    )
+    .await;
   }
 
   async fn insert_ambient_row(
@@ -1731,6 +1797,189 @@ mod tests {
     assert_eq!(rows[0].cpu_usage_avg, Some(5.0));
     assert_eq!(rows[0].cpu_temperature_avg, Some(40.0));
     assert_eq!(rows[0].ambient_temperature_avg, None);
+  }
+
+  // ── pairing query plans (#2045) ──
+  //
+  // These assert on `EXPLAIN QUERY PLAN` rather than on timings, which
+  // would be flaky and would only fail once an archive was already large
+  // enough to hurt. `SCAN <table>` (as opposed to `SEARCH <table> USING
+  // INDEX ...`) is SQLite's own word for reading every row, so it is the
+  // exact thing to forbid.
+
+  async fn query_plan(pool: &SqlitePool, sql: &str) -> String {
+    let rows: Vec<(i64, i64, i64, String)> =
+      sqlx::query_as(&format!("EXPLAIN QUERY PLAN {sql}"))
+        .fetch_all(pool)
+        .await
+        .unwrap();
+    rows
+      .into_iter()
+      .map(|(_, _, _, detail)| detail)
+      .collect::<Vec<_>>()
+      .join("\n")
+  }
+
+  /// The range query's SQL with its four binds already substituted, so
+  /// `EXPLAIN QUERY PLAN` sees exactly what production runs.
+  fn range_query_sql(start: &DateTime<Utc>, end: &DateTime<Utc>) -> String {
+    let epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
+    let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
+    let minute_key = sqlite_minute_key(&epoch_ms);
+    let ambient_minute_key = sqlite_minute_key(&ambient_epoch_ms);
+    let (lower, upper) = (raw_timestamp_bound(start, -1), raw_timestamp_bound(end, 1));
+    let (start_ms, end_ms) = (start.timestamp_millis(), end.timestamp_millis());
+    format!(
+      "SELECT DATA_ARCHIVE.timestamp, ambient.ambient_temperature_avg
+       FROM DATA_ARCHIVE
+       LEFT JOIN (
+         SELECT {ambient_minute_key} AS ambient_minute_key,
+                AVG(CAST(AMBIENT_ARCHIVE.temperature AS REAL)) AS ambient_temperature_avg
+         FROM AMBIENT_ARCHIVE
+         WHERE AMBIENT_ARCHIVE.timestamp >= '{lower}' AND AMBIENT_ARCHIVE.timestamp < '{upper}'
+           AND {ambient_epoch_ms} >= {start_ms} AND {ambient_epoch_ms} < {end_ms}
+         GROUP BY ambient_minute_key
+       ) AS ambient ON ambient.ambient_minute_key = {minute_key}
+       WHERE DATA_ARCHIVE.timestamp >= '{lower}' AND DATA_ARCHIVE.timestamp < '{upper}'
+         AND {epoch_ms} >= {start_ms} AND {epoch_ms} < {end_ms}
+       ORDER BY DATA_ARCHIVE.timestamp ASC"
+    )
+  }
+
+  #[tokio::test]
+  async fn the_range_query_searches_the_timestamp_index_instead_of_scanning() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+
+    let plan = query_plan(
+      &pool,
+      &range_query_sql(
+        &utc("2026-08-15T00:00:00.000Z"),
+        &utc("2026-08-16T00:00:00.000Z"),
+      ),
+    )
+    .await;
+
+    assert!(
+      plan.contains("idx_data_archive_timestamp"),
+      "the hardware side must range-scan its timestamp index; plan was:\n{plan}"
+    );
+    assert!(
+      !plan.contains("SCAN DATA_ARCHIVE"),
+      "the hardware side must not be a full table scan; plan was:\n{plan}"
+    );
+    assert!(
+      !plan.contains("SCAN AMBIENT_ARCHIVE"),
+      "the ambient side must not be a full table scan either; plan was:\n{plan}"
+    );
+  }
+
+  #[tokio::test]
+  async fn without_the_index_the_range_query_would_scan_the_archive() {
+    // The control for the test above: the same SQL against the same
+    // schema minus migration 19 does fall back to a full scan, so that
+    // assertion is really observing the index and not a plan that would
+    // have been fine anyway.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    create_tables(&pool, &[DATA_ARCHIVE_DDL, AMBIENT_ARCHIVE_DDL]).await;
+
+    let plan = query_plan(
+      &pool,
+      &range_query_sql(
+        &utc("2026-08-15T00:00:00.000Z"),
+        &utc("2026-08-16T00:00:00.000Z"),
+      ),
+    )
+    .await;
+
+    assert!(
+      plan.contains("SCAN DATA_ARCHIVE"),
+      "expected the unindexed plan to scan; plan was:\n{plan}"
+    );
+  }
+
+  #[tokio::test]
+  async fn the_pairable_ambient_cursor_searches_the_timestamp_index() {
+    // The correlated EXISTS is the worst case: without the raw bracket
+    // it re-reads all of `DATA_ARCHIVE` once per ambient row.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
+    let hardware_epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
+    let ambient_minute_key = sqlite_minute_key(&ambient_epoch_ms);
+    let hardware_minute_key = sqlite_minute_key(&hardware_epoch_ms);
+    let sql = format!(
+      "SELECT MAX(AMBIENT_ARCHIVE.timestamp) FROM AMBIENT_ARCHIVE
+       WHERE {ambient_epoch_ms} < 1
+         AND EXISTS (
+           SELECT 1 FROM DATA_ARCHIVE
+           WHERE DATA_ARCHIVE.timestamp >= strftime(
+                   '%Y-%m-%dT%H:%M:%S', AMBIENT_ARCHIVE.timestamp, '-2 minutes')
+             AND DATA_ARCHIVE.timestamp <= strftime(
+                   '%Y-%m-%dT%H:%M:%S', AMBIENT_ARCHIVE.timestamp, '+2 minutes')
+             AND {hardware_minute_key} = {ambient_minute_key}
+         )"
+    );
+
+    let plan = query_plan(&pool, &sql).await;
+
+    assert!(
+      plan.contains("idx_data_archive_timestamp"),
+      "the correlated subquery must search the index; plan was:\n{plan}"
+    );
+    assert!(
+      !plan.contains("SCAN DATA_ARCHIVE"),
+      "the correlated subquery must not scan the archive per ambient row; plan was:\n{plan}"
+    );
+  }
+
+  #[tokio::test]
+  async fn the_raw_bound_widening_cannot_exclude_a_row_the_exact_predicate_keeps() {
+    // The raw bound is a pruning hint, so the one thing it must never do
+    // is drop a row that belongs in the answer. Rows sitting exactly on
+    // both range edges, plus one written in a different ISO 8601 shape
+    // than sqlx produces, all have to survive it.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T00:00:00.000Z"),
+    )
+    .await;
+    insert_archive_row(
+      &pool,
+      Some(6.0),
+      Some(41.0),
+      utc("2026-08-15T23:59:59.999Z"),
+    )
+    .await;
+    // A hand-written row in a shape sqlx would not emit (space
+    // separator, `Z` suffix, no offset) - the widening has to swamp that
+    // difference rather than the query silently losing the row.
+    sqlx::query(
+      "INSERT INTO DATA_ARCHIVE
+         (cpu_avg, cpu_temperature_avg, cpu_temperature_max, cpu_temperature_min, timestamp)
+       VALUES (7.0, 42.0, 42.0, 42.0, '2026-08-15 12:00:00Z')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      rows.len(),
+      3,
+      "both range edges and the differently-shaped row must survive the raw pre-filter"
+    );
   }
 
   // ── ambient backfill cursor (#2045) ──

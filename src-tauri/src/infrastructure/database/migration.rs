@@ -283,6 +283,25 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         );
       "#,
     },
+    SchemaMigration {
+      version: 19,
+      description: "add_data_archive_timestamp_index",
+      // `DATA_ARCHIVE` is the one archive table that never had a
+      // timestamp index, and it is also the largest: at one row per
+      // minute a year of history is over half a million rows.
+      //
+      // Every read of it is bounded by a time range - the cooling
+      // rollup's per-day fetch, the ambient pairing join (#2045), the
+      // retention delete - and without this index each of those is a
+      // full table scan. The pairing join made that acute, because it
+      // pairs `AMBIENT_ARCHIVE` against this table per archived minute.
+      //
+      // `IF NOT EXISTS` matches the other index migrations, so this is a
+      // no-op on a database that somehow already has it.
+      sql: r#"
+        CREATE INDEX IF NOT EXISTS idx_data_archive_timestamp ON DATA_ARCHIVE(timestamp);
+      "#,
+    },
   ]
 }
 
@@ -541,18 +560,30 @@ mod tests {
   }
 
   #[test]
+  fn migration_v19_indexes_the_data_archive_timestamp() {
+    let migrations = get_migrations();
+    let v19 = migrations
+      .iter()
+      .find(|m| m.version == 19)
+      .expect("Version 19 up migration must exist");
+    assert!(v19.sql.contains("CREATE INDEX IF NOT EXISTS"));
+    assert!(v19.sql.contains("idx_data_archive_timestamp"));
+    assert!(v19.sql.contains("DATA_ARCHIVE(timestamp)"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 18);
+    assert_eq!(get_max_migration_version(), 19);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
     // 16 was reserved while the ambient delta columns were in flight and
-    // is now filled, so 1..=18 happens to be contiguous again. The
+    // is now filled, so 1..=19 happens to be contiguous again. The
     // assertion below still only requires unique and ascending - see it
     // for why contiguity is not something to depend on.
-    assert_eq!(migrations.len(), 18);
+    assert_eq!(migrations.len(), 19);
   }
 
   #[test]

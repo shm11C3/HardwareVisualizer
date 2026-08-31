@@ -31,6 +31,12 @@ pub(crate) const DATA_ARCHIVE_DDL: &str = "CREATE TABLE DATA_ARCHIVE (
   timestamp DATETIME
 )";
 
+/// The `DATA_ARCHIVE` timestamp index (migration 19). Separate from
+/// [`DATA_ARCHIVE_DDL`] so a test can create the table without it and
+/// show a query plan changing when it is added.
+pub(crate) const DATA_ARCHIVE_TIMESTAMP_INDEX_DDL: &str =
+  "CREATE INDEX idx_data_archive_timestamp ON DATA_ARCHIVE(timestamp)";
+
 /// `AMBIENT_ARCHIVE` as migration 15 creates it (#2043): row-per-source,
 /// temperature NOT NULL, humidity nullable.
 pub(crate) const AMBIENT_ARCHIVE_DDL: &str = "CREATE TABLE AMBIENT_ARCHIVE (
@@ -40,6 +46,10 @@ pub(crate) const AMBIENT_ARCHIVE_DDL: &str = "CREATE TABLE AMBIENT_ARCHIVE (
   humidity REAL,
   timestamp DATETIME NOT NULL
 )";
+
+/// The `AMBIENT_ARCHIVE` timestamp index (migration 15).
+pub(crate) const AMBIENT_ARCHIVE_TIMESTAMP_INDEX_DDL: &str =
+  "CREATE INDEX idx_ambient_archive_timestamp ON AMBIENT_ARCHIVE(timestamp)";
 
 /// `cooling_daily_summary` through migration 16: the four temperature
 /// bands, coverage, the CPU package power columns (#2021), and the
