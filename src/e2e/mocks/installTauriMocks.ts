@@ -5,11 +5,14 @@ import type {
 } from "@/rspc/bindings";
 import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
 import {
+  buildAmbientArchiveSeriesFixture,
   buildCoolingDailyTrendFixture,
   buildCoolingFanTrendFixture,
   buildFanArchiveSeriesFixture,
+  coolingBandComparisonAmbientFixture,
   coolingBandComparisonEstablishingFixture,
   coolingBandComparisonFixture,
+  coolingBaselineDeltaAmbientFixture,
   coolingBaselineDeltaEstablishingFixture,
   coolingBaselineDeltaFixture,
   coolingBaselineDeltaLargeRiseFixture,
@@ -83,6 +86,12 @@ type FixtureOverrides = {
    * with no readable fan. The timeline then draws no fan lane and the
    * pending-sensors note keeps naming the fan (#2022). */
   coolingFanUnsupported: boolean;
+  /** `?coolingAmbient=present` gives the Cooling tab a machine with an
+   * environmental sensor: the ambient archive answers with a real series,
+   * and both baseline-delta and band-comparison fixtures carry their
+   * ambient-adjusted reading. Unset is the default everywhere else, which
+   * is exactly the machine that must render as it did before #2046. */
+  coolingAmbientPresent: boolean;
 };
 type CoolingObservationOverride =
   | "notComparable"
@@ -135,6 +144,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       "none",
     coolingFanUnsupported:
       new URLSearchParams(window.location.search).get("coolingFan") === "none",
+    coolingAmbientPresent:
+      new URLSearchParams(window.location.search).get("coolingAmbient") ===
+      "present",
   };
 };
 
@@ -347,6 +359,24 @@ const buildInvokeHandlers = (
           a.bucketTimestamp,
         );
   },
+  get_ambient_archive_series: (args) => {
+    const a = args as {
+      start: string;
+      end: string;
+      bucketWidthMs: number;
+      bucketTimestamp: ArchiveBucketTimestamp;
+    };
+    // A machine with no environmental sensor answers with no sources and
+    // no buckets - not buckets holding a room temperature of zero.
+    return fixtureOverrides.coolingAmbientPresent
+      ? buildAmbientArchiveSeriesFixture(
+          a.start,
+          a.end,
+          a.bucketWidthMs,
+          a.bucketTimestamp,
+        )
+      : { sources: [], buckets: [] };
+  },
   get_gpu_archive_series: (args) => {
     const a = args as {
       dataType: string;
@@ -405,10 +435,14 @@ const buildInvokeHandlers = (
           series: buildCoolingFanTrendFixture((args as { days: number }).days),
           archiveHasReadings: true,
         },
-  get_cooling_band_comparison: () =>
-    fixtureOverrides.coolingBaselineEstablishing
-      ? coolingBandComparisonEstablishingFixture
-      : coolingBandComparisonFixture,
+  get_cooling_band_comparison: () => {
+    if (fixtureOverrides.coolingBaselineEstablishing) {
+      return coolingBandComparisonEstablishingFixture;
+    }
+    return fixtureOverrides.coolingAmbientPresent
+      ? coolingBandComparisonAmbientFixture
+      : coolingBandComparisonFixture;
+  },
   // The Explorer (#2023) only invokes this once expanded, so a capture
   // that never opens it must never reach this handler.
   get_cooling_load_temperature_explorer: () =>
@@ -418,6 +452,9 @@ const buildInvokeHandlers = (
   get_cooling_baseline_delta: () => {
     if (fixtureOverrides.coolingBaselineEstablishing) {
       return coolingBaselineDeltaEstablishingFixture;
+    }
+    if (fixtureOverrides.coolingAmbientPresent) {
+      return coolingBaselineDeltaAmbientFixture;
     }
     switch (fixtureOverrides.coolingObservationOverride) {
       case "notComparable":

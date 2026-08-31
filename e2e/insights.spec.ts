@@ -119,6 +119,128 @@ test.describe("insights captures", () => {
     await saveCapture(page, "insights-cooling-no-fan");
   });
 
+  test("insights cooling tab stays unchanged without an environmental sensor", async ({
+    page,
+  }) => {
+    // The pixel-identical requirement of #2046, asserted structurally: the
+    // default fixture machine has no ambient sensor, so nothing ambient may
+    // mount anywhere in the view. The capture that proves the pixels is
+    // "insights-cooling" above, which this guards against silent drift.
+    await gotoApp(page);
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    await expect(page.getByTestId("cooling-temperature-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-fan-lane")).toBeVisible();
+
+    await expect(page.getByTestId("cooling-ambient-lane")).toHaveCount(0);
+    await expect(
+      page.getByTestId("cooling-ambient-adjusted-observation"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("cooling-load-band-dumbbell-ambient"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("cooling-data-state-ambient-source"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("cooling-data-state-ambient-coverage"),
+    ).toHaveCount(0);
+    // The single unlabeled comparison keeps its original shape too: the
+    // window line only appears once a second, differently-windowed chart
+    // sits beside it.
+    await expect(page.getByTestId("cooling-load-band-dumbbell")).toBeVisible();
+    await expect(
+      page.getByTestId("cooling-load-band-panel").getByText(/vs\. recent/),
+    ).toHaveCount(0);
+  });
+
+  test("insights cooling tab renders the ambient lane and adjusted comparison", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?coolingAmbient=present" });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    // The fifth lane, below the fan lane, on the same shared axis.
+    await expect(page.getByTestId("cooling-ambient-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-power-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-fan-lane")).toBeVisible();
+
+    // The absolute observation still reports its +6.2 degC rise; the
+    // ambient-adjusted line beside it reports the +0.3 degC that survives
+    // normalization, which is the whole point of the analysis.
+    const strip = page.getByTestId("cooling-observation-strip");
+    await expect(strip.getByText(/\+6\.2°C/)).toBeVisible();
+    const adjusted = page.getByTestId("cooling-ambient-adjusted-observation");
+    await expect(adjusted.getByText(/\+0\.3°C/)).toBeVisible();
+    // Its own window, not the absolute baseline's 2025-11-01–2025-11-14.
+    await expect(adjusted.getByText(/2025-12-01/)).toBeVisible();
+
+    // Both comparisons render, each labeled with the window it used.
+    const panel = page.getByTestId("cooling-load-band-panel");
+    await expect(page.getByTestId("cooling-load-band-dumbbell")).toBeVisible();
+    await expect(
+      page.getByTestId("cooling-load-band-dumbbell-ambient"),
+    ).toBeVisible();
+    await expect(panel.getByText(/2025-11-01.+2025-11-14/)).toBeVisible();
+    await expect(panel.getByText(/2025-12-01.+2025-12-14/)).toBeVisible();
+    // The mid band has ambient data but too thin a window, and the high
+    // band never paired at all: both stay honestly not comparable.
+    await expect(
+      page
+        .getByTestId("cooling-load-band-dumbbell-ambient")
+        .getByText("Not enough samples to compare"),
+    ).toHaveCount(2);
+
+    await expect(
+      page.getByTestId("cooling-data-state-ambient-source"),
+    ).toContainText("Desk sensor");
+    await expect(
+      page.getByTestId("cooling-data-state-ambient-coverage"),
+    ).toBeVisible();
+
+    // Wait for the debounced archive query (250ms) + chart render.
+    await page.waitForTimeout(1_000);
+
+    await saveCapture(page, "insights-cooling-ambient");
+  });
+
+  test("insights cooling tab drops the ambient lane on the long-range routes", async ({
+    page,
+  }) => {
+    // The daily rollup carries the per-band thermal delta but no ambient
+    // temperature series, so 90d has nothing to draw - and must not
+    // inherit the short window's lane.
+    await gotoApp(page, { path: "/?coolingAmbient=present" });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+    await expect(page.getByTestId("cooling-ambient-lane")).toBeVisible();
+
+    await page.getByTestId("cooling-period-select").click();
+    await page.getByRole("option", { name: "90 Days" }).click();
+
+    await expect(page.getByTestId("cooling-coverage-strip")).toBeVisible();
+    await expect(page.getByTestId("cooling-ambient-lane")).toHaveCount(0);
+    // The comparison is not routed, so its ambient variant stays.
+    await expect(
+      page.getByTestId("cooling-load-band-dumbbell-ambient"),
+    ).toBeVisible();
+    // But no source may be named for a window that carries none.
+    await expect(
+      page.getByTestId("cooling-data-state-ambient-source"),
+    ).toHaveCount(0);
+  });
+
   test("insights cooling tab merges avg/max/min into one lane at 30 days", async ({
     page,
   }) => {
