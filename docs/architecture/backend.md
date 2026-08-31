@@ -259,6 +259,40 @@ refused, so a clock rewind cannot leave one reading permanently fresh.
 Transport-specific causes such as an unavailable radio or a stopped scan stay
 inside the concrete provider and surface only as readings that stop arriving.
 
+The first concrete provider is the SwitchBot Meter
+(`core/src/infrastructure/providers/switchbot_meter/`). It is split so only the
+radio is platform-gated: `advertisement` decodes service-data bytes into a
+reading, `provider` caches the newest one and answers the polling contract, and
+both are portable and unit-tested from fixed byte strings on every platform.
+Only `scan`, which drives a Windows BLE advertisement watcher through
+`btleplug`, is `#[cfg(target_os = "windows")]`. The decode covers Meter
+(device type `0x54` / `0x74`) and Meter Plus (`0x69`), whose layout and formulas
+come from SwitchBot's published BLE documentation
+(`OpenWonderLabs/SwitchBotAPI-BLE`, `devicetypes/meter.md`). The Outdoor Meter
+is not decoded: the same document marks its layout unofficial.
+
+The provider never connects, pairs, bonds, or writes to a meter, and there is no
+SwitchBot account, cloud API, or outbound request; it reads what the device
+already broadcasts. The meter publishes its service data in the scan response,
+so btleplug's Windows backend runs the WinRT watcher in active scanning mode —
+the radio does transmit scan requests, even though no device state is changed.
+The provider binds to the first meter it hears and logs any others once, because
+one Sensor Source Label has to mean one physical sensor or every Thermal Delta
+derived from it blends two rooms.
+
+The ambient registry is built once, in `setup_environmental_sensors`
+(`src-tauri/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
+readings ride the archive's one-minute tick, so with the archive off there is
+nowhere for a reading to go. Registration is gated on the Core-owned
+`environmentalSensors.switchbotMeterEnabled` preference, which defaults to
+**off** — every other source this app reads is inside the machine, and this one
+turns on a radio and listens to the room. Because the registry is read-only
+after startup, toggling the preference takes effect on the next launch, and the
+settings screen raises the existing restart notice. A machine with no Bluetooth
+adapter, a disabled radio, or a refused scan logs once and produces no readings;
+it is not surfaced as External Component Guidance, because Ambient Sensor
+Availability already reports the same fact where the user is looking for it.
+
 Process Insight data is a sampled and ranked summary derived from realtime
 process observations. It is not a complete process audit log, and persistence
 code should preserve that expectation unless a new feature explicitly changes
