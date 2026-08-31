@@ -12,12 +12,12 @@ Every ADR carries one explicit status:
 
 - `proposed`: direction under evaluation; do not treat it as canonical shipped
   behavior without current code/product evidence.
-- `accepted`: the current decision. It can describe implemented direction that
-  has not yet appeared in a public release.
+- `accepted`: the current decision. The agreed direction may precede its
+  implementation or public release; the record must make that distinction clear.
 - `superseded`: historical context replaced by a newer ADR, which the record
   must link.
 
-ADR status describes decision maturity, not release status.
+ADR status describes decision maturity, not implementation or release status.
 
 ## Records
 
@@ -39,3 +39,4 @@ ADR status describes decision maturity, not release status.
 - [0016 GPU Attribution on the Performance Screen](0016-gpu-attribution-on-the-performance-screen.md)
 - [0017 Suspend Hidden Windows WebViews](0017-suspend-hidden-windows-webviews.md)
 - [0018 Cooling Daily Rollup Retention](0018-cooling-daily-rollup-retention.md)
+- [0019 Lossless Chunked Hardware Archive](0019-lossless-chunked-hardware-archive.md)

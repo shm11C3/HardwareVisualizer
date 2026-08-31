@@ -194,6 +194,12 @@ PawnIO and its CPU-specific module blobs, are documented in
 
 ### Persistence (`core/src/persistence/`, `src-tauri/src/infrastructure/`)
 
+This section describes the current row-based persistence implementation.
+[ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) records the accepted
+constraints for planned lossless chunked storage. Its persisted active tail,
+format migration, and recurring retention maintenance are not implemented by
+that decision; the startup flow and cleanup behavior below remain current.
+
 Persistence is split:
 
 - Core owns persistence workers and DB operations that are independent of Tauri.
@@ -239,6 +245,20 @@ quiet sensor never suppresses another. Ambient rows carry the archive tick's
 timestamp so they join the Hardware Archive row for the same minute, and they
 age out on the same `hardwareArchive.retentionDays` cycle as the rows they
 explain.
+
+`getAmbientArchiveSeries`
+(`archive_queries::select_ambient_archive_series`) reads that archive back for
+Cooling Insight's short-window timeline, bucketed on the same grid as the CPU,
+power and fan series. Each bucket carries the ambient average *and* the paired
+Thermal Delta, because the pairing rule below is normative and a caller handed
+only the two averages could not obey it: two CTEs collapse each side to one
+value per archived minute before the join, and the outer query averages the
+per-minute differences. The response also names the Sensor Source Labels that
+contributed to the window. There is no long-range equivalent -
+`cooling_daily_summary` stores the per-band Thermal Delta and the day's ambient
+coverage but no ambient temperature - so the 90-day and 1-year routes report
+the ambient capability as unknown rather than drawing a lane or claiming that
+no sensor exists.
 
 The provider contract is deliberately availability-based rather than
 connection-based: the first concrete provider reads passive BLE advertisements
@@ -397,9 +417,10 @@ with the write cycle's single tick instant so a fan reading and the hardware
 row folded from the same snapshots cannot land in adjacent buckets. The same
 rollup pass folds a completed day into one `cooling_fan_daily_summary` row per
 fan (`core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan
-because how many fans a machine exposes is configuration-dependent, and both
-share the daily rollup's retention window. The three fan-reading meanings stay
-distinct end to end: an Inactive Fan Reading (0 RPM) is stored as the real
+because how many fans a machine exposes is configuration-dependent. The
+one-minute fan archive follows `hardwareArchive.retentionDays`; the daily fan
+summary follows the separate cooling daily rollup retention window. The three
+fan-reading meanings stay distinct end to end: an Inactive Fan Reading (0 RPM) is stored as the real
 observation it is, an Invalid Fan Reading is excluded, and a missing reading
 has no row - so a stopped fan is never confused with an unreadable one. There
 is no hourly fan projection, because no view reads a fan axis at that

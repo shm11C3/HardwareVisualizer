@@ -364,6 +364,11 @@
           "sustainedLargeRise": "Idle temperature has been substantially higher than baseline ({{delta}}) for {{days}} days.",
           "comparisonWindow": "Last {{days}} days vs. baseline {{startDate}}–{{endDate}} · compared under similar load conditions",
           "disclaimer": "Room temperature, power plan, BIOS settings, or software changes can produce the same pattern. This alone cannot confirm component wear.",
+          "ambientAdjusted": {
+            "establishing": "Establishing ambient-adjusted baseline ({{qualifyingDays}} / {{requiredDays}} days)",
+            "reading": "Ambient-adjusted idle temperature is {{delta}} against its own baseline.",
+            "window": "Ambient-adjusted baseline {{startDate}}–{{endDate}}"
+          },
           "checklist": {
             "trigger": "Things worth checking",
             "items": {
@@ -383,21 +388,26 @@
           "loadFailed": "Failed to load the thermal timeline.",
           "temperatureLane": "CPU temperature ({{unit}})",
           "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
+          "temperatureUnavailableAlone": "No temperature readings for this period.",
           "loadLaneUsage": "CPU load (%)",
           "loadLaneComposition": "Load bands (% of day)",
           "powerLane": "CPU package power (W)",
           "fanLane": "Fan speed (rpm)",
+          "ambientLane": "Ambient temperature ({{unit}})",
           "legend": {
             "average": "Average",
             "range": "Min-max",
             "idle": "Idle",
-            "baseline": "Baseline"
+            "baseline": "Baseline",
+            "ambient": "Ambient"
           },
           "tooltip": {
             "average": "Average",
             "range": "Min-max",
             "idle": "Idle",
             "baselineDelta": "vs baseline",
+            "ambient": "Ambient",
+            "thermalDelta": "Above ambient",
             "cpuUsage": "CPU load",
             "power": "Package power",
             "powerRange": "Power min-max",
@@ -421,7 +431,10 @@
             "baseline": "Baseline",
             "recent": "Recent"
           },
-          "notComparable": "Not enough samples to compare"
+          "notComparable": "Not enough samples to compare",
+          "absoluteTitle": "CPU temperature",
+          "ambientAdjustedTitle": "Above ambient temperature",
+          "window": "Baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}}"
         },
         "explorer": {
           "title": "Load × Temperature Explorer",
@@ -448,6 +461,10 @@
           "temperatureSource": {
             "label": "Temperature source",
             "value": "CPU temperature (1 series)"
+          },
+          "ambient": {
+            "sourceLabel": "Ambient source",
+            "coverageLabel": "Ambient pairing"
           },
           "unsupported": {
             "label": "Power / fan",
