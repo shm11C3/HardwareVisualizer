@@ -158,6 +158,7 @@ pub mod commands {
       temperature_unit: settings.temperature_unit,
       hardware_archive: core_settings.hardware_archive.into(),
       storage_health: core_settings.storage_health.into(),
+      environmental_sensors: core_settings.environmental_sensors.clone().into(),
       burn_in_shift: settings.burn_in_shift,
       burn_in_shift_mode: settings.burn_in_shift_mode,
       burn_in_shift_preset: settings.burn_in_shift_preset,
@@ -672,6 +673,28 @@ pub mod commands {
     if let Err(e) =
       update_core_settings(&state, |s| s.hardware_archive.enabled = new_value)
     {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
+  /// Turn the SwitchBot Meter ambient source on or off (#2044).
+  ///
+  /// Takes effect on the next launch, like the archive toggle beside it:
+  /// the ambient registry is built once at startup and read-only
+  /// afterwards, so the scan starts and stops with the process rather
+  /// than mid-session. The settings screen says so.
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_switchbot_meter_enabled(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    new_value: bool,
+  ) -> Result<(), String> {
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.environmental_sensors.switchbot_meter_enabled = new_value
+    }) {
       emit_error(&window)?;
       return Err(e);
     }

@@ -131,6 +131,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::set_glass_blur,
       settings::commands::set_temperature_unit,
       settings::commands::set_hardware_archive_enabled,
+      settings::commands::set_switchbot_meter_enabled,
       settings::commands::set_hardware_archive_retention_days,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
       settings::commands::set_storage_health_retention_days,
@@ -171,6 +172,65 @@ fn export_typescript_bindings(builder: &Builder<Wry>) {
   builder
     .export(Typescript::default(), bindings_path())
     .expect("Failed to export typescript bindings");
+}
+
+/// Build the ambient sensor registry the archive worker reads (#2044).
+///
+/// The registry is built once and read-only afterwards (#2043), so this
+/// is the single point where a user's ambient hardware becomes part of
+/// the archive. Returning an empty registry is the normal result: the
+/// SwitchBot scan is off by default, and an empty registry makes the
+/// archive behave exactly as it did before ambient data existed.
+///
+/// Never fails and never blocks. Whether a radio exists is discovered
+/// asynchronously inside the scan, and a machine without one is not an
+/// error worth a dialog - it simply produces no readings, which #2043
+/// already reports as an unavailable source.
+#[cfg(target_os = "windows")]
+fn setup_environmental_sensors(
+  app: &tauri::AppHandle,
+  core_settings: &hardviz_core::settings::CoreSettings,
+  runtime: &tokio::runtime::Handle,
+) -> Arc<
+  hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry,
+> {
+  use hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
+  use hardviz_core::infrastructure::providers::switchbot_meter::{
+    SwitchBotMeterProvider, SwitchBotScanController,
+  };
+
+  let mut registry = EnvironmentalSensorRegistry::new();
+
+  if core_settings.environmental_sensors.switchbot_meter_enabled {
+    let provider = Arc::new(SwitchBotMeterProvider::new());
+    let scan = SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider));
+    app
+      .state::<workers::WorkersState>()
+      .switchbot_scan
+      .lock()
+      .unwrap()
+      .replace(scan);
+    registry.register(provider);
+  }
+
+  Arc::new(registry)
+}
+
+/// No ambient transport is implemented outside Windows yet (#2044), so
+/// the registry is always empty and the archive writes no ambient rows.
+///
+/// The provider abstraction, the decode, and the cache are all portable;
+/// only the radio layer is missing, so adding a platform means adding a
+/// scan rather than reworking this.
+#[cfg(not(target_os = "windows"))]
+fn setup_environmental_sensors(
+  _app: &tauri::AppHandle,
+  _core_settings: &hardviz_core::settings::CoreSettings,
+  _runtime: &tokio::runtime::Handle,
+) -> Arc<
+  hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry,
+> {
+  Arc::default()
 }
 
 #[cfg(debug_assertions)]
@@ -331,10 +391,23 @@ pub fn run() {
         // the EventBus so a slow DB write can't back-pressure the
         // collector cadence (#1407).
         if core_settings.hardware_archive.enabled {
-          let hw_archive = hardviz_core::persistence::ArchiveController::setup(
-            &bus,
-            runtime_handle.clone(),
+          // Ambient sources (#2043) ride the archive's one-minute tick,
+          // so they are built here and only here: with the archive off
+          // there is nowhere for an ambient reading to go, and starting
+          // a radio scan to feed a worker that isn't running would be
+          // collection cost with no visible value.
+          let environmental_sensors = setup_environmental_sensors(
+            app.handle(),
+            &core_settings,
+            &runtime_handle,
           );
+
+          let hw_archive =
+            hardviz_core::persistence::ArchiveController::setup_with_environmental_sensors(
+              &bus,
+              runtime_handle.clone(),
+              environmental_sensors,
+            );
           {
             let ws = app.state::<workers::WorkersState>();
             ws.hw_archive.lock().unwrap().replace(hw_archive);

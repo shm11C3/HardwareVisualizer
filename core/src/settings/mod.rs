@@ -9,6 +9,7 @@
 //! [`CoreSettings::save_to_path`] merges its own keys into any existing
 //! object so App-owned keys are preserved.
 
+pub mod environmental_sensors;
 pub mod hardware_archive;
 pub mod storage_health;
 
@@ -17,6 +18,7 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
+pub use environmental_sensors::EnvironmentalSensorSettings;
 pub use hardware_archive::HardwareArchiveSettings;
 pub use storage_health::{
   STORAGE_HEALTH_IDENTITY_HASH_KEY_BYTES, StorageHealthIdentitySettings,
@@ -31,6 +33,8 @@ const STORAGE_HEALTH_KEY: &str = "storageHealth";
 const LEGACY_STORAGE_SMART_KEY: &str = "storageSmart";
 /// JSON key under which [`StorageHealthIdentitySettings`] is persisted.
 const STORAGE_HEALTH_IDENTITY_KEY: &str = "storageHealthIdentity";
+/// JSON key under which [`EnvironmentalSensorSettings`] is persisted.
+const ENVIRONMENTAL_SENSORS_KEY: &str = "environmentalSensors";
 /// Legacy JSON key accepted for unreleased Storage Health development builds.
 const LEGACY_STORAGE_SMART_IDENTITY_KEY: &str = "storageSmartIdentity";
 
@@ -45,6 +49,7 @@ pub struct CoreSettings {
   pub hardware_archive: HardwareArchiveSettings,
   pub storage_health: StorageHealthSettings,
   pub storage_health_identity: StorageHealthIdentitySettings,
+  pub environmental_sensors: EnvironmentalSensorSettings,
 }
 
 impl CoreSettings {
@@ -93,6 +98,11 @@ impl CoreSettings {
         serde_json::from_value::<StorageHealthIdentitySettings>(v.clone())
     {
       settings.storage_health_identity = parsed;
+    }
+    if let Some(v) = map.get(ENVIRONMENTAL_SENSORS_KEY)
+      && let Ok(parsed) = serde_json::from_value::<EnvironmentalSensorSettings>(v.clone())
+    {
+      settings.environmental_sensors = parsed;
     }
     Ok(settings)
   }
@@ -147,6 +157,11 @@ impl CoreSettings {
       serde_json::to_value(&self.storage_health_identity).map_err(|e| {
         format!("Failed to serialize storage health identity settings: {e}")
       })?,
+    );
+    document.insert(
+      ENVIRONMENTAL_SENSORS_KEY.to_string(),
+      serde_json::to_value(&self.environmental_sensors)
+        .map_err(|e| format!("Failed to serialize environmental sensor settings: {e}"))?,
     );
     document.remove(LEGACY_STORAGE_SMART_KEY);
     document.remove(LEGACY_STORAGE_SMART_IDENTITY_KEY);
@@ -211,6 +226,65 @@ mod tests {
     assert!(!s.hardware_archive.scheduled_data_deletion);
     assert!(!s.storage_health.enabled);
     assert_eq!(s.storage_health.retention_days, 730);
+  }
+
+  /// A settings file written before #2044 carries no
+  /// `environmentalSensors` key, and must not start a radio scan on
+  /// upgrade.
+  #[test]
+  fn a_settings_file_without_the_environmental_key_leaves_the_scan_off() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"hardwareArchive": {"enabled": true}}"#).unwrap();
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+    assert!(!s.environmental_sensors.switchbot_meter_enabled);
+  }
+
+  #[test]
+  fn load_reads_an_enabled_switchbot_meter_scan() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{
+        "theme": "dark",
+        "environmentalSensors": {"switchbotMeterEnabled": true}
+      }"#,
+    )
+    .unwrap();
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+    assert!(s.environmental_sensors.switchbot_meter_enabled);
+  }
+
+  /// The whole point of the shared document: Core writing its own block
+  /// must not cost the user an App-owned preference.
+  #[test]
+  fn saving_the_environmental_key_preserves_app_owned_keys() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"theme": "dark", "language": "ja"}"#).unwrap();
+
+    let mut settings = CoreSettings::default();
+    settings.environmental_sensors.switchbot_meter_enabled = true;
+    settings.save_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(written["theme"], "dark");
+    assert_eq!(written["language"], "ja");
+    assert_eq!(
+      written["environmentalSensors"]["switchbotMeterEnabled"],
+      true
+    );
+
+    assert!(
+      CoreSettings::load_from_path(&path)
+        .unwrap()
+        .environmental_sensors
+        .switchbot_meter_enabled
+    );
   }
 
   #[test]
@@ -425,6 +499,9 @@ mod tests {
       storage_health_identity: StorageHealthIdentitySettings {
         hash_key: "v1:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
           .to_string(),
+      },
+      environmental_sensors: EnvironmentalSensorSettings {
+        switchbot_meter_enabled: true,
       },
     };
     s.save_to_path(&path).unwrap();
