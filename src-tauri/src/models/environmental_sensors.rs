@@ -2,13 +2,15 @@ use hardviz_core::settings::EnvironmentalSensorSettings as CoreEnvironmentalSens
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+// Kept to a single doc paragraph: tauri-specta renders a blank `///`
+// line as a ` * ` line in the generated JSDoc, whose trailing space
+// fails the repository's whitespace check on `src/rspc/bindings.ts`.
 /// Wire-format mirror of
-/// [`hardviz_core::settings::EnvironmentalSensorSettings`] (#2044).
-///
-/// The canonical definition lives in `hardviz_core::settings` so the
-/// ambient provider registration doesn't need to know about Tauri or
-/// specta. This App-side struct exists only because the frontend wire
-/// format requires `specta::Type`.
+/// [`hardviz_core::settings::EnvironmentalSensorSettings`] (#2044). The
+/// canonical definition lives in `hardviz_core::settings` so the ambient
+/// provider registration doesn't need to know about Tauri or specta.
+/// This App-side struct exists only because the frontend wire format
+/// requires `specta::Type`.
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(default, rename_all = "camelCase")]
 pub struct EnvironmentalSensorSettings {

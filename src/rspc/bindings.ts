@@ -167,12 +167,11 @@ export const commands = {
 	setTemperatureUnit: (newUnit: TemperatureUnit) => typedError<null, string>(__TAURI_INVOKE("set_temperature_unit", { newUnit })),
 	setHardwareArchiveEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_enabled", { newValue })),
 	/**
-	 *  Turn the SwitchBot Meter ambient source on or off (#2044).
-	 * 
-	 *  Takes effect on the next launch, like the archive toggle beside it:
-	 *  the ambient registry is built once at startup and read-only
-	 *  afterwards, so the scan starts and stops with the process rather
-	 *  than mid-session. The settings screen says so.
+	 *  Turn the SwitchBot Meter ambient source on or off (#2044). Takes
+	 *  effect on the next launch, like the archive toggle beside it: the
+	 *  ambient registry is built once at startup and read-only afterwards,
+	 *  so the scan starts and stops with the process rather than
+	 *  mid-session. The settings screen says so.
 	 */
 	setSwitchbotMeterEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_enabled", { newValue })),
 	setHardwareArchiveRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_retention_days", { newRetentionDays })),
@@ -689,12 +688,11 @@ export type DownloadEvent = { event: "started"; data: {
 
 /**
  *  Wire-format mirror of
- *  [`hardviz_core::settings::EnvironmentalSensorSettings`] (#2044).
- * 
- *  The canonical definition lives in `hardviz_core::settings` so the
- *  ambient provider registration doesn't need to know about Tauri or
- *  specta. This App-side struct exists only because the frontend wire
- *  format requires `specta::Type`.
+ *  [`hardviz_core::settings::EnvironmentalSensorSettings`] (#2044). The
+ *  canonical definition lives in `hardviz_core::settings` so the ambient
+ *  provider registration doesn't need to know about Tauri or specta.
+ *  This App-side struct exists only because the frontend wire format
+ *  requires `specta::Type`.
  */
 export type EnvironmentalSensorSettings = {
 	switchbotMeterEnabled?: boolean,

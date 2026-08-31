@@ -679,12 +679,14 @@ pub mod commands {
     Ok(())
   }
 
-  /// Turn the SwitchBot Meter ambient source on or off (#2044).
-  ///
-  /// Takes effect on the next launch, like the archive toggle beside it:
-  /// the ambient registry is built once at startup and read-only
-  /// afterwards, so the scan starts and stops with the process rather
-  /// than mid-session. The settings screen says so.
+  // Kept to a single doc paragraph: tauri-specta renders a blank `///`
+  // line as a ` * ` line in the generated JSDoc, whose trailing space
+  // fails the repository's whitespace check on `src/rspc/bindings.ts`.
+  /// Turn the SwitchBot Meter ambient source on or off (#2044). Takes
+  /// effect on the next launch, like the archive toggle beside it: the
+  /// ambient registry is built once at startup and read-only afterwards,
+  /// so the scan starts and stops with the process rather than
+  /// mid-session. The settings screen says so.
   #[tauri::command]
   #[specta::specta]
   pub async fn set_switchbot_meter_enabled(
