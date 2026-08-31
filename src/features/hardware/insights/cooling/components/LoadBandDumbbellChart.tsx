@@ -6,7 +6,7 @@ import {
   positionPercent,
 } from "../utils/loadBandDumbbell";
 import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
-import { computeAdaptiveTemperatureDomain } from "../utils/thermalTimeline";
+import { computeSignedTemperatureDomain } from "../utils/thermalTimeline";
 
 /**
  * Zone (5)'s per-band baseline-vs-recent comparison: a lightweight
@@ -18,16 +18,28 @@ import { computeAdaptiveTemperatureDomain } from "../utils/thermalTimeline";
 export const LoadBandDumbbellChart = ({
   rows,
   temperatureUnit,
+  testId = "cooling-load-band-dumbbell",
 }: {
   rows: LoadBandDumbbellRow[];
   temperatureUnit: TemperatureUnit;
+  /**
+   * Overridden by the ambient-adjusted variant (#2046), which renders a
+   * second chart of the same shape directly below the absolute one; two
+   * elements sharing one test id would make either ambiguous to address.
+   */
+  testId?: string;
 }) => {
   const { t } = useTranslation();
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
 
+  // Signed, because the same chart draws the ambient-adjusted variant
+  // (#2046) whose endpoints are thermal deltas. Core does not clamp a ΔT at
+  // zero - a machine idling below the room it sits in is a real
+  // observation - and clamping the domain here would pin every negative
+  // reading to the left end of the track instead of placing it.
   const domain = useMemo(
     () =>
-      computeAdaptiveTemperatureDomain(
+      computeSignedTemperatureDomain(
         rows.flatMap((row) =>
           row.comparable ? [row.baseline, row.recent] : [],
         ),
@@ -36,7 +48,7 @@ export const LoadBandDumbbellChart = ({
   );
 
   return (
-    <div className="space-y-3" data-testid="cooling-load-band-dumbbell">
+    <div className="space-y-3" data-testid={testId}>
       <div className="flex items-center gap-4 text-muted-foreground text-xs">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full border-2 border-background bg-muted-foreground" />

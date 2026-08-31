@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { daysInclusive, resolveObservationDisplay } from "./observationDisplay";
+import type { CoolingAmbientAdjustedBaselineDelta } from "@/rspc/bindings";
+import {
+  daysInclusive,
+  resolveAmbientAdjustedDisplay,
+  resolveObservationDisplay,
+} from "./observationDisplay";
 
 describe("resolveObservationDisplay", () => {
   it("withholds a delta for notComparable, since Core reports none", () => {
@@ -54,6 +59,121 @@ describe("resolveObservationDisplay", () => {
       tone: "large",
       delta: 11.5,
       sustainedDays: 3,
+    });
+  });
+});
+
+const ambientAdjusted = (
+  overrides: Partial<CoolingAmbientAdjustedBaselineDelta> = {},
+): CoolingAmbientAdjustedBaselineDelta => ({
+  baseline: { status: "establishing", qualifyingDays: 0, requiredDays: 7 },
+  recent: { deltaAvg: null, sampleMinutes: 0 },
+  delta: null,
+  comparable: false,
+  ...overrides,
+});
+
+const established = {
+  status: "established",
+  deltaTemperatureAvg: 26,
+  windowStartDate: "2025-12-01",
+  windowEndDate: "2025-12-14",
+  sampleMinutes: 9_800,
+} as const;
+
+describe("resolveAmbientAdjustedDisplay", () => {
+  it("stays hidden on a machine with no environmental sensor", () => {
+    // Core always sends this branch - an establishing ΔT baseline at zero
+    // qualifying days is exactly how "no ambient sensor" reports itself.
+    // Rendering its progress would put an ambient line on every machine.
+    expect(resolveAmbientAdjustedDisplay(ambientAdjusted(), "C")).toEqual({
+      kind: "hidden",
+    });
+  });
+
+  it("reports ΔT establishment progress once paired days exist", () => {
+    expect(
+      resolveAmbientAdjustedDisplay(
+        ambientAdjusted({
+          baseline: {
+            status: "establishing",
+            qualifyingDays: 3,
+            requiredDays: 7,
+          },
+        }),
+        "C",
+      ),
+    ).toEqual({ kind: "establishing", qualifyingDays: 3, requiredDays: 7 });
+  });
+
+  it("stays hidden while the recent window is too thin to compare", () => {
+    // "Insufficient coverage" must leave the strip exactly as it reads
+    // without ambient data, not add a not-comparable line of its own.
+    expect(
+      resolveAmbientAdjustedDisplay(
+        ambientAdjusted({
+          baseline: established,
+          recent: { deltaAvg: null, sampleMinutes: 12 },
+        }),
+        "C",
+      ),
+    ).toEqual({ kind: "hidden" });
+  });
+
+  it("reports the ambient-adjusted delta with the ΔT baseline's own window", () => {
+    // The ΔT baseline establishes over its own days, so its window is
+    // routinely a different range than the absolute baseline's.
+    expect(
+      resolveAmbientAdjustedDisplay(
+        ambientAdjusted({
+          baseline: established,
+          recent: { deltaAvg: 30.8, sampleMinutes: 6_100 },
+          delta: 4.8,
+          comparable: true,
+        }),
+        "C",
+      ),
+    ).toEqual({
+      kind: "comparable",
+      delta: 4.8,
+      windowStartDate: "2025-12-01",
+      windowEndDate: "2025-12-14",
+    });
+  });
+
+  it("converts the ambient-adjusted delta as a span, not a point", () => {
+    const result = resolveAmbientAdjustedDisplay(
+      ambientAdjusted({
+        baseline: established,
+        recent: { deltaAvg: 30.8, sampleMinutes: 6_100 },
+        delta: 5,
+        comparable: true,
+      }),
+      "F",
+    );
+    expect(result.kind).toBe("comparable");
+    expect((result as { delta: number }).delta).toBeCloseTo(9);
+  });
+
+  it("stays hidden when Core reports comparable without a delta", () => {
+    // Core's contract says `delta` is non-null whenever `comparable`; a
+    // response that contradicts it must not render as a fabricated 0.
+    expect(
+      resolveAmbientAdjustedDisplay(
+        ambientAdjusted({
+          baseline: established,
+          recent: { deltaAvg: 30.8, sampleMinutes: 6_100 },
+          delta: null,
+          comparable: true,
+        }),
+        "C",
+      ),
+    ).toEqual({ kind: "hidden" });
+  });
+
+  it("stays hidden when the response carries no ambient reading at all", () => {
+    expect(resolveAmbientAdjustedDisplay(null, "C")).toEqual({
+      kind: "hidden",
     });
   });
 });

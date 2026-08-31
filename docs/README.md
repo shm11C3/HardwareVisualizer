@@ -14,6 +14,7 @@ documentation.
   [Japanese](user/external-components.ja.md)
 - [Windows sensor external components](architecture/windows-sensor-external-components.md)
 - [Architecture decision records](adr/)
+- [Lossless chunked Hardware Archive decision](adr/0019-lossless-chunked-hardware-archive.md)
 - [Sensor hardware specs (clean-room)](specs/sensors/)
 - [Frontend architecture](../src/README.md)
 - [Core crate guide](../core/README.md)

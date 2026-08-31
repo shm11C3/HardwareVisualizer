@@ -2,8 +2,8 @@ use crate::commands::settings;
 use crate::enums::error::BackendError;
 use crate::models;
 use crate::models::archive_history::{
-  ArchiveBucketTimestamp, ArchiveDataStats, ArchiveSeriesPoint, DataArchiveHardwareType,
-  FanArchiveSeries, GpuArchiveDataType, ProcessStatRecord,
+  AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveDataStats, ArchiveSeriesPoint,
+  DataArchiveHardwareType, FanArchiveSeries, GpuArchiveDataType, ProcessStatRecord,
 };
 use crate::models::hardware::{NetworkInfo, ProcessInfo, SysInfo};
 use crate::services::external_component_guidance_service::ExternalComponentGuidanceState;
@@ -395,6 +395,42 @@ pub async fn get_fan_archive_series(
   )
   .await
   .map(|series| series.into_iter().map(Into::into).collect())
+}
+
+///
+/// ## Get the bucketed ambient temperature and paired thermal delta series
+///
+// The ΔT comes back already paired: Core joins each archived minute's CPU
+// package temperature to that minute's ambient value before it averages,
+// so a bucket's `deltaAvg` is the mean of real per-minute differences.
+// Recomputing it as (bucket CPU average - bucket ambient average) is a
+// different number whenever the two archives cover different minutes, and
+// is not permitted - see `docs/architecture/backend.md`. Kept out of the
+// doc comment because tauri-specta renders a blank `///` line as a
+// trailing-space `" * "` in the generated `bindings.ts`, which fails CI's
+// `git diff --check`.
+#[command]
+#[specta::specta]
+pub async fn get_ambient_archive_series(
+  start: String,
+  end: String,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<AmbientArchiveSeries, String> {
+  use crate::services::archive_history_service;
+
+  let start = parse_datetime(&start)?;
+  let end = parse_datetime(&end)?;
+  validate_bucket_width_ms(bucket_width_ms)?;
+
+  archive_history_service::fetch_ambient_archive_series(
+    &start,
+    &end,
+    bucket_width_ms,
+    bucket_timestamp.into(),
+  )
+  .await
+  .map(Into::into)
 }
 
 ///

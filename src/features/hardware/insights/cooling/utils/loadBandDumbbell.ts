@@ -58,6 +58,63 @@ export const buildLoadBandDumbbellRows = (
   });
 
 /**
+ * The same per-band comparison read over the Thermal Delta instead of the
+ * absolute temperature (#2046), so a rise the room explains can be told
+ * apart from one the cooling explains.
+ *
+ * Returns `null` - not an empty array - when no band carries an ambient
+ * reading at all. That is the normal state on a machine with no
+ * environmental sensor, and it has to stay distinguishable from "ambient
+ * data exists but this window is too thin", because only the former means
+ * the panel should render exactly as it did before ambient existed.
+ *
+ * Every endpoint is converted with `convertTemperatureDelta` rather than
+ * `toDisplayTemperature`: a ΔT is already a difference between two
+ * temperatures, so the +32 offset would be applied to a span that never
+ * had a zero point on the Fahrenheit scale.
+ */
+export const buildAmbientAdjustedDumbbellRows = (
+  bands: readonly CoolingBandComparisonEntry[],
+  temperatureUnit: TemperatureUnit,
+): LoadBandDumbbellRow[] | null => {
+  if (bands.every((entry) => entry.ambientAdjusted == null)) {
+    return null;
+  }
+
+  return bands.map((entry) => {
+    const adjusted = entry.ambientAdjusted;
+    if (
+      adjusted == null ||
+      !adjusted.comparable ||
+      adjusted.baseline.deltaAvg == null ||
+      adjusted.recent.deltaAvg == null
+    ) {
+      return { band: entry.band, comparable: false };
+    }
+
+    const baseline = convertTemperatureDelta(
+      adjusted.baseline.deltaAvg,
+      temperatureUnit,
+    );
+    const recent = convertTemperatureDelta(
+      adjusted.recent.deltaAvg,
+      temperatureUnit,
+    );
+
+    return {
+      band: entry.band,
+      comparable: true,
+      baseline,
+      recent,
+      delta: convertTemperatureDelta(
+        adjusted.recent.deltaAvg - adjusted.baseline.deltaAvg,
+        temperatureUnit,
+      ),
+    };
+  });
+};
+
+/**
  * Map a display-unit temperature onto a 0-100 horizontal position within
  * `domain`, clamped to the track. A degenerate domain (identical min/max,
  * e.g. only one comparable band) centers the point rather than dividing by
