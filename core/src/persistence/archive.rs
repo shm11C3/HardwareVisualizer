@@ -11,6 +11,7 @@
 //! cannot back-pressure sensor polling.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::Arc;
 
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
@@ -19,11 +20,12 @@ use tokio::task::JoinHandle;
 use tokio::time::{Duration, MissedTickBehavior, interval};
 
 use crate::event_bus::EventBus;
+use crate::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
 use crate::models::{
   FanSpeedStatus, MetricsSnapshot, MotherboardFanSpeed, ProcessSample,
 };
 use crate::persistence::archive_data::{
-  FanArchiveRow, GpuData, HardwareArchiveRow, HardwareData, ProcessStatData,
+  AmbientData, FanArchiveRow, GpuData, HardwareArchiveRow, HardwareData, ProcessStatData,
 };
 use crate::{log_info, log_warn};
 
@@ -59,11 +61,24 @@ impl ArchiveController {
   /// `bus` immediately so no snapshots are missed between setup and the
   /// first tick.
   pub fn setup(bus: &EventBus, runtime: Handle) -> Self {
+    Self::setup_with_environmental_sensors(bus, runtime, Arc::default())
+  }
+
+  /// [`ArchiveController::setup`] with ambient sources attached (#2043).
+  ///
+  /// The registry rides the same one-minute tick as the hardware row, so
+  /// an ambient reading and the CPU temperature it explains land on the
+  /// same minute. An empty registry behaves exactly like [`Self::setup`].
+  pub fn setup_with_environmental_sensors(
+    bus: &EventBus,
+    runtime: Handle,
+    environmental_sensors: Arc<EnvironmentalSensorRegistry>,
+  ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
     let mut rx = bus.subscribe();
 
     let handle = runtime.spawn(async move {
-      let mut tracker = ArchiveTracker::new();
+      let mut tracker = ArchiveTracker::with_environmental_sensors(environmental_sensors);
       let mut ticker =
         interval(Duration::from_secs(HARDWARE_ARCHIVE_INTERVAL_SECONDS));
       ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -192,6 +207,14 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
+  if let Err(e) = database::ambient_archive::delete_old_data(retention_days).await {
+    log_error!(
+      "Failed to delete old ambient archive data",
+      "persistence::archive::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
   crate::persistence::cooling_rollup::cleanup_old_data().await;
 }
 
@@ -249,11 +272,23 @@ struct ArchiveTracker {
   /// been ingested since the previous tick (e.g. shutdown lands within
   /// a fraction of a second after a scheduled write).
   dirty: bool,
+  /// Ambient sources polled on the archive tick. Empty on installs with
+  /// no environmental sensor, which then write no ambient rows at all.
+  environmental_sensors: Arc<EnvironmentalSensorRegistry>,
 }
 
 impl ArchiveTracker {
   fn new() -> Self {
     Self::default()
+  }
+
+  fn with_environmental_sensors(
+    environmental_sensors: Arc<EnvironmentalSensorRegistry>,
+  ) -> Self {
+    Self {
+      environmental_sensors,
+      ..Self::new()
+    }
   }
 
   fn is_dirty(&self) -> bool {
@@ -392,12 +427,14 @@ impl ArchiveTracker {
 
     self.dirty = false;
 
-    // One instant for the whole write cycle. The fan rows are a separate
-    // table from the hardware row, so without a shared tick each would
-    // stamp its own `Utc::now()` - and two measurements folded from the
-    // same snapshots could land in adjacent buckets, breaking the very
-    // alignment the synchronized lanes depend on.
-    let tick = chrono::Utc::now();
+    // Taken once at the top of the write cycle and shared by every table
+    // this cycle writes. The ambient and fan rows live in their own
+    // tables, so each reading a second `now()` further down would let a
+    // cycle that straddles a minute boundary stamp them into a different
+    // minute than the rest of the cycle - and measurements folded from
+    // the same snapshots would land in adjacent buckets, breaking the
+    // alignment the synchronized timeline lanes depend on.
+    let tick_timestamp = chrono::Utc::now();
 
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
     let cpu_temperature = StatsCalculator::compute_stats(
@@ -445,7 +482,7 @@ impl ArchiveTracker {
     // temperature it belongs with share one minute boundary.
     let fans = self.collect_fan_data();
     if !fans.is_empty()
-      && let Err(e) = database::fan_archive::insert(fans, tick).await
+      && let Err(e) = database::fan_archive::insert(fans, tick_timestamp).await
     {
       log_error!(
         "Failed to insert fan archive data",
@@ -464,6 +501,34 @@ impl ArchiveTracker {
         Some(e.to_string())
       );
     }
+
+    // Ambient rows are keyed to the tick, not to each sensor's own
+    // observation time, so they join the hardware row for this minute.
+    let ambient = self.collect_ambient_data(tick_timestamp);
+    if !ambient.is_empty()
+      && let Err(e) = database::ambient_archive::insert(ambient, tick_timestamp).await
+    {
+      log_error!(
+        "Failed to insert ambient archive data",
+        "persistence::archive::write_archive",
+        Some(e.to_string())
+      );
+    }
+  }
+
+  /// The ambient rows for the minute ending at `now` - one per source
+  /// with a fresh reading, and none for a source that has gone quiet.
+  fn collect_ambient_data(&self, now: chrono::DateTime<chrono::Utc>) -> Vec<AmbientData> {
+    self
+      .environmental_sensors
+      .fresh_readings(now)
+      .into_iter()
+      .map(|reading| AmbientData {
+        source: reading.source,
+        temperature: reading.temperature_celsius,
+        humidity: reading.humidity_percent,
+      })
+      .collect()
   }
 
   fn collect_gpu_data(&self) -> Vec<GpuData> {
@@ -1398,6 +1463,107 @@ mod tests {
     assert_eq!(gpus[0].usage_max, Some(30.0));
     assert_eq!(gpus[0].temperature_avg, Some(50.0));
     assert_eq!(gpus[0].dedicated_memory_avg, Some(200));
+  }
+
+  // ── collect_ambient_data ──
+
+  mod ambient {
+    use super::*;
+    use crate::infrastructure::providers::environmental::{
+      AMBIENT_READING_MAX_AGE_SECONDS, EnvironmentalReading, EnvironmentalSensorProvider,
+    };
+    use chrono::{DateTime, Utc};
+
+    struct StubSensor {
+      source: String,
+      reading: Option<EnvironmentalReading>,
+    }
+
+    impl EnvironmentalSensorProvider for StubSensor {
+      fn source(&self) -> &str {
+        &self.source
+      }
+
+      fn latest_reading(&self) -> Option<EnvironmentalReading> {
+        self.reading.clone()
+      }
+    }
+
+    fn tick() -> DateTime<Utc> {
+      DateTime::parse_from_rfc3339("2026-08-30T12:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc)
+    }
+
+    fn sensor(
+      source: &str,
+      temperature: f32,
+      humidity: Option<f32>,
+      seconds_old: i64,
+    ) -> Arc<StubSensor> {
+      Arc::new(StubSensor {
+        source: source.to_string(),
+        reading: Some(EnvironmentalReading {
+          temperature_celsius: temperature,
+          humidity_percent: humidity,
+          timestamp: tick() - chrono::Duration::seconds(seconds_old),
+          source: source.to_string(),
+        }),
+      })
+    }
+
+    fn tracker(sensors: Vec<Arc<StubSensor>>) -> ArchiveTracker {
+      let mut registry = EnvironmentalSensorRegistry::new();
+      for sensor in sensors {
+        registry.register(sensor);
+      }
+      ArchiveTracker::with_environmental_sensors(Arc::new(registry))
+    }
+
+    #[test]
+    fn an_install_without_an_ambient_sensor_writes_no_ambient_rows() {
+      let tracker = ArchiveTracker::new();
+      assert!(tracker.collect_ambient_data(tick()).is_empty());
+    }
+
+    #[test]
+    fn every_fresh_ambient_source_becomes_its_own_row_for_the_tick() {
+      let tracker = tracker(vec![
+        sensor("Living Room", 24.5, Some(48.0), 30),
+        sensor("Desk", 26.0, None, 30),
+      ]);
+
+      assert_eq!(
+        tracker.collect_ambient_data(tick()),
+        vec![
+          AmbientData {
+            source: "Living Room".to_string(),
+            temperature: 24.5,
+            humidity: Some(48.0),
+          },
+          AmbientData {
+            source: "Desk".to_string(),
+            temperature: 26.0,
+            humidity: None,
+          },
+        ]
+      );
+    }
+
+    #[test]
+    fn a_sensor_that_went_quiet_leaves_the_minute_without_an_ambient_row() {
+      let tracker = tracker(vec![sensor(
+        "Living Room",
+        24.5,
+        Some(48.0),
+        AMBIENT_READING_MAX_AGE_SECONDS + 1,
+      )]);
+
+      assert!(
+        tracker.collect_ambient_data(tick()).is_empty(),
+        "a stale sensor must not keep writing its last value every minute"
+      );
+    }
   }
 
   #[test]
