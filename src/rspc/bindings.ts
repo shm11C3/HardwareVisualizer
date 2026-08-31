@@ -377,6 +377,33 @@ export type ClientSettings_Serialize = {
 };
 
 /**
+ *  One band's ambient-adjusted baseline-vs-recent comparison (#2045): the
+ *  same two windows as the absolute comparison, but over the thermal
+ *  delta, so a rise the weather explains can be told apart from a rise
+ *  the cooling explains. `comparable` follows the same
+ *  both-sides-or-nothing rule as the absolute reading.
+ */
+export type CoolingAmbientAdjustedBandComparison = {
+	baseline: CoolingBandDeltaWindowSummary,
+	recent: CoolingBandDeltaWindowSummary,
+	comparable: boolean,
+};
+
+/**
+ *  The ambient-normalized reading of the same idle drift (#2045): how far
+ *  the machine's idle rise *above ambient* has moved, rather than how far
+ *  its absolute idle temperature has moved. A flat delta under a rising
+ *  absolute temperature says the room warmed up; a rising delta says the
+ *  machine did. `delta` is null unless `comparable`.
+ */
+export type CoolingAmbientAdjustedBaselineDelta = {
+	baseline: CoolingBandDeltaWindowSummary,
+	recent: CoolingBandDeltaWindowSummary,
+	delta: number | null,
+	comparable: boolean,
+};
+
+/**
  *  Cooling Insight's load-band comparison, gated by the same baseline
  *  lifecycle as [`CoolingBaselineState`]: no comparison exists yet while
  *  the baseline is still establishing.
@@ -389,6 +416,27 @@ export type CoolingBandComparisonEntry = {
 	baseline: CoolingBandWindowSummary,
 	recent: CoolingBandWindowSummary,
 	comparable: boolean,
+	/**
+	 *  The ambient-adjusted reading of the same two windows (#2045). Null
+	 *  when neither window recorded a paired minute for this band, which is
+	 *  the normal state on a machine with no environmental sensor; a
+	 *  present value with `comparable: false` instead means ambient data
+	 *  exists but one window is still too thin to compare.
+	 */
+	ambientAdjusted: CoolingAmbientAdjustedBandComparison | null,
+};
+
+/**
+ *  One band's weighted-average thermal delta (CPU package temperature
+ *  minus ambient) and its paired-sample coverage over a date window
+ *  (#2045). Named `deltaAvg` rather than `temperatureAvg` because it is a
+ *  difference, not an absolute temperature; `sampleMinutes` counts only
+ *  minutes where both readings existed, so it is always at most the
+ *  matching [`CoolingBandWindowSummary`]'s.
+ */
+export type CoolingBandDeltaWindowSummary = {
+	deltaAvg: number | null,
+	sampleMinutes: number,
 };
 
 /**
@@ -442,6 +490,12 @@ export type CoolingBaselineDelta = {
 	observation: CoolingDeltaObservation,
 	dailyDeltas: CoolingDailyDelta[],
 	sustainedDays: number,
+	/**
+	 *  The ambient-normalized reading of the same drift (#2045). Null when
+	 *  no day in either window recorded a paired idle minute, which is the
+	 *  normal state on a machine with no environmental sensor.
+	 */
+	ambientAdjusted: CoolingAmbientAdjustedBaselineDelta | null,
 };
 
 /**

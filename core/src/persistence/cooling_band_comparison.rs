@@ -128,7 +128,12 @@ pub enum CoolingBandComparison {
     baseline_window_end_date: NaiveDate,
     recent_window_start_date: NaiveDate,
     recent_window_end_date: NaiveDate,
-    bands: [BandComparison; 4],
+    /// Boxed because the array dwarfs the `Establishing` variant, which
+    /// makes every value of this enum pay for the larger one. Still a
+    /// fixed-size `[_; 4]` rather than a `Vec`: there are exactly four
+    /// bands and the type should keep saying so. One allocation per
+    /// query, on a path that has just read the whole daily table.
+    bands: Box<[BandComparison; 4]>,
   },
 }
 
@@ -191,7 +196,7 @@ pub fn derive_band_comparison(
     baseline_window_end_date: baseline_end,
     recent_window_start_date: recent_start,
     recent_window_end_date: window_end_date,
-    bands,
+    bands: Box::new(bands),
   }
 }
 
@@ -425,7 +430,7 @@ mod tests {
     let CoolingBandComparison::Established { bands, .. } = result else {
       panic!("expected an established comparison");
     };
-    for comparison in bands {
+    for comparison in bands.iter() {
       assert_eq!(
         comparison.ambient_adjusted, None,
         "band {:?} must offer no ambient-adjusted reading",

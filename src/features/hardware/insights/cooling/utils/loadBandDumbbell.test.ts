@@ -9,6 +9,9 @@ const entry = (
   baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
   recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
   comparable: true,
+  // These rows read absolute temperature only; the ambient-adjusted
+  // reading (#2045) is rendered separately by #2046.
+  ambientAdjusted: null,
   ...overrides,
 });
 

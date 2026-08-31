@@ -93,6 +93,7 @@ export const coolingBaselineDeltaEstablishingFixture: CoolingBaselineDelta = {
   observation: "establishing",
   dailyDeltas: [],
   sustainedDays: 0,
+  ambientAdjusted: null,
 };
 
 export const coolingBaselineDeltaFixture: CoolingBaselineDelta = {
@@ -117,6 +118,7 @@ export const coolingBaselineDeltaFixture: CoolingBaselineDelta = {
     { date: "2026-01-15", delta: 1.5 },
   ],
   sustainedDays: 3,
+  ambientAdjusted: null,
 };
 
 /**
@@ -141,6 +143,7 @@ export const coolingBaselineDeltaNotComparableFixture: CoolingBaselineDelta = {
   observation: "notComparable",
   dailyDeltas: [],
   sustainedDays: 0,
+  ambientAdjusted: null,
 };
 
 /** `observation: "sustainedMildRise"` - a 3-day streak at a +5..10degC drift. */
@@ -166,6 +169,7 @@ export const coolingBaselineDeltaMildRiseFixture: CoolingBaselineDelta = {
     { date: "2026-01-15", delta: 6.2 },
   ],
   sustainedDays: 3,
+  ambientAdjusted: null,
 };
 
 /** `observation: "sustainedLargeRise"` - a 3-day streak at a +10degC+ drift. */
@@ -191,6 +195,7 @@ export const coolingBaselineDeltaLargeRiseFixture: CoolingBaselineDelta = {
     { date: "2026-01-15", delta: 11.5 },
   ],
   sustainedDays: 3,
+  ambientAdjusted: null,
 };
 
 /**
@@ -347,24 +352,28 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
       baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
       recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
       comparable: true,
+      ambientAdjusted: null,
     },
     {
       band: "low",
       baseline: { temperatureAvg: 40, sampleMinutes: 4_200 },
       recent: { temperatureAvg: 41, sampleMinutes: 2_100 },
       comparable: true,
+      ambientAdjusted: null,
     },
     {
       band: "mid",
       baseline: { temperatureAvg: 50, sampleMinutes: 2_500 },
       recent: { temperatureAvg: null, sampleMinutes: 40 },
       comparable: false,
+      ambientAdjusted: null,
     },
     {
       band: "high",
       baseline: { temperatureAvg: 62, sampleMinutes: 800 },
       recent: { temperatureAvg: null, sampleMinutes: 0 },
       comparable: false,
+      ambientAdjusted: null,
     },
   ],
 };
