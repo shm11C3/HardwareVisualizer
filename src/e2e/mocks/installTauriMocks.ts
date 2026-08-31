@@ -6,6 +6,8 @@ import type {
 import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
 import {
   buildCoolingDailyTrendFixture,
+  buildCoolingFanTrendFixture,
+  buildFanArchiveSeriesFixture,
   coolingBandComparisonEstablishingFixture,
   coolingBandComparisonFixture,
   coolingBaselineDeltaEstablishingFixture,
@@ -76,6 +78,11 @@ type FixtureOverrides = {
    * The timeline then draws no power lane and the pending-sensors note
    * keeps naming power (#2021). */
   coolingPowerUnsupported: boolean;
+  /** `?coolingFan=none` empties every fan source the Cooling tab reads
+   * (the archived fan series and the daily fan trend), simulating a machine
+   * with no readable fan. The timeline then draws no fan lane and the
+   * pending-sensors note keeps naming the fan (#2022). */
+  coolingFanUnsupported: boolean;
 };
 type CoolingObservationOverride =
   | "notComparable"
@@ -126,6 +133,8 @@ const readFixtureOverrides = (): FixtureOverrides => {
     coolingPowerUnsupported:
       new URLSearchParams(window.location.search).get("coolingPower") ===
       "none",
+    coolingFanUnsupported:
+      new URLSearchParams(window.location.search).get("coolingFan") === "none",
   };
 };
 
@@ -320,6 +329,24 @@ const buildInvokeHandlers = (
       8,
     );
   },
+  get_fan_archive_series: (args) => {
+    const a = args as {
+      start: string;
+      end: string;
+      bucketWidthMs: number;
+      bucketTimestamp: ArchiveBucketTimestamp;
+    };
+    // A machine with no readable fan answers with no series at all - not
+    // with series holding zero, which is a real Inactive Fan Reading.
+    return fixtureOverrides.coolingFanUnsupported
+      ? []
+      : buildFanArchiveSeriesFixture(
+          a.start,
+          a.end,
+          a.bucketWidthMs,
+          a.bucketTimestamp,
+        );
+  },
   get_gpu_archive_series: (args) => {
     const a = args as {
       dataType: string;
@@ -369,6 +396,15 @@ const buildInvokeHandlers = (
       undefined,
       !fixtureOverrides.coolingPowerUnsupported,
     ),
+  get_cooling_fan_trend: (args) =>
+    fixtureOverrides.coolingFanUnsupported
+      ? // No summarized fan *and* nothing in the one-minute archive: only
+        // both together license reporting the fan as unsupported.
+        { series: [], archiveHasReadings: false }
+      : {
+          series: buildCoolingFanTrendFixture((args as { days: number }).days),
+          archiveHasReadings: true,
+        },
   get_cooling_band_comparison: () =>
     fixtureOverrides.coolingBaselineEstablishing
       ? coolingBandComparisonEstablishingFixture

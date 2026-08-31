@@ -48,6 +48,23 @@ pub struct AmbientData {
   pub humidity: Option<f32>,
 }
 
+/// One archived one-minute fan-speed summary for a single fan (#2022).
+///
+/// Row-per-fan rather than fixed columns: how many fans a machine exposes
+/// is configuration-dependent, so a fixed column set would either truncate
+/// or pad. `source` is the fan's stable channel-derived identifier (the
+/// live [`crate::models::MotherboardFanSpeed::name`], e.g. `Fan 1`).
+///
+/// `rpm` is the minute's average of the readings that were actually
+/// archivable. A minute with no such reading writes no row at all, so an
+/// unreadable or absent fan stays absent rather than becoming 0 RPM - which
+/// is a real Inactive Fan Reading, not a missing one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FanArchiveRow {
+  pub source: String,
+  pub rpm: u32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcessStatData {
   pub pid: i32,

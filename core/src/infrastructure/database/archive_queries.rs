@@ -287,6 +287,116 @@ async fn select_data_archive_series_from_pool(
   Ok(fill_archive_series(rows, bounds))
 }
 
+/// One fan's bucketed RPM series over the requested range (#2022).
+///
+/// A separate result type from a bare `Vec<ArchiveSeriesPoint>` because
+/// `FAN_ARCHIVE` is row-per-fan: how many series a machine has is
+/// configuration-dependent, so the query answers with the sources it
+/// actually found rather than with a fixed set the caller names.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FanArchiveSeries {
+  pub source: String,
+  pub points: Vec<ArchiveSeriesPoint>,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+struct AggregatedFanBucket {
+  source: String,
+  timestamp: i64,
+  value: Option<f64>,
+  value_count: i64,
+}
+
+/// Every archived fan's bucket-average RPM over `[start, end]`, on the
+/// same bucket grid the CPU series use so the fan lane lines up with the
+/// lanes above it.
+///
+/// One round trip for every fan rather than one per source: the timeline
+/// mounts all of them together, and the number of fans is not known until
+/// the rows come back.
+pub async fn select_fan_archive_series(
+  start: &DateTime<Utc>,
+  end: &DateTime<Utc>,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<Vec<FanArchiveSeries>, ArchiveSeriesError> {
+  let pool = db::get_pool().await?;
+  select_fan_archive_series_from_pool(
+    &pool,
+    start,
+    end,
+    bucket_width_ms,
+    bucket_timestamp,
+  )
+  .await
+}
+
+async fn select_fan_archive_series_from_pool(
+  pool: &SqlitePool,
+  start: &DateTime<Utc>,
+  end: &DateTime<Utc>,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<Vec<FanArchiveSeries>, ArchiveSeriesError> {
+  let bounds = ArchiveSeriesBounds::new(start, end, bucket_width_ms, bucket_timestamp)?;
+  let bucket = bucket_timestamp_sql(bucket_timestamp, "$3");
+  // Compare via epoch milliseconds rather than a raw TEXT comparison, the
+  // same way `cooling_daily_summary`'s range read does. `FAN_ARCHIVE.timestamp`
+  // is written through sqlx's native `DateTime<Utc>` encoding (a `+00:00`
+  // offset suffix), which does not sort correctly against a differently
+  // shaped bind string - a `Z`-suffixed bound would drop the row sitting
+  // exactly on it.
+  let epoch_ms = sqlite_epoch_milliseconds();
+  let sql = format!(
+    "SELECT source,
+            {bucket} AS timestamp,
+            AVG(CAST(rpm AS REAL)) AS value,
+            COUNT(rpm) AS value_count
+     FROM FAN_ARCHIVE
+     WHERE {epoch_ms} BETWEEN $1 AND $2
+     GROUP BY source, 2
+     ORDER BY source ASC, 2 ASC"
+  );
+  let rows = sqlx::query_as::<_, AggregatedFanBucket>(&sql)
+    .bind(start.timestamp_millis())
+    .bind(end.timestamp_millis())
+    .bind(bucket_width_ms)
+    .fetch_all(pool)
+    .await?;
+
+  // Grouped in Rust rather than by a query per source: the rows already
+  // arrive ordered by source, and each source's buckets then go through
+  // the same gap-filling every other archive series uses.
+  let mut series: Vec<FanArchiveSeries> = Vec::new();
+  let mut current: Vec<AggregatedArchiveBucket> = Vec::new();
+  let mut current_source: Option<String> = None;
+
+  for row in rows {
+    if current_source.as_deref() != Some(row.source.as_str()) {
+      if let Some(source) = current_source.take() {
+        series.push(FanArchiveSeries {
+          source,
+          points: fill_archive_series(std::mem::take(&mut current), bounds),
+        });
+      }
+      current_source = Some(row.source.clone());
+    }
+    current.push(AggregatedArchiveBucket {
+      timestamp: row.timestamp,
+      value: row.value,
+      value_count: row.value_count,
+    });
+  }
+  if let Some(source) = current_source {
+    series.push(FanArchiveSeries {
+      source,
+      points: fill_archive_series(current, bounds),
+    });
+  }
+
+  Ok(series)
+}
+
 async fn select_gpu_archive_series_from_pool(
   pool: &SqlitePool,
   column: GpuArchiveColumn,
@@ -1045,6 +1155,193 @@ mod tests {
     .unwrap();
 
     assert_eq!(series[0].value, Some(70.0));
+  }
+
+  // ── fan archive series (#2022) ──
+
+  async fn setup_fan_archive(pool: &SqlitePool) {
+    sqlx::query(
+      "CREATE TABLE FAN_ARCHIVE (
+        id INTEGER PRIMARY KEY,
+        source TEXT NOT NULL,
+        rpm INTEGER NOT NULL,
+        timestamp DATETIME NOT NULL
+      )",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+  }
+
+  /// Binds the native `DateTime<Utc>` the real writer
+  /// (`fan_archive::insert`) uses, so the range query under test has to
+  /// compare against sqlx's own encoding rather than a hand-formatted
+  /// literal that happens to match the bound's shape.
+  async fn insert_fan_row(pool: &SqlitePool, source: &str, rpm: i64, timestamp: &str) {
+    sqlx::query("INSERT INTO FAN_ARCHIVE (source, rpm, timestamp) VALUES ($1, $2, $3)")
+      .bind(source)
+      .bind(rpm)
+      .bind(utc(timestamp))
+      .execute(pool)
+      .await
+      .unwrap();
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_returns_one_series_per_fan() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 1", 900, "2026-06-08T00:00:10.000Z").await;
+    insert_fan_row(&pool, "Fan 1", 1100, "2026-06-08T00:01:10.000Z").await;
+    insert_fan_row(&pool, "Fan 2", 1500, "2026-06-08T00:00:10.000Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series
+        .iter()
+        .map(|entry| entry.source.as_str())
+        .collect::<Vec<_>>(),
+      vec!["Fan 1", "Fan 2"]
+    );
+    assert_eq!(series[0].points[0].value, Some(1000.0));
+    assert_eq!(series[1].points[0].value, Some(1500.0));
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_leaves_unrecorded_buckets_empty() {
+    // The lane must break where nothing was recorded rather than drawing
+    // a line straight through the gap.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 1", 900, "2026-06-08T00:00:10.000Z").await;
+    insert_fan_row(&pool, "Fan 1", 1100, "2026-06-08T00:03:10.000Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:03:59.999Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series[0]
+        .points
+        .iter()
+        .map(|point| point.value)
+        .collect::<Vec<_>>(),
+      vec![Some(900.0), None, None, Some(1100.0)]
+    );
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_keeps_an_inactive_reading_as_a_real_zero() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 3", 0, "2026-06-08T00:00:10.000Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:00:59.999Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(series[0].points[0].value, Some(0.0));
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_includes_the_row_sitting_exactly_on_each_bound() {
+    // The regression: the writer stores `+00:00`-suffixed text while a
+    // `Z`-suffixed bound compares differently under SQLite's lexicographic
+    // ordering, so the rows exactly on the range edges silently dropped
+    // out and the lane lost its first and last bucket.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 1", 800, "2026-06-08T00:00:00.000Z").await;
+    insert_fan_row(&pool, "Fan 1", 1200, "2026-06-08T00:02:00.000Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:02:00.000Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series[0]
+        .points
+        .iter()
+        .map(|point| point.value)
+        .collect::<Vec<_>>(),
+      vec![Some(800.0), None, Some(1200.0)],
+      "both boundary rows must survive the range filter"
+    );
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_excludes_the_row_just_outside_each_bound() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 1", 100, "2026-06-07T23:59:59.999Z").await;
+    insert_fan_row(&pool, "Fan 1", 800, "2026-06-08T00:00:00.000Z").await;
+    insert_fan_row(&pool, "Fan 1", 900, "2026-06-08T00:01:00.001Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:01:00.000Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series[0]
+        .points
+        .iter()
+        .map(|point| point.value)
+        .collect::<Vec<_>>(),
+      vec![Some(800.0), None]
+    );
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_is_empty_without_a_fan_source() {
+    // Exactly the signal the lane's capability gate reads: no series at
+    // all, rather than one series pinned at zero.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(series, Vec::new());
   }
 
   #[test]

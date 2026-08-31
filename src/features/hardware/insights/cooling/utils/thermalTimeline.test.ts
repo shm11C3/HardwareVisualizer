@@ -5,6 +5,7 @@ import type {
 } from "@/rspc/bindings";
 import {
   type ArchiveTimelineSeries,
+  archiveWindowRecordedAnything,
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
   claimsPowerUnsupported,
@@ -492,6 +493,23 @@ describe("resolveRoutedPowerCapability", () => {
     expect(
       resolveRoutedPowerCapability(ARCHIVE, loaded(NO_SERIES), NO_DAILY),
     ).toBe("unknown");
+  });
+
+  it("treats an archived power reading as proof the window recorded", () => {
+    // `archiveWindowRecordedAnything` is shared with the fan capability,
+    // where a power-only window is the case that must read as recorded -
+    // a machine with a power sampler and no temperature sensor still
+    // archived its minutes.
+    expect(
+      archiveWindowRecordedAnything({
+        ...NO_SERIES,
+        powerMax: [{ timestamp: 0, value: 42 }],
+      }),
+    ).toBe(true);
+  });
+
+  it("treats a truly empty window as having recorded nothing", () => {
+    expect(archiveWindowRecordedAnything(NO_SERIES)).toBe(false);
   });
 
   it("ignores the daily trend while an archive route is selected", () => {

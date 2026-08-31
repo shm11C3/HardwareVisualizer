@@ -377,6 +377,7 @@
         },
         "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
         "unsupportedSensorsNoteFanOnly": "The timeline does not have a fan lane yet. It will be added as its collector and archive become available.",
+        "unsupportedSensorsNotePowerOnly": "The timeline does not have a power lane yet. It will be added as its collector and archive become available.",
         "timeline": {
           "title": "Thermal Timeline",
           "loadFailed": "Failed to load the thermal timeline.",
@@ -385,6 +386,7 @@
           "loadLaneUsage": "CPU load (%)",
           "loadLaneComposition": "Load bands (% of day)",
           "powerLane": "CPU package power (W)",
+          "fanLane": "Fan speed (rpm)",
           "legend": {
             "average": "Average",
             "range": "Min-max",
@@ -450,6 +452,7 @@
           "unsupported": {
             "label": "Power / fan",
             "labelFanOnly": "Fan",
+            "labelPowerOnly": "Power",
             "value": "Not supported yet"
           }
         }

@@ -17,6 +17,7 @@ export const LoadBandComparisonPanel = ({
   bandComparison,
   hasError = false,
   powerUnsupported = false,
+  fanUnsupported = false,
 }: {
   bandComparison: CoolingBandComparison | null;
   hasError?: boolean;
@@ -27,6 +28,8 @@ export const LoadBandComparisonPanel = ({
    * unknown, and never on a machine whose timeline draws a power lane.
    */
   powerUnsupported?: boolean;
+  /** The same contract for the fan lane (#2022). */
+  fanUnsupported?: boolean;
 }) => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
@@ -94,6 +97,7 @@ export const LoadBandComparisonPanel = ({
             <DataStateDetails
               bandComparison={bandComparison}
               powerUnsupported={powerUnsupported}
+              fanUnsupported={fanUnsupported}
             />
           )}
       </div>
@@ -125,11 +129,22 @@ const PanelLoadingSkeleton = () => {
 const DataStateDetails = ({
   bandComparison,
   powerUnsupported,
+  fanUnsupported,
 }: {
   bandComparison: Extract<CoolingBandComparison, { status: "established" }>;
   powerUnsupported: boolean;
+  fanUnsupported: boolean;
 }) => {
   const { t } = useTranslation();
+  // The row names only the sensors actually still missing, and disappears
+  // once neither is: a "Not supported yet" line beside a rendered lane
+  // would contradict the timeline directly above it.
+  const unsupportedLabelKey =
+    powerUnsupported && fanUnsupported
+      ? "pages.insights.cooling.dataState.unsupported.label"
+      : powerUnsupported
+        ? "pages.insights.cooling.dataState.unsupported.labelPowerOnly"
+        : "pages.insights.cooling.dataState.unsupported.labelFanOnly";
 
   return (
     <dl className="space-y-1.5 text-xs">
@@ -155,16 +170,12 @@ const DataStateDetails = ({
         </dt>
         <dd>{t("pages.insights.cooling.dataState.temperatureSource.value")}</dd>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <dt className="text-muted-foreground">
-          {t(
-            powerUnsupported
-              ? "pages.insights.cooling.dataState.unsupported.label"
-              : "pages.insights.cooling.dataState.unsupported.labelFanOnly",
-          )}
-        </dt>
-        <dd>{t("pages.insights.cooling.dataState.unsupported.value")}</dd>
-      </div>
+      {(powerUnsupported || fanUnsupported) && (
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-muted-foreground">{t(unsupportedLabelKey)}</dt>
+          <dd>{t("pages.insights.cooling.dataState.unsupported.value")}</dd>
+        </div>
+      )}
     </dl>
   );
 };

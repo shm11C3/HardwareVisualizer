@@ -50,11 +50,12 @@ test.describe("insights captures", () => {
     await expect(page.getByTestId("cooling-temperature-lane")).toBeVisible();
     await expect(page.getByTestId("cooling-load-lane")).toBeVisible();
     await expect(page.getByTestId("cooling-power-lane")).toBeVisible();
-    // The power lane renders, so the note no longer claims power is
-    // missing - only the fan lane is still pending.
+    await expect(page.getByTestId("cooling-fan-lane")).toBeVisible();
+    // Both lanes render now, so there is no pending sensor left to name and
+    // the note disappears entirely rather than claiming one that arrived.
     await expect(
       page.getByTestId("cooling-unsupported-sensor-note"),
-    ).toHaveText(/fan lane/);
+    ).toHaveCount(0);
     await expect(page.getByTestId("cooling-load-band-panel")).toBeVisible();
     // Default period (24h) routes to the archive query, so no coverage strip.
     await expect(page.getByTestId("cooling-coverage-strip")).toHaveCount(0);
@@ -81,13 +82,41 @@ test.describe("insights captures", () => {
     await expect(page.getByTestId("cooling-load-lane")).toBeVisible();
     // No lane at all rather than one pinned at 0 W.
     await expect(page.getByTestId("cooling-power-lane")).toHaveCount(0);
+    // The fan lane is unaffected, so the note names power alone.
+    await expect(page.getByTestId("cooling-fan-lane")).toBeVisible();
     await expect(
       page.getByTestId("cooling-unsupported-sensor-note"),
-    ).toHaveText(/power or fan lanes/);
+    ).toHaveText(/power lane/);
 
     await page.waitForTimeout(1_000);
 
     await saveCapture(page, "insights-cooling-no-power");
+  });
+
+  test("insights cooling tab hides the fan lane without a readable fan", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?coolingFan=none" });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    // Fans are a separate capability: the lanes above keep working.
+    await expect(page.getByTestId("cooling-temperature-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-load-lane")).toBeVisible();
+    await expect(page.getByTestId("cooling-power-lane")).toBeVisible();
+    // No lane at all rather than one pinned at a fabricated 0 rpm, which
+    // is a real Inactive Fan Reading.
+    await expect(page.getByTestId("cooling-fan-lane")).toHaveCount(0);
+    await expect(
+      page.getByTestId("cooling-unsupported-sensor-note"),
+    ).toHaveText(/fan lane/);
+
+    await page.waitForTimeout(1_000);
+
+    await saveCapture(page, "insights-cooling-no-fan");
   });
 
   test("insights cooling tab merges avg/max/min into one lane at 30 days", async ({
@@ -115,6 +144,9 @@ test.describe("insights captures", () => {
     // the same synchronized axis (#2021).
     await expect(page.getByTestId("cooling-power-lane")).toHaveCount(1);
     await expect(lane.getByText("CPU package power (W)")).toBeVisible();
+    // And the fan lane joins the same axis below it (#2022).
+    await expect(page.getByTestId("cooling-fan-lane")).toHaveCount(1);
+    await expect(lane.getByText("Fan speed (rpm)")).toBeVisible();
 
     await page.waitForTimeout(1_000);
 

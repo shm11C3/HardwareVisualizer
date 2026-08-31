@@ -13,9 +13,14 @@ import { useCoolingArchiveTimeline } from "./hooks/useCoolingArchiveTimeline";
 import { useCoolingBandComparison } from "./hooks/useCoolingBandComparison";
 import { useCoolingBaselineDelta } from "./hooks/useCoolingBaselineDelta";
 import { useCoolingDailyTrend } from "./hooks/useCoolingDailyTrend";
+import { useCoolingFanTrend } from "./hooks/useCoolingFanTrend";
 import { useCoolingInsightPeriod } from "./hooks/useCoolingInsightPeriod";
 import type { CoolingInsightPeriod } from "./types";
 import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
+import {
+  claimsFanUnsupported,
+  resolveRoutedFanCapability,
+} from "./utils/fanTimeline";
 import {
   claimsPowerUnsupported,
   resolveRoutedPowerCapability,
@@ -75,9 +80,12 @@ const CoolingInsightBody = ({
   const route = resolveCoolingPeriodRoute(period);
   const { data: dailyTrend, hasError: dailyTrendHasError } =
     useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
+  const { data: fanTrend, hasError: fanTrendHasError } = useCoolingFanTrend(
+    route.kind === "dailyTrend" ? route.days : null,
+  );
   // Owned here rather than inside the timeline: both the timeline's power
-  // lane and the pending-sensors note below it read the same power series,
-  // and fetching it twice would double the archive round trips.
+  // and fan lanes and the pending-sensors note below them read the same
+  // series, and fetching them twice would double the archive round trips.
   const archive = useCoolingArchiveTimeline(
     route.kind === "archive" ? route.minutes : null,
   );
@@ -90,6 +98,26 @@ const CoolingInsightBody = ({
       points: dailyTrend,
       hasError: dailyTrendHasError,
     }),
+  );
+  // The same three-state contract for the fan, answered from its own
+  // sources: a machine can have one capability without the other.
+  const fanUnsupported = claimsFanUnsupported(
+    resolveRoutedFanCapability(
+      route,
+      {
+        fanSeries: archive.fanSeries,
+        cpuSeries: archive.series,
+        hasLoaded: archive.hasLoaded,
+        hasError: archive.hasError,
+        fanHasError: archive.fanHasError,
+      },
+      {
+        fanSeries: fanTrend?.series ?? null,
+        archiveHasReadings: fanTrend?.archiveHasReadings ?? false,
+        recordedDays: dailyTrend?.length ?? null,
+        hasError: fanTrendHasError || dailyTrendHasError,
+      },
+    ),
   );
 
   return (
@@ -106,9 +134,13 @@ const CoolingInsightBody = ({
         route={route}
         baseline={baselineDelta?.baseline ?? null}
         dailyTrend={dailyTrend}
+        fanTrend={fanTrend?.series ?? null}
         archive={archive}
       />
-      <UnsupportedSensorNote powerUnsupported={powerUnsupported} />
+      <UnsupportedSensorNote
+        powerUnsupported={powerUnsupported}
+        fanUnsupported={fanUnsupported}
+      />
       {route.kind === "dailyTrend" && (
         <CoverageStrip
           points={dailyTrend}
@@ -120,6 +152,7 @@ const CoolingInsightBody = ({
         bandComparison={bandComparison}
         hasError={bandComparisonHasError}
         powerUnsupported={powerUnsupported}
+        fanUnsupported={fanUnsupported}
       />
       <LoadTemperatureExplorerPanel />
     </div>
