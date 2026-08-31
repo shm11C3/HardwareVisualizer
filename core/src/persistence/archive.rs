@@ -379,6 +379,12 @@ impl ArchiveTracker {
 
     self.dirty = false;
 
+    // Taken once at the top of the write cycle. The ambient rows are
+    // stamped with it rather than with a second `now()` read further
+    // down, so a write cycle that straddles a minute boundary cannot land
+    // its ambient rows in a different minute than the rest of the cycle.
+    let tick_timestamp = chrono::Utc::now();
+
     let cpu = StatsCalculator::compute_stats(self.cpu_history.iter().copied());
     let cpu_temperature = StatsCalculator::compute_stats(
       self.cpu_temperature_history.iter().copied().flatten(),
@@ -434,7 +440,6 @@ impl ArchiveTracker {
 
     // Ambient rows are keyed to the tick, not to each sensor's own
     // observation time, so they join the hardware row for this minute.
-    let tick_timestamp = chrono::Utc::now();
     let ambient = self.collect_ambient_data(tick_timestamp);
     if !ambient.is_empty()
       && let Err(e) = database::ambient_archive::insert(ambient, tick_timestamp).await
