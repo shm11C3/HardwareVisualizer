@@ -340,19 +340,26 @@ async fn select_fan_archive_series_from_pool(
 ) -> Result<Vec<FanArchiveSeries>, ArchiveSeriesError> {
   let bounds = ArchiveSeriesBounds::new(start, end, bucket_width_ms, bucket_timestamp)?;
   let bucket = bucket_timestamp_sql(bucket_timestamp, "$3");
+  // Compare via epoch milliseconds rather than a raw TEXT comparison, the
+  // same way `cooling_daily_summary`'s range read does. `FAN_ARCHIVE.timestamp`
+  // is written through sqlx's native `DateTime<Utc>` encoding (a `+00:00`
+  // offset suffix), which does not sort correctly against a differently
+  // shaped bind string - a `Z`-suffixed bound would drop the row sitting
+  // exactly on it.
+  let epoch_ms = sqlite_epoch_milliseconds();
   let sql = format!(
     "SELECT source,
             {bucket} AS timestamp,
             AVG(CAST(rpm AS REAL)) AS value,
             COUNT(rpm) AS value_count
      FROM FAN_ARCHIVE
-     WHERE timestamp BETWEEN $1 AND $2
+     WHERE {epoch_ms} BETWEEN $1 AND $2
      GROUP BY source, 2
      ORDER BY source ASC, 2 ASC"
   );
   let rows = sqlx::query_as::<_, AggregatedFanBucket>(&sql)
-    .bind(format_datetime(start))
-    .bind(format_datetime(end))
+    .bind(start.timestamp_millis())
+    .bind(end.timestamp_millis())
     .bind(bucket_width_ms)
     .fetch_all(pool)
     .await?;
@@ -1166,11 +1173,15 @@ mod tests {
     .unwrap();
   }
 
+  /// Binds the native `DateTime<Utc>` the real writer
+  /// (`fan_archive::insert`) uses, so the range query under test has to
+  /// compare against sqlx's own encoding rather than a hand-formatted
+  /// literal that happens to match the bound's shape.
   async fn insert_fan_row(pool: &SqlitePool, source: &str, rpm: i64, timestamp: &str) {
     sqlx::query("INSERT INTO FAN_ARCHIVE (source, rpm, timestamp) VALUES ($1, $2, $3)")
       .bind(source)
       .bind(rpm)
-      .bind(timestamp)
+      .bind(utc(timestamp))
       .execute(pool)
       .await
       .unwrap();
@@ -1251,6 +1262,66 @@ mod tests {
     .unwrap();
 
     assert_eq!(series[0].points[0].value, Some(0.0));
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_includes_the_row_sitting_exactly_on_each_bound() {
+    // The regression: the writer stores `+00:00`-suffixed text while a
+    // `Z`-suffixed bound compares differently under SQLite's lexicographic
+    // ordering, so the rows exactly on the range edges silently dropped
+    // out and the lane lost its first and last bucket.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 1", 800, "2026-06-08T00:00:00.000Z").await;
+    insert_fan_row(&pool, "Fan 1", 1200, "2026-06-08T00:02:00.000Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:02:00.000Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series[0]
+        .points
+        .iter()
+        .map(|point| point.value)
+        .collect::<Vec<_>>(),
+      vec![Some(800.0), None, Some(1200.0)],
+      "both boundary rows must survive the range filter"
+    );
+  }
+
+  #[tokio::test]
+  async fn fan_archive_series_excludes_the_row_just_outside_each_bound() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_fan_row(&pool, "Fan 1", 100, "2026-06-07T23:59:59.999Z").await;
+    insert_fan_row(&pool, "Fan 1", 800, "2026-06-08T00:00:00.000Z").await;
+    insert_fan_row(&pool, "Fan 1", 900, "2026-06-08T00:01:00.001Z").await;
+
+    let series = select_fan_archive_series_from_pool(
+      &pool,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:01:00.000Z"),
+      60_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+      series[0]
+        .points
+        .iter()
+        .map(|point| point.value)
+        .collect::<Vec<_>>(),
+      vec![Some(800.0), None]
+    );
   }
 
   #[tokio::test]
