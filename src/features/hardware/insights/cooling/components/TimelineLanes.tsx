@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Area,
@@ -16,6 +17,11 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart";
 import type { TemperatureUnit } from "@/rspc/bindings";
+import {
+  type FanLaneRow,
+  type FanSeries,
+  fanDataKey,
+} from "../utils/fanTimeline";
 import type {
   BaselineBand,
   ThermalTimelineRow,
@@ -94,6 +100,27 @@ type SeriesKey = keyof typeof chartConfig;
 
 const seriesColor = (key: SeriesKey) => `var(--color-${key})`;
 
+/**
+ * Colors for the fan lane's per-fan lines, cycled by series position.
+ *
+ * The lanes above reserve each token for one meaning, but inside the fan
+ * lane a color only separates one fan from the next: every line is a fan
+ * speed, and the legend names which. Cycling therefore reuses the palette
+ * without reusing a meaning - and a machine reporting more fans than the
+ * palette has entries still gets distinct neighbours, which is what the
+ * lane is read for.
+ */
+const FAN_LANE_COLORS = [
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-3))",
+] as const;
+
+const fanColor = (index: number) =>
+  FAN_LANE_COLORS[index % FAN_LANE_COLORS.length];
+
 const LOAD_BAND_SERIES = [
   { key: "loadIdle", band: "idle" },
   { key: "loadLow", band: "low" },
@@ -152,10 +179,21 @@ const TimelineTooltipContent = ({
   unitSuffix,
   baseline,
   loadMode,
+  fanSeries,
+  fanValuesByRowKey,
 }: TooltipRenderProps & {
   unitSuffix: string;
   baseline: BaselineBand | null;
   loadMode: LoadLaneMode;
+  fanSeries: readonly FanSeries[];
+  /**
+   * The fan lane's readings, looked up by the hovered row's key rather
+   * than read off the payload: the fan lane is driven by its own row
+   * array (the fan count is configuration-dependent, so it cannot live on
+   * the closed timeline row type), and only the owning lane renders this
+   * tooltip.
+   */
+  fanValuesByRowKey: ReadonlyMap<string, Record<string, number | null>>;
 }) => {
   const { t } = useTranslation();
 
@@ -167,6 +205,10 @@ const TimelineTooltipContent = ({
   if (!row) {
     return null;
   }
+
+  const fanValues = fanValuesByRowKey.get(row.key);
+  const rpm = (value: number | null | undefined) =>
+    value == null ? null : `${Math.round(value)} rpm`;
 
   const temperature = (value: number | null) =>
     value == null ? null : `${value.toFixed(1)}${unitSuffix}`;
@@ -186,7 +228,8 @@ const TimelineTooltipContent = ({
     row.idleTemperature != null ||
     row.cpuUsage != null ||
     row.loadIdle != null ||
-    row.powerAvg != null;
+    row.powerAvg != null ||
+    fanSeries.some((fan) => fanValues?.[fan.key] != null);
 
   const entries: { label: string; value: string }[] = [];
   const push = (label: string, value: string | null) => {
@@ -238,6 +281,13 @@ const TimelineTooltipContent = ({
       : `${row.powerRange[0].toFixed(1)} - ${row.powerRange[1].toFixed(1)} W`,
   );
 
+  // Each fan is labeled by its own source rather than folded into one
+  // "fan" entry: which fan spun up is the reading, so collapsing them
+  // would answer a question nobody asked.
+  for (const fan of fanSeries) {
+    push(fan.source, rpm(fanValues?.[fan.key]));
+  }
+
   return (
     <div className="grid min-w-[10rem] gap-1 rounded-lg border border-neutral-200/50 bg-white px-2.5 py-1.5 text-xs shadow-xl dark:border-neutral-800/50 dark:bg-neutral-950">
       <div className="font-medium">{row.label}</div>
@@ -279,12 +329,16 @@ const TemperatureLaneChart = ({
   baseline,
   temperatureUnit,
   loadMode,
+  fanSeries,
+  fanValuesByRowKey,
 }: {
   rows: ThermalTimelineRow[];
   domain: [number, number];
   baseline: BaselineBand | null;
   temperatureUnit: TemperatureUnit;
   loadMode: LoadLaneMode;
+  fanSeries: readonly FanSeries[];
+  fanValuesByRowKey: ReadonlyMap<string, Record<string, number | null>>;
 }) => {
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
@@ -331,6 +385,8 @@ const TemperatureLaneChart = ({
               unitSuffix={unitSuffix}
               baseline={baseline}
               loadMode={loadMode}
+              fanSeries={fanSeries}
+              fanValuesByRowKey={fanValuesByRowKey}
             />
           }
         />
@@ -383,9 +439,11 @@ const TemperatureLaneChart = ({
 const PowerLaneChart = ({
   rows,
   domain,
+  showsSharedAxis,
 }: {
   rows: ThermalTimelineRow[];
   domain: [number, number];
+  showsSharedAxis: boolean;
 }) => {
   const hasRangeSeries = rows.some((row) => row.powerRange != null);
 
@@ -399,13 +457,17 @@ const PowerLaneChart = ({
         {/* The shared time axis is labeled on whichever lane is last, so
             it reads as the stack's axis rather than a divider between
             two lanes. */}
-        <XAxis
-          dataKey="label"
-          tickLine={false}
-          axisLine={false}
-          minTickGap={32}
-          height={18}
-        />
+        {showsSharedAxis ? (
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            minTickGap={32}
+            height={18}
+          />
+        ) : (
+          <XAxis dataKey="label" hide />
+        )}
         <YAxis
           domain={domain}
           width={AXIS_WIDTH}
@@ -442,10 +504,81 @@ const PowerLaneChart = ({
   );
 };
 
+/**
+ * The bottom lane: motherboard fan speed, in RPM, one line per fan.
+ *
+ * Compact like the power lane, and for the same reason: it is context for
+ * the temperature above rather than a reading to scrub in its own right.
+ *
+ * One line per fan rather than one aggregate: which fan is spinning up is
+ * exactly what makes the lane worth reading, and averaging a case fan with
+ * a CPU fan would hide it. The lines are drawn without a min-max band -
+ * six banded series would overplot into noise.
+ *
+ * Only mounted when the period actually recorded a fan (see `fanDomain`):
+ * an empty axis on a machine with no readable fan would read as a measured
+ * flat zero, which is a real Inactive Fan Reading and must not be faked.
+ */
+const FanLaneChart = ({
+  rows,
+  domain,
+  series,
+  showsSharedAxis,
+}: {
+  rows: FanLaneRow[];
+  domain: [number, number];
+  series: readonly FanSeries[];
+  showsSharedAxis: boolean;
+}) => (
+  <ChartContainer
+    className="aspect-auto h-24 w-full"
+    config={chartConfig}
+    data-testid="cooling-fan-lane"
+  >
+    <ComposedChart data={rows} syncId={TIMELINE_SYNC_ID} margin={LANE_MARGIN}>
+      {showsSharedAxis ? (
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          minTickGap={32}
+          height={18}
+        />
+      ) : (
+        <XAxis dataKey="label" hide />
+      )}
+      <YAxis
+        domain={domain}
+        width={AXIS_WIDTH}
+        tickLine={false}
+        axisLine={false}
+        tickCount={3}
+        allowDecimals={false}
+      />
+      {/* Cursor only - the shared tooltip is rendered by the lane above. */}
+      <ChartTooltip filterNull={false} content={() => null} />
+      {series.map((fan, index) => (
+        <Line
+          key={fan.key}
+          dataKey={fanDataKey(fan)}
+          type="monotone"
+          stroke={fanColor(index)}
+          strokeWidth={1.5}
+          dot={false}
+          isAnimationActive={false}
+        />
+      ))}
+    </ComposedChart>
+  </ChartContainer>
+);
+
 export const TimelineLanes = ({
   rows,
   domain,
   powerDomain,
+  fanRows,
+  fanSeries,
+  fanDomain,
   baseline,
   loadMode,
   temperatureUnit,
@@ -466,6 +599,19 @@ export const TimelineLanes = ({
    * absence belongs in the pending-sensors note, not in the timeline.
    */
   powerDomain: [number, number] | null;
+  /**
+   * The fan lane's own rows, projected onto the same keys and labels as
+   * `rows` so the synchronized cursor lands on the same period in both.
+   */
+  fanRows: FanLaneRow[];
+  fanSeries: readonly FanSeries[];
+  /**
+   * `null` when the period recorded no fan - either the machine has no
+   * readable fan, or none was archived yet. Like the power lane the fan
+   * lane is then not rendered at all: its absence belongs in the
+   * pending-sensors note, not in a lane pinned at a fabricated 0 RPM.
+   */
+  fanDomain: [number, number] | null;
   baseline: BaselineBand | null;
   loadMode: LoadLaneMode;
   temperatureUnit: TemperatureUnit;
@@ -474,6 +620,14 @@ export const TimelineLanes = ({
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
   const showsPowerLane = powerDomain != null;
+  const showsFanLane = fanDomain != null;
+  // The shared time axis is labeled on whichever lane is last, so it reads
+  // as the stack's axis rather than as a divider between two lanes.
+  const lastLaneIsFan = showsFanLane;
+  const fanValuesByRowKey = useMemo(
+    () => new Map(fanRows.map((row) => [row.key, row.values])),
+    [fanRows],
+  );
   // The temperature lane carries the shared tooltip whenever it renders;
   // the load lane is always mounted, so it is the fallback owner.
   const ownsSharedTooltip = domain == null;
@@ -525,6 +679,8 @@ export const TimelineLanes = ({
             baseline={baseline}
             temperatureUnit={temperatureUnit}
             loadMode={loadMode}
+            fanSeries={fanSeries}
+            fanValuesByRowKey={fanValuesByRowKey}
           />
         </>
       )}
@@ -558,7 +714,7 @@ export const TimelineLanes = ({
           syncId={TIMELINE_SYNC_ID}
           margin={LANE_MARGIN}
         >
-          {showsPowerLane ? (
+          {showsPowerLane || showsFanLane ? (
             <XAxis dataKey="label" hide />
           ) : (
             <XAxis
@@ -579,8 +735,9 @@ export const TimelineLanes = ({
           {/* The shared tooltip belongs to the topmost lane that is
               actually mounted. Normally that is the temperature lane
               above; when the period recorded no temperature at all it is
-              this one, so the load and power readings stay inspectable
-              instead of silently losing their readout (DP-02). */}
+              this one, so the load, power and fan readings stay
+              inspectable instead of silently losing their readout
+              (DP-02). */}
           <ChartTooltip
             filterNull={false}
             content={
@@ -589,6 +746,8 @@ export const TimelineLanes = ({
                   unitSuffix={unitSuffix}
                   baseline={baseline}
                   loadMode={loadMode}
+                  fanSeries={fanSeries}
+                  fanValuesByRowKey={fanValuesByRowKey}
                 />
               ) : (
                 () => null
@@ -636,7 +795,34 @@ export const TimelineLanes = ({
               variant="band"
             />
           </div>
-          <PowerLaneChart rows={rows} domain={powerDomain} />
+          <PowerLaneChart
+            rows={rows}
+            domain={powerDomain}
+            showsSharedAxis={!lastLaneIsFan}
+          />
+        </>
+      )}
+
+      {showsFanLane && (
+        <>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-medium text-muted-foreground text-xs">
+              {t("pages.insights.cooling.timeline.fanLane")}
+            </span>
+            {fanSeries.map((fan, index) => (
+              <LegendSwatch
+                key={fan.key}
+                label={fan.source}
+                color={fanColor(index)}
+              />
+            ))}
+          </div>
+          <FanLaneChart
+            rows={fanRows}
+            domain={fanDomain}
+            series={fanSeries}
+            showsSharedAxis
+          />
         </>
       )}
     </div>

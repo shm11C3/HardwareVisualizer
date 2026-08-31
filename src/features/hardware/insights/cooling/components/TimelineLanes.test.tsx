@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { cloneElement, isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { type FanSeries, resolveFanSeries } from "../utils/fanTimeline";
 import type { ThermalTimelineRow } from "../utils/thermalTimeline";
 import { TimelineLanes } from "./TimelineLanes";
 
@@ -66,10 +67,25 @@ const row = (overrides: Partial<ThermalTimelineRow>): ThermalTimelineRow => ({
   ...overrides,
 });
 
+type FanFixture = {
+  domain: [number, number] | null;
+  values: Record<string, number | null>;
+  series: FanSeries[];
+};
+
+const NO_FAN: FanFixture = { domain: null, values: {}, series: [] };
+
+const withFans = (values: Record<string, number | null>): FanFixture => ({
+  domain: [0, 2000],
+  values,
+  series: resolveFanSeries(["Fan 1"]),
+});
+
 const renderLanes = (
   hovered: ThermalTimelineRow,
   domain: [number, number] | null,
   powerDomain: [number, number] | null,
+  fan: FanFixture = NO_FAN,
 ) => {
   mocks.hoveredRow = hovered;
   return render(
@@ -77,6 +93,9 @@ const renderLanes = (
       rows={[hovered]}
       domain={domain}
       powerDomain={powerDomain}
+      fanRows={[{ key: hovered.key, label: hovered.label, values: fan.values }]}
+      fanSeries={fan.series}
+      fanDomain={fan.domain}
       baseline={null}
       loadMode="usage"
       temperatureUnit="C"
@@ -145,6 +164,9 @@ describe("TimelineLanes shared tooltip", () => {
         rows={[row({ temperatureAvg: 55, cpuUsage: 40, powerAvg: 18 })]}
         domain={[40, 70]}
         powerDomain={[0, 30]}
+        fanRows={[]}
+        fanSeries={[]}
+        fanDomain={null}
         baseline={null}
         loadMode="usage"
         temperatureUnit="C"
@@ -180,5 +202,67 @@ describe("TimelineLanes power lane", () => {
     );
 
     expect(screen.getByTestId("cooling-power-lane")).toBeInTheDocument();
+  });
+});
+
+describe("TimelineLanes fan lane", () => {
+  it("does not mount the fan lane without a fan domain", () => {
+    renderLanes(row({ temperatureAvg: 55, cpuUsage: 40 }), [40, 70], [0, 30]);
+
+    expect(screen.queryByTestId("cooling-fan-lane")).not.toBeInTheDocument();
+  });
+
+  it("mounts the fan lane once the period recorded a fan", () => {
+    renderLanes(
+      row({ temperatureAvg: 55, cpuUsage: 40 }),
+      [40, 70],
+      [0, 30],
+      withFans({ fan0: 900 }),
+    );
+
+    expect(screen.getByTestId("cooling-fan-lane")).toBeInTheDocument();
+  });
+
+  it("reports every fan by its own source in the shared tooltip", () => {
+    // Folding the fans into one entry would answer a question nobody
+    // asked: which fan spun up is the reading.
+    renderLanes(
+      row({ temperatureAvg: 55, cpuUsage: 40 }),
+      [40, 70],
+      null,
+      withFans({ fan0: 912 }),
+    );
+
+    const temperatureLane = screen.getByTestId("cooling-temperature-lane");
+    expect(within(temperatureLane).getByText("Fan 1")).toBeInTheDocument();
+    expect(within(temperatureLane).getByText("912 rpm")).toBeInTheDocument();
+  });
+
+  it("reports an Inactive Fan Reading rather than treating it as unrecorded", () => {
+    // 0 RPM means the fan is not reporting rotation - a measurement, and
+    // the one a user checking a suspect fan is looking for.
+    renderLanes(row({}), null, null, withFans({ fan0: 0 }));
+
+    const loadLane = screen.getByTestId("cooling-load-lane");
+    expect(within(loadLane).getByText("0 rpm")).toBeInTheDocument();
+    expect(
+      within(loadLane).queryByText(
+        "pages.insights.cooling.timeline.tooltip.noRecording",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves a period the fan did not record out of the tooltip", () => {
+    renderLanes(
+      row({ temperatureAvg: 55 }),
+      [40, 70],
+      null,
+      withFans({ fan0: null }),
+    );
+
+    const temperatureLane = screen.getByTestId("cooling-temperature-lane");
+    expect(
+      within(temperatureLane).queryByText("Fan 1"),
+    ).not.toBeInTheDocument();
   });
 });

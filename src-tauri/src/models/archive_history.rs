@@ -1,6 +1,7 @@
 use hardviz_core::infrastructure::database::archive_queries::{
   ArchiveBucketTimestamp as CoreArchiveBucketTimestamp,
-  ArchiveSeriesPoint as CoreArchiveSeriesPoint, DataArchiveColumn, GpuArchiveColumn,
+  ArchiveSeriesPoint as CoreArchiveSeriesPoint, DataArchiveColumn,
+  FanArchiveSeries as CoreFanArchiveSeries, GpuArchiveColumn,
   ProcessStatRecord as CoreProcessStatRecord,
 };
 use serde::{Deserialize, Serialize};
@@ -117,6 +118,27 @@ impl From<CoreArchiveSeriesPoint> for ArchiveSeriesPoint {
     Self {
       timestamp: point.timestamp,
       value: point.value,
+    }
+  }
+}
+
+/// One archived fan's bucketed RPM series (#2022). Row-per-fan on disk, so
+/// how many series come back depends on the machine's configuration rather
+/// than on a fixed set the caller names; an empty response is exactly how a
+/// machine with no readable fan reports itself.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FanArchiveSeries {
+  /// The fan's stable channel-derived identifier, as archived.
+  pub source: String,
+  pub points: Vec<ArchiveSeriesPoint>,
+}
+
+impl From<CoreFanArchiveSeries> for FanArchiveSeries {
+  fn from(series: CoreFanArchiveSeries) -> Self {
+    Self {
+      source: series.source,
+      points: series.points.into_iter().map(Into::into).collect(),
     }
   }
 }

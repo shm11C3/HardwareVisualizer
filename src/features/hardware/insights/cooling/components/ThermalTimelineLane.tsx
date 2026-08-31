@@ -5,9 +5,17 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 import type {
   CoolingBaselineState,
   CoolingDailyTrendPoint,
+  CoolingFanTrendSeries,
 } from "@/rspc/bindings";
 import type { CoolingArchiveTimeline } from "../hooks/useCoolingArchiveTimeline";
 import type { CoolingPeriodRoute } from "../utils/coolingPeriodRoute";
+import {
+  buildFanLaneRows,
+  computeFanDomain,
+  resolveFanSeries,
+  toArchiveFanSeries,
+  toDailyFanSeries,
+} from "../utils/fanTimeline";
 import {
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
@@ -62,16 +70,23 @@ export const ThermalTimelineLane = ({
   route,
   baseline,
   dailyTrend,
+  fanTrend,
   archive,
 }: {
   route: CoolingPeriodRoute;
   baseline: CoolingBaselineState | null;
   dailyTrend: CoolingDailyTrendPoint[] | null;
   /**
+   * The daily fan rollup for 90d/1y, owned by `CoolingInsightView` for the
+   * same reason the archive fetch is: the pending-sensors note beside the
+   * timeline reads it to decide whether to keep naming the fan.
+   */
+  fanTrend: CoolingFanTrendSeries[] | null;
+  /**
    * The archive fetch for 24h/7d/30d, owned by `CoolingInsightView` rather
    * than by this lane: the pending-sensors note beside the timeline reads
-   * the same power series to decide whether to keep naming power, and a
-   * second fetch to answer that would double the archive round trips.
+   * the same power and fan series to decide whether to keep naming them,
+   * and a second fetch to answer that would double the archive round trips.
    */
   archive: CoolingArchiveTimeline;
 }) => {
@@ -81,6 +96,7 @@ export const ThermalTimelineLane = ({
 
   const {
     series,
+    fanSeries: archiveFanSeries,
     stepMs,
     hasLoaded: archiveLoaded,
     hasError: archiveHasError,
@@ -150,6 +166,27 @@ export const ThermalTimelineLane = ({
     [rows],
   );
 
+  // The fan lane is driven by its own rows because the fan count is
+  // configuration-dependent, but it is projected onto `rows` above, so
+  // both lanes keep identical labels, length and gaps.
+  const fanTimelineSeries = useMemo(
+    () =>
+      route.kind === "archive"
+        ? toArchiveFanSeries(archiveFanSeries)
+        : toDailyFanSeries(fanTrend ?? []),
+    [route.kind, archiveFanSeries, fanTrend],
+  );
+  const fanSeries = useMemo(
+    () => resolveFanSeries(fanTimelineSeries.map((entry) => entry.source)),
+    [fanTimelineSeries],
+  );
+  const fanRows = useMemo(
+    () => buildFanLaneRows(rows, fanTimelineSeries, fanSeries),
+    [rows, fanTimelineSeries, fanSeries],
+  );
+  // The fan lane's capability gate, same contract as `powerDomain`.
+  const fanDomain = useMemo(() => computeFanDomain(fanRows), [fanRows]);
+
   const loadMode: LoadLaneMode =
     route.kind === "archive" ? "usage" : "composition";
 
@@ -193,6 +230,9 @@ export const ThermalTimelineLane = ({
           rows={rows}
           domain={domain}
           powerDomain={powerDomain}
+          fanRows={fanRows}
+          fanSeries={fanSeries}
+          fanDomain={fanDomain}
           baseline={baselineBand}
           loadMode={loadMode}
           temperatureUnit={temperatureUnit}

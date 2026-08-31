@@ -245,6 +245,44 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         ALTER TABLE cooling_daily_summary ADD COLUMN ambient_coverage_minutes INTEGER NOT NULL DEFAULT 0;
       "#,
     },
+    SchemaMigration {
+      version: 17,
+      description: "create_fan_archive",
+      // The one-minute fan-speed archive behind the Cooling Insight fan
+      // lane (#2022). Row-per-fan rather than fixed columns because how
+      // many fans a machine exposes is configuration-dependent, and both
+      // value columns are NOT NULL because a row is only written for a
+      // reading that was actually taken: an unreadable fan is absent,
+      // never 0 RPM (which is a real Inactive Fan Reading).
+      sql: r#"
+        CREATE TABLE FAN_ARCHIVE (
+          id INTEGER PRIMARY KEY,
+          source TEXT NOT NULL,
+          rpm INTEGER NOT NULL,
+          timestamp DATETIME NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_fan_archive_timestamp ON FAN_ARCHIVE(timestamp);
+      "#,
+    },
+    SchemaMigration {
+      version: 18,
+      description: "create_cooling_fan_daily_summary",
+      // The long-lived per-fan daily rollup the 90d/1y fan lane reads
+      // (#2022). Keyed by (date, source) for the same row-per-fan reason
+      // as `FAN_ARCHIVE`; a fan with no archived reading that day simply
+      // has no row.
+      sql: r#"
+        CREATE TABLE cooling_fan_daily_summary (
+          date TEXT NOT NULL,
+          source TEXT NOT NULL,
+          rpm_avg REAL NOT NULL,
+          rpm_max INTEGER NOT NULL,
+          rpm_min INTEGER NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          PRIMARY KEY (date, source)
+        );
+      "#,
+    },
   ]
 }
 
@@ -469,23 +507,78 @@ mod tests {
   }
 
   #[test]
+  fn migration_v17_creates_the_fan_archive_table() {
+    let migrations = get_migrations();
+    let v17 = migrations
+      .iter()
+      .find(|m| m.version == 17)
+      .expect("Version 17 up migration must exist");
+    assert!(v17.sql.contains("CREATE TABLE FAN_ARCHIVE"));
+    // Row-per-fan: the identifier is a column, not one column per fan.
+    assert!(v17.sql.contains("source TEXT NOT NULL"));
+    // NOT NULL because a row only exists for a reading that was taken -
+    // an Inactive Fan Reading is a real 0, and an absent one has no row.
+    assert!(v17.sql.contains("rpm INTEGER NOT NULL"));
+    assert!(v17.sql.contains("timestamp DATETIME NOT NULL"));
+    assert!(v17.sql.contains("idx_fan_archive_timestamp"));
+  }
+
+  #[test]
+  fn migration_v18_creates_the_cooling_fan_daily_summary_table() {
+    let migrations = get_migrations();
+    let v18 = migrations
+      .iter()
+      .find(|m| m.version == 18)
+      .expect("Version 18 up migration must exist");
+    assert!(v18.sql.contains("CREATE TABLE cooling_fan_daily_summary"));
+    // The composite key is what makes a day carry one row per fan rather
+    // than one row with a fixed fan column set.
+    assert!(v18.sql.contains("PRIMARY KEY (date, source)"));
+    assert!(v18.sql.contains("rpm_avg REAL NOT NULL"));
+    assert!(v18.sql.contains("rpm_max INTEGER NOT NULL"));
+    assert!(v18.sql.contains("rpm_min INTEGER NOT NULL"));
+    assert!(v18.sql.contains("sample_minutes INTEGER NOT NULL"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 16);
+    assert_eq!(get_max_migration_version(), 18);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 16);
+    // 16 was reserved while the ambient delta columns were in flight and
+    // is now filled, so 1..=18 happens to be contiguous again. The
+    // assertion below still only requires unique and ascending - see it
+    // for why contiguity is not something to depend on.
+    assert_eq!(migrations.len(), 18);
   }
 
   #[test]
-  fn migration_up_versions_sequential() {
-    let migrations = get_migrations();
-    let mut up_versions: Vec<_> = migrations.iter().map(|m| m.version).collect();
-    up_versions.sort();
-    let expected: Vec<i64> = (1..=up_versions.len() as i64).collect();
-    assert_eq!(up_versions, expected);
+  fn migration_up_versions_are_unique_and_strictly_ascending() {
+    // Strictly ascending and unique, deliberately *not* contiguous.
+    //
+    // The runner applies migrations in ascending version order and records
+    // each applied version, so a gap costs nothing. Contiguity, on the
+    // other hand, cannot survive parallel branches: a version reserved by
+    // an in-flight PR has to stay claimed until that PR lands, and forcing
+    // the numbers closed would mean two branches silently picking the same
+    // version - which the checksum in `_sqlx_migrations` would only catch
+    // on a user's machine, after both had shipped.
+    //
+    // Uniqueness and ordering are what actually protect the upgrade path,
+    // and both are still asserted here.
+    let versions: Vec<i64> = get_migrations().iter().map(|m| m.version).collect();
+
+    assert!(
+      versions.windows(2).all(|pair| pair[0] < pair[1]),
+      "migrations must be declared in strictly ascending version order: {versions:?}"
+    );
+    assert!(
+      versions.iter().all(|&version| version >= 1),
+      "migration versions start at 1: {versions:?}"
+    );
   }
 
   /// Regression for the reported `no such table: storage_devices` insert

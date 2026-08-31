@@ -96,6 +96,28 @@ pub(crate) const COOLING_BASELINE_DDL: &str = "CREATE TABLE cooling_baseline (
   established_at TEXT NOT NULL
 )";
 
+/// The one-minute fan-speed archive (migration 17): row-per-fan, both
+/// value columns NOT NULL because a row exists only for a reading that
+/// was actually taken.
+pub(crate) const FAN_ARCHIVE_DDL: &str = "CREATE TABLE FAN_ARCHIVE (
+  id INTEGER PRIMARY KEY,
+  source TEXT NOT NULL,
+  rpm INTEGER NOT NULL,
+  timestamp DATETIME NOT NULL
+)";
+
+/// The per-fan daily rollup (migration 18), keyed by `(date, source)`.
+pub(crate) const COOLING_FAN_DAILY_SUMMARY_DDL: &str =
+  "CREATE TABLE cooling_fan_daily_summary (
+  date TEXT NOT NULL,
+  source TEXT NOT NULL,
+  rpm_avg REAL NOT NULL,
+  rpm_max INTEGER NOT NULL,
+  rpm_min INTEGER NOT NULL,
+  sample_minutes INTEGER NOT NULL,
+  PRIMARY KEY (date, source)
+)";
+
 /// The per-hour `(load, temperature)` projection (migration 13).
 pub(crate) const COOLING_HOURLY_SUMMARY_DDL: &str =
   "CREATE TABLE cooling_hourly_summary (
