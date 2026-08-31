@@ -7,6 +7,7 @@
 //! the ordered migration definitions and hands them to the runner. Every
 //! read / write that Core executes goes through this module.
 
+pub mod ambient_archive;
 pub mod archive_queries;
 pub mod cooling_baseline;
 pub mod cooling_daily_summary;

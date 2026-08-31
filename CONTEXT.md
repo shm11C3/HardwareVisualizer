@@ -186,6 +186,20 @@ _Avoid_: Healthy fan, connected fan
 A fan-speed reading that cannot be trusted for display because the reported value is outside the accepted reading shape.
 _Avoid_: Failed fan, broken fan
 
+### Environmental Sensors
+
+**Ambient Temperature Reading**:
+A room-temperature observation, optionally carrying relative humidity, taken by an environmental sensor outside the machine and used to explain machine temperatures.
+_Avoid_: CPU temperature, motherboard temperature, thermal zone, weather data
+
+**Ambient Sensor Availability**:
+Whether an environmental sensor's readings are currently arriving, reported as available, stale, or never received, together with when it last succeeded.
+_Avoid_: Connection state, pairing status, link status, device health
+
+**Ambient Reading Freshness Window**:
+How recently an Ambient Temperature Reading must have been observed to stand for the archive minute being written; an older reading leaves that minute without ambient data instead of repeating a past value.
+_Avoid_: Polling interval, sample rate, Retention Period
+
 ### Sensor Availability
 
 **External Component Guidance**:

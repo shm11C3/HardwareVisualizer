@@ -223,6 +223,42 @@ simplification from the period before close-to-tray/background execution was a
 supported app behavior, when the app was not expected to stay running
 continuously.
 
+Ambient Temperature Readings are archived beside those rows in
+`AMBIENT_ARCHIVE`, one row per ambient Sensor Source Label per minute, so more
+than one environmental sensor can contribute to the same minute. Core owns the
+`EnvironmentalSensorProvider` abstraction
+(`core/src/infrastructure/providers/environmental.rs`) and knows nothing about
+any vendor or transport: a provider caches whatever its transport last
+delivered, and the archive tick polls that cache without blocking. The Ambient
+Reading Freshness Window is five minutes
+(`environmental::AMBIENT_READING_MAX_AGE_SECONDS`) - long enough that ordinary
+BLE advertisement loss does not punch holes in the archive, short enough that a
+sensor which stops reporting stops producing rows instead of freezing its last
+value across hours. A minute with no fresh reading has no ambient row, and one
+quiet sensor never suppresses another. Ambient rows carry the archive tick's
+timestamp so they join the Hardware Archive row for the same minute, and they
+age out on the same `hardwareArchive.retentionDays` cycle as the rows they
+explain.
+
+The provider contract is deliberately availability-based rather than
+connection-based: the first concrete provider reads passive BLE advertisements
+and never establishes a connection, so a link concept has no shared meaning.
+A provider reports only its Sensor Source Label and its latest reading; the
+registry derives Ambient Sensor Availability and the last-success timestamp for
+the Cooling Insight data-state panel. Both the panel status and the rows to
+write come from one evaluation per provider, so they share the same eligibility
+rule: `Available` means the archive will attempt a row for that source this
+minute, not that a row necessarily reached the database - the insert itself can
+still fail and is logged when it does. A reading that cannot be archived at all
+(no Sensor Source Label, a non-finite temperature, or a label another provider
+already claimed this minute) reports as unavailable and does not advance the
+last-success timestamp, so a "fresh success" the archive rejected is never
+shown. The freshness window is bounded in both directions: readings stamped
+more than `AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS` (60 s) ahead of the tick are
+refused, so a clock rewind cannot leave one reading permanently fresh.
+Transport-specific causes such as an unavailable radio or a stopped scan stay
+inside the concrete provider and surface only as readings that stop arriving.
+
 Process Insight data is a sampled and ranked summary derived from realtime
 process observations. It is not a complete process audit log, and persistence
 code should preserve that expectation unless a new feature explicitly changes
