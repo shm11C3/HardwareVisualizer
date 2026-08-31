@@ -244,10 +244,18 @@ The provider contract is deliberately availability-based rather than
 connection-based: the first concrete provider reads passive BLE advertisements
 and never establishes a connection, so a link concept has no shared meaning.
 A provider reports only its Sensor Source Label and its latest reading; the
-registry derives Ambient Sensor Availability (available / stale / never
-received) and the last-success timestamp for the Cooling Insight data-state
-panel, using the same freshness window the archive writes by, so the panel can
-never call a source available while no rows are being written for it.
+registry derives Ambient Sensor Availability and the last-success timestamp for
+the Cooling Insight data-state panel. Both the panel status and the rows to
+write come from one evaluation per provider, so they share the same eligibility
+rule: `Available` means the archive will attempt a row for that source this
+minute, not that a row necessarily reached the database - the insert itself can
+still fail and is logged when it does. A reading that cannot be archived at all
+(no Sensor Source Label, a non-finite temperature, or a label another provider
+already claimed this minute) reports as unavailable and does not advance the
+last-success timestamp, so a "fresh success" the archive rejected is never
+shown. The freshness window is bounded in both directions: readings stamped
+more than `AMBIENT_READING_MAX_FUTURE_SKEW_SECONDS` (60 s) ahead of the tick are
+refused, so a clock rewind cannot leave one reading permanently fresh.
 Transport-specific causes such as an unavailable radio or a stopped scan stay
 inside the concrete provider and surface only as readings that stop arriving.
 
