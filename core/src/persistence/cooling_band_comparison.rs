@@ -362,6 +362,249 @@ mod tests {
     }
   }
 
+  /// One day carrying only an idle temperature band and, optionally, an
+  /// idle ΔT band on top of it (#2045).
+  fn idle_day(
+    date: NaiveDate,
+    temperature: f32,
+    minutes: u32,
+    delta: Option<(f32, u32)>,
+  ) -> DailyCoolingSummary {
+    DailyCoolingSummary {
+      date,
+      coverage_minutes: 1440,
+      idle: band(temperature, minutes),
+      low: empty_band(),
+      mid: empty_band(),
+      high: empty_band(),
+      power: PowerSummary::default(),
+      ambient: match delta {
+        Some((avg, delta_minutes)) => AmbientDeltaSummary {
+          coverage_minutes: delta_minutes,
+          idle: band(avg, delta_minutes),
+          ..AmbientDeltaSummary::default()
+        },
+        None => AmbientDeltaSummary::default(),
+      },
+    }
+  }
+
+  /// The idle band's comparison out of an established result.
+  fn idle_comparison(result: CoolingBandComparison) -> BandComparison {
+    let CoolingBandComparison::Established { bands, .. } = result else {
+      panic!("expected an established comparison");
+    };
+    *bands
+      .iter()
+      .find(|b| b.band == CpuLoadBand::Idle)
+      .expect("the idle band is always present")
+  }
+
+  // ── ambient-adjusted comparison (#2045) ──
+
+  #[test]
+  fn a_machine_with_no_ambient_data_offers_no_ambient_adjusted_reading() {
+    // The invariant that keeps ambient optional: with no ΔT anywhere,
+    // every band reports `None` and every other field is exactly what it
+    // was before #2045.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60, None),
+      idle_day(recent_start, 50.0, 60, None),
+    ];
+
+    let result = derive_band_comparison(
+      &days,
+      established_baseline(baseline_start, baseline_start),
+      recent_end,
+    );
+
+    let CoolingBandComparison::Established { bands, .. } = result else {
+      panic!("expected an established comparison");
+    };
+    for comparison in bands {
+      assert_eq!(
+        comparison.ambient_adjusted, None,
+        "band {:?} must offer no ambient-adjusted reading",
+        comparison.band
+      );
+    }
+    // And the absolute reading is untouched.
+    let idle = bands.iter().find(|b| b.band == CpuLoadBand::Idle).unwrap();
+    assert_eq!(idle.baseline.temperature_avg, Some(30.0));
+    assert_eq!(idle.recent.temperature_avg, Some(50.0));
+    assert!(idle.comparable);
+  }
+
+  #[test]
+  fn an_ambient_adjusted_reading_separates_a_warmer_room_from_worse_cooling() {
+    // The whole point of the feature. The absolute idle temperature rose
+    // 20 K between the windows, but the ΔT held flat: the room got
+    // warmer, the cooling did not degrade.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60, Some((10.0, 60))),
+      idle_day(recent_start, 50.0, 60, Some((10.0, 60))),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      established_baseline(baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    assert_eq!(idle.recent.temperature_avg, Some(50.0));
+    assert_eq!(idle.baseline.temperature_avg, Some(30.0));
+    let adjusted = idle.ambient_adjusted.expect("ambient data exists");
+    assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
+    assert_eq!(adjusted.recent.delta_avg, Some(10.0));
+    assert!(adjusted.comparable);
+  }
+
+  #[test]
+  fn each_ambient_adjusted_window_is_weighted_by_its_own_delta_sample_minutes() {
+    // The ΔT band's own sample minutes do the weighting, not the
+    // temperature band's: a day whose ambient sensor covered only part of
+    // the day must weigh exactly the part it observed.
+    let baseline_start = date(2026, 8, 1);
+    let baseline_end = date(2026, 8, 7);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      // 1440 temperature minutes but only 30 of them paired.
+      idle_day(baseline_start, 30.0, 1440, Some((8.0, 30))),
+      idle_day(baseline_end, 30.0, 1440, Some((12.0, 90))),
+      idle_day(recent_start, 50.0, 1440, Some((20.0, 60))),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      established_baseline(baseline_start, baseline_end),
+      recent_end,
+    ));
+
+    let adjusted = idle.ambient_adjusted.expect("ambient data exists");
+    assert_eq!(adjusted.baseline.sample_minutes, 120);
+    let expected = (8.0 * 30.0 + 12.0 * 90.0) / 120.0;
+    assert!((adjusted.baseline.delta_avg.unwrap() - expected).abs() < 0.001);
+    assert_eq!(adjusted.recent.sample_minutes, 60);
+    assert_eq!(adjusted.recent.delta_avg, Some(20.0));
+  }
+
+  #[test]
+  fn an_ambient_adjusted_window_one_minute_short_is_present_but_not_comparable() {
+    // Distinct from `None`: ambient evidence exists, there is just not
+    // enough of it yet. That is worth saying, because it resolves on its
+    // own as coverage accrues.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let short = COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1;
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60, Some((10.0, short))),
+      idle_day(
+        recent_start,
+        50.0,
+        60,
+        Some((14.0, COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES)),
+      ),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      established_baseline(baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    let adjusted = idle
+      .ambient_adjusted
+      .expect("ambient evidence exists, it is merely thin");
+    assert!(!adjusted.comparable);
+    // The (insufficient) evidence is still reported, matching how the
+    // absolute comparison behaves.
+    assert_eq!(adjusted.baseline.sample_minutes, short);
+    assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
+  }
+
+  #[test]
+  fn ambient_on_only_one_side_is_reported_rather_than_hidden() {
+    // Ambient collection that started partway through: the recent window
+    // has ΔT and the baseline window never will. Not comparable, but not
+    // absent either - the user can see why.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60, None),
+      idle_day(recent_start, 50.0, 60, Some((14.0, 60))),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      established_baseline(baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    let adjusted = idle.ambient_adjusted.expect("the recent side has ambient");
+    assert!(!adjusted.comparable);
+    assert_eq!(adjusted.baseline.sample_minutes, 0);
+    assert_eq!(adjusted.baseline.delta_avg, None);
+    assert_eq!(adjusted.recent.delta_avg, Some(14.0));
+  }
+
+  #[test]
+  fn an_ambient_adjusted_reading_stays_within_its_own_band() {
+    // A ΔT recorded in the high band must not surface on the idle band's
+    // ambient-adjusted reading.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let high_only = |date: NaiveDate, delta: f32| DailyCoolingSummary {
+      date,
+      coverage_minutes: 1440,
+      idle: empty_band(),
+      low: empty_band(),
+      mid: empty_band(),
+      high: band(70.0, 60),
+      power: PowerSummary::default(),
+      ambient: AmbientDeltaSummary {
+        coverage_minutes: 60,
+        high: band(delta, 60),
+        ..AmbientDeltaSummary::default()
+      },
+    };
+    let days = vec![
+      high_only(baseline_start, 40.0),
+      high_only(recent_start, 45.0),
+    ];
+
+    let result = derive_band_comparison(
+      &days,
+      established_baseline(baseline_start, baseline_start),
+      recent_end,
+    );
+    let CoolingBandComparison::Established { bands, .. } = result else {
+      panic!("expected an established comparison");
+    };
+
+    let idle = bands.iter().find(|b| b.band == CpuLoadBand::Idle).unwrap();
+    assert_eq!(idle.ambient_adjusted, None);
+    let high = bands.iter().find(|b| b.band == CpuLoadBand::High).unwrap();
+    let adjusted = high.ambient_adjusted.expect("the high band has ambient");
+    assert_eq!(adjusted.baseline.delta_avg, Some(40.0));
+    assert_eq!(adjusted.recent.delta_avg, Some(45.0));
+  }
+
   #[test]
   fn an_unestablished_baseline_reports_establishing_for_every_band() {
     let result = derive_band_comparison(

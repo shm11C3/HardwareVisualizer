@@ -1257,6 +1257,157 @@ mod tests {
     assert_eq!(summary.power.avg, Some(10.0));
   }
 
+  // ── summarize_day: ambient-normalized thermal delta (#2045) ──
+
+  #[test]
+  fn the_normative_pairing_example_from_the_issue() {
+    // #2045's worked example, kept verbatim as the executable statement
+    // of the rule. Two minutes: one with both readings, one where the
+    // ambient sensor had nothing to say.
+    //
+    //   12:00  CPU 80 degC / Ambient 30 degC  -> delta 50
+    //   18:00  CPU 50 degC / Ambient absent   -> no delta
+    //
+    // Aggregating the two archives independently and subtracting gives
+    // avg(CPU) 65 - avg(Ambient) 30 = "35", a number that corresponds to
+    // no minute that was ever observed. Pairing first gives 50.
+    let minutes = [
+      paired_sample(Some(65.0), Some(80.0), Some(30.0)),
+      paired_sample(Some(65.0), Some(50.0), None),
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(
+      summary.ambient.high.avg,
+      Some(50.0),
+      "delta must come from the paired minute alone, not from subtracting \
+       an ambient average out of a CPU average over a different sample set"
+    );
+    assert_eq!(
+      summary.ambient.high.sample_minutes, 1,
+      "only the paired minute may contribute"
+    );
+    // The absolute temperature band still sees both minutes: the
+    // unpaired minute is real data, it just has no delta.
+    assert_eq!(summary.high.sample_minutes, 2);
+    assert_eq!(summary.high.avg, Some(65.0));
+    assert_eq!(summary.ambient.coverage_minutes, 1);
+  }
+
+  #[test]
+  fn a_delta_band_is_nested_inside_its_temperature_band() {
+    // Two minutes in different load bands, each with its own ambient
+    // pairing: the delta lands in the same band the temperature did,
+    // never pooled across bands.
+    let minutes = [
+      paired_sample(Some(5.0), Some(40.0), Some(25.0)),
+      paired_sample(Some(80.0), Some(70.0), Some(25.0)),
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.ambient.idle.avg, Some(15.0));
+    assert_eq!(summary.ambient.idle.sample_minutes, 1);
+    assert_eq!(summary.ambient.high.avg, Some(45.0));
+    assert_eq!(summary.ambient.high.sample_minutes, 1);
+    assert_eq!(summary.ambient.low, BandSummary::default());
+    assert_eq!(summary.ambient.mid, BandSummary::default());
+  }
+
+  #[test]
+  fn a_minute_the_band_gate_rejects_contributes_no_delta_however_good_its_ambient() {
+    // The outer gate is the band gate. An ambient reading cannot let a
+    // minute with no usable CPU temperature into a delta band - there is
+    // nothing to subtract it from.
+    let minutes = [
+      paired_sample(Some(5.0), Some(40.0), Some(25.0)),
+      // Ambient present, CPU temperature absent.
+      paired_sample(Some(5.0), None, Some(25.0)),
+      // Ambient present, CPU usage absent so no band can be chosen.
+      paired_sample(None, Some(40.0), Some(25.0)),
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.ambient.idle.sample_minutes, 1);
+    assert_eq!(summary.ambient.idle.avg, Some(15.0));
+    // Coverage is counted outside the nesting, so all three minutes had
+    // ambient available even though only one produced a delta.
+    assert_eq!(
+      summary.ambient.coverage_minutes, 3,
+      "ambient availability is a separate capability from CPU sensing"
+    );
+  }
+
+  #[test]
+  fn ambient_coverage_is_recorded_without_a_cpu_temperature_sensor() {
+    // The machine the backfill cursor must not rewind on forever: an
+    // ambient sensor, no CPU temperature sensor. No delta is possible,
+    // but the coverage it records is what tells the cursor the day was
+    // already processed.
+    let minutes = [paired_sample(Some(5.0), None, Some(25.0))];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.ambient.coverage_minutes, 1);
+    assert_eq!(
+      summary.ambient,
+      AmbientDeltaSummary {
+        coverage_minutes: 1,
+        ..AmbientDeltaSummary::default()
+      }
+    );
+  }
+
+  #[test]
+  fn a_delta_extreme_is_the_cpu_extreme_offset_by_that_minutes_ambient() {
+    // Within one archived minute there is a single ambient reading, so
+    // all three of avg/max/min shift together. Nothing is interpolated
+    // between minutes.
+    let minutes = [
+      // `paired_sample` uses temp + 1.0 / temp - 1.0 for max/min.
+      paired_sample(Some(5.0), Some(40.0), Some(25.0)),
+      paired_sample(Some(5.0), Some(50.0), Some(20.0)),
+    ];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    // Deltas are 15 and 30, so the average is 22.5.
+    assert_eq!(summary.ambient.idle.avg, Some(22.5));
+    assert_eq!(summary.ambient.idle.max, Some(31.0));
+    assert_eq!(summary.ambient.idle.min, Some(14.0));
+    assert_eq!(summary.ambient.idle.sample_minutes, 2);
+  }
+
+  #[test]
+  fn a_machine_with_no_ambient_sensor_reports_a_fully_default_delta_summary() {
+    // The invariant every ambient-unaware query depends on: with no
+    // ambient rows anywhere, the day's ambient facts are absent, never
+    // 0 K and never zero-coverage-with-a-value.
+    let minutes = [full_sample(5.0, 40.0), full_sample(65.0, 80.0)];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.ambient, AmbientDeltaSummary::default());
+    for band in [
+      CpuLoadBand::Idle,
+      CpuLoadBand::Low,
+      CpuLoadBand::Mid,
+      CpuLoadBand::High,
+    ] {
+      assert_eq!(summary.ambient.band(band).avg, None);
+    }
+    // ...while the absolute bands are untouched.
+    assert_eq!(summary.idle.avg, Some(40.0));
+    assert_eq!(summary.high.avg, Some(80.0));
+  }
+
+  #[test]
+  fn a_negative_delta_is_kept_rather_than_clamped() {
+    // A cold-boot minute, or a machine in a room warmer than its own
+    // package sensor reads. The number is what it is; clamping would
+    // fabricate a reading.
+    let minutes = [paired_sample(Some(5.0), Some(20.0), Some(25.0))];
+    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
+
+    assert_eq!(summary.ambient.idle.avg, Some(-5.0));
+  }
+
   // ── days_to_roll_up ──
 
   #[test]
@@ -1487,6 +1638,119 @@ mod tests {
   fn a_power_backfill_does_not_stall_the_hourly_backfill() {
     // Power is caught up but hourly is not: the power branch must not
     // pull the cursor forward past what hourly still needs.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 12)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 12))
+    );
+  }
+
+  // ── rollup_catch_up_cursor: ambient delta backfill (#2045) ──
+  //
+  // The four quadrants of (archive has pairable ambient?) x (daily table
+  // recorded coverage?). Only one of them may rewind the cursor; a
+  // mistake in any of the other three either strands the delta columns
+  // empty forever or re-reads the whole archive on every cycle, forever.
+
+  #[test]
+  fn a_daily_table_with_no_ambient_rewinds_while_the_archive_still_pairs() {
+    // Quadrant 1 - the migration 16 upgrade path, and the only one that
+    // rewinds. An install that was already collecting ambient readings
+    // has them in the archive while every summarized row's delta columns
+    // are NULL.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_ambient_daily_date: None,
+        last_ambient_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      None,
+      "the days the archives can still back must be re-rolled so their deltas fill in"
+    );
+  }
+
+  #[test]
+  fn a_machine_without_an_ambient_sensor_does_not_rewind_every_cycle() {
+    // Quadrant 2 - the regression this whole check exists to avoid.
+    // Neither side has ambient, which is not evidence of a missed day.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_ambient_daily_date: None,
+        last_ambient_archive_date: None,
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn an_ambient_sensor_that_went_offline_days_ago_is_not_treated_as_behind() {
+    // Quadrant 3 - both sides agree ambient stopped after 8-15 (the
+    // sensor was unplugged, or its integration was removed). There is
+    // nothing to regenerate, so the cursor must stay put.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_ambient_daily_date: Some(date(2026, 8, 15)),
+        last_ambient_archive_date: Some(date(2026, 8, 15)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_daily_ambient_column_ahead_of_the_archive_is_not_treated_as_behind() {
+    // Quadrant 4 - retention has since deleted the ambient rows the
+    // rollup already summarized, so the archive's latest pairable day is
+    // older than the rollup's. Nothing to regenerate, and nothing that
+    // could be.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_ambient_daily_date: Some(date(2026, 8, 20)),
+        last_ambient_archive_date: Some(date(2026, 8, 1)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_partially_backfilled_ambient_column_resumes_from_the_last_covered_day() {
+    // A previous pass filled ambient up to 8-15 before failing. Only the
+    // remaining days need re-reading, not the whole archive.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_ambient_daily_date: Some(date(2026, 8, 15)),
+        last_ambient_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[test]
+  fn the_ambient_backfill_joins_the_others_at_whichever_is_furthest_behind() {
+    // One pass has to satisfy the slowest projection, and ambient is now
+    // one of the candidates rather than a separate cursor.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 18)),
+        last_powered_daily_date: Some(date(2026, 8, 16)),
+        last_powered_archive_date: Some(date(2026, 8, 20)),
+        last_ambient_daily_date: Some(date(2026, 8, 11)),
+        last_ambient_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 11))
+    );
+  }
+
+  #[test]
+  fn an_ambient_backfill_does_not_stall_the_hourly_or_power_backfills() {
+    // Ambient is caught up but the others are not: the ambient branch
+    // must not pull the cursor forward past what they still need.
     assert_eq!(
       rollup_catch_up_cursor(RollupProgress {
         last_hourly_date: Some(date(2026, 8, 12)),

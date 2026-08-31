@@ -1564,6 +1564,287 @@ mod tests {
       None
     );
   }
+  // ── ambient pairing at the read boundary (#2045) ──
+
+  #[tokio::test]
+  async fn a_minute_is_paired_with_the_ambient_row_stamped_to_the_same_minute() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    let tick = utc("2026-08-15T12:00:00.000Z");
+    insert_archive_row(&pool, Some(5.0), Some(40.0), tick).await;
+    insert_ambient_row(&pool, "Living Room", 25.0, tick).await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].ambient_temperature_avg, Some(25.0));
+  }
+
+  #[tokio::test]
+  async fn several_ambient_sources_in_one_minute_average_unweighted() {
+    // `AMBIENT_ARCHIVE` is row-per-source, so a room with two sensors
+    // contributes two rows for one minute. The MVP rule is a plain mean:
+    // Core has no ranking that would justify preferring one label.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    let tick = utc("2026-08-15T12:00:00.000Z");
+    insert_archive_row(&pool, Some(5.0), Some(40.0), tick).await;
+    insert_ambient_row(&pool, "Living Room", 24.0, tick).await;
+    insert_ambient_row(&pool, "Desk", 28.0, tick).await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(rows[0].ambient_temperature_avg, Some(26.0));
+  }
+
+  #[tokio::test]
+  async fn a_minute_with_no_ambient_row_stays_unpaired_rather_than_borrowing_another() {
+    // The pairing is per minute. An ambient row an hour away must not
+    // fill the gap - that is exactly the interpolation #2045 forbids.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:00.000Z"),
+    )
+    .await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(50.0),
+      utc("2026-08-15T13:00:00.000Z"),
+    )
+    .await;
+    insert_ambient_row(&pool, "Living Room", 25.0, utc("2026-08-15T12:00:00.000Z")).await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].ambient_temperature_avg, Some(25.0));
+    assert_eq!(rows[1].ambient_temperature_avg, None);
+  }
+
+  #[tokio::test]
+  async fn an_ambient_row_within_the_same_minute_still_pairs_across_seconds() {
+    // The archive tick stamps both sides with one instant, but the join
+    // is defined on the minute rather than on exact equality, so a
+    // writer that ever drifted by seconds would still pair correctly.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:00.000Z"),
+    )
+    .await;
+    insert_ambient_row(&pool, "Living Room", 25.0, utc("2026-08-15T12:00:59.900Z")).await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(rows[0].ambient_temperature_avg, Some(25.0));
+  }
+
+  #[tokio::test]
+  async fn an_archive_with_no_ambient_rows_reads_back_exactly_as_before() {
+    // The zero-ambient invariant at the query layer: every existing
+    // field keeps its value and the new one is simply absent.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:00.000Z"),
+    )
+    .await;
+
+    let rows = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].cpu_usage_avg, Some(5.0));
+    assert_eq!(rows[0].cpu_temperature_avg, Some(40.0));
+    assert_eq!(rows[0].ambient_temperature_avg, None);
+  }
+
+  // ── ambient backfill cursor (#2045) ──
+
+  #[tokio::test]
+  async fn max_ambient_summarized_date_ignores_days_that_recorded_no_coverage() {
+    // The state migration 16 leaves behind: rows exist, their delta
+    // columns are NULL, and `ambient_coverage_minutes` defaulted to 0.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 10),
+        coverage_minutes: 1440,
+        idle: full_band(30.0, 600),
+        low: empty_band(),
+        mid: empty_band(),
+        high: empty_band(),
+        power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary {
+          coverage_minutes: 900,
+          idle: full_band(12.0, 600),
+          ..AmbientDeltaSummary::default()
+        },
+      },
+    )
+    .await
+    .unwrap();
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    assert_eq!(
+      max_ambient_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 10)),
+      "a zero-coverage row must not advance the ambient cursor past the last real one"
+    );
+  }
+
+  #[tokio::test]
+  async fn max_ambient_summarized_date_is_none_when_no_day_recorded_coverage() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+    insert_full_summary_row(
+      &pool,
+      "2026-08-20",
+      full_band(30.0, 600),
+      empty_band(),
+      empty_band(),
+      empty_band(),
+      1440,
+    )
+    .await;
+
+    assert_eq!(
+      max_ambient_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+  }
+
+  #[tokio::test]
+  async fn max_pairable_ambient_archive_timestamp_only_sees_rows_before_the_bound() {
+    // The bound is the start of today: today's ambient rows must not
+    // count, or a machine collecting ambient right now would look
+    // permanently behind and rewind the catch-up on every cycle.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    for tick in [
+      utc("2026-08-19T23:59:00.000Z"),
+      utc("2026-08-20T00:00:00.000Z"),
+    ] {
+      insert_archive_row(&pool, Some(5.0), Some(40.0), tick).await;
+      insert_ambient_row(&pool, "Living Room", 25.0, tick).await;
+    }
+
+    let latest = max_pairable_ambient_archive_timestamp_before_from_pool(
+      &pool,
+      &utc("2026-08-20T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(latest, Some(utc("2026-08-19T23:59:00.000Z")));
+  }
+
+  #[tokio::test]
+  async fn max_pairable_ambient_archive_timestamp_is_none_without_an_ambient_sensor() {
+    // What stops the backfill check from firing forever on a machine
+    // that has no environmental sensor at all.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-19T10:00:00.000Z"),
+    )
+    .await;
+
+    assert_eq!(
+      max_pairable_ambient_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-20T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None
+    );
+  }
+
+  #[tokio::test]
+  async fn max_pairable_ambient_archive_timestamp_skips_an_unpairable_ambient_row() {
+    // `summarize_day` counts coverage per *archived minute*, so an
+    // ambient row whose minute has no hardware row can never become
+    // coverage however often the day is re-rolled. Counting it would
+    // send the catch-up chasing a day it can never fill.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-18T10:00:00.000Z"),
+    )
+    .await;
+    insert_ambient_row(&pool, "Living Room", 25.0, utc("2026-08-18T10:00:00.000Z")).await;
+    // Later, but with no hardware row for its minute.
+    insert_ambient_row(&pool, "Living Room", 26.0, utc("2026-08-19T10:00:00.000Z")).await;
+
+    assert_eq!(
+      max_pairable_ambient_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-20T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      Some(utc("2026-08-18T10:00:00.000Z"))
+    );
+  }
+
   // ── archive to daily summary, end to end (#2021) ──
 
   #[tokio::test]
@@ -1672,6 +1953,157 @@ mod tests {
       .unwrap(),
       None,
       "neither side has power, so the catch-up must never claim to be behind"
+    );
+  }
+
+  // ── ambient archives to daily summary, end to end (#2045) ──
+
+  #[tokio::test]
+  async fn a_paired_ambient_archive_reaches_the_persisted_daily_summary() {
+    // The whole path in one test: real archive rows on both sides, the
+    // real join, the real fold, the real write, the real read-back. The
+    // unit tests above each cover one hop; this is what catches a column
+    // name that only some of the hops agree on.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    setup_cooling_daily_summary(&pool).await;
+
+    // Three idle minutes: CPU 40/44/48 against ambient 20/24/28, so
+    // every minute's delta is exactly 20 K even though both series are
+    // climbing. That is the point of the whole feature - a rise the room
+    // explains leaves the delta flat.
+    for (minute, cpu, ambient) in [(0, 40.0, 20.0), (1, 44.0, 24.0), (2, 48.0, 28.0)] {
+      let tick = utc(&format!("2026-08-15T12:0{minute}:00.000Z"));
+      insert_archive_row(&pool, Some(5.0), Some(cpu), tick).await;
+      insert_ambient_row(&pool, "Living Room", ambient, tick).await;
+    }
+    // A fourth minute the ambient sensor missed: it must raise the
+    // absolute band average without touching the delta.
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(100.0),
+      utc("2026-08-15T12:03:00.000Z"),
+    )
+    .await;
+
+    let minutes = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+    let summary =
+      crate::persistence::cooling_rollup::summarize_day(date(2026, 8, 15), &minutes)
+        .expect("the day was archived, so it must produce a summary");
+    upsert_from_pool(&pool, &summary).await.unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days.len(), 1);
+    assert_eq!(days[0].ambient.coverage_minutes, 3);
+    assert_eq!(days[0].ambient.idle.avg, Some(20.0));
+    assert_eq!(days[0].ambient.idle.sample_minutes, 3);
+    // The unpaired hot minute reached the absolute band and no further.
+    assert_eq!(days[0].idle.sample_minutes, 4);
+    assert_eq!(days[0].idle.avg, Some(58.0));
+    // And the backfill cursor now agrees the ambient columns are current.
+    assert_eq!(
+      max_ambient_summarized_date_from_pool(&pool).await.unwrap(),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[tokio::test]
+  async fn an_archive_without_ambient_persists_a_daily_summary_with_absent_deltas() {
+    // The same path on a machine with no environmental sensor:
+    // temperature still lands, the deltas stay absent rather than
+    // becoming 0 K, and the backfill cursor reports nothing to catch up.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_data_archive(&pool).await;
+    setup_cooling_daily_summary(&pool).await;
+    insert_archive_row(
+      &pool,
+      Some(5.0),
+      Some(40.0),
+      utc("2026-08-15T12:00:00.000Z"),
+    )
+    .await;
+
+    let minutes = select_archive_minutes_for_range_from_pool(
+      &pool,
+      &utc("2026-08-15T00:00:00.000Z"),
+      &utc("2026-08-16T00:00:00.000Z"),
+    )
+    .await
+    .unwrap();
+    let summary =
+      crate::persistence::cooling_rollup::summarize_day(date(2026, 8, 15), &minutes)
+        .unwrap();
+    upsert_from_pool(&pool, &summary).await.unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days[0].idle.avg, Some(40.0));
+    assert_eq!(days[0].ambient, AmbientDeltaSummary::default());
+    assert_eq!(
+      max_ambient_summarized_date_from_pool(&pool).await.unwrap(),
+      None
+    );
+    assert_eq!(
+      max_pairable_ambient_archive_timestamp_before_from_pool(
+        &pool,
+        &utc("2026-08-16T00:00:00.000Z")
+      )
+      .await
+      .unwrap(),
+      None,
+      "neither side has ambient, so the catch-up must never claim to be behind"
+    );
+  }
+
+  #[tokio::test]
+  async fn a_persisted_ambient_delta_summary_round_trips_through_the_daily_read() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_cooling_daily_summary(&pool).await;
+
+    let ambient = AmbientDeltaSummary {
+      coverage_minutes: 1200,
+      idle: full_band(12.5, 600),
+      low: full_band(20.0, 300),
+      mid: BandSummary::default(),
+      high: full_band(45.25, 100),
+    };
+    upsert_from_pool(
+      &pool,
+      &DailyCoolingSummary {
+        date: date(2026, 8, 15),
+        coverage_minutes: 1440,
+        idle: full_band(30.0, 600),
+        low: full_band(40.0, 300),
+        mid: empty_band(),
+        high: full_band(70.0, 100),
+        power: PowerSummary::default(),
+        ambient,
+      },
+    )
+    .await
+    .unwrap();
+
+    let days = select_all_daily_cooling_summaries_from_pool(&pool)
+      .await
+      .unwrap();
+
+    assert_eq!(days[0].ambient, ambient);
+    assert_eq!(
+      days[0].ambient.mid,
+      BandSummary::default(),
+      "a band with no paired minute stays absent, never 0 K"
     );
   }
 }
