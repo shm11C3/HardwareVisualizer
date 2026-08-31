@@ -67,11 +67,12 @@ pub struct DailyDelta {
 /// degraded": a ΔT that held steady while the absolute temperature climbed
 /// says the room warmed up, and a ΔT that climbed says the machine did.
 ///
-/// `delta` subtracts a ΔT window average from the ΔT baseline, which is
-/// legitimate where subtracting a CPU summary from an ambient summary is
-/// not: both sides are already per-minute ΔT values paired before
-/// aggregation, so this compares one period against another rather than
-/// reconstructing a pairing that never happened.
+/// `delta` subtracts the ΔT baseline from the recent window's ΔT average
+/// (`recent - baseline`, so a rise reads positive), which is legitimate
+/// where subtracting a CPU summary from an ambient summary is not: both
+/// sides are already per-minute ΔT values paired before aggregation, so
+/// this compares one period against another rather than reconstructing a
+/// pairing that never happened.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AmbientAdjustedBaselineDelta {
   /// The ΔT baseline's own lifecycle, which advances independently of

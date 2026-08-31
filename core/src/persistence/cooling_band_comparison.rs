@@ -76,11 +76,12 @@ impl BandDeltaWindowSummary {
 /// absolute temperature, so a rise the weather explains and a rise the
 /// cooling explains can be told apart.
 ///
-/// Subtracting `recent.delta_avg` from `baseline.delta_avg` is legitimate
-/// where subtracting a CPU summary from an ambient summary is not: both
-/// sides here are already per-minute ΔT values that were paired before
-/// aggregation, so this compares one period against another rather than
-/// reconstructing a pairing that never happened.
+/// Subtracting `baseline.delta_avg` from `recent.delta_avg` (so a rise
+/// reads positive, matching every other delta in Cooling Insight) is
+/// legitimate where subtracting a CPU summary from an ambient summary is
+/// not: both sides here are already per-minute ΔT values that were paired
+/// before aggregation, so this compares one period against another rather
+/// than reconstructing a pairing that never happened.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AmbientAdjustedBandComparison {
   pub baseline: BandDeltaWindowSummary,
