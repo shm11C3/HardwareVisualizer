@@ -377,6 +377,7 @@
         },
         "unsupportedSensorsNote": "タイムラインへの電力・ファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
         "unsupportedSensorsNoteFanOnly": "タイムラインへのファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
+        "unsupportedSensorsNotePowerOnly": "タイムラインへの電力のレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
         "timeline": {
           "title": "サーマルタイムライン",
           "loadFailed": "サーマルタイムラインの取得に失敗しました。",
@@ -385,6 +386,7 @@
           "loadLaneUsage": "CPU 負荷 (%)",
           "loadLaneComposition": "負荷帯の構成 (1 日あたりの割合)",
           "powerLane": "CPU パッケージ電力 (W)",
+          "fanLane": "ファン回転数 (rpm)",
           "legend": {
             "average": "平均",
             "range": "最小 - 最大",
@@ -450,6 +452,7 @@
           "unsupported": {
             "label": "電力・ファン",
             "labelFanOnly": "ファン",
+            "labelPowerOnly": "電力",
             "value": "未対応"
           }
         }

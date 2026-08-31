@@ -185,8 +185,26 @@ export const collectPowerDomainValues = (
  */
 export type PowerCapability = "unknown" | "present" | "absent";
 
-const hasFiniteValue = (points: readonly ArchiveSeriesPoint[]): boolean =>
+/** Whether any bucket of an archive series carries a real reading. */
+export const hasFiniteValue = (
+  points: readonly ArchiveSeriesPoint[],
+): boolean =>
   points.some((point) => point.value != null && Number.isFinite(point.value));
+
+/**
+ * Whether the archive window recorded anything at all.
+ *
+ * Shared by every capability check beside the timeline: a window that
+ * recorded nothing says only that the app was not running, so no sensor
+ * may be called unsupported on the strength of it.
+ */
+export const archiveWindowRecordedAnything = (
+  series: ArchiveTimelineSeries,
+): boolean =>
+  hasFiniteValue(series.temperatureAvg) ||
+  hasFiniteValue(series.temperatureMin) ||
+  hasFiniteValue(series.temperatureMax) ||
+  hasFiniteValue(series.cpuUsage);
 
 /**
  * Whether a period carries power, checking `avg`, `min` and `max` rather
@@ -242,12 +260,7 @@ export const resolveRoutedPowerCapability = (
     }
     // A window that recorded nothing at all says nothing about the
     // machine's sensors - only that the app was not running.
-    const recordedAnything =
-      hasFiniteValue(archive.series.temperatureAvg) ||
-      hasFiniteValue(archive.series.temperatureMin) ||
-      hasFiniteValue(archive.series.temperatureMax) ||
-      hasFiniteValue(archive.series.cpuUsage);
-    return recordedAnything ? "absent" : "unknown";
+    return archiveWindowRecordedAnything(archive.series) ? "absent" : "unknown";
   }
 
   if (daily.hasError || daily.points == null) {

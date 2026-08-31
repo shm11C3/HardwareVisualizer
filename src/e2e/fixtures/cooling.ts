@@ -1,4 +1,5 @@
 import type {
+  ArchiveBucketTimestamp,
   CoolingBandComparison,
   CoolingBandMedian,
   CoolingBandMedianDelta,
@@ -6,10 +7,13 @@ import type {
   CoolingBaselineDelta,
   CoolingDailyTrendPoint,
   CoolingExplorerWindow,
+  CoolingFanTrendSeries,
   CoolingLoadBand,
   CoolingLoadTemperatureExplorer,
   CoolingLoadTemperaturePoint,
+  FanArchiveSeries,
 } from "@/rspc/bindings";
+import { buildArchiveSeries } from "./archive";
 
 const band = (
   avg: number,
@@ -80,6 +84,78 @@ export const buildCoolingDailyTrendFixture = (
 
   return points;
 };
+
+/**
+ * The fans a fan-enabled fixture machine reports, mirroring the stable
+ * channel-derived labels the Super I/O provider archives (#2022).
+ *
+ * The third fan is deliberately an Inactive Fan Reading throughout: 0 RPM
+ * is a real observation, so a capture must show it as a line on the floor
+ * rather than as a gap.
+ */
+const FAN_FIXTURE_SOURCES = [
+  { source: "Fan 1", base: 900, amplitude: 220 },
+  { source: "Fan 2", base: 1450, amplitude: 320 },
+  { source: "Fan 3", base: 0, amplitude: 0 },
+] as const;
+
+/**
+ * Deterministic per-fan daily rollup for the 90d/1y routes, skipping the
+ * same every-13th day as `buildCoolingDailyTrendFixture` so the fan lane
+ * breaks where the lanes above it do.
+ */
+export const buildCoolingFanTrendFixture = (
+  days: number,
+  endDate = new Date("2026-01-15T12:00:00Z"),
+): CoolingFanTrendSeries[] =>
+  FAN_FIXTURE_SOURCES.map(({ source, base, amplitude }) => {
+    const entries: CoolingFanTrendSeries["days"] = [];
+
+    for (let offset = days - 1; offset >= 0; offset--) {
+      const date = new Date(endDate);
+      date.setUTCDate(date.getUTCDate() - offset);
+      const dayIndex = days - 1 - offset;
+
+      if (dayIndex % 13 === 12) {
+        continue;
+      }
+
+      const avg = Math.round(base + amplitude * Math.sin(dayIndex / 9));
+      entries.push({
+        date: date.toISOString().slice(0, 10),
+        rpmAvg: avg,
+        rpmMax: avg + amplitude / 2,
+        rpmMin: Math.max(0, avg - amplitude / 2),
+        sampleMinutes: 1380,
+      });
+    }
+
+    return { source, days: entries };
+  });
+
+/**
+ * The archived per-fan series for the 24h/7d/30d routes, on the same bucket
+ * grid and with the same gaps as the CPU series so every lane breaks
+ * together.
+ */
+export const buildFanArchiveSeriesFixture = (
+  start: string,
+  end: string,
+  bucketWidthMs: number,
+  bucketTimestamp: ArchiveBucketTimestamp,
+): FanArchiveSeries[] =>
+  FAN_FIXTURE_SOURCES.map(({ source, base, amplitude }) => ({
+    source,
+    points: buildArchiveSeries(
+      start,
+      end,
+      bucketWidthMs,
+      bucketTimestamp,
+      base,
+      amplitude,
+      { gapEvery: 17 },
+    ),
+  }));
 
 export const coolingBaselineDeltaEstablishingFixture: CoolingBaselineDelta = {
   baseline: { status: "establishing", qualifyingDays: 4, requiredDays: 7 },

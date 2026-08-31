@@ -250,6 +250,18 @@ zero contributing minutes leaves its temperature columns absent, and a day with
 no powered minute leaves its power columns absent - never zero. Its cleanup runs from the same `scheduledDataDeletion`-gated startup
 site as the Hardware Archive cleanup (see ADR 0018).
 
+Fan speeds are archived beside the Hardware Archive rather than inside them.
+The archive worker writes one `FAN_ARCHIVE` row per fan per interval on its
+existing tick, and the same rollup pass folds a completed day into one
+`cooling_fan_daily_summary` row per fan
+(`core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan because
+how many fans a machine exposes is configuration-dependent, and both share the
+daily rollup's retention window. The three fan-reading meanings stay distinct
+end to end: an Inactive Fan Reading (0 RPM) is stored as the real observation
+it is, an Invalid Fan Reading is excluded, and a missing reading has no row -
+so a stopped fan is never confused with an unreadable one. There is no hourly
+fan projection, because no view reads a fan axis at that resolution.
+
 ## Settings Ownership
 
 Settings are split by consumer:
