@@ -1,4 +1,6 @@
 use hardviz_core::infrastructure::database::archive_queries::{
+  AmbientArchiveBucket as CoreAmbientArchiveBucket,
+  AmbientArchiveSeries as CoreAmbientArchiveSeries,
   ArchiveBucketTimestamp as CoreArchiveBucketTimestamp,
   ArchiveSeriesPoint as CoreArchiveSeriesPoint, DataArchiveColumn,
   FanArchiveSeries as CoreFanArchiveSeries, GpuArchiveColumn,
@@ -139,6 +141,56 @@ impl From<CoreFanArchiveSeries> for FanArchiveSeries {
     Self {
       source: series.source,
       points: series.points.into_iter().map(Into::into).collect(),
+    }
+  }
+}
+
+/// One bucket of the Cooling Insight ambient lane (#2046). `ambientAvg`
+/// null means no minute in the bucket carried an ambient row, and
+/// `deltaAvg` null means none carried both an ambient row and a CPU
+/// package temperature - neither is a measured zero, and the lane must
+/// break there rather than interpolate.
+//
+// Kept to a single paragraph deliberately: tauri-specta renders a blank
+// `///` line as `" * "` in `bindings.ts`, whose trailing space fails CI's
+// `git diff --check`. The generated file must not be hand-edited, so the
+// paragraph break has to go here.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AmbientArchiveBucket {
+  pub timestamp: i64,
+  pub ambient_avg: Option<f64>,
+  pub delta_avg: Option<f64>,
+}
+
+impl From<CoreAmbientArchiveBucket> for AmbientArchiveBucket {
+  fn from(bucket: CoreAmbientArchiveBucket) -> Self {
+    Self {
+      timestamp: bucket.timestamp,
+      ambient_avg: bucket.ambient_avg,
+      delta_avg: bucket.delta_avg,
+    }
+  }
+}
+
+/// The ambient lane of one Cooling Insight timeline range (#2046).
+/// `AMBIENT_ARCHIVE` is row-per-source, so `sources` names the labels that
+/// actually contributed to this window; an empty list is exactly how a
+/// machine with no environmental sensor reports itself.
+//
+// Same single-paragraph constraint as [`AmbientArchiveBucket`].
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AmbientArchiveSeries {
+  pub sources: Vec<String>,
+  pub buckets: Vec<AmbientArchiveBucket>,
+}
+
+impl From<CoreAmbientArchiveSeries> for AmbientArchiveSeries {
+  fn from(series: CoreAmbientArchiveSeries) -> Self {
+    Self {
+      sources: series.sources,
+      buckets: series.buckets.into_iter().map(Into::into).collect(),
     }
   }
 }

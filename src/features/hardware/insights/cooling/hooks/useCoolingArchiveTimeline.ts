@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { chartConfig } from "@/features/hardware/consts/chart";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import {
+  type AmbientArchiveSeries,
   type ArchiveSeriesPoint,
   commands,
   type FanArchiveSeries,
@@ -34,14 +35,15 @@ const EMPTY_SERIES: ArchiveTimelineSeries = {
 /**
  * Fetch the archive series the 24h/7d/30d timeline lanes are built from -
  * CPU temperature avg/max/min, CPU usage, CPU package power avg/max/min,
- * and every archived fan's RPM - over one shared time range and bucket
- * width, so every series lands on the same bucket grid.
+ * every archived fan's RPM, and the ambient temperature with its paired
+ * Thermal Delta - over one shared time range and bucket width, so every
+ * series lands on the same bucket grid.
  *
- * The power and fan series are requested unconditionally: the archive
- * answers with empty buckets (or, for fans, no series at all) on a machine
- * that never recorded them, which is exactly the signal those lanes'
- * capability gates read. Asking first would need a second round trip to
- * learn the same thing.
+ * The power, fan and ambient series are requested unconditionally: the
+ * archive answers with empty buckets (or, for fans and ambient, no series
+ * at all) on a machine that never recorded them, which is exactly the
+ * signal those lanes' capability gates read. Asking first would need a
+ * second round trip to learn the same thing.
  *
  * Unlike `useInsightChart` this always reads the current window: the decided
  * layout scrubs history with the single period selector rather than
@@ -60,6 +62,14 @@ export type CoolingArchiveTimeline = {
    * lane rather than a whole-timeline load error.
    */
   fanHasError: boolean;
+  /**
+   * The window's ambient temperature and paired Thermal Delta buckets, or
+   * null when the read failed. Empty buckets on a machine with no
+   * environmental sensor - the ambient lane's capability gate.
+   */
+  ambientSeries: AmbientArchiveSeries | null;
+  /** The ambient read failed on its own, same contract as `fanHasError`. */
+  ambientHasError: boolean;
   stepMs: number;
   hasLoaded: boolean;
   hasError: boolean;
@@ -71,6 +81,9 @@ export const useCoolingArchiveTimeline = (
   const [series, setSeries] = useState<ArchiveTimelineSeries>(EMPTY_SERIES);
   const [fanSeries, setFanSeries] = useState<FanArchiveSeries[]>([]);
   const [fanHasError, setFanHasError] = useState(false);
+  const [ambientSeries, setAmbientSeries] =
+    useState<AmbientArchiveSeries | null>(null);
+  const [ambientHasError, setAmbientHasError] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const { error } = useTauriDialog();
@@ -89,9 +102,17 @@ export const useCoolingArchiveTimeline = (
     series: ArchiveTimelineSeries;
     fanSeries: FanArchiveSeries[];
     fanHasError: boolean;
+    ambientSeries: AmbientArchiveSeries | null;
+    ambientHasError: boolean;
   }> => {
     if (minutes == null) {
-      return { series: EMPTY_SERIES, fanSeries: [], fanHasError: false };
+      return {
+        series: EMPTY_SERIES,
+        fanSeries: [],
+        fanHasError: false,
+        ambientSeries: null,
+        ambientHasError: false,
+      };
     }
 
     const endAt = new Date(
@@ -156,6 +177,33 @@ export const useCoolingArchiveTimeline = (
       }
     };
 
+    // Kept out of the `Promise.all` for the same reason the fan read is: a
+    // failed ambient read must degrade to "capability unknown" - the lane
+    // does not mount and the data-state panel names no source - rather
+    // than throwing away the lanes that did arrive (DP-02).
+    const readAmbient = async (): Promise<{
+      ambientSeries: AmbientArchiveSeries | null;
+      ambientHasError: boolean;
+    }> => {
+      try {
+        const result = await commands.getAmbientArchiveSeries(
+          startAt.toISOString(),
+          endAt.toISOString(),
+          stepMs,
+          "end",
+        );
+        if (isError(result)) {
+          throw new Error(
+            `Failed to fetch archived ambient series: ${result.error}`,
+          );
+        }
+        return { ambientSeries: result.data, ambientHasError: false };
+      } catch (e) {
+        console.error(e);
+        return { ambientSeries: null, ambientHasError: true };
+      }
+    };
+
     const [
       [
         temperatureAvg,
@@ -167,6 +215,7 @@ export const useCoolingArchiveTimeline = (
         powerMin,
       ],
       fans,
+      ambient,
     ] = await Promise.all([
       Promise.all([
         read("cpuTemperature", "avg"),
@@ -178,6 +227,7 @@ export const useCoolingArchiveTimeline = (
         read("cpuPower", "min"),
       ]),
       readFans(),
+      readAmbient(),
     ]);
 
     return {
@@ -191,6 +241,7 @@ export const useCoolingArchiveTimeline = (
         powerMin,
       },
       ...fans,
+      ...ambient,
     };
   }, [minutes, stepMs]);
 
@@ -200,6 +251,8 @@ export const useCoolingArchiveTimeline = (
       setSeries(EMPTY_SERIES);
       setFanSeries([]);
       setFanHasError(false);
+      setAmbientSeries(null);
+      setAmbientHasError(false);
       setHasLoaded(false);
       setHasError(false);
       hasReportedErrorRef.current = false;
@@ -211,6 +264,7 @@ export const useCoolingArchiveTimeline = (
     setHasLoaded(false);
     setHasError(false);
     setFanHasError(false);
+    setAmbientHasError(false);
     hasReportedErrorRef.current = false;
 
     const run = () => {
@@ -223,6 +277,8 @@ export const useCoolingArchiveTimeline = (
             setSeries(next.series);
             setFanSeries(next.fanSeries);
             setFanHasError(next.fanHasError);
+            setAmbientSeries(next.ambientSeries);
+            setAmbientHasError(next.ambientHasError);
             setHasLoaded(true);
             setHasError(false);
             hasReportedErrorRef.current = false;
@@ -235,6 +291,8 @@ export const useCoolingArchiveTimeline = (
             setSeries(EMPTY_SERIES);
             setFanSeries([]);
             setFanHasError(false);
+            setAmbientSeries(null);
+            setAmbientHasError(false);
             setHasLoaded(true);
             setHasError(true);
             if (!hasReportedErrorRef.current) {
@@ -258,5 +316,14 @@ export const useCoolingArchiveTimeline = (
     };
   }, [fetchSeries, minutes, error]);
 
-  return { series, fanSeries, fanHasError, stepMs, hasLoaded, hasError };
+  return {
+    series,
+    fanSeries,
+    fanHasError,
+    ambientSeries,
+    ambientHasError,
+    stepMs,
+    hasLoaded,
+    hasError,
+  };
 };

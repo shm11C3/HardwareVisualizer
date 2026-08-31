@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { cloneElement, isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AmbientLaneRow } from "../utils/ambientTimeline";
 import { type FanSeries, resolveFanSeries } from "../utils/fanTimeline";
 import type { ThermalTimelineRow } from "../utils/thermalTimeline";
 import { TimelineLanes } from "./TimelineLanes";
@@ -81,11 +82,26 @@ const withFans = (values: Record<string, number | null>): FanFixture => ({
   series: resolveFanSeries(["Fan 1"]),
 });
 
+type AmbientFixture = {
+  domain: [number, number] | null;
+  row: Omit<AmbientLaneRow, "key" | "label">;
+};
+
+const NO_AMBIENT: AmbientFixture = {
+  domain: null,
+  row: { ambient: null, delta: null },
+};
+
+const withAmbient = (
+  row: Omit<AmbientLaneRow, "key" | "label">,
+): AmbientFixture => ({ domain: [18, 30], row });
+
 const renderLanes = (
   hovered: ThermalTimelineRow,
   domain: [number, number] | null,
   powerDomain: [number, number] | null,
   fan: FanFixture = NO_FAN,
+  ambient: AmbientFixture = NO_AMBIENT,
 ) => {
   mocks.hoveredRow = hovered;
   return render(
@@ -96,6 +112,8 @@ const renderLanes = (
       fanRows={[{ key: hovered.key, label: hovered.label, values: fan.values }]}
       fanSeries={fan.series}
       fanDomain={fan.domain}
+      ambientRows={[{ key: hovered.key, label: hovered.label, ...ambient.row }]}
+      ambientDomain={ambient.domain}
       baseline={null}
       loadMode="usage"
       temperatureUnit="C"
@@ -167,6 +185,8 @@ describe("TimelineLanes shared tooltip", () => {
         fanRows={[]}
         fanSeries={[]}
         fanDomain={null}
+        ambientRows={[]}
+        ambientDomain={null}
         baseline={null}
         loadMode="usage"
         temperatureUnit="C"
@@ -202,6 +222,129 @@ describe("TimelineLanes power lane", () => {
     );
 
     expect(screen.getByTestId("cooling-power-lane")).toBeInTheDocument();
+  });
+});
+
+describe("TimelineLanes ambient lane", () => {
+  it("does not mount the ambient lane without an ambient domain", () => {
+    // The machine every existing capture is taken on: no environmental
+    // sensor, so no lane and no ambient rows in the tooltip either.
+    renderLanes(row({ temperatureAvg: 55, cpuUsage: 40 }), [40, 70], [0, 30]);
+
+    expect(
+      screen.queryByTestId("cooling-ambient-lane"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("pages.insights.cooling.timeline.tooltip.ambient"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("mounts the ambient lane once the period recorded a room temperature", () => {
+    renderLanes(
+      row({ temperatureAvg: 55, cpuUsage: 40 }),
+      [40, 70],
+      [0, 30],
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: 33 }),
+    );
+
+    expect(screen.getByTestId("cooling-ambient-lane")).toBeInTheDocument();
+  });
+
+  it("reports Core's paired delta rather than subtracting the two lanes", () => {
+    // The bucket's CPU average is 55 and its ambient average 22, but the
+    // two cover different sample sets - the tooltip must show the delta
+    // Core paired per minute (33.4), not the 33.0 the rows would suggest.
+    renderLanes(
+      row({ temperatureAvg: 55, cpuUsage: 40 }),
+      [40, 70],
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: 33.4 }),
+    );
+
+    const temperatureLane = screen.getByTestId("cooling-temperature-lane");
+    expect(within(temperatureLane).getByText("22.0°C")).toBeInTheDocument();
+    expect(within(temperatureLane).getByText("33.4°C")).toBeInTheDocument();
+  });
+
+  it("leaves a period with ambient but no pairing without a delta row", () => {
+    // An ambient minute whose CPU temperature was unreadable yields no ΔT
+    // at all; the row is absent rather than showing the ambient value
+    // again or a fabricated zero.
+    renderLanes(
+      row({ temperatureAvg: 55 }),
+      [40, 70],
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: null }),
+    );
+
+    const temperatureLane = screen.getByTestId("cooling-temperature-lane");
+    expect(
+      within(temperatureLane).getByText(
+        "pages.insights.cooling.timeline.tooltip.ambient",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(temperatureLane).queryByText(
+        "pages.insights.cooling.timeline.tooltip.thermalDelta",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("stops offering the load lane when it has nothing to show either", () => {
+    // An ambient-only window degrades the temperature lane, but the load
+    // lane below it is empty too, so the notice must not point at it.
+    renderLanes(
+      row({}),
+      null,
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: null }),
+    );
+
+    expect(
+      screen.getByText(
+        "pages.insights.cooling.timeline.temperatureUnavailableAlone",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("still offers the load lane when the window recorded load", () => {
+    renderLanes(
+      row({ cpuUsage: 40 }),
+      null,
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: null }),
+    );
+
+    expect(
+      screen.getByText(
+        "pages.insights.cooling.timeline.temperatureUnavailable",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("counts an ambient-only period as recorded rather than blank", () => {
+    // The app was running and the room was measured; only the machine's
+    // own sensors were silent.
+    renderLanes(
+      row({}),
+      null,
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: null }),
+    );
+
+    const loadLane = screen.getByTestId("cooling-load-lane");
+    expect(within(loadLane).getByText("22.0°C")).toBeInTheDocument();
+    expect(
+      within(loadLane).queryByText(
+        "pages.insights.cooling.timeline.tooltip.noRecording",
+      ),
+    ).not.toBeInTheDocument();
   });
 });
 

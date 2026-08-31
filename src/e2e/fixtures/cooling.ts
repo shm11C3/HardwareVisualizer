@@ -1,4 +1,5 @@
 import type {
+  AmbientArchiveSeries,
   ArchiveBucketTimestamp,
   CoolingBandComparison,
   CoolingBandMedian,
@@ -6,6 +7,7 @@ import type {
   CoolingBandTemperature,
   CoolingBaselineDelta,
   CoolingDailyTrendPoint,
+  CoolingDeltaBaselineState,
   CoolingExplorerWindow,
   CoolingFanTrendSeries,
   CoolingLoadBand,
@@ -156,6 +158,50 @@ export const buildFanArchiveSeriesFixture = (
       { gapEvery: 17 },
     ),
   }));
+
+/**
+ * The archived ambient series for the 24h/7d/30d routes, on the same bucket
+ * grid and with the same gaps as the CPU series so every lane breaks
+ * together (#2046).
+ *
+ * `deltaAvg` is generated as its own series rather than as
+ * `cpuAvg - ambientAvg`: Core pairs each archived minute before averaging,
+ * so a bucket's delta genuinely is not the difference of the two bucket
+ * averages, and a fixture that derived it that way would let a frontend
+ * regression to subtraction pass unnoticed.
+ */
+export const buildAmbientArchiveSeriesFixture = (
+  start: string,
+  end: string,
+  bucketWidthMs: number,
+  bucketTimestamp: ArchiveBucketTimestamp,
+): AmbientArchiveSeries => {
+  const ambient = buildArchiveSeries(
+    start,
+    end,
+    bucketWidthMs,
+    bucketTimestamp,
+    22,
+    3,
+    { gapEvery: 17 },
+  );
+  const delta = new Map(
+    buildArchiveSeries(start, end, bucketWidthMs, bucketTimestamp, 36, 4, {
+      gapEvery: 17,
+    }).map((point) => [point.timestamp, point.value]),
+  );
+
+  return {
+    // Two sensors in one room, which is what the row-per-source archive
+    // exists for; the lane draws their per-minute mean.
+    sources: ["Desk sensor", "Window sensor"],
+    buckets: ambient.map((point) => ({
+      timestamp: point.timestamp,
+      ambientAvg: point.value,
+      deltaAvg: delta.get(point.timestamp) ?? null,
+    })),
+  };
+};
 
 export const coolingBaselineDeltaEstablishingFixture: CoolingBaselineDelta = {
   baseline: { status: "establishing", qualifyingDays: 4, requiredDays: 7 },
@@ -482,4 +528,92 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
     qualifyingDays: 0,
     requiredDays: 7,
   },
+};
+
+/**
+ * The ΔT baseline's own window, deliberately a different range than the
+ * absolute baseline's: ambient collection commonly starts long after a
+ * machine did, so the two baselines establish over different days and the
+ * comparison panel has to label each one's window (#2046).
+ */
+const AMBIENT_BASELINE = {
+  status: "established",
+  deltaTemperatureAvg: 28,
+  windowStartDate: "2025-12-01",
+  windowEndDate: "2025-12-14",
+  sampleMinutes: 9_800,
+} as const satisfies CoolingDeltaBaselineState;
+
+/**
+ * A machine whose environmental sensor explains the absolute rise: idle
+ * temperature is 6.2 degC above baseline, but only 0.3 degC of that survives
+ * ambient normalization - the confounder #1666's own issue text names.
+ */
+export const coolingBaselineDeltaAmbientFixture: CoolingBaselineDelta = {
+  ...coolingBaselineDeltaMildRiseFixture,
+  ambientAdjusted: {
+    baseline: AMBIENT_BASELINE,
+    recent: { deltaAvg: 28.3, sampleMinutes: 5_400 },
+    delta: 0.3,
+    comparable: true,
+  },
+};
+
+/**
+ * The same band comparison with an ambient reading on top, exercising all
+ * three states a band can be in: paired and comparable, paired but too thin
+ * on one side, and never paired at all.
+ */
+export const coolingBandComparisonAmbientFixture: CoolingBandComparison = {
+  status: "established",
+  baselineWindowStartDate: "2025-11-01",
+  baselineWindowEndDate: "2025-11-14",
+  recentWindowStartDate: "2026-01-09",
+  recentWindowEndDate: "2026-01-15",
+  bands: [
+    {
+      band: "idle",
+      baseline: { temperatureAvg: 32, sampleMinutes: 12_600 },
+      recent: { temperatureAvg: 33.5, sampleMinutes: 6_300 },
+      comparable: true,
+      ambientAdjusted: {
+        baseline: { deltaAvg: 28, sampleMinutes: 9_800 },
+        recent: { deltaAvg: 28.3, sampleMinutes: 5_400 },
+        comparable: true,
+      },
+    },
+    {
+      band: "low",
+      baseline: { temperatureAvg: 40, sampleMinutes: 4_200 },
+      recent: { temperatureAvg: 41, sampleMinutes: 2_100 },
+      comparable: true,
+      ambientAdjusted: {
+        baseline: { deltaAvg: 36, sampleMinutes: 3_100 },
+        recent: { deltaAvg: 36.4, sampleMinutes: 1_800 },
+        comparable: true,
+      },
+    },
+    {
+      band: "mid",
+      baseline: { temperatureAvg: 50, sampleMinutes: 2_500 },
+      recent: { temperatureAvg: null, sampleMinutes: 40 },
+      comparable: false,
+      // Ambient data exists for this band, but one window is too thin:
+      // `comparable: false` on a present value, not a null.
+      ambientAdjusted: {
+        baseline: { deltaAvg: 46, sampleMinutes: 1_900 },
+        recent: { deltaAvg: null, sampleMinutes: 22 },
+        comparable: false,
+      },
+    },
+    {
+      band: "high",
+      baseline: { temperatureAvg: 62, sampleMinutes: 800 },
+      recent: { temperatureAvg: null, sampleMinutes: 0 },
+      comparable: false,
+      // Never a paired minute at all: null, not a zero ΔT.
+      ambientAdjusted: null,
+    },
+  ],
+  ambientAdjustedBaseline: AMBIENT_BASELINE,
 };

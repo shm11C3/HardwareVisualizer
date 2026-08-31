@@ -13,6 +13,7 @@ import {
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
   computePowerDomain,
+  computeSignedTemperatureDomain,
   resolveBaselineBand,
   resolveRoutedPowerCapability,
   type ThermalTimelineRow,
@@ -88,6 +89,33 @@ describe("computeAdaptiveTemperatureDomain", () => {
     const domain = computeAdaptiveTemperatureDomain([55, 58]);
 
     expect(domain).not.toEqual([0, 100]);
+  });
+});
+
+describe("computeSignedTemperatureDomain", () => {
+  it("pads a positive span exactly as the clamped domain does", () => {
+    // The two differ only where the clamp would bite, so a lane that
+    // switches to this one keeps its axis on every ordinary window.
+    expect(computeSignedTemperatureDomain([40, 41, 42])).toEqual([38, 44]);
+    expect(computeSignedTemperatureDomain([20, 120])).toEqual([10, 130]);
+  });
+
+  it("pads below zero instead of collapsing a sub-zero reading", () => {
+    // A single -5 degC window: the clamped domain answers [0, -3], which is
+    // descending and renders as a broken axis rather than a cold room.
+    expect(computeAdaptiveTemperatureDomain([-5])).toEqual([0, -3]);
+    expect(computeSignedTemperatureDomain([-5])).toEqual([-7, -3]);
+  });
+
+  it("keeps a window that crosses freezing in order", () => {
+    const domain = computeSignedTemperatureDomain([-3, 6]);
+
+    expect(domain).toEqual([-5, 8]);
+    expect(domain?.[0]).toBeLessThan(domain?.[1] ?? 0);
+  });
+
+  it("returns null when nothing was recorded", () => {
+    expect(computeSignedTemperatureDomain([null, null])).toBeNull();
   });
 });
 
@@ -687,6 +715,50 @@ describe("buildArchiveTimelineRows", () => {
 
     expect(rows.map((r) => r.key)).toEqual(["0", "60000"]);
     expect(rows[1].powerAvg).toBe(20);
+  });
+
+  it("extends the bucket axis to cover an ambient-only bucket", () => {
+    // `AMBIENT_ARCHIVE` is written independently of the hardware archive,
+    // so a window can hold a room reading for a minute the machine
+    // recorded nothing in. Without the ambient timestamps on the shared
+    // axis that bucket has no row, and the ambient lane has nothing to
+    // draw on.
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [{ timestamp: 0, value: 50 }],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        ...EMPTY_POWER,
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+      [60_000],
+    );
+
+    expect(rows.map((r) => r.key)).toEqual(["0", "60000"]);
+  });
+
+  it("builds the whole axis from ambient alone when nothing else recorded", () => {
+    const rows = buildArchiveTimelineRows(
+      {
+        temperatureAvg: [],
+        temperatureMax: [],
+        temperatureMin: [],
+        cpuUsage: [],
+        ...EMPTY_POWER,
+      },
+      60_000,
+      "C",
+      identityBucketLabel,
+      [0, 60_000],
+    );
+
+    expect(rows.map((r) => r.key)).toEqual(["0", "60000"]);
+    // Every hardware reading stays absent - the rows exist only to carry
+    // the ambient lane's own values.
+    expect(rows.every((r) => r.temperatureAvg == null)).toBe(true);
   });
 
   it("returns no rows when every series is empty", () => {
