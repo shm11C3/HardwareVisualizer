@@ -426,10 +426,12 @@ describe("useSettingsAtom", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,
     });
+    let saved: boolean | undefined;
     await act(async () => {
-      await result.current.toggleSwitchbotMeterAtom(true);
+      saved = await result.current.toggleSwitchbotMeterAtom(true);
     });
     expect(commands.setSwitchbotMeterEnabled).toHaveBeenCalledWith(true);
+    expect(saved).toBe(true);
     expect(
       result.current.settings.environmentalSensors.switchbotMeterEnabled,
     ).toBe(true);
@@ -445,10 +447,13 @@ describe("useSettingsAtom", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,
     });
+    let saved: boolean | undefined;
     await act(async () => {
-      await result.current.toggleSwitchbotMeterAtom(true);
+      saved = await result.current.toggleSwitchbotMeterAtom(true);
     });
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    // The caller uses this to decide whether to prompt for a restart.
+    expect(saved).toBe(false);
     expect(
       result.current.settings.environmentalSensors.switchbotMeterEnabled,
     ).toBe(false);

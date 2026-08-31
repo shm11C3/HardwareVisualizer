@@ -31,8 +31,13 @@ export const AmbientSensorToggle = () => {
   }
 
   const handleCheckedChange = async (value: boolean) => {
-    await toggleSwitchbotMeterAtom(value);
-    setAlertOpen(true);
+    // Only prompt for a restart once the preference is actually on disk.
+    // A refused write leaves the scan as it was, so the restart notice
+    // would be telling the user to apply a change that never happened —
+    // on top of the error dialog the failed write already raised.
+    if (await toggleSwitchbotMeterAtom(value)) {
+      setAlertOpen(true);
+    }
   };
 
   return (

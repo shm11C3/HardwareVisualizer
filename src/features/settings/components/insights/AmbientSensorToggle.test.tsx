@@ -5,7 +5,7 @@ import { AmbientSensorToggle } from "./AmbientSensorToggle";
 
 const mocks = vi.hoisted(() => ({
   platform: vi.fn(() => "windows"),
-  toggleSwitchbotMeterAtom: vi.fn(),
+  toggleSwitchbotMeterAtom: vi.fn(async (_value: boolean) => true),
   switchbotMeterEnabled: false,
 }));
 
@@ -47,6 +47,7 @@ describe("AmbientSensorToggle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
+    mocks.toggleSwitchbotMeterAtom.mockResolvedValue(true);
     mocks.switchbotMeterEnabled = false;
   });
 
@@ -103,6 +104,23 @@ describe("AmbientSensorToggle", () => {
     await user.click(screen.getByRole("switch"));
 
     expect(screen.getByText("Restart Required")).toBeInTheDocument();
+  });
+
+  /**
+   * A refused write (corrupted settings.json, read-only directory)
+   * leaves the scan exactly as it was, so telling the user to restart to
+   * apply it would name a change that never happened — on top of the
+   * error dialog the failed write already raised.
+   */
+  it("does not ask for a restart when the preference could not be saved", async () => {
+    const user = userEvent.setup();
+    mocks.toggleSwitchbotMeterAtom.mockResolvedValue(false);
+
+    render(<AmbientSensorToggle />);
+    await user.click(screen.getByRole("switch"));
+
+    expect(mocks.toggleSwitchbotMeterAtom).toHaveBeenCalledWith(true);
+    expect(screen.queryByText("Restart Required")).not.toBeInTheDocument();
   });
 
   it("is hidden outside Windows, where no scan can run", () => {

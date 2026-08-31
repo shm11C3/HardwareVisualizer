@@ -381,13 +381,20 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  /**
+   * Returns whether the preference was actually persisted, so the caller
+   * can tell a real change from a failed write. A refused write (a
+   * corrupted settings.json, a read-only directory) leaves the scan
+   * exactly as it was, and the settings screen must not follow it with a
+   * "restart to apply" prompt for a change that did not happen.
+   */
   const toggleSwitchbotMeterAtom = async (value: boolean) => {
     const result = await commands.setSwitchbotMeterEnabled(value);
 
     if (isError(result)) {
       error(result.error);
       console.error(result.error);
-      return;
+      return false;
     }
 
     setSettings((prev) => ({
@@ -397,6 +404,7 @@ export const useSettingsAtom = () => {
         switchbotMeterEnabled: value,
       },
     }));
+    return true;
   };
 
   const setHardwareArchiveRetentionDays = async (value: number) => {
