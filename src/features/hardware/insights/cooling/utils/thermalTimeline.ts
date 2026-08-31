@@ -197,6 +197,11 @@ export const hasFiniteValue = (
  * Shared by every capability check beside the timeline: a window that
  * recorded nothing says only that the app was not running, so no sensor
  * may be called unsupported on the strength of it.
+ *
+ * Power counts as evidence alongside temperature and load. A machine with
+ * a power sampler and no readable temperature sensor still archived its
+ * window, so a missing fan there is real evidence - leaving power out left
+ * that machine's fan stuck at `unknown` forever.
  */
 export const archiveWindowRecordedAnything = (
   series: ArchiveTimelineSeries,
@@ -204,7 +209,10 @@ export const archiveWindowRecordedAnything = (
   hasFiniteValue(series.temperatureAvg) ||
   hasFiniteValue(series.temperatureMin) ||
   hasFiniteValue(series.temperatureMax) ||
-  hasFiniteValue(series.cpuUsage);
+  hasFiniteValue(series.cpuUsage) ||
+  hasFiniteValue(series.powerAvg) ||
+  hasFiniteValue(series.powerMin) ||
+  hasFiniteValue(series.powerMax);
 
 /**
  * Whether a period carries power, checking `avg`, `min` and `max` rather
