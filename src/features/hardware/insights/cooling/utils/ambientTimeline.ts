@@ -3,7 +3,7 @@ import { convertTemperatureDelta } from "./temperatureUnit";
 import {
   type ArchiveTimelineSeries,
   archiveWindowRecordedAnything,
-  computeAdaptiveTemperatureDomain,
+  computeSignedTemperatureDomain,
   type ThermalTimelineRow,
   toDisplayTemperature,
 } from "./thermalTimeline";
@@ -90,11 +90,16 @@ export const buildAmbientLaneRows = (
  * at zero like power and fan: a room sits in a narrow band well above zero,
  * so a 0-anchored axis would flatten the few degrees of movement that are
  * the entire reason to show it.
+ *
+ * Signed, unlike the temperature lane's: a CPU package never reads below
+ * zero on the scales this app displays, but the air around an unheated
+ * room, a garage, or a winter balcony does, and clamping that minimum to 0
+ * would invert the domain rather than widen it.
  */
 export const computeAmbientDomain = (
   rows: readonly AmbientLaneRow[],
 ): [number, number] | null =>
-  computeAdaptiveTemperatureDomain(rows.map((row) => row.ambient));
+  computeSignedTemperatureDomain(rows.map((row) => row.ambient));
 
 /**
  * What is known about this machine's ambient temperature, from the

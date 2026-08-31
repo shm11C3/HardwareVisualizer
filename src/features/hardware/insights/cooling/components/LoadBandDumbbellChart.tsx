@@ -6,7 +6,7 @@ import {
   positionPercent,
 } from "../utils/loadBandDumbbell";
 import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
-import { computeAdaptiveTemperatureDomain } from "../utils/thermalTimeline";
+import { computeSignedTemperatureDomain } from "../utils/thermalTimeline";
 
 /**
  * Zone (5)'s per-band baseline-vs-recent comparison: a lightweight
@@ -32,9 +32,14 @@ export const LoadBandDumbbellChart = ({
   const { t } = useTranslation();
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
 
+  // Signed, because the same chart draws the ambient-adjusted variant
+  // (#2046) whose endpoints are thermal deltas. Core does not clamp a ΔT at
+  // zero - a machine idling below the room it sits in is a real
+  // observation - and clamping the domain here would pin every negative
+  // reading to the left end of the track instead of placing it.
   const domain = useMemo(
     () =>
-      computeAdaptiveTemperatureDomain(
+      computeSignedTemperatureDomain(
         rows.flatMap((row) =>
           row.comparable ? [row.baseline, row.recent] : [],
         ),

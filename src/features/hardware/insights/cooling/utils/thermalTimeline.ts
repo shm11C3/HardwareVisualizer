@@ -83,14 +83,14 @@ export const toDisplayTemperature = (
 };
 
 /**
- * Y-axis domain that follows the data instead of the fixed 0-100 range the
+ * Padded bounds that follow the data instead of the fixed 0-100 range the
  * older per-metric charts used, so a few degrees of drift reads as a slope
  * rather than a flat line near the bottom of the plot.
  *
- * Returns null when nothing was recorded, which the caller renders as the
- * "no data for this period" state rather than an empty axis.
+ * Null when nothing was recorded, which every caller renders as an absent
+ * lane or an empty state rather than an axis over no data.
  */
-export const computeAdaptiveTemperatureDomain = (
+const paddedTemperatureBounds = (
   values: readonly (number | null)[],
 ): [number, number] | null => {
   const recorded = values.filter(
@@ -108,10 +108,36 @@ export const computeAdaptiveTemperatureDomain = (
     (max - min) * TEMPERATURE_DOMAIN_PADDING_RATIO,
   );
 
-  // Temperatures never go below zero on the scales this app displays, so the
-  // lower bound is clamped rather than padded into negative space.
-  return [Math.max(0, Math.floor(min - padding)), Math.ceil(max + padding)];
+  return [Math.floor(min - padding), Math.ceil(max + padding)];
 };
+
+/**
+ * The domain for a reading that cannot go below zero on the scales this app
+ * displays - a CPU package temperature, in Celsius or Fahrenheit.
+ *
+ * The lower bound is clamped rather than padded into negative space, which
+ * is an assumption about *those* readings, not about temperature in
+ * general. A lane whose values can legitimately be negative - ambient
+ * temperature, or a thermal delta - must use
+ * [`computeSignedTemperatureDomain`], because clamping a negative minimum
+ * to 0 does not widen the domain, it inverts it.
+ */
+export const computeAdaptiveTemperatureDomain = (
+  values: readonly (number | null)[],
+): [number, number] | null => {
+  const bounds = paddedTemperatureBounds(values);
+  return bounds == null ? null : [Math.max(0, bounds[0]), bounds[1]];
+};
+
+/**
+ * The same padded domain with no lower clamp, for readings that are
+ * genuinely signed: an ambient temperature below freezing, and a thermal
+ * delta, which Core deliberately does not clamp at zero because a machine
+ * running below the room it sits in is a real observation.
+ */
+export const computeSignedTemperatureDomain = (
+  values: readonly (number | null)[],
+): [number, number] | null => paddedTemperatureBounds(values);
 
 /** Every temperature a row contributes to the adaptive domain. */
 export const collectTemperatureDomainValues = (
@@ -162,6 +188,25 @@ export const computePowerDomain = (
 
   return [0, Math.ceil(max + padding)];
 };
+
+/**
+ * Whether any period in the window carries a CPU-load reading, in either
+ * of the two shapes the load lane draws (bucket-average usage on the
+ * archive routes, per-band composition on the daily ones).
+ *
+ * Read both by the timeline's empty-state gate and by the copy that
+ * degrades the temperature lane, which must not offer the load lane as a
+ * consolation when it is empty too.
+ */
+export const hasRecordedLoad = (rows: readonly ThermalTimelineRow[]): boolean =>
+  rows.some(
+    (row) =>
+      row.cpuUsage != null ||
+      row.loadIdle != null ||
+      row.loadLow != null ||
+      row.loadMid != null ||
+      row.loadHigh != null,
+  );
 
 /** Every watt value a row contributes to the power lane's domain. */
 export const collectPowerDomainValues = (
@@ -542,6 +587,18 @@ export const buildArchiveTimelineRows = (
   stepMs: number,
   temperatureUnit: TemperatureUnit,
   formatLabel: (timestampMs: number) => string,
+  /**
+   * Bucket timestamps from a lane fed by its own command rather than by
+   * `series` - today the ambient lane (#2046), which reads a separate
+   * archive table.
+   *
+   * They join the shared axis for the same reason the power series does:
+   * ambient rows are inserted independently of hardware rows, so a
+   * stretch where only the room was measured would otherwise fall outside
+   * the grid entirely and the ambient lane would have no row to draw on
+   * (DP-02).
+   */
+  extraAxisTimestamps: readonly number[] = [],
 ): ThermalTimelineRow[] => {
   const avg = valueByTimestamp(series.temperatureAvg);
   const max = valueByTimestamp(series.temperatureMax);
@@ -562,7 +619,9 @@ export const buildArchiveTimelineRows = (
     ...series.powerAvg,
     ...series.powerMax,
     ...series.powerMin,
-  ].map((point) => point.timestamp);
+  ]
+    .map((point) => point.timestamp)
+    .concat(extraAxisTimestamps);
 
   if (timestamps.length === 0 || stepMs <= 0) {
     return [];

@@ -121,6 +121,26 @@ describe("computeAmbientDomain", () => {
     expect(domain?.[0]).toBeGreaterThan(0);
   });
 
+  it("keeps a sub-zero window in ascending order", () => {
+    // A garage or an unheated room in winter. Clamping the lower bound at
+    // zero the way the CPU temperature lane does would answer [0, -3] here
+    // - a descending domain, which renders as a broken axis.
+    const domain = computeAmbientDomain([
+      { key: "0", label: "0", ambient: -5, delta: 44 },
+    ]);
+
+    expect(domain).toEqual([-7, -3]);
+  });
+
+  it("keeps a window that crosses freezing in order", () => {
+    const domain = computeAmbientDomain([
+      { key: "0", label: "0", ambient: -3, delta: 44 },
+      { key: "1", label: "1", ambient: 6, delta: 38 },
+    ]);
+
+    expect(domain).toEqual([-5, 8]);
+  });
+
   it("closes the lane's gate when nothing recorded ambient", () => {
     expect(
       computeAmbientDomain([
