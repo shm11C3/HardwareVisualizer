@@ -1,5 +1,6 @@
 pub mod environmental;
 pub mod smartctl;
+pub mod switchbot_meter;
 pub mod sysinfo_provider;
 
 #[cfg(target_os = "windows")]
