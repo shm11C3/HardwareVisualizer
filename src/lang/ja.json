@@ -364,6 +364,11 @@
           "sustainedLargeRise": "アイドル時温度がベースラインより {{delta}} 大幅に高い状態が {{days}} 日間続いています",
           "comparisonWindow": "直近 {{days}} 日 vs ベースライン {{startDate}}–{{endDate}} · 同等負荷条件での比較",
           "disclaimer": "室温・電源プラン・BIOS 設定・ソフトウェア構成の変化でも同じ傾向は生じます。この表示だけで部品の劣化を断定することはできません。",
+          "ambientAdjusted": {
+            "establishing": "周囲温度で補正したベースラインを確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
+            "reading": "周囲温度で補正すると、アイドル時温度は専用のベースラインに対して {{delta}} です",
+            "window": "周囲温度で補正したベースライン {{startDate}}–{{endDate}}"
+          },
           "checklist": {
             "trigger": "確認するとよい項目",
             "items": {
@@ -421,7 +426,10 @@
             "baseline": "ベースライン",
             "recent": "直近"
           },
-          "notComparable": "サンプル不足のため比較保留"
+          "notComparable": "サンプル不足のため比較保留",
+          "absoluteTitle": "CPU 温度",
+          "ambientAdjustedTitle": "周囲温度との差",
+          "window": "ベースライン {{baselineStart}}–{{baselineEnd}} vs 直近 {{recentStart}}–{{recentEnd}}"
         },
         "explorer": {
           "title": "負荷 × 温度 Explorer",
@@ -448,6 +456,10 @@
           "temperatureSource": {
             "label": "温度ソース",
             "value": "CPU 温度(1 系統)"
+          },
+          "ambient": {
+            "sourceLabel": "周囲温度ソース",
+            "coverageLabel": "周囲温度のペア成立"
           },
           "unsupported": {
             "label": "電力・ファン",

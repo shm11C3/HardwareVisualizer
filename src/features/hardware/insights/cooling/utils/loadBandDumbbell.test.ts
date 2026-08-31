@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { CoolingBandComparisonEntry } from "@/rspc/bindings";
-import { buildLoadBandDumbbellRows, positionPercent } from "./loadBandDumbbell";
+import {
+  buildAmbientAdjustedDumbbellRows,
+  buildLoadBandDumbbellRows,
+  positionPercent,
+} from "./loadBandDumbbell";
 
 const entry = (
   overrides: Partial<CoolingBandComparisonEntry> = {},
@@ -79,6 +83,123 @@ describe("buildLoadBandDumbbellRows", () => {
     );
 
     expect(rows.map((row) => row.band)).toEqual(["idle", "low", "mid"]);
+  });
+});
+
+describe("buildAmbientAdjustedDumbbellRows", () => {
+  it("returns null when no band carries an ambient reading", () => {
+    // The normal state on a machine with no environmental sensor: the
+    // panel must then render exactly as it did before #2046, so the
+    // absence has to be distinguishable from "present but not comparable".
+    expect(
+      buildAmbientAdjustedDumbbellRows(
+        [entry({ band: "idle" }), entry({ band: "low" })],
+        "C",
+      ),
+    ).toBeNull();
+  });
+
+  it("reads the thermal delta rather than the absolute temperature", () => {
+    const rows = buildAmbientAdjustedDumbbellRows(
+      [
+        entry({
+          ambientAdjusted: {
+            baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
+            recent: { deltaAvg: 28, sampleMinutes: 5_400 },
+            comparable: true,
+          },
+        }),
+      ],
+      "C",
+    );
+
+    // The absolute reading on this entry rose 1.5 degC; above ambient it
+    // did not move at all, which is the whole point of the variant.
+    expect(rows).toEqual([
+      { band: "idle", comparable: true, baseline: 28, recent: 28, delta: 0 },
+    ]);
+  });
+
+  it("converts both endpoints as spans, since a ΔT is a difference", () => {
+    const rows = buildAmbientAdjustedDumbbellRows(
+      [
+        entry({
+          ambientAdjusted: {
+            baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
+            recent: { deltaAvg: 33, sampleMinutes: 5_400 },
+            comparable: true,
+          },
+        }),
+      ],
+      "F",
+    );
+    const row = rows?.[0];
+    if (row == null || !row.comparable) {
+      throw new Error("expected a comparable row");
+    }
+    // No +32 offset anywhere: 28 K above ambient is 50.4 R above ambient,
+    // not 82.4.
+    expect(row.baseline).toBeCloseTo(28 * 1.8);
+    expect(row.recent).toBeCloseTo(33 * 1.8);
+    expect(row.delta).toBeCloseTo(5 * 1.8);
+  });
+
+  it("keeps a band whose window is too thin honestly not comparable", () => {
+    const rows = buildAmbientAdjustedDumbbellRows(
+      [
+        entry({
+          ambientAdjusted: {
+            baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
+            recent: { deltaAvg: null, sampleMinutes: 8 },
+            comparable: false,
+          },
+        }),
+      ],
+      "C",
+    );
+
+    expect(rows).toEqual([{ band: "idle", comparable: false }]);
+  });
+
+  it("renders a band with no ambient pairing beside bands that have one", () => {
+    // A band can be absent from the ambient reading while its neighbours
+    // are not; dropping the row would silently renumber the chart.
+    const rows = buildAmbientAdjustedDumbbellRows(
+      [
+        entry({
+          band: "idle",
+          ambientAdjusted: {
+            baseline: { deltaAvg: 28, sampleMinutes: 11_000 },
+            recent: { deltaAvg: 29, sampleMinutes: 5_400 },
+            comparable: true,
+          },
+        }),
+        entry({ band: "high", ambientAdjusted: null }),
+      ],
+      "C",
+    );
+
+    expect(rows?.map((row) => [row.band, row.comparable])).toEqual([
+      ["idle", true],
+      ["high", false],
+    ]);
+  });
+
+  it("falls back to not-comparable if a delta is missing despite the flag", () => {
+    const rows = buildAmbientAdjustedDumbbellRows(
+      [
+        entry({
+          ambientAdjusted: {
+            baseline: { deltaAvg: null, sampleMinutes: 0 },
+            recent: { deltaAvg: 29, sampleMinutes: 5_400 },
+            comparable: true,
+          },
+        }),
+      ],
+      "C",
+    );
+
+    expect(rows).toEqual([{ band: "idle", comparable: false }]);
   });
 });
 

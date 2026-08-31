@@ -16,6 +16,7 @@ import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
 import {
   daysInclusive,
   type ObservationDisplay,
+  resolveAmbientAdjustedDisplay,
   resolveObservationDisplay,
 } from "../utils/observationDisplay";
 import { formatSignedTemperatureDelta } from "../utils/temperatureUnit";
@@ -81,7 +82,87 @@ export const ObservationStrip = ({
             temperatureUnit={settings.temperatureUnit}
           />
         )}
+      {/* Outside the lifecycle branches above on purpose: the ambient
+          baseline establishes over its own days (see
+          `CoolingDeltaBaselineState`), so it can be ready while the
+          absolute one is not, and the reverse. It resolves to `hidden` on
+          every machine with no ambient data, which is what keeps this
+          strip unchanged there. */}
+      {!hasError && (
+        <AmbientAdjustedObservation
+          ambientAdjusted={baselineDelta?.ambientAdjusted ?? null}
+          temperatureUnit={settings.temperatureUnit}
+        />
+      )}
     </section>
+  );
+};
+
+/**
+ * The ambient-normalized reading of the same drift (#2046): how far the
+ * machine's idle rise *above ambient* has moved.
+ *
+ * Rendered as a quiet second line rather than replacing the observation
+ * above it, and without a status dot: Core classifies the absolute drift
+ * but publishes no verdict for this one, so the strip reports the number
+ * and stops there (see `resolveAmbientAdjustedDisplay`).
+ */
+const AmbientAdjustedObservation = ({
+  ambientAdjusted,
+  temperatureUnit,
+}: {
+  ambientAdjusted: CoolingBaselineDelta["ambientAdjusted"] | null;
+  temperatureUnit: TemperatureUnit;
+}) => {
+  const { t } = useTranslation();
+  const display = resolveAmbientAdjustedDisplay(
+    ambientAdjusted,
+    temperatureUnit,
+  );
+
+  if (display.kind === "hidden") {
+    return null;
+  }
+
+  const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
+
+  return (
+    <div
+      className="space-y-0.5 border-t pt-2"
+      data-testid="cooling-ambient-adjusted-observation"
+    >
+      {display.kind === "establishing" ? (
+        <p className="text-muted-foreground text-xs">
+          {t(
+            "pages.insights.cooling.observationStrip.ambientAdjusted.establishing",
+            {
+              qualifyingDays: display.qualifyingDays,
+              requiredDays: display.requiredDays,
+            },
+          )}
+        </p>
+      ) : (
+        <>
+          <p className="text-sm">
+            {t(
+              "pages.insights.cooling.observationStrip.ambientAdjusted.reading",
+              {
+                delta: formatSignedTemperatureDelta(display.delta, unitSuffix),
+              },
+            )}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {t(
+              "pages.insights.cooling.observationStrip.ambientAdjusted.window",
+              {
+                startDate: display.windowStartDate,
+                endDate: display.windowEndDate,
+              },
+            )}
+          </p>
+        </>
+      )}
+    </div>
   );
 };
 

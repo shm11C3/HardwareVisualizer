@@ -18,9 +18,16 @@ import { computeAdaptiveTemperatureDomain } from "../utils/thermalTimeline";
 export const LoadBandDumbbellChart = ({
   rows,
   temperatureUnit,
+  testId = "cooling-load-band-dumbbell",
 }: {
   rows: LoadBandDumbbellRow[];
   temperatureUnit: TemperatureUnit;
+  /**
+   * Overridden by the ambient-adjusted variant (#2046), which renders a
+   * second chart of the same shape directly below the absolute one; two
+   * elements sharing one test id would make either ambiguous to address.
+   */
+  testId?: string;
 }) => {
   const { t } = useTranslation();
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
@@ -36,7 +43,7 @@ export const LoadBandDumbbellChart = ({
   );
 
   return (
-    <div className="space-y-3" data-testid="cooling-load-band-dumbbell">
+    <div className="space-y-3" data-testid={testId}>
       <div className="flex items-center gap-4 text-muted-foreground text-xs">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full border-2 border-background bg-muted-foreground" />
