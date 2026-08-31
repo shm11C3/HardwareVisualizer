@@ -140,7 +140,7 @@ pub(crate) async fn delete_old_data_from_pool(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
   use super::*;
 
   pub(crate) async fn setup_cooling_fan_daily_summary(pool: &SqlitePool) {

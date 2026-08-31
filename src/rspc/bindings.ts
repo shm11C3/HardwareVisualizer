@@ -129,7 +129,7 @@ export const commands = {
 	// ## Get the long-range cooling trend (90-day / 1-year)
 	getCoolingTrend: (days: number) => typedError<CoolingDailyTrendPoint[], string>(__TAURI_INVOKE("get_cooling_trend", { days })),
 	// ## Get the long-range per-fan speed trend (90-day / 1-year)
-	getCoolingFanTrend: (days: number) => typedError<CoolingFanTrendSeries[], string>(__TAURI_INVOKE("get_cooling_fan_trend", { days })),
+	getCoolingFanTrend: (days: number) => typedError<CoolingFanTrend, string>(__TAURI_INVOKE("get_cooling_fan_trend", { days })),
 	// ## Get the per-load-band baseline-vs-recent cooling comparison
 	getCoolingBandComparison: () => typedError<CoolingBandComparison, string>(__TAURI_INVOKE("get_cooling_band_comparison")),
 	// ## Get the idle cooling baseline delta and its observation state
@@ -513,6 +513,19 @@ export type CoolingFanDay = {
 	rpmMax: number,
 	rpmMin: number,
 	sampleMinutes: number,
+};
+
+/**
+ *  The long-range fan trend plus the evidence the caller needs to read an
+ *  empty `series` correctly (#2022). An empty series means either that the
+ *  machine has no readable fan or that the rollup has not summarized one
+ *  yet - it only summarizes completed days - and only
+ *  `archiveHasReadings` tells those apart, because the one-minute fan
+ *  archive holds a reading the moment collection starts.
+ */
+export type CoolingFanTrend = {
+	series: CoolingFanTrendSeries[],
+	archiveHasReadings: boolean,
 };
 
 /**

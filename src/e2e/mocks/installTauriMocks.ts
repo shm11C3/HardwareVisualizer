@@ -398,8 +398,13 @@ const buildInvokeHandlers = (
     ),
   get_cooling_fan_trend: (args) =>
     fixtureOverrides.coolingFanUnsupported
-      ? []
-      : buildCoolingFanTrendFixture((args as { days: number }).days),
+      ? // No summarized fan *and* nothing in the one-minute archive: only
+        // both together license reporting the fan as unsupported.
+        { series: [], archiveHasReadings: false }
+      : {
+          series: buildCoolingFanTrendFixture((args as { days: number }).days),
+          archiveHasReadings: true,
+        },
   get_cooling_band_comparison: () =>
     fixtureOverrides.coolingBaselineEstablishing
       ? coolingBandComparisonEstablishingFixture

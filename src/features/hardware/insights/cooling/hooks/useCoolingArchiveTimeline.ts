@@ -54,6 +54,12 @@ export type CoolingArchiveTimeline = {
    * machine with no readable fan - the fan lane's capability gate.
    */
   fanSeries: FanArchiveSeries[];
+  /**
+   * The fan read failed on its own while the series above arrived. Kept
+   * separate from `hasError` so a fan failure degrades to an unmounted
+   * lane rather than a whole-timeline load error.
+   */
+  fanHasError: boolean;
   stepMs: number;
   hasLoaded: boolean;
   hasError: boolean;
@@ -64,6 +70,7 @@ export const useCoolingArchiveTimeline = (
 ): CoolingArchiveTimeline => {
   const [series, setSeries] = useState<ArchiveTimelineSeries>(EMPTY_SERIES);
   const [fanSeries, setFanSeries] = useState<FanArchiveSeries[]>([]);
+  const [fanHasError, setFanHasError] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const { error } = useTauriDialog();
@@ -81,9 +88,10 @@ export const useCoolingArchiveTimeline = (
   const fetchSeries = useCallback(async (): Promise<{
     series: ArchiveTimelineSeries;
     fanSeries: FanArchiveSeries[];
+    fanHasError: boolean;
   }> => {
     if (minutes == null) {
-      return { series: EMPTY_SERIES, fanSeries: [] };
+      return { series: EMPTY_SERIES, fanSeries: [], fanHasError: false };
     }
 
     const endAt = new Date(
@@ -114,36 +122,61 @@ export const useCoolingArchiveTimeline = (
     // One call for every fan rather than one per fan: the archive is
     // row-per-fan, so how many series exist is not known until they
     // arrive.
-    const readFans = async (): Promise<FanArchiveSeries[]> => {
-      const result = await commands.getFanArchiveSeries(
-        startAt.toISOString(),
-        endAt.toISOString(),
-        stepMs,
-        "end",
-      );
-      if (isError(result)) {
-        throw new Error(`Failed to fetch archived fan series: ${result.error}`);
+    //
+    // Resolved rather than rejected on failure, and deliberately not part
+    // of the `Promise.all` below: the fan lane is one compact lane among
+    // four, and letting its failure reject the batch would throw away the
+    // temperature, load and power series that did arrive and turn the
+    // whole timeline into a load error. A failed fan read degrades to
+    // "capability unknown" - the lane simply does not mount, and the
+    // pending-sensors note claims nothing (DP-02).
+    const readFans = async (): Promise<{
+      fanSeries: FanArchiveSeries[];
+      fanHasError: boolean;
+    }> => {
+      try {
+        const result = await commands.getFanArchiveSeries(
+          startAt.toISOString(),
+          endAt.toISOString(),
+          stepMs,
+          "end",
+        );
+        if (isError(result)) {
+          throw new Error(
+            `Failed to fetch archived fan series: ${result.error}`,
+          );
+        }
+        return { fanSeries: result.data, fanHasError: false };
+      } catch (e) {
+        // Logged rather than raised to a dialog: a modal about a secondary
+        // lane that has simply not mounted would be louder than the fact
+        // it reports.
+        console.error(e);
+        return { fanSeries: [], fanHasError: true };
       }
-      return result.data;
     };
 
     const [
-      temperatureAvg,
-      temperatureMax,
-      temperatureMin,
-      cpuUsage,
-      powerAvg,
-      powerMax,
-      powerMin,
+      [
+        temperatureAvg,
+        temperatureMax,
+        temperatureMin,
+        cpuUsage,
+        powerAvg,
+        powerMax,
+        powerMin,
+      ],
       fans,
     ] = await Promise.all([
-      read("cpuTemperature", "avg"),
-      read("cpuTemperature", "max"),
-      read("cpuTemperature", "min"),
-      read("cpu", "avg"),
-      read("cpuPower", "avg"),
-      read("cpuPower", "max"),
-      read("cpuPower", "min"),
+      Promise.all([
+        read("cpuTemperature", "avg"),
+        read("cpuTemperature", "max"),
+        read("cpuTemperature", "min"),
+        read("cpu", "avg"),
+        read("cpuPower", "avg"),
+        read("cpuPower", "max"),
+        read("cpuPower", "min"),
+      ]),
       readFans(),
     ]);
 
@@ -157,7 +190,7 @@ export const useCoolingArchiveTimeline = (
         powerMax,
         powerMin,
       },
-      fanSeries: fans,
+      ...fans,
     };
   }, [minutes, stepMs]);
 
@@ -166,6 +199,7 @@ export const useCoolingArchiveTimeline = (
       requestIdRef.current += 1;
       setSeries(EMPTY_SERIES);
       setFanSeries([]);
+      setFanHasError(false);
       setHasLoaded(false);
       setHasError(false);
       hasReportedErrorRef.current = false;
@@ -176,6 +210,7 @@ export const useCoolingArchiveTimeline = (
     // instead of mislabeling the not-yet-fetched window as absent data.
     setHasLoaded(false);
     setHasError(false);
+    setFanHasError(false);
     hasReportedErrorRef.current = false;
 
     const run = () => {
@@ -187,6 +222,7 @@ export const useCoolingArchiveTimeline = (
           if (requestIdRef.current === requestId) {
             setSeries(next.series);
             setFanSeries(next.fanSeries);
+            setFanHasError(next.fanHasError);
             setHasLoaded(true);
             setHasError(false);
             hasReportedErrorRef.current = false;
@@ -198,6 +234,7 @@ export const useCoolingArchiveTimeline = (
           if (requestIdRef.current === requestId) {
             setSeries(EMPTY_SERIES);
             setFanSeries([]);
+            setFanHasError(false);
             setHasLoaded(true);
             setHasError(true);
             if (!hasReportedErrorRef.current) {
@@ -221,5 +258,5 @@ export const useCoolingArchiveTimeline = (
     };
   }, [fetchSeries, minutes, error]);
 
-  return { series, fanSeries, stepMs, hasLoaded, hasError };
+  return { series, fanSeries, fanHasError, stepMs, hasLoaded, hasError };
 };

@@ -9,8 +9,8 @@
 //! 90-day and 1-year windows the daily rollup backs.
 
 use crate::models::cooling_insight::{
-  CoolingBandComparison, CoolingBaselineDelta, CoolingDailyTrendPoint,
-  CoolingFanTrendSeries, CoolingLoadTemperatureExplorer,
+  CoolingBandComparison, CoolingBaselineDelta, CoolingDailyTrendPoint, CoolingFanTrend,
+  CoolingLoadTemperatureExplorer,
 };
 use tauri::command;
 
@@ -32,14 +32,12 @@ pub async fn get_cooling_trend(days: u32) -> Result<Vec<CoolingDailyTrendPoint>,
 ///
 #[command]
 #[specta::specta]
-pub async fn get_cooling_fan_trend(
-  days: u32,
-) -> Result<Vec<CoolingFanTrendSeries>, String> {
+pub async fn get_cooling_fan_trend(days: u32) -> Result<CoolingFanTrend, String> {
   use crate::services::cooling_insight_service;
 
   cooling_insight_service::fetch_cooling_fan_trend(days)
     .await
-    .map(|series| series.into_iter().map(Into::into).collect())
+    .map(Into::into)
 }
 
 ///

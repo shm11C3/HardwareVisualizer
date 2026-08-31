@@ -28,6 +28,26 @@ pub struct FanTrendSeries {
   pub days: Vec<FanDailySummary>,
 }
 
+/// The long-range fan trend, plus the one fact the caller cannot derive
+/// from the series alone.
+///
+/// An empty `series` has two very different causes, and only one of them
+/// licenses telling the user the machine has no readable fan:
+/// - the machine really has none, or
+/// - the rollup has not summarized one yet. It only ever summarizes
+///   *completed* days, so a machine that started recording fans today -
+///   or one whose fan tables the migration only just created - has a full
+///   CPU trend beside an empty fan trend for up to a day.
+///
+/// `archive_has_readings` separates the two: the one-minute fan archive
+/// holds a reading the moment collection starts, long before the rollup
+/// can act on it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoolingFanTrend {
+  pub series: Vec<FanTrendSeries>,
+  pub archive_has_readings: bool,
+}
+
 /// Group summarized fan-days into one series per fan, keeping the input's
 /// day order within each series and ordering the series by source so the
 /// lane's colors and legend stay stable across refreshes.
@@ -65,9 +85,12 @@ pub fn fan_days_in_window(
 
 /// The trailing `days`-day fan trend, ending yesterday (the most recent
 /// local day the rollup can have summarized).
-pub async fn load_cooling_fan_trend(
-  days: u32,
-) -> Result<Vec<FanTrendSeries>, sqlx::Error> {
+///
+/// The archive probe rides along on the same call rather than being a
+/// second command: the caller needs both answers to decide one thing (see
+/// [`CoolingFanTrend`]), and splitting them would let a view render from
+/// one without the other.
+pub async fn load_cooling_fan_trend(days: u32) -> Result<CoolingFanTrend, sqlx::Error> {
   use crate::infrastructure::database;
 
   let all_days =
@@ -75,9 +98,10 @@ pub async fn load_cooling_fan_trend(
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
   let start = trend_window_start_date(days, yesterday);
 
-  Ok(group_fan_days_by_source(&fan_days_in_window(
-    &all_days, start, yesterday,
-  )))
+  Ok(CoolingFanTrend {
+    series: group_fan_days_by_source(&fan_days_in_window(&all_days, start, yesterday)),
+    archive_has_readings: database::fan_archive::has_any_reading().await?,
+  })
 }
 
 #[cfg(test)]
@@ -174,6 +198,68 @@ mod tests {
     assert_eq!(
       fan_days_in_window(&[], date(2026, 8, 1), date(2026, 8, 10)),
       Vec::new()
+    );
+  }
+
+  // ── the post-upgrade / first-day distinction ──
+
+  #[tokio::test]
+  async fn an_empty_trend_still_reports_the_archive_holding_readings() {
+    // The state right after the migration lands, and again on the first
+    // day of collection: the rollup has nothing (it only summarizes
+    // completed days) while the archive already does. Reporting this as a
+    // plain empty trend is what made the view claim "not supported".
+    use crate::infrastructure::database::cooling_fan_daily_summary::tests::setup_cooling_fan_daily_summary;
+    use crate::infrastructure::database::fan_archive::tests::setup_fan_archive;
+    use sqlx::SqlitePool;
+
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    setup_cooling_fan_daily_summary(&pool).await;
+    crate::infrastructure::database::fan_archive::insert_from_pool(
+      &pool,
+      vec![crate::persistence::archive_data::FanArchiveRow {
+        source: "Fan 1".to_string(),
+        rpm: 900,
+      }],
+      chrono::Utc::now(),
+    )
+    .await
+    .unwrap();
+
+    let summarized =
+      crate::infrastructure::database::cooling_fan_daily_summary::select_all_fan_daily_summaries_from_pool(&pool)
+        .await
+        .unwrap();
+    let archive_has_readings =
+      crate::infrastructure::database::fan_archive::has_any_reading_from_pool(&pool)
+        .await
+        .unwrap();
+
+    assert_eq!(
+      group_fan_days_by_source(&summarized),
+      Vec::new(),
+      "the rollup has not summarized a completed day yet"
+    );
+    assert!(
+      archive_has_readings,
+      "but the archive already proves the fan is readable"
+    );
+  }
+
+  #[tokio::test]
+  async fn a_machine_without_a_readable_fan_reports_neither_side() {
+    use crate::infrastructure::database::fan_archive::tests::setup_fan_archive;
+    use sqlx::SqlitePool;
+
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+
+    assert!(
+      !crate::infrastructure::database::fan_archive::has_any_reading_from_pool(&pool)
+        .await
+        .unwrap(),
+      "with neither side holding anything, absent is the honest answer"
     );
   }
 }

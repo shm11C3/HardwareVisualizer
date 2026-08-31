@@ -21,7 +21,9 @@ use hardviz_core::persistence::cooling_baseline_delta::{
   CoolingDeltaObservation as CoreCoolingDeltaObservation, DailyDelta as CoreDailyDelta,
 };
 use hardviz_core::persistence::cooling_fan_rollup::FanDailySummary as CoreFanDailySummary;
-use hardviz_core::persistence::cooling_fan_trend::FanTrendSeries as CoreFanTrendSeries;
+use hardviz_core::persistence::cooling_fan_trend::{
+  CoolingFanTrend as CoreCoolingFanTrend, FanTrendSeries as CoreFanTrendSeries,
+};
 use hardviz_core::persistence::cooling_load_temperature_explorer::{
   BandMedian as CoreBandMedian, BandMedianDelta as CoreBandMedianDelta,
   CoolingLoadTemperatureExplorer as CoreCoolingLoadTemperatureExplorer,
@@ -165,6 +167,28 @@ impl From<CoreFanTrendSeries> for CoolingFanTrendSeries {
     Self {
       source: value.source,
       days: value.days.into_iter().map(Into::into).collect(),
+    }
+  }
+}
+
+/// The long-range fan trend plus the evidence the caller needs to read an
+/// empty `series` correctly (#2022). An empty series means either that the
+/// machine has no readable fan or that the rollup has not summarized one
+/// yet - it only summarizes completed days - and only
+/// `archiveHasReadings` tells those apart, because the one-minute fan
+/// archive holds a reading the moment collection starts.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingFanTrend {
+  pub series: Vec<CoolingFanTrendSeries>,
+  pub archive_has_readings: bool,
+}
+
+impl From<CoreCoolingFanTrend> for CoolingFanTrend {
+  fn from(value: CoreCoolingFanTrend) -> Self {
+    Self {
+      series: value.series.into_iter().map(Into::into).collect(),
+      archive_has_readings: value.archive_has_readings,
     }
   }
 }

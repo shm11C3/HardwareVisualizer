@@ -5,7 +5,7 @@
 
 use hardviz_core::persistence::cooling_band_comparison::{self, CoolingBandComparison};
 use hardviz_core::persistence::cooling_baseline_delta::{self, CoolingBaselineDelta};
-use hardviz_core::persistence::cooling_fan_trend::{self, FanTrendSeries};
+use hardviz_core::persistence::cooling_fan_trend::{self, CoolingFanTrend};
 use hardviz_core::persistence::cooling_load_temperature_explorer::{
   self, CoolingLoadTemperatureExplorer,
 };
@@ -18,7 +18,7 @@ pub async fn fetch_cooling_trend(days: u32) -> Result<Vec<DailyCoolingSummary>, 
     .map_err(|e| format!("Failed to load cooling trend: {e}"))
 }
 
-pub async fn fetch_cooling_fan_trend(days: u32) -> Result<Vec<FanTrendSeries>, String> {
+pub async fn fetch_cooling_fan_trend(days: u32) -> Result<CoolingFanTrend, String> {
   cooling_fan_trend::load_cooling_fan_trend(days)
     .await
     .map_err(|e| format!("Failed to load cooling fan trend: {e}"))

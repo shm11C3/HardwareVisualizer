@@ -214,17 +214,30 @@ export const resolveRoutedFanCapability = (
     fanSeries: readonly FanArchiveSeries[];
     cpuSeries: ArchiveTimelineSeries;
     hasLoaded: boolean;
+    /** The CPU-side fetch failed, so the whole window is unreadable. */
     hasError: boolean;
+    /**
+     * Only the fan fetch failed. The lanes above still rendered, so the
+     * window is readable - but nothing may be claimed about the fan.
+     */
+    fanHasError: boolean;
   },
   daily: {
     fanSeries: readonly CoolingFanTrendSeries[] | null;
+    /**
+     * Whether the one-minute fan archive holds any reading at all, as Core
+     * reports it beside the trend. The rollup only summarizes *completed*
+     * days, so this is the only thing that separates "no readable fan"
+     * from "the rollup has not caught up yet".
+     */
+    archiveHasReadings: boolean;
     /** The CPU-side trend, the evidence that the window recorded at all. */
     recordedDays: number | null;
     hasError: boolean;
   },
 ): FanCapability => {
   if (route.kind === "archive") {
-    if (archive.hasError || !archive.hasLoaded) {
+    if (archive.hasError || archive.fanHasError || !archive.hasLoaded) {
       return "unknown";
     }
     if (archiveFanSeriesHasReadings(archive.fanSeries)) {
@@ -243,8 +256,19 @@ export const resolveRoutedFanCapability = (
   if (daily.fanSeries.some((entry) => entry.days.length > 0)) {
     return "present";
   }
-  // A rollup row exists only for a day that was actually recorded, so any
-  // summarized day is evidence; an empty trend is not.
+  // An empty fan trend is not yet evidence of anything. The daily rollup
+  // summarizes completed days only, so a machine that started recording
+  // fans today - or one whose fan tables a migration only just created,
+  // beside a `cooling_daily_summary` already full of history - has an
+  // empty fan trend for up to a day while the fan is plainly readable.
+  // Claiming "not supported" there was exactly the post-upgrade
+  // regression; the archive settles it, because it holds a reading from
+  // the first collected minute.
+  if (daily.archiveHasReadings) {
+    return "unknown";
+  }
+  // Neither side holds anything, and the window did record days: no
+  // readable fan is now the honest answer.
   return daily.recordedDays > 0 ? "absent" : "unknown";
 };
 

@@ -121,6 +121,34 @@ pub(crate) async fn select_fan_minutes_for_range_from_pool(
   )
 }
 
+/// Whether the one-minute fan archive currently holds any reading at all.
+///
+/// The evidence that separates "this machine has no readable fan" from
+/// "the daily rollup has not summarized the fan yet" (#2022). The rollup
+/// only ever summarizes *completed* days, so a machine that started
+/// recording fans today - or one whose fan tables were just created by a
+/// migration - has a full CPU trend and an empty fan trend for up to a
+/// day. Reading the archive tells those two apart; the daily tables
+/// cannot.
+///
+/// Deliberately unbounded in time rather than scoped to the requested
+/// window: any archived reading is proof the fan is readable, and
+/// retention already removes readings for a sensor that has been gone
+/// long enough to be reported as absent honestly.
+pub async fn has_any_reading() -> Result<bool, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  has_any_reading_from_pool(&pool).await
+}
+
+pub(crate) async fn has_any_reading_from_pool(
+  pool: &SqlitePool,
+) -> Result<bool, sqlx::Error> {
+  // `EXISTS` stops at the first row rather than counting the table.
+  sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM FAN_ARCHIVE)")
+    .fetch_one(pool)
+    .await
+}
+
 /// The most recent archived fan timestamp strictly before `before`.
 ///
 /// `before` is the start of today in local time, so the answer only ever
@@ -222,6 +250,36 @@ pub(crate) mod tests {
     // adjacent buckets.
     assert_eq!(rows[0].2, tick);
     assert_eq!(rows[1].2, tick);
+  }
+
+  #[tokio::test]
+  async fn has_any_reading_is_false_for_a_machine_with_no_readable_fan() {
+    // This is what separates "no fan" from "the rollup has not caught up
+    // yet" on the 90d/1y routes - the daily tables cannot tell them apart.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+
+    assert!(!has_any_reading_from_pool(&pool).await.unwrap());
+  }
+
+  #[tokio::test]
+  async fn has_any_reading_is_true_as_soon_as_one_reading_is_archived() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_row(&pool, "Fan 1", 900, Utc::now()).await;
+
+    assert!(has_any_reading_from_pool(&pool).await.unwrap());
+  }
+
+  #[tokio::test]
+  async fn has_any_reading_counts_an_inactive_fan_reading_as_a_readable_fan() {
+    // 0 RPM is a reading, so the machine plainly has a fan sensor - the
+    // rollup simply has nothing to show for it yet.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_fan_archive(&pool).await;
+    insert_row(&pool, "Fan 3", 0, Utc::now()).await;
+
+    assert!(has_any_reading_from_pool(&pool).await.unwrap());
   }
 
   #[tokio::test]

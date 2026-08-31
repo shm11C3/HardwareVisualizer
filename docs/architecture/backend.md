@@ -251,16 +251,26 @@ no powered minute leaves its power columns absent - never zero. Its cleanup runs
 site as the Hardware Archive cleanup (see ADR 0018).
 
 Fan speeds are archived beside the Hardware Archive rather than inside them.
-The archive worker writes one `FAN_ARCHIVE` row per fan per interval on its
-existing tick, and the same rollup pass folds a completed day into one
-`cooling_fan_daily_summary` row per fan
-(`core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan because
-how many fans a machine exposes is configuration-dependent, and both share the
-daily rollup's retention window. The three fan-reading meanings stay distinct
-end to end: an Inactive Fan Reading (0 RPM) is stored as the real observation
-it is, an Invalid Fan Reading is excluded, and a missing reading has no row -
-so a stopped fan is never confused with an unreadable one. There is no hourly
-fan projection, because no view reads a fan axis at that resolution.
+The archive worker writes one `FAN_ARCHIVE` row per fan per interval, stamped
+with the write cycle's single tick instant so a fan reading and the hardware
+row folded from the same snapshots cannot land in adjacent buckets. The same
+rollup pass folds a completed day into one `cooling_fan_daily_summary` row per
+fan (`core/src/persistence/cooling_fan_rollup.rs`). Both are row-per-fan
+because how many fans a machine exposes is configuration-dependent, and both
+share the daily rollup's retention window. The three fan-reading meanings stay
+distinct end to end: an Inactive Fan Reading (0 RPM) is stored as the real
+observation it is, an Invalid Fan Reading is excluded, and a missing reading
+has no row - so a stopped fan is never confused with an unreadable one. There
+is no hourly fan projection, because no view reads a fan axis at that
+resolution.
+
+`get_cooling_fan_trend` answers with the summarized series *and* whether the
+one-minute fan archive holds any reading. An empty series alone cannot tell
+"this machine has no readable fan" from "the rollup has not summarized a
+completed day yet" - the state every install is in for up to a day after the
+fan tables are created beside an already-full `cooling_daily_summary`, and
+again on the first day of collection. The archive answers that, because it
+holds a reading from the first collected minute.
 
 ## Settings Ownership
 

@@ -240,8 +240,19 @@ describe("resolveRoutedFanCapability", () => {
   const loadedArchive = (
     fanSeries: FanArchiveSeries[],
     cpuSeries: ArchiveTimelineSeries,
-  ) => ({ fanSeries, cpuSeries, hasLoaded: true, hasError: false });
-  const NO_DAILY = { fanSeries: null, recordedDays: null, hasError: false };
+  ) => ({
+    fanSeries,
+    cpuSeries,
+    hasLoaded: true,
+    hasError: false,
+    fanHasError: false,
+  });
+  const NO_DAILY = {
+    fanSeries: null,
+    archiveHasReadings: false,
+    recordedDays: null,
+    hasError: false,
+  };
   const dailyWithFan: CoolingFanTrendSeries[] = [
     {
       source: "Fan 1",
@@ -302,6 +313,7 @@ describe("resolveRoutedFanCapability", () => {
           cpuSeries: NO_CPU_SERIES,
           hasLoaded: false,
           hasError: false,
+          fanHasError: false,
         },
         NO_DAILY,
       ),
@@ -317,6 +329,26 @@ describe("resolveRoutedFanCapability", () => {
           cpuSeries: RECORDED,
           hasLoaded: true,
           hasError: true,
+          fanHasError: false,
+        },
+        NO_DAILY,
+      ),
+    ).toBe("unknown");
+  });
+
+  it("is unknown when only the fan read failed", () => {
+    // The lanes above rendered from their own results, so the window is
+    // plainly readable - but a failed fan read is not evidence the machine
+    // has no fan, and must not be reported as one.
+    expect(
+      resolveRoutedFanCapability(
+        ARCHIVE,
+        {
+          fanSeries: [],
+          cpuSeries: RECORDED,
+          hasLoaded: true,
+          hasError: false,
+          fanHasError: true,
         },
         NO_DAILY,
       ),
@@ -333,12 +365,30 @@ describe("resolveRoutedFanCapability", () => {
     ).toBe("unknown");
   });
 
+  it("counts a power-only window as recorded evidence", () => {
+    // A machine with a power sampler and no readable temperature sensor
+    // still archived this window, so a missing fan is real evidence.
+    // Without power in the "recorded anything" test it stayed unknown
+    // forever and the note never named the fan.
+    expect(
+      resolveRoutedFanCapability(
+        ARCHIVE,
+        loadedArchive([], {
+          ...NO_CPU_SERIES,
+          powerAvg: [{ timestamp: 0, value: 18 }],
+        }),
+        NO_DAILY,
+      ),
+    ).toBe("absent");
+  });
+
   it("ignores the daily fan trend while an archive route is selected", () => {
     // Otherwise a 24h window on a machine whose fan sensor stopped months
     // ago would claim this window's lane is available.
     expect(
       resolveRoutedFanCapability(ARCHIVE, loadedArchive([], RECORDED), {
         fanSeries: dailyWithFan,
+        archiveHasReadings: true,
         recordedDays: 90,
         hasError: false,
       }),
@@ -349,26 +399,58 @@ describe("resolveRoutedFanCapability", () => {
     expect(
       resolveRoutedFanCapability(DAILY, loadedArchive(WITH_FAN, RECORDED), {
         fanSeries: dailyWithFan,
+        archiveHasReadings: true,
         recordedDays: 90,
         hasError: false,
       }),
     ).toBe("present");
   });
 
-  it("is absent when a recorded daily window summarized no fan", () => {
+  it("is absent when a recorded daily window summarized no fan and none is archived", () => {
     expect(
       resolveRoutedFanCapability(DAILY, loadedArchive([], NO_CPU_SERIES), {
         fanSeries: [],
+        archiveHasReadings: false,
         recordedDays: 90,
         hasError: false,
       }),
     ).toBe("absent");
   });
 
+  it("stays unknown right after an upgrade, while the rollup catches up", () => {
+    // The regression: the migration creates the fan tables empty beside a
+    // `cooling_daily_summary` already full of history, and the rollup only
+    // summarizes completed days. Reading the empty fan trend as evidence
+    // told every upgrading user with working fans "Not supported yet" for
+    // up to a day.
+    expect(
+      resolveRoutedFanCapability(DAILY, loadedArchive([], NO_CPU_SERIES), {
+        fanSeries: [],
+        archiveHasReadings: true,
+        recordedDays: 90,
+        hasError: false,
+      }),
+    ).toBe("unknown");
+  });
+
+  it("stays unknown on the first day of fan collection", () => {
+    // Same shape as the upgrade case and the same reason: the fan is
+    // readable now, but no completed day carries it yet.
+    expect(
+      resolveRoutedFanCapability(DAILY, loadedArchive(WITH_FAN, RECORDED), {
+        fanSeries: [],
+        archiveHasReadings: true,
+        recordedDays: 1,
+        hasError: false,
+      }),
+    ).toBe("unknown");
+  });
+
   it("is unknown when the daily window recorded no day at all", () => {
     expect(
       resolveRoutedFanCapability(DAILY, loadedArchive([], NO_CPU_SERIES), {
         fanSeries: [],
+        archiveHasReadings: false,
         recordedDays: 0,
         hasError: false,
       }),
@@ -379,6 +461,7 @@ describe("resolveRoutedFanCapability", () => {
     expect(
       resolveRoutedFanCapability(DAILY, loadedArchive([], NO_CPU_SERIES), {
         fanSeries: null,
+        archiveHasReadings: false,
         recordedDays: 90,
         hasError: false,
       }),
@@ -389,6 +472,7 @@ describe("resolveRoutedFanCapability", () => {
     expect(
       resolveRoutedFanCapability(DAILY, loadedArchive([], NO_CPU_SERIES), {
         fanSeries: [],
+        archiveHasReadings: false,
         recordedDays: 90,
         hasError: true,
       }),

@@ -109,9 +109,11 @@ const CoolingInsightBody = ({
         cpuSeries: archive.series,
         hasLoaded: archive.hasLoaded,
         hasError: archive.hasError,
+        fanHasError: archive.fanHasError,
       },
       {
-        fanSeries: fanTrend,
+        fanSeries: fanTrend?.series ?? null,
+        archiveHasReadings: fanTrend?.archiveHasReadings ?? false,
         recordedDays: dailyTrend?.length ?? null,
         hasError: fanTrendHasError || dailyTrendHasError,
       },
@@ -132,7 +134,7 @@ const CoolingInsightBody = ({
         route={route}
         baseline={baselineDelta?.baseline ?? null}
         dailyTrend={dailyTrend}
-        fanTrend={fanTrend}
+        fanTrend={fanTrend?.series ?? null}
         archive={archive}
       />
       <UnsupportedSensorNote

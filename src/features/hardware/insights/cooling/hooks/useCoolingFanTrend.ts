@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
-import { type CoolingFanTrendSeries, commands } from "@/rspc/bindings";
+import { type CoolingFanTrend, commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 
 /**
@@ -13,14 +13,15 @@ import { isError } from "@/types/result";
  * per day, and a machine with no readable fan legitimately answers with
  * nothing while the CPU trend still has every day.
  *
- * `data` distinguishes three states the fan lane must not conflate: `null`
- * while nothing is established yet (idle, in flight, or failed - see
- * `hasError`), `[]` only when the backend really answered with no fan, and
- * a non-empty array otherwise. A failed fetch never masquerades as a
- * machine without fans.
+ * `data` stays `null` while nothing is established yet (idle, in flight,
+ * or failed - see `hasError`), so a failed fetch never masquerades as a
+ * machine without fans. Core answers with the summarized series *and*
+ * whether the one-minute fan archive holds anything, because an empty
+ * series alone cannot tell "no readable fan" from "the rollup has not
+ * summarized a completed day yet".
  */
 export const useCoolingFanTrend = (days: 90 | 365 | null) => {
-  const [data, setData] = useState<CoolingFanTrendSeries[] | null>(null);
+  const [data, setData] = useState<CoolingFanTrend | null>(null);
   const [hasError, setHasError] = useState(false);
   const { error } = useTauriDialog();
   const requestIdRef = useRef(0);
