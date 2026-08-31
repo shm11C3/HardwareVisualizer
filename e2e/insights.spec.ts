@@ -212,6 +212,47 @@ test.describe("insights captures", () => {
     await saveCapture(page, "insights-cooling-ambient");
   });
 
+  test("insights cooling tab keeps an ambient-only window out of the empty state", async ({
+    page,
+  }) => {
+    // The ambient archive is written independently of the hardware one, so
+    // a window can hold room readings for minutes the machine recorded
+    // nothing in. That is partial data, not an empty period (DP-02).
+    //
+    // Paired with an establishing baseline on purpose: an established one
+    // supplies the temperature lane's reference band, and the domain that
+    // band produces would keep the lane mounted whatever the archive said.
+    // Without it the temperature domain is genuinely null, which is the
+    // state that used to reach the empty message.
+    await gotoApp(page, {
+      path: "/?coolingAmbient=only&coolingBaseline=establishing",
+    });
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    const lane = page.getByTestId("cooling-thermal-timeline-lane");
+    await expect(
+      lane.getByText("No data found for the selected period"),
+    ).toHaveCount(0);
+    // The temperature lane degrades to its notice, as it already does for a
+    // window with CPU load and no temperature.
+    await expect(
+      page.getByTestId("cooling-temperature-lane-unavailable"),
+    ).toBeVisible();
+    await expect(page.getByTestId("cooling-temperature-lane")).toHaveCount(0);
+    await expect(page.getByTestId("cooling-power-lane")).toHaveCount(0);
+    await expect(page.getByTestId("cooling-fan-lane")).toHaveCount(0);
+    // The reading that did arrive still renders.
+    await expect(page.getByTestId("cooling-ambient-lane")).toBeVisible();
+
+    await page.waitForTimeout(1_000);
+
+    await saveCapture(page, "insights-cooling-ambient-only");
+  });
+
   test("insights cooling tab drops the ambient lane on the long-range routes", async ({
     page,
   }) => {

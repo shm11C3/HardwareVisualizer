@@ -89,10 +89,15 @@ type FixtureOverrides = {
   /** `?coolingAmbient=present` gives the Cooling tab a machine with an
    * environmental sensor: the ambient archive answers with a real series,
    * and both baseline-delta and band-comparison fixtures carry their
-   * ambient-adjusted reading. Unset is the default everywhere else, which
-   * is exactly the machine that must render as it did before #2046. */
-  coolingAmbientPresent: boolean;
+   * ambient-adjusted reading. `?coolingAmbient=only` additionally empties
+   * every hardware archive source, simulating a window where only the
+   * room was measured - the two archives are written independently, so
+   * the timeline must degrade rather than report an empty period.
+   * Unset is the default everywhere else, which is exactly the machine
+   * that must render as it did before #2046. */
+  coolingAmbientOverride: CoolingAmbientOverride;
 };
+type CoolingAmbientOverride = "present" | "only" | null;
 type CoolingObservationOverride =
   | "notComparable"
   | "sustainedMildRise"
@@ -144,10 +149,13 @@ const readFixtureOverrides = (): FixtureOverrides => {
       "none",
     coolingFanUnsupported:
       new URLSearchParams(window.location.search).get("coolingFan") === "none",
-    coolingAmbientPresent:
-      new URLSearchParams(window.location.search).get("coolingAmbient") ===
-      "present",
+    coolingAmbientOverride: readCoolingAmbientOverride(),
   };
+};
+
+const readCoolingAmbientOverride = (): CoolingAmbientOverride => {
+  const raw = new URLSearchParams(window.location.search).get("coolingAmbient");
+  return raw === "present" || raw === "only" ? raw : null;
 };
 
 const readCoolingObservationOverride = (): CoolingObservationOverride => {
@@ -283,6 +291,12 @@ const buildInvokeHandlers = (
       bucketWidthMs: number;
       bucketTimestamp: ArchiveBucketTimestamp;
     };
+    // A window the hardware archive holds nothing for while the ambient
+    // archive does: the two are written independently, so this is a real
+    // state and not an empty period.
+    if (fixtureOverrides.coolingAmbientOverride === "only") {
+      return [];
+    }
     // Separate the avg/max/min series the way a real archive does, so a
     // chart drawing all three (the Cooling tab's temperature lane) shows a
     // real band instead of three identical curves.
@@ -350,7 +364,8 @@ const buildInvokeHandlers = (
     };
     // A machine with no readable fan answers with no series at all - not
     // with series holding zero, which is a real Inactive Fan Reading.
-    return fixtureOverrides.coolingFanUnsupported
+    return fixtureOverrides.coolingFanUnsupported ||
+      fixtureOverrides.coolingAmbientOverride === "only"
       ? []
       : buildFanArchiveSeriesFixture(
           a.start,
@@ -368,7 +383,7 @@ const buildInvokeHandlers = (
     };
     // A machine with no environmental sensor answers with no sources and
     // no buckets - not buckets holding a room temperature of zero.
-    return fixtureOverrides.coolingAmbientPresent
+    return fixtureOverrides.coolingAmbientOverride != null
       ? buildAmbientArchiveSeriesFixture(
           a.start,
           a.end,
@@ -439,7 +454,7 @@ const buildInvokeHandlers = (
     if (fixtureOverrides.coolingBaselineEstablishing) {
       return coolingBandComparisonEstablishingFixture;
     }
-    return fixtureOverrides.coolingAmbientPresent
+    return fixtureOverrides.coolingAmbientOverride != null
       ? coolingBandComparisonAmbientFixture
       : coolingBandComparisonFixture;
   },
@@ -453,7 +468,7 @@ const buildInvokeHandlers = (
     if (fixtureOverrides.coolingBaselineEstablishing) {
       return coolingBaselineDeltaEstablishingFixture;
     }
-    if (fixtureOverrides.coolingAmbientPresent) {
+    if (fixtureOverrides.coolingAmbientOverride != null) {
       return coolingBaselineDeltaAmbientFixture;
     }
     switch (fixtureOverrides.coolingObservationOverride) {

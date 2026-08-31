@@ -293,6 +293,40 @@ describe("TimelineLanes ambient lane", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("stops offering the load lane when it has nothing to show either", () => {
+    // An ambient-only window degrades the temperature lane, but the load
+    // lane below it is empty too, so the notice must not point at it.
+    renderLanes(
+      row({}),
+      null,
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: null }),
+    );
+
+    expect(
+      screen.getByText(
+        "pages.insights.cooling.timeline.temperatureUnavailableAlone",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("still offers the load lane when the window recorded load", () => {
+    renderLanes(
+      row({ cpuUsage: 40 }),
+      null,
+      null,
+      NO_FAN,
+      withAmbient({ ambient: 22, delta: null }),
+    );
+
+    expect(
+      screen.getByText(
+        "pages.insights.cooling.timeline.temperatureUnavailable",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("counts an ambient-only period as recorded rather than blank", () => {
     // The app was running and the room was measured; only the machine's
     // own sensors were silent.

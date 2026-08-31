@@ -388,6 +388,7 @@
           "loadFailed": "Failed to load the thermal timeline.",
           "temperatureLane": "CPU temperature ({{unit}})",
           "temperatureUnavailable": "No temperature readings for this period. CPU load is still shown below.",
+          "temperatureUnavailableAlone": "No temperature readings for this period.",
           "loadLaneUsage": "CPU load (%)",
           "loadLaneComposition": "Load bands (% of day)",
           "powerLane": "CPU package power (W)",

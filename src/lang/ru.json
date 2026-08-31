@@ -378,6 +378,7 @@
           "loadFailed": "Не удалось загрузить тепловую шкалу.",
           "temperatureLane": "Температура ЦП ({{unit}})",
           "temperatureUnavailable": "За этот период нет показаний температуры. Ниже отображается только нагрузка ЦП.",
+          "temperatureUnavailableAlone": "За этот период нет показаний температуры.",
           "loadLaneUsage": "Нагрузка ЦП (%)",
           "loadLaneComposition": "Диапазоны нагрузки (% суток)",
           "powerLane": "Мощность пакета ЦП (Вт)",

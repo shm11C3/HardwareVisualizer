@@ -23,9 +23,10 @@ import {
   type FanSeries,
   fanDataKey,
 } from "../utils/fanTimeline";
-import type {
-  BaselineBand,
-  ThermalTimelineRow,
+import {
+  type BaselineBand,
+  hasRecordedLoad,
+  type ThermalTimelineRow,
 } from "../utils/thermalTimeline";
 
 /**
@@ -733,6 +734,7 @@ export const TimelineLanes = ({
   const { t } = useTranslation();
   const unitSuffix = temperatureUnit === "C" ? "°C" : "°F";
   const hasIdleSeries = rows.some((row) => row.idleTemperature != null);
+  const hasLoadSeries = hasRecordedLoad(rows);
   const showsPowerLane = powerDomain != null;
   const showsFanLane = fanDomain != null;
   const showsAmbientLane = ambientDomain != null;
@@ -764,7 +766,15 @@ export const TimelineLanes = ({
           className="text-muted-foreground text-sm"
           data-testid="cooling-temperature-lane-unavailable"
         >
-          {t("pages.insights.cooling.timeline.temperatureUnavailable")}
+          {/* Pointing at the load lane is only true when it has something
+              to show. An ambient-only window reaches this notice with an
+              empty load lane below it (#2046), and offering it there would
+              describe a chart the reader cannot find. */}
+          {t(
+            hasLoadSeries
+              ? "pages.insights.cooling.timeline.temperatureUnavailable"
+              : "pages.insights.cooling.timeline.temperatureUnavailableAlone",
+          )}
         </p>
       ) : (
         <>

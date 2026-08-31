@@ -27,6 +27,7 @@ import {
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
   computePowerDomain,
+  hasRecordedLoad,
   resolveBaselineBand,
   type ThermalTimelineRow,
 } from "../utils/thermalTimeline";
@@ -107,6 +108,11 @@ export const ThermalTimelineLane = ({
     hasError: archiveHasError,
   } = archive;
 
+  // Ambient reaches the timeline only through the archive routes: the
+  // daily rollup stores the per-band Thermal Delta but no ambient
+  // temperature, so 90d/1y has no series to draw and claims nothing.
+  const routedAmbientSeries = route.kind === "archive" ? ambientSeries : null;
+
   const rows = useMemo<ThermalTimelineRow[]>(() => {
     if (route.kind === "archive") {
       const formatter = new Intl.DateTimeFormat(
@@ -118,6 +124,10 @@ export const ThermalTimelineLane = ({
         stepMs,
         temperatureUnit,
         (timestamp) => formatter.format(new Date(timestamp)),
+        // The ambient archive is written independently of the hardware
+        // one, so a window where only the room was measured must still
+        // produce rows for its lane to draw on.
+        routedAmbientSeries?.buckets.map((bucket) => bucket.timestamp) ?? [],
       );
     }
 
@@ -146,7 +156,7 @@ export const ThermalTimelineLane = ({
       temperatureUnit,
       (isoDate) => formatter.format(new Date(`${isoDate}T00:00:00Z`)),
     );
-  }, [route, series, stepMs, dailyTrend, temperatureUnit]);
+  }, [route, series, stepMs, dailyTrend, temperatureUnit, routedAmbientSeries]);
 
   const baselineBand = useMemo(
     () => resolveBaselineBand(baseline, temperatureUnit),
@@ -192,17 +202,9 @@ export const ThermalTimelineLane = ({
   // The fan lane's capability gate, same contract as `powerDomain`.
   const fanDomain = useMemo(() => computeFanDomain(fanRows), [fanRows]);
 
-  // Ambient reaches the timeline only through the archive routes: the
-  // daily rollup stores the per-band Thermal Delta but no ambient
-  // temperature, so 90d/1y has no series to draw and claims nothing.
   const ambientRows = useMemo(
-    () =>
-      buildAmbientLaneRows(
-        rows,
-        route.kind === "archive" ? ambientSeries : null,
-        temperatureUnit,
-      ),
-    [rows, route.kind, ambientSeries, temperatureUnit],
+    () => buildAmbientLaneRows(rows, routedAmbientSeries, temperatureUnit),
+    [rows, routedAmbientSeries, temperatureUnit],
   );
   const ambientDomain = useMemo(
     () => computeAmbientDomain(ambientRows),
@@ -212,14 +214,7 @@ export const ThermalTimelineLane = ({
   const loadMode: LoadLaneMode =
     route.kind === "archive" ? "usage" : "composition";
 
-  const hasLoadData = rows.some(
-    (row) =>
-      row.cpuUsage != null ||
-      row.loadIdle != null ||
-      row.loadLow != null ||
-      row.loadMid != null ||
-      row.loadHigh != null,
-  );
+  const hasLoadData = hasRecordedLoad(rows);
 
   return (
     <section
@@ -240,14 +235,17 @@ export const ThermalTimelineLane = ({
           className="h-50 w-full"
           data-testid="cooling-timeline-loading"
         />
-      ) : domain == null && !hasLoadData ? (
+      ) : domain == null && !hasLoadData && ambientDomain == null ? (
         <p className="text-muted-foreground text-sm">
           {t("pages.insights.noDataForPeriod")}
         </p>
       ) : (
         // `domain == null` with load data still renders: archived CPU
         // usage without a working temperature sensor is useful partial
-        // data, so only the temperature lane degrades (DP-02).
+        // data, so only the temperature lane degrades (DP-02). Ambient
+        // counts as such data on its own - its archive is written
+        // independently of the hardware one, so a window that recorded
+        // only the room is a real recording, not an empty period.
         <TimelineLanes
           rows={rows}
           domain={domain}
