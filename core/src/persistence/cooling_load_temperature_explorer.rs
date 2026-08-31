@@ -345,6 +345,10 @@ pub async fn load_cooling_load_temperature_explorer(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::infrastructure::database::test_schema::{
+    COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, COOLING_HOURLY_SUMMARY_DDL,
+    create_tables,
+  };
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
@@ -784,55 +788,15 @@ mod tests {
     use sqlx::SqlitePool;
 
     async fn setup_tables(pool: &SqlitePool) {
-      sqlx::query(
-        "CREATE TABLE cooling_daily_summary (
-          date TEXT PRIMARY KEY,
-          idle_cpu_temperature_avg REAL,
-          idle_cpu_temperature_max REAL,
-          idle_cpu_temperature_min REAL,
-          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          low_cpu_temperature_avg REAL,
-          low_cpu_temperature_max REAL,
-          low_cpu_temperature_min REAL,
-          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          mid_cpu_temperature_avg REAL,
-          mid_cpu_temperature_max REAL,
-          mid_cpu_temperature_min REAL,
-          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          high_cpu_temperature_avg REAL,
-          high_cpu_temperature_max REAL,
-          high_cpu_temperature_min REAL,
-          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          coverage_minutes INTEGER NOT NULL
-        )",
+      create_tables(
+        pool,
+        &[
+          COOLING_DAILY_SUMMARY_DDL,
+          COOLING_BASELINE_DDL,
+          COOLING_HOURLY_SUMMARY_DDL,
+        ],
       )
-      .execute(pool)
-      .await
-      .unwrap();
-      sqlx::query(
-        "CREATE TABLE cooling_baseline (
-          id INTEGER PRIMARY KEY CHECK (id = 1),
-          window_start_date TEXT NOT NULL,
-          window_end_date TEXT NOT NULL,
-          idle_temperature_avg REAL NOT NULL,
-          sample_minutes INTEGER NOT NULL,
-          established_at TEXT NOT NULL
-        )",
-      )
-      .execute(pool)
-      .await
-      .unwrap();
-      sqlx::query(
-        "CREATE TABLE cooling_hourly_summary (
-          hour_start TEXT PRIMARY KEY,
-          cpu_usage_avg REAL,
-          cpu_temperature_avg REAL,
-          sample_minutes INTEGER NOT NULL
-        )",
-      )
-      .execute(pool)
-      .await
-      .unwrap();
+      .await;
     }
 
     async fn insert_establishing_days(pool: &SqlitePool, start: NaiveDate) {

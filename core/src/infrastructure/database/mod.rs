@@ -18,3 +18,5 @@ pub mod hardware_archive;
 pub mod migrate;
 pub mod process_stats;
 pub mod storage_health;
+#[cfg(test)]
+pub(crate) mod test_schema;
