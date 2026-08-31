@@ -38,6 +38,41 @@ const ENVIRONMENTAL_SENSORS_KEY: &str = "environmentalSensors";
 /// Legacy JSON key accepted for unreleased Storage Health development builds.
 const LEGACY_STORAGE_SMART_IDENTITY_KEY: &str = "storageSmartIdentity";
 
+/// Write the keys this version owns into `key`'s section, leaving any
+/// other key already in that section untouched.
+///
+/// The same merge [`CoreSettings::save_to_path`] performs at the top
+/// level, one level deeper. At the top level it protects App-owned keys
+/// from Core; here it protects keys owned by a *future* version from
+/// this one. `environmentalSensors` gains a key per vendor, so a user
+/// who runs a newer build, enables a second sensor, then downgrades
+/// would otherwise have that choice silently deleted the first time this
+/// version saved - and would find it gone on upgrading back.
+///
+/// A section that is absent or is not an object is replaced outright:
+/// there is nothing to preserve, and a non-object there is not a
+/// settings section this code can reason about.
+///
+/// Only the environmental section uses this so far. The older sections
+/// still replace wholesale; changing them is a behavior change to
+/// working code and belongs in its own commit, not this one.
+fn merge_owned_keys_into_section(
+  document: &mut serde_json::Map<String, serde_json::Value>,
+  key: &str,
+  owned: serde_json::Value,
+) {
+  let serde_json::Value::Object(owned) = owned else {
+    return;
+  };
+
+  match document.get_mut(key) {
+    Some(serde_json::Value::Object(existing)) => existing.extend(owned),
+    _ => {
+      document.insert(key.to_string(), serde_json::Value::Object(owned));
+    }
+  }
+}
+
 /// Subset of the on-disk settings document that Core consumes.
 ///
 /// Deserializing from a settings file that contains additional App-owned
@@ -158,8 +193,9 @@ impl CoreSettings {
         format!("Failed to serialize storage health identity settings: {e}")
       })?,
     );
-    document.insert(
-      ENVIRONMENTAL_SENSORS_KEY.to_string(),
+    merge_owned_keys_into_section(
+      &mut document,
+      ENVIRONMENTAL_SENSORS_KEY,
       serde_json::to_value(&self.environmental_sensors)
         .map_err(|e| format!("Failed to serialize environmental sensor settings: {e}"))?,
     );
@@ -278,6 +314,79 @@ mod tests {
       written["environmentalSensors"]["switchbotMeterEnabled"],
       true
     );
+
+    assert!(
+      CoreSettings::load_from_path(&path)
+        .unwrap()
+        .environmental_sensors
+        .switchbot_meter_enabled
+    );
+  }
+
+  /// Regression: a downgrade must not delete a newer version's setting.
+  ///
+  /// `environmentalSensors` gains a key per vendor, so a user who runs a
+  /// newer build, enables a second sensor there, then downgrades would
+  /// have had that choice erased the first time this version saved -
+  /// and would find it missing after upgrading back.
+  #[test]
+  fn saving_preserves_an_unknown_vendor_key_written_by_a_newer_version() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{
+        "environmentalSensors": {
+          "switchbotMeterEnabled": false,
+          "someFutureVendorEnabled": true
+        }
+      }"#,
+    )
+    .unwrap();
+
+    let mut settings = CoreSettings::load_from_path(&path).unwrap();
+    settings.environmental_sensors.switchbot_meter_enabled = true;
+    settings.save_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(
+      written["environmentalSensors"]["switchbotMeterEnabled"], true,
+      "the key this version owns is still written"
+    );
+    assert_eq!(
+      written["environmentalSensors"]["someFutureVendorEnabled"], true,
+      "a key this version does not know about must survive the save"
+    );
+  }
+
+  #[test]
+  fn saving_creates_the_environmental_section_when_the_file_has_none() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"theme": "dark"}"#).unwrap();
+
+    CoreSettings::default().save_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(
+      written["environmentalSensors"]["switchbotMeterEnabled"],
+      false
+    );
+  }
+
+  /// A section that is not an object carries nothing worth preserving,
+  /// and leaving it in place would keep the settings unreadable forever.
+  #[test]
+  fn saving_replaces_a_malformed_environmental_section() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"environmentalSensors": "not an object"}"#).unwrap();
+
+    let mut settings = CoreSettings::default();
+    settings.environmental_sensors.switchbot_meter_enabled = true;
+    settings.save_to_path(&path).unwrap();
 
     assert!(
       CoreSettings::load_from_path(&path)
