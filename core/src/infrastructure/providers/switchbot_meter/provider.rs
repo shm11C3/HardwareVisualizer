@@ -122,7 +122,10 @@ impl SwitchBotMeterProvider {
       }
       Some(bound) if bound == device_id => ObservationOutcome::Recorded,
       Some(_) => {
-        return if observed.reported_other_devices.insert(device_id.to_string()) {
+        return if observed
+          .reported_other_devices
+          .insert(device_id.to_string())
+        {
           ObservationOutcome::IgnoredNewDevice
         } else {
           ObservationOutcome::IgnoredKnownDevice
@@ -164,8 +167,8 @@ impl EnvironmentalSensorProvider for SwitchBotMeterProvider {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
   use super::super::advertisement::SwitchBotMeterModel;
+  use super::*;
   use chrono::Duration;
 
   fn at(offset_seconds: i64) -> DateTime<Utc> {
@@ -388,7 +391,11 @@ mod tests {
     use std::sync::Arc;
 
     let provider = Arc::new(SwitchBotMeterProvider::new());
-    provider.observe("meter-a", frame(24.5), at(-AMBIENT_READING_MAX_AGE_SECONDS - 1));
+    provider.observe(
+      "meter-a",
+      frame(24.5),
+      at(-AMBIENT_READING_MAX_AGE_SECONDS - 1),
+    );
 
     let mut registry = EnvironmentalSensorRegistry::new();
     registry.register(provider as Arc<_>);

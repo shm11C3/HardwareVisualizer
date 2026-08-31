@@ -72,7 +72,9 @@ impl SwitchBotScanController {
         Ok(events) => events,
         Err(e) => {
           log_warn!(
-            &format!("cannot observe Bluetooth events, ambient source stays unavailable: {e}"),
+            &format!(
+              "cannot observe Bluetooth events, ambient source stays unavailable: {e}"
+            ),
             LOG_TARGET,
             None::<&str>
           );

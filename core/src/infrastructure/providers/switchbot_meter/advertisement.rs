@@ -365,8 +365,7 @@ mod tests {
   /// the archive actually needs.
   #[test]
   fn an_out_of_range_humidity_drops_only_the_humidity() {
-    let frame =
-      decode_service_data(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, 100)).unwrap();
+    let frame = decode_service_data(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, 100)).unwrap();
     assert_eq!(frame.humidity_percent, None);
     assert_eq!(frame.temperature_celsius, 24.5);
   }
