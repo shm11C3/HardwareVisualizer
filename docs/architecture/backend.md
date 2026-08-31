@@ -286,6 +286,57 @@ zero contributing minutes leaves its temperature columns absent, and a day with
 no powered minute leaves its power columns absent - never zero. Its cleanup runs from the same `scheduledDataDeletion`-gated startup
 site as the Hardware Archive cleanup (see ADR 0018).
 
+The same pass folds the ambient-normalized thermal delta
+(`ΔT = CPU package temperature − ambient temperature`) per CPU-load band, plus
+the day's ambient coverage count. **The pairing rule is normative: samples are
+paired first and aggregated second.** Independently aggregated CPU and ambient
+summaries must never be subtracted, because the two archives do not share a
+sample set - ambient readings go missing independently of hardware minutes, so
+subtracting summaries built over different sample sets produces a number
+corresponding to no minute that was ever observed. The rule is enforced
+structurally rather than by discipline: the day's archive query LEFT JOINs
+`AMBIENT_ARCHIVE` on the shared one-minute timeline, so each archive minute
+already carries the ambient temperature of its own minute before any fold
+begins. A minute with no ambient row yields no ΔT at all, never an interpolated
+one.
+
+Because `AMBIENT_ARCHIVE` is row-per-source, several sources can share one
+minute; that minute's ambient value is their unweighted mean. Core has no sensor
+ranking or calibration confidence that would justify preferring one Sensor
+Source Label over another, and with the common single sensor the mean
+degenerates to that sensor's own reading.
+
+The two gates nest. A minute contributes to a ΔT band only when it already
+contributed to that temperature band *and* had an ambient pair, so per-band ΔT
+sample minutes are always a subset of the band's own. Ambient coverage is
+counted outside that nesting, the way power already is: whether the room's air
+was readable is independent of whether the CPU's sensors were, so a machine with
+an ambient sensor and no CPU temperature sensor still records honest coverage.
+
+`getCoolingBandComparison` and `getCoolingBaselineDelta` each carry a nullable
+`ambientAdjusted` variant of their result rather than a command of their own -
+same question, same two windows, same lifecycle. Null means neither window holds
+a paired minute (the normal state with no environmental sensor, and what keeps
+every other field of those responses unchanged); present-but-not-comparable
+means ambient data exists and one window is still too thin.
+
+**The ΔT baseline is deliberately not pinned**, unlike the absolute idle
+baseline beside it. That baseline is pinned because re-deriving it would let
+"the first N qualifying days" advance as the original days aged out; the ΔT
+reading instead averages the *already-pinned* window, whose rows are exempt from
+retention cleanup for as long as the baseline names them, so it cannot drift.
+Not pinning also means ambient collection that starts after the baseline was
+established still produces a reading once the backfill fills that window's ΔT
+columns in - a value captured at establishment time would have frozen "no
+ambient data" permanently.
+
+Backfill follows the lag-aware cursor precedent set by the power columns: the
+catch-up claims the ΔT columns are behind only when the ambient archive holds a
+completed day's *pairable* reading that no summarized day recorded coverage for.
+A machine with no ambient sensor has neither side and so never rewinds, and an
+ambient row whose minute has no hardware row is excluded because re-rolling its
+day could never turn it into coverage.
+
 ## Settings Ownership
 
 Settings are split by consumer:
