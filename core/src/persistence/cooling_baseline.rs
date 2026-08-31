@@ -79,12 +79,14 @@ pub struct DailyIdleSample {
 }
 
 impl DailyIdleSample {
-  /// This day's idle temperature if the day qualifies for the baseline,
-  /// otherwise `None`.
-  fn qualifying_temperature(&self) -> Option<f32> {
-    (self.idle_sample_minutes >= COOLING_BASELINE_QUALIFYING_IDLE_MINUTES)
-      .then_some(self.idle_temperature_avg)
-      .flatten()
+  /// This day projected into the shape the shared establishment rule
+  /// reads (see [`derive_baseline_window`]).
+  fn as_baseline_sample(&self) -> DailyBaselineSample {
+    DailyBaselineSample {
+      date: self.date,
+      value: self.idle_temperature_avg,
+      sample_minutes: self.idle_sample_minutes,
+    }
   }
 }
 
@@ -209,17 +211,53 @@ pub fn derive_cooling_baseline(
   }
 }
 
-/// Establish the baseline from the first
-/// [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] qualifying days in
-/// `days`, ignoring every non-qualifying day in between and every day
-/// after them.
-pub fn derive_baseline_state(days: &[DailyIdleSample]) -> BaselineState {
-  let required_days = COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS;
-  // Taking only the *first* qualifying days - never the most recent ones
-  // - is what keeps the derived value stable once established.
-  let window: Vec<&DailyIdleSample> = days
+/// One completed local day's contribution to *some* baseline series: the
+/// day's value and how many sample minutes back it.
+///
+/// The projection both baselines are expressed in - the absolute idle
+/// temperature here, and the ambient-normalized ΔT in
+/// [`crate::persistence::cooling_delta_baseline`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct DailyBaselineSample {
+  pub date: NaiveDate,
+  pub value: Option<f32>,
+  pub sample_minutes: u32,
+}
+
+/// The outcome of applying the establishment rule to one series.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum BaselineWindow {
+  Establishing {
+    qualifying_days: u32,
+  },
+  Established {
+    value: f32,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+    sample_minutes: u32,
+  },
+}
+
+/// Establish a baseline from the first `required_days` days in `days`
+/// carrying at least `qualifying_minutes` of evidence, ignoring every
+/// non-qualifying day in between and every day after them.
+///
+/// Shared by the absolute idle baseline and the ΔT baseline (#2045) so
+/// the two cannot drift apart on what "established" means. They differ
+/// only in which projection of a day they read and how much of it counts
+/// as a qualifying amount - never in the rule itself.
+///
+/// `days` must be ordered by date ascending. Taking only the *first*
+/// qualifying days - never the most recent ones - is what keeps the
+/// derived value stable once established.
+pub(crate) fn derive_baseline_window(
+  days: &[DailyBaselineSample],
+  qualifying_minutes: u32,
+  required_days: u32,
+) -> BaselineWindow {
+  let window: Vec<&DailyBaselineSample> = days
     .iter()
-    .filter(|day| day.qualifying_temperature().is_some())
+    .filter(|day| day.sample_minutes >= qualifying_minutes && day.value.is_some())
     .take(required_days as usize)
     .collect();
   let qualifying_days = window.len() as u32;
@@ -227,19 +265,74 @@ pub fn derive_baseline_state(days: &[DailyIdleSample]) -> BaselineState {
   match (
     window.first(),
     window.last(),
-    weighted_idle_temperature(window.iter().copied()),
+    weighted_average(window.iter().copied()),
   ) {
-    (Some(first), Some(last), Some((idle_temperature_avg, sample_minutes)))
+    (Some(first), Some(last), Some((value, sample_minutes)))
       if qualifying_days == required_days =>
     {
-      BaselineState::Established {
-        idle_temperature_avg,
-        window_start_date: first.date,
-        window_end_date: last.date,
+      BaselineWindow::Established {
+        value,
+        start_date: first.date,
+        end_date: last.date,
         sample_minutes,
       }
     }
-    _ => BaselineState::Establishing {
+    _ => BaselineWindow::Establishing { qualifying_days },
+  }
+}
+
+/// Sample-minute-weighted average across `days`, with the total minutes
+/// behind it. Weighting by minutes rather than averaging daily averages
+/// keeps a day with twelve qualifying hours from counting the same as a
+/// day with thirty qualifying minutes.
+pub(crate) fn weighted_average<'a>(
+  days: impl IntoIterator<Item = &'a DailyBaselineSample>,
+) -> Option<(f32, u32)> {
+  let mut weighted_sum = 0.0f64;
+  let mut sample_minutes: u64 = 0;
+
+  for day in days {
+    let Some(value) = day.value else { continue };
+    weighted_sum += value as f64 * day.sample_minutes as f64;
+    sample_minutes += day.sample_minutes as u64;
+  }
+
+  (sample_minutes > 0).then(|| {
+    (
+      (weighted_sum / sample_minutes as f64) as f32,
+      sample_minutes as u32,
+    )
+  })
+}
+
+/// Establish the idle cooling baseline from the first
+/// [`COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS`] qualifying days in
+/// `days` - [`derive_baseline_window`] applied to the idle temperature
+/// projection.
+pub fn derive_baseline_state(days: &[DailyIdleSample]) -> BaselineState {
+  let required_days = COOLING_BASELINE_REQUIRED_QUALIFYING_DAYS;
+  let samples: Vec<_> = days
+    .iter()
+    .map(DailyIdleSample::as_baseline_sample)
+    .collect();
+
+  match derive_baseline_window(
+    &samples,
+    COOLING_BASELINE_QUALIFYING_IDLE_MINUTES,
+    required_days,
+  ) {
+    BaselineWindow::Established {
+      value,
+      start_date,
+      end_date,
+      sample_minutes,
+    } => BaselineState::Established {
+      idle_temperature_avg: value,
+      window_start_date: start_date,
+      window_end_date: end_date,
+      sample_minutes,
+    },
+    BaselineWindow::Establishing { qualifying_days } => BaselineState::Establishing {
       qualifying_days,
       required_days,
     },
@@ -283,33 +376,16 @@ pub fn summarize_recent_idle(
   }
 }
 
-/// Sample-minute-weighted average idle CPU temperature across `days`,
-/// together with the total idle sample minutes behind it. `None` when no
-/// day carries any idle-band minutes.
-///
-/// Weighting by minutes rather than averaging the daily averages keeps a
-/// day with twelve idle hours from counting the same as a day with thirty
-/// idle minutes.
+/// [`weighted_average`] over the idle temperature projection. `None` when
+/// no day carries any idle-band minutes.
 fn weighted_idle_temperature<'a>(
   days: impl IntoIterator<Item = &'a DailyIdleSample>,
 ) -> Option<(f32, u32)> {
-  let mut weighted_sum = 0.0f64;
-  let mut sample_minutes: u64 = 0;
-
-  for day in days {
-    let Some(temperature) = day.idle_temperature_avg else {
-      continue;
-    };
-    weighted_sum += temperature as f64 * day.idle_sample_minutes as f64;
-    sample_minutes += day.idle_sample_minutes as u64;
-  }
-
-  (sample_minutes > 0).then(|| {
-    (
-      (weighted_sum / sample_minutes as f64) as f32,
-      sample_minutes as u32,
-    )
-  })
+  let samples: Vec<_> = days
+    .into_iter()
+    .map(DailyIdleSample::as_baseline_sample)
+    .collect();
+  weighted_average(samples.iter())
 }
 
 /// Resolve the baseline lifecycle state for any Cooling Insight query:

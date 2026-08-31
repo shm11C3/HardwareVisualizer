@@ -868,13 +868,16 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
     roll_up_day(date).await?;
   }
 
-  // Resolve (and, once established, pin) the baseline right after the
+  // Resolve (and, once established, pin) both baselines right after the
   // rollup advances, so establishment happens in the background rather
   // than only when Cooling Insight is read — otherwise a user who never
   // opens the view before retention cleanup erases the
   // establishment-window rows would get a drifted baseline pinned on
-  // their first read.
+  // their first read. The ΔT baseline (#2045) needs this at least as
+  // much: it establishes later than the absolute one, so its window is
+  // closer to the retention cutoff by the time anyone looks.
   crate::persistence::cooling_baseline::ensure_baseline_pinned().await;
+  crate::persistence::cooling_delta_baseline::ensure_delta_baseline_pinned().await;
 
   Ok(())
 }
@@ -954,35 +957,55 @@ pub(crate) async fn persist_day_rollup_from_pool(
 /// can show daily but not hourly (or the reverse) would only be a source
 /// of inconsistent answers.
 ///
-/// The pinned baseline's own window is exempt from both deletes. The
+/// Every pinned baseline's own window is exempt from both deletes. A
 /// baseline is a fixed reference that never expires (that is the point of
 /// pinning it), so once its window drifts past the retention cutoff,
 /// deleting the rows inside it would permanently empty every
 /// baseline-side comparison (the load-band comparison, and the Explorer's
 /// baseline medians) while the baseline still names that period as the
-/// reference. The exemption costs at most a week of rows.
+/// reference.
+///
+/// There are two such windows since #2045 - the absolute idle baseline's
+/// and the ΔT baseline's - and they are generally *different* date
+/// ranges, because ambient collection tends to begin long after the
+/// machine did. The exemption costs at most two weeks of rows.
 pub async fn cleanup_old_data() {
   use crate::infrastructure::database;
 
-  let preserved_window =
-    match database::cooling_baseline::select_established_baseline().await {
-      Ok(baseline) => baseline.map(|b| (b.window_start_date, b.window_end_date)),
-      Err(e) => {
-        // Deleting without knowing the protected window could erase the
-        // baseline's evidence irrecoverably, so skip this cleanup pass and
-        // let the next boot retry rather than risk it.
-        log_error!(
-          "Failed to read the pinned cooling baseline; skipping cooling rollup cleanup",
-          "persistence::cooling_rollup::cleanup_old_data",
-          Some(e.to_string())
-        );
-        return;
-      }
-    };
+  // Deleting without knowing a protected window could erase a baseline's
+  // evidence irrecoverably, so either read failing skips this cleanup
+  // pass entirely and lets the next boot retry rather than risk it.
+  let mut preserved_windows = Vec::new();
+  match database::cooling_baseline::select_established_baseline().await {
+    Ok(baseline) => {
+      preserved_windows.extend(baseline.map(|b| (b.window_start_date, b.window_end_date)))
+    }
+    Err(e) => {
+      log_error!(
+        "Failed to read the pinned cooling baseline; skipping cooling rollup cleanup",
+        "persistence::cooling_rollup::cleanup_old_data",
+        Some(e.to_string())
+      );
+      return;
+    }
+  }
+  match database::cooling_delta_baseline::select_established_delta_baseline().await {
+    Ok(baseline) => {
+      preserved_windows.extend(baseline.map(|b| (b.window_start_date, b.window_end_date)))
+    }
+    Err(e) => {
+      log_error!(
+        "Failed to read the pinned ΔT cooling baseline; skipping cooling rollup cleanup",
+        "persistence::cooling_rollup::cleanup_old_data",
+        Some(e.to_string())
+      );
+      return;
+    }
+  }
 
   if let Err(e) = database::cooling_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
-    preserved_window,
+    &preserved_windows,
   )
   .await
   {
@@ -995,7 +1018,7 @@ pub async fn cleanup_old_data() {
 
   if let Err(e) = database::cooling_hourly_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
-    preserved_window,
+    &preserved_windows,
   )
   .await
   {

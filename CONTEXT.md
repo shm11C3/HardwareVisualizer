@@ -208,6 +208,10 @@ _Avoid_: Temperature difference, delta T, temperature offset, cooling score
 How many of a day's archived minutes carried an Ambient Temperature Reading at all, whether or not the machine's own temperature could be read that minute.
 _Avoid_: Sample minutes, uptime, sensor availability
 
+**Thermal Delta Baseline**:
+The Thermal Delta a machine settles at when idle, fixed from its first qualifying days once enough of them carry paired readings; established over its own collection period rather than the cooling baseline's, because a machine's ambient sensor is often added long after it started running.
+_Avoid_: Cooling baseline, reference temperature, calibration
+
 ### Sensor Availability
 
 **External Component Guidance**:

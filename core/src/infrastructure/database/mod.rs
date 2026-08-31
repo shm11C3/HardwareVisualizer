@@ -11,6 +11,7 @@ pub mod ambient_archive;
 pub mod archive_queries;
 pub mod cooling_baseline;
 pub mod cooling_daily_summary;
+pub mod cooling_delta_baseline;
 pub mod cooling_fan_daily_summary;
 pub mod cooling_hourly_summary;
 pub mod db;

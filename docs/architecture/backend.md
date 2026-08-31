@@ -313,22 +313,42 @@ counted outside that nesting, the way power already is: whether the room's air
 was readable is independent of whether the CPU's sensors were, so a machine with
 an ambient sensor and no CPU temperature sensor still records honest coverage.
 
-`getCoolingBandComparison` and `getCoolingBaselineDelta` each carry a nullable
+`getCoolingBandComparison` and `getCoolingBaselineDelta` each carry an
 `ambientAdjusted` variant of their result rather than a command of their own -
-same question, same two windows, same lifecycle. Null means neither window holds
-a paired minute (the normal state with no environmental sensor, and what keeps
-every other field of those responses unchanged); present-but-not-comparable
-means ambient data exists and one window is still too thin.
+same question, same recent window. It carries its own lifecycle rather than a
+null: a machine with no environmental sensor reports an establishing ΔT baseline
+at zero qualifying days, which is honest and fabricates nothing, while
+established-but-not-comparable means the reference exists and the recent window
+is still too thin. Both responses also carry the ΔT baseline's own window dates,
+because they differ from the absolute window the same response reports.
 
-**The ΔT baseline is deliberately not pinned**, unlike the absolute idle
-baseline beside it. That baseline is pinned because re-deriving it would let
-"the first N qualifying days" advance as the original days aged out; the ΔT
-reading instead averages the *already-pinned* window, whose rows are exempt from
-retention cleanup for as long as the baseline names them, so it cannot drift.
-Not pinning also means ambient collection that starts after the baseline was
-established still produces a reading once the backfill fills that window's ΔT
-columns in - a value captured at establishment time would have frozen "no
-ambient data" permanently.
+**The ΔT baseline establishes independently of the absolute one**, over its own
+window, and is pinned into its own single-row `cooling_delta_baseline` table.
+This is the one place the ambient reading deviates from the absolute baseline's
+design, and it is not an optimization - anchoring ΔT to the absolute baseline's
+window is simply wrong. Ambient collection commonly begins *after* that window
+has passed: a user adds a sensor, or the feature ships to an install with months
+of history. The absolute window is then a stretch of past days with no ambient
+readings, and the archive cannot grow them retroactively - so that machine would
+report "not comparable" forever, no matter how much ambient data it went on to
+collect. Deriving a ΔT window from days that actually carry paired minutes lets
+it establish from the sensor's own first week instead.
+
+Both baselines run the *same* establishment rule (`derive_baseline_window`,
+shared so they cannot drift apart on what "established" means); they differ only
+in which projection of a day they read - idle temperature versus idle ΔT - and
+in the qualifying-minute bar, which for ΔT counts minutes that needed *both*
+archives to produce a reading.
+
+The two get separate tables rather than columns on one row. Pinning is
+write-once (`INSERT OR IGNORE` against a `CHECK (id = 1)` row), which is exactly
+what makes an established baseline undriftable; two baselines that establish at
+different times cannot share one such row without the later one arriving as an
+`UPDATE`, a weaker rule that must be got right rather than being impossible to
+get wrong.
+
+Both pinned windows are exempt from the rollup's retention cleanup, and they are
+generally different date ranges.
 
 Backfill follows the lag-aware cursor precedent set by the power columns: the
 catch-up claims the ΔT columns are behind only when the ambient archive holds a

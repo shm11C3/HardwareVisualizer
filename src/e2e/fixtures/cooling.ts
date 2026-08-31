@@ -169,7 +169,12 @@ export const coolingBaselineDeltaEstablishingFixture: CoolingBaselineDelta = {
   observation: "establishing",
   dailyDeltas: [],
   sustainedDays: 0,
-  ambientAdjusted: null,
+  ambientAdjusted: {
+    baseline: { status: "establishing", qualifyingDays: 0, requiredDays: 7 },
+    recent: { deltaAvg: null, sampleMinutes: 0 },
+    delta: null,
+    comparable: false,
+  },
 };
 
 export const coolingBaselineDeltaFixture: CoolingBaselineDelta = {
@@ -194,7 +199,12 @@ export const coolingBaselineDeltaFixture: CoolingBaselineDelta = {
     { date: "2026-01-15", delta: 1.5 },
   ],
   sustainedDays: 3,
-  ambientAdjusted: null,
+  ambientAdjusted: {
+    baseline: { status: "establishing", qualifyingDays: 0, requiredDays: 7 },
+    recent: { deltaAvg: null, sampleMinutes: 0 },
+    delta: null,
+    comparable: false,
+  },
 };
 
 /**
@@ -219,7 +229,12 @@ export const coolingBaselineDeltaNotComparableFixture: CoolingBaselineDelta = {
   observation: "notComparable",
   dailyDeltas: [],
   sustainedDays: 0,
-  ambientAdjusted: null,
+  ambientAdjusted: {
+    baseline: { status: "establishing", qualifyingDays: 0, requiredDays: 7 },
+    recent: { deltaAvg: null, sampleMinutes: 0 },
+    delta: null,
+    comparable: false,
+  },
 };
 
 /** `observation: "sustainedMildRise"` - a 3-day streak at a +5..10degC drift. */
@@ -245,7 +260,12 @@ export const coolingBaselineDeltaMildRiseFixture: CoolingBaselineDelta = {
     { date: "2026-01-15", delta: 6.2 },
   ],
   sustainedDays: 3,
-  ambientAdjusted: null,
+  ambientAdjusted: {
+    baseline: { status: "establishing", qualifyingDays: 0, requiredDays: 7 },
+    recent: { deltaAvg: null, sampleMinutes: 0 },
+    delta: null,
+    comparable: false,
+  },
 };
 
 /** `observation: "sustainedLargeRise"` - a 3-day streak at a +10degC+ drift. */
@@ -271,7 +291,12 @@ export const coolingBaselineDeltaLargeRiseFixture: CoolingBaselineDelta = {
     { date: "2026-01-15", delta: 11.5 },
   ],
   sustainedDays: 3,
-  ambientAdjusted: null,
+  ambientAdjusted: {
+    baseline: { status: "establishing", qualifyingDays: 0, requiredDays: 7 },
+    recent: { deltaAvg: null, sampleMinutes: 0 },
+    delta: null,
+    comparable: false,
+  },
 };
 
 /**
@@ -452,4 +477,9 @@ export const coolingBandComparisonFixture: CoolingBandComparison = {
       ambientAdjusted: null,
     },
   ],
+  ambientAdjustedBaseline: {
+    status: "establishing",
+    qualifyingDays: 0,
+    requiredDays: 7,
+  },
 };

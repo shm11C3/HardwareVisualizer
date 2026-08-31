@@ -721,25 +721,27 @@ pub(crate) async fn max_pairable_ambient_archive_timestamp_before_from_pool(
 
 pub async fn delete_old_data(
   retention_days: u32,
-  preserved_window: Option<(NaiveDate, NaiveDate)>,
+  preserved_windows: &[(NaiveDate, NaiveDate)],
 ) -> Result<(), sqlx::Error> {
   let pool = db::get_pool().await?;
-  delete_old_data_from_pool(&pool, retention_days, preserved_window).await
+  delete_old_data_from_pool(&pool, retention_days, preserved_windows).await
 }
 
-/// Delete rows older than `retention_days`, except those inside
-/// `preserved_window`.
+/// Delete rows older than `retention_days`, except those inside any of
+/// `preserved_windows`.
 ///
-/// `preserved_window` is the pinned baseline's calendar window. Once that
-/// window ages past the retention cutoff, deleting its rows would leave
-/// every baseline-side comparison permanently empty while the pinned
-/// baseline itself still claims that period as the reference - so the
-/// window is exempt. It is at most a week of rows, kept for as long as the
-/// baseline it backs.
+/// `preserved_windows` are the pinned baselines' calendar windows - the
+/// absolute idle baseline's, and since #2045 the ΔT baseline's, which is
+/// generally a different range because ambient collection tends to begin
+/// later. Once a window ages past the retention cutoff, deleting its rows
+/// would leave every baseline-side comparison permanently empty while the
+/// pinned baseline still claims that period as the reference, so each is
+/// exempt. Together they are at most two weeks of rows, kept for as long
+/// as the baselines they back.
 pub(crate) async fn delete_old_data_from_pool(
   pool: &SqlitePool,
   retention_days: u32,
-  preserved_window: Option<(NaiveDate, NaiveDate)>,
+  preserved_windows: &[(NaiveDate, NaiveDate)],
 ) -> Result<(), sqlx::Error> {
   // Same cutoff style as `storage_health::delete_old_data`: a local-date
   // TEXT comparison, since `date` is stored as "%Y-%m-%d" and compares
@@ -749,27 +751,39 @@ pub(crate) async fn delete_old_data_from_pool(
   .format("%Y-%m-%d")
   .to_string();
 
-  match preserved_window {
-    Some((start, end)) => {
-      sqlx::query(
-        "DELETE FROM cooling_daily_summary
-         WHERE date < $1 AND NOT (date >= $2 AND date <= $3)",
-      )
-      .bind(cutoff)
+  let sql =
+    preserving_delete_sql("cooling_daily_summary", "date", preserved_windows.len());
+  let mut query = sqlx::query(&sql).bind(cutoff);
+  for (start, end) in preserved_windows {
+    query = query
       .bind(start.format("%Y-%m-%d").to_string())
-      .bind(end.format("%Y-%m-%d").to_string())
-      .execute(pool)
-      .await?;
-    }
-    None => {
-      sqlx::query("DELETE FROM cooling_daily_summary WHERE date < $1")
-        .bind(cutoff)
-        .execute(pool)
-        .await?;
-    }
+      .bind(end.format("%Y-%m-%d").to_string());
   }
+  query.execute(pool).await?;
 
   Ok(())
+}
+
+/// `DELETE FROM <table> WHERE <column> < ?` with one `NOT (<column>
+/// BETWEEN ? AND ?)` clause per preserved window.
+///
+/// Built rather than written out because the number of protected windows
+/// is a property of how many baselines exist, and that has already grown
+/// once (#2045 added the ΔT baseline beside the absolute one).
+pub(crate) fn preserving_delete_sql(
+  table: &str,
+  column: &str,
+  window_count: usize,
+) -> String {
+  let mut sql = format!("DELETE FROM {table} WHERE {column} < $1");
+  for index in 0..window_count {
+    // $1 is the cutoff, so each window's pair starts at $2.
+    let (start, end) = (index * 2 + 2, index * 2 + 3);
+    sql.push_str(&format!(
+      " AND NOT ({column} >= ${start} AND {column} <= ${end})"
+    ));
+  }
+  sql
 }
 
 #[cfg(test)]
@@ -1367,7 +1381,7 @@ mod tests {
       .unwrap();
     }
 
-    delete_old_data_from_pool(&pool, 400, None).await.unwrap();
+    delete_old_data_from_pool(&pool, 400, &[]).await.unwrap();
 
     let remaining: Vec<String> =
       sqlx::query_scalar("SELECT date FROM cooling_daily_summary")
@@ -1405,7 +1419,7 @@ mod tests {
       .unwrap();
     }
 
-    delete_old_data_from_pool(&pool, 400, Some((window_start, window_end)))
+    delete_old_data_from_pool(&pool, 400, &[(window_start, window_end)])
       .await
       .unwrap();
 

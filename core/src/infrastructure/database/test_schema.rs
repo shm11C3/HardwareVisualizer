@@ -128,6 +128,17 @@ pub(crate) const COOLING_FAN_DAILY_SUMMARY_DDL: &str =
   PRIMARY KEY (date, source)
 )";
 
+/// The single-row pinned ΔT baseline table (migration 20, #2045).
+pub(crate) const COOLING_DELTA_BASELINE_DDL: &str =
+  "CREATE TABLE cooling_delta_baseline (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  window_start_date TEXT NOT NULL,
+  window_end_date TEXT NOT NULL,
+  delta_temperature_avg REAL NOT NULL,
+  sample_minutes INTEGER NOT NULL,
+  established_at TEXT NOT NULL
+)";
+
 /// The per-hour `(load, temperature)` projection (migration 13).
 pub(crate) const COOLING_HOURLY_SUMMARY_DDL: &str =
   "CREATE TABLE cooling_hourly_summary (

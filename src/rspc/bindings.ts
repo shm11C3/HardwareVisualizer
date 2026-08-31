@@ -401,7 +401,11 @@ export type CoolingAmbientAdjustedBandComparison = {
  *  machine did. `delta` is null unless `comparable`.
  */
 export type CoolingAmbientAdjustedBaselineDelta = {
-	baseline: CoolingBandDeltaWindowSummary,
+	/**
+	 *  The ΔT baseline's own lifecycle and window, which advance
+	 *  independently of the absolute baseline beside it.
+	 */
+	baseline: CoolingDeltaBaselineState,
 	recent: CoolingBandDeltaWindowSummary,
 	delta: number | null,
 	comparable: boolean,
@@ -412,7 +416,7 @@ export type CoolingAmbientAdjustedBaselineDelta = {
  *  lifecycle as [`CoolingBaselineState`]: no comparison exists yet while
  *  the baseline is still establishing.
  */
-export type CoolingBandComparison = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; baselineWindowStartDate: string; baselineWindowEndDate: string; recentWindowStartDate: string; recentWindowEndDate: string; bands: CoolingBandComparisonEntry[] };
+export type CoolingBandComparison = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; baselineWindowStartDate: string; baselineWindowEndDate: string; recentWindowStartDate: string; recentWindowEndDate: string; bands: CoolingBandComparisonEntry[]; ambientAdjustedBaseline: CoolingDeltaBaselineState };
 
 // One CPU-load band's baseline-vs-recent comparison.
 export type CoolingBandComparisonEntry = {
@@ -495,11 +499,13 @@ export type CoolingBaselineDelta = {
 	dailyDeltas: CoolingDailyDelta[],
 	sustainedDays: number,
 	/**
-	 *  The ambient-normalized reading of the same drift (#2045). Null when
-	 *  no day in either window recorded a paired idle minute, which is the
-	 *  normal state on a machine with no environmental sensor.
+	 *  The ambient-normalized reading of the same drift (#2045). Always
+	 *  present, carrying its own lifecycle: a machine with no environmental
+	 *  sensor reports an establishing ΔT baseline at zero qualifying days
+	 *  rather than a fabricated number. Every field above is computed
+	 *  exactly as it was before #2045 whatever this one says.
 	 */
-	ambientAdjusted: CoolingAmbientAdjustedBaselineDelta | null,
+	ambientAdjusted: CoolingAmbientAdjustedBaselineDelta,
 };
 
 /**
@@ -536,6 +542,15 @@ export type CoolingDailyTrendPoint = {
 	 */
 	power: CoolingPowerSummary,
 };
+
+/**
+ *  Lifecycle of the ambient-normalized (ΔT) cooling baseline (#2045),
+ *  mirroring [`CoolingBaselineState`]. It establishes over its own window
+ *  of days that carry paired hardware/ambient minutes, which on a machine
+ *  whose environmental sensor arrived late is a different - often much
+ *  later - range than the absolute baseline's.
+ */
+export type CoolingDeltaBaselineState = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; deltaTemperatureAvg: number; windowStartDate: string; windowEndDate: string; sampleMinutes: number };
 
 /**
  *  Cooling Insight's read of the current idle-temperature drift. The

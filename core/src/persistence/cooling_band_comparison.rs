@@ -16,6 +16,7 @@ use chrono::{Duration, NaiveDate};
 use crate::persistence::cooling_baseline::{
   BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS,
 };
+use crate::persistence::cooling_delta_baseline::DeltaBaselineState;
 #[cfg(test)]
 use crate::persistence::cooling_rollup::{AmbientDeltaSummary, PowerSummary};
 use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingSummary};
@@ -134,17 +135,33 @@ pub enum CoolingBandComparison {
     /// bands and the type should keep saying so. One allocation per
     /// query, on a path that has just read the whole daily table.
     bands: Box<[BandComparison; 4]>,
+    /// The ΔT baseline's lifecycle (#2045), which advances independently
+    /// of the absolute one this variant's window dates describe.
+    ///
+    /// One fact for all four bands rather than a copy on each: the
+    /// window is a property of the baseline, not of a band. While this
+    /// is `Establishing`, every band's `ambient_adjusted` is `None` -
+    /// there is no reference window to compare against yet, the same way
+    /// the absolute comparison withholds every band while its own
+    /// baseline establishes.
+    ambient_adjusted_baseline: DeltaBaselineState,
   },
 }
 
 /// Derive the load-band comparison from every completed day's rollup row
-/// and the current baseline lifecycle state.
+/// and the current baseline lifecycle states.
 ///
 /// `window_end_date` is the most recent completed local day (yesterday),
 /// matching [`crate::persistence::cooling_baseline::derive_cooling_baseline`].
+///
+/// `delta_baseline_state` is a second, independent lifecycle (#2045): the
+/// ΔT baseline establishes over its own window, which is generally later
+/// than the absolute one on any machine that added an ambient sensor
+/// after it had been running for a while.
 pub fn derive_band_comparison(
   days: &[DailyCoolingSummary],
   baseline_state: BaselineState,
+  delta_baseline_state: DeltaBaselineState,
   window_end_date: NaiveDate,
 ) -> CoolingBandComparison {
   let (baseline_start, baseline_end) = match baseline_state {
@@ -182,12 +199,19 @@ pub fn derive_band_comparison(
       baseline,
       recent,
       comparable,
-      ambient_adjusted: ambient_adjusted_band_comparison(
-        days,
-        band,
-        (baseline_start, baseline_end),
-        (recent_start, window_end_date),
-      ),
+      // Note the *ΔT* baseline window, not the absolute one above: the
+      // two are different date ranges whenever ambient collection
+      // started later than the machine did.
+      ambient_adjusted: delta_baseline_state
+        .window()
+        .and_then(|delta_baseline_window| {
+          ambient_adjusted_band_comparison(
+            days,
+            band,
+            delta_baseline_window,
+            (recent_start, window_end_date),
+          )
+        }),
     }
   });
 
@@ -197,6 +221,7 @@ pub fn derive_band_comparison(
     recent_window_start_date: recent_start,
     recent_window_end_date: window_end_date,
     bands: Box::new(bands),
+    ambient_adjusted_baseline: delta_baseline_state,
   }
 }
 
@@ -320,9 +345,22 @@ pub(crate) async fn load_cooling_band_comparison_from_pool(
       .await?;
   let idle_samples: Vec<_> = days.iter().map(to_idle_sample).collect();
   let baseline_state = resolve_baseline_state_from_pool(pool, &idle_samples).await?;
+  // Resolved through its own resolver against its own pinned row, for
+  // the same reason the absolute one is: re-deriving would drift once
+  // the establishment window's rows age out.
+  let delta_baseline_state =
+    crate::persistence::cooling_delta_baseline::resolve_delta_baseline_state_from_pool(
+      pool, &days,
+    )
+    .await?;
   let yesterday = today - Duration::days(1);
 
-  Ok(derive_band_comparison(&days, baseline_state, yesterday))
+  Ok(derive_band_comparison(
+    &days,
+    baseline_state,
+    delta_baseline_state,
+    yesterday,
+  ))
 }
 
 /// [`load_cooling_band_comparison_from_pool`] against Core's process-wide
@@ -337,7 +375,8 @@ pub async fn load_cooling_band_comparison() -> Result<CoolingBandComparison, sql
 mod tests {
   use super::*;
   use crate::infrastructure::database::test_schema::{
-    COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, create_tables,
+    COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, COOLING_DELTA_BASELINE_DDL,
+    create_tables,
   };
   use crate::persistence::cooling_baseline::COOLING_BASELINE_QUALIFYING_IDLE_MINUTES;
 
@@ -364,6 +403,27 @@ mod tests {
       window_start_date: start,
       window_end_date: end,
       sample_minutes: 210,
+    }
+  }
+
+  /// A ΔT baseline established over `[start, end]`. Deliberately taken
+  /// as its own dates rather than reusing the absolute baseline's: the
+  /// two windows differ on any machine whose ambient sensor arrived late,
+  /// and these tests should be able to say so.
+  fn established_delta_baseline(start: NaiveDate, end: NaiveDate) -> DeltaBaselineState {
+    DeltaBaselineState::Established {
+      delta_temperature_avg: 10.0,
+      window_start_date: start,
+      window_end_date: end,
+      sample_minutes: 210,
+    }
+  }
+
+  /// The ΔT baseline of a machine that has no ambient data at all.
+  fn establishing_delta_baseline() -> DeltaBaselineState {
+    DeltaBaselineState::Establishing {
+      qualifying_days: 0,
+      required_days: 7,
     }
   }
 
@@ -424,6 +484,7 @@ mod tests {
     let result = derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_start),
+      establishing_delta_baseline(),
       recent_end,
     );
 
@@ -461,6 +522,7 @@ mod tests {
     let idle = idle_comparison(derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_start),
+      established_delta_baseline(baseline_start, baseline_start),
       recent_end,
     ));
 
@@ -492,6 +554,7 @@ mod tests {
     let idle = idle_comparison(derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_end),
+      established_delta_baseline(baseline_start, baseline_end),
       recent_end,
     ));
 
@@ -526,6 +589,7 @@ mod tests {
     let idle = idle_comparison(derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_start),
+      established_delta_baseline(baseline_start, baseline_start),
       recent_end,
     ));
 
@@ -556,6 +620,7 @@ mod tests {
     let idle = idle_comparison(derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_start),
+      established_delta_baseline(baseline_start, baseline_start),
       recent_end,
     ));
 
@@ -596,6 +661,7 @@ mod tests {
     let result = derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_start),
+      established_delta_baseline(baseline_start, baseline_start),
       recent_end,
     );
     let CoolingBandComparison::Established { bands, .. } = result else {
@@ -618,6 +684,7 @@ mod tests {
         qualifying_days: 2,
         required_days: 7,
       },
+      establishing_delta_baseline(),
       date(2026, 8, 20),
     );
 
@@ -684,6 +751,7 @@ mod tests {
     let result = derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_end),
+      establishing_delta_baseline(),
       recent_end,
     );
 
@@ -694,6 +762,7 @@ mod tests {
         recent_window_start_date,
         recent_window_end_date,
         bands,
+        ..
       } => {
         assert_eq!(baseline_window_start_date, baseline_start);
         assert_eq!(baseline_window_end_date, baseline_end);
@@ -766,6 +835,7 @@ mod tests {
     let result = derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_end),
+      establishing_delta_baseline(),
       recent_end,
     );
 
@@ -811,6 +881,7 @@ mod tests {
     let result = derive_band_comparison(
       &days,
       established_baseline(baseline_start, baseline_end),
+      establishing_delta_baseline(),
       recent_end,
     );
 
@@ -851,7 +922,15 @@ mod tests {
     use sqlx::SqlitePool;
 
     async fn setup_tables(pool: &SqlitePool) {
-      create_tables(pool, &[COOLING_DAILY_SUMMARY_DDL, COOLING_BASELINE_DDL]).await;
+      create_tables(
+        pool,
+        &[
+          COOLING_DAILY_SUMMARY_DDL,
+          COOLING_BASELINE_DDL,
+          COOLING_DELTA_BASELINE_DDL,
+        ],
+      )
+      .await;
     }
 
     async fn insert_idle_day(

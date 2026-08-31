@@ -302,6 +302,30 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         CREATE INDEX IF NOT EXISTS idx_data_archive_timestamp ON DATA_ARCHIVE(timestamp);
       "#,
     },
+    SchemaMigration {
+      version: 20,
+      description: "create_cooling_delta_baseline",
+      // The pinned ambient-normalized (ΔT) cooling baseline (#2045).
+      //
+      // Its own table rather than columns on `cooling_baseline` because
+      // the two establish at different times: ambient collection
+      // commonly begins long after the absolute baseline was pinned.
+      // Pinning is write-once against a `CHECK (id = 1)` row, and that
+      // is exactly what makes an established baseline undriftable - two
+      // baselines sharing one such row would force the later one to
+      // arrive as an UPDATE, a weaker rule that has to be got right
+      // rather than being impossible to get wrong.
+      sql: r#"
+        CREATE TABLE cooling_delta_baseline (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          window_start_date TEXT NOT NULL,
+          window_end_date TEXT NOT NULL,
+          delta_temperature_avg REAL NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          established_at TEXT NOT NULL
+        );
+      "#,
+    },
   ]
 }
 
@@ -572,18 +596,49 @@ mod tests {
   }
 
   #[test]
+  fn migration_v20_creates_the_single_row_cooling_delta_baseline_table() {
+    let migrations = get_migrations();
+    let v20 = migrations
+      .iter()
+      .find(|m| m.version == 20)
+      .expect("Version 20 up migration must exist");
+    assert!(v20.sql.contains("CREATE TABLE cooling_delta_baseline"));
+    // The CHECK constraint is what makes the pin write-once, so the ΔT
+    // baseline cannot drift once established - same as v12.
+    assert!(v20.sql.contains("id INTEGER PRIMARY KEY CHECK (id = 1)"));
+    assert!(v20.sql.contains("window_start_date TEXT NOT NULL"));
+    assert!(v20.sql.contains("window_end_date TEXT NOT NULL"));
+    assert!(v20.sql.contains("delta_temperature_avg REAL NOT NULL"));
+    assert!(v20.sql.contains("sample_minutes INTEGER NOT NULL"));
+    assert!(v20.sql.contains("established_at TEXT NOT NULL"));
+  }
+
+  #[test]
+  fn the_delta_baseline_is_a_separate_table_from_the_absolute_baseline() {
+    // The two must stay separate write-once rows: they establish at
+    // different times, and an UPDATE-based pin is a weaker rule than an
+    // insert-once one.
+    let migrations = get_migrations();
+    let v20 = migrations.iter().find(|m| m.version == 20).unwrap();
+    assert!(
+      !v20.sql.contains("ALTER TABLE cooling_baseline"),
+      "the ΔT baseline must not be bolted onto the absolute baseline's row"
+    );
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 19);
+    assert_eq!(get_max_migration_version(), 20);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
     // 16 was reserved while the ambient delta columns were in flight and
-    // is now filled, so 1..=19 happens to be contiguous again. The
+    // is now filled, so 1..=20 happens to be contiguous again. The
     // assertion below still only requires unique and ascending - see it
     // for why contiguity is not something to depend on.
-    assert_eq!(migrations.len(), 19);
+    assert_eq!(migrations.len(), 20);
   }
 
   #[test]
