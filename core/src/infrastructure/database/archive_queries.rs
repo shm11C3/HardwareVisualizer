@@ -485,6 +485,34 @@ async fn select_ambient_archive_series_from_pool(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<AmbientArchiveSeries, ArchiveSeriesError> {
+  // The readings and the labels come out of one transaction, so both
+  // describe the same state of the archive. The archive worker commits an
+  // ambient minute every tick, and the lane reads `sources` as evidence
+  // that a sensor is contributing to this window: two independent reads
+  // could straddle that commit and report a label whose rows the bucket
+  // query never saw - a claim about the sensor that no single state of
+  // the database ever supported.
+  let mut tx = pool.begin().await?;
+  let series = select_ambient_archive_series_in_transaction(
+    &mut tx,
+    start,
+    end,
+    bucket_width_ms,
+    bucket_timestamp,
+  )
+  .await?;
+  tx.commit().await?;
+
+  Ok(series)
+}
+
+async fn select_ambient_archive_series_in_transaction(
+  tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+  start: &DateTime<Utc>,
+  end: &DateTime<Utc>,
+  bucket_width_ms: i64,
+  bucket_timestamp: ArchiveBucketTimestamp,
+) -> Result<AmbientArchiveSeries, ArchiveSeriesError> {
   let bounds = ArchiveSeriesBounds::new(start, end, bucket_width_ms, bucket_timestamp)?;
   // Compare via epoch milliseconds rather than raw TEXT, the same way the
   // fan series and `cooling_daily_summary` do: both archive tables are
@@ -533,13 +561,15 @@ async fn select_ambient_archive_series_from_pool(
     .bind(start.timestamp_millis())
     .bind(end.timestamp_millis())
     .bind(bucket_width_ms)
-    .fetch_all(pool)
+    .fetch_all(&mut **tx)
     .await?;
 
-  // A second round trip rather than carrying the label through the
+  // A second statement rather than carrying the label through the
   // aggregation: the labels belong to the window, not to any one bucket,
   // and folding them into the grouped query would either multiply the
-  // rows or need a string concatenation to unpick in Rust.
+  // rows or need a string concatenation to unpick in Rust. It shares the
+  // caller's transaction, so "second statement" does not mean "second
+  // view of the archive".
   let sources = sqlx::query_as::<_, AmbientSourceRow>(&format!(
     "SELECT DISTINCT source
      FROM AMBIENT_ARCHIVE
@@ -548,7 +578,7 @@ async fn select_ambient_archive_series_from_pool(
   ))
   .bind(start.timestamp_millis())
   .bind(end.timestamp_millis())
-  .fetch_all(pool)
+  .fetch_all(&mut **tx)
   .await?;
 
   Ok(AmbientArchiveSeries {
@@ -1844,6 +1874,48 @@ mod tests {
     .unwrap();
 
     assert_eq!(series.sources, vec!["Desk", "Window"]);
+  }
+
+  #[tokio::test]
+  async fn ambient_readings_and_labels_come_from_one_view_of_the_archive() {
+    // The lane reads `sources` as evidence that a sensor contributed to
+    // this window, so a label without the rows behind it (or the reverse)
+    // is a claim no single state of the archive supported. Proven by
+    // reading through a transaction that holds an *uncommitted* insert:
+    // only a query sharing that transaction can see it, so if the two
+    // statements ever drift onto separate views again, one of the two
+    // assertions below stops holding.
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    setup_ambient_archive(&pool).await;
+    insert_ambient_row(&pool, "Desk", 20.0, "2026-06-08T00:00:10.000Z").await;
+
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query(
+      "INSERT INTO AMBIENT_ARCHIVE (source, temperature, timestamp)
+       VALUES ($1, $2, $3)",
+    )
+    .bind("Window")
+    .bind(30.0)
+    .bind(utc("2026-06-08T00:01:10.000Z"))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    let series = select_ambient_archive_series_in_transaction(
+      &mut tx,
+      &utc("2026-06-08T00:00:00.000Z"),
+      &utc("2026-06-08T00:04:59.999Z"),
+      300_000,
+      ArchiveBucketTimestamp::Start,
+    )
+    .await
+    .unwrap();
+    tx.rollback().await.unwrap();
+
+    assert_eq!(series.sources, vec!["Desk", "Window"]);
+    // 20.0 and 30.0 are separate minutes, so the bucket average is 25.0 -
+    // the reading the "Window" label was advertised on the strength of.
+    assert_close(series.buckets[0].ambient_avg, 25.0);
   }
 
   #[test]
