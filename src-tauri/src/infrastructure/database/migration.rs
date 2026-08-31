@@ -210,6 +210,41 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         CREATE INDEX IF NOT EXISTS idx_ambient_archive_timestamp ON AMBIENT_ARCHIVE(timestamp);
       "#,
     },
+    SchemaMigration {
+      version: 16,
+      description: "add_cooling_daily_summary_ambient_delta_columns",
+      // The per-band thermal delta (CPU package temperature minus ambient,
+      // #2045) plus how many of the day's archived minutes carried an
+      // ambient pair at all. Nullable delta columns and a defaulted
+      // `*_delta_sample_minutes` so every row written before this
+      // migration - and every row on a machine with no ambient sensor -
+      // reads back as absent rather than 0 K (DP-02).
+      //
+      // `ambient_coverage_minutes` is counted outside the load-band gate,
+      // the same way `power_sample_minutes` is: ambient availability is a
+      // separate capability from CPU temperature, and the backfill cursor
+      // needs a fact that a machine without a CPU temperature sensor can
+      // still record.
+      sql: r#"
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN idle_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN low_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN mid_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_temperature_avg REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_temperature_max REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_temperature_min REAL;
+        ALTER TABLE cooling_daily_summary ADD COLUMN high_delta_sample_minutes INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cooling_daily_summary ADD COLUMN ambient_coverage_minutes INTEGER NOT NULL DEFAULT 0;
+      "#,
+    },
   ]
 }
 
@@ -405,14 +440,43 @@ mod tests {
   }
 
   #[test]
+  fn migration_v16_adds_cooling_daily_summary_ambient_delta_columns() {
+    let migrations = get_migrations();
+    let v16 = migrations
+      .iter()
+      .find(|m| m.version == 16)
+      .expect("Version 16 up migration must exist");
+    assert!(v16.sql.contains("ALTER TABLE cooling_daily_summary"));
+    for band in ["idle", "low", "mid", "high"] {
+      for stats in ["avg", "max", "min"] {
+        assert!(
+          v16
+            .sql
+            .contains(&format!("{band}_delta_temperature_{stats} REAL"))
+        );
+      }
+      // Rows written before ambient collection existed must read back as
+      // "no paired minutes" rather than failing a NOT NULL constraint.
+      assert!(v16.sql.contains(&format!(
+        "{band}_delta_sample_minutes INTEGER NOT NULL DEFAULT 0"
+      )));
+    }
+    assert!(
+      v16
+        .sql
+        .contains("ambient_coverage_minutes INTEGER NOT NULL DEFAULT 0")
+    );
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 15);
+    assert_eq!(get_max_migration_version(), 16);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
-    assert_eq!(migrations.len(), 15);
+    assert_eq!(migrations.len(), 16);
   }
 
   #[test]
@@ -649,5 +713,54 @@ mod tests {
       without_temperature.is_err(),
       "a minute without a usable ambient reading must have no row at all"
     );
+  }
+
+  /// The ambient-normalized delta columns (#2045) must be additive: a day
+  /// written the way every pre-#2045 row was must read back with absent
+  /// deltas and zero ambient coverage, never a fabricated 0 K.
+  #[tokio::test]
+  async fn shipped_migrations_leave_pre_ambient_days_with_absent_deltas() {
+    use hardviz_core::infrastructure::database::migrate;
+    use sqlx::sqlite::SqlitePool;
+
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let url = format!("sqlite:{}", file.path().to_string_lossy());
+    let pool = SqlitePool::connect(&url).await.unwrap();
+
+    migrate::run_on_pool(&pool, get_migrations())
+      .await
+      .expect("the shipped migration set must apply cleanly");
+
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date, coverage_minutes,
+         idle_cpu_temperature_avg, idle_sample_minutes
+       ) VALUES ('2026-06-21', 1440, 35.0, 600)",
+    )
+    .execute(&pool)
+    .await
+    .expect("a pre-#2045 shaped insert must still succeed");
+
+    let row: (Option<f64>, i64, i64) = sqlx::query_as(
+      "SELECT idle_delta_temperature_avg, idle_delta_sample_minutes,
+              ambient_coverage_minutes
+       FROM cooling_daily_summary WHERE date = '2026-06-21'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row, (None, 0, 0));
+
+    sqlx::query(
+      "INSERT INTO cooling_daily_summary (
+         date, coverage_minutes,
+         idle_delta_temperature_avg, idle_delta_temperature_max,
+         idle_delta_temperature_min, idle_delta_sample_minutes,
+         ambient_coverage_minutes
+       ) VALUES ('2026-06-22', 1440, 22.0, 26.0, 18.0, 500, 720)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert with the ambient delta columns must succeed after migrations");
   }
 }

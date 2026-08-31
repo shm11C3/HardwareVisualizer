@@ -209,6 +209,9 @@ mod tests {
       cpu_power_avg: None,
       cpu_power_max: None,
       cpu_power_min: None,
+      // The hourly fold does not read ambient either (#2045 keeps ΔT in
+      // the daily rollup only), so the pairing stays absent throughout.
+      ambient_temperature_avg: None,
     }
   }
 
@@ -368,6 +371,9 @@ mod tests {
       cpu_power_avg: None,
       cpu_power_max: None,
       cpu_power_min: None,
+      // The hourly fold does not read ambient either (#2045 keeps ΔT in
+      // the daily rollup only), so the pairing stays absent throughout.
+      ambient_temperature_avg: None,
     }];
 
     assert_eq!(summarize_hours(&minutes, &Utc), Vec::new());

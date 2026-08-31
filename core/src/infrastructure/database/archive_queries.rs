@@ -396,9 +396,19 @@ fn format_datetime(datetime: &DateTime<Utc>) -> String {
 /// timestamps without duplicating this conversion or relying on raw TEXT
 /// comparison, which only sorts correctly when every writer produces the
 /// exact same string shape.
-pub(crate) fn sqlite_epoch_milliseconds() -> &'static str {
-  "(CAST(strftime('%s', timestamp) AS INTEGER) * 1000 + \
-   CAST(substr(strftime('%f', timestamp), 4, 3) AS INTEGER))"
+pub(crate) fn sqlite_epoch_milliseconds() -> String {
+  sqlite_epoch_milliseconds_of("timestamp")
+}
+
+/// [`sqlite_epoch_milliseconds`] against an explicitly named column, so a
+/// query joining two tables that both have a `timestamp` column (the
+/// ambient pairing in `cooling_daily_summary`, #2045) can qualify each
+/// side instead of relying on SQLite's name-resolution order.
+pub(crate) fn sqlite_epoch_milliseconds_of(column: &str) -> String {
+  format!(
+    "(CAST(strftime('%s', {column}) AS INTEGER) * 1000 + \
+     CAST(substr(strftime('%f', {column}), 4, 3) AS INTEGER))"
+  )
 }
 
 fn bucket_timestamp_sql(

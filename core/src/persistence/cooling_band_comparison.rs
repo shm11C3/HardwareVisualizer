@@ -17,7 +17,7 @@ use crate::persistence::cooling_baseline::{
   BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS,
 };
 #[cfg(test)]
-use crate::persistence::cooling_rollup::PowerSummary;
+use crate::persistence::cooling_rollup::{AmbientDeltaSummary, PowerSummary};
 use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingSummary};
 
 /// Minimum sample minutes a band's window must carry before that band's
@@ -26,6 +26,18 @@ use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingS
 /// not the other is still not comparable overall (DP-02: no delta
 /// computed from a handful of minutes as if it were a measurement).
 pub const COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES: u32 = 30;
+
+/// Minimum ΔT sample minutes a window must carry before the
+/// ambient-adjusted reading is offered for it (#2045).
+///
+/// Deliberately its own constant at the same value as
+/// [`COOLING_BAND_COMPARISON_MINIMUM_SAMPLE_MINUTES`] rather than an alias
+/// of it: the bar is the same idea (below it, report nothing rather than a
+/// number derived from a handful of minutes) but the evidence is scarcer,
+/// since a ΔT minute needs *both* archives to have produced a reading.
+/// Keeping the two separate means tightening one later does not silently
+/// move the other.
+pub const COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES: u32 = 30;
 
 /// One band's sample-minute-weighted temperature over some date window.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -40,6 +52,44 @@ impl BandWindowSummary {
   }
 }
 
+/// One band's sample-minute-weighted ΔT over some date window (#2045).
+///
+/// The value is a *difference* (CPU package temperature minus ambient), so
+/// it is named apart from [`BandWindowSummary::temperature_avg`]: mixing
+/// the two up at a call site would silently compare an absolute
+/// temperature against a delta.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BandDeltaWindowSummary {
+  pub delta_avg: Option<f32>,
+  pub sample_minutes: u32,
+}
+
+impl BandDeltaWindowSummary {
+  pub(crate) fn is_comparable(&self) -> bool {
+    self.sample_minutes >= COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES
+  }
+}
+
+/// One band's ambient-adjusted baseline-vs-recent comparison (#2045):
+/// the same two windows as [`BandComparison`], but over ΔT instead of
+/// absolute temperature, so a rise the weather explains and a rise the
+/// cooling explains can be told apart.
+///
+/// Subtracting `recent.delta_avg` from `baseline.delta_avg` is legitimate
+/// where subtracting a CPU summary from an ambient summary is not: both
+/// sides here are already per-minute ΔT values that were paired before
+/// aggregation, so this compares one period against another rather than
+/// reconstructing a pairing that never happened.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AmbientAdjustedBandComparison {
+  pub baseline: BandDeltaWindowSummary,
+  pub recent: BandDeltaWindowSummary,
+  /// Whether both windows carry enough paired minutes for the
+  /// ambient-adjusted reading to mean anything, on the same
+  /// both-sides-or-nothing rule as [`BandComparison::comparable`].
+  pub comparable: bool,
+}
+
 /// One [`CpuLoadBand`]'s baseline-vs-recent comparison.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BandComparison {
@@ -51,6 +101,18 @@ pub struct BandComparison {
   /// rather than a number, even though both fields above still carry
   /// whatever (insufficient) data was found.
   pub comparable: bool,
+  /// The ambient-adjusted reading of the same two windows (#2045), or
+  /// `None` when neither window recorded a single ΔT minute for this
+  /// band.
+  ///
+  /// `None` and `Some(.. { comparable: false, .. })` say different things
+  /// on purpose. `None` means this machine has no ambient evidence here at
+  /// all - the normal state on an install with no environmental sensor,
+  /// and what keeps every ambient-unaware reading of this response exactly
+  /// what it was before #2045. `Some` with `comparable: false` means
+  /// ambient data exists but one window is too thin to compare, which is
+  /// worth telling the user about because it will resolve on its own.
+  pub ambient_adjusted: Option<AmbientAdjustedBandComparison>,
 }
 
 /// Cooling Insight's load-band comparison, gated by the same baseline
@@ -115,6 +177,12 @@ pub fn derive_band_comparison(
       baseline,
       recent,
       comparable,
+      ambient_adjusted: ambient_adjusted_band_comparison(
+        days,
+        band,
+        (baseline_start, baseline_end),
+        (recent_start, window_end_date),
+      ),
     }
   });
 
@@ -163,6 +231,61 @@ fn band_window_summary(
   }
 }
 
+/// [`band_window_summary`] over the day's ΔT bands instead of its absolute
+/// temperature bands (#2045). Same sample-minute weighting - the ΔT band's
+/// own `sample_minutes`, which counts only the minutes that carried both
+/// readings, so a day whose ambient sensor dropped out for half the day
+/// weighs exactly the half it observed.
+pub(crate) fn band_delta_window_summary(
+  days: &[DailyCoolingSummary],
+  band: CpuLoadBand,
+  start: NaiveDate,
+  end: NaiveDate,
+) -> BandDeltaWindowSummary {
+  let mut weighted_sum = 0.0f64;
+  let mut sample_minutes: u64 = 0;
+
+  for day in days.iter().filter(|d| d.date >= start && d.date <= end) {
+    let summary = day.ambient.band(band);
+    let Some(avg) = summary.avg else { continue };
+    weighted_sum += avg as f64 * summary.sample_minutes as f64;
+    sample_minutes += summary.sample_minutes as u64;
+  }
+
+  BandDeltaWindowSummary {
+    delta_avg: (sample_minutes > 0)
+      .then(|| (weighted_sum / sample_minutes as f64) as f32),
+    sample_minutes: sample_minutes as u32,
+  }
+}
+
+/// The ambient-adjusted reading of one band's two windows, or `None` when
+/// neither window recorded a ΔT minute for this band.
+///
+/// The `None` case is the whole reason ambient stays optional: a machine
+/// with no environmental sensor produces it for every band, and the
+/// response then carries exactly the facts it carried before #2045.
+fn ambient_adjusted_band_comparison(
+  days: &[DailyCoolingSummary],
+  band: CpuLoadBand,
+  baseline_window: (NaiveDate, NaiveDate),
+  recent_window: (NaiveDate, NaiveDate),
+) -> Option<AmbientAdjustedBandComparison> {
+  let baseline =
+    band_delta_window_summary(days, band, baseline_window.0, baseline_window.1);
+  let recent = band_delta_window_summary(days, band, recent_window.0, recent_window.1);
+
+  if baseline.sample_minutes == 0 && recent.sample_minutes == 0 {
+    return None;
+  }
+
+  Some(AmbientAdjustedBandComparison {
+    comparable: baseline.is_comparable() && recent.is_comparable(),
+    baseline,
+    recent,
+  })
+}
+
 fn to_idle_sample(
   day: &DailyCoolingSummary,
 ) -> crate::persistence::cooling_baseline::DailyIdleSample {
@@ -208,6 +331,9 @@ pub async fn load_cooling_band_comparison() -> Result<CoolingBandComparison, sql
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::infrastructure::database::test_schema::{
+    COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, create_tables,
+  };
   use crate::persistence::cooling_baseline::COOLING_BASELINE_QUALIFYING_IDLE_MINUTES;
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
@@ -273,6 +399,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: baseline_end,
@@ -282,6 +409,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -291,6 +419,7 @@ mod tests {
         mid: empty_band(),
         high: band(70.0, 40),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_end,
@@ -300,6 +429,7 @@ mod tests {
         mid: empty_band(),
         high: band(72.0, 20),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
     ];
 
@@ -371,6 +501,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -380,6 +511,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
     ];
 
@@ -414,6 +546,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -423,6 +556,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
     ];
 
@@ -449,6 +583,7 @@ mod tests {
       mid: empty_band(),
       high: empty_band(),
       power: PowerSummary::default(),
+      ambient: AmbientDeltaSummary::default(),
     };
 
     let sample = to_idle_sample(&day);
@@ -468,48 +603,7 @@ mod tests {
     use sqlx::SqlitePool;
 
     async fn setup_tables(pool: &SqlitePool) {
-      sqlx::query(
-        "CREATE TABLE cooling_daily_summary (
-          date TEXT PRIMARY KEY,
-          idle_cpu_temperature_avg REAL,
-          idle_cpu_temperature_max REAL,
-          idle_cpu_temperature_min REAL,
-          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          low_cpu_temperature_avg REAL,
-          low_cpu_temperature_max REAL,
-          low_cpu_temperature_min REAL,
-          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          mid_cpu_temperature_avg REAL,
-          mid_cpu_temperature_max REAL,
-          mid_cpu_temperature_min REAL,
-          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          high_cpu_temperature_avg REAL,
-          high_cpu_temperature_max REAL,
-          high_cpu_temperature_min REAL,
-          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          coverage_minutes INTEGER NOT NULL,
-          cpu_power_avg REAL,
-          cpu_power_max REAL,
-          cpu_power_min REAL,
-          power_sample_minutes INTEGER NOT NULL DEFAULT 0
-        )",
-      )
-      .execute(pool)
-      .await
-      .unwrap();
-      sqlx::query(
-        "CREATE TABLE cooling_baseline (
-          id INTEGER PRIMARY KEY CHECK (id = 1),
-          window_start_date TEXT NOT NULL,
-          window_end_date TEXT NOT NULL,
-          idle_temperature_avg REAL NOT NULL,
-          sample_minutes INTEGER NOT NULL,
-          established_at TEXT NOT NULL
-        )",
-      )
-      .execute(pool)
-      .await
-      .unwrap();
+      create_tables(pool, &[COOLING_DAILY_SUMMARY_DDL, COOLING_BASELINE_DDL]).await;
     }
 
     async fn insert_idle_day(

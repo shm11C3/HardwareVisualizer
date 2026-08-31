@@ -10,9 +10,14 @@
 
 use chrono::{Duration, NaiveDate};
 
-use crate::persistence::cooling_baseline::{
-  BaselineState, DailyIdleSample, RecentIdleSummary, summarize_recent_idle,
+use crate::persistence::cooling_band_comparison::{
+  BandDeltaWindowSummary, band_delta_window_summary,
 };
+use crate::persistence::cooling_baseline::{
+  BaselineState, COOLING_BASELINE_RECENT_WINDOW_DAYS, DailyIdleSample, RecentIdleSummary,
+  summarize_recent_idle,
+};
+use crate::persistence::cooling_rollup::{CpuLoadBand, DailyCoolingSummary};
 
 /// Consecutive trailing-window days a delta must stay at or above
 /// [`COOLING_DELTA_MILD_RISE_THRESHOLD`] before the rise counts as
@@ -53,6 +58,31 @@ pub struct DailyDelta {
   pub delta: f32,
 }
 
+/// The ambient-normalized reading of the same drift (#2045): how far the
+/// machine's idle rise *above ambient* has moved, rather than how far its
+/// absolute idle temperature has moved.
+///
+/// This is what separates "summer made the air hotter" from "the cooling
+/// degraded": a ΔT that held steady while the absolute temperature climbed
+/// says the room warmed up, and a ΔT that climbed says the machine did.
+///
+/// `delta` subtracts two ΔT window averages, which is legitimate where
+/// subtracting a CPU summary from an ambient summary is not: both sides
+/// are already per-minute ΔT values paired before aggregation, so this
+/// compares one period against another rather than reconstructing a
+/// pairing that never happened.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AmbientAdjustedBaselineDelta {
+  /// The pinned baseline window's idle ΔT.
+  pub baseline: BandDeltaWindowSummary,
+  /// The trailing recent window's idle ΔT, over the same days
+  /// [`CoolingBaselineDelta::recent`] covers.
+  pub recent: BandDeltaWindowSummary,
+  /// `recent - baseline`, or `None` unless `comparable`.
+  pub delta: Option<f32>,
+  pub comparable: bool,
+}
+
 /// Everything Cooling Insight needs to render the baseline delta card.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoolingBaselineDelta {
@@ -68,6 +98,11 @@ pub struct CoolingBaselineDelta {
   /// `NotComparable`.
   pub daily_deltas: Vec<DailyDelta>,
   pub sustained_days: u32,
+  /// The ambient-normalized reading of the same drift (#2045), or `None`
+  /// when no day in either window recorded an idle ΔT minute - the normal
+  /// state on an install with no environmental sensor, and what keeps
+  /// every field above exactly what it was before #2045.
+  pub ambient_adjusted: Option<AmbientAdjustedBaselineDelta>,
 }
 
 /// Derive the baseline delta from every summarized day's idle-band
@@ -75,12 +110,24 @@ pub struct CoolingBaselineDelta {
 ///
 /// `window_end_date` is the most recent completed local day (yesterday),
 /// matching [`crate::persistence::cooling_baseline::derive_cooling_baseline`].
+/// `ambient_days` carries the same days' full rollup rows, which is where
+/// the per-band ΔT lives (#2045). It is a second slice rather than a
+/// replacement for `days` because the absolute-temperature verdict above
+/// must not change shape at all when ambient data appears: pass an empty
+/// slice and every field but `ambient_adjusted` is computed exactly as it
+/// was before #2045.
 pub fn derive_baseline_delta(
   days: &[DailyIdleSample],
+  ambient_days: &[DailyCoolingSummary],
   baseline_state: BaselineState,
   window_end_date: NaiveDate,
 ) -> CoolingBaselineDelta {
   let recent = summarize_recent_idle(days, window_end_date);
+  // Derived regardless of the absolute verdict below: the two readings
+  // answer different questions and one being unavailable says nothing
+  // about the other.
+  let ambient_adjusted =
+    derive_ambient_adjusted(ambient_days, baseline_state, window_end_date);
 
   let Some(baseline_temperature) = established_temperature(baseline_state) else {
     return CoolingBaselineDelta {
@@ -90,6 +137,7 @@ pub fn derive_baseline_delta(
       observation: CoolingDeltaObservation::Establishing,
       daily_deltas: Vec::new(),
       sustained_days: 0,
+      ambient_adjusted,
     };
   };
 
@@ -101,6 +149,7 @@ pub fn derive_baseline_delta(
       observation: CoolingDeltaObservation::NotComparable,
       daily_deltas: Vec::new(),
       sustained_days: 0,
+      ambient_adjusted,
     };
   }
 
@@ -124,7 +173,66 @@ pub fn derive_baseline_delta(
     observation,
     daily_deltas,
     sustained_days,
+    ambient_adjusted,
   }
+}
+
+/// The idle ΔT of the pinned baseline window against the idle ΔT of the
+/// trailing recent window (#2045), or `None` when neither window recorded
+/// a single idle ΔT minute.
+///
+/// **The ΔT baseline is deliberately not pinned**, unlike the absolute
+/// idle baseline it sits beside. The absolute baseline is pinned because
+/// re-deriving it would let "the first N qualifying days" silently advance
+/// as the original days aged out. That failure mode does not apply here:
+/// this reads the ΔT of the *already-pinned* window, whose
+/// `cooling_daily_summary` rows are exempt from retention cleanup for
+/// exactly as long as the baseline names them (see
+/// `cooling_rollup::cleanup_old_data`), so the days it averages cannot
+/// change underneath it.
+///
+/// Not pinning also buys something pinning would forfeit. Ambient
+/// collection commonly starts *after* the absolute baseline was
+/// established - a user adds a sensor, or #2045 ships to an install that
+/// already has months of history - and the backfill then fills the pinned
+/// window's ΔT columns in from the one-minute archive. A ΔT baseline
+/// captured at establishment time would have frozen "no ambient data"
+/// permanently and never noticed.
+fn derive_ambient_adjusted(
+  days: &[DailyCoolingSummary],
+  baseline_state: BaselineState,
+  window_end_date: NaiveDate,
+) -> Option<AmbientAdjustedBaselineDelta> {
+  let BaselineState::Established {
+    window_start_date,
+    window_end_date: baseline_end,
+    ..
+  } = baseline_state
+  else {
+    // No baseline window exists yet, so there is nothing to normalize
+    // against - the same gate the absolute reading applies.
+    return None;
+  };
+
+  let recent_start =
+    window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+  let baseline =
+    band_delta_window_summary(days, CpuLoadBand::Idle, window_start_date, baseline_end);
+  let recent =
+    band_delta_window_summary(days, CpuLoadBand::Idle, recent_start, window_end_date);
+
+  if baseline.sample_minutes == 0 && recent.sample_minutes == 0 {
+    return None;
+  }
+
+  let comparable = baseline.is_comparable() && recent.is_comparable();
+  Some(AmbientAdjustedBaselineDelta {
+    // `comparable` implies both averages are present.
+    delta: comparable.then(|| recent.delta_avg.unwrap() - baseline.delta_avg.unwrap()),
+    baseline,
+    recent,
+    comparable,
+  })
 }
 
 fn established_temperature(state: BaselineState) -> Option<f32> {
@@ -254,12 +362,33 @@ pub(crate) async fn load_cooling_baseline_delta_from_pool(
   use crate::infrastructure::database;
   use crate::persistence::cooling_baseline::resolve_baseline_state_from_pool;
 
-  let days =
-    database::cooling_daily_summary::select_daily_idle_samples_from_pool(pool).await?;
+  // Reads the full rollup rows rather than the idle-only projection since
+  // #2045: the ambient-adjusted reading needs the per-band ΔT columns, and
+  // the idle facts it also needs are already on the same row, so this is
+  // one wider query rather than two. The table holds at most
+  // `COOLING_DAILY_SUMMARY_RETENTION_DAYS` rows - see
+  // `select_daily_idle_samples` for why reading all of them is cheap.
+  let summaries =
+    database::cooling_daily_summary::select_all_daily_cooling_summaries_from_pool(pool)
+      .await?;
+  let days: Vec<_> = summaries.iter().map(to_idle_sample).collect();
   let baseline_state = resolve_baseline_state_from_pool(pool, &days).await?;
   let yesterday = today - Duration::days(1);
 
-  Ok(derive_baseline_delta(&days, baseline_state, yesterday))
+  Ok(derive_baseline_delta(
+    &days,
+    &summaries,
+    baseline_state,
+    yesterday,
+  ))
+}
+
+fn to_idle_sample(day: &DailyCoolingSummary) -> DailyIdleSample {
+  DailyIdleSample {
+    date: day.date,
+    idle_temperature_avg: day.idle.avg,
+    idle_sample_minutes: day.idle.sample_minutes,
+  }
 }
 
 /// [`load_cooling_baseline_delta_from_pool`] against Core's process-wide
@@ -272,6 +401,9 @@ pub async fn load_cooling_baseline_delta() -> Result<CoolingBaselineDelta, sqlx:
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::infrastructure::database::test_schema::{
+    COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, create_tables,
+  };
   use crate::persistence::cooling_baseline::{
     COOLING_BASELINE_COMPARABLE_IDLE_MINUTES, COOLING_BASELINE_RECENT_WINDOW_DAYS,
   };
@@ -325,7 +457,7 @@ mod tests {
       qualifying_days: 3,
       required_days: 7,
     };
-    let result = derive_baseline_delta(&[], state, date(2026, 8, 20));
+    let result = derive_baseline_delta(&[], &[], state, date(2026, 8, 20));
 
     assert_eq!(result.observation, CoolingDeltaObservation::Establishing);
     assert_eq!(result.delta, None);
@@ -335,7 +467,7 @@ mod tests {
 
   #[test]
   fn an_established_baseline_without_recent_idle_evidence_is_not_comparable() {
-    let result = derive_baseline_delta(&[], established(30.0), date(2026, 8, 20));
+    let result = derive_baseline_delta(&[], &[], established(30.0), date(2026, 8, 20));
 
     assert_eq!(result.observation, CoolingDeltaObservation::NotComparable);
     assert_eq!(result.delta, None);
@@ -349,7 +481,7 @@ mod tests {
   fn a_delta_below_five_degrees_is_within_range_even_if_sustained() {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 10, 34.9);
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert!((result.delta.unwrap() - 4.9).abs() < 0.001);
     assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
@@ -367,7 +499,7 @@ mod tests {
       35.0,
       COOLING_BASELINE_COMPARABLE_IDLE_MINUTES * COOLING_BASELINE_RECENT_WINDOW_DAYS,
     )];
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert!((result.delta.unwrap() - 5.0).abs() < 0.001);
     assert_eq!(result.sustained_days, 1);
@@ -380,7 +512,7 @@ mod tests {
   fn two_sustained_days_are_not_yet_enough_to_report_a_rise() {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 2, 35.0);
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.sustained_days, 2);
     assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
@@ -390,7 +522,7 @@ mod tests {
   fn three_sustained_days_at_a_mild_rise_report_sustained_mild_rise() {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 3, 35.0);
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.sustained_days, 3);
     assert_eq!(
@@ -405,7 +537,7 @@ mod tests {
   fn a_sustained_delta_just_under_ten_degrees_is_a_mild_rise() {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 5, 39.9);
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert!((result.delta.unwrap() - 9.9).abs() < 0.001);
     assert_eq!(
@@ -418,7 +550,7 @@ mod tests {
   fn a_sustained_delta_at_exactly_ten_degrees_is_a_large_rise() {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 5, 40.0);
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert!((result.delta.unwrap() - 10.0).abs() < 0.001);
     assert_eq!(
@@ -448,7 +580,7 @@ mod tests {
       ),
     ];
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.sustained_days, 1);
     let dates: Vec<_> = result.daily_deltas.iter().map(|d| d.date).collect();
@@ -467,7 +599,7 @@ mod tests {
     // history as a broken streak or looping forever.
     let days = days_ending_at(end, 2, 35.0);
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.sustained_days, 2);
     assert_eq!(result.daily_deltas.len(), 2);
@@ -488,7 +620,7 @@ mod tests {
     let real_day = end - Duration::days(3);
     let days = vec![day(real_day, 60.0, 1440)];
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.sustained_days, 0);
     assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
@@ -503,7 +635,7 @@ mod tests {
     let end = date(2026, 8, 20);
     let days = vec![day(end - Duration::days(2), 60.0, 1440)];
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.sustained_days, 0);
     assert!(result.daily_deltas.is_empty());
@@ -540,7 +672,7 @@ mod tests {
       day(end, 40.0, COOLING_BASELINE_COMPARABLE_IDLE_MINUTES),
     ];
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(
       result.observation,
@@ -554,7 +686,7 @@ mod tests {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 3, 40.0);
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(
       result.observation,
@@ -568,7 +700,7 @@ mod tests {
     let end = date(2026, 8, 20);
     let days = days_ending_at(end, 2, 45.0);
 
-    let result = derive_baseline_delta(&days, established(30.0), end);
+    let result = derive_baseline_delta(&days, &[], established(30.0), end);
 
     assert_eq!(result.observation, CoolingDeltaObservation::WithinRange);
     assert_eq!(result.sustained_days, 2);
@@ -581,44 +713,7 @@ mod tests {
     use sqlx::SqlitePool;
 
     async fn setup_tables(pool: &SqlitePool) {
-      sqlx::query(
-        "CREATE TABLE cooling_daily_summary (
-          date TEXT PRIMARY KEY,
-          idle_cpu_temperature_avg REAL,
-          idle_cpu_temperature_max REAL,
-          idle_cpu_temperature_min REAL,
-          idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          low_cpu_temperature_avg REAL,
-          low_cpu_temperature_max REAL,
-          low_cpu_temperature_min REAL,
-          low_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          mid_cpu_temperature_avg REAL,
-          mid_cpu_temperature_max REAL,
-          mid_cpu_temperature_min REAL,
-          mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          high_cpu_temperature_avg REAL,
-          high_cpu_temperature_max REAL,
-          high_cpu_temperature_min REAL,
-          high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-          coverage_minutes INTEGER NOT NULL
-        )",
-      )
-      .execute(pool)
-      .await
-      .unwrap();
-      sqlx::query(
-        "CREATE TABLE cooling_baseline (
-          id INTEGER PRIMARY KEY CHECK (id = 1),
-          window_start_date TEXT NOT NULL,
-          window_end_date TEXT NOT NULL,
-          idle_temperature_avg REAL NOT NULL,
-          sample_minutes INTEGER NOT NULL,
-          established_at TEXT NOT NULL
-        )",
-      )
-      .execute(pool)
-      .await
-      .unwrap();
+      create_tables(pool, &[COOLING_DAILY_SUMMARY_DDL, COOLING_BASELINE_DDL]).await;
     }
 
     async fn insert_idle_day(

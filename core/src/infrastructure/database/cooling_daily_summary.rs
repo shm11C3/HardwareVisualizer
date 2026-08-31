@@ -6,11 +6,12 @@
 //! so tests can exercise the query logic against an in-memory database
 //! without touching the process-wide `db::init` `OnceLock`.
 
-use super::archive_queries::sqlite_epoch_milliseconds;
+use super::archive_queries::{sqlite_epoch_milliseconds, sqlite_epoch_milliseconds_of};
 use super::db;
 use crate::persistence::cooling_baseline::DailyIdleSample;
 use crate::persistence::cooling_rollup::{
-  ArchiveMinuteSample, BandSummary, DailyCoolingSummary, PowerSummary,
+  AmbientDeltaSummary, ArchiveMinuteSample, BandSummary, DailyCoolingSummary,
+  PowerSummary,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::SqlitePool;
@@ -40,6 +41,11 @@ struct ArchiveMinuteRow {
   cpu_power_avg: Option<f64>,
   cpu_power_max: Option<f64>,
   cpu_power_min: Option<f64>,
+  // This minute's paired ambient temperature (#2045), or NULL when the
+  // minute has no ambient row at all. See
+  // `select_archive_minutes_for_range_from_pool` for how the pairing is
+  // resolved.
+  ambient_temperature_avg: Option<f64>,
 }
 
 impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
@@ -53,8 +59,19 @@ impl From<ArchiveMinuteRow> for ArchiveMinuteSample {
       cpu_power_avg: row.cpu_power_avg.map(|v| v as f32),
       cpu_power_max: row.cpu_power_max.map(|v| v as f32),
       cpu_power_min: row.cpu_power_min.map(|v| v as f32),
+      ambient_temperature_avg: row.ambient_temperature_avg.map(|v| v as f32),
     }
   }
+}
+
+/// SQL fragment bucketing an epoch-millisecond expression to the minute it
+/// falls in. The archive tick stamps a hardware row and every ambient row
+/// of the same write cycle with one identical instant, so exact equality
+/// would very nearly work - but bucketing to the minute is what the join
+/// actually means, and it keeps the pairing correct if a future writer
+/// ever stamps the two sides a few milliseconds apart.
+fn sqlite_minute_key(epoch_milliseconds: &str) -> String {
+  format!("({epoch_milliseconds} / 60000)")
 }
 
 async fn select_archive_minutes_for_range_from_pool(
@@ -69,20 +86,47 @@ async fn select_archive_minutes_for_range_from_pool(
   // not guaranteed to sort correctly against a differently-shaped bind
   // string at exact-second boundaries. `strftime` accepts every ISO 8601
   // shape chrono can produce, so this is robust regardless of writer.
-  let epoch_ms = sqlite_epoch_milliseconds();
+  let epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
+  let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
+  let minute_key = sqlite_minute_key(&epoch_ms);
+  let ambient_minute_key = sqlite_minute_key(&ambient_epoch_ms);
+  // The ambient side is pre-aggregated *within each minute* and then
+  // LEFT JOINed, which is what makes #2045's "pair samples first,
+  // aggregate second" rule structural: the row this returns carries one
+  // ambient value belonging to the same minute as its CPU readings, so no
+  // later step is able to subtract two summaries built over different
+  // sample sets. A minute with no ambient row keeps a NULL here and
+  // produces no ΔT downstream - never an interpolated one.
+  //
+  // `AVG(temperature)` across the minute's sources is the multi-source
+  // rule: `AMBIENT_ARCHIVE` is row-per-source, so a room with two sensors
+  // contributes two rows for one minute. An unweighted mean is the
+  // neutral choice for the MVP - Core has no ranking, calibration
+  // confidence, or "primary sensor" preference to justify favouring one
+  // label over another, and inventing one would be a product decision
+  // this rollup is not the place to make. With a single source (the
+  // common case) it degenerates to that source's own reading.
   let sql = format!(
     "SELECT
-       timestamp,
-       CAST(cpu_avg AS REAL) AS cpu_avg,
-       CAST(cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
-       CAST(cpu_temperature_max AS REAL) AS cpu_temperature_max,
-       CAST(cpu_temperature_min AS REAL) AS cpu_temperature_min,
-       CAST(cpu_power_avg AS REAL) AS cpu_power_avg,
-       CAST(cpu_power_max AS REAL) AS cpu_power_max,
-       CAST(cpu_power_min AS REAL) AS cpu_power_min
+       DATA_ARCHIVE.timestamp AS timestamp,
+       CAST(DATA_ARCHIVE.cpu_avg AS REAL) AS cpu_avg,
+       CAST(DATA_ARCHIVE.cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
+       CAST(DATA_ARCHIVE.cpu_temperature_max AS REAL) AS cpu_temperature_max,
+       CAST(DATA_ARCHIVE.cpu_temperature_min AS REAL) AS cpu_temperature_min,
+       CAST(DATA_ARCHIVE.cpu_power_avg AS REAL) AS cpu_power_avg,
+       CAST(DATA_ARCHIVE.cpu_power_max AS REAL) AS cpu_power_max,
+       CAST(DATA_ARCHIVE.cpu_power_min AS REAL) AS cpu_power_min,
+       ambient.ambient_temperature_avg AS ambient_temperature_avg
      FROM DATA_ARCHIVE
+     LEFT JOIN (
+       SELECT {ambient_minute_key} AS ambient_minute_key,
+              AVG(CAST(AMBIENT_ARCHIVE.temperature AS REAL)) AS ambient_temperature_avg
+       FROM AMBIENT_ARCHIVE
+       WHERE {ambient_epoch_ms} >= $1 AND {ambient_epoch_ms} < $2
+       GROUP BY ambient_minute_key
+     ) AS ambient ON ambient.ambient_minute_key = {minute_key}
      WHERE {epoch_ms} >= $1 AND {epoch_ms} < $2
-     ORDER BY timestamp ASC"
+     ORDER BY DATA_ARCHIVE.timestamp ASC"
   );
   let rows = sqlx::query_as::<_, ArchiveMinuteRow>(&sql)
     .bind(start.timestamp_millis())
@@ -207,6 +251,23 @@ struct DailyCoolingSummaryRow {
   cpu_power_max: Option<f64>,
   cpu_power_min: Option<f64>,
   power_sample_minutes: i64,
+  idle_delta_temperature_avg: Option<f64>,
+  idle_delta_temperature_max: Option<f64>,
+  idle_delta_temperature_min: Option<f64>,
+  idle_delta_sample_minutes: i64,
+  low_delta_temperature_avg: Option<f64>,
+  low_delta_temperature_max: Option<f64>,
+  low_delta_temperature_min: Option<f64>,
+  low_delta_sample_minutes: i64,
+  mid_delta_temperature_avg: Option<f64>,
+  mid_delta_temperature_max: Option<f64>,
+  mid_delta_temperature_min: Option<f64>,
+  mid_delta_sample_minutes: i64,
+  high_delta_temperature_avg: Option<f64>,
+  high_delta_temperature_max: Option<f64>,
+  high_delta_temperature_min: Option<f64>,
+  high_delta_sample_minutes: i64,
+  ambient_coverage_minutes: i64,
 }
 
 impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
@@ -261,6 +322,33 @@ impl From<DailyCoolingSummaryRow> for DailyCoolingSummary {
         min: row.cpu_power_min.map(|v| v as f32),
         sample_minutes: row.power_sample_minutes.max(0) as u32,
       },
+      ambient: AmbientDeltaSummary {
+        coverage_minutes: row.ambient_coverage_minutes.max(0) as u32,
+        idle: band(
+          row.idle_delta_temperature_avg,
+          row.idle_delta_temperature_max,
+          row.idle_delta_temperature_min,
+          row.idle_delta_sample_minutes,
+        ),
+        low: band(
+          row.low_delta_temperature_avg,
+          row.low_delta_temperature_max,
+          row.low_delta_temperature_min,
+          row.low_delta_sample_minutes,
+        ),
+        mid: band(
+          row.mid_delta_temperature_avg,
+          row.mid_delta_temperature_max,
+          row.mid_delta_temperature_min,
+          row.mid_delta_sample_minutes,
+        ),
+        high: band(
+          row.high_delta_temperature_avg,
+          row.high_delta_temperature_max,
+          row.high_delta_temperature_min,
+          row.high_delta_sample_minutes,
+        ),
+      },
     }
   }
 }
@@ -275,7 +363,12 @@ pub(crate) async fn select_all_daily_cooling_summaries_from_pool(
        mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
        high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
        coverage_minutes,
-       cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
+       cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes,
+       idle_delta_temperature_avg, idle_delta_temperature_max, idle_delta_temperature_min, idle_delta_sample_minutes,
+       low_delta_temperature_avg, low_delta_temperature_max, low_delta_temperature_min, low_delta_sample_minutes,
+       mid_delta_temperature_avg, mid_delta_temperature_max, mid_delta_temperature_min, mid_delta_sample_minutes,
+       high_delta_temperature_avg, high_delta_temperature_max, high_delta_temperature_min, high_delta_sample_minutes,
+       ambient_coverage_minutes
      FROM cooling_daily_summary
      ORDER BY date ASC",
   )
@@ -322,9 +415,15 @@ where
       mid_cpu_temperature_avg, mid_cpu_temperature_max, mid_cpu_temperature_min, mid_sample_minutes,
       high_cpu_temperature_avg, high_cpu_temperature_max, high_cpu_temperature_min, high_sample_minutes,
       coverage_minutes,
-      cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
+      cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes,
+      idle_delta_temperature_avg, idle_delta_temperature_max, idle_delta_temperature_min, idle_delta_sample_minutes,
+      low_delta_temperature_avg, low_delta_temperature_max, low_delta_temperature_min, low_delta_sample_minutes,
+      mid_delta_temperature_avg, mid_delta_temperature_max, mid_delta_temperature_min, mid_delta_sample_minutes,
+      high_delta_temperature_avg, high_delta_temperature_max, high_delta_temperature_min, high_delta_sample_minutes,
+      ambient_coverage_minutes
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+            $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39)
     ON CONFLICT(date) DO UPDATE SET
       idle_cpu_temperature_avg = excluded.idle_cpu_temperature_avg,
       idle_cpu_temperature_max = excluded.idle_cpu_temperature_max,
@@ -346,7 +445,24 @@ where
       cpu_power_avg = excluded.cpu_power_avg,
       cpu_power_max = excluded.cpu_power_max,
       cpu_power_min = excluded.cpu_power_min,
-      power_sample_minutes = excluded.power_sample_minutes
+      power_sample_minutes = excluded.power_sample_minutes,
+      idle_delta_temperature_avg = excluded.idle_delta_temperature_avg,
+      idle_delta_temperature_max = excluded.idle_delta_temperature_max,
+      idle_delta_temperature_min = excluded.idle_delta_temperature_min,
+      idle_delta_sample_minutes = excluded.idle_delta_sample_minutes,
+      low_delta_temperature_avg = excluded.low_delta_temperature_avg,
+      low_delta_temperature_max = excluded.low_delta_temperature_max,
+      low_delta_temperature_min = excluded.low_delta_temperature_min,
+      low_delta_sample_minutes = excluded.low_delta_sample_minutes,
+      mid_delta_temperature_avg = excluded.mid_delta_temperature_avg,
+      mid_delta_temperature_max = excluded.mid_delta_temperature_max,
+      mid_delta_temperature_min = excluded.mid_delta_temperature_min,
+      mid_delta_sample_minutes = excluded.mid_delta_sample_minutes,
+      high_delta_temperature_avg = excluded.high_delta_temperature_avg,
+      high_delta_temperature_max = excluded.high_delta_temperature_max,
+      high_delta_temperature_min = excluded.high_delta_temperature_min,
+      high_delta_sample_minutes = excluded.high_delta_sample_minutes,
+      ambient_coverage_minutes = excluded.ambient_coverage_minutes
     "#,
   )
   .bind(summary.date.format("%Y-%m-%d").to_string())
@@ -371,6 +487,23 @@ where
   .bind(summary.power.max)
   .bind(summary.power.min)
   .bind(summary.power.sample_minutes as i64)
+  .bind(summary.ambient.idle.avg)
+  .bind(summary.ambient.idle.max)
+  .bind(summary.ambient.idle.min)
+  .bind(minutes(&summary.ambient.idle))
+  .bind(summary.ambient.low.avg)
+  .bind(summary.ambient.low.max)
+  .bind(summary.ambient.low.min)
+  .bind(minutes(&summary.ambient.low))
+  .bind(summary.ambient.mid.avg)
+  .bind(summary.ambient.mid.max)
+  .bind(summary.ambient.mid.min)
+  .bind(minutes(&summary.ambient.mid))
+  .bind(summary.ambient.high.avg)
+  .bind(summary.ambient.high.max)
+  .bind(summary.ambient.high.min)
+  .bind(minutes(&summary.ambient.high))
+  .bind(summary.ambient.coverage_minutes as i64)
   .execute(executor)
   .await?;
 
@@ -464,6 +597,73 @@ pub(crate) async fn max_powered_archive_timestamp_before_from_pool(
     .await
 }
 
+/// The latest summarized day that recorded any ambient coverage (#2045).
+///
+/// Paired with [`max_pairable_ambient_archive_timestamp_before`] this is
+/// how the catch-up detects that the daily rollup's ambient delta columns
+/// are behind the archives - see
+/// `cooling_rollup::ambient_rollup_is_behind`.
+pub async fn max_ambient_summarized_date() -> Result<Option<NaiveDate>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_ambient_summarized_date_from_pool(&pool).await
+}
+
+pub(crate) async fn max_ambient_summarized_date_from_pool(
+  pool: &SqlitePool,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+  sqlx::query_scalar::<_, Option<NaiveDate>>(
+    "SELECT MAX(date) FROM cooling_daily_summary WHERE ambient_coverage_minutes > 0",
+  )
+  .fetch_one(pool)
+  .await
+}
+
+/// The most recent ambient archive timestamp strictly before `before`
+/// whose minute also has a `DATA_ARCHIVE` row (#2045).
+///
+/// Both bounds matter, and both mirror
+/// [`max_powered_archive_timestamp_before`]:
+///
+/// `before` is the start of today in local time, so the answer only ever
+/// names a *completed* day. The rollup never summarizes today, so today's
+/// ambient rows are not evidence that a day was missed - counting them
+/// would make a machine that is recording ambient right now rewind the
+/// catch-up on every cycle, forever.
+///
+/// The `EXISTS` clause matches `summarize_day`'s own ambient-coverage
+/// gate: coverage is counted per *archived minute* that had an ambient
+/// pair, so an ambient row whose minute has no hardware row can never
+/// become coverage however often the day is re-rolled. Counting it would
+/// send the catch-up chasing a day it can never fill.
+pub async fn max_pairable_ambient_archive_timestamp_before(
+  before: &DateTime<Utc>,
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  let pool = db::get_pool().await?;
+  max_pairable_ambient_archive_timestamp_before_from_pool(&pool, before).await
+}
+
+pub(crate) async fn max_pairable_ambient_archive_timestamp_before_from_pool(
+  pool: &SqlitePool,
+  before: &DateTime<Utc>,
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
+  let hardware_epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
+  let ambient_minute_key = sqlite_minute_key(&ambient_epoch_ms);
+  let hardware_minute_key = sqlite_minute_key(&hardware_epoch_ms);
+  let sql = format!(
+    "SELECT MAX(AMBIENT_ARCHIVE.timestamp) FROM AMBIENT_ARCHIVE
+     WHERE {ambient_epoch_ms} < $1
+       AND EXISTS (
+         SELECT 1 FROM DATA_ARCHIVE
+         WHERE {hardware_minute_key} = {ambient_minute_key}
+       )"
+  );
+  sqlx::query_scalar::<_, Option<DateTime<Utc>>>(&sql)
+    .bind(before.timestamp_millis())
+    .fetch_one(pool)
+    .await
+}
+
 pub async fn delete_old_data(
   retention_days: u32,
   preserved_window: Option<(NaiveDate, NaiveDate)>,
@@ -522,55 +722,38 @@ mod tests {
   use super::*;
   use sqlx::Row;
 
+  use super::super::test_schema::{
+    AMBIENT_ARCHIVE_DDL, COOLING_DAILY_SUMMARY_DDL, DATA_ARCHIVE_DDL, create_tables,
+  };
+
+  /// The hardware archive plus the ambient archive the minute query
+  /// LEFT JOINs against (#2045). Both are created together because the
+  /// join names `AMBIENT_ARCHIVE` unconditionally: an install with no
+  /// environmental sensor has an empty table, never a missing one.
   async fn setup_data_archive(pool: &SqlitePool) {
+    create_tables(pool, &[DATA_ARCHIVE_DDL, AMBIENT_ARCHIVE_DDL]).await;
+  }
+
+  async fn insert_ambient_row(
+    pool: &SqlitePool,
+    source: &str,
+    temperature: f64,
+    timestamp: DateTime<Utc>,
+  ) {
     sqlx::query(
-      "CREATE TABLE DATA_ARCHIVE (
-        id INTEGER PRIMARY KEY,
-        cpu_avg REAL,
-        cpu_temperature_avg REAL,
-        cpu_temperature_max REAL,
-        cpu_temperature_min REAL,
-        cpu_power_avg REAL,
-        cpu_power_max REAL,
-        cpu_power_min REAL,
-        timestamp DATETIME
-      )",
+      "INSERT INTO AMBIENT_ARCHIVE (source, temperature, timestamp)
+       VALUES ($1, $2, $3)",
     )
+    .bind(source)
+    .bind(temperature)
+    .bind(timestamp)
     .execute(pool)
     .await
     .unwrap();
   }
 
   async fn setup_cooling_daily_summary(pool: &SqlitePool) {
-    sqlx::query(
-      "CREATE TABLE cooling_daily_summary (
-        date TEXT PRIMARY KEY,
-        idle_cpu_temperature_avg REAL,
-        idle_cpu_temperature_max REAL,
-        idle_cpu_temperature_min REAL,
-        idle_sample_minutes INTEGER NOT NULL DEFAULT 0,
-        low_cpu_temperature_avg REAL,
-        low_cpu_temperature_max REAL,
-        low_cpu_temperature_min REAL,
-        low_sample_minutes INTEGER NOT NULL DEFAULT 0,
-        mid_cpu_temperature_avg REAL,
-        mid_cpu_temperature_max REAL,
-        mid_cpu_temperature_min REAL,
-        mid_sample_minutes INTEGER NOT NULL DEFAULT 0,
-        high_cpu_temperature_avg REAL,
-        high_cpu_temperature_max REAL,
-        high_cpu_temperature_min REAL,
-        high_sample_minutes INTEGER NOT NULL DEFAULT 0,
-        coverage_minutes INTEGER NOT NULL,
-        cpu_power_avg REAL,
-        cpu_power_max REAL,
-        cpu_power_min REAL,
-        power_sample_minutes INTEGER NOT NULL DEFAULT 0
-      )",
-    )
-    .execute(pool)
-    .await
-    .unwrap();
+    create_tables(pool, &[COOLING_DAILY_SUMMARY_DDL]).await;
   }
 
   async fn insert_archive_row(
@@ -964,6 +1147,7 @@ mod tests {
         min: Some(4.5),
         sample_minutes: 950,
       },
+      ambient: AmbientDeltaSummary::default(),
     };
     upsert_from_pool(&pool, &summary).await.unwrap();
 
@@ -1003,6 +1187,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
+        ambient: AmbientDeltaSummary::default(),
       },
     )
     .await
@@ -1040,6 +1225,7 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power,
+        ambient: AmbientDeltaSummary::default(),
       },
     )
     .await
@@ -1065,6 +1251,7 @@ mod tests {
       mid: empty_band(),
       high: empty_band(),
       power: PowerSummary::default(),
+      ambient: AmbientDeltaSummary::default(),
     };
     upsert_from_pool(&pool, &summary).await.unwrap();
 
@@ -1268,6 +1455,7 @@ mod tests {
           min: Some(5.0),
           sample_minutes: 900,
         },
+        ambient: AmbientDeltaSummary::default(),
       },
     )
     .await
