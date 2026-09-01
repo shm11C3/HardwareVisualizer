@@ -1,3 +1,4 @@
+import { AmbientSensorToggle } from "./AmbientSensorToggle";
 import { DataRetentionSettings } from "./DataRetentionSettings";
 import { InsightsTitle } from "./InsightsTitle";
 import { InsightsToggle } from "./InsightsToggle";
@@ -10,6 +11,7 @@ export const InsightsSettings = () => {
         <div className="p-4">
           <InsightsToggle />
           <DataRetentionSettings />
+          <AmbientSensorToggle />
         </div>
       </div>
     </div>

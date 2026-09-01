@@ -47,6 +47,7 @@ vi.mock("@/rspc/bindings", () => ({
     setTrayWidgetSettings: vi.fn(),
     setElevatedStartupMode: vi.fn(),
     setHardwareArchiveEnabled: vi.fn(),
+    setSwitchbotMeterEnabled: vi.fn(),
     setHardwareArchiveRetentionDays: vi.fn(),
     setHardwareArchiveScheduledDataDeletion: vi.fn(),
     setStorageHealthRetentionDays: vi.fn(),
@@ -415,6 +416,47 @@ describe("useSettingsAtom", () => {
     expect(result.current.settings.hardwareArchive.enabled).toBe(
       initialEnabled,
     );
+  });
+
+  it("toggleSwitchbotMeterAtom: the ambient source is enabled on success", async () => {
+    (commands.setSwitchbotMeterEnabled as Mock).mockResolvedValue({
+      data: null,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.toggleSwitchbotMeterAtom(true);
+    });
+    expect(commands.setSwitchbotMeterEnabled).toHaveBeenCalledWith(true);
+    expect(saved).toBe(true);
+    expect(
+      result.current.settings.environmentalSensors.switchbotMeterEnabled,
+    ).toBe(true);
+  });
+
+  it("toggleSwitchbotMeterAtom: a failed write leaves the scan off rather than showing it on", async () => {
+    const errorMsg = "Failed to enable the ambient source";
+    (commands.setSwitchbotMeterEnabled as Mock).mockResolvedValue({
+      status: "error",
+      error: errorMsg,
+    });
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.toggleSwitchbotMeterAtom(true);
+    });
+    expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    // The caller uses this to decide whether to prompt for a restart.
+    expect(saved).toBe(false);
+    expect(
+      result.current.settings.environmentalSensors.switchbotMeterEnabled,
+    ).toBe(false);
   });
 
   it("setHardwareArchiveRetentionDays: retentionDays is updated on success", async () => {

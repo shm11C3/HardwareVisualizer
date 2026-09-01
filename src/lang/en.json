@@ -631,6 +631,13 @@
         },
         "enable": "Start Recording Insights",
         "disable": "Stop recording insights",
+        "ambientSensor": {
+          "name": "Read room temperature from a SwitchBot Meter",
+          "description": "Records room temperature and humidity from a SwitchBot Meter or Meter Plus nearby, so a warmer room can be told apart from worse cooling. Readings are taken over Bluetooth on this machine only — no SwitchBot account, no internet, and no pairing. Leave this off if you do not have one of these meters.",
+          "placement": "Place the meter near the PC's air intake, and away from exhaust airflow, direct sunlight, and other heat sources.",
+          "requirements": "Needs a working Bluetooth adapter. If this PC has none, or Bluetooth is turned off, no readings arrive and the sensor is shown as unavailable.",
+          "rebind": "The app keeps reading the first meter it finds, so a recorded history always comes from the same sensor. Turn this off and on again to switch to a different meter."
+        },
         "needRestart": {
           "title": "Restart Required",
           "description": "You need to restart the app to apply the changes.",

@@ -12,6 +12,15 @@ pub struct WorkersState {
   pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
   pub cooling_rollup: Mutex<Option<hardviz_core::persistence::CoolingRollupController>>,
   pub storage_health: Mutex<Option<hardviz_core::persistence::StorageHealthController>>,
+  /// SwitchBot Meter advertisement scan (#2044). `None` unless the user
+  /// turned the ambient source on, which is the default. Held here so
+  /// the radio is released on quit rather than at process teardown.
+  #[cfg(target_os = "windows")]
+  pub switchbot_scan: Mutex<
+    Option<
+      hardviz_core::infrastructure::providers::switchbot_meter::SwitchBotScanController,
+    >,
+  >,
   /// On-demand Live Storage Health collector (ADR 0006). Not a worker —
   /// no background task, so `terminate_all` leaves it alone. `None` when
   /// Storage Health is disabled at startup or the identity key is
@@ -47,12 +56,23 @@ impl WorkersState {
     let hw_archive = self.hw_archive.lock().unwrap().take();
     let cooling_rollup = self.cooling_rollup.lock().unwrap().take();
     let storage_health = self.storage_health.lock().unwrap().take();
+    #[cfg(target_os = "windows")]
+    let switchbot_scan = self.switchbot_scan.lock().unwrap().take();
     let tray = self.tray.lock().unwrap().take();
 
     // Stop the source first so no further realtime snapshots are produced, then
     // drain the adapter, then shut down the archive worker.
     if let Some(monitor) = monitor {
       monitor.terminate().await;
+    }
+
+    // Stopped alongside the collector, and before the archive: it is
+    // another reading source, and there is no point accepting ambient
+    // advertisements for an archive that is about to write its final
+    // summary.
+    #[cfg(target_os = "windows")]
+    if let Some(switchbot_scan) = switchbot_scan {
+      switchbot_scan.terminate().await;
     }
 
     if let Some(adapter) = window_adapter {

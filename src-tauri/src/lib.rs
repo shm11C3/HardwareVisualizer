@@ -132,6 +132,7 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::set_glass_blur,
       settings::commands::set_temperature_unit,
       settings::commands::set_hardware_archive_enabled,
+      settings::commands::set_switchbot_meter_enabled,
       settings::commands::set_hardware_archive_retention_days,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
       settings::commands::set_storage_health_retention_days,
@@ -172,6 +173,148 @@ fn export_typescript_bindings(builder: &Builder<Wry>) {
   builder
     .export(Typescript::default(), bindings_path())
     .expect("Failed to export typescript bindings");
+}
+
+/// Build the ambient sensor registry the archive worker reads (#2044).
+///
+/// The registry is built once and read-only afterwards (#2043), so this
+/// is the single point where a user's ambient hardware becomes part of
+/// the archive. Returning an empty registry is the normal result: the
+/// SwitchBot scan is off by default, and an empty registry makes the
+/// archive behave exactly as it did before ambient data existed.
+///
+/// Never fails and never blocks. Whether a radio exists is discovered
+/// asynchronously inside the scan, and a machine without one is not an
+/// error worth a dialog - it simply produces no readings, which #2043
+/// already reports as an unavailable source.
+#[cfg(target_os = "windows")]
+fn setup_environmental_sensors(
+  app: &tauri::AppHandle,
+  core_settings: &hardviz_core::settings::CoreSettings,
+  runtime: &tokio::runtime::Handle,
+) -> Arc<
+  hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry,
+> {
+  use hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
+  use hardviz_core::infrastructure::providers::switchbot_meter::{
+    SwitchBotMeterProvider, SwitchBotScanController, binding_channel,
+  };
+
+  let mut registry = EnvironmentalSensorRegistry::new();
+
+  if core_settings.environmental_sensors.switchbot_meter_enabled {
+    // Hand the provider the meter this machine already chose, if any.
+    // Without it the provider latches to whichever meter advertises
+    // first, which is a race the user silently loses whenever two are
+    // in range - and loses differently on each restart.
+    let provider = Arc::new(SwitchBotMeterProvider::new(
+      core_settings
+        .environmental_sensors
+        .switchbot_meter_device
+        .clone(),
+    ));
+
+    // The scan only announces a binding; remembering it - a settings
+    // lock and a file write - happens on this consumer's time, off the
+    // BLE event loop.
+    let (bindings_tx, mut bindings_rx) = binding_channel();
+    let app_handle = app.clone();
+    runtime.spawn(async move {
+      while let Some(device_id) = bindings_rx.recv().await {
+        remember_switchbot_meter(&app_handle, &device_id);
+      }
+    });
+
+    let scan =
+      SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider), bindings_tx);
+    app
+      .state::<workers::WorkersState>()
+      .switchbot_scan
+      .lock()
+      .unwrap()
+      .replace(scan);
+    registry.register(provider);
+  }
+
+  Arc::new(registry)
+}
+
+/// Remember the meter the ambient source just latched onto (#2044).
+///
+/// Runs on the binding consumer, never on the scan: it takes the
+/// settings lock and writes a file, and doing that inline would let a
+/// slow disk stall advertisement handling.
+///
+/// Persisting the device is what makes the binding survive a restart;
+/// without it a different meter in range could take over the source on
+/// the next launch, and two rooms' readings would end up explaining one
+/// machine.
+///
+/// A failed write is logged and otherwise ignored. This session already
+/// has a working ambient source, and refusing to read a meter because
+/// its identifier could not be written down would trade a real reading
+/// for a bookkeeping problem. The cost is that the binding is decided
+/// again next launch.
+#[cfg(target_os = "windows")]
+fn remember_switchbot_meter(app: &tauri::AppHandle, device_id: &str) {
+  let state = app.state::<settings::AppState>();
+  let mut core_settings = state.core_settings.lock().unwrap();
+
+  // Decided against the very settings about to be saved, and under the
+  // same lock the toggle command takes. The scan outlives a change to
+  // that toggle, so a binding reported just before the user turned the
+  // source off must not be written back afterwards - that resurrected
+  // device would be adopted on the next enable, skipping the re-bind
+  // turning it off was meant to grant.
+  let Some(device_id) = core_settings
+    .environmental_sensors
+    .binding_to_persist(device_id)
+  else {
+    return;
+  };
+
+  // Mutate a clone and swap only after the write succeeds, so the
+  // process never advertises a binding the disk did not accept.
+  let mut next = core_settings.clone();
+  next.environmental_sensors.switchbot_meter_device = Some(device_id);
+
+  let path = utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
+  match next.save_to_path(&path) {
+    Ok(()) => {
+      *core_settings = next;
+      log_info!(
+        "remembered the ambient meter so the same one is used after a restart",
+        "setup_environmental_sensors",
+        None::<&str>
+      );
+    }
+    Err(e) => {
+      log_warn!(
+        &format!(
+          "could not remember the ambient meter, so it will be chosen again next launch: {e}"
+        ),
+        "setup_environmental_sensors",
+        None::<&str>
+      );
+    }
+  }
+}
+
+/// No ambient transport is implemented outside Windows yet (#2044), so
+/// the registry is always empty and the archive writes no ambient rows.
+///
+/// The provider abstraction, the decode, and the cache are all portable;
+/// only the radio layer is missing, so adding a platform means adding a
+/// scan rather than reworking this.
+#[cfg(not(target_os = "windows"))]
+fn setup_environmental_sensors(
+  _app: &tauri::AppHandle,
+  _core_settings: &hardviz_core::settings::CoreSettings,
+  _runtime: &tokio::runtime::Handle,
+) -> Arc<
+  hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry,
+> {
+  Arc::default()
 }
 
 #[cfg(debug_assertions)]
@@ -332,10 +475,23 @@ pub fn run() {
         // the EventBus so a slow DB write can't back-pressure the
         // collector cadence (#1407).
         if core_settings.hardware_archive.enabled {
-          let hw_archive = hardviz_core::persistence::ArchiveController::setup(
-            &bus,
-            runtime_handle.clone(),
+          // Ambient sources (#2043) ride the archive's one-minute tick,
+          // so they are built here and only here: with the archive off
+          // there is nowhere for an ambient reading to go, and starting
+          // a radio scan to feed a worker that isn't running would be
+          // collection cost with no visible value.
+          let environmental_sensors = setup_environmental_sensors(
+            app.handle(),
+            &core_settings,
+            &runtime_handle,
           );
+
+          let hw_archive =
+            hardviz_core::persistence::ArchiveController::setup_with_environmental_sensors(
+              &bus,
+              runtime_handle.clone(),
+              environmental_sensors,
+            );
           {
             let ws = app.state::<workers::WorkersState>();
             ws.hw_archive.lock().unwrap().replace(hw_archive);
