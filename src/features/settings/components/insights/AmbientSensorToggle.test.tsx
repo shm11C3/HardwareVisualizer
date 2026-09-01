@@ -23,6 +23,10 @@ vi.mock("react-i18next", () => ({
           "Records room temperature and humidity from a meter nearby.",
         "pages.settings.insights.ambientSensor.placement":
           "Place the meter near the PC's air intake, and away from exhaust airflow, direct sunlight, and other heat sources.",
+        "pages.settings.insights.ambientSensor.requirements":
+          "Needs a working Bluetooth adapter.",
+        "pages.settings.insights.ambientSensor.rebind":
+          "Turn this off and on again to switch to a different meter.",
       })[key] ?? key,
   }),
 }));
@@ -80,6 +84,33 @@ describe("AmbientSensorToggle", () => {
     expect(
       screen.getByText(
         "Place the meter near the PC's air intake, and away from exhaust airflow, direct sunlight, and other heat sources.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * A scan that cannot start reports the source as unavailable like any
+   * other silence, which is honest but unexplained. This line is the
+   * explanation, so it has to be on screen rather than only in a log.
+   */
+  it("says that a Bluetooth adapter is required", () => {
+    render(<AmbientSensorToggle />);
+
+    expect(
+      screen.getByText("Needs a working Bluetooth adapter."),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The binding is deliberately sticky across restarts, so the only way
+   * to change meters must be discoverable from the setting itself.
+   */
+  it("explains how to bind to a different meter", () => {
+    render(<AmbientSensorToggle />);
+
+    expect(
+      screen.getByText(
+        "Turn this off and on again to switch to a different meter.",
       ),
     ).toBeInTheDocument();
   });

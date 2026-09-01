@@ -55,6 +55,18 @@ export const AmbientSensorToggle = () => {
             <p className="text-muted-foreground text-sm">
               {t("pages.settings.insights.ambientSensor.placement")}
             </p>
+            {/*
+              Both of these answer a question the user would otherwise
+              have to guess at from silence: why nothing is arriving
+              (no Bluetooth), and how to point the app at a different
+              meter once it has bound to one.
+            */}
+            <p className="text-muted-foreground text-sm">
+              {t("pages.settings.insights.ambientSensor.requirements")}
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {t("pages.settings.insights.ambientSensor.rebind")}
+            </p>
           </div>
         </div>
 
