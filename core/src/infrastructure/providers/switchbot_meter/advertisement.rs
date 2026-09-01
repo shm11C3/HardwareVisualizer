@@ -92,18 +92,51 @@ pub struct SwitchBotMeterFrame {
   pub humidity_percent: Option<f32>,
 }
 
-/// Decode a meter reading from one service-data entry, or `None` when
-/// this entry is not a readable SwitchBot meter frame.
+/// Byte 0 bit[7], which marks the payload as encrypted.
+///
+/// The vendor names this bit inconsistently - `meter.md`'s byte 0 row is
+/// labelled "Enc Type Dev Type" while calling bit[7] "Reserved", and the
+/// repository `README.md` service-data table labels the same bit
+/// "Enc type". Neither states the polarity outright.
+///
+/// That ambiguity decides the behavior rather than excusing it. If the
+/// bit means what its name says, bytes 3-5 of a marked frame are
+/// ciphertext, and ciphertext decodes into a perfectly plausible room
+/// temperature whenever its low nibble happens to land in 0-9. There is
+/// no way to tell such a value from a real one after the fact, and it
+/// would be archived under a confident label and drive Thermal Delta.
+/// Refusing the frame costs at most a reading we could have taken -
+/// reported honestly as an unavailable source - so the conservative
+/// direction is the only defensible one.
+const ENCRYPTED_PAYLOAD_FLAG: u8 = 0x80;
+
+/// What one service-data entry turned out to be.
+///
+/// Three outcomes rather than an `Option`, because "not a meter" and "a
+/// meter we must not read" call for different handling: the first is the
+/// overwhelmingly common case during a scan and deserves silence, the
+/// second is worth telling the user about once, since it explains why a
+/// meter they own produces nothing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MeterAdvertisement {
+  /// A readable meter frame.
+  Reading(SwitchBotMeterFrame),
+  /// A meter frame whose payload is marked encrypted, so its bytes
+  /// cannot be trusted as a temperature.
+  Encrypted(SwitchBotMeterModel),
+  /// Not a SwitchBot meter frame at all - a different vendor, a
+  /// different SwitchBot product, or a malformed payload.
+  Ignored,
+}
+
+/// Classify one service-data entry.
 ///
 /// `service_uuid` is the 128-bit form of the advertised service-data
-/// UUID. Returning `None` is the normal case: a scan sees every nearby
-/// advertisement, and almost none of them are meters.
-pub fn decode_service_data(
-  service_uuid: u128,
-  data: &[u8],
-) -> Option<SwitchBotMeterFrame> {
+/// UUID. [`MeterAdvertisement::Ignored`] is the normal case: a scan sees
+/// every nearby advertisement, and almost none of them are meters.
+pub fn decode_service_data(service_uuid: u128, data: &[u8]) -> MeterAdvertisement {
   if !SWITCHBOT_SERVICE_UUIDS.contains(&service_uuid) {
-    return None;
+    return MeterAdvertisement::Ignored;
   }
   decode_meter_service_data(data)
 }
@@ -113,15 +146,22 @@ pub fn decode_service_data(
 /// Split out so the byte arithmetic can be exercised directly, and so
 /// the UUID gate stays one visible decision rather than being tangled
 /// into the field extraction.
-fn decode_meter_service_data(data: &[u8]) -> Option<SwitchBotMeterFrame> {
+fn decode_meter_service_data(data: &[u8]) -> MeterAdvertisement {
   if data.len() < MINIMUM_SERVICE_DATA_LEN {
-    return None;
+    return MeterAdvertisement::Ignored;
   }
 
-  // Byte 0 bit[7] is reserved (encryption flag in later firmware), so
-  // the model lives in the low seven bits and the top bit must not be
-  // allowed to hide a meter behind an unknown device type.
-  let model = SwitchBotMeterModel::from_device_type(data[0] & 0x7F)?;
+  // The model lives in the low seven bits of byte 0.
+  let Some(model) = SwitchBotMeterModel::from_device_type(data[0] & 0x7F) else {
+    return MeterAdvertisement::Ignored;
+  };
+
+  // Identify the model first, then refuse: a user whose meter is
+  // broadcasting encrypted deserves a log line naming the device, not
+  // silence indistinguishable from having no meter at all.
+  if data[0] & ENCRYPTED_PAYLOAD_FLAG != 0 {
+    return MeterAdvertisement::Encrypted(model);
+  }
 
   // Byte 3 bit[3:0] is documented as 0-9. A value above 9 means this
   // payload is not laid out the way we think it is, and a mis-scaled
@@ -130,7 +170,7 @@ fn decode_meter_service_data(data: &[u8]) -> Option<SwitchBotMeterFrame> {
   // than the digit clamped.
   let temperature_decimal = data[3] & 0x0F;
   if temperature_decimal > 9 {
-    return None;
+    return MeterAdvertisement::Ignored;
   }
 
   let temperature_integer = data[4] & 0x7F;
@@ -148,7 +188,7 @@ fn decode_meter_service_data(data: &[u8]) -> Option<SwitchBotMeterFrame> {
     -temperature_magnitude
   };
 
-  Some(SwitchBotMeterFrame {
+  MeterAdvertisement::Reading(SwitchBotMeterFrame {
     model,
     temperature_celsius,
     // Byte 5 bit[7] is the meter's own *display* scale. The broadcast
@@ -203,11 +243,24 @@ mod tests {
     frame_bytes(0x54, temperature_decimal, integer_with_sign, 48)
   }
 
+  /// The readable frame, or `None` for anything this decoder refuses.
+  ///
+  /// Most tests are about the byte arithmetic and only care whether a
+  /// reading came out, so they read better against an `Option` than
+  /// against the three-way outcome. The tests that are specifically
+  /// about refusal match on [`MeterAdvertisement`] directly.
+  fn reading(service_uuid: u128, data: &[u8]) -> Option<SwitchBotMeterFrame> {
+    match decode_service_data(service_uuid, data) {
+      MeterAdvertisement::Reading(frame) => Some(frame),
+      _ => None,
+    }
+  }
+
   // -- service UUID gate --
 
   #[test]
   fn a_meter_frame_under_the_current_switchbot_service_uuid_decodes() {
-    let decoded = decode_service_data(FD3D, &meter_at(5, 0x80 | 24));
+    let decoded = reading(FD3D, &meter_at(5, 0x80 | 24));
     assert_eq!(decoded.map(|frame| frame.temperature_celsius), Some(24.5));
   }
 
@@ -215,7 +268,7 @@ mod tests {
   fn a_meter_frame_under_the_legacy_switchbot_service_uuids_decodes() {
     for uuid in [SWITCHBOT_SERVICE_UUIDS[1], SWITCHBOT_SERVICE_UUIDS[2]] {
       assert!(
-        decode_service_data(uuid, &meter_at(5, 0x80 | 24)).is_some(),
+        reading(uuid, &meter_at(5, 0x80 | 24)).is_some(),
         "the vendor document names this UUID for the meter broadcast"
       );
     }
@@ -227,7 +280,7 @@ mod tests {
   #[test]
   fn an_identical_payload_under_a_foreign_service_uuid_is_ignored() {
     let foreign = 0x0000180f_0000_1000_8000_00805f9b34fb;
-    assert_eq!(decode_service_data(foreign, &meter_at(5, 0x80 | 24)), None);
+    assert_eq!(reading(foreign, &meter_at(5, 0x80 | 24)), None);
   }
 
   // -- device type --
@@ -235,7 +288,7 @@ mod tests {
   #[test]
   fn the_meter_decodes_in_both_its_normal_and_add_mode_device_types() {
     for device_type in [0x54, 0x74] {
-      let frame = decode_service_data(FD3D, &frame_bytes(device_type, 5, 0x80 | 24, 48))
+      let frame = reading(FD3D, &frame_bytes(device_type, 5, 0x80 | 24, 48))
         .expect("both device types are documented as WoSensorTH");
       assert_eq!(frame.model, SwitchBotMeterModel::Meter);
     }
@@ -243,35 +296,86 @@ mod tests {
 
   #[test]
   fn the_meter_plus_decodes_with_the_same_layout() {
-    let frame = decode_service_data(FD3D, &frame_bytes(0x69, 5, 0x80 | 24, 48))
+    let frame = reading(FD3D, &frame_bytes(0x69, 5, 0x80 | 24, 48))
       .expect("Meter Plus shares the meter service data layout");
     assert_eq!(frame.model, SwitchBotMeterModel::MeterPlus);
     assert_eq!(frame.temperature_celsius, 24.5);
   }
 
-  /// Byte 0 bit[7] is reserved, so a meter must still be recognised when
-  /// firmware sets it.
+  // -- encrypted payloads --
+
+  /// The core of the refusal: an encrypted frame must never become a
+  /// temperature.
+  ///
+  /// These exact bytes are the trap. They are a valid-looking meter
+  /// frame - device type 'T', decimal 5, integer 24, humidity 48 - with
+  /// only the encryption flag added. Read as plaintext they yield a
+  /// wholly believable 24.5 °C, which is precisely why the flag has to
+  /// be honored: nothing downstream could ever tell that value was
+  /// ciphertext.
   #[test]
-  fn the_reserved_high_bit_of_the_device_type_byte_does_not_hide_a_meter() {
-    let frame = decode_service_data(FD3D, &frame_bytes(0x80 | 0x54, 5, 0x80 | 24, 48))
-      .expect("only bits 6:0 carry the device type");
-    assert_eq!(frame.model, SwitchBotMeterModel::Meter);
+  fn an_encrypted_payload_never_becomes_a_reading() {
+    let encrypted = frame_bytes(ENCRYPTED_PAYLOAD_FLAG | 0x54, 5, 0x80 | 24, 48);
+
+    assert_eq!(
+      reading(FD3D, &encrypted),
+      None,
+      "ciphertext whose nibbles happen to look like a temperature must not be archived"
+    );
+    assert_eq!(
+      decode_service_data(FD3D, &encrypted),
+      MeterAdvertisement::Encrypted(SwitchBotMeterModel::Meter),
+      "the model is still identified, so the refusal can be explained"
+    );
+  }
+
+  #[test]
+  fn an_encrypted_meter_plus_payload_is_also_refused() {
+    assert_eq!(
+      decode_service_data(
+        FD3D,
+        &frame_bytes(ENCRYPTED_PAYLOAD_FLAG | 0x69, 5, 0x80 | 24, 48)
+      ),
+      MeterAdvertisement::Encrypted(SwitchBotMeterModel::MeterPlus)
+    );
+  }
+
+  /// Refusal is driven by the flag alone, so the same payload without it
+  /// still reads normally. Without this pairing the test above would
+  /// pass just as well if the decoder had broken outright.
+  #[test]
+  fn clearing_the_encryption_flag_makes_the_same_payload_readable() {
+    let plain = frame_bytes(0x54, 5, 0x80 | 24, 48);
+    let encrypted = frame_bytes(ENCRYPTED_PAYLOAD_FLAG | 0x54, 5, 0x80 | 24, 48);
+
+    assert_eq!(reading(FD3D, &plain).unwrap().temperature_celsius, 24.5);
+    assert_eq!(reading(FD3D, &encrypted), None);
+  }
+
+  /// An encrypted frame from something that is not a meter stays
+  /// `Ignored`: there is nothing to explain to the user about a Bot.
+  #[test]
+  fn an_encrypted_non_meter_is_ignored_rather_than_reported() {
+    assert_eq!(
+      decode_service_data(
+        FD3D,
+        &frame_bytes(ENCRYPTED_PAYLOAD_FLAG | 0x48, 5, 0x80 | 24, 48)
+      ),
+      MeterAdvertisement::Ignored
+    );
   }
 
   #[test]
   fn another_switchbot_product_on_the_same_service_uuid_is_not_a_meter() {
     // 'H' (0x48) is the Bot, which broadcasts under the same UUID.
-    assert_eq!(
-      decode_service_data(FD3D, &frame_bytes(0x48, 5, 0x80 | 24, 48)),
-      None
-    );
+    assert_eq!(reading(FD3D, &frame_bytes(0x48, 5, 0x80 | 24, 48)), None);
   }
 
   // -- temperature --
 
   #[test]
   fn a_whole_number_temperature_decodes_without_a_fraction() {
-    let frame = decode_service_data(FD3D, &meter_at(0, 0x80 | 21)).unwrap();
+    let frame = reading(FD3D, &meter_at(0, 0x80 | 21)).unwrap();
     assert_eq!(frame.temperature_celsius, 21.0);
   }
 
@@ -280,20 +384,20 @@ mod tests {
   /// bit set means negative" reading.
   #[test]
   fn a_subzero_temperature_is_negative_when_the_flag_is_clear() {
-    let frame = decode_service_data(FD3D, &meter_at(5, 3)).unwrap();
+    let frame = reading(FD3D, &meter_at(5, 3)).unwrap();
     assert_eq!(frame.temperature_celsius, -3.5);
   }
 
   #[test]
   fn zero_degrees_decodes_as_zero_in_both_sign_states() {
     assert_eq!(
-      decode_service_data(FD3D, &meter_at(0, 0x80))
+      reading(FD3D, &meter_at(0, 0x80))
         .unwrap()
         .temperature_celsius,
       0.0
     );
     assert_eq!(
-      decode_service_data(FD3D, &meter_at(0, 0x00))
+      reading(FD3D, &meter_at(0, 0x00))
         .unwrap()
         .temperature_celsius,
       0.0
@@ -302,10 +406,10 @@ mod tests {
 
   #[test]
   fn the_documented_temperature_range_ends_decode() {
-    let hottest = decode_service_data(FD3D, &meter_at(9, 0x80 | 127)).unwrap();
+    let hottest = reading(FD3D, &meter_at(9, 0x80 | 127)).unwrap();
     assert_eq!(hottest.temperature_celsius, 127.9);
 
-    let coldest = decode_service_data(FD3D, &meter_at(9, 127)).unwrap();
+    let coldest = reading(FD3D, &meter_at(9, 127)).unwrap();
     assert_eq!(coldest.temperature_celsius, -127.9);
   }
 
@@ -315,9 +419,9 @@ mod tests {
   /// 24.5 °C room.
   #[test]
   fn a_meter_set_to_show_fahrenheit_still_broadcasts_celsius() {
-    let celsius_display = decode_service_data(FD3D, &meter_at(5, 0x80 | 24)).unwrap();
+    let celsius_display = reading(FD3D, &meter_at(5, 0x80 | 24)).unwrap();
     let fahrenheit_display =
-      decode_service_data(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, 0x80 | 48)).unwrap();
+      reading(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, 0x80 | 48)).unwrap();
 
     assert_eq!(fahrenheit_display.temperature_celsius, 24.5);
     assert_eq!(
@@ -332,7 +436,7 @@ mod tests {
   #[test]
   fn temperature_and_humidity_alert_bits_do_not_disturb_the_decimal() {
     let alerting = frame_bytes(0x54, 0b1010_0000 | 5, 0x80 | 24, 48);
-    let frame = decode_service_data(FD3D, &alerting).unwrap();
+    let frame = reading(FD3D, &alerting).unwrap();
     assert_eq!(frame.temperature_celsius, 24.5);
   }
 
@@ -340,22 +444,21 @@ mod tests {
   /// payload is not the frame we think it is.
   #[test]
   fn an_out_of_range_temperature_decimal_refuses_the_whole_frame() {
-    assert_eq!(decode_service_data(FD3D, &meter_at(0x0A, 0x80 | 24)), None);
+    assert_eq!(reading(FD3D, &meter_at(0x0A, 0x80 | 24)), None);
   }
 
   // -- humidity --
 
   #[test]
   fn humidity_decodes_from_the_low_seven_bits() {
-    let frame = decode_service_data(FD3D, &meter_at(5, 0x80 | 24)).unwrap();
+    let frame = reading(FD3D, &meter_at(5, 0x80 | 24)).unwrap();
     assert_eq!(frame.humidity_percent, Some(48.0));
   }
 
   #[test]
   fn the_documented_humidity_range_ends_decode() {
     for (byte, expected) in [(0u8, 0.0f32), (99, 99.0)] {
-      let frame =
-        decode_service_data(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, byte)).unwrap();
+      let frame = reading(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, byte)).unwrap();
       assert_eq!(frame.humidity_percent, Some(expected));
     }
   }
@@ -365,7 +468,7 @@ mod tests {
   /// the archive actually needs.
   #[test]
   fn an_out_of_range_humidity_drops_only_the_humidity() {
-    let frame = decode_service_data(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, 100)).unwrap();
+    let frame = reading(FD3D, &frame_bytes(0x54, 5, 0x80 | 24, 100)).unwrap();
     assert_eq!(frame.humidity_percent, None);
     assert_eq!(frame.temperature_celsius, 24.5);
   }
@@ -377,7 +480,7 @@ mod tests {
     let full = meter_at(5, 0x80 | 24);
     for length in 0..MINIMUM_SERVICE_DATA_LEN {
       assert_eq!(
-        decode_service_data(FD3D, &full[..length]),
+        reading(FD3D, &full[..length]),
         None,
         "a {length}-byte payload cannot carry a temperature"
       );
@@ -389,7 +492,7 @@ mod tests {
   #[test]
   fn a_longer_payload_decodes_from_its_documented_prefix() {
     let padded = [0x54, 0x00, 0x64, 5, 0x80 | 24, 48, 0xAB, 0xCD];
-    let frame = decode_service_data(FD3D, &padded).unwrap();
+    let frame = reading(FD3D, &padded).unwrap();
     assert_eq!(frame.temperature_celsius, 24.5);
     assert_eq!(frame.humidity_percent, Some(48.0));
   }
@@ -405,7 +508,7 @@ mod tests {
     // 26 °C, Celsius display + 53 %.
     let advertisement = [0x54, 0x00, 0x64, 0x07, 0x9A, 0x35];
     assert_eq!(
-      decode_service_data(FD3D, &advertisement),
+      reading(FD3D, &advertisement),
       Some(SwitchBotMeterFrame {
         model: SwitchBotMeterModel::Meter,
         temperature_celsius: 26.7,
