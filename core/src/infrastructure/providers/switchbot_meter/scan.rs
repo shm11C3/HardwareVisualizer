@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use btleplug::api::{Central, CentralEvent, Manager as _, ScanFilter};
 use btleplug::platform::Manager;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use tokio::runtime::Handle;
 use tokio::sync::watch;
@@ -34,7 +34,10 @@ use tokio::task::JoinHandle;
 
 use crate::{log_info, log_warn};
 
-use super::advertisement::{MeterAdvertisement, decode_service_data};
+use super::advertisement::{
+  ManufacturerAdvertisement, MeterAdvertisement, decode_manufacturer_data,
+  decode_service_data,
+};
 use super::provider::{
   BindingSender, ObservationOutcome, SwitchBotMeterProvider, report_binding,
 };
@@ -227,6 +230,35 @@ fn handle_event(
   bindings: &BindingSender,
   reported_encrypted: &mut HashSet<String>,
 ) {
+  // The Hub family broadcasts its reading in manufacturer data, which
+  // the documented Meter path never looks at - the reason an enabled Hub
+  // archived nothing before. Its payload also opens with the device's own
+  // address, so identity comes from the frame itself rather than from the
+  // transport handle.
+  if let CentralEvent::ManufacturerDataAdvertisement {
+    id: _,
+    manufacturer_data,
+  } = &event
+  {
+    let observed_at = Utc::now();
+    for (company_id, data) in manufacturer_data {
+      let ManufacturerAdvertisement::Reading(frame) =
+        decode_manufacturer_data(*company_id, data)
+      else {
+        continue;
+      };
+      record_reading(
+        provider,
+        bindings,
+        &frame.address_id(),
+        frame.temperature_celsius,
+        frame.humidity_percent,
+        observed_at,
+      );
+    }
+    return;
+  }
+
   let CentralEvent::ServiceDataAdvertisement { id, service_data } = event else {
     return;
   };
@@ -261,33 +293,61 @@ fn handle_event(
       MeterAdvertisement::Ignored => continue,
     };
 
-    match provider.observe(&device_id, frame, observed_at) {
-      ObservationOutcome::Bound => {
-        log_info!(
-          &format!("bound ambient source to a SwitchBot {:?}", frame.model),
-          LOG_TARGET,
-          None::<&str>
-        );
-        // Hand the choice off to be remembered, without waiting for it.
-        // A refused hand-off costs only that the device is chosen again
-        // next launch, which is strictly better than stalling the event
-        // loop behind a settings write.
-        if !report_binding(bindings, &device_id) {
-          log_warn!(
-            "could not hand off the ambient meter binding; it will be chosen again next launch",
-            LOG_TARGET,
-            None::<&str>
-          );
-        }
-      }
-      ObservationOutcome::IgnoredNewDevice => {
+    record_reading(
+      provider,
+      bindings,
+      &device_id,
+      frame.temperature_celsius,
+      frame.humidity_percent,
+      observed_at,
+    );
+  }
+}
+
+/// Hand one decoded reading to the provider and act on the outcome.
+///
+/// Shared by both decode paths so binding, persistence, and the
+/// one-sensor rule behave identically whether a reading arrived as
+/// service data or manufacturer data.
+fn record_reading(
+  provider: &SwitchBotMeterProvider,
+  bindings: &BindingSender,
+  device_id: &str,
+  temperature_celsius: f32,
+  humidity_percent: Option<f32>,
+  observed_at: DateTime<Utc>,
+) {
+  match provider.observe_reading(
+    device_id,
+    temperature_celsius,
+    humidity_percent,
+    observed_at,
+  ) {
+    ObservationOutcome::Bound => {
+      log_info!(
+        &format!("bound ambient source to SwitchBot device {device_id}"),
+        LOG_TARGET,
+        None::<&str>
+      );
+      // Hand the choice off to be remembered, without waiting for it.
+      // A refused hand-off costs only that the device is chosen again
+      // next launch, which is strictly better than stalling the event
+      // loop behind a settings write.
+      if !report_binding(bindings, device_id) {
         log_warn!(
-          "another SwitchBot meter is in range; readings from it are ignored so one ambient source stays one sensor",
+          "could not hand off the ambient meter binding; it will be chosen again next launch",
           LOG_TARGET,
           None::<&str>
         );
       }
-      ObservationOutcome::Recorded | ObservationOutcome::IgnoredKnownDevice => {}
     }
+    ObservationOutcome::IgnoredNewDevice => {
+      log_warn!(
+        "another SwitchBot meter is in range; readings from it are ignored so one ambient source stays one sensor",
+        LOG_TARGET,
+        None::<&str>
+      );
+    }
+    ObservationOutcome::Recorded | ObservationOutcome::IgnoredKnownDevice => {}
   }
 }

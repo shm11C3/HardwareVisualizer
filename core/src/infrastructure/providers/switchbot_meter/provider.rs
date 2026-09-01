@@ -229,6 +229,29 @@ impl SwitchBotMeterProvider {
     frame: SwitchBotMeterFrame,
     observed_at: DateTime<Utc>,
   ) -> ObservationOutcome {
+    self.observe_reading(
+      device_id,
+      frame.temperature_celsius,
+      frame.humidity_percent,
+      observed_at,
+    )
+  }
+
+  /// Record a reading that arrived without a model attached.
+  ///
+  /// The Hub family broadcasts in manufacturer data, which carries no
+  /// device type worth trusting (see `advertisement::reading_offset`),
+  /// so those readings reach the provider as bare values. Binding and
+  /// source-label rules are identical either way - only the decode
+  /// differs - so both paths share this one implementation rather than
+  /// growing a second copy that could drift.
+  pub fn observe_reading(
+    &self,
+    device_id: &str,
+    temperature_celsius: f32,
+    humidity_percent: Option<f32>,
+    observed_at: DateTime<Utc>,
+  ) -> ObservationOutcome {
     // A panicking writer must not take the ambient source down with it:
     // the archive tick reads this lock every minute, and a poisoned
     // lock would turn one bad frame into a permanently dead sensor.
@@ -260,8 +283,8 @@ impl SwitchBotMeterProvider {
     };
 
     observed.latest = Some(EnvironmentalReading {
-      temperature_celsius: frame.temperature_celsius,
-      humidity_percent: frame.humidity_percent,
+      temperature_celsius,
+      humidity_percent,
       timestamp: observed_at,
       source: observed.active_source.clone(),
     });
