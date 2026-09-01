@@ -197,7 +197,7 @@ fn setup_environmental_sensors(
 > {
   use hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
   use hardviz_core::infrastructure::providers::switchbot_meter::{
-    OnBound, SwitchBotMeterProvider, SwitchBotScanController,
+    SwitchBotMeterProvider, SwitchBotScanController, binding_channel,
   };
 
   let mut registry = EnvironmentalSensorRegistry::new();
@@ -214,13 +214,19 @@ fn setup_environmental_sensors(
         .clone(),
     ));
 
+    // The scan only announces a binding; remembering it - a settings
+    // lock and a file write - happens on this consumer's time, off the
+    // BLE event loop.
+    let (bindings_tx, mut bindings_rx) = binding_channel();
     let app_handle = app.clone();
-    let on_bound: OnBound = Arc::new(move |device_id: &str| {
-      remember_switchbot_meter(&app_handle, device_id);
+    runtime.spawn(async move {
+      while let Some(device_id) = bindings_rx.recv().await {
+        remember_switchbot_meter(&app_handle, &device_id);
+      }
     });
 
     let scan =
-      SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider), on_bound);
+      SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider), bindings_tx);
     app
       .state::<workers::WorkersState>()
       .switchbot_scan
@@ -235,10 +241,14 @@ fn setup_environmental_sensors(
 
 /// Remember the meter the ambient source just latched onto (#2044).
 ///
-/// Called once, from the scan task, the first time a meter is found.
-/// Persisting it is what makes the binding survive a restart; without
-/// it a different meter in range could take over the source on the next
-/// launch, and two rooms' readings would end up explaining one machine.
+/// Runs on the binding consumer, never on the scan: it takes the
+/// settings lock and writes a file, and doing that inline would let a
+/// slow disk stall advertisement handling.
+///
+/// Persisting the device is what makes the binding survive a restart;
+/// without it a different meter in range could take over the source on
+/// the next launch, and two rooms' readings would end up explaining one
+/// machine.
 ///
 /// A failed write is logged and otherwise ignored. This session already
 /// has a working ambient source, and refusing to read a meter because
@@ -250,19 +260,23 @@ fn remember_switchbot_meter(app: &tauri::AppHandle, device_id: &str) {
   let state = app.state::<settings::AppState>();
   let mut core_settings = state.core_settings.lock().unwrap();
 
-  if core_settings
+  // Decided against the very settings about to be saved, and under the
+  // same lock the toggle command takes. The scan outlives a change to
+  // that toggle, so a binding reported just before the user turned the
+  // source off must not be written back afterwards - that resurrected
+  // device would be adopted on the next enable, skipping the re-bind
+  // turning it off was meant to grant.
+  let Some(device_id) = core_settings
     .environmental_sensors
-    .switchbot_meter_device
-    .as_deref()
-    == Some(device_id)
-  {
+    .binding_to_persist(device_id)
+  else {
     return;
-  }
+  };
 
   // Mutate a clone and swap only after the write succeeds, so the
   // process never advertises a binding the disk did not accept.
   let mut next = core_settings.clone();
-  next.environmental_sensors.switchbot_meter_device = Some(device_id.to_string());
+  next.environmental_sensors.switchbot_meter_device = Some(device_id);
 
   let path = utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
   match next.save_to_path(&path) {

@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use std::sync::{PoisonError, RwLock};
 
 use chrono::{DateTime, Utc};
+use tokio::sync::mpsc;
 
 use crate::infrastructure::providers::environmental::{
   EnvironmentalReading, EnvironmentalSensorProvider,
@@ -33,6 +34,36 @@ pub const SWITCHBOT_METER_SOURCE_LABEL: &str = "SwitchBot Meter";
 
 /// How many trailing characters of a device handle appear in the label.
 const DEVICE_HANDLE_LEN: usize = 4;
+
+/// Capacity of the binding channel.
+///
+/// One slot. A provider latches at most once per process - `bound_device`
+/// is set once and never reassigned - so a second binding can never be
+/// produced, and a deeper buffer would only hide a bug.
+pub const BINDING_CHANNEL_CAPACITY: usize = 1;
+
+/// Carries a newly latched device to whoever remembers it.
+pub type BindingSender = mpsc::Sender<String>;
+/// Receiving half of [`BindingSender`].
+pub type BindingReceiver = mpsc::Receiver<String>;
+
+/// Create the channel a scan reports its binding on.
+pub fn binding_channel() -> (BindingSender, BindingReceiver) {
+  mpsc::channel(BINDING_CHANNEL_CAPACITY)
+}
+
+/// Announce a newly bound device without ever waiting on the consumer.
+///
+/// Returns whether the report was accepted. This is deliberately
+/// `try_send` rather than an awaited send: remembering the binding means
+/// taking a settings lock and writing a file, and the caller is the BLE
+/// event loop. Letting a slow disk stall advertisement handling would
+/// trade live readings for bookkeeping - so the report is
+/// fire-and-forget, and a refused one costs only that the binding is
+/// decided again on the next launch, which is the pre-existing behavior.
+pub fn report_binding(bindings: &BindingSender, device_id: &str) -> bool {
+  bindings.try_send(device_id.to_string()).is_ok()
+}
 
 /// The Sensor Source Label for readings from `device_id`.
 ///
@@ -322,6 +353,45 @@ mod tests {
   #[test]
   fn a_short_device_identifier_still_produces_a_label() {
     assert_eq!(source_label(Some("ab")), "SwitchBot Meter (ab)");
+  }
+
+  // -- reporting a binding without blocking the scan --
+
+  #[test]
+  fn a_binding_reaches_the_consumer() {
+    let (tx, mut rx) = binding_channel();
+
+    assert!(report_binding(&tx, METER_A));
+    assert_eq!(rx.try_recv().unwrap(), METER_A);
+  }
+
+  /// The point of the channel. The caller is the BLE event loop, so
+  /// reporting a binding must return immediately whatever the consumer
+  /// is doing - a settings write that took a second must not stall
+  /// advertisement handling for a second.
+  #[test]
+  fn reporting_a_binding_never_waits_on_a_busy_consumer() {
+    let (tx, _rx) = binding_channel();
+
+    // Fill the channel, standing in for a consumer that has not got
+    // around to draining it.
+    assert!(report_binding(&tx, METER_A));
+
+    // The call still returns rather than waiting for capacity.
+    assert!(
+      !report_binding(&tx, METER_B),
+      "a full channel must be refused, not awaited"
+    );
+  }
+
+  /// A binding that could not be delivered costs only that the device is
+  /// chosen again next launch - never a stalled scan or a panic.
+  #[test]
+  fn reporting_a_binding_survives_a_consumer_that_went_away() {
+    let (tx, rx) = binding_channel();
+    drop(rx);
+
+    assert!(!report_binding(&tx, METER_A));
   }
 
   // -- before anything has been heard --

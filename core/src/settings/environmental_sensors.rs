@@ -43,9 +43,40 @@ pub struct EnvironmentalSensorSettings {
   pub switchbot_meter_device: Option<String>,
 }
 
+impl EnvironmentalSensorSettings {
+  /// The device to write down for a meter that just latched, or `None`
+  /// when nothing should be written.
+  ///
+  /// The caller must evaluate this against the same settings it is about
+  /// to save, while holding the settings lock. The scan outlives a
+  /// change to the toggle - it keeps running until the app restarts - so
+  /// a binding reported just before the user turned the source off would
+  /// otherwise be written back afterwards. That resurrected device would
+  /// then be adopted the next time the source was enabled, silently
+  /// skipping the re-bind that turning it off was meant to grant.
+  ///
+  /// Refusing when the source is disabled is what makes "off and on
+  /// again" actually clear the binding, so the check belongs beside the
+  /// write rather than at the point the binding was observed.
+  pub fn binding_to_persist(&self, device_id: &str) -> Option<String> {
+    if !self.switchbot_meter_enabled {
+      return None;
+    }
+
+    if self.switchbot_meter_device.as_deref() == Some(device_id) {
+      return None;
+    }
+
+    Some(device_id.to_string())
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  const METER_A: &str = "PeripheralId(AA:BB:CC:DD:A1:B2)";
+  const METER_B: &str = "PeripheralId(AA:BB:CC:DD:C3:D4)";
 
   /// The default that matters most in this file: an app that was never
   /// asked must not start scanning.
@@ -59,6 +90,73 @@ mod tests {
     let settings: EnvironmentalSensorSettings =
       serde_json::from_str("{}").expect("an empty object is a valid settings block");
     assert_eq!(settings, EnvironmentalSensorSettings::default());
+  }
+
+  // -- deciding whether a reported binding gets written --
+
+  fn enabled_with(device: Option<&str>) -> EnvironmentalSensorSettings {
+    EnvironmentalSensorSettings {
+      switchbot_meter_enabled: true,
+      switchbot_meter_device: device.map(str::to_string),
+    }
+  }
+
+  #[test]
+  fn a_first_binding_is_written_down() {
+    assert_eq!(
+      enabled_with(None).binding_to_persist(METER_A),
+      Some(METER_A.to_string())
+    );
+  }
+
+  /// Regression: the scan keeps running after the user turns the source
+  /// off, so a binding reported just before that could be written back
+  /// afterwards. The resurrected device would then be adopted on the
+  /// next enable, skipping the re-bind that turning it off was meant to
+  /// grant.
+  #[test]
+  fn a_binding_reported_after_the_source_was_disabled_is_not_written_back() {
+    let disabled = EnvironmentalSensorSettings {
+      switchbot_meter_enabled: false,
+      switchbot_meter_device: None,
+    };
+
+    assert_eq!(
+      disabled.binding_to_persist(METER_A),
+      None,
+      "turning the source off must actually clear the binding, not have it restored behind the user"
+    );
+  }
+
+  /// Disabling clears the device, but a late report must not reinstate
+  /// one that was still recorded either.
+  #[test]
+  fn a_late_binding_is_refused_even_when_a_device_is_still_recorded() {
+    let disabled = EnvironmentalSensorSettings {
+      switchbot_meter_enabled: false,
+      switchbot_meter_device: Some(METER_A.to_string()),
+    };
+
+    assert_eq!(disabled.binding_to_persist(METER_B), None);
+  }
+
+  /// Re-reporting the meter already recorded is not a change, so it must
+  /// not cause a settings write on every launch.
+  #[test]
+  fn re_reporting_the_recorded_meter_writes_nothing() {
+    assert_eq!(
+      enabled_with(Some(METER_A)).binding_to_persist(METER_A),
+      None
+    );
+  }
+
+  /// After a re-bind the newly latched meter replaces the old one.
+  #[test]
+  fn a_different_meter_replaces_the_recorded_one_while_enabled() {
+    assert_eq!(
+      enabled_with(Some(METER_A)).binding_to_persist(METER_B),
+      Some(METER_B.to_string())
+    );
   }
 
   /// Nothing is bound until a meter has actually been found.

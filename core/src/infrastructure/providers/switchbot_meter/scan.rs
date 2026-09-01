@@ -35,11 +35,9 @@ use tokio::task::JoinHandle;
 use crate::{log_info, log_warn};
 
 use super::advertisement::{MeterAdvertisement, decode_service_data};
-use super::provider::{ObservationOutcome, SwitchBotMeterProvider};
-
-/// Called once with the device identifier when the provider latches, so
-/// the binding can be remembered for the next launch.
-pub type OnBound = Arc<dyn Fn(&str) + Send + Sync>;
+use super::provider::{
+  BindingSender, ObservationOutcome, SwitchBotMeterProvider, report_binding,
+};
 
 /// Log target for everything this module reports.
 const LOG_TARGET: &str = "providers::switchbot_meter::scan";
@@ -63,10 +61,14 @@ impl SwitchBotScanController {
   /// source, not an error the user must dismiss. Those cases log once
   /// and leave the provider reporting nothing, which #2043 already
   /// renders as an unavailable source.
+  /// `bindings` receives the device identifier the first time a meter is
+  /// latched. Reporting on it never blocks, so remembering the binding -
+  /// a settings lock and a file write - happens on the consumer's time
+  /// rather than stalling advertisement handling.
   pub fn setup(
     runtime: Handle,
     provider: Arc<SwitchBotMeterProvider>,
-    on_bound: OnBound,
+    bindings: BindingSender,
   ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
@@ -127,7 +129,7 @@ impl SwitchBotScanController {
             Some(event) => handle_event(
               event,
               &provider,
-              on_bound.as_ref(),
+              &bindings,
               &mut reported_encrypted,
             ),
             // The adapter went away mid-session (dongle unplugged,
@@ -214,15 +216,15 @@ async fn open_adapter() -> Option<btleplug::platform::Adapter> {
 /// event from every other nearby device is dropped without a word,
 /// because a scan with no filter sees a great many of them.
 ///
-/// `on_bound` is called with the device identifier the very first time
-/// this provider latches, so the caller can remember it and bind to the
-/// same meter next launch. `reported_encrypted` keeps the encrypted-meter
-/// notice to once per device, since such a meter re-broadcasts as often
-/// as a readable one.
+/// `bindings` carries the device identifier the very first time this
+/// provider latches, so a consumer elsewhere can remember it and bind to
+/// the same meter next launch. `reported_encrypted` keeps the
+/// encrypted-meter notice to once per device, since such a meter
+/// re-broadcasts as often as a readable one.
 fn handle_event(
   event: CentralEvent,
   provider: &SwitchBotMeterProvider,
-  on_bound: &(dyn Fn(&str) + Send + Sync),
+  bindings: &BindingSender,
   reported_encrypted: &mut HashSet<String>,
 ) {
   let CentralEvent::ServiceDataAdvertisement { id, service_data } = event else {
@@ -266,9 +268,17 @@ fn handle_event(
           LOG_TARGET,
           None::<&str>
         );
-        // Remember the choice, or the next launch would make it again -
-        // possibly landing on a different meter.
-        on_bound(&device_id);
+        // Hand the choice off to be remembered, without waiting for it.
+        // A refused hand-off costs only that the device is chosen again
+        // next launch, which is strictly better than stalling the event
+        // loop behind a settings write.
+        if !report_binding(bindings, &device_id) {
+          log_warn!(
+            "could not hand off the ambient meter binding; it will be chosen again next launch",
+            LOG_TARGET,
+            None::<&str>
+          );
+        }
       }
       ObservationOutcome::IgnoredNewDevice => {
         log_warn!(

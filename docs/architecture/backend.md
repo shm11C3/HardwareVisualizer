@@ -306,10 +306,17 @@ derived from it blends two rooms. The provider therefore answers for exactly one
 device, and which device that is is persisted as
 `environmentalSensors.switchbotMeterDevice`. Latching to the first advertiser is
 only the bootstrap case: on its own it would be re-decided every launch, so with
-two meters in range the binding would wander between rooms across restarts. The
-scan reports the device on first latch, the App writes it to settings, and later
-launches bind to that device alone — a remembered meter that is out of range
-reports unavailable rather than falling back to another one. The label carries a
+two meters in range the binding would wander between rooms across restarts. On
+first latch the scan announces the device on a one-slot channel and returns
+immediately; an App-side consumer takes the settings lock and writes it, so a
+slow disk cannot stall advertisement handling, and a refused hand-off costs only
+that the device is chosen again next launch. That consumer re-checks
+`switchbotMeterEnabled` under the same lock it saves through, because the scan
+outlives a change to the toggle: a binding announced just before the source was
+turned off must not be written back afterwards, or it would be adopted on the
+next enable and skip the re-bind. Later launches bind to the recorded device
+alone — a remembered meter that is out of range reports unavailable rather than
+falling back to another one. The label carries a
 short handle of the device (`SwitchBot Meter (a1b2)`), so a re-bind starts a
 visibly separate archive series instead of continuing an existing one; the full
 identifier stays in Core settings and is deliberately absent from the wire type.
