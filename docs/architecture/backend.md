@@ -279,6 +279,62 @@ refused, so a clock rewind cannot leave one reading permanently fresh.
 Transport-specific causes such as an unavailable radio or a stopped scan stay
 inside the concrete provider and surface only as readings that stop arriving.
 
+The first concrete provider is the SwitchBot Meter
+(`core/src/infrastructure/providers/switchbot_meter/`). It is split so only the
+radio is platform-gated: `advertisement` decodes service-data bytes into a
+reading, `provider` caches the newest one and answers the polling contract, and
+both are portable and unit-tested from fixed byte strings on every platform.
+Only `scan`, which drives a Windows BLE advertisement watcher through
+`btleplug`, is `#[cfg(target_os = "windows")]`. The decode covers Meter
+(device type `0x54` / `0x74`) and Meter Plus (`0x69`), whose layout and formulas
+come from SwitchBot's published BLE documentation
+(`OpenWonderLabs/SwitchBotAPI-BLE`, `devicetypes/meter.md`). The Outdoor Meter
+is not decoded: the same document marks its layout unofficial.
+
+The provider never connects, pairs, bonds, or writes to a meter, and there is no
+SwitchBot account, cloud API, or outbound request; it reads what the device
+already broadcasts. The meter publishes its service data in the scan response,
+so btleplug's Windows backend runs the WinRT watcher in active scanning mode —
+the radio does transmit scan requests, even though no device state is changed.
+A payload whose byte 0 encryption bit is set is refused rather than decoded: its
+remaining bytes are ciphertext, and ciphertext yields a perfectly plausible room
+temperature whenever its low nibble lands in 0-9, which nothing downstream could
+later tell from a real reading.
+
+One Sensor Source Label has to mean one physical sensor, or every Thermal Delta
+derived from it blends two rooms. The provider therefore answers for exactly one
+device, and which device that is is persisted as
+`environmentalSensors.switchbotMeterDevice`. Latching to the first advertiser is
+only the bootstrap case: on its own it would be re-decided every launch, so with
+two meters in range the binding would wander between rooms across restarts. On
+first latch the scan announces the device on a one-slot channel and returns
+immediately; an App-side consumer takes the settings lock and writes it, so a
+slow disk cannot stall advertisement handling, and a refused hand-off costs only
+that the device is chosen again next launch. That consumer re-checks
+`switchbotMeterEnabled` under the same lock it saves through, because the scan
+outlives a change to the toggle: a binding announced just before the source was
+turned off must not be written back afterwards, or it would be adopted on the
+next enable and skip the re-bind. Later launches bind to the recorded device
+alone — a remembered meter that is out of range reports unavailable rather than
+falling back to another one. The label carries a
+short handle of the device (`SwitchBot Meter (a1b2)`), so a re-bind starts a
+visibly separate archive series instead of continuing an existing one; the full
+identifier stays in Core settings and is deliberately absent from the wire type.
+Turning the setting off clears the binding, which is how a user re-binds.
+
+The ambient registry is built once, in `setup_environmental_sensors`
+(`src-tauri/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
+readings ride the archive's one-minute tick, so with the archive off there is
+nowhere for a reading to go. Registration is gated on the Core-owned
+`environmentalSensors.switchbotMeterEnabled` preference, which defaults to
+**off** — every other source this app reads is inside the machine, and this one
+turns on a radio and listens to the room. Because the registry is read-only
+after startup, toggling the preference takes effect on the next launch, and the
+settings screen raises the existing restart notice. A machine with no Bluetooth
+adapter, a disabled radio, or a refused scan logs once and produces no readings;
+it is not surfaced as External Component Guidance, because Ambient Sensor
+Availability already reports the same fact where the user is looking for it.
+
 Process Insight data is a sampled and ranked summary derived from realtime
 process observations. It is not a complete process audit log, and persistence
 code should preserve that expectation unless a new feature explicitly changes

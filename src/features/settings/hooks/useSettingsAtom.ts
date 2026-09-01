@@ -47,6 +47,9 @@ const settingsAtom = atom<ClientSettings>({
     enabled: true,
     retentionDays: 1095,
   },
+  environmentalSensors: {
+    switchbotMeterEnabled: false,
+  },
   burnInShift: false,
   burnInShiftPreset: "aggressive",
   burnInShiftMode: "jump",
@@ -91,6 +94,7 @@ export const useSettingsAtom = () => {
       | "version"
       | "hardwareArchive"
       | "storageHealth"
+      | "environmentalSensors"
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
@@ -163,6 +167,7 @@ export const useSettingsAtom = () => {
       | "version"
       | "hardwareArchive"
       | "storageHealth"
+      | "environmentalSensors"
       | "closeToTray"
       | "closeToTrayChoiceMade"
       | "externalComponentGuidance"
@@ -376,6 +381,32 @@ export const useSettingsAtom = () => {
     }));
   };
 
+  /**
+   * Returns whether the preference was actually persisted, so the caller
+   * can tell a real change from a failed write. A refused write (a
+   * corrupted settings.json, a read-only directory) leaves the scan
+   * exactly as it was, and the settings screen must not follow it with a
+   * "restart to apply" prompt for a change that did not happen.
+   */
+  const toggleSwitchbotMeterAtom = async (value: boolean) => {
+    const result = await commands.setSwitchbotMeterEnabled(value);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return false;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      environmentalSensors: {
+        ...prev.environmentalSensors,
+        switchbotMeterEnabled: value,
+      },
+    }));
+    return true;
+  };
+
   const setHardwareArchiveRetentionDays = async (value: number) => {
     const result = await commands.setHardwareArchiveRetentionDays(value);
 
@@ -520,6 +551,7 @@ export const useSettingsAtom = () => {
     updateSettingAtom,
     updateLineGraphColorAtom,
     toggleHardwareArchiveAtom,
+    toggleSwitchbotMeterAtom,
     setHardwareArchiveRetentionDays,
     setScheduledDataDeletion,
     setStorageHealthRetentionDays,
