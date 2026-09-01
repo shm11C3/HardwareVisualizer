@@ -611,6 +611,7 @@ mod tests {
       },
       environmental_sensors: EnvironmentalSensorSettings {
         switchbot_meter_enabled: true,
+        switchbot_meter_device: Some("PeripheralId(AA:BB:CC:DD:A1:B2)".to_string()),
       },
     };
     s.save_to_path(&path).unwrap();

@@ -21,6 +21,7 @@
 //! [`super::advertisement`] and [`super::provider`] and are tested on
 //! every platform from fixed byte strings.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use btleplug::api::{Central, CentralEvent, Manager as _, ScanFilter};
@@ -33,8 +34,12 @@ use tokio::task::JoinHandle;
 
 use crate::{log_info, log_warn};
 
-use super::advertisement::decode_service_data;
+use super::advertisement::{MeterAdvertisement, decode_service_data};
 use super::provider::{ObservationOutcome, SwitchBotMeterProvider};
+
+/// Called once with the device identifier when the provider latches, so
+/// the binding can be remembered for the next launch.
+pub type OnBound = Arc<dyn Fn(&str) + Send + Sync>;
 
 /// Log target for everything this module reports.
 const LOG_TARGET: &str = "providers::switchbot_meter::scan";
@@ -58,10 +63,18 @@ impl SwitchBotScanController {
   /// source, not an error the user must dismiss. Those cases log once
   /// and leave the provider reporting nothing, which #2043 already
   /// renders as an unavailable source.
-  pub fn setup(runtime: Handle, provider: Arc<SwitchBotMeterProvider>) -> Self {
+  pub fn setup(
+    runtime: Handle,
+    provider: Arc<SwitchBotMeterProvider>,
+    on_bound: OnBound,
+  ) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
+      // Encrypted meters already reported, so the notice is made once
+      // per device rather than on every broadcast.
+      let mut reported_encrypted: HashSet<String> = HashSet::new();
+
       let Some(central) = open_adapter().await else {
         return;
       };
@@ -111,7 +124,12 @@ impl SwitchBotScanController {
             }
           }
           event = events.next() => match event {
-            Some(event) => handle_event(event, &provider),
+            Some(event) => handle_event(
+              event,
+              &provider,
+              on_bound.as_ref(),
+              &mut reported_encrypted,
+            ),
             // The adapter went away mid-session (dongle unplugged,
             // radio disabled). Recovering would mean re-probing on a
             // timer forever; the ambient source simply stops reporting
@@ -195,19 +213,50 @@ async fn open_adapter() -> Option<btleplug::platform::Adapter> {
 /// Only service-data advertisements carry a meter reading; every other
 /// event from every other nearby device is dropped without a word,
 /// because a scan with no filter sees a great many of them.
-fn handle_event(event: CentralEvent, provider: &SwitchBotMeterProvider) {
+///
+/// `on_bound` is called with the device identifier the very first time
+/// this provider latches, so the caller can remember it and bind to the
+/// same meter next launch. `reported_encrypted` keeps the encrypted-meter
+/// notice to once per device, since such a meter re-broadcasts as often
+/// as a readable one.
+fn handle_event(
+  event: CentralEvent,
+  provider: &SwitchBotMeterProvider,
+  on_bound: &(dyn Fn(&str) + Send + Sync),
+  reported_encrypted: &mut HashSet<String>,
+) {
   let CentralEvent::ServiceDataAdvertisement { id, service_data } = event else {
     return;
   };
 
-  // `PeripheralId` is the transport's stable handle for one device; it
-  // is used purely to tell meters apart, and never persisted or shown.
+  // `PeripheralId` is the transport's stable handle for one device. Only
+  // a short tail of it reaches a label or the archive; the full form is
+  // kept here and in settings so two meters can be told apart reliably.
   let device_id = format!("{id:?}");
   let observed_at = Utc::now();
 
   for (uuid, data) in &service_data {
-    let Some(frame) = decode_service_data(uuid.as_u128(), data) else {
-      continue;
+    let frame = match decode_service_data(uuid.as_u128(), data) {
+      MeterAdvertisement::Reading(frame) => frame,
+
+      // Worth saying once: from outside, an encrypted meter is
+      // indistinguishable from no meter at all, and the user would
+      // otherwise have no way to learn why the sensor they own reports
+      // nothing.
+      MeterAdvertisement::Encrypted(model) => {
+        if reported_encrypted.insert(device_id.clone()) {
+          log_warn!(
+            &format!(
+              "a SwitchBot {model:?} is broadcasting an encrypted payload; its readings cannot be decoded and are ignored"
+            ),
+            LOG_TARGET,
+            None::<&str>
+          );
+        }
+        continue;
+      }
+
+      MeterAdvertisement::Ignored => continue,
     };
 
     match provider.observe(&device_id, frame, observed_at) {
@@ -217,6 +266,9 @@ fn handle_event(event: CentralEvent, provider: &SwitchBotMeterProvider) {
           LOG_TARGET,
           None::<&str>
         );
+        // Remember the choice, or the next launch would make it again -
+        // possibly landing on a different meter.
+        on_bound(&device_id);
       }
       ObservationOutcome::IgnoredNewDevice => {
         log_warn!(

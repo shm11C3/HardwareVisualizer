@@ -197,14 +197,30 @@ fn setup_environmental_sensors(
 > {
   use hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
   use hardviz_core::infrastructure::providers::switchbot_meter::{
-    SwitchBotMeterProvider, SwitchBotScanController,
+    OnBound, SwitchBotMeterProvider, SwitchBotScanController,
   };
 
   let mut registry = EnvironmentalSensorRegistry::new();
 
   if core_settings.environmental_sensors.switchbot_meter_enabled {
-    let provider = Arc::new(SwitchBotMeterProvider::new());
-    let scan = SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider));
+    // Hand the provider the meter this machine already chose, if any.
+    // Without it the provider latches to whichever meter advertises
+    // first, which is a race the user silently loses whenever two are
+    // in range - and loses differently on each restart.
+    let provider = Arc::new(SwitchBotMeterProvider::new(
+      core_settings
+        .environmental_sensors
+        .switchbot_meter_device
+        .clone(),
+    ));
+
+    let app_handle = app.clone();
+    let on_bound: OnBound = Arc::new(move |device_id: &str| {
+      remember_switchbot_meter(&app_handle, device_id);
+    });
+
+    let scan =
+      SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider), on_bound);
     app
       .state::<workers::WorkersState>()
       .switchbot_scan
@@ -215,6 +231,59 @@ fn setup_environmental_sensors(
   }
 
   Arc::new(registry)
+}
+
+/// Remember the meter the ambient source just latched onto (#2044).
+///
+/// Called once, from the scan task, the first time a meter is found.
+/// Persisting it is what makes the binding survive a restart; without
+/// it a different meter in range could take over the source on the next
+/// launch, and two rooms' readings would end up explaining one machine.
+///
+/// A failed write is logged and otherwise ignored. This session already
+/// has a working ambient source, and refusing to read a meter because
+/// its identifier could not be written down would trade a real reading
+/// for a bookkeeping problem. The cost is that the binding is decided
+/// again next launch.
+#[cfg(target_os = "windows")]
+fn remember_switchbot_meter(app: &tauri::AppHandle, device_id: &str) {
+  let state = app.state::<settings::AppState>();
+  let mut core_settings = state.core_settings.lock().unwrap();
+
+  if core_settings
+    .environmental_sensors
+    .switchbot_meter_device
+    .as_deref()
+    == Some(device_id)
+  {
+    return;
+  }
+
+  // Mutate a clone and swap only after the write succeeds, so the
+  // process never advertises a binding the disk did not accept.
+  let mut next = core_settings.clone();
+  next.environmental_sensors.switchbot_meter_device = Some(device_id.to_string());
+
+  let path = utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
+  match next.save_to_path(&path) {
+    Ok(()) => {
+      *core_settings = next;
+      log_info!(
+        "remembered the ambient meter so the same one is used after a restart",
+        "setup_environmental_sensors",
+        None::<&str>
+      );
+    }
+    Err(e) => {
+      log_warn!(
+        &format!(
+          "could not remember the ambient meter, so it will be chosen again next launch: {e}"
+        ),
+        "setup_environmental_sensors",
+        None::<&str>
+      );
+    }
+  }
 }
 
 /// No ambient transport is implemented outside Windows yet (#2044), so

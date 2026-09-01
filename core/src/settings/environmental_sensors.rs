@@ -27,6 +27,20 @@ pub struct EnvironmentalSensorSettings {
   /// would be taking a permission nobody granted, so the scan begins
   /// only after the user says they have the hardware.
   pub switchbot_meter_enabled: bool,
+
+  /// Transport identifier of the meter this machine is bound to, or
+  /// `None` before one has been chosen.
+  ///
+  /// Without this the choice of meter would be remade every launch. The
+  /// provider latches to the first meter that advertises, which is fine
+  /// with one meter and wrong with two: the app would wander between
+  /// rooms across restarts and blend their histories, which is exactly
+  /// what the one-meter rule exists to prevent. Remembering the device
+  /// makes the binding a decision rather than a race.
+  ///
+  /// Cleared when the user turns the source off, so switching the toggle
+  /// off and on again is how they re-bind to a different meter.
+  pub switchbot_meter_device: Option<String>,
 }
 
 #[cfg(test)]
@@ -47,10 +61,48 @@ mod tests {
     assert_eq!(settings, EnvironmentalSensorSettings::default());
   }
 
+  /// Nothing is bound until a meter has actually been found.
+  #[test]
+  fn no_meter_is_remembered_by_default() {
+    assert_eq!(
+      EnvironmentalSensorSettings::default().switchbot_meter_device,
+      None
+    );
+  }
+
+  /// The binding is what makes the choice of meter survive a restart, so
+  /// it has to come back off disk intact.
+  #[test]
+  fn a_remembered_meter_round_trips() {
+    let settings = EnvironmentalSensorSettings {
+      switchbot_meter_enabled: true,
+      switchbot_meter_device: Some("PeripheralId(AA:BB:CC:DD:A1:B2)".to_string()),
+    };
+
+    let json = serde_json::to_string(&settings).unwrap();
+    assert!(json.contains("\"switchbotMeterDevice\""));
+    assert_eq!(
+      serde_json::from_str::<EnvironmentalSensorSettings>(&json).unwrap(),
+      settings
+    );
+  }
+
+  /// A settings file written before the binding existed must not be
+  /// treated as bound to something.
+  #[test]
+  fn an_older_settings_block_without_a_binding_reads_as_unbound() {
+    let settings: EnvironmentalSensorSettings =
+      serde_json::from_str(r#"{"switchbotMeterEnabled": true}"#).unwrap();
+
+    assert!(settings.switchbot_meter_enabled);
+    assert_eq!(settings.switchbot_meter_device, None);
+  }
+
   #[test]
   fn an_enabled_scan_round_trips_in_camel_case() {
     let settings = EnvironmentalSensorSettings {
       switchbot_meter_enabled: true,
+      switchbot_meter_device: None,
     };
 
     let json = serde_json::to_string(&settings).unwrap();

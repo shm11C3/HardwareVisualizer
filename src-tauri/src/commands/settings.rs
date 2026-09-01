@@ -695,7 +695,15 @@ pub mod commands {
     new_value: bool,
   ) -> Result<(), String> {
     if let Err(e) = update_core_settings(&state, |s| {
-      s.environmental_sensors.switchbot_meter_enabled = new_value
+      s.environmental_sensors.switchbot_meter_enabled = new_value;
+      // Turning the source off forgets which meter it was bound to, so
+      // switching the toggle off and on again is how a user re-binds to
+      // a different one. There is no other way to change the binding,
+      // and keeping a stale device would make re-enabling wait forever
+      // on a meter the user may have given away.
+      if !new_value {
+        s.environmental_sensors.switchbot_meter_device = None;
+      }
     }) {
       emit_error(&window)?;
       return Err(e);

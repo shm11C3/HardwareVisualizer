@@ -29,8 +29,10 @@ pub mod provider;
 #[cfg(target_os = "windows")]
 pub mod scan;
 
-pub use advertisement::{SwitchBotMeterFrame, SwitchBotMeterModel, decode_service_data};
-pub use provider::{SWITCHBOT_METER_SOURCE_LABEL, SwitchBotMeterProvider};
+pub use advertisement::{
+  MeterAdvertisement, SwitchBotMeterFrame, SwitchBotMeterModel, decode_service_data,
+};
+pub use provider::{SWITCHBOT_METER_SOURCE_LABEL, SwitchBotMeterProvider, source_label};
 
 #[cfg(target_os = "windows")]
-pub use scan::SwitchBotScanController;
+pub use scan::{OnBound, SwitchBotScanController};

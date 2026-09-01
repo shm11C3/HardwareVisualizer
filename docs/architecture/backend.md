@@ -296,9 +296,24 @@ SwitchBot account, cloud API, or outbound request; it reads what the device
 already broadcasts. The meter publishes its service data in the scan response,
 so btleplug's Windows backend runs the WinRT watcher in active scanning mode —
 the radio does transmit scan requests, even though no device state is changed.
-The provider binds to the first meter it hears and logs any others once, because
-one Sensor Source Label has to mean one physical sensor or every Thermal Delta
-derived from it blends two rooms.
+A payload whose byte 0 encryption bit is set is refused rather than decoded: its
+remaining bytes are ciphertext, and ciphertext yields a perfectly plausible room
+temperature whenever its low nibble lands in 0-9, which nothing downstream could
+later tell from a real reading.
+
+One Sensor Source Label has to mean one physical sensor, or every Thermal Delta
+derived from it blends two rooms. The provider therefore answers for exactly one
+device, and which device that is is persisted as
+`environmentalSensors.switchbotMeterDevice`. Latching to the first advertiser is
+only the bootstrap case: on its own it would be re-decided every launch, so with
+two meters in range the binding would wander between rooms across restarts. The
+scan reports the device on first latch, the App writes it to settings, and later
+launches bind to that device alone — a remembered meter that is out of range
+reports unavailable rather than falling back to another one. The label carries a
+short handle of the device (`SwitchBot Meter (a1b2)`), so a re-bind starts a
+visibly separate archive series instead of continuing an existing one; the full
+identifier stays in Core settings and is deliberately absent from the wire type.
+Turning the setting off clears the binding, which is how a user re-binds.
 
 The ambient registry is built once, in `setup_environmental_sensors`
 (`src-tauri/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
