@@ -6,6 +6,7 @@ import { NeedRestart } from "@/components/shared/System";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
+import { AmbientSensorPicker } from "./AmbientSensorPicker";
 
 /**
  * Opt-in for the SwitchBot Meter ambient source (#2044).
@@ -24,7 +25,8 @@ import { useSettingsAtom } from "@/features/settings/hooks/useSettingsAtom";
 export const AmbientSensorToggle = () => {
   const [alertOpen, setAlertOpen] = useState(false);
   const { t } = useTranslation();
-  const { settings, toggleSwitchbotMeterAtom } = useSettingsAtom();
+  const { settings, toggleSwitchbotMeterAtom, setSwitchbotMeterDevice } =
+    useSettingsAtom();
 
   if (platform() !== "windows") {
     return null;
@@ -67,6 +69,22 @@ export const AmbientSensorToggle = () => {
             <p className="text-muted-foreground text-sm">
               {t("pages.settings.insights.ambientSensor.rebind")}
             </p>
+
+            {/*
+              Only while the source is on: the list comes from a running
+              scan, so with the switch off there is nothing to show and
+              nothing a choice could apply to.
+            */}
+            {settings.environmentalSensors.switchbotMeterEnabled && (
+              <div className="pt-2">
+                <AmbientSensorPicker
+                  selectedDeviceId={
+                    settings.environmentalSensors.switchbotMeterDevice ?? null
+                  }
+                  onSelect={setSwitchbotMeterDevice}
+                />
+              </div>
+            )}
           </div>
         </div>
 

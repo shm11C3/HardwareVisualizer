@@ -1,3 +1,4 @@
+pub mod ambient_sensor;
 pub mod background_image;
 pub mod cooling_insight;
 pub mod external_component_guidance;

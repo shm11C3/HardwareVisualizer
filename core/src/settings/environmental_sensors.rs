@@ -69,6 +69,27 @@ impl EnvironmentalSensorSettings {
 
     Some(device_id.to_string())
   }
+
+  /// The chosen device, or `None` when nothing usable is stored.
+  ///
+  /// A device is identified by its Bluetooth address, written as twelve
+  /// hex digits. An earlier build stored the transport library's `Debug`
+  /// string instead; such a value can never match a device again, and
+  /// keeping it would leave the source permanently bound to a sensor
+  /// that cannot exist - unavailable forever, with no explanation. It is
+  /// read as "nothing chosen" so the user is asked to pick, which is
+  /// also what happens on a fresh install.
+  pub fn chosen_device(&self) -> Option<&str> {
+    self
+      .switchbot_meter_device
+      .as_deref()
+      .filter(|id| is_device_id(id))
+  }
+}
+
+/// Whether a stored value is a device address this build can match.
+fn is_device_id(value: &str) -> bool {
+  value.len() == 12 && value.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 #[cfg(test)]

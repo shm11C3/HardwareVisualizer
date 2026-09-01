@@ -22,6 +22,7 @@ mod workers;
 #[cfg(test)]
 mod _tests;
 
+use commands::ambient_sensor;
 use commands::background_image;
 use commands::cooling_insight;
 use commands::external_component_guidance;
@@ -133,6 +134,8 @@ fn build_specta_builder() -> Builder<Wry> {
       settings::commands::set_temperature_unit,
       settings::commands::set_hardware_archive_enabled,
       settings::commands::set_switchbot_meter_enabled,
+      settings::commands::set_switchbot_meter_device,
+      ambient_sensor::get_ambient_sensor_candidates,
       settings::commands::set_hardware_archive_retention_days,
       settings::commands::set_hardware_archive_scheduled_data_deletion,
       settings::commands::set_storage_health_retention_days,
@@ -197,107 +200,43 @@ fn setup_environmental_sensors(
 > {
   use hardviz_core::infrastructure::providers::environmental::EnvironmentalSensorRegistry;
   use hardviz_core::infrastructure::providers::switchbot_meter::{
-    SwitchBotMeterProvider, SwitchBotScanController, binding_channel,
+    SwitchBotMeterProvider, SwitchBotScanController,
   };
 
   let mut registry = EnvironmentalSensorRegistry::new();
 
   if core_settings.environmental_sensors.switchbot_meter_enabled {
-    // Hand the provider the meter this machine already chose, if any.
-    // Without it the provider latches to whichever meter advertises
-    // first, which is a race the user silently loses whenever two are
-    // in range - and loses differently on each restart.
+    // Hand the provider the device this machine was told to use. Until
+    // the user picks one the provider reports nothing: several sensors
+    // in one room can read degrees apart, so choosing for them would be
+    // guessing at the number every Thermal Delta is measured against.
     let provider = Arc::new(SwitchBotMeterProvider::new(
       core_settings
         .environmental_sensors
-        .switchbot_meter_device
-        .clone(),
+        .chosen_device()
+        .map(str::to_string),
     ));
 
-    // The scan only announces a binding; remembering it - a settings
-    // lock and a file write - happens on this consumer's time, off the
-    // BLE event loop.
-    let (bindings_tx, mut bindings_rx) = binding_channel();
-    let app_handle = app.clone();
-    runtime.spawn(async move {
-      while let Some(device_id) = bindings_rx.recv().await {
-        remember_switchbot_meter(&app_handle, &device_id);
-      }
-    });
-
-    let scan =
-      SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider), bindings_tx);
+    let scan = SwitchBotScanController::setup(runtime.clone(), Arc::clone(&provider));
     app
       .state::<workers::WorkersState>()
       .switchbot_scan
       .lock()
       .unwrap()
       .replace(scan);
+    // Kept beside the registry so the settings screen can list what the
+    // radio is hearing right now, which is the only way a user can tell
+    // their sensors apart.
+    app
+      .state::<workers::WorkersState>()
+      .switchbot_provider
+      .lock()
+      .unwrap()
+      .replace(Arc::clone(&provider));
     registry.register(provider);
   }
 
   Arc::new(registry)
-}
-
-/// Remember the meter the ambient source just latched onto (#2044).
-///
-/// Runs on the binding consumer, never on the scan: it takes the
-/// settings lock and writes a file, and doing that inline would let a
-/// slow disk stall advertisement handling.
-///
-/// Persisting the device is what makes the binding survive a restart;
-/// without it a different meter in range could take over the source on
-/// the next launch, and two rooms' readings would end up explaining one
-/// machine.
-///
-/// A failed write is logged and otherwise ignored. This session already
-/// has a working ambient source, and refusing to read a meter because
-/// its identifier could not be written down would trade a real reading
-/// for a bookkeeping problem. The cost is that the binding is decided
-/// again next launch.
-#[cfg(target_os = "windows")]
-fn remember_switchbot_meter(app: &tauri::AppHandle, device_id: &str) {
-  let state = app.state::<settings::AppState>();
-  let mut core_settings = state.core_settings.lock().unwrap();
-
-  // Decided against the very settings about to be saved, and under the
-  // same lock the toggle command takes. The scan outlives a change to
-  // that toggle, so a binding reported just before the user turned the
-  // source off must not be written back afterwards - that resurrected
-  // device would be adopted on the next enable, skipping the re-bind
-  // turning it off was meant to grant.
-  let Some(device_id) = core_settings
-    .environmental_sensors
-    .binding_to_persist(device_id)
-  else {
-    return;
-  };
-
-  // Mutate a clone and swap only after the write succeeds, so the
-  // process never advertises a binding the disk did not accept.
-  let mut next = core_settings.clone();
-  next.environmental_sensors.switchbot_meter_device = Some(device_id);
-
-  let path = utils::file::get_app_data_dir(services::settings_service::SETTINGS_FILENAME);
-  match next.save_to_path(&path) {
-    Ok(()) => {
-      *core_settings = next;
-      log_info!(
-        "remembered the ambient meter so the same one is used after a restart",
-        "setup_environmental_sensors",
-        None::<&str>
-      );
-    }
-    Err(e) => {
-      log_warn!(
-        &format!(
-          "could not remember the ambient meter, so it will be chosen again next launch: {e}"
-        ),
-        "setup_environmental_sensors",
-        None::<&str>
-      );
-    }
-  }
 }
 
 /// No ambient transport is implemented outside Windows yet (#2044), so

@@ -711,6 +711,26 @@ pub mod commands {
     Ok(())
   }
 
+  /// Choose which SwitchBot device the ambient source reads.
+  ///
+  /// Takes effect on the next launch, like the toggle: the provider is
+  /// built once at startup from the stored choice.
+  #[tauri::command]
+  #[specta::specta]
+  pub async fn set_switchbot_meter_device(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    device_id: Option<String>,
+  ) -> Result<(), String> {
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.environmental_sensors.switchbot_meter_device = device_id.clone();
+    }) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+    Ok(())
+  }
+
   #[tauri::command]
   #[specta::specta]
   pub async fn set_hardware_archive_retention_days(

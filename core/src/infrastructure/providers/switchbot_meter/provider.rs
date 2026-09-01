@@ -12,11 +12,10 @@
 //! block on I/O, and a meter broadcasts when it chooses rather than when
 //! it is asked. Push in, poll out is the shape #2043 was built for.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{PoisonError, RwLock};
 
 use chrono::{DateTime, Utc};
-use tokio::sync::mpsc;
 
 use crate::infrastructure::providers::environmental::{
   EnvironmentalReading, EnvironmentalSensorProvider,
@@ -34,36 +33,6 @@ pub const SWITCHBOT_METER_SOURCE_LABEL: &str = "SwitchBot Meter";
 
 /// How many trailing characters of a device handle appear in the label.
 const DEVICE_HANDLE_LEN: usize = 4;
-
-/// Capacity of the binding channel.
-///
-/// One slot. A provider latches at most once per process - `bound_device`
-/// is set once and never reassigned - so a second binding can never be
-/// produced, and a deeper buffer would only hide a bug.
-pub const BINDING_CHANNEL_CAPACITY: usize = 1;
-
-/// Carries a newly latched device to whoever remembers it.
-pub type BindingSender = mpsc::Sender<String>;
-/// Receiving half of [`BindingSender`].
-pub type BindingReceiver = mpsc::Receiver<String>;
-
-/// Create the channel a scan reports its binding on.
-pub fn binding_channel() -> (BindingSender, BindingReceiver) {
-  mpsc::channel(BINDING_CHANNEL_CAPACITY)
-}
-
-/// Announce a newly bound device without ever waiting on the consumer.
-///
-/// Returns whether the report was accepted. This is deliberately
-/// `try_send` rather than an awaited send: remembering the binding means
-/// taking a settings lock and writing a file, and the caller is the BLE
-/// event loop. Letting a slow disk stall advertisement handling would
-/// trade live readings for bookkeeping - so the report is
-/// fire-and-forget, and a refused one costs only that the binding is
-/// decided again on the next launch, which is the pre-existing behavior.
-pub fn report_binding(bindings: &BindingSender, device_id: &str) -> bool {
-  bindings.try_send(device_id.to_string()).is_ok()
-}
 
 /// The Sensor Source Label for readings from `device_id`.
 ///
@@ -174,6 +143,31 @@ struct ObservedState {
   /// distinct SwitchBot meters within radio range, so it cannot grow
   /// with time or traffic the way a per-advertisement record would.
   reported_other_devices: HashSet<String>,
+  /// Every device heard this session, whether chosen or not.
+  ///
+  /// Kept so the user can be shown what is actually in the room and pick
+  /// from it. A capture in one room found four SwitchBot devices reading
+  /// between 25.2 °C and 27.3 °C - a spread wider than the rise Cooling
+  /// Insight treats as a sustained observation - so which one is used
+  /// changes the analysis, and an arbitrary pick is not good enough.
+  ///
+  /// Bounded by the number of SwitchBot devices in radio range.
+  discovered: HashMap<String, DiscoveredSensor>,
+}
+
+/// One SwitchBot device heard during this session.
+///
+/// Carries the reading rather than a model name: model identity cannot
+/// be trusted from these broadcasts (see `advertisement::reading_offset`),
+/// and the temperature is the more useful thing to choose by anyway -
+/// it is what tells the user which device sits near the intake.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DiscoveredSensor {
+  /// Full address form, the value persisted as the chosen device.
+  pub device_id: String,
+  pub temperature_celsius: f32,
+  pub humidity_percent: Option<f32>,
+  pub last_seen: DateTime<Utc>,
 }
 
 impl SwitchBotMeterProvider {
@@ -214,6 +208,37 @@ impl SwitchBotMeterProvider {
       Some(device_id) => Self::bound(device_id),
       None => Self::unbound(),
     }
+  }
+
+  /// Every SwitchBot device heard this session, most recently seen
+  /// first, so the user can choose one.
+  ///
+  /// This is a live view of the room, not a stored list: a device that
+  /// has not been heard since the app started simply is not here, which
+  /// is the honest answer to "what can I pick".
+  pub fn discovered_sensors(&self) -> Vec<DiscoveredSensor> {
+    let observed = self.observed.read().unwrap_or_else(PoisonError::into_inner);
+
+    let mut sensors: Vec<DiscoveredSensor> =
+      observed.discovered.values().cloned().collect();
+    // Ties are broken by identity so the list cannot reshuffle between
+    // polls when two devices were heard in the same instant.
+    sensors.sort_by(|a, b| {
+      b.last_seen
+        .cmp(&a.last_seen)
+        .then_with(|| a.device_id.cmp(&b.device_id))
+    });
+    sensors
+  }
+
+  /// The device this provider answers for, if one has been chosen.
+  pub fn bound_device(&self) -> Option<String> {
+    self
+      .observed
+      .read()
+      .unwrap_or_else(PoisonError::into_inner)
+      .bound_device
+      .clone()
   }
 
   /// Take one decoded advertisement observed from `device_id`.
@@ -260,14 +285,33 @@ impl SwitchBotMeterProvider {
       .write()
       .unwrap_or_else(PoisonError::into_inner);
 
+    // Everything heard is offered to the user, chosen or not.
+    observed.discovered.insert(
+      device_id.to_string(),
+      DiscoveredSensor {
+        device_id: device_id.to_string(),
+        temperature_celsius,
+        humidity_percent,
+        last_seen: observed_at,
+      },
+    );
+
     let outcome = match observed.bound_device.as_deref() {
+      // Nothing is used until the user picks a device. Latching to
+      // whichever sensor happened to advertise first was arbitrary in
+      // exactly the case that matters - several sensors in one room,
+      // reading degrees apart - and produced a different answer on every
+      // launch. Reporting no ambient source until the choice is made is
+      // the honest state.
       None => {
-        observed.bound_device = Some(device_id.to_string());
-        // Readings from here on name the device that was found, so the
-        // archive key matches the binding the caller is about to
-        // persist.
-        observed.active_source = source_label(Some(device_id));
-        ObservationOutcome::Bound
+        return if observed
+          .reported_other_devices
+          .insert(device_id.to_string())
+        {
+          ObservationOutcome::IgnoredNewDevice
+        } else {
+          ObservationOutcome::IgnoredKnownDevice
+        };
       }
       Some(bound) if bound == device_id => ObservationOutcome::Recorded,
       Some(_) => {
@@ -378,45 +422,6 @@ mod tests {
     assert_eq!(source_label(Some("ab")), "SwitchBot Meter (ab)");
   }
 
-  // -- reporting a binding without blocking the scan --
-
-  #[test]
-  fn a_binding_reaches_the_consumer() {
-    let (tx, mut rx) = binding_channel();
-
-    assert!(report_binding(&tx, METER_A));
-    assert_eq!(rx.try_recv().unwrap(), METER_A);
-  }
-
-  /// The point of the channel. The caller is the BLE event loop, so
-  /// reporting a binding must return immediately whatever the consumer
-  /// is doing - a settings write that took a second must not stall
-  /// advertisement handling for a second.
-  #[test]
-  fn reporting_a_binding_never_waits_on_a_busy_consumer() {
-    let (tx, _rx) = binding_channel();
-
-    // Fill the channel, standing in for a consumer that has not got
-    // around to draining it.
-    assert!(report_binding(&tx, METER_A));
-
-    // The call still returns rather than waiting for capacity.
-    assert!(
-      !report_binding(&tx, METER_B),
-      "a full channel must be refused, not awaited"
-    );
-  }
-
-  /// A binding that could not be delivered costs only that the device is
-  /// chosen again next launch - never a stalled scan or a panic.
-  #[test]
-  fn reporting_a_binding_survives_a_consumer_that_went_away() {
-    let (tx, rx) = binding_channel();
-    drop(rx);
-
-    assert!(!report_binding(&tx, METER_A));
-  }
-
   // -- before anything has been heard --
 
   /// The state the app spends its first seconds in, and stays in
@@ -447,15 +452,71 @@ mod tests {
     assert_eq!(provider.latest_reading(), None);
   }
 
-  // -- latching when nothing is remembered --
+  // -- nothing is read until a device is chosen --
 
+  /// The rule that replaced latching. A capture in one room found four
+  /// SwitchBot devices reading degrees apart, so adopting whichever
+  /// advertised first picked the number every Thermal Delta is measured
+  /// against by luck, differently on each launch.
   #[test]
-  fn the_first_frame_binds_the_provider_and_becomes_the_reading() {
+  fn an_unchosen_provider_reads_nothing_however_many_meters_are_in_range() {
     let provider = SwitchBotMeterProvider::unbound();
 
     assert_eq!(
       provider.observe(METER_A, frame(24.5), at(0)),
-      ObservationOutcome::Bound
+      ObservationOutcome::IgnoredNewDevice
+    );
+    assert_eq!(
+      provider.observe(METER_B, frame(31.0), at(1)),
+      ObservationOutcome::IgnoredNewDevice
+    );
+
+    assert_eq!(provider.latest_reading(), None);
+  }
+
+  /// What the settings screen offers: everything heard, chosen or not.
+  #[test]
+  fn every_meter_heard_is_offered_for_selection() {
+    let provider = SwitchBotMeterProvider::unbound();
+    provider.observe(METER_A, frame(24.5), at(0));
+    provider.observe(METER_B, frame(31.0), at(1));
+
+    let discovered = provider.discovered_sensors();
+
+    assert_eq!(discovered.len(), 2);
+    // Most recently heard first.
+    assert_eq!(discovered[0].device_id, METER_B);
+    assert_eq!(discovered[0].temperature_celsius, 31.0);
+    assert_eq!(discovered[1].device_id, METER_A);
+  }
+
+  /// A device that was never chosen still appears in the list, which is
+  /// what lets a user switch to it.
+  #[test]
+  fn a_chosen_provider_still_offers_the_meters_it_is_not_reading() {
+    let provider = SwitchBotMeterProvider::bound(METER_A);
+    provider.observe(METER_A, frame(24.5), at(0));
+    provider.observe(METER_B, frame(31.0), at(1));
+
+    let offered: Vec<String> = provider
+      .discovered_sensors()
+      .into_iter()
+      .map(|sensor| sensor.device_id)
+      .collect();
+
+    assert!(
+      offered.iter().any(|id| id == METER_A) && offered.iter().any(|id| id == METER_B)
+    );
+    assert_eq!(provider.bound_device().as_deref(), Some(METER_A));
+  }
+
+  #[test]
+  fn a_frame_from_the_chosen_meter_becomes_the_reading() {
+    let provider = SwitchBotMeterProvider::bound(METER_A);
+
+    assert_eq!(
+      provider.observe(METER_A, frame(24.5), at(0)),
+      ObservationOutcome::Recorded
     );
 
     assert_eq!(
@@ -469,12 +530,12 @@ mod tests {
     );
   }
 
-  /// The reading must be labelled with the device that was found, not
-  /// the bare fallback: that label is the archive key, and the caller is
-  /// about to persist the same device.
+  /// The reading must be labelled with the device it came from: that
+  /// label is the archive key, so a different choice starts a different
+  /// series rather than continuing one.
   #[test]
-  fn a_latched_reading_is_labelled_with_the_device_it_came_from() {
-    let provider = SwitchBotMeterProvider::unbound();
+  fn a_reading_is_labelled_with_the_device_it_came_from() {
+    let provider = SwitchBotMeterProvider::bound(METER_B);
     provider.observe(METER_B, frame(24.5), at(0));
 
     assert_eq!(provider.latest_reading().unwrap().source, LABEL_B);
@@ -482,7 +543,7 @@ mod tests {
 
   #[test]
   fn a_later_frame_from_the_bound_meter_replaces_the_cached_reading() {
-    let provider = SwitchBotMeterProvider::unbound();
+    let provider = SwitchBotMeterProvider::bound(METER_A);
     provider.observe(METER_A, frame(24.5), at(0));
 
     assert_eq!(
@@ -499,7 +560,7 @@ mod tests {
   /// #2043's freshness window is measured against.
   #[test]
   fn the_reading_is_stamped_with_the_time_it_was_received() {
-    let provider = SwitchBotMeterProvider::unbound();
+    let provider = SwitchBotMeterProvider::bound(METER_A);
     provider.observe(METER_A, frame(24.5), at(-120));
 
     assert_eq!(provider.latest_reading().unwrap().timestamp, at(-120));
@@ -507,7 +568,7 @@ mod tests {
 
   #[test]
   fn a_temperature_only_frame_caches_without_humidity() {
-    let provider = SwitchBotMeterProvider::unbound();
+    let provider = SwitchBotMeterProvider::bound(METER_A);
     let mut dry = frame(24.5);
     dry.humidity_percent = None;
     provider.observe(METER_A, dry, at(0));
@@ -521,7 +582,7 @@ mod tests {
   /// that could drift from the one the archive actually applies.
   #[test]
   fn an_old_reading_is_still_returned_and_left_for_the_registry_to_judge() {
-    let provider = SwitchBotMeterProvider::unbound();
+    let provider = SwitchBotMeterProvider::bound(METER_A);
     provider.observe(METER_A, frame(24.5), at(-86_400));
 
     let latest = provider
@@ -590,11 +651,11 @@ mod tests {
       ObservationOutcome::IgnoredNewDevice
     );
 
-    // What the next launch looks like once the binding was cleared.
-    let rebound = SwitchBotMeterProvider::new(None);
+    // What the next launch looks like once the other meter was chosen.
+    let rebound = SwitchBotMeterProvider::new(Some(METER_B.to_string()));
     assert_eq!(
       rebound.observe(METER_B, frame(31.0), at(0)),
-      ObservationOutcome::Bound
+      ObservationOutcome::Recorded
     );
     assert_eq!(rebound.latest_reading().unwrap().source, LABEL_B);
   }
@@ -629,7 +690,7 @@ mod tests {
 
   #[test]
   fn a_second_meter_does_not_overwrite_the_bound_meters_reading() {
-    let provider = SwitchBotMeterProvider::unbound();
+    let provider = SwitchBotMeterProvider::bound(METER_A);
     provider.observe(METER_A, frame(24.5), at(0));
 
     assert_eq!(
@@ -647,7 +708,7 @@ mod tests {
 
   #[test]
   fn the_bound_meter_keeps_updating_while_another_is_in_range() {
-    let provider = SwitchBotMeterProvider::unbound();
+    let provider = SwitchBotMeterProvider::bound(METER_A);
     provider.observe(METER_A, frame(24.5), at(0));
     provider.observe(METER_B, frame(31.0), at(10));
 

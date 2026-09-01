@@ -38,9 +38,7 @@ use super::advertisement::{
   ManufacturerAdvertisement, MeterAdvertisement, decode_manufacturer_data,
   decode_service_data,
 };
-use super::provider::{
-  BindingSender, ObservationOutcome, SwitchBotMeterProvider, report_binding,
-};
+use super::provider::{ObservationOutcome, SwitchBotMeterProvider};
 
 /// Log target for everything this module reports.
 const LOG_TARGET: &str = "providers::switchbot_meter::scan";
@@ -68,11 +66,7 @@ impl SwitchBotScanController {
   /// latched. Reporting on it never blocks, so remembering the binding -
   /// a settings lock and a file write - happens on the consumer's time
   /// rather than stalling advertisement handling.
-  pub fn setup(
-    runtime: Handle,
-    provider: Arc<SwitchBotMeterProvider>,
-    bindings: BindingSender,
-  ) -> Self {
+  pub fn setup(runtime: Handle, provider: Arc<SwitchBotMeterProvider>) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
@@ -132,7 +126,6 @@ impl SwitchBotScanController {
             Some(event) => handle_event(
               event,
               &provider,
-              &bindings,
               &mut reported_encrypted,
             ),
             // The adapter went away mid-session (dongle unplugged,
@@ -227,7 +220,6 @@ async fn open_adapter() -> Option<btleplug::platform::Adapter> {
 fn handle_event(
   event: CentralEvent,
   provider: &SwitchBotMeterProvider,
-  bindings: &BindingSender,
   reported_encrypted: &mut HashSet<String>,
 ) {
   // The Hub family broadcasts its reading in manufacturer data, which
@@ -249,7 +241,6 @@ fn handle_event(
       };
       record_reading(
         provider,
-        bindings,
         &frame.address_id(),
         frame.temperature_celsius,
         frame.humidity_percent,
@@ -295,7 +286,6 @@ fn handle_event(
 
     record_reading(
       provider,
-      bindings,
       &device_id,
       frame.temperature_celsius,
       frame.humidity_percent,
@@ -311,7 +301,6 @@ fn handle_event(
 /// service data or manufacturer data.
 fn record_reading(
   provider: &SwitchBotMeterProvider,
-  bindings: &BindingSender,
   device_id: &str,
   temperature_celsius: f32,
   humidity_percent: Option<f32>,
@@ -325,21 +314,10 @@ fn record_reading(
   ) {
     ObservationOutcome::Bound => {
       log_info!(
-        &format!("bound ambient source to SwitchBot device {device_id}"),
+        &format!("ambient source is reading SwitchBot device {device_id}"),
         LOG_TARGET,
         None::<&str>
       );
-      // Hand the choice off to be remembered, without waiting for it.
-      // A refused hand-off costs only that the device is chosen again
-      // next launch, which is strictly better than stalling the event
-      // loop behind a settings write.
-      if !report_binding(bindings, device_id) {
-        log_warn!(
-          "could not hand off the ambient meter binding; it will be chosen again next launch",
-          LOG_TARGET,
-          None::<&str>
-        );
-      }
     }
     ObservationOutcome::IgnoredNewDevice => {
       log_warn!(

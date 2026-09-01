@@ -21,6 +21,18 @@ pub struct WorkersState {
       hardviz_core::infrastructure::providers::switchbot_meter::SwitchBotScanController,
     >,
   >,
+
+  /// The provider the scan feeds, so the settings screen can ask what
+  /// devices are in range. `None` for the same reason `switchbot_scan`
+  /// is: the ambient source is off until the user turns it on.
+  #[cfg(target_os = "windows")]
+  pub switchbot_provider: Mutex<
+    Option<
+      std::sync::Arc<
+        hardviz_core::infrastructure::providers::switchbot_meter::SwitchBotMeterProvider,
+      >,
+    >,
+  >,
   /// On-demand Live Storage Health collector (ADR 0006). Not a worker —
   /// no background task, so `terminate_all` leaves it alone. `None` when
   /// Storage Health is disabled at startup or the identity key is
