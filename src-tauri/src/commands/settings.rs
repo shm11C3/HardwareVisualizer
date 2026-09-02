@@ -712,12 +712,14 @@ pub mod commands {
     Ok(())
   }
 
-  /// Choose which SwitchBot device the ambient source reads, or clear the choice with `None`. The id is the device's Bluetooth address as twelve hex digits, as listed by `get_ambient_sensor_candidates`; it is stored lowercase, and anything else is refused. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
+  /// Choose which SwitchBot device the ambient source reads, or clear the choice with `None`. The id is the device's Bluetooth address as twelve hex digits, as listed by `get_ambient_sensor_candidates`; it is stored lowercase, and anything else is refused. The running source switches to the new device at once, so no restart is needed.
   #[tauri::command]
   #[specta::specta]
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
   pub async fn set_switchbot_meter_device(
     window: Window,
     state: tauri::State<'_, AppState>,
+    workers: tauri::State<'_, crate::workers::WorkersState>,
     device_id: Option<String>,
   ) -> Result<(), String> {
     // Validated here, at the boundary, so the settings file can only ever
@@ -736,6 +738,22 @@ pub mod commands {
       emit_error(&window)?;
       return Err(e);
     }
+
+    // Only after the choice is on disk: a refused write leaves the source
+    // as it was, and the live provider must agree with the stored value
+    // rather than run ahead of it.
+    #[cfg(target_os = "windows")]
+    {
+      let provider = workers
+        .switchbot_provider
+        .lock()
+        .map_err(|_| "ambient provider lock was poisoned".to_string())?
+        .clone();
+      if let Some(provider) = provider {
+        provider.rebind(device_id);
+      }
+    }
+
     Ok(())
   }
 
