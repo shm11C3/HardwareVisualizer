@@ -63,6 +63,7 @@ pub mod commands {
     ExternalComponentGuidanceState, normalize_external_component_guidance_key,
   };
   use crate::tray::widget::TrayWidgetSettings;
+  use hardviz_core::settings::environmental_sensors::normalize_device_id;
   use serde_json::json;
   use std::sync::Arc;
   use tauri::{Emitter, EventTarget, Manager, Window};
@@ -711,7 +712,7 @@ pub mod commands {
     Ok(())
   }
 
-  /// Choose which SwitchBot device the ambient source reads. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
+  /// Choose which SwitchBot device the ambient source reads, or clear the choice with `None`. The id is the device's Bluetooth address as twelve hex digits, as listed by `get_ambient_sensor_candidates`; it is stored lowercase, and anything else is refused. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
   #[tauri::command]
   #[specta::specta]
   pub async fn set_switchbot_meter_device(
@@ -719,6 +720,16 @@ pub mod commands {
     state: tauri::State<'_, AppState>,
     device_id: Option<String>,
   ) -> Result<(), String> {
+    // Validated here, at the boundary, so the settings file can only ever
+    // hold a value the scan can match. Core reads any other form as
+    // "nothing chosen", which would silently discard the user's pick.
+    let device_id = device_id
+      .map(|id| {
+        normalize_device_id(&id)
+          .ok_or_else(|| format!("SwitchBot device id must be twelve hex digits: {id:?}"))
+      })
+      .transpose()?;
+
     if let Err(e) = update_core_settings(&state, |s| {
       s.environmental_sensors.switchbot_meter_device = device_id.clone();
     }) {

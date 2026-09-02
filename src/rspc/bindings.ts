@@ -176,7 +176,7 @@ export const commands = {
 	 *  mid-session. The settings screen says so.
 	 */
 	setSwitchbotMeterEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_enabled", { newValue })),
-	// Choose which SwitchBot device the ambient source reads. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
+	// Choose which SwitchBot device the ambient source reads, or clear the choice with `None`. The id is the device's Bluetooth address as twelve hex digits, as listed by `get_ambient_sensor_candidates`; it is stored lowercase, and anything else is refused. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
 	setSwitchbotMeterDevice: (deviceId: string | null) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_device", { deviceId })),
 	// Every SwitchBot device heard since launch, in a stable device-id order. Returns an empty list on a machine where the ambient source is off, where no adapter exists, or where nothing has advertised yet - all of which look the same from here and are equally honest as "nothing to choose from".
 	getAmbientSensorCandidates: () => typedError<AmbientSensorCandidate[], string>(__TAURI_INVOKE("get_ambient_sensor_candidates")),

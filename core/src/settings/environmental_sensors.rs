@@ -87,9 +87,25 @@ impl EnvironmentalSensorSettings {
   }
 }
 
-/// Whether a stored value is a device address this build can match.
+/// Whether a stored value is a device address this build can match:
+/// twelve lowercase hex digits, the form the scan identifies devices by.
 pub fn is_device_id(value: &str) -> bool {
-  value.len() == 12 && value.bytes().all(|b| b.is_ascii_hexdigit())
+  value.len() == 12
+    && value
+      .bytes()
+      .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+
+/// The form a chosen device is stored in, or `None` when `value` is not
+/// a device address at all.
+///
+/// Case is folded rather than refused because the address is the same
+/// device either way; anything that is not twelve hex digits is refused
+/// rather than stored, so the settings file can only ever hold a value
+/// the scan can match.
+pub fn normalize_device_id(value: &str) -> Option<String> {
+  let normalized = value.to_ascii_lowercase();
+  is_device_id(&normalized).then_some(normalized)
 }
 
 #[cfg(test)]
@@ -229,6 +245,53 @@ mod tests {
     assert_eq!(
       serde_json::from_str::<EnvironmentalSensorSettings>(&json).unwrap(),
       settings
+    );
+  }
+
+  // -- what may be stored as the chosen device --
+
+  /// The scan identifies devices by lowercase address, so a choice has
+  /// to be stored the same way or it could never match what is heard.
+  #[test]
+  fn a_chosen_device_is_stored_as_its_lowercase_address() {
+    assert_eq!(
+      normalize_device_id("AABBCCDDA1B2").as_deref(),
+      Some("aabbccdda1b2")
+    );
+    assert_eq!(
+      normalize_device_id("aabbccdda1b2").as_deref(),
+      Some("aabbccdda1b2")
+    );
+  }
+
+  /// Anything else - a transport Debug string, a colon-separated address,
+  /// a truncated or padded one - is refused rather than stored, so the
+  /// settings file can only ever hold a value the scan can match.
+  #[test]
+  fn anything_but_twelve_hex_digits_is_refused_as_a_choice() {
+    for value in [
+      "",
+      "PeripheralId(AA:BB:CC:DD:A1:B2)",
+      "aa:bb:cc:dd:a1:b2",
+      "aabbccdda1b",
+      "aabbccdda1b2c",
+      "aabbccdda1bg",
+      " aabbccdda1b2",
+    ] {
+      assert_eq!(normalize_device_id(value), None, "{value:?}");
+    }
+  }
+
+  /// A stored id that is not lowercase can only have been written by
+  /// hand. It would never match a device, so it reads as nothing chosen
+  /// - the same answer as any other unmatched form.
+  #[test]
+  fn an_uppercase_stored_id_reads_as_nothing_chosen() {
+    let settings = enabled_with(Some("AABBCCDDA1B2"));
+    assert_eq!(settings.chosen_device(), None);
+    assert_eq!(
+      enabled_with(Some("aabbccdda1b2")).chosen_device(),
+      Some("aabbccdda1b2")
     );
   }
 
