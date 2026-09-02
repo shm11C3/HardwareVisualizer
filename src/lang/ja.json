@@ -654,6 +654,7 @@
           "picker": {
             "title": "読み取るデバイス",
             "searching": "周囲の SwitchBot デバイスを検出しています…",
+            "needsArchive": "室温はインサイトの記録と一緒に記録されます。デバイスを選ぶには、上でインサイトの記録を開始してください。",
             "device": "{{shortId}} — {{temperature}} {{unit}} / {{humidity}} %"
           }
         },

@@ -74,17 +74,28 @@ export const AmbientSensorToggle = () => {
               Only while the source is on: the list comes from a running
               scan, so with the switch off there is nothing to show and
               nothing a choice could apply to.
+
+              And only while Insights recording is on. Ambient readings
+              ride the Hardware Archive's one-minute tick, so the scan is
+              never started without it - the list would sit at
+              "listening" forever with nothing to say why. Stating the
+              dependency is the honest version of that silence.
             */}
-            {settings.environmentalSensors.switchbotMeterEnabled && (
-              <div className="pt-2">
-                <AmbientSensorPicker
-                  selectedDeviceId={
-                    settings.environmentalSensors.switchbotMeterDevice ?? null
-                  }
-                  onSelect={setSwitchbotMeterDevice}
-                />
-              </div>
-            )}
+            {settings.environmentalSensors.switchbotMeterEnabled &&
+              (settings.hardwareArchive.enabled ? (
+                <div className="pt-2">
+                  <AmbientSensorPicker
+                    selectedDeviceId={
+                      settings.environmentalSensors.switchbotMeterDevice ?? null
+                    }
+                    onSelect={setSwitchbotMeterDevice}
+                  />
+                </div>
+              ) : (
+                <p className="pt-2 text-muted-foreground text-sm">
+                  {t("pages.settings.insights.ambientSensor.picker.needsArchive")}
+                </p>
+              ))}
           </div>
         </div>
 
