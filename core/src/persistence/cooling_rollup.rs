@@ -22,20 +22,14 @@
 //! absence suppresses the other, and a missing reading stays absent rather
 //! than becoming 0 W.
 //!
-//! Finally the same pass folds the ambient-normalized thermal delta
-//! ([`AmbientDeltaSummary`], #2045): `ΔT = CPU package temperature −
-//! ambient temperature`, per band. The pairing that makes ΔT meaningful
-//! happens *before* this fold, at the read boundary - each
-//! [`ArchiveMinuteSample`] already carries the ambient temperature of its
-//! own minute (see
-//! [`crate::infrastructure::database::cooling_daily_summary`]) - so the
-//! fold can only ever subtract two readings describing the same minute.
-//! That is #2045's normative rule expressed in the type rather than by
-//! discipline: independently aggregated CPU and ambient summaries must
-//! never be subtracted, because the two archives do not share a sample
-//! set - ambient readings go missing independently of hardware minutes,
-//! and subtracting summaries built over different sample sets produces a
-//! number that corresponds to no real pairing.
+//! The same catch-up pass also drives two row-per-source projections of
+//! the same completed day, each folded from its own read: the per-fan
+//! speed summary ([`crate::persistence::cooling_fan_rollup`]) and the
+//! per-ambient-source Thermal Delta
+//! ([`crate::persistence::cooling_thermal_delta_rollup`], #2045/#2062).
+//! Neither lives on the daily row: how many fans or sensors a machine has
+//! is configuration-dependent, and a ΔT averaged across two sensor
+//! placements is a number no sensor observed.
 
 use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 
@@ -105,11 +99,6 @@ impl CpuLoadBand {
 /// stores in its `cpu_power_*` columns - Apple Silicon's CPU domain and,
 /// since #2035, the Windows RAPL package domain. Both publish through
 /// `PowerDraw::cpu_watts`, so one archive column backs both.
-///
-/// `ambient_temperature_avg` is this minute's ambient air temperature
-/// (#2045), already paired with the hardware reading by the read boundary.
-/// `None` means the minute has no valid ambient pairing, which yields no
-/// ΔT at all rather than an interpolated one.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ArchiveMinuteSample {
   pub timestamp: DateTime<Utc>,
@@ -120,7 +109,6 @@ pub struct ArchiveMinuteSample {
   pub cpu_power_avg: Option<f32>,
   pub cpu_power_max: Option<f32>,
   pub cpu_power_min: Option<f32>,
-  pub ambient_temperature_avg: Option<f32>,
 }
 
 /// CPU temperature summary for one [`CpuLoadBand`] on one local day.
@@ -155,44 +143,6 @@ pub struct PowerSummary {
   pub sample_minutes: u32,
 }
 
-/// One local day's ambient-normalized thermal delta, per CPU-load band
-/// (#2045).
-///
-/// Each band's [`BandSummary`] holds `ΔT = CPU package temperature −
-/// ambient temperature` in kelvin-equivalent degrees, folded only over
-/// minutes that carried *both* readings. `sample_minutes` there is
-/// therefore a strict subset of the matching temperature band's: a minute
-/// contributes to a ΔT band only when it already contributed to that
-/// temperature band *and* had an ambient pair, so the two gates are
-/// nested rather than independent.
-///
-/// `coverage_minutes` is counted outside that nesting: it is every
-/// archived minute of the day that had an ambient pair at all, whether or
-/// not the CPU side could be classified into a band. That makes it an
-/// honest measure of ambient availability on a machine with no CPU
-/// temperature sensor, which is exactly what the backfill cursor needs
-/// (see [`RollupProgress::last_ambient_daily_date`]).
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct AmbientDeltaSummary {
-  pub coverage_minutes: u32,
-  pub idle: BandSummary,
-  pub low: BandSummary,
-  pub mid: BandSummary,
-  pub high: BandSummary,
-}
-
-impl AmbientDeltaSummary {
-  /// This day's ΔT summary for `band`.
-  pub fn band(&self, band: CpuLoadBand) -> &BandSummary {
-    match band {
-      CpuLoadBand::Idle => &self.idle,
-      CpuLoadBand::Low => &self.low,
-      CpuLoadBand::Mid => &self.mid,
-      CpuLoadBand::High => &self.high,
-    }
-  }
-}
-
 /// Minutes in a local calendar day; the cap for [`DailyCoolingSummary::coverage_minutes`].
 const MINUTES_PER_DAY: u32 = 24 * 60;
 
@@ -222,10 +172,6 @@ pub struct DailyCoolingSummary {
   /// power sampler and no temperature sensor keeps power with empty
   /// bands: neither capability gates the other.
   pub power: PowerSummary,
-  /// The day's ambient-normalized thermal delta per band (#2045). Fully
-  /// default on a machine with no ambient sensor, which is what keeps
-  /// every ambient-unaware query answering exactly as it did before.
-  pub ambient: AmbientDeltaSummary,
 }
 
 /// Fold one local day's archived one-minute rows into a
@@ -244,11 +190,6 @@ pub fn summarize_day(
   let mut mid = ReadingAccumulator::default();
   let mut high = ReadingAccumulator::default();
   let mut power = ReadingAccumulator::default();
-  let mut delta_idle = ReadingAccumulator::default();
-  let mut delta_low = ReadingAccumulator::default();
-  let mut delta_mid = ReadingAccumulator::default();
-  let mut delta_high = ReadingAccumulator::default();
-  let mut ambient_coverage_minutes: u32 = 0;
 
   for minute in minutes {
     // Power is folded before the band gate below and never `continue`s
@@ -265,17 +206,6 @@ pub fn summarize_day(
       minute.cpu_power_min,
     ) {
       power.push(power_avg, power_max, power_min);
-    }
-
-    // Ambient coverage is counted here, outside the band gate below, for
-    // the same reason power is: whether the room's air temperature was
-    // readable that minute has nothing to do with whether the CPU's own
-    // sensors were. A machine with an ambient sensor and no CPU
-    // temperature sensor still reports honest ambient coverage - and the
-    // backfill cursor depends on that, or it would rewind forever
-    // chasing coverage such a machine can never record.
-    if minute.ambient_temperature_avg.is_some() {
-      ambient_coverage_minutes += 1;
     }
 
     // A minute without a CPU usage reading cannot be classified into any
@@ -298,40 +228,13 @@ pub fn summarize_day(
       continue;
     };
 
-    let classified = CpuLoadBand::classify(cpu_usage_avg);
-    let band = match classified {
+    let band = match CpuLoadBand::classify(cpu_usage_avg) {
       CpuLoadBand::Idle => &mut idle,
       CpuLoadBand::Low => &mut low,
       CpuLoadBand::Mid => &mut mid,
       CpuLoadBand::High => &mut high,
     };
     band.push(temperature_avg, temperature_max, temperature_min);
-
-    // ΔT is gated *inside* the band gate, not beside it: a minute
-    // contributes to a ΔT band only when it already contributed to that
-    // temperature band and carried an ambient pair. A minute with an
-    // ambient reading but no usable CPU temperature or usage has nothing
-    // to subtract from and nowhere to put the result, so it contributes
-    // no ΔT - only ambient coverage, counted above.
-    //
-    // The minute's own ambient value shifts all three of avg/max/min
-    // together: within one archived minute there is a single ambient
-    // reading, so the ΔT extremes are the CPU extremes offset by it.
-    // Nothing here is interpolated across minutes (DP-02).
-    let Some(ambient_temperature) = minute.ambient_temperature_avg else {
-      continue;
-    };
-    let delta_band = match classified {
-      CpuLoadBand::Idle => &mut delta_idle,
-      CpuLoadBand::Low => &mut delta_low,
-      CpuLoadBand::Mid => &mut delta_mid,
-      CpuLoadBand::High => &mut delta_high,
-    };
-    delta_band.push(
-      temperature_avg - ambient_temperature,
-      temperature_max - ambient_temperature,
-      temperature_min - ambient_temperature,
-    );
   }
 
   Some(DailyCoolingSummary {
@@ -342,24 +245,19 @@ pub fn summarize_day(
     mid: mid.finish_band(),
     high: high.finish_band(),
     power: power.finish_power(),
-    ambient: AmbientDeltaSummary {
-      coverage_minutes: ambient_coverage_minutes.min(MINUTES_PER_DAY),
-      idle: delta_idle.finish_band(),
-      low: delta_low.finish_band(),
-      mid: delta_mid.finish_band(),
-      high: delta_high.finish_band(),
-    },
   })
 }
 
 /// Accumulates one series of per-minute avg/max/min readings for a single
-/// day - one [`CpuLoadBand`]'s temperatures, or the day's CPU package
-/// power. `avg` is the average of the per-minute averages (consistent with
-/// how `archive_queries` already aggregates `DATA_ARCHIVE` rows, since
-/// each row is itself already a one-minute average); `max`/`min` are the
+/// day - one [`CpuLoadBand`]'s temperatures, the day's CPU package power,
+/// or one ambient source's ΔT band (see
+/// [`crate::persistence::cooling_thermal_delta_rollup`]). `avg` is the
+/// average of the per-minute averages (consistent with how
+/// `archive_queries` already aggregates `DATA_ARCHIVE` rows, since each
+/// row is itself already a one-minute average); `max`/`min` are the
 /// extremes across the per-minute extremes.
 #[derive(Default)]
-struct ReadingAccumulator {
+pub(crate) struct ReadingAccumulator {
   sum: f64,
   count: u32,
   max: Option<f32>,
@@ -367,7 +265,7 @@ struct ReadingAccumulator {
 }
 
 impl ReadingAccumulator {
-  fn push(&mut self, avg: f32, max: f32, min: f32) {
+  pub(crate) fn push(&mut self, avg: f32, max: f32, min: f32) {
     self.sum += avg as f64;
     self.count += 1;
     self.max = Some(self.max.map_or(max, |current| current.max(max)));
@@ -378,7 +276,7 @@ impl ReadingAccumulator {
     (self.count > 0).then(|| (self.sum / self.count as f64) as f32)
   }
 
-  fn finish_band(self) -> BandSummary {
+  pub(crate) fn finish_band(self) -> BandSummary {
     BandSummary {
       avg: self.avg(),
       max: self.max,
@@ -614,7 +512,9 @@ pub struct RollupProgress {
   /// or `None` when it holds none. Completed days only - see
   /// [`fan_rollup_is_behind`].
   pub last_fanned_archive_date: Option<NaiveDate>,
-  /// The latest summarized day that recorded any ambient coverage (#2045).
+  /// The local day of `MAX(date)` in `cooling_thermal_delta_daily_summary`,
+  /// which is the latest summarized day any ambient source recorded
+  /// coverage for (#2045).
   pub last_ambient_daily_date: Option<NaiveDate>,
   /// The latest *completed* local day whose ambient archive rows pair with
   /// a hardware archive minute, or `None` when none do. Completed days
@@ -746,8 +646,8 @@ fn fan_rollup_resume(progress: RollupProgress) -> Option<NaiveDate> {
   }
 }
 
-/// Where the daily rollup's ambient delta columns need the catch-up to
-/// resume from, or `last_daily_date` when they have kept up (#2045).
+/// Where the Thermal Delta rollup needs the catch-up to resume from, or
+/// `last_daily_date` when it has kept up (#2045).
 fn ambient_rollup_resume(progress: RollupProgress) -> Option<NaiveDate> {
   if ambient_rollup_is_behind(progress) {
     progress.last_ambient_daily_date
@@ -783,30 +683,30 @@ fn fan_rollup_is_behind(progress: RollupProgress) -> bool {
 /// Whether the ambient archive holds a completed day's *pairable* ambient
 /// reading that no summarized day recorded coverage for (#2045).
 ///
-/// Migration 16 added the delta columns to a table an existing install has
-/// already summarized through yesterday, so an install that was already
-/// collecting ambient readings before this shipped carries NULL deltas for
-/// every one of those days. Without this check the daily cursor would
-/// never revisit them and the ambient-adjusted readings would stay absent
-/// for the whole retention window while the archives still hold both
-/// sides.
+/// The migration that creates `cooling_thermal_delta_daily_summary` lands
+/// on installs that have already summarized through yesterday, so an
+/// install that was already collecting ambient readings has them in the
+/// archive and nothing in the new table. Without this check the daily
+/// cursor would never revisit those days and the ambient-adjusted
+/// readings would stay absent for the whole retention window while the
+/// archives still hold both sides.
 ///
 /// Two bounds keep this from becoming a permanent rewind, and they are the
 /// same two the power backfill needed:
 ///
 /// - Being behind is claimed only when the *archive* actually holds a
-///   pairable ambient reading, never merely because the daily table has no
-///   coverage. A machine with no ambient sensor has neither side, so it
-///   never rewinds.
+///   pairable ambient reading, never merely because the table is empty.
+///   A machine with no ambient sensor has neither side, so it never
+///   rewinds.
 /// - `last_ambient_archive_date` counts only ambient rows that join a
-///   hardware archive minute, matching `summarize_day`'s own coverage
-///   gate. An ambient row whose minute has no `DATA_ARCHIVE` row can never
-///   become coverage no matter how often the day is re-rolled, so counting
-///   it would make the catch-up chase a day it can never fill.
+///   hardware archive minute, matching the rollup's own coverage gate. An
+///   ambient row whose minute has no `DATA_ARCHIVE` row can never become
+///   a row no matter how often the day is re-rolled, so counting it would
+///   make the catch-up chase a day it can never fill.
 ///
 /// The completed-days bound is applied in SQL, where the day boundary
 /// already lives (see
-/// `cooling_daily_summary::max_pairable_ambient_archive_timestamp_before`),
+/// `cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before`),
 /// so no clamp here can disagree with it.
 fn ambient_rollup_is_behind(progress: RollupProgress) -> bool {
   let Some(archived) = progress.last_ambient_archive_date else {
@@ -845,9 +745,9 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
     .await?
     .map(utc_to_local_date),
     last_ambient_daily_date:
-      database::cooling_daily_summary::max_ambient_summarized_date().await?,
+      database::cooling_thermal_delta_daily_summary::max_summarized_date().await?,
     last_ambient_archive_date:
-      database::cooling_daily_summary::max_pairable_ambient_archive_timestamp_before(
+      database::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
         &today_start,
       )
       .await?
@@ -909,12 +809,28 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
     database::fan_archive::select_fan_minutes_for_range(&start, &end).await?;
   let fans =
     crate::persistence::cooling_fan_rollup::summarize_fan_day(date, &fan_minutes);
+  // The Thermal Delta is folded from its own paired read rather than from
+  // `minutes`: the pairing of each archived minute with each ambient
+  // source's reading for that same minute is done in SQL, so the fold
+  // can only ever subtract readings describing the same minute and the
+  // same sensor (#2045, #2062).
+  let paired_minutes =
+    database::cooling_thermal_delta_daily_summary::select_thermal_delta_minutes_for_range(
+      &start, &end,
+    )
+    .await?;
+  let thermal_deltas =
+    crate::persistence::cooling_thermal_delta_rollup::summarize_thermal_delta_day(
+      date,
+      &paired_minutes,
+    );
 
   let pool = database::db::get_pool().await?;
-  persist_day_rollup_from_pool(&pool, summary.as_ref(), &hours, &fans).await
+  persist_day_rollup_from_pool(&pool, summary.as_ref(), &hours, &fans, &thermal_deltas)
+    .await
 }
 
-/// Write one day's two rollup projections in a single transaction.
+/// Write one day's rollup projections in a single transaction.
 ///
 /// Atomic on purpose: a committed daily row with its hourly rows missing
 /// is exactly the half-written state
@@ -927,6 +843,7 @@ pub(crate) async fn persist_day_rollup_from_pool(
   summary: Option<&DailyCoolingSummary>,
   hours: &[crate::persistence::cooling_hourly_rollup::HourlyCoolingSummary],
   fans: &[crate::persistence::cooling_fan_rollup::FanDailySummary],
+  thermal_deltas: &[crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary],
 ) -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -940,6 +857,10 @@ pub(crate) async fn persist_day_rollup_from_pool(
   }
   for fan in fans {
     database::cooling_fan_daily_summary::upsert_with(&mut *tx, fan).await?;
+  }
+  for thermal_delta in thermal_deltas {
+    database::cooling_thermal_delta_daily_summary::upsert_with(&mut *tx, thermal_delta)
+      .await?;
   }
 
   tx.commit().await
@@ -957,51 +878,56 @@ pub(crate) async fn persist_day_rollup_from_pool(
 /// can show daily but not hourly (or the reverse) would only be a source
 /// of inconsistent answers.
 ///
-/// Every pinned baseline's own window is exempt from both deletes. A
-/// baseline is a fixed reference that never expires (that is the point of
-/// pinning it), so once its window drifts past the retention cutoff,
-/// deleting the rows inside it would permanently empty every
-/// baseline-side comparison (the load-band comparison, and the Explorer's
-/// baseline medians) while the baseline still names that period as the
-/// reference.
+/// Each pinned baseline's own window is exempt from the delete on the
+/// table it was derived from. A baseline is a fixed reference that never
+/// expires (that is the point of pinning it), so once its window drifts
+/// past the retention cutoff, deleting the rows inside it would
+/// permanently empty every baseline-side comparison (the load-band
+/// comparison, and the Explorer's baseline medians) while the baseline
+/// still names that period as the reference.
 ///
 /// There are two such windows since #2045 - the absolute idle baseline's
-/// and the ΔT baseline's - and they are generally *different* date
-/// ranges, because ambient collection tends to begin long after the
-/// machine did. The exemption costs at most two weeks of rows.
+/// over `cooling_daily_summary` and `cooling_hourly_summary`, and the ΔT
+/// baseline's over `cooling_thermal_delta_daily_summary` - and they are
+/// generally *different* date ranges, because ambient collection tends to
+/// begin long after the machine did. Each exemption costs at most a week
+/// of rows.
 pub async fn cleanup_old_data() {
   use crate::infrastructure::database;
 
   // Deleting without knowing a protected window could erase a baseline's
   // evidence irrecoverably, so either read failing skips this cleanup
   // pass entirely and lets the next boot retry rather than risk it.
-  let mut preserved_windows = Vec::new();
-  match database::cooling_baseline::select_established_baseline().await {
-    Ok(baseline) => {
-      preserved_windows.extend(baseline.map(|b| (b.window_start_date, b.window_end_date)))
-    }
-    Err(e) => {
-      log_error!(
-        "Failed to read the pinned cooling baseline; skipping cooling rollup cleanup",
-        "persistence::cooling_rollup::cleanup_old_data",
-        Some(e.to_string())
-      );
-      return;
-    }
-  }
-  match database::cooling_delta_baseline::select_established_delta_baseline().await {
-    Ok(baseline) => {
-      preserved_windows.extend(baseline.map(|b| (b.window_start_date, b.window_end_date)))
-    }
-    Err(e) => {
-      log_error!(
-        "Failed to read the pinned ΔT cooling baseline; skipping cooling rollup cleanup",
-        "persistence::cooling_rollup::cleanup_old_data",
-        Some(e.to_string())
-      );
-      return;
-    }
-  }
+  let preserved_windows: Vec<_> =
+    match database::cooling_baseline::select_established_baseline().await {
+      Ok(baseline) => baseline
+        .map(|b| (b.window_start_date, b.window_end_date))
+        .into_iter()
+        .collect(),
+      Err(e) => {
+        log_error!(
+          "Failed to read the pinned cooling baseline; skipping cooling rollup cleanup",
+          "persistence::cooling_rollup::cleanup_old_data",
+          Some(e.to_string())
+        );
+        return;
+      }
+    };
+  let preserved_delta_windows: Vec<_> =
+    match database::cooling_delta_baseline::select_established_delta_baseline().await {
+      Ok(baseline) => baseline
+        .map(|b| (b.window_start_date, b.window_end_date))
+        .into_iter()
+        .collect(),
+      Err(e) => {
+        log_error!(
+          "Failed to read the pinned ΔT cooling baseline; skipping cooling rollup cleanup",
+          "persistence::cooling_rollup::cleanup_old_data",
+          Some(e.to_string())
+        );
+        return;
+      }
+    };
 
   if let Err(e) = database::cooling_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
@@ -1029,10 +955,23 @@ pub async fn cleanup_old_data() {
     );
   }
 
+  if let Err(e) = database::cooling_thermal_delta_daily_summary::delete_old_data(
+    COOLING_DAILY_SUMMARY_RETENTION_DAYS,
+    &preserved_delta_windows,
+  )
+  .await
+  {
+    log_error!(
+      "Failed to delete old cooling thermal delta daily summary data",
+      "persistence::cooling_rollup::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
   // The fan rollup shares the same retention constant - it is another
-  // projection of the same days - but not the baseline exemption: the
-  // pinned baseline is an idle CPU *temperature* reference, so preserving
-  // fan rows inside its window would keep data nothing reads.
+  // projection of the same days - but no baseline exemption: neither
+  // pinned baseline is a fan reference, so preserving fan rows inside
+  // either window would keep data nothing reads.
   if let Err(e) = database::cooling_fan_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
   )
@@ -1051,8 +990,9 @@ mod tests {
   use super::*;
   use crate::infrastructure::database::test_schema::{
     COOLING_DAILY_SUMMARY_DDL, COOLING_FAN_DAILY_SUMMARY_DDL, COOLING_HOURLY_SUMMARY_DDL,
-    create_tables,
+    COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
   };
+  use crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary;
 
   // ── CpuLoadBand::classify ──
 
@@ -1112,28 +1052,6 @@ mod tests {
       cpu_power_avg: None,
       cpu_power_max: None,
       cpu_power_min: None,
-      // No ambient pairing by default: the absolute-temperature cases
-      // below must keep reading exactly as they did before #2045.
-      ambient_temperature_avg: None,
-    }
-  }
-
-  /// A minute carrying an ambient pairing on top of `sample`'s
-  /// temperature fields (#2045). `ambient: None` is a minute the hardware
-  /// archive recorded with no usable ambient reading for that minute.
-  fn paired_sample(
-    cpu_usage_avg: Option<f32>,
-    temp: Option<f32>,
-    ambient: Option<f32>,
-  ) -> ArchiveMinuteSample {
-    ArchiveMinuteSample {
-      ambient_temperature_avg: ambient,
-      ..sample(
-        cpu_usage_avg,
-        temp,
-        temp.map(|t| t + 1.0),
-        temp.map(|t| t - 1.0),
-      )
     }
   }
 
@@ -1359,157 +1277,6 @@ mod tests {
     assert_eq!(summary.idle.sample_minutes, 2);
     assert_eq!(summary.power.sample_minutes, 1);
     assert_eq!(summary.power.avg, Some(10.0));
-  }
-
-  // ── summarize_day: ambient-normalized thermal delta (#2045) ──
-
-  #[test]
-  fn the_normative_pairing_example_from_the_issue() {
-    // #2045's worked example, kept verbatim as the executable statement
-    // of the rule. Two minutes: one with both readings, one where the
-    // ambient sensor had nothing to say.
-    //
-    //   12:00  CPU 80 degC / Ambient 30 degC  -> delta 50
-    //   18:00  CPU 50 degC / Ambient absent   -> no delta
-    //
-    // Aggregating the two archives independently and subtracting gives
-    // avg(CPU) 65 - avg(Ambient) 30 = "35", a number that corresponds to
-    // no minute that was ever observed. Pairing first gives 50.
-    let minutes = [
-      paired_sample(Some(65.0), Some(80.0), Some(30.0)),
-      paired_sample(Some(65.0), Some(50.0), None),
-    ];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    assert_eq!(
-      summary.ambient.high.avg,
-      Some(50.0),
-      "delta must come from the paired minute alone, not from subtracting \
-       an ambient average out of a CPU average over a different sample set"
-    );
-    assert_eq!(
-      summary.ambient.high.sample_minutes, 1,
-      "only the paired minute may contribute"
-    );
-    // The absolute temperature band still sees both minutes: the
-    // unpaired minute is real data, it just has no delta.
-    assert_eq!(summary.high.sample_minutes, 2);
-    assert_eq!(summary.high.avg, Some(65.0));
-    assert_eq!(summary.ambient.coverage_minutes, 1);
-  }
-
-  #[test]
-  fn a_delta_band_is_nested_inside_its_temperature_band() {
-    // Two minutes in different load bands, each with its own ambient
-    // pairing: the delta lands in the same band the temperature did,
-    // never pooled across bands.
-    let minutes = [
-      paired_sample(Some(5.0), Some(40.0), Some(25.0)),
-      paired_sample(Some(80.0), Some(70.0), Some(25.0)),
-    ];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    assert_eq!(summary.ambient.idle.avg, Some(15.0));
-    assert_eq!(summary.ambient.idle.sample_minutes, 1);
-    assert_eq!(summary.ambient.high.avg, Some(45.0));
-    assert_eq!(summary.ambient.high.sample_minutes, 1);
-    assert_eq!(summary.ambient.low, BandSummary::default());
-    assert_eq!(summary.ambient.mid, BandSummary::default());
-  }
-
-  #[test]
-  fn a_minute_the_band_gate_rejects_contributes_no_delta_however_good_its_ambient() {
-    // The outer gate is the band gate. An ambient reading cannot let a
-    // minute with no usable CPU temperature into a delta band - there is
-    // nothing to subtract it from.
-    let minutes = [
-      paired_sample(Some(5.0), Some(40.0), Some(25.0)),
-      // Ambient present, CPU temperature absent.
-      paired_sample(Some(5.0), None, Some(25.0)),
-      // Ambient present, CPU usage absent so no band can be chosen.
-      paired_sample(None, Some(40.0), Some(25.0)),
-    ];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    assert_eq!(summary.ambient.idle.sample_minutes, 1);
-    assert_eq!(summary.ambient.idle.avg, Some(15.0));
-    // Coverage is counted outside the nesting, so all three minutes had
-    // ambient available even though only one produced a delta.
-    assert_eq!(
-      summary.ambient.coverage_minutes, 3,
-      "ambient availability is a separate capability from CPU sensing"
-    );
-  }
-
-  #[test]
-  fn ambient_coverage_is_recorded_without_a_cpu_temperature_sensor() {
-    // The machine the backfill cursor must not rewind on forever: an
-    // ambient sensor, no CPU temperature sensor. No delta is possible,
-    // but the coverage it records is what tells the cursor the day was
-    // already processed.
-    let minutes = [paired_sample(Some(5.0), None, Some(25.0))];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    assert_eq!(summary.ambient.coverage_minutes, 1);
-    assert_eq!(
-      summary.ambient,
-      AmbientDeltaSummary {
-        coverage_minutes: 1,
-        ..AmbientDeltaSummary::default()
-      }
-    );
-  }
-
-  #[test]
-  fn a_delta_extreme_is_the_cpu_extreme_offset_by_that_minutes_ambient() {
-    // Within one archived minute there is a single ambient reading, so
-    // all three of avg/max/min shift together. Nothing is interpolated
-    // between minutes.
-    let minutes = [
-      // `paired_sample` uses temp + 1.0 / temp - 1.0 for max/min.
-      paired_sample(Some(5.0), Some(40.0), Some(25.0)),
-      paired_sample(Some(5.0), Some(50.0), Some(20.0)),
-    ];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    // Deltas are 15 and 30, so the average is 22.5.
-    assert_eq!(summary.ambient.idle.avg, Some(22.5));
-    assert_eq!(summary.ambient.idle.max, Some(31.0));
-    assert_eq!(summary.ambient.idle.min, Some(14.0));
-    assert_eq!(summary.ambient.idle.sample_minutes, 2);
-  }
-
-  #[test]
-  fn a_machine_with_no_ambient_sensor_reports_a_fully_default_delta_summary() {
-    // The invariant every ambient-unaware query depends on: with no
-    // ambient rows anywhere, the day's ambient facts are absent, never
-    // 0 K and never zero-coverage-with-a-value.
-    let minutes = [full_sample(5.0, 40.0), full_sample(65.0, 80.0)];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    assert_eq!(summary.ambient, AmbientDeltaSummary::default());
-    for band in [
-      CpuLoadBand::Idle,
-      CpuLoadBand::Low,
-      CpuLoadBand::Mid,
-      CpuLoadBand::High,
-    ] {
-      assert_eq!(summary.ambient.band(band).avg, None);
-    }
-    // ...while the absolute bands are untouched.
-    assert_eq!(summary.idle.avg, Some(40.0));
-    assert_eq!(summary.high.avg, Some(80.0));
-  }
-
-  #[test]
-  fn a_negative_delta_is_kept_rather_than_clamped() {
-    // A cold-boot minute, or a machine in a room warmer than its own
-    // package sensor reads. The number is what it is; clamping would
-    // fabricate a reading.
-    let minutes = [paired_sample(Some(5.0), Some(20.0), Some(25.0))];
-    let summary = summarize_day(date(2026, 8, 20), &minutes).unwrap();
-
-    assert_eq!(summary.ambient.idle.avg, Some(-5.0));
   }
 
   // ── days_to_roll_up ──
@@ -1983,6 +1750,27 @@ mod tests {
       }
     }
 
+    async fn create_thermal_delta_table(pool: &SqlitePool) {
+      create_tables(pool, &[COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL]).await;
+    }
+
+    fn thermal_delta() -> ThermalDeltaDailySummary {
+      ThermalDeltaDailySummary {
+        date: date(2026, 8, 20),
+        source: "Living Room".to_string(),
+        coverage_minutes: 60,
+        idle: BandSummary {
+          avg: Some(15.0),
+          max: Some(16.0),
+          min: Some(14.0),
+          sample_minutes: 60,
+        },
+        low: BandSummary::default(),
+        mid: BandSummary::default(),
+        high: BandSummary::default(),
+      }
+    }
+
     fn hour() -> HourlyCoolingSummary {
       HourlyCoolingSummary {
         hour_start: date(2026, 8, 20).and_hms_opt(12, 0, 0).unwrap(),
@@ -1990,6 +1778,15 @@ mod tests {
         cpu_temperature_avg: Some(40.0),
         sample_minutes: 60,
       }
+    }
+
+    async fn thermal_delta_row_count(pool: &SqlitePool) -> i64 {
+      sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(1) FROM cooling_thermal_delta_daily_summary",
+      )
+      .fetch_one(pool)
+      .await
+      .unwrap()
     }
 
     async fn daily_row_count(pool: &SqlitePool) -> i64 {
@@ -2005,10 +1802,17 @@ mod tests {
       create_daily_table(&pool).await;
       create_hourly_table(&pool).await;
       create_fan_table(&pool).await;
+      create_thermal_delta_table(&pool).await;
 
-      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()])
-        .await
-        .unwrap();
+      persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[fan()],
+        &[thermal_delta()],
+      )
+      .await
+      .unwrap();
 
       assert_eq!(daily_row_count(&pool).await, 1);
       assert_eq!(
@@ -2025,6 +1829,49 @@ mod tests {
           .unwrap(),
         1
       );
+      assert_eq!(thermal_delta_row_count(&pool).await, 1);
+    }
+
+    #[tokio::test]
+    async fn a_day_without_paired_ambient_minutes_still_commits_the_other_projections() {
+      // Ambient is a separate capability: a machine with no environmental
+      // sensor must keep every other rollup, and leave no ΔT row at all.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      create_hourly_table(&pool).await;
+      create_fan_table(&pool).await;
+      create_thermal_delta_table(&pool).await;
+
+      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()], &[])
+        .await
+        .unwrap();
+
+      assert_eq!(daily_row_count(&pool).await, 1);
+      assert_eq!(thermal_delta_row_count(&pool).await, 0);
+    }
+
+    #[tokio::test]
+    async fn a_failed_thermal_delta_write_rolls_the_whole_day_back() {
+      // Same contract for the ΔT projection: a day its cursor would report
+      // as summarized while its rows are missing is exactly the
+      // half-written state the transaction exists to prevent.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      create_hourly_table(&pool).await;
+      create_fan_table(&pool).await;
+      // `cooling_thermal_delta_daily_summary` deliberately absent.
+
+      let result = persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[fan()],
+        &[thermal_delta()],
+      )
+      .await;
+
+      assert!(result.is_err(), "the day must fail as a whole");
+      assert_eq!(daily_row_count(&pool).await, 0);
     }
 
     #[tokio::test]
@@ -2036,7 +1883,7 @@ mod tests {
       create_hourly_table(&pool).await;
       create_fan_table(&pool).await;
 
-      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[])
+      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[], &[])
         .await
         .unwrap();
 
@@ -2061,7 +1908,8 @@ mod tests {
       // upsert fails after the daily one has already been issued.
 
       let result =
-        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()]).await;
+        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()], &[])
+          .await;
 
       assert!(result.is_err(), "the day must fail as a whole");
       assert_eq!(
@@ -2082,7 +1930,8 @@ mod tests {
       // `cooling_fan_daily_summary` deliberately absent.
 
       let result =
-        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()]).await;
+        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()], &[])
+          .await;
 
       assert!(result.is_err(), "the day must fail as a whole");
       assert_eq!(daily_row_count(&pool).await, 0);

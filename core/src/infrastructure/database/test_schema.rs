@@ -51,9 +51,11 @@ pub(crate) const AMBIENT_ARCHIVE_DDL: &str = "CREATE TABLE AMBIENT_ARCHIVE (
 pub(crate) const AMBIENT_ARCHIVE_TIMESTAMP_INDEX_DDL: &str =
   "CREATE INDEX idx_ambient_archive_timestamp ON AMBIENT_ARCHIVE(timestamp)";
 
-/// `cooling_daily_summary` through migration 16: the four temperature
-/// bands, coverage, the CPU package power columns (#2021), and the
-/// per-band ambient delta columns plus ambient coverage (#2045).
+/// `cooling_daily_summary` through migration 21: the four temperature
+/// bands, coverage, and the CPU package power columns (#2021). The
+/// per-band ambient delta columns migration 16 added were dropped again
+/// by migration 21, which moved the Thermal Delta rollup to its own
+/// row-per-source table ([`COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL`]).
 pub(crate) const COOLING_DAILY_SUMMARY_DDL: &str = "CREATE TABLE cooling_daily_summary (
   date TEXT PRIMARY KEY,
   idle_cpu_temperature_avg REAL,
@@ -76,7 +78,18 @@ pub(crate) const COOLING_DAILY_SUMMARY_DDL: &str = "CREATE TABLE cooling_daily_s
   cpu_power_avg REAL,
   cpu_power_max REAL,
   cpu_power_min REAL,
-  power_sample_minutes INTEGER NOT NULL DEFAULT 0,
+  power_sample_minutes INTEGER NOT NULL DEFAULT 0
+)";
+
+/// The per-source Thermal Delta daily rollup (migration 21, #2062), keyed
+/// by `(date, source)` like the fan rollup: one row per ambient Sensor
+/// Source Label per completed day, so a sensor change can never mix two
+/// placements into one number.
+pub(crate) const COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL: &str =
+  "CREATE TABLE cooling_thermal_delta_daily_summary (
+  date TEXT NOT NULL,
+  source TEXT NOT NULL,
+  coverage_minutes INTEGER NOT NULL,
   idle_delta_temperature_avg REAL,
   idle_delta_temperature_max REAL,
   idle_delta_temperature_min REAL,
@@ -93,7 +106,7 @@ pub(crate) const COOLING_DAILY_SUMMARY_DDL: &str = "CREATE TABLE cooling_daily_s
   high_delta_temperature_max REAL,
   high_delta_temperature_min REAL,
   high_delta_sample_minutes INTEGER NOT NULL DEFAULT 0,
-  ambient_coverage_minutes INTEGER NOT NULL DEFAULT 0
+  PRIMARY KEY (date, source)
 )";
 
 /// The single-row pinned baseline table (migration 12).
@@ -128,10 +141,13 @@ pub(crate) const COOLING_FAN_DAILY_SUMMARY_DDL: &str =
   PRIMARY KEY (date, source)
 )";
 
-/// The single-row pinned ΔT baseline table (migration 20, #2045).
+/// The single-row pinned ΔT baseline table as migration 22 recreates it
+/// (#2045, #2062): the row also names the ambient source it was
+/// established from.
 pub(crate) const COOLING_DELTA_BASELINE_DDL: &str =
   "CREATE TABLE cooling_delta_baseline (
   id INTEGER PRIMARY KEY CHECK (id = 1),
+  source TEXT NOT NULL,
   window_start_date TEXT NOT NULL,
   window_end_date TEXT NOT NULL,
   delta_temperature_avg REAL NOT NULL,
