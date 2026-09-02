@@ -942,7 +942,7 @@ mod tests {
       let end = date(2026, 8, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-      let summaries = vec![
+      let summaries = [
         summary(date(2026, 8, 1), 30.0, 120),
         summary(recent_start, 40.0, 120),
       ];
@@ -973,7 +973,7 @@ mod tests {
       let end = date(2026, 8, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-      let summaries = vec![
+      let summaries = [
         summary(date(2026, 8, 1), 30.0, 120),
         summary(recent_start, 40.0, 120),
       ];
@@ -1000,7 +1000,7 @@ mod tests {
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
       let short = COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1;
-      let summaries = vec![
+      let summaries = [
         summary(date(2026, 8, 1), 30.0, 120),
         summary(recent_start, 40.0, 120),
       ];
@@ -1036,7 +1036,7 @@ mod tests {
       let end = date(2026, 8, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-      let summaries = vec![
+      let summaries = [
         summary(date(2026, 8, 1), 30.0, 120),
         summary(recent_start, 30.0, 120),
       ];
@@ -1070,7 +1070,7 @@ mod tests {
       let end = date(2026, 8, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-      let summaries = vec![summary(recent_start, 40.0, 120)];
+      let summaries = [summary(recent_start, 40.0, 120)];
       let delta_days = vec![
         delta_row(recent_start, "Desk", 13.0, 900),
         delta_row(recent_start, "Living Room", 30.0, 100),
@@ -1100,7 +1100,7 @@ mod tests {
       let end = date(2026, 8, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-      let summaries = vec![summary(recent_start, 40.0, 120)];
+      let summaries = [summary(recent_start, 40.0, 120)];
       let delta_days = vec![delta_row(recent_start, "Desk", 19.0, 1200)];
       let idle: Vec<_> = summaries.iter().map(to_idle_sample).collect();
 
@@ -1138,7 +1138,7 @@ mod tests {
       let end = date(2026, 8, 20);
       let recent_start =
         end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-      let summaries = vec![summary(recent_start, 40.0, 120)];
+      let summaries = [summary(recent_start, 40.0, 120)];
       let delta_days = vec![delta_row(recent_start, "Desk", 14.0, 120)];
       let idle: Vec<_> = summaries.iter().map(to_idle_sample).collect();
 
