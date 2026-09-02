@@ -87,10 +87,26 @@ mod tests {
     assert!(wire.switchbot_meter_enabled);
   }
 
-  /// The remembered binding is Core-only. It must not reach the wire
-  /// type, so the device identifier stays out of frontend state.
+  /// Since #2062 the chosen device is something the settings screen
+  /// shows and changes, so it does cross into the wire type - as the
+  /// stable address form the picker hands back.
   #[test]
-  fn the_remembered_device_does_not_cross_into_the_wire_type() {
+  fn the_chosen_device_crosses_into_the_wire_type_as_its_address() {
+    let core = CoreEnvironmentalSensorSettings {
+      switchbot_meter_enabled: true,
+      switchbot_meter_device: Some("d051fa0f2cd0".to_string()),
+    };
+
+    let wire: EnvironmentalSensorSettings = core.into();
+
+    assert_eq!(wire.switchbot_meter_device.as_deref(), Some("d051fa0f2cd0"));
+  }
+
+  /// A binding written by #2054's first-advertiser latch is a btleplug
+  /// `Debug` string, not an address. It must read as "nothing chosen"
+  /// rather than as a device the picker can never match.
+  #[test]
+  fn a_binding_from_before_explicit_selection_reads_as_nothing_chosen() {
     let core = CoreEnvironmentalSensorSettings {
       switchbot_meter_enabled: true,
       switchbot_meter_device: Some("PeripheralId(AA:BB:CC:DD:A1:B2)".to_string()),
@@ -100,9 +116,7 @@ mod tests {
     let json = serde_json::to_string(&wire).unwrap();
 
     assert!(wire.switchbot_meter_enabled);
-    assert!(
-      !json.contains("A1:B2") && !json.contains("switchbotMeterDevice"),
-      "the binding is Core bookkeeping, not something the settings screen needs"
-    );
+    assert_eq!(wire.switchbot_meter_device, None);
+    assert!(!json.contains("A1:B2"));
   }
 }
