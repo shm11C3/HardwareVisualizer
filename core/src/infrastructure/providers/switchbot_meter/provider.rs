@@ -61,11 +61,9 @@ pub fn source_label(device_id: Option<&str>) -> String {
   }
 }
 
-/// A short, display-safe handle for one device.
-///
-/// The transport's own identifier is rendered differently per platform,
-/// so rather than parsing an address out of it this keeps its trailing
-/// alphanumeric characters.
+/// A short, display-safe handle for one device: the trailing
+/// alphanumeric characters of its id, which for a Bluetooth address are
+/// its last two bytes.
 fn device_handle(device_id: &str) -> String {
   let compact: String = device_id
     .chars()
@@ -367,9 +365,10 @@ mod tests {
   use chrono::Duration;
   use std::sync::Arc;
 
-  /// Two meters, named the way a transport identifier actually looks.
-  const METER_A: &str = "PeripheralId(AA:BB:CC:DD:A1:B2)";
-  const METER_B: &str = "PeripheralId(AA:BB:CC:DD:C3:D4)";
+  /// Two meters, identified the way the scan hands them in: the Bluetooth
+  /// address as twelve lowercase hex digits.
+  const METER_A: &str = "aabbccdda1b2";
+  const METER_B: &str = "aabbccddc3d4";
   const LABEL_A: &str = "SwitchBot Meter (a1b2)";
   const LABEL_B: &str = "SwitchBot Meter (c3d4)";
 
@@ -801,7 +800,7 @@ mod tests {
       ObservationOutcome::IgnoredNewDevice
     );
     assert_eq!(
-      provider.observe("PeripheralId(AA:BB:CC:DD:E5:F6)", frame(19.0), at(11)),
+      provider.observe("aabbccdde5f6", frame(19.0), at(11)),
       ObservationOutcome::IgnoredNewDevice
     );
     assert_eq!(

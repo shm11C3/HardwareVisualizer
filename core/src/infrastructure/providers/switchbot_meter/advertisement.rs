@@ -319,10 +319,22 @@ pub struct SwitchBotAmbientFrame {
   pub humidity_percent: Option<f32>,
 }
 
+/// The device id for a Bluetooth address: `b0e9feb08a19`, the form
+/// persisted in settings.
+///
+/// One function for every transport on purpose. A Hub's address is read
+/// out of its payload and a Meter's comes from the radio, and the
+/// settings side accepts exactly this form and no other, so the two
+/// paths must agree byte for byte or a chosen Meter would be stored in a
+/// shape that can never match a device again.
+pub fn address_id(address: &[u8; 6]) -> String {
+  address.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 impl SwitchBotAmbientFrame {
   /// The address as `b0e9feb08a19`, the form persisted in settings.
   pub fn address_id(&self) -> String {
-    self.address.iter().map(|b| format!("{b:02x}")).collect()
+    address_id(&self.address)
   }
 
   /// The last two bytes as `8a19` - enough to tell devices apart in a
@@ -781,5 +793,33 @@ mod tests {
         humidity_percent: Some(54.0),
       })
     );
+  }
+
+  // -- one id form for every transport --
+
+  /// A Meter's identity comes from the transport (the radio's view of
+  /// its address) and a Hub's from its own payload. Both must persist
+  /// as the same twelve lowercase hex digits: the settings side refuses
+  /// any other form as "nothing chosen", so a Meter stored differently
+  /// would come up unbound on the next launch.
+  #[test]
+  fn a_service_data_device_and_a_manufacturer_frame_share_one_id_form() {
+    let radio_address = [0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19];
+    let captured = [
+      0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19, 0x00, 0xff, 0x6a, 0x97, 0x08, 0x55, 0x84, 0x03,
+      0x9b, 0x32, 0x80,
+    ];
+    let from_payload = ambient(SWITCHBOT_COMPANY_ID, &captured).unwrap();
+
+    assert_eq!(address_id(&radio_address), from_payload.address_id());
+    assert_eq!(address_id(&radio_address), "b0e9feb08a19");
+  }
+
+  #[test]
+  fn a_device_id_is_the_form_the_settings_side_accepts() {
+    let id = address_id(&[0xAA, 0xBB, 0xCC, 0xDD, 0xA1, 0xB2]);
+
+    assert_eq!(id, "aabbccdda1b2", "lowercase, no separators");
+    assert!(crate::settings::environmental_sensors::is_device_id(&id));
   }
 }

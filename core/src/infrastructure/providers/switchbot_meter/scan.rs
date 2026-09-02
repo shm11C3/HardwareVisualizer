@@ -24,7 +24,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use btleplug::api::{Central, CentralEvent, Manager as _, ScanFilter};
+use btleplug::api::{BDAddr, Central, CentralEvent, Manager as _, ScanFilter};
 use btleplug::platform::Manager;
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
@@ -35,7 +35,7 @@ use tokio::task::JoinHandle;
 use crate::{log_info, log_warn};
 
 use super::advertisement::{
-  ManufacturerAdvertisement, MeterAdvertisement, decode_manufacturer_data,
+  ManufacturerAdvertisement, MeterAdvertisement, address_id, decode_manufacturer_data,
   decode_service_data,
 };
 use super::provider::{ObservationOutcome, SwitchBotMeterProvider};
@@ -254,10 +254,12 @@ fn handle_event(
     return;
   };
 
-  // `PeripheralId` is the transport's stable handle for one device. Only
-  // a short tail of it reaches a label or the archive; the full form is
-  // kept here and in settings so two meters can be told apart reliably.
-  let device_id = format!("{id:?}");
+  // The Windows `PeripheralId` wraps the device's Bluetooth address, and
+  // that address - not the id's `Debug` rendering, which older builds
+  // stored - is what the settings side accepts as a chosen device. It is
+  // written in the same form the Hub path reads out of its payload, so a
+  // Meter and a Hub are stored and matched identically.
+  let device_id = address_id(&BDAddr::from(id).into_inner());
   let observed_at = Utc::now();
 
   for (uuid, data) in &service_data {

@@ -88,7 +88,7 @@ impl EnvironmentalSensorSettings {
 }
 
 /// Whether a stored value is a device address this build can match.
-fn is_device_id(value: &str) -> bool {
+pub fn is_device_id(value: &str) -> bool {
   value.len() == 12 && value.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
