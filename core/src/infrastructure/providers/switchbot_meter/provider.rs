@@ -15,10 +15,10 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{PoisonError, RwLock};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 
 use crate::infrastructure::providers::environmental::{
-  EnvironmentalReading, EnvironmentalSensorProvider,
+  AMBIENT_READING_MAX_AGE_SECONDS, EnvironmentalReading, EnvironmentalSensorProvider,
 };
 
 use super::advertisement::SwitchBotMeterFrame;
@@ -203,17 +203,26 @@ impl SwitchBotMeterProvider {
     }
   }
 
-  /// Every SwitchBot device heard this session, most recently seen
-  /// first, so the user can choose one.
+  /// Every SwitchBot device heard within the freshness window ending at
+  /// `now`, in device-id order, so the user can choose one.
   ///
-  /// This is a live view of the room, not a stored list: a device that
-  /// has not been heard since the app started simply is not here, which
-  /// is the honest answer to "what can I pick".
-  pub fn discovered_sensors(&self) -> Vec<DiscoveredSensor> {
+  /// This is a live view of the room, not a stored list. Each entry
+  /// shows its reading as current, so a device that has gone quiet -
+  /// carried off, battery flat - drops out rather than sitting beside
+  /// the live ones with a temperature from an hour ago. The window is
+  /// the archive's own ([`AMBIENT_READING_MAX_AGE_SECONDS`]): "current"
+  /// means the same thing on the settings screen as it does for a row.
+  pub fn discovered_sensors(&self, now: DateTime<Utc>) -> Vec<DiscoveredSensor> {
     let observed = self.observed.read().unwrap_or_else(PoisonError::into_inner);
 
-    let mut sensors: Vec<DiscoveredSensor> =
-      observed.discovered.values().cloned().collect();
+    let mut sensors: Vec<DiscoveredSensor> = observed
+      .discovered
+      .values()
+      .filter(|sensor| {
+        now - sensor.last_seen <= Duration::seconds(AMBIENT_READING_MAX_AGE_SECONDS)
+      })
+      .cloned()
+      .collect();
     // Ordered by identity, not by when each was last heard. Every device
     // in range broadcasts every few seconds, so ordering by recency
     // reshuffles the list continuously - under the cursor of someone
@@ -497,7 +506,7 @@ mod tests {
     provider.observe(METER_A, frame(24.5), at(0));
     provider.observe(METER_B, frame(31.0), at(1));
 
-    let discovered = provider.discovered_sensors();
+    let discovered = provider.discovered_sensors(at(5));
 
     assert_eq!(discovered.len(), 2);
     assert_eq!(discovered[0].device_id, METER_A);
@@ -544,7 +553,7 @@ mod tests {
     provider.observe(METER_B, frame(31.0), at(1));
 
     let before: Vec<String> = provider
-      .discovered_sensors()
+      .discovered_sensors(at(5))
       .into_iter()
       .map(|sensor| sensor.device_id)
       .collect();
@@ -553,12 +562,66 @@ mod tests {
     provider.observe(METER_A, frame(24.6), at(2));
 
     let after: Vec<String> = provider
-      .discovered_sensors()
+      .discovered_sensors(at(5))
       .into_iter()
       .map(|sensor| sensor.device_id)
       .collect();
 
     assert_eq!(before, after);
+  }
+
+  /// The list shows each device's reading as current, so a device that
+  /// has gone quiet - carried off, battery flat - must leave the list
+  /// rather than sit there with a temperature from an hour ago beside
+  /// the live ones. The same freshness window the archive applies to a
+  /// reading decides when "current" stops being true.
+  #[test]
+  fn a_device_not_heard_within_the_freshness_window_is_no_longer_offered() {
+    let provider = SwitchBotMeterProvider::unbound();
+    provider.observe(METER_A, frame(24.5), at(0));
+    provider.observe(METER_B, frame(31.0), at(AMBIENT_READING_MAX_AGE_SECONDS));
+
+    let offered: Vec<String> = provider
+      .discovered_sensors(at(AMBIENT_READING_MAX_AGE_SECONDS + 1))
+      .into_iter()
+      .map(|sensor| sensor.device_id)
+      .collect();
+
+    assert_eq!(offered, vec![METER_B.to_string()]);
+  }
+
+  /// The boundary is the archive's: a reading exactly as old as the
+  /// window is still fresh there, so the device is still offered here.
+  #[test]
+  fn a_device_heard_exactly_a_window_ago_is_still_offered() {
+    let provider = SwitchBotMeterProvider::unbound();
+    provider.observe(METER_A, frame(24.5), at(0));
+
+    let offered = provider.discovered_sensors(at(AMBIENT_READING_MAX_AGE_SECONDS));
+
+    assert_eq!(offered.len(), 1);
+  }
+
+  /// A quiet device comes back the moment it is heard again.
+  #[test]
+  fn a_device_heard_again_is_offered_again() {
+    let provider = SwitchBotMeterProvider::unbound();
+    provider.observe(METER_A, frame(24.5), at(0));
+    assert!(
+      provider
+        .discovered_sensors(at(AMBIENT_READING_MAX_AGE_SECONDS * 2))
+        .is_empty()
+    );
+
+    provider.observe(
+      METER_A,
+      frame(24.7),
+      at(AMBIENT_READING_MAX_AGE_SECONDS * 2),
+    );
+
+    let offered = provider.discovered_sensors(at(AMBIENT_READING_MAX_AGE_SECONDS * 2));
+    assert_eq!(offered.len(), 1);
+    assert_eq!(offered[0].temperature_celsius, 24.7);
   }
 
   /// A device that was never chosen still appears in the list, which is
@@ -570,7 +633,7 @@ mod tests {
     provider.observe(METER_B, frame(31.0), at(1));
 
     let offered: Vec<String> = provider
-      .discovered_sensors()
+      .discovered_sensors(at(5))
       .into_iter()
       .map(|sensor| sensor.device_id)
       .collect();

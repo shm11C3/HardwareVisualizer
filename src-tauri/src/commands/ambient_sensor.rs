@@ -7,7 +7,7 @@
 
 use crate::models::environmental_sensors::AmbientSensorCandidate;
 
-/// Every SwitchBot device heard since launch, in a stable device-id order. Returns an empty list on a machine where the ambient source is off, where no adapter exists, or where nothing has advertised yet - all of which look the same from here and are equally honest as "nothing to choose from".
+/// Every SwitchBot device heard within the last few minutes, in a stable device-id order; a device that has gone quiet drops out rather than showing an old reading as current. Returns an empty list on a machine where the ambient source is off, where no adapter exists, or where nothing has advertised yet - all of which look the same from here and are equally honest as "nothing to choose from".
 #[tauri::command]
 #[specta::specta]
 #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
@@ -30,7 +30,7 @@ pub async fn get_ambient_sensor_candidates(
     let selected = provider.bound_device();
     Ok(
       provider
-        .discovered_sensors()
+        .discovered_sensors(chrono::Utc::now())
         .into_iter()
         .map(|sensor| {
           let short_id = sensor
