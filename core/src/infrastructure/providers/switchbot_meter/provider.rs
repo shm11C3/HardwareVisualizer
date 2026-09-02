@@ -119,22 +119,19 @@ pub enum ObservationOutcome {
 /// sensor is the failure this design exists to prevent, and "no reading"
 /// is the honest answer.
 pub struct SwitchBotMeterProvider {
-  /// Label reported before any reading exists. Derived from the
-  /// remembered binding, so a provider that already knows its device
-  /// says so even while the device is silent.
-  source: String,
   observed: RwLock<ObservedState>,
 }
 
 #[derive(Default)]
 struct ObservedState {
-  /// Transport identity of the meter this provider answers for. Set
-  /// either from a remembered binding at construction or by the first
-  /// frame, and never reassigned afterwards.
+  /// Address of the device this provider answers for, or `None` until
+  /// the user has chosen one. Set from the stored choice at construction
+  /// and replaced by [`SwitchBotMeterProvider::rebind`] when the choice
+  /// changes; never set by a frame.
   bound_device: Option<String>,
-  /// Label readings are written under. Follows `bound_device`, so a
-  /// provider that latches mid-session starts labelling with the device
-  /// it actually found rather than the bare fallback.
+  /// Label readings are written under, and the label reported before
+  /// any reading exists. Follows `bound_device`, so a provider that
+  /// knows its device says so even while the device is silent.
   active_source: String,
   latest: Option<EnvironmentalReading>,
   /// Devices already reported as skipped. Bounded by the number of
@@ -175,7 +172,6 @@ impl SwitchBotMeterProvider {
     let source = source_label(Some(&device_id));
 
     Self {
-      source: source.clone(),
       observed: RwLock::new(ObservedState {
         bound_device: Some(device_id),
         active_source: source,
@@ -192,7 +188,6 @@ impl SwitchBotMeterProvider {
   /// differently - on the next launch.
   pub fn unbound() -> Self {
     Self {
-      source: SWITCHBOT_METER_SOURCE_LABEL.to_string(),
       observed: RwLock::new(ObservedState {
         active_source: SWITCHBOT_METER_SOURCE_LABEL.to_string(),
         ..ObservedState::default()
@@ -235,6 +230,25 @@ impl SwitchBotMeterProvider {
       .unwrap_or_else(PoisonError::into_inner)
       .bound_device
       .clone()
+  }
+
+  /// Answer for `device_id` from now on, or for nothing when `None`.
+  ///
+  /// The choice is made on the settings screen while the scan is already
+  /// running, so it takes effect here rather than on the next launch.
+  /// The cached reading is dropped with the old device: left in place,
+  /// the next archive tick would write the previous device's reading
+  /// under the new device's label, and the label exists precisely so
+  /// that two sensors can never share one series.
+  pub fn rebind(&self, device_id: Option<String>) {
+    let mut observed = self
+      .observed
+      .write()
+      .unwrap_or_else(PoisonError::into_inner);
+
+    observed.active_source = source_label(device_id.as_deref());
+    observed.bound_device = device_id;
+    observed.latest = None;
   }
 
   /// Take one decoded advertisement observed from `device_id`.
@@ -340,8 +354,13 @@ impl Default for SwitchBotMeterProvider {
 }
 
 impl EnvironmentalSensorProvider for SwitchBotMeterProvider {
-  fn source(&self) -> &str {
-    &self.source
+  fn source(&self) -> String {
+    self
+      .observed
+      .read()
+      .unwrap_or_else(PoisonError::into_inner)
+      .active_source
+      .clone()
   }
 
   fn latest_reading(&self) -> Option<EnvironmentalReading> {
@@ -726,6 +745,65 @@ mod tests {
       first.latest_reading().unwrap().source,
       second.latest_reading().unwrap().source
     );
+  }
+
+  // -- choosing a different device while the scan is running --
+
+  /// The choice is made on the settings screen while the scan is
+  /// already running, so it must take effect there and then rather than
+  /// on the next launch. The old device's cached reading goes with it:
+  /// left in place, the next archive tick would write it under the new
+  /// device's label, which is the two-rooms-in-one-series mistake the
+  /// label exists to prevent.
+  #[test]
+  fn rebinding_to_another_meter_forgets_the_old_ones_reading() {
+    let provider = SwitchBotMeterProvider::bound(METER_A);
+    provider.observe(METER_A, frame(24.5), at(0));
+
+    provider.rebind(Some(METER_B.to_string()));
+
+    assert_eq!(provider.latest_reading(), None);
+    assert_eq!(provider.bound_device().as_deref(), Some(METER_B));
+    assert_eq!(provider.source(), LABEL_B);
+  }
+
+  #[test]
+  fn after_rebinding_the_old_meter_is_refused_until_the_new_one_is_heard() {
+    let provider = SwitchBotMeterProvider::bound(METER_A);
+    provider.observe(METER_A, frame(24.5), at(0));
+    provider.rebind(Some(METER_B.to_string()));
+
+    assert_eq!(
+      provider.observe(METER_A, frame(24.6), at(1)),
+      ObservationOutcome::IgnoredNewDevice
+    );
+    assert_eq!(provider.latest_reading(), None);
+
+    assert_eq!(
+      provider.observe(METER_B, frame(31.0), at(2)),
+      ObservationOutcome::Recorded
+    );
+    let latest = provider.latest_reading().unwrap();
+    assert_eq!(latest.temperature_celsius, 31.0);
+    assert_eq!(latest.source, LABEL_B);
+  }
+
+  /// Clearing the choice returns the provider to reading nothing, which
+  /// is what turning the source off and on again relies on.
+  #[test]
+  fn rebinding_to_nothing_reads_nothing_again() {
+    let provider = SwitchBotMeterProvider::bound(METER_A);
+    provider.observe(METER_A, frame(24.5), at(0));
+
+    provider.rebind(None);
+
+    assert_eq!(provider.latest_reading(), None);
+    assert_eq!(provider.source(), SWITCHBOT_METER_SOURCE_LABEL);
+    assert_eq!(
+      provider.observe(METER_A, frame(24.6), at(1)),
+      ObservationOutcome::IgnoredNewDevice
+    );
+    assert_eq!(provider.latest_reading(), None);
   }
 
   #[test]
