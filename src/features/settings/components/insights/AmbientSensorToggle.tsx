@@ -93,7 +93,9 @@ export const AmbientSensorToggle = () => {
                 </div>
               ) : (
                 <p className="pt-2 text-muted-foreground text-sm">
-                  {t("pages.settings.insights.ambientSensor.picker.needsArchive")}
+                  {t(
+                    "pages.settings.insights.ambientSensor.picker.needsArchive",
+                  )}
                 </p>
               ))}
           </div>
