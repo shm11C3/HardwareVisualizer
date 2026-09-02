@@ -8,8 +8,12 @@ process described below.
 
 These documents are the **only** external technical input the
 implementation role is allowed to use. Keeping them factual, sourced,
-and free of third-party code is what lets the resulting Rust code stay
-MIT-licensed.
+and free of third-party code is what keeps the provenance of the
+resulting Rust code independent of third-party monitoring
+implementations. That requirement is a project policy, not a
+consequence of the repository license, and it is unchanged by the
+relicense to GPL-3.0-or-later
+([ADR 0020](../../adr/0020-relicense-to-gpl-3.0-or-later.md)).
 
 ## Clean-room process (two roles)
 
@@ -163,7 +167,7 @@ or unresolved blocking open question invalidates the flip.
 
 | Document | Covers | Issue phase | Status |
 | --- | --- | --- | --- |
-| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts (`IntelMSR`, `RyzenSMU`, `AMDFamily17`, `LpcIO`), mutex conventions, blob distribution (signed `.bin`), elevation requirement, licensing facts | Phase 1 | Implementation-ready (rev 5) |
+| [`pawnio-interface.md`](pawnio-interface.md) | PawnIO driver/library API, module IOCTL contracts (`IntelMSR`, `RyzenSMU`, `AMDFamily17`, `LpcIO`), mutex conventions, blob distribution (signed `.bin`), elevation requirement, licensing facts | Phase 1 | Implementation-ready (rev 6) |
 | [`cpu-intel-dts-msr.md`](cpu-intel-dts-msr.md) | Intel digital thermal sensor via MSRs (package/core temperature) | Phase 1 | Implementation-ready (rev 2) |
 | [`cpu-amd-zen-smn.md`](cpu-amd-zen-smn.md) | AMD Zen Tctl/Tdie via SMN thermal controller | Phase 1 | Implementation-ready (rev 4) |
 | [`cpu-intel-rapl-msr.md`](cpu-intel-rapl-msr.md) | Intel CPU package power via RAPL energy MSRs (`0x606`/`0x611`), unit decode, 32-bit wraparound and wrap-safe gap handling, Silvermont-unit exclusion | Phase 5 | Implementation-ready (rev 3) |

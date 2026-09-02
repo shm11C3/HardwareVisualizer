@@ -6,7 +6,7 @@
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20macOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
 
@@ -246,4 +246,10 @@ HardwareVisualizer は、多くのオープンソースプロジェクト、ツ�
 
 ## ライセンス
 
-[MIT License](LICENSE)
+HardwareVisualizer は [GNU General Public License v3.0 or later](LICENSE)（GPL-3.0-or-later）で提供されています。
+
+- ライセンス変更前にリリースされたバージョン（v1.10.1 以前および `1.10.x` メンテナンスライン）は、引き続き [MIT License](LICENSE-MIT) で利用できます。
+- ライセンス変更前に MIT License で受け入れたコードは、この GPL ライセンスの成果物の一部として MIT License のままです。その表記は [`LICENSE-MIT`](LICENSE-MIT) に保持され、アプリケーションに同梱されます。
+- サードパーティコンポーネントはそれぞれのライセンスに従います。同梱の `THIRD_PARTY_NOTICES.md`（アプリの 設定 → ライセンス）を参照してください。
+
+決定内容と適用開始リビジョンは [ADR 0020](docs/adr/0020-relicense-to-gpl-3.0-or-later.md) に記録しています。

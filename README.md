@@ -6,7 +6,7 @@
 [![CI develop](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shm11C3/HardwareVisualizer/actions/workflows/ci.yml)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20|%20Linux%20|%20MacOS-blue)
 ![Downloads](https://img.shields.io/github/downloads/shm11C3/HardwareVisualizer/total?link=https%3A%2F%2Fgithub.com%2Fshm11C3%2FHardwareVisualizer%2Freleases%2Flatest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fshm11C3%2FHardwareVisualizer?ref=badge_shield)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/shm11C3/HardwareVisualizer/badge)](https://scorecard.dev/viewer/?uri=github.com/shm11C3/HardwareVisualizer)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shm11C3/HardwareVisualizer)
@@ -257,4 +257,10 @@ Note: This acknowledgement does not mean that all listed projects are bundled wi
 
 ## License
 
-[MIT License](LICENSE)
+HardwareVisualizer is licensed under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later).
+
+- Versions released before the relicense, including v1.10.1 and the `1.10.x` maintenance line, remain available under the [MIT License](LICENSE-MIT).
+- Code contributed under the MIT License before the relicense keeps that license as part of this GPL-licensed work. Its notice is preserved in [`LICENSE-MIT`](LICENSE-MIT) and bundled with the application.
+- Third-party components keep their own licenses. See the bundled `THIRD_PARTY_NOTICES.md` (Settings → License in the app).
+
+The decision and its effective revision are recorded in [ADR 0020](docs/adr/0020-relicense-to-gpl-3.0-or-later.md).

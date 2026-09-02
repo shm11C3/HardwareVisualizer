@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Revision | 5 |
-| Status | Implementation-ready (rev 5) |
+| Revision | 6 |
+| Status | Implementation-ready (rev 6) |
 | Scope | Facts needed to integrate a Rust user-mode client with PawnIO: installation/detection, the PawnIOLib API, the module execution model, and the IOCTL contracts of the `IntelMSR`, `RyzenSMU`, `AMDFamily17`, and `LpcIO` modules. Excludes: writing new Pawn modules, driver internals. |
 | Issue phase | Phase 1 (#1635) |
 
@@ -31,14 +31,20 @@
   IOCTLs is such an independent module. (S1)
 - **PawnIOLib** (the user-mode library/DLL) is **LGPL-2.1-or-later**
   (S6). The client loads the system-installed DLL dynamically and
-  ships none of its code, so MIT licensing of this repository is
+  ships none of its code, so this repository's own license is
   unaffected.
 - The modules in PawnIO.Modules are **LGPL-2.1-or-later**. Our client
   invokes them through the driver's IOCTL interface and ships none of
-  their code, so MIT licensing of this repository's code is unaffected.
+  their code, so this repository's own license is unaffected.
   Redistributing the compiled module blobs with the installer requires
   complying with LGPL-2.1 distribution terms (source offer /
   attribution in third-party notices). (S1, S2)
+- This repository is licensed GPL-3.0-or-later from the revision
+  recorded in
+  [ADR 0020](../../adr/0020-relicense-to-gpl-3.0-or-later.md); it was
+  MIT before. The facts above do not depend on the client's license:
+  the driver's IOCTL exception and the LGPL-2.1-or-later terms apply
+  to an independent user-mode client either way.
 - PawnIO is the WinRing0 replacement adopted by LibreHardwareMonitor,
   FanControl, and OpenRGB after WinRing0 was added to Microsoft's
   vulnerable-driver blocklist. (Issue #1635 background; S1)
@@ -346,3 +352,4 @@ phase of #1635, not part of the Phase 1 read path.
 | 3 | 2026-06-13 | Added "Module blob distribution" section: signed blobs ship via the PawnIO.Modules GitHub Releases (README-stated; latest 0.2.8, 2026-06-12, verified against the upstream git tag), CI artifacts/self-builds are unsigned, driver/PawnIOLib from pawnio.eu. Resolved the blob-source open question (asset packaging left as a narrow non-blocking confirmation). Added source S8. Status remains Implementation-ready. |
 | 4 | 2026-06-13 | Implementer field-validation corrections (Ryzen 7 7800X3D, S10), all cross-checked against PawnIO primary sources (S9): signed modules are `*.bin` (`PawnIOUtil sign` blob layout) shipped inside the release archive `release_0_2_8.zip`, vs unsigned `*.amx` build output — `pawnio_load` is extension-agnostic, so dropped the `.amx`-only naming claim; `pawnio_open` requires elevation (device DACL `D:P(A;;GA;;;SY)(A;;GA;;;BA)`; non-elevated → `0x80070005`), added three-state detection; core installer excludes modules; mutex acquisition must open-before-create to avoid ACL failures on shared mutants; added a follow-up-scope note for installer UX. Resolved the asset-packaging open question. Status remains Implementation-ready. |
 | 5 | 2026-08-30 | Added the `AMDFamily17` module contract for the CPU package-power phase (family gate `0x17`–`0x1A`, `ioctl_read_msr`/`ioctl_write_msr`/`ioctl_read_smn`, RAPL MSR read allow-list membership, no caller mutex on MSR reads, execution context, `AMDFamily17.bin` in the 0.2.8 release archive), verified against tag `0.2.8` (commit `754635b`). Recorded the `IntelMSR` RAPL read allow-list additions (`0x606`, `0x611`, and other RAPL-domain registers). Status remains Implementation-ready. |
+| 6 | 2026-09-03 | Licensing facts reworded for the repository relicense from MIT to GPL-3.0-or-later (ADR 0020) and a note added that the client's license does not change the IOCTL-exception / LGPL facts. No hardware, API, or IOCTL fact changed. Status remains Implementation-ready. |
