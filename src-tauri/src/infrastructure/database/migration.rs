@@ -1077,7 +1077,8 @@ mod tests {
       "(date, source) must be the primary key: one row per source per day"
     );
 
-    let rows: Vec<(String, Option<f64>, i64, Option<f64>, i64)> = sqlx::query_as(
+    type ThermalDeltaRow = (String, Option<f64>, i64, Option<f64>, i64);
+    let rows: Vec<ThermalDeltaRow> = sqlx::query_as(
       "SELECT source, idle_delta_temperature_avg, idle_delta_sample_minutes,
               high_delta_temperature_avg, high_delta_sample_minutes
        FROM cooling_thermal_delta_daily_summary ORDER BY source",
