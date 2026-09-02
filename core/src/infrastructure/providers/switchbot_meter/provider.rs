@@ -487,6 +487,35 @@ mod tests {
     assert_eq!(discovered[1].temperature_celsius, 31.0);
   }
 
+  /// Carrying the machine to another room must cost the reading, not
+  /// swap it for a different room's sensor.
+  ///
+  /// The chosen device simply stops being heard; the others keep
+  /// broadcasting and keep being refused. #2043's freshness window then
+  /// ages the cached reading out, so those minutes get no ambient row
+  /// and no Thermal Delta - which is the honest answer, where a
+  /// substituted sensor would be a confident wrong one.
+  #[test]
+  fn a_silent_chosen_meter_is_never_replaced_by_another_in_range() {
+    let provider = SwitchBotMeterProvider::bound(METER_A);
+    provider.observe(METER_A, frame(24.5), at(0));
+
+    // The chosen device goes quiet; another one is still shouting.
+    for tick in 1..5 {
+      provider.observe(METER_B, frame(31.0), at(tick));
+    }
+
+    let latest = provider.latest_reading().unwrap();
+    assert_eq!(
+      latest.temperature_celsius, 24.5,
+      "readings must keep coming from the chosen device only"
+    );
+    assert_eq!(latest.source, LABEL_A);
+    // Stamped when the chosen device was last heard, so the freshness
+    // window can age it out rather than it looking current forever.
+    assert_eq!(latest.timestamp, at(0));
+  }
+
   /// The list is polled while the settings screen is open, and every
   /// device in range re-broadcasts between polls. Ordering must not
   /// depend on that, or the row a user is reaching for moves.

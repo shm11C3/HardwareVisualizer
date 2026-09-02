@@ -246,6 +246,23 @@ timestamp so they join the Hardware Archive row for the same minute, and they
 age out on the same `hardwareArchive.retentionDays` cycle as the rows they
 explain.
 
+Which device an ambient source reads is the user's choice, never the app's.
+Several SwitchBot devices in one room were observed reading between 25.2 °C and
+27.3 °C - a spread wider than the rise Cooling Insight treats as a sustained
+observation - so adopting whichever advertised first picked the number every
+Thermal Delta is measured against by luck, and picked differently on each
+launch. The settings screen lists every device the radio is hearing with its
+current reading (`get_ambient_sensor_candidates`), nothing is archived until one
+is selected, and the selection is stored as that device's Bluetooth address.
+
+That choice also settles what happens when the machine and the sensor part
+company - a laptop carried to another room, or a sensor moved. The advertisement
+simply stops arriving, the cached reading passes the Ambient Reading Freshness
+Window, and those minutes have no ambient row and therefore no Thermal Delta.
+The source is reported stale rather than substituted: a reading from a sensor in
+a different room would be a confident wrong answer, and no reading is the honest
+one. No signal-strength rule is involved, and none is needed.
+
 `getAmbientArchiveSeries`
 (`archive_queries::select_ambient_archive_series`) reads that archive back for
 Cooling Insight's short-window timeline, bucketed on the same grid as the CPU,
