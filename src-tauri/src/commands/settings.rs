@@ -690,9 +690,11 @@ pub mod commands {
   /// mid-session. The settings screen says so.
   #[tauri::command]
   #[specta::specta]
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
   pub async fn set_switchbot_meter_enabled(
     window: Window,
     state: tauri::State<'_, AppState>,
+    workers: tauri::State<'_, crate::workers::WorkersState>,
     new_value: bool,
   ) -> Result<(), String> {
     if let Err(e) = update_core_settings(&state, |s| {
@@ -707,6 +709,36 @@ pub mod commands {
     }) {
       emit_error(&window)?;
       return Err(e);
+    }
+
+    // The scan itself only stops at the next launch, but the forgotten
+    // choice must stop archiving now: otherwise the settings screen says
+    // no device is chosen while rows keep arriving under the old one.
+    if !new_value {
+      rebind_live_ambient_provider(&workers, None)?;
+    }
+    Ok(())
+  }
+
+  /// Point the running ambient provider at the stored choice. Called only
+  /// after the settings write succeeded: a refused write leaves the source
+  /// as it was, and the live provider must agree with the file rather than
+  /// run ahead of it.
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
+  fn rebind_live_ambient_provider(
+    workers: &crate::workers::WorkersState,
+    device_id: Option<String>,
+  ) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+      let provider = workers
+        .switchbot_provider
+        .lock()
+        .map_err(|_| "ambient provider lock was poisoned".to_string())?
+        .clone();
+      if let Some(provider) = provider {
+        provider.rebind(device_id);
+      }
     }
     Ok(())
   }
@@ -738,22 +770,7 @@ pub mod commands {
       return Err(e);
     }
 
-    // Only after the choice is on disk: a refused write leaves the source
-    // as it was, and the live provider must agree with the stored value
-    // rather than run ahead of it.
-    #[cfg(target_os = "windows")]
-    {
-      let provider = workers
-        .switchbot_provider
-        .lock()
-        .map_err(|_| "ambient provider lock was poisoned".to_string())?
-        .clone();
-      if let Some(provider) = provider {
-        provider.rebind(device_id);
-      }
-    }
-
-    Ok(())
+    rebind_live_ambient_provider(&workers, device_id)
   }
 
   #[tauri::command]
