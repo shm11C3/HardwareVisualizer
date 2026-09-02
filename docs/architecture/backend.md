@@ -321,23 +321,20 @@ later tell from a real reading.
 One Sensor Source Label has to mean one physical sensor, or every Thermal Delta
 derived from it blends two rooms. The provider therefore answers for exactly one
 device, and which device that is is persisted as
-`environmentalSensors.switchbotMeterDevice`. Latching to the first advertiser is
-only the bootstrap case: on its own it would be re-decided every launch, so with
-two meters in range the binding would wander between rooms across restarts. On
-first latch the scan announces the device on a one-slot channel and returns
-immediately; an App-side consumer takes the settings lock and writes it, so a
-slow disk cannot stall advertisement handling, and a refused hand-off costs only
-that the device is chosen again next launch. That consumer re-checks
-`switchbotMeterEnabled` under the same lock it saves through, because the scan
-outlives a change to the toggle: a binding announced just before the source was
-turned off must not be written back afterwards, or it would be adopted on the
-next enable and skip the re-bind. Later launches bind to the recorded device
-alone — a remembered meter that is out of range reports unavailable rather than
-falling back to another one. The label carries a
-short handle of the device (`SwitchBot Meter (a1b2)`), so a re-bind starts a
-visibly separate archive series instead of continuing an existing one; the full
-identifier stays in Core settings and is deliberately absent from the wire type.
-Turning the setting off clears the binding, which is how a user re-binds.
+`environmentalSensors.switchbotMeterDevice` — the device's Bluetooth address
+as twelve lowercase hex digits, the one form both the Meter path (from the
+radio's peripheral id) and the Hub path (from the payload) produce. The
+command that stores a choice normalizes to that form and refuses anything
+else; a stored value in any other form, including the transport `Debug` string
+an earlier build wrote, reads as "nothing chosen". The provider is built at
+startup from the stored choice and switched in place when the user picks
+another device: the cached reading is dropped with the old device so the next
+archive tick cannot write it under the new label, and frames from the previous
+device are refused from then on. A chosen meter that is out of range reports
+unavailable rather than falling back to another one. The label carries a short
+handle of the device (`SwitchBot Meter (a1b2)`), so a change of device starts
+a visibly separate archive series instead of continuing an existing one.
+Turning the setting off clears the choice.
 
 The ambient registry is built once, in `setup_environmental_sensors`
 (`src-tauri/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
@@ -347,7 +344,10 @@ nowhere for a reading to go. Registration is gated on the Core-owned
 **off** — every other source this app reads is inside the machine, and this one
 turns on a radio and listens to the room. Because the registry is read-only
 after startup, toggling the preference takes effect on the next launch, and the
-settings screen raises the existing restart notice. A machine with no Bluetooth
+settings screen raises the existing restart notice; choosing a device does not,
+since the provider is rebound in place. While Hardware Archive is off the scan
+never starts, and the settings screen says so instead of offering an empty
+list. A machine with no Bluetooth
 adapter, a disabled radio, or a refused scan logs once and produces no readings;
 it is not surfaced as External Component Guidance, because Ambient Sensor
 Availability already reports the same fact where the user is looking for it.

@@ -23,12 +23,11 @@ use crate::infrastructure::providers::environmental::{
 
 use super::advertisement::SwitchBotMeterFrame;
 
-/// Sensor Source Label used before any meter has been identified.
+/// Sensor Source Label used while no device has been chosen.
 ///
-/// Once a device is known the label carries its short handle - see
-/// [`source_label`]. This bare form is what a provider reports while it
-/// has never heard anything, which is also what an unbound provider's
-/// status line shows.
+/// Once a device is chosen the label carries its short handle - see
+/// [`source_label`]. This bare form is what an unbound provider's status
+/// line shows; no reading is ever archived under it.
 pub const SWITCHBOT_METER_SOURCE_LABEL: &str = "SwitchBot Meter";
 
 /// How many trailing characters of a device handle appear in the label.

@@ -28,18 +28,14 @@ pub struct EnvironmentalSensorSettings {
   /// only after the user says they have the hardware.
   pub switchbot_meter_enabled: bool,
 
-  /// Transport identifier of the meter this machine is bound to, or
-  /// `None` before one has been chosen.
+  /// The device the ambient source reads, chosen by the user on the
+  /// settings screen, or `None` until one has been chosen.
   ///
-  /// Without this the choice of meter would be remade every launch. The
-  /// provider latches to the first meter that advertises, which is fine
-  /// with one meter and wrong with two: the app would wander between
-  /// rooms across restarts and blend their histories, which is exactly
-  /// what the one-meter rule exists to prevent. Remembering the device
-  /// makes the binding a decision rather than a race.
-  ///
-  /// Cleared when the user turns the source off, so switching the toggle
-  /// off and on again is how they re-bind to a different meter.
+  /// Stored as the device's Bluetooth address, twelve lowercase hex
+  /// digits - see [`is_device_id`]. Nothing is read until a choice
+  /// exists: several devices in one room can read degrees apart, so
+  /// which one is read is the user's decision rather than a race between
+  /// advertisers. Cleared when the source is turned off.
   pub switchbot_meter_device: Option<String>,
 }
 

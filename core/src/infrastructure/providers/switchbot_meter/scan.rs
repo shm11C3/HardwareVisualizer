@@ -62,10 +62,6 @@ impl SwitchBotScanController {
   /// source, not an error the user must dismiss. Those cases log once
   /// and leave the provider reporting nothing, which #2043 already
   /// renders as an unavailable source.
-  /// `bindings` receives the device identifier the first time a meter is
-  /// latched. Reporting on it never blocks, so remembering the binding -
-  /// a settings lock and a file write - happens on the consumer's time
-  /// rather than stalling advertisement handling.
   pub fn setup(runtime: Handle, provider: Arc<SwitchBotMeterProvider>) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
@@ -208,15 +204,13 @@ async fn open_adapter() -> Option<btleplug::platform::Adapter> {
 
 /// Route one central event into the provider.
 ///
-/// Only service-data advertisements carry a meter reading; every other
-/// event from every other nearby device is dropped without a word,
-/// because a scan with no filter sees a great many of them.
+/// Only service-data (Meter, Meter Plus) and manufacturer-data (Hub
+/// family) advertisements carry a reading; every other event from every
+/// other nearby device is dropped without a word, because a scan with no
+/// filter sees a great many of them.
 ///
-/// `bindings` carries the device identifier the very first time this
-/// provider latches, so a consumer elsewhere can remember it and bind to
-/// the same meter next launch. `reported_encrypted` keeps the
-/// encrypted-meter notice to once per device, since such a meter
-/// re-broadcasts as often as a readable one.
+/// `reported_encrypted` keeps the encrypted-meter notice to once per
+/// device, since such a meter re-broadcasts as often as a readable one.
 fn handle_event(
   event: CentralEvent,
   provider: &SwitchBotMeterProvider,
