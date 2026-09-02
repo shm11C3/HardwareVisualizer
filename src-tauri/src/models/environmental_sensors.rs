@@ -1,3 +1,4 @@
+use crate::enums::settings::TemperatureUnit;
 use hardviz_core::settings::EnvironmentalSensorSettings as CoreEnvironmentalSensorSettings;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -32,7 +33,11 @@ pub struct AmbientSensorCandidate {
   /// Last four hex digits - enough to tell devices apart, and the tail
   /// owners tend to name them by.
   pub short_id: String,
-  pub temperature_celsius: f32,
+  /// The latest reading, already in `temperature_unit`.
+  pub temperature: f32,
+  /// The unit `temperature` is expressed in - the user's preference,
+  /// applied at the App boundary like every other temperature shown.
+  pub temperature_unit: TemperatureUnit,
   pub humidity_percent: Option<f32>,
   /// Whether this is the device currently selected.
   pub selected: bool,

@@ -90,7 +90,10 @@ export const AmbientSensorPicker = ({
             >
               {t("pages.settings.insights.ambientSensor.picker.device", {
                 shortId: candidate.shortId,
-                temperature: candidate.temperatureCelsius.toFixed(1),
+                // Already in the user's unit: the conversion happened at
+                // the App boundary, and the DTO names which unit it is.
+                temperature: candidate.temperature.toFixed(1),
+                unit: candidate.temperatureUnit === "C" ? "°C" : "°F",
                 humidity:
                   candidate.humidityPercent == null
                     ? "—"

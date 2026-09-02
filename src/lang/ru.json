@@ -625,7 +625,7 @@
           "picker": {
             "title": "Устройство для чтения",
             "searching": "Идёт поиск устройств SwitchBot поблизости…",
-            "device": "{{shortId}} — {{temperature}} °C / {{humidity}} %"
+            "device": "{{shortId}} — {{temperature}} {{unit}} / {{humidity}} %"
           }
         },
         "needRestart": {
