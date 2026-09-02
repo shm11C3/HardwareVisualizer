@@ -298,9 +298,9 @@ fn handle_event(
 
 /// Hand one decoded reading to the provider and act on the outcome.
 ///
-/// Shared by both decode paths so binding, persistence, and the
-/// one-sensor rule behave identically whether a reading arrived as
-/// service data or manufacturer data.
+/// Shared by both decode paths so the one-sensor rule and the candidate
+/// list behave identically whether a reading arrived as service data or
+/// manufacturer data.
 fn record_reading(
   provider: &SwitchBotMeterProvider,
   device_id: &str,
@@ -314,13 +314,6 @@ fn record_reading(
     humidity_percent,
     observed_at,
   ) {
-    ObservationOutcome::Bound => {
-      log_info!(
-        &format!("ambient source is reading SwitchBot device {device_id}"),
-        LOG_TARGET,
-        None::<&str>
-      );
-    }
     ObservationOutcome::IgnoredNewDevice => {
       log_warn!(
         "another SwitchBot meter is in range; readings from it are ignored so one ambient source stays one sensor",

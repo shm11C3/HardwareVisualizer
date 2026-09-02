@@ -82,9 +82,7 @@ fn device_handle(device_id: &str) -> String {
 /// bury everything else.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ObservationOutcome {
-  /// The first frame from the device this provider is now bound to.
-  Bound,
-  /// A further reading from the bound device.
+  /// A reading from the chosen device.
   Recorded,
   /// A different meter was in range. Its reading was discarded, and
   /// this is the first time that particular device has been discarded,
@@ -94,26 +92,25 @@ pub enum ObservationOutcome {
   IgnoredKnownDevice,
 }
 
-/// A single SwitchBot meter, cached from whatever the radio last heard.
+/// A single SwitchBot device, cached from whatever the radio last heard.
 ///
-/// # One meter, and the same one after a restart
+/// # One device, chosen by the user
 ///
 /// The provider answers for exactly one device. Letting any meter in
 /// range write under one label would interleave two rooms' temperatures
 /// into one series, and every Thermal Delta computed from it would be
 /// quietly wrong with no way to tell from the data.
 ///
-/// Which device that is comes from the caller, not from luck. A binding
-/// remembered across restarts is passed to [`Self::bound`]; only then is
-/// the choice stable. Latching to the first advertiser
-/// ([`Self::unbound`]) is the bootstrap case only - on its own it would
-/// re-decide every launch, so with two meters in range the app would
-/// wander between rooms across restarts and blend exactly the histories
-/// this is meant to keep apart. The caller is expected to persist the
-/// device reported by [`ObservationOutcome::Bound`] and hand it back
-/// next time.
+/// Which device that is comes from the user, never from luck. The stored
+/// choice is passed to [`Self::bound`] at startup and changed through
+/// [`Self::rebind`] when the user picks another; until a choice exists
+/// ([`Self::unbound`]) every frame is recorded as a candidate and none is
+/// read. Several devices in one room were seen reading degrees apart, so
+/// adopting whichever advertised first would have picked the number
+/// every Thermal Delta is measured against by chance, differently on
+/// each launch.
 ///
-/// A remembered device that is out of range yields no readings, and the
+/// A chosen device that is out of range yields no readings, and the
 /// registry reports the source unavailable. It deliberately does *not*
 /// fall back to another meter: silently substituting a different room's
 /// sensor is the failure this design exists to prevent, and "no reading"
@@ -180,12 +177,9 @@ impl SwitchBotMeterProvider {
     }
   }
 
-  /// A provider with no remembered device, which latches to the first
-  /// meter it hears.
-  ///
-  /// The caller must persist the device from
-  /// [`ObservationOutcome::Bound`], or the choice is remade - possibly
-  /// differently - on the next launch.
+  /// A provider with no chosen device. It records every device it hears
+  /// as a candidate for [`Self::discovered_sensors`] and reads none of
+  /// them until [`Self::rebind`] names one.
   pub fn unbound() -> Self {
     Self {
       observed: RwLock::new(ObservedState {
@@ -774,11 +768,11 @@ mod tests {
     assert_eq!(status.source, LABEL_A);
   }
 
-  /// Clearing the remembered device is how the user re-binds (the
-  /// settings toggle off and on again). An unbound provider latches to
-  /// whatever it now hears, including a meter it previously ignored.
+  /// A meter refused under one choice is read under the next: being
+  /// ignored is a consequence of the current choice, not a property of
+  /// the device.
   #[test]
-  fn clearing_the_binding_lets_a_previously_ignored_meter_be_adopted() {
+  fn a_meter_ignored_under_one_choice_is_read_under_the_next() {
     let bound = SwitchBotMeterProvider::bound(METER_A);
     assert_eq!(
       bound.observe(METER_B, frame(31.0), at(0)),
