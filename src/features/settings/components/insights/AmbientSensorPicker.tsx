@@ -11,9 +11,9 @@ const POLL_INTERVAL_MS = 5_000;
 /**
  * Choose which SwitchBot device the ambient source reads (#2062).
  *
- * A capture in one room found four SwitchBot devices reading between
- * 25.2 °C and 27.3 °C — a spread wider than the rise Cooling Insight
- * treats as a sustained observation. Which one is used therefore changes
+ * A capture in one room found three SwitchBot devices reading between
+ * 25.2 °C and 27.3 °C — a 2 °C spread, close to half the 5 °C rise
+ * Cooling Insight reports as a mild sustained rise. Which one is used changes
  * the analysis, so the app does not pick: it shows what the radio is
  * hearing, with each device's current reading, and waits.
  *

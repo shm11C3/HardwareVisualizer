@@ -247,9 +247,9 @@ age out on the same `hardwareArchive.retentionDays` cycle as the rows they
 explain.
 
 Which device an ambient source reads is the user's choice, never the app's.
-Several SwitchBot devices in one room were observed reading between 25.2 °C and
-27.3 °C - a spread wider than the rise Cooling Insight treats as a sustained
-observation - so adopting whichever advertised first picked the number every
+Three SwitchBot devices in one room were observed reading between 25.2 °C and
+27.3 °C - a 2 °C spread, close to half the 5 °C rise Cooling Insight reports as
+a mild sustained rise - so adopting whichever advertised first picked the number every
 Thermal Delta is measured against by luck, and picked differently on each
 launch. The settings screen lists every device the radio is hearing with its
 current reading (`get_ambient_sensor_candidates`), nothing is archived until one
@@ -401,9 +401,9 @@ one.
 Row-per-source is not a convenience; it is what keeps the ΔT honest. The rollup
 briefly averaged every source into one per-minute ambient value, and that
 collapse is wrong for the same reason the pairing rule exists: which sensor a
-ΔT was measured against *is* the measurement. Several sensors in one room were
-observed more than 2 K apart, wider than the rise Cooling Insight calls
-sustained, so a per-day number that blends two placements is a ΔT no sensor
+ΔT was measured against *is* the measurement. Three sensors in one room were
+observed about 2 K apart, close to half the 5 K rise Cooling Insight reports as
+a mild sustained rise, so a per-day number that blends two placements is a ΔT no sensor
 observed - and once the user switches the chosen sensor, a source-blind row
 silently and irreversibly mixes the old placement and the new one, because
 nothing on the row can say which minutes came from which. Keeping the source on

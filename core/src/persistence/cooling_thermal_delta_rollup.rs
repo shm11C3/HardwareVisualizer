@@ -13,9 +13,9 @@
 //! Row-per-source, like `AMBIENT_ARCHIVE` and like
 //! [`crate::persistence::cooling_fan_rollup`], and for a reason the fan
 //! rollup does not have: which sensor a ΔT was measured against *is* the
-//! measurement. Several sensors in one room were observed reading more
-//! than 2 K apart - wider than the rise Cooling Insight treats as a
-//! sustained observation - so averaging two placements into one per-day
+//! measurement. Three sensors in one room were observed reading about
+//! 2 K apart - close to half the 5 K rise Cooling Insight reports as a
+//! mild sustained rise - so averaging two placements into one per-day
 //! number produces a ΔT no sensor observed, and pinning a baseline from it
 //! bakes that mixture in for good. Keeping the source on the row lets the
 //! baseline record which placement it was established from and refuse to

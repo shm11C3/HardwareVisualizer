@@ -137,10 +137,11 @@ struct ObservedState {
   /// Every device heard this session, whether chosen or not.
   ///
   /// Kept so the user can be shown what is actually in the room and pick
-  /// from it. A capture in one room found four SwitchBot devices reading
-  /// between 25.2 °C and 27.3 °C - a spread wider than the rise Cooling
-  /// Insight treats as a sustained observation - so which one is used
-  /// changes the analysis, and an arbitrary pick is not good enough.
+  /// from it. A capture in one room found three SwitchBot devices reading
+  /// between 25.2 °C and 27.3 °C - a 2 °C spread, close to half the 5 °C
+  /// rise Cooling Insight reports as a mild sustained rise - so which one
+  /// is used changes the analysis, and an arbitrary pick is not good
+  /// enough.
   ///
   /// Bounded by the number of SwitchBot devices in radio range.
   discovered: HashMap<String, DiscoveredSensor>,
