@@ -221,13 +221,11 @@ impl SwitchBotMeterProvider {
 
     let mut sensors: Vec<DiscoveredSensor> =
       observed.discovered.values().cloned().collect();
-    // Ties are broken by identity so the list cannot reshuffle between
-    // polls when two devices were heard in the same instant.
-    sensors.sort_by(|a, b| {
-      b.last_seen
-        .cmp(&a.last_seen)
-        .then_with(|| a.device_id.cmp(&b.device_id))
-    });
+    // Ordered by identity, not by when each was last heard. Every device
+    // in range broadcasts every few seconds, so ordering by recency
+    // reshuffles the list continuously - under the cursor of someone
+    // trying to click one of them.
+    sensors.sort_by(|a, b| a.device_id.cmp(&b.device_id));
     sensors
   }
 
@@ -484,10 +482,36 @@ mod tests {
     let discovered = provider.discovered_sensors();
 
     assert_eq!(discovered.len(), 2);
-    // Most recently heard first.
-    assert_eq!(discovered[0].device_id, METER_B);
-    assert_eq!(discovered[0].temperature_celsius, 31.0);
-    assert_eq!(discovered[1].device_id, METER_A);
+    assert_eq!(discovered[0].device_id, METER_A);
+    assert_eq!(discovered[1].device_id, METER_B);
+    assert_eq!(discovered[1].temperature_celsius, 31.0);
+  }
+
+  /// The list is polled while the settings screen is open, and every
+  /// device in range re-broadcasts between polls. Ordering must not
+  /// depend on that, or the row a user is reaching for moves.
+  #[test]
+  fn the_offered_order_does_not_change_when_a_device_is_heard_again() {
+    let provider = SwitchBotMeterProvider::unbound();
+    provider.observe(METER_A, frame(24.5), at(0));
+    provider.observe(METER_B, frame(31.0), at(1));
+
+    let before: Vec<String> = provider
+      .discovered_sensors()
+      .into_iter()
+      .map(|sensor| sensor.device_id)
+      .collect();
+
+    // METER_A speaks again, which under a recency order would move it.
+    provider.observe(METER_A, frame(24.6), at(2));
+
+    let after: Vec<String> = provider
+      .discovered_sensors()
+      .into_iter()
+      .map(|sensor| sensor.device_id)
+      .collect();
+
+    assert_eq!(before, after);
   }
 
   /// A device that was never chosen still appears in the list, which is
