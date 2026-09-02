@@ -23,11 +23,7 @@ pub struct EnvironmentalSensorSettings {
   pub switchbot_meter_device: Option<String>,
 }
 
-/// One SwitchBot device the radio is hearing, offered for selection.
-///
-/// Carries the reading rather than a model name because model identity
-/// cannot be trusted from these broadcasts, and because the temperature
-/// is what actually tells the user which device sits near the intake.
+/// One SwitchBot device the radio is hearing, offered for selection. It carries the reading rather than a model name because model identity cannot be trusted from these broadcasts, and because the temperature is what actually tells the user which device sits near the intake.
 #[derive(Debug, Serialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AmbientSensorCandidate {

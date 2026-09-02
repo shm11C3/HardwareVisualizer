@@ -176,21 +176,9 @@ export const commands = {
 	 *  mid-session. The settings screen says so.
 	 */
 	setSwitchbotMeterEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_enabled", { newValue })),
-	/**
-	 *  Choose which SwitchBot device the ambient source reads.
-	 * 
-	 *  Takes effect on the next launch, like the toggle: the provider is
-	 *  built once at startup from the stored choice.
-	 */
+	// Choose which SwitchBot device the ambient source reads. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
 	setSwitchbotMeterDevice: (deviceId: string | null) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_device", { deviceId })),
-	/**
-	 *  Every SwitchBot device heard since launch, most recent first.
-	 * 
-	 *  Returns an empty list on a machine where the ambient source is off,
-	 *  where no adapter exists, or where nothing has advertised yet - all of
-	 *  which look the same from here and are equally honest as "nothing to
-	 *  choose from".
-	 */
+	// Every SwitchBot device heard since launch, in a stable device-id order. Returns an empty list on a machine where the ambient source is off, where no adapter exists, or where nothing has advertised yet - all of which look the same from here and are equally honest as "nothing to choose from".
 	getAmbientSensorCandidates: () => typedError<AmbientSensorCandidate[], string>(__TAURI_INVOKE("get_ambient_sensor_candidates")),
 	setHardwareArchiveRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_retention_days", { newRetentionDays })),
 	setHardwareArchiveScheduledDataDeletion: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue })),
@@ -296,13 +284,7 @@ export type AmbientArchiveSeries = {
 	buckets: AmbientArchiveBucket[],
 };
 
-/**
- *  One SwitchBot device the radio is hearing, offered for selection.
- * 
- *  Carries the reading rather than a model name because model identity
- *  cannot be trusted from these broadcasts, and because the temperature
- *  is what actually tells the user which device sits near the intake.
- */
+// One SwitchBot device the radio is hearing, offered for selection. It carries the reading rather than a model name because model identity cannot be trusted from these broadcasts, and because the temperature is what actually tells the user which device sits near the intake.
 export type AmbientSensorCandidate = {
 	// Full address, the value to pass back when selecting this device.
 	deviceId: string,

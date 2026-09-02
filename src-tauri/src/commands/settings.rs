@@ -711,10 +711,7 @@ pub mod commands {
     Ok(())
   }
 
-  /// Choose which SwitchBot device the ambient source reads.
-  ///
-  /// Takes effect on the next launch, like the toggle: the provider is
-  /// built once at startup from the stored choice.
+  /// Choose which SwitchBot device the ambient source reads. Takes effect on the next launch, like the toggle: the provider is built once at startup from the stored choice.
   #[tauri::command]
   #[specta::specta]
   pub async fn set_switchbot_meter_device(

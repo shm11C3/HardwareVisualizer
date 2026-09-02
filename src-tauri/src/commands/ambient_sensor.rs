@@ -7,12 +7,7 @@
 
 use crate::models::environmental_sensors::AmbientSensorCandidate;
 
-/// Every SwitchBot device heard since launch, most recent first.
-///
-/// Returns an empty list on a machine where the ambient source is off,
-/// where no adapter exists, or where nothing has advertised yet - all of
-/// which look the same from here and are equally honest as "nothing to
-/// choose from".
+/// Every SwitchBot device heard since launch, in a stable device-id order. Returns an empty list on a machine where the ambient source is off, where no adapter exists, or where nothing has advertised yet - all of which look the same from here and are equally honest as "nothing to choose from".
 #[tauri::command]
 #[specta::specta]
 #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
