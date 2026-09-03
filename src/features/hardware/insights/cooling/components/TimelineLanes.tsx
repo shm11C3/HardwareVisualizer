@@ -21,6 +21,7 @@ import type { AmbientLaneRow } from "../utils/ambientTimeline";
 import {
   type FanLaneRow,
   type FanSeries,
+  fanColor,
   fanDataKey,
 } from "../utils/fanTimeline";
 import {
@@ -112,27 +113,6 @@ const chartConfig = {
 type SeriesKey = keyof typeof chartConfig;
 
 const seriesColor = (key: SeriesKey) => `var(--color-${key})`;
-
-/**
- * Colors for the fan lane's per-fan lines, cycled by series position.
- *
- * The lanes above reserve each token for one meaning, but inside the fan
- * lane a color only separates one fan from the next: every line is a fan
- * speed, and the legend names which. Cycling therefore reuses the palette
- * without reusing a meaning - and a machine reporting more fans than the
- * palette has entries still gets distinct neighbours, which is what the
- * lane is read for.
- */
-const FAN_LANE_COLORS = [
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-3))",
-] as const;
-
-const fanColor = (index: number) =>
-  FAN_LANE_COLORS[index % FAN_LANE_COLORS.length];
 
 const LOAD_BAND_SERIES = [
   { key: "loadIdle", band: "idle" },

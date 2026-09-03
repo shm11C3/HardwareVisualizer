@@ -54,6 +54,28 @@ export const FAN_DOMAIN_PADDING_RATIO = 0.1;
 export const fanDataKey = (series: FanSeries): string => `values.${series.key}`;
 
 /**
+ * Colors for the fan lane's per-fan lines, cycled by series position.
+ *
+ * The lanes above reserve each token for one meaning, but inside the fan
+ * lane a color only separates one fan from the next: every line is a fan
+ * speed, and the legend names which. Cycling therefore reuses the palette
+ * without reusing a meaning - and a machine reporting more fans than the
+ * palette has entries still gets distinct neighbours, which is what the
+ * lane is read for.
+ */
+const FAN_LANE_COLORS = [
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-3))",
+] as const;
+
+/** The color of the fan at `index` in the lane's sorted source order. */
+export const fanColor = (index: number): string =>
+  FAN_LANE_COLORS[index % FAN_LANE_COLORS.length];
+
+/**
  * Assign each fan a stable positional series key, ordered by source.
  *
  * Core already returns its series ordered by source, but the ordering is
