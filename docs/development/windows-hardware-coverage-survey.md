@@ -23,7 +23,9 @@ below, so hardware coverage is the ceiling of what the view can show:
 | Power lane | `PowerDraw.cpu_watts` | PawnIO Intel / AMD RAPL package energy (`cpu_power.rs`); no fallback |
 | Fan lane | `motherboard_fan_speeds` rows | PawnIO `LpcIO` Nuvoton NCT6799D direct RPM only (`super_io_motherboard.rs`) |
 | Ambient lane / ΔT | environmental provider | SwitchBot Meter over BLE (cross-platform; #2062 extends it) |
-| Not yet a lane | CPU clock, throttling state, GPU temperature | Not collected on Windows (see gaps below) |
+| Not yet a lane: GPU temperature | GPU archive (`gpu_temperature_histories`) | NVAPI / ADL through `sample_gpus`; archived, but not read by Cooling Insight |
+| Not yet a lane: CPU clock | none | Read live by `sysinfo_provider::get_cpu_info` at the command boundary; not sampled per tick or archived |
+| Not yet a lane: throttling state | none | Not collected (see gap T1) |
 
 The unsupported-sensor note in the view names the power and fan lanes only
 when the archive proves they never recorded, so on most Windows machines
@@ -117,7 +119,7 @@ clean-room gate applies. Coverage is per vendor:
 | Signal | Windows status | Note |
 | --- | --- | --- |
 | Storage temperature | Available through native SMART / NVMe paths and `smartctl` fallback | Not a Cooling Insight input; no gap for #1666 |
-| CPU clock frequency | Not collected on Windows | Listed by #1666 as a future input |
+| CPU clock frequency | Read live through `sysinfo` when the CPU specification is requested; not part of the per-tick snapshot or the archive | Listed by #1666 as a future input; needs a sampling and archive decision, not a new provider |
 | Thermal throttling state | Not collected | Listed by #1666 as a future input; see gap T1 |
 | Memory (DIMM) temperature | Not collected | Would need SMBus SPD sensor access |
 | Chipset / PCH temperature | Not collected | Only appears when firmware exposes an ACPI zone |
@@ -125,8 +127,12 @@ clean-room gate applies. Coverage is per vendor:
 
 ## Cross-cutting limiter: PawnIO setup friction
 
-Every native path above shares the same prerequisites, and they, not chip
-coverage, are the first reason most Windows users see no PawnIO data:
+Every native path above shares the same prerequisites. They gate every
+supported chip, so any machine that fails them shows no PawnIO data
+regardless of hardware. How many users that affects is not measured: the
+project has no outbound telemetry, and this survey has no installation or
+hardware-population evidence. Treat the prevalence as an unverified
+hypothesis, not a survey finding.
 
 - PawnIO runtime installed by the user (never bundled).
 - The module blob (`IntelMSR.bin`, `RyzenSMU.bin`, `AMDFamily17.bin`,
@@ -189,9 +195,12 @@ temperatures. Three sub-tiers:
    the first accepted dump. Cost: spec revision plus a chip-ID table entry.
 2. **IT8728F fans (FAN1–3).** Register and formula facts exist; the divisor,
    split-counter consistency, and stopped/invalid encodings are unresolved.
-   Needs one accepted IT8728F dump captured with the procedure in the ITE
-   spec's "Manual feedback dump" section. Cost: dump plus spec revision plus
-   fan decode in the existing ITE sampler.
+   The spec's current "Manual feedback dump" procedure deliberately excludes
+   fan registers, so it validates temperatures only and cannot close these
+   questions. A spec-author revision must first define a safe fan-specific
+   capture procedure and the evidence it needs; only then can an accepted
+   dump unblock fan decode in the existing ITE sampler. Cost: spec revision
+   for the capture procedure, dump, second spec revision, implementation.
 3. **Other Nuvoton and ITE chips.** Each needs its own datasheet or an
    accepted dump before a chip-ID mapping can exist; a chip-ID-only mapping
    from resemblance is prohibited. The Phase 2 diagnostic already reports raw
@@ -259,10 +268,13 @@ feed #1666.
 
 ## Suggested order relative to #1666 value
 
-1. **Module bundling / installer integration** (cross-cutting): raises the
-   share of users who get any PawnIO lane at all. Packaging and notices only.
-2. **T3.1 NCT6796D Experimental enablement** and **T3.2 IT8728F fans**:
-   cheapest widening of the fan lane using sources already pinned.
+1. **Module bundling / installer integration** (cross-cutting): removes a
+   prerequisite that gates every supported chip. Ranked first on the
+   unverified hypothesis above, not on measured prevalence; packaging and
+   notices only, no hardware research.
+2. **T3.1 NCT6796D Experimental enablement**: cheapest widening of the fan
+   lane using a datasheet already pinned. **T3.2 IT8728F fans** follows once
+   a fan-specific capture procedure exists in the ITE spec.
 3. **T1 Intel throttling state**: adds the throttling signal #1666 asked for
    from a register already read every tick.
 4. **T3.3 user-submitted diagnostic program**: turns the shipped chip-ID
@@ -278,6 +290,9 @@ feed #1666.
 
 - A verified count of which Super I/O chip IDs users actually report (from
   the diagnostic program) would reorder T3.
+- Any evidence on how many users lack the PawnIO prerequisites (for
+  example opt-in diagnostics submitted with issues) would confirm or demote
+  the packaging-first ordering.
 - A public NCT6799D datasheet would let the spec drop the dump-only
   scoping and cover the disabled NCT6799D features.
 - A change in PawnIO's device DACL or a HardwareVisualizer elevated helper
