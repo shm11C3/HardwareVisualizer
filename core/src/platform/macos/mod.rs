@@ -68,6 +68,17 @@ impl GpuPlatform for MacOSPlatform {
   fn sample_power_draw(&self) -> crate::models::PowerDraw {
     gpu::sample_power_draw()
   }
+
+  fn cpu_power_support(&self) -> crate::models::SensorSupport {
+    #[cfg(target_arch = "aarch64")]
+    {
+      crate::models::SensorSupport::Supported
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+      crate::models::SensorSupport::Unsupported
+    }
+  }
 }
 
 impl NetworkPlatform for MacOSPlatform {

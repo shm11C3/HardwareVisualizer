@@ -7,6 +7,7 @@ import {
   liveGpuRecord,
 } from "@/features/hardware/gpuIdentity";
 import {
+  cpuPowerSupportAtom,
   cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbMapAtom,
@@ -17,6 +18,7 @@ import {
   gpuUsageSourcesAtom,
   memoryUsageHistoryAtom,
   motherboardFanSpeedsAtom,
+  motherboardFanSupportAtom,
   motherboardTempsAtom,
   powerDrawAtom,
   powerDrawAvailableAtom,
@@ -68,6 +70,8 @@ export const useHardwareEventListener = () => {
   const setSensorTemps = useSetAtom(sensorTempsAtom);
   const setMotherboardTemps = useSetAtom(motherboardTempsAtom);
   const setMotherboardFanSpeeds = useSetAtom(motherboardFanSpeedsAtom);
+  const setMotherboardFanSupport = useSetAtom(motherboardFanSupportAtom);
+  const setCpuPowerSupport = useSetAtom(cpuPowerSupportAtom);
   const setPowerDrawAvailable = useSetAtom(powerDrawAvailableAtom);
   const setPowerDraw = useSetAtom(powerDrawAtom);
   const setPowerDrawHistory = useSetAtom(powerDrawHistoryAtom);
@@ -106,6 +110,8 @@ export const useHardwareEventListener = () => {
         gpuPowerWatts,
         anePowerWatts,
         packagePowerWatts,
+        cpuPowerSupport,
+        motherboardFanSupport,
       } = event.payload;
 
       const currentGpuIds = gpus.map((gpu) => asLiveGpuId(gpu.gpuId));
@@ -144,6 +150,8 @@ export const useHardwareEventListener = () => {
       setSensorTemps(sensorTemperatures);
       setMotherboardTemps(motherboardTemperatures);
       setMotherboardFanSpeeds(motherboardFanSpeeds);
+      setMotherboardFanSupport(motherboardFanSupport);
+      setCpuPowerSupport(cpuPowerSupport);
       const powerDraw = {
         cpuWatts: cpuPowerWatts,
         gpuWatts: gpuPowerWatts,
@@ -319,6 +327,8 @@ export const useHardwareEventListener = () => {
       setSensorTemps,
       setMotherboardTemps,
       setMotherboardFanSpeeds,
+      setMotherboardFanSupport,
+      setCpuPowerSupport,
       setPowerDrawAvailable,
       setPowerDraw,
       setPowerDrawHistory,

@@ -46,6 +46,36 @@ describe("i18n configuration", () => {
     expect(i18n.options.returnEmptyString).toBe(false);
   });
 
+  it("distinguishes unsupported hardware from uncollected history in every locale", async () => {
+    const expected = {
+      en: [
+        "Your current hardware does not support power collection.",
+        "Power data has not been collected for this period yet.",
+      ],
+      ja: [
+        "現在ご利用のハードウェアでは、電力の取得に対応していません。",
+        "この期間の電力データはまだ収集されていません。",
+      ],
+      ru: [
+        "Текущее оборудование не поддерживает сбор данных о мощности.",
+        "Данные о мощности за этот период ещё не собраны.",
+      ],
+    } as const;
+    const keys = [
+      "pages.insights.cooling.sensorStatusNote.unsupported.power",
+      "pages.insights.cooling.sensorStatusNote.notCollected.power",
+    ] as const;
+
+    try {
+      for (const [language, translations] of Object.entries(expected)) {
+        await i18n.changeLanguage(language);
+        expect(keys.map((key) => i18n.t(key))).toEqual(translations);
+      }
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
   it("should use react-i18next plugin", () => {
     expect(i18n.isInitialized).toBe(true);
   });

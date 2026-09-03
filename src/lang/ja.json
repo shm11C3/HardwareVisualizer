@@ -380,9 +380,18 @@
             "footnote": "これは観察に基づく確認候補であり、故障診断ではありません。"
           }
         },
-        "unsupportedSensorsNote": "タイムラインへの電力・ファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
-        "unsupportedSensorsNoteFanOnly": "タイムラインへのファンのレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
-        "unsupportedSensorsNotePowerOnly": "タイムラインへの電力のレーンは未対応です。コレクターとアーカイブの実装後に追加されます。",
+        "sensorStatusNote": {
+          "unsupported": {
+            "both": "現在ご利用のハードウェアでは、電力・ファン回転数の取得に対応していません。",
+            "power": "現在ご利用のハードウェアでは、電力の取得に対応していません。",
+            "fan": "現在ご利用のハードウェアでは、ファン回転数の取得に対応していません。"
+          },
+          "notCollected": {
+            "both": "この期間の電力・ファン回転数データはまだ収集されていません。",
+            "power": "この期間の電力データはまだ収集されていません。",
+            "fan": "この期間のファン回転数データはまだ収集されていません。"
+          }
+        },
         "timeline": {
           "title": "サーマルタイムライン",
           "loadFailed": "サーマルタイムラインの取得に失敗しました。",
@@ -466,11 +475,16 @@
             "sourceLabel": "周囲温度ソース",
             "coverageLabel": "周囲温度のペア成立"
           },
-          "unsupported": {
-            "label": "電力・ファン",
-            "labelFanOnly": "ファン",
-            "labelPowerOnly": "電力",
-            "value": "未対応"
+          "sensorStatus": {
+            "label": {
+              "both": "電力・ファン回転数",
+              "power": "電力",
+              "fan": "ファン回転数"
+            },
+            "value": {
+              "unsupported": "現在のハードウェアでは非対応",
+              "notCollected": "この期間は未収集"
+            }
           }
         }
       },

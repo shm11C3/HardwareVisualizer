@@ -78,14 +78,18 @@ type FixtureOverrides = {
   /** `?coolingPower=none` empties every CPU-power source the Cooling tab
    * reads (the archive `cpuPower` series and the daily trend's `power`),
    * simulating a machine whose platform publishes no CPU package power.
-   * The timeline then draws no power lane and the pending-sensors note
-   * keeps naming power (#2021). */
+   * The timeline then draws no power lane and the sensor-status note reports
+   * the explicit hardware-support state. */
   coolingPowerUnsupported: boolean;
+  /** Power readings are omitted from history for unsupported and uncollected fixtures. */
+  coolingPowerMissing: boolean;
   /** `?coolingFan=none` empties every fan source the Cooling tab reads
    * (the archived fan series and the daily fan trend), simulating a machine
    * with no readable fan. The timeline then draws no fan lane and the
-   * pending-sensors note keeps naming the fan (#2022). */
+   * sensor-status note reports the explicit hardware-support state. */
   coolingFanUnsupported: boolean;
+  /** Fan readings are omitted from history for unsupported and uncollected fixtures. */
+  coolingFanMissing: boolean;
   /** `?coolingAmbient=present` gives the Cooling tab a machine with an
    * environmental sensor: the ambient archive answers with a real series,
    * and both baseline-delta and band-comparison fixtures carry their
@@ -108,6 +112,19 @@ type TauriInternalsWindow = Window & {
     runCallback?: (id: number, data: unknown) => void;
   };
 };
+
+const applySensorSupportOverrides = (
+  payload: HardwareMonitorUpdate,
+  overrides: FixtureOverrides,
+): HardwareMonitorUpdate => ({
+  ...payload,
+  cpuPowerSupport: overrides.coolingPowerUnsupported
+    ? "unsupported"
+    : payload.cpuPowerSupport,
+  motherboardFanSupport: overrides.coolingFanUnsupported
+    ? "unsupported"
+    : payload.motherboardFanSupport,
+});
 
 const STORE_RID = 1;
 const MAX_STORAGE_DEVICE_STUB_COUNT = 32;
@@ -147,8 +164,14 @@ const readFixtureOverrides = (): FixtureOverrides => {
     coolingPowerUnsupported:
       new URLSearchParams(window.location.search).get("coolingPower") ===
       "none",
+    coolingPowerMissing: ["none", "uncollected"].includes(
+      new URLSearchParams(window.location.search).get("coolingPower") ?? "",
+    ),
     coolingFanUnsupported:
       new URLSearchParams(window.location.search).get("coolingFan") === "none",
+    coolingFanMissing: ["none", "uncollected"].includes(
+      new URLSearchParams(window.location.search).get("coolingFan") ?? "",
+    ),
     coolingAmbientOverride: readCoolingAmbientOverride(),
   };
 };
@@ -328,7 +351,7 @@ const buildInvokeHandlers = (
       );
     }
     if (a.hardwareType.endsWith("Power")) {
-      if (fixtureOverrides.coolingPowerUnsupported) {
+      if (fixtureOverrides.coolingPowerMissing) {
         // The archive returns no buckets at all when nothing was ever
         // recorded - not buckets holding zero.
         return [];
@@ -364,7 +387,7 @@ const buildInvokeHandlers = (
     };
     // A machine with no readable fan answers with no series at all - not
     // with series holding zero, which is a real Inactive Fan Reading.
-    return fixtureOverrides.coolingFanUnsupported ||
+    return fixtureOverrides.coolingFanMissing ||
       fixtureOverrides.coolingAmbientOverride === "only"
       ? []
       : buildFanArchiveSeriesFixture(
@@ -439,12 +462,12 @@ const buildInvokeHandlers = (
     buildCoolingDailyTrendFixture(
       (args as { days: number }).days,
       undefined,
-      !fixtureOverrides.coolingPowerUnsupported,
+      !fixtureOverrides.coolingPowerMissing,
     ),
   get_cooling_fan_trend: (args) =>
-    fixtureOverrides.coolingFanUnsupported
-      ? // No summarized fan *and* nothing in the one-minute archive: only
-        // both together license reporting the fan as unsupported.
+    fixtureOverrides.coolingFanMissing
+      ? // No summarized fan and nothing in the one-minute archive establish
+        // period absence; hardware support is supplied by the live fixture.
         { series: [], archiveHasReadings: false }
       : {
           series: buildCoolingFanTrendFixture((args as { days: number }).days),
@@ -546,7 +569,7 @@ export const installTauriMocks = () => {
     const series = buildHardwareUpdateSeries(index + 1);
     dispatchTauriEvent(eventListeners, {
       event: "hardware-monitor-update",
-      payload: series[index],
+      payload: applySensorSupportOverrides(series[index], fixtureOverrides),
     });
   };
 
@@ -584,13 +607,16 @@ export const installTauriMocks = () => {
     emitHardwareUpdate: async (payload) =>
       dispatchTauriEvent(eventListeners, {
         event: "hardware-monitor-update",
-        payload: payload ?? buildHardwareUpdateSeries(1)[0],
+        payload: applySensorSupportOverrides(
+          payload ?? buildHardwareUpdateSeries(1)[0],
+          fixtureOverrides,
+        ),
       }),
     emitHardwareUpdateSeries: async (count = 30) => {
       for (const payload of buildHardwareUpdateSeries(count)) {
         dispatchTauriEvent(eventListeners, {
           event: "hardware-monitor-update",
-          payload,
+          payload: applySensorSupportOverrides(payload, fixtureOverrides),
         });
       }
     },

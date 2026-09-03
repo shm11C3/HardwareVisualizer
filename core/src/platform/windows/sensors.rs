@@ -6,7 +6,7 @@ use crate::infrastructure::providers::windows::cpu_temperature::{
 use crate::log_warn;
 use crate::models::{
   ExternalComponentGuidanceCandidate, MotherboardSensorCollection, PowerDraw,
-  SensorAvailability, SensorTemperature, TemperatureSample,
+  SensorAvailability, SensorSupport, SensorTemperature, TemperatureSample,
 };
 
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -15,6 +15,11 @@ pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
   match crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
   {
     Ok(sample) => MotherboardSensorCollection {
+      fan_support: if sample.fan_speeds.is_empty() {
+        SensorSupport::Unsupported
+      } else {
+        SensorSupport::Supported
+      },
       sample,
       availability: SensorAvailability::Available,
       guidance_candidates: Vec::new(),
@@ -40,6 +45,13 @@ pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
       MotherboardSensorCollection {
         sample: Default::default(),
         availability,
+        fan_support: if reason
+          == crate::infrastructure::providers::windows::super_io_motherboard::UNSUPPORTED_SUPER_IO_HM_PATH_REASON
+        {
+          SensorSupport::Unsupported
+        } else {
+          SensorSupport::Unknown
+        },
         guidance_candidates: motherboard_guidance_candidates_for_reason(reason),
       }
     }
@@ -86,6 +98,19 @@ pub fn sample_power_draw() -> PowerDraw {
   build_power_draw(
     crate::infrastructure::providers::windows::cpu_power::sample_cpu_package_power(),
   )
+}
+
+/// Whether CPU package power has a hardware path, independently of whether
+/// the current sample produced watts (the first delta sample intentionally
+/// does not).
+pub fn cpu_power_support() -> SensorSupport {
+  let diagnostics =
+    crate::infrastructure::providers::windows::cpu_power::cpu_power_diagnostics();
+  if diagnostics.selected_enablement.is_some() {
+    SensorSupport::Supported
+  } else {
+    SensorSupport::Unsupported
+  }
 }
 
 fn build_power_draw(cpu_watts: Option<f32>) -> PowerDraw {

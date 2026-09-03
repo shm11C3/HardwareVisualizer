@@ -8,7 +8,6 @@ import {
   archiveWindowRecordedAnything,
   buildArchiveTimelineRows,
   buildDailyTimelineRows,
-  claimsPowerUnsupported,
   collectPowerDomainValues,
   collectTemperatureDomainValues,
   computeAdaptiveTemperatureDomain,
@@ -473,8 +472,8 @@ describe("resolveRoutedPowerCapability", () => {
 
   it("is present when only the extremes survived the bucket", () => {
     // The lane's own gate reads avg/min/max, so it would render here. A
-    // capability check on `avg` alone would call power unsupported on the
-    // very window whose lane is on screen.
+    // presence check on `avg` alone would call power missing on the very
+    // window whose lane is on screen.
     expect(
       resolveRoutedPowerCapability(
         ARCHIVE,
@@ -604,22 +603,6 @@ describe("resolveRoutedPowerCapability", () => {
         hasError: false,
       }),
     ).toBe("unknown");
-  });
-});
-
-describe("claimsPowerUnsupported", () => {
-  it("only names power as unsupported on evidence", () => {
-    expect(claimsPowerUnsupported("absent")).toBe(true);
-  });
-
-  it("stays silent about power while the answer is unknown", () => {
-    // Under-claiming is the safe direction: the fan clause is true either
-    // way, so an unresolved fetch simply does not mention power.
-    expect(claimsPowerUnsupported("unknown")).toBe(false);
-  });
-
-  it("stays silent about power when the lane renders", () => {
-    expect(claimsPowerUnsupported("present")).toBe(false);
   });
 });
 

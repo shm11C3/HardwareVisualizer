@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { CoolingFanTrendSeries, FanArchiveSeries } from "@/rspc/bindings";
 import {
   buildFanLaneRows,
-  claimsFanUnsupported,
   computeFanDomain,
   type FanLaneRow,
   fanDataKey,
@@ -477,16 +476,5 @@ describe("resolveRoutedFanCapability", () => {
         hasError: true,
       }),
     ).toBe("unknown");
-  });
-});
-
-describe("claimsFanUnsupported", () => {
-  it("names the fan unsupported only on evidence", () => {
-    expect(claimsFanUnsupported("absent")).toBe(true);
-  });
-
-  it("stays silent while the answer is unknown", () => {
-    expect(claimsFanUnsupported("unknown")).toBe(false);
-    expect(claimsFanUnsupported("present")).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import { chartConfig } from "@/features/hardware/consts/chart";
 import { asLiveGpuId } from "@/features/hardware/gpuIdentity";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
 import {
+  cpuPowerSupportAtom,
   cpuTempAtom,
   cpuUsageHistoryAtom,
   gpuDedicatedMemoryKbAtom,
@@ -20,6 +21,7 @@ import {
   graphicUsageHistoryAtom,
   memoryUsageHistoryAtom,
   motherboardFanSpeedsAtom,
+  motherboardFanSupportAtom,
   motherboardTempsAtom,
   powerDrawAtom,
   powerDrawAvailableAtom,
@@ -81,10 +83,12 @@ const makePayload = (
     gpuPowerWatts: null,
     anePowerWatts: null,
     packagePowerWatts: null,
+    cpuPowerSupport: "supported",
     cpuTemperature: null,
     sensorTemperatures: [],
     motherboardTemperatures: [],
     motherboardFanSpeeds: [],
+    motherboardFanSupport: "supported",
     ...rest,
   };
 };
@@ -412,6 +416,32 @@ describe("useHardwareEventListener", () => {
       gpuWatts: 2.2,
       aneWatts: null,
       packageWatts: null,
+    });
+  });
+
+  it("stores explicit power and fan hardware support independently of readings", () => {
+    const { result } = renderHook(
+      () => {
+        useHardwareEventListener();
+        const [powerSupport] = useAtom(cpuPowerSupportAtom);
+        const [fanSupport] = useAtom(motherboardFanSupportAtom);
+        return { powerSupport, fanSupport };
+      },
+      { wrapper: Provider },
+    );
+
+    act(() =>
+      emit(
+        makePayload({
+          cpuPowerSupport: "unsupported",
+          motherboardFanSupport: "supported",
+        }),
+      ),
+    );
+
+    expect(result.current).toEqual({
+      powerSupport: "unsupported",
+      fanSupport: "supported",
     });
   });
 

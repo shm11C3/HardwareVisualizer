@@ -380,9 +380,18 @@
             "footnote": "These are observation-based points to check, not a fault diagnosis."
           }
         },
-        "unsupportedSensorsNote": "The timeline does not have power or fan lanes yet. They will be added as their collectors and archives become available.",
-        "unsupportedSensorsNoteFanOnly": "The timeline does not have a fan lane yet. It will be added as its collector and archive become available.",
-        "unsupportedSensorsNotePowerOnly": "The timeline does not have a power lane yet. It will be added as its collector and archive become available.",
+        "sensorStatusNote": {
+          "unsupported": {
+            "both": "Your current hardware does not support power or fan speed collection.",
+            "power": "Your current hardware does not support power collection.",
+            "fan": "Your current hardware does not support fan speed collection."
+          },
+          "notCollected": {
+            "both": "Power and fan speed data has not been collected for this period yet.",
+            "power": "Power data has not been collected for this period yet.",
+            "fan": "Fan speed data has not been collected for this period yet."
+          }
+        },
         "timeline": {
           "title": "Thermal Timeline",
           "loadFailed": "Failed to load the thermal timeline.",
@@ -466,11 +475,16 @@
             "sourceLabel": "Ambient source",
             "coverageLabel": "Ambient pairing"
           },
-          "unsupported": {
-            "label": "Power / fan",
-            "labelFanOnly": "Fan",
-            "labelPowerOnly": "Power",
-            "value": "Not supported yet"
+          "sensorStatus": {
+            "label": {
+              "both": "Power / fan speed",
+              "power": "Power",
+              "fan": "Fan speed"
+            },
+            "value": {
+              "unsupported": "Not supported by current hardware",
+              "notCollected": "Not collected for this period"
+            }
           }
         }
       },

@@ -26,6 +26,19 @@ pub struct PowerDraw {
   pub package_watts: Option<f32>,
 }
 
+/// Whether the current hardware has a supported path for a sensor family.
+///
+/// This is deliberately separate from a reading: supported hardware may not
+/// have produced a value yet, while an absent historical value does not prove
+/// that the hardware is unsupported.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SensorSupport {
+  #[default]
+  Unknown,
+  Supported,
+  Unsupported,
+}
+
 /// One sample of per-GPU metrics, normalized across vendors and platforms.
 ///
 /// `None` indicates the metric is unavailable for this vendor/platform.
@@ -157,6 +170,7 @@ impl TemperatureSample {
 pub struct MotherboardSensorCollection {
   pub sample: MotherboardSensorSample,
   pub availability: SensorAvailability,
+  pub fan_support: SensorSupport,
   pub guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,
 }
 
@@ -164,6 +178,7 @@ impl MotherboardSensorCollection {
   pub fn unsupported(reason: impl Into<String>) -> Self {
     Self {
       availability: SensorAvailability::unsupported(reason),
+      fan_support: SensorSupport::Unsupported,
       ..Self::default()
     }
   }
@@ -171,6 +186,7 @@ impl MotherboardSensorCollection {
   pub fn unavailable(reason: impl Into<String>) -> Self {
     Self {
       availability: SensorAvailability::unavailable(reason),
+      fan_support: SensorSupport::Unknown,
       ..Self::default()
     }
   }
@@ -205,6 +221,8 @@ pub struct MetricsSnapshot {
   /// Live platform power readings in watts. All fields are `None` when
   /// unsupported, not sampled yet, or invalid for the current tick.
   pub power_draw: PowerDraw,
+  /// Whether CPU package-power collection is supported by this hardware.
+  pub cpu_power_support: SensorSupport,
   pub processes: Vec<ProcessSample>,
   /// Headline CPU temperature in raw °C. `None` when no readable sensor
   /// exists on this platform (currently collected on Windows only).
@@ -217,6 +235,8 @@ pub struct MetricsSnapshot {
   pub motherboard_temperatures: Vec<MotherboardTemperature>,
   /// Live motherboard fan-speed readings. Empty when unsupported or unavailable.
   pub motherboard_fan_speeds: Vec<MotherboardFanSpeed>,
+  /// Whether motherboard fan-speed collection is supported by this hardware.
+  pub motherboard_fan_support: SensorSupport,
   /// Diagnostic side data for optional runtime components that were
   /// attempted but unavailable while user-visible data remains missing.
   pub external_component_guidance_candidates: Vec<ExternalComponentGuidanceCandidate>,

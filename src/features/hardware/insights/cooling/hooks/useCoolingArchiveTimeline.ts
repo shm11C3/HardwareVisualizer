@@ -150,7 +150,7 @@ export const useCoolingArchiveTimeline = (
     // temperature, load and power series that did arrive and turn the
     // whole timeline into a load error. A failed fan read degrades to
     // "capability unknown" - the lane simply does not mount, and the
-    // pending-sensors note claims nothing (DP-02).
+    // sensor-status note claims nothing (DP-02).
     const readFans = async (): Promise<{
       fanSeries: FanArchiveSeries[];
       fanHasError: boolean;

@@ -699,7 +699,7 @@ export const TimelineLanes = ({
    * machine has no such source, or none was archived yet. The power lane
    * is then not rendered at all rather than degrading to a notice: unlike
    * temperature it is not what this view is primarily about, so its
-   * absence belongs in the pending-sensors note, not in the timeline.
+   * absence belongs in the sensor-status note, not in the timeline.
    */
   powerDomain: [number, number] | null;
   /**
@@ -712,7 +712,7 @@ export const TimelineLanes = ({
    * `null` when the period recorded no fan - either the machine has no
    * readable fan, or none was archived yet. Like the power lane the fan
    * lane is then not rendered at all: its absence belongs in the
-   * pending-sensors note, not in a lane pinned at a fabricated 0 RPM.
+   * sensor-status note, not in a lane pinned at a fabricated 0 RPM.
    */
   fanDomain: [number, number] | null;
   /**

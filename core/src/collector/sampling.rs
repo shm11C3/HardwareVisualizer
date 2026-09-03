@@ -10,8 +10,8 @@
 use crate::collector::HistoryStore;
 use crate::models::{
   ExternalComponentGuidanceCandidate, GpuMetric, GpuSample, MetricsSnapshot,
-  MotherboardSensorCollection, MotherboardSensorSample, PowerDraw, ProcessSample,
-  SensorTemperature, TemperatureSample,
+  MotherboardSensorCollection, PowerDraw, ProcessSample, SensorTemperature,
+  TemperatureSample,
 };
 use crate::platform::factory::PlatformHandle;
 use crate::platform::traits::Platform;
@@ -36,28 +36,36 @@ pub async fn collect_snapshot(
 ) -> Option<MetricsSnapshot> {
   let system_sample = sample_system(store)?;
 
-  let (gpu_samples, power_draw, temperature_sample, motherboard_collection) =
-    match platform {
-      Ok(platform) => (
-        sample_gpu(store, platform.as_ref()).await,
-        platform.sample_power_draw(),
-        platform.sample_temperatures(),
-        platform.sample_motherboard_sensors(),
-      ),
-      Err(error) => (
-        Vec::new(),
-        PowerDraw::default(),
-        TemperatureSample::unavailable(error.to_string()),
-        MotherboardSensorCollection::unavailable(error.to_string()),
-      ),
-    };
+  let (
+    gpu_samples,
+    power_draw,
+    cpu_power_support,
+    temperature_sample,
+    motherboard_collection,
+  ) = match platform {
+    Ok(platform) => (
+      sample_gpu(store, platform.as_ref()).await,
+      platform.sample_power_draw(),
+      platform.cpu_power_support(),
+      platform.sample_temperatures(),
+      platform.sample_motherboard_sensors(),
+    ),
+    Err(error) => (
+      Vec::new(),
+      PowerDraw::default(),
+      crate::models::SensorSupport::Unknown,
+      TemperatureSample::unavailable(error.to_string()),
+      MotherboardSensorCollection::unavailable(error.to_string()),
+    ),
+  };
 
   Some(build_metrics_snapshot(
     &system_sample,
     &gpu_samples,
     power_draw,
+    cpu_power_support,
     &temperature_sample,
-    &motherboard_collection.sample,
+    &motherboard_collection,
     &motherboard_collection.guidance_candidates,
   ))
 }
@@ -173,16 +181,19 @@ pub fn build_metrics_snapshot(
   system_sample: &SystemSample,
   gpu_samples: &[GpuSample],
   power_draw: PowerDraw,
+  cpu_power_support: crate::models::SensorSupport,
   temperature_sample: &TemperatureSample,
-  motherboard_sample: &MotherboardSensorSample,
+  motherboard_collection: &MotherboardSensorCollection,
   motherboard_guidance_candidates: &[ExternalComponentGuidanceCandidate],
 ) -> MetricsSnapshot {
+  let motherboard_sample = &motherboard_collection.sample;
   MetricsSnapshot {
     cpu_usage: system_sample.cpu_usage,
     memory_usage: system_sample.memory_usage,
     processors_usage: system_sample.processors_usage.clone(),
     gpus: build_gpu_metrics(gpu_samples),
     power_draw,
+    cpu_power_support,
     processes: system_sample.processes.clone(),
     cpu_temperature: temperature_sample.cpu_temperature.map(|t| t.round()),
     sensor_temperatures: temperature_sample
@@ -203,6 +214,7 @@ pub fn build_metrics_snapshot(
       })
       .collect(),
     motherboard_fan_speeds: motherboard_sample.fan_speeds.clone(),
+    motherboard_fan_support: motherboard_collection.fan_support,
     external_component_guidance_candidates: temperature_sample
       .guidance_candidates
       .iter()
@@ -216,11 +228,11 @@ pub fn build_metrics_snapshot(
 mod tests {
   use super::*;
   use crate::enums::error::PlatformError;
-  use crate::models::SensorAvailability;
   use crate::models::hardware::{
     GpuMemoryUsage, GraphicInfo, MemoryInfo, MotherboardInfo, NameValue, NetworkInfo,
     SuperIoChipIdDiagnostics,
   };
+  use crate::models::{MotherboardSensorSample, SensorAvailability};
   use crate::platform::traits::{
     GpuPlatform, GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform,
     ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
@@ -284,6 +296,10 @@ mod tests {
         package_watts: Some(4.0),
       }
     }
+
+    fn cpu_power_support(&self) -> crate::models::SensorSupport {
+      crate::models::SensorSupport::Supported
+    }
   }
 
   impl NetworkPlatform for FakePlatform {
@@ -314,7 +330,7 @@ mod tests {
     }
 
     fn sample_motherboard_sensors(&self) -> MotherboardSensorCollection {
-      MotherboardSensorCollection::default()
+      MotherboardSensorCollection::unsupported("fake fan path")
     }
   }
 
@@ -345,6 +361,14 @@ mod tests {
     assert_eq!(snapshot.gpus[0].gpu_temperature, Some(56.0));
     assert_eq!(snapshot.cpu_temperature, Some(42.0));
     assert_eq!(snapshot.power_draw.package_watts, Some(4.0));
+    assert_eq!(
+      snapshot.cpu_power_support,
+      crate::models::SensorSupport::Supported
+    );
+    assert_eq!(
+      snapshot.motherboard_fan_support,
+      crate::models::SensorSupport::Unsupported
+    );
     // The fake GPU sample also landed in the history rings.
     assert_eq!(store.gpu_history("fake:0", 60).len(), 1);
   }
@@ -361,6 +385,14 @@ mod tests {
     assert!(snapshot.gpus.is_empty());
     assert_eq!(snapshot.power_draw, PowerDraw::default());
     assert_eq!(snapshot.cpu_temperature, None);
+    assert_eq!(
+      snapshot.cpu_power_support,
+      crate::models::SensorSupport::Unknown
+    );
+    assert_eq!(
+      snapshot.motherboard_fan_support,
+      crate::models::SensorSupport::Unknown
+    );
     assert!(snapshot.sensor_temperatures.is_empty());
     assert!(snapshot.motherboard_temperatures.is_empty());
   }
@@ -576,8 +608,9 @@ mod tests {
       &sys,
       &gpus,
       PowerDraw::default(),
+      crate::models::SensorSupport::Unknown,
       &TemperatureSample::default(),
-      &MotherboardSensorSample::default(),
+      &MotherboardSensorCollection::default(),
       &[],
     );
     assert_eq!(snap.cpu_usage, 12.5);
@@ -607,8 +640,9 @@ mod tests {
         gpu_watts: Some(2.2),
         ..Default::default()
       },
+      crate::models::SensorSupport::Supported,
       &TemperatureSample::default(),
-      &MotherboardSensorSample::default(),
+      &MotherboardSensorCollection::default(),
       &[],
     );
 
@@ -645,8 +679,9 @@ mod tests {
       &sys,
       &[],
       PowerDraw::default(),
+      crate::models::SensorSupport::Unknown,
       &temps,
-      &MotherboardSensorSample::default(),
+      &MotherboardSensorCollection::default(),
       &[],
     );
     assert_eq!(snap.cpu_temperature, Some(50.0));
@@ -686,13 +721,20 @@ mod tests {
         source: "NCT6799D / Super I/O".into(),
       }],
     };
+    let motherboard_collection = MotherboardSensorCollection {
+      sample: motherboard_sample.clone(),
+      availability: SensorAvailability::Available,
+      fan_support: crate::models::SensorSupport::Supported,
+      guidance_candidates: Vec::new(),
+    };
 
     let snap = build_metrics_snapshot(
       &sys,
       &[],
       PowerDraw::default(),
+      crate::models::SensorSupport::Unknown,
       &TemperatureSample::default(),
-      &motherboard_sample,
+      &motherboard_collection,
       &[],
     );
 
@@ -730,8 +772,9 @@ mod tests {
       &sys,
       &[],
       PowerDraw::default(),
+      crate::models::SensorSupport::Unknown,
       &temps,
-      &MotherboardSensorSample::default(),
+      &MotherboardSensorCollection::default(),
       &[],
     );
 
@@ -754,8 +797,9 @@ mod tests {
       &sys,
       &[],
       PowerDraw::default(),
+      crate::models::SensorSupport::Unknown,
       &TemperatureSample::default(),
-      &MotherboardSensorSample::default(),
+      &MotherboardSensorCollection::default(),
       std::slice::from_ref(&candidate),
     );
 

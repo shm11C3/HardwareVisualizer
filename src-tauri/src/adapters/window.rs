@@ -178,6 +178,7 @@ fn to_hardware_monitor_update(
     gpu_power_watts: power_draw.gpu_watts,
     ane_power_watts: power_draw.ane_watts,
     package_power_watts: power_draw.package_watts,
+    cpu_power_support: snapshot.cpu_power_support.into(),
     gpus: snapshot
       .gpus
       .into_iter()
@@ -201,6 +202,7 @@ fn to_hardware_monitor_update(
       .into_iter()
       .map(to_motherboard_fan_speed_value)
       .collect(),
+    motherboard_fan_support: snapshot.motherboard_fan_support.into(),
   }
 }
 
@@ -283,6 +285,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     }
   }
@@ -300,6 +304,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -340,6 +346,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -375,6 +383,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -402,6 +412,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -429,6 +441,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -460,6 +474,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Fahrenheit);
@@ -487,6 +503,8 @@ mod tests {
       motherboard_temperatures: vec![],
       motherboard_fan_speeds: vec![],
       power_draw: Default::default(),
+      cpu_power_support: Default::default(),
+      motherboard_fan_support: Default::default(),
       external_component_guidance_candidates: vec![],
     };
     let update = to_hardware_monitor_update(snap, &TemperatureUnit::Celsius);
@@ -516,6 +534,8 @@ mod tests {
         source: "NCT6799D / Super I/O".into(),
       }],
       power_draw: Default::default(),
+      cpu_power_support: hardviz_core::models::SensorSupport::Supported,
+      motherboard_fan_support: hardviz_core::models::SensorSupport::Supported,
       external_component_guidance_candidates: vec![],
     };
 
@@ -529,6 +549,14 @@ mod tests {
       "NCT6799D / Super I/O"
     );
     assert_eq!(update.motherboard_fan_speeds.len(), 1);
+    assert_eq!(
+      update.cpu_power_support,
+      crate::models::hardware::SensorSupport::Supported
+    );
+    assert_eq!(
+      update.motherboard_fan_support,
+      crate::models::hardware::SensorSupport::Supported
+    );
     assert_eq!(update.motherboard_fan_speeds[0].rpm, Some(0));
     assert_eq!(
       update.motherboard_fan_speeds[0].status,
