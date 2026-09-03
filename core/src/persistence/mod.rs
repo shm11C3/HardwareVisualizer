@@ -14,6 +14,7 @@ pub mod archive_data;
 pub mod cooling_band_comparison;
 pub mod cooling_baseline;
 pub mod cooling_baseline_delta;
+pub mod cooling_covariate_comparison;
 pub mod cooling_covariate_rollup;
 pub mod cooling_delta_baseline;
 pub mod cooling_fan_rollup;
