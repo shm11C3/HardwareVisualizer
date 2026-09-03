@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::infrastructure::providers::windows::cpu_temperature::{
   CpuPackageTemperature, CpuPackageTemperatureError, CpuTemperatureSource,
 };
+use crate::infrastructure::providers::windows::super_io_motherboard::MotherboardSensorReadout;
 use crate::log_warn;
 use crate::models::{
   ExternalComponentGuidanceCandidate, MotherboardSensorCollection, PowerDraw,
@@ -12,14 +13,19 @@ use crate::models::{
 static MOTHERBOARD_SENSOR_FALLBACK_LOGGED: AtomicBool = AtomicBool::new(false);
 
 pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
-  match crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors()
-  {
+  let readout =
+    crate::infrastructure::providers::windows::super_io_motherboard::sample_motherboard_sensors();
+  motherboard_collection_from_readout(readout)
+}
+
+/// Convert a provider readout without deriving support from its current rows.
+fn motherboard_collection_from_readout(
+  readout: MotherboardSensorReadout,
+) -> MotherboardSensorCollection {
+  let fan_support = readout.fan_support;
+  match readout.sample {
     Ok(sample) => MotherboardSensorCollection {
-      fan_support: if sample.fan_speeds.is_empty() {
-        SensorSupport::Unsupported
-      } else {
-        SensorSupport::Supported
-      },
+      fan_support,
       sample,
       availability: SensorAvailability::Available,
       guidance_candidates: Vec::new(),
@@ -50,7 +56,7 @@ pub fn sample_motherboard_sensors() -> MotherboardSensorCollection {
         {
           SensorSupport::Unsupported
         } else {
-          SensorSupport::Unknown
+          fan_support
         },
         guidance_candidates: motherboard_guidance_candidates_for_reason(reason),
       }
@@ -269,6 +275,28 @@ mod tests {
       candidates[0].key,
       crate::models::external_component_guidance::PAWNIO_MOTHERBOARD_SENSORS_KEY
     );
+  }
+
+  #[test]
+  fn empty_fan_sample_preserves_explicit_provider_support() {
+    let collection = motherboard_collection_from_readout(MotherboardSensorReadout {
+      sample: Ok(Default::default()),
+      fan_support: SensorSupport::Supported,
+    });
+
+    assert!(collection.sample.fan_speeds.is_empty());
+    assert_eq!(collection.fan_support, SensorSupport::Supported);
+  }
+
+  #[test]
+  fn failed_sample_preserves_detected_provider_support() {
+    let collection = motherboard_collection_from_readout(MotherboardSensorReadout {
+      sample: Err("temporary fan read failure".to_string()),
+      fan_support: SensorSupport::Supported,
+    });
+
+    assert!(collection.sample.fan_speeds.is_empty());
+    assert_eq!(collection.fan_support, SensorSupport::Supported);
   }
 
   #[test]
