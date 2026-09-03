@@ -18,6 +18,9 @@ import {
   coolingBaselineDeltaLargeRiseFixture,
   coolingBaselineDeltaMildRiseFixture,
   coolingBaselineDeltaNotComparableFixture,
+  coolingCovariateComparisonEstablishingFixture,
+  coolingCovariateComparisonFixture,
+  coolingCovariateComparisonNoAmbientFixture,
   coolingLoadTemperatureExplorerEstablishingFixture,
   coolingLoadTemperatureExplorerFixture,
 } from "../fixtures/cooling";
@@ -480,6 +483,16 @@ const buildInvokeHandlers = (
     return fixtureOverrides.coolingAmbientOverride != null
       ? coolingBandComparisonAmbientFixture
       : coolingBandComparisonFixture;
+  },
+  get_cooling_covariate_comparison: () => {
+    // No environmental sensor: the ΔT baseline never establishes, and the
+    // panel hides on the zero-day answer rather than on a missing command.
+    if (fixtureOverrides.coolingAmbientOverride == null) {
+      return coolingCovariateComparisonNoAmbientFixture;
+    }
+    return fixtureOverrides.coolingBaselineEstablishing
+      ? coolingCovariateComparisonEstablishingFixture
+      : coolingCovariateComparisonFixture;
   },
   // The Explorer (#2023) only invokes this once expanded, so a capture
   // that never opens it must never reach this handler.

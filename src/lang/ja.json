@@ -463,6 +463,55 @@
           "notComparable": "比較保留 ({{baselineHours}} / {{recentHours}} 時間)",
           "footnote": "帯域中央値と差分は記録された時間のみから求めています。時間数が少ない帯域は推定せず比較保留として扱います。"
         },
+        "covariateComparison": {
+          "title": "何が一緒に動いたか",
+          "subtitle": "{{band}}帯域 · ベースライン {{baselineStart}}–{{baselineEnd}} vs 直近 {{recentStart}}–{{recentEnd}} · ペア成立 {{baseline}} / {{recent}} 分",
+          "loadFailed": "共変量比較の取得に失敗しました。",
+          "notComparable": {
+            "tooFewPairedMinutes": "比較不能 — いずれかの期間でペア成立した分が不足しています({{baseline}} / {{recent}} 分)",
+            "differentAmbientSource": "比較不能 — 直近期間の周囲温度ソースがベースラインと異なります"
+          },
+          "lead": {
+            "deltaAtMatchedPower": "同じパッケージ電力で見ると、周囲温度との差はベースライン期間に対して {{delta}} です。",
+            "moved": "一緒に動いたもの: {{factors}}。",
+            "withinRange": "ベースラインの範囲内: {{factors}}。",
+            "factorWithChange": "{{factor}}({{change}})",
+            "sentenceSeparator": ""
+          },
+          "factors": {
+            "thermalDelta": "周囲温度との差({{band}})",
+            "packagePower": "CPU パッケージ電力",
+            "fan": "ファン回転数 · {{fanSource}}",
+            "loadBandShare": "CPU 負荷({{band}}帯域の割合)",
+            "ambient": "周囲温度"
+          },
+          "columns": {
+            "factor": "併せて記録された項目",
+            "baseline": "ベースライン",
+            "recent": "直近",
+            "change": "変化",
+            "tag": "読み"
+          },
+          "tags": {
+            "moved": "動いた",
+            "withinRange": "範囲内",
+            "notComparable": "比較保留",
+            "notArchived": "記録なし",
+            "removedByDelta": "ΔT で除去済み",
+            "atMatchedPower": "同一電力で比較"
+          },
+          "footnote": "「範囲内」はベースライン期間自身のばらつきの内側という意味です。動いた行は同時に観察された事実であり、原因ではありません。",
+          "chart": {
+            "title": "周囲温度との差 ({{unit}}) vs パッケージ電力 · {{band}}帯域",
+            "powerAxis": "CPU パッケージ電力 (W)",
+            "legend": {
+              "baseline": "ベースライン · {{slope}}",
+              "recent": "直近 · {{slope}}"
+            },
+            "anchorPower": "ベースライン電力の中央値 · {{power}} W",
+            "caption": "各線は、その期間にペア成立した分({{baseline}} / {{recent}} 分)から求めた周囲温度との差とパッケージ電力の最小二乗近似で、個々の分は描いていません。同じ電力で直近の線が急なことが観察結果であり、その理由までは示しません。"
+          }
+        },
         "dataState": {
           "title": "データ状態",
           "establishing": "ベースライン確立中 ({{qualifyingDays}} / {{requiredDays}} 日)",
