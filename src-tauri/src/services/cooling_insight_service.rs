@@ -5,11 +5,14 @@
 
 use hardviz_core::persistence::cooling_band_comparison::{self, CoolingBandComparison};
 use hardviz_core::persistence::cooling_baseline_delta::{self, CoolingBaselineDelta};
+use hardviz_core::persistence::cooling_covariate_comparison::{
+  self, CoolingCovariateComparison,
+};
 use hardviz_core::persistence::cooling_fan_trend::{self, CoolingFanTrend};
 use hardviz_core::persistence::cooling_load_temperature_explorer::{
   self, CoolingLoadTemperatureExplorer,
 };
-use hardviz_core::persistence::cooling_rollup::DailyCoolingSummary;
+use hardviz_core::persistence::cooling_rollup::{CpuLoadBand, DailyCoolingSummary};
 use hardviz_core::persistence::cooling_trend;
 
 pub async fn fetch_cooling_trend(days: u32) -> Result<Vec<DailyCoolingSummary>, String> {
@@ -42,4 +45,12 @@ pub async fn fetch_cooling_load_temperature_explorer(
   cooling_load_temperature_explorer::load_cooling_load_temperature_explorer(recent_days)
     .await
     .map_err(|e| format!("Failed to load cooling load-temperature explorer: {e}"))
+}
+
+pub async fn fetch_cooling_covariate_comparison(
+  band: CpuLoadBand,
+) -> Result<CoolingCovariateComparison, String> {
+  cooling_covariate_comparison::load_cooling_covariate_comparison(band)
+    .await
+    .map_err(|e| format!("Failed to load cooling covariate comparison: {e}"))
 }

@@ -9,7 +9,8 @@
 //! 90-day and 1-year windows the daily rollup backs.
 
 use crate::models::cooling_insight::{
-  CoolingBandComparison, CoolingBaselineDelta, CoolingDailyTrendPoint, CoolingFanTrend,
+  CoolingBandComparison, CoolingBaselineDelta, CoolingCovariateComparison,
+  CoolingDailyTrendPoint, CoolingFanTrend, CoolingLoadBand,
   CoolingLoadTemperatureExplorer,
 };
 use tauri::command;
@@ -80,6 +81,19 @@ pub async fn get_cooling_load_temperature_explorer(
   use crate::services::cooling_insight_service;
 
   cooling_insight_service::fetch_cooling_load_temperature_explorer(recent_days)
+    .await
+    .map(Into::into)
+}
+
+/// Get the co-variate comparison of the Thermal Delta windows for `band` - which archived factors moved with the Thermal Delta and which stayed within range, with each window's ΔT-per-watt fit (#2068). `band` is the CPU-load band the observation strip compares under; the windows, the comparability gate, and every judgement are Core's.
+#[command]
+#[specta::specta]
+pub async fn get_cooling_covariate_comparison(
+  band: CoolingLoadBand,
+) -> Result<CoolingCovariateComparison, String> {
+  use crate::services::cooling_insight_service;
+
+  cooling_insight_service::fetch_cooling_covariate_comparison(band.into())
     .await
     .map(Into::into)
 }

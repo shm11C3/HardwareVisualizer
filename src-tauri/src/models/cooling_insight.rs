@@ -24,6 +24,14 @@ use hardviz_core::persistence::cooling_baseline_delta::{
   CoolingBaselineDelta as CoreCoolingBaselineDelta,
   CoolingDeltaObservation as CoreCoolingDeltaObservation, DailyDelta as CoreDailyDelta,
 };
+use hardviz_core::persistence::cooling_covariate_comparison::{
+  CoolingCovariateComparison as CoreCoolingCovariateComparison,
+  CovariateComparability as CoreCovariateComparability,
+  EstablishedCovariateComparison as CoreEstablishedCovariateComparison,
+  FactorComparison as CoreFactorComparison, FactorJudgement as CoreFactorJudgement,
+  FanCovariateComparison as CoreFanCovariateComparison,
+  LeastSquaresFit as CoreLeastSquaresFit,
+};
 use hardviz_core::persistence::cooling_delta_baseline::DeltaBaselineState as CoreDeltaBaselineState;
 use hardviz_core::persistence::cooling_fan_rollup::FanDailySummary as CoreFanDailySummary;
 use hardviz_core::persistence::cooling_fan_trend::{
@@ -42,7 +50,7 @@ use hardviz_core::persistence::cooling_rollup::{
   BandSummary as CoreBandSummary, CpuLoadBand as CoreCpuLoadBand,
   DailyCoolingSummary as CoreDailyCoolingSummary, PowerSummary as CorePowerSummary,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 fn format_date(date: NaiveDate) -> String {
@@ -202,7 +210,9 @@ impl From<CoreCoolingFanTrend> for CoolingFanTrend {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+/// A CPU-load band as the frontend names one, both in results and as
+/// the band a query is asked for (`get_cooling_covariate_comparison`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CoolingLoadBand {
   Idle,
@@ -218,6 +228,17 @@ impl From<CoreCpuLoadBand> for CoolingLoadBand {
       CoreCpuLoadBand::Low => Self::Low,
       CoreCpuLoadBand::Mid => Self::Mid,
       CoreCpuLoadBand::High => Self::High,
+    }
+  }
+}
+
+impl From<CoolingLoadBand> for CoreCpuLoadBand {
+  fn from(value: CoolingLoadBand) -> Self {
+    match value {
+      CoolingLoadBand::Idle => Self::Idle,
+      CoolingLoadBand::Low => Self::Low,
+      CoolingLoadBand::Mid => Self::Mid,
+      CoolingLoadBand::High => Self::High,
     }
   }
 }
@@ -735,6 +756,256 @@ impl From<CoreCoolingLoadTemperatureExplorer> for CoolingLoadTemperatureExplorer
         recent: recent.into(),
         band_deltas: band_deltas.into_iter().map(Into::into).collect(),
       },
+    }
+  }
+}
+
+/// Where one co-variate's recent median sits against the baseline
+/// window's own daily spread (#2068), decided in Core: `withinRange` and
+/// `moved` are read against the baseline window's interquartile range of
+/// daily medians; `notComparable` is a factor both windows carry that
+/// cannot be judged (too few baseline days for a range, no recent day,
+/// or the windows as a whole not comparable); `absent` is a factor
+/// neither window ever archived - never reported as zero, and never as
+/// having stayed within range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CoolingFactorJudgement {
+  WithinRange,
+  Moved,
+  NotComparable,
+  Absent,
+}
+
+impl From<CoreFactorJudgement> for CoolingFactorJudgement {
+  fn from(value: CoreFactorJudgement) -> Self {
+    match value {
+      CoreFactorJudgement::WithinRange => Self::WithinRange,
+      CoreFactorJudgement::Moved => Self::Moved,
+      CoreFactorJudgement::NotComparable => Self::NotComparable,
+      CoreFactorJudgement::Absent => Self::Absent,
+    }
+  }
+}
+
+/// One archived co-variate across the two windows (#2068): each window's
+/// median of its daily medians, `change` as `recent - baseline` (present
+/// only when both are), and the judgement Core made. A window that never
+/// archived the factor reads null there, not 0 - which is what keeps an
+/// `absent` factor from looking like a machine drawing no power.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingFactorComparison {
+  pub baseline: Option<f32>,
+  pub recent: Option<f32>,
+  pub change: Option<f32>,
+  pub judgement: CoolingFactorJudgement,
+}
+
+impl From<CoreFactorComparison> for CoolingFactorComparison {
+  fn from(value: CoreFactorComparison) -> Self {
+    Self {
+      baseline: value.baseline,
+      recent: value.recent,
+      change: value.change,
+      judgement: value.judgement.into(),
+    }
+  }
+}
+
+/// The least-squares line through one window's paired minutes (#2068).
+/// For the ΔT-power fit `slope` is kelvin per watt and `intercept` the
+/// ΔT the line reads at zero power; for the ΔT-fan fit the slope is
+/// kelvin per rpm. The whole fit is null, rather than a flat line, where
+/// the window had fewer than two paired minutes or no spread in one
+/// reading.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingLeastSquaresFit {
+  pub slope: f32,
+  pub intercept: f32,
+  pub pearson_r: f32,
+  pub paired_minutes: u32,
+}
+
+impl From<CoreLeastSquaresFit> for CoolingLeastSquaresFit {
+  fn from(value: CoreLeastSquaresFit) -> Self {
+    Self {
+      slope: value.slope,
+      intercept: value.intercept,
+      pearson_r: value.pearson_r,
+      paired_minutes: value.paired_minutes,
+    }
+  }
+}
+
+/// One fan's speed across the two windows, with each window's
+/// ΔT-per-rpm fit (#2068). `fanSource` is the fan's stable
+/// channel-derived identifier, as archived.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoolingFanCovariateComparison {
+  pub fan_source: String,
+  pub speed: CoolingFactorComparison,
+  pub baseline_fit: Option<CoolingLeastSquaresFit>,
+  pub recent_fit: Option<CoolingLeastSquaresFit>,
+}
+
+impl From<CoreFanCovariateComparison> for CoolingFanCovariateComparison {
+  fn from(value: CoreFanCovariateComparison) -> Self {
+    Self {
+      fan_source: value.fan_source,
+      speed: value.speed.into(),
+      baseline_fit: value.baseline_fit.map(Into::into),
+      recent_fit: value.recent_fit.map(Into::into),
+    }
+  }
+}
+
+/// Why the two windows are, or are not, compared (#2068):
+/// `tooFewPairedMinutes` when one window carries fewer Thermal Delta
+/// paired minutes in the compared band than Core requires (including a
+/// recent window no source paired at all), `differentAmbientSource` when
+/// the recent window's dominant source is not the one the Thermal Delta
+/// Baseline was established from (#2062).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CoolingCovariateComparability {
+  Comparable,
+  TooFewPairedMinutes,
+  DifferentAmbientSource,
+}
+
+impl From<CoreCovariateComparability> for CoolingCovariateComparability {
+  fn from(value: CoreCovariateComparability) -> Self {
+    match value {
+      CoreCovariateComparability::Comparable => Self::Comparable,
+      CoreCovariateComparability::TooFewPairedMinutes => Self::TooFewPairedMinutes,
+      CoreCovariateComparability::DifferentAmbientSource => Self::DifferentAmbientSource,
+    }
+  }
+}
+
+/// Cooling Insight's co-variate comparison for one CPU-load band
+/// (#2068), gated by the Thermal Delta Baseline's lifecycle exactly as
+/// the ambient-adjusted band comparison is: while it establishes there is
+/// no baseline window to read. Temperatures cross the wire as Core holds
+/// them, exactly like the other Cooling Insight readings: the ambient
+/// medians in Celsius, and the ΔT change at matched power and every
+/// fit's slope and intercept in kelvin - the frontend applies the
+/// preferred temperature unit, scaling a difference without the offset.
+/// Package power is in watts and fan speed in rpm, which no unit
+/// preference touches.
+#[derive(Debug, Clone, PartialEq, Serialize, Type)]
+#[serde(
+  tag = "status",
+  rename_all = "camelCase",
+  rename_all_fields = "camelCase"
+)]
+// Not boxed the way Core boxes its established variant: specta refuses
+// to merge a boxed payload into an internal tag, and the established
+// fields belong beside `status` as every other cooling lifecycle's do.
+// One value per query is built, so the size gap costs nothing.
+#[allow(clippy::large_enum_variant)]
+pub enum CoolingCovariateComparison {
+  Establishing {
+    qualifying_days: u32,
+    required_days: u32,
+  },
+  // Plain comments rather than doc comments on these fields, for the
+  // reason given on `CoolingBandComparison::Established`: a doc comment
+  // on a variant field leaves trailing whitespace in `bindings.ts`.
+  Established {
+    // The CPU-load band both windows are read under.
+    band: CoolingLoadBand,
+    // The ambient source the Thermal Delta Baseline was established
+    // from; the baseline side is read from its rows only.
+    baseline_source: String,
+    baseline_window_start_date: String,
+    baseline_window_end_date: String,
+    // The source that covered most of the recent window, or null when
+    // no source paired a minute in it.
+    recent_source: Option<String>,
+    recent_window_start_date: String,
+    recent_window_end_date: String,
+    // Thermal Delta paired minutes in the band, per window - the
+    // evidence the comparability gate was decided on.
+    baseline_paired_minutes: u32,
+    recent_paired_minutes: u32,
+    package_power: CoolingFactorComparison,
+    ambient_temperature: CoolingFactorComparison,
+    // The band's share of each window's classifiable paired minutes.
+    load_band_share: CoolingFactorComparison,
+    // One entry per fan either window archived, ordered by fan source;
+    // empty on a machine with no readable fan.
+    fans: Vec<CoolingFanCovariateComparison>,
+    // Each window's ΔT-per-watt line, present wherever that window alone
+    // supports one - regardless of `comparable`, which gates only the
+    // comparison between them.
+    baseline_fit: Option<CoolingLeastSquaresFit>,
+    recent_fit: Option<CoolingLeastSquaresFit>,
+    // How much higher the recent line sits than the baseline line at
+    // the baseline window's median package power - the ΔT change at
+    // matched power, in kelvin. Null unless `comparable`, both fits
+    // exist, and the baseline window archived power.
+    delta_at_baseline_median_power: Option<f32>,
+    comparable: bool,
+    comparability: CoolingCovariateComparability,
+  },
+}
+
+impl From<CoreCoolingCovariateComparison> for CoolingCovariateComparison {
+  fn from(value: CoreCoolingCovariateComparison) -> Self {
+    match value {
+      CoreCoolingCovariateComparison::Establishing {
+        qualifying_days,
+        required_days,
+      } => Self::Establishing {
+        qualifying_days,
+        required_days,
+      },
+      CoreCoolingCovariateComparison::Established(established) => {
+        let CoreEstablishedCovariateComparison {
+          band,
+          baseline_source,
+          baseline_window_start_date,
+          baseline_window_end_date,
+          recent_source,
+          recent_window_start_date,
+          recent_window_end_date,
+          baseline_paired_minutes,
+          recent_paired_minutes,
+          package_power,
+          ambient_temperature,
+          load_band_share,
+          fans,
+          baseline_fit,
+          recent_fit,
+          delta_at_baseline_median_power,
+          comparable,
+          comparability,
+        } = *established;
+        Self::Established {
+          band: band.into(),
+          baseline_source,
+          baseline_window_start_date: format_date(baseline_window_start_date),
+          baseline_window_end_date: format_date(baseline_window_end_date),
+          recent_source,
+          recent_window_start_date: format_date(recent_window_start_date),
+          recent_window_end_date: format_date(recent_window_end_date),
+          baseline_paired_minutes,
+          recent_paired_minutes,
+          package_power: package_power.into(),
+          ambient_temperature: ambient_temperature.into(),
+          load_band_share: load_band_share.into(),
+          fans: fans.into_iter().map(Into::into).collect(),
+          baseline_fit: baseline_fit.map(Into::into),
+          recent_fit: recent_fit.map(Into::into),
+          delta_at_baseline_median_power,
+          comparable,
+          comparability: comparability.into(),
+        }
+      }
     }
   }
 }
@@ -1427,5 +1698,325 @@ mod tests {
         required_days: 7,
       }
     );
+  }
+  // --- Co-variate comparison (#2068) ---
+
+  fn core_factor(
+    baseline: f32,
+    recent: f32,
+    judgement: CoreFactorJudgement,
+  ) -> CoreFactorComparison {
+    CoreFactorComparison {
+      baseline: Some(baseline),
+      recent: Some(recent),
+      change: Some(recent - baseline),
+      judgement,
+    }
+  }
+
+  fn core_fit(slope: f32, intercept: f32, paired_minutes: u32) -> CoreLeastSquaresFit {
+    CoreLeastSquaresFit {
+      slope,
+      intercept,
+      pearson_r: 0.875,
+      paired_minutes,
+    }
+  }
+
+  /// A comparable idle-band comparison whose ambient stayed within range
+  /// while package power moved: 1.0 K/W baseline, 1.25 K/W recent, so the
+  /// recent line sits 3.9 K higher at the baseline's 20 W median.
+  fn core_established_comparison() -> CoreEstablishedCovariateComparison {
+    CoreEstablishedCovariateComparison {
+      band: CpuLoadBand::Idle,
+      baseline_source: "Living Room".to_string(),
+      baseline_window_start_date: date(2026, 8, 1),
+      baseline_window_end_date: date(2026, 8, 7),
+      recent_source: Some("Living Room".to_string()),
+      recent_window_start_date: date(2026, 8, 26),
+      recent_window_end_date: date(2026, 9, 1),
+      baseline_paired_minutes: 700,
+      recent_paired_minutes: 640,
+      package_power: core_factor(20.0, 24.5, CoreFactorJudgement::Moved),
+      ambient_temperature: core_factor(25.0, 25.5, CoreFactorJudgement::WithinRange),
+      load_band_share: core_factor(0.6, 0.55, CoreFactorJudgement::WithinRange),
+      fans: vec![CoreFanCovariateComparison {
+        fan_source: "fan:cpu".to_string(),
+        speed: core_factor(900.0, 880.0, CoreFactorJudgement::WithinRange),
+        baseline_fit: Some(core_fit(-0.01, 14.0, 700)),
+        recent_fit: None,
+      }],
+      baseline_fit: Some(core_fit(1.0, 5.0, 700)),
+      recent_fit: Some(core_fit(1.25, 3.9, 640)),
+      delta_at_baseline_median_power: Some(3.9),
+      comparable: true,
+      comparability: CoreCovariateComparability::Comparable,
+    }
+  }
+
+  #[test]
+  fn an_establishing_covariate_comparison_carries_its_progress_through() {
+    let core = CoreCoolingCovariateComparison::Establishing {
+      qualifying_days: 2,
+      required_days: 7,
+    };
+
+    let wire: CoolingCovariateComparison = core.into();
+
+    assert_eq!(
+      wire,
+      CoolingCovariateComparison::Establishing {
+        qualifying_days: 2,
+        required_days: 7,
+      }
+    );
+  }
+
+  #[test]
+  fn every_factor_judgement_maps_one_to_one() {
+    let pairs: [(CoreFactorJudgement, CoolingFactorJudgement); 4] = [
+      (
+        CoreFactorJudgement::WithinRange,
+        CoolingFactorJudgement::WithinRange,
+      ),
+      (CoreFactorJudgement::Moved, CoolingFactorJudgement::Moved),
+      (
+        CoreFactorJudgement::NotComparable,
+        CoolingFactorJudgement::NotComparable,
+      ),
+      (CoreFactorJudgement::Absent, CoolingFactorJudgement::Absent),
+    ];
+
+    for (core, wire) in pairs {
+      assert_eq!(CoolingFactorJudgement::from(core), wire);
+    }
+  }
+
+  #[test]
+  fn every_comparability_reason_maps_one_to_one() {
+    let pairs: [(CoreCovariateComparability, CoolingCovariateComparability); 3] = [
+      (
+        CoreCovariateComparability::Comparable,
+        CoolingCovariateComparability::Comparable,
+      ),
+      (
+        CoreCovariateComparability::TooFewPairedMinutes,
+        CoolingCovariateComparability::TooFewPairedMinutes,
+      ),
+      (
+        CoreCovariateComparability::DifferentAmbientSource,
+        CoolingCovariateComparability::DifferentAmbientSource,
+      ),
+    ];
+
+    for (core, wire) in pairs {
+      assert_eq!(CoolingCovariateComparability::from(core), wire);
+    }
+  }
+
+  #[test]
+  fn factor_judgements_and_comparability_reasons_serialize_as_camel_case_tags() {
+    assert_eq!(
+      serde_json::to_value(CoolingFactorJudgement::WithinRange).unwrap(),
+      "withinRange"
+    );
+    assert_eq!(
+      serde_json::to_value(CoolingFactorJudgement::NotComparable).unwrap(),
+      "notComparable"
+    );
+    assert_eq!(
+      serde_json::to_value(CoolingCovariateComparability::TooFewPairedMinutes).unwrap(),
+      "tooFewPairedMinutes"
+    );
+    assert_eq!(
+      serde_json::to_value(CoolingCovariateComparability::DifferentAmbientSource)
+        .unwrap(),
+      "differentAmbientSource"
+    );
+  }
+
+  #[test]
+  fn an_absent_factor_crosses_the_wire_with_null_values_not_zeros() {
+    let wire: CoolingFactorComparison = CoreFactorComparison {
+      baseline: None,
+      recent: None,
+      change: None,
+      judgement: CoreFactorJudgement::Absent,
+    }
+    .into();
+
+    let json = serde_json::to_value(wire).unwrap();
+
+    assert!(json["baseline"].is_null());
+    assert!(json["recent"].is_null());
+    assert!(json["change"].is_null());
+    assert_eq!(json["judgement"], "absent");
+  }
+
+  #[test]
+  fn a_missing_fit_crosses_the_wire_as_null_rather_than_a_flat_line() {
+    let mut core = core_established_comparison();
+    core.recent_fit = None;
+    core.delta_at_baseline_median_power = None;
+
+    let json = serde_json::to_value(CoolingCovariateComparison::from(
+      CoreCoolingCovariateComparison::Established(Box::new(core)),
+    ))
+    .unwrap();
+
+    assert!(json["recentFit"].is_null());
+    assert!(json["deltaAtBaselineMedianPower"].is_null());
+    assert_eq!(json["baselineFit"]["slope"], 1.0);
+    assert_eq!(json["baselineFit"]["pairedMinutes"], 700);
+    assert!(json["fans"][0]["recentFit"].is_null());
+  }
+
+  // Temperatures are not converted here: like every other Cooling
+  // Insight DTO, the ambient medians stay in Celsius and the ΔT change
+  // and fit slopes in kelvin, and the frontend applies the preferred unit
+  // (a delta scaled by 9/5 without the offset). The command therefore
+  // never reads the temperature-unit preference, and the same numbers
+  // must come out whatever it is set to.
+  #[test]
+  fn ambient_medians_and_kelvin_differences_cross_the_wire_unconverted() {
+    let wire: CoolingCovariateComparison = CoreCoolingCovariateComparison::Established(
+      Box::new(core_established_comparison()),
+    )
+    .into();
+
+    match wire {
+      CoolingCovariateComparison::Established {
+        ambient_temperature,
+        baseline_fit,
+        recent_fit,
+        delta_at_baseline_median_power,
+        ..
+      } => {
+        assert_eq!(ambient_temperature.baseline, Some(25.0));
+        assert_eq!(ambient_temperature.recent, Some(25.5));
+        assert_eq!(ambient_temperature.change, Some(0.5));
+        assert_eq!(baseline_fit.map(|fit| fit.slope), Some(1.0));
+        assert_eq!(recent_fit.map(|fit| fit.slope), Some(1.25));
+        assert_eq!(delta_at_baseline_median_power, Some(3.9));
+      }
+      other => panic!("expected an established comparison, got {other:?}"),
+    }
+  }
+
+  #[test]
+  fn an_established_covariate_comparison_formats_its_dates_and_maps_every_part() {
+    let wire: CoolingCovariateComparison = CoreCoolingCovariateComparison::Established(
+      Box::new(core_established_comparison()),
+    )
+    .into();
+
+    match wire {
+      CoolingCovariateComparison::Established {
+        band,
+        baseline_source,
+        baseline_window_start_date,
+        baseline_window_end_date,
+        recent_source,
+        recent_window_start_date,
+        recent_window_end_date,
+        baseline_paired_minutes,
+        recent_paired_minutes,
+        package_power,
+        load_band_share,
+        fans,
+        comparable,
+        comparability,
+        ..
+      } => {
+        assert_eq!(band, CoolingLoadBand::Idle);
+        assert_eq!(baseline_source, "Living Room");
+        assert_eq!(baseline_window_start_date, "2026-08-01");
+        assert_eq!(baseline_window_end_date, "2026-08-07");
+        assert_eq!(recent_source.as_deref(), Some("Living Room"));
+        assert_eq!(recent_window_start_date, "2026-08-26");
+        assert_eq!(recent_window_end_date, "2026-09-01");
+        assert_eq!(baseline_paired_minutes, 700);
+        assert_eq!(recent_paired_minutes, 640);
+        assert_eq!(package_power.judgement, CoolingFactorJudgement::Moved);
+        assert_eq!(package_power.change, Some(4.5));
+        assert_eq!(
+          load_band_share.judgement,
+          CoolingFactorJudgement::WithinRange
+        );
+        assert_eq!(fans.len(), 1);
+        assert_eq!(fans[0].fan_source, "fan:cpu");
+        assert_eq!(fans[0].speed.baseline, Some(900.0));
+        assert_eq!(fans[0].baseline_fit.map(|fit| fit.slope), Some(-0.01));
+        assert!(comparable);
+        assert_eq!(comparability, CoolingCovariateComparability::Comparable);
+      }
+      other => panic!("expected an established comparison, got {other:?}"),
+    }
+  }
+
+  #[test]
+  fn an_established_covariate_comparison_serializes_its_fields_as_camel_case() {
+    let json = serde_json::to_value(CoolingCovariateComparison::from(
+      CoreCoolingCovariateComparison::Established(
+        Box::new(core_established_comparison()),
+      ),
+    ))
+    .unwrap();
+
+    assert_eq!(json["status"], "established");
+    assert_eq!(json["band"], "idle");
+    assert_eq!(json["baselineWindowStartDate"], "2026-08-01");
+    assert_eq!(json["recentSource"], "Living Room");
+    assert_eq!(json["packagePower"]["judgement"], "moved");
+    assert_eq!(json["ambientTemperature"]["judgement"], "withinRange");
+    assert_eq!(json["fans"][0]["fanSource"], "fan:cpu");
+    assert_eq!(json["fans"][0]["baselineFit"]["pearsonR"], 0.875);
+    assert_eq!(json["comparability"], "comparable");
+    assert!(
+      json.get("baseline_window_start_date").is_none()
+        && json.get("delta_at_baseline_median_power").is_none(),
+      "must not also serialize the snake_case field names"
+    );
+  }
+
+  #[test]
+  fn an_uncomparable_covariate_comparison_still_reports_both_windows() {
+    let mut core = core_established_comparison();
+    core.recent_source = Some("Bedroom".to_string());
+    core.comparable = false;
+    core.comparability = CoreCovariateComparability::DifferentAmbientSource;
+    core.delta_at_baseline_median_power = None;
+    core.package_power.judgement = CoreFactorJudgement::NotComparable;
+
+    let json = serde_json::to_value(CoolingCovariateComparison::from(
+      CoreCoolingCovariateComparison::Established(Box::new(core)),
+    ))
+    .unwrap();
+
+    assert_eq!(json["comparable"], false);
+    assert_eq!(json["comparability"], "differentAmbientSource");
+    assert_eq!(json["recentSource"], "Bedroom");
+    assert_eq!(json["packagePower"]["judgement"], "notComparable");
+    assert_eq!(json["packagePower"]["recent"], 24.5);
+    assert!(json["deltaAtBaselineMedianPower"].is_null());
+    assert_eq!(
+      json["recentFit"]["slope"], 1.25,
+      "a window's own fit is reported even when the windows are not compared"
+    );
+  }
+
+  #[test]
+  fn a_wire_load_band_names_the_core_band_the_query_reads() {
+    let pairs: [(&str, CpuLoadBand); 4] = [
+      ("\"idle\"", CpuLoadBand::Idle),
+      ("\"low\"", CpuLoadBand::Low),
+      ("\"mid\"", CpuLoadBand::Mid),
+      ("\"high\"", CpuLoadBand::High),
+    ];
+
+    for (json, core) in pairs {
+      let wire: CoolingLoadBand = serde_json::from_str(json).unwrap();
+      assert_eq!(CpuLoadBand::from(wire), core);
+    }
   }
 }

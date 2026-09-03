@@ -143,6 +143,8 @@ export const commands = {
 	 *  clamps it to the range the hourly rollup can answer for.
 	 */
 	getCoolingLoadTemperatureExplorer: (recentDays: number) => typedError<CoolingLoadTemperatureExplorer, string>(__TAURI_INVOKE("get_cooling_load_temperature_explorer", { recentDays })),
+	// Get the co-variate comparison of the Thermal Delta windows for `band` - which archived factors moved with the Thermal Delta and which stayed within range, with each window's ΔT-per-watt fit (#2068). `band` is the CPU-load band the observation strip compares under; the windows, the comparability gate, and every judgement are Core's.
+	getCoolingCovariateComparison: (band: CoolingLoadBand) => typedError<CoolingCovariateComparison, string>(__TAURI_INVOKE("get_cooling_covariate_comparison", { band })),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -576,6 +578,30 @@ export type CoolingBaselineDelta = {
 export type CoolingBaselineState = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; idleTemperatureAvg: number; windowStartDate: string; windowEndDate: string; sampleMinutes: number };
 
 /**
+ *  Why the two windows are, or are not, compared (#2068):
+ *  `tooFewPairedMinutes` when one window carries fewer Thermal Delta
+ *  paired minutes in the compared band than Core requires (including a
+ *  recent window no source paired at all), `differentAmbientSource` when
+ *  the recent window's dominant source is not the one the Thermal Delta
+ *  Baseline was established from (#2062).
+ */
+export type CoolingCovariateComparability = "comparable" | "tooFewPairedMinutes" | "differentAmbientSource";
+
+/**
+ *  Cooling Insight's co-variate comparison for one CPU-load band
+ *  (#2068), gated by the Thermal Delta Baseline's lifecycle exactly as
+ *  the ambient-adjusted band comparison is: while it establishes there is
+ *  no baseline window to read. Temperatures cross the wire as Core holds
+ *  them, exactly like the other Cooling Insight readings: the ambient
+ *  medians in Celsius, and the ΔT change at matched power and every
+ *  fit's slope and intercept in kelvin - the frontend applies the
+ *  preferred temperature unit, scaling a difference without the offset.
+ *  Package power is in watts and fan speed in rpm, which no unit
+ *  preference touches.
+ */
+export type CoolingCovariateComparison = { status: "establishing"; qualifyingDays: number; requiredDays: number } | { status: "established"; band: CoolingLoadBand; baselineSource: string; baselineWindowStartDate: string; baselineWindowEndDate: string; recentSource: string | null; recentWindowStartDate: string; recentWindowEndDate: string; baselinePairedMinutes: number; recentPairedMinutes: number; packagePower: CoolingFactorComparison; ambientTemperature: CoolingFactorComparison; loadBandShare: CoolingFactorComparison; fans: CoolingFanCovariateComparison[]; baselineFit: CoolingLeastSquaresFit | null; recentFit: CoolingLeastSquaresFit | null; deltaAtBaselineMedianPower: number | null; comparable: boolean; comparability: CoolingCovariateComparability };
+
+/**
  *  One trailing-7-day-window delta against the baseline, ending on
  *  `date`.
  */
@@ -632,6 +658,44 @@ export type CoolingExplorerWindow = {
 };
 
 /**
+ *  One archived co-variate across the two windows (#2068): each window's
+ *  median of its daily medians, `change` as `recent - baseline` (present
+ *  only when both are), and the judgement Core made. A window that never
+ *  archived the factor reads null there, not 0 - which is what keeps an
+ *  `absent` factor from looking like a machine drawing no power.
+ */
+export type CoolingFactorComparison = {
+	baseline: number | null,
+	recent: number | null,
+	change: number | null,
+	judgement: CoolingFactorJudgement,
+};
+
+/**
+ *  Where one co-variate's recent median sits against the baseline
+ *  window's own daily spread (#2068), decided in Core: `withinRange` and
+ *  `moved` are read against the baseline window's interquartile range of
+ *  daily medians; `notComparable` is a factor both windows carry that
+ *  cannot be judged (too few baseline days for a range, no recent day,
+ *  or the windows as a whole not comparable); `absent` is a factor
+ *  neither window ever archived - never reported as zero, and never as
+ *  having stayed within range.
+ */
+export type CoolingFactorJudgement = "withinRange" | "moved" | "notComparable" | "absent";
+
+/**
+ *  One fan's speed across the two windows, with each window's
+ *  ΔT-per-rpm fit (#2068). `fanSource` is the fan's stable
+ *  channel-derived identifier, as archived.
+ */
+export type CoolingFanCovariateComparison = {
+	fanSource: string,
+	speed: CoolingFactorComparison,
+	baselineFit: CoolingLeastSquaresFit | null,
+	recentFit: CoolingLeastSquaresFit | null,
+};
+
+/**
  *  One `(date, fan)` row of the fan rollup, carried with its own date so a
  *  day the fan recorded nothing is simply absent from the series rather
  *  than present as 0 RPM. Not `Option`-shaped: every row that exists
@@ -670,6 +734,25 @@ export type CoolingFanTrendSeries = {
 	days: CoolingFanDay[],
 };
 
+/**
+ *  The least-squares line through one window's paired minutes (#2068).
+ *  For the ΔT-power fit `slope` is kelvin per watt and `intercept` the
+ *  ΔT the line reads at zero power; for the ΔT-fan fit the slope is
+ *  kelvin per rpm. The whole fit is null, rather than a flat line, where
+ *  the window had fewer than two paired minutes or no spread in one
+ *  reading.
+ */
+export type CoolingLeastSquaresFit = {
+	slope: number,
+	intercept: number,
+	pearsonR: number,
+	pairedMinutes: number,
+};
+
+/**
+ *  A CPU-load band as the frontend names one, both in results and as
+ *  the band a query is asked for (`get_cooling_covariate_comparison`).
+ */
 export type CoolingLoadBand = "idle" | "low" | "mid" | "high";
 
 /**
