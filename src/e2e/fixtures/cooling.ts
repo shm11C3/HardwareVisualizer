@@ -652,9 +652,9 @@ export const coolingCovariateComparisonFixture: CoolingCovariateComparison = {
     judgement: "moved",
   },
   loadBandShare: {
-    baseline: 62.0,
-    recent: 68.0,
-    change: 6.0,
+    baseline: 0.62,
+    recent: 0.68,
+    change: 0.06,
     judgement: "withinRange",
   },
   fans: [

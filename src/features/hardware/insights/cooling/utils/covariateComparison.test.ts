@@ -33,7 +33,7 @@ const comparison = (
   recentPairedMinutes: 1_105,
   packagePower: factor(18.4, 19.1, "withinRange"),
   ambientTemperature: factor(23.4, 27.1, "moved"),
-  loadBandShare: factor(62, 68, "withinRange"),
+  loadBandShare: factor(0.62, 0.68, "withinRange"),
   fans: [
     {
       fanSource: "CPU fan",

@@ -134,6 +134,20 @@ const SHARE_FORMAT: QuantityFormat = {
   changeSuffix: " pt",
 };
 
+/**
+ * Core reports a band share as a ratio in `0..=1` (paired minutes in the
+ * band over the source's classifiable minutes) and the App forwards it
+ * unchanged; the table prints it as a percentage. Absent stays absent.
+ */
+const asPercentage = (
+  factor: CoolingFactorComparison,
+): CoolingFactorComparison => ({
+  ...factor,
+  baseline: factor.baseline == null ? null : factor.baseline * 100,
+  recent: factor.recent == null ? null : factor.recent * 100,
+  change: factor.change == null ? null : factor.change * 100,
+});
+
 const quantityRow = (
   factor: CoolingFactorComparison,
   format: QuantityFormat,
@@ -278,7 +292,7 @@ export const buildCovariateRows = (
     key: "loadBandShare",
     kind: "loadBandShare",
     color: covariateColors.loadBandShare,
-    ...quantityRow(comparison.loadBandShare, SHARE_FORMAT),
+    ...quantityRow(asPercentage(comparison.loadBandShare), SHARE_FORMAT),
     judgement: comparison.loadBandShare.judgement,
   });
   rows.push(ambientRow(comparison.ambientTemperature, unit));
