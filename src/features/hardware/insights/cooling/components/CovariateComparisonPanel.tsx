@@ -8,7 +8,6 @@ import type {
   TemperatureUnit,
 } from "@/rspc/bindings";
 import { useCoolingCovariateComparison } from "../hooks/useCoolingCovariateComparison";
-import type { AmbientCapability } from "../utils/ambientTimeline";
 import { resolveBaselineLifecycle } from "../utils/baselineLifecycle";
 import {
   buildCovariateLead,
@@ -60,25 +59,19 @@ const NOT_COMPARABLE_KEYS: Record<
  * shown here is Core's; this panel formats them and says nothing Core did
  * not.
  *
- * Capability-dependent like the ambient lane: a machine the routed window
- * proves has no ambient source gets no panel. The no-ambient fallback the
- * issue describes - the factors it does have against absolute CPU
- * temperature - is out of scope here and deliberately not approximated.
+ * Whether the panel appears is decided by its own baseline, not by the
+ * routed window: the comparison reads its own baseline and recent windows,
+ * so a routed period that happens to carry no ambient readings - a sensor
+ * that was offline that week - must not hide an established comparison
+ * (DP-06). The no-ambient fallback the issue describes - the factors a
+ * sensorless machine does have against absolute CPU temperature - is out
+ * of scope here and deliberately not approximated.
  */
-export const CovariateComparisonPanel = ({
-  ambientCapability,
-}: {
-  ambientCapability: AmbientCapability;
-}) => {
+export const CovariateComparisonPanel = () => {
   const { t } = useTranslation();
   const { settings } = useSettingsAtom();
-  const { data, hasError } = useCoolingCovariateComparison(
-    ambientCapability === "absent" ? null : COMPARED_BAND,
-  );
+  const { data, hasError } = useCoolingCovariateComparison(COMPARED_BAND);
 
-  if (ambientCapability === "absent") {
-    return null;
-  }
   // The same gate as the strip's ambient-adjusted line (see
   // `resolveAmbientAdjustedDisplay`): a machine with no environmental
   // sensor reports an establishing Thermal Delta Baseline at zero

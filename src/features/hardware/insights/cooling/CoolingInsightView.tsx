@@ -128,8 +128,9 @@ const CoolingInsightBody = ({
   );
   // The same three-state contract once more, for the data-state panel's
   // ambient row - only a routed window that actually carries ambient
-  // licenses naming the sensors behind it - and for the co-variate panel,
-  // which a window proven to have no ambient source hides.
+  // licenses naming the sensors behind it. The co-variate panel does not
+  // read it: that panel compares its own baseline and recent windows, so
+  // a routed period without ambient readings must not hide it.
   const ambientCapability = resolveRoutedAmbientCapability(route, {
     ambientSeries: archive.ambientSeries,
     cpuSeries: archive.series,
@@ -174,7 +175,7 @@ const CoolingInsightBody = ({
         fanNotice={fanNotice}
         ambientSources={ambientSources}
       />
-      <CovariateComparisonPanel ambientCapability={ambientCapability} />
+      <CovariateComparisonPanel />
       <LoadTemperatureExplorerPanel />
     </div>
   );

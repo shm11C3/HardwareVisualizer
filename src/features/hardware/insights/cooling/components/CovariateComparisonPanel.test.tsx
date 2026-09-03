@@ -76,7 +76,7 @@ const established = (
   recentPairedMinutes: 1_105,
   packagePower: factor(18.4, 19.1, "withinRange"),
   ambientTemperature: factor(23.4, 27.1, "moved"),
-  loadBandShare: factor(62, 68, "withinRange"),
+  loadBandShare: factor(0.62, 0.68, "withinRange"),
   fans: [
     {
       fanSource: "CPU fan",
@@ -129,7 +129,7 @@ describe("CovariateComparisonPanel", () => {
   it("renders the establishing line while the Thermal Delta Baseline is still forming", async () => {
     resolveWith({ status: "establishing", qualifyingDays: 2, requiredDays: 3 });
 
-    render(<CovariateComparisonPanel ambientCapability="present" />);
+    render(<CovariateComparisonPanel />);
 
     await waitFor(() => {
       expect(
@@ -147,7 +147,7 @@ describe("CovariateComparisonPanel", () => {
     // unknown; it is the same gate the strip's ambient line uses.
     resolveWith({ status: "establishing", qualifyingDays: 0, requiredDays: 3 });
 
-    render(<CovariateComparisonPanel ambientCapability="unknown" />);
+    render(<CovariateComparisonPanel />);
 
     await waitFor(() => {
       expect(mocks.getCoolingCovariateComparison).toHaveBeenCalledOnce();
@@ -166,7 +166,7 @@ describe("CovariateComparisonPanel", () => {
       }),
     );
 
-    render(<CovariateComparisonPanel ambientCapability="present" />);
+    render(<CovariateComparisonPanel />);
 
     await waitFor(() => {
       expect(
@@ -180,7 +180,7 @@ describe("CovariateComparisonPanel", () => {
   it("renders a dash and the not-archived tag for a factor no window archived", async () => {
     resolveWith(established());
 
-    render(<CovariateComparisonPanel ambientCapability="present" />);
+    render(<CovariateComparisonPanel />);
 
     const row = await screen.findByText(
       `${KEY}.factors.fan:{"fanSource":"case fan 2"}`,
@@ -196,7 +196,7 @@ describe("CovariateComparisonPanel", () => {
   it("tags a moved factor and lists it, with its change, in the lead sentence", async () => {
     resolveWith(established());
 
-    render(<CovariateComparisonPanel ambientCapability="present" />);
+    render(<CovariateComparisonPanel />);
 
     const lead = await screen.findByTestId("cooling-covariate-lead");
     expect(lead).toHaveTextContent(
@@ -223,7 +223,7 @@ describe("CovariateComparisonPanel", () => {
     mocks.settings.temperatureUnit = "F";
     resolveWith(established());
 
-    render(<CovariateComparisonPanel ambientCapability="present" />);
+    render(<CovariateComparisonPanel />);
 
     const lead = await screen.findByTestId("cooling-covariate-lead");
     // +4.064 K * 9/5 = +7.3 degF, no offset.
@@ -238,24 +238,13 @@ describe("CovariateComparisonPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders nothing, and does not fetch, when the window proves there is no ambient source", () => {
-    resolveWith(established());
-
-    const { container } = render(
-      <CovariateComparisonPanel ambientCapability="absent" />,
-    );
-
-    expect(container).toBeEmptyDOMElement();
-    expect(mocks.getCoolingCovariateComparison).not.toHaveBeenCalled();
-  });
-
   it("reports a failed fetch instead of keeping the skeleton", async () => {
     mocks.getCoolingCovariateComparison.mockResolvedValue({
       status: "error",
       error: "boom",
     });
 
-    render(<CovariateComparisonPanel ambientCapability="present" />);
+    render(<CovariateComparisonPanel />);
 
     await waitFor(() => {
       expect(screen.getByText(`${KEY}.loadFailed`)).toBeInTheDocument();
