@@ -11,6 +11,26 @@ that are needed to close a gap still have to enter
 any implementation. Verification status stays owned by the specs
 ([ADR 0011](../adr/0011-experimental-sensor-enablement.md)).
 
+## Target users
+
+The maintainer's stated focus for this survey is two groups:
+
+- **Self-built desktop PCs**: retail motherboards with an LPC Super I/O
+  chip, discrete or integrated GPUs, and a user who can install PawnIO and
+  run elevated. Motherboard fan RPM and board temperatures are the signals
+  they expect a monitor to show and the ones Cooling Insight still lacks on
+  most boards.
+- **Home servers**: the same class of hardware run unattended for long
+  periods, sometimes on server-grade boards whose sensors are owned by a
+  baseboard management controller (BMC) rather than reachable through the
+  Super I/O. Long uptime is what makes the multi-month trend in #1666
+  valuable, and it makes unattended collection (Elevated Startup Mode,
+  background archive, no manual re-setup) part of the coverage question.
+
+Laptops, OEM prebuilts whose sensors sit only behind vendor embedded
+controllers, and Windows on Arm are outside this focus. They are still
+listed below so the reasoning is recorded, but they are not ranked.
+
 ## Why this matters for #1666
 
 Cooling Insight relates thermal input, response, and cooling activity on one
@@ -35,15 +55,42 @@ all.
 
 ## Evidence used
 
-- Provider code under `core/src/infrastructure/providers/windows/` and
-  `core/src/platform/windows/`.
-- Scoped-enablement tables in `docs/specs/sensors/*.md` at their current
-  revisions (cited per row below).
+All repository references were read at `develop` commit `9f76bda` (the
+base of the PR that introduced this document). Bare file names in the
+tables below refer to these files:
+
+- Windows providers:
+  [`cpu_identity.rs`](../../core/src/infrastructure/providers/windows/cpu_identity.rs),
+  [`cpu_temperature.rs`](../../core/src/infrastructure/providers/windows/cpu_temperature.rs),
+  [`cpu_power.rs`](../../core/src/infrastructure/providers/windows/cpu_power.rs),
+  [`thermal_zone.rs`](../../core/src/infrastructure/providers/windows/thermal_zone.rs),
+  [`super_io_motherboard.rs`](../../core/src/infrastructure/providers/windows/super_io_motherboard.rs),
+  [`super_io_diagnostics.rs`](../../core/src/infrastructure/providers/windows/super_io_diagnostics.rs),
+  [`nvapi_provider.rs`](../../core/src/infrastructure/providers/windows/nvapi_provider.rs),
+  [`adl_provider.rs`](../../core/src/infrastructure/providers/windows/adl_provider.rs),
+  [`directx.rs`](../../core/src/infrastructure/providers/windows/directx.rs),
+  [`pdh_provider.rs`](../../core/src/infrastructure/providers/windows/pdh_provider.rs),
+  [`sysinfo_provider.rs`](../../core/src/infrastructure/providers/sysinfo_provider.rs).
+- Windows platform layer:
+  [`sensors.rs`](../../core/src/platform/windows/sensors.rs),
+  [`gpu.rs`](../../core/src/platform/windows/gpu.rs).
+- Archive ingestion: [`archive.rs`](../../core/src/persistence/archive.rs).
+- Scoped-enablement tables in the clean-room specs at their current
+  revisions:
+  [`pawnio-interface.md`](../specs/sensors/pawnio-interface.md) rev 5,
+  [`cpu-intel-dts-msr.md`](../specs/sensors/cpu-intel-dts-msr.md) rev 2,
+  [`cpu-amd-zen-smn.md`](../specs/sensors/cpu-amd-zen-smn.md) rev 4,
+  [`cpu-intel-rapl-msr.md`](../specs/sensors/cpu-intel-rapl-msr.md) rev 3,
+  [`cpu-amd-zen-rapl-msr.md`](../specs/sensors/cpu-amd-zen-rapl-msr.md) rev 3,
+  [`superio-access.md`](../specs/sensors/superio-access.md) rev 3,
+  [`superio-nuvoton-nct67xx.md`](../specs/sensors/superio-nuvoton-nct67xx.md) rev 5,
+  [`superio-ite-it86xx-it87xx.md`](../specs/sensors/superio-ite-it86xx-it87xx.md) rev 2.
 - [`windows-sensor-external-components.md`](../architecture/windows-sensor-external-components.md)
   scope boundaries.
-- The upstream PawnIO.Modules repository file listing (retrieved 2026-09-03)
-  for which access modules exist. Module names are interface facts; no module
-  source was read for this survey.
+- The upstream PawnIO.Modules repository file listing at commit
+  [`52a7e536dff3e53c96917a28caac5e0fa6510696`](https://github.com/namazso/PawnIO.Modules/tree/52a7e536dff3e53c96917a28caac5e0fa6510696)
+  (retrieved 2026-09-03) for which access modules exist. Module names are
+  interface facts; no module source was read for this survey.
 - Issues #1635, #1666, #1824 and their sub-issues.
 
 No prohibited monitoring implementation was consulted. Chip identifiers below
@@ -96,6 +143,7 @@ current spec.
 | Every other ITE IT86xx/IT87xx ID (including boards with a second ITE chip on the `0x4E`/`0x4F` pair) | — | Unsupported; raw chip ID is still reported by the Phase 2 diagnostic | same spec; `superio-access.md` rev 3 |
 | Fintek, SMSC, and other Super I/O vendors | — | Unsupported; the diagnostic only tries Nuvoton and ITE entry sequences | `superio-access.md` |
 | Boards whose sensors sit behind an embedded controller instead of an LPC Super I/O (most laptops, some desktop boards) | — | Unsupported; no EC spec | — |
+| Server boards whose sensors are owned by a BMC (common on home-server boards) | — | Unsupported; no IPMI path exists, and the Super I/O may not expose the BMC-owned sensors | see gap T9 |
 
 Motherboard fan RPM today therefore requires NCT6799D specifically. The fan
 lane in Cooling Insight is empty on every other board.
@@ -239,7 +287,7 @@ feed #1666.
 - **Feasibility:** low. The realistic improvement is module bundling and
   installer integration so the PawnIO path is reachable.
 
-### T6. Laptops and embedded-controller boards
+### T6. Laptops and embedded-controller boards (outside the target focus)
 
 - **Gap:** laptop fans and board temperatures live behind vendor EC firmware.
   PawnIO.Modules publishes EC-oriented modules (`LpcACPIEC`, `IsaBridgeEC`,
@@ -251,12 +299,14 @@ feed #1666.
 - **Feasibility:** low today. Keep the ACPI thermal-zone fallback, which is
   more often populated on laptops than on desktops.
 
-### T7. Windows on Arm and pre-Zen / pre-Nehalem x86
+### T7. Windows on Arm and pre-Zen / pre-Nehalem x86 (outside the target focus)
 
 - **Gap:** no native path and, on Arm, no MSR concept the current specs
   cover. An `ARMMSR` module exists upstream but no spec.
-- **Feasibility:** low value for #1666 (small installed base among
-  self-built desktops). Accept ACPI fallback.
+- **Feasibility:** Arm is outside the target focus. Pre-Zen AMD and
+  pre-Nehalem Intel parts do appear in repurposed home servers, but their
+  thermal registers are outside every current spec and would need new
+  spec research for a shrinking population. Accept ACPI fallback.
 
 ### T8. DIMM temperature over SMBus
 
@@ -265,6 +315,28 @@ feed #1666.
   DDR4 SPD temperature sensor (JEDEC TSE2004) and DDR5 SPD hub thermal sensor
   (JEDEC SPD5118) are public standards, so a primary source exists.
 - **Feasibility:** medium cost, but not a #1666 input. Defer.
+
+### T9. BMC sensors over IPMI (home servers)
+
+- **Gap:** server-class boards used as home servers expose fans,
+  temperatures, and voltages through a BMC. Those sensors are not reachable
+  through the Super I/O path, so such a machine gets no fan lane and no
+  board temperatures even with PawnIO set up.
+- **Access path:** Windows ships an in-box IPMI driver for BMCs it
+  enumerates, exposed as the `Microsoft_IPMI` WMI class in `root\WMI` with a
+  raw request/response method. No PawnIO, no kernel driver of our own, and
+  the same WMI machinery `thermal_zone.rs` already uses; it does need an
+  elevated process, which home-server users of PawnIO already run.
+- **Primary source:** the IPMI 2.0 specification (public, Intel/DMTF) defines
+  the Get SDR, Get Sensor Reading, and sensor-unit and linearization records
+  needed to decode readings. That makes it a spec-author task with a
+  primary source, not a copyleft-dependent one.
+- **Work:** an IPMI spec under `docs/specs/sensors/`, a WMI-backed Core
+  provider that reads the SDR repository once and polls sensor readings, and
+  a decision on how BMC fans and temperatures join the motherboard sensor
+  model. Runtime proof needs a board with a BMC.
+- **Feasibility:** medium. Not on the #1666 critical path for desktops, but
+  it is the only way the fan lane reaches BMC-based home servers.
 
 ## Suggested order relative to #1666 value
 
@@ -279,12 +351,17 @@ feed #1666.
    from a register already read every tick.
 4. **T3.3 user-submitted diagnostic program**: turns the shipped chip-ID
    diagnostic into a steady stream of chip profiles without buying boards.
-5. **T4 GPU fan / power / Intel temperature**: no clean-room gate, extends the
-   fan lane and prepares the GPU temperature extension.
-6. **T2 Zen 5 graduation**: spec-only confidence work; schedule when AMD
+   Self-built desktop users are the population that can run it.
+5. **T9 BMC sensors over IPMI**: the home-server counterpart of T3; the
+   only route to fans and board temperatures on BMC-owned boards, with a
+   public primary source and no PawnIO dependency.
+6. **T4 GPU fan / power / Intel temperature**: no clean-room gate, extends the
+   fan lane and prepares the GPU temperature extension for desktops with
+   discrete GPUs.
+7. **T2 Zen 5 graduation**: spec-only confidence work; schedule when AMD
    publishes the PPR or a dump arrives.
-7. T5–T8: defer; record the reasoning here so they are not re-investigated
-   from scratch.
+8. T5, T6, T7, T8: defer. T6 and T7 are outside the target focus; the
+   reasoning is recorded so they are not re-investigated from scratch.
 
 ## What would change these conclusions
 
