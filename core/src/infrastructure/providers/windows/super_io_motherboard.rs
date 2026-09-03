@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use super::pawn_io::{ACCESS_ISABUS_MUTEX, NamedMutex, PawnIoClient, PawnIoModule};
 use crate::models::{
-  MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature,
+  MotherboardFanSpeed, MotherboardSensorSample, MotherboardTemperature, SensorSupport,
 };
 use crate::utils::super_io::{
   chip_id, decode_ite_temperature_byte, decode_nuvoton_direct_rpm,
@@ -77,6 +77,14 @@ const ITE_TEMPERATURE_REGISTERS: [(&str, u8, u8); 3] = [
 static MOTHERBOARD_SENSOR_SAMPLER: OnceLock<Mutex<MotherboardSensorSampler>> =
   OnceLock::new();
 
+/// A motherboard sample paired with the active provider path's fan capability.
+pub(crate) struct MotherboardSensorReadout {
+  /// The current reading attempt, which can fail independently of support.
+  pub(crate) sample: Result<MotherboardSensorSample, String>,
+  /// Fan support declared by the detected provider path, not inferred from rows.
+  pub(crate) fan_support: SensorSupport,
+}
+
 /// Read live motherboard temperature and fan RPM values through the scoped
 /// Nuvoton normal-HM or ITE Environment Controller path.
 ///
@@ -87,7 +95,7 @@ static MOTHERBOARD_SENSOR_SAMPLER: OnceLock<Mutex<MotherboardSensorSampler>> =
 /// - docs/specs/sensors/superio-ite-it86xx-it87xx.md revision 2
 ///
 /// No other external sensor implementation source was used.
-pub fn sample_motherboard_sensors() -> Result<MotherboardSensorSample, String> {
+pub(crate) fn sample_motherboard_sensors() -> MotherboardSensorReadout {
   let sampler = MOTHERBOARD_SENSOR_SAMPLER.get_or_init(|| {
     let sampler = MotherboardSensorSampler::new();
     log_debug!(
@@ -98,10 +106,22 @@ pub fn sample_motherboard_sensors() -> Result<MotherboardSensorSample, String> {
     Mutex::new(sampler)
   });
 
-  sampler
-    .lock()
-    .map_err(|_| "Motherboard sensor sampler lock poisoned".to_string())?
-    .sample()
+  let Ok(mut sampler) = sampler.lock() else {
+    return MotherboardSensorReadout {
+      sample: Err("Motherboard sensor sampler lock poisoned".to_string()),
+      fan_support: SensorSupport::Unknown,
+    };
+  };
+  let sample = sampler.sample();
+  let fan_support = sampler.active.as_ref().map_or(
+    SensorSupport::Unknown,
+    ActiveMotherboardSensors::fan_support,
+  );
+
+  MotherboardSensorReadout {
+    sample,
+    fan_support,
+  }
 }
 
 struct MotherboardSensorSampler {
@@ -294,6 +314,14 @@ impl ActiveMotherboardSensors<PawnIoClient> {
 }
 
 impl<C: LpcIoOps> ActiveMotherboardSensors<C> {
+  /// Report the capability of the selected hardware path independently of a sample.
+  fn fan_support(&self) -> SensorSupport {
+    match self {
+      Self::Nuvoton(_) => SensorSupport::Supported,
+      Self::Ite(_) => SensorSupport::Unsupported,
+    }
+  }
+
   fn sample(&mut self) -> Result<MotherboardSensorSample, String> {
     match self {
       Self::Nuvoton(active) => active.sample(),
@@ -1108,6 +1136,29 @@ mod tests {
         0xC7, 0xC8, 0xC9, 0xCA, 0xCB
       ]
     );
+  }
+
+  #[test]
+  fn fan_support_follows_the_selected_provider_path() {
+    let nuvoton = ActiveMotherboardSensors::Nuvoton(ActiveNuvotonMotherboardSensors {
+      client: FakeLpcIo::with_authorized_hm_bars(),
+      slot: 0,
+      hm_base: 0x0290,
+      chip_label: NUVOTON_CHIP_LABEL,
+      source_label: NUVOTON_SOURCE_LABEL,
+    });
+    let ite = ActiveMotherboardSensors::Ite(ActiveIteMotherboardSensors {
+      client: FakeIteLpcIo::new(),
+      slot: 0,
+      ec_base: 0x0290,
+      chip_label: ITE_CHIP_LABEL,
+      source_label: ITE_SOURCE_LABEL,
+      last_attempt: None,
+      partial_failure_logged: false,
+    });
+
+    assert_eq!(nuvoton.fan_support(), SensorSupport::Supported);
+    assert_eq!(ite.fan_support(), SensorSupport::Unsupported);
   }
 
   #[test]

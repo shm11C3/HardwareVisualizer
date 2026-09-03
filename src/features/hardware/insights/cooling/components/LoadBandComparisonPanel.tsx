@@ -9,6 +9,7 @@ import {
   buildLoadBandDumbbellRows,
   type LoadBandDumbbellRow,
 } from "../utils/loadBandDumbbell";
+import { groupSensorNotices, type SensorNotice } from "../utils/sensorNotice";
 import { LoadBandDumbbellChart } from "./LoadBandDumbbellChart";
 
 type EstablishedComparison = Extract<
@@ -25,28 +26,15 @@ type EstablishedComparison = Extract<
 export const LoadBandComparisonPanel = ({
   bandComparison,
   hasError = false,
-  powerUnsupported = false,
-  fanUnsupported = false,
+  powerNotice = null,
+  fanNotice = null,
   ambientSources = [],
 }: {
   bandComparison: CoolingBandComparison | null;
   hasError?: boolean;
-  /**
-   * Whether the routed period is known to carry no CPU package power
-   * (#2021). The data-state row below names the sensors still missing, so
-   * it may only name power on evidence - never while the answer is still
-   * unknown, and never on a machine whose timeline draws a power lane.
-   */
-  powerUnsupported?: boolean;
-  /** The same contract for the fan lane (#2022). */
-  fanUnsupported?: boolean;
-  /**
-   * Sensor Source Labels the routed window's ambient archive actually
-   * carried (#2046). Empty when the routed period has none - including on
-   * the long-range routes, which read the daily rollup and so have no
-   * ambient series to name a source from. The row is then simply absent
-   * rather than claiming an unnamed source.
-   */
+  powerNotice?: SensorNotice | null;
+  fanNotice?: SensorNotice | null;
+  /** Sensor Source Labels carried by the routed ambient archive. */
   ambientSources?: readonly string[];
 }) => {
   const { t } = useTranslation();
@@ -134,8 +122,8 @@ export const LoadBandComparisonPanel = ({
           bandComparison?.status === "established" && (
             <DataStateDetails
               bandComparison={bandComparison}
-              powerUnsupported={powerUnsupported}
-              fanUnsupported={fanUnsupported}
+              powerNotice={powerNotice}
+              fanNotice={fanNotice}
               ambientSources={ambientSources}
             />
           )}
@@ -250,32 +238,22 @@ const ambientPairedMinutes = (bandComparison: EstablishedComparison) =>
 
 const DataStateDetails = ({
   bandComparison,
-  powerUnsupported,
-  fanUnsupported,
+  powerNotice,
+  fanNotice,
   ambientSources,
 }: {
   bandComparison: EstablishedComparison;
-  powerUnsupported: boolean;
-  fanUnsupported: boolean;
+  powerNotice: SensorNotice | null;
+  fanNotice: SensorNotice | null;
   ambientSources: readonly string[];
 }) => {
   const { t } = useTranslation();
-  // Only a band that carries an ambient reading licenses an ambient row:
-  // on a machine with no environmental sensor every entry is null and the
-  // panel keeps exactly the rows it had before #2046.
+  // Only a band that carries an ambient reading licenses an ambient row.
   const hasAmbientReading = bandComparison.bands.some(
     (entry) => entry.ambientAdjusted != null,
   );
   const ambientMinutes = ambientPairedMinutes(bandComparison);
-  // The row names only the sensors actually still missing, and disappears
-  // once neither is: a "Not supported yet" line beside a rendered lane
-  // would contradict the timeline directly above it.
-  const unsupportedLabelKey =
-    powerUnsupported && fanUnsupported
-      ? "pages.insights.cooling.dataState.unsupported.label"
-      : powerUnsupported
-        ? "pages.insights.cooling.dataState.unsupported.labelPowerOnly"
-        : "pages.insights.cooling.dataState.unsupported.labelFanOnly";
+  const sensorNoticeGroups = groupSensorNotices(powerNotice, fanNotice);
 
   return (
     <dl className="space-y-1.5 text-xs">
@@ -330,12 +308,19 @@ const DataStateDetails = ({
           </dd>
         </div>
       )}
-      {(powerUnsupported || fanUnsupported) && (
-        <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">{t(unsupportedLabelKey)}</dt>
-          <dd>{t("pages.insights.cooling.dataState.unsupported.value")}</dd>
+      {sensorNoticeGroups.map(({ notice, scope }) => (
+        <div
+          key={`${notice}-${scope}`}
+          className="flex items-center justify-between gap-2"
+        >
+          <dt className="text-muted-foreground">
+            {t(`pages.insights.cooling.dataState.sensorStatus.label.${scope}`)}
+          </dt>
+          <dd>
+            {t(`pages.insights.cooling.dataState.sensorStatus.value.${notice}`)}
+          </dd>
         </div>
-      )}
+      ))}
     </dl>
   );
 };

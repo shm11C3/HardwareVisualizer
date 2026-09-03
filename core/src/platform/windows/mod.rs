@@ -62,6 +62,10 @@ impl GpuPlatform for WindowsPlatform {
   fn sample_power_draw(&self) -> crate::models::PowerDraw {
     sensors::sample_power_draw()
   }
+
+  fn cpu_power_support(&self) -> crate::models::SensorSupport {
+    sensors::cpu_power_support()
+  }
 }
 
 impl NetworkPlatform for WindowsPlatform {

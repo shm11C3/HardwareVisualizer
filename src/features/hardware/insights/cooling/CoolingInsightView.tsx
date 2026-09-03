@@ -1,3 +1,8 @@
+import { useAtomValue } from "jotai";
+import {
+  cpuPowerSupportAtom,
+  motherboardFanSupportAtom,
+} from "@/features/hardware/store/chart";
 import type {
   CoolingBandComparison,
   CoolingBaselineDelta,
@@ -7,8 +12,8 @@ import { CoverageStrip } from "./components/CoverageStrip";
 import { LoadBandComparisonPanel } from "./components/LoadBandComparisonPanel";
 import { LoadTemperatureExplorerPanel } from "./components/LoadTemperatureExplorerPanel";
 import { ObservationStrip } from "./components/ObservationStrip";
+import { SensorStatusNote } from "./components/SensorStatusNote";
 import { ThermalTimelineLane } from "./components/ThermalTimelineLane";
-import { UnsupportedSensorNote } from "./components/UnsupportedSensorNote";
 import { useCoolingArchiveTimeline } from "./hooks/useCoolingArchiveTimeline";
 import { useCoolingBandComparison } from "./hooks/useCoolingBandComparison";
 import { useCoolingBaselineDelta } from "./hooks/useCoolingBaselineDelta";
@@ -21,14 +26,9 @@ import {
   resolveRoutedAmbientCapability,
 } from "./utils/ambientTimeline";
 import { resolveCoolingPeriodRoute } from "./utils/coolingPeriodRoute";
-import {
-  claimsFanUnsupported,
-  resolveRoutedFanCapability,
-} from "./utils/fanTimeline";
-import {
-  claimsPowerUnsupported,
-  resolveRoutedPowerCapability,
-} from "./utils/thermalTimeline";
+import { resolveRoutedFanCapability } from "./utils/fanTimeline";
+import { resolveSensorNotice } from "./utils/sensorNotice";
+import { resolveRoutedPowerCapability } from "./utils/thermalTimeline";
 
 /**
  * The Cooling tab: zone structure, single period selector, and
@@ -81,6 +81,8 @@ const CoolingInsightBody = ({
   bandComparison: CoolingBandComparison | null;
   bandComparisonHasError: boolean;
 }) => {
+  const cpuPowerSupport = useAtomValue(cpuPowerSupportAtom);
+  const motherboardFanSupport = useAtomValue(motherboardFanSupportAtom);
   const route = resolveCoolingPeriodRoute(period);
   const { data: dailyTrend, hasError: dailyTrendHasError } =
     useCoolingDailyTrend(route.kind === "dailyTrend" ? route.days : null);
@@ -88,24 +90,23 @@ const CoolingInsightBody = ({
     route.kind === "dailyTrend" ? route.days : null,
   );
   // Owned here rather than inside the timeline: both the timeline's power
-  // and fan lanes and the pending-sensors note below them read the same
+  // and fan lanes and the sensor-status note below them read the same
   // series, and fetching them twice would double the archive round trips.
   const archive = useCoolingArchiveTimeline(
     route.kind === "archive" ? route.minutes : null,
   );
 
-  // Only a resolved, non-empty window that recorded no watts licenses
-  // telling the user power is unsupported; loading, failure, and an empty
-  // window all leave the claim unmade.
-  const powerUnsupported = claimsPowerUnsupported(
+  // Historical absence says only that this route has no values. Combine it
+  // with Core's hardware-support fact before explaining why the lane is gone.
+  const powerNotice = resolveSensorNotice(
     resolveRoutedPowerCapability(route, archive, {
       points: dailyTrend,
       hasError: dailyTrendHasError,
     }),
+    cpuPowerSupport,
   );
-  // The same three-state contract for the fan, answered from its own
-  // sources: a machine can have one capability without the other.
-  const fanUnsupported = claimsFanUnsupported(
+  // Power and fan are resolved separately: a machine can support either one.
+  const fanNotice = resolveSensorNotice(
     resolveRoutedFanCapability(
       route,
       {
@@ -122,6 +123,7 @@ const CoolingInsightBody = ({
         hasError: fanTrendHasError || dailyTrendHasError,
       },
     ),
+    motherboardFanSupport,
   );
   // The same three-state contract once more, for the data-state panel's
   // ambient row: only a routed window that actually carries ambient
@@ -154,10 +156,7 @@ const CoolingInsightBody = ({
         fanTrend={fanTrend?.series ?? null}
         archive={archive}
       />
-      <UnsupportedSensorNote
-        powerUnsupported={powerUnsupported}
-        fanUnsupported={fanUnsupported}
-      />
+      <SensorStatusNote powerNotice={powerNotice} fanNotice={fanNotice} />
       {route.kind === "dailyTrend" && (
         <CoverageStrip
           points={dailyTrend}
@@ -168,8 +167,8 @@ const CoolingInsightBody = ({
       <LoadBandComparisonPanel
         bandComparison={bandComparison}
         hasError={bandComparisonHasError}
-        powerUnsupported={powerUnsupported}
-        fanUnsupported={fanUnsupported}
+        powerNotice={powerNotice}
+        fanNotice={fanNotice}
         ambientSources={ambientSources}
       />
       <LoadTemperatureExplorerPanel />

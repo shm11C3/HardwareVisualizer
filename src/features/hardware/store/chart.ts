@@ -8,6 +8,7 @@ import type {
   MotherboardTemperatureValues,
   NameValues,
 } from "@/features/hardware/types/hardwareDataType";
+import type { SensorSupport } from "@/rspc/bindings";
 
 export const cpuUsageHistoryAtom = atom<(number | null)[]>([]);
 export const processorsUsageHistoryAtom = atom<number[][]>([]);
@@ -68,6 +69,9 @@ export const motherboardTempsAtom = atom<MotherboardTemperatureValues>([]);
 /** Live motherboard fan speeds from the Super I/O provider */
 export const motherboardFanSpeedsAtom = atom<MotherboardFanSpeedValues>([]);
 
+/** Hardware support for motherboard fan-speed collection. */
+export const motherboardFanSupportAtom = atom<SensorSupport>("unknown");
+
 export type PowerDraw = {
   cpuWatts: number | null;
   gpuWatts: number | null;
@@ -95,6 +99,9 @@ export const powerDrawHistoryAtom = atom<PowerDrawHistory>({
 
 /** Whether this runtime has produced at least one power reading. */
 export const powerDrawAvailableAtom = atom(false);
+
+/** Hardware support for CPU package-power collection. */
+export const cpuPowerSupportAtom = atom<SensorSupport>("unknown");
 
 /** All GPUs temperature as NameValues (read-write: write clears the map) */
 export const gpuTempAtom = atom<NameValues, [NameValues], void>(

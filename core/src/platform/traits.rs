@@ -49,6 +49,11 @@ pub trait GpuPlatform: Send + Sync {
   fn sample_power_draw(&self) -> models::PowerDraw {
     models::PowerDraw::default()
   }
+
+  /// Report whether this hardware has a supported CPU package-power path.
+  fn cpu_power_support(&self) -> models::SensorSupport {
+    models::SensorSupport::Unsupported
+  }
 }
 
 /// Trait that defines platform-specific network operations

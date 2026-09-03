@@ -817,6 +817,7 @@ export type HardwareMonitorUpdate = {
 	gpuPowerWatts: number | null,
 	anePowerWatts: number | null,
 	packagePowerWatts: number | null,
+	cpuPowerSupport: SensorSupport,
 	// Headline CPU temperature in the user's preferred unit. Currently Windows only.
 	cpuTemperature: number | null,
 	// All named temperature sensors (thermal zones) in the user's preferred unit.
@@ -825,6 +826,7 @@ export type HardwareMonitorUpdate = {
 	motherboardTemperatures: MotherboardTemperatureValue[],
 	// Motherboard fan speeds in RPM.
 	motherboardFanSpeeds: MotherboardFanSpeedValue[],
+	motherboardFanSupport: SensorSupport,
 };
 
 export type HardwareType = "cpu" | "memory" | "gpu";
@@ -940,6 +942,8 @@ export type ProcessStatRecord = {
 	total_execution_sec: number,
 	latest_timestamp: string,
 };
+
+export type SensorSupport = "unknown" | "supported" | "unsupported";
 
 export type SizeUnit = "B" | "KB" | "MB" | "GB";
 

@@ -53,9 +53,7 @@ test.describe("insights captures", () => {
     await expect(page.getByTestId("cooling-fan-lane")).toBeVisible();
     // Both lanes render now, so there is no pending sensor left to name and
     // the note disappears entirely rather than claiming one that arrived.
-    await expect(
-      page.getByTestId("cooling-unsupported-sensor-note"),
-    ).toHaveCount(0);
+    await expect(page.getByTestId("cooling-sensor-status-note")).toHaveCount(0);
     await expect(page.getByTestId("cooling-load-band-panel")).toBeVisible();
     // Default period (24h) routes to the archive query, so no coverage strip.
     await expect(page.getByTestId("cooling-coverage-strip")).toHaveCount(0);
@@ -70,6 +68,7 @@ test.describe("insights captures", () => {
     page,
   }) => {
     await gotoApp(page, { path: "/?coolingPower=none" });
+    await seedHardwareHistory(page);
     await navigateTo(page, "insights");
 
     const coolingTab = page.getByRole("tab", { name: "Cooling" });
@@ -84,19 +83,37 @@ test.describe("insights captures", () => {
     await expect(page.getByTestId("cooling-power-lane")).toHaveCount(0);
     // The fan lane is unaffected, so the note names power alone.
     await expect(page.getByTestId("cooling-fan-lane")).toBeVisible();
-    await expect(
-      page.getByTestId("cooling-unsupported-sensor-note"),
-    ).toHaveText(/power lane/);
+    await expect(page.getByTestId("cooling-sensor-status-note")).toHaveText(
+      /current hardware does not support power collection\./,
+    );
 
     await page.waitForTimeout(1_000);
 
     await saveCapture(page, "insights-cooling-no-power");
   });
 
+  test("insights cooling tab distinguishes supported power that is not collected", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?coolingPower=uncollected" });
+    await seedHardwareHistory(page);
+    await navigateTo(page, "insights");
+
+    const coolingTab = page.getByRole("tab", { name: "Cooling" });
+    await expect(coolingTab).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await coolingTab.click();
+
+    await expect(page.getByTestId("cooling-power-lane")).toHaveCount(0);
+    await expect(page.getByTestId("cooling-sensor-status-note")).toHaveText(
+      /Power data has not been collected for this period yet\./,
+    );
+  });
+
   test("insights cooling tab hides the fan lane without a readable fan", async ({
     page,
   }) => {
     await gotoApp(page, { path: "/?coolingFan=none" });
+    await seedHardwareHistory(page);
     await navigateTo(page, "insights");
 
     const coolingTab = page.getByRole("tab", { name: "Cooling" });
@@ -110,9 +127,9 @@ test.describe("insights captures", () => {
     // No lane at all rather than one pinned at a fabricated 0 rpm, which
     // is a real Inactive Fan Reading.
     await expect(page.getByTestId("cooling-fan-lane")).toHaveCount(0);
-    await expect(
-      page.getByTestId("cooling-unsupported-sensor-note"),
-    ).toHaveText(/fan lane/);
+    await expect(page.getByTestId("cooling-sensor-status-note")).toHaveText(
+      /current hardware does not support fan speed collection\./,
+    );
 
     await page.waitForTimeout(1_000);
 

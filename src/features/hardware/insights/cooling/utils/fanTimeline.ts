@@ -181,14 +181,14 @@ export const computeFanDomain = (
 };
 
 /**
- * What is known about this machine's fan readings, from the currently
- * routed period.
+ * What the currently routed period contains for fan readings.
  *
  * Three states rather than a boolean, for the same reason
- * [`resolveRoutedPowerCapability`] needs them:
+ * [`resolveRoutedPowerCapability`] needs them. Hardware support is resolved
+ * separately:
  * - `present`: the window carries fan readings. The lane renders.
  * - `absent`: the window recorded *something* and none of it was a fan
- *   reading, which is real evidence of no readable fan source.
+ *   reading.
  * - `unknown`: the fetch has not resolved, it failed, or the window
  *   recorded nothing at all. Nothing may be claimed either way.
  */
@@ -201,7 +201,7 @@ const archiveFanSeriesHasReadings = (
 /**
  * Resolve [`FanCapability`] for the currently routed period, answered from
  * the fetched sources rather than from built rows - the same split the
- * power capability uses, so the pending-sensors note beside the timeline
+ * power capability uses, so the sensor-status note beside the timeline
  * and the lane's own gate cannot disagree.
  *
  * Each route reads only its own fan source. A 24h window on a machine whose
@@ -271,15 +271,3 @@ export const resolveRoutedFanCapability = (
   // readable fan is now the honest answer.
   return daily.recordedDays > 0 ? "absent" : "unknown";
 };
-
-/**
- * Whether the pending-sensors note and the data-state row may name the fan
- * as unsupported.
- *
- * Only `absent` licenses that claim. `unknown` deliberately reads the same
- * as `present`: both leave the fan unmentioned, which under-claims rather
- * than telling a user with working fan sensors that their machine has none
- * while the fetch is still in flight.
- */
-export const claimsFanUnsupported = (capability: FanCapability): boolean =>
-  capability === "absent";

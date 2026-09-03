@@ -30,6 +30,7 @@ pub struct HardwareMonitorUpdate {
   pub gpu_power_watts: Option<f32>,
   pub ane_power_watts: Option<f32>,
   pub package_power_watts: Option<f32>,
+  pub cpu_power_support: SensorSupport,
   /// Headline CPU temperature in the user's preferred unit. Currently Windows only.
   pub cpu_temperature: Option<f32>,
   /// All named temperature sensors (thermal zones) in the user's preferred unit.
@@ -38,6 +39,25 @@ pub struct HardwareMonitorUpdate {
   pub motherboard_temperatures: Vec<MotherboardTemperatureValue>,
   /// Motherboard fan speeds in RPM.
   pub motherboard_fan_speeds: Vec<MotherboardFanSpeedValue>,
+  pub motherboard_fan_support: SensorSupport,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum SensorSupport {
+  Unknown,
+  Supported,
+  Unsupported,
+}
+
+impl From<hardviz_core::models::SensorSupport> for SensorSupport {
+  fn from(src: hardviz_core::models::SensorSupport) -> Self {
+    match src {
+      hardviz_core::models::SensorSupport::Unknown => Self::Unknown,
+      hardviz_core::models::SensorSupport::Supported => Self::Supported,
+      hardviz_core::models::SensorSupport::Unsupported => Self::Unsupported,
+    }
+  }
 }
 
 #[derive(Debug, Clone, serde::Serialize, Type)]
@@ -178,6 +198,8 @@ mod tests {
       gpu_power_watts: None,
       ane_power_watts: None,
       package_power_watts: None,
+      cpu_power_support: SensorSupport::Unknown,
+      motherboard_fan_support: SensorSupport::Unknown,
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
@@ -200,6 +222,8 @@ mod tests {
       gpu_power_watts: None,
       ane_power_watts: None,
       package_power_watts: None,
+      cpu_power_support: SensorSupport::Unknown,
+      motherboard_fan_support: SensorSupport::Unknown,
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
@@ -224,6 +248,8 @@ mod tests {
       gpu_power_watts: None,
       ane_power_watts: None,
       package_power_watts: None,
+      cpu_power_support: SensorSupport::Unknown,
+      motherboard_fan_support: SensorSupport::Unknown,
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![],
@@ -247,6 +273,8 @@ mod tests {
       gpu_power_watts: None,
       ane_power_watts: None,
       package_power_watts: None,
+      cpu_power_support: SensorSupport::Unknown,
+      motherboard_fan_support: SensorSupport::Unknown,
       cpu_temperature: Some(48.0),
       sensor_temperatures: vec![
         NameValue {
@@ -281,6 +309,8 @@ mod tests {
       gpu_power_watts: Some(2.2),
       ane_power_watts: Some(0.3),
       package_power_watts: Some(12.6),
+      cpu_power_support: SensorSupport::Supported,
+      motherboard_fan_support: SensorSupport::Supported,
       cpu_temperature: None,
       sensor_temperatures: vec![],
       motherboard_temperatures: vec![MotherboardTemperatureValue {

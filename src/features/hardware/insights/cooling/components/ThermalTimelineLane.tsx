@@ -83,13 +83,13 @@ export const ThermalTimelineLane = ({
   dailyTrend: CoolingDailyTrendPoint[] | null;
   /**
    * The daily fan rollup for 90d/1y, owned by `CoolingInsightView` for the
-   * same reason the archive fetch is: the pending-sensors note beside the
+   * same reason the archive fetch is: the sensor-status note beside the
    * timeline reads it to decide whether to keep naming the fan.
    */
   fanTrend: CoolingFanTrendSeries[] | null;
   /**
    * The archive fetch for 24h/7d/30d, owned by `CoolingInsightView` rather
-   * than by this lane: the pending-sensors note beside the timeline reads
+   * than by this lane: the sensor-status note beside the timeline reads
    * the same power and fan series to decide whether to keep naming them,
    * and a second fetch to answer that would double the archive round trips.
    */

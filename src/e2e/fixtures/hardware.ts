@@ -243,6 +243,7 @@ export const buildHardwareUpdateSeries = (
     gpuPowerWatts: round1(4 + 2 * Math.sin(i / 4)),
     anePowerWatts: 0.5,
     packagePowerWatts: round1(16.5 + 3 * Math.sin(i / 5) + 2 * Math.sin(i / 4)),
+    cpuPowerSupport: "supported",
     cpuTemperature: Math.round(50 + 8 * Math.sin(i / 5)),
     sensorTemperatures: [
       { name: "CPUZ", value: Math.round(50 + 8 * Math.sin(i / 5)) },
@@ -279,6 +280,7 @@ export const buildHardwareUpdateSeries = (
         source: "NCT6799D / Super I/O",
       },
     ],
+    motherboardFanSupport: "supported",
   }));
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
