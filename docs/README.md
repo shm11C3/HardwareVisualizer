@@ -22,6 +22,7 @@ documentation.
 - [Add a new language](development/add-language.md)
 - [E2E capture harness](development/e2e-captures.md)
 - [Super I/O sensor work handoff](development/sensor-handoff/)
+- [Windows hardware coverage survey](development/windows-hardware-coverage-survey.md)
 - [GitHub label guide](development/labels.md)
 - [Download verification](download-verification.md)
 - [Release vulnerability response](security/release-vulnerability-response.md)
