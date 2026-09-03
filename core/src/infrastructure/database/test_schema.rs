@@ -109,6 +109,49 @@ pub(crate) const COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL: &str =
   PRIMARY KEY (date, source)
 )";
 
+/// The per-source, per-band co-variate rollup (migration 23, #2068),
+/// keyed by `(date, source, band)`: one ambient source's ΔT-power fit
+/// statistics and daily medians for one CPU-load band.
+pub(crate) const COOLING_COVARIATE_DAILY_SUMMARY_DDL: &str =
+  "CREATE TABLE cooling_covariate_daily_summary (
+  date TEXT NOT NULL,
+  source TEXT NOT NULL,
+  band TEXT NOT NULL,
+  sample_minutes INTEGER NOT NULL,
+  band_share REAL NOT NULL,
+  ambient_temperature_median REAL NOT NULL,
+  delta_minutes INTEGER NOT NULL DEFAULT 0,
+  delta_temperature_median REAL,
+  power_minutes INTEGER NOT NULL DEFAULT 0,
+  cpu_power_median REAL,
+  power_fit_n INTEGER NOT NULL DEFAULT 0,
+  power_fit_sum_x REAL NOT NULL DEFAULT 0,
+  power_fit_sum_y REAL NOT NULL DEFAULT 0,
+  power_fit_sum_xy REAL NOT NULL DEFAULT 0,
+  power_fit_sum_xx REAL NOT NULL DEFAULT 0,
+  power_fit_sum_yy REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, source, band)
+)";
+
+/// The per-fan companion of [`COOLING_COVARIATE_DAILY_SUMMARY_DDL`]
+/// (migration 23), keyed by `(date, source, fan_source, band)`.
+pub(crate) const COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL: &str =
+  "CREATE TABLE cooling_fan_covariate_daily_summary (
+  date TEXT NOT NULL,
+  source TEXT NOT NULL,
+  fan_source TEXT NOT NULL,
+  band TEXT NOT NULL,
+  rpm_minutes INTEGER NOT NULL,
+  rpm_median REAL NOT NULL,
+  fit_n INTEGER NOT NULL DEFAULT 0,
+  fit_sum_x REAL NOT NULL DEFAULT 0,
+  fit_sum_y REAL NOT NULL DEFAULT 0,
+  fit_sum_xy REAL NOT NULL DEFAULT 0,
+  fit_sum_xx REAL NOT NULL DEFAULT 0,
+  fit_sum_yy REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, source, fan_source, band)
+)";
+
 /// The single-row pinned baseline table (migration 12).
 pub(crate) const COOLING_BASELINE_DDL: &str = "CREATE TABLE cooling_baseline (
   id INTEGER PRIMARY KEY CHECK (id = 1),

@@ -415,6 +415,69 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         );
       "#,
     },
+    SchemaMigration {
+      version: 23,
+      description: "create_cooling_covariate_daily_summaries",
+      // The paired co-variate rollup (#2068): per ambient source and
+      // CPU-load band, the sufficient statistics of a least-squares fit
+      // of the Thermal Delta against CPU package power (`n, Σx, Σy, Σxy,
+      // Σx², Σy²`), the day's medians of power, ΔT and ambient, and the
+      // band's share of the day; and per fan beside each of those, the
+      // same six sums for ΔT against fan speed with the day's median rpm.
+      // Slope, intercept and Pearson r are derived at query time - the
+      // sums add across days, so a window's fit needs no minute past the
+      // archive's own retention.
+      //
+      // Keyed by `(date, source, band)` and `(date, source, fan_source,
+      // band)`: the ambient source is on every row for the reason
+      // `cooling_thermal_delta_daily_summary` carries it, so a sensor
+      // change can never mix two placements into one fit. Nullable
+      // medians and defaulted counts for the reason v21 has them: a
+      // reading the day never carried reads back absent, never zero.
+      // `band_share` and `ambient_temperature_median` are NOT NULL because
+      // a row exists only for a band that saw a paired minute, and every
+      // paired minute carries an ambient reading. The fit sums default
+      // to 0 with `*_n` as the presence flag - `n = 0` is the empty fit.
+      //
+      // Days the one-minute archives still hold are back-filled by the
+      // catch-up cursor (`cooling_rollup::covariate_rollup_is_behind`).
+      sql: r#"
+        CREATE TABLE cooling_covariate_daily_summary (
+          date TEXT NOT NULL,
+          source TEXT NOT NULL,
+          band TEXT NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          band_share REAL NOT NULL,
+          ambient_temperature_median REAL NOT NULL,
+          delta_minutes INTEGER NOT NULL DEFAULT 0,
+          delta_temperature_median REAL,
+          power_minutes INTEGER NOT NULL DEFAULT 0,
+          cpu_power_median REAL,
+          power_fit_n INTEGER NOT NULL DEFAULT 0,
+          power_fit_sum_x REAL NOT NULL DEFAULT 0,
+          power_fit_sum_y REAL NOT NULL DEFAULT 0,
+          power_fit_sum_xy REAL NOT NULL DEFAULT 0,
+          power_fit_sum_xx REAL NOT NULL DEFAULT 0,
+          power_fit_sum_yy REAL NOT NULL DEFAULT 0,
+          PRIMARY KEY (date, source, band)
+        );
+        CREATE TABLE cooling_fan_covariate_daily_summary (
+          date TEXT NOT NULL,
+          source TEXT NOT NULL,
+          fan_source TEXT NOT NULL,
+          band TEXT NOT NULL,
+          rpm_minutes INTEGER NOT NULL,
+          rpm_median REAL NOT NULL,
+          fit_n INTEGER NOT NULL DEFAULT 0,
+          fit_sum_x REAL NOT NULL DEFAULT 0,
+          fit_sum_y REAL NOT NULL DEFAULT 0,
+          fit_sum_xy REAL NOT NULL DEFAULT 0,
+          fit_sum_xx REAL NOT NULL DEFAULT 0,
+          fit_sum_yy REAL NOT NULL DEFAULT 0,
+          PRIMARY KEY (date, source, fan_source, band)
+        );
+      "#,
+    },
   ]
 }
 
@@ -767,18 +830,64 @@ mod tests {
   }
 
   #[test]
+  fn migration_v23_creates_the_row_per_source_and_band_covariate_tables() {
+    let migrations = get_migrations();
+    let v23 = migrations
+      .iter()
+      .find(|m| m.version == 23)
+      .expect("Version 23 up migration must exist");
+    assert!(
+      v23
+        .sql
+        .contains("CREATE TABLE cooling_covariate_daily_summary")
+    );
+    assert!(
+      v23
+        .sql
+        .contains("CREATE TABLE cooling_fan_covariate_daily_summary")
+    );
+    // The ambient source and the band are part of both keys, so a sensor
+    // change can never blend two placements into one fit.
+    assert!(v23.sql.contains("PRIMARY KEY (date, source, band)"));
+    assert!(
+      v23
+        .sql
+        .contains("PRIMARY KEY (date, source, fan_source, band)")
+    );
+    // The six sums of a least-squares fit, per table, with `n` as the
+    // presence flag.
+    for prefix in ["power_fit", "fit"] {
+      assert!(
+        v23
+          .sql
+          .contains(&format!("{prefix}_n INTEGER NOT NULL DEFAULT 0"))
+      );
+      for sum in ["x", "y", "xy", "xx", "yy"] {
+        assert!(
+          v23
+            .sql
+            .contains(&format!("{prefix}_sum_{sum} REAL NOT NULL DEFAULT 0"))
+        );
+      }
+    }
+    // Readings a day never carried read back absent, never zero.
+    assert!(v23.sql.contains("delta_temperature_median REAL,"));
+    assert!(v23.sql.contains("cpu_power_median REAL,"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 22);
+    assert_eq!(get_max_migration_version(), 23);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
     // 16 was reserved while the ambient delta columns were in flight and
-    // is now filled, so 1..=22 happens to be contiguous. The assertion
+    // is now filled, so 1..=23 happens to be contiguous. The assertion
     // below still only requires unique and ascending - see it for why
     // contiguity is not something to depend on.
-    assert_eq!(migrations.len(), 22);
+    assert_eq!(migrations.len(), 23);
   }
 
   #[test]
@@ -1163,6 +1272,101 @@ mod tests {
     assert!(
       second_row.is_err(),
       "the CHECK (id = 1) rule must survive the recreation"
+    );
+  }
+
+  /// The co-variate tables (#2068) accept one row per ambient source and
+  /// band per day, and per fan beside each, refuse a second row for the
+  /// same key, and read a reading the day never carried back as absent.
+  #[tokio::test]
+  async fn shipped_migrations_create_the_row_per_source_and_band_covariate_tables() {
+    use hardviz_core::infrastructure::database::migrate;
+    use sqlx::sqlite::SqlitePool;
+
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let url = format!("sqlite:{}", file.path().to_string_lossy());
+    let pool = SqlitePool::connect(&url).await.unwrap();
+
+    migrate::run_on_pool(&pool, get_migrations())
+      .await
+      .expect("the shipped migration set must apply cleanly");
+
+    sqlx::query(
+      "INSERT INTO cooling_covariate_daily_summary (
+         date, source, band, sample_minutes, band_share, ambient_temperature_median,
+         delta_minutes, delta_temperature_median, power_minutes, cpu_power_median,
+         power_fit_n, power_fit_sum_x, power_fit_sum_y, power_fit_sum_xy, power_fit_sum_xx, power_fit_sum_yy
+       ) VALUES
+         ('2026-08-30', 'Living Room', 'idle', 500, 0.7, 25.0, 480, 12.0, 470, 18.5, 460, 8510.0, 5640.0, 104000.0, 160000.0, 69500.0),
+         ('2026-08-30', 'Living Room', 'high', 200, 0.3, 25.5, 200, 30.0, 200, 60.0, 200, 12000.0, 6000.0, 360000.0, 720000.0, 180000.0),
+         ('2026-08-30', 'Desk', 'idle', 300, 1.0, 27.0, 300, 15.0, 0, NULL, 0, 0, 0, 0, 0, 0)",
+    )
+    .execute(&pool)
+    .await
+    .expect("two ambient sources and two bands must be able to share one summarized day");
+
+    let duplicate = sqlx::query(
+      "INSERT INTO cooling_covariate_daily_summary
+         (date, source, band, sample_minutes, band_share, ambient_temperature_median)
+       VALUES ('2026-08-30', 'Desk', 'idle', 1, 1.0, 27.0)",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      duplicate.is_err(),
+      "(date, source, band) must be the primary key: one row per source and band per day"
+    );
+
+    type CovariateRow = (String, String, Option<f64>, i64);
+    let rows: Vec<CovariateRow> = sqlx::query_as(
+      "SELECT source, band, cpu_power_median, power_fit_n
+       FROM cooling_covariate_daily_summary ORDER BY source, band",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+      rows,
+      vec![
+        ("Desk".to_string(), "idle".to_string(), None, 0),
+        (
+          "Living Room".to_string(),
+          "high".to_string(),
+          Some(60.0),
+          200
+        ),
+        (
+          "Living Room".to_string(),
+          "idle".to_string(),
+          Some(18.5),
+          460
+        ),
+      ]
+    );
+
+    sqlx::query(
+      "INSERT INTO cooling_fan_covariate_daily_summary (
+         date, source, fan_source, band, rpm_minutes, rpm_median,
+         fit_n, fit_sum_x, fit_sum_y, fit_sum_xy, fit_sum_xx, fit_sum_yy
+       ) VALUES
+         ('2026-08-30', 'Living Room', 'Fan 1', 'idle', 480, 900.0, 480, 432000.0, 5760.0, 5184000.0, 388800000.0, 69120.0),
+         ('2026-08-30', 'Living Room', 'Fan 2', 'idle', 480, 1500.0, 480, 720000.0, 5760.0, 8640000.0, 1080000000.0, 69120.0),
+         ('2026-08-30', 'Desk', 'Fan 1', 'idle', 300, 900.0, 300, 270000.0, 4500.0, 4050000.0, 243000000.0, 67500.0)",
+    )
+    .execute(&pool)
+    .await
+    .expect("each fan must get its own row beside each ambient source");
+
+    let duplicate_fan = sqlx::query(
+      "INSERT INTO cooling_fan_covariate_daily_summary
+         (date, source, fan_source, band, rpm_minutes, rpm_median)
+       VALUES ('2026-08-30', 'Desk', 'Fan 1', 'idle', 1, 900.0)",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      duplicate_fan.is_err(),
+      "(date, source, fan_source, band) must be the primary key"
     );
   }
 }
