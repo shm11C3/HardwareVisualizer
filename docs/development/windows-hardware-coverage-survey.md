@@ -175,8 +175,9 @@ clean-room gate applies. Coverage is per vendor:
 
 ## Cross-cutting limiter: PawnIO setup friction
 
-Every native path above shares the same prerequisites. They gate every
-supported chip, so any machine that fails them shows no PawnIO data
+Every PawnIO-backed path above (CPU temperature, CPU power, Super I/O)
+shares the same prerequisites; the GPU and ACPI paths do not. They gate
+every supported chip, so any machine that fails them shows no PawnIO data
 regardless of hardware. How many users that affects is not measured: the
 project has no outbound telemetry, and this survey has no installation or
 hardware-population evidence. Treat the prevalence as an unverified
