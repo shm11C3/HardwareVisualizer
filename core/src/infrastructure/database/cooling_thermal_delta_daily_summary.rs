@@ -176,23 +176,38 @@ pub(crate) async fn max_pairable_ambient_archive_timestamp_before_from_pool(
   pool: &SqlitePool,
   before: &DateTime<Utc>,
 ) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+  sqlx::query_scalar::<_, Option<DateTime<Utc>>>(&pairable_ambient_cursor_sql(""))
+    .bind(before.timestamp_millis())
+    .fetch_one(pool)
+    .await
+}
+
+/// The SQL behind [`max_pairable_ambient_archive_timestamp_before`]: the
+/// latest ambient archive timestamp before `$1` (epoch milliseconds)
+/// whose minute has a `DATA_ARCHIVE` row satisfying
+/// `hardware_predicate` - an extra `AND ...` clause on the hardware row,
+/// or empty. The co-variate rollup's cursor narrows the hardware side to
+/// classifiable minutes through it (#2068), so the two cursors share one
+/// pairing rule and one query plan.
+///
+/// The `EXISTS` correlates on a computed minute key, which no index can
+/// serve: on its own it re-scans all of `DATA_ARCHIVE` for every ambient
+/// row. The raw bracket beside it is what lets SQLite range-scan the
+/// timestamp index instead, and it is correlated to the ambient row's
+/// own timestamp so the scan covers minutes rather than years.
+///
+/// Two minutes of slack, for the same reason `raw_timestamp_bound` uses
+/// a day: a genuine match is inside the same minute, so the bracket has
+/// room to spare, and the minute-key equality remains what actually
+/// decides. `strftime` normalizes whatever ISO 8601 shape the ambient
+/// row carries into the same `%Y-%m-%dT%H:%M:%S` prefix the hardware
+/// rows compare under.
+pub(super) fn pairable_ambient_cursor_sql(hardware_predicate: &str) -> String {
   let ambient_epoch_ms = sqlite_epoch_milliseconds_of("AMBIENT_ARCHIVE.timestamp");
   let hardware_epoch_ms = sqlite_epoch_milliseconds_of("DATA_ARCHIVE.timestamp");
   let ambient_minute_key = sqlite_minute_key(&ambient_epoch_ms);
   let hardware_minute_key = sqlite_minute_key(&hardware_epoch_ms);
-  // The `EXISTS` correlates on a computed minute key, which no index can
-  // serve: on its own it re-scans all of `DATA_ARCHIVE` for every ambient
-  // row. The raw bracket beside it is what lets SQLite range-scan the
-  // timestamp index instead, and it is correlated to the ambient row's
-  // own timestamp so the scan covers minutes rather than years.
-  //
-  // Two minutes of slack, for the same reason `raw_timestamp_bound` uses
-  // a day: a genuine match is inside the same minute, so the bracket has
-  // room to spare, and the minute-key equality remains what actually
-  // decides. `strftime` normalizes whatever ISO 8601 shape the ambient
-  // row carries into the same `%Y-%m-%dT%H:%M:%S` prefix the hardware
-  // rows compare under.
-  let sql = format!(
+  format!(
     "SELECT MAX(AMBIENT_ARCHIVE.timestamp) FROM AMBIENT_ARCHIVE
      WHERE {ambient_epoch_ms} < $1
        AND EXISTS (
@@ -202,12 +217,9 @@ pub(crate) async fn max_pairable_ambient_archive_timestamp_before_from_pool(
            AND DATA_ARCHIVE.timestamp <= strftime(
                  '%Y-%m-%dT%H:%M:%S', AMBIENT_ARCHIVE.timestamp, '+2 minutes')
            AND {hardware_minute_key} = {ambient_minute_key}
+           {hardware_predicate}
        )"
-  );
-  sqlx::query_scalar::<_, Option<DateTime<Utc>>>(&sql)
-    .bind(before.timestamp_millis())
-    .fetch_one(pool)
-    .await
+  )
 }
 
 /// Every summarized source-day, oldest first and grouped by source within
