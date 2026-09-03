@@ -35,23 +35,27 @@ pub async fn select_thermal_delta_minutes_for_range(
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
 struct ThermalDeltaMinuteRow {
+  timestamp: DateTime<Utc>,
   source: String,
   ambient_temperature: f64,
   cpu_avg: Option<f64>,
   cpu_temperature_avg: Option<f64>,
   cpu_temperature_max: Option<f64>,
   cpu_temperature_min: Option<f64>,
+  cpu_power_avg: Option<f64>,
 }
 
 impl From<ThermalDeltaMinuteRow> for ThermalDeltaMinuteSample {
   fn from(row: ThermalDeltaMinuteRow) -> Self {
     Self {
+      timestamp: row.timestamp,
       source: row.source,
       ambient_temperature: row.ambient_temperature as f32,
       cpu_usage_avg: row.cpu_avg.map(|v| v as f32),
       cpu_temperature_avg: row.cpu_temperature_avg.map(|v| v as f32),
       cpu_temperature_max: row.cpu_temperature_max.map(|v| v as f32),
       cpu_temperature_min: row.cpu_temperature_min.map(|v| v as f32),
+      cpu_power_avg: row.cpu_power_avg.map(|v| v as f32),
     }
   }
 }
@@ -84,12 +88,14 @@ pub(crate) async fn select_thermal_delta_minutes_for_range_from_pool(
   // never do is average *across* sources, which the `GROUP BY` forbids.
   let sql = format!(
     "SELECT
+       DATA_ARCHIVE.timestamp AS timestamp,
        ambient.source AS source,
        ambient.ambient_temperature AS ambient_temperature,
        CAST(DATA_ARCHIVE.cpu_avg AS REAL) AS cpu_avg,
        CAST(DATA_ARCHIVE.cpu_temperature_avg AS REAL) AS cpu_temperature_avg,
        CAST(DATA_ARCHIVE.cpu_temperature_max AS REAL) AS cpu_temperature_max,
-       CAST(DATA_ARCHIVE.cpu_temperature_min AS REAL) AS cpu_temperature_min
+       CAST(DATA_ARCHIVE.cpu_temperature_min AS REAL) AS cpu_temperature_min,
+       CAST(DATA_ARCHIVE.cpu_power_avg AS REAL) AS cpu_power_avg
      FROM DATA_ARCHIVE
      JOIN (
        SELECT {ambient_minute_key} AS ambient_minute_key,
@@ -548,12 +554,14 @@ pub(crate) mod tests {
     assert_eq!(
       rows,
       vec![ThermalDeltaMinuteSample {
+        timestamp: tick,
         source: "Living Room".to_string(),
         ambient_temperature: 25.0,
         cpu_usage_avg: Some(5.0),
         cpu_temperature_avg: Some(40.0),
         cpu_temperature_max: Some(40.0),
         cpu_temperature_min: Some(40.0),
+        cpu_power_avg: None,
       }]
     );
   }

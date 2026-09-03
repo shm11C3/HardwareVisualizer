@@ -34,7 +34,7 @@
 //! zeroed one, and a machine with no ambient sensor produces no rows at
 //! all (DP-02).
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use std::collections::BTreeMap;
 
 use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, ReadingAccumulator};
@@ -48,14 +48,26 @@ use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, ReadingAccumu
 /// minute, not on the CPU sensors - a minute whose ambient reading paired
 /// with an archive row that had no usable CPU temperature still counts as
 /// coverage for that source (see [`ThermalDeltaDailySummary::coverage_minutes`]).
+///
+/// `timestamp` and `cpu_power_avg` are not read by this fold. They ride
+/// on the sample so the co-variate rollup
+/// ([`crate::persistence::cooling_covariate_rollup`], #2068) can pair the
+/// very same minutes with the fan archive and with package power: one
+/// read, one sample set, so the ΔT it fits against can never disagree
+/// with the ΔT summarized here.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ThermalDeltaMinuteSample {
+  /// The archived minute's own instant, as `DATA_ARCHIVE` stamped it.
+  pub timestamp: DateTime<Utc>,
   pub source: String,
   pub ambient_temperature: f32,
   pub cpu_usage_avg: Option<f32>,
   pub cpu_temperature_avg: Option<f32>,
   pub cpu_temperature_max: Option<f32>,
   pub cpu_temperature_min: Option<f32>,
+  /// The minute's CPU package power in watts, where the archive carried
+  /// one; `None` is a minute without a power reading, never 0 W.
+  pub cpu_power_avg: Option<f32>,
 }
 
 /// One `cooling_thermal_delta_daily_summary` row: one ambient source's
@@ -192,12 +204,14 @@ mod tests {
     ambient: f32,
   ) -> ThermalDeltaMinuteSample {
     ThermalDeltaMinuteSample {
+      timestamp: DateTime::<Utc>::from_timestamp(1_776_600_000, 0).unwrap(),
       source: source.to_string(),
       ambient_temperature: ambient,
       cpu_usage_avg: Some(cpu_usage),
       cpu_temperature_avg: Some(cpu),
       cpu_temperature_max: Some(cpu + 1.0),
       cpu_temperature_min: Some(cpu - 1.0),
+      cpu_power_avg: None,
     }
   }
 

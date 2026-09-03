@@ -17,7 +17,7 @@
 //! CPU load against CPU temperature and has no fan axis, so an hourly fan
 //! table would be collection cost with no visible value.
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use std::collections::BTreeMap;
 
 /// One archived fan reading, as the rollup reads it back.
@@ -26,8 +26,15 @@ use std::collections::BTreeMap;
 /// only ever writes readings it could actually take - so `rpm` is not
 /// optional here. An unreadable fan is represented by the absence of rows,
 /// never by a zero.
+///
+/// `timestamp` is not read by this fold; it rides on the sample so the
+/// co-variate rollup ([`crate::persistence::cooling_covariate_rollup`],
+/// #2068) can pair each reading with the hardware minute it was stamped
+/// alongside.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FanArchiveMinuteSample {
+  /// The reading's own instant, as the archive tick stamped it.
+  pub timestamp: DateTime<Utc>,
   pub source: String,
   pub rpm: u32,
 }
@@ -116,6 +123,7 @@ mod tests {
 
   fn sample(source: &str, rpm: u32) -> FanArchiveMinuteSample {
     FanArchiveMinuteSample {
+      timestamp: DateTime::<Utc>::from_timestamp(1_776_600_000, 0).unwrap(),
       source: source.to_string(),
       rpm,
     }
