@@ -61,6 +61,10 @@ test.describe("insights captures", () => {
     // Wait for the debounced archive query (250ms) + chart render.
     await page.waitForTimeout(1_000);
 
+    // No environmental sensor: the co-variate panel (#2068) has no Thermal
+    // Delta to read the factors against and stays out of the layout.
+    await expect(page.getByTestId("cooling-covariate-panel")).toHaveCount(0);
+
     await saveCapture(page, "insights-cooling");
   });
 
@@ -223,6 +227,27 @@ test.describe("insights captures", () => {
       page.getByTestId("cooling-data-state-ambient-coverage"),
     ).toBeVisible();
 
+    // The co-variate panel (#2068) below: the lead reads the ΔT change at
+    // the baseline's median power, the fan that moved is tagged as such,
+    // the fan neither window archived reads as a dash rather than 0 rpm,
+    // and the fitted lines carry their slopes.
+    const covariate = page.getByTestId("cooling-covariate-panel");
+    await expect(covariate.getByTestId("cooling-covariate-lead")).toContainText(
+      "+0.8°C",
+    );
+    await expect(
+      covariate.getByTestId("cooling-covariate-row-fan").first(),
+    ).toContainText("moved");
+    await expect(
+      covariate.getByTestId("cooling-covariate-row-fan").nth(1),
+    ).toContainText("not archived");
+    await expect(
+      covariate.getByTestId("cooling-covariate-row-fan").nth(1),
+    ).not.toContainText("0 rpm");
+    await expect(
+      covariate.getByTestId("cooling-covariate-chart"),
+    ).toContainText("1.52 K/W");
+
     // Wait for the debounced archive query (250ms) + chart render.
     await page.waitForTimeout(1_000);
 
@@ -264,6 +289,19 @@ test.describe("insights captures", () => {
     await expect(page.getByTestId("cooling-fan-lane")).toHaveCount(0);
     // The reading that did arrive still renders.
     await expect(page.getByTestId("cooling-ambient-lane")).toBeVisible();
+    // The co-variate panel has a sensor with a qualified baseline but not
+    // one minute that paired a Thermal Delta with package power: it says
+    // so, and claims no fit and no lead.
+    const covariate = page.getByTestId("cooling-covariate-panel");
+    await expect(
+      covariate.getByTestId("cooling-covariate-not-comparable"),
+    ).toBeVisible();
+    await expect(covariate.getByTestId("cooling-covariate-lead")).toHaveCount(
+      0,
+    );
+    await expect(covariate.getByTestId("cooling-covariate-chart")).toHaveCount(
+      0,
+    );
 
     await page.waitForTimeout(1_000);
 

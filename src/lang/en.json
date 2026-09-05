@@ -463,6 +463,56 @@
           "notComparable": "Not comparable ({{baselineHours}} / {{recentHours}} h)",
           "footnote": "Band medians and differences are computed over recorded hours only; a band with few hours is reported as not comparable rather than estimated."
         },
+        "covariateComparison": {
+          "title": "What moved with it",
+          "subtitle": "{{band}} load band · baseline {{baselineStart}}–{{baselineEnd}} vs. recent {{recentStart}}–{{recentEnd}} · {{baseline}} / {{recent}} paired minutes",
+          "loadFailed": "Failed to load the co-variate comparison.",
+          "notComparable": {
+            "tooFewPairedMinutes": "Not comparable — too few paired minutes in one of the windows ({{baseline}} / {{recent}} min).",
+            "differentAmbientSource": "Not comparable — the recent window's ambient source differs from the baseline's."
+          },
+          "lead": {
+            "deltaAtMatchedPower": "At the same package power, the Thermal Delta reads {{delta}} against the baseline window.",
+            "moved": "Moved with it: {{factors}}.",
+            "withinRange": "Within the baseline range: {{factors}}.",
+            "factorWithChange": "{{factor}} ({{change}})",
+            "sentenceSeparator": " "
+          },
+          "factors": {
+            "thermalDelta": "Thermal Delta ({{band}})",
+            "packagePower": "CPU package power",
+            "fan": "Fan speed · {{fanSource}}",
+            "loadBandShare": "CPU load ({{band}} band share)",
+            "ambient": "Ambient temperature"
+          },
+          "columns": {
+            "factor": "Archived alongside",
+            "baseline": "Baseline",
+            "recent": "Recent",
+            "change": "Change",
+            "tag": "Reading"
+          },
+          "tags": {
+            "moved": "moved",
+            "withinRange": "within range",
+            "notComparable": "not comparable",
+            "notArchived": "not archived",
+            "removedByDelta": "removed by ΔT",
+            "atMatchedPower": "at matched power"
+          },
+          "footnote": "“Within range” means inside the baseline window's own spread. A row that moved is a co-observation, not a cause.",
+          "units": { "points": " pt" },
+          "chart": {
+            "title": "Thermal Delta ({{unit}}) vs. package power · {{band}} band",
+            "powerAxis": "CPU package power (W)",
+            "legend": {
+              "baseline": "Baseline · {{slope}}",
+              "recent": "Recent · {{slope}}"
+            },
+            "anchorPower": "Baseline median power · {{power}} W",
+            "caption": "Each line is the least-squares fit of the Thermal Delta against package power over that window's paired minutes ({{baseline}} / {{recent}} min); no individual minutes are drawn. A steeper recent line at the same power is the observation; it does not say why."
+          }
+        },
         "dataState": {
           "title": "Data State",
           "establishing": "Establishing baseline ({{qualifyingDays}} / {{requiredDays}} days)",

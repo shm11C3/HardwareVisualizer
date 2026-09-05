@@ -108,6 +108,7 @@ fn build_specta_builder() -> Builder<Wry> {
       cooling_insight::get_cooling_band_comparison,
       cooling_insight::get_cooling_baseline_delta,
       cooling_insight::get_cooling_load_temperature_explorer,
+      cooling_insight::get_cooling_covariate_comparison,
       settings::commands::get_settings,
       settings::commands::set_language,
       settings::commands::set_theme,

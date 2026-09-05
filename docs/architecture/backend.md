@@ -507,6 +507,41 @@ fan tables are created beside an already-full `cooling_daily_summary`, and
 again on the first day of collection. The archive answers that, because it
 holds a reading from the first collected minute.
 
+The same pass also folds the day's paired co-variates
+(`core/src/persistence/cooling_covariate_rollup.rs`, #2068), so Cooling
+Insight can say which of package power, fan speed, ambient temperature and
+load mix moved with a Thermal Delta change and which did not. Per ambient
+source and CPU-load band, `cooling_covariate_daily_summary` keeps the
+sufficient statistics of a least-squares fit of ΔT against CPU package power
+(`n, Σx, Σy, Σxy, Σx², Σy²`) beside the day's medians of power, ΔT, ambient and
+the band's share of the day; `cooling_fan_covariate_daily_summary` keeps the
+same six sums for ΔT against each fan's speed, with the day's median rpm. The
+sums, not the minutes, are what is stored: slope, intercept and Pearson *r* are
+all functions of those six numbers, and the numbers add across days, so a
+window's fit is the fit over every paired minute in it without keeping a single
+minute past the Hardware Archive's own retention. Each pair inside a minute is
+independent - the ΔT-power sums see only minutes carrying both readings, a
+median sees every minute carrying its own - and nothing is interpolated across
+minutes.
+
+The fit is per ambient source for the reason the ΔT rollup is: the samples it
+folds are the ΔT rollup's own paired read, so the ΔT it fits is the ΔT
+`cooling_thermal_delta_daily_summary` holds, measured against the same sensor.
+The query boundary (`cooling_covariate_comparison::load_cooling_covariate_comparison`)
+reads the baseline side from the Thermal Delta Baseline's pinned window and
+source, the recent side from whichever source covered most of the trailing
+window, and judges nothing unless they are the same source and both windows
+clear `COOLING_COVARIATE_COMPARISON_MINIMUM_PAIRED_MINUTES` - the same gate the
+ambient-adjusted comparison applies, on the same windows. Each factor's recent
+median is reported against the baseline window's own interquartile range of
+daily medians as within range or moved; a factor never archived reports
+absent, never zero. The catch-up cursor claims the co-variate tables are behind
+only when the ambient archive holds a completed day's pairable reading whose
+hardware minute also carries a CPU usage reading - the ΔT rule narrowed by the
+one predicate this rollup's row gate adds - and the pinned ΔT baseline's window
+is exempt from retention on both tables, because the comparison's baseline side
+is read from exactly those rows.
+
 ## Settings Ownership
 
 Settings are split by consumer:

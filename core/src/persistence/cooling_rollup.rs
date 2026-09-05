@@ -22,13 +22,15 @@
 //! absence suppresses the other, and a missing reading stays absent rather
 //! than becoming 0 W.
 //!
-//! The same catch-up pass also drives two row-per-source projections of
-//! the same completed day, each folded from its own read: the per-fan
-//! speed summary ([`crate::persistence::cooling_fan_rollup`]) and the
-//! per-ambient-source Thermal Delta
-//! ([`crate::persistence::cooling_thermal_delta_rollup`], #2045/#2062).
-//! Neither lives on the daily row: how many fans or sensors a machine has
-//! is configuration-dependent, and a ΔT averaged across two sensor
+//! The same catch-up pass also drives three row-per-source projections of
+//! the same completed day: the per-fan speed summary
+//! ([`crate::persistence::cooling_fan_rollup`]), the per-ambient-source
+//! Thermal Delta ([`crate::persistence::cooling_thermal_delta_rollup`],
+//! #2045/#2062), and the per-source, per-band co-variate fit statistics
+//! folded from those two reads together
+//! ([`crate::persistence::cooling_covariate_rollup`], #2068). None lives
+//! on the daily row: how many fans or sensors a machine has is
+//! configuration-dependent, and a ΔT averaged across two sensor
 //! placements is a number no sensor observed.
 
 use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
@@ -61,7 +63,7 @@ pub const COOLING_ROLLUP_CHECK_INTERVAL_SECONDS: u64 = 60 * 60;
 /// [`CpuLoadBand::High`], which are open-ended on the low/high end
 /// respectively so no reported usage value (including a >100% or
 /// negative measurement artifact) is ever left unclassified.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CpuLoadBand {
   /// `< 10%`
   Idle,
@@ -83,6 +85,30 @@ impl CpuLoadBand {
       Self::Mid
     } else {
       Self::High
+    }
+  }
+
+  /// The band's key as the row-per-band tables store it
+  /// (`cooling_covariate_daily_summary.band`, #2068): the same lower-case
+  /// word the per-band column prefixes of `cooling_daily_summary` use.
+  pub fn column_key(self) -> &'static str {
+    match self {
+      Self::Idle => "idle",
+      Self::Low => "low",
+      Self::Mid => "mid",
+      Self::High => "high",
+    }
+  }
+
+  /// The inverse of [`Self::column_key`], or `None` for a key no band
+  /// ever wrote.
+  pub fn from_column_key(key: &str) -> Option<Self> {
+    match key {
+      "idle" => Some(Self::Idle),
+      "low" => Some(Self::Low),
+      "mid" => Some(Self::Mid),
+      "high" => Some(Self::High),
+      _ => None,
     }
   }
 }
@@ -520,6 +546,13 @@ pub struct RollupProgress {
   /// a hardware archive minute, or `None` when none do. Completed days
   /// only, and pairable only - see [`ambient_rollup_is_behind`].
   pub last_ambient_archive_date: Option<NaiveDate>,
+  /// The local day of `MAX(date)` in `cooling_covariate_daily_summary`
+  /// (#2068).
+  pub last_covariate_daily_date: Option<NaiveDate>,
+  /// The latest *completed* local day whose ambient archive rows pair
+  /// with a hardware archive minute that carries a CPU usage reading, or
+  /// `None` when none do - see [`covariate_rollup_is_behind`].
+  pub last_covariate_archive_date: Option<NaiveDate>,
 }
 
 /// Where the catch-up must resume from, given how far each rollup
@@ -545,13 +578,14 @@ pub struct RollupProgress {
 /// have source rows, and reporting them as absent is the honest outcome.
 pub fn rollup_catch_up_cursor(progress: RollupProgress) -> Option<NaiveDate> {
   // Folded over a list rather than nested `earlier_resume` calls: there
-  // are four projections now and adding the fifth should not mean
+  // are five projections now and adding the sixth should not mean
   // re-reading a pile of parentheses to check the nesting is right.
   [
     hourly_rollup_resume(progress),
     power_rollup_resume(progress),
     fan_rollup_resume(progress),
     ambient_rollup_resume(progress),
+    covariate_rollup_resume(progress),
   ]
   .into_iter()
   .reduce(earlier_resume)
@@ -719,6 +753,39 @@ fn ambient_rollup_is_behind(progress: RollupProgress) -> bool {
   }
 }
 
+/// Where the co-variate rollup needs the catch-up to resume from, or
+/// `last_daily_date` when it has kept up (#2068).
+fn covariate_rollup_resume(progress: RollupProgress) -> Option<NaiveDate> {
+  if covariate_rollup_is_behind(progress) {
+    progress.last_covariate_daily_date
+  } else {
+    progress.last_daily_date
+  }
+}
+
+/// Whether the archives hold a completed day's pairable, classifiable
+/// minute that no `cooling_covariate_daily_summary` row covers (#2068).
+///
+/// The same shape as [`ambient_rollup_is_behind`], with the archive-side
+/// evidence narrowed by one predicate to match this rollup's own row
+/// gate: a paired minute is a co-variate row only when it also carries a
+/// CPU usage reading, because without one it has no load band to be
+/// filed under. Evidence is read from the archives rather than from the
+/// ΔT table for the reason every other cursor reads the archive: the
+/// ΔT table outlives the one-minute rows, so once a sensor stopped and
+/// its last day aged out of the archive, a table-based cursor would
+/// chase a day it can never fill, forever.
+fn covariate_rollup_is_behind(progress: RollupProgress) -> bool {
+  let Some(archived) = progress.last_covariate_archive_date else {
+    return false;
+  };
+
+  match progress.last_covariate_daily_date {
+    None => true,
+    Some(recorded) => recorded < archived,
+  }
+}
+
 async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -748,6 +815,14 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
       database::cooling_thermal_delta_daily_summary::max_summarized_date().await?,
     last_ambient_archive_date:
       database::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
+        &today_start,
+      )
+      .await?
+      .map(utc_to_local_date),
+    last_covariate_daily_date:
+      database::cooling_covariate_daily_summary::max_summarized_date().await?,
+    last_covariate_archive_date:
+      database::cooling_covariate_daily_summary::max_classifiable_pairable_ambient_archive_timestamp_before(
         &today_start,
       )
       .await?
@@ -824,10 +899,25 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
       date,
       &paired_minutes,
     );
+  // The co-variates are folded from the two reads above - the same paired
+  // minutes the ΔT rollup summarizes and the same fan readings the fan
+  // rollup does - so nothing here can pair a minute those did not (#2068).
+  let covariates = crate::persistence::cooling_covariate_rollup::summarize_covariate_day(
+    date,
+    &paired_minutes,
+    &fan_minutes,
+  );
 
   let pool = database::db::get_pool().await?;
-  persist_day_rollup_from_pool(&pool, summary.as_ref(), &hours, &fans, &thermal_deltas)
-    .await
+  persist_day_rollup_from_pool(
+    &pool,
+    summary.as_ref(),
+    &hours,
+    &fans,
+    &thermal_deltas,
+    &covariates,
+  )
+  .await
 }
 
 /// Write one day's rollup projections in a single transaction.
@@ -844,6 +934,7 @@ pub(crate) async fn persist_day_rollup_from_pool(
   hours: &[crate::persistence::cooling_hourly_rollup::HourlyCoolingSummary],
   fans: &[crate::persistence::cooling_fan_rollup::FanDailySummary],
   thermal_deltas: &[crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary],
+  covariates: &crate::persistence::cooling_covariate_rollup::CovariateDaySummary,
 ) -> Result<(), sqlx::Error> {
   use crate::infrastructure::database;
 
@@ -860,6 +951,13 @@ pub(crate) async fn persist_day_rollup_from_pool(
   }
   for thermal_delta in thermal_deltas {
     database::cooling_thermal_delta_daily_summary::upsert_with(&mut *tx, thermal_delta)
+      .await?;
+  }
+  for covariate in &covariates.bands {
+    database::cooling_covariate_daily_summary::upsert_with(&mut *tx, covariate).await?;
+  }
+  for covariate in &covariates.fans {
+    database::cooling_covariate_daily_summary::upsert_fan_with(&mut *tx, covariate)
       .await?;
   }
 
@@ -968,6 +1066,21 @@ pub async fn cleanup_old_data() {
     );
   }
 
+  // The co-variate comparison reads its baseline side from the ΔT
+  // baseline's window, so the same exemption applies (#2068).
+  if let Err(e) = database::cooling_covariate_daily_summary::delete_old_data(
+    COOLING_DAILY_SUMMARY_RETENTION_DAYS,
+    &preserved_delta_windows,
+  )
+  .await
+  {
+    log_error!(
+      "Failed to delete old cooling covariate daily summary data",
+      "persistence::cooling_rollup::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
+
   // The fan rollup shares the same retention constant - it is another
   // projection of the same days - but no baseline exemption: neither
   // pinned baseline is a fan reference, so preserving fan rows inside
@@ -989,8 +1102,12 @@ pub async fn cleanup_old_data() {
 mod tests {
   use super::*;
   use crate::infrastructure::database::test_schema::{
-    COOLING_DAILY_SUMMARY_DDL, COOLING_FAN_DAILY_SUMMARY_DDL, COOLING_HOURLY_SUMMARY_DDL,
-    COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
+    COOLING_COVARIATE_DAILY_SUMMARY_DDL, COOLING_DAILY_SUMMARY_DDL,
+    COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL, COOLING_FAN_DAILY_SUMMARY_DDL,
+    COOLING_HOURLY_SUMMARY_DDL, COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
+  };
+  use crate::persistence::cooling_covariate_rollup::{
+    CovariateDailySummary, CovariateDaySummary, PairedFitStatistics,
   };
   use crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary;
 
@@ -1338,6 +1455,8 @@ mod tests {
       last_fanned_archive_date: Some(day),
       last_ambient_daily_date: Some(day),
       last_ambient_archive_date: Some(day),
+      last_covariate_daily_date: Some(day),
+      last_covariate_archive_date: Some(day),
     }
   }
 
@@ -1716,6 +1835,87 @@ mod tests {
     );
   }
 
+  // ── rollup_catch_up_cursor: co-variate backfill (#2068) ──
+  //
+  // The same four quadrants as the ambient delta backfill, on the
+  // co-variate table's own cursor and its classifiable-minute evidence.
+
+  #[test]
+  fn an_empty_covariate_table_rewinds_while_the_archives_still_pair() {
+    // The migration 23 upgrade path: the ΔT table is summarized through
+    // yesterday, the co-variate table is empty, and the archives still
+    // hold the paired minutes to fit.
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_covariate_daily_date: None,
+        last_covariate_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      None
+    );
+  }
+
+  #[test]
+  fn a_machine_without_an_ambient_sensor_does_not_rewind_the_covariate_cursor() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_covariate_daily_date: None,
+        last_covariate_archive_date: None,
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn an_ambient_sensor_that_stopped_days_ago_leaves_the_covariate_cursor_put() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_covariate_daily_date: Some(date(2026, 8, 15)),
+        last_covariate_archive_date: Some(date(2026, 8, 15)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_covariate_table_ahead_of_the_archives_is_not_treated_as_behind() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_covariate_daily_date: Some(date(2026, 8, 20)),
+        last_covariate_archive_date: Some(date(2026, 8, 1)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 20))
+    );
+  }
+
+  #[test]
+  fn a_partially_backfilled_covariate_table_resumes_from_its_last_day() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_covariate_daily_date: Some(date(2026, 8, 15)),
+        last_covariate_archive_date: Some(date(2026, 8, 20)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 15))
+    );
+  }
+
+  #[test]
+  fn the_covariate_backfill_joins_the_others_at_whichever_is_furthest_behind() {
+    assert_eq!(
+      rollup_catch_up_cursor(RollupProgress {
+        last_hourly_date: Some(date(2026, 8, 18)),
+        last_ambient_daily_date: Some(date(2026, 8, 14)),
+        last_covariate_daily_date: Some(date(2026, 8, 9)),
+        ..caught_up(date(2026, 8, 20))
+      }),
+      Some(date(2026, 8, 9))
+    );
+  }
+
   // ── persist_day_rollup_from_pool ──
 
   mod persist_day_rollup {
@@ -1771,6 +1971,40 @@ mod tests {
       }
     }
 
+    async fn create_covariate_tables(pool: &SqlitePool) {
+      create_tables(
+        pool,
+        &[
+          COOLING_COVARIATE_DAILY_SUMMARY_DDL,
+          COOLING_FAN_COVARIATE_DAILY_SUMMARY_DDL,
+        ],
+      )
+      .await;
+    }
+
+    fn no_covariates() -> CovariateDaySummary {
+      CovariateDaySummary::default()
+    }
+
+    fn covariates() -> CovariateDaySummary {
+      CovariateDaySummary {
+        bands: vec![CovariateDailySummary {
+          date: date(2026, 8, 20),
+          source: "Living Room".to_string(),
+          band: CpuLoadBand::Idle,
+          sample_minutes: 60,
+          band_share: 1.0,
+          ambient_temperature_median: 25.0,
+          delta_minutes: 60,
+          delta_temperature_median: Some(15.0),
+          power_minutes: 0,
+          cpu_power_median: None,
+          delta_per_watt: PairedFitStatistics::default(),
+        }],
+        fans: Vec::new(),
+      }
+    }
+
     fn hour() -> HourlyCoolingSummary {
       HourlyCoolingSummary {
         hour_start: date(2026, 8, 20).and_hms_opt(12, 0, 0).unwrap(),
@@ -1789,6 +2023,13 @@ mod tests {
       .unwrap()
     }
 
+    async fn covariate_row_count(pool: &SqlitePool) -> i64 {
+      sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM cooling_covariate_daily_summary")
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
     async fn daily_row_count(pool: &SqlitePool) -> i64 {
       sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM cooling_daily_summary")
         .fetch_one(pool)
@@ -1803,6 +2044,7 @@ mod tests {
       create_hourly_table(&pool).await;
       create_fan_table(&pool).await;
       create_thermal_delta_table(&pool).await;
+      create_covariate_tables(&pool).await;
 
       persist_day_rollup_from_pool(
         &pool,
@@ -1810,6 +2052,7 @@ mod tests {
         &[hour()],
         &[fan()],
         &[thermal_delta()],
+        &covariates(),
       )
       .await
       .unwrap();
@@ -1830,6 +2073,7 @@ mod tests {
         1
       );
       assert_eq!(thermal_delta_row_count(&pool).await, 1);
+      assert_eq!(covariate_row_count(&pool).await, 1);
     }
 
     #[tokio::test]
@@ -1841,12 +2085,47 @@ mod tests {
       create_hourly_table(&pool).await;
       create_fan_table(&pool).await;
       create_thermal_delta_table(&pool).await;
+      create_covariate_tables(&pool).await;
 
-      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()], &[])
-        .await
-        .unwrap();
+      persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[fan()],
+        &[],
+        &no_covariates(),
+      )
+      .await
+      .unwrap();
 
       assert_eq!(daily_row_count(&pool).await, 1);
+      assert_eq!(thermal_delta_row_count(&pool).await, 0);
+      assert_eq!(covariate_row_count(&pool).await, 0);
+    }
+
+    #[tokio::test]
+    async fn a_failed_covariate_write_rolls_the_whole_day_back() {
+      // Same contract for the co-variate projection (#2068): its cursor
+      // must never report a day as summarized while its rows are missing.
+      let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+      create_daily_table(&pool).await;
+      create_hourly_table(&pool).await;
+      create_fan_table(&pool).await;
+      create_thermal_delta_table(&pool).await;
+      // `cooling_covariate_daily_summary` deliberately absent.
+
+      let result = persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[fan()],
+        &[thermal_delta()],
+        &covariates(),
+      )
+      .await;
+
+      assert!(result.is_err(), "the day must fail as a whole");
+      assert_eq!(daily_row_count(&pool).await, 0);
       assert_eq!(thermal_delta_row_count(&pool).await, 0);
     }
 
@@ -1867,6 +2146,7 @@ mod tests {
         &[hour()],
         &[fan()],
         &[thermal_delta()],
+        &covariates(),
       )
       .await;
 
@@ -1883,9 +2163,16 @@ mod tests {
       create_hourly_table(&pool).await;
       create_fan_table(&pool).await;
 
-      persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[], &[])
-        .await
-        .unwrap();
+      persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[],
+        &[],
+        &no_covariates(),
+      )
+      .await
+      .unwrap();
 
       assert_eq!(daily_row_count(&pool).await, 1);
       assert_eq!(
@@ -1907,9 +2194,15 @@ mod tests {
       // `cooling_hourly_summary` deliberately absent, so the hourly
       // upsert fails after the daily one has already been issued.
 
-      let result =
-        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()], &[])
-          .await;
+      let result = persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[fan()],
+        &[],
+        &no_covariates(),
+      )
+      .await;
 
       assert!(result.is_err(), "the day must fail as a whole");
       assert_eq!(
@@ -1929,9 +2222,15 @@ mod tests {
       create_hourly_table(&pool).await;
       // `cooling_fan_daily_summary` deliberately absent.
 
-      let result =
-        persist_day_rollup_from_pool(&pool, Some(&summary()), &[hour()], &[fan()], &[])
-          .await;
+      let result = persist_day_rollup_from_pool(
+        &pool,
+        Some(&summary()),
+        &[hour()],
+        &[fan()],
+        &[],
+        &no_covariates(),
+      )
+      .await;
 
       assert!(result.is_err(), "the day must fail as a whole");
       assert_eq!(daily_row_count(&pool).await, 0);

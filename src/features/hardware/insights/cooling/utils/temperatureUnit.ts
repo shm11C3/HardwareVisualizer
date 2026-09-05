@@ -12,7 +12,8 @@ export const convertTemperatureDelta = (
   unit: TemperatureUnit,
 ): number => (unit === "F" ? (deltaCelsius * 9) / 5 : deltaCelsius);
 
-const MINUS_SIGN = "−";
+/** The typographic minus (U+2212) every signed reading in this view uses. */
+export const MINUS_SIGN = "−";
 
 /**
  * Render a temperature delta with an explicit sign, using a typographic

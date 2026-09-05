@@ -8,6 +8,7 @@ import type {
   CoolingBaselineDelta,
 } from "@/rspc/bindings";
 import { CoolingPeriodSelect } from "./components/CoolingPeriodSelect";
+import { CovariateComparisonPanel } from "./components/CovariateComparisonPanel";
 import { CoverageStrip } from "./components/CoverageStrip";
 import { LoadBandComparisonPanel } from "./components/LoadBandComparisonPanel";
 import { LoadTemperatureExplorerPanel } from "./components/LoadTemperatureExplorerPanel";
@@ -126,16 +127,19 @@ const CoolingInsightBody = ({
     motherboardFanSupport,
   );
   // The same three-state contract once more, for the data-state panel's
-  // ambient row: only a routed window that actually carries ambient
-  // licenses naming the sensors behind it.
+  // ambient row - only a routed window that actually carries ambient
+  // licenses naming the sensors behind it. The co-variate panel does not
+  // read it: that panel compares its own baseline and recent windows, so
+  // a routed period without ambient readings must not hide it.
+  const ambientCapability = resolveRoutedAmbientCapability(route, {
+    ambientSeries: archive.ambientSeries,
+    cpuSeries: archive.series,
+    hasLoaded: archive.hasLoaded,
+    hasError: archive.hasError,
+    ambientHasError: archive.ambientHasError,
+  });
   const ambientSources = namedAmbientSources(
-    resolveRoutedAmbientCapability(route, {
-      ambientSeries: archive.ambientSeries,
-      cpuSeries: archive.series,
-      hasLoaded: archive.hasLoaded,
-      hasError: archive.hasError,
-      ambientHasError: archive.ambientHasError,
-    }),
+    ambientCapability,
     archive.ambientSeries,
   );
 
@@ -171,6 +175,7 @@ const CoolingInsightBody = ({
         fanNotice={fanNotice}
         ambientSources={ambientSources}
       />
+      <CovariateComparisonPanel />
       <LoadTemperatureExplorerPanel />
     </div>
   );

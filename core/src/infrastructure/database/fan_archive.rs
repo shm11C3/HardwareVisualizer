@@ -82,6 +82,7 @@ pub async fn select_fan_minutes_for_range(
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 struct FanArchiveMinuteRow {
+  timestamp: DateTime<Utc>,
   source: String,
   rpm: i64,
 }
@@ -97,7 +98,7 @@ pub(crate) async fn select_fan_minutes_for_range_from_pool(
   // exact-second boundaries.
   let epoch_ms = super::archive_queries::sqlite_epoch_milliseconds();
   let sql = format!(
-    "SELECT source, CAST(rpm AS INTEGER) AS rpm
+    "SELECT timestamp, source, CAST(rpm AS INTEGER) AS rpm
      FROM FAN_ARCHIVE
      WHERE {epoch_ms} >= $1 AND {epoch_ms} < $2
      ORDER BY timestamp ASC, id ASC"
@@ -112,6 +113,7 @@ pub(crate) async fn select_fan_minutes_for_range_from_pool(
     rows
       .into_iter()
       .map(|row| FanArchiveMinuteSample {
+        timestamp: row.timestamp,
         source: row.source,
         // The column is only ever written from a `u32`; clamp rather
         // than wrap if a hand-edited database ever carries a negative.
@@ -294,10 +296,12 @@ pub(crate) mod tests {
       rows,
       vec![
         FanArchiveMinuteSample {
+          timestamp: utc("2026-08-15T00:00:00.000Z"),
           source: "Fan 1".to_string(),
           rpm: 200,
         },
         FanArchiveMinuteSample {
+          timestamp: utc("2026-08-15T23:59:59.999Z"),
           source: "Fan 2".to_string(),
           rpm: 300,
         },

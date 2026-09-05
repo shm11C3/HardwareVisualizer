@@ -6,6 +6,7 @@ import type {
   CoolingBandMedianDelta,
   CoolingBandTemperature,
   CoolingBaselineDelta,
+  CoolingCovariateComparison,
   CoolingDailyTrendPoint,
   CoolingDeltaBaselineState,
   CoolingExplorerWindow,
@@ -617,3 +618,144 @@ export const coolingBandComparisonAmbientFixture: CoolingBandComparison = {
   ],
   ambientAdjustedBaseline: AMBIENT_BASELINE,
 };
+
+/**
+ * The co-variate comparison (#2068) for the ambient machine, in the same
+ * idle band and ΔT baseline window as `coolingBaselineDeltaAmbientFixture`:
+ * the fan slowed and moved out of its baseline spread while power and the
+ * band's share stayed within theirs, and the ΔT at the baseline's median
+ * power reads a little higher, on a steeper recent line. A second fan
+ * neither window archived reads absent, never
+ * 0 rpm.
+ */
+export const coolingCovariateComparisonFixture: CoolingCovariateComparison = {
+  status: "established",
+  band: "idle",
+  baselineSource: "SwitchBot Meter Plus (Desk)",
+  baselineWindowStartDate: AMBIENT_BASELINE.windowStartDate,
+  baselineWindowEndDate: AMBIENT_BASELINE.windowEndDate,
+  recentSource: "SwitchBot Meter Plus (Desk)",
+  recentWindowStartDate: "2026-01-09",
+  recentWindowEndDate: "2026-01-15",
+  baselinePairedMinutes: 9_800,
+  recentPairedMinutes: 5_400,
+  packagePower: {
+    baseline: 18.4,
+    recent: 19.1,
+    change: 0.7,
+    judgement: "withinRange",
+  },
+  ambientTemperature: {
+    baseline: 23.4,
+    recent: 27.1,
+    change: 3.7,
+    judgement: "moved",
+  },
+  loadBandShare: {
+    baseline: 0.62,
+    recent: 0.68,
+    change: 0.06,
+    judgement: "withinRange",
+  },
+  fans: [
+    {
+      fanSource: "CPU fan",
+      speed: { baseline: 1_180, recent: 970, change: -210, judgement: "moved" },
+      baselineFit: {
+        slope: -0.012,
+        intercept: 42.3,
+        pearsonR: -0.62,
+        pairedMinutes: 9_800,
+      },
+      recentFit: {
+        slope: -0.011,
+        intercept: 39.4,
+        pearsonR: -0.58,
+        pairedMinutes: 5_400,
+      },
+    },
+    {
+      fanSource: "Case fan 2",
+      speed: {
+        baseline: null,
+        recent: null,
+        change: null,
+        judgement: "absent",
+      },
+      baselineFit: null,
+      recentFit: null,
+    },
+  ],
+  baselineFit: {
+    slope: 1.31,
+    intercept: 4.0,
+    pearsonR: 0.91,
+    pairedMinutes: 9_800,
+  },
+  recentFit: {
+    slope: 1.52,
+    intercept: 0.9,
+    pearsonR: 0.93,
+    pairedMinutes: 5_400,
+  },
+  // recentFit(18.4) - baselineFit(18.4).
+  deltaAtBaselineMedianPower: 0.764,
+  comparable: true,
+  comparability: "comparable",
+};
+
+export const coolingCovariateComparisonEstablishingFixture: CoolingCovariateComparison =
+  { status: "establishing", qualifyingDays: 4, requiredDays: 7 };
+
+/**
+ * What a machine with no environmental sensor answers: its ΔT baseline
+ * never qualifies a day, so the comparison is establishing at zero - the
+ * state the panel reads as "no evidence of a sensor" and hides on.
+ */
+export const coolingCovariateComparisonNoAmbientFixture: CoolingCovariateComparison =
+  { status: "establishing", qualifyingDays: 0, requiredDays: 7 };
+
+/**
+ * `?coolingAmbient=only`: the ambient archive holds readings but the
+ * hardware archive holds nothing for the window, so no minute ever paired
+ * a Thermal Delta with package power. The comparison is established - the
+ * sensor exists and its baseline qualified - but too thin to compare, and
+ * every factor the hardware archive would have supplied is absent.
+ */
+export const coolingCovariateComparisonAmbientOnlyFixture: CoolingCovariateComparison =
+  {
+    status: "established",
+    band: "idle",
+    baselineSource: "SwitchBot Meter Plus (Desk)",
+    baselineWindowStartDate: AMBIENT_BASELINE.windowStartDate,
+    baselineWindowEndDate: AMBIENT_BASELINE.windowEndDate,
+    recentSource: null,
+    recentWindowStartDate: "2026-01-09",
+    recentWindowEndDate: "2026-01-15",
+    baselinePairedMinutes: 0,
+    recentPairedMinutes: 0,
+    packagePower: {
+      baseline: null,
+      recent: null,
+      change: null,
+      judgement: "absent",
+    },
+    ambientTemperature: {
+      baseline: 23.4,
+      recent: 27.1,
+      change: 3.7,
+      judgement: "notComparable",
+    },
+    loadBandShare: {
+      baseline: null,
+      recent: null,
+      change: null,
+      judgement: "absent",
+    },
+    fans: [],
+    baselineFit: null,
+    recentFit: null,
+    deltaAtBaselineMedianPower: null,
+    comparable: false,
+    comparability: "tooFewPairedMinutes",
+  };
