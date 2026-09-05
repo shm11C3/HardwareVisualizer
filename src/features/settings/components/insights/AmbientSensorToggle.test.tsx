@@ -6,7 +6,13 @@ import { AmbientSensorToggle } from "./AmbientSensorToggle";
 const mocks = vi.hoisted(() => ({
   platform: vi.fn(() => "windows"),
   toggleSwitchbotMeterAtom: vi.fn(async (_value: boolean) => true),
+  setSwitchbotMeterDevice: vi.fn(async (_deviceId: string) => true),
   switchbotMeterEnabled: false,
+  hardwareArchiveEnabled: true,
+}));
+
+vi.mock("./AmbientSensorPicker", () => ({
+  AmbientSensorPicker: () => <div>Device picker</div>,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -27,6 +33,8 @@ vi.mock("react-i18next", () => ({
           "Needs a working Bluetooth adapter.",
         "pages.settings.insights.ambientSensor.rebind":
           "Turn this off and on again to switch to a different meter.",
+        "pages.settings.insights.ambientSensor.picker.needsArchive":
+          "Start recording Insights above to choose a device.",
       })[key] ?? key,
   }),
 }));
@@ -39,11 +47,14 @@ vi.mock("@/components/shared/System", () => ({
 vi.mock("@/features/settings/hooks/useSettingsAtom", () => ({
   useSettingsAtom: () => ({
     settings: {
+      hardwareArchive: { enabled: mocks.hardwareArchiveEnabled },
       environmentalSensors: {
         switchbotMeterEnabled: mocks.switchbotMeterEnabled,
+        switchbotMeterDevice: null,
       },
     },
     toggleSwitchbotMeterAtom: mocks.toggleSwitchbotMeterAtom,
+    setSwitchbotMeterDevice: mocks.setSwitchbotMeterDevice,
   }),
 }));
 
@@ -53,6 +64,7 @@ describe("AmbientSensorToggle", () => {
     mocks.platform.mockReturnValue("windows");
     mocks.toggleSwitchbotMeterAtom.mockResolvedValue(true);
     mocks.switchbotMeterEnabled = false;
+    mocks.hardwareArchiveEnabled = true;
   });
 
   afterEach(() => {
@@ -152,6 +164,41 @@ describe("AmbientSensorToggle", () => {
 
     expect(mocks.toggleSwitchbotMeterAtom).toHaveBeenCalledWith(true);
     expect(screen.queryByText("Restart Required")).not.toBeInTheDocument();
+  });
+
+  it("offers the device list while the source and Insights recording are on", () => {
+    mocks.switchbotMeterEnabled = true;
+
+    render(<AmbientSensorToggle />);
+
+    expect(screen.getByText("Device picker")).toBeInTheDocument();
+  });
+
+  /**
+   * The scan is only started inside the Hardware Archive branch, so
+   * with recording off the list would stay at "listening" forever with
+   * nothing to say why. The dependency is stated instead.
+   */
+  it("explains that Insights recording must be on before a device can be chosen", () => {
+    mocks.switchbotMeterEnabled = true;
+    mocks.hardwareArchiveEnabled = false;
+
+    render(<AmbientSensorToggle />);
+
+    expect(
+      screen.getByText("Start recording Insights above to choose a device."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Device picker")).not.toBeInTheDocument();
+  });
+
+  it("says nothing about Insights recording while the source itself is off", () => {
+    mocks.hardwareArchiveEnabled = false;
+
+    render(<AmbientSensorToggle />);
+
+    expect(
+      screen.queryByText("Start recording Insights above to choose a device."),
+    ).not.toBeInTheDocument();
   });
 
   it("is hidden outside Windows, where no scan can run", () => {

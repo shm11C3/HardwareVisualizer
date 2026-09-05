@@ -63,6 +63,7 @@ pub mod commands {
     ExternalComponentGuidanceState, normalize_external_component_guidance_key,
   };
   use crate::tray::widget::TrayWidgetSettings;
+  use hardviz_core::settings::environmental_sensors::normalize_device_id;
   use serde_json::json;
   use std::sync::Arc;
   use tauri::{Emitter, EventTarget, Manager, Window};
@@ -689,18 +690,19 @@ pub mod commands {
   /// mid-session. The settings screen says so.
   #[tauri::command]
   #[specta::specta]
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
   pub async fn set_switchbot_meter_enabled(
     window: Window,
     state: tauri::State<'_, AppState>,
+    workers: tauri::State<'_, crate::workers::WorkersState>,
     new_value: bool,
   ) -> Result<(), String> {
     if let Err(e) = update_core_settings(&state, |s| {
       s.environmental_sensors.switchbot_meter_enabled = new_value;
-      // Turning the source off forgets which meter it was bound to, so
-      // switching the toggle off and on again is how a user re-binds to
-      // a different one. There is no other way to change the binding,
-      // and keeping a stale device would make re-enabling wait forever
-      // on a meter the user may have given away.
+      // Turning the source off forgets the chosen device. Keeping it
+      // would make re-enabling wait on a meter the user may have given
+      // away, and asking again is cheap: the picker lists what is in
+      // range the moment the source is back on.
       if !new_value {
         s.environmental_sensors.switchbot_meter_device = None;
       }
@@ -708,7 +710,67 @@ pub mod commands {
       emit_error(&window)?;
       return Err(e);
     }
+
+    // The scan itself only stops at the next launch, but the forgotten
+    // choice must stop archiving now: otherwise the settings screen says
+    // no device is chosen while rows keep arriving under the old one.
+    if !new_value {
+      rebind_live_ambient_provider(&workers, None)?;
+    }
     Ok(())
+  }
+
+  /// Point the running ambient provider at the stored choice. Called only
+  /// after the settings write succeeded: a refused write leaves the source
+  /// as it was, and the live provider must agree with the file rather than
+  /// run ahead of it.
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
+  fn rebind_live_ambient_provider(
+    workers: &crate::workers::WorkersState,
+    device_id: Option<String>,
+  ) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+      let provider = workers
+        .switchbot_provider
+        .lock()
+        .map_err(|_| "ambient provider lock was poisoned".to_string())?
+        .clone();
+      if let Some(provider) = provider {
+        provider.rebind(device_id);
+      }
+    }
+    Ok(())
+  }
+
+  /// Choose which SwitchBot device the ambient source reads, or clear the choice with `None`. The id is the device's Bluetooth address as twelve hex digits, as listed by `get_ambient_sensor_candidates`; it is stored lowercase, and anything else is refused. The running source switches to the new device at once, so no restart is needed.
+  #[tauri::command]
+  #[specta::specta]
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
+  pub async fn set_switchbot_meter_device(
+    window: Window,
+    state: tauri::State<'_, AppState>,
+    workers: tauri::State<'_, crate::workers::WorkersState>,
+    device_id: Option<String>,
+  ) -> Result<(), String> {
+    // Validated here, at the boundary, so the settings file can only ever
+    // hold a value the scan can match. Core reads any other form as
+    // "nothing chosen", which would silently discard the user's pick.
+    let device_id = device_id
+      .map(|id| {
+        normalize_device_id(&id)
+          .ok_or_else(|| format!("SwitchBot device id must be twelve hex digits: {id:?}"))
+      })
+      .transpose()?;
+
+    if let Err(e) = update_core_settings(&state, |s| {
+      s.environmental_sensors.switchbot_meter_device = device_id.clone();
+    }) {
+      emit_error(&window)?;
+      return Err(e);
+    }
+
+    rebind_live_ambient_provider(&workers, device_id)
   }
 
   #[tauri::command]

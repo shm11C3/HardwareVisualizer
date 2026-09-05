@@ -11,6 +11,8 @@
 //! [`BaselineState::Establishing`](crate::persistence::cooling_baseline::BaselineState::Establishing)
 //! rather than a partial comparison.
 
+use std::collections::BTreeMap;
+
 use chrono::{Duration, NaiveDate};
 
 use crate::persistence::cooling_baseline::{
@@ -18,8 +20,9 @@ use crate::persistence::cooling_baseline::{
 };
 use crate::persistence::cooling_delta_baseline::DeltaBaselineState;
 #[cfg(test)]
-use crate::persistence::cooling_rollup::{AmbientDeltaSummary, PowerSummary};
+use crate::persistence::cooling_rollup::PowerSummary;
 use crate::persistence::cooling_rollup::{BandSummary, CpuLoadBand, DailyCoolingSummary};
+use crate::persistence::cooling_thermal_delta_rollup::ThermalDeltaDailySummary;
 
 /// Minimum sample minutes a band's window must carry before that band's
 /// comparison is meaningful. Applied independently to the baseline side
@@ -84,11 +87,18 @@ impl BandDeltaWindowSummary {
 /// than reconstructing a pairing that never happened.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AmbientAdjustedBandComparison {
+  /// The ΔT baseline's own source over its own window.
   pub baseline: BandDeltaWindowSummary,
+  /// The recent window's ΔT, read from whichever ambient source covered
+  /// the most of it (see [`dominant_delta_source`]).
   pub recent: BandDeltaWindowSummary,
   /// Whether both windows carry enough paired minutes for the
   /// ambient-adjusted reading to mean anything, on the same
-  /// both-sides-or-nothing rule as [`BandComparison::comparable`].
+  /// both-sides-or-nothing rule as [`BandComparison::comparable`] - and
+  /// whether they were measured against the *same* sensor (#2062). A
+  /// recent window from a different source than the baseline's is
+  /// reported but never compared: the two are different quantities, not
+  /// a drift.
   pub comparable: bool,
 }
 
@@ -155,12 +165,15 @@ pub enum CoolingBandComparison {
 /// `window_end_date` is the most recent completed local day (yesterday),
 /// matching [`crate::persistence::cooling_baseline::derive_cooling_baseline`].
 ///
-/// `delta_baseline_state` is a second, independent lifecycle (#2045): the
-/// ΔT baseline establishes over its own window, which is generally later
+/// `delta_days` carries the row-per-source Thermal Delta rollup the
+/// ambient-adjusted readings are built from (#2045, #2062), and
+/// `delta_baseline_state` is a second, independent lifecycle: the ΔT
+/// baseline establishes over its own window, which is generally later
 /// than the absolute one on any machine that added an ambient sensor
 /// after it had been running for a while.
 pub fn derive_band_comparison(
   days: &[DailyCoolingSummary],
+  delta_days: &[ThermalDeltaDailySummary],
   baseline_state: BaselineState,
   delta_baseline_state: DeltaBaselineState,
   window_end_date: NaiveDate,
@@ -184,6 +197,20 @@ pub fn derive_band_comparison(
 
   let recent_start =
     window_end_date - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+  // Note the *ΔT* baseline's own source and window, not the absolute
+  // window above: the two are different date ranges whenever ambient
+  // collection started later than the machine did.
+  let delta_reference = match &delta_baseline_state {
+    DeltaBaselineState::Established {
+      source,
+      window_start_date,
+      window_end_date,
+      ..
+    } => Some((source.as_str(), (*window_start_date, *window_end_date))),
+    DeltaBaselineState::Establishing { .. } => None,
+  };
+  let recent_delta_source =
+    dominant_delta_source(delta_days, recent_start, window_end_date);
 
   let bands = [
     CpuLoadBand::Idle,
@@ -200,19 +227,14 @@ pub fn derive_band_comparison(
       baseline,
       recent,
       comparable,
-      // Note the *ΔT* baseline window, not the absolute one above: the
-      // two are different date ranges whenever ambient collection
-      // started later than the machine did.
-      ambient_adjusted: delta_baseline_state
-        .window()
-        .and_then(|delta_baseline_window| {
-          ambient_adjusted_band_comparison(
-            days,
-            band,
-            delta_baseline_window,
-            (recent_start, window_end_date),
-          )
-        }),
+      ambient_adjusted: delta_reference.and_then(|(baseline_source, baseline_window)| {
+        ambient_adjusted_band_comparison(
+          delta_days,
+          band,
+          (baseline_source, baseline_window),
+          (recent_delta_source, (recent_start, window_end_date)),
+        )
+      }),
     }
   });
 
@@ -262,13 +284,18 @@ fn band_window_summary(
   }
 }
 
-/// [`band_window_summary`] over the day's ΔT bands instead of its absolute
-/// temperature bands (#2045). Same sample-minute weighting - the ΔT band's
-/// own `sample_minutes`, which counts only the minutes that carried both
-/// readings, so a day whose ambient sensor dropped out for half the day
-/// weighs exactly the half it observed.
+/// [`band_window_summary`] over one ambient source's ΔT rows instead of
+/// the day's absolute temperature bands (#2045). Same sample-minute
+/// weighting - the ΔT band's own `sample_minutes`, which counts only the
+/// minutes that carried both readings, so a day whose ambient sensor
+/// dropped out for half the day weighs exactly the half it observed.
+///
+/// Reads `source`'s rows only. Folding two sources' rows into one window
+/// would average two sensor placements into a ΔT no sensor observed, so
+/// there is deliberately no source-agnostic variant of this function.
 pub(crate) fn band_delta_window_summary(
-  days: &[DailyCoolingSummary],
+  days: &[ThermalDeltaDailySummary],
+  source: &str,
   band: CpuLoadBand,
   start: NaiveDate,
   end: NaiveDate,
@@ -276,8 +303,11 @@ pub(crate) fn band_delta_window_summary(
   let mut weighted_sum = 0.0f64;
   let mut sample_minutes: u64 = 0;
 
-  for day in days.iter().filter(|d| d.date >= start && d.date <= end) {
-    let summary = day.ambient.band(band);
+  for day in days
+    .iter()
+    .filter(|d| d.source == source && d.date >= start && d.date <= end)
+  {
+    let summary = day.band(band);
     let Some(avg) = summary.avg else { continue };
     weighted_sum += avg as f64 * summary.sample_minutes as f64;
     sample_minutes += summary.sample_minutes as u64;
@@ -290,28 +320,71 @@ pub(crate) fn band_delta_window_summary(
   }
 }
 
+/// The ambient source with the most paired coverage across `[start, end]`
+/// (inclusive), or `None` when no source paired a minute in it.
+///
+/// This is the MVP rule for which sensor a window is *read* from (#2062):
+/// Cooling Insight has no source picker yet, so a window reports the
+/// sensor that actually observed most of it, and only that sensor - never
+/// a blend. A tie falls to the label that sorts first, so the answer is
+/// the same on every read.
+pub(crate) fn dominant_delta_source(
+  days: &[ThermalDeltaDailySummary],
+  start: NaiveDate,
+  end: NaiveDate,
+) -> Option<&str> {
+  let mut coverage_by_source: BTreeMap<&str, u64> = BTreeMap::new();
+  for day in days.iter().filter(|d| d.date >= start && d.date <= end) {
+    *coverage_by_source.entry(day.source.as_str()).or_default() +=
+      day.coverage_minutes as u64;
+  }
+
+  // `max_by_key` keeps the *last* maximum, so iterate in reverse to make
+  // the tie fall to the first label in `BTreeMap` order.
+  coverage_by_source
+    .into_iter()
+    .rev()
+    .max_by_key(|(_, coverage)| *coverage)
+    .map(|(source, _)| source)
+}
+
 /// The ambient-adjusted reading of one band's two windows, or `None` when
 /// neither window recorded a ΔT minute for this band.
+///
+/// The baseline side is read from the ΔT baseline's own source; the recent
+/// side from whichever source dominates the recent window. They are
+/// comparable only when both are thick enough *and* are the same source -
+/// a sensor change turns "recent minus baseline" into a difference between
+/// two placements, which is not a drift in the cooling (#2062).
 ///
 /// The `None` case is the whole reason ambient stays optional: a machine
 /// with no environmental sensor produces it for every band, and the
 /// response then carries exactly the facts it carried before #2045.
 fn ambient_adjusted_band_comparison(
-  days: &[DailyCoolingSummary],
+  days: &[ThermalDeltaDailySummary],
   band: CpuLoadBand,
-  baseline_window: (NaiveDate, NaiveDate),
-  recent_window: (NaiveDate, NaiveDate),
+  (baseline_source, baseline_window): (&str, (NaiveDate, NaiveDate)),
+  (recent_source, recent_window): (Option<&str>, (NaiveDate, NaiveDate)),
 ) -> Option<AmbientAdjustedBandComparison> {
-  let baseline =
-    band_delta_window_summary(days, band, baseline_window.0, baseline_window.1);
-  let recent = band_delta_window_summary(days, band, recent_window.0, recent_window.1);
+  let baseline = band_delta_window_summary(
+    days,
+    baseline_source,
+    band,
+    baseline_window.0,
+    baseline_window.1,
+  );
+  let recent = recent_source.map_or_else(BandDeltaWindowSummary::default, |source| {
+    band_delta_window_summary(days, source, band, recent_window.0, recent_window.1)
+  });
 
   if baseline.sample_minutes == 0 && recent.sample_minutes == 0 {
     return None;
   }
 
   Some(AmbientAdjustedBandComparison {
-    comparable: baseline.is_comparable() && recent.is_comparable(),
+    comparable: baseline.is_comparable()
+      && recent.is_comparable()
+      && recent_source == Some(baseline_source),
     baseline,
     recent,
   })
@@ -346,18 +419,27 @@ pub(crate) async fn load_cooling_band_comparison_from_pool(
       .await?;
   let idle_samples: Vec<_> = days.iter().map(to_idle_sample).collect();
   let baseline_state = resolve_baseline_state_from_pool(pool, &idle_samples).await?;
+  // The Thermal Delta lives in its own row-per-source table (#2062), read
+  // whole for the same reason the daily table is.
+  let delta_days =
+    database::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries_from_pool(
+      pool,
+    )
+    .await?;
   // Resolved through its own resolver against its own pinned row, for
   // the same reason the absolute one is: re-deriving would drift once
   // the establishment window's rows age out.
   let delta_baseline_state =
     crate::persistence::cooling_delta_baseline::resolve_delta_baseline_state_from_pool(
-      pool, &days,
+      pool,
+      &delta_days,
     )
     .await?;
   let yesterday = today - Duration::days(1);
 
   Ok(derive_band_comparison(
     &days,
+    &delta_days,
     baseline_state,
     delta_baseline_state,
     yesterday,
@@ -377,7 +459,7 @@ mod tests {
   use super::*;
   use crate::infrastructure::database::test_schema::{
     COOLING_BASELINE_DDL, COOLING_DAILY_SUMMARY_DDL, COOLING_DELTA_BASELINE_DDL,
-    create_tables,
+    COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL, create_tables,
   };
   use crate::persistence::cooling_baseline::COOLING_BASELINE_QUALIFYING_IDLE_MINUTES;
 
@@ -407,12 +489,17 @@ mod tests {
     }
   }
 
-  /// A ΔT baseline established over `[start, end]`. Deliberately taken
-  /// as its own dates rather than reusing the absolute baseline's: the
-  /// two windows differ on any machine whose ambient sensor arrived late,
-  /// and these tests should be able to say so.
-  fn established_delta_baseline(start: NaiveDate, end: NaiveDate) -> DeltaBaselineState {
+  /// A ΔT baseline established from `source` over `[start, end]`.
+  /// Deliberately taken as its own dates rather than reusing the absolute
+  /// baseline's: the two windows differ on any machine whose ambient
+  /// sensor arrived late, and these tests should be able to say so.
+  fn established_delta_baseline(
+    source: &str,
+    start: NaiveDate,
+    end: NaiveDate,
+  ) -> DeltaBaselineState {
     DeltaBaselineState::Established {
+      source: source.to_string(),
       delta_temperature_avg: 10.0,
       window_start_date: start,
       window_end_date: end,
@@ -428,14 +515,8 @@ mod tests {
     }
   }
 
-  /// One day carrying only an idle temperature band and, optionally, an
-  /// idle ΔT band on top of it (#2045).
-  fn idle_day(
-    date: NaiveDate,
-    temperature: f32,
-    minutes: u32,
-    delta: Option<(f32, u32)>,
-  ) -> DailyCoolingSummary {
+  /// One day carrying only an idle temperature band.
+  fn idle_day(date: NaiveDate, temperature: f32, minutes: u32) -> DailyCoolingSummary {
     DailyCoolingSummary {
       date,
       coverage_minutes: 1440,
@@ -444,14 +525,24 @@ mod tests {
       mid: empty_band(),
       high: empty_band(),
       power: PowerSummary::default(),
-      ambient: match delta {
-        Some((avg, delta_minutes)) => AmbientDeltaSummary {
-          coverage_minutes: delta_minutes,
-          idle: band(avg, delta_minutes),
-          ..AmbientDeltaSummary::default()
-        },
-        None => AmbientDeltaSummary::default(),
-      },
+    }
+  }
+
+  /// One source's ΔT row carrying only an idle band (#2045, #2062).
+  fn idle_delta_day(
+    date: NaiveDate,
+    source: &str,
+    delta: f32,
+    minutes: u32,
+  ) -> ThermalDeltaDailySummary {
+    ThermalDeltaDailySummary {
+      date,
+      source: source.to_string(),
+      coverage_minutes: minutes,
+      idle: band(delta, minutes),
+      low: empty_band(),
+      mid: empty_band(),
+      high: empty_band(),
     }
   }
 
@@ -478,12 +569,13 @@ mod tests {
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
-      idle_day(baseline_start, 30.0, 60, None),
-      idle_day(recent_start, 50.0, 60, None),
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 50.0, 60),
     ];
 
     let result = derive_band_comparison(
       &days,
+      &[],
       established_baseline(baseline_start, baseline_start),
       establishing_delta_baseline(),
       recent_end,
@@ -516,14 +608,19 @@ mod tests {
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
-      idle_day(baseline_start, 30.0, 60, Some((10.0, 60))),
-      idle_day(recent_start, 50.0, 60, Some((10.0, 60))),
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 50.0, 60),
+    ];
+    let delta_days = vec![
+      idle_delta_day(baseline_start, "Desk", 10.0, 60),
+      idle_delta_day(recent_start, "Desk", 10.0, 60),
     ];
 
     let idle = idle_comparison(derive_band_comparison(
       &days,
+      &delta_days,
       established_baseline(baseline_start, baseline_start),
-      established_delta_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
       recent_end,
     ));
 
@@ -546,16 +643,22 @@ mod tests {
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
+      idle_day(baseline_start, 30.0, 1440),
+      idle_day(baseline_end, 30.0, 1440),
+      idle_day(recent_start, 50.0, 1440),
+    ];
+    let delta_days = vec![
       // 1440 temperature minutes but only 30 of them paired.
-      idle_day(baseline_start, 30.0, 1440, Some((8.0, 30))),
-      idle_day(baseline_end, 30.0, 1440, Some((12.0, 90))),
-      idle_day(recent_start, 50.0, 1440, Some((20.0, 60))),
+      idle_delta_day(baseline_start, "Desk", 8.0, 30),
+      idle_delta_day(baseline_end, "Desk", 12.0, 90),
+      idle_delta_day(recent_start, "Desk", 20.0, 60),
     ];
 
     let idle = idle_comparison(derive_band_comparison(
       &days,
+      &delta_days,
       established_baseline(baseline_start, baseline_end),
-      established_delta_baseline(baseline_start, baseline_end),
+      established_delta_baseline("Desk", baseline_start, baseline_end),
       recent_end,
     ));
 
@@ -578,19 +681,24 @@ mod tests {
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let short = COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES - 1;
     let days = vec![
-      idle_day(baseline_start, 30.0, 60, Some((10.0, short))),
-      idle_day(
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 50.0, 60),
+    ];
+    let delta_days = vec![
+      idle_delta_day(baseline_start, "Desk", 10.0, short),
+      idle_delta_day(
         recent_start,
-        50.0,
-        60,
-        Some((14.0, COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES)),
+        "Desk",
+        14.0,
+        COOLING_AMBIENT_ADJUSTED_MINIMUM_SAMPLE_MINUTES,
       ),
     ];
 
     let idle = idle_comparison(derive_band_comparison(
       &days,
+      &delta_days,
       established_baseline(baseline_start, baseline_start),
-      established_delta_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
       recent_end,
     ));
 
@@ -614,14 +722,16 @@ mod tests {
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
     let days = vec![
-      idle_day(baseline_start, 30.0, 60, None),
-      idle_day(recent_start, 50.0, 60, Some((14.0, 60))),
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 50.0, 60),
     ];
+    let delta_days = vec![idle_delta_day(recent_start, "Desk", 14.0, 60)];
 
     let idle = idle_comparison(derive_band_comparison(
       &days,
+      &delta_days,
       established_baseline(baseline_start, baseline_start),
-      established_delta_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
       recent_end,
     ));
 
@@ -633,6 +743,122 @@ mod tests {
   }
 
   #[test]
+  fn a_recent_window_from_a_different_source_than_the_baseline_is_not_comparable() {
+    // The user switched sensors after the baseline was pinned against the
+    // desk one. The recent window is rich, and it is reported - but
+    // "recent minus baseline" would be the difference between two
+    // placements, not a drift in the cooling (#2062).
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 30.0, 60),
+    ];
+    let delta_days = vec![
+      idle_delta_day(baseline_start, "Desk", 10.0, 600),
+      idle_delta_day(recent_start, "Living Room", 13.0, 600),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      &delta_days,
+      established_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
+    assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
+    assert_eq!(adjusted.recent.delta_avg, Some(13.0));
+    assert!(
+      !adjusted.comparable,
+      "two sensor placements must never be compared as if they were one"
+    );
+  }
+
+  #[test]
+  fn the_baseline_window_reads_only_the_baselines_own_source() {
+    // Both sensors archived the baseline window. The baseline side must
+    // be the pinned source's rows alone, never a blend of the two.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 30.0, 60),
+    ];
+    let delta_days = vec![
+      idle_delta_day(baseline_start, "Desk", 10.0, 600),
+      idle_delta_day(baseline_start, "Living Room", 16.0, 600),
+      idle_delta_day(recent_start, "Desk", 11.0, 600),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      &delta_days,
+      established_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
+    assert_eq!(adjusted.baseline.delta_avg, Some(10.0));
+    assert_eq!(adjusted.recent.delta_avg, Some(11.0));
+    assert!(adjusted.comparable);
+  }
+
+  #[test]
+  fn the_recent_window_reads_the_source_with_the_most_coverage() {
+    // Two sensors overlap in the recent window; the one that observed
+    // more of it is the one reported, and only it.
+    let baseline_start = date(2026, 8, 1);
+    let recent_end = date(2026, 8, 20);
+    let recent_start =
+      recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
+    let days = vec![
+      idle_day(baseline_start, 30.0, 60),
+      idle_day(recent_start, 30.0, 60),
+    ];
+    let delta_days = vec![
+      idle_delta_day(baseline_start, "Living Room", 10.0, 600),
+      idle_delta_day(recent_start, "Desk", 30.0, 100),
+      idle_delta_day(recent_start, "Living Room", 12.0, 900),
+    ];
+
+    let idle = idle_comparison(derive_band_comparison(
+      &days,
+      &delta_days,
+      established_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Living Room", baseline_start, baseline_start),
+      recent_end,
+    ));
+
+    let adjusted = idle.ambient_adjusted.expect("both sides have ambient");
+    assert_eq!(adjusted.recent.delta_avg, Some(12.0));
+    assert_eq!(adjusted.recent.sample_minutes, 900);
+    assert!(adjusted.comparable);
+  }
+
+  #[test]
+  fn a_coverage_tie_between_sources_falls_to_the_same_label_every_time() {
+    let start = date(2026, 8, 14);
+    let delta_days = vec![
+      idle_delta_day(start, "Living Room", 12.0, 600),
+      idle_delta_day(start, "Desk", 30.0, 600),
+    ];
+
+    assert_eq!(
+      dominant_delta_source(&delta_days, start, start),
+      Some("Desk"),
+      "a tie must be broken deterministically, by label order"
+    );
+    assert_eq!(dominant_delta_source(&[], start, start), None);
+  }
+
+  #[test]
   fn an_ambient_adjusted_reading_stays_within_its_own_band() {
     // A ΔT recorded in the high band must not surface on the idle band's
     // ambient-adjusted reading.
@@ -640,7 +866,7 @@ mod tests {
     let recent_end = date(2026, 8, 20);
     let recent_start =
       recent_end - Duration::days(COOLING_BASELINE_RECENT_WINDOW_DAYS as i64 - 1);
-    let high_only = |date: NaiveDate, delta: f32| DailyCoolingSummary {
+    let high_only = |date: NaiveDate| DailyCoolingSummary {
       date,
       coverage_minutes: 1440,
       idle: empty_band(),
@@ -648,21 +874,27 @@ mod tests {
       mid: empty_band(),
       high: band(70.0, 60),
       power: PowerSummary::default(),
-      ambient: AmbientDeltaSummary {
-        coverage_minutes: 60,
-        high: band(delta, 60),
-        ..AmbientDeltaSummary::default()
-      },
     };
-    let days = vec![
-      high_only(baseline_start, 40.0),
-      high_only(recent_start, 45.0),
+    let high_only_delta = |date: NaiveDate, delta: f32| ThermalDeltaDailySummary {
+      date,
+      source: "Desk".to_string(),
+      coverage_minutes: 60,
+      idle: empty_band(),
+      low: empty_band(),
+      mid: empty_band(),
+      high: band(delta, 60),
+    };
+    let days = vec![high_only(baseline_start), high_only(recent_start)];
+    let delta_days = vec![
+      high_only_delta(baseline_start, 40.0),
+      high_only_delta(recent_start, 45.0),
     ];
 
     let result = derive_band_comparison(
       &days,
+      &delta_days,
       established_baseline(baseline_start, baseline_start),
-      established_delta_baseline(baseline_start, baseline_start),
+      established_delta_baseline("Desk", baseline_start, baseline_start),
       recent_end,
     );
     let CoolingBandComparison::Established { bands, .. } = result else {
@@ -680,6 +912,7 @@ mod tests {
   #[test]
   fn an_unestablished_baseline_reports_establishing_for_every_band() {
     let result = derive_band_comparison(
+      &[],
       &[],
       BaselineState::Establishing {
         qualifying_days: 2,
@@ -715,7 +948,6 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: baseline_end,
@@ -725,7 +957,6 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -735,7 +966,6 @@ mod tests {
         mid: empty_band(),
         high: band(70.0, 40),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_end,
@@ -745,12 +975,12 @@ mod tests {
         mid: empty_band(),
         high: band(72.0, 20),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
     ];
 
     let result = derive_band_comparison(
       &days,
+      &[],
       established_baseline(baseline_start, baseline_end),
       establishing_delta_baseline(),
       recent_end,
@@ -819,7 +1049,6 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -829,12 +1058,12 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
     ];
 
     let result = derive_band_comparison(
       &days,
+      &[],
       established_baseline(baseline_start, baseline_end),
       establishing_delta_baseline(),
       recent_end,
@@ -865,7 +1094,6 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
       DailyCoolingSummary {
         date: recent_start,
@@ -875,12 +1103,12 @@ mod tests {
         mid: empty_band(),
         high: empty_band(),
         power: PowerSummary::default(),
-        ambient: AmbientDeltaSummary::default(),
       },
     ];
 
     let result = derive_band_comparison(
       &days,
+      &[],
       established_baseline(baseline_start, baseline_end),
       establishing_delta_baseline(),
       recent_end,
@@ -903,7 +1131,6 @@ mod tests {
       mid: empty_band(),
       high: empty_band(),
       power: PowerSummary::default(),
-      ambient: AmbientDeltaSummary::default(),
     };
 
     let sample = to_idle_sample(&day);
@@ -929,6 +1156,7 @@ mod tests {
           COOLING_DAILY_SUMMARY_DDL,
           COOLING_BASELINE_DDL,
           COOLING_DELTA_BASELINE_DDL,
+          COOLING_THERMAL_DELTA_DAILY_SUMMARY_DDL,
         ],
       )
       .await;

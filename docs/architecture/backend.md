@@ -246,6 +246,23 @@ timestamp so they join the Hardware Archive row for the same minute, and they
 age out on the same `hardwareArchive.retentionDays` cycle as the rows they
 explain.
 
+Which device an ambient source reads is the user's choice, never the app's.
+Three SwitchBot devices in one room were observed reading between 25.2 °C and
+27.3 °C - a 2 °C spread, close to half the 5 °C rise Cooling Insight reports as
+a mild sustained rise - so adopting whichever advertised first picked the number every
+Thermal Delta is measured against by luck, and picked differently on each
+launch. The settings screen lists every device the radio is hearing with its
+current reading (`get_ambient_sensor_candidates`), nothing is archived until one
+is selected, and the selection is stored as that device's Bluetooth address.
+
+That choice also settles what happens when the machine and the sensor part
+company - a laptop carried to another room, or a sensor moved. The advertisement
+simply stops arriving, the cached reading passes the Ambient Reading Freshness
+Window, and those minutes have no ambient row and therefore no Thermal Delta.
+The source is reported stale rather than substituted: a reading from a sensor in
+a different room would be a confident wrong answer, and no reading is the honest
+one. No signal-strength rule is involved, and none is needed.
+
 `getAmbientArchiveSeries`
 (`archive_queries::select_ambient_archive_series`) reads that archive back for
 Cooling Insight's short-window timeline, bucketed on the same grid as the CPU,
@@ -255,10 +272,10 @@ only the two averages could not obey it: two CTEs collapse each side to one
 value per archived minute before the join, and the outer query averages the
 per-minute differences. The response also names the Sensor Source Labels that
 contributed to the window. There is no long-range equivalent -
-`cooling_daily_summary` stores the per-band Thermal Delta and the day's ambient
-coverage but no ambient temperature - so the 90-day and 1-year routes report
-the ambient capability as unknown rather than drawing a lane or claiming that
-no sensor exists.
+`cooling_thermal_delta_daily_summary` stores each source's per-band Thermal
+Delta and coverage but no ambient temperature - so the 90-day and 1-year routes
+report the ambient capability as unknown rather than drawing a lane or claiming
+that no sensor exists.
 
 The provider contract is deliberately availability-based rather than
 connection-based: the first concrete provider reads passive BLE advertisements
@@ -304,23 +321,20 @@ later tell from a real reading.
 One Sensor Source Label has to mean one physical sensor, or every Thermal Delta
 derived from it blends two rooms. The provider therefore answers for exactly one
 device, and which device that is is persisted as
-`environmentalSensors.switchbotMeterDevice`. Latching to the first advertiser is
-only the bootstrap case: on its own it would be re-decided every launch, so with
-two meters in range the binding would wander between rooms across restarts. On
-first latch the scan announces the device on a one-slot channel and returns
-immediately; an App-side consumer takes the settings lock and writes it, so a
-slow disk cannot stall advertisement handling, and a refused hand-off costs only
-that the device is chosen again next launch. That consumer re-checks
-`switchbotMeterEnabled` under the same lock it saves through, because the scan
-outlives a change to the toggle: a binding announced just before the source was
-turned off must not be written back afterwards, or it would be adopted on the
-next enable and skip the re-bind. Later launches bind to the recorded device
-alone — a remembered meter that is out of range reports unavailable rather than
-falling back to another one. The label carries a
-short handle of the device (`SwitchBot Meter (a1b2)`), so a re-bind starts a
-visibly separate archive series instead of continuing an existing one; the full
-identifier stays in Core settings and is deliberately absent from the wire type.
-Turning the setting off clears the binding, which is how a user re-binds.
+`environmentalSensors.switchbotMeterDevice` — the device's Bluetooth address
+as twelve lowercase hex digits, the one form both the Meter path (from the
+radio's peripheral id) and the Hub path (from the payload) produce. The
+command that stores a choice normalizes to that form and refuses anything
+else; a stored value in any other form, including the transport `Debug` string
+an earlier build wrote, reads as "nothing chosen". The provider is built at
+startup from the stored choice and switched in place when the user picks
+another device: the cached reading is dropped with the old device so the next
+archive tick cannot write it under the new label, and frames from the previous
+device are refused from then on. A chosen meter that is out of range reports
+unavailable rather than falling back to another one. The label carries a short
+handle of the device (`SwitchBot Meter (a1b2)`), so a change of device starts
+a visibly separate archive series instead of continuing an existing one.
+Turning the setting off clears the choice.
 
 The ambient registry is built once, in `setup_environmental_sensors`
 (`src-tauri/src/lib.rs`), inside the `hardware_archive.enabled` branch: ambient
@@ -330,7 +344,10 @@ nowhere for a reading to go. Registration is gated on the Core-owned
 **off** — every other source this app reads is inside the machine, and this one
 turns on a radio and listens to the room. Because the registry is read-only
 after startup, toggling the preference takes effect on the next launch, and the
-settings screen raises the existing restart notice. A machine with no Bluetooth
+settings screen raises the existing restart notice; choosing a device does not,
+since the provider is rebound in place. While Hardware Archive is off the scan
+never starts, and the settings screen says so instead of offering an empty
+list. A machine with no Bluetooth
 adapter, a disabled radio, or a refused scan logs once and produces no readings;
 it is not surfaced as External Component Guidance, because Ambient Sensor
 Availability already reports the same fact where the user is looking for it.
@@ -363,31 +380,44 @@ no powered minute leaves its power columns absent - never zero. Its cleanup runs
 site as the Hardware Archive cleanup (see ADR 0018).
 
 The same pass folds the ambient-normalized thermal delta
-(`ΔT = CPU package temperature − ambient temperature`) per CPU-load band, plus
-the day's ambient coverage count. **The pairing rule is normative: samples are
-paired first and aggregated second.** Independently aggregated CPU and ambient
+(`ΔT = CPU package temperature − ambient temperature`) per CPU-load band into
+`cooling_thermal_delta_daily_summary`
+(`core/src/persistence/cooling_thermal_delta_rollup.rs`): one row per ambient
+Sensor Source Label per completed day, keyed by `(date, source)` exactly like
+the fan rollup, each carrying that source's per-band ΔT and how many archived
+minutes it paired with. **The pairing rule is normative: samples are paired
+first and aggregated second.** Independently aggregated CPU and ambient
 summaries must never be subtracted, because the two archives do not share a
 sample set - ambient readings go missing independently of hardware minutes, so
 subtracting summaries built over different sample sets produces a number
 corresponding to no minute that was ever observed. The rule is enforced
-structurally rather than by discipline: the day's archive query LEFT JOINs
-`AMBIENT_ARCHIVE` on the shared one-minute timeline, so each archive minute
-already carries the ambient temperature of its own minute before any fold
-begins. A minute with no ambient row yields no ΔT at all, never an interpolated
+structurally rather than by discipline: the rollup's own read JOINs
+`AMBIENT_ARCHIVE` to `DATA_ARCHIVE` on the shared one-minute timeline, one row
+per `(minute, source)`, so each sample the fold sees is already one archived
+minute beside one sensor's reading for that same minute. A minute with no
+ambient row from a source yields no ΔT for that source, never an interpolated
 one.
 
-Because `AMBIENT_ARCHIVE` is row-per-source, several sources can share one
-minute; that minute's ambient value is their unweighted mean. Core has no sensor
-ranking or calibration confidence that would justify preferring one Sensor
-Source Label over another, and with the common single sensor the mean
-degenerates to that sensor's own reading.
+Row-per-source is not a convenience; it is what keeps the ΔT honest. The rollup
+briefly averaged every source into one per-minute ambient value, and that
+collapse is wrong for the same reason the pairing rule exists: which sensor a
+ΔT was measured against *is* the measurement. Three sensors in one room were
+observed about 2 K apart, close to half the 5 K rise Cooling Insight reports as
+a mild sustained rise, so a per-day number that blends two placements is a ΔT no sensor
+observed - and once the user switches the chosen sensor, a source-blind row
+silently and irreversibly mixes the old placement and the new one, because
+nothing on the row can say which minutes came from which. Keeping the source on
+the row means a sensor change can never mix two placements into one baseline,
+and a day with no paired minute for a source simply has no row for that source.
 
-The two gates nest. A minute contributes to a ΔT band only when it already
-contributed to that temperature band *and* had an ambient pair, so per-band ΔT
-sample minutes are always a subset of the band's own. Ambient coverage is
+The two gates nest. A minute contributes to a source's ΔT band only when it
+carries a classifiable CPU reading *and* that source's ambient pair, so per-band
+ΔT sample minutes are always a subset of the absolute band's own. Coverage is
 counted outside that nesting, the way power already is: whether the room's air
-was readable is independent of whether the CPU's sensors were, so a machine with
-an ambient sensor and no CPU temperature sensor still records honest coverage.
+was readable is independent of whether the CPU's sensors were, so a machine
+with an ambient sensor and no CPU temperature sensor still records an honest
+coverage row - which is also what the backfill cursor needs, or it would re-roll
+that machine's days forever.
 
 `getCoolingBandComparison` and `getCoolingBaselineDelta` each carry an
 `ambientAdjusted` variant of their result rather than a command of their own -
@@ -395,11 +425,16 @@ same question, same recent window. It carries its own lifecycle rather than a
 null: a machine with no environmental sensor reports an establishing ΔT baseline
 at zero qualifying days, which is honest and fabricates nothing, while
 established-but-not-comparable means the reference exists and the recent window
-is still too thin. Both responses also carry the ΔT baseline's own window dates,
-because they differ from the absolute window the same response reports.
+is still too thin - or was measured against a different sensor. Both responses
+also carry the ΔT baseline's own window dates, because they differ from the
+absolute window the same response reports. Cooling Insight has no source picker
+yet, so a window is read from whichever source covered the most of it
+(`cooling_band_comparison::dominant_delta_source`), and from that source only -
+never a blend.
 
 **The ΔT baseline establishes independently of the absolute one**, over its own
-window, and is pinned into its own single-row `cooling_delta_baseline` table.
+window, from one ambient source, and is pinned into its own single-row
+`cooling_delta_baseline` table together with that source.
 This is the one place the ambient reading deviates from the absolute baseline's
 design, and it is not an optimization - anchoring ΔT to the absolute baseline's
 window is simply wrong. Ambient collection commonly begins *after* that window
@@ -409,6 +444,15 @@ readings, and the archive cannot grow them retroactively - so that machine would
 report "not comparable" forever, no matter how much ambient data it went on to
 collect. Deriving a ΔT window from days that actually carry paired minutes lets
 it establish from the sensor's own first week instead.
+
+The establishment rule runs per source, over that source's rows alone, and the
+pinned baseline is only ever compared against ΔT rows of the same source. Four
+qualifying days against one sensor followed by four against another establish
+nothing, and a recent window from a different sensor than the baseline's is
+reported but never compared, because "recent minus baseline" would then be the
+difference between two placements rather than a drift in the cooling. Where
+more than one source could establish, the one whose window completes first is
+pinned - it is the reference that existed first.
 
 Both baselines run the *same* establishment rule (`derive_baseline_window`,
 shared so they cannot drift apart on what "established" means); they differ only
@@ -423,15 +467,18 @@ different times cannot share one such row without the later one arriving as an
 `UPDATE`, a weaker rule that must be got right rather than being impossible to
 get wrong.
 
-Both pinned windows are exempt from the rollup's retention cleanup, and they are
-generally different date ranges.
+Each pinned window is exempt from the rollup's retention cleanup on the table it
+was derived from - the absolute baseline's on `cooling_daily_summary` and
+`cooling_hourly_summary`, the ΔT baseline's on
+`cooling_thermal_delta_daily_summary` - and they are generally different date
+ranges.
 
 Backfill follows the lag-aware cursor precedent set by the power columns: the
-catch-up claims the ΔT columns are behind only when the ambient archive holds a
-completed day's *pairable* reading that no summarized day recorded coverage for.
-A machine with no ambient sensor has neither side and so never rewinds, and an
-ambient row whose minute has no hardware row is excluded because re-rolling its
-day could never turn it into coverage.
+catch-up claims the ΔT table is behind only when the ambient archive holds a
+completed day's *pairable* reading later than any row it holds. A machine with
+no ambient sensor has neither side and so never rewinds, and an ambient row
+whose minute has no hardware row is excluded because re-rolling its day could
+never turn it into a row.
 
 Fan speeds are archived beside the Hardware Archive rather than inside them.
 The archive worker writes one `FAN_ARCHIVE` row per fan per interval, stamped

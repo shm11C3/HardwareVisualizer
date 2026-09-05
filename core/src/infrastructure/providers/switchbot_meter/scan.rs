@@ -24,9 +24,9 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use btleplug::api::{Central, CentralEvent, Manager as _, ScanFilter};
+use btleplug::api::{BDAddr, Central, CentralEvent, Manager as _, ScanFilter};
 use btleplug::platform::Manager;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use tokio::runtime::Handle;
 use tokio::sync::watch;
@@ -34,10 +34,11 @@ use tokio::task::JoinHandle;
 
 use crate::{log_info, log_warn};
 
-use super::advertisement::{MeterAdvertisement, decode_service_data};
-use super::provider::{
-  BindingSender, ObservationOutcome, SwitchBotMeterProvider, report_binding,
+use super::advertisement::{
+  ManufacturerAdvertisement, MeterAdvertisement, address_id, decode_manufacturer_data,
+  decode_service_data,
 };
+use super::provider::{ObservationOutcome, SwitchBotMeterProvider};
 
 /// Log target for everything this module reports.
 const LOG_TARGET: &str = "providers::switchbot_meter::scan";
@@ -61,15 +62,7 @@ impl SwitchBotScanController {
   /// source, not an error the user must dismiss. Those cases log once
   /// and leave the provider reporting nothing, which #2043 already
   /// renders as an unavailable source.
-  /// `bindings` receives the device identifier the first time a meter is
-  /// latched. Reporting on it never blocks, so remembering the binding -
-  /// a settings lock and a file write - happens on the consumer's time
-  /// rather than stalling advertisement handling.
-  pub fn setup(
-    runtime: Handle,
-    provider: Arc<SwitchBotMeterProvider>,
-    bindings: BindingSender,
-  ) -> Self {
+  pub fn setup(runtime: Handle, provider: Arc<SwitchBotMeterProvider>) -> Self {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     let handle = runtime.spawn(async move {
@@ -129,7 +122,6 @@ impl SwitchBotScanController {
             Some(event) => handle_event(
               event,
               &provider,
-              &bindings,
               &mut reported_encrypted,
             ),
             // The adapter went away mid-session (dongle unplugged,
@@ -212,29 +204,56 @@ async fn open_adapter() -> Option<btleplug::platform::Adapter> {
 
 /// Route one central event into the provider.
 ///
-/// Only service-data advertisements carry a meter reading; every other
-/// event from every other nearby device is dropped without a word,
-/// because a scan with no filter sees a great many of them.
+/// Only service-data (Meter, Meter Plus) and manufacturer-data (Hub
+/// family) advertisements carry a reading; every other event from every
+/// other nearby device is dropped without a word, because a scan with no
+/// filter sees a great many of them.
 ///
-/// `bindings` carries the device identifier the very first time this
-/// provider latches, so a consumer elsewhere can remember it and bind to
-/// the same meter next launch. `reported_encrypted` keeps the
-/// encrypted-meter notice to once per device, since such a meter
-/// re-broadcasts as often as a readable one.
+/// `reported_encrypted` keeps the encrypted-meter notice to once per
+/// device, since such a meter re-broadcasts as often as a readable one.
 fn handle_event(
   event: CentralEvent,
   provider: &SwitchBotMeterProvider,
-  bindings: &BindingSender,
   reported_encrypted: &mut HashSet<String>,
 ) {
+  // The Hub family broadcasts its reading in manufacturer data, which
+  // the documented Meter path never looks at - the reason an enabled Hub
+  // archived nothing before. Its payload also opens with the device's own
+  // address, so identity comes from the frame itself rather than from the
+  // transport handle.
+  if let CentralEvent::ManufacturerDataAdvertisement {
+    id: _,
+    manufacturer_data,
+  } = &event
+  {
+    let observed_at = Utc::now();
+    for (company_id, data) in manufacturer_data {
+      let ManufacturerAdvertisement::Reading(frame) =
+        decode_manufacturer_data(*company_id, data)
+      else {
+        continue;
+      };
+      record_reading(
+        provider,
+        &frame.address_id(),
+        frame.temperature_celsius,
+        frame.humidity_percent,
+        observed_at,
+      );
+    }
+    return;
+  }
+
   let CentralEvent::ServiceDataAdvertisement { id, service_data } = event else {
     return;
   };
 
-  // `PeripheralId` is the transport's stable handle for one device. Only
-  // a short tail of it reaches a label or the archive; the full form is
-  // kept here and in settings so two meters can be told apart reliably.
-  let device_id = format!("{id:?}");
+  // The Windows `PeripheralId` wraps the device's Bluetooth address, and
+  // that address - not the id's `Debug` rendering, which older builds
+  // stored - is what the settings side accepts as a chosen device. It is
+  // written in the same form the Hub path reads out of its payload, so a
+  // Meter and a Hub are stored and matched identically.
+  let device_id = address_id(&BDAddr::from(id).into_inner());
   let observed_at = Utc::now();
 
   for (uuid, data) in &service_data {
@@ -261,33 +280,41 @@ fn handle_event(
       MeterAdvertisement::Ignored => continue,
     };
 
-    match provider.observe(&device_id, frame, observed_at) {
-      ObservationOutcome::Bound => {
-        log_info!(
-          &format!("bound ambient source to a SwitchBot {:?}", frame.model),
-          LOG_TARGET,
-          None::<&str>
-        );
-        // Hand the choice off to be remembered, without waiting for it.
-        // A refused hand-off costs only that the device is chosen again
-        // next launch, which is strictly better than stalling the event
-        // loop behind a settings write.
-        if !report_binding(bindings, &device_id) {
-          log_warn!(
-            "could not hand off the ambient meter binding; it will be chosen again next launch",
-            LOG_TARGET,
-            None::<&str>
-          );
-        }
-      }
-      ObservationOutcome::IgnoredNewDevice => {
-        log_warn!(
-          "another SwitchBot meter is in range; readings from it are ignored so one ambient source stays one sensor",
-          LOG_TARGET,
-          None::<&str>
-        );
-      }
-      ObservationOutcome::Recorded | ObservationOutcome::IgnoredKnownDevice => {}
+    record_reading(
+      provider,
+      &device_id,
+      frame.temperature_celsius,
+      frame.humidity_percent,
+      observed_at,
+    );
+  }
+}
+
+/// Hand one decoded reading to the provider and act on the outcome.
+///
+/// Shared by both decode paths so the one-sensor rule and the candidate
+/// list behave identically whether a reading arrived as service data or
+/// manufacturer data.
+fn record_reading(
+  provider: &SwitchBotMeterProvider,
+  device_id: &str,
+  temperature_celsius: f32,
+  humidity_percent: Option<f32>,
+  observed_at: DateTime<Utc>,
+) {
+  match provider.observe_reading(
+    device_id,
+    temperature_celsius,
+    humidity_percent,
+    observed_at,
+  ) {
+    ObservationOutcome::IgnoredNewDevice => {
+      log_warn!(
+        "another SwitchBot meter is in range; readings from it are ignored so one ambient source stays one sensor",
+        LOG_TARGET,
+        None::<&str>
+      );
     }
+    ObservationOutcome::Recorded | ObservationOutcome::IgnoredKnownDevice => {}
   }
 }

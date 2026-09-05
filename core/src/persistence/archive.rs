@@ -1502,8 +1502,8 @@ mod tests {
     }
 
     impl EnvironmentalSensorProvider for StubSensor {
-      fn source(&self) -> &str {
-        &self.source
+      fn source(&self) -> String {
+        self.source.clone()
       }
 
       fn latest_reading(&self) -> Option<EnvironmentalReading> {

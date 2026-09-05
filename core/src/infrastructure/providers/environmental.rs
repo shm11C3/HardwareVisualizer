@@ -123,8 +123,10 @@ pub struct EnvironmentalProviderStatus {
 /// itself rather than widening this trait with a transport concept.
 pub trait EnvironmentalSensorProvider: Send + Sync {
   /// Sensor Source Label identifying this provider. Readings it returns
-  /// are expected to carry the same label.
-  fn source(&self) -> &str;
+  /// are expected to carry the same label. Owned rather than borrowed
+  /// because a provider whose device is chosen at runtime keeps its
+  /// label behind a lock.
+  fn source(&self) -> String;
 
   /// The newest reading held, or `None` when the provider has never
   /// observed one. Freshness is judged by the caller, not here.
@@ -201,7 +203,7 @@ impl EnvironmentalSensorRegistry {
         // An unusable reading is not a success, so it neither yields a row
         // nor advances the last-success timestamp the panel shows.
         let Some(reading) = provider.latest_reading().and_then(normalize_reading) else {
-          return ProviderObservation::unusable(provider.source());
+          return ProviderObservation::unusable(&provider.source());
         };
 
         if !is_fresh(reading.timestamp, now) {
@@ -358,8 +360,8 @@ mod tests {
   }
 
   impl EnvironmentalSensorProvider for MockProvider {
-    fn source(&self) -> &str {
-      &self.source
+    fn source(&self) -> String {
+      self.source.clone()
     }
 
     fn latest_reading(&self) -> Option<EnvironmentalReading> {

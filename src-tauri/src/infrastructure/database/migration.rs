@@ -326,6 +326,95 @@ pub fn get_migrations() -> Vec<SchemaMigration> {
         );
       "#,
     },
+    SchemaMigration {
+      version: 21,
+      description: "create_cooling_thermal_delta_daily_summary",
+      // The per-band Thermal Delta rollup moves off `cooling_daily_summary`
+      // into its own table keyed by `(date, source)`, the same shape as
+      // `cooling_fan_daily_summary` (#2062). `AMBIENT_ARCHIVE` has been
+      // row-per-source since #2043 and the user now chooses which sensor
+      // is read; the v16 columns collapsed every source into one
+      // per-minute mean, so a later sensor change would have blended two
+      // placements into one ΔT - and into the pinned baseline - with no
+      // way to tell afterwards. Nullable delta columns and defaulted
+      // `*_delta_sample_minutes` for the same reason as v16: a band with
+      // no paired minute reads back absent, never 0 K (DP-02).
+      // `coverage_minutes` is NOT NULL without a default because a row
+      // exists only for a source that paired at least one minute.
+      //
+      // The v16 columns are dropped rather than left unused: no released
+      // build ever wrote them (v16 and v20 both post-date v1.10.1), so
+      // there is nothing to migrate, and a source-blind ΔT could not be
+      // attributed to a row here anyway. Days the one-minute archives
+      // still hold are re-rolled into the new table by the catch-up
+      // cursor (`cooling_rollup::ambient_rollup_is_behind`).
+      sql: r#"
+        CREATE TABLE cooling_thermal_delta_daily_summary (
+          date TEXT NOT NULL,
+          source TEXT NOT NULL,
+          coverage_minutes INTEGER NOT NULL,
+          idle_delta_temperature_avg REAL,
+          idle_delta_temperature_max REAL,
+          idle_delta_temperature_min REAL,
+          idle_delta_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          low_delta_temperature_avg REAL,
+          low_delta_temperature_max REAL,
+          low_delta_temperature_min REAL,
+          low_delta_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          mid_delta_temperature_avg REAL,
+          mid_delta_temperature_max REAL,
+          mid_delta_temperature_min REAL,
+          mid_delta_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          high_delta_temperature_avg REAL,
+          high_delta_temperature_max REAL,
+          high_delta_temperature_min REAL,
+          high_delta_sample_minutes INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (date, source)
+        );
+        ALTER TABLE cooling_daily_summary DROP COLUMN idle_delta_temperature_avg;
+        ALTER TABLE cooling_daily_summary DROP COLUMN idle_delta_temperature_max;
+        ALTER TABLE cooling_daily_summary DROP COLUMN idle_delta_temperature_min;
+        ALTER TABLE cooling_daily_summary DROP COLUMN idle_delta_sample_minutes;
+        ALTER TABLE cooling_daily_summary DROP COLUMN low_delta_temperature_avg;
+        ALTER TABLE cooling_daily_summary DROP COLUMN low_delta_temperature_max;
+        ALTER TABLE cooling_daily_summary DROP COLUMN low_delta_temperature_min;
+        ALTER TABLE cooling_daily_summary DROP COLUMN low_delta_sample_minutes;
+        ALTER TABLE cooling_daily_summary DROP COLUMN mid_delta_temperature_avg;
+        ALTER TABLE cooling_daily_summary DROP COLUMN mid_delta_temperature_max;
+        ALTER TABLE cooling_daily_summary DROP COLUMN mid_delta_temperature_min;
+        ALTER TABLE cooling_daily_summary DROP COLUMN mid_delta_sample_minutes;
+        ALTER TABLE cooling_daily_summary DROP COLUMN high_delta_temperature_avg;
+        ALTER TABLE cooling_daily_summary DROP COLUMN high_delta_temperature_max;
+        ALTER TABLE cooling_daily_summary DROP COLUMN high_delta_temperature_min;
+        ALTER TABLE cooling_daily_summary DROP COLUMN high_delta_sample_minutes;
+        ALTER TABLE cooling_daily_summary DROP COLUMN ambient_coverage_minutes;
+      "#,
+    },
+    SchemaMigration {
+      version: 22,
+      description: "add_cooling_delta_baseline_source",
+      // The pinned ΔT baseline records which ambient source it was
+      // established from (#2062), so every later comparison can refuse a
+      // recent window measured against a different sensor. Recreated
+      // rather than altered: a row pinned by v20 was derived from the
+      // source-blind v16 columns and cannot say which placement it
+      // describes - it is exactly the mixture this change forbids - so it
+      // is discarded and re-established from the row-per-source rollup.
+      // No released build ever pinned one, so nothing is lost. The
+      // write-once `CHECK (id = 1)` rule is unchanged.
+      sql: r#"
+        DROP TABLE cooling_delta_baseline;
+        CREATE TABLE cooling_delta_baseline (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          source TEXT NOT NULL,
+          window_start_date TEXT NOT NULL,
+          window_end_date TEXT NOT NULL,
+          delta_temperature_avg REAL NOT NULL,
+          sample_minutes INTEGER NOT NULL,
+          established_at TEXT NOT NULL
+        );
+      "#,
+    },
   ]
 }
 
@@ -627,18 +716,69 @@ mod tests {
   }
 
   #[test]
+  fn migration_v21_creates_the_row_per_source_thermal_delta_table() {
+    let migrations = get_migrations();
+    let v21 = migrations
+      .iter()
+      .find(|m| m.version == 21)
+      .expect("Version 21 up migration must exist");
+    assert!(
+      v21
+        .sql
+        .contains("CREATE TABLE cooling_thermal_delta_daily_summary")
+    );
+    // The composite key is what makes a day carry one row per ambient
+    // source rather than one source-blind row, so a sensor change can
+    // never blend two placements into one ΔT.
+    assert!(v21.sql.contains("PRIMARY KEY (date, source)"));
+    assert!(v21.sql.contains("coverage_minutes INTEGER NOT NULL"));
+    for band in ["idle", "low", "mid", "high"] {
+      for stats in ["avg", "max", "min"] {
+        assert!(
+          v21
+            .sql
+            .contains(&format!("{band}_delta_temperature_{stats} REAL"))
+        );
+      }
+      assert!(v21.sql.contains(&format!(
+        "{band}_delta_sample_minutes INTEGER NOT NULL DEFAULT 0"
+      )));
+      // The source-blind v16 columns leave `cooling_daily_summary`.
+      assert!(v21.sql.contains(&format!(
+        "ALTER TABLE cooling_daily_summary DROP COLUMN {band}_delta_sample_minutes"
+      )));
+    }
+    assert!(v21.sql.contains(
+      "ALTER TABLE cooling_daily_summary DROP COLUMN ambient_coverage_minutes"
+    ));
+  }
+
+  #[test]
+  fn migration_v22_records_the_delta_baselines_source() {
+    let migrations = get_migrations();
+    let v22 = migrations
+      .iter()
+      .find(|m| m.version == 22)
+      .expect("Version 22 up migration must exist");
+    assert!(v22.sql.contains("CREATE TABLE cooling_delta_baseline"));
+    assert!(v22.sql.contains("source TEXT NOT NULL"));
+    // Still write-once: the source is a column on the same single row.
+    assert!(v22.sql.contains("id INTEGER PRIMARY KEY CHECK (id = 1)"));
+  }
+
+  #[test]
   fn max_migration_version() {
-    assert_eq!(get_max_migration_version(), 20);
+    assert_eq!(get_max_migration_version(), 22);
   }
 
   #[test]
   fn migration_count() {
     let migrations = get_migrations();
     // 16 was reserved while the ambient delta columns were in flight and
-    // is now filled, so 1..=20 happens to be contiguous again. The
-    // assertion below still only requires unique and ascending - see it
-    // for why contiguity is not something to depend on.
-    assert_eq!(migrations.len(), 20);
+    // is now filled, so 1..=22 happens to be contiguous. The assertion
+    // below still only requires unique and ascending - see it for why
+    // contiguity is not something to depend on.
+    assert_eq!(migrations.len(), 22);
   }
 
   #[test]
@@ -894,11 +1034,14 @@ mod tests {
     );
   }
 
-  /// The ambient-normalized delta columns (#2045) must be additive: a day
-  /// written the way every pre-#2045 row was must read back with absent
-  /// deltas and zero ambient coverage, never a fabricated 0 K.
+  /// The Thermal Delta rollup (#2045) is row-per-source (#2062): the
+  /// shipped migration set must let two ambient sources share one day in
+  /// `cooling_thermal_delta_daily_summary`, reject a second row for the
+  /// same `(date, source)`, read a band with no paired minute back as
+  /// absent rather than 0 K, and leave `cooling_daily_summary` without
+  /// the source-blind v16 columns.
   #[tokio::test]
-  async fn shipped_migrations_leave_pre_ambient_days_with_absent_deltas() {
+  async fn shipped_migrations_create_the_row_per_source_thermal_delta_table() {
     use hardviz_core::infrastructure::database::migrate;
     use sqlx::sqlite::SqlitePool;
 
@@ -911,35 +1054,115 @@ mod tests {
       .expect("the shipped migration set must apply cleanly");
 
     sqlx::query(
-      "INSERT INTO cooling_daily_summary (
-         date, coverage_minutes,
-         idle_cpu_temperature_avg, idle_sample_minutes
-       ) VALUES ('2026-06-21', 1440, 35.0, 600)",
+      "INSERT INTO cooling_thermal_delta_daily_summary (
+         date, source, coverage_minutes,
+         idle_delta_temperature_avg, idle_delta_temperature_max,
+         idle_delta_temperature_min, idle_delta_sample_minutes
+       ) VALUES
+         ('2026-08-30', 'Living Room', 720, 12.0, 14.0, 10.0, 500),
+         ('2026-08-30', 'Desk', 300, 15.0, 16.0, 14.0, 200)",
     )
     .execute(&pool)
     .await
-    .expect("a pre-#2045 shaped insert must still succeed");
+    .expect("two ambient sources must be able to share one summarized day");
 
-    let row: (Option<f64>, i64, i64) = sqlx::query_as(
-      "SELECT idle_delta_temperature_avg, idle_delta_sample_minutes,
-              ambient_coverage_minutes
-       FROM cooling_daily_summary WHERE date = '2026-06-21'",
+    let duplicate = sqlx::query(
+      "INSERT INTO cooling_thermal_delta_daily_summary (date, source, coverage_minutes)
+       VALUES ('2026-08-30', 'Desk', 1)",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      duplicate.is_err(),
+      "(date, source) must be the primary key: one row per source per day"
+    );
+
+    type ThermalDeltaRow = (String, Option<f64>, i64, Option<f64>, i64);
+    let rows: Vec<ThermalDeltaRow> = sqlx::query_as(
+      "SELECT source, idle_delta_temperature_avg, idle_delta_sample_minutes,
+              high_delta_temperature_avg, high_delta_sample_minutes
+       FROM cooling_thermal_delta_daily_summary ORDER BY source",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+      rows,
+      vec![
+        ("Desk".to_string(), Some(15.0), 200, None, 0),
+        ("Living Room".to_string(), Some(12.0), 500, None, 0),
+      ]
+    );
+
+    let dropped_columns: (i64,) = sqlx::query_as(
+      "SELECT COUNT(*) FROM pragma_table_info('cooling_daily_summary')
+       WHERE name LIKE '%_delta_%' OR name = 'ambient_coverage_minutes'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(row, (None, 0, 0));
-
+    assert_eq!(
+      dropped_columns.0, 0,
+      "the source-blind ΔT columns must be gone from cooling_daily_summary"
+    );
+    // ...while the columns the daily rollup still writes are intact.
     sqlx::query(
       "INSERT INTO cooling_daily_summary (
-         date, coverage_minutes,
-         idle_delta_temperature_avg, idle_delta_temperature_max,
-         idle_delta_temperature_min, idle_delta_sample_minutes,
-         ambient_coverage_minutes
-       ) VALUES ('2026-06-22', 1440, 22.0, 26.0, 18.0, 500, 720)",
+         date, coverage_minutes, idle_cpu_temperature_avg, idle_sample_minutes,
+         cpu_power_avg, cpu_power_max, cpu_power_min, power_sample_minutes
+       ) VALUES ('2026-08-30', 1440, 35.0, 600, 18.5, 42.0, 4.5, 1300)",
     )
     .execute(&pool)
     .await
-    .expect("insert with the ambient delta columns must succeed after migrations");
+    .expect("the daily rollup's own columns must survive the drop");
+  }
+
+  /// The pinned ΔT baseline names the ambient source it was established
+  /// from (#2062), and stays a single write-once row.
+  #[tokio::test]
+  async fn shipped_migrations_pin_the_delta_baseline_with_its_source() {
+    use hardviz_core::infrastructure::database::migrate;
+    use sqlx::sqlite::SqlitePool;
+
+    let file = tempfile::NamedTempFile::new().unwrap();
+    let url = format!("sqlite:{}", file.path().to_string_lossy());
+    let pool = SqlitePool::connect(&url).await.unwrap();
+
+    migrate::run_on_pool(&pool, get_migrations())
+      .await
+      .expect("the shipped migration set must apply cleanly");
+
+    let without_source = sqlx::query(
+      "INSERT INTO cooling_delta_baseline
+         (id, window_start_date, window_end_date, delta_temperature_avg, sample_minutes, established_at)
+       VALUES (1, '2026-08-01', '2026-08-07', 12.0, 210, '2026-08-08T00:00:00Z')",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      without_source.is_err(),
+      "a ΔT baseline that cannot say which sensor it came from must not pin"
+    );
+
+    sqlx::query(
+      "INSERT INTO cooling_delta_baseline
+         (id, source, window_start_date, window_end_date, delta_temperature_avg, sample_minutes, established_at)
+       VALUES (1, 'Living Room', '2026-08-01', '2026-08-07', 12.0, 210, '2026-08-08T00:00:00Z')",
+    )
+    .execute(&pool)
+    .await
+    .expect("pinning with a source must succeed after migrations");
+
+    let second_row = sqlx::query(
+      "INSERT INTO cooling_delta_baseline
+         (id, source, window_start_date, window_end_date, delta_temperature_avg, sample_minutes, established_at)
+       VALUES (2, 'Desk', '2026-09-01', '2026-09-07', 15.0, 210, '2026-09-08T00:00:00Z')",
+    )
+    .execute(&pool)
+    .await;
+    assert!(
+      second_row.is_err(),
+      "the CHECK (id = 1) rule must survive the recreation"
+    );
   }
 }

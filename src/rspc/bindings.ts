@@ -176,6 +176,10 @@ export const commands = {
 	 *  mid-session. The settings screen says so.
 	 */
 	setSwitchbotMeterEnabled: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_enabled", { newValue })),
+	// Choose which SwitchBot device the ambient source reads, or clear the choice with `None`. The id is the device's Bluetooth address as twelve hex digits, as listed by `get_ambient_sensor_candidates`; it is stored lowercase, and anything else is refused. The running source switches to the new device at once, so no restart is needed.
+	setSwitchbotMeterDevice: (deviceId: string | null) => typedError<null, string>(__TAURI_INVOKE("set_switchbot_meter_device", { deviceId })),
+	// Every SwitchBot device heard within the last few minutes, in a stable device-id order, each with its reading in the preferred temperature unit; a device that has gone quiet drops out rather than showing an old reading as current. Returns an empty list on a machine where the ambient source is off, where no adapter exists, or where nothing has advertised yet - all of which look the same from here and are equally honest as "nothing to choose from".
+	getAmbientSensorCandidates: () => typedError<AmbientSensorCandidate[], string>(__TAURI_INVOKE("get_ambient_sensor_candidates")),
 	setHardwareArchiveRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_retention_days", { newRetentionDays })),
 	setHardwareArchiveScheduledDataDeletion: (newValue: boolean) => typedError<null, string>(__TAURI_INVOKE("set_hardware_archive_scheduled_data_deletion", { newValue })),
 	setStorageHealthRetentionDays: (newRetentionDays: number) => typedError<null, string>(__TAURI_INVOKE("set_storage_health_retention_days", { newRetentionDays })),
@@ -278,6 +282,27 @@ export type AmbientArchiveBucket = {
 export type AmbientArchiveSeries = {
 	sources: string[],
 	buckets: AmbientArchiveBucket[],
+};
+
+// One SwitchBot device the radio is hearing, offered for selection. It carries the reading rather than a model name because model identity cannot be trusted from these broadcasts, and because the temperature is what actually tells the user which device sits near the intake.
+export type AmbientSensorCandidate = {
+	// Full address, the value to pass back when selecting this device.
+	deviceId: string,
+	/**
+	 *  Last four hex digits - enough to tell devices apart, and the tail
+	 *  owners tend to name them by.
+	 */
+	shortId: string,
+	// The latest reading, already in `temperature_unit`.
+	temperature: number,
+	/**
+	 *  The unit `temperature` is expressed in - the user's preference,
+	 *  applied at the App boundary like every other temperature shown.
+	 */
+	temperatureUnit: TemperatureUnit,
+	humidityPercent: number | null,
+	// Whether this is the device currently selected.
+	selected: boolean,
 };
 
 export type ArchiveBucketTimestamp = "start" | "end";
@@ -722,6 +747,14 @@ export type DownloadEvent = { event: "started"; data: {
  */
 export type EnvironmentalSensorSettings = {
 	switchbotMeterEnabled?: boolean,
+	/**
+	 *  Which device the ambient source reads, or `None` until one is
+	 *  chosen. Unlike the rest of this struct it reaches the frontend
+	 *  because choosing is the interaction: several sensors in one room
+	 *  can read degrees apart, so the screen must be able to say which one
+	 *  is selected and offer the others.
+	 */
+	switchbotMeterDevice?: string | null,
 };
 
 export type ExternalComponent = "pawnio" | "smartctl";

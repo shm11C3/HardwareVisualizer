@@ -402,6 +402,31 @@ export const useSettingsAtom = () => {
       environmentalSensors: {
         ...prev.environmentalSensors,
         switchbotMeterEnabled: value,
+        // Turning the source off clears the chosen device in Core, so
+        // the screen must forget it too or the picker would keep
+        // showing a selection the app no longer holds.
+        switchbotMeterDevice: value
+          ? (prev.environmentalSensors.switchbotMeterDevice ?? null)
+          : null,
+      },
+    }));
+    return true;
+  };
+
+  const setSwitchbotMeterDevice = async (deviceId: string) => {
+    const result = await commands.setSwitchbotMeterDevice(deviceId);
+
+    if (isError(result)) {
+      error(result.error);
+      console.error(result.error);
+      return false;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      environmentalSensors: {
+        ...prev.environmentalSensors,
+        switchbotMeterDevice: deviceId,
       },
     }));
     return true;
@@ -552,6 +577,7 @@ export const useSettingsAtom = () => {
     updateLineGraphColorAtom,
     toggleHardwareArchiveAtom,
     toggleSwitchbotMeterAtom,
+    setSwitchbotMeterDevice,
     setHardwareArchiveRetentionDays,
     setScheduledDataDeletion,
     setStorageHealthRetentionDays,

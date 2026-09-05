@@ -1,3 +1,4 @@
+use crate::enums::settings::TemperatureUnit;
 use hardviz_core::settings::EnvironmentalSensorSettings as CoreEnvironmentalSensorSettings;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -11,14 +12,35 @@ use specta::Type;
 /// provider registration doesn't need to know about Tauri or specta.
 /// This App-side struct exists only because the frontend wire format
 /// requires `specta::Type`.
-// The remembered meter binding (`switchbot_meter_device`) is Core-only
-// and deliberately absent here. The settings screen has no use for it -
-// the toggle is the whole interaction - so shipping a device identifier
-// into frontend state would widen where it lives for no benefit.
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 #[serde(default, rename_all = "camelCase")]
 pub struct EnvironmentalSensorSettings {
   pub switchbot_meter_enabled: bool,
+  /// Which device the ambient source reads, or `None` until one is
+  /// chosen. Unlike the rest of this struct it reaches the frontend
+  /// because choosing is the interaction: several sensors in one room
+  /// can read degrees apart, so the screen must be able to say which one
+  /// is selected and offer the others.
+  pub switchbot_meter_device: Option<String>,
+}
+
+/// One SwitchBot device the radio is hearing, offered for selection. It carries the reading rather than a model name because model identity cannot be trusted from these broadcasts, and because the temperature is what actually tells the user which device sits near the intake.
+#[derive(Debug, Serialize, Clone, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AmbientSensorCandidate {
+  /// Full address, the value to pass back when selecting this device.
+  pub device_id: String,
+  /// Last four hex digits - enough to tell devices apart, and the tail
+  /// owners tend to name them by.
+  pub short_id: String,
+  /// The latest reading, already in `temperature_unit`.
+  pub temperature: f32,
+  /// The unit `temperature` is expressed in - the user's preference,
+  /// applied at the App boundary like every other temperature shown.
+  pub temperature_unit: TemperatureUnit,
+  pub humidity_percent: Option<f32>,
+  /// Whether this is the device currently selected.
+  pub selected: bool,
 }
 
 impl Default for EnvironmentalSensorSettings {
@@ -31,6 +53,11 @@ impl From<CoreEnvironmentalSensorSettings> for EnvironmentalSensorSettings {
   fn from(value: CoreEnvironmentalSensorSettings) -> Self {
     Self {
       switchbot_meter_enabled: value.switchbot_meter_enabled,
+      // Normalized rather than copied: a value an older build stored in
+      // another format can never match a device again, and showing it as
+      // a selection would leave the screen claiming a sensor that cannot
+      // exist.
+      switchbot_meter_device: value.chosen_device().map(str::to_string),
     }
   }
 }
@@ -65,10 +92,26 @@ mod tests {
     assert!(wire.switchbot_meter_enabled);
   }
 
-  /// The remembered binding is Core-only. It must not reach the wire
-  /// type, so the device identifier stays out of frontend state.
+  /// Since #2062 the chosen device is something the settings screen
+  /// shows and changes, so it does cross into the wire type - as the
+  /// stable address form the picker hands back.
   #[test]
-  fn the_remembered_device_does_not_cross_into_the_wire_type() {
+  fn the_chosen_device_crosses_into_the_wire_type_as_its_address() {
+    let core = CoreEnvironmentalSensorSettings {
+      switchbot_meter_enabled: true,
+      switchbot_meter_device: Some("d051fa0f2cd0".to_string()),
+    };
+
+    let wire: EnvironmentalSensorSettings = core.into();
+
+    assert_eq!(wire.switchbot_meter_device.as_deref(), Some("d051fa0f2cd0"));
+  }
+
+  /// A binding written by #2054's first-advertiser latch is a btleplug
+  /// `Debug` string, not an address. It must read as "nothing chosen"
+  /// rather than as a device the picker can never match.
+  #[test]
+  fn a_binding_from_before_explicit_selection_reads_as_nothing_chosen() {
     let core = CoreEnvironmentalSensorSettings {
       switchbot_meter_enabled: true,
       switchbot_meter_device: Some("PeripheralId(AA:BB:CC:DD:A1:B2)".to_string()),
@@ -78,9 +121,7 @@ mod tests {
     let json = serde_json::to_string(&wire).unwrap();
 
     assert!(wire.switchbot_meter_enabled);
-    assert!(
-      !json.contains("A1:B2") && !json.contains("switchbotMeterDevice"),
-      "the binding is Core bookkeeping, not something the settings screen needs"
-    );
+    assert_eq!(wire.switchbot_meter_device, None);
+    assert!(!json.contains("A1:B2"));
   }
 }

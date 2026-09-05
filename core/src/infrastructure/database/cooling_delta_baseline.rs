@@ -1,6 +1,6 @@
 //! `cooling_delta_baseline` reads and writes: the single pinned row
 //! holding the established ambient-normalized (ΔT) cooling baseline
-//! (#2045).
+//! (#2045) and the ambient source it was established from (#2062).
 //!
 //! Deliberately its own table rather than columns on `cooling_baseline` -
 //! see [`crate::persistence::cooling_delta_baseline`] for why two
@@ -20,8 +20,9 @@ pub async fn select_established_delta_baseline()
   select_established_delta_baseline_from_pool(&pool).await
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
 struct DeltaBaselineRow {
+  source: String,
   window_start_date: NaiveDate,
   window_end_date: NaiveDate,
   delta_temperature_avg: f64,
@@ -31,6 +32,7 @@ struct DeltaBaselineRow {
 impl From<DeltaBaselineRow> for EstablishedDeltaBaseline {
   fn from(row: DeltaBaselineRow) -> Self {
     Self {
+      source: row.source,
       delta_temperature_avg: row.delta_temperature_avg as f32,
       window_start_date: row.window_start_date,
       window_end_date: row.window_end_date,
@@ -45,7 +47,7 @@ pub(crate) async fn select_established_delta_baseline_from_pool(
   pool: &SqlitePool,
 ) -> Result<Option<EstablishedDeltaBaseline>, sqlx::Error> {
   let row = sqlx::query_as::<_, DeltaBaselineRow>(
-    "SELECT window_start_date, window_end_date, delta_temperature_avg, sample_minutes
+    "SELECT source, window_start_date, window_end_date, delta_temperature_avg, sample_minutes
      FROM cooling_delta_baseline
      WHERE id = 1",
   )
@@ -66,9 +68,10 @@ pub(crate) async fn insert_established_delta_baseline_from_pool(
   // drift this table exists to prevent.
   sqlx::query(
     "INSERT OR IGNORE INTO cooling_delta_baseline
-       (id, window_start_date, window_end_date, delta_temperature_avg, sample_minutes, established_at)
-     VALUES (1, $1, $2, $3, $4, $5)",
+       (id, source, window_start_date, window_end_date, delta_temperature_avg, sample_minutes, established_at)
+     VALUES (1, $1, $2, $3, $4, $5, $6)",
   )
+  .bind(&baseline.source)
   .bind(baseline.window_start_date.format("%Y-%m-%d").to_string())
   .bind(baseline.window_end_date.format("%Y-%m-%d").to_string())
   .bind(baseline.delta_temperature_avg)
@@ -93,6 +96,7 @@ mod tests {
 
   fn baseline() -> EstablishedDeltaBaseline {
     EstablishedDeltaBaseline {
+      source: "Living Room".to_string(),
       delta_temperature_avg: 12.5,
       window_start_date: date(2026, 8, 1),
       window_end_date: date(2026, 8, 7),
@@ -114,7 +118,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn a_pinned_delta_baseline_round_trips() {
+  async fn a_pinned_delta_baseline_round_trips_with_its_source() {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     create_tables(&pool, &[COOLING_DELTA_BASELINE_DDL]).await;
 
@@ -133,8 +137,9 @@ mod tests {
   #[tokio::test]
   async fn a_second_establishment_cannot_replace_the_pinned_one() {
     // The invariant the whole table exists for. A later read that
-    // re-derives a different value must not be able to overwrite the
-    // reference every delta is measured against.
+    // re-derives a different value - or from a different sensor - must
+    // not be able to overwrite the reference every delta is measured
+    // against.
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     create_tables(&pool, &[COOLING_DELTA_BASELINE_DDL]).await;
     insert_established_delta_baseline_from_pool(&pool, &baseline(), Utc::now())
@@ -144,6 +149,7 @@ mod tests {
     insert_established_delta_baseline_from_pool(
       &pool,
       &EstablishedDeltaBaseline {
+        source: "Desk".to_string(),
         delta_temperature_avg: 40.0,
         window_start_date: date(2027, 1, 1),
         window_end_date: date(2027, 1, 7),

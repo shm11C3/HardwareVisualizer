@@ -34,10 +34,10 @@ use hardviz_core::persistence::cooling_load_temperature_explorer::{
   CoolingLoadTemperatureExplorer as CoreCoolingLoadTemperatureExplorer,
   ExplorerWindow as CoreExplorerWindow, LoadTemperaturePoint as CoreLoadTemperaturePoint,
 };
-// `AmbientDeltaSummary` is deliberately absent here: the daily trend
-// point carries no ambient field (#2045 exposes the thermal delta through
-// the baseline/recent aggregates, not the long-range series), so Core's
-// type is only ever named when building test fixtures.
+// The Thermal Delta rollup (`cooling_thermal_delta_rollup`) is
+// deliberately absent here: the daily trend point carries no ambient field
+// (#2045 exposes the thermal delta through the baseline/recent aggregates,
+// not the long-range series).
 use hardviz_core::persistence::cooling_rollup::{
   BandSummary as CoreBandSummary, CpuLoadBand as CoreCpuLoadBand,
   DailyCoolingSummary as CoreDailyCoolingSummary, PowerSummary as CorePowerSummary,
@@ -412,7 +412,12 @@ impl From<CoreDeltaBaselineState> for CoolingDeltaBaselineState {
         qualifying_days,
         required_days,
       },
+      // The source the baseline was established from (#2062) stays in
+      // Core for now: Cooling Insight has no source picker yet, and Core
+      // already refuses to compare the baseline against any other source,
+      // so the wire shape is unchanged until a view needs to name it.
       CoreDeltaBaselineState::Established {
+        source: _,
         delta_temperature_avg,
         window_start_date,
         window_end_date,
@@ -737,7 +742,6 @@ impl From<CoreCoolingLoadTemperatureExplorer> for CoolingLoadTemperatureExplorer
 #[cfg(test)]
 mod tests {
   use super::*;
-  use hardviz_core::persistence::cooling_rollup::AmbientDeltaSummary as CoreAmbientDeltaSummary;
   use hardviz_core::persistence::cooling_rollup::CpuLoadBand;
 
   fn date(y: i32, m: u32, d: u32) -> NaiveDate {
@@ -754,7 +758,6 @@ mod tests {
       mid: CoreBandSummary::default(),
       high: CoreBandSummary::default(),
       power: CorePowerSummary::default(),
-      ambient: CoreAmbientDeltaSummary::default(),
     };
 
     let wire: CoolingDailyTrendPoint = core.into();
@@ -772,7 +775,6 @@ mod tests {
       mid: CoreBandSummary::default(),
       high: CoreBandSummary::default(),
       power: CorePowerSummary::default(),
-      ambient: CoreAmbientDeltaSummary::default(),
     };
 
     let json = serde_json::to_value(CoolingDailyTrendPoint::from(core)).unwrap();
@@ -798,7 +800,6 @@ mod tests {
         min: Some(4.5),
         sample_minutes: 1200,
       },
-      ambient: CoreAmbientDeltaSummary::default(),
     };
 
     let json = serde_json::to_value(CoolingDailyTrendPoint::from(core)).unwrap();
@@ -977,6 +978,7 @@ mod tests {
         },
       ]),
       ambient_adjusted_baseline: CoreDeltaBaselineState::Established {
+        source: "Living Room".to_string(),
         delta_temperature_avg: 11.5,
         window_start_date: date(2026, 6, 1),
         window_end_date: date(2026, 6, 7),
@@ -1089,6 +1091,7 @@ mod tests {
 
   fn established_delta_baseline() -> CoreDeltaBaselineState {
     CoreDeltaBaselineState::Established {
+      source: "Living Room".to_string(),
       delta_temperature_avg: 12.0,
       window_start_date: date(2026, 6, 1),
       window_end_date: date(2026, 6, 7),

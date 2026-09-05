@@ -200,6 +200,159 @@ fn decode_meter_service_data(data: &[u8]) -> MeterAdvertisement {
   })
 }
 
+/// SwitchBot's Bluetooth SIG company identifier, gating manufacturer
+/// data the same way [`SWITCHBOT_SERVICE_UUIDS`] gates service data.
+///
+/// Observed on every SwitchBot device in the capture described below,
+/// and on nothing else in the same room.
+pub const SWITCHBOT_COMPANY_ID: u16 = 0x0969;
+
+/// Where a manufacturer-data payload keeps its reading, per length.
+///
+/// # Source: first-party observation, not a vendor document
+///
+/// SwitchBot publishes no broadcast layout for its Hub family (the
+/// vendor's `SwitchBotAPI-BLE` repository documents neither Hub 2 nor
+/// Hub 3, and the community implementation reads Hub temperature from
+/// the cloud API instead). The offsets below come from a capture taken
+/// on 2026-09-02 with three devices in one room, each decoded value
+/// cross-checked against what the SwitchBot app displayed at the time:
+///
+/// | manufacturer data | decoded | app displayed |
+/// | --- | --- | --- |
+/// | `b0e9feb08a1900ff6a97085584039b3280` | 27.3 °C / 50 % | 27.3 °C / 49 % |
+/// | `d051fa0f2cd00000000000000c00993600` | 25.0 °C / 54 % | 25.2 °C / 53 % |
+/// | `b0e9fe55a7df03640899330022054c20`   | 25.8 °C / 51 % | 25.8 °C / 51 % |
+///
+/// The Meter's own sign convention (bit 7 set means above zero) holds in
+/// all three, which is what makes one shared decoder defensible rather
+/// than three guesses. Still unconfirmed, and the reason this path is
+/// experimental: sub-zero readings, whether a display-unit bit exists,
+/// and what the bytes on either side of the reading carry.
+///
+/// Model identity is deliberately *not* derived from these payloads. The
+/// service-data device type identifies some models (`0x76` was the Hub 2,
+/// `0x35` the CO2 meter) but the Hub 3 advertised type `0x00` - the most
+/// generic byte there is, and shared with an unrelated device in the same
+/// capture. Claiming a model from that would invite exactly the confident
+/// mislabelling this module exists to avoid, so devices are identified by
+/// their address and their reading instead.
+fn reading_offset(payload_len: usize) -> Option<usize> {
+  match payload_len {
+    // Hub 2 and Hub 3 both broadcast 17 bytes with the reading last but
+    // one; the six bytes after the address differ between them (one
+    // carries a counter, the other zeros) and are not read.
+    17 => Some(13),
+    // The CO2 meter's 16-byte payload puts the reading directly after a
+    // battery byte, mirroring the documented Meter layout.
+    16 => Some(8),
+    _ => None,
+  }
+}
+
+/// Classify one manufacturer-data entry.
+///
+/// Unlike [`decode_service_data`], this cannot name a model, so a
+/// readable frame is reported without one - see [`reading_offset`] for
+/// why guessing would be worse than admitting it.
+pub fn decode_manufacturer_data(
+  company_id: u16,
+  data: &[u8],
+) -> ManufacturerAdvertisement {
+  if company_id != SWITCHBOT_COMPANY_ID {
+    return ManufacturerAdvertisement::Ignored;
+  }
+
+  let Some(offset) = reading_offset(data.len()) else {
+    return ManufacturerAdvertisement::Ignored;
+  };
+  // Every observed payload opens with the device's own address; the
+  // length gate above already guarantees these six bytes exist.
+  let address: [u8; 6] = data[..6].try_into().expect("length checked above");
+  let (decimal_byte, integer_byte, humidity_byte) =
+    (data[offset], data[offset + 1], data[offset + 2]);
+
+  // A device broadcasting zeros where a reading belongs is not reporting
+  // a measurement - a SwitchBot bulb in the capture did exactly this.
+  // Decoding it would yield a perfectly plausible -0.0 °C / 0 %, which
+  // is the kind of confident wrong number ambient data exists to avoid.
+  if decimal_byte == 0 && integer_byte == 0 && humidity_byte == 0 {
+    return ManufacturerAdvertisement::Ignored;
+  }
+
+  // Same refusal as the service-data path: a decimal digit above 9 means
+  // this payload is not laid out the way we believe it is.
+  let temperature_decimal = decimal_byte & 0x0F;
+  if temperature_decimal > 9 {
+    return ManufacturerAdvertisement::Ignored;
+  }
+
+  let temperature_magnitude =
+    f32::from(integer_byte & 0x7F) + f32::from(temperature_decimal) * 0.1;
+  let above_zero = integer_byte & 0x80 != 0;
+
+  ManufacturerAdvertisement::Reading(SwitchBotAmbientFrame {
+    address,
+    temperature_celsius: if above_zero {
+      temperature_magnitude
+    } else {
+      -temperature_magnitude
+    },
+    humidity_percent: decode_humidity(humidity_byte),
+  })
+}
+
+/// One decoded manufacturer-data broadcast, with no model attached.
+///
+/// `address` is the device's own Bluetooth address, carried in the first
+/// six bytes of every payload observed. Reading identity out of the
+/// frame rather than from the transport handle matters twice over: the
+/// identity and the reading then arrive together, needing no correlation
+/// between two advertisement events, and the address is a specified
+/// value where the transport handle is a library's `Debug` string that
+/// could change shape between releases and silently orphan a remembered
+/// choice.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SwitchBotAmbientFrame {
+  pub address: [u8; 6],
+  pub temperature_celsius: f32,
+  pub humidity_percent: Option<f32>,
+}
+
+/// The device id for a Bluetooth address: `b0e9feb08a19`, the form
+/// persisted in settings.
+///
+/// One function for every transport on purpose. A Hub's address is read
+/// out of its payload and a Meter's comes from the radio, and the
+/// settings side accepts exactly this form and no other, so the two
+/// paths must agree byte for byte or a chosen Meter would be stored in a
+/// shape that can never match a device again.
+pub fn address_id(address: &[u8; 6]) -> String {
+  address.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+impl SwitchBotAmbientFrame {
+  /// The address as `b0e9feb08a19`, the form persisted in settings.
+  pub fn address_id(&self) -> String {
+    address_id(&self.address)
+  }
+
+  /// The last two bytes as `8a19` - enough to tell devices apart in a
+  /// picker or a label, and the same tail owners tend to name them by.
+  pub fn short_id(&self) -> String {
+    format!("{:02x}{:02x}", self.address[4], self.address[5])
+  }
+}
+
+/// What one manufacturer-data entry turned out to be.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ManufacturerAdvertisement {
+  Reading(SwitchBotAmbientFrame),
+  /// Not a SwitchBot payload, not a length we have observed, or a
+  /// payload carrying no reading.
+  Ignored,
+}
+
 /// Relative humidity from byte 5, or `None` when it is outside the
 /// documented range.
 ///
@@ -515,5 +668,158 @@ mod tests {
         humidity_percent: Some(53.0),
       })
     );
+  }
+
+  // -- manufacturer data: the Hub family --
+  //
+  // Every payload below is a real capture from 2026-09-02, and every
+  // expected value is what the SwitchBot app displayed for that device
+  // at the time (see `reading_offset`). These are the observation
+  // record: if the offsets are ever wrong, these fail.
+
+  fn ambient(company_id: u16, data: &[u8]) -> Option<SwitchBotAmbientFrame> {
+    match decode_manufacturer_data(company_id, data) {
+      ManufacturerAdvertisement::Reading(frame) => Some(frame),
+      ManufacturerAdvertisement::Ignored => None,
+    }
+  }
+
+  #[test]
+  fn a_captured_hub_3_payload_decodes_to_its_displayed_reading() {
+    let captured = [
+      0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19, 0x00, 0xff, 0x6a, 0x97, 0x08, 0x55, 0x84, 0x03,
+      0x9b, 0x32, 0x80,
+    ];
+    assert_eq!(
+      ambient(SWITCHBOT_COMPANY_ID, &captured),
+      Some(SwitchBotAmbientFrame {
+        address: [0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19],
+        temperature_celsius: 27.3,
+        humidity_percent: Some(50.0),
+      })
+    );
+  }
+
+  #[test]
+  fn a_captured_hub_2_payload_decodes_to_its_displayed_reading() {
+    let captured = [
+      0xd0, 0x51, 0xfa, 0x0f, 0x2c, 0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00,
+      0x99, 0x36, 0x00,
+    ];
+    assert_eq!(
+      ambient(SWITCHBOT_COMPANY_ID, &captured),
+      Some(SwitchBotAmbientFrame {
+        address: [0xd0, 0x51, 0xfa, 0x0f, 0x2c, 0xd0],
+        temperature_celsius: 25.0,
+        humidity_percent: Some(54.0),
+      })
+    );
+  }
+
+  #[test]
+  fn a_captured_co2_meter_payload_decodes_to_its_displayed_reading() {
+    let captured = [
+      0xb0, 0xe9, 0xfe, 0x55, 0xa7, 0xdf, 0x03, 0x64, 0x08, 0x99, 0x33, 0x00, 0x22, 0x05,
+      0x4c, 0x20,
+    ];
+    assert_eq!(
+      ambient(SWITCHBOT_COMPANY_ID, &captured),
+      Some(SwitchBotAmbientFrame {
+        address: [0xb0, 0xe9, 0xfe, 0x55, 0xa7, 0xdf],
+        temperature_celsius: 25.8,
+        humidity_percent: Some(51.0),
+      })
+    );
+  }
+
+  #[test]
+  fn a_payload_from_another_vendor_is_ignored() {
+    // Apple's company id, carrying bytes that would otherwise decode.
+    let captured = [
+      0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19, 0x00, 0xff, 0x6a, 0x97, 0x08, 0x55, 0x84, 0x03,
+      0x9b, 0x32, 0x80,
+    ];
+    assert_eq!(ambient(0x004c, &captured), None);
+  }
+
+  #[test]
+  fn a_switchbot_device_broadcasting_zeros_reports_no_reading() {
+    // A bulb in the same capture. Decoding it would yield -0.0 °C / 0 %,
+    // which reads as a measurement and is not one.
+    let captured = [
+      0xb0, 0xe9, 0xfe, 0xd3, 0xfa, 0xca, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00,
+    ];
+    assert_eq!(ambient(SWITCHBOT_COMPANY_ID, &captured), None);
+  }
+
+  #[test]
+  fn an_unobserved_payload_length_is_ignored() {
+    // 12 bytes, the shape another SwitchBot device broadcast. We have no
+    // observation telling us where a reading would sit, so we do not
+    // invent one.
+    let captured = [
+      0xe5, 0xeb, 0x7e, 0xa4, 0x7a, 0x7a, 0x00, 0xff, 0x6a, 0x97, 0x08, 0x53,
+    ];
+    assert_eq!(ambient(SWITCHBOT_COMPANY_ID, &captured), None);
+  }
+
+  #[test]
+  fn a_decimal_digit_above_nine_refuses_the_manufacturer_frame() {
+    let mut captured = [
+      0xd0, 0x51, 0xfa, 0x0f, 0x2c, 0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00,
+      0x99, 0x36, 0x00,
+    ];
+    captured[13] = 0x0a;
+    assert_eq!(ambient(SWITCHBOT_COMPANY_ID, &captured), None);
+  }
+
+  #[test]
+  fn a_manufacturer_frame_below_zero_keeps_its_sign() {
+    // Same layout with the sign bit clear: the Meter convention reads a
+    // cleared bit as below zero, and the hubs shared every other part of
+    // it. Unconfirmed on real hardware - the reason this path ships as
+    // experimental.
+    let mut captured = [
+      0xd0, 0x51, 0xfa, 0x0f, 0x2c, 0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x05,
+      0x03, 0x36, 0x00,
+    ];
+    captured[14] = 0x03;
+    assert_eq!(
+      ambient(SWITCHBOT_COMPANY_ID, &captured),
+      Some(SwitchBotAmbientFrame {
+        address: [0xd0, 0x51, 0xfa, 0x0f, 0x2c, 0xd0],
+        temperature_celsius: -3.5,
+        humidity_percent: Some(54.0),
+      })
+    );
+  }
+
+  // -- one id form for every transport --
+
+  /// A Meter's identity comes from the transport (the radio's view of
+  /// its address) and a Hub's from its own payload. Both must persist
+  /// as the same twelve lowercase hex digits: the settings side refuses
+  /// any other form as "nothing chosen", so a Meter stored differently
+  /// would come up unbound on the next launch.
+  #[test]
+  fn a_service_data_device_and_a_manufacturer_frame_share_one_id_form() {
+    let radio_address = [0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19];
+    let captured = [
+      0xb0, 0xe9, 0xfe, 0xb0, 0x8a, 0x19, 0x00, 0xff, 0x6a, 0x97, 0x08, 0x55, 0x84, 0x03,
+      0x9b, 0x32, 0x80,
+    ];
+    let from_payload = ambient(SWITCHBOT_COMPANY_ID, &captured).unwrap();
+
+    assert_eq!(address_id(&radio_address), from_payload.address_id());
+    assert_eq!(address_id(&radio_address), "b0e9feb08a19");
+  }
+
+  #[test]
+  fn a_device_id_is_the_form_the_settings_side_accepts() {
+    let id = address_id(&[0xAA, 0xBB, 0xCC, 0xDD, 0xA1, 0xB2]);
+
+    assert_eq!(id, "aabbccdda1b2", "lowercase, no separators");
+    assert!(crate::settings::environmental_sensors::is_device_id(&id));
   }
 }

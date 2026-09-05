@@ -20,6 +20,7 @@ pub mod cooling_fan_trend;
 pub mod cooling_hourly_rollup;
 pub mod cooling_load_temperature_explorer;
 pub mod cooling_rollup;
+pub mod cooling_thermal_delta_rollup;
 pub mod cooling_trend;
 pub mod preflight;
 pub mod storage_health;
