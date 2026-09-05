@@ -109,6 +109,7 @@ shared enforcement surface.
 - [Make navigation levels explicit](make-navigation-levels-explicit.md)
 - [Separate release integrity from vulnerability exposure](separate-release-integrity-from-vulnerability-exposure.md)
 - [Deliver pull requests through review](deliver-pull-requests-through-review.md)
+- [Keep required CodeQL configurations present on pull requests](keep-required-codeql-configurations-on-pull-requests.md)
 - [Keep shared system refresh ownership explicit](keep-shared-system-refresh-ownership-explicit.md)
 - [Keep CPU power sampling independent](keep-independent-cpu-power-sampler.md)
 - [Read id producers before identity UI](read-id-producers-before-identity-ui.md)
