@@ -6,8 +6,10 @@ Tracking issue: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/205
 
 This records the product and architectural constraints agreed on 2026-09-01.
 It is a decision for planned work, not a claim that chunk storage is implemented.
-Concrete codecs, schema, migration lifecycle, and query numerical tolerances
-remain subject to the issue's design and benchmark gate.
+The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
+[storage design](../architecture/hardware-archive-storage-design.md) now provide
+a concrete lifecycle recommendation and decision inventory. Binary formats and
+performance budgets remain subject to the design and benchmark gate.
 
 Implementation is planned to follow the current Cooling Insight scope tracked
 by [#1666](https://github.com/shm11C3/HardwareVisualizer/issues/1666). This is a
@@ -187,10 +189,15 @@ destination and an explicit policy.
 
 ## Deferred decisions
 
-The issue owns benchmark thresholds, codecs/chunk sizes, query numerical
-criteria, Later behavior, migration-time reads/writes and cutover pauses,
-resume/progress design, disk safety margin, maintenance cadence, and backup
-verification/deletion timing.
+The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) recommends
+Later behavior, migration-time writes, capture/resume, generation selection,
+maintenance, and recovery-copy removal. Its
+[storage design](../architecture/hardware-archive-storage-design.md) records
+comparison criteria and candidate budgets; the
+[implementation plan](../development/hardware-archive-implementation-plan.md)
+assigns their measurement and validation gates. Until that proposal is accepted,
+these recommendations do not replace this ADR's accepted constraints. Codecs,
+chunk sizes, and calibrated performance thresholds still require evidence.
 
 Downgrade support remains on hold. An option to evaluate is an on-demand export
 into a separate legacy-compatible DB while preserving v2 as authoritative.
