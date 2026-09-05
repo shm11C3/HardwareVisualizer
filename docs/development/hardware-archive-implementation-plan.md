@@ -4,7 +4,7 @@ Parent: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
 
 This is an issue breakdown for review alongside
 [ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md) and the
-[storage design](../architecture/hardware-archive-storage-design.md). It does
+[storage design](hardware-archive-storage-design.md). It does
 not create child issues or enable migration. G1–G8 are local draft IDs; replace
 the dependency references with real issue links when the breakdown is accepted.
 The documentation PR must reference, not close, #2052.
@@ -102,6 +102,8 @@ and incomplete-result presentation at the typed App/frontend boundary.
   maximum execution seconds, latest timestamp, and requested ordering.
 - [ ] Tail/chunk snapshot reads and concurrent/retried finalization never omit
   or double-count rows, including shutdown flushes and duplicate instants.
+  Test rollback, changed selected rows, and crash after finalization commit
+  before acknowledgement; retries must select from persisted tail state.
 - [ ] All groups remain accessible with bounded pages; define query snapshot
   lifetime/count, total bytes, spill limits, cancellation, expiry, and cleanup.
 - [ ] Decode/header/unsupported-version failures return readable observations
@@ -216,6 +218,8 @@ copy. Keep normal-installation enablement behind G8's delivery decision.
   selected paths and identities are validated before normal startup preflight.
 - [ ] Fault-inject every boundary in the design's recovery table on Windows,
   macOS and Linux, including busy handles and interrupted control commits.
+  Include an unacknowledged finalization commit immediately before switching
+  or restart; its records must appear exactly once in the selected generation.
 - [ ] After selection, failed reopen or newer destination writes never trigger
   automatic source fallback. Missing/corrupt control is not empty-DB creation.
 - [ ] Distinguish app-crash proof from OS/power-loss proof. Keep normal archive
@@ -238,7 +242,9 @@ rollup dependencies, independent retention, and source protection on failures.
 - [ ] Finalization continues with scheduled deletion off; deletion uses current
   preferences, not stale startup values.
 - [ ] Delete only fully expired chunks after successful dependent rollups;
-  never delete unreadable/unclassified or unexpired input. Preserve baseline
+  apply rollup-gated per-row expiry to converted tails, including repeated
+  oversized exceptions, without blocking eligible later rows. Never delete
+  unreadable/unclassified or unexpired input. Preserve baseline
   protection and independent Cooling/Storage Health row retention.
 - [ ] Cadence/work budgets keep up with normal ingestion and restart backlog;
   report backlog, failure and last success. Test the conditional retention bound.

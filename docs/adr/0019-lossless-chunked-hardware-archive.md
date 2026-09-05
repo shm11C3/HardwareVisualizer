@@ -7,7 +7,7 @@ Tracking issue: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/205
 This records the product and architectural constraints agreed on 2026-09-01.
 It is a decision for planned work, not a claim that chunk storage is implemented.
 The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
-[storage design](../architecture/hardware-archive-storage-design.md) now provide
+[storage design](../development/hardware-archive-storage-design.md) now provide
 a concrete lifecycle recommendation and decision inventory. Binary formats and
 performance budgets remain subject to the design and benchmark gate.
 
@@ -192,7 +192,7 @@ destination and an explicit policy.
 The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) recommends
 Later behavior, migration-time writes, capture/resume, generation selection,
 maintenance, and recovery-copy removal. Its
-[storage design](../architecture/hardware-archive-storage-design.md) records
+[storage design](../development/hardware-archive-storage-design.md) records
 comparison criteria and candidate budgets; the
 [implementation plan](../development/hardware-archive-implementation-plan.md)
 assigns their measurement and validation gates. Until that proposal is accepted,

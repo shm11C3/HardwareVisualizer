@@ -5,7 +5,7 @@ Status: proposed implementation design for
 
 [ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) owns accepted product
 guarantees. [ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md) recommends
-this lifecycle. [Backend architecture](backend.md) describes current code;
+this lifecycle. [Backend architecture](../architecture/backend.md) describes current code;
 this document describes planned changes.
 
 The claim is to reduce local archive disk usage while preserving stored history,
@@ -113,8 +113,10 @@ The first experiment caps each chunk at **one hour, 4,096 records, and 4 MiB
 decoded bytes**, whichever comes first. Sparse sources close on elapsed time.
 Backward clock steps close the current batch; overlapping time ranges across
 chunks are allowed. Never deduplicate by timestamp. An individually oversized
-record stays relational with an explicit conversion decision; the overall
-Process Stats gate still applies.
+record stays in the converted family's relational tail with an explicit
+conversion decision; the overall Process Stats gate still applies. Mark that
+exception so finalization can skip it without blocking later eligible records.
+It remains queryable and follows the rollup-gated row expiry below.
 
 Compare columnar batches with per-series sensor batches and larger bounded
 windows. Candidates include dictionary encoding, null bitmaps, integer/time
@@ -125,11 +127,24 @@ pins framing, byte order, versions, digest, limits, golden vectors, and any
 new dependency/license decision before production writes.
 
 One finalizer per generation selects bounded tail IDs and encodes outside the
-write transaction. In one transaction it conditionally claims those records,
-inserts the chunk, and deletes exactly the selected IDs. Retries cannot publish
-them twice. Each query reads tail/chunks in one SQLite snapshot, observing
-before or after finalization. Keep reads short and buffers bounded; never
-rewrite the entire active BLOB each minute.
+write transaction while holding its generation lease. In one transaction,
+recheck that every exact selected ID is still present, insert the chunk, and
+delete exactly those IDs. Require the affected-row count to equal the selected
+count; any mismatch rolls back the entire transaction and replans from the
+persisted tail. Rows are immutable and IDs are never reused within a generation,
+so this conditional consumption is the idempotency boundary.
+
+A commit error may mean the commit succeeded. Never blindly replay its cached
+payload: open a new transaction and select from persisted tail state. A prior
+successful commit consumed those IDs atomically with its chunk; a rolled-back
+commit left them available. This also handles retention removing eligible rows
+while encoding. A separate persistent retry-key table is unnecessary for this
+single-database operation. Test failure after commit but before completion
+acknowledgement, as well as rollback and a changed selection before commit.
+
+Each query reads tail/chunks in one SQLite snapshot, observing before or after
+finalization. Keep reads short and buffers bounded; never rewrite the entire
+active BLOB each minute.
 
 The digest covers payload and interpretation-critical metadata. Validate
 bounds, lengths, counts, versions, and allocation limits. Corrupt catalog bounds
@@ -184,8 +199,8 @@ and a query-result snapshot; a cursor refers to that snapshot/generation, not
 a fresh offset query over changing history. Start with 500 groups per page;
 all groups remain accessible, without a new top-N policy. G2 freezes snapshot
 count/lifetime, temporary-byte caps, and cleanup under G1's budgets. Expired
-cursors require refresh; exhausted resources produce an explicit retry/narrow-
-range error, not truncated success. Charts also need a total byte cap beyond
+cursors require refresh; exhausted resources produce an explicit error asking
+for a retry or a narrower range, not truncated success. Charts also need a total byte cap beyond
 their existing point cap. Regenerate bindings at the App boundary.
 
 ## Online migration
@@ -378,6 +393,16 @@ unconverted families, independent Cooling/Storage Health policies, and current
 baseline protections. Compaction preserves source samples and therefore need
 not wait for rollups; deletion must wait.
 
+Apply bounded row-based expiry to the tail of converted families too, including
+oversized records permanently excluded from chunks. Each row must be strictly
+older than its own timestamp cutoff and have successful dependent-rollup
+coverage before deletion; invalid/unreadable timestamps hold that row and report
+an error. The same deletion preference and baseline protections apply. Under
+healthy maintenance, these exceptions expire within one retention cycle after
+eligibility; they neither wait forever for finalization nor block other work.
+G7 tests repeated oversized rows, mixed eligible/unexpired rows, disabled
+deletion, and rollup failure without indefinite retention or premature removal.
+
 Report last success, backlog, and failures with bounded retry backoff. With
 one-hour chunks and healthy deletion completed each 15-minute cycle, additional
 raw retention is at most 75 minutes. This conditional bound excludes migration,
@@ -405,8 +430,7 @@ Do not loosen product guarantees or present estimates as measured savings.
 
 Measure 24 hours, 30 days, one year, and ten years. Cover realistic process
 ranking and high PID/name churn, same-name GPUs, ambient changes, many fans,
-null/sparse values, duplicate instants, and shutdown flushes. Use production-
-shaped IDs without consulting prohibited sensor implementations. Label synthetic
+null/sparse values, duplicate instants, and shutdown flushes. Use production-shaped IDs without consulting prohibited sensor implementations. Label synthetic
 history as synthetic; never commit local process/device data.
 
 Record hardware/OS/filesystem, SQLite/Rust versions, commit/seed, repetitions,

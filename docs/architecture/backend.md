@@ -200,7 +200,7 @@ constraints for planned lossless chunked storage. Its persisted active tail,
 format migration, and recurring retention maintenance are not implemented by
 that decision; the startup flow and cleanup behavior below remain current.
 [ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md) and the
-[storage design](hardware-archive-storage-design.md) propose the concrete
+[storage design](../development/hardware-archive-storage-design.md) propose the concrete
 migration lifecycle; the [delivery plan](../development/hardware-archive-implementation-plan.md)
 separates measured format selection from implementation and release gates.
 

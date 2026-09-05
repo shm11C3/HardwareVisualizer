@@ -35,7 +35,7 @@ families relational.
 The preferred format experiment is columnar record batches bounded by one hour,
 row count, and decoded bytes. Compare per-series sensor batches and larger
 bounded windows before freezing bytes. No codec, compression library, or size
-saving is accepted without the [measurement gate](../architecture/hardware-archive-storage-design.md#measurement-gate).
+saving is accepted without the [measurement gate](../development/hardware-archive-storage-design.md#measurement-gate).
 This selects storage boundaries without inventing benchmark results.
 
 Core reads tail and chunks in one generation and SQLite snapshot. Preserve
@@ -111,7 +111,7 @@ does not change collection/ranking, add analytics, or implement downgrade.
 
 ## Decision and delivery gates
 
-The [storage design](../architecture/hardware-archive-storage-design.md) specifies
+The [storage design](../development/hardware-archive-storage-design.md) specifies
 capture, comparison rules, candidate budgets, and recovery tests. The
 [implementation slices](../development/hardware-archive-implementation-plan.md)
 assign remaining decisions and dependencies.
