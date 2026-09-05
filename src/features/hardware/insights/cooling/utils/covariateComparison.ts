@@ -5,7 +5,7 @@ import type {
   CoolingLeastSquaresFit,
   TemperatureUnit,
 } from "@/rspc/bindings";
-import { fanColor } from "./fanTimeline";
+import { fanColor, resolveFanSeries } from "./fanTimeline";
 import {
   convertTemperatureDelta,
   formatSignedTemperatureDelta,
@@ -127,12 +127,22 @@ const FAN_FORMAT: QuantityFormat = {
   unitSuffix: " rpm",
   changeSuffix: " rpm",
 };
+/**
+ * The user-visible strings the rows need that are not units of measure:
+ * a "W" or "rpm" is the same in every language, a percentage-point suffix
+ * is not, so the caller translates it and passes it in.
+ */
+export type CovariateRowLabels = {
+  /** The suffix of a change in share, e.g. " pt". */
+  pointsSuffix: string;
+};
+
 /** A share is a percentage; its change is a difference in points. */
-const SHARE_FORMAT: QuantityFormat = {
+const shareFormat = (labels: CovariateRowLabels): QuantityFormat => ({
   fractionDigits: 1,
   unitSuffix: " %",
-  changeSuffix: " pt",
-};
+  changeSuffix: labels.pointsSuffix,
+});
 
 /**
  * Core reports a band share as a ratio in `0..=1` (paired minutes in the
@@ -251,7 +261,14 @@ const ambientRow = (
       factor.change == null ? null : formatDisplayDelta(factor.change, unit),
     // Whatever the room did is already subtracted from every ΔT in the
     // table; the row is here so the reader can see it was, not compared.
-    tag: factor.judgement === "absent" ? "notArchived" : "removedByDelta",
+    // Core's own verdicts still pass through where they say something
+    // else: never archived, or too thin to compare at all.
+    tag:
+      factor.judgement === "absent"
+        ? "notArchived"
+        : factor.judgement === "notComparable"
+          ? "notComparable"
+          : "removedByDelta",
     judgement: null,
   };
 };
@@ -265,6 +282,7 @@ const ambientRow = (
 export const buildCovariateRows = (
   comparison: EstablishedCovariateComparison,
   unit: TemperatureUnit,
+  labels: CovariateRowLabels,
 ): CovariateRow[] => {
   const rows: CovariateRow[] = [];
   const thermalDelta = thermalDeltaRow(comparison, unit);
@@ -278,12 +296,20 @@ export const buildCovariateRows = (
     ...quantityRow(comparison.packagePower, POWER_FORMAT),
     judgement: comparison.packagePower.judgement,
   });
-  comparison.fans.forEach((fan, index) => {
+  // Colored by position in the same source-sorted order the fan lane
+  // uses, not by DTO order, so a fan keeps one color across the timeline
+  // and this table whatever order Core listed them in.
+  const laneIndex = new Map(
+    resolveFanSeries(comparison.fans.map((fan) => fan.fanSource)).map(
+      (series, index) => [series.source, index],
+    ),
+  );
+  comparison.fans.forEach((fan) => {
     rows.push({
       key: `fan:${fan.fanSource}`,
       kind: "fan",
       fanSource: fan.fanSource,
-      color: fanColor(index),
+      color: fanColor(laneIndex.get(fan.fanSource) ?? 0),
       ...quantityRow(fan.speed, FAN_FORMAT),
       judgement: fan.speed.judgement,
     });
@@ -292,7 +318,7 @@ export const buildCovariateRows = (
     key: "loadBandShare",
     kind: "loadBandShare",
     color: covariateColors.loadBandShare,
-    ...quantityRow(asPercentage(comparison.loadBandShare), SHARE_FORMAT),
+    ...quantityRow(asPercentage(comparison.loadBandShare), shareFormat(labels)),
     judgement: comparison.loadBandShare.judgement,
   });
   rows.push(ambientRow(comparison.ambientTemperature, unit));

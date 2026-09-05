@@ -501,6 +501,7 @@
             "atMatchedPower": "at matched power"
           },
           "footnote": "“Within range” means inside the baseline window's own spread. A row that moved is a co-observation, not a cause.",
+          "units": { "points": " pt" },
           "chart": {
             "title": "Thermal Delta ({{unit}}) vs. package power · {{band}} band",
             "powerAxis": "CPU package power (W)",

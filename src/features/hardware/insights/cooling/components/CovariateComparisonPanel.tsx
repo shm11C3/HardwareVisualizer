@@ -136,8 +136,13 @@ const EstablishedComparison = ({
   const { t } = useTranslation();
   const bandLabel = t(`pages.insights.cooling.loadBands.${comparison.band}`);
   const rows = useMemo(
-    () => buildCovariateRows(comparison, temperatureUnit),
-    [comparison, temperatureUnit],
+    () =>
+      buildCovariateRows(comparison, temperatureUnit, {
+        pointsSuffix: t(
+          "pages.insights.cooling.covariateComparison.units.points",
+        ),
+      }),
+    [comparison, temperatureUnit, t],
   );
   const chart = useMemo(
     () =>

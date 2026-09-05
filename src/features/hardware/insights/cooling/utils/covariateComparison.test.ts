@@ -7,6 +7,8 @@ import {
   formatFitSlope,
 } from "./covariateComparison";
 
+const LABELS = { pointsSuffix: " pt" };
+
 const factor = (
   baseline: number | null,
   recent: number | null,
@@ -69,7 +71,9 @@ const comparison = (
 
 describe("buildCovariateRows", () => {
   it("lists the Thermal Delta, power, each fan, load share and ambient in that order", () => {
-    const keys = buildCovariateRows(comparison(), "C").map((row) => row.key);
+    const keys = buildCovariateRows(comparison(), "C", LABELS).map(
+      (row) => row.key,
+    );
 
     expect(keys).toEqual([
       "thermalDelta",
@@ -82,7 +86,7 @@ describe("buildCovariateRows", () => {
   });
 
   it("reads the Thermal Delta row off both fits at the baseline's median power", () => {
-    const [thermalDelta] = buildCovariateRows(comparison(), "C");
+    const [thermalDelta] = buildCovariateRows(comparison(), "C", LABELS);
 
     // 1.31 * 18.4 + 4 = 28.104; 1.52 * 18.4 + 4.2 = 32.168.
     expect(thermalDelta).toMatchObject({
@@ -98,13 +102,14 @@ describe("buildCovariateRows", () => {
     const rows = buildCovariateRows(
       comparison({ recentFit: null, deltaAtBaselineMedianPower: null }),
       "C",
+      LABELS,
     );
 
     expect(rows.some((row) => row.kind === "thermalDelta")).toBe(false);
   });
 
   it("keeps an absent factor's values null instead of rendering a zero", () => {
-    const rows = buildCovariateRows(comparison(), "C");
+    const rows = buildCovariateRows(comparison(), "C", LABELS);
     const absentFan = rows.find((row) => row.key === "fan:case fan 2");
 
     expect(absentFan).toMatchObject({
@@ -117,7 +122,7 @@ describe("buildCovariateRows", () => {
   });
 
   it("formats each factor in its own unit, with a share's change in points", () => {
-    const rows = buildCovariateRows(comparison(), "C");
+    const rows = buildCovariateRows(comparison(), "C", LABELS);
     const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
 
     expect(byKey["packagePower"]).toMatchObject({
@@ -140,7 +145,7 @@ describe("buildCovariateRows", () => {
   });
 
   it("tags ambient as removed by the Thermal Delta and keeps it out of the lead", () => {
-    const rows = buildCovariateRows(comparison(), "C");
+    const rows = buildCovariateRows(comparison(), "C", LABELS);
     const ambient = rows.find((row) => row.kind === "ambient");
 
     // Core judged the room "moved", and the table still does not list it
@@ -155,7 +160,7 @@ describe("buildCovariateRows", () => {
   });
 
   it("converts the ambient reading as a temperature and its change as a delta", () => {
-    const rows = buildCovariateRows(comparison(), "F");
+    const rows = buildCovariateRows(comparison(), "F", LABELS);
     const ambient = rows.find((row) => row.kind === "ambient");
 
     // 23.4 degC -> 74.1 degF (with offset); +3.7 K -> +6.7 degF (no offset).
@@ -169,7 +174,7 @@ describe("buildCovariateRows", () => {
 
 describe("buildCovariateLead", () => {
   it("partitions the judged rows into moved and within range", () => {
-    const rows = buildCovariateRows(comparison(), "C");
+    const rows = buildCovariateRows(comparison(), "C", LABELS);
     const lead = buildCovariateLead(comparison(), rows, "C");
 
     expect(lead.deltaAtMatchedPower).toBe("+4.1°C");
@@ -182,7 +187,7 @@ describe("buildCovariateLead", () => {
 
   it("leaves the matched-power clause out when Core produced no delta", () => {
     const source = comparison({ deltaAtBaselineMedianPower: null });
-    const rows = buildCovariateRows(source, "C");
+    const rows = buildCovariateRows(source, "C", LABELS);
 
     expect(
       buildCovariateLead(source, rows, "C").deltaAtMatchedPower,
@@ -251,5 +256,59 @@ describe("formatFitSlope", () => {
         "C",
       ),
     ).toBe("1.31 K/W");
+  });
+});
+
+describe("buildCovariateRows - tags and colors that must agree with the rest of the tab", () => {
+  it("colors a fan by its position in the lane's sorted order, whatever order Core listed it in", () => {
+    const rows = buildCovariateRows(
+      comparison({
+        // Core's BTreeSet order is byte order, so a capital sorts first;
+        // the lane sorts with localeCompare, where "case fan 2" precedes
+        // "CPU fan". The two orders disagree exactly here.
+        fans: [
+          {
+            fanSource: "CPU fan",
+            speed: factor(1180, 970, "moved"),
+            baselineFit: null,
+            recentFit: null,
+          },
+          {
+            fanSource: "case fan 2",
+            speed: factor(800, 810, "withinRange"),
+            baselineFit: null,
+            recentFit: null,
+          },
+        ],
+      }),
+      "C",
+      LABELS,
+    );
+    const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
+
+    expect(byKey["fan:case fan 2"].color).toBe("hsl(var(--chart-2))");
+    expect(byKey["fan:CPU fan"].color).toBe("hsl(var(--chart-5))");
+  });
+
+  it("keeps Core's not-comparable verdict on the ambient row instead of calling it removed", () => {
+    const rows = buildCovariateRows(
+      comparison({ ambientTemperature: factor(23.4, 27.1, "notComparable") }),
+      "C",
+      LABELS,
+    );
+
+    expect(rows.find((row) => row.kind === "ambient")?.tag).toBe(
+      "notComparable",
+    );
+  });
+
+  it("prints the share change with the suffix the caller translated", () => {
+    const rows = buildCovariateRows(comparison(), "C", {
+      pointsSuffix: " ポイント",
+    });
+
+    expect(rows.find((row) => row.kind === "loadBandShare")?.change).toBe(
+      "+6.0 ポイント",
+    );
   });
 });
