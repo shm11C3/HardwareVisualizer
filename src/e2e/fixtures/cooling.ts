@@ -714,3 +714,48 @@ export const coolingCovariateComparisonEstablishingFixture: CoolingCovariateComp
  */
 export const coolingCovariateComparisonNoAmbientFixture: CoolingCovariateComparison =
   { status: "establishing", qualifyingDays: 0, requiredDays: 7 };
+
+/**
+ * `?coolingAmbient=only`: the ambient archive holds readings but the
+ * hardware archive holds nothing for the window, so no minute ever paired
+ * a Thermal Delta with package power. The comparison is established - the
+ * sensor exists and its baseline qualified - but too thin to compare, and
+ * every factor the hardware archive would have supplied is absent.
+ */
+export const coolingCovariateComparisonAmbientOnlyFixture: CoolingCovariateComparison =
+  {
+    status: "established",
+    band: "idle",
+    baselineSource: "SwitchBot Meter Plus (Desk)",
+    baselineWindowStartDate: AMBIENT_BASELINE.windowStartDate,
+    baselineWindowEndDate: AMBIENT_BASELINE.windowEndDate,
+    recentSource: null,
+    recentWindowStartDate: "2026-01-09",
+    recentWindowEndDate: "2026-01-15",
+    baselinePairedMinutes: 0,
+    recentPairedMinutes: 0,
+    packagePower: {
+      baseline: null,
+      recent: null,
+      change: null,
+      judgement: "absent",
+    },
+    ambientTemperature: {
+      baseline: 23.4,
+      recent: 27.1,
+      change: 3.7,
+      judgement: "notComparable",
+    },
+    loadBandShare: {
+      baseline: null,
+      recent: null,
+      change: null,
+      judgement: "absent",
+    },
+    fans: [],
+    baselineFit: null,
+    recentFit: null,
+    deltaAtBaselineMedianPower: null,
+    comparable: false,
+    comparability: "tooFewPairedMinutes",
+  };

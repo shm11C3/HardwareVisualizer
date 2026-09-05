@@ -18,6 +18,7 @@ import {
   coolingBaselineDeltaLargeRiseFixture,
   coolingBaselineDeltaMildRiseFixture,
   coolingBaselineDeltaNotComparableFixture,
+  coolingCovariateComparisonAmbientOnlyFixture,
   coolingCovariateComparisonEstablishingFixture,
   coolingCovariateComparisonFixture,
   coolingCovariateComparisonNoAmbientFixture,
@@ -489,6 +490,12 @@ const buildInvokeHandlers = (
     // panel hides on the zero-day answer rather than on a missing command.
     if (fixtureOverrides.coolingAmbientOverride == null) {
       return coolingCovariateComparisonNoAmbientFixture;
+    }
+    // The ambient archive alone: a sensor with a qualified baseline, but a
+    // window in which no minute paired a Thermal Delta with package power,
+    // so the comparison is established and not comparable (DP-02).
+    if (fixtureOverrides.coolingAmbientOverride === "only") {
+      return coolingCovariateComparisonAmbientOnlyFixture;
     }
     return fixtureOverrides.coolingBaselineEstablishing
       ? coolingCovariateComparisonEstablishingFixture

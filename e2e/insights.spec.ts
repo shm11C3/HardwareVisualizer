@@ -289,6 +289,19 @@ test.describe("insights captures", () => {
     await expect(page.getByTestId("cooling-fan-lane")).toHaveCount(0);
     // The reading that did arrive still renders.
     await expect(page.getByTestId("cooling-ambient-lane")).toBeVisible();
+    // The co-variate panel has a sensor with a qualified baseline but not
+    // one minute that paired a Thermal Delta with package power: it says
+    // so, and claims no fit and no lead.
+    const covariate = page.getByTestId("cooling-covariate-panel");
+    await expect(
+      covariate.getByTestId("cooling-covariate-not-comparable"),
+    ).toBeVisible();
+    await expect(covariate.getByTestId("cooling-covariate-lead")).toHaveCount(
+      0,
+    );
+    await expect(covariate.getByTestId("cooling-covariate-chart")).toHaveCount(
+      0,
+    );
 
     await page.waitForTimeout(1_000);
 
