@@ -22,25 +22,7 @@ on:
 permissions: read-all
 
 jobs:
-  detect-rust-changes:
-    name: Detect Rust source changes
-    runs-on: ubuntu-slim
-    permissions:
-      pull-requests: read
-    outputs:
-      rust: ${{ steps.changes.outputs.rust }}
-    steps:
-      - name: Detect Rust source changes
-        id: changes
-        if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
-            rust:
-              - '**/*.rs'
-
   analyze:
-    needs: detect-rust-changes
     name: Analyze (${{ matrix.language }})
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
@@ -62,15 +44,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The develop ruleset compares every CodeQL category with each pull
+        # request. Keep Rust present even when a pull request changes no Rust.
         language: [actions, javascript-typescript, rust]
         build-mode: [none]
-        # Rust analysis takes about nine minutes in this repository. Run it
-        # after changes land on develop and on pull requests that modify Rust.
-        run_rust:
-          - ${{ (github.event_name == 'push' && github.ref == 'refs/heads/develop') || needs.detect-rust-changes.outputs.rust == 'true' }}
-        exclude:
-          - language: rust
-            run_rust: false
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
