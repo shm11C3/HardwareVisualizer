@@ -46,13 +46,6 @@ jobs:
       matrix:
         language: [actions, javascript-typescript, rust]
         build-mode: [none]
-        # Rust analysis takes about nine minutes in this repository, so run it
-        # only after changes land on develop instead of delaying pull requests.
-        is_develop_push:
-          - ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
-        exclude:
-          - language: rust
-            is_develop_push: false
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
