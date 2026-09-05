@@ -1,7 +1,9 @@
 //! Standalone synthetic SQLite benchmark for the lossless archive experiment.
 //!
 //! The output directory must be new. This example never discovers or opens an
-//! application database and never reads local process or device data.
+//! application database and never imports application history, other-process
+//! data, or device readings. Its report records static host metadata and the
+//! benchmark process's own memory usage.
 
 #[path = "archive_format_benchmark/codec.rs"]
 mod codec;
@@ -275,17 +277,28 @@ fn command_output(program: &str, arguments: &[&str]) -> String {
     .unwrap_or_else(|| "unavailable".to_owned())
 }
 
-fn environment_report(output: &std::path::Path) -> EnvironmentReport {
-  let system = sysinfo::System::new_all();
-  let current_rss_bytes = sysinfo::get_current_pid()
-    .ok()
+fn environment_report(_output: &std::path::Path) -> EnvironmentReport {
+  let mut system = sysinfo::System::new();
+  system.refresh_cpu_list(sysinfo::CpuRefreshKind::nothing());
+  system.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
+  let current_pid = sysinfo::get_current_pid().ok();
+  if let Some(pid) = current_pid {
+    system.refresh_processes_specifics(
+      sysinfo::ProcessesToUpdate::Some(&[pid]),
+      false,
+      sysinfo::ProcessRefreshKind::nothing()
+        .with_memory()
+        .without_tasks(),
+    );
+  }
+  let current_rss_bytes = current_pid
     .and_then(|pid| system.process(pid))
     .map(|process| process.memory());
   #[cfg(target_os = "macos")]
-  let filesystem = command_output("stat", &["-f", "%T", output.to_str().unwrap_or("")]);
+  let filesystem = "unavailable".to_owned();
   #[cfg(target_os = "linux")]
   let filesystem =
-    command_output("stat", &["-f", "-c", "%T", output.to_str().unwrap_or("")]);
+    command_output("stat", &["-f", "-c", "%T", _output.to_str().unwrap_or("")]);
   #[cfg(not(any(target_os = "macos", target_os = "linux")))]
   let filesystem = "unavailable".to_owned();
   EnvironmentReport {
