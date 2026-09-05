@@ -1,7 +1,7 @@
 {
   "schema": "hardviz-g1-initial-measurements-v1",
   "measured_date": "2026-09-05",
-  "source_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+  "source_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
   "develop_baseline_commit": "838d08da16d60ead84df3ddb1501ca19a57f24fc",
   "external_host_metadata": {
     "macos_version": "26.6.2",
@@ -37,14 +37,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 0.62179320899304,
-        "user_seconds": 0.43357199999999996,
-        "system_seconds": 0.196427,
+        "wall_seconds": 0.9199028750008438,
+        "user_seconds": 0.406408,
+        "system_seconds": 0.162518,
         "maximum_resident_set_size_bytes": 30408704,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -56,6 +56,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 21615,
           "ambient_rows": 2618,
+          "decoded_value_bytes": 1966283,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -65,7 +67,8 @@
           "chunk_rows": 4096,
           "chunks": 48,
           "encoded_bytes": 1974520,
-          "decoded_value_bytes": 2303608
+          "finalized_decoded_value_bytes": 1924216,
+          "retained_tail_decoded_value_bytes": 42067
         },
         "environment": {
           "os": "macos",
@@ -73,10 +76,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 23019520,
+          "current_rss_bytes": 23232512,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -174,85 +177,85 @@
           },
           "before_reclamation_reduction_percent": -3.300330033003296,
           "after_vacuum_reduction_percent": 15.34653465346535,
-          "vacuum_wall_ms": 7.430334
+          "vacuum_wall_ms": 8.983
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 12,
-            "p50_ms": 13.092,
-            "p95_ms": 13.721,
-            "p99_ms": 13.721,
-            "max_ms": 13.721
+            "p50_ms": 13.486,
+            "p95_ms": 23.71,
+            "p99_ms": 23.71,
+            "max_ms": 23.71
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.105,
-            "p95_ms": 0.124,
-            "p99_ms": 0.124,
-            "max_ms": 0.124
+            "p50_ms": 0.096,
+            "p95_ms": 0.113,
+            "p99_ms": 0.113,
+            "max_ms": 0.113
           },
           "source_scan": {
             "samples": 50,
-            "p50_ms": 0.137,
-            "p95_ms": 1.364,
-            "p99_ms": 1.756,
-            "max_ms": 1.756
+            "p50_ms": 0.159,
+            "p95_ms": 1.646,
+            "p99_ms": 1.769,
+            "max_ms": 1.769
           },
           "encode": {
             "samples": 48,
-            "p50_ms": 0.153,
-            "p95_ms": 0.348,
-            "p99_ms": 0.356,
-            "max_ms": 0.356
+            "p50_ms": 0.154,
+            "p95_ms": 0.319,
+            "p99_ms": 0.352,
+            "max_ms": 0.352
           },
           "decode": {
             "samples": 348,
-            "p50_ms": 0.051,
-            "p95_ms": 0.456,
-            "p99_ms": 0.471,
-            "max_ms": 0.481
+            "p50_ms": 0.043,
+            "p95_ms": 0.431,
+            "p99_ms": 0.465,
+            "max_ms": 0.503
           },
           "chunk_insert_and_tail_delete": {
             "samples": 48,
-            "p50_ms": 0.529,
-            "p95_ms": 1.053,
-            "p99_ms": 4.146,
-            "max_ms": 4.146
+            "p50_ms": 0.522,
+            "p95_ms": 1.006,
+            "p99_ms": 5.097,
+            "max_ms": 5.097
           },
           "finalize_total": {
             "samples": 48,
-            "p50_ms": 1.558,
-            "p95_ms": 3.257,
-            "p99_ms": 5.869,
-            "max_ms": 5.869
+            "p50_ms": 1.597,
+            "p95_ms": 3.44,
+            "p99_ms": 6.86,
+            "max_ms": 6.86
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 3.173,
-            "p95_ms": 3.345,
-            "p99_ms": 3.345,
-            "max_ms": 3.345
+            "p50_ms": 2.996,
+            "p95_ms": 3.062,
+            "p99_ms": 3.062,
+            "max_ms": 3.062
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 11.438,
-            "p95_ms": 11.655,
-            "p99_ms": 11.655,
-            "max_ms": 11.655
+            "p50_ms": 11.104,
+            "p95_ms": 11.221,
+            "p99_ms": 11.221,
+            "max_ms": 11.221
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 2.551,
-            "p95_ms": 2.708,
-            "p99_ms": 2.708,
-            "max_ms": 2.708
+            "p50_ms": 2.663,
+            "p95_ms": 2.723,
+            "p99_ms": 2.723,
+            "max_ms": 2.723
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 18.755,
-            "p95_ms": 19.36,
-            "p99_ms": 19.36,
-            "max_ms": 19.36
+            "p50_ms": 5.702,
+            "p95_ms": 5.983,
+            "p99_ms": 5.983,
+            "max_ms": 5.983
           }
         },
         "correctness": {
@@ -304,14 +307,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 0.5806848329957575,
-        "user_seconds": 0.417616,
-        "system_seconds": 0.190442,
+        "wall_seconds": 0.5001878750044852,
+        "user_seconds": 0.380806,
+        "system_seconds": 0.13888699999999998,
         "maximum_resident_set_size_bytes": 30425088,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -323,6 +326,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 21615,
           "ambient_rows": 2618,
+          "decoded_value_bytes": 1966283,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -332,7 +337,8 @@
           "chunk_rows": 4096,
           "chunks": 48,
           "encoded_bytes": 369127,
-          "decoded_value_bytes": 2303608
+          "finalized_decoded_value_bytes": 1924216,
+          "retained_tail_decoded_value_bytes": 42067
         },
         "environment": {
           "os": "macos",
@@ -340,10 +346,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 19922944,
+          "current_rss_bytes": 19906560,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -441,85 +447,85 @@
           },
           "before_reclamation_reduction_percent": -0.8250825082508184,
           "after_vacuum_reduction_percent": 79.86798679867987,
-          "vacuum_wall_ms": 1.4898330000000002
+          "vacuum_wall_ms": 1.8229170000000001
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 12,
-            "p50_ms": 13.014,
-            "p95_ms": 13.479,
-            "p99_ms": 13.479,
-            "max_ms": 13.479
+            "p50_ms": 13.209,
+            "p95_ms": 13.397,
+            "p99_ms": 13.397,
+            "max_ms": 13.397
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.104,
-            "p95_ms": 0.123,
-            "p99_ms": 0.123,
-            "max_ms": 0.123
+            "p50_ms": 0.097,
+            "p95_ms": 0.122,
+            "p99_ms": 0.122,
+            "max_ms": 0.122
           },
           "source_scan": {
             "samples": 50,
-            "p50_ms": 0.155,
-            "p95_ms": 1.516,
-            "p99_ms": 1.65,
-            "max_ms": 1.65
+            "p50_ms": 0.146,
+            "p95_ms": 1.414,
+            "p99_ms": 1.865,
+            "max_ms": 1.865
           },
           "encode": {
             "samples": 48,
-            "p50_ms": 0.399,
-            "p95_ms": 0.967,
-            "p99_ms": 0.982,
-            "max_ms": 0.982
+            "p50_ms": 0.392,
+            "p95_ms": 0.928,
+            "p99_ms": 1.125,
+            "max_ms": 1.125
           },
           "decode": {
             "samples": 348,
-            "p50_ms": 0.037,
-            "p95_ms": 0.261,
-            "p99_ms": 0.276,
-            "max_ms": 0.291
+            "p50_ms": 0.038,
+            "p95_ms": 0.254,
+            "p99_ms": 0.273,
+            "max_ms": 0.311
           },
           "chunk_insert_and_tail_delete": {
             "samples": 48,
-            "p50_ms": 0.821,
-            "p95_ms": 1.005,
-            "p99_ms": 2.615,
-            "max_ms": 2.615
+            "p50_ms": 0.812,
+            "p95_ms": 1.071,
+            "p99_ms": 3.266,
+            "max_ms": 3.266
           },
           "finalize_total": {
             "samples": 48,
-            "p50_ms": 2.79,
-            "p95_ms": 3.615,
-            "p99_ms": 3.965,
-            "max_ms": 3.965
+            "p50_ms": 2.876,
+            "p95_ms": 3.598,
+            "p99_ms": 4.466,
+            "max_ms": 4.466
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 3.164,
-            "p95_ms": 3.334,
-            "p99_ms": 3.334,
-            "max_ms": 3.334
+            "p50_ms": 3.027,
+            "p95_ms": 3.105,
+            "p99_ms": 3.105,
+            "max_ms": 3.105
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 9.0,
-            "p95_ms": 9.322,
-            "p99_ms": 9.322,
-            "max_ms": 9.322
+            "p50_ms": 8.898,
+            "p95_ms": 9.4,
+            "p99_ms": 9.4,
+            "max_ms": 9.4
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 2.682,
-            "p95_ms": 2.736,
-            "p99_ms": 2.736,
-            "max_ms": 2.736
+            "p50_ms": 2.693,
+            "p95_ms": 2.907,
+            "p99_ms": 2.907,
+            "max_ms": 2.907
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 18.265,
-            "p95_ms": 18.902,
-            "p99_ms": 18.902,
-            "max_ms": 18.902
+            "p50_ms": 5.625,
+            "p95_ms": 5.917,
+            "p99_ms": 5.917,
+            "max_ms": 5.917
           }
         },
         "correctness": {
@@ -571,14 +577,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 0.554439542000182,
-        "user_seconds": 0.392685,
-        "system_seconds": 0.187127,
+        "wall_seconds": 0.4703112499846611,
+        "user_seconds": 0.354497,
+        "system_seconds": 0.137588,
         "maximum_resident_set_size_bytes": 30392320,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -590,6 +596,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 21615,
           "ambient_rows": 2618,
+          "decoded_value_bytes": 1966283,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -599,7 +607,8 @@
           "chunk_rows": 4096,
           "chunks": 48,
           "encoded_bytes": 724356,
-          "decoded_value_bytes": 2303608
+          "finalized_decoded_value_bytes": 1924216,
+          "retained_tail_decoded_value_bytes": 42067
         },
         "environment": {
           "os": "macos",
@@ -607,10 +616,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 20971520,
+          "current_rss_bytes": 21217280,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -708,85 +717,85 @@
           },
           "before_reclamation_reduction_percent": -1.320132013201314,
           "after_vacuum_reduction_percent": 65.67656765676568,
-          "vacuum_wall_ms": 2.31125
+          "vacuum_wall_ms": 2.4755
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 12,
-            "p50_ms": 13.231,
-            "p95_ms": 13.7,
-            "p99_ms": 13.7,
-            "max_ms": 13.7
+            "p50_ms": 13.408,
+            "p95_ms": 13.757,
+            "p99_ms": 13.757,
+            "max_ms": 13.757
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.094,
-            "p95_ms": 0.11,
-            "p99_ms": 0.11,
-            "max_ms": 0.11
+            "p50_ms": 0.096,
+            "p95_ms": 0.113,
+            "p99_ms": 0.113,
+            "max_ms": 0.113
           },
           "source_scan": {
             "samples": 50,
-            "p50_ms": 0.132,
-            "p95_ms": 1.338,
-            "p99_ms": 1.799,
-            "max_ms": 1.799
+            "p50_ms": 0.137,
+            "p95_ms": 1.441,
+            "p99_ms": 1.778,
+            "max_ms": 1.778
           },
           "encode": {
             "samples": 48,
-            "p50_ms": 0.087,
-            "p95_ms": 0.198,
-            "p99_ms": 0.199,
-            "max_ms": 0.199
+            "p50_ms": 0.082,
+            "p95_ms": 0.18,
+            "p99_ms": 0.185,
+            "max_ms": 0.185
           },
           "decode": {
             "samples": 348,
-            "p50_ms": 0.036,
-            "p95_ms": 0.209,
-            "p99_ms": 0.215,
-            "max_ms": 0.226
+            "p50_ms": 0.037,
+            "p95_ms": 0.206,
+            "p99_ms": 0.216,
+            "max_ms": 0.225
           },
           "chunk_insert_and_tail_delete": {
             "samples": 48,
             "p50_ms": 0.833,
-            "p95_ms": 0.98,
-            "p99_ms": 3.143,
-            "max_ms": 3.143
+            "p95_ms": 1.028,
+            "p99_ms": 3.133,
+            "max_ms": 3.133
           },
           "finalize_total": {
             "samples": 48,
-            "p50_ms": 2.161,
-            "p95_ms": 2.736,
-            "p99_ms": 3.301,
-            "max_ms": 3.301
+            "p50_ms": 2.218,
+            "p95_ms": 2.843,
+            "p99_ms": 3.299,
+            "max_ms": 3.299
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 3.082,
-            "p95_ms": 3.153,
-            "p99_ms": 3.153,
-            "max_ms": 3.153
+            "p50_ms": 2.965,
+            "p95_ms": 3.09,
+            "p99_ms": 3.09,
+            "max_ms": 3.09
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 8.55,
-            "p95_ms": 8.615,
-            "p99_ms": 8.615,
-            "max_ms": 8.615
+            "p50_ms": 8.404,
+            "p95_ms": 8.51,
+            "p99_ms": 8.51,
+            "max_ms": 8.51
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 2.581,
-            "p95_ms": 2.677,
-            "p99_ms": 2.677,
-            "max_ms": 2.677
+            "p50_ms": 2.667,
+            "p95_ms": 2.731,
+            "p99_ms": 2.731,
+            "max_ms": 2.731
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 18.321,
-            "p95_ms": 18.851,
-            "p99_ms": 18.851,
-            "max_ms": 18.851
+            "p50_ms": 5.596,
+            "p95_ms": 5.815,
+            "p99_ms": 5.815,
+            "max_ms": 5.815
           }
         },
         "correctness": {
@@ -838,14 +847,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 0.5598732499929611,
-        "user_seconds": 0.395771,
-        "system_seconds": 0.190719,
+        "wall_seconds": 0.4694787920161616,
+        "user_seconds": 0.354493,
+        "system_seconds": 0.138122,
         "maximum_resident_set_size_bytes": 30408704,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -857,6 +866,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 21615,
           "ambient_rows": 2618,
+          "decoded_value_bytes": 1966283,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -866,7 +877,8 @@
           "chunk_rows": 4096,
           "chunks": 48,
           "encoded_bytes": 221234,
-          "decoded_value_bytes": 2303608
+          "finalized_decoded_value_bytes": 1924216,
+          "retained_tail_decoded_value_bytes": 42067
         },
         "environment": {
           "os": "macos",
@@ -874,10 +886,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 19742720,
+          "current_rss_bytes": 19988480,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -975,85 +987,85 @@
           },
           "before_reclamation_reduction_percent": -0.660066006600668,
           "after_vacuum_reduction_percent": 87.29372937293729,
-          "vacuum_wall_ms": 1.2342080000000002
+          "vacuum_wall_ms": 1.337416
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 12,
-            "p50_ms": 13.343,
-            "p95_ms": 13.509,
-            "p99_ms": 13.509,
-            "max_ms": 13.509
+            "p50_ms": 13.206,
+            "p95_ms": 13.761,
+            "p99_ms": 13.761,
+            "max_ms": 13.761
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.101,
-            "p95_ms": 0.113,
-            "p99_ms": 0.113,
-            "max_ms": 0.113
+            "p50_ms": 0.104,
+            "p95_ms": 0.138,
+            "p99_ms": 0.138,
+            "max_ms": 0.138
           },
           "source_scan": {
             "samples": 50,
-            "p50_ms": 0.148,
-            "p95_ms": 1.491,
-            "p99_ms": 1.657,
-            "max_ms": 1.657
+            "p50_ms": 0.161,
+            "p95_ms": 1.338,
+            "p99_ms": 1.812,
+            "max_ms": 1.812
           },
           "encode": {
             "samples": 48,
-            "p50_ms": 0.204,
-            "p95_ms": 0.443,
-            "p99_ms": 0.456,
-            "max_ms": 0.456
+            "p50_ms": 0.203,
+            "p95_ms": 0.417,
+            "p99_ms": 0.426,
+            "max_ms": 0.426
           },
           "decode": {
             "samples": 348,
-            "p50_ms": 0.031,
+            "p50_ms": 0.032,
             "p95_ms": 0.17,
-            "p99_ms": 0.178,
-            "max_ms": 0.207
+            "p99_ms": 0.177,
+            "max_ms": 0.178
           },
           "chunk_insert_and_tail_delete": {
             "samples": 48,
-            "p50_ms": 0.808,
-            "p95_ms": 1.019,
-            "p99_ms": 2.996,
-            "max_ms": 2.996
+            "p50_ms": 0.807,
+            "p95_ms": 0.931,
+            "p99_ms": 3.433,
+            "max_ms": 3.433
           },
           "finalize_total": {
             "samples": 48,
-            "p50_ms": 2.328,
-            "p95_ms": 3.132,
-            "p99_ms": 3.327,
-            "max_ms": 3.327
+            "p50_ms": 2.403,
+            "p95_ms": 2.944,
+            "p99_ms": 3.61,
+            "max_ms": 3.61
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 3.124,
-            "p95_ms": 3.283,
-            "p99_ms": 3.283,
-            "max_ms": 3.283
+            "p50_ms": 2.967,
+            "p95_ms": 3.002,
+            "p99_ms": 3.002,
+            "max_ms": 3.002
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 8.111,
-            "p95_ms": 8.21,
-            "p99_ms": 8.21,
-            "max_ms": 8.21
+            "p50_ms": 7.867,
+            "p95_ms": 7.991,
+            "p99_ms": 7.991,
+            "max_ms": 7.991
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 2.579,
-            "p95_ms": 2.73,
-            "p99_ms": 2.73,
-            "max_ms": 2.73
+            "p50_ms": 2.65,
+            "p95_ms": 2.851,
+            "p99_ms": 2.851,
+            "max_ms": 2.851
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 18.617,
-            "p95_ms": 18.841,
-            "p99_ms": 18.841,
-            "max_ms": 18.841
+            "p50_ms": 5.515,
+            "p95_ms": 5.795,
+            "p99_ms": 5.795,
+            "max_ms": 5.795
           }
         },
         "correctness": {
@@ -1105,14 +1117,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 0.5707808749866672,
-        "user_seconds": 0.40356899999999996,
-        "system_seconds": 0.193,
-        "maximum_resident_set_size_bytes": 30425088,
+        "wall_seconds": 0.47992254100972787,
+        "user_seconds": 0.359771,
+        "system_seconds": 0.142045,
+        "maximum_resident_set_size_bytes": 30441472,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -1124,6 +1136,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 21615,
           "ambient_rows": 2618,
+          "decoded_value_bytes": 1966283,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -1133,7 +1147,8 @@
           "chunk_rows": 256,
           "chunks": 192,
           "encoded_bytes": 264300,
-          "decoded_value_bytes": 2341064
+          "finalized_decoded_value_bytes": 1955480,
+          "retained_tail_decoded_value_bytes": 10803
         },
         "environment": {
           "os": "macos",
@@ -1141,10 +1156,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 18055168,
+          "current_rss_bytes": 18251776,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -1242,85 +1257,85 @@
           },
           "before_reclamation_reduction_percent": -0.3300330033003229,
           "after_vacuum_reduction_percent": 80.36303630363037,
-          "vacuum_wall_ms": 1.6355
+          "vacuum_wall_ms": 1.345417
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 12,
-            "p50_ms": 13.285,
-            "p95_ms": 13.615,
-            "p99_ms": 13.615,
-            "max_ms": 13.615
+            "p50_ms": 13.249,
+            "p95_ms": 13.653,
+            "p99_ms": 13.653,
+            "max_ms": 13.653
           },
           "production_shaped_minute_append": {
             "samples": 7,
             "p50_ms": 0.107,
-            "p95_ms": 0.116,
-            "p99_ms": 0.116,
-            "max_ms": 0.116
+            "p95_ms": 0.124,
+            "p99_ms": 0.124,
+            "max_ms": 0.124
           },
           "source_scan": {
             "samples": 194,
-            "p50_ms": 0.071,
-            "p95_ms": 0.292,
-            "p99_ms": 0.531,
-            "max_ms": 0.673
+            "p50_ms": 0.068,
+            "p95_ms": 0.309,
+            "p99_ms": 0.643,
+            "max_ms": 0.749
           },
           "encode": {
             "samples": 192,
-            "p50_ms": 0.057,
-            "p95_ms": 0.12,
-            "p99_ms": 0.13,
-            "max_ms": 0.131
+            "p50_ms": 0.056,
+            "p95_ms": 0.119,
+            "p99_ms": 0.128,
+            "max_ms": 0.136
           },
           "decode": {
             "samples": 1392,
-            "p50_ms": 0.014,
-            "p95_ms": 0.05,
+            "p50_ms": 0.012,
+            "p95_ms": 0.049,
             "p99_ms": 0.053,
-            "max_ms": 0.059
+            "max_ms": 0.065
           },
           "chunk_insert_and_tail_delete": {
             "samples": 192,
-            "p50_ms": 0.216,
-            "p95_ms": 0.306,
-            "p99_ms": 1.769,
-            "max_ms": 2.615
+            "p50_ms": 0.215,
+            "p95_ms": 0.298,
+            "p99_ms": 1.864,
+            "max_ms": 2.911
           },
           "finalize_total": {
             "samples": 192,
-            "p50_ms": 0.59,
-            "p95_ms": 0.776,
-            "p99_ms": 1.833,
-            "max_ms": 3.017
+            "p50_ms": 0.606,
+            "p95_ms": 0.788,
+            "p99_ms": 1.932,
+            "max_ms": 3.323
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 3.102,
-            "p95_ms": 3.171,
-            "p99_ms": 3.171,
-            "max_ms": 3.171
+            "p50_ms": 3.013,
+            "p95_ms": 3.047,
+            "p99_ms": 3.047,
+            "max_ms": 3.047
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 8.186,
-            "p95_ms": 8.286,
-            "p99_ms": 8.286,
-            "max_ms": 8.286
+            "p50_ms": 8.119,
+            "p95_ms": 8.153,
+            "p99_ms": 8.153,
+            "max_ms": 8.153
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 2.684,
-            "p95_ms": 2.734,
-            "p99_ms": 2.734,
-            "max_ms": 2.734
+            "p50_ms": 2.691,
+            "p95_ms": 2.786,
+            "p99_ms": 2.786,
+            "max_ms": 2.786
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 19.291,
-            "p95_ms": 19.359,
-            "p99_ms": 19.359,
-            "max_ms": 19.359
+            "p50_ms": 6.615,
+            "p95_ms": 6.733,
+            "p99_ms": 6.733,
+            "max_ms": 6.733
           }
         },
         "correctness": {
@@ -1372,14 +1387,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 0.6155702079995535,
-        "user_seconds": 0.430562,
-        "system_seconds": 0.213055,
+        "wall_seconds": 0.5197277090046555,
+        "user_seconds": 0.388775,
+        "system_seconds": 0.15981599999999999,
         "maximum_resident_set_size_bytes": 30392320,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -1391,6 +1406,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 21615,
           "ambient_rows": 2618,
+          "decoded_value_bytes": 1966283,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -1400,7 +1417,8 @@
           "chunk_rows": 4096,
           "chunks": 12,
           "encoded_bytes": 195207,
-          "decoded_value_bytes": 2156067
+          "finalized_decoded_value_bytes": 1800915,
+          "retained_tail_decoded_value_bytes": 165368
         },
         "environment": {
           "os": "macos",
@@ -1408,10 +1426,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 28655616,
+          "current_rss_bytes": 28803072,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -1509,85 +1527,85 @@
           },
           "before_reclamation_reduction_percent": -1.650165016501659,
           "after_vacuum_reduction_percent": 82.01320132013201,
-          "vacuum_wall_ms": 3.904084
+          "vacuum_wall_ms": 2.327166
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 12,
-            "p50_ms": 13.554,
-            "p95_ms": 13.944,
-            "p99_ms": 13.944,
-            "max_ms": 13.944
+            "p50_ms": 13.215,
+            "p95_ms": 13.393,
+            "p99_ms": 13.393,
+            "max_ms": 13.393
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.096,
-            "p95_ms": 0.123,
-            "p99_ms": 0.123,
-            "max_ms": 0.123
+            "p50_ms": 0.12,
+            "p95_ms": 0.139,
+            "p99_ms": 0.139,
+            "max_ms": 0.139
           },
           "source_scan": {
             "samples": 14,
-            "p50_ms": 0.516,
-            "p95_ms": 4.915,
-            "p99_ms": 4.915,
-            "max_ms": 4.915
+            "p50_ms": 0.506,
+            "p95_ms": 5.444,
+            "p99_ms": 5.444,
+            "max_ms": 5.444
           },
           "encode": {
             "samples": 12,
-            "p50_ms": 0.908,
-            "p95_ms": 1.872,
-            "p99_ms": 1.872,
-            "max_ms": 1.872
+            "p50_ms": 0.857,
+            "p95_ms": 1.826,
+            "p99_ms": 1.826,
+            "max_ms": 1.826
           },
           "decode": {
             "samples": 87,
-            "p50_ms": 0.077,
-            "p95_ms": 0.644,
-            "p99_ms": 0.744,
-            "max_ms": 0.744
+            "p50_ms": 0.074,
+            "p95_ms": 0.633,
+            "p99_ms": 0.713,
+            "max_ms": 0.713
           },
           "chunk_insert_and_tail_delete": {
             "samples": 12,
-            "p50_ms": 1.855,
-            "p95_ms": 3.6,
-            "p99_ms": 3.6,
-            "max_ms": 3.6
+            "p50_ms": 1.804,
+            "p95_ms": 3.676,
+            "p99_ms": 3.676,
+            "max_ms": 3.676
           },
           "finalize_total": {
             "samples": 12,
-            "p50_ms": 5.205,
-            "p95_ms": 11.072,
-            "p99_ms": 11.072,
-            "max_ms": 11.072
+            "p50_ms": 5.231,
+            "p95_ms": 11.709,
+            "p99_ms": 11.709,
+            "max_ms": 11.709
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 3.166,
-            "p95_ms": 3.253,
-            "p99_ms": 3.253,
-            "max_ms": 3.253
+            "p50_ms": 3.003,
+            "p95_ms": 3.13,
+            "p99_ms": 3.13,
+            "max_ms": 3.13
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 8.242,
-            "p95_ms": 8.384,
-            "p99_ms": 8.384,
-            "max_ms": 8.384
+            "p50_ms": 8.266,
+            "p95_ms": 8.405,
+            "p99_ms": 8.405,
+            "max_ms": 8.405
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 2.632,
-            "p95_ms": 2.685,
-            "p99_ms": 2.685,
-            "max_ms": 2.685
+            "p50_ms": 2.711,
+            "p95_ms": 2.781,
+            "p99_ms": 2.781,
+            "max_ms": 2.781
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 17.903,
-            "p95_ms": 18.098,
-            "p99_ms": 18.098,
-            "max_ms": 18.098
+            "p50_ms": 5.064,
+            "p95_ms": 5.521,
+            "p99_ms": 5.521,
+            "max_ms": 5.521
           }
         },
         "correctness": {
@@ -1639,14 +1657,14 @@
       "external_resources": {
         "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
         "exit_code": 0,
-        "wall_seconds": 15.005592832982074,
-        "user_seconds": 10.864864,
-        "system_seconds": 4.913524,
-        "maximum_resident_set_size_bytes": 30441472,
+        "wall_seconds": 12.528027750027832,
+        "user_seconds": 9.732918,
+        "system_seconds": 3.428201,
+        "maximum_resident_set_size_bytes": 30425088,
         "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -1658,6 +1676,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 648446,
           "ambient_rows": 78546,
+          "decoded_value_bytes": 58995685,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -1667,7 +1687,8 @@
           "chunk_rows": 4096,
           "chunks": 1440,
           "encoded_bytes": 6769222,
-          "decoded_value_bytes": 70576721
+          "finalized_decoded_value_bytes": 58953201,
+          "retained_tail_decoded_value_bytes": 42484
         },
         "environment": {
           "os": "macos",
@@ -1675,10 +1696,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 29704192,
+          "current_rss_bytes": 30081024,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -1776,85 +1797,85 @@
           },
           "before_reclamation_reduction_percent": -0.02169315038775821,
           "after_vacuum_reduction_percent": 90.41162752860784,
-          "vacuum_wall_ms": 25.234125
+          "vacuum_wall_ms": 25.368416
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 338,
-            "p50_ms": 13.146,
-            "p95_ms": 16.98,
-            "p99_ms": 17.86,
-            "max_ms": 18.551
+            "p50_ms": 13.12,
+            "p95_ms": 17.247,
+            "p99_ms": 18.474,
+            "max_ms": 18.898
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.116,
-            "p95_ms": 0.139,
-            "p99_ms": 0.139,
-            "max_ms": 0.139
+            "p50_ms": 0.113,
+            "p95_ms": 0.134,
+            "p99_ms": 0.134,
+            "max_ms": 0.134
           },
           "source_scan": {
             "samples": 1442,
-            "p50_ms": 0.223,
-            "p95_ms": 1.312,
-            "p99_ms": 1.492,
-            "max_ms": 2.573
+            "p50_ms": 0.189,
+            "p95_ms": 1.376,
+            "p99_ms": 1.548,
+            "max_ms": 2.067
           },
           "encode": {
             "samples": 1440,
-            "p50_ms": 0.199,
-            "p95_ms": 0.439,
-            "p99_ms": 0.452,
-            "max_ms": 0.787
+            "p50_ms": 0.196,
+            "p95_ms": 0.424,
+            "p99_ms": 0.433,
+            "max_ms": 0.459
           },
           "decode": {
             "samples": 10440,
-            "p50_ms": 0.03,
-            "p95_ms": 0.169,
+            "p50_ms": 0.027,
+            "p95_ms": 0.17,
             "p99_ms": 0.175,
-            "max_ms": 0.279
+            "max_ms": 0.329
           },
           "chunk_insert_and_tail_delete": {
             "samples": 1440,
-            "p50_ms": 0.814,
-            "p95_ms": 1.043,
-            "p99_ms": 4.007,
-            "max_ms": 5.172
+            "p50_ms": 0.792,
+            "p95_ms": 1.018,
+            "p99_ms": 4.229,
+            "max_ms": 5.628
           },
           "finalize_total": {
             "samples": 1440,
-            "p50_ms": 2.328,
-            "p95_ms": 2.91,
-            "p99_ms": 5.565,
-            "max_ms": 6.828
+            "p50_ms": 2.364,
+            "p95_ms": 2.927,
+            "p99_ms": 5.856,
+            "max_ms": 7.334
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 131.852,
-            "p95_ms": 134.36,
-            "p99_ms": 134.36,
-            "max_ms": 134.36
+            "p50_ms": 130.056,
+            "p95_ms": 136.601,
+            "p99_ms": 136.601,
+            "max_ms": 136.601
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 243.194,
-            "p95_ms": 244.489,
-            "p99_ms": 244.489,
-            "max_ms": 244.489
+            "p50_ms": 243.009,
+            "p95_ms": 244.865,
+            "p99_ms": 244.865,
+            "max_ms": 244.865
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 83.788,
-            "p95_ms": 85.041,
-            "p99_ms": 85.041,
-            "max_ms": 85.041
+            "p50_ms": 84.506,
+            "p95_ms": 85.561,
+            "p99_ms": 85.561,
+            "max_ms": 85.561
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 529.751,
-            "p95_ms": 536.85,
-            "p99_ms": 536.85,
-            "max_ms": 536.85
+            "p50_ms": 164.515,
+            "p95_ms": 165.447,
+            "p99_ms": 165.447,
+            "max_ms": 165.447
           }
         },
         "correctness": {
@@ -1904,19 +1925,16 @@
         "1"
       ],
       "external_resources": {
-        "method": "macOS /usr/bin/time -l; partial output",
-        "resource_wrapper_exit_code": 1,
-        "harness_exit_code": null,
-        "completed_harness_report": true,
-        "wall_seconds": 200.46,
-        "user_seconds": 135.45,
-        "system_seconds": 62.5,
-        "maximum_resident_set_size_bytes": null,
-        "swaps": null,
-        "error": "time: sysctl kern.clockrate: Operation not permitted"
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 169.1399844160187,
+        "user_seconds": 122.696711,
+        "system_seconds": 44.430684,
+        "maximum_resident_set_size_bytes": 33931264,
+        "swaps": 0
       },
       "report": {
-        "format": "hardviz-archive-g1-v1",
+        "format": "hardviz-archive-g1-v2",
         "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
         "workload": {
           "source": "deterministic synthetic production-shaped rows",
@@ -1928,6 +1946,8 @@
           "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
           "process_rows": 7889419,
           "ambient_rows": 955636,
+          "decoded_value_bytes": 717782731,
+          "decoded_value_bytes_definition": "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
           "seed": 2052
         },
         "format_candidate": {
@@ -1937,7 +1957,8 @@
           "chunk_rows": 4096,
           "chunks": 17520,
           "encoded_bytes": 82424693,
-          "decoded_value_bytes": 859253037
+          "finalized_decoded_value_bytes": 717740493,
+          "retained_tail_decoded_value_bytes": 42238
         },
         "environment": {
           "os": "macos",
@@ -1945,10 +1966,10 @@
           "logical_cpus": 10,
           "cpu_brand": "Apple M4",
           "total_memory_bytes": 25769803776,
-          "current_rss_bytes": 30932992,
+          "current_rss_bytes": 31948800,
           "peak_rss_bytes": null,
           "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
-          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "git_commit": "f1de181f89054e52c42734ea69f276879e5cd389",
           "filesystem": "unavailable"
         },
         "sqlite": {
@@ -2046,85 +2067,85 @@
           },
           "before_reclamation_reduction_percent": -0.0017688392434767053,
           "after_vacuum_reduction_percent": 90.57871997948146,
-          "vacuum_wall_ms": 316.21137500000003
+          "vacuum_wall_ms": 404.285375
         },
         "timings_ms": {
           "fixture_seed_batch": {
             "samples": 4107,
-            "p50_ms": 13.419,
-            "p95_ms": 17.317,
-            "p99_ms": 18.095,
-            "max_ms": 28.766
+            "p50_ms": 13.351,
+            "p95_ms": 17.392,
+            "p99_ms": 18.353,
+            "max_ms": 39.303
           },
           "production_shaped_minute_append": {
             "samples": 7,
-            "p50_ms": 0.167,
-            "p95_ms": 1.332,
-            "p99_ms": 1.332,
-            "max_ms": 1.332
+            "p50_ms": 0.098,
+            "p95_ms": 0.138,
+            "p99_ms": 0.138,
+            "max_ms": 0.138
           },
           "source_scan": {
             "samples": 17522,
-            "p50_ms": 0.648,
-            "p95_ms": 1.32,
-            "p99_ms": 1.467,
-            "max_ms": 8.058
+            "p50_ms": 0.831,
+            "p95_ms": 1.419,
+            "p99_ms": 1.587,
+            "max_ms": 4.396
           },
           "encode": {
             "samples": 17520,
-            "p50_ms": 0.221,
-            "p95_ms": 0.442,
-            "p99_ms": 0.452,
-            "max_ms": 1.217
+            "p50_ms": 0.217,
+            "p95_ms": 0.437,
+            "p99_ms": 0.448,
+            "max_ms": 0.896
           },
           "decode": {
             "samples": 127020,
             "p50_ms": 0.028,
-            "p95_ms": 0.17,
-            "p99_ms": 0.175,
-            "max_ms": 0.82
+            "p95_ms": 0.171,
+            "p99_ms": 0.176,
+            "max_ms": 0.583
           },
           "chunk_insert_and_tail_delete": {
             "samples": 17520,
-            "p50_ms": 0.882,
-            "p95_ms": 1.085,
-            "p99_ms": 4.295,
-            "max_ms": 12.114
+            "p50_ms": 0.87,
+            "p95_ms": 1.078,
+            "p99_ms": 4.624,
+            "max_ms": 12.167
           },
           "finalize_total": {
             "samples": 17520,
-            "p50_ms": 2.452,
-            "p95_ms": 2.966,
-            "p99_ms": 5.905,
-            "max_ms": 12.291
+            "p50_ms": 2.529,
+            "p95_ms": 3.071,
+            "p99_ms": 6.367,
+            "max_ms": 13.996
           },
           "process_query_baseline": {
             "samples": 7,
-            "p50_ms": 2108.398,
-            "p95_ms": 2468.62,
-            "p99_ms": 2468.62,
-            "max_ms": 2468.62
+            "p50_ms": 2186.34,
+            "p95_ms": 2447.772,
+            "p99_ms": 2447.772,
+            "max_ms": 2447.772
           },
           "process_query_chunked": {
             "samples": 7,
-            "p50_ms": 2965.901,
-            "p95_ms": 2999.155,
-            "p99_ms": 2999.155,
-            "max_ms": 2999.155
+            "p50_ms": 2991.01,
+            "p95_ms": 2994.709,
+            "p99_ms": 2994.709,
+            "max_ms": 2994.709
           },
           "ambient_raw_query_baseline": {
             "samples": 7,
-            "p50_ms": 1514.669,
-            "p95_ms": 1572.645,
-            "p99_ms": 1572.645,
-            "max_ms": 1572.645
+            "p50_ms": 1278.139,
+            "p95_ms": 1340.537,
+            "p99_ms": 1340.537,
+            "max_ms": 1340.537
           },
           "ambient_raw_query_chunked": {
             "samples": 7,
-            "p50_ms": 6552.12,
-            "p95_ms": 6595.218,
-            "p99_ms": 6595.218,
-            "max_ms": 6595.218
+            "p50_ms": 2149.338,
+            "p95_ms": 2169.853,
+            "p99_ms": 2169.853,
+            "max_ms": 2169.853
           }
         },
         "correctness": {

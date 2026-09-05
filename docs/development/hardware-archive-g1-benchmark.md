@@ -15,15 +15,14 @@ the query strategy before accepting a format; do not relax the data-preservation
 contract to obtain a passing result.
 
 The next experiment should resolve bounded reads and aggregation for Process
-Stats, and an efficient Ambient query that preserves SQLite's timestamp
-membership semantics. Complete high-cardinality process workloads and the
-remaining families before deciding per-family storage. There is no evidence
+Stats, while retaining SQLite's timestamp membership semantics in the Ambient
+query. Complete high-cardinality process workloads and the remaining families before deciding per-family storage. There is no evidence
 here to freeze a ten-year paging budget or a migration throughput floor.
 
 ## Reproduce
 
 The measured executable is from commit
-`f4afeb9acc5b4c6a3206375db2b87b2b834fec2e`, based on develop
+`f1de181f89054e52c42734ea69f276879e5cd389`, based on develop
 `838d08da16d60ead84df3ddb1501ca19a57f24fc`. The
 [G1 inventory](hardware-archive-g1-inventory.md) pins all schema-v23 objects and
 query consumers, including the Cooling covariate summaries introduced by
@@ -42,8 +41,9 @@ The output directory must not exist. The command creates its own relational
 oracle, candidate, and isolated transaction probes there, then writes
 `report.json`. It never locates or opens an application database. Run each case
 serially after building; use distinct directories. `/usr/bin/time -l` is the
-macOS wrapper for the external CPU/RSS observations below. Use an equivalent
-wrapper on other systems. See the committed
+macOS wrapper for collecting equivalent CPU/RSS observations. The recorded
+series uses Python `os.wait4`, detailed below. Use an equivalent wrapper on
+other systems. See the committed
 [measurement artifact](benchmarks/hardware-archive-g1-2026-09-05.json) for every
 case's arguments, complete report, and external resource observations.
 
@@ -51,9 +51,11 @@ Default limits are 60 represented minutes, 4,096 rows, and 4 MiB of decoded
 value bytes per chunk. The retained relational tail spans the newest half
 chunk duration. The time-limit comparisons therefore change tail length too;
 they are whole-configuration comparisons, not an isolated time-cap experiment.
-The 15-minute comparison also uses a 256-row cap. All cases use 15 ordinary
-process observations per minute, seed 2052, and duty cycle 1. No elapsed time
-is skipped to simulate longer histories.
+The 15-minute comparison also uses a 256-row cap. The report separately counts
+finalized and retained-tail decoded value bytes using the codec's size rule;
+workload decoded bytes include both and remain constant across configurations
+for the same source rows. All cases use 15 ordinary process observations per
+minute, seed 2052, and duty cycle 1. No elapsed time is skipped to simulate longer histories.
 
 ## Environment and method
 
@@ -77,9 +79,9 @@ and incomplete/corrupt chunks receive separate contract tests.
 Each case is one complete executable run with seven repetitions of each query.
 The source and candidate have already been populated and validated; the
 candidate has also been closed and reopened. Queries alternate baseline then
-candidate on the same host without cache purging. These are cache-primed measurements, including the first query, not
-controlled cold-cache results. With seven observations, the reported p95 and
-p99 both equal the maximum; use the raw p50 as additional context and do not
+candidate on the same host without cache purging. These are cache-primed
+measurements, including the first query, not controlled cold-cache results. With
+seven observations, the reported p95 and p99 both equal the maximum; use the raw p50 as additional context and do not
 interpret these as stable tail-latency estimates.
 
 Both queries cover the latter half of the represented history. Process Stats
@@ -88,10 +90,11 @@ counts, and timestamps and the design's separate float tolerance. Results are
 canonicalized by PID/name for comparison; the experiment does not implement
 production CPU-order pagination. Ambient compares an inclusive raw range using
 the current SQLite epoch-millisecond expression. The candidate decodes all
-Ambient chunks into a temporary SQLite timestamp/digest relation to preserve
-that predicate and original-ID ordering exactly. Its timing includes this
-work. This representative query does not prove every production Ambient bucket
-or half-open Cooling pairing query.
+Ambient chunks into a temporary SQLite timestamp/digest relation in bounded
+multi-row inserts to preserve that predicate and original-ID ordering exactly.
+Its timing includes materialization and filtering as well as decoding. This
+representative query does not prove every production Ambient bucket or
+half-open Cooling pairing query.
 
 ## Measured results
 
@@ -101,14 +104,14 @@ Sizes are MiB (`bytes / 1,048,576`). Query values are p95 milliseconds.
 
 | Configuration | Relational DB | DB after VACUUM | Reduction | Process row / chunk | Ambient row / chunk |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 24h-row-none | 2.367 | 2.004 | 15.35% | 3.345 / 11.655 | 2.708 / 19.360 |
-| 24h-row-deflate | 2.367 | 0.477 | 79.87% | 3.334 / 9.322 | 2.736 / 18.902 |
-| 24h-columnar-none | 2.367 | 0.812 | 65.68% | 3.153 / 8.615 | 2.677 / 18.851 |
-| 24h-columnar-deflate | 2.367 | 0.301 | 87.29% | 3.283 / 8.210 | 2.730 / 18.841 |
-| 24h-columnar-deflate-15m | 2.367 | 0.465 | 80.36% | 3.171 / 8.286 | 2.734 / 19.359 |
-| 24h-columnar-deflate-240m | 2.367 | 0.426 | 82.01% | 3.253 / 8.384 | 2.685 / 18.098 |
-| 30d-columnar-deflate | 72.027 | 6.906 | 90.41% | 134.360 / 244.489 | 85.041 / 536.850 |
-| 1y-columnar-deflate | 883.348 | 83.223 | 90.58% | 2468.620 / 2999.155 | 1572.645 / 6595.218 |
+| 24h-row-none | 2.367 | 2.004 | 15.35% | 3.062 / 11.221 | 2.723 / 5.983 |
+| 24h-row-deflate | 2.367 | 0.477 | 79.87% | 3.105 / 9.400 | 2.907 / 5.917 |
+| 24h-columnar-none | 2.367 | 0.812 | 65.68% | 3.090 / 8.510 | 2.731 / 5.815 |
+| 24h-columnar-deflate | 2.367 | 0.301 | 87.29% | 3.002 / 7.991 | 2.851 / 5.795 |
+| 24h-columnar-deflate-15m | 2.367 | 0.465 | 80.36% | 3.047 / 8.153 | 2.786 / 6.733 |
+| 24h-columnar-deflate-240m | 2.367 | 0.426 | 82.01% | 3.130 / 8.405 | 2.781 / 5.521 |
+| 30d-columnar-deflate | 72.027 | 6.906 | 90.41% | 136.601 / 244.865 | 85.561 / 165.447 |
+| 1y-columnar-deflate | 883.348 | 83.223 | 90.58% | 2447.772 / 2994.709 | 1340.537 / 2169.853 |
 
 These are logical file lengths for two raw families, including their indexes.
 They are not full-application savings or filesystem physical-block measurements.
@@ -123,18 +126,18 @@ as an initial comparison; it does not ratify a statistically stable warm budget.
 
 | Duration / query | Baseline p95 | Candidate p95 | Proposed ceiling | Result |
 | --- | ---: | ---: | ---: | --- |
-| 30d / Process Stats | 134.360 ms | 244.489 ms | 161.232 ms | Fail |
-| 30d / Ambient raw | 85.041 ms | 536.850 ms | 105.041 ms | Fail |
-| 1y / Process Stats | 2468.620 ms | 2999.155 ms | 2962.344 ms | Fail |
-| 1y / Ambient raw | 1572.645 ms | 6595.218 ms | 1887.174 ms | Fail |
+| 30d / Process Stats | 136.601 ms | 244.865 ms | 163.921 ms | Fail |
+| 30d / Ambient raw | 85.561 ms | 165.447 ms | 105.561 ms | Fail |
+| 1y / Process Stats | 2447.772 ms | 2994.709 ms | 2937.326 ms | Fail |
+| 1y / Ambient raw | 1340.537 ms | 2169.853 ms | 1608.644 ms | Fail |
 
 ### Reclamation and resources
 
 | Default columnar/Deflate case | Process / Ambient rows | DB before VACUUM (MiB) | VACUUM (ms) | Append p99 (ms) | Total wall / CPU (s) | External peak RSS (MiB) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 24h | 21,615 / 2,618 | 2.383 | 1.234 | 0.113 | 0.560 / 0.586 | 29.00 |
-| 30d | 648,446 / 78,546 | 72.043 | 25.234 | 0.139 | 15.006 / 15.778 | 29.03 |
-| 1y | 7,889,419 / 955,636 | 883.363 | 316.211 | 1.332 | 200.460 / 197.950 | unavailable |
+| 24h | 21,615 / 2,618 | 2.383 | 1.337 | 0.138 | 0.469 / 0.493 | 29.00 |
+| 30d | 648,446 / 78,546 | 72.043 | 25.368 | 0.134 | 12.528 / 13.161 | 29.02 |
+| 1y | 7,889,419 / 955,636 | 883.363 | 404.285 | 0.138 | 169.140 / 167.127 | 32.36 |
 
 Finalization frees pages for reuse but does not itself shorten the database
 file: the candidate before reclamation is slightly larger than the source.
@@ -144,13 +147,27 @@ SQLite temporary-file peak space were not instrumented.
 
 Total CPU is user plus system CPU across fixture generation, copying,
 validation, repeated queries, and reclamation. It is not steady-state maintenance
-CPU. Shorter runs use Python `os.wait4` resource usage for the benchmark child;
-macOS reports `ru_maxrss` in bytes. The one-year `/usr/bin/time -l` wrapper
-printed wall/user/system time, then failed with
-`sysctl kern.clockrate: Operation not permitted`. Its exit status was 1; the
-benchmark had already emitted matching complete file/stdout reports with every
-correctness flag true. Peak RSS for that case is therefore unavailable, not
-zero. The report's end-of-run RSS is a separate observation, not peak RSS.
+CPU. External measurements use Python `os.wait4` for the benchmark child;
+macOS reports `ru_maxrss` in bytes. The report's end-of-run RSS is a separate
+observation, not peak RSS. The measurement artifact records the method, child
+exit status, wall/user/system time, peak RSS, and swaps for every case.
+
+### Decoded value accounting
+
+The codec counts one type-tag byte per value, plus eight bytes for INTEGER/REAL
+or the byte length for TEXT/BLOB. This excludes frame and dictionary bookkeeping.
+The following separates finalized records and the retained relational tail;
+all six 24-hour cases have the same full-workload denominator. Storage savings
+above use complete database/WAL file lengths, not this logical byte count.
+
+| 24-hour configuration | Finalized decoded bytes | Tail decoded bytes | Full workload decoded bytes |
+| --- | ---: | ---: | ---: |
+| 24h-row-none | 1,924,216 | 42,067 | 1,966,283 |
+| 24h-row-deflate | 1,924,216 | 42,067 | 1,966,283 |
+| 24h-columnar-none | 1,924,216 | 42,067 | 1,966,283 |
+| 24h-columnar-deflate | 1,924,216 | 42,067 | 1,966,283 |
+| 24h-columnar-deflate-15m | 1,955,480 | 10,803 | 1,966,283 |
+| 24h-columnar-deflate-240m | 1,800,915 | 165,368 | 1,966,283 |
 
 ## What the results establish
 
@@ -166,7 +183,11 @@ experimental boundaries, not the full online migration/recovery state machine.
 
 The lossless frame preserves SQLite value classes and exact integer, float-bit,
 text-byte, blob-byte, and null values. It has a version, integrity digest, and
-bounded decoding. Columnar encoding adds checked integer deltas, float XORs, and
+bounded decoding. The SQLite adapter chooses each Value variant from the
+runtime storage class, including BLOBs retained in TEXT-affinity columns and
+fractional REALs retained in INTEGER-affinity columns. Separate adapter tests
+assert these variants directly; they do not pass both sides through a shared
+coercion. Columnar encoding adds checked integer deltas, float XORs, and
 local text dictionaries. Row layout and uncompressed variants are controls.
 Deflate uses an already locked workspace dependency, added only as a Core
 development dependency; it is not a production codec commitment. Truncated
