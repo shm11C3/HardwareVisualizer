@@ -41,3 +41,4 @@ ADR status describes decision maturity, not implementation or release status.
 - [0018 Cooling Daily Rollup Retention](0018-cooling-daily-rollup-retention.md)
 - [0019 Lossless Chunked Hardware Archive](0019-lossless-chunked-hardware-archive.md)
 - [0020 Relicense to GPL-3.0-or-later](0020-relicense-to-gpl-3.0-or-later.md)
+- [0021 Hardware Archive Migration Lifecycle](0021-hardware-archive-migration-lifecycle.md)
