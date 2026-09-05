@@ -36,8 +36,9 @@
       "signingIdentity": null
     },
     "resources": {
+      "../docs/licenses/LICENSE_INFORMATION.md": "LICENSE_INFORMATION.md",
       "../LICENSE": "LICENSE",
-      "../LICENSE-MIT": "LICENSE-MIT",
+      "../docs/licenses/MIT-pre-relicense.txt": "MIT-pre-relicense.txt",
       "../tmp/THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
     },
     "shortDescription": "",

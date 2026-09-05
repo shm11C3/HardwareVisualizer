@@ -57,8 +57,8 @@ Web: <https://hardviz.com/>
   - [Roadmap](#roadmap)
   - [Feedback and Discussions](#feedback-and-discussions)
   - [Contributing](#contributing)
-  - [FAQ](#faq)
   - [Code Signing Policy](#code-signing-policy)
+  - [Special Thanks](#special-thanks)
   - [License](#license)
 
 ## Installation Guide
@@ -130,21 +130,21 @@ After launching the app:
 
 ## Features
 
-| Category                | Status | Notes                            |
-| ----------------------- | ------ | -------------------------------- |
-| CPU / RAM Usage         | ✅     | Realtime + history               |
-| GPU Usage               | ✅     | NVIDIA full / others partial     |
-| GPU Temperature         | ✅     | NVIDIA full / others partial     |
-| CPU / Sensor Temperature | ✅    | Windows only (ACPI thermal zones, best-effort) |
-| Fan Monitoring          | ⏳     | Planned                          |
-| Storage Monitoring      | ✅     | Device summary                   |
-| Network Monitoring      | ✅     | Basic interfaces / Usage planned |
-| Custom Graph Themes     | ✅     | Persistent                       |
-| Dashboard Customization | ✅     | Layout editing partial           |
-| Background Image        | ✅     | Local assets                     |
-| Historical Insights     | ✅     | Default Up to 30 days            |
-| GPU Insight             | ✅     | NVIDIA full / others partial     |
-| Language Support        | ✅     | English, Japanese, Russian       |
+| Category                 | Status | Notes                                          |
+| ------------------------ | ------ | ---------------------------------------------- |
+| CPU / RAM Usage          | ✅     | Realtime + history                             |
+| GPU Usage                | ✅     | NVIDIA full / others partial                   |
+| GPU Temperature          | ✅     | NVIDIA full / others partial                   |
+| CPU / Sensor Temperature | ✅     | Windows only (ACPI thermal zones, best-effort) |
+| Fan Monitoring           | ⏳     | Planned                                        |
+| Storage Monitoring       | ✅     | Device summary                                 |
+| Network Monitoring       | ✅     | Basic interfaces / Usage planned               |
+| Custom Graph Themes      | ✅     | Persistent                                     |
+| Dashboard Customization  | ✅     | Layout editing partial                         |
+| Background Image         | ✅     | Local assets                                   |
+| Historical Insights      | ✅     | Default Up to 30 days                          |
+| GPU Insight              | ✅     | NVIDIA full / others partial                   |
+| Language Support         | ✅     | English, Japanese, Russian                     |
 
 ## Supported OS
 
@@ -190,7 +190,6 @@ Flexible graph customization available.
 ### Background Image
 
 <img width="1920" height="1055" alt="bg-image" src="https://github.com/user-attachments/assets/01734d4d-8e8f-4ca5-a73b-fba9a428d3d0" />
-
 
 ## Permissions & Security Notes
 
@@ -259,8 +258,8 @@ Note: This acknowledgement does not mean that all listed projects are bundled wi
 
 HardwareVisualizer is licensed under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later).
 
-- Versions released before the relicense, including v1.10.1 and the `1.10.x` maintenance line, remain available under the [MIT License](LICENSE-MIT).
-- Code contributed under the MIT License before the relicense keeps that license as part of this GPL-licensed work. Its notice is preserved in [`LICENSE-MIT`](LICENSE-MIT) and bundled with the application.
+- Versions released before the relicense, including v1.10.1 and the `1.10.x` maintenance line, remain available under the [MIT License](docs/licenses/MIT-pre-relicense.txt).
+- Code contributed under the MIT License before the relicense keeps that license as part of this GPL-licensed work. Its notice is preserved in [docs/licenses/MIT-pre-relicense.txt](docs/licenses/MIT-pre-relicense.txt) and bundled with the application.
 - Third-party components keep their own licenses. See the bundled `THIRD_PARTY_NOTICES.md` (Settings → License in the app).
 
 The decision and its effective revision are recorded in [ADR 0020](docs/adr/0020-relicense-to-gpl-3.0-or-later.md).

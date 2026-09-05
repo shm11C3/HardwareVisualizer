@@ -77,4 +77,3 @@ contributors expect them there:
 - [`SECURITY.md`](../SECURITY.md)
 - [`CODE_SIGNING_POLICY.md`](../CODE_SIGNING_POLICY.md)
 - [`LICENSE`](../LICENSE)
-- [`LICENSE-MIT`](../LICENSE-MIT)
