@@ -19,6 +19,13 @@ const PROCESS: &str = "process_stats";
 const AMBIENT: &str = "ambient_archive";
 const EPOCH_MS_SQL: &str = "(CAST(strftime('%s', timestamp) AS INTEGER) * 1000 + CAST(substr(strftime('%f', timestamp), 4, 3) AS INTEGER))";
 const SEED_BATCH_MINUTES: u64 = 128;
+const PROCESS_CHUNK_LOOP_SQL: &str =
+  "SELECT id, row_count, payload, digest FROM ARCHIVE_CHUNKS
+   WHERE family = ? AND id > ? AND max_timestamp >= ? AND min_timestamp <= ?
+   ORDER BY id LIMIT 1";
+const AMBIENT_CHUNK_LOOP_SQL: &str =
+  "SELECT id, row_count, payload, digest FROM ARCHIVE_CHUNKS
+   WHERE family = ? AND id > ? ORDER BY id LIMIT 1";
 
 #[derive(Default)]
 pub(crate) struct Times {
@@ -339,8 +346,9 @@ async fn create_schema(db: &mut SqliteConnection) -> Result<()> {
 async fn create_chunk_schema(db: &mut SqliteConnection) -> Result<()> {
   sqlx::query("CREATE TABLE ARCHIVE_CHUNKS (id INTEGER PRIMARY KEY AUTOINCREMENT, family TEXT NOT NULL, min_row_id INTEGER NOT NULL, max_row_id INTEGER NOT NULL, min_timestamp TEXT NOT NULL, max_timestamp TEXT NOT NULL, row_count INTEGER NOT NULL, layout TEXT NOT NULL, compression TEXT NOT NULL, decoded_value_bytes INTEGER NOT NULL, payload BLOB NOT NULL, digest BLOB NOT NULL)")
     .execute(&mut *db).await?;
-  sqlx::query("CREATE INDEX idx_archive_chunks_family_time ON ARCHIVE_CHUNKS(family, min_timestamp, max_timestamp)")
-    .execute(&mut *db).await?;
+  sqlx::query("CREATE INDEX idx_archive_chunks_family_id ON ARCHIVE_CHUNKS(family, id)")
+    .execute(&mut *db)
+    .await?;
   Ok(())
 }
 
@@ -990,17 +998,13 @@ async fn process_chunked_interleaved(
   let mut groups = HashMap::new();
   let mut cursor = 0_i64;
   loop {
-    let row = sqlx::query(
-      "SELECT id, row_count, payload, digest FROM ARCHIVE_CHUNKS
-       WHERE family = ? AND id > ? AND max_timestamp >= ? AND min_timestamp <= ?
-       ORDER BY id LIMIT 1",
-    )
-    .bind(PROCESS)
-    .bind(cursor)
-    .bind(start)
-    .bind(end)
-    .fetch_optional(&mut *tx)
-    .await?;
+    let row = sqlx::query(PROCESS_CHUNK_LOOP_SQL)
+      .bind(PROCESS)
+      .bind(cursor)
+      .bind(start)
+      .bind(end)
+      .fetch_optional(&mut *tx)
+      .await?;
     let Some(row) = row else {
       break;
     };
@@ -1173,14 +1177,11 @@ async fn ambient_chunked(
   let mut tx = db.begin().await?;
   let mut chunk_cursor = 0_i64;
   loop {
-    let row = sqlx::query(
-      "SELECT id, row_count, payload, digest FROM ARCHIVE_CHUNKS
-       WHERE family = ? AND id > ? ORDER BY id LIMIT 1",
-    )
-    .bind(AMBIENT)
-    .bind(chunk_cursor)
-    .fetch_optional(&mut *tx)
-    .await?;
+    let row = sqlx::query(AMBIENT_CHUNK_LOOP_SQL)
+      .bind(AMBIENT)
+      .bind(chunk_cursor)
+      .fetch_optional(&mut *tx)
+      .await?;
     let Some(row) = row else {
       break;
     };
@@ -1343,6 +1344,20 @@ mod contract_tests;
 mod tests {
   use super::*;
 
+  fn assert_family_id_keyset_plan(details: &[String]) {
+    let normalized = details.join(" ").to_ascii_lowercase().replace(' ', "");
+    assert!(
+      normalized.contains("idx_archive_chunks_family_id")
+        && normalized.contains("family=?")
+        && normalized.contains("id>?"),
+      "expected family/id keyset index, got {details:?}"
+    );
+    assert!(
+      !normalized.contains("tempb-tree"),
+      "keyset loop must not sort through a temporary B-tree: {details:?}"
+    );
+  }
+
   fn config(output: PathBuf) -> Config {
     Config {
       output,
@@ -1376,6 +1391,40 @@ mod tests {
     assert!(benchmark.correctness.concurrent_snapshot_before_or_after);
     assert!(benchmark.correctness.process_query_equivalent);
     assert!(benchmark.correctness.ambient_raw_range_equivalent);
+  }
+
+  #[tokio::test]
+  async fn process_and_ambient_chunk_loops_use_family_id_keyset_index() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut db = open(&temp.path().join("plan.sqlite3")).await.unwrap();
+    create_schema(&mut db).await.unwrap();
+    create_chunk_schema(&mut db).await.unwrap();
+
+    let process_plan: Vec<String> =
+      sqlx::query(&format!("EXPLAIN QUERY PLAN {PROCESS_CHUNK_LOOP_SQL}"))
+        .bind(PROCESS)
+        .bind(0_i64)
+        .bind("2026-01-01T00:00:00.000Z")
+        .bind("2026-01-02T00:00:00.000Z")
+        .fetch_all(&mut db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| row.get("detail"))
+        .collect();
+    assert_family_id_keyset_plan(&process_plan);
+
+    let ambient_plan: Vec<String> =
+      sqlx::query(&format!("EXPLAIN QUERY PLAN {AMBIENT_CHUNK_LOOP_SQL}"))
+        .bind(AMBIENT)
+        .bind(0_i64)
+        .fetch_all(&mut db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| row.get("detail"))
+        .collect();
+    assert_family_id_keyset_plan(&ambient_plan);
   }
 
   #[test]
