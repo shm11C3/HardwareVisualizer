@@ -88,16 +88,22 @@ carries provenance. Use
 
 ## License policy
 
-- All new sensor code in this repository is MIT, produced clean-room
-  from the spec documents.
-- Translating or porting MPL/GPL/LGPL implementation code is
-  prohibited (carrying ported files under file-level MPL-2.0 was
+- The clean-room process is a provenance policy, not a consequence of
+  the repository license. It is unchanged by the relicense to
+  GPL-3.0-or-later (`docs/adr/0020-relicense-to-gpl-3.0-or-later.md`):
+  all new sensor code is produced clean-room from the spec documents so
+  its provenance stays independent of any third-party monitoring
+  implementation.
+- Translating or porting MPL/GPL/LGPL implementation code remains
+  prohibited even where those licenses are now compatible with
+  GPL-3.0-or-later (carrying ported files under file-level MPL-2.0 was
   considered and rejected in #1635).
 - PawnIO is GPL-2.0 with an exception for independent programs
-  communicating through its device IO control interface; the modules
-  are LGPL-2.1-or-later. Calling them via IOCTLs keeps this
-  repository MIT. Redistributing module blobs with an installer
-  requires third-party-notice compliance (see
+  communicating through its device IO control interface; PawnIOLib and
+  the modules are LGPL-2.1-or-later. This repository calls them via
+  IOCTLs and the system-installed DLL and ships none of their code, so
+  its own license is unaffected. Redistributing module blobs with an
+  installer requires third-party-notice compliance (see
   `docs/specs/sensors/pawnio-interface.md`).
 
 ## Hardware safety

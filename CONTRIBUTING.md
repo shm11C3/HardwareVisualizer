@@ -108,4 +108,6 @@ If you discover a vulnerability, do not open a public issue. Instead, please con
 
 ## License
 
-By contributing to HardwareVisualizer, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+HardwareVisualizer is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later). By contributing to HardwareVisualizer, you agree that your contributions will be licensed under the [GPL-3.0-or-later](LICENSE).
+
+Contributions merged before the relicense were accepted under the [MIT License](LICENSE-MIT) and keep that license as part of this work. See [ADR 0020](docs/adr/0020-relicense-to-gpl-3.0-or-later.md) for the effective revision.

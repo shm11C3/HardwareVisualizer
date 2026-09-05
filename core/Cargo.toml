@@ -2,7 +2,7 @@
 name = "hardviz-core"
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0-or-later"
 description = "Tauri-independent core for HardwareVisualizer (sensor collection, persistence, event bus)"
 authors = ["@shm11C3"]
 

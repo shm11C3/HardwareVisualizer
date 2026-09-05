@@ -15,6 +15,7 @@ documentation.
 - [Windows sensor external components](architecture/windows-sensor-external-components.md)
 - [Architecture decision records](adr/)
 - [Lossless chunked Hardware Archive decision](adr/0019-lossless-chunked-hardware-archive.md)
+- [Relicense to GPL-3.0-or-later decision](adr/0020-relicense-to-gpl-3.0-or-later.md)
 - [Sensor hardware specs (clean-room)](specs/sensors/)
 - [Frontend architecture](../src/README.md)
 - [Core crate guide](../core/README.md)
@@ -76,3 +77,4 @@ contributors expect them there:
 - [`SECURITY.md`](../SECURITY.md)
 - [`CODE_SIGNING_POLICY.md`](../CODE_SIGNING_POLICY.md)
 - [`LICENSE`](../LICENSE)
+- [`LICENSE-MIT`](../LICENSE-MIT)

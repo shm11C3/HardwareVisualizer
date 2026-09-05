@@ -113,6 +113,11 @@ exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
     #{ allow = ["Zlib"], crate = "adler32" },
+    # Workspace crates: the application itself is GPL-3.0-or-later
+    # (docs/adr/0020-relicense-to-gpl-3.0-or-later.md). The allow list
+    # above still governs third-party dependencies.
+    { allow = ["GPL-3.0-or-later"], crate = "hardviz-core" },
+    { allow = ["GPL-3.0-or-later"], crate = "hardware_visualizer" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
