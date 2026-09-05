@@ -5,7 +5,7 @@ use super::{
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::{
-  Connection, Row, SqliteConnection,
+  Connection, Row, Sqlite, SqliteConnection, Transaction, TypeInfo, ValueRef,
   sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteRow, SqliteSynchronous},
 };
 use std::{
@@ -46,7 +46,7 @@ pub(crate) struct Times {
 pub(crate) struct Finalized {
   pub chunks: i64,
   pub encoded_bytes: i64,
-  pub decoded_value_bytes: u64,
+  pub finalized_decoded_value_bytes: u64,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -106,6 +106,7 @@ pub(crate) struct Benchmark {
   pub ambient_rows: i64,
   pub times: Times,
   pub finalized: Finalized,
+  pub retained_tail_decoded_value_bytes: u64,
   pub correctness: CorrectnessReport,
 }
 
@@ -139,6 +140,7 @@ impl Benchmark {
       ambient_rows: 0,
       times: Times::default(),
       finalized: Finalized::default(),
+      retained_tail_decoded_value_bytes: 0,
       correctness: CorrectnessReport {
         process_float_tolerance: "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
         ..CorrectnessReport::default()
@@ -187,7 +189,7 @@ impl Benchmark {
         if records.is_empty() {
           break;
         }
-        let decoded_value_bytes = value_bytes(&records);
+        let decoded_value_bytes = value_bytes(&records)?;
         let encode_started = Instant::now();
         let payload =
           codec::encode(&records, self.config.layout, self.config.compression)
@@ -214,7 +216,7 @@ impl Benchmark {
         self.times.finalize.push(finalize_started.elapsed());
         self.finalized.chunks += 1;
         self.finalized.encoded_bytes += i64::try_from(payload.len())?;
-        self.finalized.decoded_value_bytes += decoded_value_bytes;
+        self.finalized.finalized_decoded_value_bytes += decoded_value_bytes;
       }
     }
     checkpoint(candidate).await?;
@@ -224,6 +226,8 @@ impl Benchmark {
       .replace(replacement)
       .ok_or("candidate is not open")?;
     old.close().await?;
+    self.retained_tail_decoded_value_bytes =
+      tail_decoded_value_bytes(self.candidate.as_mut().unwrap()).await?;
     Ok(())
   }
 
@@ -544,30 +548,43 @@ async fn select_chunk(
 }
 
 fn row_record(family: &str, row: &SqliteRow) -> Result<Record> {
-  Ok(match family {
-    PROCESS => vec![
-      Value::Integer(row.try_get("id")?),
-      Value::Integer(row.try_get("pid")?),
-      Value::Text(row.try_get::<Vec<u8>, _>("process_name")?),
-      Value::Real(row.try_get::<f64, _>("cpu_usage")?.to_bits()),
-      Value::Integer(row.try_get("memory_usage")?),
-      Value::Integer(row.try_get("execution_sec")?),
-      Value::Text(row.try_get::<Vec<u8>, _>("timestamp")?),
+  let columns: &[&str] = match family {
+    PROCESS => &[
+      "id",
+      "pid",
+      "process_name",
+      "cpu_usage",
+      "memory_usage",
+      "execution_sec",
+      "timestamp",
     ],
-    AMBIENT => vec![
-      Value::Integer(row.try_get("id")?),
-      Value::Text(row.try_get::<Vec<u8>, _>("source")?),
-      Value::Real(row.try_get::<f64, _>("temperature")?.to_bits()),
-      match row.try_get::<Option<f64>, _>("humidity")? {
-        Some(value) => Value::Real(value.to_bits()),
-        None => Value::Null,
-      },
-      Value::Text(row.try_get::<Vec<u8>, _>("timestamp")?),
-    ],
+    AMBIENT => &["id", "source", "temperature", "humidity", "timestamp"],
     _ => return Err(format!("unknown family {family}").into()),
-  })
+  };
+  columns
+    .iter()
+    .map(|column| sqlite_value(row, column))
+    .collect()
 }
 
+fn sqlite_value(row: &SqliteRow, column: &str) -> Result<Value> {
+  let raw = row.try_get_raw(column)?;
+  if raw.is_null() {
+    return Ok(Value::Null);
+  }
+  match raw.type_info().name() {
+    "INTEGER" => Ok(Value::Integer(row.try_get(column)?)),
+    "REAL" => Ok(Value::Real(row.try_get::<f64, _>(column)?.to_bits())),
+    "TEXT" => Ok(Value::Text(row.try_get(column)?)),
+    "BLOB" => Ok(Value::Blob(row.try_get(column)?)),
+    storage_class => Err(
+      format!(
+        "unsupported SQLite runtime storage class {storage_class:?} at column {column:?}"
+      )
+      .into(),
+    ),
+  }
+}
 fn integer(record: &Record, index: usize) -> Result<i64> {
   match record.get(index) {
     Some(Value::Integer(value)) => Ok(*value),
@@ -589,16 +606,42 @@ fn text(record: &Record, index: usize) -> Result<&[u8]> {
   }
 }
 
-fn value_bytes(records: &[Record]) -> u64 {
-  records
-    .iter()
-    .flat_map(|record| record.iter())
-    .map(|value| match value {
-      Value::Null => 1,
-      Value::Integer(_) | Value::Real(_) => 9,
-      Value::Text(bytes) | Value::Blob(bytes) => 9 + bytes.len() as u64,
-    })
-    .sum()
+fn value_bytes(records: &[Record]) -> Result<u64> {
+  let mut total = 0_u64;
+  for value in records.iter().flat_map(|record| record.iter()) {
+    let bytes = codec::decoded_value_size(value).map_err(codec_error)?;
+    total = total
+      .checked_add(u64::try_from(bytes)?)
+      .ok_or("decoded value byte count overflow")?;
+  }
+  Ok(total)
+}
+
+async fn tail_decoded_value_bytes(db: &mut SqliteConnection) -> Result<u64> {
+  let mut total = 0_u64;
+  for family in [PROCESS, AMBIENT] {
+    let (table, _, _) = family_table(family);
+    let mut cursor = 0_i64;
+    loop {
+      let sql = format!("SELECT * FROM {table} WHERE id > ? ORDER BY id LIMIT 4096");
+      let rows = sqlx::query(&sql).bind(cursor).fetch_all(&mut *db).await?;
+      if rows.is_empty() {
+        break;
+      }
+      let records = rows
+        .iter()
+        .map(|row| row_record(family, row))
+        .collect::<Result<Vec<_>>>()?;
+      cursor = integer(
+        records.last().ok_or("tail batch was unexpectedly empty")?,
+        0,
+      )?;
+      total = total
+        .checked_add(value_bytes(&records)?)
+        .ok_or("decoded tail byte count overflow")?;
+    }
+  }
+  Ok(total)
 }
 
 fn update_digest(digest: &mut Sha256, record: &Record) {
@@ -726,7 +769,7 @@ async fn finalize_once(
     family,
     &records,
     &payload,
-    value_bytes(&records),
+    value_bytes(&records)?,
     config,
   )
   .await?;
@@ -758,7 +801,7 @@ async fn rollback_changed_selection(path: &Path, config: &Config) -> Result<bool
     PROCESS,
     &selected,
     &payload,
-    value_bytes(&selected),
+    value_bytes(&selected)?,
     config,
   )
   .await
@@ -1156,6 +1199,30 @@ async fn ambient_oracle(
   Ok((digest.finalize().to_vec(), count))
 }
 
+async fn insert_ambient_query_records(
+  tx: &mut Transaction<'_, Sqlite>,
+  records: &[Record],
+) -> Result<()> {
+  if records.is_empty() {
+    return Ok(());
+  }
+  let values = std::iter::repeat_n("(?, ?, ?)", records.len())
+    .collect::<Vec<_>>()
+    .join(",");
+  let sql = format!(
+    "INSERT INTO temp.ambient_query_records (id, timestamp, record_digest) VALUES {values}"
+  );
+  let mut insert = sqlx::query(&sql);
+  for record in records {
+    insert = insert
+      .bind(integer(record, 0)?)
+      .bind(String::from_utf8(text(record, 4)?.to_vec())?)
+      .bind(record_digest(record));
+  }
+  insert.execute(&mut **tx).await?;
+  Ok(())
+}
+
 async fn ambient_chunked(
   db: &mut SqliteConnection,
   start_ms: i64,
@@ -1186,17 +1253,8 @@ async fn ambient_chunked(
       break;
     };
     chunk_cursor = row.try_get("id")?;
-    for record in decode_chunk(&row, decode_timings).await? {
-      sqlx::query(
-        "INSERT INTO temp.ambient_query_records (id, timestamp, record_digest)
-         VALUES (?, ?, ?)",
-      )
-      .bind(integer(&record, 0)?)
-      .bind(String::from_utf8(text(&record, 4)?.to_vec())?)
-      .bind(record_digest(&record))
-      .execute(&mut *tx)
-      .await?;
-    }
+    let records = decode_chunk(&row, decode_timings).await?;
+    insert_ambient_query_records(&mut tx, &records).await?;
   }
   let mut tail_cursor = 0_i64;
   loop {
@@ -1213,19 +1271,15 @@ async fn ambient_chunked(
     if rows.is_empty() {
       break;
     }
-    for row in &rows {
-      let record = row_record(AMBIENT, row)?;
-      tail_cursor = integer(&record, 0)?;
-      sqlx::query(
-        "INSERT INTO temp.ambient_query_records (id, timestamp, record_digest)
-         VALUES (?, ?, ?)",
-      )
-      .bind(integer(&record, 0)?)
-      .bind(String::from_utf8(text(&record, 4)?.to_vec())?)
-      .bind(record_digest(&record))
-      .execute(&mut *tx)
-      .await?;
-    }
+    let records = rows
+      .iter()
+      .map(|row| row_record(AMBIENT, row))
+      .collect::<Result<Vec<_>>>()?;
+    tail_cursor = integer(
+      records.last().ok_or("tail batch was unexpectedly empty")?,
+      0,
+    )?;
+    insert_ambient_query_records(&mut tx, &records).await?;
   }
   let mut digest = Sha256::new();
   let mut count = 0_u64;
@@ -1425,6 +1479,45 @@ mod tests {
         .map(|row| row.get("detail"))
         .collect();
     assert_family_id_keyset_plan(&ambient_plan);
+  }
+
+  #[tokio::test]
+  async fn full_workload_decoded_value_bytes_do_not_depend_on_chunk_caps() {
+    let temp = tempfile::tempdir().unwrap();
+    let first_output = temp.path().join("first");
+    let second_output = temp.path().join("second");
+    fs::create_dir(&first_output).unwrap();
+    fs::create_dir(&second_output).unwrap();
+
+    let mut first_config = config(first_output);
+    first_config.minutes = 67;
+    first_config.chunk_minutes = 30;
+    first_config.chunk_rows = 101;
+    let mut second_config = first_config.clone();
+    second_config.output = second_output;
+    second_config.chunk_minutes = 11;
+    second_config.chunk_rows = 47;
+
+    let mut first = Benchmark::create(first_config).await.unwrap();
+    first.seed().await.unwrap();
+    first.finalize().await.unwrap();
+    let first_bytes = first
+      .finalized
+      .finalized_decoded_value_bytes
+      .checked_add(first.retained_tail_decoded_value_bytes)
+      .unwrap();
+
+    let mut second = Benchmark::create(second_config).await.unwrap();
+    second.seed().await.unwrap();
+    second.finalize().await.unwrap();
+    let second_bytes = second
+      .finalized
+      .finalized_decoded_value_bytes
+      .checked_add(second.retained_tail_decoded_value_bytes)
+      .unwrap();
+
+    assert!(first_bytes > 0);
+    assert_eq!(first_bytes, second_bytes);
   }
 
   #[test]

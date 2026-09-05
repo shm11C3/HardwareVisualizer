@@ -96,9 +96,16 @@ async fn persist_records(
   config: &Config,
 ) {
   let payload = codec::encode(records, config.layout, config.compression).unwrap();
-  persist_chunk(db, family, records, &payload, value_bytes(records), config)
-    .await
-    .unwrap();
+  persist_chunk(
+    db,
+    family,
+    records,
+    &payload,
+    value_bytes(records).unwrap(),
+    config,
+  )
+  .await
+  .unwrap();
 }
 
 #[tokio::test]
@@ -186,7 +193,7 @@ async fn changed_selection_rolls_back_chunk_and_other_deletes() {
       PROCESS,
       &selected,
       &payload,
-      value_bytes(&selected),
+      value_bytes(&selected).unwrap(),
       &config,
     )
     .await
@@ -202,6 +209,88 @@ async fn changed_selection_rolls_back_chunk_and_other_deletes() {
       .await
       .unwrap(),
     0
+  );
+}
+
+#[tokio::test]
+async fn row_record_preserves_runtime_storage_classes_bytes_and_bits() {
+  let temp = tempfile::tempdir().unwrap();
+  let mut db = open(&temp.path().join("storage-classes.sqlite3"))
+    .await
+    .unwrap();
+  create_schema(&mut db).await.unwrap();
+
+  sqlx::query(
+    "INSERT INTO PROCESS_STATS
+     (id, pid, process_name, cpu_usage, memory_usage, execution_sec, timestamp)
+     VALUES (1, x'0102', x'ff0061', 'cpu-text', x'0304', 3.25, x'32303236')",
+  )
+  .execute(&mut db)
+  .await
+  .unwrap();
+  let process_row = sqlx::query("SELECT * FROM PROCESS_STATS WHERE id = 1")
+    .fetch_one(&mut db)
+    .await
+    .unwrap();
+  let process_record = row_record(PROCESS, &process_row).unwrap();
+  assert_eq!(
+    process_record,
+    vec![
+      Value::Integer(1),
+      Value::Blob(vec![1, 2]),
+      Value::Blob(vec![0xff, 0, 0x61]),
+      Value::Text(b"cpu-text".to_vec()),
+      Value::Blob(vec![3, 4]),
+      Value::Real(3.25_f64.to_bits()),
+      Value::Blob(b"2026".to_vec()),
+    ]
+  );
+  assert!(integer(&process_record, 1).is_err());
+  assert!(real(&process_record, 3).is_err());
+  assert!(text(&process_record, 6).is_err());
+
+  sqlx::query(
+    "INSERT INTO AMBIENT_ARCHIVE
+     (id, source, temperature, humidity, timestamp)
+     VALUES (2, x'0506', x'0708', 'humidity-text', x'32303236')",
+  )
+  .execute(&mut db)
+  .await
+  .unwrap();
+  let exact_temperature = f64::from_bits(0x4009_21fb_5444_2d18);
+  sqlx::query(
+    "INSERT INTO AMBIENT_ARCHIVE
+     (id, source, temperature, humidity, timestamp) VALUES (3, ?, ?, NULL, ?)",
+  )
+  .bind("normal")
+  .bind(exact_temperature)
+  .bind("2026-01-01T00:00:00.000Z")
+  .execute(&mut db)
+  .await
+  .unwrap();
+  let ambient_rows = sqlx::query("SELECT * FROM AMBIENT_ARCHIVE ORDER BY id")
+    .fetch_all(&mut db)
+    .await
+    .unwrap();
+  assert_eq!(
+    row_record(AMBIENT, &ambient_rows[0]).unwrap(),
+    vec![
+      Value::Integer(2),
+      Value::Blob(vec![5, 6]),
+      Value::Blob(vec![7, 8]),
+      Value::Text(b"humidity-text".to_vec()),
+      Value::Blob(b"2026".to_vec()),
+    ]
+  );
+  assert_eq!(
+    row_record(AMBIENT, &ambient_rows[1]).unwrap(),
+    vec![
+      Value::Integer(3),
+      Value::Text(b"normal".to_vec()),
+      Value::Real(exact_temperature.to_bits()),
+      Value::Null,
+      Value::Text(b"2026-01-01T00:00:00.000Z".to_vec()),
+    ]
   );
 }
 

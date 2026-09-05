@@ -173,6 +173,8 @@ struct WorkloadReport {
   numeric_shape: &'static str,
   process_rows: i64,
   ambient_rows: i64,
+  decoded_value_bytes: u64,
+  decoded_value_bytes_definition: &'static str,
   seed: u64,
 }
 
@@ -184,7 +186,8 @@ struct FormatReport {
   chunk_rows: usize,
   chunks: i64,
   encoded_bytes: i64,
-  decoded_value_bytes: u64,
+  finalized_decoded_value_bytes: u64,
+  retained_tail_decoded_value_bytes: u64,
 }
 
 #[derive(Serialize)]
@@ -354,9 +357,14 @@ async fn run() -> Result<()> {
   let vacuum_wall_ms = vacuum_started.elapsed().as_secs_f64() * 1_000.0;
   let after = benchmark.candidate_footprint().await?;
   let sqlite = benchmark.sqlite_report().await?;
+  let decoded_value_bytes = benchmark
+    .finalized
+    .finalized_decoded_value_bytes
+    .checked_add(benchmark.retained_tail_decoded_value_bytes)
+    .ok_or("full workload decoded value byte count overflow")?;
 
   let report = Report {
-    format: "hardviz-archive-g1-v1",
+    format: "hardviz-archive-g1-v2",
     scope: "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
     workload: WorkloadReport {
       source: "deterministic synthetic production-shaped rows",
@@ -372,6 +380,8 @@ async fn run() -> Result<()> {
       numeric_shape: "producer-range rows plus separately labeled exact i64/binary64 sentinels",
       process_rows: benchmark.process_rows,
       ambient_rows: benchmark.ambient_rows,
+      decoded_value_bytes,
+      decoded_value_bytes_definition: "type tag plus scalar payload or variable byte length across finalized chunks and retained tail; excludes framing and dictionary bookkeeping",
       seed: config.seed,
     },
     format_candidate: FormatReport {
@@ -381,7 +391,8 @@ async fn run() -> Result<()> {
       chunk_rows: config.chunk_rows,
       chunks: benchmark.finalized.chunks,
       encoded_bytes: benchmark.finalized.encoded_bytes,
-      decoded_value_bytes: benchmark.finalized.decoded_value_bytes,
+      finalized_decoded_value_bytes: benchmark.finalized.finalized_decoded_value_bytes,
+      retained_tail_decoded_value_bytes: benchmark.retained_tail_decoded_value_bytes,
     },
     environment: environment_report(&config.output),
     sqlite,

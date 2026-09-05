@@ -117,5 +117,4 @@ shared enforcement surface.
 - [WebView2 suspension requires hiding the controller](webview2-suspend-requires-hidden-controller.md)
 - [Stabilize performance memory baselines](stabilize-perf-memory-baselines.md)
 - [Separate sensor support from recording coverage](separate-sensor-support-from-recording-coverage.md)
-
 - [Preserve SQLite timestamp membership](preserve-sqlite-timestamp-membership.md)

@@ -214,7 +214,9 @@ fn validate_records(records: &[Record]) -> Result<(usize, usize), String> {
   Ok((column_count, decoded_bytes))
 }
 
-fn decoded_value_size(value: &Value) -> Result<usize, String> {
+/// Counts a value's decoded type tag plus scalar payload or variable byte length.
+/// Frame, length-prefix, and dictionary bookkeeping bytes are excluded.
+pub(super) fn decoded_value_size(value: &Value) -> Result<usize, String> {
   match value {
     Value::Null => Ok(1),
     Value::Integer(_) | Value::Real(_) => Ok(9),
@@ -686,6 +688,24 @@ mod tests {
   #[test]
   fn round_trips_storage_classes_and_exact_numeric_bits() {
     round_trip(&edge_records());
+  }
+
+  #[test]
+  fn decoded_value_size_matches_mixed_storage_classes() -> Result<(), String> {
+    let values = [
+      Value::Null,
+      Value::Integer(i64::MIN),
+      Value::Real(f64::NAN.to_bits()),
+      Value::Text(b"abc".to_vec()),
+      Value::Blob(vec![0, 0xff]),
+    ];
+    let actual = values
+      .iter()
+      .map(decoded_value_size)
+      .sum::<Result<usize, _>>()?;
+
+    assert_eq!(actual, 26);
+    Ok(())
   }
 
   #[test]
