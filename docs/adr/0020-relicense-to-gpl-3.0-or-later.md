@@ -58,7 +58,7 @@ carries that clause.
 Contributions merged before the effective revision stay licensed under the
 MIT License as portions of this GPL-licensed work. The MIT License permits
 that combination without further consent, but requires its notice to be kept.
-The previous license text is preserved verbatim as `LICENSE-MIT` and is
+The previous license text is preserved verbatim as `MIT-pre-relicense.txt` and is
 bundled with the application next to `LICENSE`.
 
 ### Third-party notices
