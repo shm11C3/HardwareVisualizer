@@ -8,7 +8,7 @@ failure_signature: an approved pull request with a successful Merge Gate remains
 root_cause: develop had a Rust CodeQL analysis category that a condition excluded from the pull request, so required code-scanning protection could not compare all base configurations
 guardrail: .github/workflows/codeql.yml keeps every configured CodeQL language present on pull requests and explains why Rust must not be path-filtered
 canonical_refs: .github/workflows/codeql.yml
-verification: on a non-Rust pull request and a Rust-changing pull request, confirm Analyze (rust) and the aggregate CodeQL check succeed; run actionlint and npm run check:agent-guidance
+verification: on a non-Rust pull request and a Rust-changing pull request, confirm /language:rust is present in the CodeQL comparison, Analyze (rust) and the aggregate CodeQL check succeed, and the develop merge gate passes; run actionlint and npm run check:agent-guidance
 evidence: "Issue #2080; PR #2079 check 101265371495 reproduced the missing Rust category; PR #2076 demonstrated a complete non-Rust analysis; PR #2070 run 33948618970 demonstrated successful Rust-changing analysis"
 revalidate_when: the develop ruleset stops requiring CodeQL, or GitHub supports per-category merge policy or safe reuse of base analyses for omitted pull-request categories
 ---
