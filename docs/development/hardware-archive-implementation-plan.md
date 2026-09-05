@@ -58,6 +58,12 @@ Partial implementation must not expose Optimize now to normal installations.
 
 **Type:** HITL. **Blocked by:** design acceptance and the #1666 scope checkpoint.
 
+Initial experiment: [schema/query inventory](hardware-archive-g1-inventory.md)
+and [measured benchmark report](hardware-archive-g1-benchmark.md). The report
+records exact two-family preservation and 24-hour/30-day/one-year results; the
+longer-range queries miss the proposed comparison. G1 remains open until the
+remaining evidence and maintainer decision below are complete.
+
 ### What to build
 
 Refresh the full database/query inventory, capture a reproducible row-based

@@ -1,0 +1,2153 @@
+{
+  "schema": "hardviz-g1-initial-measurements-v1",
+  "measured_date": "2026-09-05",
+  "source_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+  "develop_baseline_commit": "838d08da16d60ead84df3ddb1501ca19a57f24fc",
+  "external_host_metadata": {
+    "macos_version": "26.6.2",
+    "macos_build": "25G83",
+    "filesystem": "APFS"
+  },
+  "query_policy": "One executable run per configuration; seven cache-primed repetitions after setup/validation, alternating baseline then candidate. No cache purge or independent cold/warm classification.",
+  "cases": [
+    {
+      "case": "24h-row-none",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-24h-row-none",
+        "--minutes",
+        "1440",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "row",
+        "--compression",
+        "none",
+        "--chunk-minutes",
+        "60",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 0.62179320899304,
+        "user_seconds": 0.43357199999999996,
+        "system_seconds": 0.196427,
+        "maximum_resident_set_size_bytes": 30408704,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 1440,
+          "sampled_minutes": 1440,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 21615,
+          "ambient_rows": 2618,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "row",
+          "compression": "none",
+          "chunk_minutes": 60,
+          "chunk_rows": 4096,
+          "chunks": 48,
+          "encoded_bytes": 1974520,
+          "decoded_value_bytes": 2303608
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 23019520,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 2482176,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 606,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2482176,
+            "live_page_bytes": 2482176,
+            "index_bytes": 892928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 2564096,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 626,
+            "freelist_pages": 111,
+            "allocated_page_bytes": 2564096,
+            "live_page_bytes": 2109440,
+            "index_bytes": 32768
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 2101248,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 513,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2101248,
+            "live_page_bytes": 2101248,
+            "index_bytes": 28672
+          },
+          "before_reclamation_reduction_percent": -3.300330033003296,
+          "after_vacuum_reduction_percent": 15.34653465346535,
+          "vacuum_wall_ms": 7.430334
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 12,
+            "p50_ms": 13.092,
+            "p95_ms": 13.721,
+            "p99_ms": 13.721,
+            "max_ms": 13.721
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.105,
+            "p95_ms": 0.124,
+            "p99_ms": 0.124,
+            "max_ms": 0.124
+          },
+          "source_scan": {
+            "samples": 50,
+            "p50_ms": 0.137,
+            "p95_ms": 1.364,
+            "p99_ms": 1.756,
+            "max_ms": 1.756
+          },
+          "encode": {
+            "samples": 48,
+            "p50_ms": 0.153,
+            "p95_ms": 0.348,
+            "p99_ms": 0.356,
+            "max_ms": 0.356
+          },
+          "decode": {
+            "samples": 348,
+            "p50_ms": 0.051,
+            "p95_ms": 0.456,
+            "p99_ms": 0.471,
+            "max_ms": 0.481
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 48,
+            "p50_ms": 0.529,
+            "p95_ms": 1.053,
+            "p99_ms": 4.146,
+            "max_ms": 4.146
+          },
+          "finalize_total": {
+            "samples": 48,
+            "p50_ms": 1.558,
+            "p95_ms": 3.257,
+            "p99_ms": 5.869,
+            "max_ms": 5.869
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 3.173,
+            "p95_ms": 3.345,
+            "p99_ms": 3.345,
+            "max_ms": 3.345
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 11.438,
+            "p95_ms": 11.655,
+            "p99_ms": 11.655,
+            "max_ms": 11.655
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2.551,
+            "p95_ms": 2.708,
+            "p99_ms": 2.708,
+            "max_ms": 2.708
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 18.755,
+            "p95_ms": 19.36,
+            "p99_ms": 19.36,
+            "max_ms": 19.36
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 1309
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "24h-row-deflate",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-24h-row-deflate",
+        "--minutes",
+        "1440",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "row",
+        "--compression",
+        "deflate",
+        "--chunk-minutes",
+        "60",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 0.5806848329957575,
+        "user_seconds": 0.417616,
+        "system_seconds": 0.190442,
+        "maximum_resident_set_size_bytes": 30425088,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 1440,
+          "sampled_minutes": 1440,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 21615,
+          "ambient_rows": 2618,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "row",
+          "compression": "deflate",
+          "chunk_minutes": 60,
+          "chunk_rows": 4096,
+          "chunks": 48,
+          "encoded_bytes": 369127,
+          "decoded_value_bytes": 2303608
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 19922944,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 2482176,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 606,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2482176,
+            "live_page_bytes": 2482176,
+            "index_bytes": 892928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 2502656,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 611,
+            "freelist_pages": 487,
+            "allocated_page_bytes": 2502656,
+            "live_page_bytes": 507904,
+            "index_bytes": 32768
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 499712,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 122,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 499712,
+            "live_page_bytes": 499712,
+            "index_bytes": 28672
+          },
+          "before_reclamation_reduction_percent": -0.8250825082508184,
+          "after_vacuum_reduction_percent": 79.86798679867987,
+          "vacuum_wall_ms": 1.4898330000000002
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 12,
+            "p50_ms": 13.014,
+            "p95_ms": 13.479,
+            "p99_ms": 13.479,
+            "max_ms": 13.479
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.104,
+            "p95_ms": 0.123,
+            "p99_ms": 0.123,
+            "max_ms": 0.123
+          },
+          "source_scan": {
+            "samples": 50,
+            "p50_ms": 0.155,
+            "p95_ms": 1.516,
+            "p99_ms": 1.65,
+            "max_ms": 1.65
+          },
+          "encode": {
+            "samples": 48,
+            "p50_ms": 0.399,
+            "p95_ms": 0.967,
+            "p99_ms": 0.982,
+            "max_ms": 0.982
+          },
+          "decode": {
+            "samples": 348,
+            "p50_ms": 0.037,
+            "p95_ms": 0.261,
+            "p99_ms": 0.276,
+            "max_ms": 0.291
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 48,
+            "p50_ms": 0.821,
+            "p95_ms": 1.005,
+            "p99_ms": 2.615,
+            "max_ms": 2.615
+          },
+          "finalize_total": {
+            "samples": 48,
+            "p50_ms": 2.79,
+            "p95_ms": 3.615,
+            "p99_ms": 3.965,
+            "max_ms": 3.965
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 3.164,
+            "p95_ms": 3.334,
+            "p99_ms": 3.334,
+            "max_ms": 3.334
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 9.0,
+            "p95_ms": 9.322,
+            "p99_ms": 9.322,
+            "max_ms": 9.322
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2.682,
+            "p95_ms": 2.736,
+            "p99_ms": 2.736,
+            "max_ms": 2.736
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 18.265,
+            "p95_ms": 18.902,
+            "p99_ms": 18.902,
+            "max_ms": 18.902
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 1309
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "24h-columnar-none",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-24h-columnar-none",
+        "--minutes",
+        "1440",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "columnar",
+        "--compression",
+        "none",
+        "--chunk-minutes",
+        "60",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 0.554439542000182,
+        "user_seconds": 0.392685,
+        "system_seconds": 0.187127,
+        "maximum_resident_set_size_bytes": 30392320,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 1440,
+          "sampled_minutes": 1440,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 21615,
+          "ambient_rows": 2618,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "columnar",
+          "compression": "none",
+          "chunk_minutes": 60,
+          "chunk_rows": 4096,
+          "chunks": 48,
+          "encoded_bytes": 724356,
+          "decoded_value_bytes": 2303608
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 20971520,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 2482176,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 606,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2482176,
+            "live_page_bytes": 2482176,
+            "index_bytes": 892928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 2514944,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 614,
+            "freelist_pages": 404,
+            "allocated_page_bytes": 2514944,
+            "live_page_bytes": 860160,
+            "index_bytes": 32768
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 851968,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 208,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 851968,
+            "live_page_bytes": 851968,
+            "index_bytes": 28672
+          },
+          "before_reclamation_reduction_percent": -1.320132013201314,
+          "after_vacuum_reduction_percent": 65.67656765676568,
+          "vacuum_wall_ms": 2.31125
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 12,
+            "p50_ms": 13.231,
+            "p95_ms": 13.7,
+            "p99_ms": 13.7,
+            "max_ms": 13.7
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.094,
+            "p95_ms": 0.11,
+            "p99_ms": 0.11,
+            "max_ms": 0.11
+          },
+          "source_scan": {
+            "samples": 50,
+            "p50_ms": 0.132,
+            "p95_ms": 1.338,
+            "p99_ms": 1.799,
+            "max_ms": 1.799
+          },
+          "encode": {
+            "samples": 48,
+            "p50_ms": 0.087,
+            "p95_ms": 0.198,
+            "p99_ms": 0.199,
+            "max_ms": 0.199
+          },
+          "decode": {
+            "samples": 348,
+            "p50_ms": 0.036,
+            "p95_ms": 0.209,
+            "p99_ms": 0.215,
+            "max_ms": 0.226
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 48,
+            "p50_ms": 0.833,
+            "p95_ms": 0.98,
+            "p99_ms": 3.143,
+            "max_ms": 3.143
+          },
+          "finalize_total": {
+            "samples": 48,
+            "p50_ms": 2.161,
+            "p95_ms": 2.736,
+            "p99_ms": 3.301,
+            "max_ms": 3.301
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 3.082,
+            "p95_ms": 3.153,
+            "p99_ms": 3.153,
+            "max_ms": 3.153
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 8.55,
+            "p95_ms": 8.615,
+            "p99_ms": 8.615,
+            "max_ms": 8.615
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2.581,
+            "p95_ms": 2.677,
+            "p99_ms": 2.677,
+            "max_ms": 2.677
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 18.321,
+            "p95_ms": 18.851,
+            "p99_ms": 18.851,
+            "max_ms": 18.851
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 1309
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "24h-columnar-deflate",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-24h-columnar-deflate",
+        "--minutes",
+        "1440",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "columnar",
+        "--compression",
+        "deflate",
+        "--chunk-minutes",
+        "60",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 0.5598732499929611,
+        "user_seconds": 0.395771,
+        "system_seconds": 0.190719,
+        "maximum_resident_set_size_bytes": 30408704,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 1440,
+          "sampled_minutes": 1440,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 21615,
+          "ambient_rows": 2618,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "columnar",
+          "compression": "deflate",
+          "chunk_minutes": 60,
+          "chunk_rows": 4096,
+          "chunks": 48,
+          "encoded_bytes": 221234,
+          "decoded_value_bytes": 2303608
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 19742720,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 2482176,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 606,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2482176,
+            "live_page_bytes": 2482176,
+            "index_bytes": 892928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 2498560,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 610,
+            "freelist_pages": 531,
+            "allocated_page_bytes": 2498560,
+            "live_page_bytes": 323584,
+            "index_bytes": 32768
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 315392,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 77,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 315392,
+            "live_page_bytes": 315392,
+            "index_bytes": 28672
+          },
+          "before_reclamation_reduction_percent": -0.660066006600668,
+          "after_vacuum_reduction_percent": 87.29372937293729,
+          "vacuum_wall_ms": 1.2342080000000002
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 12,
+            "p50_ms": 13.343,
+            "p95_ms": 13.509,
+            "p99_ms": 13.509,
+            "max_ms": 13.509
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.101,
+            "p95_ms": 0.113,
+            "p99_ms": 0.113,
+            "max_ms": 0.113
+          },
+          "source_scan": {
+            "samples": 50,
+            "p50_ms": 0.148,
+            "p95_ms": 1.491,
+            "p99_ms": 1.657,
+            "max_ms": 1.657
+          },
+          "encode": {
+            "samples": 48,
+            "p50_ms": 0.204,
+            "p95_ms": 0.443,
+            "p99_ms": 0.456,
+            "max_ms": 0.456
+          },
+          "decode": {
+            "samples": 348,
+            "p50_ms": 0.031,
+            "p95_ms": 0.17,
+            "p99_ms": 0.178,
+            "max_ms": 0.207
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 48,
+            "p50_ms": 0.808,
+            "p95_ms": 1.019,
+            "p99_ms": 2.996,
+            "max_ms": 2.996
+          },
+          "finalize_total": {
+            "samples": 48,
+            "p50_ms": 2.328,
+            "p95_ms": 3.132,
+            "p99_ms": 3.327,
+            "max_ms": 3.327
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 3.124,
+            "p95_ms": 3.283,
+            "p99_ms": 3.283,
+            "max_ms": 3.283
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 8.111,
+            "p95_ms": 8.21,
+            "p99_ms": 8.21,
+            "max_ms": 8.21
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2.579,
+            "p95_ms": 2.73,
+            "p99_ms": 2.73,
+            "max_ms": 2.73
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 18.617,
+            "p95_ms": 18.841,
+            "p99_ms": 18.841,
+            "max_ms": 18.841
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 1309
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "24h-columnar-deflate-15m",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-24h-columnar-deflate-15m",
+        "--minutes",
+        "1440",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "columnar",
+        "--compression",
+        "deflate",
+        "--chunk-minutes",
+        "15",
+        "--chunk-rows",
+        "256",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 0.5707808749866672,
+        "user_seconds": 0.40356899999999996,
+        "system_seconds": 0.193,
+        "maximum_resident_set_size_bytes": 30425088,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 1440,
+          "sampled_minutes": 1440,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 21615,
+          "ambient_rows": 2618,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "columnar",
+          "compression": "deflate",
+          "chunk_minutes": 15,
+          "chunk_rows": 256,
+          "chunks": 192,
+          "encoded_bytes": 264300,
+          "decoded_value_bytes": 2341064
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 18055168,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 2482176,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 606,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2482176,
+            "live_page_bytes": 2482176,
+            "index_bytes": 892928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 2490368,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 608,
+            "freelist_pages": 486,
+            "allocated_page_bytes": 2490368,
+            "live_page_bytes": 499712,
+            "index_bytes": 28672
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 487424,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 119,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 487424,
+            "live_page_bytes": 487424,
+            "index_bytes": 20480
+          },
+          "before_reclamation_reduction_percent": -0.3300330033003229,
+          "after_vacuum_reduction_percent": 80.36303630363037,
+          "vacuum_wall_ms": 1.6355
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 12,
+            "p50_ms": 13.285,
+            "p95_ms": 13.615,
+            "p99_ms": 13.615,
+            "max_ms": 13.615
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.107,
+            "p95_ms": 0.116,
+            "p99_ms": 0.116,
+            "max_ms": 0.116
+          },
+          "source_scan": {
+            "samples": 194,
+            "p50_ms": 0.071,
+            "p95_ms": 0.292,
+            "p99_ms": 0.531,
+            "max_ms": 0.673
+          },
+          "encode": {
+            "samples": 192,
+            "p50_ms": 0.057,
+            "p95_ms": 0.12,
+            "p99_ms": 0.13,
+            "max_ms": 0.131
+          },
+          "decode": {
+            "samples": 1392,
+            "p50_ms": 0.014,
+            "p95_ms": 0.05,
+            "p99_ms": 0.053,
+            "max_ms": 0.059
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 192,
+            "p50_ms": 0.216,
+            "p95_ms": 0.306,
+            "p99_ms": 1.769,
+            "max_ms": 2.615
+          },
+          "finalize_total": {
+            "samples": 192,
+            "p50_ms": 0.59,
+            "p95_ms": 0.776,
+            "p99_ms": 1.833,
+            "max_ms": 3.017
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 3.102,
+            "p95_ms": 3.171,
+            "p99_ms": 3.171,
+            "max_ms": 3.171
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 8.186,
+            "p95_ms": 8.286,
+            "p99_ms": 8.286,
+            "max_ms": 8.286
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2.684,
+            "p95_ms": 2.734,
+            "p99_ms": 2.734,
+            "max_ms": 2.734
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 19.291,
+            "p95_ms": 19.359,
+            "p99_ms": 19.359,
+            "max_ms": 19.359
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 1309
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "24h-columnar-deflate-240m",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-24h-columnar-deflate-240m",
+        "--minutes",
+        "1440",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "columnar",
+        "--compression",
+        "deflate",
+        "--chunk-minutes",
+        "240",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 0.6155702079995535,
+        "user_seconds": 0.430562,
+        "system_seconds": 0.213055,
+        "maximum_resident_set_size_bytes": 30392320,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 1440,
+          "sampled_minutes": 1440,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 21615,
+          "ambient_rows": 2618,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "columnar",
+          "compression": "deflate",
+          "chunk_minutes": 240,
+          "chunk_rows": 4096,
+          "chunks": 12,
+          "encoded_bytes": 195207,
+          "decoded_value_bytes": 2156067
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 28655616,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 2482176,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 606,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 2482176,
+            "live_page_bytes": 2482176,
+            "index_bytes": 892928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 2523136,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 616,
+            "freelist_pages": 502,
+            "allocated_page_bytes": 2523136,
+            "live_page_bytes": 466944,
+            "index_bytes": 94208
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 446464,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 109,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 446464,
+            "live_page_bytes": 446464,
+            "index_bytes": 81920
+          },
+          "before_reclamation_reduction_percent": -1.650165016501659,
+          "after_vacuum_reduction_percent": 82.01320132013201,
+          "vacuum_wall_ms": 3.904084
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 12,
+            "p50_ms": 13.554,
+            "p95_ms": 13.944,
+            "p99_ms": 13.944,
+            "max_ms": 13.944
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.096,
+            "p95_ms": 0.123,
+            "p99_ms": 0.123,
+            "max_ms": 0.123
+          },
+          "source_scan": {
+            "samples": 14,
+            "p50_ms": 0.516,
+            "p95_ms": 4.915,
+            "p99_ms": 4.915,
+            "max_ms": 4.915
+          },
+          "encode": {
+            "samples": 12,
+            "p50_ms": 0.908,
+            "p95_ms": 1.872,
+            "p99_ms": 1.872,
+            "max_ms": 1.872
+          },
+          "decode": {
+            "samples": 87,
+            "p50_ms": 0.077,
+            "p95_ms": 0.644,
+            "p99_ms": 0.744,
+            "max_ms": 0.744
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 12,
+            "p50_ms": 1.855,
+            "p95_ms": 3.6,
+            "p99_ms": 3.6,
+            "max_ms": 3.6
+          },
+          "finalize_total": {
+            "samples": 12,
+            "p50_ms": 5.205,
+            "p95_ms": 11.072,
+            "p99_ms": 11.072,
+            "max_ms": 11.072
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 3.166,
+            "p95_ms": 3.253,
+            "p99_ms": 3.253,
+            "max_ms": 3.253
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 8.242,
+            "p95_ms": 8.384,
+            "p99_ms": 8.384,
+            "max_ms": 8.384
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2.632,
+            "p95_ms": 2.685,
+            "p99_ms": 2.685,
+            "max_ms": 2.685
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 17.903,
+            "p95_ms": 18.098,
+            "p99_ms": 18.098,
+            "max_ms": 18.098
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 1309
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "30d-columnar-deflate",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-30d-columnar-deflate",
+        "--minutes",
+        "43200",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "columnar",
+        "--compression",
+        "deflate",
+        "--chunk-minutes",
+        "60",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "Python os.wait4 on macOS; ru_maxrss is bytes",
+        "exit_code": 0,
+        "wall_seconds": 15.005592832982074,
+        "user_seconds": 10.864864,
+        "system_seconds": 4.913524,
+        "maximum_resident_set_size_bytes": 30441472,
+        "swaps": 0
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 43200,
+          "sampled_minutes": 43200,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 648446,
+          "ambient_rows": 78546,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "columnar",
+          "compression": "deflate",
+          "chunk_minutes": 60,
+          "chunk_rows": 4096,
+          "chunks": 1440,
+          "encoded_bytes": 6769222,
+          "decoded_value_bytes": 70576721
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 29704192,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 75526144,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 18439,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 75526144,
+            "live_page_bytes": 75526144,
+            "index_bytes": 27516928
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 75542528,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 18443,
+            "freelist_pages": 16670,
+            "allocated_page_bytes": 75542528,
+            "live_page_bytes": 7262208,
+            "index_bytes": 81920
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 7241728,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 1768,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 7241728,
+            "live_page_bytes": 7241728,
+            "index_bytes": 65536
+          },
+          "before_reclamation_reduction_percent": -0.02169315038775821,
+          "after_vacuum_reduction_percent": 90.41162752860784,
+          "vacuum_wall_ms": 25.234125
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 338,
+            "p50_ms": 13.146,
+            "p95_ms": 16.98,
+            "p99_ms": 17.86,
+            "max_ms": 18.551
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.116,
+            "p95_ms": 0.139,
+            "p99_ms": 0.139,
+            "max_ms": 0.139
+          },
+          "source_scan": {
+            "samples": 1442,
+            "p50_ms": 0.223,
+            "p95_ms": 1.312,
+            "p99_ms": 1.492,
+            "max_ms": 2.573
+          },
+          "encode": {
+            "samples": 1440,
+            "p50_ms": 0.199,
+            "p95_ms": 0.439,
+            "p99_ms": 0.452,
+            "max_ms": 0.787
+          },
+          "decode": {
+            "samples": 10440,
+            "p50_ms": 0.03,
+            "p95_ms": 0.169,
+            "p99_ms": 0.175,
+            "max_ms": 0.279
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 1440,
+            "p50_ms": 0.814,
+            "p95_ms": 1.043,
+            "p99_ms": 4.007,
+            "max_ms": 5.172
+          },
+          "finalize_total": {
+            "samples": 1440,
+            "p50_ms": 2.328,
+            "p95_ms": 2.91,
+            "p99_ms": 5.565,
+            "max_ms": 6.828
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 131.852,
+            "p95_ms": 134.36,
+            "p99_ms": 134.36,
+            "max_ms": 134.36
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 243.194,
+            "p95_ms": 244.489,
+            "p99_ms": 244.489,
+            "max_ms": 244.489
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 83.788,
+            "p95_ms": 85.041,
+            "p99_ms": 85.041,
+            "max_ms": 85.041
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 529.751,
+            "p95_ms": 536.85,
+            "p99_ms": 536.85,
+            "max_ms": 536.85
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 39274
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    },
+    {
+      "case": "1y-columnar-deflate",
+      "arguments": [
+        "--output",
+        "/tmp/hardviz-g1-1y-columnar-deflate",
+        "--minutes",
+        "525600",
+        "--processes-per-minute",
+        "15",
+        "--seed",
+        "2052",
+        "--repetitions",
+        "7",
+        "--layout",
+        "columnar",
+        "--compression",
+        "deflate",
+        "--chunk-minutes",
+        "60",
+        "--chunk-rows",
+        "4096",
+        "--duty-cycle",
+        "1"
+      ],
+      "external_resources": {
+        "method": "macOS /usr/bin/time -l; partial output",
+        "resource_wrapper_exit_code": 1,
+        "harness_exit_code": null,
+        "completed_harness_report": true,
+        "wall_seconds": 200.46,
+        "user_seconds": 135.45,
+        "system_seconds": 62.5,
+        "maximum_resident_set_size_bytes": null,
+        "swaps": null,
+        "error": "time: sysctl kern.clockrate: Operation not permitted"
+      },
+      "report": {
+        "format": "hardviz-archive-g1-v1",
+        "scope": "synthetic two-family experiment: PROCESS_STATS and AMBIENT_ARCHIVE",
+        "workload": {
+          "source": "deterministic synthetic production-shaped rows",
+          "represented_minutes": 525600,
+          "sampled_minutes": 525600,
+          "sampling_mode": "continuous",
+          "duty_cycle": 1,
+          "processes_per_sampled_minute": 15,
+          "numeric_shape": "producer-range rows plus separately labeled exact i64/binary64 sentinels",
+          "process_rows": 7889419,
+          "ambient_rows": 955636,
+          "seed": 2052
+        },
+        "format_candidate": {
+          "layout": "columnar",
+          "compression": "deflate",
+          "chunk_minutes": 60,
+          "chunk_rows": 4096,
+          "chunks": 17520,
+          "encoded_bytes": 82424693,
+          "decoded_value_bytes": 859253037
+        },
+        "environment": {
+          "os": "macos",
+          "architecture": "aarch64",
+          "logical_cpus": 10,
+          "cpu_brand": "Apple M4",
+          "total_memory_bytes": 25769803776,
+          "current_rss_bytes": 30932992,
+          "peak_rss_bytes": null,
+          "rustc_version": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+          "git_commit": "f4afeb9acc5b4c6a3206375db2b87b2b834fec2e",
+          "filesystem": "unavailable"
+        },
+        "sqlite": {
+          "version": "3.46.0",
+          "journal_mode": "wal",
+          "synchronous": 1,
+          "compile_options": [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-17.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_FOREIGN_KEYS",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_API_ARMOR",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_LOAD_EXTENSION",
+            "ENABLE_MEMORY_MANAGEMENT",
+            "ENABLE_RTREE",
+            "ENABLE_STAT4",
+            "ENABLE_UNLOCK_NOTIFY",
+            "HAVE_ISNAN",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=127",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SOUNDEX",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1",
+            "USE_URI"
+          ]
+        },
+        "footprints": {
+          "relational_baseline": {
+            "database_bytes": 926257152,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 226137,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 926257152,
+            "live_page_bytes": 926257152,
+            "index_bytes": 335720448
+          },
+          "chunked_before_reclamation": {
+            "database_bytes": 926273536,
+            "wal_bytes": 0,
+            "shm_bytes": 32768,
+            "page_size": 4096,
+            "page_count": 226141,
+            "freelist_pages": 204819,
+            "allocated_page_bytes": 926273536,
+            "live_page_bytes": 87334912,
+            "index_bytes": 532480
+          },
+          "chunked_after_vacuum": {
+            "database_bytes": 87265280,
+            "wal_bytes": 0,
+            "shm_bytes": 196608,
+            "page_size": 4096,
+            "page_count": 21305,
+            "freelist_pages": 0,
+            "allocated_page_bytes": 87265280,
+            "live_page_bytes": 87265280,
+            "index_bytes": 466944
+          },
+          "before_reclamation_reduction_percent": -0.0017688392434767053,
+          "after_vacuum_reduction_percent": 90.57871997948146,
+          "vacuum_wall_ms": 316.21137500000003
+        },
+        "timings_ms": {
+          "fixture_seed_batch": {
+            "samples": 4107,
+            "p50_ms": 13.419,
+            "p95_ms": 17.317,
+            "p99_ms": 18.095,
+            "max_ms": 28.766
+          },
+          "production_shaped_minute_append": {
+            "samples": 7,
+            "p50_ms": 0.167,
+            "p95_ms": 1.332,
+            "p99_ms": 1.332,
+            "max_ms": 1.332
+          },
+          "source_scan": {
+            "samples": 17522,
+            "p50_ms": 0.648,
+            "p95_ms": 1.32,
+            "p99_ms": 1.467,
+            "max_ms": 8.058
+          },
+          "encode": {
+            "samples": 17520,
+            "p50_ms": 0.221,
+            "p95_ms": 0.442,
+            "p99_ms": 0.452,
+            "max_ms": 1.217
+          },
+          "decode": {
+            "samples": 127020,
+            "p50_ms": 0.028,
+            "p95_ms": 0.17,
+            "p99_ms": 0.175,
+            "max_ms": 0.82
+          },
+          "chunk_insert_and_tail_delete": {
+            "samples": 17520,
+            "p50_ms": 0.882,
+            "p95_ms": 1.085,
+            "p99_ms": 4.295,
+            "max_ms": 12.114
+          },
+          "finalize_total": {
+            "samples": 17520,
+            "p50_ms": 2.452,
+            "p95_ms": 2.966,
+            "p99_ms": 5.905,
+            "max_ms": 12.291
+          },
+          "process_query_baseline": {
+            "samples": 7,
+            "p50_ms": 2108.398,
+            "p95_ms": 2468.62,
+            "p99_ms": 2468.62,
+            "max_ms": 2468.62
+          },
+          "process_query_chunked": {
+            "samples": 7,
+            "p50_ms": 2965.901,
+            "p95_ms": 2999.155,
+            "p99_ms": 2999.155,
+            "max_ms": 2999.155
+          },
+          "ambient_raw_query_baseline": {
+            "samples": 7,
+            "p50_ms": 1514.669,
+            "p95_ms": 1572.645,
+            "p99_ms": 1572.645,
+            "max_ms": 1572.645
+          },
+          "ambient_raw_query_chunked": {
+            "samples": 7,
+            "p50_ms": 6552.12,
+            "p95_ms": 6595.218,
+            "p99_ms": 6595.218,
+            "max_ms": 6595.218
+          }
+        },
+        "correctness": {
+          "exact_decoder_check": true,
+          "persisted_reopen_exact_records": true,
+          "process_query_equivalent": true,
+          "ambient_raw_range_equivalent": true,
+          "process_float_tolerance": "abs(actual-reference) <= max(1e-9, 1e-12*abs(reference))",
+          "precommit_changed_selection_rollback": true,
+          "postcommit_retry_exact_multiplicity": true,
+          "concurrent_snapshot_before_or_after": true,
+          "process_groups": 46,
+          "ambient_range_rows": 477818
+        },
+        "limitations": [
+          "Synthetic data is not real-world workload evidence.",
+          "Footprints cover two raw families, not the full application database or its 30 percent gate.",
+          "This experiment does not implement migration, pagination, retention, recovery selection, or the 30-minute background CPU gate.",
+          "Ambient is a representative raw epoch-millisecond inclusive range; production Cooling also has half-open pairing contracts.",
+          "Candidate query times include catalog reads, decoding, filtering, and aggregation.",
+          "Peak RSS and temporary SQLite bytes are not instrumented in this initial harness."
+        ]
+      }
+    }
+  ]
+}
