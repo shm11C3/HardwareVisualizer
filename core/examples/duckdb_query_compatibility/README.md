@@ -17,9 +17,9 @@ PYTHONDONTWRITEBYTECODE=1 python \
 
 The output directory must not exist. Exit zero means the diagnostic and exact
 round-trip checks completed. Acceptance is represented only by the JSON flags.
-The encoding is reproduced locally from
-`core/examples/archive_engine_benchmark/duckdb_value_preservation.py` at
-research commit `58fad7ad`; this adds no production dependency or migration.
+The encoding is reproduced locally from the immutable
+[`duckdb_value_preservation.py` source at commit `58fad7ad54263079c1c2a74aa1b8396fcdcbd344`](https://github.com/shm11C3/HardwareVisualizer/blob/58fad7ad54263079c1c2a74aa1b8396fcdcbd344/core/examples/archive_engine_benchmark/duckdb_value_preservation.py);
+this adds no production dependency or migration.
 
 The retained final smoke evidence is
 [`result-2026-09-07.json`](result-2026-09-07.json). Its captured process outcome
