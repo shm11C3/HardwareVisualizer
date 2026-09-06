@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-07",
+  "scope": "Synthetic SQLite schema inventory only; no application or user database was opened.",
+  "schema_creation": {
+    "command": "CARGO_TARGET_DIR=/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/schema-inventory-target cargo run -p hardviz-core --example duckdb_schema_inventory -- --database /private/tmp/hardviz-schema-inventory-final.sqlite3 --output /private/tmp/hardviz-schema-snapshot-final.json",
+    "exit_code": 0,
+    "elapsed_seconds": 0.86,
+    "snapshot_sha256": "b4a17cb14feaf11aaa08276272b41dc05a2467baa9bae43e78eb166d44ec0f7d",
+    "sqlite_version": "3.46.0",
+    "migration_count": 23
+  },
+  "inventory_generation": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/venv/bin/python core/examples/duckdb_schema_inventory/inventory.py --schema-snapshot /private/tmp/hardviz-schema-snapshot-final.json --issue-1666-json /tmp/issue1666-current.json --output core/examples/duckdb_schema_inventory/inventory-2026-09-07.json",
+    "exit_code": 0,
+    "input_schema_snapshot_sha256": "b4a17cb14feaf11aaa08276272b41dc05a2467baa9bae43e78eb166d44ec0f7d",
+    "input_issue_1666_json_sha256": "6ceed4daaeec8fe62d4ba3d179add671ff02c19c6aaaa9636801431f515e6820",
+    "artifact_sha256": "259763379a46729e1a621aa3a3d03f3089dd0a24163f5d895d392e2dccf10cdd",
+    "completed": true,
+    "manual_annotation_freshness": "current",
+    "reviewed_production_source_count": 31,
+    "reviewed_production_source_mismatch_count": 0
+  },
+  "freshness_checks": {
+    "current_sources": {
+      "passed": true,
+      "mismatch_count": 0
+    },
+    "simulated_single_source_hash_change": {
+      "passed": true,
+      "freshness_current": false,
+      "mismatch_count": 1
+    }
+  },
+  "rust_validation": [
+    {
+      "command": "CARGO_TARGET_DIR=/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/schema-inventory-target cargo clippy -p hardviz-core --example duckdb_schema_inventory -- -D warnings",
+      "exit_code": 0,
+      "elapsed_seconds": 15.3
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "elapsed_seconds": 0.18
+    }
+  ],
+  "source_sha256": {
+    "main.rs": "8b2323773fd537f238b133ec4e972ce10e58c1f455ec37e57603372e2ca0623f",
+    "inventory.py": "192f0a789793154329b6f1bef0773dfea4cf5ef612c9b6cf33e04d24436fe12e",
+    "README.md": "ccaf7b4f24df9a576288eeff1594f49177aab97ce386723a42868abae73f38f7"
+  }
+}

@@ -1,0 +1,20 @@
+[package]
+name = "duckdb-lifecycle-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "GPL-3.0-or-later"
+
+[dependencies]
+duckdb = { version = "=1.10505.0", default-features = false, features = ["bundled"] }
+serde_json = "=1.0.150"
+
+[profile.release]
+opt-level = "s"
+debug = false
+overflow-checks = true
+lto = true
+strip = true
+codegen-units = 1
+
+[workspace]

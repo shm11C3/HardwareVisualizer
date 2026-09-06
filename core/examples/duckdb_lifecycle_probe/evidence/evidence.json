@@ -1,0 +1,368 @@
+{
+  "schema_version": 2,
+  "scope": "standalone synthetic duckdb-rs lifecycle probe; no production integration",
+  "selected_source": {
+    "workspace": "/Users/shm11c3/Develop/HardwareVisualizer/target/codex-worktrees/2052-duckdb-followup-probes/core/examples/duckdb_lifecycle_probe",
+    "cargo_toml_sha256": "58a6e10fe0e4236025922c82961e38780ed1aa5d403937226c855334320a0914",
+    "cargo_lock_sha256": "62082f970d6be85deab5789f26169640a4e12a1a091fcbb1dfdec2df9ef6ab6d",
+    "readme_sha256": "7b6eec6bc3c23fddaa608464e8a4557af476305c8a6a2e8618819eba548bf910",
+    "main_rs_sha256": "eb9ebbd4978624ebbb1998ea9a61f6a11902dc01756fc7fe5abbc61b72b5420c"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+    "cargo": "cargo 1.98.0 (797e8a9bc 2026-08-05)",
+    "host": "aarch64-apple-darwin",
+    "os": "macOS 26.6.2 build 25G83; Darwin 25.6.0"
+  },
+  "selected_build": {
+    "command": "env CARGO_TARGET_DIR=/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target cargo build --release --jobs 2 --locked --manifest-path core/examples/duckdb_lifecycle_probe/Cargo.toml",
+    "exit_status": 0
+  },
+  "prior_build_attempts_provenance": [
+    {
+      "selected_source": false,
+      "source_hash": null,
+      "command": "env CARGO_TARGET_DIR=/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target cargo build --release --jobs 2 --manifest-path core/examples/duckdb_lifecycle_probe/Cargo.toml",
+      "exit_status": 101,
+      "cause": "sandbox DNS failed to resolve index.crates.io before source compilation"
+    },
+    {
+      "selected_source": false,
+      "source_hash": null,
+      "command": "env CARGO_TARGET_DIR=/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target cargo build --release --jobs 2 --manifest-path core/examples/duckdb_lifecycle_probe/Cargo.toml",
+      "exit_status": 101,
+      "cause": "superseded source used unstable i64::div_ceil and had one unused_mut warning"
+    }
+  ],
+  "checks_on_selected_source": [
+    {
+      "command": "env CARGO_TARGET_DIR=/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target cargo clippy --locked --release --all-targets --manifest-path core/examples/duckdb_lifecycle_probe/Cargo.toml -- -D warnings",
+      "exit_status": 0
+    },
+    {
+      "command": "cargo fmt --manifest-path core/examples/duckdb_lifecycle_probe/Cargo.toml -- --check",
+      "exit_status": 0
+    }
+  ],
+  "selected_runs": [
+    {
+      "iteration": 1,
+      "selected_final_source": true,
+      "command": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target/release/duckdb-lifecycle-probe --output /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-1/result.json --database /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-1/probe.duckdb",
+      "exit_status": 0,
+      "stdout_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-1/stdout.txt",
+      "stderr_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-1/stderr.txt",
+      "stderr_bytes": 0,
+      "result_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-1/result.json",
+      "result_sha256": "ed975a9c21fafc79c2ccf10b29f609054c808045ed78974282f8c820563b29da",
+      "result": {
+        "binding": "duckdb-rs 1.10505.0 bundled",
+        "checkpoint": {
+          "first_attempt_error": null,
+          "first_attempt_ms": 4.5861670000000005,
+          "retry_after_reader_release_succeeded": true,
+          "state_after_100ms_while_reader_pinned": "success",
+          "wal_bytes_after_checkpoint": 0,
+          "wal_bytes_after_write": 1612,
+          "wal_bytes_before_write": 0
+        },
+        "configuration": {
+          "memory_limit": "128MB",
+          "owner_channel_capacity": 4,
+          "threads": 2,
+          "watchdog_seconds": 30
+        },
+        "connection_lifecycle": {
+          "cancel_error": "INTERRUPT Error: Interrupted!",
+          "cancel_ms": 12.62425,
+          "clones": "reader and checkpoint use Connection::try_clone from the same database instance",
+          "interrupt": "out-of-band Arc<InterruptHandle>; repeated only until command completion",
+          "owner": "one dedicated blocking thread exclusively owns the writer connection",
+          "post_cancel_minute_commit_succeeded": true,
+          "post_cancel_request_succeeded": true
+        },
+        "database": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-1/probe.duckdb",
+        "engine_version": "v1.5.5",
+        "limits": [
+          "Synthetic standalone database; no production Cargo or lifecycle integration.",
+          "The started signal marks owner dispatch, while DuckDB's explicit INTERRUPT error proves cancellation.",
+          "The watchdog terminates the whole probe on a stuck FFI call; it cannot recover that process.",
+          "Process SIGKILL evidence belongs to the earlier Python probe; OS and power-loss durability remain untested.",
+          "Checkpoint behavior is observed, not assumed; only the post-release successful checkpoint is required."
+        ],
+        "minute_commit": {
+          "ambient_ids": [
+            301,
+            302
+          ],
+          "identity": "stored (pid, process_name) pair remains opaque",
+          "one_transaction": true,
+          "process_ids": [
+            3001,
+            3002,
+            3003,
+            3004,
+            3005,
+            3006,
+            3007,
+            3008,
+            3009,
+            3010,
+            3011,
+            3012,
+            3013,
+            3014,
+            3015
+          ],
+          "timestamp": "2026-01-01T00:01:00.000Z"
+        },
+        "pass": true,
+        "pinned_reader": {
+          "after_checkpoint_observation": {
+            "all_fields_digest_unchanged": true,
+            "ambient": 300,
+            "counts_unchanged": true,
+            "process": 3000
+          },
+          "after_writer_commit": {
+            "ambient": 300,
+            "process": 3000
+          },
+          "before": {
+            "ambient": 300,
+            "process": 3000
+          },
+          "digest_unchanged": true
+        },
+        "reopen": {
+          "all_fields_digest_matches_owner_before_close": true,
+          "ambient_digest": "53001adb6d137148",
+          "ambient_rows": 302,
+          "committed_rows_preserved": true,
+          "owner_before_close_ambient_digest": "53001adb6d137148",
+          "owner_before_close_process_digest": "abe84f99c9288c12",
+          "process_digest": "abe84f99c9288c12",
+          "process_rows": 3015
+        },
+        "schema_version": 1
+      }
+    },
+    {
+      "iteration": 2,
+      "selected_final_source": true,
+      "command": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target/release/duckdb-lifecycle-probe --output /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-2/result.json --database /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-2/probe.duckdb",
+      "exit_status": 0,
+      "stdout_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-2/stdout.txt",
+      "stderr_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-2/stderr.txt",
+      "stderr_bytes": 0,
+      "result_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-2/result.json",
+      "result_sha256": "d056e8d501c403bc391cf09bcd8100188189e00221e569cf2b88363b23f369ee",
+      "result": {
+        "binding": "duckdb-rs 1.10505.0 bundled",
+        "checkpoint": {
+          "first_attempt_error": null,
+          "first_attempt_ms": 4.49325,
+          "retry_after_reader_release_succeeded": true,
+          "state_after_100ms_while_reader_pinned": "success",
+          "wal_bytes_after_checkpoint": 0,
+          "wal_bytes_after_write": 1612,
+          "wal_bytes_before_write": 0
+        },
+        "configuration": {
+          "memory_limit": "128MB",
+          "owner_channel_capacity": 4,
+          "threads": 2,
+          "watchdog_seconds": 30
+        },
+        "connection_lifecycle": {
+          "cancel_error": "INTERRUPT Error: Interrupted!",
+          "cancel_ms": 12.167125,
+          "clones": "reader and checkpoint use Connection::try_clone from the same database instance",
+          "interrupt": "out-of-band Arc<InterruptHandle>; repeated only until command completion",
+          "owner": "one dedicated blocking thread exclusively owns the writer connection",
+          "post_cancel_minute_commit_succeeded": true,
+          "post_cancel_request_succeeded": true
+        },
+        "database": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-2/probe.duckdb",
+        "engine_version": "v1.5.5",
+        "limits": [
+          "Synthetic standalone database; no production Cargo or lifecycle integration.",
+          "The started signal marks owner dispatch, while DuckDB's explicit INTERRUPT error proves cancellation.",
+          "The watchdog terminates the whole probe on a stuck FFI call; it cannot recover that process.",
+          "Process SIGKILL evidence belongs to the earlier Python probe; OS and power-loss durability remain untested.",
+          "Checkpoint behavior is observed, not assumed; only the post-release successful checkpoint is required."
+        ],
+        "minute_commit": {
+          "ambient_ids": [
+            301,
+            302
+          ],
+          "identity": "stored (pid, process_name) pair remains opaque",
+          "one_transaction": true,
+          "process_ids": [
+            3001,
+            3002,
+            3003,
+            3004,
+            3005,
+            3006,
+            3007,
+            3008,
+            3009,
+            3010,
+            3011,
+            3012,
+            3013,
+            3014,
+            3015
+          ],
+          "timestamp": "2026-01-01T00:01:00.000Z"
+        },
+        "pass": true,
+        "pinned_reader": {
+          "after_checkpoint_observation": {
+            "all_fields_digest_unchanged": true,
+            "ambient": 300,
+            "counts_unchanged": true,
+            "process": 3000
+          },
+          "after_writer_commit": {
+            "ambient": 300,
+            "process": 3000
+          },
+          "before": {
+            "ambient": 300,
+            "process": 3000
+          },
+          "digest_unchanged": true
+        },
+        "reopen": {
+          "all_fields_digest_matches_owner_before_close": true,
+          "ambient_digest": "53001adb6d137148",
+          "ambient_rows": 302,
+          "committed_rows_preserved": true,
+          "owner_before_close_ambient_digest": "53001adb6d137148",
+          "owner_before_close_process_digest": "abe84f99c9288c12",
+          "process_digest": "abe84f99c9288c12",
+          "process_rows": 3015
+        },
+        "schema_version": 1
+      }
+    },
+    {
+      "iteration": 3,
+      "selected_final_source": true,
+      "command": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/rust-target/release/duckdb-lifecycle-probe --output /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/result.json --database /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/probe.duckdb",
+      "exit_status": 0,
+      "stdout_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/stdout.txt",
+      "stderr_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/stderr.txt",
+      "stderr_bytes": 0,
+      "result_path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/result.json",
+      "result_sha256": "333dbd7e37fc33c413d3d2e093c9f9a8509576465f54bc55fcdf235c3301ea65",
+      "result": {
+        "binding": "duckdb-rs 1.10505.0 bundled",
+        "checkpoint": {
+          "first_attempt_error": null,
+          "first_attempt_ms": 4.350125,
+          "retry_after_reader_release_succeeded": true,
+          "state_after_100ms_while_reader_pinned": "success",
+          "wal_bytes_after_checkpoint": 0,
+          "wal_bytes_after_write": 1612,
+          "wal_bytes_before_write": 0
+        },
+        "configuration": {
+          "memory_limit": "128MB",
+          "owner_channel_capacity": 4,
+          "threads": 2,
+          "watchdog_seconds": 30
+        },
+        "connection_lifecycle": {
+          "cancel_error": "INTERRUPT Error: Interrupted!",
+          "cancel_ms": 12.622834,
+          "clones": "reader and checkpoint use Connection::try_clone from the same database instance",
+          "interrupt": "out-of-band Arc<InterruptHandle>; repeated only until command completion",
+          "owner": "one dedicated blocking thread exclusively owns the writer connection",
+          "post_cancel_minute_commit_succeeded": true,
+          "post_cancel_request_succeeded": true
+        },
+        "database": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/probe.duckdb",
+        "engine_version": "v1.5.5",
+        "limits": [
+          "Synthetic standalone database; no production Cargo or lifecycle integration.",
+          "The started signal marks owner dispatch, while DuckDB's explicit INTERRUPT error proves cancellation.",
+          "The watchdog terminates the whole probe on a stuck FFI call; it cannot recover that process.",
+          "Process SIGKILL evidence belongs to the earlier Python probe; OS and power-loss durability remain untested.",
+          "Checkpoint behavior is observed, not assumed; only the post-release successful checkpoint is required."
+        ],
+        "minute_commit": {
+          "ambient_ids": [
+            301,
+            302
+          ],
+          "identity": "stored (pid, process_name) pair remains opaque",
+          "one_transaction": true,
+          "process_ids": [
+            3001,
+            3002,
+            3003,
+            3004,
+            3005,
+            3006,
+            3007,
+            3008,
+            3009,
+            3010,
+            3011,
+            3012,
+            3013,
+            3014,
+            3015
+          ],
+          "timestamp": "2026-01-01T00:01:00.000Z"
+        },
+        "pass": true,
+        "pinned_reader": {
+          "after_checkpoint_observation": {
+            "all_fields_digest_unchanged": true,
+            "ambient": 300,
+            "counts_unchanged": true,
+            "process": 3000
+          },
+          "after_writer_commit": {
+            "ambient": 300,
+            "process": 3000
+          },
+          "before": {
+            "ambient": 300,
+            "process": 3000
+          },
+          "digest_unchanged": true
+        },
+        "reopen": {
+          "all_fields_digest_matches_owner_before_close": true,
+          "ambient_digest": "53001adb6d137148",
+          "ambient_rows": 302,
+          "committed_rows_preserved": true,
+          "owner_before_close_ambient_digest": "53001adb6d137148",
+          "owner_before_close_process_digest": "abe84f99c9288c12",
+          "process_digest": "abe84f99c9288c12",
+          "process_rows": 3015
+        },
+        "schema_version": 1
+      }
+    }
+  ],
+  "limitations": [
+    "Three small repetitions show observed behavior and do not establish a performance budget.",
+    "The synthetic transaction combines Process and Ambient rows; production currently uses separate raw transaction calls.",
+    "The probe does not establish OS power-loss durability, process crash recovery, cancellation across every query shape, or production lifecycle integration."
+  ],
+  "packaging_after_measurement": {
+    "measured_manifest_sha256": "58a6e10fe0e4236025922c82961e38780ed1aa5d403937226c855334320a0914",
+    "packaged_manifest_sha256": "c159c25e7e13ba641d03228168b4627704eefa7613ef8ef7cc58dbc9e179b171",
+    "change": "removed one redundant blank line at end of Cargo.toml",
+    "parsed_toml_unchanged": true,
+    "source_or_behavior_changed": false,
+    "measurements_rerun": false
+  }
+}

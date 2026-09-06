@@ -1,0 +1,91 @@
+{
+  "binding": "duckdb-rs 1.10505.0 bundled",
+  "checkpoint": {
+    "first_attempt_error": null,
+    "first_attempt_ms": 4.350125,
+    "retry_after_reader_release_succeeded": true,
+    "state_after_100ms_while_reader_pinned": "success",
+    "wal_bytes_after_checkpoint": 0,
+    "wal_bytes_after_write": 1612,
+    "wal_bytes_before_write": 0
+  },
+  "configuration": {
+    "memory_limit": "128MB",
+    "owner_channel_capacity": 4,
+    "threads": 2,
+    "watchdog_seconds": 30
+  },
+  "connection_lifecycle": {
+    "cancel_error": "INTERRUPT Error: Interrupted!",
+    "cancel_ms": 12.622834,
+    "clones": "reader and checkpoint use Connection::try_clone from the same database instance",
+    "interrupt": "out-of-band Arc<InterruptHandle>; repeated only until command completion",
+    "owner": "one dedicated blocking thread exclusively owns the writer connection",
+    "post_cancel_minute_commit_succeeded": true,
+    "post_cancel_request_succeeded": true
+  },
+  "database": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-07-followup/final-run/run-3/probe.duckdb",
+  "engine_version": "v1.5.5",
+  "limits": [
+    "Synthetic standalone database; no production Cargo or lifecycle integration.",
+    "The started signal marks owner dispatch, while DuckDB's explicit INTERRUPT error proves cancellation.",
+    "The watchdog terminates the whole probe on a stuck FFI call; it cannot recover that process.",
+    "Process SIGKILL evidence belongs to the earlier Python probe; OS and power-loss durability remain untested.",
+    "Checkpoint behavior is observed, not assumed; only the post-release successful checkpoint is required."
+  ],
+  "minute_commit": {
+    "ambient_ids": [
+      301,
+      302
+    ],
+    "identity": "stored (pid, process_name) pair remains opaque",
+    "one_transaction": true,
+    "process_ids": [
+      3001,
+      3002,
+      3003,
+      3004,
+      3005,
+      3006,
+      3007,
+      3008,
+      3009,
+      3010,
+      3011,
+      3012,
+      3013,
+      3014,
+      3015
+    ],
+    "timestamp": "2026-01-01T00:01:00.000Z"
+  },
+  "pass": true,
+  "pinned_reader": {
+    "after_checkpoint_observation": {
+      "all_fields_digest_unchanged": true,
+      "ambient": 300,
+      "counts_unchanged": true,
+      "process": 3000
+    },
+    "after_writer_commit": {
+      "ambient": 300,
+      "process": 3000
+    },
+    "before": {
+      "ambient": 300,
+      "process": 3000
+    },
+    "digest_unchanged": true
+  },
+  "reopen": {
+    "all_fields_digest_matches_owner_before_close": true,
+    "ambient_digest": "53001adb6d137148",
+    "ambient_rows": 302,
+    "committed_rows_preserved": true,
+    "owner_before_close_ambient_digest": "53001adb6d137148",
+    "owner_before_close_process_digest": "abe84f99c9288c12",
+    "process_digest": "abe84f99c9288c12",
+    "process_rows": 3015
+  },
+  "schema_version": 1
+}

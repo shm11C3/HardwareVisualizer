@@ -1,0 +1,1141 @@
+{
+  "ambient_call_site_inventory": {
+    "covered_direct_read": [
+      "src-tauri/src/commands/hardware.rs::get_ambient_archive_series",
+      "src-tauri/src/services/archive_history_service.rs::fetch_ambient_archive_series",
+      "core/src/infrastructure/database/archive_queries.rs::select_ambient_archive_series"
+    ],
+    "out_of_scope_raw_reads": [
+      "core/src/infrastructure/database/cooling_thermal_delta_daily_summary.rs::select_thermal_delta_minutes_for_range",
+      "core/src/infrastructure/database/cooling_thermal_delta_daily_summary.rs::max_pairable_ambient_archive_timestamp_before",
+      "core/src/infrastructure/database/cooling_covariate_daily_summary.rs::max_classifiable_pairable_ambient_archive_timestamp_before"
+    ],
+    "related_but_not_this_raw_query": [
+      "core/src/infrastructure/database/ambient_archive.rs owns insert and retention delete",
+      "Cooling Insight reads derived daily/hourly/thermal-delta/covariate summaries",
+      "MetricsSnapshot supplies archive writes; it does not read AMBIENT_ARCHIVE"
+    ]
+  },
+  "command": [
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/venv/bin/python",
+    "core/examples/duckdb_query_compatibility/probe.py",
+    "--output",
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-query-compatibility-smoke-2026-09-07-e"
+  ],
+  "completed": true,
+  "covered": [
+    "archive_queries::select_process_stats: six returned columns, grouping, inclusive raw-TEXT range and optional CPU ranking",
+    "archive_queries::select_ambient_archive_series: Start buckets, source set, inclusive epoch range, minute pairing and gap fill"
+  ],
+  "decision": "Keep #2083 open: typed fit is not SQLite arithmetic proof, and participating exceptional cells require refusal until an evaluator exists.",
+  "exit_status_contract": "zero means diagnostic completion and exact round trips; acceptance is only the JSON flags",
+  "identity": {
+    "ambient": "source labels stay distinct and sorted; no portable source id is inferred",
+    "process": "exact (pid, process_name bytes); PID alone is not identity"
+  },
+  "issue": 2083,
+  "not_covered": [
+    "cooling_daily_summary::select_archive_minutes_for_range (DATA_ARCHIVE half-open lane)",
+    "cooling_thermal_delta_daily_summary raw pairing query and watermark lookup",
+    "daily summary mutation/retention and downstream Insight or Snapshot consumers",
+    "End bucket timestamps, recovery, concurrent migration, Rust SQLx decoding and performance"
+  ],
+  "production_candidate_accepted": false,
+  "query_contract_passed": false,
+  "roundtrip_contract_passed": true,
+  "scenarios": {
+    "exceptional_cells": {
+      "artifacts_unchanged_by_query_or_refusal": {
+        "candidate_sha256_equal": true,
+        "source_sha256_equal": true
+      },
+      "candidate": {
+        "bytes": 2371584,
+        "path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-query-compatibility-smoke-2026-09-07-e/exceptional-cells/typed-sidecar.duckdb",
+        "sha256": "1ff3538233f7930ea4d1da8c392088dbd5557794284fb64920c8c19feea04535"
+      },
+      "process_null_insert_rejected_by_current_schema": true,
+      "query": {
+        "blockers": [
+          {
+            "column": "process_name",
+            "row_id": 20,
+            "table": "PROCESS_STATS",
+            "tag": "text"
+          },
+          {
+            "column": "cpu_usage",
+            "row_id": 20,
+            "table": "PROCESS_STATS",
+            "tag": "blob"
+          },
+          {
+            "column": "process_name",
+            "row_id": 21,
+            "table": "PROCESS_STATS",
+            "tag": "blob"
+          },
+          {
+            "column": "source",
+            "row_id": 20,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          },
+          {
+            "column": "temperature",
+            "row_id": 20,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          },
+          {
+            "column": "timestamp",
+            "row_id": 21,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          }
+        ],
+        "candidate_query_opened": false,
+        "selected_backend": "source_sqlite",
+        "source_query_remained_usable": true,
+        "source_result_counts": {
+          "ambient_buckets": 6,
+          "process_groups": 9,
+          "table_rows": {
+            "AMBIENT_ARCHIVE": 8,
+            "DATA_ARCHIVE": 7,
+            "PROCESS_STATS": 17
+          }
+        },
+        "typed_candidate_selected": false,
+        "unsupported_result_returned": false
+      },
+      "query_contract_passed": false,
+      "source": {
+        "bytes": 20480,
+        "path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-query-compatibility-smoke-2026-09-07-e/exceptional-cells/source.sqlite3",
+        "sha256": "08ae08ac475e6fa5521c8dd19b16a9a0b203e19d9660179eee26af7fee96deac"
+      },
+      "tagged": {
+        "decision": "refuse before backend selection; storage round-trip is not query support",
+        "evaluator_implemented": false,
+        "query_selected": false
+      },
+      "typed_sidecar": {
+        "exception_cells": [
+          {
+            "column": "process_name",
+            "row_id": 20,
+            "table": "PROCESS_STATS",
+            "tag": "text"
+          },
+          {
+            "column": "cpu_usage",
+            "row_id": 20,
+            "table": "PROCESS_STATS",
+            "tag": "blob"
+          },
+          {
+            "column": "process_name",
+            "row_id": 21,
+            "table": "PROCESS_STATS",
+            "tag": "blob"
+          },
+          {
+            "column": "source",
+            "row_id": 20,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          },
+          {
+            "column": "temperature",
+            "row_id": 20,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          },
+          {
+            "column": "timestamp",
+            "row_id": 21,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          }
+        ],
+        "query_blockers": [
+          {
+            "column": "process_name",
+            "row_id": 20,
+            "table": "PROCESS_STATS",
+            "tag": "text"
+          },
+          {
+            "column": "cpu_usage",
+            "row_id": 20,
+            "table": "PROCESS_STATS",
+            "tag": "blob"
+          },
+          {
+            "column": "process_name",
+            "row_id": 21,
+            "table": "PROCESS_STATS",
+            "tag": "blob"
+          },
+          {
+            "column": "source",
+            "row_id": 20,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          },
+          {
+            "column": "temperature",
+            "row_id": 20,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          },
+          {
+            "column": "timestamp",
+            "row_id": 21,
+            "table": "AMBIENT_ARCHIVE",
+            "tag": "text"
+          }
+        ],
+        "roundtrip_exact": true
+      }
+    },
+    "normal_typed": {
+      "artifacts_unchanged_by_query_or_refusal": {
+        "candidate_sha256_equal": true,
+        "source_sha256_equal": true
+      },
+      "candidate": {
+        "bytes": 1847296,
+        "path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-query-compatibility-smoke-2026-09-07-e/normal-typed/typed-sidecar.duckdb",
+        "sha256": "23ed4184bb90f35406e42761d50fe4e5a101812f3aef144c507aaeda49866df2"
+      },
+      "process_null_insert_rejected_by_current_schema": true,
+      "query": {
+        "ambient_archive_series": {
+          "bucket_timestamp": "Start",
+          "contract_exact": true,
+          "duckdb": {
+            "buckets": [
+              [
+                {
+                  "decimal": "1767225600000",
+                  "type": "i64"
+                },
+                {
+                  "bits": "4036800000000000",
+                  "repr": "22.5",
+                  "type": "f64"
+                },
+                {
+                  "bits": "403e000000000000",
+                  "repr": "30.0",
+                  "type": "f64"
+                },
+                {
+                  "decimal": "2",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767225720000",
+                  "type": "i64"
+                },
+                {
+                  "bits": "4034000000000001",
+                  "repr": "20.000000000000004",
+                  "type": "f64"
+                },
+                {
+                  "bits": "4044000000000000",
+                  "repr": "40.0",
+                  "type": "f64"
+                },
+                {
+                  "decimal": "1",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767225840000",
+                  "type": "i64"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "decimal": "0",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767225960000",
+                  "type": "i64"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "decimal": "0",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767226080000",
+                  "type": "i64"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "decimal": "0",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767226200000",
+                  "type": "i64"
+                },
+                {
+                  "bits": "403e000000000000",
+                  "repr": "30.0",
+                  "type": "f64"
+                },
+                {
+                  "bits": "4044000000000000",
+                  "repr": "40.0",
+                  "type": "f64"
+                },
+                {
+                  "decimal": "1",
+                  "type": "i64"
+                }
+              ]
+            ],
+            "sources": [
+              [
+                {
+                  "hex": "726f6f6d2d61",
+                  "type": "bytes"
+                }
+              ],
+              [
+                {
+                  "hex": "726f6f6d2d62",
+                  "type": "bytes"
+                }
+              ],
+              [
+                {
+                  "hex": "726f6f6d2d7a",
+                  "type": "bytes"
+                }
+              ]
+            ]
+          },
+          "fixture_notes": [
+            "minute 1 has only NULL CPU temperature values, so delta remains NULL",
+            "a non-FLOAT32-representable fraction verifies the DuckDB DOUBLE adapter",
+            "inclusive endpoints, fractions, offset spelling, duplicate minutes and end+1ms exclusion are exercised"
+          ],
+          "range": {
+            "end_epoch_ms": 1767226200000,
+            "inclusive": true,
+            "start_epoch_ms": 1767225600000
+          },
+          "sqlite": {
+            "buckets": [
+              [
+                {
+                  "decimal": "1767225600000",
+                  "type": "i64"
+                },
+                {
+                  "bits": "4036800000000000",
+                  "repr": "22.5",
+                  "type": "f64"
+                },
+                {
+                  "bits": "403e000000000000",
+                  "repr": "30.0",
+                  "type": "f64"
+                },
+                {
+                  "decimal": "2",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767225720000",
+                  "type": "i64"
+                },
+                {
+                  "bits": "4034000000000001",
+                  "repr": "20.000000000000004",
+                  "type": "f64"
+                },
+                {
+                  "bits": "4044000000000000",
+                  "repr": "40.0",
+                  "type": "f64"
+                },
+                {
+                  "decimal": "1",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767225840000",
+                  "type": "i64"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "decimal": "0",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767225960000",
+                  "type": "i64"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "decimal": "0",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767226080000",
+                  "type": "i64"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "decimal": "0",
+                  "type": "i64"
+                }
+              ],
+              [
+                {
+                  "decimal": "1767226200000",
+                  "type": "i64"
+                },
+                {
+                  "bits": "403e000000000000",
+                  "repr": "30.0",
+                  "type": "f64"
+                },
+                {
+                  "bits": "4044000000000000",
+                  "repr": "40.0",
+                  "type": "f64"
+                },
+                {
+                  "decimal": "1",
+                  "type": "i64"
+                }
+              ]
+            ],
+            "sources": [
+              [
+                {
+                  "hex": "726f6f6d2d61",
+                  "type": "bytes"
+                }
+              ],
+              [
+                {
+                  "hex": "726f6f6d2d62",
+                  "type": "bytes"
+                }
+              ],
+              [
+                {
+                  "hex": "726f6f6d2d7a",
+                  "type": "bytes"
+                }
+              ]
+            ]
+          }
+        },
+        "process": {
+          "cancellation": {
+            "duckdb": {
+              "bits": "4090020000000000",
+              "repr": "1024.5",
+              "type": "f64"
+            },
+            "exact": true,
+            "finding": "direct AVG agrees; the earlier 1024.5 versus 1024.0 failure required chunk partial-sum reaggregation",
+            "inputs": [
+              "9223372036854775805",
+              "9223372036854775804",
+              "-9223372036854773756",
+              "-9223372036854773755"
+            ],
+            "sqlite": {
+              "bits": "4090020000000000",
+              "repr": "1024.5",
+              "type": "f64"
+            }
+          },
+          "contract_exact": true,
+          "count": "COUNT(*) is diagnostic; current ProcessStatRecord does not return it",
+          "duckdb_rank_bands": [
+            {
+              "avg_cpu_bits": "4018000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "20",
+                  "7469652d61"
+                ],
+                [
+                  "21",
+                  "7469652d62"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4014000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "7",
+                  "62657461"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4012000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "11",
+                  "6936342d6f72646572"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4010000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "10",
+                  "63616e63656c"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4000000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "7",
+                  "616c70686100776f726b6572"
+                ],
+                [
+                  "99",
+                  "656e64"
+                ]
+              ]
+            }
+          ],
+          "duckdb_rows": [
+            [
+              {
+                "decimal": "7",
+                "type": "i64"
+              },
+              {
+                "hex": "616c70686100776f726b6572",
+                "type": "bytes"
+              },
+              {
+                "bits": "4000000000000000",
+                "repr": "2.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4062c00000000000",
+                "repr": "150.0",
+                "type": "f64"
+              },
+              {
+                "decimal": "9",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30323a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "2",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "7",
+                "type": "i64"
+              },
+              {
+                "hex": "62657461",
+                "type": "bytes"
+              },
+              {
+                "bits": "4014000000000000",
+                "repr": "5.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4340000000000001",
+                "repr": "9007199254740994.0",
+                "type": "f64"
+              },
+              {
+                "decimal": "8",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30333a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "2",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "10",
+                "type": "i64"
+              },
+              {
+                "hex": "63616e63656c",
+                "type": "bytes"
+              },
+              {
+                "bits": "4010000000000000",
+                "repr": "4.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4090020000000000",
+                "repr": "1024.5",
+                "type": "f64"
+              },
+              {
+                "decimal": "4",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30373a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "4",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "11",
+                "type": "i64"
+              },
+              {
+                "hex": "6936342d6f72646572",
+                "type": "bytes"
+              },
+              {
+                "bits": "4012000000000000",
+                "repr": "4.5",
+                "type": "f64"
+              },
+              {
+                "bits": "3fd5555555555555",
+                "repr": "0.3333333333333333",
+                "type": "f64"
+              },
+              {
+                "decimal": "3",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30343a33302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "3",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "20",
+                "type": "i64"
+              },
+              {
+                "hex": "7469652d61",
+                "type": "bytes"
+              },
+              {
+                "bits": "4018000000000000",
+                "repr": "6.0",
+                "type": "f64"
+              },
+              {
+                "bits": "c3e0000000000000",
+                "repr": "-9.223372036854776e+18",
+                "type": "f64"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30383a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "21",
+                "type": "i64"
+              },
+              {
+                "hex": "7469652d62",
+                "type": "bytes"
+              },
+              {
+                "bits": "4018000000000000",
+                "repr": "6.0",
+                "type": "f64"
+              },
+              {
+                "bits": "43e0000000000000",
+                "repr": "9.223372036854776e+18",
+                "type": "f64"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30383a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "99",
+                "type": "i64"
+              },
+              {
+                "hex": "656e64",
+                "type": "bytes"
+              },
+              {
+                "bits": "4000000000000000",
+                "repr": "2.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4080000000000000",
+                "repr": "512.0",
+                "type": "f64"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a31303a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              }
+            ]
+          ],
+          "integer_avg_order_probe": {
+            "binary64_is_exact_rational": false,
+            "duckdb": {
+              "bits": "3fd5555555555555",
+              "repr": "0.3333333333333333",
+              "type": "f64"
+            },
+            "exact": true,
+            "finding": "both engines return the same rounded binary64 value; BIGINT inputs do not make AVG exact rational arithmetic",
+            "inputs": [
+              "9223372036854775807",
+              "1",
+              "-9223372036854775807"
+            ],
+            "mathematical_average": "1/3",
+            "sqlite": {
+              "bits": "3fd5555555555555",
+              "repr": "0.3333333333333333",
+              "type": "f64"
+            }
+          },
+          "rank_bands_exact": true,
+          "sqlite_rank_bands": [
+            {
+              "avg_cpu_bits": "4018000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "20",
+                  "7469652d61"
+                ],
+                [
+                  "21",
+                  "7469652d62"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4014000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "7",
+                  "62657461"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4012000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "11",
+                  "6936342d6f72646572"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4010000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "10",
+                  "63616e63656c"
+                ]
+              ]
+            },
+            {
+              "avg_cpu_bits": "4000000000000000",
+              "identities_unordered_within_tie": [
+                [
+                  "7",
+                  "616c70686100776f726b6572"
+                ],
+                [
+                  "99",
+                  "656e64"
+                ]
+              ]
+            }
+          ],
+          "sqlite_rows": [
+            [
+              {
+                "decimal": "7",
+                "type": "i64"
+              },
+              {
+                "hex": "616c70686100776f726b6572",
+                "type": "bytes"
+              },
+              {
+                "bits": "4000000000000000",
+                "repr": "2.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4062c00000000000",
+                "repr": "150.0",
+                "type": "f64"
+              },
+              {
+                "decimal": "9",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30323a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "2",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "7",
+                "type": "i64"
+              },
+              {
+                "hex": "62657461",
+                "type": "bytes"
+              },
+              {
+                "bits": "4014000000000000",
+                "repr": "5.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4340000000000001",
+                "repr": "9007199254740994.0",
+                "type": "f64"
+              },
+              {
+                "decimal": "8",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30333a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "2",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "10",
+                "type": "i64"
+              },
+              {
+                "hex": "63616e63656c",
+                "type": "bytes"
+              },
+              {
+                "bits": "4010000000000000",
+                "repr": "4.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4090020000000000",
+                "repr": "1024.5",
+                "type": "f64"
+              },
+              {
+                "decimal": "4",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30373a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "4",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "11",
+                "type": "i64"
+              },
+              {
+                "hex": "6936342d6f72646572",
+                "type": "bytes"
+              },
+              {
+                "bits": "4012000000000000",
+                "repr": "4.5",
+                "type": "f64"
+              },
+              {
+                "bits": "3fd5555555555555",
+                "repr": "0.3333333333333333",
+                "type": "f64"
+              },
+              {
+                "decimal": "3",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30343a33302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "3",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "20",
+                "type": "i64"
+              },
+              {
+                "hex": "7469652d61",
+                "type": "bytes"
+              },
+              {
+                "bits": "4018000000000000",
+                "repr": "6.0",
+                "type": "f64"
+              },
+              {
+                "bits": "c3e0000000000000",
+                "repr": "-9.223372036854776e+18",
+                "type": "f64"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30383a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "21",
+                "type": "i64"
+              },
+              {
+                "hex": "7469652d62",
+                "type": "bytes"
+              },
+              {
+                "bits": "4018000000000000",
+                "repr": "6.0",
+                "type": "f64"
+              },
+              {
+                "bits": "43e0000000000000",
+                "repr": "9.223372036854776e+18",
+                "type": "f64"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a30383a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              }
+            ],
+            [
+              {
+                "decimal": "99",
+                "type": "i64"
+              },
+              {
+                "hex": "656e64",
+                "type": "bytes"
+              },
+              {
+                "bits": "4000000000000000",
+                "repr": "2.0",
+                "type": "f64"
+              },
+              {
+                "bits": "4080000000000000",
+                "repr": "512.0",
+                "type": "f64"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              },
+              {
+                "hex": "323032362d30312d30315430303a31303a30302e3030305a",
+                "type": "bytes"
+              },
+              {
+                "decimal": "1",
+                "type": "i64"
+              }
+            ]
+          ],
+          "tie_order": "unspecified inside equal AVG(cpu_usage); identities are compared as an unordered band"
+        },
+        "query_contract_passed": true
+      },
+      "query_contract_passed": true,
+      "source": {
+        "bytes": 20480,
+        "path": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-query-compatibility-smoke-2026-09-07-e/normal-typed/source.sqlite3",
+        "sha256": "022ba7530e816ba49c9bfb63031c86a834089aa3476f0120e14c13d15793b5c0"
+      },
+      "tagged": {
+        "decision": "refuse before backend selection; storage round-trip is not query support",
+        "evaluator_implemented": false,
+        "query_selected": false
+      },
+      "typed_sidecar": {
+        "exception_cells": [],
+        "query_blockers": [],
+        "roundtrip_exact": true
+      }
+    }
+  },
+  "schema_version": 1,
+  "source_file": {
+    "path": "/Users/shm11c3/Develop/HardwareVisualizer/target/codex-worktrees/2052-duckdb-followup-probes/core/examples/duckdb_query_compatibility/probe.py",
+    "sha256": "348a20e7c51cae35f0caa148bd502c408b9fb4bd20d82cde28e5f35313f5e23f"
+  },
+  "source_revision": {
+    "dirty": true,
+    "head": "b8cf82dd0f9b770730e050a3e654df6e2d69adf9"
+  },
+  "sql": {
+    "ambient_duckdb": "WITH ambient AS (\n      SELECT ((AMBIENT_ARCHIVE.epoch_ms) // 60000) AS minute_key,\n             MIN(AMBIENT_ARCHIVE.epoch_ms) AS minute_epoch_ms,\n             AVG(CAST(temperature AS DOUBLE)) AS ambient_value\n      FROM AMBIENT_ARCHIVE\n      WHERE AMBIENT_ARCHIVE.epoch_ms BETWEEN ? AND ?\n      GROUP BY minute_key\n    ), cpu AS (\n      SELECT ((DATA_ARCHIVE.epoch_ms) // 60000) AS minute_key,\n             AVG(CAST(cpu_temperature_avg AS DOUBLE)) AS cpu_value\n      FROM DATA_ARCHIVE\n      WHERE DATA_ARCHIVE.epoch_ms BETWEEN ? AND ?\n        AND cpu_temperature_avg IS NOT NULL\n      GROUP BY minute_key\n    )\n    SELECT ((ambient.minute_epoch_ms // ?) * ?) AS bucket_timestamp,\n           AVG(ambient_value) AS ambient_avg,\n           AVG(cpu_value - ambient_value) AS delta_avg,\n           COUNT(ambient_value) AS minute_count\n    FROM ambient\n    LEFT JOIN cpu ON cpu.minute_key = ambient.minute_key\n    GROUP BY 1\n    ORDER BY 1 ASC",
+    "ambient_sqlite": "WITH ambient AS (\n      SELECT (((CAST(strftime('%s', AMBIENT_ARCHIVE.timestamp) AS INTEGER) * 1000 + CAST(substr(strftime('%f', AMBIENT_ARCHIVE.timestamp), 4, 3) AS INTEGER))) / 60000) AS minute_key,\n             MIN((CAST(strftime('%s', AMBIENT_ARCHIVE.timestamp) AS INTEGER) * 1000 + CAST(substr(strftime('%f', AMBIENT_ARCHIVE.timestamp), 4, 3) AS INTEGER))) AS minute_epoch_ms,\n             AVG(CAST(temperature AS REAL)) AS ambient_value\n      FROM AMBIENT_ARCHIVE\n      WHERE (CAST(strftime('%s', AMBIENT_ARCHIVE.timestamp) AS INTEGER) * 1000 + CAST(substr(strftime('%f', AMBIENT_ARCHIVE.timestamp), 4, 3) AS INTEGER)) BETWEEN ? AND ?\n      GROUP BY minute_key\n    ), cpu AS (\n      SELECT (((CAST(strftime('%s', DATA_ARCHIVE.timestamp) AS INTEGER) * 1000 + CAST(substr(strftime('%f', DATA_ARCHIVE.timestamp), 4, 3) AS INTEGER))) / 60000) AS minute_key,\n             AVG(CAST(cpu_temperature_avg AS REAL)) AS cpu_value\n      FROM DATA_ARCHIVE\n      WHERE (CAST(strftime('%s', DATA_ARCHIVE.timestamp) AS INTEGER) * 1000 + CAST(substr(strftime('%f', DATA_ARCHIVE.timestamp), 4, 3) AS INTEGER)) BETWEEN ? AND ?\n        AND cpu_temperature_avg IS NOT NULL\n      GROUP BY minute_key\n    )\n    SELECT ((ambient.minute_epoch_ms / ?) * ?) AS bucket_timestamp,\n           AVG(ambient_value) AS ambient_avg,\n           AVG(cpu_value - ambient_value) AS delta_avg,\n           COUNT(ambient_value) AS minute_count\n    FROM ambient\n    LEFT JOIN cpu ON cpu.minute_key = ambient.minute_key\n    GROUP BY 1\n    ORDER BY 1 ASC",
+    "process": "SELECT\n  pid,\n  process_name,\n  AVG(cpu_usage) AS avg_cpu_usage,\n  AVG(memory_usage) AS avg_memory_usage,\n  MAX(execution_sec) AS total_execution_sec,\n  MAX(timestamp) AS latest_timestamp,\n  COUNT(*) AS diagnostic_count\nFROM PROCESS_STATS\nWHERE timestamp BETWEEN ? AND ?\nGROUP BY pid, process_name\nORDER BY avg_cpu_usage DESC"
+  },
+  "versions": {
+    "duckdb": "v1.5.5",
+    "python": "3.14.5 (v3.14.5:5607950ef23, May 10 2026, 07:38:09) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "sqlite": "3.46.0"
+  }
+}

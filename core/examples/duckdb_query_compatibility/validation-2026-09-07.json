@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "result": "result-2026-09-07.json",
+  "recorded_wrapper": "Codex exec_command result chunk 566cb2",
+  "exit_code": 0,
+  "wall_time_seconds": 0.245687042,
+  "stdout": "{\"query_contract_passed\": false, \"report\": \"/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-query-compatibility-smoke-2026-09-07-e/result.json\"}\n",
+  "stderr": "",
+  "note": "This preserves the actual command outcome captured when the packaged result was produced; it is not a reconstructed run. The exact launched command is recorded in result-2026-09-07.json.command."
+}
