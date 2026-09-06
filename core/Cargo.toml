@@ -13,6 +13,10 @@ authors = ["@shm11C3"]
 name = "hardviz_core"
 path = "src/lib.rs"
 
+[features]
+default = []
+duckdb-archive = ["dep:duckdb"]
+
 [dependencies]
 tokio = { version = "1.52.3", features = [
     "rt",
@@ -41,6 +45,9 @@ sqlx = { version = "0.8.6", features = [
     "chrono",
     "migrate",
 ] }
+duckdb = { version = "=1.10505.0", default-features = false, features = [
+    "bundled",
+], optional = true }
 
 [target.'cfg(windows)'.dependencies]
 wmi = "0.18.4"
