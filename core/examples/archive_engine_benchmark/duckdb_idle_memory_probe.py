@@ -126,19 +126,25 @@ def _run_prepare(binary: ProbeBinary, database: Path, seed_rows: int) -> dict[st
             f"fixture preparation failed for {binary.key}: exit={completed.returncode}; "
             f"stderr={completed.stderr.strip()}"
         )
-    auxiliary = [
+    auxiliary_paths = (
+        Path(f"{database}-wal"),
+        Path(f"{database}-shm"),
+        Path(f"{database}.wal"),
+    )
+    auxiliary = {
+        str(candidate): candidate.stat().st_size
+        for candidate in auxiliary_paths
+        if candidate.exists()
+    }
+    nonempty_wal = [
         candidate
-        for candidate in (
-            Path(f"{database}-wal"),
-            Path(f"{database}-shm"),
-            Path(f"{database}.wal"),
-        )
+        for candidate in (Path(f"{database}-wal"), Path(f"{database}.wal"))
         if candidate.exists() and candidate.stat().st_size > 0
     ]
-    if auxiliary:
+    if nonempty_wal:
         raise RuntimeError(
-            "prepared fixture retained auxiliary write state: "
-            + ", ".join(str(path) for path in auxiliary)
+            "prepared fixture retained nonempty WAL state: "
+            + ", ".join(str(candidate) for candidate in nonempty_wal)
         )
     return {
         "engine": binary.reported_engine,
@@ -147,6 +153,11 @@ def _run_prepare(binary: ProbeBinary, database: Path, seed_rows: int) -> dict[st
         "database": str(database),
         "database_bytes": database.stat().st_size,
         "database_sha256": _sha256(database),
+        "auxiliary_files_after_prepare": auxiliary,
+        "copy_policy": (
+            "Copy the checkpointed main database only. A zero-byte WAL carries no "
+            "committed pages; SQLite may retain a non-authoritative SHM index."
+        ),
         "elapsed_ms_unmeasured_setup": (time.monotonic() - started) * 1000.0,
         "stdout": completed.stdout.strip(),
     }
