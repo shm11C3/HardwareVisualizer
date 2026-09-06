@@ -12,8 +12,8 @@ Tracking issue: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/205
 This records the product and architectural constraints agreed on 2026-09-01.
 It is a decision for planned work, not a claim that chunk storage is implemented.
 [ADR 0022](0022-prioritize-native-duckdb-archive-qualification.md) and the
-[native qualification design](../development/hardware-archive-duckdb-qualification.md)
-own the current investigation and adoption gates. The proposed
+[Design Doc](../design/hardware-archive-duckdb.md)
+explain the current storage recommendation and its trade-offs. The proposed
 [ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
 [storage design](../development/hardware-archive-storage-design.md) retain the
 earlier SQLite lifecycle candidate. Formats and performance budgets remain

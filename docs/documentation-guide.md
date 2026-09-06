@@ -25,7 +25,9 @@ Use the closest stable owner:
   - `core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.
 - User-facing guides that are published by the website live under `docs/user/`.
-- Architecture docs live under `docs/architecture/`.
+- Design Docs explaining proposed structures, evaluated alternatives and
+  trade-offs live under `docs/design/`.
+- Current architecture docs live under `docs/architecture/`.
 - Release, verification, signing, and distribution docs should live under
   `docs/release/` or `docs/security/` when those directories are introduced.
 - Generated legal/license notices currently live under

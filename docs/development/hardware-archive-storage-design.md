@@ -3,7 +3,7 @@
 Status: retained SQLite candidate design for
 [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
 
-The current investigation is the [native DuckDB qualification](hardware-archive-duckdb-qualification.md)
+The current investigation is the [native DuckDB Design Doc](../design/hardware-archive-duckdb.md)
 accepted in [ADR 0022](../adr/0022-prioritize-native-duckdb-archive-qualification.md).
 All engine-specific recommendations below describe the earlier SQLite chunk
 alternative. They are preserved as design history, not the current work order;
