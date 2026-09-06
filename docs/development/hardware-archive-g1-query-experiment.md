@@ -19,6 +19,8 @@ SQLite's row-based average is **1024.5**. Merging binary64 chunk sums yields **1
 
 The regression test asserts that this counterexample remains detected; a passing test suite therefore does not mean the candidate meets the numerical contract. `numerical_contract_passed` and `production_candidate_accepted` remain false. Generated performance-workload comparisons have separate result flags. A successful executable exit means the measurements completed, not production acceptance.
 
+A follow-up [SQLite, DuckDB native, and Parquet comparison](hardware-archive-g1-engine-comparison.md) evaluates standard engines on the same immutable source fixtures. It retains the numerical and exact-sample requirements below.
+
 ## Design recommendation after this experiment
 
 Keep range pruning as the next Ambient query building block. It sharply reduces decoded rows for a narrow request inside long history, while retaining the current SQLite predicate. Wide requests need a separate bounded output path: perform the actual consumer's bucket reduction while reading chunks, or stream raw results when a raw endpoint needs every row. Daily rollups cannot replace arbitrary raw queries without proving the existing endpoint's semantics.
