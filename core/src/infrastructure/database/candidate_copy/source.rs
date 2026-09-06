@@ -30,6 +30,7 @@ pub(super) struct ColumnSchema {
   pub(super) primary_key_ordinal: i64,
   pub(super) hidden: i64,
   pub(super) canonical_kind: CanonicalKind,
+  pub(super) native_kind: CanonicalKind,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -229,26 +230,62 @@ pub(super) async fn capture_high_waters(
   schema: &mut SourceSchema,
 ) -> Result<(), CandidateError> {
   let mut high_waters = Vec::with_capacity(schema.tables.len());
-  for (table_index, table) in schema.tables.iter().enumerate() {
+  for table_index in 0..schema.tables.len() {
+    let table = &schema.tables[table_index];
+    let adaptive_columns = table
+      .columns
+      .iter()
+      .enumerate()
+      .filter(|(_, column)| supports_adaptive_numeric(column))
+      .map(|(index, _)| index)
+      .collect::<Vec<_>>();
+    let mut projections = vec!["MAX(rowid)".to_owned(), "COUNT(*)".to_owned()];
+    for column_index in &adaptive_columns {
+      let identifier = quote_identifier(&table.columns[*column_index].name);
+      projections.push(format!(
+        "COALESCE(MAX(CASE WHEN typeof({identifier}) = 'integer' THEN 1 ELSE 0 END), 0)"
+      ));
+      projections.push(format!(
+        "COALESCE(MAX(CASE WHEN typeof({identifier}) = 'real' THEN 1 ELSE 0 END), 0)"
+      ));
+    }
     let sql = format!(
-      "SELECT MAX(rowid), COUNT(*) FROM {}",
+      "SELECT {} FROM {}",
+      projections.join(", "),
       quote_identifier(&table.name)
     );
-    let (max_rowid, row_count): (Option<i64>, i64) = sqlx::query_as(&sql)
+    let row = sqlx::query(&sql)
       .fetch_one(&mut *connection)
       .await
       .map_err(source_read)?;
+    let max_rowid: Option<i64> = row.try_get(0).map_err(source_read)?;
+    let row_count: i64 = row.try_get(1).map_err(source_read)?;
     let row_count = u64::try_from(row_count).map_err(|_| CandidateError::SourceRead {
       message: format!("SQLite returned a negative row count for {}", table.name),
     })?;
+    let observed_kinds = adaptive_columns
+      .iter()
+      .enumerate()
+      .map(|(offset, column_index)| {
+        let has_integer = row.try_get::<i64, _>(2 + offset * 2)? != 0;
+        let has_real = row.try_get::<i64, _>(3 + offset * 2)? != 0;
+        Ok((*column_index, observed_numeric_kind(has_integer, has_real)))
+      })
+      .collect::<Result<Vec<_>, sqlx::Error>>()
+      .map_err(source_read)?;
+
     high_waters.push(TableHighWater {
       table_index,
       table_name: table.name.clone(),
       max_rowid,
       row_count,
     });
+    for (column_index, native_kind) in observed_kinds {
+      schema.tables[table_index].columns[column_index].native_kind = native_kind;
+    }
   }
   schema.table_high_waters = high_waters;
+  schema.digest = schema_digest(&schema.objects, &schema.tables)?;
   Ok(())
 }
 
@@ -403,9 +440,11 @@ async fn inspect_table(
   for row in column_rows {
     let column_name: String = row.try_get("name").map_err(source_read)?;
     let declared_type: String = row.try_get("type").map_err(source_read)?;
+    let canonical_kind = canonical_kind(&name, &column_name, &declared_type)?;
     columns.push(ColumnSchema {
       cid: row.try_get("cid").map_err(source_read)?,
-      canonical_kind: canonical_kind(&name, &column_name, &declared_type)?,
+      canonical_kind,
+      native_kind: canonical_kind,
       name: column_name,
       declared_type,
       not_null: row.try_get::<i64, _>("notnull").map_err(source_read)? != 0,
@@ -518,6 +557,21 @@ async fn migration_provenance(
   })
 }
 
+fn supports_adaptive_numeric(column: &ColumnSchema) -> bool {
+  matches!(
+    column.declared_type.trim().to_ascii_uppercase().as_str(),
+    "INTEGER" | "BIGINT"
+  )
+}
+
+fn observed_numeric_kind(has_integer: bool, has_real: bool) -> CanonicalKind {
+  match (has_integer, has_real) {
+    (false, true) => CanonicalKind::Real,
+    (true, true) => CanonicalKind::IntegerOrReal,
+    (false, false) | (true, false) => CanonicalKind::Integer,
+  }
+}
+
 fn preflight_sql(table: &TableSchema) -> String {
   let mut projections = vec!["rowid".to_owned()];
   for column in &table.columns {
@@ -538,11 +592,13 @@ fn payload_sql(table: &TableSchema) -> String {
   let projections = std::iter::once("rowid".to_owned())
     .chain(table.columns.iter().map(|column| {
       let identifier = quote_identifier(&column.name);
-      match column.canonical_kind {
+      match column.native_kind {
         CanonicalKind::Text | CanonicalKind::Blob => {
           format!("CAST({identifier} AS BLOB)")
         }
-        CanonicalKind::Integer | CanonicalKind::Real => identifier,
+        CanonicalKind::Integer | CanonicalKind::Real | CanonicalKind::IntegerOrReal => {
+          identifier
+        }
       }
     }))
     .collect::<Vec<_>>();
@@ -564,12 +620,25 @@ fn decode_cell(
   if storage_class == "null" {
     return Ok(Cell::Null);
   }
-  match column.canonical_kind {
+  match column.native_kind {
     CanonicalKind::Integer => row.try_get(index).map(Cell::Integer).map_err(source_read),
     CanonicalKind::Real => row
       .try_get::<f64, _>(index)
       .map(|value| Cell::Real(value.to_bits()))
       .map_err(source_read),
+    CanonicalKind::IntegerOrReal => match storage_class {
+      "integer" => row.try_get(index).map(Cell::Integer).map_err(source_read),
+      "real" => row
+        .try_get::<f64, _>(index)
+        .map(|value| Cell::Real(value.to_bits()))
+        .map_err(source_read),
+      _ => Err(CandidateError::SourceRead {
+        message: format!(
+          "validated mixed numeric cell at {}.{} had unexpected storage class {storage_class}",
+          table.name, column.name
+        ),
+      }),
+    },
     CanonicalKind::Text => {
       let bytes: Vec<u8> = row.try_get(index).map_err(source_read)?;
       String::from_utf8(bytes)

@@ -2,11 +2,15 @@
 
 Status: recommended direction under
 [ADR 0022](../adr/0022-prioritize-native-duckdb-archive-qualification.md).
-Parent: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
+Decision investigation: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) (closed).
+Implementation: [#2088](https://github.com/shm11C3/HardwareVisualizer/issues/2088),
+[#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089), and
+[#2090](https://github.com/shm11C3/HardwareVisualizer/issues/2090).
 
 This document records why native DuckDB is the recommended archive direction,
 how it fits the application, and which choices remain open. DuckDB would own
-compression and query execution. The design is not implemented, and
+compression and query execution. The application still uses SQLite; an opt-in
+candidate copier starts the implementation.
 [ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) continues to own
 preservation, identity, retention, and recovery requirements.
 
@@ -159,7 +163,19 @@ The
 [initial native qualification](https://github.com/shm11C3/HardwareVisualizer/blob/1ef7751a0cc7e0ab84f58884103402c5023a9c6c/docs/development/hardware-archive-duckdb-initial-qualification.md)
 showed exact round trips for tagged rows and typed rows with an exceptional-cell
 sidecar. That was storage evidence, not exceptional-value query support, so the
-representation remains open in #2083.
+exceptional-value query representation remains open in #2089.
+
+The [candidate copier](../../core/src/infrastructure/database/candidate_copy/mod.rs)
+chooses numeric types from the snapshot's actual storage classes. Normal CPU
+and GPU writers store fractional readings in legacy INTEGER-affinity columns,
+so refusing every REAL there rejects ordinary history. Integer-only columns
+use BIGINT, real-only columns use DOUBLE, and mixed columns use native
+`UNION(i BIGINT, r DOUBLE)`. Converting all values to DOUBLE would round large
+integers and lose their original storage class. UNION retains both numeric
+representations in the same column, but native queries must extract the
+appropriate member; aggregate compatibility and the authoritative write schema
+remain work for #2089. The candidate remains unselected, and unsupported
+nonnumeric classes or invalid UTF-8 fail without replacing the source.
 
 Original timestamp bytes remain stored. Source-compatible range membership
 needs an explicit representation because SQLite and DuckDB differed at a
@@ -183,12 +199,12 @@ application-level concurrency, cancellation, migration, and power-loss tests.
 
 ## Remaining design questions
 
-- [#2083](https://github.com/shm11C3/HardwareVisualizer/issues/2083): typed
-  versus tagged representation, exceptional-value queries, timestamp adapters,
-  and large-history query behavior.
-- [#2084](https://github.com/shm11C3/HardwareVisualizer/issues/2084): database
-  owner lifecycle, transaction boundaries, cancellation, checkpoint/retention
-  interaction, copy compaction, and recovery behavior.
-- [#2085](https://github.com/shm11C3/HardwareVisualizer/issues/2085): complete
-  schema and consumer inventory, migration metadata, durable authority
-  selection, supported-platform packaging, and application resource evidence.
+- [#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089): native
+  queries and write schema, numeric/exceptional-value compatibility, timestamp
+  adapters, database owner lifetime, cancellation and retention.
+- [#2090](https://github.com/shm11C3/HardwareVisualizer/issues/2090): mutable
+  reconciliation, durable authority selection/recovery, supported-platform
+  packaging and application resource evidence.
+- [#2084](https://github.com/shm11C3/HardwareVisualizer/issues/2084) and
+  [#2085](https://github.com/shm11C3/HardwareVisualizer/issues/2085) retain the
+  investigation evidence for unresolved lifecycle and delivery choices.

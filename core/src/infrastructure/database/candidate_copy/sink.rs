@@ -126,6 +126,18 @@ impl CandidateSink {
           candidate_error(format!("create candidate table {}", table.name), error)
         })?;
     }
+    for (table_index, table) in schema.tables.iter().enumerate() {
+      if has_mixed_columns(table) {
+        connection
+          .execute_batch(&create_staging_table_sql(table_index, table))
+          .map_err(|error| {
+            candidate_error(
+              format!("create bounded staging table for {}", table.name),
+              error,
+            )
+          })?;
+      }
+    }
 
     Ok(Self {
       destination: destination.to_owned(),
@@ -195,22 +207,11 @@ impl CandidateSink {
     let connection = self.connection.as_ref().ok_or_else(|| {
       candidate_error("write candidate batch", "candidate connection is closed")
     })?;
-    let mut appender = connection.appender(&table.name).map_err(|error| {
-      candidate_error(format!("open appender for {}", table.name), error)
-    })?;
-    for row in &batch.rows {
-      let mut values = row.cells.iter().map(cell_value).collect::<Vec<_>>();
-      values.push(Value::UBigInt(row.ordinal));
-      appender
-        .append_row(appender_params_from_iter(values))
-        .map_err(|error| {
-          candidate_error(format!("append candidate row into {}", table.name), error)
-        })?;
+    if has_mixed_columns(table) {
+      write_mixed_batch(connection, state_index, table, batch)?;
+    } else {
+      write_direct_batch(connection, table, batch)?;
     }
-    appender.flush().map_err(|error| {
-      candidate_error(format!("flush appender for {}", table.name), error)
-    })?;
-    drop(appender);
     let state = &mut self.tables[state_index];
     for row in &batch.rows {
       row.update_digest(&mut state.digest);
@@ -356,6 +357,228 @@ impl CandidateSink {
   }
 }
 
+fn has_mixed_columns(table: &TableSchema) -> bool {
+  table
+    .columns
+    .iter()
+    .any(|column| column.native_kind == CanonicalKind::IntegerOrReal)
+}
+
+fn staging_table_name(table_index: usize) -> String {
+  format!("__hv_snapshot_stage_{table_index}")
+}
+
+fn staging_value_name(column_index: usize) -> String {
+  format!("c{column_index:04}")
+}
+
+fn staging_tag_name(column_index: usize) -> String {
+  format!("c{column_index:04}_tag")
+}
+
+fn staging_integer_name(column_index: usize) -> String {
+  format!("c{column_index:04}_i")
+}
+
+fn staging_real_name(column_index: usize) -> String {
+  format!("c{column_index:04}_r")
+}
+
+fn create_staging_table_sql(table_index: usize, table: &TableSchema) -> String {
+  let mut columns = Vec::new();
+  for (column_index, column) in table.columns.iter().enumerate() {
+    if column.native_kind == CanonicalKind::IntegerOrReal {
+      columns.push(format!(
+        "{} UTINYINT NOT NULL",
+        quote_identifier(&staging_tag_name(column_index))
+      ));
+      columns.push(format!(
+        "{} BIGINT",
+        quote_identifier(&staging_integer_name(column_index))
+      ));
+      columns.push(format!(
+        "{} DOUBLE",
+        quote_identifier(&staging_real_name(column_index))
+      ));
+    } else {
+      columns.push(format!(
+        "{} {}",
+        quote_identifier(&staging_value_name(column_index)),
+        duckdb_type(column.native_kind)
+      ));
+    }
+  }
+  columns.push(format!(
+    "{} UBIGINT NOT NULL",
+    quote_identifier(SOURCE_ORDINAL_COLUMN)
+  ));
+  format!(
+    "CREATE TEMP TABLE {} ({})",
+    quote_identifier(&staging_table_name(table_index)),
+    columns.join(", ")
+  )
+}
+
+fn write_direct_batch(
+  connection: &Connection,
+  table: &TableSchema,
+  batch: &RowBatch,
+) -> Result<(), CandidateError> {
+  let mut appender = connection.appender(&table.name).map_err(|error| {
+    candidate_error(format!("open appender for {}", table.name), error)
+  })?;
+  for row in &batch.rows {
+    let mut values = Vec::with_capacity(row.cells.len() + 1);
+    for (cell, column) in row.cells.iter().zip(&table.columns) {
+      values.push(
+        direct_cell_value(cell, column.native_kind).map_err(|error| {
+          candidate_error(format!("encode candidate row into {}", table.name), error)
+        })?,
+      );
+    }
+    values.push(Value::UBigInt(row.ordinal));
+    appender
+      .append_row(appender_params_from_iter(values))
+      .map_err(|error| {
+        candidate_error(format!("append candidate row into {}", table.name), error)
+      })?;
+  }
+  appender
+    .flush()
+    .map_err(|error| candidate_error(format!("flush appender for {}", table.name), error))
+}
+
+fn write_mixed_batch(
+  connection: &Connection,
+  table_index: usize,
+  table: &TableSchema,
+  batch: &RowBatch,
+) -> Result<(), CandidateError> {
+  let staging_name = staging_table_name(table_index);
+  let mut appender = connection
+    .appender_to_catalog_and_db(&staging_name, "temp", "main")
+    .map_err(|error| {
+      candidate_error(
+        format!("open bounded staging appender for {}", table.name),
+        error,
+      )
+    })?;
+  for row in &batch.rows {
+    let mut values = Vec::with_capacity(row.cells.len() * 3 + 1);
+    for (cell, column) in row.cells.iter().zip(&table.columns) {
+      if column.native_kind == CanonicalKind::IntegerOrReal {
+        match cell {
+          Cell::Null => {
+            values.push(Value::UTinyInt(0));
+            values.push(Value::Null);
+            values.push(Value::Null);
+          }
+          Cell::Integer(value) => {
+            values.push(Value::UTinyInt(1));
+            values.push(Value::BigInt(*value));
+            values.push(Value::Null);
+          }
+          Cell::Real(bits) => {
+            values.push(Value::UTinyInt(2));
+            values.push(Value::Null);
+            values.push(Value::Double(f64::from_bits(*bits)));
+          }
+          Cell::Text(_) | Cell::Blob(_) => {
+            return Err(candidate_error(
+              format!("encode mixed candidate row into {}", table.name),
+              "mixed numeric column received a non-numeric source cell",
+            ));
+          }
+        }
+      } else {
+        values.push(
+          direct_cell_value(cell, column.native_kind).map_err(|error| {
+            candidate_error(
+              format!("encode candidate staging row into {}", table.name),
+              error,
+            )
+          })?,
+        );
+      }
+    }
+    values.push(Value::UBigInt(row.ordinal));
+    appender
+      .append_row(appender_params_from_iter(values))
+      .map_err(|error| {
+        candidate_error(
+          format!("append bounded staging row for {}", table.name),
+          error,
+        )
+      })?;
+  }
+  appender.flush().map_err(|error| {
+    candidate_error(
+      format!("flush bounded staging rows for {}", table.name),
+      error,
+    )
+  })?;
+  drop(appender);
+
+  connection
+    .execute_batch(&insert_staging_sql(table_index, table))
+    .map_err(|error| {
+      candidate_error(
+        format!("materialize mixed numeric rows for {}", table.name),
+        error,
+      )
+    })?;
+  connection
+    .execute_batch(&format!(
+      "DELETE FROM temp.main.{}",
+      quote_identifier(&staging_name)
+    ))
+    .map_err(|error| {
+      candidate_error(
+        format!("clear bounded staging rows for {}", table.name),
+        error,
+      )
+    })?;
+  Ok(())
+}
+
+fn insert_staging_sql(table_index: usize, table: &TableSchema) -> String {
+  let mut projections = Vec::with_capacity(table.columns.len() + 1);
+  for (column_index, column) in table.columns.iter().enumerate() {
+    if column.native_kind == CanonicalKind::IntegerOrReal {
+      let tag = quote_identifier(&staging_tag_name(column_index));
+      let integer = quote_identifier(&staging_integer_name(column_index));
+      let real = quote_identifier(&staging_real_name(column_index));
+      projections.push(format!(
+        "CASE {tag} WHEN 1 THEN union_value(i := {integer})::UNION(i BIGINT, r DOUBLE) WHEN 2 THEN union_value(r := {real})::UNION(i BIGINT, r DOUBLE) ELSE NULL END"
+      ));
+    } else {
+      projections.push(quote_identifier(&staging_value_name(column_index)));
+    }
+  }
+  projections.push(quote_identifier(SOURCE_ORDINAL_COLUMN));
+  format!(
+    "INSERT INTO {} SELECT {} FROM temp.main.{} ORDER BY {}",
+    quote_identifier(&table.name),
+    projections.join(", "),
+    quote_identifier(&staging_table_name(table_index)),
+    quote_identifier(SOURCE_ORDINAL_COLUMN)
+  )
+}
+
+fn direct_cell_value(cell: &Cell, kind: CanonicalKind) -> Result<Value, &'static str> {
+  match (kind, cell) {
+    (_, Cell::Null) => Ok(Value::Null),
+    (CanonicalKind::Integer, Cell::Integer(value)) => Ok(Value::BigInt(*value)),
+    (CanonicalKind::Real, Cell::Real(bits)) => Ok(Value::Double(f64::from_bits(*bits))),
+    (CanonicalKind::Text, Cell::Text(value)) => Ok(Value::Text(value.clone())),
+    (CanonicalKind::Blob, Cell::Blob(value)) => Ok(Value::Blob(value.clone())),
+    (CanonicalKind::IntegerOrReal, _) => {
+      Err("mixed numeric cells require bounded staging")
+    }
+    _ => Err("source cell tag does not match the resolved native column kind"),
+  }
+}
+
 fn validate_reserved_names(schema: &SourceSchema) -> Result<(), CandidateError> {
   for table in &schema.tables {
     if table.name.eq_ignore_ascii_case(METADATA_TABLE) {
@@ -389,7 +612,7 @@ fn create_table_sql(table: &TableSchema) -> String {
       format!(
         "{} {}",
         quote_identifier(&column.name),
-        duckdb_type(column.canonical_kind)
+        duckdb_type(column.native_kind)
       )
     })
     .collect::<Vec<_>>();
@@ -495,12 +718,7 @@ fn validate_table(
           format!("non-contiguous source ordinal {ordinal}"),
         ));
       }
-      let cells = table
-        .columns
-        .iter()
-        .enumerate()
-        .map(|(index, column)| read_cell(row, index + 1, column.canonical_kind))
-        .collect::<Result<Vec<_>, _>>()?;
+      let cells = read_cells(row, table)?;
       SourceRow { ordinal, cells }.update_digest(&mut digest);
       read += 1;
     }
@@ -545,9 +763,13 @@ fn readback_preflight(
   let byte_expression = table
     .columns
     .iter()
-    .map(|column| match column.canonical_kind {
+    .map(|column| match column.native_kind {
       CanonicalKind::Integer | CanonicalKind::Real => format!(
         "CASE WHEN {} IS NULL THEN 0 ELSE 8 END",
+        quote_identifier(&column.name)
+      ),
+      CanonicalKind::IntegerOrReal => format!(
+        "CASE WHEN {} IS NULL THEN 0 ELSE 9 END",
         quote_identifier(&column.name)
       ),
       CanonicalKind::Text => format!(
@@ -610,12 +832,16 @@ fn readback_preflight(
 
 fn readback_payload_sql(table: &TableSchema) -> String {
   let mut columns = vec![quote_identifier(SOURCE_ORDINAL_COLUMN)];
-  columns.extend(
-    table
-      .columns
-      .iter()
-      .map(|column| quote_identifier(&column.name)),
-  );
+  for column in &table.columns {
+    let name = quote_identifier(&column.name);
+    if column.native_kind == CanonicalKind::IntegerOrReal {
+      columns.push(format!("union_tag({name})"));
+      columns.push(format!("union_extract({name}, 'i')"));
+      columns.push(format!("union_extract({name}, 'r')"));
+    } else {
+      columns.push(name);
+    }
+  }
   format!(
     "SELECT {} FROM {} WHERE {} BETWEEN ? AND ? ORDER BY {}",
     columns.join(", "),
@@ -623,6 +849,44 @@ fn readback_payload_sql(table: &TableSchema) -> String {
     quote_identifier(SOURCE_ORDINAL_COLUMN),
     quote_identifier(SOURCE_ORDINAL_COLUMN),
   )
+}
+
+fn read_cells(
+  row: &duckdb::Row<'_>,
+  table: &TableSchema,
+) -> Result<Vec<Cell>, CandidateError> {
+  let mut cells = Vec::with_capacity(table.columns.len());
+  let mut index = 1_usize;
+  for column in &table.columns {
+    if column.native_kind == CanonicalKind::IntegerOrReal {
+      let tag: Option<String> = row
+        .get(index)
+        .map_err(|error| candidate_error("decode reopened mixed numeric tag", error))?;
+      let integer: Option<i64> = row.get(index + 1).map_err(|error| {
+        candidate_error("decode reopened mixed integer member", error)
+      })?;
+      let real: Option<f64> = row
+        .get(index + 2)
+        .map_err(|error| candidate_error("decode reopened mixed real member", error))?;
+      let cell = match (tag.as_deref(), integer, real) {
+        (None, None, None) => Cell::Null,
+        (Some("i"), Some(value), None) => Cell::Integer(value),
+        (Some("r"), None, Some(value)) => Cell::Real(value.to_bits()),
+        _ => {
+          return Err(candidate_error(
+            "decode reopened mixed numeric cell",
+            "UNION tag and member payloads are inconsistent",
+          ));
+        }
+      };
+      cells.push(cell);
+      index += 3;
+    } else {
+      cells.push(read_cell(row, index, column.native_kind)?);
+      index += 1;
+    }
+  }
+  Ok(cells)
 }
 
 fn read_cell(
@@ -637,6 +901,12 @@ fn read_cell(
     CanonicalKind::Real => row
       .get::<_, Option<f64>>(index)
       .map(|value| value.map_or(Cell::Null, |value| Cell::Real(value.to_bits()))),
+    CanonicalKind::IntegerOrReal => {
+      return Err(candidate_error(
+        "decode reopened candidate cell",
+        "mixed numeric cells require union tag and member projections",
+      ));
+    }
     CanonicalKind::Text => row
       .get::<_, Option<String>>(index)
       .map(|value| value.map_or(Cell::Null, Cell::Text)),
@@ -647,20 +917,11 @@ fn read_cell(
   .map_err(|error| candidate_error("decode reopened candidate cell", error))
 }
 
-fn cell_value(cell: &Cell) -> Value {
-  match cell {
-    Cell::Null => Value::Null,
-    Cell::Integer(value) => Value::BigInt(*value),
-    Cell::Real(bits) => Value::Double(f64::from_bits(*bits)),
-    Cell::Text(value) => Value::Text(value.clone()),
-    Cell::Blob(value) => Value::Blob(value.clone()),
-  }
-}
-
 fn duckdb_type(kind: CanonicalKind) -> &'static str {
   match kind {
     CanonicalKind::Integer => "BIGINT",
     CanonicalKind::Real => "DOUBLE",
+    CanonicalKind::IntegerOrReal => "UNION(i BIGINT, r DOUBLE)",
     CanonicalKind::Text => "VARCHAR",
     CanonicalKind::Blob => "BLOB",
   }

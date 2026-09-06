@@ -53,9 +53,9 @@ recovery copy cannot replace newer destination writes.
 Native DuckDB does not remove the work of preserving SQLite storage classes,
 original timestamp semantics or all mutable and longer-lived data. The initial
 value probes restored tagged and exceptional-cell representations exactly,
-but did not implement equivalent exceptional-value queries. Neither
-representation is selected yet. Resource probes show a larger executable,
-higher clean build cost and more idle process memory than SQLite. Closing the
+but did not implement equivalent exceptional-value queries. The
+exceptional-value query representation is still unresolved. Resource probes show
+a larger executable, higher clean build cost and more idle process memory than SQLite. Closing the
 connection does not immediately restore the before-open RSS in the measured
 window. Expiry can initially grow the native file;
 later checkpoints reuse space and partially shrink it, while copying produces
@@ -66,8 +66,11 @@ open. Process-kill results do not establish power-loss recovery.
 
 The [Design Doc](../design/hardware-archive-duckdb.md) explains the
 proposed structure, accumulated experiments and unresolved trade-offs.
-[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks
-work and verification through its linked investigation Issues.
+The investigation in [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052)
+is closed. Implementation continues in
+[#2088](https://github.com/shm11C3/HardwareVisualizer/issues/2088),
+[#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089), and
+[#2090](https://github.com/shm11C3/HardwareVisualizer/issues/2090).
 [ADR 0021](0021-hardware-archive-migration-lifecycle.md)
 remains the historical SQLite migration proposal; its mechanics are not a
 DuckDB implementation plan.

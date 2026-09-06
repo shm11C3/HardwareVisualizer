@@ -13,17 +13,29 @@ pub(super) const MAX_BATCH_BYTES: u64 = 8 * 1024 * 1024;
 pub(super) enum CanonicalKind {
   Integer,
   Real,
+  IntegerOrReal,
   Text,
   Blob,
 }
 
 impl CanonicalKind {
-  pub(super) fn sqlite_storage_class(self) -> &'static str {
+  pub(super) fn expected_storage_class(self) -> &'static str {
     match self {
       Self::Integer => "integer",
       Self::Real => "real",
+      Self::IntegerOrReal => "integer or real",
       Self::Text => "text",
       Self::Blob => "blob",
+    }
+  }
+
+  pub(super) fn accepts_storage_class(self, actual: &str) -> bool {
+    match self {
+      Self::Integer => actual == "integer",
+      Self::Real => actual == "real",
+      Self::IntegerOrReal => matches!(actual, "integer" | "real"),
+      Self::Text => actual == "text",
+      Self::Blob => actual == "blob",
     }
   }
 }
@@ -138,8 +150,8 @@ pub(super) fn validate_storage_class(
     return Ok(());
   }
 
-  let expected = column.canonical_kind.sqlite_storage_class();
-  if actual != expected {
+  let expected = column.native_kind.expected_storage_class();
+  if !column.native_kind.accepts_storage_class(actual) {
     return Err(CandidateError::NonCanonicalCell {
       table: table.name.clone(),
       column: column.name.clone(),

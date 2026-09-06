@@ -6,7 +6,12 @@ use duckdb::{AccessMode, Config, Connection};
 use hardviz_core::infrastructure::database::candidate_copy::{
   CandidateError, CandidateReport, create_candidate,
 };
-use hardviz_core::infrastructure::database::migrate;
+use hardviz_core::infrastructure::database::{
+  db, gpu_archive, hardware_archive, migrate,
+};
+use hardviz_core::persistence::archive_data::{
+  GpuData, HardwareArchiveRow, HardwareData,
+};
 use sha2::{Digest, Sha256};
 use sqlx::sqlite::{
   SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions,
@@ -38,6 +43,245 @@ async fn copies_every_app_table_and_canonical_cell_exactly() {
   assert!(fixture.destination.is_file());
   assert_native_cells(&fixture);
   assert_no_candidate_workdirs(&fixture);
+}
+
+#[tokio::test]
+async fn production_archive_writers_create_copyable_fractional_cells() {
+  // This is the only integration test that initializes Core's process-wide
+  // database path. Every other candidate fixture uses an isolated pool.
+  let directory = tempfile::tempdir().unwrap();
+  let source = directory.path().join("production-writers.sqlite3");
+  let destination = directory.path().join("candidate.duckdb");
+  assert!(db::init(source.clone()));
+  migrate::run(app_migrations::get_migrations())
+    .await
+    .unwrap();
+  let timestamp = "2026-09-01T00:00:00Z"
+    .parse::<chrono::DateTime<chrono::Utc>>()
+    .unwrap();
+
+  hardware_archive::insert(
+    HardwareArchiveRow {
+      cpu: hardware_data(Some(25.25), Some(50.5), Some(0.0)),
+      memory: hardware_data(Some(25.25), Some(75.5), Some(10.25)),
+      cpu_temperature: hardware_data(Some(40.25), Some(55.5), Some(35.0)),
+      cpu_power: hardware_data(Some(12.25), Some(30.5), Some(5.0)),
+      gpu_power: hardware_data(None, None, None),
+      ane_power: hardware_data(None, None, None),
+      package_power: hardware_data(Some(15.25), Some(35.5), Some(6.0)),
+    },
+    timestamp,
+  )
+  .await
+  .unwrap();
+  gpu_archive::insert(
+    GpuData {
+      gpu_id: Some("gpu-persisted-name".to_owned()),
+      gpu_name: "Apple M4 Max".to_owned(),
+      usage_avg: Some(25.25),
+      usage_max: Some(50.5),
+      usage_min: Some(0.0),
+      temperature_avg: Some(40.25),
+      temperature_max: Some(55),
+      temperature_min: Some(35),
+      dedicated_memory_avg: Some(1024),
+      dedicated_memory_max: Some(2048),
+      dedicated_memory_min: Some(512),
+    },
+    timestamp,
+  )
+  .await
+  .unwrap();
+
+  let pool = open_pool(&source, false).await;
+  let storage_classes: (String, String, String) = sqlx::query_as(
+    "SELECT typeof(cpu_avg),typeof(ram_avg), \
+     (SELECT typeof(usage_avg) FROM GPU_DATA_ARCHIVE) FROM DATA_ARCHIVE",
+  )
+  .fetch_one(&pool)
+  .await
+  .unwrap();
+  assert_eq!(
+    storage_classes,
+    ("real".to_owned(), "real".to_owned(), "real".to_owned())
+  );
+  let source_timestamp: String =
+    sqlx::query_scalar("SELECT CAST(timestamp AS TEXT) FROM DATA_ARCHIVE")
+      .fetch_one(&pool)
+      .await
+      .unwrap();
+  pool.close().await;
+  let source_hash = file_hash(&source);
+
+  let report = create_candidate(&source, &destination, app_migrations::get_migrations())
+    .await
+    .unwrap();
+  assert_eq!(report.tables.len(), 17);
+  assert_eq!(report.total_rows, 25);
+  assert_eq!(file_hash(&source), source_hash);
+  let connection = readonly_candidate(&destination);
+  let hardware: (String, f64, f64, String) = connection
+    .query_row(
+      "SELECT typeof(cpu_avg),cpu_avg,ram_avg,timestamp FROM DATA_ARCHIVE",
+      [],
+      |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )
+    .unwrap();
+  assert_eq!(hardware.0, "DOUBLE");
+  assert_eq!(hardware.1.to_bits(), f64::from(25.25_f32).to_bits());
+  assert_eq!(hardware.2.to_bits(), f64::from(25.25_f32).to_bits());
+  assert_eq!(hardware.3, source_timestamp);
+  let gpu_usage: f64 = connection
+    .query_row("SELECT usage_avg FROM GPU_DATA_ARCHIVE", [], |row| {
+      row.get(0)
+    })
+    .unwrap();
+  assert_eq!(gpu_usage.to_bits(), f64::from(25.25_f32).to_bits());
+}
+
+#[tokio::test]
+async fn empty_integer_columns_keep_bigint_storage() {
+  let directory = tempfile::tempdir().unwrap();
+  let source = directory.path().join("empty.sqlite3");
+  let destination = directory.path().join("candidate.duckdb");
+  let pool = open_pool(&source, true).await;
+  migrate::run_on_pool(&pool, app_migrations::get_migrations())
+    .await
+    .unwrap();
+  pool.close().await;
+
+  create_candidate(&source, &destination, app_migrations::get_migrations())
+    .await
+    .unwrap();
+  let connection = readonly_candidate(&destination);
+  let types = connection
+    .prepare(
+      "SELECT table_name,column_name,data_type FROM information_schema.columns \
+       WHERE (table_name='DATA_ARCHIVE' AND column_name='cpu_avg') \
+          OR (table_name='sqlite_sequence' AND column_name='seq') \
+       ORDER BY table_name,column_name",
+    )
+    .unwrap()
+    .query_map([], |row| {
+      Ok((
+        row.get::<_, String>(0)?,
+        row.get::<_, String>(1)?,
+        row.get::<_, String>(2)?,
+      ))
+    })
+    .unwrap()
+    .collect::<Result<Vec<_>, _>>()
+    .unwrap();
+  assert_eq!(
+    types,
+    vec![
+      (
+        "DATA_ARCHIVE".to_owned(),
+        "cpu_avg".to_owned(),
+        "BIGINT".to_owned()
+      ),
+      (
+        "sqlite_sequence".to_owned(),
+        "seq".to_owned(),
+        "BIGINT".to_owned()
+      ),
+    ]
+  );
+}
+
+#[tokio::test]
+async fn mixed_numeric_staging_preserves_multiple_batches_generically() {
+  let directory = tempfile::tempdir().unwrap();
+  let source = directory.path().join("mixed.sqlite3");
+  let destination = directory.path().join("candidate.duckdb");
+  let migrations = vec![migrate::SchemaMigration {
+    version: 1,
+    description: "create_generic_mixed_numeric",
+    sql: "CREATE TABLE generic_numeric (id INTEGER PRIMARY KEY, value INTEGER);",
+  }];
+  let pool = open_pool(&source, true).await;
+  migrate::run_on_pool(&pool, migrations.clone())
+    .await
+    .unwrap();
+  pool
+    .execute(
+      "WITH RECURSIVE seq(n) AS (VALUES(0) UNION ALL SELECT n+1 FROM seq WHERE n<512) \
+     INSERT INTO generic_numeric(id,value) SELECT n,n FROM seq",
+    )
+    .await
+    .unwrap();
+  sqlx::query("UPDATE generic_numeric SET value=? WHERE id=0")
+    .bind(i64::MIN)
+    .execute(&pool)
+    .await
+    .unwrap();
+  sqlx::query("UPDATE generic_numeric SET value=? WHERE id=510")
+    .bind(i64::MAX)
+    .execute(&pool)
+    .await
+    .unwrap();
+  for (id, value) in [(511_i64, 25.25_f32), (512, 50.5_f32)] {
+    sqlx::query("UPDATE generic_numeric SET value=? WHERE id=?")
+      .bind(value)
+      .bind(id)
+      .execute(&pool)
+      .await
+      .unwrap();
+  }
+  let classes: Vec<String> = sqlx::query_scalar(
+    "SELECT typeof(value) FROM generic_numeric WHERE id IN (0,510,511,512) ORDER BY id",
+  )
+  .fetch_all(&pool)
+  .await
+  .unwrap();
+  assert_eq!(classes, ["integer", "integer", "real", "real"]);
+  pool.close().await;
+  let source_hash = file_hash(&source);
+
+  let report = create_candidate(&source, &destination, migrations)
+    .await
+    .unwrap();
+  let table = report
+    .tables
+    .iter()
+    .find(|table| table.name == "generic_numeric")
+    .unwrap();
+  assert_eq!(table.source_rows, 513);
+  assert_eq!(table.reopened_rows, 513);
+  assert_eq!(table.source_sha256, table.reopened_sha256);
+  assert_eq!(report.total_rows, 514);
+  assert_eq!(file_hash(&source), source_hash);
+
+  let connection = readonly_candidate(&destination);
+  let data_type: String = connection
+    .query_row(
+      "SELECT data_type FROM information_schema.columns \
+       WHERE table_name='generic_numeric' AND column_name='value'",
+      [],
+      |row| row.get(0),
+    )
+    .unwrap();
+  assert_eq!(data_type, "UNION(i BIGINT, r DOUBLE)");
+  for (id, tag, integer, real) in [
+    (0_i64, "i", Some(i64::MIN), None),
+    (510, "i", Some(i64::MAX), None),
+    (511, "r", None, Some(f64::from(25.25_f32))),
+    (512, "r", None, Some(f64::from(50.5_f32))),
+  ] {
+    let actual: (String, Option<i64>, Option<f64>) = connection
+      .query_row(
+        "SELECT CAST(union_tag(value) AS VARCHAR),union_extract(value,'i'), \
+         union_extract(value,'r') FROM generic_numeric WHERE id=?",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+      )
+      .unwrap();
+    assert_eq!(actual.0, tag);
+    assert_eq!(actual.1, integer);
+    assert_eq!(actual.2.map(f64::to_bits), real.map(f64::to_bits));
+  }
+  drop(connection);
+  assert_no_candidate_workdirs_in(directory.path());
 }
 
 #[tokio::test]
@@ -200,16 +444,18 @@ async fn seed_domain_tables(pool: &SqlitePool) {
     VALUES
       (-9223372036854775808,-9223372036854775808,0,9223372036854775807,
        NULL,42,NULL,'2026-09-01T00:00:00+00:00',40.25,NULL,55.5,10.125,NULL,20.5,30.25),
-      (-1,1,2,0,3,4,2,'2026-09-01T00:01:00+00:00',NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-      (0,25,40,10,50,60,40,'2026-09-01T00:02:00+00:00',
+      (-1,NULL,2,0,NULL,4,NULL,'2026-09-01T00:01:00+00:00',NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+      (0,NULL,40,10,NULL,60,NULL,'2026-09-01T00:02:00+00:00',
        45.12500000000001,50.0,40.0,-0.0,15.0,5.0,16.0),
-      (9223372036854775807,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+      (1,0,0,0,NULL,0,NULL,'2026-09-01T00:03:00+00:00',
+       NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+      (9223372036854775807,9223372036854775807,NULL,NULL,NULL,NULL,NULL,NULL,
        NULL,NULL,NULL,NULL,NULL,NULL,NULL);
     INSERT INTO GPU_DATA_ARCHIVE
       (id,gpu_name,usage_avg,usage_max,usage_min,temperature_avg,
        temperature_max,temperature_min,timestamp,dedicated_memory_avg,gpu_id)
     VALUES
-      (1,'Apple M4 Max',25,50,5,42,55,35,'2026-09-01T00:00:00+00:00',1024,'gpu-persisted-name'),
+      (1,'Apple M4 Max',NULL,50,5,42,55,35,'2026-09-01T00:00:00+00:00',1024,'gpu-persisted-name'),
       (2,'Discrete GPU'||char(0)||'Secondary',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
     WITH RECURSIVE seq(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM seq WHERE n<513)
     INSERT INTO PROCESS_STATS(pid,process_name,cpu_usage,memory_usage,execution_sec,timestamp)
@@ -266,6 +512,39 @@ async fn seed_domain_tables(pool: &SqlitePool) {
   .await
   .unwrap();
 
+  // These are the same Option<f32> SQLx bindings used by the production
+  // Hardware and GPU archive writers. INTEGER affinity stores fractional
+  // readings as SQLite REAL cells, so the candidate must preserve both tags.
+  sqlx::query("UPDATE DATA_ARCHIVE SET cpu_avg = ?, ram_avg = ? WHERE id = 0")
+    .bind(Some(25.25_f32))
+    .bind(Some(25.25_f32))
+    .execute(pool)
+    .await
+    .unwrap();
+  sqlx::query("UPDATE GPU_DATA_ARCHIVE SET usage_avg = ? WHERE id = 1")
+    .bind(Some(25.25_f32))
+    .execute(pool)
+    .await
+    .unwrap();
+
+  let cpu_avg_classes: Vec<(i64, String)> =
+    sqlx::query("SELECT id,typeof(cpu_avg) FROM DATA_ARCHIVE ORDER BY id")
+      .fetch_all(pool)
+      .await
+      .unwrap()
+      .into_iter()
+      .map(|row| (row.get(0), row.get(1)))
+      .collect();
+  assert_eq!(
+    cpu_avg_classes,
+    vec![
+      (i64::MIN, "integer".to_owned()),
+      (-1, "null".to_owned()),
+      (0, "real".to_owned()),
+      (1, "integer".to_owned()),
+      (i64::MAX, "integer".to_owned()),
+    ]
+  );
   let stored_health_id: String =
     sqlx::query_scalar("SELECT device_id FROM storage_health_daily_records")
       .fetch_one(pool)
@@ -322,7 +601,7 @@ async fn count_all_rows(pool: &SqlitePool) -> u64 {
     let count: i64 = sqlx::query_scalar(&sql).fetch_one(pool).await.unwrap();
     total += u64::try_from(count).unwrap();
   }
-  assert_eq!(total, 559);
+  assert_eq!(total, 560);
   total
 }
 
@@ -352,7 +631,7 @@ fn assert_report(report: &CandidateReport, rows: u64, destination: &Path) {
     .iter()
     .find(|table| table.name == "DATA_ARCHIVE")
     .unwrap();
-  assert_eq!(data.source_rows, 4);
+  assert_eq!(data.source_rows, 5);
   let process = report
     .tables
     .iter()
@@ -361,12 +640,25 @@ fn assert_report(report: &CandidateReport, rows: u64, destination: &Path) {
   assert_eq!(process.source_rows, 513);
 }
 
+fn hardware_data(avg: Option<f32>, max: Option<f32>, min: Option<f32>) -> HardwareData {
+  HardwareData { avg, max, min }
+}
+
+fn readonly_candidate(path: &Path) -> Connection {
+  let config = Config::default().access_mode(AccessMode::ReadOnly).unwrap();
+  Connection::open_with_flags(path, config).unwrap()
+}
+
 fn file_hash(path: &Path) -> String {
   format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
 }
 
 fn assert_no_candidate_workdirs(fixture: &Fixture) {
-  let leftovers = std::fs::read_dir(fixture._directory.path())
+  assert_no_candidate_workdirs_in(fixture._directory.path());
+}
+
+fn assert_no_candidate_workdirs_in(directory: &Path) {
+  let leftovers = std::fs::read_dir(directory)
     .unwrap()
     .map(|entry| entry.unwrap().file_name())
     .filter(|name| {
@@ -382,8 +674,7 @@ fn assert_no_candidate_workdirs(fixture: &Fixture) {
 }
 
 fn assert_native_cells(fixture: &Fixture) {
-  let config = Config::default().access_mode(AccessMode::ReadOnly).unwrap();
-  let connection = Connection::open_with_flags(&fixture.destination, config).unwrap();
+  let connection = readonly_candidate(&fixture.destination);
 
   let tables = connection
     .prepare(
@@ -419,23 +710,16 @@ fn assert_native_cells(fixture: &Fixture) {
     assert!(tables.iter().any(|candidate| candidate == table), "{table}");
   }
 
-  let minimum: (i64, i64, i64, Option<i64>) = connection
-    .query_row(
-      "SELECT id,cpu_avg,cpu_max,ram_avg FROM DATA_ARCHIVE \
-       WHERE id=-9223372036854775808",
-      [],
-      |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-    )
-    .unwrap();
-  assert_eq!(minimum, (i64::MIN, i64::MIN, 0, None));
-  let maximum: (i64, Option<i64>) = connection
-    .query_row(
-      "SELECT id,cpu_avg FROM DATA_ARCHIVE WHERE id=9223372036854775807",
-      [],
-      |row| Ok((row.get(0)?, row.get(1)?)),
-    )
-    .unwrap();
-  assert_eq!(maximum, (i64::MAX, None));
+  let minimum = read_cpu_avg_union(&connection, i64::MIN);
+  assert_eq!(minimum, (Some("i".to_owned()), Some(i64::MIN), None));
+  let zero = read_cpu_avg_union(&connection, 1);
+  assert_eq!(zero, (Some("i".to_owned()), Some(0), None));
+  let maximum = read_cpu_avg_union(&connection, i64::MAX);
+  assert_eq!(maximum, (Some("i".to_owned()), Some(i64::MAX), None));
+  let real = read_cpu_avg_union(&connection, 0);
+  assert_eq!(real.0.as_deref(), Some("r"));
+  assert_eq!(real.1, None);
+  assert_eq!(real.2.unwrap().to_bits(), f64::from(25.25_f32).to_bits());
   let exact_real: f64 = connection
     .query_row(
       "SELECT cpu_temperature_avg FROM DATA_ARCHIVE WHERE id=0",
@@ -444,6 +728,51 @@ fn assert_native_cells(fixture: &Fixture) {
     )
     .unwrap();
   assert_eq!(exact_real.to_bits(), 45.12500000000001_f64.to_bits());
+  let null_union: bool = connection
+    .query_row(
+      "SELECT cpu_avg IS NULL FROM DATA_ARCHIVE WHERE id=-1",
+      [],
+      |row| row.get(0),
+    )
+    .unwrap();
+  assert!(null_union);
+
+  let real_only: (String, f64) = connection
+    .query_row(
+      "SELECT typeof(ram_avg),ram_avg FROM DATA_ARCHIVE WHERE id=0",
+      [],
+      |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .unwrap();
+  assert_eq!(real_only.0, "DOUBLE");
+  assert_eq!(real_only.1.to_bits(), f64::from(25.25_f32).to_bits());
+  let gpu_real_only: (String, f64) = connection
+    .query_row(
+      "SELECT typeof(usage_avg),usage_avg FROM GPU_DATA_ARCHIVE WHERE id=1",
+      [],
+      |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .unwrap();
+  assert_eq!(gpu_real_only.0, "DOUBLE");
+  assert_eq!(gpu_real_only.1.to_bits(), f64::from(25.25_f32).to_bits());
+  let all_null_integer_type: String = connection
+    .query_row(
+      "SELECT data_type FROM information_schema.columns \
+       WHERE table_name='GPU_DATA_ARCHIVE' AND column_name='dedicated_memory_min'",
+      [],
+      |row| row.get(0),
+    )
+    .unwrap();
+  assert_eq!(all_null_integer_type, "BIGINT");
+  let integer_only_type: String = connection
+    .query_row(
+      "SELECT data_type FROM information_schema.columns \
+       WHERE table_name='GPU_DATA_ARCHIVE' AND column_name='usage_max'",
+      [],
+      |row| row.get(0),
+    )
+    .unwrap();
+  assert_eq!(integer_only_type, "BIGINT");
   let nul_text: String = connection
     .query_row(
       "SELECT gpu_name FROM GPU_DATA_ARCHIVE WHERE id=2",
@@ -476,4 +805,19 @@ fn assert_native_cells(fixture: &Fixture) {
   ] {
     assert!(sequences.contains(&expected));
   }
+}
+
+fn read_cpu_avg_union(
+  connection: &Connection,
+  id: i64,
+) -> (Option<String>, Option<i64>, Option<f64>) {
+  connection
+    .query_row(
+      "SELECT CAST(union_tag(cpu_avg) AS VARCHAR), \
+       union_extract(cpu_avg,'i'),union_extract(cpu_avg,'r') \
+       FROM DATA_ARCHIVE WHERE id=?",
+      [id],
+      |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )
+    .unwrap()
 }
