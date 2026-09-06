@@ -54,9 +54,15 @@ Native DuckDB does not remove the work of preserving SQLite storage classes,
 original timestamp semantics or all mutable and longer-lived data. The initial
 value probes restored tagged and exceptional-cell representations exactly,
 but did not implement equivalent exceptional-value queries. Neither
-representation is selected yet. The native deletion probe also left a larger
-file after checkpoint, so ongoing space reuse and compaction remain design
-questions. Process-kill results do not establish power-loss recovery.
+representation is selected yet. Resource probes show a larger executable,
+higher clean build cost and more idle process memory than SQLite. Closing the
+connection does not immediately restore the before-open RSS in the measured
+window. Expiry can initially grow the native file;
+later checkpoints reuse space and partially shrink it, while copying produces
+a smaller file at the cost of temporary space and a safe replacement lifecycle.
+These measurements support distinguishing ordinary retention from explicit
+compaction. Full-application resource use and long-session maintenance remain
+open. Process-kill results do not establish power-loss recovery.
 
 The [Design Doc](../design/hardware-archive-duckdb.md) explains the
 proposed structure, accumulated experiments and unresolved trade-offs.

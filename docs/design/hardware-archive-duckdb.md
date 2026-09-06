@@ -44,8 +44,9 @@ snapshot, rollup, retention, and recovery coordination.
 The experiments are synthetic and use only their declared Process and Ambient
 fixtures. Rust/SQLx produced the SQLite chunk experiments; Python bindings
 produced the SQLite/DuckDB/Parquet engine comparison and initial native
-qualification. Timings are comparable within each experiment, not across the
-two harnesses.
+qualification. Separate Rust release probes measure native process memory and
+build costs. Timings are comparable within each experiment, not across
+harnesses.
 
 | Candidate | Evidence and trade-off | Design conclusion |
 | --- | --- | --- |
@@ -104,10 +105,77 @@ IPC. The frontend continues to consume domain data and incomplete-coverage
 information without knowing the engine.
 
 The initial Rust candidate is [`duckdb ~1.10505.0` with `bundled`](https://docs.rs/crate/duckdb/1.10505.0/source/README.md),
-matching measured DuckDB 1.5.5. Bundling avoids a separately installed runtime but adds a C++
-build and native package weight not measured in the application. Storage
+matching measured DuckDB 1.5.5. Bundling avoids a separately installed runtime.
+The isolated build measurements below quantify its C++ build and executable
+cost; full application packages remain unmeasured. Storage
 [compatibility](https://duckdb.org/docs/current/internals/storage) is separate
 from the crate version; `v1.0.0` is an initial candidate, not a downgrade promise.
+
+## Native runtime and build costs
+
+The [resource measurements](https://github.com/shm11C3/HardwareVisualizer/blob/58fad7ad54263079c1c2a74aa1b8396fcdcbd344/docs/development/benchmarks/hardware-archive-duckdb-resources-2026-09-06.json) use macOS arm64 on a
+Mac16,1 with 24 GiB RAM, Rust 1.98.0, SQLx 0.8.6 and bundled DuckDB 1.5.5.
+Three standalone executables share Tokio and the JSON measurement protocol.
+Each clean build uses a separate empty target directory and two build jobs,
+after dependency fetch, with the application's release profile: size
+optimization, LTO, stripped symbols and one codegen unit.
+
+| Executable | File MiB | gzip-9 MiB | Clean build s | Unchanged rebuild s | Build target allocated MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Common Tokio/JSON baseline | 0.401 | 0.190 | 5.49 | 0.06 | 40.660 |
+| SQLx SQLite | 1.800 | 0.925 | 44.30 | 0.23 | 439.148 |
+| Bundled DuckDB | 24.354 | 7.805 | 273.97 | 0.20 | 686.172 |
+
+The native executable adds 22.554 MiB over the SQLite control, and the clean
+build takes about 6.2 times as long. Its dynamic dependency list contains no
+separate DuckDB library. Target allocation includes dependencies and native
+build outputs and excludes the generated gzip comparison. gzip sizes are
+compression comparisons, not installer sizes. Each build timing is one local
+observation; none estimates a full Tauri package or a Windows/Linux build.
+The recorded lockfile pins the resolved dependencies; the measured commands
+did not pass `--offline` or `--locked`.
+
+Idle memory was measured from the same release executables, with no concurrent
+build or retention probe. Each engine/fixture case uses three fresh processes;
+each stage settles for one second, then takes six samples one second apart.
+The macOS `proc_pid_rusage` current resident-size and physical-footprint fields
+are sampled while the child waits for input. They are not peak RSS. The fixture
+contains 100,000 normal-value Process and 10,000 Ambient rows; fixture creation
+happens outside the measured child. Process and Ambient queries return 2,926
+rows with matching digests across engines and repetitions, and release their
+results before sampling.
+
+The table gives the median of the three per-process medians as **RSS / physical
+footprint**, in MiB. Raw samples and the range of process medians are in the
+resource artifact. These are standalone process totals, not incremental app
+memory.
+
+| Stage | SQLx SQLite MiB | Bundled DuckDB MiB |
+| --- | ---: | ---: |
+| Before database open | 6.312 / 1.797 | 7.922 / 2.172 |
+| Open seeded database | 7.594 / 2.250 | 20.922 / 6.000 |
+| Idle after queries | 14.578 / 9.235 | 28.578 / 11.954 |
+| Idle after connection/pool close | 14.516 / 7.235 | 28.562 / 11.735 |
+
+The common runtime baseline stays at 1.797 MiB RSS / 1.235 MiB footprint.
+Opening an empty database gives 7.578 / 2.235 MiB for SQLite and
+20.984 / 6.094 MiB for DuckDB, close to the seeded-open case. Both controls use
+the same ten-thread Tokio runtime. SQLite uses current SQLx features and pool
+defaults with WAL/NORMAL; DuckDB uses two engine threads and a 128 MB managed
+memory limit. The Ambient fixture's extra epoch-millisecond key/index is the
+previous query adapter, not a column in the current production schema.
+
+Closing the connection/pool does not return RSS to the before-open level in
+this short observation. The median within-process increase after close is
+8.172 MiB RSS / 5.406 MiB footprint for SQLite and 20.641 / 9.562 MiB for
+DuckDB. Repeated open/close should therefore not be assumed to release process
+memory immediately. The bounded Core database owner remains the recommended
+shape; this evidence does not select an idle timeout or establish a memory
+leak, a steady-state ceiling, or a full-application budget. Long sessions,
+full-schema workloads, query peaks and migration still need application-level
+measurement. The native query and storage benefits justify continuing the
+prototype while accepting the measured executable, build and idle-memory
+costs as tradeoffs to validate in the application.
 
 ## Stored values and query meaning
 
@@ -171,17 +239,49 @@ and baseline protection affects which inputs expire. Deletion follows those
 feature-owned relationships; `scheduledDataDeletion` remains the user's control
 over scheduled deletion.
 
-The initial native retention fixture removed exactly 13,322 eligible rows and
-preserved every survivor after reopen. After checkpoint, the database grew from
-1,585,152 to 2,109,440 bytes, an increase of 512 KiB, while its WAL returned to
-zero. This demonstrates logical deletion for that fixture, not physical
-reclamation or later reuse.
+The earlier small fixture removed 13,322 eligible rows, preserved every
+survivor and grew by 512 KiB after checkpoint. A larger
+[retention experiment](https://github.com/shm11C3/HardwareVisualizer/blob/58fad7ad54263079c1c2a74aa1b8396fcdcbd344/docs/development/benchmarks/hardware-archive-duckdb-resources-2026-09-06.json) now separates that immediate
+behavior from later reuse. It starts with 630,000 Process and 72,000 Ambient
+rows, deletes 80%, then runs eight append/expiry cycles at a stable 126,000 and
+14,400 retained rows. Primary keys and both current timestamp indexes are
+included. Every reopen compares every surviving field and ID with the expected
+records; source and compact copies also pass those checks.
 
-DuckDB may reuse internal space, while [complete compaction can require copying
-to another database](https://duckdb.org/docs/current/operations_manual/footprint_of_duckdb/reclaiming_space). Internal reuse versus periodic copy-compaction remains
-open because a copy adds peak disk use, cancellation, authority, and recovery
-states. Checkpoint duration and compaction are maintenance concerns; neither
-defines archive visibility or the recent-loss interval.
+The table reports **database file bytes / filesystem-allocated bytes**, in MiB.
+WAL is zero at these checkpoints; the complete artifact separately records WAL,
+spill files and SQLite SHM, so a shrinking SHM is not mistaken for a shrinking
+SQLite database.
+
+| State | SQLite file / allocated MiB | DuckDB file / allocated MiB |
+| --- | ---: | ---: |
+| Before expiry | 73.824 / 73.824 | 28.262 / 29.012 |
+| After 80% expiry and checkpoint | 73.824 / 73.824 | 31.512 / 32.012 |
+| After eight append/expiry cycles | 73.824 / 73.824 | 18.262 / 18.262 |
+| Fresh compact copy | 14.203 / 14.203 | 6.762 / 6.762 |
+
+DuckDB initially grows despite expiry: 71 of 126 blocks are free after the
+purge. Subsequent writes reuse space and checkpoints shrink the file in steps;
+the eighth cycle leaves 15 free blocks of 73 total. SQLite keeps its database
+allocation while reusing free pages, with 15,101 of 18,899 pages free at the end.
+These bounded observations support reuse and partial shrink, not an immediate
+size reduction proportional to the Retention Period or a lifetime size bound.
+
+DuckDB's fresh copy takes 93.61 ms and the sampled combined source/output disk
+allocation reaches at least 28.758 MiB. SQLite's `VACUUM INTO` takes 26.04 ms
+and reaches at least 88.062 MiB. Both retain the source. These are single small
+copy observations with a 2 ms sampler, not exact peak-space or application
+pause budgets. The artifact preserves a prior control-affected run and the
+selected run's shell bookkeeping error after complete passing probe output;
+the latter did not alter the measurements or validations.
+
+The recommended maintenance shape starts with expiry plus checkpoints and
+reuse. [Copy compaction](https://duckdb.org/docs/current/operations_manual/footprint_of_duckdb/reclaiming_space)
+can recover more space when an explicit optimization warrants its extra disk
+use and rewrite work. It needs the same durable selection, cancellation and
+recovery ownership as migration. The full-schema policy and when to offer
+compaction remain open; neither compaction nor checkpoint timing defines
+archive visibility or the recent-loss interval.
 
 ## Migration and authority
 
@@ -212,7 +312,7 @@ The fault-isolation boundary for a native file remains unresolved.
   query behavior.
 - [#2084](https://github.com/shm11C3/HardwareVisualizer/issues/2084) covers the
   production transaction boundary, connection and cancellation model,
-  checkpoint contention, sustained delete/reuse, possible copy-compaction,
+  checkpoint contention, full-schema and long-session retention, copy-compaction,
   and crash or power-loss recovery.
 - [#2085](https://github.com/shm11C3/HardwareVisualizer/issues/2085) covers all
   current schema objects and consumers, mutable-table semantics, migration
