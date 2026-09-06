@@ -1,7 +1,15 @@
-# Hardware Archive Storage Design
+# Hardware Archive SQLite Chunk Candidate
 
-Status: proposed implementation design for
+Status: retained SQLite candidate design for
 [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
+
+The current investigation is the [native DuckDB Design Doc](../design/hardware-archive-duckdb.md)
+accepted in [ADR 0022](../adr/0022-prioritize-native-duckdb-archive-qualification.md).
+All engine-specific recommendations below describe the earlier SQLite chunk
+alternative. They are preserved as design history, not the current work order;
+the dated baseline and G1–G8 assignments below must not be treated as refreshed
+DuckDB implementation guidance. The product/query guarantees and proposed
+measurement budgets remain inputs to the current qualification.
 
 [ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) owns accepted product
 guarantees. [ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md) recommends
@@ -10,9 +18,10 @@ this document describes planned changes.
 
 The claim is to reduce local archive disk usage while preserving stored history,
 Process Insight answers, and monitoring during migration. It serves DP-02,
-DP-04, DP-05, DP-06, DP-07, and DP-09. The
-[delivery plan](../development/hardware-archive-implementation-plan.md) defines
-G1–G8: draft identifiers, not published issue numbers.
+DP-04, DP-05, DP-06, DP-07, and DP-09. The G1–G8 labels below are historical
+draft identifiers, not published issue numbers.
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks
+the current investigation and work breakdown.
 
 ## Decision inventory
 

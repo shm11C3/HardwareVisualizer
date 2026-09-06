@@ -6,6 +6,30 @@ files should be named.
 The goal is discoverability: a new contributor should be able to start from
 `docs/README.md`, then follow a predictable location and naming scheme.
 
+## Documentation Depth
+
+Treat code as the living specification. Make behavior and constraints readable
+through names, types, responsibility boundaries and focused tests. Detailed
+prose that restates the implementation drifts as code changes; keep rationale
+and trade-offs that cannot be understood from code in documentation.
+
+HardwareVisualizer does not use specification-driven development. Do not
+maintain a parallel, detailed behavioral specification or add a
+specification-approval workflow.
+
+Design Docs explain the problem, chosen approach, meaningful alternatives,
+trade-offs, ownership boundaries and remaining decisions. Keep them as short as
+those decisions allow. When a database or library owns an algorithm, document
+why it was selected and its application-level consequences; do not duplicate
+its internal algorithm. Keep detailed measurement procedures in benchmark code
+and raw evidence, with a short results summary in the Design Doc. ADRs preserve
+architecturally significant decisions and their reasons.
+
+Clean-room sensor work has separate requirements for implementation-ready
+reference specifications, source provenance and role separation. Those scoped
+requirements remain mandatory; they support independent implementation and do
+not mean that the project adopts specification-driven development.
+
 ## Placement Rules
 
 Use the closest stable owner:
@@ -25,7 +49,9 @@ Use the closest stable owner:
   - `core/README.md` for `hardviz-core`.
 - Task guides that cross code owners live under `docs/development/`.
 - User-facing guides that are published by the website live under `docs/user/`.
-- Architecture docs live under `docs/architecture/`.
+- Design Docs explaining proposed structures, evaluated alternatives and
+  trade-offs live under `docs/design/`.
+- Current architecture docs live under `docs/architecture/`.
 - Release, verification, signing, and distribution docs should live under
   `docs/release/` or `docs/security/` when those directories are introduced.
 - Generated legal/license notices currently live under

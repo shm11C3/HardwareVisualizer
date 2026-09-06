@@ -47,7 +47,8 @@ commit or PR context explain a change-local why, and code comments explain why
 not when a rejected alternative would otherwise look preferable. Use an ADR for
 an architecturally significant why, including its context, alternatives, and
 consequences. Do not require one consolidated decision document for every
-change.
+change. Follow the [documentation-depth policy](docs/documentation-guide.md#documentation-depth)
+when deciding what belongs in a Design Doc or reference specification.
 
 HardwareVisualizer is not a lightweight codebase, so complexity is not
 prohibited when the current product requirement, correctness, platform

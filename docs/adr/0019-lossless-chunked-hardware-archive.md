@@ -2,14 +2,22 @@
 
 Status: accepted
 
+The retained product guarantees remain accepted. [ADR 0022](0022-prioritize-native-duckdb-archive-qualification.md)
+reopens the SQLite-only, custom tail/chunk, and whole-chunk expiry choices and
+prioritizes native DuckDB qualification. Those historical implementation
+choices below are no longer the required shape of the next prototype.
+
 Tracking issue: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
 
 This records the product and architectural constraints agreed on 2026-09-01.
 It is a decision for planned work, not a claim that chunk storage is implemented.
-The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
-[storage design](../development/hardware-archive-storage-design.md) now provide
-a concrete lifecycle recommendation and decision inventory. Binary formats and
-performance budgets remain subject to the design and benchmark gate.
+[ADR 0022](0022-prioritize-native-duckdb-archive-qualification.md) and the
+[Design Doc](../design/hardware-archive-duckdb.md)
+explain the current storage recommendation and its trade-offs. The proposed
+[ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
+[storage design](../development/hardware-archive-storage-design.md) retain the
+earlier SQLite lifecycle candidate. Formats and performance budgets remain
+subject to measurement and explicit acceptance.
 
 Implementation is planned to follow the current Cooling Insight scope tracked
 by [#1666](https://github.com/shm11C3/HardwareVisualizer/issues/1666). This is a
@@ -193,9 +201,9 @@ The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) recommends
 Later behavior, migration-time writes, capture/resume, generation selection,
 maintenance, and recovery-copy removal. Its
 [storage design](../development/hardware-archive-storage-design.md) records
-comparison criteria and candidate budgets; the
-[implementation plan](../development/hardware-archive-implementation-plan.md)
-assigns their measurement and validation gates. Until that proposal is accepted,
+comparison criteria and candidate budgets.
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks the
+current measurement and validation work. Until that proposal is accepted,
 these recommendations do not replace this ADR's accepted constraints. Codecs,
 chunk sizes, and calibrated performance thresholds still require evidence.
 
