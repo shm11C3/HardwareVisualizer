@@ -117,3 +117,4 @@ shared enforcement surface.
 - [WebView2 suspension requires hiding the controller](webview2-suspend-requires-hidden-controller.md)
 - [Stabilize performance memory baselines](stabilize-perf-memory-baselines.md)
 - [Separate sensor support from recording coverage](separate-sensor-support-from-recording-coverage.md)
+- [Keep Design Docs focused on decisions](keep-design-docs-focused-on-decisions.md)
