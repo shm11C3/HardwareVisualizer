@@ -42,3 +42,18 @@ contains the complete commands, results, and limits of the experiment.
 Both are synthetic diagnostics; use the [initial qualification report](../../../docs/development/hardware-archive-duckdb-initial-qualification.md)
 for commands, results and open gates. They do not establish exceptional query
 semantics, production migration or power-loss durability.
+
+## Retention and native resource measurements
+
+- `duckdb_retention_probe.py` compares initial expiry, repeated append/expiry,
+  checkpoints, reopened survivors and copying to a compact database. File
+  bytes, allocated blocks and internal reusable space are separate measures;
+  the sampled copy footprint is a lower bound on peak disk use.
+- `duckdb_idle_memory_probe.py` samples current macOS resident size and physical
+  footprint while fresh Rust children wait at explicit idle boundaries. It
+  uses the binaries in [the standalone Rust resource probe](../archive_engine_resource_probe/README.md).
+
+Fixture preparation is outside idle measurement. Run builds, retention and
+idle measurement serially; these experiments do not measure the full Tauri
+application or establish a production resource budget. Use `--help` for each
+probe's parameters and preserve the raw JSON with its source revision.
