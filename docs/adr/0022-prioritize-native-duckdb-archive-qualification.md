@@ -27,11 +27,21 @@ The measured Ambient candidate stored a source-SQLite-derived epoch key.
 Python results do not establish Rust/App memory, packaging, migration, or
 power-loss behavior.
 
+The later [initial native qualification](https://github.com/shm11C3/HardwareVisualizer/blob/1ef7751a0cc7e0ab84f58884103402c5023a9c6c/docs/development/hardware-archive-duckdb-initial-qualification.md)
+proved exact storage round trips for two exceptional-value representations,
+but did not implement their query semantics. Thirty native transactions, each
+shaped as one minute batch, pinned-reader isolation and bounded process-crash
+cases passed. A separate retention probe removed 13,322 eligible rows, while checkpointing
+increased the database by 512 KiB; sustained reuse and compaction remain open.
+
 ## Decision
 
-1. Prioritize a native DuckDB compatibility and lifecycle prototype. Use
-   Parquet plus DuckDB as the smaller-file comparison candidate. Keep the
-   SQLite chunk design as an alternative if qualification fails.
+1. Select **native DuckDB with one authoritative database after verified
+   conversion** as the recommended adoption direction to qualify. Keep
+   production SQLite authoritative until every adoption gate passes. Use
+   Parquet plus DuckDB as the smaller-file comparison candidate and keep the
+   SQLite chunk design as an alternative if native qualification fails. This
+   does not accept a production format.
 2. Reopen ADR 0019's **SQLite-only, custom chunk/tail, and whole-chunk expiry
    implementation choices**. They are no longer required shapes for the next
    prototype. Native tables may use engine-managed columnar storage; a
@@ -47,10 +57,9 @@ power-loss behavior.
    acceptance and the complete delivery gate. Qualification may refuse an
    unsupported source while keeping it usable; it must not cast, drop, or
    silently exclude exceptional records to make a benchmark pass.
-5. Prefer testing a **single authoritative native database after conversion**
-   over permanent SQLite/native dual storage. This is a topology hypothesis:
-   mutable-table semantics and all readers/writers must be covered before it
-   can be selected. Do not claim transactions across independent databases.
+5. Qualify the selected single-database direction before production adoption:
+   mutable-table semantics and all readers/writers must be covered. Do not
+   claim transactions across independent databases.
 6. Preserve migration authority rules: source remains authoritative through
    verified copying/catch-up; activation requires a durable destination and
    explicit generation selection. After destination writes may exist, a
@@ -72,20 +81,24 @@ own the next evidence gates.
 
 ## Alternatives and consequences
 
-- Native DuckDB combines measured query/storage gains with a native transaction
-  boundary. Complete conversion still needs a demonstrated mapping for SQLite
-  values, SQL semantics, mutable tables, identifiers and schema metadata.
-- Parquet was smaller. Publishing immutable files and switching generations
-  adds a file/manifest durability and reader-lifetime protocol absent from the
-  static-file benchmark; those costs remain unmeasured.
-- SQLite plus custom chunks retains familiar transaction ownership. It remains
-  a fallback, but the measured numerical and high-cardinality summary failures
-  must be resolved before selecting that accelerator.
-- A permanent split database could avoid some conversions but creates snapshot,
-  rollup, retention and recovery coordination across engines. It is not the
-  default and requires a separate justification if native coverage fails.
-- This change does not permit lossy rollups, quantization, reduced retention,
-  outbound telemetry, a server dependency, or automatic migration enablement.
+| Alternative evaluated | Evidence and trade-off | Decision |
+| --- | --- | --- |
+| Existing SQLite rows | Preserves current behavior and transaction ownership, but the measured one-year Process/Ambient fixture occupied 883.348 MiB and its half-range Process p95 was 1,743.515 ms in the engine comparison. | Remains production authority until another format passes every gate. |
+| [SQLite custom raw chunks](https://github.com/shm11C3/HardwareVisualizer/blob/713add956faaca2a8d43dec8cf5c47cd43d30ebf/docs/development/hardware-archive-g1-benchmark.md) | Row/no-compression, row/Deflate, columnar raw and columnar/Deflate layouts plus 15/60/240-minute windows were measured. Sixty-minute columnar/Deflate was smallest at 0.301 MiB for 24 hours, but its full-decode/full-scan queries failed the 30-day and one-year comparison. | Retained fallback, not selected. |
+| [SQLite chunk accelerators](https://github.com/shm11C3/HardwareVisualizer/blob/75db64c972b39d94205800cafb6ccb15d6d6029a/docs/development/hardware-archive-g1-query-experiment.md) | Ambient bounds helped narrow reads. Unconditional Process summaries expanded under high cardinality, and merging binary64 sums failed the accepted arithmetic tolerance. | Rejected as measured; a different selection and exact arithmetic design would need new evidence. |
+| Native DuckDB | Lower measured one-year query latency than the other engine candidates, with larger files than Parquet, higher measured Python query-stage RSS than SQLite, and an engine-local transaction boundary. Exceptional-value query behavior, reclamation, full schema, Rust integration and recovery remain open. | **Selected direction for qualification with one authoritative database.** |
+| Parquet queried by DuckDB | Smallest static files in the engine comparison. Durable publication, manifest/generation switching and pinned-reader recovery were not implemented. | Retain as capacity-oriented comparison, not selected. |
+| Permanent SQLite/native split | Could avoid converting some mutable tables, but no cross-engine snapshot or transaction was measured; rollup, retention, recovery and authority would span files. | Unmeasured and not selected; requires a separate ADR-level trade-off if reconsidered. |
+
+The representation inside native DuckDB remains conditional. Both fully tagged
+rows and typed rows with an exceptional-cell sidecar preserved the tested
+stored values. At a synthetic 1% exception rate, SQLite used 1,454,080 bytes,
+tagged DuckDB used 1,585,152 bytes, and typed plus sidecar used 1,847,296 bytes.
+That storage-only probe did not implement exceptional-value queries, so this
+ADR selects neither representation.
+
+This change does not permit lossy rollups, quantization, reduced retention,
+outbound telemetry, a server dependency, or automatic migration enablement.
 
 ## Acceptance boundary
 

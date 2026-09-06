@@ -21,6 +21,47 @@ its open state does not forbid isolated research or establish that its
 current scope is finished. Recheck schema and query changes before format
 adoption and each application integration slice.
 
+## Accumulated alternatives and selection
+
+The selected adoption direction to qualify is **native DuckDB as one
+authoritative database after verified conversion**. Production remains on the
+existing SQLite database until all value, query, lifecycle, migration, Rust,
+platform and recovery gates pass. This selection does not choose an
+exceptional-value representation or accept a production format.
+
+| Candidate | What was tested | Measured benefit or cost | Current decision |
+| --- | --- | --- | --- |
+| Existing SQLite rows | Original SQLite storage and query paths are the relational oracle in every experiment. | It retains current semantics and transaction ownership. In the engine comparison, the one-year two-family fixture used 883.348 MiB and half-range Process p95 was 1,743.515 ms. | Keep as production authority and recovery source until adoption completes. |
+| SQLite custom chunks, raw query path | The [initial G1 benchmark](https://github.com/shm11C3/HardwareVisualizer/blob/713add956faaca2a8d43dec8cf5c47cd43d30ebf/docs/development/hardware-archive-g1-benchmark.md) compared row/no compression, row/Deflate, columnar raw and columnar/Deflate, plus 15-, 60- and 240-minute windows. | Sixty-minute columnar/Deflate was smallest for 24 hours at 0.301 MiB versus 2.367 MiB relational. Full Process decode and Ambient scan failed the proposed 30-day and one-year query ceilings. | Useful lossless size fallback; raw scans do not satisfy the long-range query gate. |
+| SQLite chunks with unconditional Process summaries | The [query-strategy experiment](https://github.com/shm11C3/HardwareVisualizer/blob/75db64c972b39d94205800cafb6ccb15d6d6029a/docs/development/hardware-archive-g1-query-experiment.md) measured indexed per-chunk summary/metadata tables, raw boundary chunks and ranked paging. | Fast on ordinary cases, but merged binary64 sums produced 1024.0 versus SQLite 1024.5. At one-minute tuple lifetime, 647,535 summaries represented 647,535 finalized rows, metadata expanded the 9.727 MiB chunk DB to 70.969 MiB (83.547 MiB relational), and both measured Process ranges failed. | Reject this arithmetic and unconditional high-cardinality shape. A replacement needs a new exact accumulation and selection proof. |
+| SQLite chunks with Ambient bounds | The same query experiment indexed per-chunk timestamp bounds and decoded candidate chunks before applying the original SQLite predicate. | One-year middle-24-hour decoding fell from 955,580 to 2,727 rows and p95 to 16.903–17.617 ms. Wide ranges still decode many rows; one-year stable half-range and 30-day one-minute-churn half-range missed their ceilings. | Retain range pruning as a possible building block, not a complete storage/query choice. |
+| Native DuckDB | The [engine comparison](https://github.com/shm11C3/HardwareVisualizer/blob/75db64c972b39d94205800cafb6ccb15d6d6029a/docs/development/hardware-archive-g1-engine-comparison.md) tested the same generated rows and ranges after exact reopen. The [initial qualification](https://github.com/shm11C3/HardwareVisualizer/blob/1ef7751a0cc7e0ab84f58884103402c5023a9c6c/docs/development/hardware-archive-duckdb-initial-qualification.md) added exceptional-value storage and bounded lifecycle probes. | One-year storage was 204.262 MiB and half-range Process p95 59.039 ms. Ordinary typed rows passed; fixed typing failed mixed classes. Both later exact representations passed storage round trip, but exceptional queries remain unimplemented. Thirty native transactions, each shaped as one minute batch, and bounded crash/snapshot checks passed. | **Selected next qualification direction**, with one authoritative native database only after every gate passes. |
+| Parquet queried by DuckDB | The engine comparison queried two immutable Parquet files through DuckDB. | One-year storage was 83.459 MiB and half-range Process p95 89.383 ms. Publication, manifest authority, concurrent replacement and reader recovery were not implemented. | Capacity-oriented comparison; smaller static files do not outweigh the unproven lifecycle. |
+| Permanent SQLite/native split | No end-to-end prototype or benchmark exists. | Avoids some conversion, but mutable summaries/baselines and Storage Health would need coherent snapshots, rollup/retention ordering and recovery across engines without a shared transaction. | Not selected. Reconsider only with a separate explicit trade-off and evidence. |
+
+Within the one-year stable **engine comparison**, SQLite/native/Parquet query-stage
+whole-process RSS was 55.594/186.969/127.688 MiB. Native trades more measured
+working memory and disk than Parquet for faster Process queries in that matrix
+and a database-local write/read transaction boundary. These Python processes
+all import DuckDB, even the SQLite baseline; subtraction does not estimate
+added application RAM. The native static fixture lacks production keys/indexes,
+so its 204.262 MiB does not include their required cost.
+
+The initial/query-strategy experiments use Rust/SQLx, while the engine matrix
+uses Python bindings. Compare query timings within each experiment, not as a
+single cross-harness speed ranking. The measurements are synthetic and cover
+only their declared fixtures. They do not compare a complete production DB,
+ten-year history, controlled cold caches, Rust IPC, supported-platform packages
+or power-loss recovery.
+
+Adopt the native direction only if its query and transaction benefits survive
+full-schema, exceptional-value, memory, packaging and recovery qualification.
+If a gate fails, keep SQLite authoritative and revisit the measured alternatives;
+a smaller Parquet file or a prior SQLite chunk result is not automatic fallback
+approval. The typed-versus-tagged representation and internal-reuse-versus-copy
+compaction choices remain open until their specific query and sustained-growth
+measurements support a decision.
+
 ## Decisions and open gates
 
 | Area | Next design to test | Adoption gate |
@@ -81,6 +122,15 @@ semantics are proven, reject activation of an unsupported source and keep it
 queryable by its existing SQLite path. This is preflight refusal, not silent
 loss or a permanent cross-engine query design.
 
+The initial storage-only probe reopened every tested value exactly under both
+representations. With 20,000 records and a synthetic 1% exceptional-row rate,
+source SQLite used 1,454,080 bytes, fully tagged DuckDB used 1,585,152 bytes,
+and typed DuckDB plus a 467-cell sidecar used 1,847,296 bytes. The sidecar made
+exceptional projected cells NULL, and no tag-aware query evaluator was built.
+These sizes are allocation-sensitive single-scale observations, not a query or
+large-history result. Keep both representations conditional until query
+semantics and representative exception rates are measured.
+
 Keep the query contracts from the [earlier design](hardware-archive-storage-design.md#query-contract):
 exact membership, buckets, source/group identity, null masks, counts and
 weighting; finite derived values use `abs(actual-reference) <=
@@ -129,6 +179,14 @@ policy. The accepted newest-interval loss target and protection of older data
 remain requirements. A successful process-kill probe leaves the OS/power gate
 open; the current SQLite WAL/NORMAL setting is not a native configuration.
 
+The bounded lifecycle probe completed 30 minute-shaped transactions while a
+pinned reader remained on one snapshot, then reopened the expected 100,450
+Process and 10,052 Ambient rows. This was 30 batches, not 30 minutes of
+continuous monitoring, and it deliberately combined Process and Ambient where
+the current writer uses separate SQLite transactions. Committed and in-flight
+SIGKILL cases and deleted-highest-ID allocation passed; imported sequence state,
+production latency, cancellation and OS/power failure remain open.
+
 Delete only eligible rows after required rollups succeed, with bounded work in
 long sessions. Preserve `scheduledDataDeletion`, separate Retention Periods,
 and baseline protection. Native table deletion replaces whole application
@@ -136,6 +194,14 @@ chunk expiry only if its measured cost is acceptable. Report logically expired
 rows, internal reusable space and filesystem bytes separately; do not assume
 `DELETE`, `VACUUM`, or checkpoint reduces the file. Preserve source/recovery
 copies while any replacement/reclamation operation is unverified.
+
+The initial retention fixture removed exactly 13,322 eligible records and
+preserved every survivor after reopen. The checkpointed database then grew from
+1,585,152 to 2,109,440 bytes, an increase of 512 KiB, while the WAL returned to
+zero. This proves the tested logical predicate, not physical reclamation or
+future reuse. Selection between accepting internal reuse and performing a
+full-copy compaction remains conditional on sustained-growth, temporary-space,
+cancellation and recovery evidence.
 
 Prefer a single native authoritative database after conversion because raw
 history, summaries/baselines and Storage Health are related transactional data.
