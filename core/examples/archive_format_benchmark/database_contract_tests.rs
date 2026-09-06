@@ -13,6 +13,9 @@ fn test_config(output: PathBuf) -> Config {
     seed: 2052,
     duty_cycle: 1,
     group_cap: 64,
+    query_experiment: false,
+    process_workload: ProcessWorkload::Stable,
+    process_lifetime_minutes: 30,
   }
 }
 

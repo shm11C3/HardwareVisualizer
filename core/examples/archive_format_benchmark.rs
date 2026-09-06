@@ -34,9 +34,50 @@ Options:
   --seed N                     deterministic seed (default: 2052)
   --duty-cycle N               sample every N represented minutes (default: 1)
   --group-cap N                maximum process groups/query (default: 100000)
+  --query-experiment           build and measure offline query accelerators
+  --process-workload stable|churn
+                               process identity workload (default: stable)
+  --process-lifetime-minutes N represented churn lifetime (default: 30)
 
 Duty cycle > 1 is reported as duty-cycled, not continuous history. Use the
 default duty cycle for continuous 24h/30d/1y/10y data."#;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ProcessWorkload {
+  Stable,
+  Churn,
+}
+
+#[cfg(test)]
+mod config_tests {
+  use super::*;
+
+  #[test]
+  fn standalone_query_flag_does_not_consume_the_next_option() {
+    let config = Config::parse_from(
+      [
+        "--output",
+        "unused",
+        "--query-experiment",
+        "--minutes",
+        "60",
+        "--process-workload",
+        "churn",
+        "--process-lifetime-minutes",
+        "1",
+      ]
+      .into_iter()
+      .map(str::to_owned),
+    )
+    .unwrap();
+
+    assert!(config.query_experiment);
+    assert_eq!(config.minutes, 60);
+    assert_eq!(config.process_workload, ProcessWorkload::Churn);
+    assert_eq!(config.process_lifetime_minutes, 1);
+  }
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct Config {
@@ -51,10 +92,17 @@ pub(crate) struct Config {
   seed: u64,
   duty_cycle: u64,
   group_cap: usize,
+  query_experiment: bool,
+  process_workload: ProcessWorkload,
+  process_lifetime_minutes: u64,
 }
 
 impl Config {
   fn parse() -> Result<Self> {
+    Self::parse_from(env::args().skip(1))
+  }
+
+  fn parse_from(arguments: impl IntoIterator<Item = String>) -> Result<Self> {
     let mut config = Self {
       output: PathBuf::new(),
       minutes: 1_440,
@@ -67,59 +115,83 @@ impl Config {
       seed: 2052,
       duty_cycle: 1,
       group_cap: 100_000,
+      query_experiment: false,
+      process_workload: ProcessWorkload::Stable,
+      process_lifetime_minutes: 30,
     };
-    let mut args = env::args().skip(1);
+    let mut args = arguments.into_iter();
     while let Some(argument) = args.next() {
-      let value = args
-        .next()
-        .filter(|_| argument != "--help" && argument != "-h");
       match argument.as_str() {
-        "--output" => config.output = value.ok_or("missing --output value")?.into(),
+        "--output" => config.output = args.next().ok_or("missing --output value")?.into(),
         "--minutes" => {
-          config.minutes = value.ok_or("missing --minutes value")?.parse()?
+          config.minutes = args.next().ok_or("missing --minutes value")?.parse()?
         }
         "--days" => {
-          config.minutes = value
+          config.minutes = args
+            .next()
             .ok_or("missing --days value")?
             .parse::<u64>()?
             .checked_mul(1_440)
             .ok_or("duration overflow")?;
         }
         "--processes-per-minute" => {
-          config.processes_per_minute = value
+          config.processes_per_minute = args
+            .next()
             .ok_or("missing --processes-per-minute value")?
             .parse()?;
         }
         "--chunk-minutes" => {
-          config.chunk_minutes = value.ok_or("missing --chunk-minutes value")?.parse()?;
+          config.chunk_minutes = args
+            .next()
+            .ok_or("missing --chunk-minutes value")?
+            .parse()?;
         }
         "--chunk-rows" => {
-          config.chunk_rows = value.ok_or("missing --chunk-rows value")?.parse()?;
+          config.chunk_rows = args.next().ok_or("missing --chunk-rows value")?.parse()?;
         }
         "--repetitions" => {
-          config.repetitions = value.ok_or("missing --repetitions value")?.parse()?;
+          config.repetitions =
+            args.next().ok_or("missing --repetitions value")?.parse()?;
         }
-        "--seed" => config.seed = value.ok_or("missing --seed value")?.parse()?,
+        "--seed" => config.seed = args.next().ok_or("missing --seed value")?.parse()?,
         "--duty-cycle" => {
-          config.duty_cycle = value.ok_or("missing --duty-cycle value")?.parse()?;
+          config.duty_cycle = args.next().ok_or("missing --duty-cycle value")?.parse()?;
         }
         "--group-cap" => {
-          config.group_cap = value.ok_or("missing --group-cap value")?.parse()?;
+          config.group_cap = args.next().ok_or("missing --group-cap value")?.parse()?;
+        }
+        "--query-experiment" => config.query_experiment = true,
+        "--process-workload" => {
+          config.process_workload = match args
+            .next()
+            .ok_or("missing --process-workload value")?
+            .as_str()
+          {
+            "stable" => ProcessWorkload::Stable,
+            "churn" => ProcessWorkload::Churn,
+            other => return Err(format!("unknown process workload {other:?}").into()),
+          };
+        }
+        "--process-lifetime-minutes" => {
+          config.process_lifetime_minutes = args
+            .next()
+            .ok_or("missing --process-lifetime-minutes value")?
+            .parse()?;
         }
         "--layout" => {
-          config.layout = match value.ok_or("missing --layout value")?.as_str() {
+          config.layout = match args.next().ok_or("missing --layout value")?.as_str() {
             "row" => Layout::Row,
             "columnar" => Layout::Columnar,
             other => return Err(format!("unknown layout {other:?}").into()),
           };
         }
         "--compression" => {
-          config.compression = match value.ok_or("missing --compression value")?.as_str()
-          {
-            "none" => Compression::None,
-            "deflate" => Compression::Deflate,
-            other => return Err(format!("unknown compression {other:?}").into()),
-          };
+          config.compression =
+            match args.next().ok_or("missing --compression value")?.as_str() {
+              "none" => Compression::None,
+              "deflate" => Compression::Deflate,
+              other => return Err(format!("unknown compression {other:?}").into()),
+            };
         }
         "--help" | "-h" => {
           println!("{HELP}");
@@ -138,6 +210,7 @@ impl Config {
       || config.repetitions == 0
       || config.duty_cycle == 0
       || config.group_cap == 0
+      || config.process_lifetime_minutes == 0
     {
       return Err("numeric controls must be positive".into());
     }
@@ -159,6 +232,8 @@ struct Report {
   footprints: FootprintReport,
   timings_ms: TimingReport,
   correctness: database::CorrectnessReport,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  query_experiment: Option<database::query_experiment::QueryExperimentReport>,
   limitations: [&'static str; 6],
 }
 
@@ -170,6 +245,16 @@ struct WorkloadReport {
   sampling_mode: &'static str,
   duty_cycle: u64,
   processes_per_sampled_minute: u32,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  process_workload: Option<ProcessWorkload>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  process_workload_purpose: Option<&'static str>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  process_identity_key: Option<&'static str>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  process_lifetime_minutes: Option<u64>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  churn_pid_pool: Option<u64>,
   numeric_shape: &'static str,
   process_rows: i64,
   ambient_rows: i64,
@@ -357,11 +442,19 @@ async fn run() -> Result<()> {
   let vacuum_wall_ms = vacuum_started.elapsed().as_secs_f64() * 1_000.0;
   let after = benchmark.candidate_footprint().await?;
   let sqlite = benchmark.sqlite_report().await?;
+  let query_experiment = if config.query_experiment {
+    Some(benchmark.run_query_experiment().await?)
+  } else {
+    None
+  };
   let decoded_value_bytes = benchmark
     .finalized
     .finalized_decoded_value_bytes
     .checked_add(benchmark.retained_tail_decoded_value_bytes)
     .ok_or("full workload decoded value byte count overflow")?;
+  let report_process_workload = config.query_experiment
+    || config.process_workload != ProcessWorkload::Stable
+    || config.process_lifetime_minutes != 30;
 
   let report = Report {
     format: "hardviz-archive-g1-v2",
@@ -377,6 +470,23 @@ async fn run() -> Result<()> {
       },
       duty_cycle: config.duty_cycle,
       processes_per_sampled_minute: config.processes_per_minute,
+      process_workload: report_process_workload.then_some(config.process_workload),
+      process_workload_purpose: report_process_workload.then_some(
+        match config.process_workload {
+          ProcessWorkload::Stable => "existing stable benchmark fixture",
+          ProcessWorkload::Churn => {
+            "synthetic cardinality stress; not representative executable-name churn"
+          }
+        },
+      ),
+      process_identity_key: report_process_workload
+        .then_some("(pid, process_name); no global process identity is inferred"),
+      process_lifetime_minutes: (report_process_workload
+        && config.process_workload == ProcessWorkload::Churn)
+        .then_some(config.process_lifetime_minutes),
+      churn_pid_pool: (report_process_workload
+        && config.process_workload == ProcessWorkload::Churn)
+        .then_some(u64::from(config.processes_per_minute) * 8),
       numeric_shape: "producer-range rows plus separately labeled exact i64/binary64 sentinels",
       process_rows: benchmark.process_rows,
       ambient_rows: benchmark.ambient_rows,
@@ -420,6 +530,7 @@ async fn run() -> Result<()> {
       ambient_raw_query_chunked: Timing::from(&benchmark.times.ambient_candidate),
     },
     correctness: benchmark.correctness.clone(),
+    query_experiment,
     limitations: [
       "Synthetic data is not real-world workload evidence.",
       "Footprints cover two raw families, not the full application database or its 30 percent gate.",

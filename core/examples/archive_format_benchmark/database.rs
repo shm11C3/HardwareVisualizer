@@ -1,5 +1,5 @@
 use super::{
-  Config, Error, Result,
+  Config, Error, ProcessWorkload, Result,
   codec::{self, Compression, Layout, Record, Value},
 };
 use serde::Serialize;
@@ -14,6 +14,13 @@ use std::{
   path::{Path, PathBuf},
   time::{Duration, Instant},
 };
+
+#[path = "ambient_bounds.rs"]
+mod ambient_bounds;
+#[path = "process_summary.rs"]
+mod process_summary;
+#[path = "query_experiment.rs"]
+pub(crate) mod query_experiment;
 
 const PROCESS: &str = "process_stats";
 const AMBIENT: &str = "ambient_archive";
@@ -319,6 +326,19 @@ impl Benchmark {
         .await?,
     })
   }
+
+  pub async fn run_query_experiment(
+    &mut self,
+  ) -> Result<query_experiment::QueryExperimentReport> {
+    let candidate = self.candidate.as_mut().ok_or("candidate is not open")?;
+    query_experiment::run(
+      &self.config,
+      &mut self.baseline,
+      candidate,
+      &self.candidate_path,
+    )
+    .await
+  }
 }
 
 fn codec_error(message: String) -> Error {
@@ -383,13 +403,7 @@ async fn insert_minute(
 ) -> Result<()> {
   let at = timestamp(minute)?;
   for slot in 0..config.processes_per_minute {
-    let identity = (u64::from(slot) * 17 + minute / 31 + config.seed)
-      % (u64::from(config.processes_per_minute) * 3);
-    let name = match identity % 23 {
-      0 => format!("worker\0{identity}"),
-      1 => format!("描画-{identity}"),
-      _ => format!("process-{identity:05}"),
-    };
+    let (pid, name) = process_identity(config, minute, slot)?;
     let random = mix(config.seed ^ minute.rotate_left(7) ^ u64::from(slot));
     // Normal rows keep the current producer's f32/i32-shaped range. Separate
     // sparse sentinel rows exercise exact i64 and binary64 storage classes.
@@ -407,7 +421,7 @@ async fn insert_minute(
       )
     };
     sqlx::query("INSERT INTO PROCESS_STATS (pid, process_name, cpu_usage, memory_usage, execution_sec, timestamp) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(100_i64 + i64::try_from(identity)?)
+      .bind(pid)
       .bind(name)
       .bind(cpu)
       .bind(memory)
@@ -416,7 +430,9 @@ async fn insert_minute(
       .execute(&mut **tx)
       .await?;
   }
-  if minute.is_multiple_of(97) {
+  if matches!(config.process_workload, ProcessWorkload::Stable)
+    && minute.is_multiple_of(97)
+  {
     sqlx::query("INSERT INTO PROCESS_STATS (pid, process_name, cpu_usage, memory_usage, execution_sec, timestamp) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(777_i64).bind("duplicate-identity").bind(-0.0_f64)
       .bind(i64::MIN + 2052).bind(i64::try_from(minute)?).bind(&at)
@@ -442,6 +458,39 @@ async fn insert_minute(
       .execute(&mut **tx).await?;
   }
   Ok(())
+}
+
+fn process_identity(config: &Config, minute: u64, slot: u32) -> Result<(i64, String)> {
+  match config.process_workload {
+    ProcessWorkload::Stable => {
+      let identity = (u64::from(slot) * 17 + minute / 31 + config.seed)
+        % (u64::from(config.processes_per_minute) * 3);
+      let name = match identity % 23 {
+        0 => format!("worker\0{identity}"),
+        1 => format!("描画-{identity}"),
+        _ => format!("process-{identity:05}"),
+      };
+      Ok((100_i64 + i64::try_from(identity)?, name))
+    }
+    ProcessWorkload::Churn => {
+      // A process incarnation lasts for the configured represented duration.
+      // PIDs come from a bounded pool and are reused with a changed name after
+      // eight incarnations, so `(pid, process_name)` remains the only identity.
+      let incarnation = minute / config.process_lifetime_minutes;
+      let slots = u64::from(config.processes_per_minute);
+      let pid_slot = (incarnation % 8)
+        .checked_mul(slots)
+        .and_then(|value| value.checked_add(u64::from(slot)))
+        .ok_or("churn PID slot overflow")?;
+      let generation = incarnation / 8;
+      Ok((
+        10_000_i64
+          .checked_add(i64::try_from(pid_slot)?)
+          .ok_or("churn PID overflow")?,
+        format!("process-{pid_slot:05}-generation-{generation:06}"),
+      ))
+    }
+  }
 }
 
 fn mix(mut value: u64) -> u64 {
@@ -974,14 +1023,45 @@ async fn total_logical_rows(
 }
 
 #[derive(Clone, Debug)]
-struct Aggregate {
-  pid: i64,
-  name: Vec<u8>,
-  cpu_sum: f64,
-  memory_sum: f64,
-  count: u64,
-  max_execution: i64,
-  latest: Vec<u8>,
+pub(super) struct Aggregate {
+  pub(super) pid: i64,
+  pub(super) name: Vec<u8>,
+  pub(super) cpu_sum: f64,
+  pub(super) memory_sum: f64,
+  pub(super) count: u64,
+  pub(super) max_execution: i64,
+  pub(super) latest: Vec<u8>,
+}
+
+#[derive(Default, Serialize)]
+pub(super) struct CurrentProcessQueryMetrics {
+  pub(super) total_ms: f64,
+  pub(super) database_fetch_ms: f64,
+  pub(super) decode_ms: f64,
+  pub(super) aggregate_ms: f64,
+  pub(super) output_ms: f64,
+  pub(super) selected_chunks: u64,
+  pub(super) decoded_chunk_rows: u64,
+  pub(super) raw_tail_rows: u64,
+  pub(super) result_groups: u64,
+}
+
+#[derive(Default, Serialize)]
+pub(super) struct CurrentAmbientQueryMetrics {
+  pub(super) total_ms: f64,
+  pub(super) database_fetch_ms: f64,
+  pub(super) decode_ms: f64,
+  pub(super) materialization_ms: f64,
+  pub(super) output_ms: f64,
+  pub(super) selected_chunks: u64,
+  pub(super) decoded_chunk_rows: u64,
+  pub(super) raw_tail_rows: u64,
+  pub(super) materialized_rows: u64,
+  pub(super) output_rows: u64,
+}
+
+fn elapsed_ms(started: Instant) -> f64 {
+  started.elapsed().as_secs_f64() * 1_000.0
 }
 
 async fn process_oracle(
@@ -1017,6 +1097,136 @@ async fn process_oracle(
       })
     })
     .collect()
+}
+
+pub(super) async fn process_oracle_measured(
+  db: &mut SqliteConnection,
+  start: &str,
+  end: &str,
+) -> Result<(Vec<Aggregate>, f64)> {
+  let started = Instant::now();
+  let mut tx = db.begin().await?;
+  let rows = sqlx::query(
+    "SELECT pid, process_name, AVG(cpu_usage) avg_cpu, AVG(memory_usage) avg_memory,
+            COUNT(*) sample_count, MAX(execution_sec) max_execution,
+            MAX(timestamp) latest
+     FROM PROCESS_STATS
+     WHERE timestamp BETWEEN ? AND ?
+     GROUP BY pid, process_name
+     ORDER BY avg_cpu DESC, pid ASC, process_name ASC",
+  )
+  .bind(start)
+  .bind(end)
+  .fetch_all(&mut *tx)
+  .await?;
+  let aggregates = rows
+    .iter()
+    .map(|row| {
+      let count: i64 = row.try_get("sample_count")?;
+      Ok(Aggregate {
+        pid: row.try_get("pid")?,
+        name: row.try_get::<Vec<u8>, _>("process_name")?,
+        cpu_sum: row.try_get::<f64, _>("avg_cpu")? * count as f64,
+        memory_sum: row.try_get::<f64, _>("avg_memory")? * count as f64,
+        count: u64::try_from(count)?,
+        max_execution: row.try_get("max_execution")?,
+        latest: row.try_get::<Vec<u8>, _>("latest")?,
+      })
+    })
+    .collect::<Result<Vec<_>>>()?;
+  tx.commit().await?;
+  Ok((aggregates, elapsed_ms(started)))
+}
+
+pub(super) async fn process_chunked_measured(
+  db: &mut SqliteConnection,
+  start: &str,
+  end: &str,
+  group_cap: usize,
+) -> Result<(Vec<Aggregate>, CurrentProcessQueryMetrics)> {
+  let total_started = Instant::now();
+  let mut metrics = CurrentProcessQueryMetrics::default();
+  let mut tx = db.begin().await?;
+  let mut groups = HashMap::new();
+  let mut cursor = 0_i64;
+  loop {
+    let fetch_started = Instant::now();
+    let row = sqlx::query(PROCESS_CHUNK_LOOP_SQL)
+      .bind(PROCESS)
+      .bind(cursor)
+      .bind(start)
+      .bind(end)
+      .fetch_optional(&mut *tx)
+      .await?;
+    metrics.database_fetch_ms += elapsed_ms(fetch_started);
+    let Some(row) = row else {
+      break;
+    };
+    cursor = row.try_get("id")?;
+    metrics.selected_chunks += 1;
+    let decode_started = Instant::now();
+    let records = decode_chunk(&row, &mut Vec::new()).await?;
+    metrics.decode_ms += elapsed_ms(decode_started);
+    metrics.decoded_chunk_rows += u64::try_from(records.len())?;
+    let aggregate_started = Instant::now();
+    for record in records {
+      aggregate_process(
+        &mut groups,
+        &record,
+        start.as_bytes(),
+        end.as_bytes(),
+        group_cap,
+      )?;
+    }
+    metrics.aggregate_ms += elapsed_ms(aggregate_started);
+  }
+  let mut tail_cursor = 0_i64;
+  loop {
+    let fetch_started = Instant::now();
+    let rows = sqlx::query(
+      "SELECT * FROM PROCESS_STATS
+       WHERE timestamp BETWEEN ? AND ? AND id > ?
+       ORDER BY id LIMIT 4096",
+    )
+    .bind(start)
+    .bind(end)
+    .bind(tail_cursor)
+    .fetch_all(&mut *tx)
+    .await?;
+    metrics.database_fetch_ms += elapsed_ms(fetch_started);
+    if rows.is_empty() {
+      break;
+    }
+    metrics.raw_tail_rows += u64::try_from(rows.len())?;
+    let aggregate_started = Instant::now();
+    for row in &rows {
+      let record = row_record(PROCESS, row)?;
+      tail_cursor = integer(&record, 0)?;
+      aggregate_process(
+        &mut groups,
+        &record,
+        start.as_bytes(),
+        end.as_bytes(),
+        group_cap,
+      )?;
+    }
+    metrics.aggregate_ms += elapsed_ms(aggregate_started);
+  }
+  let output_started = Instant::now();
+  let mut aggregates: Vec<_> = groups.into_values().collect();
+  aggregates.sort_by(|left, right| {
+    let left_average = left.cpu_sum / left.count as f64;
+    let right_average = right.cpu_sum / right.count as f64;
+    right_average
+      .total_cmp(&left_average)
+      .then_with(|| left.pid.cmp(&right.pid))
+      .then_with(|| left.name.cmp(&right.name))
+  });
+  metrics.result_groups = u64::try_from(aggregates.len())?;
+  metrics.output_ms += elapsed_ms(output_started);
+  tx.commit().await?;
+  metrics.total_ms = elapsed_ms(total_started);
+  Ok((aggregates, metrics))
 }
 
 async fn process_chunked(
@@ -1199,6 +1409,41 @@ async fn ambient_oracle(
   Ok((digest.finalize().to_vec(), count))
 }
 
+pub(super) async fn ambient_oracle_measured(
+  db: &mut SqliteConnection,
+  start_ms: i64,
+  end_ms: i64,
+) -> Result<((Vec<u8>, u64), f64)> {
+  let started = Instant::now();
+  let mut tx = db.begin().await?;
+  let mut digest = Sha256::new();
+  let mut count = 0_u64;
+  let mut cursor = 0_i64;
+  loop {
+    let rows = sqlx::query(&format!(
+      "SELECT * FROM AMBIENT_ARCHIVE
+       WHERE {EPOCH_MS_SQL} BETWEEN ? AND ? AND id > ?
+       ORDER BY id LIMIT 4096"
+    ))
+    .bind(start_ms)
+    .bind(end_ms)
+    .bind(cursor)
+    .fetch_all(&mut *tx)
+    .await?;
+    if rows.is_empty() {
+      break;
+    }
+    for row in &rows {
+      let record = row_record(AMBIENT, row)?;
+      cursor = integer(&record, 0)?;
+      digest.update(record_digest(&record));
+      count += 1;
+    }
+  }
+  tx.commit().await?;
+  Ok(((digest.finalize().to_vec(), count), elapsed_ms(started)))
+}
+
 async fn insert_ambient_query_records(
   tx: &mut Transaction<'_, Sqlite>,
   records: &[Record],
@@ -1306,6 +1551,111 @@ async fn ambient_chunked(
   }
   tx.commit().await?;
   Ok((digest.finalize().to_vec(), count))
+}
+
+pub(super) async fn ambient_chunked_measured(
+  db: &mut SqliteConnection,
+  start_ms: i64,
+  end_ms: i64,
+) -> Result<((Vec<u8>, u64), CurrentAmbientQueryMetrics)> {
+  let total_started = Instant::now();
+  let mut metrics = CurrentAmbientQueryMetrics::default();
+  let materialize_started = Instant::now();
+  sqlx::query(
+    "CREATE TEMP TABLE IF NOT EXISTS ambient_query_records (
+       id INTEGER PRIMARY KEY, timestamp TEXT NOT NULL, record_digest BLOB NOT NULL
+     )",
+  )
+  .execute(&mut *db)
+  .await?;
+  sqlx::query("DELETE FROM temp.ambient_query_records")
+    .execute(&mut *db)
+    .await?;
+  metrics.materialization_ms += elapsed_ms(materialize_started);
+  let mut tx = db.begin().await?;
+  let mut chunk_cursor = 0_i64;
+  loop {
+    let fetch_started = Instant::now();
+    let row = sqlx::query(AMBIENT_CHUNK_LOOP_SQL)
+      .bind(AMBIENT)
+      .bind(chunk_cursor)
+      .fetch_optional(&mut *tx)
+      .await?;
+    metrics.database_fetch_ms += elapsed_ms(fetch_started);
+    let Some(row) = row else {
+      break;
+    };
+    chunk_cursor = row.try_get("id")?;
+    metrics.selected_chunks += 1;
+    let decode_started = Instant::now();
+    let records = decode_chunk(&row, &mut Vec::new()).await?;
+    metrics.decode_ms += elapsed_ms(decode_started);
+    metrics.decoded_chunk_rows += u64::try_from(records.len())?;
+    let materialize_started = Instant::now();
+    insert_ambient_query_records(&mut tx, &records).await?;
+    metrics.materialization_ms += elapsed_ms(materialize_started);
+    metrics.materialized_rows += u64::try_from(records.len())?;
+  }
+  let mut tail_cursor = 0_i64;
+  loop {
+    let fetch_started = Instant::now();
+    let rows = sqlx::query(&format!(
+      "SELECT * FROM AMBIENT_ARCHIVE
+       WHERE {EPOCH_MS_SQL} BETWEEN ? AND ? AND id > ?
+       ORDER BY id LIMIT 4096"
+    ))
+    .bind(start_ms)
+    .bind(end_ms)
+    .bind(tail_cursor)
+    .fetch_all(&mut *tx)
+    .await?;
+    metrics.database_fetch_ms += elapsed_ms(fetch_started);
+    if rows.is_empty() {
+      break;
+    }
+    let records = rows
+      .iter()
+      .map(|row| row_record(AMBIENT, row))
+      .collect::<Result<Vec<_>>>()?;
+    metrics.raw_tail_rows += u64::try_from(records.len())?;
+    tail_cursor = integer(
+      records.last().ok_or("tail batch was unexpectedly empty")?,
+      0,
+    )?;
+    let materialize_started = Instant::now();
+    insert_ambient_query_records(&mut tx, &records).await?;
+    metrics.materialization_ms += elapsed_ms(materialize_started);
+    metrics.materialized_rows += u64::try_from(records.len())?;
+  }
+  let output_started = Instant::now();
+  let mut digest = Sha256::new();
+  let mut count = 0_u64;
+  let mut cursor = 0_i64;
+  loop {
+    let rows = sqlx::query(&format!(
+      "SELECT id, record_digest FROM temp.ambient_query_records
+       WHERE {EPOCH_MS_SQL} BETWEEN ? AND ? AND id > ?
+       ORDER BY id LIMIT 4096"
+    ))
+    .bind(start_ms)
+    .bind(end_ms)
+    .bind(cursor)
+    .fetch_all(&mut *tx)
+    .await?;
+    if rows.is_empty() {
+      break;
+    }
+    for row in rows {
+      cursor = row.try_get("id")?;
+      digest.update(row.try_get::<Vec<u8>, _>("record_digest")?);
+      count += 1;
+    }
+  }
+  metrics.output_ms = elapsed_ms(output_started);
+  metrics.output_rows = count;
+  tx.commit().await?;
+  metrics.total_ms = elapsed_ms(total_started);
+  Ok(((digest.finalize().to_vec(), count), metrics))
 }
 
 fn record_digest(record: &Record) -> Vec<u8> {
@@ -1425,6 +1775,9 @@ mod tests {
       seed: 9,
       duty_cycle: 1,
       group_cap: 10_000,
+      query_experiment: false,
+      process_workload: ProcessWorkload::Stable,
+      process_lifetime_minutes: 30,
     }
   }
 
