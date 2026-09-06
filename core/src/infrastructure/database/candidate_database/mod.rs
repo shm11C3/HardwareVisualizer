@@ -32,7 +32,7 @@ pub struct CandidateTableReport {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CandidateReport {
-  pub candidate_path: PathBuf,
+  pub candidate_database_path: PathBuf,
   pub snapshot_kind: String,
   pub source_sqlite_version: String,
   pub source_schema_sha256: String,
@@ -123,7 +123,7 @@ impl CandidateError {
 /// Callers must await this future to completion and act only on a successful report. The
 /// blocking copy may continue if its async future is dropped; cancellation and publication
 /// belong to the later lifecycle/reconciliation boundary.
-pub async fn create_candidate(
+pub async fn build_candidate_database(
   source: &Path,
   destination: &Path,
   migrations: Vec<SchemaMigration>,
@@ -210,7 +210,7 @@ async fn copy_snapshot(
   })?;
 
   Ok(CandidateReport {
-    candidate_path: destination.to_owned(),
+    candidate_database_path: destination.to_owned(),
     snapshot_kind: "immutable_source_snapshot".to_owned(),
     source_sqlite_version: schema.sqlite_version,
     source_schema_sha256: encode_hex(&schema.digest),

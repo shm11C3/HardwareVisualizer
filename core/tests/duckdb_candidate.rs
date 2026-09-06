@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use duckdb::{AccessMode, Config, Connection};
-use hardviz_core::infrastructure::database::candidate_copy::{
-  CandidateError, CandidateReport, create_candidate,
+use hardviz_core::infrastructure::database::candidate_database::{
+  CandidateError, CandidateReport, build_candidate_database,
 };
 use hardviz_core::infrastructure::database::{
   db, gpu_archive, hardware_archive, migrate,
@@ -113,9 +113,10 @@ async fn production_archive_writers_create_copyable_fractional_cells() {
   pool.close().await;
   let source_hash = file_hash(&source);
 
-  let report = create_candidate(&source, &destination, app_migrations::get_migrations())
-    .await
-    .unwrap();
+  let report =
+    build_candidate_database(&source, &destination, app_migrations::get_migrations())
+      .await
+      .unwrap();
   assert_eq!(report.tables.len(), 17);
   assert_eq!(report.total_rows, 25);
   assert_eq!(file_hash(&source), source_hash);
@@ -150,7 +151,7 @@ async fn empty_integer_columns_keep_bigint_storage() {
     .unwrap();
   pool.close().await;
 
-  create_candidate(&source, &destination, app_migrations::get_migrations())
+  build_candidate_database(&source, &destination, app_migrations::get_migrations())
     .await
     .unwrap();
   let connection = readonly_candidate(&destination);
@@ -238,7 +239,7 @@ async fn mixed_numeric_staging_preserves_multiple_batches_generically() {
   pool.close().await;
   let source_hash = file_hash(&source);
 
-  let report = create_candidate(&source, &destination, migrations)
+  let report = build_candidate_database(&source, &destination, migrations)
     .await
     .unwrap();
   let table = report
@@ -319,7 +320,7 @@ async fn refuses_existing_and_source_destinations_without_mutation() {
   assert_eq!(std::fs::read(&fixture.destination).unwrap(), sentinel);
   assert_no_candidate_workdirs(&fixture);
 
-  let error = create_candidate(
+  let error = build_candidate_database(
     &fixture.source,
     &fixture.source,
     app_migrations::get_migrations(),
@@ -367,7 +368,7 @@ async fn refuses_schema_drift_noncanonical_cells_and_invalid_utf8() {
 }
 
 async fn copy(fixture: &Fixture) -> Result<CandidateReport, CandidateError> {
-  create_candidate(
+  build_candidate_database(
     &fixture.source,
     &fixture.destination,
     app_migrations::get_migrations(),
@@ -606,7 +607,7 @@ async fn count_all_rows(pool: &SqlitePool) -> u64 {
 }
 
 fn assert_report(report: &CandidateReport, rows: u64, destination: &Path) {
-  assert_eq!(report.candidate_path, destination);
+  assert_eq!(report.candidate_database_path, destination);
   assert_eq!(report.snapshot_kind, "immutable_source_snapshot");
   assert_eq!(report.source_migration_max_version, 23);
   assert_eq!(report.source_migration_count, 23);

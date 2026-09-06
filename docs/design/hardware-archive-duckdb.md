@@ -10,7 +10,7 @@ Implementation: [#2088](https://github.com/shm11C3/HardwareVisualizer/issues/208
 This document records why native DuckDB is the recommended archive direction,
 how it fits the application, and which choices remain open. DuckDB would own
 compression and query execution. The application still uses SQLite; an opt-in
-candidate copier starts the implementation.
+candidate database builder starts the implementation.
 [ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) continues to own
 preservation, identity, retention, and recovery requirements.
 
@@ -165,7 +165,7 @@ showed exact round trips for tagged rows and typed rows with an exceptional-cell
 sidecar. That was storage evidence, not exceptional-value query support, so the
 exceptional-value query representation remains open in #2089.
 
-The [candidate copier](../../core/src/infrastructure/database/candidate_copy/mod.rs)
+The [candidate database builder](../../core/src/infrastructure/database/candidate_database/mod.rs)
 chooses numeric types from the snapshot's actual storage classes. Normal CPU
 and GPU writers store fractional readings in legacy INTEGER-affinity columns,
 so refusing every REAL there rejects ordinary history. Integer-only columns
