@@ -66,8 +66,8 @@ open. Process-kill results do not establish power-loss recovery.
 
 The [Design Doc](../design/hardware-archive-duckdb.md) explains the
 proposed structure, accumulated experiments and unresolved trade-offs.
-[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) and its
-[investigation Issues](../development/hardware-archive-implementation-plan.md)
-track work and verification. [ADR 0021](0021-hardware-archive-migration-lifecycle.md)
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks
+work and verification through its linked investigation Issues.
+[ADR 0021](0021-hardware-archive-migration-lifecycle.md)
 remains the historical SQLite migration proposal; its mechanics are not a
 DuckDB implementation plan.

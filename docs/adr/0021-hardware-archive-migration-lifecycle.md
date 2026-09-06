@@ -115,12 +115,15 @@ The access owner, temporary capture, durable selector, and coverage-aware query
 results are required by online conversion and honest partial reads. This work
 does not change collection/ranking, add analytics, or implement downgrade.
 
-## Decision and delivery gates
+## Relationship to current work
 
-The [storage design](../development/hardware-archive-storage-design.md) specifies
-capture, comparison rules, candidate budgets, and recovery tests. The
-[implementation slices](../development/hardware-archive-implementation-plan.md)
-assign remaining decisions and dependencies.
+The [storage design](../development/hardware-archive-storage-design.md) records
+the earlier SQLite chunk proposal, including capture, comparison, candidate
+budgets, and recovery tests. The
+[DuckDB Design Doc](../design/hardware-archive-duckdb.md) explains the current
+recommended direction, and
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks the
+remaining decisions and work.
 
 Lifecycle acceptance is separate from byte-format approval. Format adoption
 requires measured evidence; product guarantees cannot be relaxed to make a

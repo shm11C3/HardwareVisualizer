@@ -18,9 +18,10 @@ this document describes planned changes.
 
 The claim is to reduce local archive disk usage while preserving stored history,
 Process Insight answers, and monitoring during migration. It serves DP-02,
-DP-04, DP-05, DP-06, DP-07, and DP-09. The
-[delivery plan](../development/hardware-archive-implementation-plan.md) defines
-G1–G8: draft identifiers, not published issue numbers.
+DP-04, DP-05, DP-06, DP-07, and DP-09. The G1–G8 labels below are historical
+draft identifiers, not published issue numbers.
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks
+the current investigation and work breakdown.
 
 ## Decision inventory
 

@@ -201,9 +201,9 @@ The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) recommends
 Later behavior, migration-time writes, capture/resume, generation selection,
 maintenance, and recovery-copy removal. Its
 [storage design](../development/hardware-archive-storage-design.md) records
-comparison criteria and candidate budgets; the
-[implementation plan](../development/hardware-archive-implementation-plan.md)
-assigns their measurement and validation gates. Until that proposal is accepted,
+comparison criteria and candidate budgets.
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks the
+current measurement and validation work. Until that proposal is accepted,
 these recommendations do not replace this ADR's accepted constraints. Codecs,
 chunk sizes, and calibrated performance thresholds still require evidence.
 

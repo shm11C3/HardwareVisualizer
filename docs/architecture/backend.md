@@ -200,9 +200,11 @@ constraints for planned lossless chunked storage. Its persisted active tail,
 format migration, and recurring retention maintenance are not implemented by
 that decision; the startup flow and cleanup behavior below remain current.
 [ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md) and the
-[storage design](../development/hardware-archive-storage-design.md) propose the concrete
-migration lifecycle; the [delivery plan](../development/hardware-archive-implementation-plan.md)
-separates measured format selection from implementation and release gates.
+[storage design](../development/hardware-archive-storage-design.md) record the earlier
+SQLite chunk migration proposal. The current recommended direction is explained
+in the [DuckDB Design Doc](../design/hardware-archive-duckdb.md), while
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks
+investigation and delivery.
 
 Persistence is split:
 

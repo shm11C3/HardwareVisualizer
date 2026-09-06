@@ -19,7 +19,7 @@ documentation.
 - [Native DuckDB direction decision](adr/0022-prioritize-native-duckdb-archive-qualification.md)
 - [Native DuckDB Hardware Archive Design Doc](design/hardware-archive-duckdb.md)
 - [Earlier SQLite chunk candidate](development/hardware-archive-storage-design.md)
-- [Hardware Archive investigation Issues](development/hardware-archive-implementation-plan.md)
+- [Hardware Archive investigation and work tracking](https://github.com/shm11C3/HardwareVisualizer/issues/2052)
 - [Relicense to GPL-3.0-or-later decision](adr/0020-relicense-to-gpl-3.0-or-later.md)
 - [Sensor hardware specs (clean-room)](specs/sensors/)
 - [Frontend architecture](../src/README.md)
