@@ -296,7 +296,7 @@ def build_native_and_parquet(
     memory_limit: str,
 ) -> dict[str, Any]:
     total_started = phase_started()
-    connection = open_duckdb(native_path, temp_dir, threads, memory_limit)
+    connection = open_duckdb(native_path, temp_dir / "native", threads, memory_limit)
     try:
         native_started = phase_started()
         connection.execute(
@@ -351,10 +351,17 @@ def verify_round_trip(
     for family in ("process", "ambient"):
         source_connection = open_sqlite_read_only(source)
         native_connection = open_duckdb(
-            native_path, args.output / "duckdb-temp", args.threads, args.memory_limit, read_only=True
+            native_path,
+            duckdb_temp_dir(args.output, "duckdb"),
+            args.threads,
+            args.memory_limit,
+            read_only=True,
         )
         parquet_connection = open_duckdb(
-            None, args.output / "duckdb-temp", args.threads, args.memory_limit
+            None,
+            duckdb_temp_dir(args.output, "parquet"),
+            args.threads,
+            args.memory_limit,
         )
         try:
             source_cursor = source_connection.execute(round_trip_sql("sqlite", family, parquet_dir))
@@ -720,7 +727,7 @@ def query_plans(
             if strategy == "sqlite"
             else open_duckdb(
                 native_path if strategy == "duckdb" else None,
-                args.output / "duckdb-temp",
+                duckdb_temp_dir(args.output, strategy),
                 args.threads,
                 args.memory_limit,
                 read_only=strategy == "duckdb",
@@ -745,7 +752,7 @@ def open_strategy(strategy: str, args: argparse.Namespace) -> Any:
         return open_sqlite_read_only(args.source)
     return open_duckdb(
         args.output / "archive.duckdb" if strategy == "duckdb" else None,
-        args.output / "duckdb-temp",
+        duckdb_temp_dir(args.output, strategy),
         args.threads,
         args.memory_limit,
         read_only=strategy == "duckdb",
@@ -775,6 +782,12 @@ def sqlite_policy_report(path: Path) -> dict[str, Any]:
         connection.close()
 
 
+def duckdb_temp_dir(output: Path, strategy: str) -> Path:
+    # Independent instances otherwise collide when their sorts spill to disk.
+    owner = "native" if strategy == "duckdb" else "parquet"
+    return output / "duckdb-temp" / owner
+
+
 def open_duckdb(
     path: Path | None,
     temp_dir: Path,
@@ -782,6 +795,7 @@ def open_duckdb(
     memory_limit: str,
     read_only: bool = False,
 ) -> duckdb.DuckDBPyConnection:
+    temp_dir.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(str(path) if path else ":memory:", read_only=read_only)
     connection.execute(f"SET threads = {int(threads)}")
     connection.execute("SET memory_limit = ?", [memory_limit])

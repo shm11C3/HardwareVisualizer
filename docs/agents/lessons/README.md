@@ -118,3 +118,4 @@ shared enforcement surface.
 - [Stabilize performance memory baselines](stabilize-perf-memory-baselines.md)
 - [Separate sensor support from recording coverage](separate-sensor-support-from-recording-coverage.md)
 - [Preserve SQLite timestamp membership](preserve-sqlite-timestamp-membership.md)
+- [Isolate DuckDB spill directories](isolate-duckdb-spill-directories.md)
