@@ -17,6 +17,7 @@ documentation.
 - [Lossless chunked Hardware Archive decision](adr/0019-lossless-chunked-hardware-archive.md)
 - [Hardware Archive migration lifecycle proposal](adr/0021-hardware-archive-migration-lifecycle.md)
 - [Hardware Archive storage design](development/hardware-archive-storage-design.md)
+- [Native DuckDB initial qualification evidence](development/hardware-archive-duckdb-initial-qualification.md)
 - [Hardware Archive implementation slices](development/hardware-archive-implementation-plan.md)
 - [Hardware Archive G1 schema and query inventory](development/hardware-archive-g1-inventory.md)
 - [Hardware Archive G1 initial benchmark](development/hardware-archive-g1-benchmark.md)

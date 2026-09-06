@@ -31,3 +31,14 @@ extra column; this is a semantic adapter, not native timestamp-parser parity.
 
 The [measurement report](../../../docs/development/hardware-archive-g1-engine-comparison.md)
 contains the complete commands, results, and limits of the experiment.
+
+## Native qualification follow-up
+
+- `duckdb_value_preservation.py` compares fully tagged and typed/exceptional
+  representations on 0%/1% mixed-value fixtures, reopening before exact checks.
+- `duckdb_lifecycle_probe.py` exercises minute-shaped commits with pinned reads,
+  process interruption, sequence high-water preservation and eligible deletion.
+
+Both are synthetic diagnostics; use the [initial qualification report](../../../docs/development/hardware-archive-duckdb-initial-qualification.md)
+for commands, results and open gates. They do not establish exceptional query
+semantics, production migration or power-loss durability.

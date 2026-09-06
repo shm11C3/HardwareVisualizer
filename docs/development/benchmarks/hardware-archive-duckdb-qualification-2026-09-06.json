@@ -1,0 +1,802 @@
+{
+  "commands": [
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/venv/bin/python core/examples/archive_engine_benchmark/duckdb_value_preservation.py --output /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values --rows 20000",
+      "cwd": "/Users/shm11c3/Develop/HardwareVisualizer/target/codex-worktrees/2052-duckdb-qualification",
+      "exit_status": 0
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/venv/bin/python core/examples/archive_engine_benchmark/duckdb_lifecycle_probe.py --output /Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-lifecycle.json --rows 100000 --repetitions 30",
+      "cwd": "/Users/shm11c3/Develop/HardwareVisualizer/target/codex-worktrees/2052-duckdb-qualification",
+      "exit_status": 0
+    }
+  ],
+  "created_at_utc": "2026-09-06T13:00:37.076105+00:00",
+  "decision": "Investigation evidence only; no production format accepted",
+  "development_base": "838d08da16d60ead84df3ddb1501ca19a57f24fc",
+  "environment": {
+    "duckdb": "1.5.5",
+    "executable": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/venv/bin/python",
+    "machine": "arm64",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.5 (v3.14.5:5607950ef23, May 10 2026, 07:38:09) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "sqlite": "3.46.0",
+    "sqlite_binding": "pysqlite3 0.5.4"
+  },
+  "execution_policy": "Sequential final runs; no overlapping local builds or benchmarks. Tiny smoke runs preceded Astra review. Generated synthetic databases only.",
+  "native_lifecycle": {
+    "artifact_root": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43",
+    "concurrent_lifecycle": {
+      "all_transactions_overlapped_query": true,
+      "analytic_queries": 30,
+      "analytic_query_timing": {
+        "count": 30,
+        "first_ms": 9.65166700007103,
+        "max_ms": 9.65166700007103,
+        "median_ms": 8.925000000090222,
+        "p95_ms": 9.25514579985247,
+        "p99_ms": 9.586972640063323
+      },
+      "artifacts": {
+        "database_bytes": 5517312,
+        "temp_bytes": 0,
+        "wal_bytes": 0
+      },
+      "before": {
+        "ambient_max_id": 10000,
+        "ambient_min_id": 1,
+        "ambient_rows": 10000,
+        "process_max_id": 100000,
+        "process_min_id": 1,
+        "process_rows": 100000
+      },
+      "committed_minutes": 30,
+      "database": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/concurrent/archive.duckdb",
+      "errors": [],
+      "minute_atomicity": [
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:01:00.000Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:02:00.037Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:03:00.074Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:04:00.111Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:05:00.148Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:06:00.185Z"
+        },
+        {
+          "ambient_rows": 0,
+          "expected_ambient_rows": 0,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:07:00.222Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:08:00.259Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:09:00.296Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:10:00.333Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:11:00.370Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:12:00.407Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:13:00.444Z"
+        },
+        {
+          "ambient_rows": 0,
+          "expected_ambient_rows": 0,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:14:00.481Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:15:00.518Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:16:00.555Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:17:00.592Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:18:00.629Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:19:00.666Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:20:00.703Z"
+        },
+        {
+          "ambient_rows": 0,
+          "expected_ambient_rows": 0,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:21:00.740Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:22:00.777Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:23:00.814Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:24:00.851Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:25:00.888Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:26:00.925Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:27:00.962Z"
+        },
+        {
+          "ambient_rows": 0,
+          "expected_ambient_rows": 0,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:28:00.999Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:29:00.036Z"
+        },
+        {
+          "ambient_rows": 2,
+          "expected_ambient_rows": 2,
+          "expected_process_rows": 15,
+          "matches": true,
+          "process_rows": 15,
+          "timestamp": "2026-01-01T00:30:00.073Z"
+        }
+      ],
+      "overlapping_transactions": 30,
+      "pass": true,
+      "pinned_reader_after": {
+        "ambient_max_id": 10000,
+        "ambient_min_id": 1,
+        "ambient_rows": 10000,
+        "process_max_id": 100000,
+        "process_min_id": 1,
+        "process_rows": 100000
+      },
+      "pinned_reader_before": {
+        "ambient_max_id": 10000,
+        "ambient_min_id": 1,
+        "ambient_rows": 10000,
+        "process_max_id": 100000,
+        "process_min_id": 1,
+        "process_rows": 100000
+      },
+      "query": {
+        "aggregates": [
+          "avg(cpu_usage)",
+          "avg(memory_usage)",
+          "max(execution_sec)",
+          "max(timestamp)"
+        ],
+        "grouping_identity": ["pid", "process_name"],
+        "synthetic_amplification": 8
+      },
+      "reopened_after": {
+        "ambient_max_id": 10052,
+        "ambient_min_id": 1,
+        "ambient_rows": 10052,
+        "process_max_id": 100450,
+        "process_min_id": 1,
+        "process_rows": 100450
+      },
+      "requested_minutes": 30,
+      "seeded": {
+        "ambient_rows": 10000,
+        "process_rows": 100000
+      },
+      "seeded_history_exact_validation": {
+        "checked_ambient_rows": 10000,
+        "checked_process_rows": 100000,
+        "fields_checked": ["id", "pid", "process_name", "timestamp", "source"],
+        "mismatches": [],
+        "pass": true
+      },
+      "transaction_timing": {
+        "count": 30,
+        "first_ms": 5.840583999088267,
+        "max_ms": 9.412542000063695,
+        "median_ms": 8.900687999812362,
+        "p95_ms": 9.236614250130513,
+        "p99_ms": 9.403201390068716
+      },
+      "transaction_timing_qualifier": "Each measured transaction includes the synchronization wait for its analytic reader query to start; it is not production append latency."
+    },
+    "limits": [
+      "Synthetic rows and one-row-at-a-time inserts approximate the current writer shape; they do not prove production minute latency.",
+      "The native schema is experimental and has no migration, generation publication, or application recovery integration.",
+      "The pinned-reader result proves one DuckDB transaction snapshot in this run.",
+      "SIGKILL tests process-crash behavior, not filesystem, OS, or power-loss durability.",
+      "Retention reports logical deletion separately from observed physical file length.",
+      "Sequence allocation requires uniqueness and non-reuse of a deleted highest committed ID; gap-free IDs are not required or claimed.",
+      "Query cancellation and cross-platform behavior are untested."
+    ],
+    "parameters": {
+      "duckdb_memory_limit": "128MB",
+      "duckdb_threads": 2,
+      "historical_process_rows": 100000,
+      "minute_commits": 30
+    },
+    "pass": true,
+    "process_crash": {
+      "committed": {
+        "all_ids_unique": true,
+        "artifacts": {
+          "database_bytes": 1323008,
+          "temp_bytes": 0,
+          "wal_bytes": 0
+        },
+        "complete_reopen_ambient_digest": "7ee5c8a8930d98f4529e3dbc84d85382f84387d98bd5f4f8eeb65848d06883f3",
+        "complete_reopen_process_digest": "ef9804498f619cdbe5128219eba9e6cdb29dea16fbed9f8b0791d71f73cea59d",
+        "complete_reopen_rows_and_fields_ok": true,
+        "delete_highest_committed_id": {
+          "deleted_ambient_id": 9100000000000005,
+          "deleted_ids_not_reused": true,
+          "deleted_process_id": 9000000000000044,
+          "final_ambient_digest": "37a042c1ea3570bfc4267eedf0939438bfb089c377db02bb6bfdb28c23423a73",
+          "final_ids_unique": true,
+          "final_process_digest": "a83163bbb36aada36ddb9ad73eab5018bebdf2ac8e846d34da8cdbcf738c67db",
+          "final_rows_and_fields_ok": true,
+          "next_ambient_ids": [9100000000000006, 9100000000000007],
+          "next_process_ids": [
+            9000000000000045, 9000000000000046, 9000000000000047,
+            9000000000000048, 9000000000000049, 9000000000000050,
+            9000000000000051, 9000000000000052, 9000000000000053,
+            9000000000000054, 9000000000000055, 9000000000000056,
+            9000000000000057, 9000000000000058, 9000000000000059
+          ]
+        },
+        "expected_batch_visible": true,
+        "mode": "committed",
+        "observed_ambient_gap_after_baseline": 2,
+        "observed_process_gap_after_baseline": 15,
+        "pass": true,
+        "post_restart_ambient_ids": [9100000000000004, 9100000000000005],
+        "post_restart_complete_rows_and_fields_ok": true,
+        "post_restart_process_ids": [
+          9000000000000030, 9000000000000031, 9000000000000032,
+          9000000000000033, 9000000000000034, 9000000000000035,
+          9000000000000036, 9000000000000037, 9000000000000038,
+          9000000000000039, 9000000000000040, 9000000000000041,
+          9000000000000042, 9000000000000043, 9000000000000044
+        ],
+        "visibility_ok": true,
+        "visible_ambient_ids": [9100000000000002, 9100000000000003],
+        "visible_process_ids": [
+          9000000000000015, 9000000000000016, 9000000000000017,
+          9000000000000018, 9000000000000019, 9000000000000020,
+          9000000000000021, 9000000000000022, 9000000000000023,
+          9000000000000024, 9000000000000025, 9000000000000026,
+          9000000000000027, 9000000000000028, 9000000000000029
+        ],
+        "worker_exit": -9,
+        "worker_stderr": ""
+      },
+      "in_flight": {
+        "all_ids_unique": true,
+        "artifacts": {
+          "database_bytes": 1323008,
+          "temp_bytes": 0,
+          "wal_bytes": 0
+        },
+        "complete_reopen_ambient_digest": "221d0ebd5d189f4eb35d255edbd54d3fe449472aae1233f1430a62647563cd08",
+        "complete_reopen_process_digest": "54153b31e51e9d59ddff8614e38cdf9e6c3169dd67d3b9e992c7c25ec02b6c68",
+        "complete_reopen_rows_and_fields_ok": true,
+        "delete_highest_committed_id": {
+          "deleted_ambient_id": 9100000000000003,
+          "deleted_ids_not_reused": true,
+          "deleted_process_id": 9000000000000029,
+          "final_ambient_digest": "32ac2dd2b1cc71de689e34140a7b0cb44490518218f62ffe92572c5a08b03135",
+          "final_ids_unique": true,
+          "final_process_digest": "6f43e9ba80a501a538e325d97c1fcf1ce2f834799560655e55ce5f0e1c06072a",
+          "final_rows_and_fields_ok": true,
+          "next_ambient_ids": [9100000000000004, 9100000000000005],
+          "next_process_ids": [
+            9000000000000030, 9000000000000031, 9000000000000032,
+            9000000000000033, 9000000000000034, 9000000000000035,
+            9000000000000036, 9000000000000037, 9000000000000038,
+            9000000000000039, 9000000000000040, 9000000000000041,
+            9000000000000042, 9000000000000043, 9000000000000044
+          ]
+        },
+        "expected_batch_visible": false,
+        "mode": "in-flight",
+        "observed_ambient_gap_after_baseline": 0,
+        "observed_process_gap_after_baseline": 0,
+        "pass": true,
+        "post_restart_ambient_ids": [9100000000000002, 9100000000000003],
+        "post_restart_complete_rows_and_fields_ok": true,
+        "post_restart_process_ids": [
+          9000000000000015, 9000000000000016, 9000000000000017,
+          9000000000000018, 9000000000000019, 9000000000000020,
+          9000000000000021, 9000000000000022, 9000000000000023,
+          9000000000000024, 9000000000000025, 9000000000000026,
+          9000000000000027, 9000000000000028, 9000000000000029
+        ],
+        "visibility_ok": true,
+        "visible_ambient_ids": [],
+        "visible_process_ids": [],
+        "worker_exit": -9,
+        "worker_stderr": ""
+      },
+      "pass": true,
+      "qualifier": "The subprocess is terminated with SIGKILL after its marker. This tests process-crash reopen behavior only, not OS or power-loss durability."
+    },
+    "production_shape": {
+      "actual_producer_integer_widths": "pid, memory_usage, and execution_sec are currently narrower Rust types; full numeric value preservation is outside this probe.",
+      "ambient_sources": ["cpu-package", "gpu-edge"],
+      "current_sqlite_difference": "The current archive writer shares one tick timestamp but commits Process and Ambient through separate SQLite transactions.",
+      "duckdb_transaction": "Process and Ambient rows committed together",
+      "experimental_integer_columns": "signed 64-bit BIGINT",
+      "minute_timestamp": "one exact RFC3339 text value for both families",
+      "missing_ambient": "absent rows",
+      "process_identity": ["pid", "process_name"],
+      "process_rows_per_minute": 15
+    },
+    "resource_usage": {
+      "max_rss_raw": 116785152,
+      "max_rss_start_raw": 51003392,
+      "max_rss_unit": "bytes on macOS; KiB on Linux",
+      "process_cpu_seconds": 43.923416,
+      "qualifier": "CPU and maximum RSS cover this entire Python process, including setup, validation, and all three diagnostics. Killed worker RSS is excluded."
+    },
+    "retention_checkpoint": {
+      "after_delete_counts": {
+        "ambient_max_id": 1668,
+        "ambient_min_id": 1,
+        "ambient_rows": 1668,
+        "process_max_id": 12510,
+        "process_min_id": 1,
+        "process_rows": 12510
+      },
+      "before_counts": {
+        "ambient_max_id": 2500,
+        "ambient_min_id": 1,
+        "ambient_rows": 2500,
+        "process_max_id": 25000,
+        "process_min_id": 1,
+        "process_rows": 25000
+      },
+      "cutoff_timestamp": "2025-12-31T10:07:00.000Z",
+      "eligible_ambient_ids": {
+        "count": 832,
+        "sha256": "4eefd7c11b064c15f77e5d0ec84167491669536de686d36fd02fc0c27a9917c5"
+      },
+      "eligible_process_ids": {
+        "count": 12490,
+        "sha256": "bd6f84d1f0714fa7d176af35f4cf97b9bd99f3b5b523413b5f9353186d87a871"
+      },
+      "exact_eligible_rows_removed": true,
+      "exact_unexpired_rows_and_fields_after_reopen": true,
+      "logical_rows_removed": 13322,
+      "pass": true,
+      "physical_file_bytes_delta_after_checkpoint": 524288,
+      "physical_reclamation_observed": false,
+      "qualifier": "Logical retention and checkpoint persistence are asserted. File-length reclamation is only observed and is not required for this diagnostic.",
+      "reopened_counts": {
+        "ambient_max_id": 1668,
+        "ambient_min_id": 1,
+        "ambient_rows": 1668,
+        "process_max_id": 12510,
+        "process_min_id": 1,
+        "process_rows": 12510
+      },
+      "seeded": {
+        "ambient_rows": 2500,
+        "process_rows": 25000
+      },
+      "sizes_after_checkpoint": {
+        "database_bytes": 2109440,
+        "temp_bytes": 0,
+        "wal_bytes": 0
+      },
+      "sizes_after_delete_before_checkpoint": {
+        "database_bytes": 1585152,
+        "temp_bytes": 0,
+        "wal_bytes": 107141
+      },
+      "sizes_before_delete": {
+        "database_bytes": 1585152,
+        "temp_bytes": 0,
+        "wal_bytes": 0
+      },
+      "unexpired_ambient_digest": "557c5f884d6574c556d025caa4ba867c70da52ded8e01864408991b77bd02cde",
+      "unexpired_process_digest": "34421c57971ca69d6db732d02ce54a737a02460441e78cee595895ab82c63c62"
+    },
+    "schema_version": 1,
+    "versions": {
+      "duckdb": "1.5.5",
+      "sqlite": "3.46.0",
+      "sqlite_binding": "pysqlite3"
+    },
+    "wall_time_ms": 42459.43841600092
+  },
+  "prior_engine_evidence_revision": "75db64c972b39d94205800cafb6ccb15d6d6029a",
+  "raw_reports": {
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-lifecycle.json": "a92035fc9f78599da6afe0e562108f4ad5fface1af012d208da433c969d3260a",
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation.json": "bfddfc2af8d837d72223377fa07ad2fdac9dfa23dbcc71fe1f5fd9ca268b0088"
+  },
+  "retained_artifacts": {
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/edge-source.sqlite3": {
+      "bytes": 8192,
+      "sha256": "325971443b718cda85a06c35dba0efb7af7b14d5702c911a89cc65ce905efdbb"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/edge-tagged.duckdb": {
+      "bytes": 798720,
+      "sha256": "06ff999c001969b4db4a28850fc65ad74e86ce54d4c38f77a26e88b559b43c5b"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-00pct-sidecar.duckdb": {
+      "bytes": 1323008,
+      "sha256": "55889f5a011e75693bae5e62e74bc9f0f1527f7235925bc438b078373cbd740d"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-00pct-source.sqlite3": {
+      "bytes": 1425408,
+      "sha256": "a332bd481c828e058ba8a444ef3afec8e604a2199737e3bfab83221d3a2a95c2"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-00pct-tagged.duckdb": {
+      "bytes": 1585152,
+      "sha256": "365ccdb0e21c328e39bbe01be6d011196b518487dab911256c1c1a3b10be73e1"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-01pct-sidecar.duckdb": {
+      "bytes": 1847296,
+      "sha256": "865458fd5f649b56a372443c9f4d821f1d67f8b91d2afed46be0f44a64bcd411"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-01pct-source.sqlite3": {
+      "bytes": 1454080,
+      "sha256": "f650991c7fc1b4c8db69b9719cdec1c42c928a52aa5b8870de5b4dacb470d9cd"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-01pct-tagged.duckdb": {
+      "bytes": 1585152,
+      "sha256": "e69c7ee7dd14ac033eace15dd52844833c35ac83f5ab1615964c08b27783c61a"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/concurrent/archive.duckdb": {
+      "bytes": 5517312,
+      "sha256": "3f7d7677b794f6aba3cf55df5c51783abff718e2516a0c90169288d450fa7aa1"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/crash/committed/archive.duckdb": {
+      "bytes": 1323008,
+      "sha256": "d9cb8106a14165e17902022c869e2cffcee462738ac8037ef856b61968242332"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/crash/committed/ready.json": {
+      "bytes": 396,
+      "sha256": "e4268a600ebb8d1689fad407d7e4982dca2bc0aca8e4d1d410ce859b89d1efba"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/crash/in-flight/archive.duckdb": {
+      "bytes": 1323008,
+      "sha256": "c93aca7bf2f39211838058dac45170373b4ecbb9852455407e0e62cd7413a519"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/crash/in-flight/ready.json": {
+      "bytes": 396,
+      "sha256": "e4268a600ebb8d1689fad407d7e4982dca2bc0aca8e4d1d410ce859b89d1efba"
+    },
+    "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/duckdb-lifecycle-0nzfvm43/retention/archive.duckdb": {
+      "bytes": 2109440,
+      "sha256": "f6858e478fbf6fc6bba66cebf2ffd29466f18552c4cee96543cb5cc3e02169f7"
+    }
+  },
+  "schema_version": 1,
+  "script_sha256": {
+    "core/examples/archive_engine_benchmark/duckdb_lifecycle_probe.py": "c8d032621526f3683dddd6c010d4edde56433028598068961a646c06907775b7",
+    "core/examples/archive_engine_benchmark/duckdb_value_preservation.py": "1846104b85875b7e3532fd08b497b29d51d13e4bcd82e436c9f6629777a56acb"
+  },
+  "source_revision": "0a37b01e0bcd26d26b63b36b3e53d3f18a72c897",
+  "value_preservation": {
+    "artifact_directory": "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae",
+    "completed": true,
+    "decision": "Tagged cells preserve observed SQLite values exactly. Query adapters must prove range, grouping, numeric, null, and exceptional-row semantics separately.",
+    "edge_cases": {
+      "artifacts": [
+        "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/edge-source.sqlite3",
+        "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/edge-tagged.duckdb"
+      ],
+      "database_bytes": 798720,
+      "extreme_row_ids_checked_as_decimal_strings": [
+        "-9223372036854775808",
+        "9223372036854775807"
+      ],
+      "insert_ms": 9.11445800011279,
+      "insert_ms_scope": "CREATE TABLE plus Python executemany using DuckDB connection defaults; no explicit transaction",
+      "invalid_utf8_text_preserved": true,
+      "mismatches": [],
+      "observed_real_bits": {
+        "5": "8000000000000000",
+        "6": "0000000000000001",
+        "7": "7ff0000000000000",
+        "8": "fff0000000000000"
+      },
+      "persisted_cells": 15,
+      "persisted_rows": 15,
+      "query_support": "Tag-aware decode or projections are required. No SQL aggregate or timestamp semantics are accepted by this storage-only result.",
+      "roundtrip_exact": true,
+      "row_ids_preserved": true,
+      "source_cells": 15,
+      "source_rows": 15,
+      "sqlite_observed_both_infinities": true,
+      "sqlite_observed_negative_zero": true,
+      "tagged_roundtrip_preserved_observed_negative_zero": true,
+      "text_blob_same_bytes_distinguished": true
+    },
+    "identity_contract": {
+      "ambient": "source bytes and original timestamp bytes remain authoritative",
+      "process": "(pid, process_name bytes); PID alone is not identity",
+      "row": "SQLite row_id and multiplicity are preserved"
+    },
+    "measurement_scope": "Synthetic storage size and Python executemany timing only. Tagged timing includes CREATE TABLE while sidecar timing excludes table creation; both use connection default transaction behavior without an explicit transaction, so they are not a fair relative engine, format, or CPU comparison. No Rust IPC, query latency, RSS, recovery, migration, or bundle-size claim.",
+    "production_format_accepted": false,
+    "query_contract_accepted": false,
+    "representation": {
+      "payloads": {
+        "BLOB": "exact bytes with a distinct tag",
+        "INTEGER": "signed i64 big-endian bytes",
+        "NULL": "empty payload plus NULL tag",
+        "REAL": "observed IEEE-754 binary64 bits",
+        "TEXT": "exact SQLite text bytes"
+      },
+      "tagged_row_envelope": "(dataset, row_id, envelope BLOB); envelope repeats (ordinal, storage_tag, payload_length, payload)",
+      "typed_sidecar": "normal typed columns; exceptional cells become NULL in the typed row and retain tag+payload in a keyed sidecar"
+    },
+    "roundtrip_contract_passed": true,
+    "schema_version": 1,
+    "timestamp_policy": "Original timestamp bytes are retained. The existing SQLite predicate adapter remains separate evidence; this prototype adds no timestamp normalization.",
+    "versions": {
+      "duckdb": "v1.5.5",
+      "sqlite": "3.46.0",
+      "sqlite_binding": "pysqlite3 0.5.4"
+    },
+    "workloads": {
+      "0_percent": {
+        "artifacts": [
+          "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-00pct-source.sqlite3",
+          "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-00pct-tagged.duckdb",
+          "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-00pct-sidecar.duckdb"
+        ],
+        "observed_exception_cell_rate": 0.0,
+        "observed_exception_cells": 0,
+        "requested_exception_row_rate": 0.0,
+        "roundtrip_contract_passed": true,
+        "row_count": 20000,
+        "row_ids_and_multiplicity_preserved": true,
+        "source_identity_multiplicity": {
+          "max_ambient_source_observations": 3334,
+          "max_process_pid_name_observations": 118
+        },
+        "source_sqlite_bytes": 1425408,
+        "storage_bytes_ratio_sidecar_over_tagged": 0.834625322997416,
+        "tagged_every_value": {
+          "database_bytes": 1585152,
+          "insert_ms": 4014.4050420003623,
+          "insert_ms_scope": "CREATE TABLE plus Python executemany using DuckDB connection defaults; no explicit transaction",
+          "mismatches": [],
+          "persisted_cells": 200000,
+          "persisted_rows": 20000,
+          "query_support": "Tag-aware decode or projections are required. No SQL aggregate or timestamp semantics are accepted by this storage-only result.",
+          "roundtrip_exact": true,
+          "source_cells": 200000,
+          "source_rows": 20000
+        },
+        "typed_with_exception_sidecar": {
+          "database_bytes": 1323008,
+          "exception_rows_by_family": {
+            "ambient": 0,
+            "process": 0
+          },
+          "insert_ms": 8045.0366669992945,
+          "insert_ms_scope": "Python executemany only; table creation excluded; DuckDB connection defaults and no explicit transaction",
+          "mismatches": [],
+          "persisted_rows": 20000,
+          "query_routing": "typed projection permitted: no query-column exceptions",
+          "query_semantics_proved": false,
+          "roundtrip_exact": true,
+          "rows_with_any_exceptions": 0,
+          "rows_with_query_column_exceptions": 0,
+          "sidecar_cells": 0,
+          "silent_exception_row_drop_allowed": false,
+          "source_rows": 20000,
+          "typed_only_query_allowed": true
+        }
+      },
+      "1_percent": {
+        "artifacts": [
+          "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-01pct-source.sqlite3",
+          "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-01pct-tagged.duckdb",
+          "/Users/shm11c3/Develop/HardwareVisualizer/target/archive-engine-validation/2026-09-06-qualification-values/duckdb-value-preservation-64db27bc46b14d64b7558b7788bb5cae/workload-01pct-sidecar.duckdb"
+        ],
+        "observed_exception_cell_rate": 0.002335,
+        "observed_exception_cells": 467,
+        "requested_exception_row_rate": 0.01,
+        "roundtrip_contract_passed": true,
+        "row_count": 20000,
+        "row_ids_and_multiplicity_preserved": true,
+        "source_identity_multiplicity": {
+          "max_ambient_source_observations": 3301,
+          "max_process_pid_name_observations": 118
+        },
+        "source_sqlite_bytes": 1454080,
+        "storage_bytes_ratio_sidecar_over_tagged": 1.165374677002584,
+        "tagged_every_value": {
+          "database_bytes": 1585152,
+          "insert_ms": 4033.9982499990583,
+          "insert_ms_scope": "CREATE TABLE plus Python executemany using DuckDB connection defaults; no explicit transaction",
+          "mismatches": [],
+          "persisted_cells": 200000,
+          "persisted_rows": 20000,
+          "query_support": "Tag-aware decode or projections are required. No SQL aggregate or timestamp semantics are accepted by this storage-only result.",
+          "roundtrip_exact": true,
+          "source_cells": 200000,
+          "source_rows": 20000
+        },
+        "typed_with_exception_sidecar": {
+          "database_bytes": 1847296,
+          "exception_rows_by_family": {
+            "ambient": 100,
+            "process": 100
+          },
+          "insert_ms": 8326.489708000736,
+          "insert_ms_scope": "Python executemany only; table creation excluded; DuckDB connection defaults and no explicit transaction",
+          "mismatches": [],
+          "persisted_rows": 20000,
+          "query_routing": "refuse typed-only query or route every exceptional row through tag-aware evaluation",
+          "query_semantics_proved": false,
+          "roundtrip_exact": true,
+          "rows_with_any_exceptions": 200,
+          "rows_with_query_column_exceptions": 200,
+          "sidecar_cells": 467,
+          "silent_exception_row_drop_allowed": false,
+          "source_rows": 20000,
+          "typed_only_query_allowed": false
+        }
+      }
+    }
+  }
+}
