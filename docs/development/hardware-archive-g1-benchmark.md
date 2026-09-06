@@ -200,6 +200,11 @@ index caused a repeated temporary sort for this access path. The corrected
 index is covered by an `EXPLAIN QUERY PLAN` regression test. It does not solve
 all interval-index selection or per-series partitioning questions.
 
+The [query strategy follow-up](hardware-archive-g1-query-experiment.md) measures
+Process chunk summaries and Ambient range pruning, including high-cardinality
+workloads. It records a numerical rejection and remaining latency/storage
+failures; it does not close these acceptance gates.
+
 ## Open acceptance gates
 
 | Gate | Evidence and remaining work |

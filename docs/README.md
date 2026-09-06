@@ -20,6 +20,7 @@ documentation.
 - [Hardware Archive implementation slices](development/hardware-archive-implementation-plan.md)
 - [Hardware Archive G1 schema and query inventory](development/hardware-archive-g1-inventory.md)
 - [Hardware Archive G1 initial benchmark](development/hardware-archive-g1-benchmark.md)
+- [Hardware Archive G1 query strategy experiment](development/hardware-archive-g1-query-experiment.md)
 - [Relicense to GPL-3.0-or-later decision](adr/0020-relicense-to-gpl-3.0-or-later.md)
 - [Sensor hardware specs (clean-room)](specs/sensors/)
 - [Frontend architecture](../src/README.md)
