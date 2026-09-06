@@ -2,9 +2,15 @@
 
 Status: proposed
 
+This is the retained **SQLite chunk alternative**, not the current native
+DuckDB implementation plan. [ADR 0022](0022-prioritize-native-duckdb-archive-qualification.md) takes precedence
+for investigation order. SQLite transaction, trigger, sequence, checkpoint and
+control-file assumptions below need separate qualification before use with
+DuckDB; none is transferred merely because both engines expose SQL.
+
 Tracking issue: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
 
-This is the recommended implementation design for review, dated 2026-09-05.
+This records the SQLite candidate proposed for review on 2026-09-05.
 It refines [ADR 0019](0019-lossless-chunked-hardware-archive.md), whose accepted
 information-preservation requirements remain unchanged. Acceptance of this
 record would not mean the storage format has shipped.

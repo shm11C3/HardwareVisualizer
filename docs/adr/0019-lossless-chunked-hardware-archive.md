@@ -2,14 +2,22 @@
 
 Status: accepted
 
+The retained product guarantees remain accepted. [ADR 0022](0022-prioritize-native-duckdb-archive-qualification.md)
+reopens the SQLite-only, custom tail/chunk, and whole-chunk expiry choices and
+prioritizes native DuckDB qualification. Those historical implementation
+choices below are no longer the required shape of the next prototype.
+
 Tracking issue: [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052).
 
 This records the product and architectural constraints agreed on 2026-09-01.
 It is a decision for planned work, not a claim that chunk storage is implemented.
-The proposed [ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
-[storage design](../development/hardware-archive-storage-design.md) now provide
-a concrete lifecycle recommendation and decision inventory. Binary formats and
-performance budgets remain subject to the design and benchmark gate.
+[ADR 0022](0022-prioritize-native-duckdb-archive-qualification.md) and the
+[native qualification design](../development/hardware-archive-duckdb-qualification.md)
+own the current investigation and adoption gates. The proposed
+[ADR 0021](0021-hardware-archive-migration-lifecycle.md) and
+[storage design](../development/hardware-archive-storage-design.md) retain the
+earlier SQLite lifecycle candidate. Formats and performance budgets remain
+subject to measurement and explicit acceptance.
 
 Implementation is planned to follow the current Cooling Insight scope tracked
 by [#1666](https://github.com/shm11C3/HardwareVisualizer/issues/1666). This is a
