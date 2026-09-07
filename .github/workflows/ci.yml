@@ -282,7 +282,7 @@ jobs:
         uses: ./.github/actions/setup-rust
 
       - name: Check Tauri clippy
-        run: cargo clippy -p hardware_visualizer --all-targets -- -D warnings
+        run: cargo clippy -p hardware_visualizer --features duckdb-archive --all-targets -- -D warnings
 
   #
   # Tauri tests
