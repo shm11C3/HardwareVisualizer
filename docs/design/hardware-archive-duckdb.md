@@ -227,6 +227,15 @@ is an `f32` percentage, so the collector cannot produce that span. Whether the
 residue justifies an exact Rust-side aggregation, at the cost of DuckDB's
 vectorized grouping, is unresolved.
 
+Integer averages do not use DuckDB's `AVG(BIGINT)` at all. It divides the exact
+sum as a `long double`, whose width is 80 bits on x86_64 Linux and 64 bits on
+aarch64 macOS and MSVC, so the same rows produced results one ulp apart across
+CI platforms. The native query reads the exact `SUM` and `COUNT` and performs
+SQLite's own arithmetic - two binary64 conversions and one division - in Rust,
+which is bit-identical everywhere. A sum beyond `i64` becomes a query error
+rather than a different number; SQLite abandons exact summation there too, and
+an `i32` `memory_usage` writer cannot reach it within a Retention Period.
+
 ## Remaining design questions
 
 - [#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089): native

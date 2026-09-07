@@ -90,7 +90,9 @@ async fn finalizes_every_domain_table_preserving_classes_ids_and_multiplicity() 
     .unwrap();
   assert_eq!(gpu_name.as_bytes(), b"Discrete GPU\0Secondary");
 
-  // Extreme integers and duplicated identity tuples survive unrounded.
+  // Extreme integers and duplicated identity tuples survive unrounded. The
+  // `i64::MAX` row keeps its own identity so a whole-range Process query still
+  // has an exact integer sum for every group.
   let memory: i64 = connection
     .query_row(
       "SELECT memory_usage FROM PROCESS_STATS WHERE id = 2",
@@ -902,10 +904,10 @@ async fn seed_domain_tables(pool: &SqlitePool) {
       INSERT INTO PROCESS_STATS(pid,process_name,cpu_usage,memory_usage,execution_sec,timestamp)
       VALUES
         (4000,'renderer',12.5,4096,60,'2026-09-01T00:00:00+00:00'),
-        (4000,'renderer',37.5,9223372036854775807,120,'2026-09-01T00:01:00+00:00'),
+        (4003,'legacy-wide',37.5,9223372036854775807,120,'2026-09-01T00:01:00+00:00'),
         (4000,'renderer',12.5,4096,180,'2026-09-01T00:02:00+00:00'),
         (4001,'helper'||char(0)||'worker',0.0,0,0,'2026-09-01T00:00:00+00:00'),
-        (4002,'idle',100.0,8192,1,'2026-09-01T00:03:00+00:00'),
+        (4000,'renderer',37.5,4096,120,'2026-09-01T00:03:00+00:00'),
         (4002,'idle',0.5,8192,2,'2026-09-01T00:04:00.500+00:00');
       INSERT INTO storage_devices
         (id,display_name,model,serial_hash,protocol,capacity_bytes,first_seen_at,last_seen_at,is_active)

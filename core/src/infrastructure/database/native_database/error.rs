@@ -54,6 +54,14 @@ pub enum NativeDatabaseError {
   },
   #[error("finalized native database failed verification: {message}")]
   Verification { message: String },
+  #[error(
+    "the exact sum of {column} for Process ({pid}, {process_name:?}) exceeds a signed 64-bit integer, where SQLite's average is no longer exact"
+  )]
+  IntegerSumOverflow {
+    column: &'static str,
+    pid: i64,
+    process_name: String,
+  },
   #[error("native database finalization failed during {context}: {message}")]
   Finalization { context: String, message: String },
 }

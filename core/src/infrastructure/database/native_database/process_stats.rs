@@ -112,6 +112,18 @@ pub async fn delete_old_data(
     .await
 }
 
+/// SQLite's `avg()` over an INTEGER column that never overflowed: the exact
+/// `i64` sum converted to binary64, divided by the count converted to binary64.
+///
+/// DuckDB's own `AVG(BIGINT)` is not used for `memory_usage` because it divides
+/// the exact sum as a `long double`, whose width depends on the platform
+/// (80-bit on x86_64 Linux, 64-bit on aarch64 macOS and MSVC), so its last bit
+/// differs between operating systems. Reproducing SQLite's two conversions and
+/// one IEEE division here gives the same bits everywhere.
+pub fn sqlite_integer_average(sum: i64, count: i64) -> f64 {
+  sum as f64 / count as f64
+}
+
 /// The native form of
 /// [`crate::infrastructure::database::archive_queries::select_process_stats`].
 ///
@@ -120,6 +132,17 @@ pub async fn delete_old_data(
 /// stored spellings it would have selected in SQLite. Grouping stays on the
 /// recorded `(pid, process_name)` tuple - the Process identity ADR 0019 defines
 /// - rather than on the row id.
+///
+/// `avg_cpu_usage` comes from DuckDB's `AVG(DOUBLE)`, which is the binary64
+/// sum divided by the count, the same arithmetic as SQLite's `avg()` over REAL
+/// short of its compensation term (see `duckdb_avg_compatibility.rs` for the
+/// measured boundary). `avg_memory_usage` is rebuilt from DuckDB's exact
+/// 128-bit `SUM` and the count by [`sqlite_integer_average`]. A sum beyond
+/// `i64` is refused with [`NativeDatabaseError::IntegerSumOverflow`] instead
+/// of becoming a silently different number: that is where SQLite itself
+/// abandons exact integer summation for an order-dependent approximation, and
+/// `memory_usage` is written from an `i32`, so no archive within a Retention
+/// Period reaches it.
 pub async fn select_process_stats(
   database: &NativeDatabase,
   cancellation: NativeCancellation,
@@ -137,7 +160,8 @@ pub async fn select_process_stats(
        pid,
        process_name,
        AVG(cpu_usage) AS avg_cpu_usage,
-       AVG(memory_usage) AS avg_memory_usage,
+       SUM(memory_usage) AS memory_usage_sum,
+       COUNT(memory_usage) AS memory_usage_count,
        MAX(execution_sec) AS total_execution_sec,
        MAX(timestamp) AS latest_timestamp
      FROM PROCESS_STATS
@@ -152,14 +176,15 @@ pub async fn select_process_stats(
       })?;
       let rows = statement
         .query_map(params![start.as_str(), end.as_str()], |row| {
-          Ok(ProcessStatRecord {
-            pid: row.get(0)?,
-            process_name: row.get(1)?,
-            avg_cpu_usage: row.get(2)?,
-            avg_memory_usage: row.get(3)?,
-            total_execution_sec: row.get(4)?,
-            latest_timestamp: row.get(5)?,
-          })
+          Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get::<_, i128>(3)?,
+            row.get::<_, i64>(4)?,
+            row.get::<_, i64>(5)?,
+            row.get::<_, String>(6)?,
+          ))
         })
         .map_err(|error| {
           NativeDatabaseError::duckdb("run the process stats query", error)
@@ -168,7 +193,36 @@ pub async fn select_process_stats(
         .map_err(|error| {
           NativeDatabaseError::duckdb("decode a process stats row", error)
         })?;
-      Ok(rows)
+      rows
+        .into_iter()
+        .map(
+          |(
+            pid,
+            process_name,
+            avg_cpu_usage,
+            memory_sum,
+            memory_count,
+            total_execution_sec,
+            latest_timestamp,
+          )| {
+            let memory_sum = i64::try_from(memory_sum).map_err(|_| {
+              NativeDatabaseError::IntegerSumOverflow {
+                column: "memory_usage",
+                pid,
+                process_name: process_name.clone(),
+              }
+            })?;
+            Ok(ProcessStatRecord {
+              pid,
+              process_name,
+              avg_cpu_usage,
+              avg_memory_usage: sqlite_integer_average(memory_sum, memory_count),
+              total_execution_sec,
+              latest_timestamp,
+            })
+          },
+        )
+        .collect()
     })
     .await
 }

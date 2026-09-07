@@ -2,11 +2,12 @@
 //! Whether the native Process Stats family answers what the SQLite family
 //! answers.
 //!
-//! Two levels. The engine-level tests compare SQLite's and DuckDB's own
-//! aggregates on the same rows, which is what says where the two are
-//! interchangeable at all. The family-level test then puts one fixture through
-//! the real SQLite writer and query and through candidate -> finalize -> native,
-//! and compares the answers bit for bit.
+//! Two levels. The engine-level tests compare SQLite's own `avg()` with the
+//! arithmetic the native query uses on the same rows - DuckDB's `AVG` for the
+//! binary64 column, the exact sum and count for the integer column - which is
+//! what says where the two are interchangeable at all. The family-level test
+//! then puts one fixture through the real SQLite writer and query and through
+//! candidate -> finalize -> native, and compares the answers bit for bit.
 
 mod native_support;
 
@@ -41,9 +42,15 @@ struct AggregateBits {
 }
 
 /// The engine-level claim the native Process query rests on: for the values the
-/// production writers can produce, DuckDB's `AVG` returns SQLite's exact
-/// binary64 result, independently of row order and of how many threads DuckDB
-/// aggregates with.
+/// production writers can produce, DuckDB's `AVG(DOUBLE)` returns SQLite's
+/// exact binary64 result, independently of row order and of how many threads
+/// DuckDB aggregates with, and the integer average rebuilt from DuckDB's exact
+/// `SUM`/`COUNT` matches SQLite's integer `avg()` bit for bit.
+///
+/// The integer column deliberately does not go through DuckDB's `AVG(BIGINT)`:
+/// that divides the exact sum as a `long double`, so its last bit depends on
+/// the platform's `long double` width (this fixture's `i64-memory` group came
+/// back one ulp apart on x86_64 Linux and aarch64 macOS).
 #[tokio::test]
 async fn duckdb_avg_matches_sqlite_for_archive_magnitude_process_values() {
   let mut mismatches = Vec::new();
@@ -429,8 +436,16 @@ fn process_input(order: Order) -> Vec<ProcessInput> {
       pid: 2,
       name: "i64-memory",
       cpu: [100.0, 0.0, 0.5][triplet],
-      // Memory beyond i32, so the integer average has to stay exact.
-      memory: [i64::MAX, i64::MAX - 3, i64::MIN + 2_052][triplet],
+      // Memory far beyond i32 with a group sum beyond 2^53, so converting
+      // the exact sum to binary64 has to round the same way on both sides.
+      // The sum still fits i64: past that SQLite switches to approximate
+      // summation and the native query refuses, so that region is outside
+      // the claim (and outside what an `i32` writer can reach).
+      memory: [
+        i64::MAX / 10_000,
+        i64::MAX / 10_000 - 3,
+        i64::MIN / 10_000 + 2_052,
+      ][triplet],
       ordinal: (rows.len() + 1) as i64,
       timestamp: timestamp.clone(),
     });
@@ -557,9 +572,12 @@ fn duckdb_aggregates(input: &[ProcessInput], threads: i64) -> AggregateBits {
     appender.flush().unwrap();
   }
 
+  // The same shape as the production native query: DuckDB's `AVG` for the
+  // binary64 column, the exact sum and count for the integer column.
   let mut statement = connection
     .prepare(
-      "SELECT pid, process_name, AVG(cpu_usage), AVG(memory_usage)
+      "SELECT pid, process_name, AVG(cpu_usage),
+              SUM(memory_usage), COUNT(memory_usage)
        FROM PROCESS_STATS
        WHERE timestamp BETWEEN '2026-01-01T00:00:00.000Z' AND '2026-01-01T00:59:59.999Z'
        GROUP BY pid, process_name
@@ -572,7 +590,10 @@ fn duckdb_aggregates(input: &[ProcessInput], threads: i64) -> AggregateBits {
         row.get::<_, i64>(0)?,
         row.get::<_, String>(1)?,
         row.get::<_, f64>(2)?,
-        row.get::<_, f64>(3)?,
+        native_process_stats::sqlite_integer_average(
+          i64::try_from(row.get::<_, i128>(3)?).expect("fixture sums fit i64"),
+          row.get::<_, i64>(4)?,
+        ),
       ))
     })
     .unwrap()
