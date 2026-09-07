@@ -72,6 +72,7 @@ features = [
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
 bindings-export = []
+duckdb-archive = ["hardviz-core/duckdb-archive"]
 
 [[bin]]
 name = "export_bindings"

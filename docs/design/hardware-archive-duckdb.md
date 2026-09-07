@@ -197,6 +197,36 @@ pinned reader snapshot, reopened expected rows, and exercised committed and
 in-flight termination cases. It supports the direction but does not replace
 application-level concurrency, cancellation, migration, and power-loss tests.
 
+### Finalization and the measured compatibility boundary
+
+Finalization ([#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089))
+adds one more step after the candidate: a separate copy into the App-owned
+stable schema, refusing rather than coercing any cell the declared column cannot
+hold. Two questions this document left open are now measured rather than
+assumed.
+
+**Timestamps.** The derived `__hv_timestamp_epoch_ms` key is not a Rust
+reimplementation of SQLite's date-string grammar. Finalization runs the
+production adapter (`archive_queries::sqlite_epoch_milliseconds_of`) against a
+scratch in-memory SQLite database for each stored text, so the key is by
+construction the value the current queries compute. The column stays nullable
+even where its source `timestamp` is `NOT NULL`, because SQLite returns NULL for
+text it cannot read as an instant and a missing conversion must stay missing
+rather than become a guessed zero. Writers that insert new rows already hold the
+`DateTime<Utc>` and never parse stored text back.
+
+**Aggregates.** SQLite's `avg()` over REAL has used Kahan-Babuska-Neumaier
+compensated summation since 3.43, and DuckDB has no aggregate that reproduces
+it: `avg`, `sum`, and the Kahan `fsum`/`favg` all lose the compensation.
+Measured on 8,193-row Process fixtures across three row orders and 1/2/4 DuckDB
+threads, DuckDB's `AVG` returns SQLite's exact binary64 bits for
+archive-magnitude values - including denormal `f32` CPU readings and `i64`
+memory extremes - and diverges only once one group's values span more than about
+2^53, where `[x, 1.0, -x]` collapses to `0` against SQLite's `1/3`. `cpu_usage`
+is an `f32` percentage, so the collector cannot produce that span. Whether the
+residue justifies an exact Rust-side aggregation, at the cost of DuckDB's
+vectorized grouping, is unresolved.
+
 ## Remaining design questions
 
 - [#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089): native

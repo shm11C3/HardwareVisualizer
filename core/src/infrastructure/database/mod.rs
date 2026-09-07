@@ -23,6 +23,8 @@ pub mod fan_archive;
 pub mod gpu_archive;
 pub mod hardware_archive;
 pub mod migrate;
+#[cfg(feature = "duckdb-archive")]
+pub mod native_database;
 pub mod process_stats;
 pub mod storage_health;
 #[cfg(test)]
