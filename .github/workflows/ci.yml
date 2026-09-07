@@ -230,7 +230,7 @@ jobs:
         uses: ./.github/actions/setup-rust
 
       - name: Check Core clippy
-        run: cargo clippy -p hardviz-core --all-targets -- -D warnings
+        run: cargo clippy -p hardviz-core --features duckdb-archive --all-targets -- -D warnings
 
   #
   # Core tests
@@ -257,7 +257,7 @@ jobs:
           components: ""
 
       - name: Run Core tests
-        run: cargo test -p hardviz-core -- --test-threads=1 --nocapture
+        run: cargo test -p hardviz-core --features duckdb-archive -- --test-threads=1 --nocapture
 
   #
   # Tauri lint and clippy

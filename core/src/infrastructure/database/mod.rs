@@ -9,6 +9,8 @@
 
 pub mod ambient_archive;
 pub mod archive_queries;
+#[cfg(feature = "duckdb-archive")]
+pub mod candidate_database;
 pub mod cooling_baseline;
 pub mod cooling_covariate_daily_summary;
 pub mod cooling_daily_summary;
