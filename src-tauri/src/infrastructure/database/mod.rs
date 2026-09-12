@@ -9,3 +9,5 @@
 //! [`hardviz_core::persistence`] in #1407.
 
 pub mod migration;
+#[cfg(feature = "duckdb-archive")]
+pub mod native_schema;
