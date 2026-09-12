@@ -55,7 +55,7 @@ Use the closest stable owner:
 - Release, verification, signing, and distribution docs should live under
   `docs/release/` or `docs/security/` when those directories are introduced.
 - Generated legal/license notices currently live under
-  `docs/third-party-notices/`.
+  `docs/licenses/`.
 
 ## Naming Rules
 
@@ -82,7 +82,7 @@ docs/download-verification.ja.md
 
 The repository still contains a few naming exceptions:
 
-- `docs/third-party-notices/*/THIRD_PARTY_NOTICES.md`
+- `docs/licenses/*/THIRD_PARTY_NOTICES.md`
 - `tmp/THIRD_PARTY_NOTICES.md`
 - root-level GitHub convention files such as `README.md`, `CONTRIBUTING.md`,
   and `SECURITY.md`
@@ -100,7 +100,8 @@ When renaming one of these paths, update all references in the same change:
 
 ## Third-Party Notices
 
-`docs/third-party-notices/` stores generated platform notices and manual notice
+`docs/licenses/` stores license information (`LICENSE_INFORMATION.md`,
+`MIT-pre-relicense.txt`) plus generated per-platform notices and manual notice
 fragments. This is documentation/legal output, so it belongs under `docs/`.
 
 `tmp/THIRD_PARTY_NOTICES.md` is different: it is currently the bundled runtime
