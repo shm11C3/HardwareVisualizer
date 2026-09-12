@@ -1,3 +1,13 @@
+[build]
+# Share Cargo's intermediate artifacts (dependency rlibs, build-script output
+# such as the bundled DuckDB C++ build, incremental caches) across every
+# checkout and git worktree of this repository on the machine. Final artifacts
+# (binaries, bundles) still land in each checkout's own `target/`, so Tauri and
+# CI paths under `target/release` are unaffected. Concurrent builds of the same
+# profile from different worktrees serialize on Cargo's build-directory lock.
+# See docs/development/local-build-cache.md.
+build-dir = "{cargo-cache-home}/build/shared"
+
 [alias]
 tauri-test = "test --workspace -- --test-threads=1 --nocapture"
 tauri-test-cov = "llvm-cov --workspace -- --test-threads=1 --nocapture"
