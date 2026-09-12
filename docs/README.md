@@ -49,7 +49,13 @@ docs/
 ├── specs/                          # Clean-room hardware specification documents
 │   └── sensors/                    # Sensor specs for PawnIO-based monitoring
 ├── security/                       # Release security response and evidence policy
-├── third-party-notices/            # Generated and manual third-party notices
+├── licenses/                       # License info, generated + manual third-party notices
+│   ├── LICENSE_INFORMATION.md      # GPL relicensing / pre-relicense MIT notice
+│   ├── MIT-pre-relicense.txt       # MIT text for code predating the relicense
+│   ├── linux/                      # Generated Linux THIRD_PARTY_NOTICES.md
+│   ├── windows/                    # Generated Windows THIRD_PARTY_NOTICES.md
+│   ├── macos/                      # Generated macOS THIRD_PARTY_NOTICES.md
+│   └── manual/                     # Manual third-party notice fragments
 ├── user/                           # User-facing guides published by the website
 │   ├── external-components.md      # External component setup guide
 │   └── external-components.ja.md   # Japanese external component setup guide

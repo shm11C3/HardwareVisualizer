@@ -26,17 +26,27 @@ type CargoLicenseInfo = {
 
 type CargoMetadata = {
   packages: CargoPackage[];
+  resolve: {
+    nodes: CargoResolveNode[];
+  };
+  workspace_members: string[];
 };
 
 type CargoPackage = {
+  id: string;
   name: string;
   version: string;
   manifest_path: string;
-  targets: CargoTarget[];
 };
 
-type CargoTarget = {
-  kind: string[];
+type CargoResolveNode = {
+  id: string;
+  deps: CargoResolveDep[];
+};
+
+type CargoResolveDep = {
+  pkg: string;
+  dep_kinds: { kind: string | null }[];
 };
 
 // ==========================
@@ -54,7 +64,7 @@ if (!target || !["linux", "windows", "macos", "tmp"].includes(target)) {
 const outputDir =
   target === "tmp"
     ? path.resolve("./tmp")
-    : path.resolve(`./docs/third-party-notices/${target}`);
+    : path.resolve(`./docs/licenses/${target}`);
 const outputPath = path.join(outputDir, "THIRD_PARTY_NOTICES.md");
 
 const generateLicenseTxt = (
@@ -85,9 +95,17 @@ output +=
 // ====================
 //
 try {
-  const npmRawJson = execSync("npx license-checker --production --json", {
-    encoding: "utf8",
-  });
+  // --excludePrivatePackages drops the app's own package.json entry (marked
+  // "private": true so it never publishes to npm). Without it, license-checker
+  // ignores our actual "license" field and force-labels the app UNLICENSED
+  // (see license-checker/lib/index.js, `if (json.private) ... = UNLICENSED`).
+  // This file is for third-party notices, so the app itself doesn't belong in it.
+  const npmRawJson = execSync(
+    "npx license-checker --production --excludePrivatePackages --json",
+    {
+      encoding: "utf8",
+    },
+  );
   const npmData = JSON.parse(npmRawJson);
 
   for (const [name, info] of Object.entries(npmData) as [
@@ -133,14 +151,37 @@ try {
   });
   const metadata: CargoMetadata = JSON.parse(metadataJson);
 
-  // Keep only crates required at runtime
+  // Keep only crates reachable from a workspace member through a "normal"
+  // dependency edge (i.e. code that actually ships in the built binary).
+  // This must be derived from the resolved dependency graph's edge kinds
+  // (resolve.nodes[].deps[].dep_kinds), not from a crate's own target kinds:
+  // almost every crate declares "test"/"example"/"custom-build" targets for
+  // itself regardless of how *we* depend on it, so filtering on target kind
+  // misclassifies any dependency that merely ships its own tests/examples/
+  // build script alongside its library as "build/test only".
+  const nodesById = new Map(
+    metadata.resolve.nodes.map((node) => [node.id, node]),
+  );
+  const workspaceMemberIds = new Set(metadata.workspace_members);
+
+  const reachableIds = new Set<string>();
+  const visit = (id: string) => {
+    if (reachableIds.has(id)) return;
+    reachableIds.add(id);
+    for (const dep of nodesById.get(id)?.deps ?? []) {
+      const isNormal = dep.dep_kinds.some(
+        (dk) => dk.kind === null || dk.kind === "normal",
+      );
+      if (isNormal) visit(dep.pkg);
+    }
+  };
+  for (const memberId of workspaceMemberIds) visit(memberId);
+
+  // Exclude the workspace members themselves: they are the app, not a
+  // third-party notice.
   const runtimeCrates = new Set<string>();
   for (const pkg of metadata.packages) {
-    const kinds = pkg.targets.flatMap((t) => t.kind);
-    const isBuildOnly = kinds.includes("custom-build"); // build.rs only
-    const isTestOnly = kinds.includes("test") || kinds.includes("example"); // dev only
-
-    if (!isBuildOnly && !isTestOnly) {
+    if (reachableIds.has(pkg.id) && !workspaceMemberIds.has(pkg.id)) {
       runtimeCrates.add(`${pkg.name}@${pkg.version}`);
     }
   }
@@ -183,7 +224,7 @@ try {
   console.error("❌ Failed to collect Rust licenses:", e);
 }
 
-const manualDir = path.resolve("./docs/third-party-notices/manual");
+const manualDir = path.resolve("./docs/licenses/manual");
 
 /**
  * Append manual notices from the manual directory.
