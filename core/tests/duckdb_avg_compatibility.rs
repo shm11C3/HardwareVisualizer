@@ -139,8 +139,13 @@ async fn the_native_process_stats_family_reproduces_the_sqlite_family() {
 
   // 1. Written by the production writer, so the stored timestamp text is
   //    whatever sqlx actually produces rather than whatever a test spells.
-  let whole = "2026-09-01T00:00:00Z".parse().unwrap();
-  let fractional = "2026-09-01T00:01:00.125Z".parse().unwrap();
+  //
+  //    Every fixed-spelling row is anchored to the clock rather than to a
+  //    calendar date, so the Retention Period in step 4 keeps bisecting this
+  //    fixture however long after the test was written it runs.
+  let anchor = anchor_day();
+  let whole = anchor;
+  let fractional = anchor + chrono::Duration::milliseconds(60_125);
   process_stats::insert(
     vec![
       stat(4000, "renderer", 12.5, 4_096, 60),
@@ -188,13 +193,19 @@ async fn the_native_process_stats_family_reproduces_the_sqlite_family() {
   //    produce, and an embedded NUL in a process name.
   pool
     .execute(
-      r#"
+      format!(
+        r#"
       INSERT INTO PROCESS_STATS(pid,process_name,cpu_usage,memory_usage,execution_sec,timestamp)
       VALUES
-        (4004,'legacy-z',7.25,9223372036854775807,10,'2026-09-01T00:02:00Z'),
-        (4005,'legacy-offset',3.5,4096,11,'2026-09-01T09:03:00+09:00'),
-        (4006,'nul'||char(0)||'name',1.25,4096,12,'2026-09-01T00:04:00+00:00');
+        (4004,'legacy-z',7.25,9223372036854775807,10,'{zulu}'),
+        (4005,'legacy-offset',3.5,4096,11,'{east_nine}'),
+        (4006,'nul'||char(0)||'name',1.25,4096,12,'{utc_offset}');
       "#,
+        zulu = zulu(anchor + chrono::Duration::minutes(2)),
+        east_nine = east_nine(anchor + chrono::Duration::minutes(3)),
+        utc_offset = utc_offset(anchor + chrono::Duration::minutes(4)),
+      )
+      .as_str(),
     )
     .await
     .unwrap();
@@ -216,55 +227,47 @@ async fn the_native_process_stats_family_reproduces_the_sqlite_family() {
   let database = fixture.open().await;
 
   // 3. The same ranges through both query paths.
-  let ranges: [(&str, &str, bool); 8] = [
-    ("", "zzzz", false),
-    ("", "zzzz", true),
+  let ranges: [(String, String, bool); 8] = [
+    (String::new(), "zzzz".to_owned(), false),
+    (String::new(), "zzzz".to_owned(), true),
     // Inclusive endpoints, exactly on stored spellings.
-    (
-      "2026-09-01T00:00:00+00:00",
-      "2026-09-01T00:01:00.125+00:00",
-      false,
-    ),
-    (
-      "2026-09-01T00:00:00+00:00",
-      "2026-09-01T00:01:00.125+00:00",
-      true,
-    ),
+    (utc_offset(whole), utc_offset_millis(fractional), false),
+    (utc_offset(whole), utc_offset_millis(fractional), true),
     // One stamp only.
-    (
-      "2026-09-01T00:00:00+00:00",
-      "2026-09-01T00:00:00+00:00",
-      false,
-    ),
+    (utc_offset(whole), utc_offset(whole), false),
     // Just inside the fractional stamp, which text comparison excludes.
     (
-      "2026-09-01T00:00:00+00:00",
-      "2026-09-01T00:01:00.124+00:00",
+      utc_offset(whole),
+      utc_offset_millis(fractional - chrono::Duration::milliseconds(1)),
       false,
     ),
     // Spellings that sort outside the ISO-8601 UTC block.
-    ("2026-09-01T00:02:00Z", "2026-09-01T09:03:00+09:00", false),
+    (
+      zulu(anchor + chrono::Duration::minutes(2)),
+      east_nine(anchor + chrono::Duration::minutes(3)),
+      false,
+    ),
     // Empty.
     (
-      "2027-01-01T00:00:00+00:00",
-      "2027-01-02T00:00:00+00:00",
+      utc_offset(anchor + chrono::Duration::days(120)),
+      utc_offset(anchor + chrono::Duration::days(121)),
       false,
     ),
   ];
   for (start, end, order_by_cpu_desc) in ranges {
-    let expected = archive_queries::select_process_stats(start, end, order_by_cpu_desc)
+    let expected = archive_queries::select_process_stats(&start, &end, order_by_cpu_desc)
       .await
       .unwrap();
     let actual = native_process_stats::select_process_stats(
       &database,
       NativeCancellation::new(),
-      start.to_owned(),
-      end.to_owned(),
+      start.clone(),
+      end.clone(),
       order_by_cpu_desc,
     )
     .await
     .unwrap();
-    assert_records_match(&expected, &actual, start, end, order_by_cpu_desc);
+    assert_records_match(&expected, &actual, &start, &end, order_by_cpu_desc);
   }
   assert!(
     archive_queries::select_process_stats("", "zzzz", false)
@@ -278,12 +281,22 @@ async fn the_native_process_stats_family_reproduces_the_sqlite_family() {
   // 4. The same Retention Period through both delete paths.
   let survivors_before = surviving_identities(&database).await;
   assert!(survivors_before.iter().any(|(_, name)| name == "expired"));
+  let pool = native_support::open_pool(&fixture.source, false).await;
+  let rows_before = process_stats_row_count(&pool).await;
+  pool.close().await;
   process_stats::delete_old_data(7).await.unwrap();
+  let pool = native_support::open_pool(&fixture.source, false).await;
+  let sqlite_deleted = u64::try_from(rows_before - process_stats_row_count(&pool).await)
+    .expect("a delete cannot add rows");
+  pool.close().await;
   let deleted =
     native_process_stats::delete_old_data(&database, NativeCancellation::new(), 7)
       .await
       .unwrap();
-  assert_eq!(deleted, 1);
+  // The Retention Period must bisect the fixture, not clear it: only the row
+  // written outside the window goes.
+  assert_eq!(sqlite_deleted, 1, "the fixture must straddle the boundary");
+  assert_eq!(deleted, sqlite_deleted);
 
   let pool = native_support::open_pool(&fixture.source, false).await;
   let mut expected: Vec<(i64, String)> =
@@ -318,6 +331,49 @@ fn stat(
     memory_usage,
     execution_sec,
   }
+}
+
+/// Midnight UTC two days ago: late enough that a seven-day Retention Period
+/// keeps it, early enough that the relative rows below still land on both
+/// sides of that boundary.
+fn anchor_day() -> chrono::DateTime<chrono::Utc> {
+  (chrono::Utc::now() - chrono::Duration::days(2))
+    .date_naive()
+    .and_hms_opt(0, 0, 0)
+    .expect("midnight is a valid time of day")
+    .and_utc()
+}
+
+/// `2026-09-01T00:02:00Z`.
+fn zulu(at: chrono::DateTime<chrono::Utc>) -> String {
+  at.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+}
+
+/// `2026-09-01T00:00:00+00:00`.
+fn utc_offset(at: chrono::DateTime<chrono::Utc>) -> String {
+  at.format("%Y-%m-%dT%H:%M:%S+00:00").to_string()
+}
+
+/// `2026-09-01T00:01:00.125+00:00`.
+fn utc_offset_millis(at: chrono::DateTime<chrono::Utc>) -> String {
+  at.format("%Y-%m-%dT%H:%M:%S%.3f+00:00").to_string()
+}
+
+/// The same instant spelled in a non-UTC offset: `2026-09-01T09:03:00+09:00`.
+fn east_nine(at: chrono::DateTime<chrono::Utc>) -> String {
+  at.with_timezone(
+    &chrono::FixedOffset::east_opt(9 * 3_600).expect("+09:00 is a valid offset"),
+  )
+  .format("%Y-%m-%dT%H:%M:%S%:z")
+  .to_string()
+}
+
+async fn process_stats_row_count(pool: &SqlitePool) -> i64 {
+  sqlx::query("SELECT COUNT(*) FROM PROCESS_STATS")
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .get(0)
 }
 
 async fn surviving_identities(
