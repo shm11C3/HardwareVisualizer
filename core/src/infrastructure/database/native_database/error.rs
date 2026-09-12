@@ -83,6 +83,17 @@ pub enum NativeDatabaseError {
     #[source]
     source: crate::infrastructure::database::archive_queries::ArchiveSeriesError,
   },
+  #[error(
+    "{table} holds the timestamp {timestamp:?}, which SQLite cannot read as an instant, so the range query has no bucket for it"
+  )]
+  UnreadableTimestamp {
+    table: &'static str,
+    timestamp: String,
+  },
+  #[error(
+    "SQLite cannot read the rendered timestamp {timestamp:?} as an instant, so a row stamped with it would be unreachable by range query"
+  )]
+  UnstampableWrite { timestamp: String },
   #[error("native database finalization failed during {context}: {message}")]
   Finalization { context: String, message: String },
 }
