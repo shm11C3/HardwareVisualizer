@@ -5,10 +5,11 @@ provider "cloudflare" {
 # --- Bucket ---------------------------------------------------------------
 
 resource "cloudflare_r2_bucket" "sccache" {
-  account_id     = var.account_id
-  name           = var.bucket_name
-  location       = var.bucket_location
-  storage_class  = "Standard"
+  account_id    = var.account_id
+  name          = var.bucket_name
+  location      = var.bucket_location
+  jurisdiction  = var.bucket_jurisdiction
+  storage_class = "Standard"
 }
 
 # sccache's own object keys are content-addressed (hash of preprocessed
@@ -18,8 +19,9 @@ resource "cloudflare_r2_bucket" "sccache" {
 # the only backstop. max_age is in seconds (per this resource's schema),
 # unlike R2's dashboard, which displays the same underlying field in days.
 resource "cloudflare_r2_bucket_lifecycle" "sccache_expiry" {
-  account_id  = var.account_id
-  bucket_name = cloudflare_r2_bucket.sccache.name
+  account_id   = var.account_id
+  bucket_name  = cloudflare_r2_bucket.sccache.name
+  jurisdiction = var.bucket_jurisdiction
 
   rules = [{
     id      = "expire-untouched-objects"
@@ -44,11 +46,13 @@ resource "cloudflare_r2_bucket_lifecycle" "sccache_expiry" {
 #   Secret Access Key = SHA-256(the token's value)
 # (https://developers.cloudflare.com/r2/api/tokens/)
 #
-# Scope: this token is granted R2 read/write for the whole account (the
-# permission groups below are inherently account-scoped; R2 does not expose
-# a per-bucket resource ARN through this API), not narrowed to `bucket_name`
-# alone. If this account later holds other R2 buckets that CI must not
-# touch, split those into a separate Cloudflare account.
+# Scope: the token's `resources` map below is a bucket-scoped resource key
+# (com.cloudflare.edge.r2.bucket.<account_id>_<jurisdiction>_<bucket_name>,
+# documented at the URL above), not the account-wide wildcard an earlier
+# version of this file used. This limits the credentials injected into
+# every duckdb-archive CI job to this one bucket: a leaked secret or a
+# compromised workflow cannot read or overwrite any other R2 bucket this
+# Cloudflare account might hold.
 
 data "cloudflare_api_token_permission_groups_list" "all" {}
 
@@ -61,6 +65,7 @@ locals {
     for g in data.cloudflare_api_token_permission_groups_list.all.result :
     g.id if g.name == "Workers R2 Storage Bucket Item Write"
   ])
+  r2_bucket_resource_key = "com.cloudflare.edge.r2.bucket.${var.account_id}_${var.bucket_jurisdiction}_${cloudflare_r2_bucket.sccache.name}"
 }
 
 resource "cloudflare_api_token" "sccache_ci" {
@@ -73,7 +78,7 @@ resource "cloudflare_api_token" "sccache_ci" {
       { id = local.r2_write_permission_group_id },
     ]
     resources = jsonencode({
-      "com.cloudflare.api.account.${var.account_id}" = "*"
+      (local.r2_bucket_resource_key) = "*"
     })
   }]
 }

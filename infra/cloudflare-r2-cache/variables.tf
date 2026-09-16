@@ -30,6 +30,20 @@ variable "bucket_location" {
   default = "wnam"
 }
 
+variable "bucket_jurisdiction" {
+  description = <<-DESC
+    R2 bucket jurisdiction, distinct from `bucket_location` (a geographic
+    hint): this is the legal/regulatory jurisdiction objects are guaranteed
+    to stay within, and it is also the segment the CI token's bucket-scoped
+    resource key is built from
+    (com.cloudflare.edge.r2.bucket.<account_id>_<jurisdiction>_<bucket>).
+    One of: default, eu, fedramp, us. "default" is correct unless you have
+    a specific data-residency requirement.
+  DESC
+  type    = string
+  default = "default"
+}
+
 variable "object_expiry_days" {
   description = <<-DESC
     Delete cache objects untouched for this many days. Mirrors the eviction
