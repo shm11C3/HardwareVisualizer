@@ -243,7 +243,7 @@ jobs:
           cache-key: core-lint
 
       - name: Cache DuckDB build
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
           account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -278,7 +278,7 @@ jobs:
           cache-key: core-test
 
       - name: Cache DuckDB build
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
           account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -320,7 +320,7 @@ jobs:
           cache-key: tauri-lint
 
       - name: Cache DuckDB build
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
           account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -356,6 +356,13 @@ jobs:
         with:
           components: ""
           cache-key: tauri-test
+
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
@@ -420,6 +427,13 @@ jobs:
           # PR-only job, so it never saves; reuse the closest saved check-mode entry.
           cache-key: tauri-lint
 
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       - name: Prepare frontendDist placeholder
         shell: bash
         run: |
@@ -448,6 +462,13 @@ jobs:
         with:
           components: ""
           cache-key: tauri-bindings
+
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Prepare frontendDist placeholder
         shell: bash
@@ -559,6 +580,13 @@ jobs:
 
       - name: Wait for toolchain setup
         wait-all: true
+
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Prepare frontendDist placeholder
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}

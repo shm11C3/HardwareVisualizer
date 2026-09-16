@@ -1,9 +1,12 @@
-name: "Cache DuckDB build"
+name: "Cache sccache (R2)"
 description: >-
-  Compiler-level cache for the bundled DuckDB C++ build (libduckdb-sys) and
-  for non-incremental Rust dependency crates, using sccache backed by a
-  Cloudflare R2 bucket. Use after ./.github/actions/setup-rust in jobs that
-  compile with `--features duckdb-archive`.
+  Compiler-level cache for rustc and, in jobs that build with
+  `--features duckdb-archive`, the bundled DuckDB C++ build
+  (libduckdb-sys), using sccache backed by a Cloudflare R2 bucket. Use
+  after ./.github/actions/setup-rust in any job that compiles a meaningful
+  amount of Rust (cargo build/test/check/clippy/run) - it is not worth
+  adding to jobs that only run cargo fmt, cargo deny, or cargo install for
+  a third-party binary, none of which invoke rustc on this workspace.
 
 # Why sccache and not an `actions/cache` entry holding the crate's build-script
 # `out/` directory (`target/debug/build/libduckdb-sys-*/out` plus the matching

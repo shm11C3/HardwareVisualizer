@@ -177,17 +177,34 @@ job-specific key that a tag-triggered run could never save to.
 
 ## CI caches the DuckDB C++ build with sccache, backed by Cloudflare R2
 
-`.github/actions/cache-duckdb/action.yml` installs sccache
-(`mozilla-actions/sccache-action`) and exports `RUSTC_WRAPPER=sccache`. The
-`ci.yml` jobs that compile with `--features duckdb-archive` (`lint-core`,
-`test-core`, `lint-tauri`) run it right after `setup-rust`. The `cc` crate
-treats `RUSTC_WRAPPER=sccache` as a C/C++ compiler wrapper, so every `cl.exe`
-/ `c++` invocation of the bundled DuckDB build (326 translation units, about
-9 minutes of the 13 to 14 minute cold build in run 34850128330) is keyed on
-preprocessed source, flags and compiler. Non-incremental Rust dependency
-crates are cached the same way; workspace crates are passed through. sccache
-prints hit/miss statistics in its post step, which is the evidence surface
-for whether the cache is working.
+`.github/actions/cache-sccache/action.yml` installs sccache
+(`mozilla-actions/sccache-action`) and exports `RUSTC_WRAPPER=sccache`. Every
+`ci.yml` job that compiles a meaningful amount of Rust runs it right after
+`setup-rust`: `lint-core`, `test-core`, and `lint-tauri` (the three that
+build with `--features duckdb-archive`, the original motivating case), plus
+`test-tauri`, `check-core-tauri-integration`, `check-tauri-bindings`, and
+`test-build`. It is deliberately not wired into `rust-format` (`cargo fmt`
+does not invoke rustc), `license-check-cargo` (`cargo deny check` parses
+`Cargo.lock`, it does not compile the workspace), or
+`test-render-memory-perf` (its only cargo step is `cargo install
+tauri-driver`, a small third-party binary, not this workspace). The `cc`
+crate treats `RUSTC_WRAPPER=sccache` as a C/C++ compiler wrapper, so every
+`cl.exe` / `c++` invocation of the bundled DuckDB build (326 translation
+units, about 9 minutes of the 13 to 14 minute cold build in run
+34850128330) is keyed on preprocessed source, flags and compiler in the
+three `duckdb-archive` jobs. Non-incremental Rust dependency crates are
+cached the same way in every job that wires this action in, DuckDB feature
+or not; workspace crates are passed through. sccache prints hit/miss
+statistics in its post step, which is the evidence surface for whether the
+cache is working.
+
+Because sccache's object keys are content-addressed (hash of preprocessed
+source, flags and compiler) rather than scoped by an explicit per-job-kind
+key the way `rust-cache` needs, every job that wires this action in shares
+the same R2 bucket safely: there is no "first job to finish wins" collision
+to design around the way there was for `actions/cache`-backed caches, so
+adding a new job here is just adding the same three-input step, no new
+per-kind key to invent.
 
 A dedicated `actions/cache` entry holding
 `target/debug/build/libduckdb-sys-*/out` was rejected: Cargo has no early

@@ -1,7 +1,7 @@
 # sccache R2 cache store
 
 Provisions the Cloudflare R2 bucket and scoped API credentials that
-`.github/actions/cache-duckdb/action.yml` uses as sccache's storage backend,
+`.github/actions/cache-sccache/action.yml` uses as sccache's storage backend,
 replacing the GitHub Actions cache (`actions/cache`) wrapper that PR #2132
 originally shipped. Background and the reasoning for moving off GitHub's
 cache entirely is in
@@ -65,7 +65,7 @@ gh variable set CLOUDFLARE_ACCOUNT_ID --repo shm11C3/HardwareVisualizer \
 ```
 
 `bucket_name` is not a secret; it's already hardcoded into
-`.github/actions/cache-duckdb/action.yml`. If you change `bucket_name` in
+`.github/actions/cache-sccache/action.yml`. If you change `bucket_name` in
 `terraform.tfvars`, update that file to match.
 
 ## Rotating the CI token
