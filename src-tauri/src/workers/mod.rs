@@ -106,5 +106,23 @@ impl WorkersState {
     if let Some(storage_health) = storage_health {
       storage_health.terminate().await;
     }
+
+    // Last, now that every database-backed worker above has drained and
+    // stopped writing: close the native database dispatch boundary's live
+    // owner, if any (#2134). This joins the two DuckDB lane threads
+    // deliberately - and lets the file checkpoint cleanly - instead of
+    // letting them be torn down with the process. Every caller of
+    // `terminate_all` (`lifecycle::request_quit`,
+    // `services::system_service::restart_app[_elevated]`) reaches this, so
+    // it is a single site rather than one per quit/restart path. A no-op
+    // with the feature disabled or when nothing was ever selected.
+    #[cfg(feature = "duckdb-archive")]
+    if let Err(e) = hardviz_core::infrastructure::database::dispatch::shutdown().await {
+      hardviz_core::log_error!(
+        "Failed to close the native database owner during shutdown",
+        "workers::WorkersState::terminate_all",
+        Some(e.to_string())
+      );
+    }
   }
 }

@@ -53,8 +53,24 @@
 //!   this boundary currently holds (a no-op the first time), re-runs
 //!   [`observe_authority`]/[`inspect_authority`], and - only if the durable
 //!   state is [`AuthorityState::NativeSelected`] - opens exactly one new
-//!   [`NativeDatabase`] and adopts it. Any other state leaves the boundary on
-//!   SQLite.
+//!   [`NativeDatabase`] and adopts it. The three states where SQLite is
+//!   genuinely still authoritative
+//!   ([`AuthorityState::SqliteAuthoritative`],
+//!   [`AuthorityState::ConversionInProgress`],
+//!   [`AuthorityState::FinalizedUnselected`]) leave the boundary on SQLite.
+//!   Anything else - a failed open, or [`AuthorityState::Inconsistent`] -
+//!   leaves every consumer refused with
+//!   [`DispatchError::NativeUnavailable`] until a later call reports
+//!   something else: once the durable record says native is or may be
+//!   selected, answering from SQLite would silently diverge from the
+//!   authoritative backend, so the boundary answers nothing rather than
+//!   guess. See `boundary::reobserve_authority`'s own doc for the exact
+//!   three-way split.
+//! - [`shutdown()`](shutdown) - close the live native owner without
+//!   deciding a new backend. Idempotent; call it during process shutdown,
+//!   after database-backed workers have drained and before the process
+//!   exits, so the two DuckDB lane threads are joined deliberately instead
+//!   of torn down with the process.
 //!
 //! `reobserve_authority` was chosen over a "hand me an already-open database"
 //! entry point because it is the one that cannot race a second instance
@@ -65,9 +81,10 @@
 //! scoped connection to record the selection, and is not this boundary's
 //! owner) simply calls `reobserve_authority()` next; nothing else is needed.
 
+use chrono::{DateTime, Utc};
+
 use super::archive_queries::{ArchiveSeriesError, ProcessStatRecord};
 use crate::persistence::archive_data::ProcessStatData;
-use chrono::{DateTime, Utc};
 
 /// The one error type every dispatch function returns, regardless of which
 /// backend answered. Callers that only need `{e}` (every current call site)
@@ -81,6 +98,19 @@ pub enum DispatchError {
   #[cfg(feature = "duckdb-archive")]
   #[error(transparent)]
   Native(#[from] super::native_database::NativeDatabaseError),
+  /// The durable authority state says a native database is (or may be)
+  /// selected, but this boundary cannot currently serve it - a failed
+  /// `NativeDatabase::open`, or any `AuthorityState::Inconsistent` finding.
+  /// Falling through to SQLite here would answer from a backend the durable
+  /// record no longer treats as authoritative, silently diverging from
+  /// whatever was written natively; refusing is the only response that
+  /// cannot lose history. See `boundary::reobserve_authority`.
+  #[cfg(feature = "duckdb-archive")]
+  #[error(
+    "the native database is not safely servable ({reason}); refusing to answer from SQLite \
+     because the durable authority record no longer treats it as authoritative"
+  )]
+  NativeUnavailable { reason: String },
 }
 
 #[cfg(feature = "duckdb-archive")]
@@ -93,17 +123,40 @@ mod boundary {
     AuthorityPaths, AuthorityState, NativeDatabase, NativeDatabaseError,
     NativeDatabaseOptions, inspect_authority, observe_authority,
   };
+  use super::DispatchError;
 
   struct Config {
     paths: AuthorityPaths,
     expected_schema_version: u32,
   }
 
-  static CONFIG: OnceLock<Config> = OnceLock::new();
-  static ACTIVE: OnceLock<RwLock<Option<NativeDatabase>>> = OnceLock::new();
+  /// Which backend this boundary currently answers from. `Unavailable`
+  /// exists only so a consumer can be refused with a typed error rather
+  /// than silently reading stale SQLite rows - see the module doc's "What
+  /// decides the answer" and [`DispatchError::NativeUnavailable`].
+  enum Active {
+    Sqlite,
+    Native(NativeDatabase),
+    Unavailable(String),
+  }
 
-  fn active() -> &'static RwLock<Option<NativeDatabase>> {
-    ACTIVE.get_or_init(|| RwLock::new(None))
+  /// What a dispatch function actually dispatches to. Not `Unavailable`:
+  /// that case is resolved into an `Err` by [`resolve_backend`] before any
+  /// caller sees it.
+  pub(super) enum Backend {
+    Sqlite,
+    Native(NativeDatabase),
+  }
+
+  static CONFIG: OnceLock<Config> = OnceLock::new();
+  static ACTIVE: OnceLock<RwLock<Active>> = OnceLock::new();
+
+  /// The ordinary state before [`reobserve_authority`] has ever run - a
+  /// fresh install, or a consumer called before App startup wiring reaches
+  /// it (every current test does this deliberately, to prove the
+  /// not-selected path needs no configuration).
+  fn active() -> &'static RwLock<Active> {
+    ACTIVE.get_or_init(|| RwLock::new(Active::Sqlite))
   }
 
   fn config() -> &'static Config {
@@ -133,40 +186,96 @@ mod boundary {
   }
 
   /// Close whatever native owner this boundary currently holds, then look at
-  /// disk again and adopt a fresh one if - and only if - the durable state is
-  /// [`AuthorityState::NativeSelected`]. See the module doc's "Seam for
+  /// disk again and decide the next answer. See the module doc's "Seam for
   /// #2135" for when to call this.
+  ///
+  /// Three outcomes, by durable state:
+  /// - [`AuthorityState::SqliteAuthoritative`],
+  ///   [`AuthorityState::ConversionInProgress`] or
+  ///   [`AuthorityState::FinalizedUnselected`]: SQLite is genuinely still
+  ///   authoritative, so the boundary answers from it.
+  /// - [`AuthorityState::NativeSelected`]: the boundary opens exactly one new
+  ///   [`NativeDatabase`] and answers from it. If the open itself fails -
+  ///   the durable record says selected, but the file cannot be opened - the
+  ///   boundary is left [`Active::Unavailable`] and this call returns `Err`:
+  ///   the caller must not silently keep going on SQLite, because SQLite is
+  ///   a stale recovery copy the instant a selection is durable.
+  /// - [`AuthorityState::Inconsistent`]: same refusal. The state is still
+  ///   returned as `Ok` (it already carries the `reason` and `recovery`
+  ///   [`super::super::native_database::AuthorityRecovery`] a caller needs to
+  ///   decide whether repair is safe - see
+  ///   [`super::super::native_database::repair_authority_marker`]), but the
+  ///   boundary answers nothing until a later `reobserve_authority` call
+  ///   reports something else.
   pub async fn reobserve_authority() -> Result<AuthorityState, NativeDatabaseError> {
     let mut guard = active().write().await;
-    if let Some(database) = guard.take() {
+    if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
       database.close().await?;
     }
     let config = config();
     let facts = observe_authority(&config.paths, config.expected_schema_version);
     let state = inspect_authority(&facts);
-    if matches!(state, AuthorityState::NativeSelected) {
-      let database = NativeDatabase::open(
-        &config.paths.native_database,
-        NativeDatabaseOptions::new(config.expected_schema_version),
-      )
-      .await?;
-      *guard = Some(database);
-    }
+    let next = match state {
+      AuthorityState::SqliteAuthoritative
+      | AuthorityState::ConversionInProgress { .. }
+      | AuthorityState::FinalizedUnselected => Active::Sqlite,
+      AuthorityState::NativeSelected => {
+        match NativeDatabase::open(
+          &config.paths.native_database,
+          NativeDatabaseOptions::new(config.expected_schema_version),
+        )
+        .await
+        {
+          Ok(database) => Active::Native(database),
+          Err(error) => {
+            // The durable record says selected, but the file cannot be
+            // opened. Leaving the boundary unavailable - never falling back
+            // to `Active::Sqlite` - is the point of this whole change: SQLite
+            // is a stale recovery copy the instant a selection is durable.
+            *guard = Active::Unavailable(format!(
+              "the durable state says selected, but opening it failed: {error}"
+            ));
+            return Err(error);
+          }
+        }
+      }
+      AuthorityState::Inconsistent { reason, recovery } => {
+        Active::Unavailable(format!("{reason:?} ({recovery:?})"))
+      }
+    };
+    *guard = next;
     Ok(state)
   }
 
-  /// The live owner, if the durable state is currently selected. Cloning is
-  /// an `Arc` bump, not a new connection.
-  pub(super) async fn native_handle() -> Option<NativeDatabase> {
-    active().read().await.clone()
+  /// Close the live native owner, if any, without deciding a new backend.
+  /// Leaves the boundary on SQLite - correct at process shutdown, where
+  /// nothing answers a dispatch call again before the process exits.
+  pub async fn shutdown() -> Result<(), NativeDatabaseError> {
+    let mut guard = active().write().await;
+    if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
+      database.close().await?;
+    }
+    Ok(())
+  }
+
+  /// The backend to dispatch to, or the typed refusal if the durable state
+  /// says native is selected (or ambiguous) and this boundary cannot safely
+  /// serve either engine.
+  pub(super) async fn resolve_backend() -> Result<Backend, DispatchError> {
+    match &*active().read().await {
+      Active::Sqlite => Ok(Backend::Sqlite),
+      // Cloning is an `Arc` bump, not a new connection.
+      Active::Native(database) => Ok(Backend::Native(database.clone())),
+      Active::Unavailable(reason) => Err(DispatchError::NativeUnavailable {
+        reason: reason.clone(),
+      }),
+    }
   }
 }
 
 #[cfg(feature = "duckdb-archive")]
-pub use boundary::{init, reobserve_authority};
+pub use boundary::{init, reobserve_authority, shutdown};
 
-/// The Process Stats family: [`super::process_stats`] (SQLite) and
-/// [`super::native_database::process_stats`] (native).
 pub mod process_stats {
   use super::*;
 
@@ -185,18 +294,22 @@ pub mod process_stats {
     processes: Vec<ProcessStatData>,
     timestamp: DateTime<Utc>,
   ) -> Result<(), DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => super::super::native_database::process_stats::insert(
-        &database,
-        super::super::native_database::NativeCancellation::new(),
-        processes,
-        timestamp,
-      )
-      .await
-      .map_err(DispatchError::from),
-      None => super::super::process_stats::insert(processes, timestamp)
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::process_stats::insert(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          processes,
+          timestamp,
+        )
         .await
-        .map_err(DispatchError::from),
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::process_stats::insert(processes, timestamp)
+          .await
+          .map_err(DispatchError::from)
+      }
     }
   }
 
@@ -209,18 +322,22 @@ pub mod process_stats {
 
   #[cfg(feature = "duckdb-archive")]
   pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => super::super::native_database::process_stats::delete_old_data(
-        &database,
-        super::super::native_database::NativeCancellation::new(),
-        retention_days,
-      )
-      .await
-      .map(|_deleted| ())
-      .map_err(DispatchError::from),
-      None => super::super::process_stats::delete_old_data(retention_days)
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::process_stats::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
         .await
-        .map_err(DispatchError::from),
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::process_stats::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
     }
   }
 
@@ -241,8 +358,8 @@ pub mod process_stats {
     end: &str,
     order_by_cpu_desc: bool,
   ) -> Result<Vec<ProcessStatRecord>, DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
         super::super::native_database::process_stats::select_process_stats(
           &database,
           super::super::native_database::NativeCancellation::new(),
@@ -253,7 +370,7 @@ pub mod process_stats {
         .await
         .map_err(DispatchError::from)
       }
-      None => {
+      super::boundary::Backend::Sqlite => {
         super::super::archive_queries::select_process_stats(start, end, order_by_cpu_desc)
           .await
           .map_err(DispatchError::from)
