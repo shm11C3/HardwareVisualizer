@@ -8,7 +8,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, MissedTickBehavior, interval};
 
-use crate::infrastructure::database;
+use crate::infrastructure::database::dispatch;
 use crate::models::hardware::{
   SmartAttribute, SmartDiskInfo, SmartHealthStatus, StorageDeviceRecord,
   StorageHealthRecordDraft, StorageHealthStatus, StorageWarningLevel,
@@ -193,10 +193,10 @@ async fn store_storage_health_collection(
   let active_device_ids =
     active_device_ids_with_collected_devices(active_device_ids, &collection.devices);
   let result = if active_device_ids.is_empty() {
-    database::storage_health::insert_daily_records(collection.devices, collection.records)
+    dispatch::storage_health::insert_daily_records(collection.devices, collection.records)
       .await
   } else {
-    database::storage_health::refresh_daily_records(
+    dispatch::storage_health::refresh_daily_records(
       &active_device_ids,
       collection.devices,
       collection.records,
@@ -206,7 +206,7 @@ async fn store_storage_health_collection(
 
   result.map_err(|e| format!("Failed to insert storage health daily records: {e}"))?;
 
-  database::storage_health::delete_old_data(retention_days)
+  dispatch::storage_health::delete_old_data(retention_days)
     .await
     .map_err(|e| format!("Failed to delete old storage health records: {e}"))
 }
