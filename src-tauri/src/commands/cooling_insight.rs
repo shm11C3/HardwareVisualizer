@@ -20,9 +20,14 @@ use tauri::command;
 ///
 #[command]
 #[specta::specta]
-pub async fn get_cooling_trend(days: u32) -> Result<Vec<CoolingDailyTrendPoint>, String> {
+pub async fn get_cooling_trend(
+  app: tauri::AppHandle,
+  days: u32,
+) -> Result<Vec<CoolingDailyTrendPoint>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::cooling_insight_service;
 
+  ensure_database_available(&app)?;
   cooling_insight_service::fetch_cooling_trend(days)
     .await
     .map(|days| days.into_iter().map(Into::into).collect())
@@ -33,9 +38,14 @@ pub async fn get_cooling_trend(days: u32) -> Result<Vec<CoolingDailyTrendPoint>,
 ///
 #[command]
 #[specta::specta]
-pub async fn get_cooling_fan_trend(days: u32) -> Result<CoolingFanTrend, String> {
+pub async fn get_cooling_fan_trend(
+  app: tauri::AppHandle,
+  days: u32,
+) -> Result<CoolingFanTrend, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::cooling_insight_service;
 
+  ensure_database_available(&app)?;
   cooling_insight_service::fetch_cooling_fan_trend(days)
     .await
     .map(Into::into)
@@ -46,9 +56,13 @@ pub async fn get_cooling_fan_trend(days: u32) -> Result<CoolingFanTrend, String>
 ///
 #[command]
 #[specta::specta]
-pub async fn get_cooling_band_comparison() -> Result<CoolingBandComparison, String> {
+pub async fn get_cooling_band_comparison(
+  app: tauri::AppHandle,
+) -> Result<CoolingBandComparison, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::cooling_insight_service;
 
+  ensure_database_available(&app)?;
   cooling_insight_service::fetch_cooling_band_comparison()
     .await
     .map(Into::into)
@@ -59,9 +73,13 @@ pub async fn get_cooling_band_comparison() -> Result<CoolingBandComparison, Stri
 ///
 #[command]
 #[specta::specta]
-pub async fn get_cooling_baseline_delta() -> Result<CoolingBaselineDelta, String> {
+pub async fn get_cooling_baseline_delta(
+  app: tauri::AppHandle,
+) -> Result<CoolingBaselineDelta, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::cooling_insight_service;
 
+  ensure_database_available(&app)?;
   cooling_insight_service::fetch_cooling_baseline_delta()
     .await
     .map(Into::into)
@@ -76,10 +94,13 @@ pub async fn get_cooling_baseline_delta() -> Result<CoolingBaselineDelta, String
 #[command]
 #[specta::specta]
 pub async fn get_cooling_load_temperature_explorer(
+  app: tauri::AppHandle,
   recent_days: u32,
 ) -> Result<CoolingLoadTemperatureExplorer, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::cooling_insight_service;
 
+  ensure_database_available(&app)?;
   cooling_insight_service::fetch_cooling_load_temperature_explorer(recent_days)
     .await
     .map(Into::into)
@@ -89,10 +110,13 @@ pub async fn get_cooling_load_temperature_explorer(
 #[command]
 #[specta::specta]
 pub async fn get_cooling_covariate_comparison(
+  app: tauri::AppHandle,
   band: CoolingLoadBand,
 ) -> Result<CoolingCovariateComparison, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::cooling_insight_service;
 
+  ensure_database_available(&app)?;
   cooling_insight_service::fetch_cooling_covariate_comparison(band.into())
     .await
     .map(Into::into)

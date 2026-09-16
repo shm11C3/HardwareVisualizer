@@ -64,6 +64,14 @@ pub enum LifecycleIssue {
   /// automatically by [`inspect_startup_authority`] and never reaches this
   /// variant unless the repair itself failed.
   Authority(AuthorityInconsistency),
+  /// `inspect_authority` reported `NativeSelected` - the files agree and
+  /// name the native database as authoritative - but opening it failed (the
+  /// spill directory, the read/write handle, or an owner thread). The files
+  /// are not in question here, unlike `Authority`; the runtime open itself
+  /// is. Never silently falls back to SQLite: once selection is durable,
+  /// ADR 0022 rejects running on both, so this is reported rather than
+  /// treated as "still on SQLite".
+  NativeOpenFailed { message: String },
   /// The running conversion failed at a named step. Produced by the
   /// conversion driver (#2135, stacked on this change).
   #[allow(dead_code)]

@@ -124,7 +124,8 @@ pub fn prompt_native_authority_issue(
   let message = format!(
     "HardwareVisualizer found the native database files in an unexpected state and \
      stopped rather than guess which one is correct.\n\n\
-     You can continue using the app on the existing SQLite data, or exit and inspect \
+     You can continue with real-time monitoring only - archived history and other \
+     database-backed features stay disabled for this session - or exit and inspect \
      the app data directory.\n\n\
      [Details: {issue:?}]"
   );
