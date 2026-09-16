@@ -74,14 +74,14 @@ Re-running `apply` after tainting the token resource issues a new token
 and rotates both derived credentials in one step:
 
 ```bash
-terraform taint cloudflare_api_token.sccache_ci
+terraform taint cloudflare_account_token.sccache_ci
 terraform apply
 # then re-run the gh secret set commands above with the new outputs
 ```
 
 The token has no `expires_on`, so rotation is manual/on-demand rather than
 forced. If you want it to expire automatically as a defense-in-depth
-measure, add `expires_on` to the `cloudflare_api_token` resource in
+measure, add `expires_on` to the `cloudflare_account_token` resource in
 `main.tf` and re-apply before it lapses — an expired unrotated token will
 fail CI's R2 auth the same way an unset secret does (sccache falls back to
 building without a cache rather than failing the build).
