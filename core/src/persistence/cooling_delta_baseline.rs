@@ -256,6 +256,9 @@ pub fn derive_delta_baseline_state(
 /// the absolute baseline insists on its resolver: otherwise it ignores
 /// the pinned row and drifts as the rollup rows behind the original
 /// establishment age out.
+/// Test-only since #2134: [`resolve_delta_baseline_state`] is routed
+/// through the dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn resolve_delta_baseline_state_from_pool(
   pool: &sqlx::SqlitePool,
   days: &[ThermalDeltaDailySummary],
@@ -295,6 +298,41 @@ pub(crate) async fn resolve_delta_baseline_state_from_pool(
   }
 }
 
+/// [`resolve_delta_baseline_state_from_pool`], routed through the dispatch
+/// boundary (#2134) instead of an explicit pool. Every production caller
+/// (this module's own pinning, the band comparison, the baseline delta and
+/// the co-variate comparison) uses this, not the `_from_pool` variant.
+pub(crate) async fn resolve_delta_baseline_state(
+  days: &[ThermalDeltaDailySummary],
+) -> Result<DeltaBaselineState, crate::infrastructure::database::dispatch::DispatchError>
+{
+  use crate::infrastructure::database::dispatch;
+
+  match dispatch::cooling_delta_baseline::select_established_delta_baseline().await? {
+    Some(pinned) => Ok(pinned.into_state()),
+    None => {
+      let derived = derive_delta_baseline_state(days);
+      if let Some(baseline) = EstablishedDeltaBaseline::from_state(&derived) {
+        // Write-once bookkeeping, not part of the answer - a transient
+        // failure must not turn a valid derivation into a read error.
+        // Retried on the next resolution, same rule as the `_from_pool`
+        // resolver above.
+        if let Err(e) =
+          dispatch::cooling_delta_baseline::insert_established_delta_baseline(&baseline)
+            .await
+        {
+          crate::log_error!(
+            "Failed to pin the established ΔT cooling baseline; retrying on the next resolution",
+            "persistence::cooling_delta_baseline::resolve_delta_baseline_state",
+            Some(e.to_string())
+          );
+        }
+      }
+      Ok(derived)
+    }
+  }
+}
+
 /// Resolve — and, on first establishment, pin — the ΔT baseline in the
 /// background, mirroring
 /// [`crate::persistence::cooling_baseline::ensure_baseline_pinned`]. The
@@ -303,16 +341,13 @@ pub(crate) async fn resolve_delta_baseline_state_from_pool(
 /// cleanup erases the establishment-window rows. Failures are logged and
 /// retried on the next pass.
 pub(crate) async fn ensure_delta_baseline_pinned() {
-  use crate::infrastructure::database;
+  use crate::infrastructure::database::dispatch;
 
   let resolve = async {
-    let pool = database::db::get_pool().await?;
     let days =
-      database::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries_from_pool(
-        &pool,
-      )
-      .await?;
-    resolve_delta_baseline_state_from_pool(&pool, &days).await
+      dispatch::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+        .await?;
+    resolve_delta_baseline_state(&days).await
   };
 
   if let Err(e) = resolve.await {

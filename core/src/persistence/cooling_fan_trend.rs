@@ -90,17 +90,19 @@ pub fn fan_days_in_window(
 /// second command: the caller needs both answers to decide one thing (see
 /// [`CoolingFanTrend`]), and splitting them would let a view render from
 /// one without the other.
-pub async fn load_cooling_fan_trend(days: u32) -> Result<CoolingFanTrend, sqlx::Error> {
-  use crate::infrastructure::database;
+pub async fn load_cooling_fan_trend(
+  days: u32,
+) -> Result<CoolingFanTrend, crate::infrastructure::database::dispatch::DispatchError> {
+  use crate::infrastructure::database::dispatch;
 
   let all_days =
-    database::cooling_fan_daily_summary::select_all_fan_daily_summaries().await?;
+    dispatch::cooling_fan_daily_summary::select_all_fan_daily_summaries().await?;
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
   let start = trend_window_start_date(days, yesterday);
 
   Ok(CoolingFanTrend {
     series: group_fan_days_by_source(&fan_days_in_window(&all_days, start, yesterday)),
-    archive_has_readings: database::fan_archive::has_any_reading().await?,
+    archive_has_readings: dispatch::fan_archive::has_any_reading().await?,
   })
 }
 

@@ -407,6 +407,9 @@ fn to_idle_sample(
 /// re-deriving it - the pinned baseline row must win once one exists, or
 /// this comparison would silently drift once the rollup rows the
 /// original establishment came from age out.
+/// Test-only since #2134: [`load_cooling_band_comparison`] is routed
+/// through the dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn load_cooling_band_comparison_from_pool(
   pool: &sqlx::SqlitePool,
   today: NaiveDate,
@@ -446,12 +449,32 @@ pub(crate) async fn load_cooling_band_comparison_from_pool(
   ))
 }
 
-/// [`load_cooling_band_comparison_from_pool`] against Core's process-wide
-/// pool.
-pub async fn load_cooling_band_comparison() -> Result<CoolingBandComparison, sqlx::Error>
+/// [`load_cooling_band_comparison_from_pool`], routed through the dispatch
+/// boundary (#2134) instead of Core's process-wide SQLite pool.
+pub async fn load_cooling_band_comparison()
+-> Result<CoolingBandComparison, crate::infrastructure::database::dispatch::DispatchError>
 {
-  let pool = crate::infrastructure::database::db::get_pool().await?;
-  load_cooling_band_comparison_from_pool(&pool, chrono::Local::now().date_naive()).await
+  use crate::infrastructure::database::dispatch;
+  use crate::persistence::cooling_baseline::resolve_baseline_state;
+  use crate::persistence::cooling_delta_baseline::resolve_delta_baseline_state;
+
+  let days =
+    dispatch::cooling_daily_summary::select_all_daily_cooling_summaries().await?;
+  let idle_samples: Vec<_> = days.iter().map(to_idle_sample).collect();
+  let baseline_state = resolve_baseline_state(&idle_samples).await?;
+  let delta_days =
+    dispatch::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+      .await?;
+  let delta_baseline_state = resolve_delta_baseline_state(&delta_days).await?;
+  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+
+  Ok(derive_band_comparison(
+    &days,
+    &delta_days,
+    baseline_state,
+    delta_baseline_state,
+    yesterday,
+  ))
 }
 
 #[cfg(test)]

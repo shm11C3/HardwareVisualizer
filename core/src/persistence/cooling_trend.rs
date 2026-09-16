@@ -56,11 +56,14 @@ pub fn days_in_window(
 /// yesterday (the most recent local day the rollup can have summarized).
 pub async fn load_cooling_trend(
   days: u32,
-) -> Result<Vec<DailyCoolingSummary>, sqlx::Error> {
-  use crate::infrastructure::database;
+) -> Result<
+  Vec<DailyCoolingSummary>,
+  crate::infrastructure::database::dispatch::DispatchError,
+> {
+  use crate::infrastructure::database::dispatch;
 
   let all_days =
-    database::cooling_daily_summary::select_all_daily_cooling_summaries().await?;
+    dispatch::cooling_daily_summary::select_all_daily_cooling_summaries().await?;
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
   let start = trend_window_start_date(days, yesterday);
 

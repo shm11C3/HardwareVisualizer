@@ -786,43 +786,44 @@ fn covariate_rollup_is_behind(progress: RollupProgress) -> bool {
   }
 }
 
-async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
-  use crate::infrastructure::database;
+async fn catch_up_cooling_rollup()
+-> Result<(), crate::infrastructure::database::dispatch::DispatchError> {
+  use crate::infrastructure::database::dispatch;
 
   let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
   // The end of yesterday is the start of today, which is exactly the
   // "completed days only" bound the power backfill check needs.
   let (_, today_start) = local_day_utc_bounds(yesterday);
   let last_summarized_date = rollup_catch_up_cursor(RollupProgress {
-    last_daily_date: database::cooling_daily_summary::max_summarized_date().await?,
+    last_daily_date: dispatch::cooling_daily_summary::max_summarized_date().await?,
     last_pairable_daily_date:
-      database::cooling_daily_summary::max_pairable_summarized_date().await?,
-    last_hourly_date: database::cooling_hourly_summary::max_summarized_date().await?,
+      dispatch::cooling_daily_summary::max_pairable_summarized_date().await?,
+    last_hourly_date: dispatch::cooling_hourly_summary::max_summarized_date().await?,
     last_powered_daily_date:
-      database::cooling_daily_summary::max_powered_summarized_date().await?,
+      dispatch::cooling_daily_summary::max_powered_summarized_date().await?,
     last_powered_archive_date:
-      database::cooling_daily_summary::max_powered_archive_timestamp_before(&today_start)
+      dispatch::cooling_daily_summary::max_powered_archive_timestamp_before(&today_start)
         .await?
         .map(utc_to_local_date),
-    last_fanned_daily_date: database::cooling_fan_daily_summary::max_summarized_date()
+    last_fanned_daily_date: dispatch::cooling_fan_daily_summary::max_summarized_date()
       .await?,
-    last_fanned_archive_date: database::fan_archive::max_fan_archive_timestamp_before(
+    last_fanned_archive_date: dispatch::fan_archive::max_fan_archive_timestamp_before(
       &today_start,
     )
     .await?
     .map(utc_to_local_date),
     last_ambient_daily_date:
-      database::cooling_thermal_delta_daily_summary::max_summarized_date().await?,
+      dispatch::cooling_thermal_delta_daily_summary::max_summarized_date().await?,
     last_ambient_archive_date:
-      database::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
+      dispatch::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
         &today_start,
       )
       .await?
       .map(utc_to_local_date),
     last_covariate_daily_date:
-      database::cooling_covariate_daily_summary::max_summarized_date().await?,
+      dispatch::cooling_covariate_daily_summary::max_summarized_date().await?,
     last_covariate_archive_date:
-      database::cooling_covariate_daily_summary::max_classifiable_pairable_ambient_archive_timestamp_before(
+      dispatch::cooling_covariate_daily_summary::max_classifiable_pairable_ambient_archive_timestamp_before(
         &today_start,
       )
       .await?
@@ -830,7 +831,7 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
   });
   let earliest_archived_local_date = match last_summarized_date {
     Some(_) => None,
-    None => database::cooling_daily_summary::earliest_archived_timestamp()
+    None => dispatch::cooling_daily_summary::earliest_archived_timestamp()
       .await?
       .map(utc_to_local_date),
   };
@@ -864,12 +865,14 @@ async fn catch_up_cooling_rollup() -> Result<(), sqlx::Error> {
 /// Both are folded from the *same* fetch rather than by a second worker or
 /// a second query - they answer different questions about identical rows,
 /// and the day's archive range has already been read here.
-async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
-  use crate::infrastructure::database;
+async fn roll_up_day(
+  date: NaiveDate,
+) -> Result<(), crate::infrastructure::database::dispatch::DispatchError> {
+  use crate::infrastructure::database::dispatch;
 
   let (start, end) = local_day_utc_bounds(date);
   let minutes =
-    database::cooling_daily_summary::select_archive_minutes_for_range(&start, &end)
+    dispatch::cooling_daily_summary::select_archive_minutes_for_range(&start, &end)
       .await?;
 
   // A day without samples stays absent - never insert a zeroed row.
@@ -881,7 +884,7 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
   // needs its own read - but it is folded into the same day's transaction
   // below rather than by a second worker.
   let fan_minutes =
-    database::fan_archive::select_fan_minutes_for_range(&start, &end).await?;
+    dispatch::fan_archive::select_fan_minutes_for_range(&start, &end).await?;
   let fans =
     crate::persistence::cooling_fan_rollup::summarize_fan_day(date, &fan_minutes);
   // The Thermal Delta is folded from its own paired read rather than from
@@ -890,7 +893,7 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
   // can only ever subtract readings describing the same minute and the
   // same sensor (#2045, #2062).
   let paired_minutes =
-    database::cooling_thermal_delta_daily_summary::select_thermal_delta_minutes_for_range(
+    dispatch::cooling_thermal_delta_daily_summary::select_thermal_delta_minutes_for_range(
       &start, &end,
     )
     .await?;
@@ -908,9 +911,9 @@ async fn roll_up_day(date: NaiveDate) -> Result<(), sqlx::Error> {
     &fan_minutes,
   );
 
-  let pool = database::db::get_pool().await?;
-  persist_day_rollup_from_pool(
-    &pool,
+  // Routed through the dispatch boundary (#2134): the six projections stay
+  // one transaction on either backend - see `dispatch::cooling_rollup`.
+  dispatch::cooling_rollup::persist_day_rollup(
     summary.as_ref(),
     &hours,
     &fans,
@@ -991,13 +994,13 @@ pub(crate) async fn persist_day_rollup_from_pool(
 /// begin long after the machine did. Each exemption costs at most a week
 /// of rows.
 pub async fn cleanup_old_data() {
-  use crate::infrastructure::database;
+  use crate::infrastructure::database::dispatch;
 
   // Deleting without knowing a protected window could erase a baseline's
   // evidence irrecoverably, so either read failing skips this cleanup
   // pass entirely and lets the next boot retry rather than risk it.
   let preserved_windows: Vec<_> =
-    match database::cooling_baseline::select_established_baseline().await {
+    match dispatch::cooling_baseline::select_established_baseline().await {
       Ok(baseline) => baseline
         .map(|b| (b.window_start_date, b.window_end_date))
         .into_iter()
@@ -1012,7 +1015,7 @@ pub async fn cleanup_old_data() {
       }
     };
   let preserved_delta_windows: Vec<_> =
-    match database::cooling_delta_baseline::select_established_delta_baseline().await {
+    match dispatch::cooling_delta_baseline::select_established_delta_baseline().await {
       Ok(baseline) => baseline
         .map(|b| (b.window_start_date, b.window_end_date))
         .into_iter()
@@ -1027,7 +1030,7 @@ pub async fn cleanup_old_data() {
       }
     };
 
-  if let Err(e) = database::cooling_daily_summary::delete_old_data(
+  if let Err(e) = dispatch::cooling_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
     &preserved_windows,
   )
@@ -1040,7 +1043,7 @@ pub async fn cleanup_old_data() {
     );
   }
 
-  if let Err(e) = database::cooling_hourly_summary::delete_old_data(
+  if let Err(e) = dispatch::cooling_hourly_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
     &preserved_windows,
   )
@@ -1053,7 +1056,7 @@ pub async fn cleanup_old_data() {
     );
   }
 
-  if let Err(e) = database::cooling_thermal_delta_daily_summary::delete_old_data(
+  if let Err(e) = dispatch::cooling_thermal_delta_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
     &preserved_delta_windows,
   )
@@ -1068,7 +1071,7 @@ pub async fn cleanup_old_data() {
 
   // The co-variate comparison reads its baseline side from the ΔT
   // baseline's window, so the same exemption applies (#2068).
-  if let Err(e) = database::cooling_covariate_daily_summary::delete_old_data(
+  if let Err(e) = dispatch::cooling_covariate_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
     &preserved_delta_windows,
   )
@@ -1085,7 +1088,7 @@ pub async fn cleanup_old_data() {
   // projection of the same days - but no baseline exemption: neither
   // pinned baseline is a fan reference, so preserving fan rows inside
   // either window would keep data nothing reads.
-  if let Err(e) = database::cooling_fan_daily_summary::delete_old_data(
+  if let Err(e) = dispatch::cooling_fan_daily_summary::delete_old_data(
     COOLING_DAILY_SUMMARY_RETENTION_DAYS,
   )
   .await
