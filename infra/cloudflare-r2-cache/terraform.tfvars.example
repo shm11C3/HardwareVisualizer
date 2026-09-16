@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and fill in. This file is gitignored; never commit
+# a copy with real values. account_id is not secret (find it on the
+# Cloudflare dashboard's overview page, or right sidebar of any zone), but
+# keep this file local regardless since it's the natural place to add
+# secrets later.
+
+account_id = "<your-cloudflare-account-id>"
+
+# Optional overrides (defaults shown):
+# bucket_name        = "hardwarevisualizer-sccache"
+# bucket_location    = "wnam"
+# object_expiry_days = 30

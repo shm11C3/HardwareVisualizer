@@ -175,7 +175,7 @@ does satisfy it. Either way its rust-cache step reuses `tauri-build`
 (populated by `ci.yml`'s `test-build` job on `develop`) instead of a
 job-specific key that a tag-triggered run could never save to.
 
-## CI caches the DuckDB C++ build with sccache
+## CI caches the DuckDB C++ build with sccache, backed by Cloudflare R2
 
 `.github/actions/cache-duckdb/action.yml` installs sccache
 (`mozilla-actions/sccache-action`) and exports `RUSTC_WRAPPER=sccache`. The
@@ -198,46 +198,60 @@ whenever the binary's mtime is newer than the restored `output` file. The
 restored directory would survive only when the whole build-dependency closure
 is already fresh in `target/`, which is the case rust-cache already covers.
 
-A first version of this action set `SCCACHE_GHA_ENABLED=true`, routing every
-cache write through GitHub's Actions Cache Service as an individual real-time
-PUT issued from inside the compile request. That service rate-limits writes
-per *workflow run*, shared across every job in it, and sccache's GHA backend
-installs no retry layer, so a rate-limited write is dropped and counted as a
-write error rather than retried
-([mozilla/sccache#2821](https://github.com/mozilla/sccache/issues/2821), open
-and unfixed; a 2023 attempt to add the missing retry layer,
-[mozilla/sccache#1700](https://github.com/mozilla/sccache/pull/1700), was
-closed unmerged for accumulated conflicts). This repository runs
-`duckdb-archive` in three job kinds across three platforms, up to nine
-concurrent writers in one workflow run. Verification on run 34865702849
-confirmed the predicted failure mode in every one of those jobs: 0 cache hits
-and effectively 100% write errors (for example `test-core (windows-latest)`:
-325 compile requests, 0 hits, 239 write errors), and that job finished slower
-than the pre-sccache baseline.
+### Backend history
 
-The action now uses sccache's default local disk cache
-([docs/Local.md](https://github.com/mozilla/sccache/blob/main/docs/Local.md))
-instead: `SCCACHE_DIR` points at a fixed directory under `runner.temp`, and a
-plain `actions/cache` step persists that one directory, the same mechanism
-`setup-rust`'s rust-cache step and this repository's AppRun/WiX caches already
-use. Persistence becomes one archive upload per job at job end instead of
-hundreds of live per-object writes, so it is not subject to the per-write
-rate limit.
+1. `SCCACHE_GHA_ENABLED=true` (GitHub's Actions Cache Service, one live PUT
+   per compiled object): confirmed 0% cache hits and effectively 100% write
+   errors (for example `test-core (windows-latest)` on run 34865702849: 325
+   compile requests, 0 hits, 239 write errors), tracing to an unfixed
+   upstream defect
+   ([mozilla/sccache#2821](https://github.com/mozilla/sccache/issues/2821),
+   open; a 2023 attempt at the fix,
+   [mozilla/sccache#1700](https://github.com/mozilla/sccache/pull/1700), was
+   closed unmerged for conflicts). GitHub rate-limits writes to that service
+   per *workflow run*, shared across every job in it, and sccache's GHA
+   backend installs no retry layer, so a rate-limited write is dropped, not
+   retried. This repository runs `duckdb-archive` in three job kinds across
+   three platforms, up to nine concurrent writers in one workflow run.
+2. sccache's default local disk cache
+   ([docs/Local.md](https://github.com/mozilla/sccache/blob/main/docs/Local.md)),
+   wrapped in a plain `actions/cache` step (one archive upload per job at
+   job end instead of hundreds of live per-object writes): this worked, but
+   shares GitHub's roughly 10 GB per-repository Actions cache storage budget
+   with rust-cache's `target/` entries, Node's dependency cache, and
+   everything else this repository caches through `actions/cache`. Once
+   that budget filled, saves failed with "Cache reservation failed" for
+   whichever job finished last in a run — consistently Windows, the
+   slowest platform — so a working design still lost to resource contention
+   it did not control.
+3. **Current**: sccache's native S3-compatible backend
+   ([docs/S3.md](https://github.com/mozilla/sccache/blob/main/docs/S3.md)),
+   pointed at a dedicated Cloudflare R2 bucket provisioned by
+   [`infra/cloudflare-r2-cache/`](../../infra/cloudflare-r2-cache/). This
+   removes GitHub's Actions Cache Service from the path entirely: no
+   per-write rate limit, no storage budget shared with unrelated caches,
+   and R2 has zero egress fees for the read-heavy pattern CI produces.
+   `SCCACHE_ENDPOINT`, `SCCACHE_BUCKET`, and `SCCACHE_REGION=auto` point
+   sccache at the bucket; `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
+   (R2's S3-compatible credentials, distinct from any real AWS account)
+   authenticate it. See that directory's README for provisioning,
+   credential rotation, and the token-scope trade-off (R2 exposes no
+   per-bucket resource ARN through the Cloudflare API token system, so the
+   CI token is scoped to R2 read/write for the whole Cloudflare account,
+   not just this one bucket).
 
 Known limits: a Cargo.lock change inside libduckdb-sys's build-dependency
 closure changes the unit's metadata hash and therefore the absolute `OUT_DIR`
 that ends up in the preprocessed output, so the first run after such a bump
-recompiles DuckDB once. The wrapping `actions/cache` key includes the
-workspace Cargo.lock hash, so each distinct lockfile state gets its own
-archive, while its `restore-keys` prefix still restores the most recently
-created matching archive so unrelated Cargo.lock churn does not force a cold
-sccache directory. Saves are not restricted to `develop`: because the key changes
-only when Cargo.lock changes rather than on every run, a branch whose
-lockfile matches `develop` reaches the same key and skips its own save, so
-pull requests saving does not multiply entries per run; `SCCACHE_CACHE_SIZE`
-is capped at 1G per job to bound growth, watch `gh cache list` if it still
-grows faster than expected. The action runs after rust-cache on purpose:
-rust-cache folds `RUST*` environment variables into its key, so exporting
+recompiles DuckDB once. R2 has no LRU eviction of its own; the bucket's
+Terraform config expires objects untouched for 30 days
+(`object_expiry_days` in `infra/cloudflare-r2-cache/variables.tf`) as the
+replacement for that. A pull request from a fork does not receive
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (GitHub withholds repository
+secrets from fork-triggered `pull_request` runs by default), so those jobs
+build without a cache rather than failing; only same-repository branches and
+`develop` benefit. The action runs after rust-cache on purpose: rust-cache
+folds `RUST*` environment variables into its key, so exporting
 `RUSTC_WRAPPER` earlier would split the rust-cache key between jobs with and
 without sccache.
 

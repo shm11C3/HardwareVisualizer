@@ -245,7 +245,9 @@ jobs:
       - name: Cache DuckDB build
         uses: ./.github/actions/cache-duckdb
         with:
-          cache-key: core-lint
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check Core clippy
         run: cargo clippy -p hardviz-core --features duckdb-archive --all-targets -- -D warnings
@@ -278,7 +280,9 @@ jobs:
       - name: Cache DuckDB build
         uses: ./.github/actions/cache-duckdb
         with:
-          cache-key: core-test
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2.87.8
@@ -318,7 +322,9 @@ jobs:
       - name: Cache DuckDB build
         uses: ./.github/actions/cache-duckdb
         with:
-          cache-key: tauri-lint
+          account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check Tauri clippy
         run: cargo clippy -p hardware_visualizer --features duckdb-archive --all-targets -- -D warnings
