@@ -18,9 +18,13 @@ itself via the `s3` backend type) rather than only on one machine.
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.7
 - A Cloudflare account with an R2 subscription enabled (R2 has its own
   opt-in on the dashboard; the free tier is enough for this bucket)
-- A Cloudflare API token with `API Tokens Read`, `API Tokens Write`, and
-  R2 admin permissions on that account, used only to run this Terraform
-  config (distinct from the token Terraform creates for CI)
+- A Cloudflare API token scoped to the target account with `Account API
+  Tokens Read`, `Account API Tokens Write`, and R2 admin (`Workers R2
+  Storage`) permissions, used only to run this Terraform config (distinct
+  from the account-scoped token Terraform creates for CI). The account-
+  scoped variants matter: the account-level permission-groups lookup this
+  config uses returns 403 for a token that only has the user-scoped `API
+  Tokens Read`/`API Tokens Write` permissions.
 
 ## Apply
 
