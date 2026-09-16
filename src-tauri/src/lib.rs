@@ -458,7 +458,28 @@ pub fn run() {
     ));
   }
 
+  // App resolves the native database, marker and spill paths beside the
+  // SQLite file (Core cannot see the app-data directory) and is the single
+  // reader of the authority decision those paths imply. See
+  // `app::native_lifecycle` for the small state vocabulary this produces and
+  // `AGENTS.md`/#2135 for why the decision must come from exactly one place.
+  #[cfg(feature = "duckdb-archive")]
+  let native_lifecycle_state = app::native_lifecycle::inspect_startup_authority(
+    &infrastructure::database::native_paths::authority_paths(),
+    infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+  );
+
   let is_db_ok = db_error.is_none();
+  // An unresolved native authority disagreement blocks DB-dependent startup
+  // exactly like an incompatible SQLite schema: `inspect_authority` already
+  // refused to guess, so starting the app's DB-dependent features here would
+  // be a second, App-side guess about the same files.
+  #[cfg(feature = "duckdb-archive")]
+  let is_db_ok = is_db_ok
+    && !matches!(
+      native_lifecycle_state,
+      app::native_lifecycle::DatabaseLifecycleState::ActionRequired(_)
+    );
 
   let store_for_setup = Arc::clone(&history_store);
   let guidance_for_setup = Arc::clone(&external_component_guidance_state);
@@ -547,6 +568,55 @@ pub fn run() {
       }
 
       if is_db_ok {
+        // Record the startup authority decision on the App's single
+        // lifecycle owner before anything else reads it, and — when a
+        // previous conversion already selected the native database — open
+        // it. Nothing routes reads or writes through the opened database
+        // yet; it is only made reachable through the `// #2134 seam:` on
+        // `NativeLifecycleOwner` for the dispatch boundary #2134 adds.
+        // Every existing SQLite-backed producer below keeps running
+        // unchanged, so this cannot leave the app without a writable
+        // backend while that boundary is still being built.
+        #[cfg(feature = "duckdb-archive")]
+        {
+          let owner = app.state::<app::native_lifecycle::NativeLifecycleOwner>();
+          owner.set_state(native_lifecycle_state.clone());
+          if matches!(
+            native_lifecycle_state,
+            app::native_lifecycle::DatabaseLifecycleState::NativeAuthoritative
+          ) {
+            let native_database_path =
+              infrastructure::database::native_paths::authority_paths().native_database;
+            let expected_schema_version =
+              infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION;
+            let handle_for_open = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+              use hardviz_core::infrastructure::database::native_database::{
+                NativeDatabase, NativeDatabaseOptions,
+              };
+              match NativeDatabase::open(
+                &native_database_path,
+                NativeDatabaseOptions::new(expected_schema_version),
+              )
+              .await
+              {
+                Ok(database) => {
+                  handle_for_open
+                    .state::<app::native_lifecycle::NativeLifecycleOwner>()
+                    .set_selected_database(database);
+                }
+                Err(e) => {
+                  log_error!(
+                    "failed to open the selected native database at startup",
+                    "lib::run",
+                    Some(e.to_string())
+                  );
+                }
+              }
+            });
+          }
+        }
+
         // Start DB-dependent archive services. Persistence subscribes to
         // the EventBus so a slow DB write can't back-pressure the
         // collector cadence (#1407).
@@ -662,29 +732,59 @@ pub fn run() {
           });
         }
       } else {
-        // Database schema is incompatible — show error dialog
-        // Hide window while dialog is shown, then restore based on user choice
+        // The database is not usable yet — either an incompatible SQLite
+        // schema or (below, feature-gated) a native authority disagreement
+        // `inspect_authority` refused to guess at. Hide the window while the
+        // matching dialog is shown, then restore based on the user's choice.
         if let Some(window) = app.get_webview_window("main") {
           let _ = window.hide();
         }
 
-        let handle = app.handle().clone();
-        let db_err = db_error.expect("db_error must be Some when is_db_ok is false");
-        std::thread::spawn(move || {
-          use app::startup::{self, StartupErrorAction};
-          match startup::prompt_startup_error(&handle, db_err) {
-            StartupErrorAction::ResetAndRestart => {
-              startup::reset_database_and_restart(&handle);
-            }
-            StartupErrorAction::ContinueAnyway => {
-              // Show the main window — app runs without DB-backed features
-              if let Some(window) = handle.get_webview_window("main") {
-                let _ = window.show();
+        if let Some(db_err) = db_error.clone() {
+          let handle = app.handle().clone();
+          std::thread::spawn(move || {
+            use app::startup::{self, StartupErrorAction};
+            match startup::prompt_startup_error(&handle, db_err) {
+              StartupErrorAction::ResetAndRestart => {
+                startup::reset_database_and_restart(&handle);
               }
+              StartupErrorAction::ContinueAnyway => {
+                // Show the main window — app runs without DB-backed features
+                if let Some(window) = handle.get_webview_window("main") {
+                  let _ = window.show();
+                }
+              }
+              StartupErrorAction::Exit => handle.exit(1),
             }
-            StartupErrorAction::Exit => handle.exit(1),
-          }
-        });
+          });
+        }
+
+        // `is_db_ok` is false and `db_error` is `None` only when the native
+        // authority decision was `ActionRequired` — see how `is_db_ok` is
+        // computed above.
+        #[cfg(feature = "duckdb-archive")]
+        if db_error.is_none()
+          && let app::native_lifecycle::DatabaseLifecycleState::ActionRequired(issue) =
+            native_lifecycle_state.clone()
+        {
+          app
+            .state::<app::native_lifecycle::NativeLifecycleOwner>()
+            .set_state(app::native_lifecycle::DatabaseLifecycleState::ActionRequired(
+              issue.clone(),
+            ));
+          let handle = app.handle().clone();
+          std::thread::spawn(move || {
+            use app::startup::{self, NativeAuthorityAction};
+            match startup::prompt_native_authority_issue(&handle, &issue) {
+              NativeAuthorityAction::ContinueAnyway => {
+                if let Some(window) = handle.get_webview_window("main") {
+                  let _ = window.show();
+                }
+              }
+              NativeAuthorityAction::Exit => handle.exit(1),
+            }
+          });
+        }
       }
 
       Ok(())
@@ -739,6 +839,10 @@ pub fn run() {
     .manage(lifecycle::CloseToTrayRuntimeState::default())
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));
+
+  #[cfg(feature = "duckdb-archive")]
+  let tauri_builder =
+    tauri_builder.manage(app::native_lifecycle::NativeLifecycleOwner::new());
 
   let mut context = tauri::generate_context!();
   utils::tauri::apply_runtime_config(context.config_mut());
