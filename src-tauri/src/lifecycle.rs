@@ -322,8 +322,11 @@ fn read_close_to_tray_settings(app: &AppHandle) -> CloseToTraySettings {
 ///    call returns `InvalidTransition`, which we drop — terminal
 ///    states are idempotent for callers.
 /// 2. `WorkersState::terminate_all` shuts the collector first, then
-///    the window adapter, then the archive worker. The archive worker
-///    writes a final summary on the way out so DB writes are flushed.
+///    the window adapter, then the archive worker, then - as its last
+///    step (#2134) - the native database dispatch boundary's live owner,
+///    if any, now that every database-backed worker has drained. The
+///    archive worker writes a final summary on the way out so DB writes
+///    are flushed before that close.
 /// 3. `app.exit(0)`.
 pub async fn request_quit(app: AppHandle) {
   let ws = app.state::<WorkersState>();
