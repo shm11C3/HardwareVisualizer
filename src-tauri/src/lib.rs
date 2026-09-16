@@ -73,6 +73,75 @@ fn apply_pending_migrations() -> Result<(), String> {
   ))
 }
 
+/// Tell Core's database dispatch boundary where the two databases and the
+/// selection marker live, then make it observe whatever durable selection is
+/// already on disk.
+///
+/// This is App's half of the seam #2134 documents for #2135: App owns path
+/// resolution (Core cannot resolve the bundle identifier), so it is the only
+/// side that can name [`AuthorityPaths`]. The `reobserve_authority` call
+/// covers the ordinary restart case - a database selected in an earlier
+/// session must be adopted again this session, or dispatch would silently
+/// keep answering from SQLite forever - and is safe to call here because no
+/// [`hardviz_core::infrastructure::database::native_database::NativeDatabase`]
+/// owner exists yet: this is the first call into the dispatch boundary during
+/// App startup, mirroring `db::init` immediately above it. Any failure here
+/// (a corrupt or missing native file despite a `selected` marker) is logged
+/// and leaves the boundary on SQLite; it must not block startup, since SQLite
+/// remains a fully working backend either way.
+#[cfg(feature = "duckdb-archive")]
+fn initialize_native_database_dispatch(db_path: &std::path::Path) {
+  use hardviz_core::infrastructure::database::dispatch;
+  use hardviz_core::infrastructure::database::native_database::AuthorityPaths;
+
+  let Some(directory) = db_path.parent() else {
+    log_error!(
+      "Native database directory could not be resolved from the SQLite path",
+      "lib::initialize_native_database_dispatch",
+      None::<&str>
+    );
+    return;
+  };
+  let Some(source_file_name) = db_path.file_name().and_then(|name| name.to_str()) else {
+    log_error!(
+      "SQLite database path has no file name",
+      "lib::initialize_native_database_dispatch",
+      None::<&str>
+    );
+    return;
+  };
+  let paths =
+    AuthorityPaths::in_directory(directory, source_file_name, "hv-database.duckdb");
+  // First and only caller during App startup, matching `db::init`'s contract
+  // above: we don't care about the return value here.
+  let _ = dispatch::init(
+    paths,
+    infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+  );
+
+  let runtime = match tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+  {
+    Ok(runtime) => runtime,
+    Err(e) => {
+      log_error!(
+        "Failed to build runtime to observe native database authority",
+        "lib::initialize_native_database_dispatch",
+        Some(e.to_string())
+      );
+      return;
+    }
+  };
+  if let Err(e) = runtime.block_on(dispatch::reobserve_authority()) {
+    log_warn!(
+      "Failed to observe native database authority at startup; serving from SQLite",
+      "lib::initialize_native_database_dispatch",
+      Some(e.to_string())
+    );
+  }
+}
+
 fn build_specta_builder() -> Builder<Wry> {
   Builder::<Wry>::new()
     .events(collect_events![models::hardware::HardwareMonitorUpdate,])
@@ -316,6 +385,12 @@ pub fn run() {
   // the return value here: this is the first and only caller during
   // App startup.
   let _ = hardviz_core::infrastructure::database::db::init(db_path.clone());
+
+  // Route database consumers to whichever backend is durably selected
+  // (#2134). A no-op build detail with the feature disabled: dispatch's
+  // SQLite path needs no configuration.
+  #[cfg(feature = "duckdb-archive")]
+  initialize_native_database_dispatch(&db_path);
 
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
   let mut db_error = hardviz_core::persistence::preflight::check_db_compatibility(
