@@ -160,6 +160,9 @@ jobs:
       - name: Test release vulnerability evaluation
         run: node .github/scripts/test-evaluate-release-vulnerabilities.mjs
 
+      - name: Test license notice generation
+        run: node .github/scripts/test-generate-licenses.mjs
+
       - name: Check Tauri dependency changes
         id: tauri-deps
         shell: bash

@@ -73,6 +73,8 @@ const outputDir =
     ? path.resolve("./tmp")
     : path.resolve(`./docs/licenses/${target}`);
 const outputPath = path.join(outputDir, "THIRD_PARTY_NOTICES.md");
+const npmLockfilePath = path.resolve("./package-lock.json");
+const cargoLockfilePath = path.resolve("./Cargo.lock");
 
 const generateLicenseTxt = (
   name: string,
@@ -96,6 +98,9 @@ let output = "# THIRD_PARTY_NOTICES\n\n";
 output +=
   "This application includes third-party libraries licensed under their respective licenses.\n\n";
 
+let npmDependencyCount = 0;
+let rustDependencyCount = 0;
+
 //
 // ====================
 // 1. Node.js dependencies (prod only)
@@ -114,6 +119,7 @@ try {
     },
   );
   const npmData = JSON.parse(npmRawJson);
+  npmDependencyCount = Object.keys(npmData).length;
 
   for (const [name, info] of Object.entries(npmData) as [
     string,
@@ -139,6 +145,7 @@ try {
   }
 } catch (e) {
   console.error("❌ Failed to collect NPM licenses:", e);
+  throw e;
 }
 
 //
@@ -208,6 +215,7 @@ try {
     const crateKey = `${crate.name}@${crate.version}`;
     if (!runtimeCrates.has(crateKey)) continue; // Exclude build/test only crates
 
+    rustDependencyCount += 1;
     output += generateLicenseTxt(crate.name, crate.license, crate.repository);
 
     // Find LICENSE file and add its contents
@@ -265,6 +273,30 @@ const appendManualNotices = () => {
   return s;
 };
 
+/**
+ * Refuse to write an incomplete notice file when a dependency lockfile exists.
+ *
+ * A successful command can still produce an empty result, for example when a
+ * tool silently skips a dependency graph. Manual notices do not make up for a
+ * missing generated dependency section, so validate the generated counts
+ * before writing the combined output.
+ */
+const assertGeneratedSections = () => {
+  const missingSections: string[] = [];
+  if (existsSync(npmLockfilePath) && npmDependencyCount === 0) {
+    missingSections.push(`NPM (lockfile: ${npmLockfilePath})`);
+  }
+  if (existsSync(cargoLockfilePath) && rustDependencyCount === 0) {
+    missingSections.push(`Rust (lockfile: ${cargoLockfilePath})`);
+  }
+
+  if (missingSections.length > 0) {
+    throw new Error(
+      `Cannot write THIRD_PARTY_NOTICES.md with empty generated license sections: ${missingSections.join(", ")}`,
+    );
+  }
+};
+
 // ==========================
 // Output
 // ==========================
@@ -273,6 +305,7 @@ if (!existsSync(outputDir)) {
 }
 
 output += appendManualNotices();
+assertGeneratedSections();
 
 writeFileSync(outputPath, output, "utf8");
 console.log(`✅ Combined license file written to ${outputPath}`);
