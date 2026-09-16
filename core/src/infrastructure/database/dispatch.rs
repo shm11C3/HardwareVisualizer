@@ -948,8 +948,8 @@ pub mod storage_health {
     devices: Vec<StorageDeviceRecord>,
     records: Vec<StorageHealthRecordDraft>,
   ) -> Result<(), DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
         super::super::native_database::storage_health::insert_daily_records(
           &database,
           super::super::native_database::NativeCancellation::new(),
@@ -959,9 +959,11 @@ pub mod storage_health {
         .await
         .map_err(DispatchError::from)
       }
-      None => super::super::storage_health::insert_daily_records(devices, records)
-        .await
-        .map_err(DispatchError::from),
+      super::boundary::Backend::Sqlite => {
+        super::super::storage_health::insert_daily_records(devices, records)
+          .await
+          .map_err(DispatchError::from)
+      }
     }
   }
 
@@ -986,8 +988,8 @@ pub mod storage_health {
     devices: Vec<StorageDeviceRecord>,
     records: Vec<StorageHealthRecordDraft>,
   ) -> Result<(), DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
         super::super::native_database::storage_health::refresh_daily_records(
           &database,
           super::super::native_database::NativeCancellation::new(),
@@ -998,13 +1000,15 @@ pub mod storage_health {
         .await
         .map_err(DispatchError::from)
       }
-      None => super::super::storage_health::refresh_daily_records(
-        active_device_ids,
-        devices,
-        records,
-      )
-      .await
-      .map_err(DispatchError::from),
+      super::boundary::Backend::Sqlite => {
+        super::super::storage_health::refresh_daily_records(
+          active_device_ids,
+          devices,
+          records,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
     }
   }
 
@@ -1017,18 +1021,22 @@ pub mod storage_health {
 
   #[cfg(feature = "duckdb-archive")]
   pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => super::super::native_database::storage_health::delete_old_data(
-        &database,
-        super::super::native_database::NativeCancellation::new(),
-        retention_days,
-      )
-      .await
-      .map(|_deleted| ())
-      .map_err(DispatchError::from),
-      None => super::super::storage_health::delete_old_data(retention_days)
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::storage_health::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
         .await
-        .map_err(DispatchError::from),
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::storage_health::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
     }
   }
 
@@ -1041,14 +1049,16 @@ pub mod storage_health {
 
   #[cfg(feature = "duckdb-archive")]
   pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, DispatchError> {
-    match super::boundary::native_handle().await {
-      Some(database) => super::super::native_database::storage_health::latest_records(
-        &database,
-        super::super::native_database::NativeCancellation::new(),
-      )
-      .await
-      .map_err(DispatchError::from),
-      None => super::super::storage_health::latest_records()
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::storage_health::latest_records(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::storage_health::latest_records()
         .await
         .map_err(DispatchError::from),
     }
