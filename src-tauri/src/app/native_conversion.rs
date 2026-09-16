@@ -44,7 +44,7 @@
 // externally reachable either.
 #![allow(dead_code)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use hardviz_core::infrastructure::database::candidate_database::build_candidate_database;
 use hardviz_core::infrastructure::database::native_database::{
@@ -66,6 +66,52 @@ use crate::{log_error, log_info};
 /// The debris prefix `inspect_authority`'s `work_directory_present` already
 /// recognizes; any suffix works as long as it starts with the shared root.
 const DRIVER_WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-driver-";
+
+/// The shared root every conversion work directory's prefix starts with -
+/// this driver's own [`DRIVER_WORK_PREFIX`], and Core's own
+/// `.hardwarevisualizer-duckdb-finalize-`/`-reconcile-`/`-runtime-`
+/// directories. The same root `inspect_authority`'s `work_directory_present`
+/// check recognizes.
+const WORK_DEBRIS_PREFIX: &str = ".hardwarevisualizer-duckdb-";
+
+/// Best-effort removal of `.hardwarevisualizer-duckdb-*` directories already
+/// in `workspace`, left behind by an attempt that crashed before producing
+/// a usable finalized file.
+///
+/// A directory this cannot remove (still held open by another process, or a
+/// permissions issue) is left in place and logged; it cannot block a fresh
+/// attempt, which reserves its own differently-named directory, only make
+/// this attempt's own preflight estimate more conservative than necessary.
+fn discard_stale_conversion_work(workspace: &Path) {
+  let Ok(entries) = std::fs::read_dir(workspace) else {
+    return;
+  };
+  for entry in entries.filter_map(Result::ok) {
+    if !entry
+      .file_name()
+      .to_string_lossy()
+      .starts_with(WORK_DEBRIS_PREFIX)
+    {
+      continue;
+    }
+    if !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+      continue;
+    }
+    let path = entry.path();
+    match std::fs::remove_dir_all(&path) {
+      Ok(()) => log_info!(
+        "discarded stale conversion work directory before starting a new attempt",
+        "app::native_conversion::discard_stale_conversion_work",
+        Some(path.display().to_string())
+      ),
+      Err(error) => log_error!(
+        "failed to discard a stale conversion work directory",
+        "app::native_conversion::discard_stale_conversion_work",
+        Some(format!("{}: {error}", path.display()))
+      ),
+    }
+  }
+}
 
 /// A one-shot, driver-wide cancellation flag, checked between steps.
 ///
@@ -246,7 +292,22 @@ pub async fn run_conversion(
   owner.set_state(entry.clone());
   let resume_from_reconciliation = match entry {
     DatabaseLifecycleState::NativeAuthoritative => {
-      return Ok(ConversionOutcome::AlreadySelected);
+      // Durably selected on disk, but the guard above already established
+      // this process holds no open handle - either a fresh call after
+      // another process's selection, or a retry after this same process's
+      // own post-selection open failed (see `reconcile_and_select`).
+      // Attempting the open here, rather than assuming there is nothing
+      // left to do, is what makes that failure recoverable without a
+      // process restart.
+      return Ok(
+        match open_selected_database(owner, &paths, expected_schema_version).await {
+          Ok(()) => ConversionOutcome::AlreadySelected,
+          Err(error) => {
+            fail_open(owner, &error);
+            ConversionOutcome::ActionRequired
+          }
+        },
+      );
     }
     DatabaseLifecycleState::ActionRequired(_) => {
       return Ok(ConversionOutcome::ActionRequired);
@@ -260,6 +321,16 @@ pub async fn run_conversion(
     DatabaseLifecycleState::ConversionRecoverable { resumable } => resumable,
   };
 
+  // Before measuring available space: any `.hardwarevisualizer-duckdb-*`
+  // directory already in `workspace` is debris from an attempt that
+  // crashed - `inspect_authority`'s own `work_directory_present` check is
+  // what flagged this entry as `ConversionInProgress` in the first place.
+  // Nothing will ever read it again (a resumable attempt's own valid
+  // finalized file lives at `paths.native_database`, not in a work
+  // directory), and left in place it can make the preflight measurement
+  // below fail for lack of space it would otherwise have found.
+  discard_stale_conversion_work(&workspace);
+
   owner.set_state(DatabaseLifecycleState::Converting(
     ConversionProgress::Preflight,
   ));
@@ -270,7 +341,19 @@ pub async fn run_conversion(
   // documentation. Measuring the source fresh here, immediately before any
   // copy, is also more accurate than trusting an earlier estimate on a
   // resumed run.
-  plan_conversion_space(&paths.source_database, &workspace, None).map_err(|error| {
+  //
+  // `resume_from_reconciliation` is passed as `finalized_already_exists`:
+  // when resuming, the finalized file is already on disk and this budget
+  // must not also reserve room for creating a second one - the caller's
+  // available-space measurement already counts the existing file as not
+  // free.
+  plan_conversion_space(
+    &paths.source_database,
+    &workspace,
+    None,
+    resume_from_reconciliation,
+  )
+  .map_err(|error| {
     fail(owner, ConversionProgress::Preflight, &error);
     ConversionError::Preflight(error)
   })?;
@@ -412,21 +495,22 @@ async fn reconcile_and_select(
     })?;
 
   let total_rows = report.total_rows;
+  // Selection already committed durably; a failure to *open* it here does
+  // not change authority - the file is still the selected one - but the
+  // owner must not claim `NativeAuthoritative` without holding it open (see
+  // `open_selected_database`'s contract). Recorded as `ActionRequired`
+  // rather than folded into a still-`Selected` outcome, because the retry
+  // is the entry check at the top of `run_conversion`: a later call sees
+  // `NativeAuthoritative` on disk, finds no open database in the owner, and
+  // attempts the open again there - the same path a fresh process's startup
+  // uses - rather than requiring a process restart to recover.
   match open_selected_database(owner, paths, expected_schema_version).await {
-    Ok(()) => {}
+    Ok(()) => Ok(ConversionOutcome::Selected { total_rows }),
     Err(error) => {
-      // Selection already committed durably; a failure to *open* it here
-      // does not change authority, it only means the seam is empty until a
-      // later successful startup or another call opens it. Reported, not
-      // escalated: `ConversionOutcome::Selected` below is still accurate.
-      log_error!(
-        "native database selected but could not be opened for the #2134 seam",
-        "app::native_conversion::reconcile_and_select",
-        Some(error.to_string())
-      );
+      fail_open(owner, &error);
+      Ok(ConversionOutcome::ActionRequired)
     }
   }
-  Ok(ConversionOutcome::Selected { total_rows })
 }
 
 /// Hand the freshly selected database to the `// #2134 seam:` the same way
@@ -466,6 +550,23 @@ fn fail(
   );
   owner.set_state(DatabaseLifecycleState::ActionRequired(
     LifecycleIssue::ConversionFailed { step, message },
+  ));
+}
+
+/// Record a failure to open an already, durably selected database - see
+/// `open_selected_database`'s own callers for why this is distinct from
+/// [`fail`]: the selection itself did not fail, so naming it a conversion
+/// step failure would be wrong, and unlike `LifecycleIssue::Authority` the
+/// files are not in question, only the runtime open.
+fn fail_open(owner: &NativeLifecycleOwner, error: &impl std::fmt::Display) {
+  let message = error.to_string();
+  log_error!(
+    "native database selected but could not be opened",
+    "app::native_conversion",
+    Some(message.clone())
+  );
+  owner.set_state(DatabaseLifecycleState::ActionRequired(
+    LifecycleIssue::NativeOpenFailed { message },
   ));
 }
 
@@ -626,6 +727,42 @@ mod tests {
     assert!(workers.hw_archive.lock().unwrap().is_some());
   }
 
+  #[test]
+  fn discard_stale_conversion_work_removes_only_recognized_debris_directories() {
+    let directory = tempfile::tempdir().unwrap();
+    let stale_driver = directory
+      .path()
+      .join(".hardwarevisualizer-duckdb-driver-abc123");
+    let stale_finalize = directory
+      .path()
+      .join(".hardwarevisualizer-duckdb-finalize-def456");
+    let unrelated_dir = directory.path().join("not-debris");
+    let unrelated_file = directory
+      .path()
+      .join(".hardwarevisualizer-duckdb-not-a-directory");
+
+    std::fs::create_dir(&stale_driver).unwrap();
+    std::fs::write(stale_driver.join("candidate.duckdb"), b"partial").unwrap();
+    std::fs::create_dir(&stale_finalize).unwrap();
+    std::fs::create_dir(&unrelated_dir).unwrap();
+    std::fs::write(&unrelated_file, b"not a directory, must survive").unwrap();
+
+    discard_stale_conversion_work(directory.path());
+
+    assert!(!stale_driver.exists());
+    assert!(!stale_finalize.exists());
+    assert!(unrelated_dir.exists());
+    assert!(unrelated_file.exists());
+  }
+
+  #[test]
+  fn discard_stale_conversion_work_on_a_clean_workspace_is_a_no_op() {
+    let directory = tempfile::tempdir().unwrap();
+    // Must not panic or error when there is nothing to discard.
+    discard_stale_conversion_work(directory.path());
+    discard_stale_conversion_work(&directory.path().join("does-not-exist"));
+  }
+
   #[tokio::test]
   async fn a_resumable_conversion_skips_candidate_and_finalize() {
     let fixture = Fixture::new().await;
@@ -774,5 +911,121 @@ mod tests {
     .unwrap();
 
     assert!(matches!(second, ConversionOutcome::AlreadySelected));
+  }
+
+  #[tokio::test]
+  async fn a_fresh_owner_opens_an_already_selected_database_instead_of_assuming_it_is_open()
+   {
+    // Before the fix this closes over, `run_conversion` mapped a disk-level
+    // `NativeAuthoritative` straight to `AlreadySelected` without ever
+    // calling `open_selected_database` - correct only for the owner that
+    // did the selecting itself (caught by the guard at the very top of this
+    // function). A second, independent `NativeLifecycleOwner` - a later
+    // call in the same process, or #2136 constructing a fresh one - has an
+    // empty seam and disk-level `NativeAuthoritative` at the same time, and
+    // needs the entry path to actually open the database rather than
+    // reporting success over nothing.
+    let fixture = Fixture::new().await;
+    let first_owner = NativeLifecycleOwner::new();
+
+    let outcome = run_conversion(
+      fixture.paths(),
+      fixture.workspace(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      &first_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(outcome, ConversionOutcome::Selected { .. }));
+    // Release the handle so the second owner's open below is not blocked by
+    // DuckDB's single-instance rule - a separate case, covered next.
+    first_owner
+      .selected_database()
+      .unwrap()
+      .close()
+      .await
+      .unwrap();
+
+    let second_owner = NativeLifecycleOwner::new();
+    assert!(second_owner.selected_database().is_none());
+    let outcome = run_conversion(
+      fixture.paths(),
+      fixture.workspace(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      &second_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(outcome, ConversionOutcome::AlreadySelected));
+    assert_eq!(
+      second_owner.state(),
+      DatabaseLifecycleState::NativeAuthoritative
+    );
+    assert!(
+      second_owner.selected_database().is_some(),
+      "the entry path must open the database, not just report success"
+    );
+  }
+
+  #[tokio::test]
+  async fn a_concurrently_held_database_is_reported_as_action_required_not_silently_skipped()
+   {
+    // `open_selected_database`'s and `reconcile_and_select`'s retry/record
+    // path assumes `inspect_startup_authority` can still read the native
+    // file's metadata. When something else already holds it open - another
+    // owner in this process, standing in for a transient lock or
+    // permission error - `observe_authority` cannot read the metadata
+    // either (documented on `observe_authority` itself: reading it means
+    // opening a second DuckDB instance, which DuckDB refuses), so entry
+    // reports `ActionRequired(Authority(NativeMetadataUnreadable))` rather
+    // than reaching the `NativeAuthoritative` open-and-retry branch at all.
+    // Both paths converge on the same guarantee this test pins: refused and
+    // recorded, never silently treated as done.
+    let fixture = Fixture::new().await;
+    let first_owner = NativeLifecycleOwner::new();
+
+    run_conversion(
+      fixture.paths(),
+      fixture.workspace(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      &first_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+    )
+    .await
+    .unwrap();
+    // `first_owner` deliberately keeps its handle open.
+
+    let second_owner = NativeLifecycleOwner::new();
+    let outcome = run_conversion(
+      fixture.paths(),
+      fixture.workspace(),
+      native_schema::NATIVE_SCHEMA_VERSION,
+      &second_owner,
+      &WorkersState::default(),
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(outcome, ConversionOutcome::ActionRequired));
+    assert!(
+      matches!(
+        second_owner.state(),
+        DatabaseLifecycleState::ActionRequired(_)
+      ),
+      "{:?}",
+      second_owner.state()
+    );
+    assert!(second_owner.selected_database().is_none());
   }
 }
