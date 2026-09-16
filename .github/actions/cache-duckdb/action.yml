@@ -75,14 +75,22 @@ description: >-
 inputs:
   account-id:
     description: >-
-      Cloudflare account ID that owns the R2 bucket (pass
-      ${{ vars.CLOUDFLARE_ACCOUNT_ID }}). Not a secret.
+      Cloudflare account ID that owns the R2 bucket. Callers pass the
+      CLOUDFLARE_ACCOUNT_ID repository variable. Not a secret. (Do not
+      write a live workflow expression in any description in this file:
+      composite action manifests are template-evaluated at load time in a
+      context with no vars/secrets, and one bad expression anywhere in the
+      file fails the whole action's load, not just that field.)
     required: true
   aws-access-key-id:
-    description: R2 Access Key ID (pass ${{ secrets.AWS_ACCESS_KEY_ID }}).
+    description: >-
+      R2 Access Key ID. Callers pass the AWS_ACCESS_KEY_ID repository
+      secret.
     required: true
   aws-secret-access-key:
-    description: R2 Secret Access Key (pass ${{ secrets.AWS_SECRET_ACCESS_KEY }}).
+    description: >-
+      R2 Secret Access Key. Callers pass the AWS_SECRET_ACCESS_KEY
+      repository secret.
     required: true
 
 runs:
