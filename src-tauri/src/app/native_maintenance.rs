@@ -103,6 +103,21 @@ pub fn retire_sqlite_source(source_database: &Path) {
     );
     return;
   };
+  // Defense in depth beside the caller's own ordering fix (lib.rs skips
+  // migrations, which is what could recreate `source_database` here, once
+  // authority is already `NativeAuthoritative`): `std::fs::rename` silently
+  // overwrites an existing destination, and the retired file is the only
+  // remaining copy of history predating the conversion. Refusing to
+  // overwrite it is cheap insurance against a caller ever running this
+  // twice on data that regenerated the source in between.
+  if retired.exists() {
+    log_error!(
+      "refusing to retire the SQLite source: a retired copy already exists",
+      "app::native_maintenance::retire_sqlite_source",
+      Some(retired.display().to_string())
+    );
+    return;
+  }
   if let Err(error) = std::fs::rename(source_database, &retired) {
     log_error!(
       "failed to retire the SQLite source after a later verified native startup",
@@ -256,6 +271,35 @@ mod tests {
     assert_eq!(
       std::fs::read(directory.path().join("hv-database.db.retired")).unwrap(),
       b"sqlite source"
+    );
+  }
+
+  /// The scenario the caller's own ordering fix (skipping migrations once
+  /// native authority is already selected) is meant to prevent from ever
+  /// happening: something recreated `source_database` after it was already
+  /// retired once. Refusing to overwrite the retired file is the second
+  /// line of defense.
+  #[test]
+  fn retiring_never_overwrites_an_existing_retired_copy() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("hv-database.db");
+    std::fs::write(&source, b"original history").unwrap();
+
+    retire_sqlite_source(&source);
+    assert!(!source.exists());
+
+    // Something (a bug, a migration that should not have run) recreated an
+    // empty source at the same path.
+    std::fs::write(&source, b"freshly recreated, empty").unwrap();
+
+    retire_sqlite_source(&source);
+
+    // The recreated file is left in place - retirement refused rather than
+    // silently overwriting the real history.
+    assert_eq!(std::fs::read(&source).unwrap(), b"freshly recreated, empty");
+    assert_eq!(
+      std::fs::read(directory.path().join("hv-database.db.retired")).unwrap(),
+      b"original history"
     );
   }
 
