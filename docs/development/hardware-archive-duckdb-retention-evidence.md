@@ -12,7 +12,8 @@ builder, finalization into App's stable schema, and then the native writers and
 product code changed; the probe is the ignored integration test
 [`core/tests/duckdb_retention_probe.rs`](../../core/tests/duckdb_retention_probe.rs).
 
-Measured on Windows 11 Pro x64 (AMD Ryzen 7 7800X3D, 16 logical CPUs, 64 GiB)
+Measured on 2026-09-16 UTC (2026-09-17 JST, the date in the artifact names)
+on Windows 11 Pro x64 (AMD Ryzen 7 7800X3D, 16 logical CPUs, 64 GiB)
 at develop `eb0f04dc`, rustc 1.98.1, release profile, `duckdb 1.10505.0` with
 bundled DuckDB 1.5.5, storage compatibility `v0.10.2`, `threads = 2`,
 `max_memory = 128MB`, and the engine's default `checkpoint_threshold` of
@@ -25,9 +26,10 @@ host:
 - [explicit checkpoint](benchmarks/hardware-archive-duckdb-retention-2026-09-17-explicit-checkpoint.json):
   one `CHECKPOINT` on the write lane after each daily expiry pass.
 
-**Implication.** Expiry is cheap and exact, and the file settles at roughly
-twice its fresh-copy size under steady churn, as the 2026-09-06 probe already
-suggested. What the implemented backend adds is a checkpoint question: left to
+**Implication.** Expiry is cheap and exact. Over the measured seven days the
+file grew towards, but did not prove, a plateau near twice its fresh-copy size,
+consistent with the 2026-09-06 probe; whether growth stops over longer sessions
+is still open. What the implemented backend adds is a checkpoint question: left to
 the engine, checkpoints land inside a random write cycle and cost 177 to 677 ms
 on the write lane, and the data still in the WAL is also held in memory, which
 adds 30 to 40 MiB to the process between checkpoints. One explicit checkpoint
@@ -67,9 +69,11 @@ is an observation about this host, not a benchmark of either engine.
 
 ## Expiry: exact, tens of milliseconds, no physical shrink
 
-Every daily pass deleted exactly one simulated day per family (1,440 or 1,441
-rows for the one-row families, twice that for fans, 28,800 or 28,820 for
-Process; the extra minute is wall-clock drift during the run). In all fourteen
+Every daily pass deleted one simulated day per family plus the wall-clock
+drift accumulated since the timeline was fixed (1,440 to 1,453 rows for the
+one-row families, twice that for fans, 28,800 to 29,060 for Process; the first
+pass carries the roughly ten minutes of SQLite seeding, later passes about one
+minute each). In all fourteen
 passes the surviving row count sat inside the bracket the two cutoff texts
 allow and the oldest surviving stamp was at or after the earlier cutoff. The
 row counts before close and after reopen were identical in both runs.
@@ -108,10 +112,11 @@ and the churned data arrives as 1,440 small transactions a day.
 | Fresh compact copy | 11.762 | 12.012 |
 
 Growth slowed each day and the explicit-checkpoint file shrank for the first
-time on day 7 as free blocks were reused, so the file is approaching a plateau
-near twice the compact size rather than growing without bound. Seven days is
-too short to name the plateau; a longer session is the open measurement. The
-compact copy (`COPY FROM DATABASE` into a fresh file, taken outside the owner)
+time on day 7 as free blocks were reused. That is consistent with a plateau
+near twice the compact size but does not establish one: the file still grew on
+six of the seven days, and seven days is too short to say whether growth stops.
+A longer session is the open measurement, and until it exists compaction stays
+a candidate maintenance step rather than a rejected one. The compact copy (`COPY FROM DATABASE` into a fresh file, taken outside the owner)
 took 605 / 423 ms and reclaimed about half, at the cost of a second file on
 disk while it runs. That remains the optional maintenance trade-off the Design
 Doc already describes, not something expiry needs.
@@ -151,9 +156,9 @@ Settled for #2089:
   exactly the expired rows, costs tens of milliseconds per family, and survives
   close and reopen.
 - Expiry frees nothing physically; checkpoints turn deletions into reusable
-  blocks, and ordinary appends reuse them. The file plateaus near twice its
-  compact size under steady churn, so normal retention does not need a
-  compaction step.
+  blocks, and ordinary appends reuse them. Within the measured seven days no
+  compaction step was needed; whether one is needed over longer sessions is
+  listed below as open.
 - Checkpoint scheduling is a lifecycle decision with a measured answer: one
   checkpoint after the daily expiry pass bounds WAL, memory, close time and
   write-lane latency at a cost of about 0.1 to 0.2 s.
@@ -162,7 +167,8 @@ Still open, and not claimed here:
 
 - Checkpoint contention with a concurrent long reader, and cancellation of a
   running expiry; the probe had no concurrent reader.
-- The plateau beyond seven days, and multi-year histories.
+- Whether file growth stops beyond seven days, and therefore whether
+  compaction is needed at all; multi-year histories.
 - Linux and both macOS targets, and power-loss durability
   (see the [durability plan](hardware-archive-duckdb-distribution-evidence.md#durability-plan-for-2084)).
 - Whole-application memory with the collectors and the frontend running.
