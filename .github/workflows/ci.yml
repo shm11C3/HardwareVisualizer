@@ -246,9 +246,12 @@ jobs:
           cache-key: core-lint
 
       - name: Cache DuckDB build
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
-          cache-key: core-lint
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check Core clippy
         run: cargo clippy -p hardviz-core --features duckdb-archive --all-targets -- -D warnings
@@ -279,9 +282,12 @@ jobs:
           cache-key: core-test
 
       - name: Cache DuckDB build
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
-          cache-key: core-test
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2.87.8
@@ -319,9 +325,12 @@ jobs:
           cache-key: tauri-lint
 
       - name: Cache DuckDB build
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
-          cache-key: tauri-lint
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check Tauri clippy
         run: cargo clippy -p hardware_visualizer --features duckdb-archive --all-targets -- -D warnings
@@ -353,6 +362,14 @@ jobs:
         with:
           components: ""
           cache-key: tauri-test
+
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Install cargo-llvm-cov
         if: matrix.platform == 'ubuntu-22.04'
@@ -417,6 +434,14 @@ jobs:
           # PR-only job, so it never saves; reuse the closest saved check-mode entry.
           cache-key: tauri-lint
 
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       - name: Prepare frontendDist placeholder
         shell: bash
         run: |
@@ -445,6 +470,14 @@ jobs:
         with:
           components: ""
           cache-key: tauri-bindings
+
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Prepare frontendDist placeholder
         shell: bash
@@ -556,6 +589,14 @@ jobs:
 
       - name: Wait for toolchain setup
         wait-all: true
+
+      - name: Cache sccache (R2)
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Prepare frontendDist placeholder
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
