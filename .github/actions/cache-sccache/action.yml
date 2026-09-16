@@ -76,14 +76,24 @@ description: >-
 # do not.
 
 inputs:
-  account-id:
+  bucket-name:
     description: >-
-      Cloudflare account ID that owns the R2 bucket. Callers pass the
-      CLOUDFLARE_ACCOUNT_ID repository variable. Not a secret. (Do not
-      write a live workflow expression in any description in this file:
-      composite action manifests are template-evaluated at load time in a
-      context with no vars/secrets, and one bad expression anywhere in the
-      file fails the whole action's load, not just that field.)
+      R2 bucket name. Callers pass the CLOUDFLARE_R2_BUCKET repository
+      variable (terraform output bucket_name in infra/cloudflare-r2-cache).
+      Not a secret. (Do not write a live workflow expression in any
+      description in this file: composite action manifests are
+      template-evaluated at load time in a context with no vars/secrets,
+      and one bad expression anywhere in the file fails the whole action's
+      load, not just that field.)
+    required: true
+  endpoint:
+    description: >-
+      R2 S3-compatible endpoint, full https URL. Callers pass the
+      CLOUDFLARE_R2_ENDPOINT repository variable (terraform output
+      endpoint), not a value reconstructed from the account id: the
+      hostname includes a jurisdiction segment whenever the bucket's
+      jurisdiction is not "default", and Terraform is the only place that
+      computes this. Not a secret.
     required: true
   aws-access-key-id:
     description: >-
@@ -107,8 +117,8 @@ runs:
     - name: Point sccache at the R2 bucket
       shell: bash
       run: |
-        echo "SCCACHE_BUCKET=hardwarevisualizer-sccache" >> "$GITHUB_ENV"
-        echo "SCCACHE_ENDPOINT=https://${{ inputs.account-id }}.r2.cloudflarestorage.com" >> "$GITHUB_ENV"
+        echo "SCCACHE_BUCKET=${{ inputs.bucket-name }}" >> "$GITHUB_ENV"
+        echo "SCCACHE_ENDPOINT=${{ inputs.endpoint }}" >> "$GITHUB_ENV"
         echo "SCCACHE_REGION=auto" >> "$GITHUB_ENV"
         echo "SCCACHE_S3_USE_SSL=true" >> "$GITHUB_ENV"
         echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"

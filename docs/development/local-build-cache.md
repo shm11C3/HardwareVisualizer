@@ -246,24 +246,38 @@ is already fresh in `target/`, which is the case rust-cache already covers.
    pointed at a dedicated Cloudflare R2 bucket provisioned by
    [`infra/cloudflare-r2-cache/`](../../infra/cloudflare-r2-cache/). This
    removes GitHub's Actions Cache Service from the path entirely: no
-   per-write rate limit, no storage budget shared with unrelated caches,
-   and R2 has zero egress fees for the read-heavy pattern CI produces.
-   `SCCACHE_ENDPOINT`, `SCCACHE_BUCKET`, and `SCCACHE_REGION=auto` point
-   sccache at the bucket; `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
-   (R2's S3-compatible credentials, distinct from any real AWS account)
-   authenticate it. See that directory's README for provisioning,
-   credential rotation, and the token-scope trade-off (R2 exposes no
-   per-bucket resource ARN through the Cloudflare API token system, so the
-   CI token is scoped to R2 read/write for the whole Cloudflare account,
-   not just this one bucket).
+   per-write rate limit *from that service*, no storage budget shared with
+   unrelated caches, and R2 has zero egress fees for the read-heavy
+   pattern CI produces. R2 itself still enforces its own provider limit of
+   one write per second to the same object key
+   ([R2 limits](https://developers.cloudflare.com/r2/platform/limits/)); a
+   write above that rate gets HTTP 429, which sccache's S3 backend counts
+   as a cache-write error rather than retrying (the same missing-retry-layer
+   shape as the GHA backend above, just far less likely to be hit in
+   practice: it needs two jobs compiling the exact same source, flags, and
+   compiler concurrently, not any write racing any other write). `bucket-name`
+   and `endpoint` are passed to `cache-sccache` from the
+   `CLOUDFLARE_R2_BUCKET` / `CLOUDFLARE_R2_ENDPOINT` repository variables
+   (Terraform outputs `bucket_name` and `endpoint` directly, so nothing
+   reconstructs the endpoint from the account id — R2 requires a
+   jurisdiction-specific hostname once `bucket_jurisdiction` is not
+   `"default"`, and Terraform is the only place that branches on that).
+   `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (R2's S3-compatible
+   credentials, distinct from any real AWS account) authenticate it. See
+   that directory's README for provisioning and credential rotation; the
+   CI token is scoped to just this bucket
+   (`com.cloudflare.edge.r2.bucket.<account_id>_<jurisdiction>_<bucket_name>`),
+   not the whole Cloudflare account.
 
 Known limits: a Cargo.lock change inside libduckdb-sys's build-dependency
 closure changes the unit's metadata hash and therefore the absolute `OUT_DIR`
 that ends up in the preprocessed output, so the first run after such a bump
 recompiles DuckDB once. R2 has no LRU eviction of its own; the bucket's
-Terraform config expires objects untouched for 30 days
-(`object_expiry_days` in `infra/cloudflare-r2-cache/variables.tf`) as the
-replacement for that. A pull request from a fork does not receive
+Terraform config expires objects older than 30 days regardless of how
+recently they were last read (`object_expiry_days` in
+`infra/cloudflare-r2-cache/variables.tf`) as the replacement for that,
+since R2's lifecycle rule is age-based, not access-based. A pull request
+from a fork does not receive
 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (GitHub withholds repository
 secrets from fork-triggered `pull_request` runs by default), so those jobs
 build without a cache rather than failing; only same-repository branches and

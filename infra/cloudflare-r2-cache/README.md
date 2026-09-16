@@ -55,18 +55,24 @@ gh secret set AWS_SECRET_ACCESS_KEY --repo shm11C3/HardwareVisualizer \
   --body "$(terraform output -raw secret_access_key)"
 ```
 
-Also set the account ID as a repository **variable** (Settings, Secrets and
-variables, Actions, Variables), not a secret; it identifies the R2 endpoint
-but is not sensitive on its own:
+Also set the bucket name and endpoint as repository **variables** (Settings,
+Secrets and variables, Actions, Variables), not secrets; neither is
+sensitive on its own. Take both directly from the outputs, not typed by
+hand: the endpoint includes a jurisdiction segment whenever
+`bucket_jurisdiction` isn't "default", and Terraform is the only place
+that computes that correctly.
 
 ```bash
-gh variable set CLOUDFLARE_ACCOUNT_ID --repo shm11C3/HardwareVisualizer \
-  --body "<your-cloudflare-account-id>"
+gh variable set CLOUDFLARE_R2_BUCKET --repo shm11C3/HardwareVisualizer \
+  --body "$(terraform output -raw bucket_name)"
+
+gh variable set CLOUDFLARE_R2_ENDPOINT --repo shm11C3/HardwareVisualizer \
+  --body "$(terraform output -raw endpoint)"
 ```
 
-`bucket_name` is not a secret; it's already hardcoded into
-`.github/actions/cache-sccache/action.yml`. If you change `bucket_name` in
-`terraform.tfvars`, update that file to match.
+If you ever change `bucket_name`, `account_id`, or `bucket_jurisdiction` in
+`terraform.tfvars`, re-run `apply` and re-run both `gh variable set`
+commands above with the new outputs; nothing else needs to change.
 
 ## Rotating the CI token
 
@@ -88,7 +94,9 @@ building without a cache rather than failing the build).
 
 ## Changing retention
 
-`object_expiry_days` (default 30) controls how long an untouched cache
-object survives before R2 deletes it. Lower it if the bucket grows faster
-than expected; there's no cost alert wired up here, so check usage
-occasionally from the Cloudflare dashboard's R2 overview.
+`object_expiry_days` (default 30) controls how long a cache object
+survives past its creation before R2 deletes it, regardless of how
+recently it was last read (R2's lifecycle rule is age-based, not
+access-based). Lower it if the bucket grows faster than expected; there's
+no cost alert wired up here, so check usage occasionally from the
+Cloudflare dashboard's R2 overview.
