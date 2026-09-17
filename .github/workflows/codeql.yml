@@ -75,7 +75,7 @@ jobs:
       # Go and C#: see the `codeql_dependency_caching_languages` variable in
       # github/docs), so reuse this repo's own Rust cache actions instead, the
       # same way ci.yml's lint-core/test-core/lint-tauri jobs do. This doesn't
-      # trigger the DuckDB C++ build cache-duckdb was written for (duckdb-archive
+      # trigger the DuckDB C++ build cache-sccache was written for (duckdb-archive
       # isn't a default Cargo feature and CodeQL builds with default features),
       # but the same sccache/RUSTC_WRAPPER mechanism still caches ordinary rustc
       # invocations for every other dependency and proc-macro crate. Uses its own
@@ -89,11 +89,14 @@ jobs:
           components: ""
           cache-key: codeql-rust
 
-      - name: Cache sccache directory
+      - name: Cache sccache (R2)
         if: matrix.language == 'rust'
-        uses: ./.github/actions/cache-duckdb
+        uses: ./.github/actions/cache-sccache
         with:
-          cache-key: codeql-rust
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       # Add any setup steps before running the `github/codeql-action/init` action.
       # This includes steps like installing compilers or runtimes (`actions/setup-node`
