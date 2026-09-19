@@ -12,6 +12,13 @@ pub struct WorkersState {
   pub hw_archive: Mutex<Option<hardviz_core::persistence::ArchiveController>>,
   pub cooling_rollup: Mutex<Option<hardviz_core::persistence::CoolingRollupController>>,
   pub storage_health: Mutex<Option<hardviz_core::persistence::StorageHealthController>>,
+  /// The one-shot startup retention cleanup (`hardviz_core::persistence::cleanup_old_data`),
+  /// if this boot scheduled one. It is a single pass, not a recurring worker,
+  /// but it is still a database producer while it runs: `terminate_all` and
+  /// the #2135 conversion driver's pause/drain both need to wait for it
+  /// rather than let a boot's cleanup keep deleting rows after either has
+  /// otherwise quiesced every writer.
+  pub scheduled_cleanup: Mutex<Option<tokio::task::JoinHandle<()>>>,
   /// SwitchBot Meter advertisement scan (#2044). `None` unless the user
   /// turned the ambient source on, which is the default. Held here so
   /// the radio is released on quit rather than at process teardown.
@@ -68,6 +75,7 @@ impl WorkersState {
     let hw_archive = self.hw_archive.lock().unwrap().take();
     let cooling_rollup = self.cooling_rollup.lock().unwrap().take();
     let storage_health = self.storage_health.lock().unwrap().take();
+    let scheduled_cleanup = self.scheduled_cleanup.lock().unwrap().take();
     #[cfg(target_os = "windows")]
     let switchbot_scan = self.switchbot_scan.lock().unwrap().take();
     let tray = self.tray.lock().unwrap().take();
@@ -105,6 +113,15 @@ impl WorkersState {
 
     if let Some(storage_health) = storage_health {
       storage_health.terminate().await;
+    }
+
+    // After the writers: it only ever deletes rows the writers above already
+    // wrote, so waiting for it after they are gone cannot race a write
+    // against the cleanup it is racing today (fire-and-forget, unjoined). It
+    // stays ahead of the dispatch shutdown below because its deletions go
+    // through that boundary.
+    if let Some(scheduled_cleanup) = scheduled_cleanup {
+      let _ = scheduled_cleanup.await;
     }
 
     // Last, now that every database-backed worker above has drained and

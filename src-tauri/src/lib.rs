@@ -931,7 +931,14 @@ pub fn run() {
         // deletion outrun the rollup; the next boot retries both.
         if core_settings.hardware_archive.scheduled_data_deletion {
           let retention_days = core_settings.hardware_archive.retention_days;
-          tauri::async_runtime::spawn(async move {
+          // Spawned on the raw `runtime_handle` rather than
+          // `tauri::async_runtime::spawn` so the handle is a plain
+          // `tokio::task::JoinHandle` — the type `WorkersState` already
+          // stores worker handles as — and can be awaited by
+          // `WorkersState::terminate_all` and the #2135 conversion driver's
+          // pause/drain, neither of which previously had a way to wait for
+          // this one-shot pass to finish.
+          let cleanup = runtime_handle.spawn(async move {
             if cooling_rollup_first_catch_up.await == Ok(true) {
               hardviz_core::persistence::cleanup_old_data(retention_days).await;
             } else {
@@ -942,6 +949,12 @@ pub fn run() {
               );
             }
           });
+          app
+            .state::<workers::WorkersState>()
+            .scheduled_cleanup
+            .lock()
+            .unwrap()
+            .replace(cleanup);
         }
       } else {
         // The database is not usable yet — either an incompatible SQLite
