@@ -7,7 +7,7 @@
 //! for "reconciliation worked" is a second database converted from scratch from
 //! the same source: the two must hold the same rows.
 
-mod native_support;
+use super::native_support;
 
 use hardviz_core::infrastructure::database::migrate::{self, SchemaMigration};
 use hardviz_core::infrastructure::database::native_database::{
