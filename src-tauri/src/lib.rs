@@ -293,9 +293,9 @@ mod open_selected_native_database_tests {
   // and drops it before calling the function under test.
   #[test]
   fn a_real_selected_database_opens_and_stays_native_authoritative() {
-    // A real conversion end to end: App's own migrations, the #2088
-    // candidate builder, finalization into App's stable schema,
-    // reconciliation and selection. Nothing here hand-writes a native file.
+    // A real conversion end to end, matching the fixture philosophy
+    // `app::native_conversion`'s own tests already established: nothing
+    // here hand-writes a native file.
     use hardviz_core::infrastructure::database::candidate_database::build_candidate_database;
     use hardviz_core::infrastructure::database::migrate;
     use hardviz_core::infrastructure::database::native_database::{
@@ -665,6 +665,22 @@ pub fn run() {
   #[cfg(not(feature = "duckdb-archive"))]
   let native_authority_blocks_sqlite = false;
 
+  // Whether `hv-database.db` may be created, migrated or otherwise touched
+  // this boot. Narrower than `!native_authority_blocks_sqlite`: once native
+  // authority is *already* selected (`NativeAuthoritative`), a previous
+  // boot's `retire_sqlite_source` may already have renamed the source away,
+  // and `apply_pending_migrations` opens SQLite with `create_if_missing` —
+  // running it here would recreate an empty `hv-database.db`, which this
+  // same boot's later `retire_sqlite_source` call would then rename over
+  // the *real* retired copy, destroying it. SQLite is therefore left alone
+  // in every state but the two where it is still genuinely the live
+  // source.
+  #[cfg(feature = "duckdb-archive")]
+  let sqlite_source_is_authoritative =
+    app::native_lifecycle::sqlite_source_is_authoritative(&native_lifecycle_state);
+  #[cfg(not(feature = "duckdb-archive"))]
+  let sqlite_source_is_authoritative = true;
+
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
   let mut db_error = hardviz_core::persistence::preflight::check_db_compatibility(
     &db_path,
@@ -702,7 +718,7 @@ pub fn run() {
   // missing. A migration failure is surfaced as a DB-incompatible startup
   // so the existing recovery dialog handles it.
   if db_error.is_none()
-    && !native_authority_blocks_sqlite
+    && sqlite_source_is_authoritative
     && let Err(e) = apply_pending_migrations()
   {
     log_error!(
@@ -816,23 +832,51 @@ pub fn run() {
         // When a previous conversion already selected the native database,
         // `opened_native_database` (opened synchronously above, as part of
         // startup's own decision — see `open_selected_native_database`) is
-        // handed to the owner here. Nothing routes reads or writes through
-        // the opened database yet; it is only made reachable through the
-        // `// #2134 seam:` on `NativeLifecycleOwner` for the dispatch
-        // boundary #2134 adds. Every existing SQLite-backed producer below
-        // keeps running unchanged, so this cannot leave the app without a
-        // writable backend while that boundary is still being built.
+        // handed to the owner here, and the SQLite source is retired (rename
+        // in place; decided 2026-09-13, Design Doc). Retiring only happens
+        // on a startup that finds the database *already* selected from a
+        // previous run — never on the run that just selected it — because
+        // a successful open is the "later verified startup" the Design Doc
+        // requires before the ordinary SQLite recovery path is taken away.
+        // Nothing routes reads or writes through the opened database yet;
+        // it is only made reachable through the `// #2134 seam:` on
+        // `NativeLifecycleOwner` for the dispatch boundary #2134 adds.
         #[cfg(feature = "duckdb-archive")]
-        if let Some(database) = opened_native_database {
-          app
-            .state::<app::native_lifecycle::NativeLifecycleOwner>()
-            .set_selected_database(database);
-        }
+        let start_sqlite_backed_producers = {
+          let native_authoritative = matches!(
+            native_lifecycle_state,
+            app::native_lifecycle::DatabaseLifecycleState::NativeAuthoritative
+          );
+          if let Some(database) = opened_native_database {
+            app
+              .state::<app::native_lifecycle::NativeLifecycleOwner>()
+              .set_selected_database(database);
+            let source_database_path =
+              infrastructure::database::native_paths::authority_paths().source_database;
+            app::native_maintenance::retire_sqlite_source(&source_database_path);
+          }
+          // Rerouting these producers to write through the selected native
+          // database instead is #2134's dispatch boundary, which had not
+          // landed when this was written. Until it does, starting them
+          // against a SQLite source this same startup may have just retired
+          // would be worse than not collecting: not only would the writes
+          // go nowhere useful, a rename out from under an open connection is
+          // unreliable on some platforms. So collection is idle in this one
+          // state rather than unsafe. `is_db_ok` already guarantees
+          // `opened_native_database` is `Some` whenever `native_authoritative`
+          // is true — otherwise `open_selected_native_database` would have
+          // downgraded the state to `ActionRequired` and `is_db_ok` would be
+          // false — so this never idles collection over an open that
+          // silently failed.
+          !native_authoritative
+        };
+        #[cfg(not(feature = "duckdb-archive"))]
+        let start_sqlite_backed_producers = true;
 
         // Start DB-dependent archive services. Persistence subscribes to
         // the EventBus so a slow DB write can't back-pressure the
         // collector cadence (#1407).
-        if core_settings.hardware_archive.enabled {
+        if start_sqlite_backed_producers && core_settings.hardware_archive.enabled {
           // Ambient sources (#2043) ride the archive's one-minute tick,
           // so they are built here and only here: with the archive off
           // there is nowhere for an ambient reading to go, and starting
@@ -861,15 +905,19 @@ pub fn run() {
         // starts independently of `hardware_archive.enabled`: even when
         // live archive collection is currently turned off, already
         // archived days it hasn't caught up on yet still get rolled up.
-        let cooling_rollup_first_catch_up = {
+        // Still gated on `start_sqlite_backed_producers`: it is a SQLite
+        // reader/writer like the others above.
+        let cooling_rollup_first_catch_up = if start_sqlite_backed_producers {
           let (cooling_rollup, first_catch_up) =
             hardviz_core::persistence::CoolingRollupController::setup(runtime_handle.clone());
           let ws = app.state::<workers::WorkersState>();
           ws.cooling_rollup.lock().unwrap().replace(cooling_rollup);
-          first_catch_up
+          Some(first_catch_up)
+        } else {
+          None
         };
 
-        if core_settings.storage_health.enabled {
+        if start_sqlite_backed_producers && core_settings.storage_health.enabled {
           match core_settings.storage_health_identity.hash_key_bytes() {
             Ok(identity_hash_key) => {
               let storage_guidance_state = Arc::clone(&guidance_for_setup);
@@ -929,8 +977,13 @@ pub fn run() {
         // failed pass (or a dead worker, which closes the channel) this
         // boot's cleanup is skipped so a transient DB error cannot let
         // deletion outrun the rollup; the next boot retries both.
-        if core_settings.hardware_archive.scheduled_data_deletion {
+        if start_sqlite_backed_producers && core_settings.hardware_archive.scheduled_data_deletion
+        {
           let retention_days = core_settings.hardware_archive.retention_days;
+          // `start_sqlite_backed_producers` gated the branch above that
+          // produces this, so it is always `Some` here.
+          let cooling_rollup_first_catch_up = cooling_rollup_first_catch_up
+            .expect("cooling rollup runs whenever SQLite-backed producers do");
           // Spawned on the raw `runtime_handle` rather than
           // `tauri::async_runtime::spawn` so the handle is a plain
           // `tokio::task::JoinHandle` — the type `WorkersState` already

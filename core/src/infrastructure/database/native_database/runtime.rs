@@ -424,6 +424,33 @@ impl NativeDatabase {
       .await
   }
 
+  /// Issue one explicit `CHECKPOINT` on the write lane.
+  ///
+  /// Measured after a daily expiry pass on the implemented backend
+  /// (`docs/development/hardware-archive-duckdb-retention-evidence.md`):
+  /// 111-220 ms, keeping the WAL under 7 MiB and the engine's own reported
+  /// memory at 10-20 MiB afterward. Left to the engine's own threshold
+  /// checkpoint instead, the same measurement found 177-677 ms landing
+  /// inside a random write cycle and 30-40 MiB more resident memory held
+  /// between checkpoints. The App lifecycle owner (#2135) is expected to
+  /// call this once after each daily expiry pass on the native backend;
+  /// nothing here schedules it.
+  pub async fn checkpoint(
+    &self,
+    cancellation: NativeCancellation,
+  ) -> Result<(), NativeDatabaseError> {
+    self
+      .request_write(cancellation, |context| {
+        context
+          .connection()
+          .execute_batch("CHECKPOINT")
+          .map_err(|error| {
+            NativeDatabaseError::duckdb("checkpoint the native database", error)
+          })
+      })
+      .await
+  }
+
   async fn request_on_lane<T, F>(
     &self,
     sender: &mpsc::Sender<LaneMessage>,
