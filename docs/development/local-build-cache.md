@@ -160,14 +160,26 @@ directories are saved wholesale (workspace crates and test binaries included)
 and never pruned, and because `{workspace-path-hash}` ties the path to the
 runner's checkout location.
 
-The same action takes a required `cache-key` input, one per job kind
+The action reads the pinned channel from `rust-toolchain.toml` before invoking
+`dtolnay/rust-toolchain`; the workflow does not carry a second version that
+can drift from the toolchain Cargo actually selects. It also takes a required
+`cache-key` input, one per job kind
 (`core-test`, `tauri-lint`, ...). Only `develop` saves, and the first job to
 finish with a given key is the only one that saves it, so a key shared by a
 `clippy` job and a `test` job stores whichever finished first, which the other
 cannot reuse. Per-kind keys cost one entry per kind, platform, and lockfile
-hash against GitHub's 10 GB per-repository cache limit; if `gh cache list`
-shows eviction thrash, drop `cache-targets` for low-value kinds before
-allowing pull requests to save.
+hash. The repository cache limit is configured to 64 GB (GitHub's default is
+10 GB) so one complete platform/job generation fits without eviction churn.
+Pull requests remain restore-only because their merge-ref caches cannot serve
+`develop` or sibling pull requests.
+
+Every restore writes the shared key, exact-hit result, target-cache setting,
+and restore duration to the job summary and emits the same fields as a notice.
+`.github/workflows/cache-health.yml` also records the full Actions cache
+inventory weekly and on manual dispatch, uploads the JSON for 30 days, and
+lists the largest entries in its summary. Use exact-hit rate and exact-hit
+duration as separate signals: an exact hit proves the intended entry survived,
+but runner disk, linking, and test execution can still make a hit slow.
 
 `publish.yml` runs on tag pushes and manual `workflow_dispatch`; save-if is
 false for a tag push (not a branch ref) but a manual dispatch on `develop`
@@ -178,7 +190,12 @@ job-specific key that a tag-triggered run could never save to.
 ## CI caches the DuckDB C++ build with sccache, backed by Cloudflare R2
 
 `.github/actions/cache-sccache/action.yml` installs sccache
-(`mozilla-actions/sccache-action`) and exports `RUSTC_WRAPPER=sccache`. Every
+(`mozilla-actions/sccache-action`) and exports `RUSTC_WRAPPER=sccache`. On
+Windows it initializes the MSVC developer environment and explicitly exports
+`CC="sccache cl.exe"` / `CXX="sccache cl.exe"`: cc-rs selects its
+auto-discovered MSVC tool before consulting the generic `RUSTC_WRAPPER`
+fallback, so the explicit wrapper is required for DuckDB's C++ translation
+units there. Every
 `ci.yml` job that compiles a meaningful amount of Rust runs it right after
 `setup-rust`: `lint-core`, `test-core`, and `lint-tauri` (the three that
 build with `--features duckdb-archive`, the original motivating case), plus
@@ -188,15 +205,20 @@ does not invoke rustc), `license-check-cargo` (`cargo deny check` parses
 `Cargo.lock`, it does not compile the workspace), or
 `test-render-memory-perf` (its only cargo step is `cargo install
 tauri-driver`, a small third-party binary, not this workspace). The `cc`
-crate treats `RUSTC_WRAPPER=sccache` as a C/C++ compiler wrapper, so every
-`cl.exe` / `c++` invocation of the bundled DuckDB build (326 translation
+crate uses the explicit Windows wrapper above and the `RUSTC_WRAPPER`
+fallback on Unix, so every `cl.exe` / `c++` invocation of the bundled DuckDB
+build (326 translation
 units, about 9 minutes of the 13 to 14 minute cold build in run
 34850128330) is keyed on preprocessed source, flags and compiler in the
 three `duckdb-archive` jobs. Non-incremental Rust dependency crates are
 cached the same way in every job that wires this action in, DuckDB feature
-or not; workspace crates are passed through. sccache prints hit/miss
-statistics in its post step, which is the evidence surface for whether the
-cache is working.
+or not; workspace crates are passed through. The action resets sccache's
+counters immediately before the caller compiles, then records backend, target
+cache status, Rust/C++ hits and misses, and cache errors as JSON plus a job
+summary in its post step. It warns when configured R2 credentials do not
+produce an S3 backend, when sccache reports errors, or when a non-exact target
+restore performs a substantial Rust rebuild for a DuckDB job without any
+C/C++ requests.
 
 Because sccache's object keys are content-addressed (hash of preprocessed
 source, flags and compiler) rather than scoped by an explicit per-job-kind

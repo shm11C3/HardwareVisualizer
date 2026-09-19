@@ -1,0 +1,7 @@
+name: "Report sccache statistics"
+description: "Reset sccache counters before compilation and report them after the job"
+runs:
+  using: "node24"
+  main: "main.cjs"
+  post: "post.cjs"
+  post-if: "always()"
