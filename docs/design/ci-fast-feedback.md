@@ -41,6 +41,12 @@ workflow creation to completion, each check's queue and runner duration, and
 the critical path; repeat the comparison enough times to expose runner noise.
 Keep test identities, coverage generation, and Merge Gate membership unchanged.
 
+For the cancellation probe, start a PR run and confirm CI and CodeQL are
+in progress before pushing one small documentation-only update. Record both
+run IDs: superseded PR runs should end as cancelled, the newest PR runs should
+complete, and a develop push run should keep its distinct run-id group and
+remain unaffected.
+
 The temporary timing workflow omits the production coverage-comment action so
 measurement runs do not write pull-request comments. It still runs the same
 lint, test, build, and coverage-generation commands; required CI retains the
