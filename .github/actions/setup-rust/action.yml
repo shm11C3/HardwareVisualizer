@@ -1,5 +1,12 @@
 name: "Setup Rust Environment"
 description: "Setup Rust toolchain with caching and components"
+outputs:
+  cache-hit:
+    description: "Whether rust-cache restored an exact key match"
+    value: ${{ steps.rust-cache.outputs.cache-hit }}
+  cache-restore-seconds:
+    description: "Elapsed seconds spent in the rust-cache restore step"
+    value: ${{ steps.report-cache.outputs.restore-seconds }}
 inputs:
   components:
     description: "Additional components to install"
@@ -30,9 +37,20 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Read pinned Rust toolchain
+      id: rust-toolchain
+      shell: bash
+      run: |
+        toolchain="$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml | head -n 1)"
+        if [ -z "$toolchain" ]; then
+          echo "Unable to read the pinned channel from rust-toolchain.toml" >&2
+          exit 1
+        fi
+        echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
+
     - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
       with:
-        toolchain: 1.93.0
+        toolchain: ${{ steps.rust-toolchain.outputs.toolchain }}
         targets: ${{ inputs.targets }}
 
     # .cargo/config.toml moves intermediate artifacts to
@@ -49,7 +67,14 @@ runs:
       run: echo 'CARGO_BUILD_BUILD_DIR={workspace-root}/target' >> "$GITHUB_ENV"
       shell: bash
 
-    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+    - name: Start Rust cache restore timer
+      id: cache-timer
+      shell: bash
+      run: echo "started-at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Rust cache
+      id: rust-cache
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         # src-tauri is a member of the root workspace, so it has no target/ of its own.
         workspaces: |
@@ -59,9 +84,38 @@ runs:
         cache-targets: ${{ inputs.cache-targets }}
         # Only the default branch saves: each job kind and platform already
         # costs one entry per lockfile hash, and letting every PR save too
-        # would churn through GitHub's 10 GB per-repository cache limit. PRs
-        # still get partial hits through rust-cache's restore-key prefix.
+        # would churn through the repository's cache budget. PRs still get
+        # partial hits through rust-cache's restore-key prefix.
         save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+    - name: Report Rust cache restore
+      id: report-cache
+      shell: bash
+      env:
+        CACHE_HIT: ${{ steps.rust-cache.outputs.cache-hit }}
+        CACHE_KEY: ${{ inputs.cache-key }}
+        CACHE_TARGETS: ${{ inputs.cache-targets }}
+        CACHE_STARTED_AT: ${{ steps.cache-timer.outputs.started-at }}
+      run: |
+        restore_seconds=$(( $(date +%s) - CACHE_STARTED_AT ))
+        cache_hit="${CACHE_HIT:-false}"
+        echo "restore-seconds=$restore_seconds" >> "$GITHUB_OUTPUT"
+        echo "RUST_CACHE_EXACT_HIT=$cache_hit" >> "$GITHUB_ENV"
+        echo "RUST_CACHE_RESTORE_SECONDS=$restore_seconds" >> "$GITHUB_ENV"
+
+        {
+          echo "### Rust cache"
+          echo
+          echo "| Metric | Value |"
+          echo "| --- | --- |"
+          echo "| Shared key | \`$CACHE_KEY\` |"
+          echo "| Exact hit | \`$cache_hit\` |"
+          echo "| Target artifacts enabled | \`$CACHE_TARGETS\` |"
+          echo "| Restore time | ${restore_seconds}s |"
+          echo
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        echo "::notice title=Rust cache::$CACHE_KEY exact_hit=$cache_hit restore_seconds=$restore_seconds targets=$CACHE_TARGETS"
 
     - name: Install Rust components
       if: inputs.components != ''
