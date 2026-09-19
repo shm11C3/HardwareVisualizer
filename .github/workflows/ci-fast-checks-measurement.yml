@@ -71,6 +71,7 @@ jobs:
       - name: Checkout base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ env.BASE_SHA }}
 
       - name: Setup Node.js
@@ -104,6 +105,7 @@ jobs:
       - name: Checkout base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ env.BASE_SHA }}
 
       - name: Setup Node.js
@@ -119,6 +121,7 @@ jobs:
       - name: Checkout head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ env.HEAD_SHA }}
 
       - name: Setup Node.js
@@ -134,6 +137,7 @@ jobs:
       - name: Checkout head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ env.HEAD_SHA }}
 
       - name: Setup Node.js
