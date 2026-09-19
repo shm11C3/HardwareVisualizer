@@ -495,13 +495,9 @@ impl ArchiveTracker {
       );
     }
 
-    // Routed through the dispatch boundary (#2134): the only write this PR
-    // moves off direct SQLite access. The other inserts above stay on
-    // `database::` until the stacked change that routes the rest of the raw
-    // archive families.
     let process_stats = self.collect_process_stats();
     if !process_stats.is_empty()
-      && let Err(e) = dispatch::process_stats::insert(process_stats, tick_timestamp).await
+      && let Err(e) = database::process_stats::insert(process_stats, tick_timestamp).await
     {
       log_error!(
         "Failed to insert process stats data",
