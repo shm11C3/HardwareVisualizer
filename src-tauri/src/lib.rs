@@ -73,6 +73,98 @@ fn apply_pending_migrations() -> Result<(), String> {
   ))
 }
 
+/// Tell Core's database dispatch boundary where the two databases and the
+/// selection marker live, then make it observe whatever durable selection is
+/// already on disk.
+///
+/// This is App's half of the seam #2134 documents for #2135: App owns path
+/// resolution (Core cannot resolve the bundle identifier), so it is the only
+/// side that can name [`AuthorityPaths`]. The `reobserve_authority` call
+/// covers the ordinary restart case - a database selected in an earlier
+/// session must be adopted again this session, or dispatch would silently
+/// keep answering from SQLite forever - and is safe to call here because no
+/// [`hardviz_core::infrastructure::database::native_database::NativeDatabase`]
+/// owner exists yet: this is the first call into the dispatch boundary during
+/// App startup, mirroring `db::init` immediately above it.
+///
+/// Returns `Err` for every durable state where SQLite is not genuinely
+/// authoritative and the boundary could not become servable either - a
+/// failed native open, or an [`AuthorityState::Inconsistent`] finding this
+/// function cannot repair itself. The caller must treat that as a DB-startup
+/// failure (`is_db_ok = false`), the same gate an incompatible SQLite schema
+/// already uses to keep every database-backed worker from starting: once the
+/// durable record says native is or may be selected, silently continuing on
+/// SQLite would answer from a backend that is no longer authoritative.
+///
+/// The one repair attempted here is the single self-healing case
+/// [`AuthorityRecovery::RepairSelectionMarkerFromNativeMetadata`] names: the
+/// selection committed into the native database but the marker never landed.
+/// Rewriting the marker from the database it describes cannot lose history,
+/// so it is safe to do without a person deciding. Every other inconsistency
+/// is reported rather than guessed at - #2135's `NativeLifecycleOwner` owns
+/// the startup authority decision from here; this function only has to
+/// surface it, not build a second decision tree.
+#[cfg(feature = "duckdb-archive")]
+fn initialize_native_database_dispatch(db_path: &std::path::Path) -> Result<(), String> {
+  use hardviz_core::infrastructure::database::dispatch;
+  use hardviz_core::infrastructure::database::native_database::{
+    AuthorityPaths, AuthorityRecovery, AuthorityState, repair_authority_marker,
+  };
+
+  let directory = db_path.parent().ok_or_else(|| {
+    "native database directory could not be resolved from the SQLite path".to_owned()
+  })?;
+  let source_file_name = db_path
+    .file_name()
+    .and_then(|name| name.to_str())
+    .ok_or_else(|| "SQLite database path has no file name".to_owned())?;
+  let paths =
+    AuthorityPaths::in_directory(directory, source_file_name, "hv-database.duckdb");
+  // First and only caller during App startup, matching `db::init`'s contract
+  // above: we don't care about the return value here.
+  let _ = dispatch::init(
+    paths.clone(),
+    infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+  );
+
+  let runtime = tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+    .map_err(|e| {
+      format!("failed to build a runtime to observe native database authority: {e}")
+    })?;
+
+  let state = runtime
+    .block_on(dispatch::reobserve_authority())
+    .map_err(|e| format!("failed to observe native database authority: {e}"))?;
+  match state {
+    AuthorityState::SqliteAuthoritative
+    | AuthorityState::ConversionInProgress { .. }
+    | AuthorityState::FinalizedUnselected
+    | AuthorityState::NativeSelected => Ok(()),
+    AuthorityState::Inconsistent {
+      recovery: AuthorityRecovery::RepairSelectionMarkerFromNativeMetadata,
+      ..
+    } => {
+      repair_authority_marker(&paths)
+        .map_err(|e| format!("failed to repair the native selection marker: {e}"))?;
+      let repaired = runtime
+        .block_on(dispatch::reobserve_authority())
+        .map_err(|e| format!("failed to re-observe native database authority: {e}"))?;
+      if matches!(repaired, AuthorityState::NativeSelected) {
+        Ok(())
+      } else {
+        Err(format!(
+          "native database authority remained inconsistent after repairing the marker: {repaired:?}"
+        ))
+      }
+    }
+    AuthorityState::Inconsistent { reason, recovery } => Err(format!(
+      "native database authority is inconsistent ({reason:?}, recovery: {recovery:?})"
+    )),
+  }
+}
+
 fn build_specta_builder() -> Builder<Wry> {
   Builder::<Wry>::new()
     .events(collect_events![models::hardware::HardwareMonitorUpdate,])
@@ -322,6 +414,29 @@ pub fn run() {
     &db_path,
     app_max_version,
   );
+
+  // Route database consumers to whichever backend is durably selected
+  // (#2134). A no-op build detail with the feature disabled: dispatch's
+  // SQLite path needs no configuration. Skipped once SQLite itself is
+  // already known incompatible - `is_db_ok` below already keeps every
+  // database-backed worker from starting in that case. A failure here
+  // (the durable record says native is or may be selected, but this
+  // boundary cannot safely serve it) is surfaced through the same gate:
+  // continuing on SQLite would silently answer from a backend that is no
+  // longer authoritative.
+  #[cfg(feature = "duckdb-archive")]
+  if db_error.is_none()
+    && let Err(e) = initialize_native_database_dispatch(&db_path)
+  {
+    log_error!(
+      "Native database authority is not safely servable; database-backed workers will not start",
+      "lib::run",
+      Some(e.clone())
+    );
+    db_error = Some(hardviz_core::persistence::preflight::DbStartupError::Other(
+      e,
+    ));
+  }
 
   // Core owns the database pool, so it also applies the schema migrations —
   // synchronously here, before any persistence worker writes. These were

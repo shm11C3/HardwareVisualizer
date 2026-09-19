@@ -105,9 +105,11 @@ pub async fn collect_hardware_info(store: &HistoryStore) -> Result<SysInfo, Stri
   })
 }
 
-pub async fn get_storage_health_latest_records()
--> Result<Vec<hardviz_core::models::hardware::StorageHealthRecord>, sqlx::Error> {
-  hardviz_core::infrastructure::database::storage_health::latest_records().await
+pub async fn get_storage_health_latest_records() -> Result<
+  Vec<hardviz_core::models::hardware::StorageHealthRecord>,
+  hardviz_core::infrastructure::database::dispatch::DispatchError,
+> {
+  hardviz_core::infrastructure::database::dispatch::storage_health::latest_records().await
 }
 
 pub async fn get_super_io_chip_id_diagnostics()
@@ -194,7 +196,7 @@ pub async fn refresh_storage_devices(
   )
   .await?;
 
-  hardviz_core::infrastructure::database::storage_health::latest_records()
+  hardviz_core::infrastructure::database::dispatch::storage_health::latest_records()
     .await
     .map_err(|e| format!("Failed to fetch refreshed storage health records: {e}"))
 }

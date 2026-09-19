@@ -172,10 +172,10 @@ impl ArchiveController {
 /// from, so it keeps its own fixed, independent retention window - see
 /// `crate::persistence::cooling_rollup::COOLING_DAILY_SUMMARY_RETENTION_DAYS`.
 pub async fn cleanup_old_data(retention_days: u32) {
-  use crate::infrastructure::database;
+  use crate::infrastructure::database::dispatch;
   use crate::log_error;
 
-  if let Err(e) = database::hardware_archive::delete_old_data(retention_days).await {
+  if let Err(e) = dispatch::data_archive::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old hardware archive data",
       "persistence::archive::cleanup_old_data",
@@ -183,7 +183,7 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
-  if let Err(e) = database::gpu_archive::delete_old_data(retention_days).await {
+  if let Err(e) = dispatch::gpu_archive::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old GPU hardware archive data",
       "persistence::archive::cleanup_old_data",
@@ -191,7 +191,7 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
-  if let Err(e) = database::fan_archive::delete_old_data(retention_days).await {
+  if let Err(e) = dispatch::fan_archive::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old fan archive data",
       "persistence::archive::cleanup_old_data",
@@ -199,7 +199,7 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
-  if let Err(e) = database::process_stats::delete_old_data(retention_days).await {
+  if let Err(e) = dispatch::process_stats::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old process stats data",
       "persistence::archive::cleanup_old_data",
@@ -207,7 +207,7 @@ pub async fn cleanup_old_data(retention_days: u32) {
     );
   }
 
-  if let Err(e) = database::ambient_archive::delete_old_data(retention_days).await {
+  if let Err(e) = dispatch::ambient_archive::delete_old_data(retention_days).await {
     log_error!(
       "Failed to delete old ambient archive data",
       "persistence::archive::cleanup_old_data",
@@ -422,7 +422,7 @@ impl ArchiveTracker {
   }
 
   async fn write_archive(&mut self) {
-    use crate::infrastructure::database;
+    use crate::infrastructure::database::dispatch as database;
     use crate::log_error;
 
     self.dirty = false;
@@ -464,7 +464,7 @@ impl ArchiveTracker {
       ane_power,
       package_power,
     };
-    if let Err(e) = database::hardware_archive::insert(row, tick_timestamp).await {
+    if let Err(e) = database::data_archive::insert(row, tick_timestamp).await {
       log_error!(
         "Failed to insert hardware archive data",
         "persistence::archive::write_archive",

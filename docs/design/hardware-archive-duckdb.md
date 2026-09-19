@@ -159,6 +159,18 @@ when recovered space justifies its temporary disk and lifecycle cost. The raw
 artifact contains exact file/WAL/spill accounting and the read-only survivor
 audit.
 
+The implemented backend was measured the same way on 2026-09-16 UTC
+([retention evidence](../development/hardware-archive-duckdb-retention-evidence.md)):
+seven days of native minute writes against a seven-day Retention Period,
+expired daily through the production `delete_old_data` functions. Expiry stayed
+exact and cost tens of milliseconds, the file grew towards a plateau near twice
+its compact size without yet establishing one (growth beyond seven days is
+unmeasured, so copy compaction stays a candidate), and the one lifecycle choice
+it exposed is checkpoint placement. Left to the engine's 16 MiB threshold, a checkpoint lands inside a
+random write cycle at 177 to 677 ms and the uncheckpointed WAL adds 30 to
+40 MiB of resident memory; one explicit checkpoint after the daily expiry pass
+costs 111 to 220 ms and bounds both. The App lifecycle owner schedules it.
+
 ## Preserving meaning through conversion
 
 One authoritative DuckDB file keeps raw archives, mutable summaries and

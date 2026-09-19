@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use hardviz_core::infrastructure::database::archive_queries::{
-  self, AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveSeriesPoint,
-  DataArchiveColumn, FanArchiveSeries, GpuArchiveColumn, ProcessStatRecord,
+  AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveSeriesPoint, DataArchiveColumn,
+  FanArchiveSeries, GpuArchiveColumn, ProcessStatRecord,
 };
+use hardviz_core::infrastructure::database::dispatch;
 
 pub async fn fetch_data_archive_series(
   column: DataArchiveColumn,
@@ -11,7 +12,7 @@ pub async fn fetch_data_archive_series(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<Vec<ArchiveSeriesPoint>, String> {
-  archive_queries::select_data_archive_series(
+  dispatch::data_archive::select_data_archive_series(
     column,
     start,
     end,
@@ -30,7 +31,7 @@ pub async fn fetch_gpu_archive_series(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<Vec<ArchiveSeriesPoint>, String> {
-  archive_queries::select_gpu_archive_series(
+  dispatch::gpu_archive::select_gpu_archive_series(
     column,
     gpu_name,
     start,
@@ -52,7 +53,7 @@ pub async fn fetch_fan_archive_series(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<Vec<FanArchiveSeries>, String> {
-  archive_queries::select_fan_archive_series(
+  dispatch::fan_archive::select_fan_archive_series(
     start,
     end,
     bucket_width_ms,
@@ -75,7 +76,7 @@ pub async fn fetch_ambient_archive_series(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<AmbientArchiveSeries, String> {
-  archive_queries::select_ambient_archive_series(
+  dispatch::ambient_archive::select_ambient_archive_series(
     start,
     end,
     bucket_width_ms,
@@ -85,11 +86,15 @@ pub async fn fetch_ambient_archive_series(
   .map_err(|e| format!("Failed to fetch archived ambient series: {e}"))
 }
 
+// Routed through the dispatch boundary (#2134): Process Stats is the only
+// family this PR moves off direct SQLite access. The functions above stay on
+// `archive_queries` until the stacked change that routes the rest of the raw
+// archive families.
 pub async fn fetch_process_stats(
   start: &str,
   end: &str,
 ) -> Result<Vec<ProcessStatRecord>, String> {
-  archive_queries::select_process_stats(start, end, false)
+  dispatch::process_stats::select_process_stats(start, end, false)
     .await
     .map_err(|e| format!("Failed to fetch process stats: {e}"))
 }
@@ -98,13 +103,13 @@ pub async fn fetch_process_stats_in_period(
   start: &str,
   end: &str,
 ) -> Result<Vec<ProcessStatRecord>, String> {
-  archive_queries::select_process_stats(start, end, true)
+  dispatch::process_stats::select_process_stats(start, end, true)
     .await
     .map_err(|e| format!("Failed to fetch process stats in period: {e}"))
 }
 
 pub async fn fetch_gpu_archive_names() -> Result<Vec<String>, String> {
-  archive_queries::select_gpu_names()
+  dispatch::gpu_archive::select_gpu_names()
     .await
     .map_err(|e| format!("Failed to fetch archived GPU names: {e}"))
 }
