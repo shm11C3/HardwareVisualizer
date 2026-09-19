@@ -86,10 +86,6 @@ pub async fn fetch_ambient_archive_series(
   .map_err(|e| format!("Failed to fetch archived ambient series: {e}"))
 }
 
-// Routed through the dispatch boundary (#2134): Process Stats is the only
-// family this PR moves off direct SQLite access. The functions above stay on
-// `archive_queries` until the stacked change that routes the rest of the raw
-// archive families.
 pub async fn fetch_process_stats(
   start: &str,
   end: &str,
