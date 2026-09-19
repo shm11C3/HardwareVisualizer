@@ -1,4 +1,10 @@
 #![cfg(feature = "duckdb-archive")]
+// The umbrella intentionally loads the App wrappers once for their tests and
+// the definitions-only support modules for the other Core fixtures. Clippy
+// sees those path-based test modules as duplicate file loads; this narrow
+// integration target allow preserves the App test owner without weakening the
+// release crate lint policy.
+#![allow(clippy::duplicate_mod)]
 
 // These families do not call the process-wide `db::init`. Keeping them in a
 // single integration target removes one compile/link unit while the tests

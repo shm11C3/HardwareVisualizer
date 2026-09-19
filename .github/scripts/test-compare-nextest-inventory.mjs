@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 const script = path.join(import.meta.dirname, "compare-nextest-inventory.mjs");
-const directory = fs.mkdtempSync(path.join(os.tmpdir(), "hardviz-nextest-inventory-"));
+const directory = fs.mkdtempSync(
+  path.join(os.tmpdir(), "hardviz-nextest-inventory-"),
+);
 
 function suite(binary, testcases) {
   return {
@@ -51,33 +53,55 @@ function run(baselineDocument, headDocument) {
   const headPath = path.join(directory, "head.json");
   fs.writeFileSync(baselinePath, JSON.stringify(baselineDocument));
   fs.writeFileSync(headPath, JSON.stringify(headDocument));
-  return spawnSync(process.execPath, [
-    script,
-    "--baseline",
-    baselinePath,
-    "--head",
-    headPath,
-  ], { encoding: "utf8" });
+  return spawnSync(
+    process.execPath,
+    [script, "--baseline", baselinePath, "--head", headPath],
+    { encoding: "utf8" },
+  );
 }
 
 try {
-  assert.equal(run(baseline, head).status, 0, "equivalent inventories must pass");
+  assert.equal(
+    run(baseline, head).status,
+    0,
+    "equivalent inventories must pass",
+  );
 
   const addedDomainTest = structuredClone(head);
   addedDomainTest["rust-suites"].ambient.testcases.new_case = false;
-  assert.notEqual(run(baseline, addedDomainTest).status, 0, "unexpected added tests must fail");
+  assert.notEqual(
+    run(baseline, addedDomainTest).status,
+    0,
+    "unexpected added tests must fail",
+  );
 
   const droppedAppTest = structuredClone(head);
-  delete droppedAppTest["rust-suites"].native.testcases["app_native_schema::tests::schema_names"];
-  assert.notEqual(run(baseline, droppedAppTest).status, 0, "dropped App tests must fail");
+  delete droppedAppTest["rust-suites"].native.testcases[
+    "app_native_schema::tests::schema_names"
+  ];
+  assert.notEqual(
+    run(baseline, droppedAppTest).status,
+    0,
+    "dropped App tests must fail",
+  );
 
   const droppedDomainTest = structuredClone(head);
   delete droppedDomainTest["rust-suites"].ambient.testcases.ambient_case;
-  assert.notEqual(run(baseline, droppedDomainTest).status, 0, "dropped domain tests must fail");
+  assert.notEqual(
+    run(baseline, droppedDomainTest).status,
+    0,
+    "dropped domain tests must fail",
+  );
 
   const changedIgnored = structuredClone(head);
-  changedIgnored["rust-suites"].native.testcases["native::native_case"].ignored = true;
-  assert.notEqual(run(baseline, changedIgnored).status, 0, "ignored changes must fail");
+  changedIgnored["rust-suites"].native.testcases[
+    "native::native_case"
+  ].ignored = true;
+  assert.notEqual(
+    run(baseline, changedIgnored).status,
+    0,
+    "ignored changes must fail",
+  );
 
   const empty = { "rust-suites": {} };
   assert.notEqual(run(empty, head).status, 0, "empty inventories must fail");

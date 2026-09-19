@@ -18,14 +18,16 @@ for (let index = 2; index < process.argv.length; index += 2) {
 const baselinePath = args.get("--baseline");
 const headPath = args.get("--head");
 if (!baselinePath || !headPath) {
-  throw new Error("usage: compare-nextest-inventory.mjs --baseline FILE --head FILE");
+  throw new Error(
+    "usage: compare-nextest-inventory.mjs --baseline FILE --head FILE",
+  );
 }
 
 function readInventory(path) {
   const document = JSON.parse(fs.readFileSync(path, "utf8"));
   const tests = new Map();
 
-  for (const [suiteId, suite] of Object.entries(document["rust-suites"] ?? {})) {
+  for (const suite of Object.values(document["rust-suites"] ?? {})) {
     const binary = suite["binary-name"];
     if (!binary) {
       continue;
@@ -84,19 +86,30 @@ const head = readInventory(headPath);
 const missing = [...baseline.keys()].filter((key) => !head.has(key));
 const unexpectedAdded = [...head.keys()].filter((key) => !baseline.has(key));
 const changedIgnored = [...baseline.keys()]
-  .filter((key) => head.has(key) && baseline.get(key).ignored !== head.get(key).ignored)
-  .map((key) => `${key}: ${baseline.get(key).ignored} -> ${head.get(key).ignored}`);
+  .filter(
+    (key) =>
+      head.has(key) && baseline.get(key).ignored !== head.get(key).ignored,
+  )
+  .map(
+    (key) => `${key}: ${baseline.get(key).ignored} -> ${head.get(key).ignored}`,
+  );
 
-console.log(JSON.stringify({
-  baseline: baseline.size,
-  head: head.size,
-  missing: missing.length,
-  added: unexpectedAdded.length,
-  changedIgnored: changedIgnored.length,
-  missing,
-  addedTests: unexpectedAdded,
-  changedIgnoredTests: changedIgnored,
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      baseline: baseline.size,
+      head: head.size,
+      missingCount: missing.length,
+      addedCount: unexpectedAdded.length,
+      changedIgnoredCount: changedIgnored.length,
+      missingKeys: missing,
+      addedKeys: unexpectedAdded,
+      changedIgnoredTests: changedIgnored,
+    },
+    null,
+    2,
+  ),
+);
 
 if (missing.length || unexpectedAdded.length || changedIgnored.length) {
   process.exitCode = 1;
