@@ -19,7 +19,7 @@ use sqlx::sqlite::{
 use sqlx::{ConnectOptions, Executor, Row};
 use tempfile::TempDir;
 
-#[path = "../../src-tauri/src/infrastructure/database/migration.rs"]
+#[path = "../../src-tauri/src/infrastructure/database/migration_definitions.rs"]
 mod app_migrations;
 
 const STORAGE_ID: &str = "storage:hmac-sha256:v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";

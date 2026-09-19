@@ -26,10 +26,10 @@ use sqlx::sqlite::{
 };
 use tempfile::TempDir;
 
-#[path = "../../../src-tauri/src/infrastructure/database/migration.rs"]
+#[path = "../../../src-tauri/src/infrastructure/database/migration_definitions.rs"]
 pub mod app_migrations;
 
-#[path = "../../../src-tauri/src/infrastructure/database/native_schema.rs"]
+#[path = "../../../src-tauri/src/infrastructure/database/native_schema_definitions.rs"]
 pub mod app_native_schema;
 
 /// A SQLite source, the candidate copied from it, and the finalized native

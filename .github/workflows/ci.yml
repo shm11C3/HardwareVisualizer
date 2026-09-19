@@ -163,6 +163,9 @@ jobs:
       - name: Test license notice generation
         run: node .github/scripts/test-generate-licenses.mjs
 
+      - name: Test nextest inventory comparison
+        run: node .github/scripts/test-compare-nextest-inventory.mjs
+
       - name: Check Tauri dependency changes
         id: tauri-deps
         shell: bash
@@ -265,7 +268,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+        platform: ["ubuntu-22.04", "macos-latest"]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
@@ -292,13 +295,101 @@ jobs:
       - name: Install cargo-nextest
         uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2.87.8
         with:
-          tool: cargo-nextest
+          tool: cargo-nextest@0.9.143
 
       # nextest runs each test in its own process, so the DuckDB integration
       # binaries under core/tests/ run in parallel without sharing the
       # process-wide database path. Scheduling rules live in .config/nextest.toml.
       - name: Run Core tests
         run: cargo nextest run -p hardviz-core --features duckdb-archive --profile ci
+
+  # Windows Core tests build the expensive DuckDB-enabled test set once, then
+  # run the same archive in two nextest consumers. The archive is the proof
+  # that shards share compilation work rather than each rebuilding the C++
+  # dependency independently.
+  test-core-windows-build:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.core-changed == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key: core-test
+
+      - name: Cache DuckDB build
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2.87.8
+        with:
+          tool: cargo-nextest@0.9.143
+
+      - name: Build Core test archive
+        run: cargo nextest archive -p hardviz-core --features duckdb-archive --profile ci --archive-file core-nextest.tar.zst
+
+      - name: Capture compiler cache stats
+        run: sccache --show-stats
+
+      - name: Upload Core test archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-nextest-archive
+          path: core-nextest.tar.zst
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  test-core-windows-shard:
+    needs:
+      - change-detection
+      - test-core-windows-build
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.core-changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: 1.93.0
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@d438492cf8a250514fa2d34b30bc3c0dc37c65ff # v2.87.8
+        with:
+          tool: cargo-nextest@0.9.143
+
+      - name: Download Core test archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: core-nextest-archive
+          path: .
+
+      - name: Run Core test shard ${{ matrix.shard }}
+        run: cargo nextest run --archive-file core-nextest.tar.zst --workspace-remap . --extract-to . --profile ci --partition hash:${{ matrix.shard }}/2
+
+      - name: Upload Core shard JUnit
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-windows-shard-${{ matrix.shard }}-junit
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: warn
+          retention-days: 7
 
   #
   # Tauri lint and clippy
@@ -908,6 +999,8 @@ jobs:
       - rust-format
       - lint-core
       - test-core
+      - test-core-windows-build
+      - test-core-windows-shard
       - lint-tauri
       - test-tauri
       - check-core-tauri-integration
