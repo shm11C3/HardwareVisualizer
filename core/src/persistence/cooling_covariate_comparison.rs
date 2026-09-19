@@ -532,6 +532,9 @@ fn quantile(sorted: &[f32], p: f32) -> f32 {
 /// resolving the Thermal Delta Baseline through its own resolver rather
 /// than re-deriving it, for the same reason every other reader does: the
 /// pinned row must win once one exists.
+/// Test-only since #2134: [`load_cooling_covariate_comparison`] is routed
+/// through the dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn load_cooling_covariate_comparison_from_pool(
   pool: &sqlx::SqlitePool,
   band: CpuLoadBand,
@@ -572,19 +575,39 @@ pub(crate) async fn load_cooling_covariate_comparison_from_pool(
   ))
 }
 
-/// [`load_cooling_covariate_comparison_from_pool`] against Core's
-/// process-wide pool, for `band` - the App command names the band the
-/// observation strip compares under.
+/// [`load_cooling_covariate_comparison_from_pool`], routed through the
+/// dispatch boundary (#2134) instead of Core's process-wide SQLite pool, for
+/// `band` - the App command names the band the observation strip compares
+/// under.
 pub async fn load_cooling_covariate_comparison(
   band: CpuLoadBand,
-) -> Result<CoolingCovariateComparison, sqlx::Error> {
-  let pool = crate::infrastructure::database::db::get_pool().await?;
-  load_cooling_covariate_comparison_from_pool(
-    &pool,
+) -> Result<
+  CoolingCovariateComparison,
+  crate::infrastructure::database::dispatch::DispatchError,
+> {
+  use crate::infrastructure::database::dispatch;
+  use crate::persistence::cooling_delta_baseline::resolve_delta_baseline_state;
+
+  let delta_days =
+    dispatch::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+      .await?;
+  let delta_baseline_state = resolve_delta_baseline_state(&delta_days).await?;
+  let covariate_days =
+    dispatch::cooling_covariate_daily_summary::select_all_covariate_daily_summaries()
+      .await?;
+  let fan_days =
+    dispatch::cooling_covariate_daily_summary::select_all_fan_covariate_daily_summaries()
+      .await?;
+  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+
+  Ok(derive_covariate_comparison(
+    &covariate_days,
+    &fan_days,
+    &delta_days,
+    delta_baseline_state,
     band,
-    chrono::Local::now().date_naive(),
-  )
-  .await
+    yesterday,
+  ))
 }
 
 #[cfg(test)]

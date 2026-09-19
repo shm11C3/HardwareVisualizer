@@ -400,6 +400,9 @@ fn weighted_idle_temperature<'a>(
 /// from age out (see the module docs). Keeping the write-back in this one
 /// place is what keeps that guarantee from depending on every call site
 /// remembering it.
+/// Test-only since #2134: [`resolve_baseline_state`] is routed through the
+/// dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn resolve_baseline_state_from_pool(
   pool: &sqlx::SqlitePool,
   days: &[DailyIdleSample],
@@ -435,6 +438,39 @@ pub(crate) async fn resolve_baseline_state_from_pool(
   }
 }
 
+/// [`resolve_baseline_state_from_pool`], routed through the dispatch
+/// boundary (#2134) instead of an explicit pool. Every production caller
+/// (this module's own loader, the band comparison, the baseline delta and
+/// the load-temperature explorer) uses this, not the `_from_pool` variant -
+/// see the module doc on why every one of them must go through a resolver
+/// rather than [`derive_baseline_state`] directly.
+pub(crate) async fn resolve_baseline_state(
+  days: &[DailyIdleSample],
+) -> Result<BaselineState, crate::infrastructure::database::dispatch::DispatchError> {
+  use crate::infrastructure::database::dispatch;
+
+  match dispatch::cooling_baseline::select_established_baseline().await? {
+    Some(pinned) => Ok(pinned.into_state()),
+    None => {
+      let derived = derive_baseline_state(days);
+      if let Some(baseline) = EstablishedBaseline::from_state(&derived) {
+        // Same write-once, retry-on-failure bookkeeping as the `_from_pool`
+        // resolver above.
+        if let Err(e) =
+          dispatch::cooling_baseline::insert_established_baseline(&baseline).await
+        {
+          crate::log_error!(
+            "Failed to pin the established cooling baseline; retrying on the next resolution",
+            "persistence::cooling_baseline::resolve_baseline_state",
+            Some(e.to_string())
+          );
+        }
+      }
+      Ok(derived)
+    }
+  }
+}
+
 /// Load the cooling baseline, pinning it the first time it establishes.
 ///
 /// Reads the pinned row first: once established, the baseline is a fixed
@@ -445,6 +481,9 @@ pub(crate) async fn resolve_baseline_state_from_pool(
 ///
 /// The recent window is always derived - it describes the present, not
 /// the fixed reference.
+/// Test-only since #2134: every production caller uses [`load_cooling_baseline`],
+/// which is routed through the dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn load_cooling_baseline_from_pool(
   pool: &sqlx::SqlitePool,
   today: NaiveDate,
@@ -464,10 +503,21 @@ pub(crate) async fn load_cooling_baseline_from_pool(
   Ok(CoolingBaseline { state, recent })
 }
 
-/// [`load_cooling_baseline_from_pool`] against Core's process-wide pool.
-pub async fn load_cooling_baseline() -> Result<CoolingBaseline, sqlx::Error> {
-  let pool = crate::infrastructure::database::db::get_pool().await?;
-  load_cooling_baseline_from_pool(&pool, chrono::Local::now().date_naive()).await
+/// [`load_cooling_baseline_from_pool`], routed through the dispatch
+/// boundary (#2134) instead of Core's process-wide SQLite pool.
+pub async fn load_cooling_baseline()
+-> Result<CoolingBaseline, crate::infrastructure::database::dispatch::DispatchError> {
+  use crate::infrastructure::database::dispatch;
+
+  let today = chrono::Local::now().date_naive();
+  let days = dispatch::cooling_daily_summary::select_daily_idle_samples().await?;
+  // The rollup only ever summarizes completed local days, so the newest day
+  // that can carry a row is yesterday - see `load_cooling_baseline_from_pool`
+  // for why the recent window is anchored to the calendar.
+  let recent = summarize_recent_idle(&days, today - Duration::days(1));
+  let state = resolve_baseline_state(&days).await?;
+
+  Ok(CoolingBaseline { state, recent })
 }
 
 /// Resolve — and, on first establishment, pin — the baseline in the
