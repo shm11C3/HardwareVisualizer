@@ -31,9 +31,9 @@
 //!
 //! # Consumers routed here
 //!
-//! Process Stats and the four raw archive families (`DATA_ARCHIVE`,
-//! `GPU_DATA_ARCHIVE`, Ambient, Fan) are routed as of this change. Cooling's
-//! six projections, both baselines, Storage Health and the cooling rollup
+//! Process Stats, the four raw archive families (`DATA_ARCHIVE`,
+//! `GPU_DATA_ARCHIVE`, Ambient, Fan) and Storage Health are routed as of this
+//! change. Cooling's six projections, both baselines and the cooling rollup
 //! persistence are not yet routed - see the PR description for why, and for
 //! where that work is tracked.
 //!
@@ -86,6 +86,9 @@ use chrono::{DateTime, Utc};
 use super::archive_queries::{
   AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveSeriesError, ArchiveSeriesPoint,
   DataArchiveColumn, FanArchiveSeries, GpuArchiveColumn, ProcessStatRecord,
+};
+use crate::models::hardware::{
+  StorageDeviceRecord, StorageHealthRecord, StorageHealthRecordDraft,
 };
 use crate::persistence::archive_data::{
   AmbientData, FanArchiveRow, GpuData, HardwareArchiveRow, ProcessStatData,
@@ -921,6 +924,143 @@ pub mod fan_archive {
         .await
         .map_err(DispatchError::from)
       }
+    }
+  }
+}
+
+/// The Storage Health family: [`super::storage_health`] (SQLite) and
+/// [`super::native_database::storage_health`] (native).
+pub mod storage_health {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert_daily_records(
+    devices: Vec<StorageDeviceRecord>,
+    records: Vec<StorageHealthRecordDraft>,
+  ) -> Result<(), DispatchError> {
+    super::super::storage_health::insert_daily_records(devices, records)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert_daily_records(
+    devices: Vec<StorageDeviceRecord>,
+    records: Vec<StorageHealthRecordDraft>,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::storage_health::insert_daily_records(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          devices,
+          records,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::storage_health::insert_daily_records(devices, records)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn refresh_daily_records(
+    active_device_ids: &[String],
+    devices: Vec<StorageDeviceRecord>,
+    records: Vec<StorageHealthRecordDraft>,
+  ) -> Result<(), DispatchError> {
+    super::super::storage_health::refresh_daily_records(
+      active_device_ids,
+      devices,
+      records,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn refresh_daily_records(
+    active_device_ids: &[String],
+    devices: Vec<StorageDeviceRecord>,
+    records: Vec<StorageHealthRecordDraft>,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::storage_health::refresh_daily_records(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          active_device_ids.to_vec(),
+          devices,
+          records,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::storage_health::refresh_daily_records(
+          active_device_ids,
+          devices,
+          records,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    super::super::storage_health::delete_old_data(retention_days)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::storage_health::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::storage_health::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, DispatchError> {
+    super::super::storage_health::latest_records()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn latest_records() -> Result<Vec<StorageHealthRecord>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::storage_health::latest_records(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::storage_health::latest_records()
+        .await
+        .map_err(DispatchError::from),
     }
   }
 }
