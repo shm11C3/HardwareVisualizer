@@ -19,6 +19,7 @@ pub mod cooling_fan_daily_summary;
 pub mod cooling_hourly_summary;
 pub mod cooling_thermal_delta_daily_summary;
 pub mod db;
+pub mod dispatch;
 pub mod fan_archive;
 pub mod gpu_archive;
 pub mod hardware_archive;
