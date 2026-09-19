@@ -5,6 +5,9 @@ use tauri_plugin_dialog::{
   DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult,
 };
 
+#[cfg(feature = "duckdb-archive")]
+use crate::app::native_lifecycle::LifecycleIssue;
+
 const RESET_LABEL: &str = "Reset and Restart";
 const CONTINUE_LABEL: &str = "Continue Anyway";
 const EXIT_LABEL: &str = "Exit";
@@ -93,6 +96,58 @@ pub(crate) fn delete_database_files(db_path: &Path) -> std::io::Result<()> {
   let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
   let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
   Ok(())
+}
+
+/// User's chosen action from the native authority issue dialog.
+#[cfg(feature = "duckdb-archive")]
+pub enum NativeAuthorityAction {
+  /// Continue with SQLite; DB-dependent features behave as they did before
+  /// any conversion was attempted.
+  ContinueAnyway,
+  Exit,
+}
+
+/// Show a dialog for a startup authority inconsistency
+/// ([`crate::app::native_lifecycle::DatabaseLifecycleState::ActionRequired`])
+/// and return the user's chosen action.
+///
+/// Unlike [`prompt_startup_error`], there is no reset option here: resetting
+/// the SQLite file does not resolve a disagreement about the *native* files
+/// beside it, and guessing which of the two disagreeing files to discard is
+/// exactly what `inspect_authority` refuses to do. The only safe automatic
+/// choices are "keep running on SQLite" or "stop".
+#[cfg(feature = "duckdb-archive")]
+pub fn prompt_native_authority_issue(
+  handle: &tauri::AppHandle,
+  issue: &LifecycleIssue,
+) -> NativeAuthorityAction {
+  let message = format!(
+    "HardwareVisualizer found the native database files in an unexpected state and \
+     stopped rather than guess which one is correct.\n\n\
+     You can continue with real-time monitoring only - archived history and other \
+     database-backed features stay disabled for this session - or exit and inspect \
+     the app data directory.\n\n\
+     [Details: {issue:?}]"
+  );
+
+  let result = handle
+    .dialog()
+    .message(message)
+    .title("Data Compatibility Issue")
+    .kind(MessageDialogKind::Warning)
+    .buttons(MessageDialogButtons::OkCancelCustom(
+      CONTINUE_LABEL.into(),
+      EXIT_LABEL.into(),
+    ))
+    .blocking_show_with_result();
+
+  if result == MessageDialogResult::Ok
+    || result == MessageDialogResult::Custom(CONTINUE_LABEL.into())
+  {
+    NativeAuthorityAction::ContinueAnyway
+  } else {
+    NativeAuthorityAction::Exit
+  }
 }
 
 fn show_error_dialog(handle: &tauri::AppHandle, message: &str) {

@@ -165,6 +165,215 @@ fn initialize_native_database_dispatch(db_path: &std::path::Path) -> Result<(), 
   }
 }
 
+/// If `state` reports the native database as authoritative, synchronously
+/// open it before startup decides whether the database is usable at all.
+///
+/// Runs on a short-lived current-thread runtime, the same pattern
+/// [`apply_pending_migrations`] uses: this executes during `run()` setup,
+/// before the Tauri (and its Tokio) runtime starts. A failed open must be
+/// part of that startup decision, not a detached task's to log afterward
+/// while `is_db_ok` and the owner's state have already been decided —
+/// ADR 0022 rejects a split topology, so silently continuing to answer
+/// from SQLite once a native database has been selected is never an
+/// acceptable fallback for an open failure any more than it is for the
+/// disagreements [`app::native_lifecycle::inspect_startup_authority`]
+/// itself refuses to guess at.
+///
+/// `native_database_path` and `expected_schema_version` are taken as
+/// parameters rather than resolved from
+/// `infrastructure::database::native_paths` here, so this function never
+/// depends on the real app-data directory and a test can point it at a
+/// temporary one.
+#[cfg(feature = "duckdb-archive")]
+fn open_selected_native_database(
+  state: app::native_lifecycle::DatabaseLifecycleState,
+  native_database_path: &std::path::Path,
+  expected_schema_version: u32,
+) -> (
+  app::native_lifecycle::DatabaseLifecycleState,
+  Option<hardviz_core::infrastructure::database::native_database::NativeDatabase>,
+) {
+  use app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
+  use hardviz_core::infrastructure::database::native_database::{
+    NativeDatabase, NativeDatabaseOptions,
+  };
+
+  if !matches!(state, DatabaseLifecycleState::NativeAuthoritative) {
+    return (state, None);
+  }
+
+  let runtime = match tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+  {
+    Ok(runtime) => runtime,
+    Err(e) => {
+      log_error!(
+        "failed to build a runtime to open the native database",
+        "lib::open_selected_native_database",
+        Some(e.to_string())
+      );
+      return (
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+          message: e.to_string(),
+        }),
+        None,
+      );
+    }
+  };
+
+  match runtime.block_on(NativeDatabase::open(
+    native_database_path,
+    NativeDatabaseOptions::new(expected_schema_version),
+  )) {
+    Ok(database) => (state, Some(database)),
+    Err(e) => {
+      log_error!(
+        "failed to open the selected native database at startup",
+        "lib::open_selected_native_database",
+        Some(e.to_string())
+      );
+      (
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed {
+          message: e.to_string(),
+        }),
+        None,
+      )
+    }
+  }
+}
+
+#[cfg(all(test, feature = "duckdb-archive"))]
+mod open_selected_native_database_tests {
+  use app::native_lifecycle::{DatabaseLifecycleState, LifecycleIssue};
+
+  use super::*;
+
+  #[test]
+  fn every_state_but_native_authoritative_is_returned_unchanged_without_opening_anything()
+  {
+    for state in [
+      DatabaseLifecycleState::SqliteAuthoritative,
+      DatabaseLifecycleState::ConversionRecoverable { resumable: true },
+      DatabaseLifecycleState::ConversionRecoverable { resumable: false },
+    ] {
+      let (result_state, database) = open_selected_native_database(
+        state.clone(),
+        std::path::Path::new("unused - not NativeAuthoritative"),
+        1,
+      );
+      assert_eq!(result_state, state);
+      assert!(database.is_none());
+    }
+  }
+
+  #[test]
+  fn native_authoritative_with_no_file_becomes_action_required_with_nothing_opened() {
+    let directory = tempfile::tempdir().unwrap();
+    let missing = directory.path().join("hv-database.duckdb");
+
+    let (state, database) = open_selected_native_database(
+      DatabaseLifecycleState::NativeAuthoritative,
+      &missing,
+      1,
+    );
+
+    assert!(database.is_none());
+    assert!(matches!(
+      state,
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::NativeOpenFailed { .. })
+    ));
+  }
+
+  // Plain `#[test]`, not `#[tokio::test]`: `open_selected_native_database`
+  // builds and blocks on its own short-lived runtime — matching what it
+  // does during real startup, before the Tauri runtime exists — and tokio
+  // panics if that runs on a thread that already has a runtime entered.
+  // The async setup below therefore runs its own runtime to completion
+  // and drops it before calling the function under test.
+  #[test]
+  fn a_real_selected_database_opens_and_stays_native_authoritative() {
+    // A real conversion end to end: App's own migrations, the #2088
+    // candidate builder, finalization into App's stable schema,
+    // reconciliation and selection. Nothing here hand-writes a native file.
+    use hardviz_core::infrastructure::database::candidate_database::build_candidate_database;
+    use hardviz_core::infrastructure::database::migrate;
+    use hardviz_core::infrastructure::database::native_database::{
+      AUTHORITY_MARKER_FILE_NAME, AuthorityPaths, finalize_candidate_database,
+      reconcile_native_database, select_native_database,
+    };
+    use sqlx::ConnectOptions;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("hv-database.db");
+    let candidate = directory.path().join("candidate.duckdb");
+    let native = directory.path().join("hv-database.duckdb");
+
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+      let options = SqliteConnectOptions::new()
+        .filename(&source)
+        .create_if_missing(true)
+        .disable_statement_logging();
+      let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .unwrap();
+      migrate::run_on_pool(&pool, infrastructure::database::migration::get_migrations())
+        .await
+        .unwrap();
+      pool.close().await;
+
+      build_candidate_database(
+        &source,
+        &candidate,
+        infrastructure::database::migration::get_migrations(),
+      )
+      .await
+      .unwrap();
+      finalize_candidate_database(
+        &candidate,
+        &native,
+        infrastructure::database::native_schema::get_native_schema(),
+      )
+      .await
+      .unwrap();
+      let (_report, verified) = reconcile_native_database(
+        &source,
+        &native,
+        infrastructure::database::migration::get_migrations(),
+        infrastructure::database::native_schema::get_native_schema(),
+      )
+      .await
+      .unwrap();
+      select_native_database(
+        AuthorityPaths {
+          source_database: source.clone(),
+          native_database: native.clone(),
+          marker: directory.path().join(AUTHORITY_MARKER_FILE_NAME),
+        },
+        verified,
+      )
+      .await
+      .unwrap();
+    });
+
+    let (state, database) = open_selected_native_database(
+      DatabaseLifecycleState::NativeAuthoritative,
+      &native,
+      infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+    );
+
+    assert_eq!(state, DatabaseLifecycleState::NativeAuthoritative);
+    let database = database.expect("a real selected database must open");
+    tokio::runtime::Runtime::new()
+      .unwrap()
+      .block_on(database.close())
+      .unwrap();
+  }
+}
+
 fn build_specta_builder() -> Builder<Wry> {
   Builder::<Wry>::new()
     .events(collect_events![models::hardware::HardwareMonitorUpdate,])
@@ -406,8 +615,55 @@ pub fn run() {
   // resolution and hands the file path to
   // `hardviz_core::infrastructure::database::db`. We don't care about
   // the return value here: this is the first and only caller during
-  // App startup.
+  // App startup. This alone performs no I/O — it only records the path —
+  // so it is safe before authority inspection below.
   let _ = hardviz_core::infrastructure::database::db::init(db_path.clone());
+
+  // App resolves the native database, marker and spill paths beside the
+  // SQLite file (Core cannot see the app-data directory) and is the single
+  // reader of the authority decision those paths imply. See
+  // `app::native_lifecycle` for the small state vocabulary this produces and
+  // `AGENTS.md`/#2135 for why the decision must come from exactly one place.
+  //
+  // This must run before anything below that can create or modify
+  // `hv-database.db` — `apply_pending_migrations` opens the file with
+  // `create_if_missing`. If the source were recreated as an empty file
+  // first, `observe_authority` could no longer see a missing source beside
+  // surviving native files or conversion debris (`SourceDatabaseMissing`);
+  // it would instead read the fresh empty file as compatible, and a later
+  // conversion could reconcile real native history against it.
+  #[cfg(feature = "duckdb-archive")]
+  let native_lifecycle_state = app::native_lifecycle::inspect_startup_authority(
+    &infrastructure::database::native_paths::authority_paths(),
+    infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+  );
+  // When authority already selected the native database, open it now, as
+  // part of startup's own decision — not from a detached task that can
+  // only log a failure after `is_db_ok` and the owner's state have already
+  // been decided. See `open_selected_native_database`.
+  #[cfg(feature = "duckdb-archive")]
+  let (native_lifecycle_state, opened_native_database) = open_selected_native_database(
+    native_lifecycle_state,
+    &infrastructure::database::native_paths::authority_paths().native_database,
+    infrastructure::database::native_schema::NATIVE_SCHEMA_VERSION,
+  );
+  #[cfg(not(feature = "duckdb-archive"))]
+  let _opened_native_database: Option<()> = None;
+
+  // An unresolved native authority disagreement — including a selected
+  // database that failed to open — blocks every SQLite operation below
+  // exactly like an incompatible SQLite schema: `inspect_authority` (or the
+  // open above) already refused to guess or already failed, so touching
+  // `hv-database.db` here would be a second, App-side guess about the same
+  // files, and once selection is durable ADR 0022 rejects silently running
+  // on SQLite instead.
+  #[cfg(feature = "duckdb-archive")]
+  let native_authority_blocks_sqlite = matches!(
+    native_lifecycle_state,
+    app::native_lifecycle::DatabaseLifecycleState::ActionRequired(_)
+  );
+  #[cfg(not(feature = "duckdb-archive"))]
+  let native_authority_blocks_sqlite = false;
 
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
   let mut db_error = hardviz_core::persistence::preflight::check_db_compatibility(
@@ -446,6 +702,7 @@ pub fn run() {
   // missing. A migration failure is surfaced as a DB-incompatible startup
   // so the existing recovery dialog handles it.
   if db_error.is_none()
+    && !native_authority_blocks_sqlite
     && let Err(e) = apply_pending_migrations()
   {
     log_error!(
@@ -458,7 +715,7 @@ pub fn run() {
     ));
   }
 
-  let is_db_ok = db_error.is_none();
+  let is_db_ok = db_error.is_none() && !native_authority_blocks_sqlite;
 
   let store_for_setup = Arc::clone(&history_store);
   let guidance_for_setup = Arc::clone(&external_component_guidance_state);
@@ -546,7 +803,32 @@ pub fn run() {
         }
       }
 
+      // Record the startup authority decision on the App's single lifecycle
+      // owner before anything else reads it — including the `is_db_ok`
+      // branch below, so `ActionRequired` is recorded even when `db_error`
+      // is also set and the branch that used to record it is skipped.
+      #[cfg(feature = "duckdb-archive")]
+      app
+        .state::<app::native_lifecycle::NativeLifecycleOwner>()
+        .set_state(native_lifecycle_state.clone());
+
       if is_db_ok {
+        // When a previous conversion already selected the native database,
+        // `opened_native_database` (opened synchronously above, as part of
+        // startup's own decision — see `open_selected_native_database`) is
+        // handed to the owner here. Nothing routes reads or writes through
+        // the opened database yet; it is only made reachable through the
+        // `// #2134 seam:` on `NativeLifecycleOwner` for the dispatch
+        // boundary #2134 adds. Every existing SQLite-backed producer below
+        // keeps running unchanged, so this cannot leave the app without a
+        // writable backend while that boundary is still being built.
+        #[cfg(feature = "duckdb-archive")]
+        if let Some(database) = opened_native_database {
+          app
+            .state::<app::native_lifecycle::NativeLifecycleOwner>()
+            .set_selected_database(database);
+        }
+
         // Start DB-dependent archive services. Persistence subscribes to
         // the EventBus so a slow DB write can't back-pressure the
         // collector cadence (#1407).
@@ -662,29 +944,55 @@ pub fn run() {
           });
         }
       } else {
-        // Database schema is incompatible — show error dialog
-        // Hide window while dialog is shown, then restore based on user choice
+        // The database is not usable yet — either an incompatible SQLite
+        // schema or (below, feature-gated) a native authority disagreement
+        // `inspect_authority` refused to guess at. Hide the window while the
+        // matching dialog is shown, then restore based on the user's choice.
         if let Some(window) = app.get_webview_window("main") {
           let _ = window.hide();
         }
 
-        let handle = app.handle().clone();
-        let db_err = db_error.expect("db_error must be Some when is_db_ok is false");
-        std::thread::spawn(move || {
-          use app::startup::{self, StartupErrorAction};
-          match startup::prompt_startup_error(&handle, db_err) {
-            StartupErrorAction::ResetAndRestart => {
-              startup::reset_database_and_restart(&handle);
-            }
-            StartupErrorAction::ContinueAnyway => {
-              // Show the main window — app runs without DB-backed features
-              if let Some(window) = handle.get_webview_window("main") {
-                let _ = window.show();
+        if let Some(db_err) = db_error.clone() {
+          let handle = app.handle().clone();
+          std::thread::spawn(move || {
+            use app::startup::{self, StartupErrorAction};
+            match startup::prompt_startup_error(&handle, db_err) {
+              StartupErrorAction::ResetAndRestart => {
+                startup::reset_database_and_restart(&handle);
               }
+              StartupErrorAction::ContinueAnyway => {
+                // Show the main window — app runs without DB-backed features
+                if let Some(window) = handle.get_webview_window("main") {
+                  let _ = window.show();
+                }
+              }
+              StartupErrorAction::Exit => handle.exit(1),
             }
-            StartupErrorAction::Exit => handle.exit(1),
-          }
-        });
+          });
+        }
+
+        // `is_db_ok` is false and `db_error` is `None` only when the native
+        // authority decision was `ActionRequired` — see how `is_db_ok` is
+        // computed above. The owner's state was already recorded before the
+        // `is_db_ok` branch, above; nothing further to set here.
+        #[cfg(feature = "duckdb-archive")]
+        if db_error.is_none()
+          && let app::native_lifecycle::DatabaseLifecycleState::ActionRequired(issue) =
+            native_lifecycle_state.clone()
+        {
+          let handle = app.handle().clone();
+          std::thread::spawn(move || {
+            use app::startup::{self, NativeAuthorityAction};
+            match startup::prompt_native_authority_issue(&handle, &issue) {
+              NativeAuthorityAction::ContinueAnyway => {
+                if let Some(window) = handle.get_webview_window("main") {
+                  let _ = window.show();
+                }
+              }
+              NativeAuthorityAction::Exit => handle.exit(1),
+            }
+          });
+        }
       }
 
       Ok(())
@@ -739,6 +1047,10 @@ pub fn run() {
     .manage(lifecycle::CloseToTrayRuntimeState::default())
     .manage(workers::WorkersState::default())
     .manage(app_updates::PendingUpdate(Mutex::new(None)));
+
+  #[cfg(feature = "duckdb-archive")]
+  let tauri_builder =
+    tauri_builder.manage(app::native_lifecycle::NativeLifecycleOwner::new());
 
   let mut context = tauri::generate_context!();
   utils::tauri::apply_runtime_config(context.config_mut());

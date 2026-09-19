@@ -10,4 +10,6 @@
 
 pub mod migration;
 #[cfg(feature = "duckdb-archive")]
+pub mod native_paths;
+#[cfg(feature = "duckdb-archive")]
 pub mod native_schema;

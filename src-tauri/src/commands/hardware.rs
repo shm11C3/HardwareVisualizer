@@ -221,9 +221,13 @@ pub async fn get_super_io_chip_id_diagnostics()
 ///
 #[command]
 #[specta::specta]
-pub async fn get_storage_health_latest_records()
--> Result<Vec<models::hardware::StorageHealthRecord>, String> {
+pub async fn get_storage_health_latest_records(
+  app: tauri::AppHandle,
+) -> Result<Vec<models::hardware::StorageHealthRecord>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::hardware_service;
+
+  ensure_database_available(&app)?;
 
   hardware_service::get_storage_health_latest_records()
     .await
@@ -308,6 +312,7 @@ pub async fn refresh_storage_devices(
 #[command]
 #[specta::specta]
 pub async fn get_data_archive_series(
+  app: tauri::AppHandle,
   hardware_type: DataArchiveHardwareType,
   data_stats: ArchiveDataStats,
   start: String,
@@ -315,8 +320,10 @@ pub async fn get_data_archive_series(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<Vec<ArchiveSeriesPoint>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   let start = parse_datetime(&start)?;
   let end = parse_datetime(&end)?;
   validate_bucket_width_ms(bucket_width_ms)?;
@@ -337,7 +344,9 @@ pub async fn get_data_archive_series(
 ///
 #[command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn get_gpu_archive_series(
+  app: tauri::AppHandle,
   data_type: GpuArchiveDataType,
   data_stats: ArchiveDataStats,
   gpu_name: String,
@@ -346,8 +355,10 @@ pub async fn get_gpu_archive_series(
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<Vec<ArchiveSeriesPoint>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   let start = parse_datetime(&start)?;
   let end = parse_datetime(&end)?;
   validate_bucket_width_ms(bucket_width_ms)?;
@@ -376,13 +387,16 @@ pub async fn get_gpu_archive_series(
 #[command]
 #[specta::specta]
 pub async fn get_fan_archive_series(
+  app: tauri::AppHandle,
   start: String,
   end: String,
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<Vec<FanArchiveSeries>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   let start = parse_datetime(&start)?;
   let end = parse_datetime(&end)?;
   validate_bucket_width_ms(bucket_width_ms)?;
@@ -412,13 +426,16 @@ pub async fn get_fan_archive_series(
 #[command]
 #[specta::specta]
 pub async fn get_ambient_archive_series(
+  app: tauri::AppHandle,
   start: String,
   end: String,
   bucket_width_ms: i64,
   bucket_timestamp: ArchiveBucketTimestamp,
 ) -> Result<AmbientArchiveSeries, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   let start = parse_datetime(&start)?;
   let end = parse_datetime(&end)?;
   validate_bucket_width_ms(bucket_width_ms)?;
@@ -439,11 +456,14 @@ pub async fn get_ambient_archive_series(
 #[command]
 #[specta::specta]
 pub async fn get_process_stats(
+  app: tauri::AppHandle,
   period: u32,
   end_at: String,
 ) -> Result<Vec<ProcessStatRecord>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   let end_at = parse_datetime(&end_at)?;
   let adjusted_end_at =
     end_at - chrono::Duration::seconds(HARDWARE_ARCHIVE_INTERVAL_SECONDS as i64);
@@ -462,11 +482,14 @@ pub async fn get_process_stats(
 #[command]
 #[specta::specta]
 pub async fn get_process_stats_in_period(
+  app: tauri::AppHandle,
   start: String,
   end: String,
 ) -> Result<Vec<ProcessStatRecord>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   let start = normalize_datetime_string(&start)?;
   let end = normalize_datetime_string(&end)?;
 
@@ -480,9 +503,11 @@ pub async fn get_process_stats_in_period(
 ///
 #[command]
 #[specta::specta]
-pub async fn get_gpu_archive_names() -> Result<Vec<String>, String> {
+pub async fn get_gpu_archive_names(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+  use crate::app::database_availability::ensure_database_available;
   use crate::services::archive_history_service;
 
+  ensure_database_available(&app)?;
   archive_history_service::fetch_gpu_archive_names().await
 }
 
