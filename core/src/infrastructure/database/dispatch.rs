@@ -31,11 +31,11 @@
 //!
 //! # Consumers routed here
 //!
-//! Only the Process Stats family is routed as of #2134's first change. The
-//! raw archive families (`DATA_ARCHIVE`, `GPU_DATA_ARCHIVE`, Ambient, Fan)
-//! follow in a stacked change that reuses this same boundary and its
-//! `native_handle`/`DispatchError` plumbing; Cooling, Storage Health and the
-//! cooling rollup persistence are tracked separately (see the PR description).
+//! Process Stats and the four raw archive families (`DATA_ARCHIVE`,
+//! `GPU_DATA_ARCHIVE`, Ambient, Fan) are routed as of this change. Cooling's
+//! six projections, both baselines, Storage Health and the cooling rollup
+//! persistence are not yet routed - see the PR description for why, and for
+//! where that work is tracked.
 //!
 //! # Seam for #2135
 //!
@@ -83,8 +83,13 @@
 
 use chrono::{DateTime, Utc};
 
-use super::archive_queries::{ArchiveSeriesError, ProcessStatRecord};
-use crate::persistence::archive_data::ProcessStatData;
+use super::archive_queries::{
+  AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveSeriesError, ArchiveSeriesPoint,
+  DataArchiveColumn, FanArchiveSeries, GpuArchiveColumn, ProcessStatRecord,
+};
+use crate::persistence::archive_data::{
+  AmbientData, FanArchiveRow, GpuData, HardwareArchiveRow, ProcessStatData,
+};
 
 /// The one error type every dispatch function returns, regardless of which
 /// backend answered. Callers that only need `{e}` (every current call site)
@@ -210,7 +215,7 @@ mod boundary {
   pub async fn reobserve_authority() -> Result<AuthorityState, NativeDatabaseError> {
     let mut guard = active().write().await;
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
-      database.close().await?;
+      close_or_refuse(&mut guard, database).await?;
     }
     let config = config();
     let facts = observe_authority(&config.paths, config.expected_schema_version);
@@ -253,7 +258,25 @@ mod boundary {
   pub async fn shutdown() -> Result<(), NativeDatabaseError> {
     let mut guard = active().write().await;
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
-      database.close().await?;
+      close_or_refuse(&mut guard, database).await?;
+    }
+    Ok(())
+  }
+
+  /// Close a native owner that was just taken out of the boundary.
+  ///
+  /// The caller has already put [`Active::Sqlite`] in its place, which is only
+  /// true once the owner is really gone. If the close fails, the durable state
+  /// may still say native is selected, so the boundary is left
+  /// [`Active::Unavailable`] rather than answering from a stale SQLite copy.
+  async fn close_or_refuse(
+    guard: &mut Active,
+    database: NativeDatabase,
+  ) -> Result<(), NativeDatabaseError> {
+    if let Err(error) = database.close().await {
+      *guard =
+        Active::Unavailable(format!("closing the previous native owner failed: {error}"));
+      return Err(error);
     }
     Ok(())
   }
@@ -374,6 +397,529 @@ pub mod process_stats {
         super::super::archive_queries::select_process_stats(start, end, order_by_cpu_desc)
           .await
           .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `DATA_ARCHIVE` family: [`super::hardware_archive`] (SQLite writes),
+/// [`super::archive_queries::select_data_archive_series`] (SQLite reads) and
+/// [`super::native_database::data_archive`] (native).
+pub mod data_archive {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert(
+    row: HardwareArchiveRow,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    super::super::hardware_archive::insert(row, timestamp)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert(
+    row: HardwareArchiveRow,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::data_archive::insert(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          row,
+          timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::hardware_archive::insert(row, timestamp)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    super::super::hardware_archive::delete_old_data(retention_days)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::data_archive::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::hardware_archive::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_data_archive_series(
+    column: DataArchiveColumn,
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<Vec<ArchiveSeriesPoint>, DispatchError> {
+    super::super::archive_queries::select_data_archive_series(
+      column,
+      start,
+      end,
+      bucket_width_ms,
+      bucket_timestamp,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_data_archive_series(
+    column: DataArchiveColumn,
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<Vec<ArchiveSeriesPoint>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        let window = super::super::native_database::NativeSeriesWindow {
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        };
+        super::super::native_database::data_archive::select_data_archive_series(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          column,
+          window,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::archive_queries::select_data_archive_series(
+          column,
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `GPU_DATA_ARCHIVE` family: [`super::gpu_archive`] (SQLite writes),
+/// the GPU reads in [`super::archive_queries`], and
+/// [`super::native_database::gpu_archive`] (native).
+pub mod gpu_archive {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert(
+    data: GpuData,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    super::super::gpu_archive::insert(data, timestamp)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert(
+    data: GpuData,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::gpu_archive::insert(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          data,
+          timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::gpu_archive::insert(data, timestamp)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    super::super::gpu_archive::delete_old_data(retention_days)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::gpu_archive::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::gpu_archive::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_gpu_archive_series(
+    column: GpuArchiveColumn,
+    gpu_name: &str,
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<Vec<ArchiveSeriesPoint>, DispatchError> {
+    super::super::archive_queries::select_gpu_archive_series(
+      column,
+      gpu_name,
+      start,
+      end,
+      bucket_width_ms,
+      bucket_timestamp,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_gpu_archive_series(
+    column: GpuArchiveColumn,
+    gpu_name: &str,
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<Vec<ArchiveSeriesPoint>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        let window = super::super::native_database::NativeSeriesWindow {
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        };
+        super::super::native_database::gpu_archive::select_gpu_archive_series(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          column,
+          gpu_name,
+          window,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::archive_queries::select_gpu_archive_series(
+          column,
+          gpu_name,
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_gpu_names() -> Result<Vec<String>, DispatchError> {
+    super::super::archive_queries::select_gpu_names()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_gpu_names() -> Result<Vec<String>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::gpu_archive::select_gpu_names(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::archive_queries::select_gpu_names()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `AMBIENT_ARCHIVE` family: [`super::ambient_archive`] (SQLite writes),
+/// the ambient read in [`super::archive_queries`], and
+/// [`super::native_database::ambient_archive`] (native).
+pub mod ambient_archive {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert(
+    rows: Vec<AmbientData>,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    super::super::ambient_archive::insert(rows, timestamp)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert(
+    rows: Vec<AmbientData>,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::ambient_archive::insert(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          rows,
+          timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::ambient_archive::insert(rows, timestamp)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    super::super::ambient_archive::delete_old_data(retention_days)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::ambient_archive::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::ambient_archive::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_ambient_archive_series(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<AmbientArchiveSeries, DispatchError> {
+    super::super::archive_queries::select_ambient_archive_series(
+      start,
+      end,
+      bucket_width_ms,
+      bucket_timestamp,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_ambient_archive_series(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<AmbientArchiveSeries, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::ambient_archive::select_ambient_archive_series(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::archive_queries::select_ambient_archive_series(
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `FAN_ARCHIVE` family: [`super::fan_archive`] (SQLite writes and
+/// retention), the fan read in [`super::archive_queries`], and
+/// [`super::native_database::fan_archive`] (native).
+pub mod fan_archive {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert(
+    rows: Vec<FanArchiveRow>,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    super::super::fan_archive::insert(rows, timestamp)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert(
+    rows: Vec<FanArchiveRow>,
+    timestamp: DateTime<Utc>,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::fan_archive::insert(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          rows,
+          timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::fan_archive::insert(rows, timestamp)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    super::super::fan_archive::delete_old_data(retention_days)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::fan_archive::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map(|_deleted| ())
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::fan_archive::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_fan_archive_series(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<Vec<FanArchiveSeries>, DispatchError> {
+    super::super::archive_queries::select_fan_archive_series(
+      start,
+      end,
+      bucket_width_ms,
+      bucket_timestamp,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_fan_archive_series(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+    bucket_width_ms: i64,
+    bucket_timestamp: ArchiveBucketTimestamp,
+  ) -> Result<Vec<FanArchiveSeries>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::fan_archive::select_fan_archive_series(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::archive_queries::select_fan_archive_series(
+          start,
+          end,
+          bucket_width_ms,
+          bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
       }
     }
   }
