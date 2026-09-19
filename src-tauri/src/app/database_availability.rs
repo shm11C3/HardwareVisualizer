@@ -58,6 +58,48 @@ pub fn ensure_database_available(_app: &tauri::AppHandle) -> Result<(), String> 
   Ok(())
 }
 
+/// Refuse an on-demand SQLite *write* command
+/// (`commands::hardware::refresh_storage_devices`, the only one outside the
+/// three background producers `native_conversion::pause_and_drain_producers`
+/// already stops) unless SQLite is still the live source
+/// ([`crate::app::native_lifecycle::sqlite_source_is_authoritative`]).
+///
+/// Stricter than [`ensure_database_available`]: a read is only wrong once
+/// startup gave up (`ActionRequired`), but a write is wrong for the whole
+/// window a conversion is quiescing producers to capture a consistent
+/// snapshot (`Converting`) and for every boot after native authority is
+/// already selected (`NativeAuthoritative`) - the source may already be
+/// retired, and `refresh_storage_health_for_date` opening SQLite with
+/// `create_if_missing` would recreate it, exactly the hazard
+/// `sqlite_source_is_authoritative` exists to name.
+#[cfg(feature = "duckdb-archive")]
+pub fn ensure_sqlite_writable(app: &tauri::AppHandle) -> Result<(), String> {
+  use tauri::Manager;
+
+  use crate::app::native_lifecycle::{
+    NativeLifecycleOwner, sqlite_source_is_authoritative,
+  };
+
+  match app.try_state::<NativeLifecycleOwner>() {
+    None => Ok(()),
+    Some(owner) => {
+      let state = owner.state();
+      if sqlite_source_is_authoritative(&state) {
+        Ok(())
+      } else {
+        Err(format!(
+          "the database is unavailable for writing right now ({state:?})"
+        ))
+      }
+    }
+  }
+}
+
+#[cfg(not(feature = "duckdb-archive"))]
+pub fn ensure_sqlite_writable(_app: &tauri::AppHandle) -> Result<(), String> {
+  Ok(())
+}
+
 #[cfg(all(test, feature = "duckdb-archive"))]
 mod tests {
   use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
@@ -85,4 +127,9 @@ mod tests {
     let error = database_available(&state).unwrap_err();
     assert!(error.contains("unavailable"), "{error}");
   }
+
+  // `ensure_sqlite_writable` is a thin `AppHandle` -> owner-state wrapper
+  // around `native_lifecycle::sqlite_source_is_authoritative`, the same
+  // shape as `ensure_database_available` around `database_available` above
+  // - see that module's own tests for the decision table this delegates to.
 }

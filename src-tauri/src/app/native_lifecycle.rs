@@ -175,6 +175,30 @@ fn translate(state: AuthorityState) -> DatabaseLifecycleState {
   }
 }
 
+/// Whether `hv-database.db` is still the live source this state allows
+/// touching - creating, migrating, or writing through an on-demand command
+/// outside the paused/resumed background producers.
+///
+/// True only for [`DatabaseLifecycleState::SqliteAuthoritative`] and
+/// [`DatabaseLifecycleState::ConversionRecoverable`]. Every other state
+/// means either a conversion is actively quiescing producers to capture a
+/// consistent snapshot ([`DatabaseLifecycleState::Converting`]), or native
+/// authority is already selected and the source may already have been
+/// renamed away by [`crate::app::native_maintenance::retire_sqlite_source`]
+/// ([`DatabaseLifecycleState::NativeAuthoritative`]), or startup refused to
+/// guess at a disagreement ([`DatabaseLifecycleState::ActionRequired`]).
+/// Touching SQLite in any of those states risks exactly the bug this
+/// function was added to close: recreating a retired source out from under
+/// its own retirement, or silently dropping a write reconciliation already
+/// stopped looking for.
+pub fn sqlite_source_is_authoritative(state: &DatabaseLifecycleState) -> bool {
+  matches!(
+    state,
+    DatabaseLifecycleState::SqliteAuthoritative
+      | DatabaseLifecycleState::ConversionRecoverable { .. }
+  )
+}
+
 /// The App's single owner of native database lifecycle state and the
 /// selected database instance. Managed as Tauri state so both the startup
 /// path and the (later) conversion driver read and write through one place.
@@ -248,6 +272,31 @@ mod tests {
       inspect_startup_authority(&paths(directory.path()), 1),
       DatabaseLifecycleState::SqliteAuthoritative
     );
+  }
+
+  #[test]
+  fn sqlite_is_authoritative_only_while_still_the_live_source() {
+    assert!(sqlite_source_is_authoritative(
+      &DatabaseLifecycleState::SqliteAuthoritative
+    ));
+    assert!(sqlite_source_is_authoritative(
+      &DatabaseLifecycleState::ConversionRecoverable { resumable: true }
+    ));
+    assert!(sqlite_source_is_authoritative(
+      &DatabaseLifecycleState::ConversionRecoverable { resumable: false }
+    ));
+
+    assert!(!sqlite_source_is_authoritative(
+      &DatabaseLifecycleState::NativeAuthoritative
+    ));
+    assert!(!sqlite_source_is_authoritative(
+      &DatabaseLifecycleState::Converting(ConversionProgress::Reconciling)
+    ));
+    assert!(!sqlite_source_is_authoritative(
+      &DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        AuthorityInconsistency::SourceDatabaseMissing
+      ))
+    ));
   }
 
   #[test]
