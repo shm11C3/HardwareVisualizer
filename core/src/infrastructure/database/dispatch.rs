@@ -215,7 +215,7 @@ mod boundary {
   pub async fn reobserve_authority() -> Result<AuthorityState, NativeDatabaseError> {
     let mut guard = active().write().await;
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
-      database.close().await?;
+      close_or_refuse(&mut guard, database).await?;
     }
     let config = config();
     let facts = observe_authority(&config.paths, config.expected_schema_version);
@@ -258,7 +258,25 @@ mod boundary {
   pub async fn shutdown() -> Result<(), NativeDatabaseError> {
     let mut guard = active().write().await;
     if let Active::Native(database) = std::mem::replace(&mut *guard, Active::Sqlite) {
-      database.close().await?;
+      close_or_refuse(&mut guard, database).await?;
+    }
+    Ok(())
+  }
+
+  /// Close a native owner that was just taken out of the boundary.
+  ///
+  /// The caller has already put [`Active::Sqlite`] in its place, which is only
+  /// true once the owner is really gone. If the close fails, the durable state
+  /// may still say native is selected, so the boundary is left
+  /// [`Active::Unavailable`] rather than answering from a stale SQLite copy.
+  async fn close_or_refuse(
+    guard: &mut Active,
+    database: NativeDatabase,
+  ) -> Result<(), NativeDatabaseError> {
+    if let Err(error) = database.close().await {
+      *guard =
+        Active::Unavailable(format!("closing the previous native owner failed: {error}"));
+      return Err(error);
     }
     Ok(())
   }
