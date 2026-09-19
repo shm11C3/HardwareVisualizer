@@ -6,6 +6,11 @@ on:
     branches:
       - develop
 
+# Only superseded PR runs share a group. Push/scheduled runs keep warming caches.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions: read-all
 
 jobs:
@@ -216,12 +221,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+      # Formatting needs no registry/target cache or compilation environment.
+      - name: Setup rustfmt
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
+          toolchain: 1.93.0
           components: rustfmt
-          cache-key: format
-          cache-targets: "false"
 
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
@@ -636,6 +641,20 @@ jobs:
   #
   # Frontend checks
   #
+  lint-frontend:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      - name: Frontend lint
+        run: npm run lint:ci
+
   check-frontend:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
@@ -650,21 +669,22 @@ jobs:
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
 
-      - name: Frontend lint
-        id: frontend-lint
-        background: true
-        run: npm run lint:ci
-
+      # Tests and the build share one installation but write separate outputs.
       - name: Run frontend tests with coverage
+        id: frontend-tests
+        background: true
         run: npm test
+
+      - name: Run frontend build
+        run: npm run build
+
+      - name: Wait for frontend tests
+        wait: frontend-tests
 
       - name: Report coverage
         uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2.13.0
         with:
           json-summary-path: coverage/coverage-summary.json
-
-      - name: Wait for frontend lint
-        wait: frontend-lint
 
   #
   # Frontend E2E captures (Playwright web/mock harness, issue #1609)
@@ -831,23 +851,6 @@ jobs:
           if-no-files-found: warn
 
   #
-  # Frontend Build
-  #
-  build-frontend:
-    needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.frontend-changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Node.js
-        uses: ./.github/actions/setup-node
-
-      - name: Run frontend build
-        run: npm run build
-
-  #
   # License checks
   #
   license-check-npm:
@@ -921,10 +924,10 @@ jobs:
       - check-core-tauri-integration
       - check-tauri-bindings
       - test-build
+      - lint-frontend
       - check-frontend
       - test-e2e-web
       - test-e2e-native
-      - build-frontend
       - license-check-npm
       - license-check-cargo
     steps:
