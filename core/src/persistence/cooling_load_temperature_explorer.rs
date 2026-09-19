@@ -282,6 +282,9 @@ fn median(values: &mut [f32]) -> Option<f32> {
 /// pinned baseline wins once one exists, exactly as the band comparison
 /// does), then reads only the hourly rows the two resulting windows
 /// cover.
+/// Test-only since #2134: [`load_cooling_load_temperature_explorer`] is
+/// routed through the dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn load_cooling_load_temperature_explorer_from_pool(
   pool: &sqlx::SqlitePool,
   today: NaiveDate,
@@ -328,18 +331,51 @@ pub(crate) async fn load_cooling_load_temperature_explorer_from_pool(
   ))
 }
 
-/// [`load_cooling_load_temperature_explorer_from_pool`] against Core's
-/// process-wide pool.
+/// [`load_cooling_load_temperature_explorer_from_pool`], routed through the
+/// dispatch boundary (#2134) instead of Core's process-wide SQLite pool.
 pub async fn load_cooling_load_temperature_explorer(
   recent_days: u32,
-) -> Result<CoolingLoadTemperatureExplorer, sqlx::Error> {
-  let pool = crate::infrastructure::database::db::get_pool().await?;
-  load_cooling_load_temperature_explorer_from_pool(
-    &pool,
-    chrono::Local::now().date_naive(),
-    recent_days,
+) -> Result<
+  CoolingLoadTemperatureExplorer,
+  crate::infrastructure::database::dispatch::DispatchError,
+> {
+  use crate::infrastructure::database::dispatch;
+  use crate::persistence::cooling_baseline::resolve_baseline_state;
+
+  let idle_samples = dispatch::cooling_daily_summary::select_daily_idle_samples().await?;
+  let baseline_state = resolve_baseline_state(&idle_samples).await?;
+  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+
+  let BaselineState::Established {
+    window_start_date, ..
+  } = baseline_state
+  else {
+    // No baseline window exists yet, so there is nothing to read hours
+    // for; the derivation returns `Establishing` from the same state.
+    return Ok(derive_load_temperature_explorer(
+      &[],
+      baseline_state,
+      yesterday,
+      recent_days,
+    ));
+  };
+
+  // One read spanning both windows. They can be a year apart, but the
+  // rows between them are narrow and bounded by the rollup's retention,
+  // and a single range keeps this to one query.
+  let hours = dispatch::cooling_hourly_summary::select_hours_in_date_range(
+    window_start_date
+      .min(yesterday - Duration::days(clamp_recent_days(recent_days) as i64 - 1)),
+    yesterday,
   )
-  .await
+  .await?;
+
+  Ok(derive_load_temperature_explorer(
+    &hours,
+    baseline_state,
+    yesterday,
+    recent_days,
+  ))
 }
 
 #[cfg(test)]

@@ -372,6 +372,9 @@ fn trailing_daily_deltas(
 /// rather than re-deriving it - the pinned baseline row must win once one
 /// exists, or this delta would silently drift once the rollup rows the
 /// original establishment came from age out.
+/// Test-only since #2134: [`load_cooling_baseline_delta`] is routed
+/// through the dispatch boundary instead of an explicit pool.
+#[cfg(test)]
 pub(crate) async fn load_cooling_baseline_delta_from_pool(
   pool: &sqlx::SqlitePool,
   today: NaiveDate,
@@ -419,11 +422,32 @@ fn to_idle_sample(day: &DailyCoolingSummary) -> DailyIdleSample {
   }
 }
 
-/// [`load_cooling_baseline_delta_from_pool`] against Core's process-wide
-/// pool.
-pub async fn load_cooling_baseline_delta() -> Result<CoolingBaselineDelta, sqlx::Error> {
-  let pool = crate::infrastructure::database::db::get_pool().await?;
-  load_cooling_baseline_delta_from_pool(&pool, chrono::Local::now().date_naive()).await
+/// [`load_cooling_baseline_delta_from_pool`], routed through the dispatch
+/// boundary (#2134) instead of Core's process-wide SQLite pool.
+pub async fn load_cooling_baseline_delta()
+-> Result<CoolingBaselineDelta, crate::infrastructure::database::dispatch::DispatchError>
+{
+  use crate::infrastructure::database::dispatch;
+  use crate::persistence::cooling_baseline::resolve_baseline_state;
+  use crate::persistence::cooling_delta_baseline::resolve_delta_baseline_state;
+
+  let summaries =
+    dispatch::cooling_daily_summary::select_all_daily_cooling_summaries().await?;
+  let days: Vec<_> = summaries.iter().map(to_idle_sample).collect();
+  let baseline_state = resolve_baseline_state(&days).await?;
+  let delta_days =
+    dispatch::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+      .await?;
+  let delta_baseline_state = resolve_delta_baseline_state(&delta_days).await?;
+  let yesterday = chrono::Local::now().date_naive() - Duration::days(1);
+
+  Ok(derive_baseline_delta(
+    &days,
+    &delta_days,
+    baseline_state,
+    delta_baseline_state,
+    yesterday,
+  ))
 }
 
 #[cfg(test)]

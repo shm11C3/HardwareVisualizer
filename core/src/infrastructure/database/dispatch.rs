@@ -32,10 +32,13 @@
 //! # Consumers routed here
 //!
 //! Process Stats, the four raw archive families (`DATA_ARCHIVE`,
-//! `GPU_DATA_ARCHIVE`, Ambient, Fan) and Storage Health are routed as of this
-//! change. Cooling's six projections, both baselines and the cooling rollup
-//! persistence are not yet routed - see the PR description for why, and for
-//! where that work is tracked.
+//! `GPU_DATA_ARCHIVE`, Ambient, Fan), Storage Health, Cooling's six
+//! projections (daily, hourly, fan, thermal delta, and both co-variate
+//! shapes), both cooling baselines and the cooling rollup persistence are
+//! all routed. The rollup write stays one native transaction on the
+//! selected path, matching the single SQLite transaction
+//! `persistence::cooling_rollup::persist_day_rollup_from_pool` uses - see
+//! [`cooling_rollup::persist_day_rollup`].
 //!
 //! # Seam for #2135
 //!
@@ -81,7 +84,7 @@
 //! scoped connection to record the selection, and is not this boundary's
 //! owner) simply calls `reobserve_authority()` next; nothing else is needed.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 
 use super::archive_queries::{
   AmbientArchiveSeries, ArchiveBucketTimestamp, ArchiveSeriesError, ArchiveSeriesPoint,
@@ -92,6 +95,17 @@ use crate::models::hardware::{
 };
 use crate::persistence::archive_data::{
   AmbientData, FanArchiveRow, GpuData, HardwareArchiveRow, ProcessStatData,
+};
+use crate::persistence::cooling_baseline::{DailyIdleSample, EstablishedBaseline};
+use crate::persistence::cooling_covariate_rollup::{
+  CovariateDailySummary, CovariateDaySummary, FanCovariateDailySummary,
+};
+use crate::persistence::cooling_delta_baseline::EstablishedDeltaBaseline;
+use crate::persistence::cooling_fan_rollup::{FanArchiveMinuteSample, FanDailySummary};
+use crate::persistence::cooling_hourly_rollup::HourlyCoolingSummary;
+use crate::persistence::cooling_rollup::{ArchiveMinuteSample, DailyCoolingSummary};
+use crate::persistence::cooling_thermal_delta_rollup::{
+  ThermalDeltaDailySummary, ThermalDeltaMinuteSample,
 };
 
 /// The one error type every dispatch function returns, regardless of which
@@ -302,6 +316,8 @@ mod boundary {
 #[cfg(feature = "duckdb-archive")]
 pub use boundary::{init, reobserve_authority, shutdown};
 
+/// The Process Stats family: [`super::process_stats`] (SQLite) and
+/// [`super::native_database::process_stats`] (native).
 pub mod process_stats {
   use super::*;
 
@@ -920,6 +936,1097 @@ pub mod fan_archive {
           end,
           bucket_width_ms,
           bucket_timestamp,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  /// The daily rollup's own per-day range read (#2022).
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_fan_minutes_for_range(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+  ) -> Result<Vec<FanArchiveMinuteSample>, DispatchError> {
+    super::super::fan_archive::select_fan_minutes_for_range(start, end)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_fan_minutes_for_range(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+  ) -> Result<Vec<FanArchiveMinuteSample>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::fan_archive::select_fan_minutes_for_range(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start,
+          end,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::fan_archive::select_fan_minutes_for_range(start, end)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn has_any_reading() -> Result<bool, DispatchError> {
+    super::super::fan_archive::has_any_reading()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn has_any_reading() -> Result<bool, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::fan_archive::has_any_reading(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::fan_archive::has_any_reading()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_fan_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    super::super::fan_archive::max_fan_archive_timestamp_before(before)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_fan_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::fan_archive::max_fan_archive_timestamp_before(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          before,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::fan_archive::max_fan_archive_timestamp_before(before)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `cooling_daily_summary` family: [`super::cooling_daily_summary`]
+/// (SQLite) and [`super::native_database::cooling_daily_summary`] (native).
+pub mod cooling_daily_summary {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_archive_minutes_for_range(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+  ) -> Result<Vec<ArchiveMinuteSample>, DispatchError> {
+    super::super::cooling_daily_summary::select_archive_minutes_for_range(start, end)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_archive_minutes_for_range(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+  ) -> Result<Vec<ArchiveMinuteSample>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::select_archive_minutes_for_range(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start,
+          end,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_daily_summary::select_archive_minutes_for_range(
+        start, end,
+      )
+      .await
+      .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    super::super::cooling_daily_summary::max_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::max_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_daily_summary::max_summarized_date()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_pairable_summarized_date() -> Result<Option<NaiveDate>, DispatchError>
+  {
+    super::super::cooling_daily_summary::max_pairable_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_pairable_summarized_date() -> Result<Option<NaiveDate>, DispatchError>
+  {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::max_pairable_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_daily_summary::max_pairable_summarized_date()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_powered_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    super::super::cooling_daily_summary::max_powered_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_powered_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::max_powered_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_daily_summary::max_powered_summarized_date()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn earliest_archived_timestamp()
+  -> Result<Option<DateTime<Utc>>, DispatchError> {
+    super::super::cooling_daily_summary::earliest_archived_timestamp()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn earliest_archived_timestamp()
+  -> Result<Option<DateTime<Utc>>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::earliest_archived_timestamp(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_daily_summary::earliest_archived_timestamp()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_powered_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    super::super::cooling_daily_summary::max_powered_archive_timestamp_before(before)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_powered_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::max_powered_archive_timestamp_before(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          before,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_daily_summary::max_powered_archive_timestamp_before(
+        before,
+      )
+      .await
+      .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_daily_idle_samples() -> Result<Vec<DailyIdleSample>, DispatchError>
+  {
+    super::super::cooling_daily_summary::select_daily_idle_samples()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_daily_idle_samples() -> Result<Vec<DailyIdleSample>, DispatchError>
+  {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::select_daily_idle_samples(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_daily_summary::select_daily_idle_samples()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_all_daily_cooling_summaries()
+  -> Result<Vec<DailyCoolingSummary>, DispatchError> {
+    super::super::cooling_daily_summary::select_all_daily_cooling_summaries()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_all_daily_cooling_summaries()
+  -> Result<Vec<DailyCoolingSummary>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::select_all_daily_cooling_summaries(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_daily_summary::select_all_daily_cooling_summaries()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    super::super::cooling_daily_summary::delete_old_data(
+      retention_days,
+      preserved_windows,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_daily_summary::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+          preserved_windows,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_daily_summary::delete_old_data(
+          retention_days,
+          preserved_windows,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `cooling_hourly_summary` family: [`super::cooling_hourly_summary`]
+/// (SQLite) and [`super::native_database::cooling_hourly_summary`] (native).
+pub mod cooling_hourly_summary {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_hours_in_date_range(
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+  ) -> Result<Vec<HourlyCoolingSummary>, DispatchError> {
+    super::super::cooling_hourly_summary::select_hours_in_date_range(start_date, end_date)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_hours_in_date_range(
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+  ) -> Result<Vec<HourlyCoolingSummary>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_hourly_summary::select_hours_in_date_range(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start_date,
+          end_date,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_hourly_summary::select_hours_in_date_range(
+          start_date, end_date,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    super::super::cooling_hourly_summary::max_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_hourly_summary::max_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_hourly_summary::max_summarized_date()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    super::super::cooling_hourly_summary::delete_old_data(
+      retention_days,
+      preserved_windows,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_hourly_summary::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+          preserved_windows,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_hourly_summary::delete_old_data(
+          retention_days,
+          preserved_windows,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `cooling_fan_daily_summary` family: [`super::cooling_fan_daily_summary`]
+/// (SQLite) and [`super::native_database::cooling_fan_daily_summary`] (native).
+pub mod cooling_fan_daily_summary {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    super::super::cooling_fan_daily_summary::max_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_fan_daily_summary::max_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_fan_daily_summary::max_summarized_date()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_all_fan_daily_summaries()
+  -> Result<Vec<FanDailySummary>, DispatchError> {
+    super::super::cooling_fan_daily_summary::select_all_fan_daily_summaries()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_all_fan_daily_summaries()
+  -> Result<Vec<FanDailySummary>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_fan_daily_summary::select_all_fan_daily_summaries(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_fan_daily_summary::select_all_fan_daily_summaries()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    super::super::cooling_fan_daily_summary::delete_old_data(retention_days)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(retention_days: u32) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_fan_daily_summary::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_fan_daily_summary::delete_old_data(retention_days)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `cooling_thermal_delta_daily_summary` family:
+/// [`super::cooling_thermal_delta_daily_summary`] (SQLite) and
+/// [`super::native_database::cooling_thermal_delta_daily_summary`] (native).
+pub mod cooling_thermal_delta_daily_summary {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_thermal_delta_minutes_for_range(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+  ) -> Result<Vec<ThermalDeltaMinuteSample>, DispatchError> {
+    super::super::cooling_thermal_delta_daily_summary::select_thermal_delta_minutes_for_range(
+      start, end,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_thermal_delta_minutes_for_range(
+    start: &DateTime<Utc>,
+    end: &DateTime<Utc>,
+  ) -> Result<Vec<ThermalDeltaMinuteSample>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_thermal_delta_daily_summary::select_thermal_delta_minutes_for_range(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          start,
+          end,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_thermal_delta_daily_summary::select_thermal_delta_minutes_for_range(
+        start, end,
+      )
+      .await
+      .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    super::super::cooling_thermal_delta_daily_summary::max_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_thermal_delta_daily_summary::max_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_thermal_delta_daily_summary::max_summarized_date()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_pairable_ambient_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    super::super::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
+      before,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_pairable_ambient_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          before,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_thermal_delta_daily_summary::max_pairable_ambient_archive_timestamp_before(
+        before,
+      )
+      .await
+      .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_all_thermal_delta_daily_summaries()
+  -> Result<Vec<ThermalDeltaDailySummary>, DispatchError> {
+    super::super::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_all_thermal_delta_daily_summaries()
+  -> Result<Vec<ThermalDeltaDailySummary>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_thermal_delta_daily_summary::select_all_thermal_delta_daily_summaries()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    super::super::cooling_thermal_delta_daily_summary::delete_old_data(
+      retention_days,
+      preserved_windows,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => super::super::native_database::cooling_thermal_delta_daily_summary::delete_old_data(
+        &database,
+        super::super::native_database::NativeCancellation::new(),
+        retention_days,
+        preserved_windows,
+      )
+      .await
+      .map_err(DispatchError::from),
+      super::boundary::Backend::Sqlite => super::super::cooling_thermal_delta_daily_summary::delete_old_data(
+        retention_days,
+        preserved_windows,
+      )
+      .await
+      .map_err(DispatchError::from),
+    }
+  }
+}
+
+/// The `cooling_covariate_daily_summary` family:
+/// [`super::cooling_covariate_daily_summary`] (SQLite) and
+/// [`super::native_database::cooling_covariate_daily_summary`] (native).
+pub mod cooling_covariate_daily_summary {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    super::super::cooling_covariate_daily_summary::max_summarized_date()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_summarized_date() -> Result<Option<NaiveDate>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_covariate_daily_summary::max_summarized_date(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_covariate_daily_summary::max_summarized_date()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn max_classifiable_pairable_ambient_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    super::super::cooling_covariate_daily_summary::max_classifiable_pairable_ambient_archive_timestamp_before(
+      before,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn max_classifiable_pairable_ambient_archive_timestamp_before(
+    before: &DateTime<Utc>,
+  ) -> Result<Option<DateTime<Utc>>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_covariate_daily_summary::max_classifiable_pairable_ambient_archive_timestamp_before(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          before,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_covariate_daily_summary::max_classifiable_pairable_ambient_archive_timestamp_before(
+        before,
+      )
+      .await
+      .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_all_covariate_daily_summaries()
+  -> Result<Vec<CovariateDailySummary>, DispatchError> {
+    super::super::cooling_covariate_daily_summary::select_all_covariate_daily_summaries()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_all_covariate_daily_summaries()
+  -> Result<Vec<CovariateDailySummary>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_covariate_daily_summary::select_all_covariate_daily_summaries(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_covariate_daily_summary::select_all_covariate_daily_summaries()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_all_fan_covariate_daily_summaries()
+  -> Result<Vec<FanCovariateDailySummary>, DispatchError> {
+    super::super::cooling_covariate_daily_summary::select_all_fan_covariate_daily_summaries()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_all_fan_covariate_daily_summaries()
+  -> Result<Vec<FanCovariateDailySummary>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_covariate_daily_summary::select_all_fan_covariate_daily_summaries(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => super::super::cooling_covariate_daily_summary::select_all_fan_covariate_daily_summaries()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    super::super::cooling_covariate_daily_summary::delete_old_data(
+      retention_days,
+      preserved_windows,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn delete_old_data(
+    retention_days: u32,
+    preserved_windows: &[(NaiveDate, NaiveDate)],
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_covariate_daily_summary::delete_old_data(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          retention_days,
+          preserved_windows,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_covariate_daily_summary::delete_old_data(
+          retention_days,
+          preserved_windows,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `cooling_baseline` single pinned row: [`super::cooling_baseline`]
+/// (SQLite) and [`super::native_database::cooling_baseline`] (native).
+pub mod cooling_baseline {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_established_baseline()
+  -> Result<Option<EstablishedBaseline>, DispatchError> {
+    super::super::cooling_baseline::select_established_baseline()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_established_baseline()
+  -> Result<Option<EstablishedBaseline>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_baseline::select_established_baseline(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_baseline::select_established_baseline()
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert_established_baseline(
+    baseline: &EstablishedBaseline,
+  ) -> Result<(), DispatchError> {
+    super::super::cooling_baseline::insert_established_baseline(baseline)
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert_established_baseline(
+    baseline: &EstablishedBaseline,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        super::super::native_database::cooling_baseline::insert_established_baseline(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          baseline,
+          Utc::now(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        super::super::cooling_baseline::insert_established_baseline(baseline)
+          .await
+          .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// The `cooling_delta_baseline` single pinned row:
+/// [`super::cooling_delta_baseline`] (SQLite) and
+/// [`super::native_database::cooling_delta_baseline`] (native).
+pub mod cooling_delta_baseline {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn select_established_delta_baseline()
+  -> Result<Option<EstablishedDeltaBaseline>, DispatchError> {
+    super::super::cooling_delta_baseline::select_established_delta_baseline()
+      .await
+      .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn select_established_delta_baseline()
+  -> Result<Option<EstablishedDeltaBaseline>, DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => super::super::native_database::cooling_delta_baseline::select_established_delta_baseline(
+        &database,
+        super::super::native_database::NativeCancellation::new(),
+      )
+      .await
+      .map_err(DispatchError::from),
+      super::boundary::Backend::Sqlite => super::super::cooling_delta_baseline::select_established_delta_baseline()
+        .await
+        .map_err(DispatchError::from),
+    }
+  }
+
+  /// SQLite has no top-level, pool-free `insert_established_delta_baseline`
+  /// (unlike [`super::cooling_baseline::insert_established_baseline`]): every
+  /// existing caller already holds a pool it threads through
+  /// `insert_established_delta_baseline_from_pool`. The not-selected branch
+  /// here resolves Core's process-wide pool itself instead, so this function
+  /// has the same "just call it" shape as every other dispatch function.
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn insert_established_delta_baseline(
+    baseline: &EstablishedDeltaBaseline,
+  ) -> Result<(), DispatchError> {
+    let pool = super::super::db::get_pool().await?;
+    super::super::cooling_delta_baseline::insert_established_delta_baseline_from_pool(
+      &pool,
+      baseline,
+      Utc::now(),
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn insert_established_delta_baseline(
+    baseline: &EstablishedDeltaBaseline,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => super::super::native_database::cooling_delta_baseline::insert_established_delta_baseline(
+        &database,
+        super::super::native_database::NativeCancellation::new(),
+        baseline,
+        Utc::now(),
+      )
+      .await
+      .map_err(DispatchError::from),
+      super::boundary::Backend::Sqlite => {
+        let pool = super::super::db::get_pool().await?;
+        super::super::cooling_delta_baseline::insert_established_delta_baseline_from_pool(
+          &pool,
+          baseline,
+          Utc::now(),
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+    }
+  }
+}
+
+/// One rolled-up day's six cooling projections, in front of
+/// [`crate::persistence::cooling_rollup::persist_day_rollup_from_pool`]
+/// (SQLite) and [`super::native_database::cooling_rollup::persist_day_rollup`]
+/// (native).
+///
+/// Keeps the same transaction boundary on both paths: the native branch
+/// builds one [`super::native_database::DayRollup`] and writes it through
+/// one native transaction, exactly as the SQLite branch writes all six
+/// tables inside one `sqlx::Transaction`. Neither path is ever asked to
+/// write the six projections one at a time.
+pub mod cooling_rollup {
+  use super::*;
+
+  #[cfg(not(feature = "duckdb-archive"))]
+  pub async fn persist_day_rollup(
+    summary: Option<&DailyCoolingSummary>,
+    hours: &[HourlyCoolingSummary],
+    fans: &[FanDailySummary],
+    thermal_deltas: &[ThermalDeltaDailySummary],
+    covariates: &CovariateDaySummary,
+  ) -> Result<(), DispatchError> {
+    let pool = super::super::db::get_pool().await?;
+    crate::persistence::cooling_rollup::persist_day_rollup_from_pool(
+      &pool,
+      summary,
+      hours,
+      fans,
+      thermal_deltas,
+      covariates,
+    )
+    .await
+    .map_err(DispatchError::from)
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  pub async fn persist_day_rollup(
+    summary: Option<&DailyCoolingSummary>,
+    hours: &[HourlyCoolingSummary],
+    fans: &[FanDailySummary],
+    thermal_deltas: &[ThermalDeltaDailySummary],
+    covariates: &CovariateDaySummary,
+  ) -> Result<(), DispatchError> {
+    match super::boundary::resolve_backend().await? {
+      super::boundary::Backend::Native(database) => {
+        let rollup = super::super::native_database::DayRollup {
+          summary: summary.cloned(),
+          hours: hours.to_vec(),
+          fans: fans.to_vec(),
+          thermal_deltas: thermal_deltas.to_vec(),
+          covariates: covariates.clone(),
+        };
+        super::super::native_database::cooling_rollup::persist_day_rollup(
+          &database,
+          super::super::native_database::NativeCancellation::new(),
+          rollup,
+        )
+        .await
+        .map_err(DispatchError::from)
+      }
+      super::boundary::Backend::Sqlite => {
+        let pool = super::super::db::get_pool().await?;
+        crate::persistence::cooling_rollup::persist_day_rollup_from_pool(
+          &pool,
+          summary,
+          hours,
+          fans,
+          thermal_deltas,
+          covariates,
         )
         .await
         .map_err(DispatchError::from)
