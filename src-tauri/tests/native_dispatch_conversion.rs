@@ -2,11 +2,12 @@
 //! End-to-end proof that a seeded SQLite database, once converted and
 //! selected by the App's own production conversion driver
 //! ([`app::native_conversion::run_conversion`]), answers #2134's dispatch
-//! consumers from the native file after the `// #2134 seam:`
-//! ([`app::native_conversion::adopt_selected_database_via_dispatch`]) hands
-//! it over — not from the copy `NativeLifecycleOwner` keeps for its own
-//! bookkeeping (see that function's own documentation for why the hand-over
-//! is a separate, explicit call).
+//! consumers from the native file: under `SelectionHandoff::ThroughDispatch`
+//! the driver runs the `// #2134 seam:`
+//! ([`app::native_conversion::adopt_selected_database_via_dispatch`]) itself,
+//! while the producers are still paused, so by the time it returns the
+//! boundary already answers from the native file and
+//! `NativeLifecycleOwner` holds no handle of its own beside it.
 //!
 //! One test, in its own process: `dispatch::init`/`reobserve_authority` are
 //! process-wide (a `OnceLock`-backed configuration — see their own
@@ -28,7 +29,8 @@ use hardviz_core::infrastructure::database::native_database::{
 use hardviz_core::persistence::CoolingRollupController;
 use hardviz_core::persistence::archive_data::ProcessStatData;
 use hardware_monitor_lib::app::native_conversion::{
-  self, ConversionCancellation, ConversionOutcome, ProducerResumers,
+  self, ConversionCancellation, ConversionOutcome, ConversionTarget, ProducerResumers,
+  SelectionHandoff,
 };
 use hardware_monitor_lib::app::native_lifecycle::{
   DatabaseLifecycleState, NativeLifecycleOwner,
@@ -121,17 +123,21 @@ async fn converted_and_selected_database_answers_dispatch_consumers() {
   assert_eq!(before_conversion[0].process_name, "sqlite-seeded-proc");
 
   // Drive the App's real conversion path: preflight, candidate, finalize,
-  // pause producers (none running here), reconcile, select.
+  // pause producers (none running here), reconcile, select, and - still
+  // inside the paused block - the hand-over to the dispatch boundary.
   let owner = NativeLifecycleOwner::new();
   let workers = WorkersState::default();
   let outcome = native_conversion::run_conversion(
-    paths.clone(),
-    directory.path().to_path_buf(),
-    native_schema::NATIVE_SCHEMA_VERSION,
+    ConversionTarget {
+      paths: paths.clone(),
+      workspace: directory.path().to_path_buf(),
+      expected_schema_version: native_schema::NATIVE_SCHEMA_VERSION,
+    },
     &owner,
     &workers,
     empty_resumers(tokio::runtime::Handle::current()),
     &ConversionCancellation::new(),
+    SelectionHandoff::ThroughDispatch,
   )
   .await
   .unwrap();
@@ -141,30 +147,8 @@ async fn converted_and_selected_database_answers_dispatch_consumers() {
   );
   assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
   assert!(
-    owner.selected_database().is_some(),
-    "the driver's own bookkeeping copy must be open right after selection"
-  );
-
-  // A durable selection alone must not change what dispatch answers — the
-  // boundary has not been told yet.
-  let still_sqlite = dispatch::process_stats::select_process_stats(
-    "2026-08-31T00:00:00Z",
-    "2026-09-02T00:00:00Z",
-    false,
-  )
-  .await
-  .unwrap();
-  assert_eq!(still_sqlite, before_conversion);
-
-  // The `// #2134 seam:` hand-over: close the driver's own copy and let the
-  // dispatch boundary open its one live owner on the same file.
-  native_conversion::adopt_selected_database_via_dispatch(&owner)
-    .await
-    .unwrap();
-  assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
-  assert!(
     owner.selected_database().is_none(),
-    "the seam must hand the database over, not open a second instance beside it"
+    "the seam must hand the database over, not leave a second instance open beside it"
   );
 
   // Every consumer now answers from the native file, with exactly the row
@@ -220,6 +204,37 @@ async fn converted_and_selected_database_answers_dispatch_consumers() {
     sqlite_row_count, 0,
     "a post-adoption write must land in the native database, not the retained SQLite source"
   );
+
+  // Asking again while the boundary holds the file must not re-inspect
+  // authority: that would open a second DuckDB instance beside the boundary's
+  // live owner and report a healthy selection as unreadable.
+  let again = native_conversion::run_conversion(
+    ConversionTarget {
+      paths: paths.clone(),
+      workspace: directory.path().to_path_buf(),
+      expected_schema_version: native_schema::NATIVE_SCHEMA_VERSION,
+    },
+    &owner,
+    &workers,
+    empty_resumers(tokio::runtime::Handle::current()),
+    &ConversionCancellation::new(),
+    SelectionHandoff::ThroughDispatch,
+  )
+  .await
+  .unwrap();
+  assert!(
+    matches!(again, ConversionOutcome::AlreadySelected),
+    "{again:?}"
+  );
+  assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+  let still_native = dispatch::process_stats::select_process_stats(
+    "2026-08-31T00:00:00Z",
+    "2026-09-02T00:00:00Z",
+    false,
+  )
+  .await
+  .unwrap();
+  assert_eq!(still_native.len(), 2);
 
   dispatch::shutdown().await.unwrap();
 }
