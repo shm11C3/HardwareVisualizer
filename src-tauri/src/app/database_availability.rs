@@ -10,12 +10,14 @@
 /// `ActionRequired`.
 ///
 /// `inspect_authority` already refused to guess which database is correct
-/// in that state (see `app::native_lifecycle`), and the App's DB-dependent
-/// workers are already not running (`lib.rs`'s `start_sqlite_backed_producers`).
-/// Answering a read from Core's SQLite pool regardless would present
-/// whatever that pool currently holds - possibly the stale recovery copy of
-/// an already-selected native database - as current data, despite the
-/// authority decision having refused to choose it.
+/// in that state (see `app::native_lifecycle`), and dispatch (#2134) itself
+/// answers nothing while its own boundary is `Active::Unavailable` in that
+/// same state (`DispatchError::NativeUnavailable`). This is a second,
+/// App-level refusal in front of that one - a clearer error before the
+/// service layer is even reached, not a substitute for it - so a command
+/// that reads Hardware Archive, Cooling or Storage Health history never
+/// answers from whatever a stale SQLite pool happens to hold while the
+/// authority decision has refused to choose a backend.
 ///
 /// Kept separate from [`ensure_database_available`] so the decision itself
 /// is testable without constructing a Tauri app: this module's tests build
@@ -58,33 +60,32 @@ pub fn ensure_database_available(_app: &tauri::AppHandle) -> Result<(), String> 
   Ok(())
 }
 
-/// Refuse an on-demand SQLite *write* command
+/// Refuse an on-demand *write* command
 /// (`commands::hardware::refresh_storage_devices`, the only one outside the
-/// three background producers `native_conversion::pause_and_drain_producers`
-/// already stops) unless SQLite is still the live source
-/// ([`crate::app::native_lifecycle::sqlite_source_is_authoritative`]).
+/// producers `native_conversion::pause_and_drain_producers` already stops)
+/// unless a write issued through dispatch is currently safe
+/// ([`crate::app::native_lifecycle::database_writable`]).
 ///
-/// Stricter than [`ensure_database_available`]: a read is only wrong once
-/// startup gave up (`ActionRequired`), but a write is wrong for the whole
-/// window a conversion is quiescing producers to capture a consistent
-/// snapshot (`Converting`) and for every boot after native authority is
-/// already selected (`NativeAuthoritative`) - the source may already be
-/// retired, and `refresh_storage_health_for_date` opening SQLite with
-/// `create_if_missing` would recreate it, exactly the hazard
-/// `sqlite_source_is_authoritative` exists to name.
+/// Stricter than [`ensure_database_available`] in one respect and looser in
+/// another: a read is only wrong once startup gave up (`ActionRequired`),
+/// but a write is *also* wrong for the whole window a conversion is
+/// quiescing producers to capture a consistent snapshot (`Converting`) -
+/// this command is not one of the producers that window pauses, so a write
+/// that lands during it could be silently absent from what reconciliation
+/// selects. Once dispatch has actually adopted a selection
+/// (`NativeAuthoritative`), though, a write is fine: dispatch answers it
+/// from the native database, not a possibly-retired SQLite file.
 #[cfg(feature = "duckdb-archive")]
-pub fn ensure_sqlite_writable(app: &tauri::AppHandle) -> Result<(), String> {
+pub fn ensure_database_writable(app: &tauri::AppHandle) -> Result<(), String> {
   use tauri::Manager;
 
-  use crate::app::native_lifecycle::{
-    NativeLifecycleOwner, sqlite_source_is_authoritative,
-  };
+  use crate::app::native_lifecycle::{NativeLifecycleOwner, database_writable};
 
   match app.try_state::<NativeLifecycleOwner>() {
     None => Ok(()),
     Some(owner) => {
       let state = owner.state();
-      if sqlite_source_is_authoritative(&state) {
+      if database_writable(&state) {
         Ok(())
       } else {
         Err(format!(
@@ -96,7 +97,7 @@ pub fn ensure_sqlite_writable(app: &tauri::AppHandle) -> Result<(), String> {
 }
 
 #[cfg(not(feature = "duckdb-archive"))]
-pub fn ensure_sqlite_writable(_app: &tauri::AppHandle) -> Result<(), String> {
+pub fn ensure_database_writable(_app: &tauri::AppHandle) -> Result<(), String> {
   Ok(())
 }
 
@@ -128,8 +129,8 @@ mod tests {
     assert!(error.contains("unavailable"), "{error}");
   }
 
-  // `ensure_sqlite_writable` is a thin `AppHandle` -> owner-state wrapper
-  // around `native_lifecycle::sqlite_source_is_authoritative`, the same
-  // shape as `ensure_database_available` around `database_available` above
-  // - see that module's own tests for the decision table this delegates to.
+  // `ensure_database_writable` is a thin `AppHandle` -> owner-state wrapper
+  // around `native_lifecycle::database_writable`, the same shape as
+  // `ensure_database_available` around `database_available` above - see
+  // that module's own tests for the decision table this delegates to.
 }

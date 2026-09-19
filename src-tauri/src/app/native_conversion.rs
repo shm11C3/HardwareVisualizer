@@ -513,9 +513,13 @@ async fn reconcile_and_select(
   }
 }
 
-/// Hand the freshly selected database to the `// #2134 seam:` the same way
-/// startup does, so a caller that just converted does not have to restart
-/// the process to see it.
+/// Open the freshly selected database into `owner`'s own bookkeeping, the
+/// same way startup does, so a caller that just converted does not have to
+/// restart the process to see `NativeAuthoritative` reflected. This is
+/// `owner`'s *own* copy for the driver's own use (retry/idempotency
+/// checks - see `run_conversion`'s entry) and is deliberately not the one
+/// #2134's dispatch boundary answers consumers from; see
+/// [`adopt_selected_database_via_dispatch`] for that hand-over.
 async fn open_selected_database(
   owner: &NativeLifecycleOwner,
   paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
@@ -532,6 +536,53 @@ async fn open_selected_database(
   owner.set_selected_database(database);
   owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
   Ok(())
+}
+
+/// `// #2134 seam:` hand `owner`'s selected database over to Core's dispatch
+/// boundary, so every consumer routed through
+/// [`hardviz_core::infrastructure::database::dispatch`] answers from it -
+/// not from the copy [`open_selected_database`] opened above for `owner`'s
+/// own bookkeeping.
+///
+/// Not called automatically by [`run_conversion`]: dispatch's
+/// `init`/`reobserve_authority` are process-wide (a `OnceLock`-backed
+/// configuration - see their own documentation), so a caller must have
+/// already called `dispatch::init` with the same `paths` this driver was
+/// given before this can do anything useful. In this App, that is `lib.rs`'s
+/// startup (`resolve_native_authority`); a caller that drives a live
+/// conversion (the future #2136 command) must call this once, right after
+/// [`run_conversion`] returns `Ok(ConversionOutcome::Selected { .. })`.
+/// Keeping the call here rather than folding it into `run_conversion` keeps
+/// this module's own tests free of dispatch's process-wide state - none of
+/// them call `dispatch::init`, so none of them can corrupt each other's
+/// configuration by racing for the same `OnceLock`. See the App-level
+/// integration tests under `src-tauri/tests/` for the proof this actually
+/// wires together end to end.
+///
+/// Respects the single-owner rule
+/// [`hardviz_core::infrastructure::database::dispatch::reobserve_authority`]'s
+/// own documentation requires: DuckDB refuses a second instance on a file
+/// another one already holds, and `reobserve_authority` is the only thing
+/// that ever opens dispatch's own instance - so `owner`'s copy is closed
+/// ("handed over") first, never left open beside it.
+pub async fn adopt_selected_database_via_dispatch(
+  owner: &NativeLifecycleOwner,
+) -> Result<(), NativeDatabaseError> {
+  use hardviz_core::infrastructure::database::dispatch;
+
+  if let Some(database) = owner.take_selected_database() {
+    database.close().await?;
+  }
+  match dispatch::reobserve_authority().await {
+    Ok(_) => {
+      owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+      Ok(())
+    }
+    Err(error) => {
+      fail_open(owner, &error);
+      Err(error)
+    }
+  }
 }
 
 /// Record a step failure both in the log and on the lifecycle owner, so a

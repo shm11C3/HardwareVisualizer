@@ -1,62 +1,24 @@
-//! Post-selection maintenance: the checkpoint scheduled after each native
-//! expiry pass, and retiring the SQLite source once a later startup has
-//! verified the selection.
+//! Post-selection maintenance: retiring the SQLite source once a later
+//! startup has verified the selection.
 //!
-//! Both are decided in
+//! Decided in
 //! [`docs/development/hardware-archive-duckdb-retention-evidence.md`](../../../../docs/development/hardware-archive-duckdb-retention-evidence.md)
 //! and the Design Doc's "Retention and physical allocation" /
-//! "Remaining design questions" sections: one explicit `CHECKPOINT` after
-//! the daily expiry pass, and a rename in place for retirement rather than a
-//! copy or a delete.
+//! "Remaining design questions" sections: a rename in place for retirement
+//! rather than a copy or a delete.
+//!
+//! The other maintenance decision documented there - one explicit
+//! `CHECKPOINT` after the daily expiry pass - is no longer this module's:
+//! #2134's dispatch boundary is the only thing that still holds a native
+//! database open once it has been adopted (see the `// #2134 seam:` on
+//! [`crate::app::native_conversion::adopt_selected_database_via_dispatch`]),
+//! so the call lives beside the expiry pass itself, in Core's
+//! `persistence::archive::cleanup_old_data`, through
+//! `hardviz_core::infrastructure::database::dispatch::checkpoint`.
 
 use std::path::Path;
 
-use hardviz_core::infrastructure::database::native_database::{
-  NativeCancellation, NativeDatabase, NativeDatabaseError,
-};
-
 use crate::{log_error, log_info};
-
-/// Checkpoint the native database once, immediately after a daily expiry
-/// pass on it.
-///
-/// This is the whole of the App-owned scheduling decision: Core's
-/// [`NativeDatabase::checkpoint`] does the work and documents the measured
-/// cost/benefit, and there is exactly one call, exactly once per pass -
-/// never per family, never on a timer independent of expiry. See the
-/// measured comparison against the engine's own threshold checkpoint on
-/// [`NativeDatabase::checkpoint`]'s documentation.
-///
-/// # Where this is called from
-///
-/// No call site exists in this App yet: a native expiry pass itself is
-/// #2134's dispatch boundary routing scheduled deletion to the native
-/// backend, which had not landed when this function was written. This is
-/// the seam that pass should call immediately after its last family
-/// finishes, the same way [`crate::app::native_conversion`] left the
-/// `// #2134 seam:` on `NativeLifecycleOwner` for consumer routing. Fully
-/// exercised by this module's own tests in the meantime; see
-/// `native_conversion`'s module documentation for why that does not, by
-/// itself, satisfy the plain (non-test) build's dead-code analysis.
-#[allow(dead_code)]
-pub async fn checkpoint_after_expiry(
-  database: &NativeDatabase,
-) -> Result<(), NativeDatabaseError> {
-  let result = database.checkpoint(NativeCancellation::new()).await;
-  match &result {
-    Ok(()) => log_info!(
-      "checkpointed the native database after a daily expiry pass",
-      "app::native_maintenance::checkpoint_after_expiry",
-      None::<&str>
-    ),
-    Err(error) => log_error!(
-      "failed to checkpoint the native database after a daily expiry pass",
-      "app::native_maintenance::checkpoint_after_expiry",
-      Some(error.to_string())
-    ),
-  }
-  result
-}
 
 /// The renamed name for a retired SQLite source, resolved beside the
 /// original path.
@@ -84,13 +46,15 @@ fn retired_path(source_database: &Path) -> Option<std::path::PathBuf> {
 /// Nothing here may still be writing to `source_database`, since a rename
 /// out from under an open SQLite connection is unreliable at best on some
 /// platforms. `lib.rs` only calls this on the one startup path where that
-/// is true today: when authority is already `NativeSelected` at boot, the
-/// SQLite-backed producers (`ArchiveController`, `CoolingRollupController`,
-/// `StorageHealthController`, scheduled deletion) are not started for that
-/// same boot either - see the code comment where they are started in
-/// `lib.rs` - because rerouting them to the selected native database
-/// instead is #2134's dispatch boundary, which had not landed when this was
-/// written.
+/// is true today: when authority is already `NativeSelected` at boot, and
+/// only *before* the database-backed producers (`ArchiveController`,
+/// `CoolingRollupController`, `StorageHealthController`, scheduled
+/// deletion) are started for that same boot - see the code comment where
+/// they are started in `lib.rs`. Migrations are also skipped on that same
+/// path (nothing else recreates `source_database`), and #2134's dispatch
+/// boundary - adopted earlier, in `resolve_native_authority` - opens only
+/// the native `.duckdb` file, never the SQLite source, so nothing holds
+/// `source_database` open by the time this runs.
 pub fn retire_sqlite_source(source_database: &Path) {
   if !source_database.is_file() {
     return;
@@ -151,79 +115,7 @@ pub fn retire_sqlite_source(source_database: &Path) {
 
 #[cfg(test)]
 mod tests {
-  use hardviz_core::infrastructure::database::candidate_database::build_candidate_database;
-  use hardviz_core::infrastructure::database::migrate;
-  use hardviz_core::infrastructure::database::native_database::{
-    NativeDatabaseOptions, finalize_candidate_database,
-  };
-  use sqlx::ConnectOptions;
-  use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-
   use super::*;
-  use crate::infrastructure::database::{migration, native_schema};
-
-  /// A real, finalized native database in a fresh temporary directory -
-  /// SQLite through App's own migrations, converted through the production
-  /// candidate/finalize calls, matching the fixture philosophy
-  /// `core/tests/native_support` and `native_conversion`'s tests already
-  /// established. The returned `TempDir` must outlive the database.
-  async fn finalized_native_database() -> (tempfile::TempDir, NativeDatabase) {
-    let directory = tempfile::tempdir().unwrap();
-    let source = directory.path().join("hv-database.db");
-    let candidate = directory.path().join("candidate.duckdb");
-    let native = directory.path().join("hv-database.duckdb");
-
-    let options = SqliteConnectOptions::new()
-      .filename(&source)
-      .create_if_missing(true)
-      .disable_statement_logging();
-    let pool = SqlitePoolOptions::new()
-      .max_connections(1)
-      .connect_with(options)
-      .await
-      .unwrap();
-    migrate::run_on_pool(&pool, migration::get_migrations())
-      .await
-      .unwrap();
-    pool.close().await;
-
-    build_candidate_database(&source, &candidate, migration::get_migrations())
-      .await
-      .unwrap();
-    finalize_candidate_database(&candidate, &native, native_schema::get_native_schema())
-      .await
-      .unwrap();
-
-    let database = NativeDatabase::open(
-      &native,
-      NativeDatabaseOptions::new(native_schema::NATIVE_SCHEMA_VERSION),
-    )
-    .await
-    .unwrap();
-    (directory, database)
-  }
-
-  #[tokio::test]
-  async fn checkpoint_after_expiry_checkpoints_the_open_database() {
-    let (_directory, database) = finalized_native_database().await;
-
-    // An empty, just-finalized database has nothing pending, so the only
-    // claim this proves is that the seam reaches Core's real operation
-    // without error - the WAL-flush behavior itself is Core's own
-    // `checkpoint_flushes_the_write_ahead_log_and_keeps_the_data` test.
-    checkpoint_after_expiry(&database).await.unwrap();
-
-    database.close().await.unwrap();
-  }
-
-  #[tokio::test]
-  async fn checkpoint_after_expiry_reports_the_underlying_error() {
-    let (_directory, database) = finalized_native_database().await;
-    database.close().await.unwrap();
-
-    let error = checkpoint_after_expiry(&database).await.unwrap_err();
-    assert!(matches!(error, NativeDatabaseError::Closed), "{error:?}");
-  }
 
   #[test]
   fn retiring_an_absent_source_is_a_silent_no_op() {
