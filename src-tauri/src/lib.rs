@@ -223,7 +223,7 @@ fn open_selected_native_database(
   };
 
   match runtime.block_on(NativeDatabase::open(
-    &native_database_path,
+    native_database_path,
     NativeDatabaseOptions::new(expected_schema_version),
   )) {
     Ok(database) => (state, Some(database)),
