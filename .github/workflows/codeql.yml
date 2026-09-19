@@ -60,6 +60,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Rust only supports build-mode: none with CodeQL (manual/autobuild are not
+      # available for Rust: see the `manual_build_support`/`autobuild_support`
+      # variables in github/docs, which list "C/C++, C#, Go, Java, Kotlin, and
+      # Swift" and omit Rust). Under build-mode: none, CodeQL's own docs say it
+      # "uses rust-analyzer to compile and run build scripts (build.rs files) and
+      # compile macro code" - i.e. it still shells out to cargo/rustc for the
+      # workspace's build-dependency and proc-macro closure, it just never links
+      # a final binary. That closure is most of this workspace's ~249 crates, so
+      # with no toolchain pin, no registry cache and no rustc-level cache this
+      # job cold-compiles it every run (19m in CI run 35124428510, vs ~1m for the
+      # javascript-typescript/actions languages in the same matrix). CodeQL's own
+      # `dependency-caching` input explicitly excludes Rust (it only covers Java,
+      # Go and C#: see the `codeql_dependency_caching_languages` variable in
+      # github/docs), so reuse this repo's own Rust cache actions instead, the
+      # same way ci.yml's lint-core/test-core/lint-tauri jobs do. This doesn't
+      # trigger the DuckDB C++ build cache-sccache was written for (duckdb-archive
+      # isn't a default Cargo feature and CodeQL builds with default features),
+      # but the same sccache/RUSTC_WRAPPER mechanism still caches ordinary rustc
+      # invocations for every other dependency and proc-macro crate. Uses its own
+      # cache-key ("codeql-rust") because this job's cargo invocations (driven by
+      # rust-analyzer, not `cargo check`/`build`/`clippy`) are a different job
+      # kind from every ci.yml key and would otherwise evict a sibling entry.
+      - name: Setup Rust
+        if: matrix.language == 'rust'
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key: codeql-rust
+
+      - name: Cache sccache (R2)
+        if: matrix.language == 'rust'
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       # Add any setup steps before running the `github/codeql-action/init` action.
       # This includes steps like installing compilers or runtimes (`actions/setup-node`
       # or others). This is typically only required for manual builds.

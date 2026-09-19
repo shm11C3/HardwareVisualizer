@@ -1,0 +1,1007 @@
+{
+  "baseline": {
+    "database_size": {
+      "block_size": 262144,
+      "database_size": "9.0 MiB",
+      "free_blocks": 0,
+      "memory_limit": "122.0 MiB",
+      "memory_usage": "2.7 MiB",
+      "total_blocks": 36,
+      "used_blocks": 36,
+      "wal_size": "0 bytes"
+    },
+    "files": {
+      "database_bytes": 9449472,
+      "total_bytes": 9449472,
+      "wal_bytes": 0
+    },
+    "resident_bytes": 32980992,
+    "rows": {
+      "AMBIENT_ARCHIVE": 10080,
+      "DATA_ARCHIVE": 10080,
+      "FAN_ARCHIVE": 20160,
+      "GPU_DATA_ARCHIVE": 10080,
+      "PROCESS_STATS": 201600
+    }
+  },
+  "close": {
+    "files": {
+      "database_bytes": 24915968,
+      "total_bytes": 24915968,
+      "wal_bytes": 0
+    },
+    "ms": 135.33229999999998
+  },
+  "compact_copy": {
+    "compact_bytes": 12333056,
+    "ms": 605.2253,
+    "source_before": {
+      "database_bytes": 24915968,
+      "total_bytes": 24915968,
+      "wal_bytes": 0
+    }
+  },
+  "conversion": {
+    "candidate_bytes": 6828032,
+    "finalized_bytes": 9449472,
+    "seconds": 20.1449155,
+    "tables": [
+      {
+        "name": "DATA_ARCHIVE",
+        "rows": 10080
+      },
+      {
+        "name": "GPU_DATA_ARCHIVE",
+        "rows": 10080
+      },
+      {
+        "name": "PROCESS_STATS",
+        "rows": 201600
+      },
+      {
+        "name": "storage_devices",
+        "rows": 0
+      },
+      {
+        "name": "storage_health_daily_records",
+        "rows": 0
+      },
+      {
+        "name": "cooling_daily_summary",
+        "rows": 0
+      },
+      {
+        "name": "cooling_baseline",
+        "rows": 0
+      },
+      {
+        "name": "cooling_hourly_summary",
+        "rows": 0
+      },
+      {
+        "name": "AMBIENT_ARCHIVE",
+        "rows": 10080
+      },
+      {
+        "name": "FAN_ARCHIVE",
+        "rows": 20160
+      },
+      {
+        "name": "cooling_fan_daily_summary",
+        "rows": 0
+      },
+      {
+        "name": "cooling_delta_baseline",
+        "rows": 0
+      },
+      {
+        "name": "cooling_thermal_delta_daily_summary",
+        "rows": 0
+      },
+      {
+        "name": "cooling_covariate_daily_summary",
+        "rows": 0
+      },
+      {
+        "name": "cooling_fan_covariate_daily_summary",
+        "rows": 0
+      }
+    ],
+    "total_rows": 252000
+  },
+  "date": "2026-09-16T16:32:49.419057800+00:00",
+  "days": [
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "9.0 MiB",
+          "free_blocks": 0,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "54.2 MiB",
+          "total_blocks": 36,
+          "used_blocks": 36,
+          "wal_size": "6.3 MiB"
+        },
+        "files": {
+          "database_bytes": 9449472,
+          "total_bytes": 16152771,
+          "wal_bytes": 6703299
+        },
+        "resident_bytes": 84353024,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11520,
+          "DATA_ARCHIVE": 11520,
+          "FAN_ARCHIVE": 23040,
+          "GPU_DATA_ARCHIVE": 11520,
+          "PROCESS_STATS": 230400
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "9.0 MiB",
+          "free_blocks": 0,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "55.0 MiB",
+          "total_blocks": 36,
+          "used_blocks": 36,
+          "wal_size": "6.6 MiB"
+        },
+        "files": {
+          "database_bytes": 9449472,
+          "total_bytes": 16444293,
+          "wal_bytes": 6994821
+        },
+        "resident_bytes": 84480000,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10069,
+          "DATA_ARCHIVE": 10069,
+          "FAN_ARCHIVE": 20138,
+          "GPU_DATA_ARCHIVE": 10069,
+          "PROCESS_STATS": 201380
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 44.296,
+        "mean_ms": 32.08863673611115,
+        "p50_ms": 32.0828,
+        "p95_ms": 36.3712,
+        "p99_ms": 38.9034,
+        "total_s": 46.20763690000005
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-03T16:28:21.368503700+00:00",
+      "cutoff_before": "2026-09-03T16:28:21.296347700+00:00",
+      "day": 1,
+      "expiry": [
+        {
+          "deleted_rows": 1451,
+          "ms": 5.3327,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1451,
+          "ms": 4.51,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2902,
+          "ms": 7.3389,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 29020,
+          "ms": 43.1061,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1451,
+          "ms": 5.0635,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-03T16:29:00+00:00",
+          "rows": 10069
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-03T16:29:00+00:00",
+          "rows": 10069
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-03T16:29:00+00:00",
+          "rows": 20138
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-03T16:29:00+00:00",
+          "rows": 10069
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-03T16:29:00+00:00",
+          "rows": 201380
+        }
+      },
+      "retention_argument_days": 13
+    },
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "9.0 MiB",
+          "free_blocks": 0,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "60.7 MiB",
+          "total_blocks": 36,
+          "used_blocks": 36,
+          "wal_size": "13.0 MiB"
+        },
+        "files": {
+          "database_bytes": 9449472,
+          "total_bytes": 23147760,
+          "wal_bytes": 13698288
+        },
+        "resident_bytes": 89640960,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11509,
+          "DATA_ARCHIVE": 11509,
+          "FAN_ARCHIVE": 23018,
+          "GPU_DATA_ARCHIVE": 11509,
+          "PROCESS_STATS": 230180
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "9.0 MiB",
+          "free_blocks": 0,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "61.2 MiB",
+          "total_blocks": 36,
+          "used_blocks": 36,
+          "wal_size": "13.3 MiB"
+        },
+        "files": {
+          "database_bytes": 9449472,
+          "total_bytes": 23437427,
+          "wal_bytes": 13987955
+        },
+        "resident_bytes": 89784320,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10068,
+          "DATA_ARCHIVE": 10068,
+          "FAN_ARCHIVE": 20136,
+          "GPU_DATA_ARCHIVE": 10068,
+          "PROCESS_STATS": 201360
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 43.503600000000006,
+        "mean_ms": 29.597665208333293,
+        "p50_ms": 29.476100000000002,
+        "p95_ms": 34.905,
+        "p99_ms": 37.2873,
+        "total_s": 42.62063789999994
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-04T16:29:04.100938+00:00",
+      "cutoff_before": "2026-09-04T16:29:04.035843500+00:00",
+      "day": 2,
+      "expiry": [
+        {
+          "deleted_rows": 1441,
+          "ms": 5.1275,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 4.9465,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2882,
+          "ms": 5.9717,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 28820,
+          "ms": 37.522,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 4.5187,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-04T16:30:00+00:00",
+          "rows": 10068
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-04T16:30:00+00:00",
+          "rows": 10068
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-04T16:30:00+00:00",
+          "rows": 20136
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-04T16:30:00+00:00",
+          "rows": 10068
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-04T16:30:00+00:00",
+          "rows": 201360
+        }
+      },
+      "retention_argument_days": 12
+    },
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "17.2 MiB",
+          "free_blocks": 21,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "58.0 MiB",
+          "total_blocks": 69,
+          "used_blocks": 48,
+          "wal_size": "4.7 MiB"
+        },
+        "files": {
+          "database_bytes": 18100224,
+          "total_bytes": 23083463,
+          "wal_bytes": 4983239
+        },
+        "resident_bytes": 88379392,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11508,
+          "DATA_ARCHIVE": 11508,
+          "FAN_ARCHIVE": 23016,
+          "GPU_DATA_ARCHIVE": 11508,
+          "PROCESS_STATS": 230160
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "17.2 MiB",
+          "free_blocks": 21,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "58.5 MiB",
+          "total_blocks": 69,
+          "used_blocks": 48,
+          "wal_size": "5.0 MiB"
+        },
+        "files": {
+          "database_bytes": 18100224,
+          "total_bytes": 23372980,
+          "wal_bytes": 5272756
+        },
+        "resident_bytes": 88399872,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10068,
+          "DATA_ARCHIVE": 10068,
+          "FAN_ARCHIVE": 20136,
+          "GPU_DATA_ARCHIVE": 10068,
+          "PROCESS_STATS": 201360
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 226.7437,
+        "mean_ms": 30.142020208333296,
+        "p50_ms": 30.0271,
+        "p95_ms": 35.1662,
+        "p99_ms": 38.2519,
+        "total_s": 43.40450909999994
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-05T16:29:47.612266700+00:00",
+      "cutoff_before": "2026-09-05T16:29:47.548777400+00:00",
+      "day": 3,
+      "expiry": [
+        {
+          "deleted_rows": 1440,
+          "ms": 4.5783000000000005,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1440,
+          "ms": 4.5509,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2880,
+          "ms": 6.9848,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 28800,
+          "ms": 36.400099999999995,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1440,
+          "ms": 4.2755,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-05T16:30:00+00:00",
+          "rows": 10068
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-05T16:30:00+00:00",
+          "rows": 10068
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-05T16:30:00+00:00",
+          "rows": 20136
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-05T16:30:00+00:00",
+          "rows": 10068
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-05T16:30:00+00:00",
+          "rows": 201360
+        }
+      },
+      "retention_argument_days": 11
+    },
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "17.2 MiB",
+          "free_blocks": 21,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "61.0 MiB",
+          "total_blocks": 69,
+          "used_blocks": 48,
+          "wal_size": "11.4 MiB"
+        },
+        "files": {
+          "database_bytes": 18100224,
+          "total_bytes": 30077650,
+          "wal_bytes": 11977426
+        },
+        "resident_bytes": 92594176,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11508,
+          "DATA_ARCHIVE": 11508,
+          "FAN_ARCHIVE": 23016,
+          "GPU_DATA_ARCHIVE": 11508,
+          "PROCESS_STATS": 230160
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "17.2 MiB",
+          "free_blocks": 21,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "61.5 MiB",
+          "total_blocks": 69,
+          "used_blocks": 48,
+          "wal_size": "11.6 MiB"
+        },
+        "files": {
+          "database_bytes": 18100224,
+          "total_bytes": 30367170,
+          "wal_bytes": 12266946
+        },
+        "resident_bytes": 92622848,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10067,
+          "DATA_ARCHIVE": 10067,
+          "FAN_ARCHIVE": 20134,
+          "GPU_DATA_ARCHIVE": 10067,
+          "PROCESS_STATS": 201340
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 40.5415,
+        "mean_ms": 29.78206534722219,
+        "p50_ms": 29.7915,
+        "p95_ms": 34.9874,
+        "p99_ms": 37.1699,
+        "total_s": 42.886174099999955
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-06T16:30:30.605190600+00:00",
+      "cutoff_before": "2026-09-06T16:30:30.543807400+00:00",
+      "day": 4,
+      "expiry": [
+        {
+          "deleted_rows": 1441,
+          "ms": 4.6091999999999995,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 5.1089,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2882,
+          "ms": 5.9704,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 28820,
+          "ms": 35.3977,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 4.132000000000001,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-06T16:31:00+00:00",
+          "rows": 10067
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-06T16:31:00+00:00",
+          "rows": 10067
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-06T16:31:00+00:00",
+          "rows": 20134
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-06T16:31:00+00:00",
+          "rows": 10067
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-06T16:31:00+00:00",
+          "rows": 201340
+        }
+      },
+      "retention_argument_days": 10
+    },
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "20.0 MiB",
+          "free_blocks": 24,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "60.2 MiB",
+          "total_blocks": 80,
+          "used_blocks": 56,
+          "wal_size": "3.1 MiB"
+        },
+        "files": {
+          "database_bytes": 20983808,
+          "total_bytes": 24245843,
+          "wal_bytes": 3262035
+        },
+        "resident_bytes": 92196864,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11507,
+          "DATA_ARCHIVE": 11507,
+          "FAN_ARCHIVE": 23014,
+          "GPU_DATA_ARCHIVE": 11507,
+          "PROCESS_STATS": 230140
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "20.0 MiB",
+          "free_blocks": 24,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "60.5 MiB",
+          "total_blocks": 80,
+          "used_blocks": 56,
+          "wal_size": "3.3 MiB"
+        },
+        "files": {
+          "database_bytes": 20983808,
+          "total_bytes": 24535559,
+          "wal_bytes": 3551751
+        },
+        "resident_bytes": 92266496,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10066,
+          "DATA_ARCHIVE": 10066,
+          "FAN_ARCHIVE": 20132,
+          "GPU_DATA_ARCHIVE": 10066,
+          "PROCESS_STATS": 201320
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 176.7269,
+        "mean_ms": 30.20411062500002,
+        "p50_ms": 30.090700000000002,
+        "p95_ms": 35.1365,
+        "p99_ms": 38.1286,
+        "total_s": 43.49391930000003
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-07T16:31:14.215326100+00:00",
+      "cutoff_before": "2026-09-07T16:31:14.145670400+00:00",
+      "day": 5,
+      "expiry": [
+        {
+          "deleted_rows": 1441,
+          "ms": 5.2632,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 4.2352,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2882,
+          "ms": 6.3257,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 28820,
+          "ms": 41.4653,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 4.6564,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-07T16:32:00+00:00",
+          "rows": 10066
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-07T16:32:00+00:00",
+          "rows": 10066
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-07T16:32:00+00:00",
+          "rows": 20132
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-07T16:32:00+00:00",
+          "rows": 10066
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-07T16:32:00+00:00",
+          "rows": 201320
+        }
+      },
+      "retention_argument_days": 9
+    },
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "20.0 MiB",
+          "free_blocks": 24,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "66.7 MiB",
+          "total_blocks": 80,
+          "used_blocks": 56,
+          "wal_size": "9.7 MiB"
+        },
+        "files": {
+          "database_bytes": 20983808,
+          "total_bytes": 31238542,
+          "wal_bytes": 10254734
+        },
+        "resident_bytes": 98607104,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11506,
+          "DATA_ARCHIVE": 11506,
+          "FAN_ARCHIVE": 23012,
+          "GPU_DATA_ARCHIVE": 11506,
+          "PROCESS_STATS": 230120
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "20.0 MiB",
+          "free_blocks": 24,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "67.2 MiB",
+          "total_blocks": 80,
+          "used_blocks": 56,
+          "wal_size": "10.0 MiB"
+        },
+        "files": {
+          "database_bytes": 20983808,
+          "total_bytes": 31528009,
+          "wal_bytes": 10544201
+        },
+        "resident_bytes": 98664448,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10066,
+          "DATA_ARCHIVE": 10066,
+          "FAN_ARCHIVE": 20132,
+          "GPU_DATA_ARCHIVE": 10066,
+          "PROCESS_STATS": 201320
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 500.4305,
+        "mean_ms": 31.426287499999944,
+        "p50_ms": 30.829700000000003,
+        "p95_ms": 36.24,
+        "p99_ms": 40.1477,
+        "total_s": 45.25385399999992
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-08T16:31:59.582213100+00:00",
+      "cutoff_before": "2026-09-08T16:31:59.517286300+00:00",
+      "day": 6,
+      "expiry": [
+        {
+          "deleted_rows": 1440,
+          "ms": 4.4913,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1440,
+          "ms": 5.140300000000001,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2880,
+          "ms": 6.211,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 28800,
+          "ms": 37.9338,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1440,
+          "ms": 4.7863999999999995,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-08T16:32:00+00:00",
+          "rows": 10066
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-08T16:32:00+00:00",
+          "rows": 10066
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-08T16:32:00+00:00",
+          "rows": 20132
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-08T16:32:00+00:00",
+          "rows": 10066
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-08T16:32:00+00:00",
+          "rows": 201320
+        }
+      },
+      "retention_argument_days": 8
+    },
+    {
+      "after_appends": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "23.5 MiB",
+          "free_blocks": 32,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "62.0 MiB",
+          "total_blocks": 94,
+          "used_blocks": 62,
+          "wal_size": "1.4 MiB"
+        },
+        "files": {
+          "database_bytes": 24653824,
+          "total_bytes": 26197664,
+          "wal_bytes": 1543840
+        },
+        "resident_bytes": 92381184,
+        "rows": {
+          "AMBIENT_ARCHIVE": 11506,
+          "DATA_ARCHIVE": 11506,
+          "FAN_ARCHIVE": 23012,
+          "GPU_DATA_ARCHIVE": 11506,
+          "PROCESS_STATS": 230120
+        }
+      },
+      "after_checkpoint": null,
+      "after_expiry": {
+        "database_size": {
+          "block_size": 262144,
+          "database_size": "23.5 MiB",
+          "free_blocks": 32,
+          "memory_limit": "122.0 MiB",
+          "memory_usage": "62.5 MiB",
+          "total_blocks": 94,
+          "used_blocks": 62,
+          "wal_size": "1.7 MiB"
+        },
+        "files": {
+          "database_bytes": 24653824,
+          "total_bytes": 26487184,
+          "wal_bytes": 1833360
+        },
+        "resident_bytes": 92397568,
+        "rows": {
+          "AMBIENT_ARCHIVE": 10065,
+          "DATA_ARCHIVE": 10065,
+          "FAN_ARCHIVE": 20130,
+          "GPU_DATA_ARCHIVE": 10065,
+          "PROCESS_STATS": 201300
+        }
+      },
+      "append": {
+        "cycles": 1440,
+        "max_ms": 677.0492,
+        "mean_ms": 33.94362159722222,
+        "p50_ms": 32.0893,
+        "p95_ms": 36.8138,
+        "p99_ms": 70.6583,
+        "total_s": 48.87881509999999
+      },
+      "checkpoint": null,
+      "cutoff_after": "2026-09-09T16:32:48.580193800+00:00",
+      "cutoff_before": "2026-09-09T16:32:48.509390300+00:00",
+      "day": 7,
+      "expiry": [
+        {
+          "deleted_rows": 1441,
+          "ms": 5.166399999999999,
+          "table": "DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 4.9236,
+          "table": "GPU_DATA_ARCHIVE"
+        },
+        {
+          "deleted_rows": 2882,
+          "ms": 6.6974,
+          "table": "FAN_ARCHIVE"
+        },
+        {
+          "deleted_rows": 28820,
+          "ms": 40.6001,
+          "table": "PROCESS_STATS"
+        },
+        {
+          "deleted_rows": 1441,
+          "ms": 5.644,
+          "table": "AMBIENT_ARCHIVE"
+        }
+      ],
+      "retained": {
+        "AMBIENT_ARCHIVE": {
+          "oldest_timestamp": "2026-09-09T16:33:00+00:00",
+          "rows": 10065
+        },
+        "DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-09T16:33:00+00:00",
+          "rows": 10065
+        },
+        "FAN_ARCHIVE": {
+          "oldest_timestamp": "2026-09-09T16:33:00+00:00",
+          "rows": 20130
+        },
+        "GPU_DATA_ARCHIVE": {
+          "oldest_timestamp": "2026-09-09T16:33:00+00:00",
+          "rows": 10065
+        },
+        "PROCESS_STATS": {
+          "oldest_timestamp": "2026-09-09T16:33:00+00:00",
+          "rows": 201300
+        }
+      },
+      "retention_argument_days": 7
+    }
+  ],
+  "engine": {
+    "library_version": "v1.5.5",
+    "recorded_storage_version": "v1.0.0+",
+    "settings": {
+      "checkpoint_threshold": "16.0 MiB",
+      "max_memory": "122.0 MiB",
+      "storage_compatibility_version": "v0.10.2",
+      "threads": "2",
+      "wal_autocheckpoint": "16.0 MiB"
+    }
+  },
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "logical_cpus": 16,
+    "os": "Windows 11 Pro",
+    "physical_memory_bytes": 67771465728,
+    "profile": "release",
+    "target_arch": "x86_64",
+    "target_os": "windows"
+  },
+  "issue": 2089,
+  "limits": [
+    "Single run; latencies include the in-memory SQLite stamp oracle each native write cycle runs and the tokio/channel hop into the blocking owner.",
+    "Simulated time is compressed: a day's cycles are written back to back, so automatic checkpoint behaviour reflects WAL bytes, not elapsed time.",
+    "delete_old_data derives its cutoff from the wall clock; the cutoff each call used lies between cutoff_before and cutoff_after.",
+    "The compact copy is taken outside the blocking owner with a plain read-write connection and is evidence of the reclaimable bound, not a shipped maintenance operation.",
+    "Resident set size is the whole test process, including the SQLite pool that seeded the history."
+  ],
+  "open_ms": 26.069499999999998,
+  "reopen": {
+    "counts_match": true,
+    "ms": 28.8028,
+    "snapshot": {
+      "database_size": {
+        "block_size": 262144,
+        "database_size": "23.7 MiB",
+        "free_blocks": 29,
+        "memory_limit": "122.0 MiB",
+        "memory_usage": "5.7 MiB",
+        "total_blocks": 95,
+        "used_blocks": 66,
+        "wal_size": "0 bytes"
+      },
+      "files": {
+        "database_bytes": 24915968,
+        "total_bytes": 24915968,
+        "wal_bytes": 0
+      },
+      "resident_bytes": 42430464,
+      "rows": {
+        "AMBIENT_ARCHIVE": 10065,
+        "DATA_ARCHIVE": 10065,
+        "FAN_ARCHIVE": 20130,
+        "GPU_DATA_ARCHIVE": 10065,
+        "PROCESS_STATS": 201300
+      }
+    }
+  },
+  "scale": {
+    "cycles_per_day": 1440,
+    "explicit_checkpoint": false,
+    "native_days": 7,
+    "processes_per_cycle": 20,
+    "retention_days": 7,
+    "seed_days": 7
+  },
+  "schema_version": 1,
+  "scope": "Recurring expiry, checkpoint and space-reuse measurement of the implemented native DuckDB backend (#2089). Converted history is written through the SQLite production writers, converted through the candidate builder and finalization, then appended to and expired through the native writers and delete_old_data of every raw archive family via the blocking owner. Synthetic fixture; not a whole-application budget.",
+  "seed": {
+    "seconds": 512.45356,
+    "source_bytes": 26365952,
+    "source_wal_bytes": 8272
+  },
+  "timeline": {
+    "end": "2026-09-16T16:18:00+00:00",
+    "native_cycles": 10080,
+    "seed_cycles": 10080,
+    "start": "2026-09-02T16:18:00+00:00",
+    "step_minutes": 1
+  }
+}
