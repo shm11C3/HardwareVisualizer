@@ -100,11 +100,9 @@ fn ensure_interface_entry<'a>(
 /// `ifa`. The caller must ensure `ifa` originates from the active `getifaddrs`
 /// list and remains valid for the duration of this call.
 fn apply_sockaddr_to_raw_interface(ifa: &libc::ifaddrs, entry: &mut RawInterface) {
-  if ifa.ifa_addr.is_null() {
+  let Some(sa) = (unsafe { ifa.ifa_addr.as_ref() }) else {
     return;
-  }
-
-  let sa = unsafe { &*(ifa.ifa_addr as *const libc::sockaddr) };
+  };
   match sa.sa_family as i32 {
     libc::AF_LINK => {
       if let Some((mac, if_index)) =
