@@ -232,7 +232,7 @@ describe("useExportToClipboard", () => {
     await act(async () => {
       await result.current.exportToClipboard();
     });
-    expect(getWrittenContent()).toContain("Intel Core i7-12700K");
+    expect(getWrittenContent().split("\n")).toContain("shared.threadCount: 0");
   });
 
   // ── Memory branches ───────────────────────────────────────────────────────
@@ -355,6 +355,7 @@ describe("useExportToClipboard", () => {
     const content = getWrittenContent();
     expect(content).toContain("ASUS");
     expect(content).toContain("ROG STRIX Z690-E");
+    expect(content).not.toContain("shared.version:");
   });
 
   // ── Network branches ──────────────────────────────────────────────────────

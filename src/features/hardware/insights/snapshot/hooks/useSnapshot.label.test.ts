@@ -163,25 +163,49 @@ describe("useSnapshot - Label Formatting", () => {
   });
 
   it("should use system locale for date formatting", async () => {
-    const { result } = renderHook(() => useSnapshot());
+    // Stand in for the OS locale: a formatter created without a locale resolves
+    // to a distinctive one, so labels from a locale pinned by the hook differ.
+    const RealDateTimeFormat = Intl.DateTimeFormat;
+    const systemLocale = "de-DE";
+    class SystemLocaleDateTimeFormat extends RealDateTimeFormat {
+      constructor(
+        locales?: Intl.LocalesArgument,
+        options?: Intl.DateTimeFormatOptions,
+      ) {
+        super(locales ?? systemLocale, options);
+      }
+    }
+    Intl.DateTimeFormat =
+      SystemLocaleDateTimeFormat as typeof Intl.DateTimeFormat;
 
-    // Set period that includes date
-    act(() => {
-      result.current.setPeriod({
-        start: "2023-01-01T00:00:00Z",
-        end: "2023-01-01T12:00:00Z",
+    try {
+      const { result } = renderHook(() => useSnapshot());
+
+      // Set period that includes date
+      act(() => {
+        result.current.setPeriod({
+          start: "2023-01-01T00:00:00Z",
+          end: "2023-01-01T12:00:00Z",
+        });
       });
-    });
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
 
-    // Should have formatted labels (exact format depends on system locale)
-    expect(result.current.filledLabels.length).toBeGreaterThan(0);
-    expect(result.current.filledLabels.every((label) => label.length > 0)).toBe(
-      true,
-    );
+      const systemFormatter = new RealDateTimeFormat(systemLocale, {
+        month: "numeric",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      expect(result.current.filledLabels).toEqual([
+        systemFormatter.format(new Date("2023-01-01T00:00:00Z")),
+        systemFormatter.format(new Date("2023-01-01T12:00:00Z")),
+      ]);
+    } finally {
+      Intl.DateTimeFormat = RealDateTimeFormat;
+    }
   });
 
   it("should maintain consistent label count with data count", async () => {

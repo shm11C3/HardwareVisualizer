@@ -68,14 +68,24 @@ describe("useSortableDashboard", () => {
       wrapper: Provider,
     });
 
+    // Non-adjacent items, so a swap is distinguishable from a move.
     act(() => {
       result.current.handleDragOver({
         active: { id: "cpu" },
-        over: { id: "gpu" },
+        over: { id: "storage" },
       } as never);
     });
 
     expect(mockSetDashboardItemMap).toHaveBeenCalledTimes(1);
+    expect(mockSetDashboardItemMap).toHaveBeenCalledWith([
+      "storage",
+      "gpu",
+      "memory",
+      "cpu",
+      "process",
+      "network",
+      "motherboard",
+    ]);
   });
 
   it("handleDragOver: does nothing when over is null", () => {
