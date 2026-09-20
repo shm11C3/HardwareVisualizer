@@ -154,6 +154,21 @@ describe("useHardwareInfoAtom", () => {
   });
 
   it("fetchMemoryInfoDetail: error() is called on error and memory is restored", async () => {
+    const seededMemory = {
+      size: "16GB",
+      memoryType: "DDR4",
+      isDetailed: false,
+    };
+    (commands.getHardwareInfo as Mock).mockResolvedValue({
+      status: "ok",
+      data: {
+        cpu: null,
+        memory: seededMemory,
+        gpus: null,
+        storage: [],
+        motherboard: null,
+      },
+    });
     const errorMsg = "Failed to fetch memory info detail";
     (commands.getMemoryInfoDetail as Mock).mockResolvedValue({
       status: "error",
@@ -169,10 +184,16 @@ describe("useHardwareInfoAtom", () => {
     });
 
     await act(async () => {
+      await result.current.init();
+    });
+    expect(result.current.hardwareInfo.memory).toEqual(seededMemory);
+
+    await act(async () => {
       await result.current.fetchMemoryInfoDetail();
     });
 
     expect(errorMock).toHaveBeenCalledWith(errorMsg);
+    expect(result.current.hardwareInfo.memory).toEqual(seededMemory);
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });

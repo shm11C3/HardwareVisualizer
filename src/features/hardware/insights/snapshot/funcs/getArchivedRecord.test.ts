@@ -165,7 +165,7 @@ describe("getArchivedRecord functions", () => {
   });
 
   describe("getProcessStatsInPeriod", () => {
-    it("queries process_stats between start and end with ORDER BY", async () => {
+    it("passes the ISO start and end to the period command and returns its rows", async () => {
       const start = new Date("2023-06-01T00:00:00.000Z");
       const end = new Date("2023-06-01T01:00:00.000Z");
       const mockRows = [

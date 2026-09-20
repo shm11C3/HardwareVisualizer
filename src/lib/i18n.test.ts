@@ -1,3 +1,4 @@
+import { getI18n } from "react-i18next";
 import { beforeAll, describe, expect, it } from "vitest";
 import i18n from "@/lib/i18n";
 
@@ -42,8 +43,22 @@ describe("i18n configuration", () => {
     expect(i18n.options.interpolation?.escapeValue).toBe(false);
   });
 
-  it("should fall back to English for empty translations", () => {
-    expect(i18n.options.returnEmptyString).toBe(false);
+  it("should fall back to English for empty translations", async () => {
+    const key = "shared.cpuUsage";
+    const japanese = i18n.getResource("ja", "translation", key);
+
+    await i18n.changeLanguage("ja");
+    try {
+      expect(i18n.t(key)).toBe("CPU 使用率");
+
+      // An empty string stands in for a locale file entry left blank.
+      i18n.addResource("ja", "translation", key, "");
+      expect(i18n.t(key)).toBe("CPU Usage");
+    } finally {
+      // Restore the resource and language for other tests
+      i18n.addResource("ja", "translation", key, japanese);
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("distinguishes unsupported hardware from uncollected history in every locale", async () => {
@@ -77,6 +92,8 @@ describe("i18n configuration", () => {
   });
 
   it("should use react-i18next plugin", () => {
-    expect(i18n.isInitialized).toBe(true);
+    // The plugin registers this instance as the one useTranslation() resolves
+    // when no I18nextProvider is mounted, which is how the app uses it.
+    expect(getI18n()).toBe(i18n);
   });
 });

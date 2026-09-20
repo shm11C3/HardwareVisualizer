@@ -298,20 +298,51 @@ describe("useInsightChart", () => {
     const mockedTime = new Date("2023-01-01T00:02:00Z");
     vi.setSystemTime(mockedTime);
 
-    const { result } = renderHook(() =>
-      useInsightChart({
-        hardwareType: "cpu",
-        dataStats: "avg",
-        period: 10,
-        offset: 5,
-      }),
-    );
+    const renderWithOffset = async (offset: number) => {
+      const rendered = renderHook(() =>
+        useInsightChart({
+          hardwareType: "cpu",
+          dataStats: "avg",
+          period: 10,
+          offset,
+        }),
+      );
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      return rendered;
+    };
+
+    const current = await renderWithOffset(0);
+    current.unmount();
+    const { result } = await renderWithOffset(5);
 
     expect(result.current.labels.length).toBeGreaterThan(0);
+
+    // The clock is frozen at 00:02:00Z and a 10 minute period uses a 60s step.
+    // The current window ends one archive interval before now; offset 5 moves
+    // both ends of that window back by exactly five steps.
+    expect(commands.getDataArchiveSeries).toHaveBeenCalledTimes(2);
+    expect(commands.getDataArchiveSeries).toHaveBeenNthCalledWith(
+      1,
+      "cpu",
+      "avg",
+      "2022-12-31T23:51:00.000Z",
+      "2023-01-01T00:01:00.000Z",
+      60_000,
+      "end",
+    );
+    expect(commands.getDataArchiveSeries).toHaveBeenNthCalledWith(
+      2,
+      "cpu",
+      "avg",
+      "2022-12-31T23:46:00.000Z",
+      "2022-12-31T23:56:00.000Z",
+      60_000,
+      "end",
+    );
   });
 
   it("should clear chart data when the archive command returns an error", async () => {

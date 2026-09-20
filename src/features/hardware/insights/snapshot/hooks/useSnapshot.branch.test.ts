@@ -189,6 +189,15 @@ describe("useSnapshot - Branch Coverage", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
+    // The hook does not return the step; it is observable as the bucket width
+    // requested from the archive.
+    expect(mockGetArchivedRecord).toHaveBeenLastCalledWith(
+      "cpu",
+      new Date("2023-01-01T10:00:00Z"),
+      new Date("2023-01-01T10:00:00Z"),
+      60_000,
+    );
+
     // With equal start/end, filledChartData and filledLabels are both empty.
     expect(result.current.filledLabels).toHaveLength(0);
     expect(result.current.filledChartData).toHaveLength(0);
