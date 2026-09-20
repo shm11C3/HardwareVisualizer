@@ -274,11 +274,23 @@ pub async fn get_live_storage_health(
 #[command]
 #[specta::specta]
 pub async fn refresh_storage_devices(
+  app: tauri::AppHandle,
   state: tauri::State<'_, settings::AppState>,
   workers: tauri::State<'_, crate::workers::WorkersState>,
   guidance_state: tauri::State<'_, Arc<ExternalComponentGuidanceState>>,
 ) -> Result<Vec<models::hardware::StorageHealthRecord>, String> {
+  use crate::app::database_availability::ensure_sqlite_writable;
   use crate::services::hardware_service;
+
+  // This is the one on-demand SQLite *write* outside the background
+  // producers `native_conversion::pause_and_drain_producers` already stops
+  // (`StorageHealthController`'s own daily pass): it writes through
+  // `refresh_storage_health_for_date` directly, on the caller's own
+  // request, so a conversion's producer pause cannot see or wait for it.
+  // Refused whenever SQLite is not the live source right now - mid
+  // conversion, or after native authority is already selected and the
+  // source may already be retired.
+  ensure_sqlite_writable(&app)?;
 
   let (retention_days, identity_hash_key) = {
     let settings = state.core_settings.lock().unwrap();

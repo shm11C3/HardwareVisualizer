@@ -65,25 +65,40 @@ pub struct ConversionSpaceRequirement {
   pub required_bytes: u64,
 }
 
-/// `required = candidate + finalized + workspace`.
+/// `required = candidate + finalized + workspace`, unless `finalized`
+/// already exists on disk.
 ///
-/// All three terms coexist: reconciliation captures a second candidate while
-/// the finalized file it is updating is still on disk, and the staging tables
-/// that carry the changed rows live in the workspace until the transaction
-/// commits. Each database term starts at the full source size - no compression
-/// is assumed - and a measured ratio above 1.0 raises it.
+/// All three terms coexist for a conversion that has not finalized yet:
+/// reconciliation captures a second candidate while the finalized file it is
+/// updating is still on disk, and the staging tables that carry the changed
+/// rows live in the workspace until the transaction commits. Each database
+/// term starts at the full source size - no compression is assumed - and a
+/// measured ratio above 1.0 raises it.
+///
+/// `finalized_already_exists` is for resuming a conversion that already
+/// produced a finalized file (`AuthorityState::FinalizedUnselected` or a
+/// resumable `ConversionInProgress`): the caller's available-space
+/// measurement already excludes that file's own footprint as "not free", so
+/// budgeting *another* `finalized_estimate_bytes` of free space on top would
+/// demand space for a second copy the resumed run never creates - reconciling
+/// only updates the existing file, bounded by the workspace term.
 pub fn conversion_space_requirement(
   source_total_bytes: u64,
   measured: Option<ConversionSpaceObservation>,
+  finalized_already_exists: bool,
 ) -> ConversionSpaceRequirement {
   let candidate_estimate_bytes = scale(
     source_total_bytes,
     measured.map(|observed| (observed.candidate_bytes, observed.source_bytes)),
   );
-  let finalized_estimate_bytes = scale(
-    source_total_bytes,
-    measured.map(|observed| (observed.finalized_bytes, observed.source_bytes)),
-  );
+  let finalized_estimate_bytes = if finalized_already_exists {
+    0
+  } else {
+    scale(
+      source_total_bytes,
+      measured.map(|observed| (observed.finalized_bytes, observed.source_bytes)),
+    )
+  };
   let workspace_estimate_bytes = source_total_bytes.max(MINIMUM_WORKSPACE_BYTES);
   ConversionSpaceRequirement {
     candidate_estimate_bytes,
@@ -110,10 +125,14 @@ fn scale(source_total_bytes: u64, ratio: Option<(u64, u64)>) -> u64 {
 
 /// Measure the source, budget the conversion, and refuse with numbers when the
 /// workspace volume cannot hold it.
+///
+/// `finalized_already_exists` is passed straight to
+/// [`conversion_space_requirement`]; see its documentation.
 pub fn plan_conversion_space(
   source_database: &Path,
   workspace: &Path,
   measured: Option<ConversionSpaceObservation>,
+  finalized_already_exists: bool,
 ) -> Result<ConversionSpacePlan, NativeDatabaseError> {
   let source_database_bytes =
     file_bytes(source_database).ok_or_else(|| NativeDatabaseError::Unavailable {
@@ -128,7 +147,8 @@ pub fn plan_conversion_space(
     })
     .fold(0_u64, u64::saturating_add);
   let source_total_bytes = source_database_bytes.saturating_add(source_journal_bytes);
-  let requirement = conversion_space_requirement(source_total_bytes, measured);
+  let requirement =
+    conversion_space_requirement(source_total_bytes, measured, finalized_already_exists);
   let available_bytes = available_bytes(workspace)?;
 
   let plan = ConversionSpacePlan {
@@ -214,7 +234,7 @@ mod tests {
   #[test]
   fn budgets_two_databases_and_a_workspace_without_assuming_compression() {
     let source = 4 * 1024 * 1024 * 1024_u64;
-    let requirement = conversion_space_requirement(source, None);
+    let requirement = conversion_space_requirement(source, None, false);
     assert_eq!(requirement.candidate_estimate_bytes, source);
     assert_eq!(requirement.finalized_estimate_bytes, source);
     assert_eq!(requirement.workspace_estimate_bytes, source);
@@ -229,7 +249,7 @@ mod tests {
       candidate_bytes: 40,
       finalized_bytes: 25,
     };
-    let requirement = conversion_space_requirement(source, Some(measured));
+    let requirement = conversion_space_requirement(source, Some(measured), false);
     assert_eq!(requirement.candidate_estimate_bytes, source);
     assert_eq!(requirement.finalized_estimate_bytes, source);
   }
@@ -242,7 +262,7 @@ mod tests {
       candidate_bytes: 150,
       finalized_bytes: 301,
     };
-    let requirement = conversion_space_requirement(source, Some(measured));
+    let requirement = conversion_space_requirement(source, Some(measured), false);
     assert_eq!(requirement.candidate_estimate_bytes, 1_500);
     // Rounded up: a budget must never be short by a partial byte.
     assert_eq!(requirement.finalized_estimate_bytes, 3_010);
@@ -254,12 +274,26 @@ mod tests {
 
   #[test]
   fn a_small_source_still_reserves_the_workspace_floor() {
-    let requirement = conversion_space_requirement(1_024, None);
+    let requirement = conversion_space_requirement(1_024, None, false);
     assert_eq!(
       requirement.workspace_estimate_bytes,
       MINIMUM_WORKSPACE_BYTES
     );
     assert_eq!(requirement.required_bytes, 2_048 + MINIMUM_WORKSPACE_BYTES);
+  }
+
+  #[test]
+  fn resuming_a_finalized_conversion_does_not_budget_a_second_finalized_file() {
+    let source = 4 * 1024 * 1024 * 1024_u64;
+    let requirement = conversion_space_requirement(source, None, true);
+    assert_eq!(requirement.candidate_estimate_bytes, source);
+    assert_eq!(requirement.finalized_estimate_bytes, 0);
+    assert_eq!(requirement.workspace_estimate_bytes, source);
+    // Not `source * 3`: the caller's available-space measurement already
+    // excludes the existing finalized file's own footprint, so demanding
+    // another `finalized_estimate_bytes` of free space would ask for room
+    // for a second copy the resumed run never creates.
+    assert_eq!(requirement.required_bytes, source * 2);
   }
 
   /// Pure path arithmetic, so it runs on every platform even though only
@@ -309,9 +343,13 @@ mod tests {
   #[test]
   fn an_absent_source_is_refused_before_any_work() {
     let directory = tempfile::tempdir().unwrap();
-    let error =
-      plan_conversion_space(&directory.path().join("absent.db"), directory.path(), None)
-        .unwrap_err();
+    let error = plan_conversion_space(
+      &directory.path().join("absent.db"),
+      directory.path(),
+      None,
+      false,
+    )
+    .unwrap_err();
     assert!(matches!(error, NativeDatabaseError::Unavailable { .. }));
   }
 
@@ -326,14 +364,28 @@ mod tests {
     )
     .unwrap();
 
-    let plan = plan_conversion_space(&source, directory.path(), None).unwrap();
+    let plan = plan_conversion_space(&source, directory.path(), None, false).unwrap();
     assert_eq!(plan.source_database_bytes, 4_096);
     assert_eq!(plan.source_journal_bytes, 2_048);
     assert_eq!(plan.source_total_bytes, 6_144);
     assert_eq!(
       plan.required_bytes,
-      conversion_space_requirement(6_144, None).required_bytes
+      conversion_space_requirement(6_144, None, false).required_bytes
     );
     assert!(plan.available_bytes > 0);
+  }
+
+  #[test]
+  fn the_plan_drops_the_finalized_term_when_it_already_exists() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("hv-database.db");
+    std::fs::write(&source, vec![0_u8; 4_096]).unwrap();
+
+    let plan = plan_conversion_space(&source, directory.path(), None, true).unwrap();
+    assert_eq!(plan.finalized_estimate_bytes, 0);
+    assert_eq!(
+      plan.required_bytes,
+      conversion_space_requirement(4_096, None, true).required_bytes
+    );
   }
 }
