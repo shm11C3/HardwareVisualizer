@@ -174,10 +174,9 @@ describe("useSnapshot - Branch Coverage", () => {
     expect(result.current.filteredProcessData[0].process_name).toBe("high_cpu");
   });
 
-  it("should return step of 60000 when period diff is zero (step guard branch)", async () => {
+  it("should still request a 60-second step when the period is empty", async () => {
     const { result } = renderHook(() => useSnapshot());
 
-    // The step useMemo guard returns 60000 when diff <= 0 (same start/end)
     act(() => {
       result.current.setPeriod({
         start: "2023-01-01T10:00:00Z",

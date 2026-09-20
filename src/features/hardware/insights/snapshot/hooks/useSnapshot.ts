@@ -89,8 +89,6 @@ export const useSnapshot = () => {
     const endTime = new Date(period.end).getTime();
     const diff = endTime - startTime;
 
-    if (diff <= 0) return 60000;
-
     return Math.ceil(Math.max(diff / BUCKET_COUNT, 60000));
   }, [period]);
 
