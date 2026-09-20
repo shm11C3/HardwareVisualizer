@@ -384,6 +384,43 @@ describe("useExportToClipboard", () => {
     });
     const content = getWrittenContent();
     expect(content).toContain("AA:BB:CC:DD:EE:FF");
+    expect(content).not.toContain("shared.linkLocal");
+  });
+
+  it("separates each network adapter's block from the next with a blank line", async () => {
+    mockUseHardwareInfoAtom.mockReturnValue({
+      hardwareInfo: defaultSysInfo,
+      networkInfo: [
+        networkWithLinkLocal,
+        {
+          ...networkWithLinkLocal,
+          description: "Wi-Fi",
+          macAddress: "11:22:33:44:55:66",
+        },
+      ],
+    });
+    const { result } = renderHook(() => useExportToClipboard());
+    await act(async () => {
+      await result.current.exportToClipboard();
+    });
+    expect(getWrittenContent()).toContain(
+      "shared.ipv6 shared.gateway: fe80::1\n\nshared.macAddress: 11:22:33:44:55:66",
+    );
+  });
+
+  it("omits the network section when there are no adapters", async () => {
+    mockUseHardwareInfoAtom.mockReturnValue({
+      hardwareInfo: { ...defaultSysInfo, motherboard: motherboardWithVersion },
+      networkInfo: [],
+    });
+    const { result } = renderHook(() => useExportToClipboard());
+    await act(async () => {
+      await result.current.exportToClipboard();
+    });
+    // The sections either side of the network section stay one blank line apart.
+    expect(getWrittenContent()).toContain(
+      "No GPU information available\n\nshared.manufacturer: ASUS",
+    );
   });
 
   // ── Process count ─────────────────────────────────────────────────────────
