@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  getProcessStatsMock: vi.fn(),
   getDataArchiveSeriesMock: vi.fn(),
   getProcessStatsInPeriodMock: vi.fn(),
 }));
 
 vi.mock("@/rspc/bindings", () => ({
   commands: {
-    getProcessStats: hoisted.getProcessStatsMock,
     getDataArchiveSeries: hoisted.getDataArchiveSeriesMock,
     getProcessStatsInPeriod: hoisted.getProcessStatsInPeriodMock,
   },
@@ -17,71 +15,6 @@ vi.mock("@/rspc/bindings", () => ({
 describe("getArchivedRecord functions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe("getProcessStats", () => {
-    it("queries process_stats with the correct time window", async () => {
-      const endAt = new Date("2023-06-01T02:00:00.000Z");
-      const period = 30;
-      const mockRows = [
-        {
-          pid: 1,
-          process_name: "foo",
-          avg_cpu_usage: 5,
-          avg_memory_usage: 100,
-          total_execution_sec: 60,
-          latest_timestamp: "2023-06-01T02:00:00.000Z",
-        },
-      ];
-      hoisted.getProcessStatsMock.mockResolvedValue({
-        status: "ok",
-        data: mockRows,
-      });
-
-      const { getProcessStats } = await import(
-        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
-      );
-      const result = await getProcessStats(period, endAt);
-
-      expect(hoisted.getProcessStatsMock).toHaveBeenCalledWith(
-        period,
-        endAt.toISOString(),
-      );
-      expect(result).toEqual(mockRows);
-    });
-
-    it("normalizes a string period before calling the typed command", async () => {
-      const endAt = new Date("2023-06-01T02:00:00.000Z");
-      hoisted.getProcessStatsMock.mockResolvedValue({
-        status: "ok",
-        data: [],
-      });
-
-      const { getProcessStats } = await import(
-        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
-      );
-      await getProcessStats("180", endAt);
-
-      expect(hoisted.getProcessStatsMock).toHaveBeenCalledWith(
-        180,
-        endAt.toISOString(),
-      );
-    });
-
-    it("throws when the process stats command returns an error result", async () => {
-      hoisted.getProcessStatsMock.mockResolvedValue({
-        status: "error",
-        error: "process stats failed",
-      });
-
-      const { getProcessStats } = await import(
-        "@/features/hardware/insights/snapshot/funcs/getArchivedRecord"
-      );
-
-      await expect(getProcessStats(30, new Date())).rejects.toThrow(
-        "Failed to fetch process stats: process stats failed",
-      );
-    });
   });
 
   describe("getArchivedRecord", () => {
