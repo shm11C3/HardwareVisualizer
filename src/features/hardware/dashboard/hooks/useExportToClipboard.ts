@@ -117,7 +117,7 @@ export const useExportToClipboard = ({
           value: nw.defaultIpv4Gateway.join(", "),
         },
         { key: t("shared.ipv6"), value: nw.ipv6.join(", ") },
-        ...(nw.linkLocalIpv6
+        ...(nw.linkLocalIpv6.length > 0
           ? [
               {
                 key: `${t("shared.linkLocal")} ${t("shared.ipv6")} ${t("shared.address")}`,

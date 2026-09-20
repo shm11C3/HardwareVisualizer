@@ -384,6 +384,7 @@ describe("useExportToClipboard", () => {
     });
     const content = getWrittenContent();
     expect(content).toContain("AA:BB:CC:DD:EE:FF");
+    expect(content).not.toContain("shared.linkLocal");
   });
 
   // ── Process count ─────────────────────────────────────────────────────────
