@@ -107,32 +107,34 @@ export const useExportToClipboard = ({
       })
       .join("\n");
 
-    const networkInfoText = networkInfo.map((nw) => {
-      return [
-        { key: t("shared.macAddress"), value: nw.macAddress },
-        { key: t("shared.ipv4"), value: nw.ipv4.join(", ") },
-        { key: t("shared.subnetMask"), value: nw.ipSubnet.join(", ") },
-        {
-          key: t("shared.gateway"),
-          value: nw.defaultIpv4Gateway.join(", "),
-        },
-        { key: t("shared.ipv6"), value: nw.ipv6.join(", ") },
-        ...(nw.linkLocalIpv6.length > 0
-          ? [
-              {
-                key: `${t("shared.linkLocal")} ${t("shared.ipv6")} ${t("shared.address")}`,
-                value: nw.linkLocalIpv6.join(", "),
-              },
-            ]
-          : []),
-        {
-          key: `${t("shared.ipv6")} ${t("shared.gateway")}`,
-          value: nw.defaultIpv6Gateway.join(", "),
-        },
-      ]
-        .map(({ key, value }) => `${key}: ${value}`)
-        .join("\n");
-    });
+    const networkInfoText = networkInfo
+      .map((nw) => {
+        return [
+          { key: t("shared.macAddress"), value: nw.macAddress },
+          { key: t("shared.ipv4"), value: nw.ipv4.join(", ") },
+          { key: t("shared.subnetMask"), value: nw.ipSubnet.join(", ") },
+          {
+            key: t("shared.gateway"),
+            value: nw.defaultIpv4Gateway.join(", "),
+          },
+          { key: t("shared.ipv6"), value: nw.ipv6.join(", ") },
+          ...(nw.linkLocalIpv6.length > 0
+            ? [
+                {
+                  key: `${t("shared.linkLocal")} ${t("shared.ipv6")} ${t("shared.address")}`,
+                  value: nw.linkLocalIpv6.join(", "),
+                },
+              ]
+            : []),
+          {
+            key: `${t("shared.ipv6")} ${t("shared.gateway")}`,
+            value: nw.defaultIpv6Gateway.join(", "),
+          },
+        ]
+          .map(({ key, value }) => `${key}: ${value}`)
+          .join("\n");
+      })
+      .join("\n\n");
 
     const motherboardInfoText = hardwareInfo.motherboard
       ? [
