@@ -483,10 +483,13 @@ the small vocabulary the user-facing flow
 ([#2136](https://github.com/shm11C3/HardwareVisualizer/issues/2136)) renders:
 `SqliteAuthoritative`, `ConversionRecoverable { resumable }`,
 `Converting(step)`, `NativeAuthoritative`, and `ActionRequired(issue)`. It is
-a lossless translation of Core's five-variant `AuthorityState` (itself derived
-from the two-value durable record above plus what is on disk), widened only
-with what a point-in-time disk read cannot express: a running conversion's
-step, and a driver failure or cancellation. One function
+an App-facing projection of Core's five-variant `AuthorityState` (itself
+derived from the two-value durable record above plus what is on disk), not a
+one-to-one copy: `FinalizedUnselected` and a resumable `ConversionInProgress`
+both become `ConversionRecoverable { resumable: true }`, because the user's
+next action is the same. It adds what a point-in-time disk read cannot
+express: a running conversion's step, a driver failure or cancellation, and a
+selected database whose runtime open failed (`NativeOpenFailed`). One function
 (`inspect_startup_authority`) is the App's only reader of
 `observe_authority`/`inspect_authority`, so the vocabulary always has exactly
 one source.
