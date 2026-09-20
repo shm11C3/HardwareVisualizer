@@ -915,6 +915,68 @@ async fn refuses_a_request_capacity_of_zero() {
   );
 }
 
+#[tokio::test]
+async fn checkpoint_flushes_the_write_ahead_log_and_keeps_the_data() {
+  let fixture = seeded_native().await;
+  let database = fixture.open().await;
+
+  process_stats::insert(
+    &database,
+    NativeCancellation::new(),
+    vec![process("checkpoint-survivor", 1.0)],
+    "2026-09-03T00:00:00Z".parse().unwrap(),
+  )
+  .await
+  .unwrap();
+
+  let mut wal_path = fixture.finalized.as_os_str().to_os_string();
+  wal_path.push(".wal");
+  let wal_path = std::path::PathBuf::from(wal_path);
+  assert!(
+    wal_path.is_file() && std::fs::metadata(&wal_path).unwrap().len() > 0,
+    "a committed write should leave a non-empty WAL before checkpointing"
+  );
+
+  database
+    .checkpoint(NativeCancellation::new())
+    .await
+    .unwrap();
+
+  assert!(
+    !wal_path.is_file() || std::fs::metadata(&wal_path).unwrap().len() == 0,
+    "CHECKPOINT should flush the WAL"
+  );
+
+  let rows = process_stats::select_process_stats(
+    &database,
+    NativeCancellation::new(),
+    String::new(),
+    "z".to_owned(),
+    false,
+  )
+  .await
+  .unwrap();
+  assert!(
+    !rows.is_empty(),
+    "the checkpointed row must still be readable"
+  );
+
+  database.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn checkpoint_after_close_reports_closed() {
+  let fixture = seeded_native().await;
+  let database = fixture.open().await;
+  database.close().await.unwrap();
+
+  let error = database
+    .checkpoint(NativeCancellation::new())
+    .await
+    .unwrap_err();
+  assert!(matches!(error, NativeDatabaseError::Closed), "{error:?}");
+}
+
 async fn seeded_native() -> NativeFixture {
   let fixture = NativeFixture::new();
   let pool = fixture.migrated_pool().await;
