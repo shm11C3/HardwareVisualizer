@@ -1,12 +1,6 @@
 import { CpuIcon, GraphicsCardIcon, MemoryIcon } from "@phosphor-icons/react";
 import { useAtomValue } from "jotai";
-import {
-  type CSSProperties,
-  memo,
-  type ReactNode,
-  useEffect,
-  useMemo,
-} from "react";
+import { memo, type ReactNode, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { DoughnutChart } from "@/components/charts/DoughnutChart";
 import { useGpuAdapters } from "@/features/hardware/hooks/useGpuAdapters";
@@ -75,13 +69,8 @@ const MetricInstrument = memo(
   }) => (
     <article
       className="relative min-w-0 overflow-hidden rounded-2xl bg-card p-4 pb-3"
-      style={{ "--metric-color": color } as CSSProperties}
       data-testid={`performance-metric-${metricId}`}
     >
-      <div
-        className="absolute inset-x-0 top-0 h-0.5 bg-[var(--metric-color)]"
-        aria-hidden="true"
-      />
       <div className="flex min-w-0 items-center gap-2">
         {icon}
         <p className="shrink-0 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
