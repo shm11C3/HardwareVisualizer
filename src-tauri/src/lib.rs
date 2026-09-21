@@ -480,11 +480,20 @@ pub fn run() {
   #[cfg(not(feature = "duckdb-archive"))]
   let sqlite_source_is_authoritative = true;
 
+  // The compatibility preflight opens the SQLite file, so it is gated the
+  // same way the migrations below are. Once the native database is
+  // authoritative the SQLite file is only a recovery copy: an unreadable or
+  // newer-schema copy must not set `db_error` and keep the dispatch-backed
+  // producers from starting on a native database that opened fine.
   let app_max_version = infrastructure::database::migration::get_max_migration_version();
-  let mut db_error = hardviz_core::persistence::preflight::check_db_compatibility(
-    &db_path,
-    app_max_version,
-  );
+  let mut db_error = if sqlite_source_is_authoritative {
+    hardviz_core::persistence::preflight::check_db_compatibility(
+      &db_path,
+      app_max_version,
+    )
+  } else {
+    None
+  };
 
   // Core owns the database pool, so it also applies the schema migrations —
   // synchronously here, before any persistence worker writes. These were
