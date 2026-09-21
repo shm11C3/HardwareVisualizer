@@ -18,10 +18,27 @@ runs:
   using: "composite"
   steps:
     - name: Setup Node.js
+      id: setup-node
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
       with:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
+
+    - name: Report Node cache restore
+      shell: bash
+      env:
+        CACHE_HIT: ${{ steps.setup-node.outputs.cache-hit }}
+      run: |
+        exact_hit="false"
+        if [ "$CACHE_HIT" = "true" ]; then
+          exact_hit="true"
+        fi
+        json=$(printf '{"exact_hit":%s}' "$exact_hit")
+        # See setup-rust/action.yml's "Report Rust cache restore" step: the
+        # marker name is split across printf arguments so the runner's echo
+        # of this script does not leave a second, unparseable occurrence of
+        # it in the log.
+        printf '%s_METRICS_JSON=%s\n' NODE_CACHE "$json"
 
     - name: Setup safe-chain
       if: inputs.setup-safe-chain == 'true'
