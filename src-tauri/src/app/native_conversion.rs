@@ -1148,6 +1148,24 @@ mod tests {
     );
   }
 
+  // Windows-only: this test simulates "something else already holds the
+  // database open" by opening it a second time from *within this same
+  // process*. That only produces a real conflict on Windows, whose default
+  // file sharing mode makes a second handle to a file already open for
+  // read/write in the same process fail exactly like a second process
+  // would. On POSIX (macOS/Linux), DuckDB's file lock is an `fcntl` byte
+  // range lock, and POSIX defines those as scoped to the (process, inode)
+  // pair - a second `fcntl` lock request from the *same* process merges
+  // with its own earlier lock rather than conflicting with it, no matter
+  // which file descriptor requests it. So the second open here would
+  // succeed on POSIX, which is not a product bug (a genuinely different
+  // process is still refused there, exactly as `observe_authority`'s own
+  // documentation describes) - it just means same-process double-open
+  // cannot stand in for cross-process contention on those platforms.
+  // Confirmed locally on macOS: the second open observed
+  // `DatabaseLifecycleState::NativeAuthoritative` and succeeded instead of
+  // reporting `ActionRequired`.
+  #[cfg(target_os = "windows")]
   #[tokio::test]
   async fn a_concurrently_held_database_is_reported_as_action_required_not_silently_skipped()
    {
