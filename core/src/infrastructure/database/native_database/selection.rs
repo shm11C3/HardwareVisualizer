@@ -385,11 +385,12 @@ fn select(
 /// The operation is intentionally stricter than conversion: any source,
 /// native file, marker, sidecar or conversion work directory makes it refuse
 /// rather than overwrite an artifact whose meaning belongs to another
-/// lifecycle. The database is built in a conversion work directory and is
-/// renamed into place only after its stable schema, selected metadata and
-/// identity high-water marks have committed. That means an interruption before
-/// the rename leaves only disposable work; an interruption after the rename but
-/// before the marker is the existing `SelectedWithoutMarker` repair case.
+/// lifecycle. The database is built in a fresh-install work directory and is
+/// published without replacing an existing path only after its stable schema,
+/// selected metadata and identity high-water marks have committed. That means
+/// an interruption before publication leaves only disposable work; an
+/// interruption after publication but before the marker is the existing
+/// `SelectedWithoutMarker` repair case.
 pub async fn create_empty_native_database(
   paths: AuthorityPaths,
   schema: NativeSchemaDefinition,
@@ -457,10 +458,20 @@ fn create_empty(
   require_no_wal(&database_path)?;
   sync_file(&database_path)?;
 
-  fs::rename(&database_path, &paths.native_database).map_err(|error| {
+  // `rename` replaces an existing destination on Unix. The initial artifact
+  // check cannot by itself serialize two first launches, so publish through a
+  // hard link whose destination creation fails atomically when another
+  // process won the race.
+  fs::hard_link(&database_path, &paths.native_database).map_err(|error| {
     NativeDatabaseError::selection(
       "publish the fresh native database",
       format!("{}: {error}", paths.native_database.display()),
+    )
+  })?;
+  fs::remove_file(&database_path).map_err(|error| {
+    NativeDatabaseError::selection(
+      "clean up the published fresh native database work file",
+      error,
     )
   })?;
   sync_directory(parent)?;
