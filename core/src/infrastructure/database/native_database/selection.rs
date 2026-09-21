@@ -36,7 +36,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use duckdb::{AccessMode, Connection};
+use duckdb::{AccessMode, Connection, params};
 use serde::{Deserialize, Serialize};
 
 use super::NativeDatabaseError;
@@ -46,10 +46,11 @@ use super::compatibility::{
   verify_storage_version,
 };
 use super::finalize::{
-  FINALIZED_UNSELECTED, NATIVE_METADATA_TABLE, SELECTED, open_database,
-  open_database_with_storage_version, require_no_wal,
+  FINALIZED_UNSELECTED, NATIVE_IDENTITY_TABLE, NATIVE_METADATA_TABLE, SELECTED,
+  open_database, open_database_with_storage_version, require_no_wal,
 };
 use super::reconcile::NativeReconciliationReport;
+use super::schema::{NativeIdentityMode, NativeSchemaDefinition};
 
 /// The marker file name, resolved by the caller against the directory that
 /// holds the databases.
@@ -58,6 +59,7 @@ pub const AUTHORITY_MARKER_FILE_NAME: &str = "hv-database.authority.json";
 /// The prefix every conversion work directory shares, so leftover debris is
 /// recognizable without knowing which step produced it.
 const WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-";
+const FRESH_WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-fresh-";
 
 const MARKER_VERSION: u32 = 1;
 
@@ -244,7 +246,8 @@ pub enum AuthorityRecovery {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AuthorityState {
-  /// The ordinary state before any conversion, and after a fresh install.
+  /// The ordinary state before native creation or conversion: SQLite is
+  /// authoritative and no native artifact exists.
   SqliteAuthoritative,
   /// Debris from an interrupted conversion. `resumable` means a complete
   /// finalized file is present, so the conversion resumes at reconciliation;
@@ -376,6 +379,245 @@ fn select(
   Ok(marker)
 }
 
+/// Create and durably select the native database for a profile that has no
+/// database yet.
+///
+/// The operation is intentionally stricter than conversion: any source,
+/// native file, marker, sidecar or conversion work directory makes it refuse
+/// rather than overwrite an artifact whose meaning belongs to another
+/// lifecycle. The database is built in a conversion work directory and is
+/// renamed into place only after its stable schema, selected metadata and
+/// identity high-water marks have committed. That means an interruption before
+/// the rename leaves only disposable work; an interruption after the rename but
+/// before the marker is the existing `SelectedWithoutMarker` repair case.
+pub async fn create_empty_native_database(
+  paths: AuthorityPaths,
+  schema: NativeSchemaDefinition,
+) -> Result<AuthorityMarker, NativeDatabaseError> {
+  tokio::task::spawn_blocking(move || create_empty(&paths, schema))
+    .await
+    .map_err(|error| NativeDatabaseError::Worker {
+      message: error.to_string(),
+    })?
+}
+
+fn create_empty(
+  paths: &AuthorityPaths,
+  schema: NativeSchemaDefinition,
+) -> Result<AuthorityMarker, NativeDatabaseError> {
+  refuse_existing_fresh_artifacts(paths)?;
+  let parent = paths
+    .native_database
+    .parent()
+    .filter(|path| !path.as_os_str().is_empty())
+    .ok_or_else(|| {
+      NativeDatabaseError::selection(
+        "reserve fresh native database storage",
+        "the native database path has no parent directory",
+      )
+    })?;
+  if !parent.is_dir() {
+    return Err(NativeDatabaseError::selection(
+      "reserve fresh native database storage",
+      format!("database parent does not exist: {}", parent.display()),
+    ));
+  }
+
+  let work = tempfile::Builder::new()
+    .prefix(FRESH_WORK_PREFIX)
+    .tempdir_in(parent)
+    .map_err(|error| {
+      NativeDatabaseError::selection("reserve fresh native database storage", error)
+    })?;
+  let database_path = work.path().join("fresh.duckdb");
+  let spill = work.path().join("spill");
+  fs::create_dir(&spill).map_err(|error| {
+    NativeDatabaseError::selection("create fresh native database spill storage", error)
+  })?;
+
+  {
+    let connection =
+      open_database_with_storage_version(&database_path, AccessMode::ReadWrite, &spill)?;
+    let storage_version = engine_storage_version(&connection)?;
+    connection
+      .execute_batch("BEGIN TRANSACTION")
+      .map_err(|error| {
+        NativeDatabaseError::duckdb("begin fresh native database creation", error)
+      })?;
+    if let Err(error) = write_empty_schema(&connection, schema, &storage_version) {
+      let _ = connection.execute_batch("ROLLBACK");
+      return Err(error);
+    }
+    connection
+      .execute_batch("COMMIT; CHECKPOINT")
+      .map_err(|error| {
+        NativeDatabaseError::duckdb("commit fresh native database creation", error)
+      })?;
+  }
+  require_no_wal(&database_path)?;
+  sync_file(&database_path)?;
+
+  fs::rename(&database_path, &paths.native_database).map_err(|error| {
+    NativeDatabaseError::selection(
+      "publish the fresh native database",
+      format!("{}: {error}", paths.native_database.display()),
+    )
+  })?;
+  sync_directory(parent)?;
+
+  let marker = AuthorityMarker {
+    version: MARKER_VERSION,
+    native_database_file_name: file_name_of(&paths.native_database)?,
+    schema_version: schema.version,
+    // A fresh profile has no SQLite source schema to hash. Empty is an
+    // explicit "no source" value; consumers only compare it with the marker.
+    source_schema_sha256: String::new(),
+    total_rows: 0,
+  };
+  write_marker_atomically_noclobber(&paths.marker, &marker)?;
+  Ok(marker)
+}
+
+fn write_empty_schema(
+  connection: &Connection,
+  schema: NativeSchemaDefinition,
+  storage_version: &str,
+) -> Result<(), NativeDatabaseError> {
+  connection.execute_batch(schema.sql).map_err(|error| {
+    NativeDatabaseError::duckdb("create the fresh native schema", error)
+  })?;
+  connection
+    .execute_batch(&format!(
+      "CREATE TABLE {} (state VARCHAR NOT NULL, schema_version BIGINT NOT NULL, \
+       storage_version VARCHAR NOT NULL, source_candidate_path VARCHAR NOT NULL, \
+       source_schema_sha256 VARCHAR NOT NULL, source_rows BIGINT NOT NULL, \
+       reconciled BOOLEAN NOT NULL); \
+       CREATE TABLE {} (table_name VARCHAR PRIMARY KEY, column_name VARCHAR NOT NULL, \
+       mode VARCHAR NOT NULL, high_water BIGINT NOT NULL)",
+      quote_identifier(NATIVE_METADATA_TABLE),
+      quote_identifier(NATIVE_IDENTITY_TABLE)
+    ))
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("create fresh native metadata tables", error)
+    })?;
+
+  for identity in schema.identities {
+    let mode = match identity.mode {
+      NativeIdentityMode::RowId => "rowid",
+      NativeIdentityMode::AutoIncrement { .. } => "autoincrement",
+    };
+    connection
+      .execute(
+        &format!(
+          "INSERT INTO {} VALUES (?, ?, ?, 0)",
+          quote_identifier(NATIVE_IDENTITY_TABLE)
+        ),
+        params![identity.table, identity.column, mode],
+      )
+      .map_err(|error| {
+        NativeDatabaseError::duckdb("initialize fresh native identities", error)
+      })?;
+  }
+
+  connection
+    .execute(
+      &format!(
+        "INSERT INTO {} VALUES (?, ?, ?, '', '', 0, true)",
+        quote_identifier(NATIVE_METADATA_TABLE)
+      ),
+      params![SELECTED, i64::from(schema.version), storage_version],
+    )
+    .map(|_| ())
+    .map_err(|error| NativeDatabaseError::duckdb("record fresh native authority", error))
+}
+
+/// Remove only interrupted fresh-install work after the caller has established
+/// that no source, native database or marker exists. Without one of those
+/// authoritative artifacts, a work directory cannot contain user history that
+/// is still recoverable; deleting it is the one safe discard in this lifecycle.
+pub fn discard_interrupted_fresh_creation_work(
+  paths: &AuthorityPaths,
+) -> Result<bool, NativeDatabaseError> {
+  if path_exists(&paths.source_database)
+    || path_exists(&paths.native_database)
+    || path_exists(&paths.marker)
+    || path_exists(&sidecar_path(&paths.source_database, "-wal"))
+    || path_exists(&sidecar_path(&paths.source_database, "-shm"))
+    || path_exists(&sidecar_path(&paths.native_database, ".wal"))
+  {
+    return Ok(false);
+  }
+  let Some(parent) = paths.native_database.parent() else {
+    return Ok(false);
+  };
+  let entries = fs::read_dir(parent).map_err(|error| {
+    NativeDatabaseError::selection("inspect fresh native database work", error)
+  })?;
+  let mut discarded = false;
+  for entry in entries {
+    let entry = entry.map_err(|error| {
+      NativeDatabaseError::selection("inspect fresh native database work", error)
+    })?;
+    if entry
+      .file_name()
+      .to_string_lossy()
+      .starts_with(FRESH_WORK_PREFIX)
+      && entry
+        .file_type()
+        .map_err(|error| {
+          NativeDatabaseError::selection("inspect fresh native database work", error)
+        })?
+        .is_dir()
+    {
+      fs::remove_dir_all(entry.path()).map_err(|error| {
+        NativeDatabaseError::selection(
+          "discard interrupted fresh native database work",
+          error,
+        )
+      })?;
+      discarded = true;
+    }
+  }
+  Ok(discarded)
+}
+
+fn refuse_existing_fresh_artifacts(
+  paths: &AuthorityPaths,
+) -> Result<(), NativeDatabaseError> {
+  for path in [
+    &paths.source_database,
+    &paths.native_database,
+    &paths.marker,
+    &sidecar_path(&paths.source_database, "-wal"),
+    &sidecar_path(&paths.source_database, "-shm"),
+    &sidecar_path(&paths.native_database, ".wal"),
+  ] {
+    if path_exists(path) {
+      return Err(NativeDatabaseError::FreshInstallArtifactExists { path: path.clone() });
+    }
+  }
+  if work_directory_present(&paths.native_database) {
+    return Err(NativeDatabaseError::FreshInstallArtifactExists {
+      path: paths
+        .native_database
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_owned(),
+    });
+  }
+  Ok(())
+}
+
+fn path_exists(path: &Path) -> bool {
+  fs::symlink_metadata(path).is_ok()
+}
+
+fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
+  let mut sidecar = path.as_os_str().to_os_string();
+  sidecar.push(suffix);
+  PathBuf::from(sidecar)
+}
+
 /// Close the one repairable gap: a database that committed `selected` while its
 /// marker never landed.
 ///
@@ -476,6 +718,21 @@ fn write_marker_atomically(
   marker_path: &Path,
   marker: &AuthorityMarker,
 ) -> Result<(), NativeDatabaseError> {
+  write_marker_atomically_with(marker_path, marker, false)
+}
+
+fn write_marker_atomically_noclobber(
+  marker_path: &Path,
+  marker: &AuthorityMarker,
+) -> Result<(), NativeDatabaseError> {
+  write_marker_atomically_with(marker_path, marker, true)
+}
+
+fn write_marker_atomically_with(
+  marker_path: &Path,
+  marker: &AuthorityMarker,
+  no_clobber: bool,
+) -> Result<(), NativeDatabaseError> {
   let directory = marker_path
     .parent()
     .filter(|path| !path.as_os_str().is_empty())
@@ -501,9 +758,15 @@ fn write_marker_atomically(
   temporary.as_file().sync_all().map_err(|error| {
     NativeDatabaseError::selection("sync the selection marker", error)
   })?;
-  temporary.persist(marker_path).map_err(|error| {
-    NativeDatabaseError::selection("publish the selection marker", error.error)
-  })?;
+  if no_clobber {
+    temporary.persist_noclobber(marker_path).map_err(|error| {
+      NativeDatabaseError::selection("publish the selection marker", error.error)
+    })?;
+  } else {
+    temporary.persist(marker_path).map_err(|error| {
+      NativeDatabaseError::selection("publish the selection marker", error.error)
+    })?;
+  }
   sync_directory(directory)
 }
 
@@ -1037,5 +1300,153 @@ mod tests {
     assert_eq!(observe_marker(&path), MarkerFacts::Unreadable);
     std::fs::remove_file(&path).unwrap();
     assert_eq!(observe_marker(&path), MarkerFacts::Absent);
+  }
+
+  fn fresh_schema() -> NativeSchemaDefinition {
+    static IDENTITIES:
+      &[crate::infrastructure::database::native_database::NativeIdentity] = &[
+      crate::infrastructure::database::native_database::NativeIdentity {
+        table: "smoke",
+        column: "id",
+        mode: NativeIdentityMode::RowId,
+      },
+    ];
+    NativeSchemaDefinition {
+      version: 7,
+      sql: "CREATE TABLE smoke (id BIGINT PRIMARY KEY)",
+      tables: &["smoke"],
+      timestamp_columns: &[],
+      identities: IDENTITIES,
+    }
+  }
+
+  fn fresh_paths(directory: &std::path::Path) -> AuthorityPaths {
+    AuthorityPaths::in_directory(directory, "hv-database.db", "hv-database.duckdb")
+  }
+
+  #[tokio::test]
+  async fn fresh_creation_records_selected_metadata_and_zero_identity_watermarks() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    let marker = create_empty_native_database(paths.clone(), fresh_schema())
+      .await
+      .unwrap();
+
+    assert_eq!(marker.schema_version, 7);
+    assert!(marker.source_schema_sha256.is_empty());
+    assert_eq!(marker.total_rows, 0);
+    assert!(paths.native_database.is_file());
+    assert!(paths.marker.is_file());
+    assert_eq!(
+      inspect_authority(&observe_authority(&paths, 7)),
+      AuthorityState::NativeSelected
+    );
+
+    let spill = selection_spill().unwrap();
+    let connection =
+      open_database(&paths.native_database, AccessMode::ReadOnly, spill.path()).unwrap();
+    let (state, schema_version, _storage_version, source_hash, source_rows, reconciled) =
+      read_metadata_row(&connection).unwrap();
+    assert_eq!(state, SELECTED);
+    assert_eq!(schema_version, 7);
+    assert!(source_hash.is_empty());
+    assert_eq!(source_rows, 0);
+    assert!(reconciled);
+    let high_water: i64 = connection
+      .query_row(
+        "SELECT high_water FROM __hv_native_identities WHERE table_name = ?",
+        [&"smoke"],
+        |row| row.get(0),
+      )
+      .unwrap();
+    assert_eq!(high_water, 0);
+  }
+
+  async fn assert_fresh_creation_refuses(setup: impl FnOnce(&AuthorityPaths)) {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    setup(&paths);
+    let error = create_empty_native_database(paths, fresh_schema())
+      .await
+      .unwrap_err();
+    assert!(matches!(
+      error,
+      NativeDatabaseError::FreshInstallArtifactExists { .. }
+    ));
+  }
+
+  #[tokio::test]
+  async fn fresh_creation_refuses_source_native_marker_and_work_artifacts() {
+    assert_fresh_creation_refuses(|paths| {
+      std::fs::write(&paths.source_database, b"sqlite artifact").unwrap();
+    })
+    .await;
+    assert_fresh_creation_refuses(|paths| {
+      std::fs::write(&paths.native_database, b"duckdb artifact").unwrap();
+    })
+    .await;
+    assert_fresh_creation_refuses(|paths| {
+      std::fs::write(&paths.marker, b"marker artifact").unwrap();
+    })
+    .await;
+    assert_fresh_creation_refuses(|paths| {
+      std::fs::create_dir(
+        paths
+          .native_database
+          .parent()
+          .unwrap()
+          .join(format!("{WORK_PREFIX}interrupted")),
+      )
+      .unwrap();
+    })
+    .await;
+  }
+
+  #[test]
+  fn interrupted_fresh_work_is_discarded_only_without_authoritative_artifacts() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    let work = directory
+      .path()
+      .join(format!("{FRESH_WORK_PREFIX}interrupted"));
+    std::fs::create_dir(&work).unwrap();
+    assert!(discard_interrupted_fresh_creation_work(&paths).unwrap());
+    assert!(!work.exists());
+
+    std::fs::create_dir(&work).unwrap();
+    std::fs::write(&paths.source_database, b"sqlite artifact").unwrap();
+    assert!(!discard_interrupted_fresh_creation_work(&paths).unwrap());
+    assert!(work.exists());
+
+    std::fs::remove_file(&paths.source_database).unwrap();
+    assert!(discard_interrupted_fresh_creation_work(&paths).unwrap());
+    assert!(!work.exists());
+    let conversion_work = directory.path().join(format!("{WORK_PREFIX}conversion"));
+    std::fs::create_dir(&conversion_work).unwrap();
+    assert!(!discard_interrupted_fresh_creation_work(&paths).unwrap());
+    assert!(conversion_work.exists());
+  }
+
+  #[tokio::test]
+  async fn fresh_selection_without_marker_uses_the_existing_repair_path() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fresh_paths(directory.path());
+    create_empty_native_database(paths.clone(), fresh_schema())
+      .await
+      .unwrap();
+    std::fs::remove_file(&paths.marker).unwrap();
+
+    assert_eq!(
+      inspect_authority(&observe_authority(&paths, 7)),
+      AuthorityState::Inconsistent {
+        reason: AuthorityInconsistency::SelectedWithoutMarker,
+        recovery: AuthorityRecovery::RepairSelectionMarkerFromNativeMetadata,
+      }
+    );
+    repair_authority_marker(&paths).unwrap();
+    assert_eq!(
+      inspect_authority(&observe_authority(&paths, 7)),
+      AuthorityState::NativeSelected
+    );
   }
 }
