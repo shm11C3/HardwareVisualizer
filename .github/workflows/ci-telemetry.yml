@@ -1,0 +1,77 @@
+# CI telemetry runs on `workflow_run`, not on the events the monitored
+# workflows themselves use (`pull_request`, etc.). `workflow_run` executes
+# this workflow file and its scripts from the repository's DEFAULT branch
+# with a write (`github.token`) token, for every run of the monitored
+# workflows including ones triggered by a fork or Dependabot PR. That is
+# what makes it safe to hold a write token (and, in a future change, R2
+# upload secrets) in the same job that reports on PR-triggered runs: the PR
+# branch's own workflow file and scripts are never used to produce this
+# telemetry, so a PR cannot alter what code runs here or exfiltrate the
+# token by editing `.github/workflows/ci-telemetry.yml` or
+# `.github/scripts/ci-telemetry/**` on its own branch.
+#
+# Checkout below intentionally does not take `github.event.workflow_run.head_sha`
+# or any other PR-controlled ref — it must always check out the default
+# branch's own `.github/scripts/ci-telemetry/**`. Passing PR-controlled
+# values into the aggregator happens only through `RUN_ID`, which the script
+# treats as an opaque id for read-only GitHub API calls (see
+# `.github/scripts/ci-telemetry/aggregate.mts`'s trust-model comment).
+#
+# Because `workflow_run` always resolves this file from the default branch,
+# this workflow has no effect until it is merged there; testing before that
+# point is limited to local `--dry-run` runs of the aggregator script (see
+# `.github/scripts/test-ci-telemetry-aggregate.mts` and the aggregator's own
+# `--dry-run` flag).
+name: CI telemetry
+
+on:
+  workflow_run:
+    workflows: ["CI", "CodeQL Advanced", "Agent Guidance"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: "Workflow run id to aggregate telemetry for"
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ci-telemetry-${{ github.event.workflow_run.head_sha || inputs.run-id }}
+  cancel-in-progress: false
+
+jobs:
+  aggregate:
+    name: Aggregate CI telemetry
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "24"
+
+      - name: Aggregate CI telemetry
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run-id }}
+        run: node .github/scripts/ci-telemetry/aggregate.mts
+
+      - name: Upload run records
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-telemetry-records
+          path: ${{ runner.temp }}/ci-telemetry/records.json
+          if-no-files-found: ignore
+          retention-days: 30

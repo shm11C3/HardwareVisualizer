@@ -115,6 +115,14 @@ runs:
           echo
         } >> "$GITHUB_STEP_SUMMARY"
 
+        # The runner echoes each `run:` script into the log before executing
+        # it, so a literal `echo "RUST_CACHE_METRICS_JSON=..."` would leave a
+        # second, unparseable occurrence of the marker name in the log.
+        # Splitting the marker name across two printf arguments keeps the
+        # literal string out of the echoed script.
+        json=$(printf '{"shared_key":"%s","exact_hit":%s,"restore_seconds":%s,"targets":%s}' "$CACHE_KEY" "$cache_hit" "$restore_seconds" "$CACHE_TARGETS")
+        printf '%s_METRICS_JSON=%s\n' RUST_CACHE "$json"
+
         echo "::notice title=Rust cache::$CACHE_KEY exact_hit=$cache_hit restore_seconds=$restore_seconds targets=$CACHE_TARGETS"
 
     - name: Install Rust components

@@ -35,6 +35,7 @@ documentation.
 - [GitHub label guide](development/labels.md)
 - [CI fast feedback](design/ci-fast-feedback.md)
 - [Local build cache across git worktrees](development/local-build-cache.md)
+- [CI telemetry](development/ci-telemetry.md)
 - [Download verification](download-verification.md)
 - [Release vulnerability response](security/release-vulnerability-response.md)
 - [Documentation guide](documentation-guide.md)

@@ -1,0 +1,18 @@
+name: "CI telemetry"
+description: >-
+  Sample runner CPU, memory, and disk usage in the background for the
+  lifetime of the job and print a machine-readable CI_JOB_METRICS_JSON
+  marker line in the post step. A separate workflow_run workflow reads job
+  logs through the GitHub API to collect these markers, so this action never
+  uploads artifacts or calls the GitHub API itself.
+inputs:
+  interval-seconds:
+    description: "Seconds between samples, clamped to 1-60."
+    required: false
+    default: "5"
+
+runs:
+  using: "node24"
+  main: "main.mts"
+  post: "post.mts"
+  post-if: "always()"

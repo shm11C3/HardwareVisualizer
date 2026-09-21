@@ -119,3 +119,4 @@ shared enforcement surface.
 - [Separate sensor support from recording coverage](separate-sensor-support-from-recording-coverage.md)
 - [Keep Design Docs focused on decisions](keep-design-docs-focused-on-decisions.md)
 - [Report across the elevation boundary by exit code](report-across-elevation-by-exit-code.md)
+- [Render untrusted text through GitHub's Markdown API](render-untrusted-text-through-github-markdown-api.md)
