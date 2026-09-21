@@ -47,9 +47,11 @@ A marker is an ordinary stdout line of the form `NAME_METRICS_JSON=<json>`.
   downloads logs only for jobs that contain a step with exactly this name,
   which keeps API usage proportional to instrumented jobs.
 - Marker field names are a storage contract. Change
-  `.github/actions/ci-telemetry/metrics.cjs` and
-  `.github/scripts/ci-telemetry/markers.cjs` together, and bump `schema` for
-  an incompatible change.
+  `.github/actions/ci-telemetry/metrics.mts` and
+  `.github/scripts/ci-telemetry/markers.mts` together (both conform to the
+  shared types in `.github/scripts/ci-telemetry/schema.mts`, so a field
+  rename on either side without updating the other is a typecheck failure),
+  and bump `schema` for an incompatible change.
 
 Unavailable data is `null`, never `0`. A job with fewer than two samples
 reports `cpu_pct: null` so a missing measurement cannot look like an idle
@@ -85,7 +87,7 @@ request, but it cannot inject content or reach a secret. Run records keep
 runs to trust as a baseline.
 
 String assertions cannot prove how GitHub renders a comment. When changing
-`render.cjs`, render a hostile fixture through GitHub's side-effect-free
+`render.mts`, render a hostile fixture through GitHub's side-effect-free
 Markdown API and inspect the HTML:
 
 ```bash
@@ -146,7 +148,7 @@ rejects every non-GET request.
 
 ```bash
 GITHUB_TOKEN="$(gh auth token)" GITHUB_REPOSITORY=shm11C3/HardwareVisualizer \
-  node .github/scripts/ci-telemetry/aggregate.cjs --run-id <run id> --dry-run
+  node .github/scripts/ci-telemetry/aggregate.mts --run-id <run id> --dry-run
 ```
 
 `--all-logs` downloads logs for every executed job instead of only
@@ -154,8 +156,9 @@ instrumented jobs. Use it for runs that predate the sampler but already
 contain cache markers.
 
 ```bash
-node .github/scripts/test-ci-telemetry-action.cjs
-node .github/scripts/test-ci-telemetry-aggregate.cjs
+node .github/scripts/test-ci-telemetry-action.mts
+node .github/scripts/test-ci-telemetry-aggregate.mts
+npm run typecheck:ci-telemetry
 ```
 
 The `workflow_run` trigger only becomes active once `ci-telemetry.yml` is on

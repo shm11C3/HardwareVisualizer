@@ -15,12 +15,12 @@
 # branch's own `.github/scripts/ci-telemetry/**`. Passing PR-controlled
 # values into the aggregator happens only through `RUN_ID`, which the script
 # treats as an opaque id for read-only GitHub API calls (see
-# `.github/scripts/ci-telemetry/aggregate.cjs`'s trust-model comment).
+# `.github/scripts/ci-telemetry/aggregate.mts`'s trust-model comment).
 #
 # Because `workflow_run` always resolves this file from the default branch,
 # this workflow has no effect until it is merged there; testing before that
 # point is limited to local `--dry-run` runs of the aggregator script (see
-# `.github/scripts/test-ci-telemetry-aggregate.cjs` and the aggregator's own
+# `.github/scripts/test-ci-telemetry-aggregate.mts` and the aggregator's own
 # `--dry-run` flag).
 name: CI telemetry
 
@@ -65,7 +65,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id || inputs.run-id }}
-        run: node .github/scripts/ci-telemetry/aggregate.cjs
+        run: node .github/scripts/ci-telemetry/aggregate.mts
 
       - name: Upload run records
         if: always()

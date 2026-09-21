@@ -1,11 +1,74 @@
 // Builds the versioned "run record" that is written to records.json and
 // (in a follow-up change) uploaded to Cloudflare R2. This module is pure: it
-// only shapes data already fetched by aggregate.cjs, so it can be unit
+// only shapes data already fetched by aggregate.mts, so it can be unit
 // tested with plain fixtures instead of live API responses. Job/step/
 // workflow names are stored here exactly as the API returned them — they
 // are untrusted PR-controlled strings, but escaping is a render-time
-// concern (see render.cjs), not a storage-time one.
-"use strict";
+// concern (see render.mts), not a storage-time one.
+
+import type {
+  ExtractedMarkers,
+  JobRecord,
+  RunRecord,
+  StepRecord,
+} from "./schema.mts";
+
+// The subset of the GitHub REST API's run/job/step shapes this module (and
+// aggregate.mts, which fetches the real objects) actually reads. Optional
+// fields reflect API responses that can omit them (e.g. a fork run's
+// `head_repository.owner`) rather than anything this code requires.
+export type GitHubActor = {
+  login: string;
+};
+
+export type GitHubRepositoryRef = {
+  full_name: string;
+  owner?: { login: string };
+};
+
+export type GitHubStep = {
+  number: number;
+  name: string;
+  status?: string;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+export type GitHubJob = {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  labels?: string[];
+  created_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  steps?: GitHubStep[];
+};
+
+export type GitHubRun = {
+  id: number;
+  name: string;
+  path: string;
+  workflow_id: number;
+  run_attempt: number;
+  run_number: number;
+  event: string;
+  status: string;
+  conclusion: string | null;
+  head_branch: string | null;
+  head_sha: string;
+  head_repository: GitHubRepositoryRef | null;
+  actor: GitHubActor | null;
+  created_at: string | null;
+  run_started_at: string | null;
+  updated_at: string | null;
+  html_url: string;
+  pull_requests?: { number: number }[];
+};
+
+export type MarkersByJobId = Record<number, ExtractedMarkers | null>;
 
 // The GitHub API represents an unset step timestamp (typically `started_at`
 // on a step that was skipped by an `if:` condition) as the sentinel
@@ -17,14 +80,17 @@
 // real `completed_at`.
 const SENTINEL_EPOCH_MS = Date.UTC(2000, 0, 1);
 
-function toEpochMs(value) {
+function toEpochMs(value: string | null | undefined): number | null {
   if (!value) return null;
   const ms = Date.parse(value);
   if (Number.isNaN(ms) || ms < SENTINEL_EPOCH_MS) return null;
   return ms;
 }
 
-function durationSeconds(startIso, endIso) {
+function durationSeconds(
+  startIso: string | null | undefined,
+  endIso: string | null | undefined,
+): number | null {
   const start = toEpochMs(startIso);
   const end = toEpochMs(endIso);
   if (start === null || end === null) return null;
@@ -35,8 +101,8 @@ function durationSeconds(startIso, endIso) {
 // `updated_at` (handled by the caller) only when no job has a completed_at
 // at all — e.g. an empty job list, which should not happen for a completed
 // run but is not assumed away here.
-function latestJobCompletion(jobs) {
-  let latest = null;
+function latestJobCompletion(jobs: readonly GitHubJob[]): string | null {
+  let latest: string | null = null;
   for (const job of jobs) {
     if (!job.completed_at) continue;
     if (latest === null || Date.parse(job.completed_at) > Date.parse(latest)) {
@@ -46,7 +112,7 @@ function latestJobCompletion(jobs) {
   return latest;
 }
 
-function buildStepRecord(step) {
+function buildStepRecord(step: GitHubStep): StepRecord {
   return {
     number: step.number,
     name: step.name,
@@ -55,7 +121,10 @@ function buildStepRecord(step) {
   };
 }
 
-function buildJobRecord(job, markers) {
+function buildJobRecord(
+  job: GitHubJob,
+  markers: ExtractedMarkers | null | undefined,
+): JobRecord {
   // A skipped (or never-started) job has no meaningful queue time: it was
   // never dispatched to a runner, so "started_at - created_at" would
   // measure how long the job sat un-run, not queue latency.
@@ -85,7 +154,17 @@ function buildJobRecord(job, markers) {
   };
 }
 
-function buildRunRecord({ repository, run, jobs, markersByJobId }) {
+export function buildRunRecord({
+  repository,
+  run,
+  jobs,
+  markersByJobId,
+}: {
+  repository: string;
+  run: GitHubRun;
+  jobs: GitHubJob[];
+  markersByJobId?: MarkersByJobId | null;
+}): RunRecord {
   const headRepository = run.head_repository?.full_name ?? null;
   const completedAt = latestJobCompletion(jobs) || run.updated_at || null;
 
@@ -120,5 +199,3 @@ function buildRunRecord({ repository, run, jobs, markersByJobId }) {
     ),
   };
 }
-
-module.exports = { buildRunRecord };

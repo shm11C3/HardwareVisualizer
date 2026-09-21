@@ -2,22 +2,29 @@
 // logs. A PR (including a fork or Dependabot PR) fully controls what a job
 // prints, so every value here is treated as hostile input: only numbers,
 // booleans, and closed enums survive validation. Free-form strings (job
-// names, branch names, etc.) are handled separately in render.cjs and are
+// names, branch names, etc.) are handled separately in render.mts and are
 // never accepted through a marker.
-"use strict";
+
+import type {
+  ExtractedMarkers,
+  JobResourcesMarker,
+  NodeCacheMarker,
+  RustCacheMarker,
+  SccacheMarker,
+} from "./schema.mts";
 
 const MAX_LINE_LENGTH = 65536;
 const MAX_SAFE = Number.MAX_SAFE_INTEGER;
 const MAX_COUNT = 1e6;
 
-function isPlainObject(value) {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // Returns the number when it is finite, >= 0, and <= max; otherwise
 // undefined, which callers use as an "invalid" sentinel distinct from a
 // legitimate null.
-function finiteInRange(value, max) {
+function finiteInRange(value: unknown, max: number): number | undefined {
   return typeof value === "number" &&
     Number.isFinite(value) &&
     value >= 0 &&
@@ -26,7 +33,7 @@ function finiteInRange(value, max) {
     : undefined;
 }
 
-function clampPercent(value) {
+function clampPercent(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   return Math.min(100, Math.max(0, value));
 }
@@ -42,8 +49,12 @@ function clampPercent(value) {
 // real telemetry step could still print a forged, schema-valid marker later
 // in the same job log; that risk is bounded by the validator only ever
 // producing numbers/booleans/enums, never free text.
-function findLastValidMarker(logText, markerName, validate) {
-  let result = null;
+function findLastValidMarker<T>(
+  logText: string,
+  markerName: string,
+  validate: (parsed: unknown) => T | null,
+): T | null {
+  let result: T | null = null;
   const needle = `${markerName}=`;
   const lines = logText.split("\n");
   for (const rawLine of lines) {
@@ -62,7 +73,7 @@ function findLastValidMarker(logText, markerName, validate) {
         continue;
       }
       const candidate = rawLine.slice(searchFrom).trim();
-      let parsed;
+      let parsed: unknown;
       try {
         parsed = JSON.parse(candidate);
       } catch {
@@ -77,20 +88,26 @@ function findLastValidMarker(logText, markerName, validate) {
   return result;
 }
 
-function validateCpuPct(value) {
+function validateCpuPct(value: unknown): JobResourcesMarker["cpu_pct"] {
   if (!isPlainObject(value)) return null;
-  const avg = clampPercent(value.avg);
-  const p95 = clampPercent(value.p95);
-  const max = clampPercent(value.max);
+  const avg = clampPercent(value["avg"]);
+  const p95 = clampPercent(value["p95"]);
+  const max = clampPercent(value["max"]);
   if (avg === undefined || p95 === undefined || max === undefined) {
     return null;
   }
   return { avg, p95, max };
 }
 
-function validateByteObject(value, keys) {
+// Shared by mem_used_bytes ({avg,max}) and disk_used_bytes ({start,end,max}):
+// every key must resolve to a finite non-negative number or the whole object
+// is rejected, never partially filled in.
+function validateByteObject<K extends string>(
+  value: unknown,
+  keys: readonly K[],
+): Record<K, number> | null {
   if (!isPlainObject(value)) return null;
-  const result = {};
+  const result = {} as Record<K, number>;
   for (const key of keys) {
     const num = finiteInRange(value[key], MAX_SAFE);
     if (num === undefined) return null;
@@ -99,9 +116,9 @@ function validateByteObject(value, keys) {
   return result;
 }
 
-function validateTimelineArray(arr) {
+function validateTimelineArray(arr: unknown): (number | null)[] | undefined {
   if (!Array.isArray(arr) || arr.length > 120) return undefined;
-  const result = [];
+  const result: (number | null)[] = [];
   for (const item of arr) {
     if (item === null) {
       result.push(null);
@@ -120,12 +137,12 @@ function validateTimelineArray(arr) {
   return result;
 }
 
-function validateTimeline(value) {
+function validateTimeline(value: unknown): JobResourcesMarker["timeline"] {
   if (!isPlainObject(value)) return null;
-  const bucketSeconds = finiteInRange(value.bucket_seconds, MAX_COUNT);
-  const cpuAvg = validateTimelineArray(value.cpu_pct_avg);
-  const cpuMax = validateTimelineArray(value.cpu_pct_max);
-  const memMax = validateTimelineArray(value.mem_used_pct_max);
+  const bucketSeconds = finiteInRange(value["bucket_seconds"], MAX_COUNT);
+  const cpuAvg = validateTimelineArray(value["cpu_pct_avg"]);
+  const cpuMax = validateTimelineArray(value["cpu_pct_max"]);
+  const memMax = validateTimelineArray(value["mem_used_pct_max"]);
   if (
     bucketSeconds === undefined ||
     cpuAvg === undefined ||
@@ -142,18 +159,32 @@ function validateTimeline(value) {
   };
 }
 
-function validateResources(parsed) {
-  if (!isPlainObject(parsed) || parsed.schema !== 1) return null;
+const KNOWN_RUNNER_OS = ["Linux", "Windows", "macOS"] as const;
+const KNOWN_RUNNER_ARCH = ["X86", "X64", "ARM", "ARM64"] as const;
 
-  const cpuCount = finiteInRange(parsed.cpu_count, MAX_COUNT);
-  const intervalSeconds = finiteInRange(parsed.interval_seconds, MAX_COUNT);
-  const sampleCount = finiteInRange(parsed.sample_count, MAX_COUNT);
-  const durationSeconds = finiteInRange(parsed.duration_seconds, MAX_COUNT);
+function isKnownMember<T extends string>(
+  candidates: readonly T[],
+  value: unknown,
+): value is T {
+  return (
+    typeof value === "string" &&
+    (candidates as readonly string[]).includes(value)
+  );
+}
+
+function validateResources(parsed: unknown): JobResourcesMarker | null {
+  if (!isPlainObject(parsed) || parsed["schema"] !== 1) return null;
+
+  const cpuCount = finiteInRange(parsed["cpu_count"], MAX_COUNT);
+  const intervalSeconds = finiteInRange(parsed["interval_seconds"], MAX_COUNT);
+  const sampleCount = finiteInRange(parsed["sample_count"], MAX_COUNT);
+  const durationSeconds = finiteInRange(parsed["duration_seconds"], MAX_COUNT);
   // Null only when the sampler recorded nothing; unavailable is never 0.
+  const memTotalBytesRaw = parsed["mem_total_bytes"];
   const memTotalBytes =
-    parsed.mem_total_bytes === null
+    memTotalBytesRaw === null
       ? null
-      : finiteInRange(parsed.mem_total_bytes, MAX_SAFE);
+      : finiteInRange(memTotalBytesRaw, MAX_SAFE);
 
   // These five are required scalars in the schema. A missing or
   // out-of-range value here means the whole marker is untrustworthy, so
@@ -168,38 +199,47 @@ function validateResources(parsed) {
     return null;
   }
 
+  const runnerOsRaw = parsed["runner_os"];
+  const runnerArchRaw = parsed["runner_arch"];
+
   return {
     schema: 1,
-    runner_os: ["Linux", "Windows", "macOS"].includes(parsed.runner_os)
-      ? parsed.runner_os
+    runner_os: isKnownMember(KNOWN_RUNNER_OS, runnerOsRaw)
+      ? runnerOsRaw
       : "unknown",
-    runner_arch: ["X86", "X64", "ARM", "ARM64"].includes(parsed.runner_arch)
-      ? parsed.runner_arch
+    runner_arch: isKnownMember(KNOWN_RUNNER_ARCH, runnerArchRaw)
+      ? runnerArchRaw
       : "unknown",
     cpu_count: cpuCount,
     interval_seconds: intervalSeconds,
     sample_count: sampleCount,
     duration_seconds: durationSeconds,
-    cpu_pct: validateCpuPct(parsed.cpu_pct),
+    cpu_pct: validateCpuPct(parsed["cpu_pct"]),
     mem_total_bytes: memTotalBytes,
-    mem_used_bytes: validateByteObject(parsed.mem_used_bytes, ["avg", "max"]),
-    disk_total_bytes: finiteInRange(parsed.disk_total_bytes, MAX_SAFE) ?? null,
-    disk_used_bytes: validateByteObject(parsed.disk_used_bytes, [
+    mem_used_bytes: validateByteObject(parsed["mem_used_bytes"], [
+      "avg",
+      "max",
+    ] as const),
+    disk_total_bytes:
+      finiteInRange(parsed["disk_total_bytes"], MAX_SAFE) ?? null,
+    disk_used_bytes: validateByteObject(parsed["disk_used_bytes"], [
       "start",
       "end",
       "max",
-    ]),
-    timeline: validateTimeline(parsed.timeline),
+    ] as const),
+    timeline: validateTimeline(parsed["timeline"]),
   };
 }
 
-function clampPercentOrNull(value) {
+function clampPercentOrNull(value: unknown): number | null {
   if (value === null) return null;
   const clamped = clampPercent(value);
   return clamped === undefined ? null : clamped;
 }
 
-function deriveSccacheBackend(cacheLocation) {
+function deriveSccacheBackend(
+  cacheLocation: unknown,
+): SccacheMarker["backend"] {
   if (typeof cacheLocation !== "string") return "other";
   if (cacheLocation.startsWith("s3")) return "s3";
   if (cacheLocation.startsWith("Local disk") || cacheLocation === "disk") {
@@ -208,25 +248,25 @@ function deriveSccacheBackend(cacheLocation) {
   return "other";
 }
 
-function deriveExactHitTristate(value) {
+function deriveExactHitTristate(value: unknown): boolean | null {
   if (value === "true") return true;
   if (value === "false") return false;
   return null;
 }
 
-function validateSccache(parsed) {
+function validateSccache(parsed: unknown): SccacheMarker | null {
   if (!isPlainObject(parsed)) return null;
 
-  const compileRequests = finiteInRange(parsed.compile_requests, 1e9);
+  const compileRequests = finiteInRange(parsed["compile_requests"], 1e9);
   const compileRequestsExecuted = finiteInRange(
-    parsed.compile_requests_executed,
+    parsed["compile_requests_executed"],
     1e9,
   );
-  const rustHits = finiteInRange(parsed.rust_hits, 1e9);
-  const rustMisses = finiteInRange(parsed.rust_misses, 1e9);
-  const cppHits = finiteInRange(parsed.cpp_hits, 1e9);
-  const cppMisses = finiteInRange(parsed.cpp_misses, 1e9);
-  const cacheErrors = finiteInRange(parsed.cache_errors, 1e9);
+  const rustHits = finiteInRange(parsed["rust_hits"], 1e9);
+  const rustMisses = finiteInRange(parsed["rust_misses"], 1e9);
+  const cppHits = finiteInRange(parsed["cpp_hits"], 1e9);
+  const cppMisses = finiteInRange(parsed["cpp_misses"], 1e9);
+  const cacheErrors = finiteInRange(parsed["cache_errors"], 1e9);
 
   if (
     compileRequests === undefined ||
@@ -245,51 +285,50 @@ function validateSccache(parsed) {
     compile_requests_executed: compileRequestsExecuted,
     rust_hits: rustHits,
     rust_misses: rustMisses,
-    rust_hit_rate_pct: clampPercentOrNull(parsed.rust_hit_rate_pct),
+    rust_hit_rate_pct: clampPercentOrNull(parsed["rust_hit_rate_pct"]),
     cpp_hits: cppHits,
     cpp_misses: cppMisses,
-    cpp_hit_rate_pct: clampPercentOrNull(parsed.cpp_hit_rate_pct),
+    cpp_hit_rate_pct: clampPercentOrNull(parsed["cpp_hit_rate_pct"]),
     cache_errors: cacheErrors,
-    backend: deriveSccacheBackend(parsed.cache_location),
+    backend: deriveSccacheBackend(parsed["cache_location"]),
     target_cache_exact_hit: deriveExactHitTristate(
-      parsed.target_cache_exact_hit,
+      parsed["target_cache_exact_hit"],
     ),
   };
 }
 
-function validateRustCache(parsed) {
+function validateRustCache(parsed: unknown): RustCacheMarker | null {
   if (!isPlainObject(parsed)) return null;
-  if (
-    typeof parsed.exact_hit !== "boolean" ||
-    typeof parsed.targets !== "boolean"
-  ) {
+  const exactHit = parsed["exact_hit"];
+  const targets = parsed["targets"];
+  if (typeof exactHit !== "boolean" || typeof targets !== "boolean") {
     return null;
   }
-  const restoreSeconds = finiteInRange(parsed.restore_seconds, 86400);
+  const restoreSeconds = finiteInRange(parsed["restore_seconds"], 86400);
   if (restoreSeconds === undefined) return null;
 
+  const sharedKeyRaw = parsed["shared_key"];
   const sharedKey =
-    typeof parsed.shared_key === "string" &&
-    /^[a-z0-9-]{1,40}$/.test(parsed.shared_key)
-      ? parsed.shared_key
+    typeof sharedKeyRaw === "string" && /^[a-z0-9-]{1,40}$/.test(sharedKeyRaw)
+      ? sharedKeyRaw
       : null;
 
   return {
     shared_key: sharedKey,
-    exact_hit: parsed.exact_hit,
+    exact_hit: exactHit,
     restore_seconds: restoreSeconds,
-    targets: parsed.targets,
+    targets,
   };
 }
 
-function validateNodeCache(parsed) {
-  if (!isPlainObject(parsed) || typeof parsed.exact_hit !== "boolean") {
-    return null;
-  }
-  return { exact_hit: parsed.exact_hit };
+function validateNodeCache(parsed: unknown): NodeCacheMarker | null {
+  if (!isPlainObject(parsed)) return null;
+  const exactHit = parsed["exact_hit"];
+  if (typeof exactHit !== "boolean") return null;
+  return { exact_hit: exactHit };
 }
 
-function extractMarkers(logText) {
+export function extractMarkers(logText: string): ExtractedMarkers {
   const text = typeof logText === "string" ? logText : "";
   return {
     resources: findLastValidMarker(
@@ -310,5 +349,3 @@ function extractMarkers(logText) {
     ),
   };
 }
-
-module.exports = { extractMarkers };

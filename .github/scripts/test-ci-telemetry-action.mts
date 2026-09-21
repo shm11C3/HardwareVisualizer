@@ -1,8 +1,8 @@
-const assert = require("node:assert/strict");
-const {
+import assert from "node:assert/strict";
+import {
   parseSamples,
   summarizeSamples,
-} = require("../actions/ci-telemetry/metrics.cjs");
+} from "../actions/ci-telemetry/metrics.mts";
 
 const baseOptions = {
   intervalSeconds: 5,
@@ -48,6 +48,7 @@ const baseOptions = {
     },
   ];
   const marker = summarizeSamples(samples, baseOptions);
+  assert.ok(marker.cpu_pct);
   assert.equal(marker.cpu_pct.avg, 16.4);
   assert.equal(marker.cpu_pct.max, 90);
   // Only two pairs (90, 9): nearest-rank p95 over 2 values takes the higher one.
@@ -86,6 +87,7 @@ const baseOptions = {
     });
   }
   const marker = summarizeSamples(samples, baseOptions);
+  assert.ok(marker.cpu_pct);
   assert.equal(marker.cpu_pct.max, 100);
   assert.equal(marker.cpu_pct.p95, 95);
 }
@@ -192,7 +194,7 @@ const baseOptions = {
   const text = `${valid1}\n\n${valid2}\n${torn}`;
   const samples = parseSamples(text);
   assert.equal(samples.length, 2);
-  assert.equal(samples[1].t, 1000);
+  assert.equal(samples[1]?.t, 1000);
 }
 
 // A long job (3h at a 5s interval = 2161 samples) must still collapse to at
@@ -217,6 +219,7 @@ const baseOptions = {
   }
   const marker = summarizeSamples(samples, baseOptions);
   assert.equal(marker.sample_count, samples.length);
+  assert.ok(marker.timeline);
   assert.ok(marker.timeline.cpu_pct_avg.length <= 60);
   assert.equal(
     marker.timeline.cpu_pct_avg.length,

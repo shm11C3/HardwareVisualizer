@@ -1,4 +1,4 @@
-// Renders the sticky PR comment from run records that aggregate.cjs built.
+// Renders the sticky PR comment from run records that aggregate.mts built.
 // This module is pure (no network, no fs) so it can be tested with plain
 // fixtures and so the same rendering always happens regardless of which
 // invocation of the (stateless, idempotent) aggregator produced the data.
@@ -12,7 +12,13 @@
 // `<summary>` — where a code span does not protect us, because GitHub does
 // not render Markdown code spans inside raw HTML blocks). Never interpolate
 // an untrusted name any other way.
-"use strict";
+
+import type {
+  JobRecord,
+  JobResourcesMarker,
+  PendingRunEntry,
+  RunRecord,
+} from "./schema.mts";
 
 const MAX_INLINE_LENGTH = 80;
 const BODY_LENGTH_CAP = 60000;
@@ -23,7 +29,7 @@ const MAX_SLOWEST_STEPS = 5;
 const MIN_STEP_DURATION_SECONDS = 10;
 const DETAILS_MIN_DURATION_SECONDS = 60;
 
-const RESULT_ICONS = {
+const RESULT_ICONS: Record<string, string> = {
   success: "✅",
   failure: "❌",
   cancelled: "🚫",
@@ -31,11 +37,14 @@ const RESULT_ICONS = {
   timed_out: "⌛",
 };
 
-function resultIcon(conclusion) {
-  return RESULT_ICONS[conclusion] ?? "⚠️";
+function resultIcon(conclusion: string | null): string {
+  // String(conclusion) mirrors the implicit ToString GitHub Actions logs
+  // (and plain JS property access) would apply to a null conclusion, so
+  // "unknown result" still falls through to the warning icon below.
+  return RESULT_ICONS[String(conclusion)] ?? "⚠️";
 }
 
-function resultCell(conclusion) {
+function resultCell(conclusion: string | null): string {
   const word = conclusion ?? "unknown";
   return `${resultIcon(conclusion)} ${word}`;
 }
@@ -44,7 +53,7 @@ function resultCell(conclusion) {
 // a table cell (|, newlines), then caps length. This is deliberately a
 // deletion, not a substitution, per the trust-model contract: untrusted
 // names are "stripped and length capped", not re-encoded.
-function sanitizeInline(text) {
+function sanitizeInline(text: unknown): string {
   const value = typeof text === "string" ? text : String(text ?? "");
   const cleaned = value.replace(/[`|\r\n]/g, "");
   return cleaned.length > MAX_INLINE_LENGTH
@@ -52,14 +61,14 @@ function sanitizeInline(text) {
     : cleaned;
 }
 
-function codeSpan(text) {
+function codeSpan(text: unknown): string {
   return `\`${sanitizeInline(text)}\``;
 }
 
 // Used only inside the <summary><b>...</b></summary> HTML block, where a
 // Markdown code span would render as literal backticks instead of being
 // interpreted, so it offers no protection there.
-function escapeHtmlInline(text) {
+function escapeHtmlInline(text: unknown): string {
   const value = typeof text === "string" ? text : String(text ?? "");
   const capped =
     value.length > MAX_INLINE_LENGTH
@@ -74,7 +83,7 @@ function escapeHtmlInline(text) {
     .replace(/[\r\n]/g, " ");
 }
 
-function formatDuration(seconds) {
+function formatDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) {
     return "–";
   }
@@ -90,33 +99,33 @@ function formatDuration(seconds) {
   return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
-function formatGiB(bytes, decimals) {
+function formatGiB(bytes: number | null | undefined, decimals: number): string {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
     return "–";
   }
   return (bytes / 1024 ** 3).toFixed(decimals);
 }
 
-function formatNow(now) {
+function formatNow(now: Date | string | number): string {
   const date = now instanceof Date ? now : new Date(now);
   const iso = date.toISOString();
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
 
-function cpuCell(resources) {
+function cpuCell(resources: JobResourcesMarker | null): string {
   if (!resources?.cpu_pct) return "–";
   const { avg, p95 } = resources.cpu_pct;
   return `${Math.round(avg)}% / ${Math.round(p95)}%`;
 }
 
-function memCell(resources) {
+function memCell(resources: JobResourcesMarker | null): string {
   if (!resources?.mem_used_bytes) return "–";
   const used = formatGiB(resources.mem_used_bytes.max, 1);
   const total = formatGiB(resources.mem_total_bytes, 1);
   return `${used} / ${total} GiB`;
 }
 
-function diskCell(resources) {
+function diskCell(resources: JobResourcesMarker | null): string {
   if (!resources?.disk_used_bytes || resources.disk_total_bytes === null) {
     return "–";
   }
@@ -125,7 +134,12 @@ function diskCell(resources) {
   return `${used} / ${total} GiB`;
 }
 
-function sccachePart(label, hits, misses, ratePct) {
+function sccachePart(
+  label: string,
+  hits: number,
+  misses: number,
+  ratePct: number | null,
+): string {
   const total = hits + misses;
   if (total === 0) return `${label} n/a`;
   const pct =
@@ -136,8 +150,8 @@ function sccachePart(label, hits, misses, ratePct) {
 // rust-cache reports only "was the restore key an exact match", so a
 // non-exact restore is labelled "partial/miss": we cannot tell a useful
 // prefix restore apart from a full cache miss from that one boolean.
-function cachesCell(caches) {
-  const segments = [];
+function cachesCell(caches: JobRecord["caches"]): string {
+  const segments: string[] = [];
   if (caches?.rust_target) {
     segments.push(
       caches.rust_target.exact_hit ? "target exact" : "target partial/miss",
@@ -161,12 +175,12 @@ function cachesCell(caches) {
   return segments.length > 0 ? segments.join(" · ") : "–";
 }
 
-function executedJobs(jobs) {
+function executedJobs(jobs: JobRecord[]): JobRecord[] {
   return jobs.filter((job) => job.conclusion !== "skipped");
 }
 
-function longestQueueSeconds(jobs) {
-  let max = null;
+function longestQueueSeconds(jobs: JobRecord[]): number | null {
+  let max: number | null = null;
   for (const job of executedJobs(jobs)) {
     if (job.queue_seconds === null) continue;
     if (max === null || job.queue_seconds > max) max = job.queue_seconds;
@@ -174,12 +188,15 @@ function longestQueueSeconds(jobs) {
   return max;
 }
 
-function workflowLinkCell(name, url, attempt) {
+function workflowLinkCell(name: string, url: string, attempt: number): string {
   const label = `[${codeSpan(name)}](${url})`;
   return attempt > 1 ? `${label} (attempt ${attempt})` : label;
 }
 
-function buildSummaryRows(records, pendingRuns) {
+function buildSummaryRows(
+  records: RunRecord[],
+  pendingRuns: PendingRunEntry[],
+): string[][] {
   const completedRows = records
     .slice()
     .sort(
@@ -215,7 +232,7 @@ function buildSummaryRows(records, pendingRuns) {
 // A run's telemetry is worth expanding into a <details> block only when
 // there is something to look at: real wall-clock cost, or resource samples
 // collected by the sampler action.
-function shouldShowDetails(record) {
+function shouldShowDetails(record: RunRecord): boolean {
   const executed = executedJobs(record.jobs);
   const totalDuration = executed.reduce(
     (sum, job) => sum + (job.duration_seconds ?? 0),
@@ -225,7 +242,10 @@ function shouldShowDetails(record) {
   return totalDuration >= DETAILS_MIN_DURATION_SECONDS || hasResources;
 }
 
-function buildJobRows(jobs, maxRows) {
+function buildJobRows(
+  jobs: JobRecord[],
+  maxRows: number,
+): { rows: string[][]; remaining: number } {
   const sorted = executedJobs(jobs)
     .slice()
     .sort((a, b) => (b.duration_seconds ?? -1) - (a.duration_seconds ?? -1));
@@ -243,8 +263,10 @@ function buildJobRows(jobs, maxRows) {
   return { rows, remaining: sorted.length - shown.length };
 }
 
-function buildSlowestSteps(jobs) {
-  const steps = [];
+function buildSlowestSteps(
+  jobs: JobRecord[],
+): { jobName: string; stepName: string; duration: number }[] {
+  const steps: { jobName: string; stepName: string; duration: number }[] = [];
   for (const job of executedJobs(jobs)) {
     for (const step of job.steps) {
       if (
@@ -265,7 +287,13 @@ function buildSlowestSteps(jobs) {
     .slice(0, MAX_SLOWEST_STEPS);
 }
 
-function renderDetails(record, { includeSlowestSteps, maxJobRows }) {
+function renderDetails(
+  record: RunRecord,
+  {
+    includeSlowestSteps,
+    maxJobRows,
+  }: { includeSlowestSteps: boolean; maxJobRows: number },
+): string {
   const executed = executedJobs(record.jobs);
   const skippedCount = record.jobs.length - executed.length;
   // <code> is load-bearing, not styling: GitHub turns @mentions, #refs and
@@ -322,7 +350,14 @@ function renderBody({
   now,
   includeSlowestSteps,
   maxJobRows,
-}) {
+}: {
+  headSha: string;
+  records: RunRecord[];
+  pendingRuns: PendingRunEntry[];
+  now: Date;
+  includeSlowestSteps: boolean;
+  maxJobRows: number;
+}): string {
   const shortSha = (headSha || "").slice(0, 7);
   const lines = [
     "<!-- ci-telemetry -->",
@@ -367,7 +402,17 @@ function renderBody({
 // (least essential detail), then progressively shrink how many job rows
 // each details block shows, before falling back to a hard truncation as a
 // last resort so the cap is never exceeded regardless of input size.
-function renderComment({ headSha, records, pendingRuns, now }) {
+export function renderComment({
+  headSha,
+  records,
+  pendingRuns,
+  now,
+}: {
+  headSha: string;
+  records: RunRecord[];
+  pendingRuns: PendingRunEntry[];
+  now: Date;
+}): string {
   let body = renderBody({
     headSha,
     records,
@@ -408,12 +453,11 @@ function renderComment({ headSha, records, pendingRuns, now }) {
   return body;
 }
 
-module.exports = {
-  renderComment,
+export {
+  codeSpan,
+  escapeHtmlInline,
   formatDuration,
   formatGiB,
   formatNow,
-  codeSpan,
   sanitizeInline,
-  escapeHtmlInline,
 };

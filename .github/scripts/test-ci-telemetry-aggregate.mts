@@ -1,17 +1,30 @@
-const assert = require("node:assert/strict");
-const { extractMarkers } = require("./ci-telemetry/markers.cjs");
-const { buildRunRecord } = require("./ci-telemetry/record.cjs");
-const {
-  renderComment,
+import assert from "node:assert/strict";
+import { keepLatestRunPerWorkflow, resolveRunId } from "./ci-telemetry/cli.mts";
+import { extractMarkers } from "./ci-telemetry/markers.mts";
+import { buildRunRecord } from "./ci-telemetry/record.mts";
+import {
   formatDuration,
   formatGiB,
-} = require("./ci-telemetry/render.cjs");
-const {
-  resolveRunId,
-  keepLatestRunPerWorkflow,
-} = require("./ci-telemetry/aggregate.cjs");
+  renderComment,
+} from "./ci-telemetry/render.mts";
+import type {
+  JobRecord,
+  JobResourcesMarker,
+  PendingRunEntry,
+  RunRecord,
+} from "./ci-telemetry/schema.mts";
 
-function fixtureRecord({ workflowName, jobName, stepName, resources = null }) {
+function fixtureRecord({
+  workflowName,
+  jobName,
+  stepName,
+  resources = null,
+}: {
+  workflowName: string;
+  jobName: string;
+  stepName: string;
+  resources?: JobResourcesMarker | null;
+}): RunRecord {
   return {
     schema: 1,
     repository: "shm11C3/HardwareVisualizer",
@@ -61,14 +74,14 @@ function fixtureRecord({ workflowName, jobName, stepName, resources = null }) {
   };
 }
 
-// --- markers.cjs ------------------------------------------------------
+// --- markers.mts ------------------------------------------------------
 
 // The runner echoes a step's script source (with ANSI color codes) before
 // running it, which can contain the marker name followed by text that is
 // not valid JSON (e.g. `console.log(\`CACHE_METRICS_JSON=${...}\`)` as
 // literal source). That echoed occurrence must be skipped in favor of the
 // real, later marker line the script actually printed.
-function testEchoedScriptFollowedByRealMarker() {
+function testEchoedScriptFollowedByRealMarker(): void {
   const log = [
     "2026-09-21T07:36:29.0000000Z \x1b[36;1mRun node report.cjs\x1b[0m",
     // biome-ignore lint/suspicious/noTemplateCurlyInString: simulates the runner echoing this script's own source line, `${...}` included, ahead of its real output
@@ -88,7 +101,7 @@ function testEchoedScriptFollowedByRealMarker() {
 // A log where the ONLY occurrence of the marker name is unparseable (e.g.
 // the job crashed before ever printing the real marker) must yield null,
 // not throw and not accidentally pick up the source echo as data.
-function testOnlyUnparseableOccurrenceYieldsNull() {
+function testOnlyUnparseableOccurrenceYieldsNull(): void {
   const log = [
     "2026-09-21T07:36:29.0000000Z \x1b[36;1mRun node report.cjs\x1b[0m",
     // biome-ignore lint/suspicious/noTemplateCurlyInString: simulates the runner echoing this script's own source line, `${...}` included, ahead of its real output
@@ -101,7 +114,7 @@ function testOnlyUnparseableOccurrenceYieldsNull() {
 // A forged CI_JOB_METRICS_JSON marker (as a PR-controlled job could print)
 // must not be able to inject free-form strings or out-of-schema data: every
 // surviving field is a number, boolean, or a value from a closed enum.
-function testForgedResourcesMarkerCannotInjectContent() {
+function testForgedResourcesMarkerCannotInjectContent(): void {
   const forged = {
     schema: 1,
     runner_os: "<script>alert(1)</script>",
@@ -117,6 +130,7 @@ function testForgedResourcesMarkerCannotInjectContent() {
   };
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify(forged)}`;
   const resources = extractMarkers(log).resources;
+  assert.ok(resources);
   assert.equal(
     resources.runner_os,
     "unknown",
@@ -132,6 +146,7 @@ function testForgedResourcesMarkerCannotInjectContent() {
     false,
     "unknown keys are dropped",
   );
+  assert.ok(resources.cpu_pct);
   assert.equal(
     resources.cpu_pct.avg,
     100,
@@ -146,7 +161,7 @@ function testForgedResourcesMarkerCannotInjectContent() {
 
 // Wrong schema version must reject the whole marker rather than coerce it —
 // a schema-2 producer's field meanings are not guaranteed to match schema 1.
-function testWrongSchemaVersionRejected() {
+function testWrongSchemaVersionRejected(): void {
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify({
     schema: 2,
     cpu_count: 1,
@@ -160,7 +175,7 @@ function testWrongSchemaVersionRejected() {
 
 // A required numeric field that is negative or non-finite makes the whole
 // marker untrustworthy (there is no sane fallback for "how many CPUs").
-function testOutOfRangeRequiredNumberRejectsMarker() {
+function testOutOfRangeRequiredNumberRejectsMarker(): void {
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify({
     schema: 1,
     cpu_count: -1,
@@ -175,7 +190,7 @@ function testOutOfRangeRequiredNumberRejectsMarker() {
 // A sampler that recorded nothing reports mem_total_bytes: null. That marker
 // must be kept (its sample_count: 0 is the evidence the sampler failed), not
 // discarded as if the required field were forged.
-function testNullMemTotalIsAcceptedAsUnavailable() {
+function testNullMemTotalIsAcceptedAsUnavailable(): void {
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify({
     schema: 1,
     cpu_count: 4,
@@ -190,7 +205,7 @@ function testNullMemTotalIsAcceptedAsUnavailable() {
     timeline: null,
   })}`;
   const resources = extractMarkers(log).resources;
-  assert.notEqual(resources, null);
+  assert.ok(resources);
   assert.equal(resources.mem_total_bytes, null);
   assert.equal(resources.sample_count, 0);
 }
@@ -198,7 +213,7 @@ function testNullMemTotalIsAcceptedAsUnavailable() {
 // An oversized timeline array (a PR-controlled job could print thousands of
 // samples to bloat the comment / records.json) must null out the whole
 // timeline rather than being truncated and rendered anyway.
-function testOversizedTimelineArrayNullsTimeline() {
+function testOversizedTimelineArrayNullsTimeline(): void {
   const oversized = {
     schema: 1,
     cpu_count: 4,
@@ -214,12 +229,14 @@ function testOversizedTimelineArrayNullsTimeline() {
     },
   };
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify(oversized)}`;
-  assert.equal(extractMarkers(log).resources.timeline, null);
+  const resources = extractMarkers(log).resources;
+  assert.ok(resources);
+  assert.equal(resources.timeline, null);
 }
 
 // A valid, moderate timeline (with a null sample, representing a missed
 // interval) is preserved as-is.
-function testValidTimelinePreserved() {
+function testValidTimelinePreserved(): void {
   const valid = {
     schema: 1,
     cpu_count: 4,
@@ -235,13 +252,15 @@ function testValidTimelinePreserved() {
     },
   };
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify(valid)}`;
-  assert.deepEqual(extractMarkers(log).resources.timeline, valid.timeline);
+  const resources = extractMarkers(log).resources;
+  assert.ok(resources);
+  assert.deepEqual(resources.timeline, valid.timeline);
 }
 
 // RUST_CACHE_METRICS_JSON: shared_key falls back to null on an invalid
 // format, but a real type mismatch on the booleans rejects the whole
 // marker (there is no safe guess for "did this restore hit exactly").
-function testRustCacheKeyFallbackAndBooleanRejection() {
+function testRustCacheKeyFallbackAndBooleanRejection(): void {
   const badKey = `RUST_CACHE_METRICS_JSON=${JSON.stringify({
     shared_key: "Not Valid!",
     exact_hit: false,
@@ -249,6 +268,7 @@ function testRustCacheKeyFallbackAndBooleanRejection() {
     targets: true,
   })}`;
   const parsed = extractMarkers(badKey).rust_cache;
+  assert.ok(parsed);
   assert.equal(parsed.shared_key, null);
   assert.equal(parsed.exact_hit, false);
 
@@ -263,9 +283,9 @@ function testRustCacheKeyFallbackAndBooleanRejection() {
 
 // A line containing RUST_CACHE_METRICS_JSON=... must not be mistaken for a
 // CACHE_METRICS_JSON=... occurrence just because the marker name string
-// contains that substring — the token-boundary check in markers.cjs exists
+// contains that substring — the token-boundary check in markers.mts exists
 // specifically to prevent this cross-marker leakage.
-function testMarkerNameSubstringDoesNotLeakAcrossMarkers() {
+function testMarkerNameSubstringDoesNotLeakAcrossMarkers(): void {
   const log = `RUST_CACHE_METRICS_JSON=${JSON.stringify({
     shared_key: "core-test",
     exact_hit: true,
@@ -277,7 +297,7 @@ function testMarkerNameSubstringDoesNotLeakAcrossMarkers() {
 }
 
 // NODE_CACHE_METRICS_JSON: minimal shape, type-checked boolean.
-function testNodeCacheMarkerShape() {
+function testNodeCacheMarkerShape(): void {
   assert.deepEqual(
     extractMarkers('NODE_CACHE_METRICS_JSON={"exact_hit":true}').node_cache,
     { exact_hit: true },
@@ -290,19 +310,21 @@ function testNodeCacheMarkerShape() {
 
 // The LAST valid occurrence wins when a job legitimately re-prints a marker
 // (e.g. a retried step).
-function testLastValidOccurrenceWins() {
+function testLastValidOccurrenceWins(): void {
   const log = [
     'NODE_CACHE_METRICS_JSON={"exact_hit":false}',
     'NODE_CACHE_METRICS_JSON={"exact_hit":true}',
   ].join("\n");
-  assert.equal(extractMarkers(log).node_cache.exact_hit, true);
+  const nodeCache = extractMarkers(log).node_cache;
+  assert.ok(nodeCache);
+  assert.equal(nodeCache.exact_hit, true);
 }
 
-// --- record.cjs ---------------------------------------------------------
+// --- record.mts ---------------------------------------------------------
 
 // buildRunRecord output for a small, hand-computed fixture must match the
 // documented schema exactly, including queue/duration math.
-function testBuildRunRecordMatchesDocumentedSchema() {
+function testBuildRunRecordMatchesDocumentedSchema(): void {
   const record = buildRunRecord({
     repository: "shm11C3/HardwareVisualizer",
     run: {
@@ -400,7 +422,7 @@ function testBuildRunRecordMatchesDocumentedSchema() {
 
 // A fork run is flagged via head_repository != repository, and when no job
 // ever completed, completed_at falls back to the run's own updated_at.
-function testForkFlagAndCompletedAtFallback() {
+function testForkFlagAndCompletedAtFallback(): void {
   const record = buildRunRecord({
     repository: "shm11C3/HardwareVisualizer",
     run: {
@@ -432,7 +454,7 @@ function testForkFlagAndCompletedAtFallback() {
 // Queue time is null (not a number) for a skipped job and for a job that
 // was created but never started — both cases mean "never queued for real
 // work", so a numeric queue time would be misleading, not just wrong.
-function testQueueSecondsNullForSkippedAndNeverStartedJobs() {
+function testQueueSecondsNullForSkippedAndNeverStartedJobs(): void {
   const record = buildRunRecord({
     repository: "shm11C3/HardwareVisualizer",
     run: {
@@ -480,8 +502,8 @@ function testQueueSecondsNullForSkippedAndNeverStartedJobs() {
     ],
     markersByJobId: {},
   });
-  assert.equal(record.jobs[0].queue_seconds, null);
-  assert.equal(record.jobs[1].queue_seconds, null);
+  assert.equal(record.jobs[0]?.queue_seconds, null);
+  assert.equal(record.jobs[1]?.queue_seconds, null);
 }
 
 // The GitHub API represents an unset step `started_at` (observed live for a
@@ -489,7 +511,7 @@ function testQueueSecondsNullForSkippedAndNeverStartedJobs() {
 // rather than null. Without special-casing it, a step's duration computes as
 // millions of hours instead of being recognized as missing data — this was
 // caught against real production data during --dry-run verification.
-function testSentinelEpochTimestampTreatedAsMissing() {
+function testSentinelEpochTimestampTreatedAsMissing(): void {
   const record = buildRunRecord({
     repository: "shm11C3/HardwareVisualizer",
     run: {
@@ -535,12 +557,12 @@ function testSentinelEpochTimestampTreatedAsMissing() {
     ],
     markersByJobId: {},
   });
-  assert.equal(record.jobs[0].steps[0].duration_seconds, null);
+  assert.equal(record.jobs[0]?.steps[0]?.duration_seconds, null);
 }
 
-// --- render.cjs: formatting helpers --------------------------------------
+// --- render.mts: formatting helpers --------------------------------------
 
-function testDurationAndByteFormatting() {
+function testDurationAndByteFormatting(): void {
   assert.equal(formatDuration(42), "42s");
   assert.equal(formatDuration(846), "14m 06s");
   assert.equal(formatDuration(3722), "1h 02m");
@@ -558,9 +580,9 @@ function testDurationAndByteFormatting() {
   assert.equal(formatGiB(5.5 * 1024 ** 3, 1), "5.5");
 }
 
-// --- render.cjs: hostile names cannot break the comment structure -------
+// --- render.mts: hostile names cannot break the comment structure -------
 
-function testHostileNamesCannotBreakCommentStructure() {
+function testHostileNamesCannotBreakCommentStructure(): void {
   // Kept short (well under the 80-char cap once sanitized) so the tail of
   // the payload — the fake link target — is not itself truncated away,
   // which would make the "stays inert" assertion below meaningless.
@@ -589,6 +611,7 @@ function testHostileNamesCannotBreakCommentStructure() {
     "summary table header must be present and intact",
   );
   const summaryRow = lines[summaryHeaderIdx + 2];
+  assert.ok(summaryRow);
   assert.equal(
     (summaryRow.match(/\|/g) || []).length,
     6,
@@ -645,9 +668,9 @@ function testHostileNamesCannotBreakCommentStructure() {
   );
 }
 
-// --- render.cjs: missing data, skipped jobs, pending runs ----------------
+// --- render.mts: missing data, skipped jobs, pending runs ----------------
 
-function testMissingDataSkippedJobsAndPendingRuns() {
+function testMissingDataSkippedJobsAndPendingRuns(): void {
   const record = fixtureRecord({
     workflowName: "CI",
     jobName: "test-core (windows-latest)",
@@ -671,7 +694,7 @@ function testMissingDataSkippedJobsAndPendingRuns() {
     caches: { rust_target: null, node: null, sccache: null },
   });
 
-  const pendingRuns = [
+  const pendingRuns: PendingRunEntry[] = [
     {
       workflow: {
         id: 2,
@@ -701,16 +724,20 @@ function testMissingDataSkippedJobsAndPendingRuns() {
     "| Workflow | Result | Wall time | Longest queue | Jobs |",
   );
   // Completed row (CI) must sort before the pending row (CodeQL Advanced).
-  assert.match(lines[headerIdx + 2], /`CI`/);
+  const completedRow = lines[headerIdx + 2];
+  const pendingRow = lines[headerIdx + 3];
+  assert.ok(completedRow);
+  assert.ok(pendingRow);
+  assert.match(completedRow, /`CI`/);
   assert.equal(
-    lines[headerIdx + 2].includes("| 1 |"),
+    completedRow.includes("| 1 |"),
     true,
     "Jobs column excludes the skipped job",
   );
-  assert.match(lines[headerIdx + 3], /CodeQL Advanced/);
-  assert.match(lines[headerIdx + 3], /⏳ in progress/);
+  assert.match(pendingRow, /CodeQL Advanced/);
+  assert.match(pendingRow, /⏳ in progress/);
   assert.ok(
-    lines[headerIdx + 3].endsWith("– | – | – |"),
+    pendingRow.endsWith("– | – | – |"),
     "pending row has dashes, not 0, for unknown metrics",
   );
 
@@ -724,15 +751,15 @@ function testMissingDataSkippedJobsAndPendingRuns() {
   assert.equal(body.includes("skipped-job"), false);
 }
 
-// --- render.cjs: 60000-character cap -------------------------------------
+// --- render.mts: 60000-character cap -------------------------------------
 
 // The rendered comment must respect GitHub's hard 65536-char limit even for
 // a run with hundreds of long-named jobs across several workflows; the
 // "Slowest steps" tables must be dropped first, before job rows are cut.
-function testLengthCapHoldsForHundredsOfLongNamedJobs() {
-  const manyJobRecords = [];
+function testLengthCapHoldsForHundredsOfLongNamedJobs(): void {
+  const manyJobRecords: RunRecord[] = [];
   for (let w = 0; w < 15; w += 1) {
-    const jobs = [];
+    const jobs: JobRecord[] = [];
     for (let j = 0; j < 200; j += 1) {
       jobs.push({
         id: w * 1000 + j,
@@ -805,12 +832,12 @@ function testLengthCapHoldsForHundredsOfLongNamedJobs() {
   );
 }
 
-// --- aggregate.cjs: pure orchestration helpers ---------------------------
+// --- cli.mts: pure orchestration helpers ---------------------------
 
 // RUN_ID must be a plain 1-20 digit numeric string: it is interpolated into
 // GitHub API URL paths, so anything else must be rejected up front rather
 // than trusted as a path segment.
-function testResolveRunIdValidatesFormat() {
+function testResolveRunIdValidatesFormat(): void {
   assert.equal(resolveRunId("12345"), "12345");
   assert.throws(() => resolveRunId("12345; rm -rf /"));
   assert.throws(() => resolveRunId(""));
@@ -820,7 +847,7 @@ function testResolveRunIdValidatesFormat() {
 // When multiple workflow runs share a head_sha (e.g. a re-run), only the
 // most recently created run per workflow_id is kept — otherwise the comment
 // would show a stale, superseded run alongside the current one.
-function testKeepLatestRunPerWorkflow() {
+function testKeepLatestRunPerWorkflow(): void {
   const runs = [
     { workflow_id: 1, created_at: "2026-09-21T07:00:00Z", id: "old" },
     { workflow_id: 1, created_at: "2026-09-21T07:05:00Z", id: "new" },

@@ -1,30 +1,43 @@
-const { appendFileSync, readFileSync } = require("node:fs");
-const os = require("node:os");
-const {
+import { appendFileSync, readFileSync } from "node:fs";
+import * as os from "node:os";
+import {
   parseSamples,
   resolveIntervalSeconds,
   summarizeSamples,
-} = require("./metrics.cjs");
+} from "./metrics.mts";
 
-function escapeWorkflowCommand(value) {
+// Derived from summarizeSamples's own return type rather than importing
+// schema.mts directly, so metrics.mts stays the action's single type-only
+// bridge to the aggregator's contract (see metrics.mts's import comment).
+type JobResourcesMarker = ReturnType<typeof summarizeSamples>;
+
+function escapeWorkflowCommand(value: unknown): string {
   return String(value)
     .replaceAll("%", "%25")
     .replaceAll("\r", "%0D")
     .replaceAll("\n", "%0A");
 }
 
-function warn(message) {
+function warn(message: string): void {
   console.log(
     `::warning title=CI telemetry::${escapeWorkflowCommand(message)}`,
   );
 }
 
-function formatGiB(bytes) {
-  return (bytes / 1024 ** 3).toFixed(1);
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-function appendSummary(marker) {
-  if (!process.env.GITHUB_STEP_SUMMARY) return;
+// Accepts null so every caller below can pass a byte field straight through
+// without narrowing first; `null` divides to 0 (matching plain JS's numeric
+// coercion of null), same as the original untyped helper produced.
+function formatGiB(bytes: number | null): string {
+  return ((bytes ?? 0) / 1024 ** 3).toFixed(1);
+}
+
+function appendSummary(marker: JobResourcesMarker): void {
+  const summaryPath = process.env["GITHUB_STEP_SUMMARY"];
+  if (!summaryPath) return;
 
   const cpu = marker.cpu_pct
     ? `${marker.cpu_pct.avg}% / ${marker.cpu_pct.p95}% / ${marker.cpu_pct.max}%`
@@ -37,7 +50,7 @@ function appendSummary(marker) {
       ? `${formatGiB(marker.disk_used_bytes.start)} -> ${formatGiB(marker.disk_used_bytes.end)} / ${formatGiB(marker.disk_total_bytes)} GiB`
       : "n/a";
 
-  const rows = [
+  const rows: [string, string][] = [
     [
       "Samples / interval",
       `${marker.sample_count} / ${marker.interval_seconds}s`,
@@ -48,7 +61,7 @@ function appendSummary(marker) {
   ];
 
   appendFileSync(
-    process.env.GITHUB_STEP_SUMMARY,
+    summaryPath,
     [
       "### CI telemetry",
       "",
@@ -61,8 +74,8 @@ function appendSummary(marker) {
 }
 
 try {
-  const pid = process.env.STATE_sampler_pid;
-  const samplesFile = process.env.STATE_samples_file;
+  const pid = process.env["STATE_sampler_pid"];
+  const samplesFile = process.env["STATE_samples_file"];
 
   if (pid) {
     try {
@@ -80,8 +93,8 @@ try {
       intervalSeconds: resolveIntervalSeconds(
         process.env["INPUT_INTERVAL-SECONDS"],
       ),
-      runnerOs: process.env.RUNNER_OS || "unknown",
-      runnerArch: process.env.RUNNER_ARCH || "unknown",
+      runnerOs: process.env["RUNNER_OS"] || "unknown",
+      runnerArch: process.env["RUNNER_ARCH"] || "unknown",
       cpuCount: os.cpus().length,
     });
 
@@ -93,5 +106,5 @@ try {
     appendSummary(marker);
   }
 } catch (error) {
-  warn(`Unable to report telemetry: ${String(error.message || error)}`);
+  warn(`Unable to report telemetry: ${errorMessage(error)}`);
 }

@@ -7,8 +7,8 @@ trigger: rendering or escaping untrusted text into a GitHub comment, job summary
 failure_signature: the CI telemetry comment HTML-escaped a PR-controlled workflow name inside a summary element and its unit test passed, yet GitHub rendered an at-mention in that name as a live user mention
 root_cause: GitHub post-processes rendered HTML for mentions, issue references, and bare URLs after Markdown and entity escaping, skipping only text inside code, pre, or anchor elements; a string-level assertion cannot observe that pass
 guardrail: untrusted names are rendered only inside a Markdown code span or, within raw HTML, inside a code element; render changes are checked against GitHub's Markdown API with a hostile fixture
-canonical_refs: docs/development/ci-telemetry.md, .github/scripts/ci-telemetry/render.cjs, .github/scripts/test-ci-telemetry-aggregate.cjs
-verification: node .github/scripts/test-ci-telemetry-aggregate.cjs fails when the code element is removed from the summary; rendering the hostile fixture through gh api markdown yields no user-mention, issue-link, image, or external anchor
+canonical_refs: docs/development/ci-telemetry.md, .github/scripts/ci-telemetry/render.mts, .github/scripts/test-ci-telemetry-aggregate.mts
+verification: node .github/scripts/test-ci-telemetry-aggregate.mts fails when the code element is removed from the summary; rendering the hostile fixture through gh api markdown yields no user-mention, issue-link, image, or external anchor
 evidence: GitHub Markdown API output for a hostile workflow name before and after wrapping it in a code element, recorded while building the CI telemetry aggregator
 revalidate_when: GitHub changes which elements its mention and autolink pass skips, or another workflow starts rendering pull-request-controlled text
 ---

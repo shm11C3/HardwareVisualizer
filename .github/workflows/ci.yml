@@ -181,8 +181,8 @@ jobs:
 
       - name: Test CI telemetry
         run: |
-          node .github/scripts/test-ci-telemetry-action.cjs
-          node .github/scripts/test-ci-telemetry-aggregate.cjs
+          node .github/scripts/test-ci-telemetry-action.mts
+          node .github/scripts/test-ci-telemetry-aggregate.mts
 
       - name: Check Tauri dependency changes
         id: tauri-deps
@@ -711,6 +711,9 @@ jobs:
 
       - name: Frontend lint
         run: npm run lint:ci
+
+      - name: Typecheck CI telemetry
+        run: npm run typecheck:ci-telemetry
 
   check-frontend:
     needs: change-detection

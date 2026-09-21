@@ -2,11 +2,18 @@
 // The monitor must not become the workload (AGENTS.md), so every tick stays
 // synchronous and allocation-light: one os.cpus() scan, one appendFileSync.
 
-const { execFileSync } = require("node:child_process");
-const fs = require("node:fs");
-const os = require("node:os");
+import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
 
-const samplesFile = process.argv[2];
+// Always provided by main.mts's spawn call ([samplerPath, samplesFile, ...]);
+// a genuinely missing path fails loudly here rather than being discovered
+// only once every tick's appendFileSync starts throwing.
+const samplesFileArg = process.argv[2];
+if (!samplesFileArg) {
+  throw new Error("sampler.mts requires a samples file path as argv[2]");
+}
+const samplesFile = samplesFileArg;
 const intervalMs = Number(process.argv[3]) || 5000;
 
 // GitHub's hosted-job time limit is 6h. Self-terminating at that ceiling
@@ -15,17 +22,21 @@ const intervalMs = Number(process.argv[3]) || 5000;
 const MAX_LIFETIME_MS = 6 * 60 * 60 * 1000;
 const deadline = Date.now() + MAX_LIFETIME_MS;
 
-function readVmStatPages(output, label) {
+function readVmStatPages(output: string, label: string): number {
   const match = new RegExp(`${label}:\\s+(\\d+)\\.`).exec(output);
-  if (!match) throw new Error(`vm_stat missing "${label}"`);
-  return Number(match[1]);
+  // The pattern's one capture group is mandatory, so a successful match
+  // always populates it; a missing match or a missing group both mean the
+  // same thing here (vm_stat's output didn't have this field).
+  const captured = match?.[1];
+  if (captured === undefined) throw new Error(`vm_stat missing "${label}"`);
+  return Number(captured);
 }
 
 // os.freemem() on macOS only counts pages on the free list, not pages the
 // kernel could reclaim instantly (inactive/purgeable), so it makes the
 // machine look permanently almost full. vm_stat's active + wired +
 // compressor pages is what Activity Monitor calls "Memory Used".
-function readDarwinMemUsedBytes() {
+function readDarwinMemUsedBytes(): number {
   const output = execFileSync("vm_stat", { encoding: "utf8", timeout: 2000 });
   const pageSizeMatch = /page size of (\d+) bytes/.exec(output);
   const pageSize = pageSizeMatch ? Number(pageSizeMatch[1]) : 4096;
@@ -35,7 +46,7 @@ function readDarwinMemUsedBytes() {
   return (active + wired + compressed) * pageSize;
 }
 
-function readLinuxMemUsedBytes() {
+function readLinuxMemUsedBytes(): number {
   const text = fs.readFileSync("/proc/meminfo", "utf8");
   const total = /MemTotal:\s+(\d+)/.exec(text);
   const available = /MemAvailable:\s+(\d+)/.exec(text);
@@ -43,7 +54,7 @@ function readLinuxMemUsedBytes() {
   return (Number(total[1]) - Number(available[1])) * 1024;
 }
 
-function readMemUsedBytes() {
+function readMemUsedBytes(): number {
   try {
     if (process.platform === "linux") return readLinuxMemUsedBytes();
     if (process.platform === "darwin") return readDarwinMemUsedBytes();
@@ -55,9 +66,9 @@ function readMemUsedBytes() {
   }
 }
 
-function readDisk() {
+function readDisk(): { disk_total: number | null; disk_used: number | null } {
   try {
-    const target = process.env.GITHUB_WORKSPACE || process.cwd();
+    const target = process.env["GITHUB_WORKSPACE"] || process.cwd();
     const stats = fs.statfsSync(target);
     return {
       disk_total: stats.blocks * stats.bsize,
@@ -68,7 +79,17 @@ function readDisk() {
   }
 }
 
-function tick() {
+type Sample = {
+  t: number;
+  cpu_idle: number;
+  cpu_total: number;
+  mem_used: number;
+  mem_total: number;
+  disk_used: number | null;
+  disk_total: number | null;
+};
+
+function tick(): void {
   try {
     let idle = 0;
     let total = 0;
@@ -79,7 +100,7 @@ function tick() {
     }
 
     const disk = readDisk();
-    const sample = {
+    const sample: Sample = {
       t: Date.now(),
       cpu_idle: idle,
       cpu_total: total,
