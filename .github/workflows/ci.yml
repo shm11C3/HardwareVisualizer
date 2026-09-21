@@ -13,6 +13,12 @@ concurrency:
 
 permissions: read-all
 
+# Repository R2 credentials must never be used by fork or Dependabot PRs.
+# Same-repository branches and non-PR runs may use R2 when all credentials are
+# configured; cache-sccache applies that second configuration guard itself.
+env:
+  R2_CACHE_ALLOWED: ${{ github.event_name != 'pull_request' || (github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) }}
+
 jobs:
   #
   # Checks to see what changed
@@ -264,6 +270,7 @@ jobs:
           cache-key: core-lint
 
       - name: Cache DuckDB build
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           expect-cpp: "true"
@@ -301,6 +308,7 @@ jobs:
           cache-key: core-test
 
       - name: Cache DuckDB build
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           expect-cpp: "true"
@@ -345,6 +353,7 @@ jobs:
           cache-key: tauri-lint
 
       - name: Cache DuckDB build
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           expect-cpp: "true"
@@ -385,6 +394,7 @@ jobs:
           cache-key: tauri-test
 
       - name: Cache sccache (R2)
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -456,6 +466,7 @@ jobs:
           cache-key: tauri-lint
 
       - name: Cache sccache (R2)
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -493,6 +504,7 @@ jobs:
           cache-key: tauri-bindings
 
       - name: Cache sccache (R2)
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -612,6 +624,7 @@ jobs:
         wait-all: true
 
       - name: Cache sccache (R2)
+        if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
