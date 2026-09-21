@@ -55,7 +55,34 @@ fn retired_path(source_database: &Path) -> Option<std::path::PathBuf> {
 /// boundary - adopted earlier, in `resolve_native_authority` - opens only
 /// the native `.duckdb` file, never the SQLite source, so nothing holds
 /// `source_database` open by the time this runs.
+///
+/// # The write-ahead log is part of the operation
+///
+/// A SQLite `-wal` file can hold committed pages the main file does not have
+/// yet (Core closes its pool after every operation, so this is normally only
+/// true after a crash mid-write). A retired main file without it would be an
+/// incomplete recovery copy that still looks complete, so the log moves
+/// *first*, and a failure to move the main file afterwards puts it back.
+/// That order is also the crash-safe one: a process killed between the two
+/// renames leaves the source in place, and the next boot's call finishes the
+/// job. The `-shm` file is only an index SQLite rebuilds, so it stays best
+/// effort.
 pub fn retire_sqlite_source(source_database: &Path) {
+  retire_with(source_database, |from, to| std::fs::rename(from, to));
+}
+
+fn sidecar_path(database: &Path, suffix: &str) -> std::path::PathBuf {
+  let mut path = database.as_os_str().to_os_string();
+  path.push(suffix);
+  std::path::PathBuf::from(path)
+}
+
+/// [`retire_sqlite_source`] with the rename injected, so a test can make one
+/// specific rename fail.
+fn retire_with(
+  source_database: &Path,
+  rename: impl Fn(&Path, &Path) -> std::io::Result<()>,
+) {
   if !source_database.is_file() {
     return;
   }
@@ -82,29 +109,44 @@ pub fn retire_sqlite_source(source_database: &Path) {
     );
     return;
   }
-  if let Err(error) = std::fs::rename(source_database, &retired) {
+  let write_ahead_log = sidecar_path(source_database, "-wal");
+  let retired_write_ahead_log = sidecar_path(&retired, "-wal");
+  let moved_write_ahead_log = write_ahead_log.is_file();
+  if moved_write_ahead_log {
+    if retired_write_ahead_log.exists() {
+      log_error!(
+        "refusing to retire the SQLite source: a retired write-ahead log already exists",
+        "app::native_maintenance::retire_sqlite_source",
+        Some(retired_write_ahead_log.display().to_string())
+      );
+      return;
+    }
+    if let Err(error) = rename(&write_ahead_log, &retired_write_ahead_log) {
+      log_error!(
+        "failed to retire the SQLite write-ahead log; the source was left in place",
+        "app::native_maintenance::retire_sqlite_source",
+        Some(error.to_string())
+      );
+      return;
+    }
+  }
+  if let Err(error) = rename(source_database, &retired) {
+    let restored = !moved_write_ahead_log
+      || rename(&retired_write_ahead_log, &write_ahead_log).is_ok();
     log_error!(
       "failed to retire the SQLite source after a later verified native startup",
       "app::native_maintenance::retire_sqlite_source",
-      Some(error.to_string())
+      Some(format!(
+        "{error}; write-ahead log back beside the source: {restored}"
+      ))
     );
     return;
   }
-  for suffix in ["-wal", "-shm"] {
-    let mut sidecar = source_database.as_os_str().to_os_string();
-    sidecar.push(suffix);
-    let sidecar = std::path::PathBuf::from(sidecar);
-    if !sidecar.is_file() {
-      continue;
-    }
-    let mut retired_sidecar = retired.as_os_str().to_os_string();
-    retired_sidecar.push(suffix);
-    // Best effort: the database file itself is already safely renamed, and
-    // a leftover `-wal`/`-shm` beside the *original* name is debris rather
-    // than data loss - nothing opens the retired path expecting them, and
-    // nothing reopens the original path expecting the database file that
-    // just moved away from under them.
-    let _ = std::fs::rename(&sidecar, std::path::PathBuf::from(retired_sidecar));
+  let shared_memory = sidecar_path(source_database, "-shm");
+  if shared_memory.is_file() {
+    // Best effort: SQLite rebuilds this index from the write-ahead log, so a
+    // leftover beside the original name is debris rather than data loss.
+    let _ = rename(&shared_memory, &sidecar_path(&retired, "-shm"));
   }
   log_info!(
     "retired the SQLite source after a later verified native startup",
@@ -205,5 +247,75 @@ mod tests {
 
     assert!(!source.exists());
     assert!(directory.path().join("hv-database.db.retired").is_file());
+  }
+
+  /// A real rename for every path except `failing`, which errors.
+  fn rename_failing_for(
+    failing: std::path::PathBuf,
+  ) -> impl Fn(&Path, &Path) -> std::io::Result<()> {
+    move |from, to| {
+      if from == failing {
+        Err(std::io::Error::other("forced rename failure"))
+      } else {
+        std::fs::rename(from, to)
+      }
+    }
+  }
+
+  #[test]
+  fn a_failed_database_rename_puts_the_write_ahead_log_back() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("hv-database.db");
+    let write_ahead_log = directory.path().join("hv-database.db-wal");
+    std::fs::write(&source, b"sqlite source").unwrap();
+    std::fs::write(&write_ahead_log, b"committed pages").unwrap();
+
+    retire_with(&source, rename_failing_for(source.clone()));
+
+    // Nothing is retired, and the source still has the log that completes it.
+    assert_eq!(std::fs::read(&source).unwrap(), b"sqlite source");
+    assert_eq!(std::fs::read(&write_ahead_log).unwrap(), b"committed pages");
+    assert!(!directory.path().join("hv-database.db.retired").exists());
+    assert!(!directory.path().join("hv-database.db.retired-wal").exists());
+  }
+
+  #[test]
+  fn a_failed_write_ahead_log_rename_leaves_the_source_in_place() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("hv-database.db");
+    let write_ahead_log = directory.path().join("hv-database.db-wal");
+    std::fs::write(&source, b"sqlite source").unwrap();
+    std::fs::write(&write_ahead_log, b"committed pages").unwrap();
+
+    retire_with(&source, rename_failing_for(write_ahead_log.clone()));
+
+    assert_eq!(std::fs::read(&source).unwrap(), b"sqlite source");
+    assert_eq!(std::fs::read(&write_ahead_log).unwrap(), b"committed pages");
+    assert!(!directory.path().join("hv-database.db.retired").exists());
+  }
+
+  #[test]
+  fn a_retirement_interrupted_after_the_log_moved_finishes_on_the_next_call() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("hv-database.db");
+    std::fs::write(&source, b"sqlite source").unwrap();
+    // What a process killed between the two renames leaves behind.
+    std::fs::write(
+      directory.path().join("hv-database.db.retired-wal"),
+      b"committed pages",
+    )
+    .unwrap();
+
+    retire_sqlite_source(&source);
+
+    assert!(!source.exists());
+    assert_eq!(
+      std::fs::read(directory.path().join("hv-database.db.retired")).unwrap(),
+      b"sqlite source"
+    );
+    assert_eq!(
+      std::fs::read(directory.path().join("hv-database.db.retired-wal")).unwrap(),
+      b"committed pages"
+    );
   }
 }
