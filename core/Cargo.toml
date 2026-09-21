@@ -67,7 +67,7 @@ rustls = { version = "0.23", default-features = false, features = [
     "std",
     "tls12",
 ] }
-zip = { version = "6.0.0", default-features = false, features = [
+zip = { version = "8.6.0", default-features = false, features = [
     "deflate-flate2-zlib-rs",
 ] }
 wmi = "0.18.4"
