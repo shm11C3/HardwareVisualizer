@@ -72,6 +72,11 @@ description: >-
 # rotation) and passed as repository secrets. sccache reads these as
 # plain AWS-style env vars; there is no R2-specific credential env var.
 #
+# All four inputs are optional at this boundary because fork and Dependabot
+# pull_request runs do not receive the repository's R2 credentials. Those
+# runs must continue without sccache rather than configuring an empty S3
+# backend. The callers also apply an event-level trust guard.
+#
 # Ordering: run this after setup-rust on purpose. rust-cache folds `RUST*`
 # environment variables into its key, so exporting `RUSTC_WRAPPER` earlier
 # would split the rust-cache key between jobs that use sccache and jobs that
@@ -93,7 +98,7 @@ inputs:
       template-evaluated at load time in a context with no vars/secrets,
       and one bad expression anywhere in the file fails the whole action's
       load, not just that field.)
-    required: true
+    required: false
   endpoint:
     description: >-
       R2 S3-compatible endpoint, full https URL. Callers pass the
@@ -102,31 +107,43 @@ inputs:
       hostname includes a jurisdiction segment whenever the bucket's
       jurisdiction is not "default", and Terraform is the only place that
       computes this. Not a secret.
-    required: true
+    required: false
   aws-access-key-id:
     description: >-
       R2 Access Key ID. Callers pass the AWS_ACCESS_KEY_ID repository
       secret.
-    required: true
+    required: false
   aws-secret-access-key:
     description: >-
       R2 Secret Access Key. Callers pass the AWS_SECRET_ACCESS_KEY
       repository secret.
-    required: true
+    required: false
 
 runs:
   using: "composite"
   steps:
     - name: Install sccache
+      if: >-
+        ${{ inputs.bucket-name != '' && inputs.endpoint != '' &&
+            inputs.aws-access-key-id != '' &&
+            inputs.aws-secret-access-key != '' }}
       uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
       with:
         version: "v0.17.0"
 
     - name: Initialize MSVC environment
-      if: runner.os == 'Windows' && inputs.expect-cpp == 'true'
+      if: >-
+        ${{ inputs.bucket-name != '' && inputs.endpoint != '' &&
+            inputs.aws-access-key-id != '' &&
+            inputs.aws-secret-access-key != '' &&
+            runner.os == 'Windows' && inputs.expect-cpp == 'true' }}
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
     - name: Point sccache at the R2 bucket
+      if: >-
+        ${{ inputs.bucket-name != '' && inputs.endpoint != '' &&
+            inputs.aws-access-key-id != '' &&
+            inputs.aws-secret-access-key != '' }}
       shell: bash
       run: |
         echo "SCCACHE_BUCKET=${{ inputs.bucket-name }}" >> "$GITHUB_ENV"
@@ -145,4 +162,16 @@ runs:
     # Registered after mozilla-actions/sccache-action so this action's post
     # step runs first and records stats before the sccache server is stopped.
     - name: Reset and report sccache statistics
+      if: >-
+        ${{ inputs.bucket-name != '' && inputs.endpoint != '' &&
+            inputs.aws-access-key-id != '' &&
+            inputs.aws-secret-access-key != '' }}
       uses: ./.github/actions/cache-sccache/report
+
+    - name: Skip sccache because R2 is not configured
+      if: >-
+        ${{ inputs.bucket-name == '' || inputs.endpoint == '' ||
+            inputs.aws-access-key-id == '' ||
+            inputs.aws-secret-access-key == '' }}
+      shell: bash
+      run: echo "R2 compiler cache is not configured; continuing without sccache."
