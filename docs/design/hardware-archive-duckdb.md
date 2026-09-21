@@ -514,3 +514,7 @@ all of them are recorded on the single `NativeLifecycleOwner`.
 - [#2084](https://github.com/shm11C3/HardwareVisualizer/issues/2084) and
   [#2085](https://github.com/shm11C3/HardwareVisualizer/issues/2085) retain the
   investigation evidence for unresolved lifecycle and delivery choices.
+- [ADR 0025](../adr/0025-retire-sqlite-conversion-path-in-v2.md) decides when
+  the SQLite backend and this conversion are removed (v2.0.0, with the last 1.x
+  as the bridge release) and lists what has to exist first, including a native
+  database for fresh installs.
