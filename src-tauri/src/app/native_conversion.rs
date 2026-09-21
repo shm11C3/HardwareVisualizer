@@ -341,7 +341,21 @@ pub async fn run_conversion(
       // process restart.
       return Ok(
         match open_selected_database(owner, &paths, expected_schema_version).await {
-          Ok(()) => hand_off(owner, handoff, ConversionOutcome::AlreadySelected).await,
+          Ok(()) => {
+            let outcome =
+              hand_off(owner, handoff, ConversionOutcome::AlreadySelected).await;
+            // This is also the way back from a hand-over that failed earlier
+            // and left the producers paused (see the end of this function),
+            // and from a startup that refused to start them. The cooling
+            // rollup restarts unconditionally, so its absence is what says
+            // nothing is running; never start a second set beside a live one.
+            let producers_stopped = workers.cooling_rollup.lock().unwrap().is_none();
+            if matches!(outcome, ConversionOutcome::AlreadySelected) && producers_stopped
+            {
+              resume_producers(workers, resumers);
+            }
+            outcome
+          }
           Err(error) => {
             fail_open(owner, &error);
             ConversionOutcome::ActionRequired
@@ -476,9 +490,9 @@ pub async fn run_conversion(
     None::<&str>
   );
 
-  // From here every exit path - success, cancellation or failure - must
-  // resume the producers before returning, so the pause/reconcile/select
-  // sequence runs as one block whose result is handled only after resuming.
+  // The pause/reconcile/select sequence runs as one block whose result is
+  // handled only after the producers have been dealt with - see below for
+  // the one outcome that leaves them stopped.
   //
   // The hand-over to the dispatch boundary belongs inside that block too. A
   // producer resumed while dispatch still routes to SQLite would write after
@@ -497,12 +511,32 @@ pub async fn run_conversion(
     }
     other => other,
   };
-  resume_producers(workers, resumers);
-  log_info!(
-    "database producers resumed after native conversion reconciliation",
-    "app::native_conversion::run_conversion",
-    None::<&str>
-  );
+
+  // Producers resume only onto a backend that is both authoritative and
+  // being served. Inside this block `ActionRequired` has one meaning: the
+  // selection is already durable, but opening the selected database or
+  // handing it to dispatch failed. SQLite is then a stale recovery copy, and
+  // dispatch either still routes to it or refuses every consumer, so a
+  // resumed producer would write rows the native database never gets, or
+  // collect rows only to have them refused and logged. They stay stopped,
+  // the same way a startup that ends in `ActionRequired` never starts them,
+  // until a later call completes the hand-over (the entry path above).
+  // Cancellation and a failure before selection leave SQLite authoritative,
+  // so those resume exactly as before.
+  if matches!(result, Ok(ConversionOutcome::ActionRequired)) {
+    log_error!(
+      "database producers left paused: the native database is selected but not served",
+      "app::native_conversion::run_conversion",
+      None::<&str>
+    );
+  } else {
+    resume_producers(workers, resumers);
+    log_info!(
+      "database producers resumed after native conversion reconciliation",
+      "app::native_conversion::run_conversion",
+      None::<&str>
+    );
+  }
 
   result
 }
