@@ -316,6 +316,36 @@ mod boundary {
 #[cfg(feature = "duckdb-archive")]
 pub use boundary::{init, reobserve_authority, shutdown};
 
+/// Checkpoint the native database if it is the currently selected backend;
+/// a no-op on SQLite (there is nothing to checkpoint, and no live owner to
+/// reach one through).
+///
+/// This is the one operation every dispatch consumer function's own
+/// `resolve_backend`/`Backend::Native(database)` pattern would otherwise
+/// have to repeat just to reach the same live owner
+/// [`NativeDatabase::checkpoint`][cp] measures the cost of - see its own
+/// documentation for the measured schedule. #2135's App lifecycle owner
+/// calls this once, after a daily expiry pass
+/// (`persistence::archive::cleanup_old_data`), through the boundary rather
+/// than a second `NativeDatabase` instance of its own.
+///
+/// [cp]: super::native_database::NativeDatabase::checkpoint
+#[cfg(feature = "duckdb-archive")]
+pub async fn checkpoint() -> Result<(), DispatchError> {
+  match boundary::resolve_backend().await? {
+    boundary::Backend::Native(database) => database
+      .checkpoint(super::native_database::NativeCancellation::new())
+      .await
+      .map_err(DispatchError::from),
+    boundary::Backend::Sqlite => Ok(()),
+  }
+}
+
+#[cfg(not(feature = "duckdb-archive"))]
+pub async fn checkpoint() -> Result<(), DispatchError> {
+  Ok(())
+}
+
 /// The Process Stats family: [`super::process_stats`] (SQLite) and
 /// [`super::native_database::process_stats`] (native).
 pub mod process_stats {

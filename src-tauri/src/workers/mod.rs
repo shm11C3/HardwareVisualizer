@@ -115,24 +115,27 @@ impl WorkersState {
       storage_health.terminate().await;
     }
 
-    // After the writers: it only ever deletes rows the writers above already
-    // wrote, so waiting for it after they are gone cannot race a write
-    // against the cleanup it is racing today (fire-and-forget, unjoined). It
-    // stays ahead of the dispatch shutdown below because its deletions go
-    // through that boundary.
+    // Next to last: it only ever deletes rows the writers above already
+    // wrote, so waiting for it after the writers are gone cannot race a
+    // write against the cleanup it is racing today (fire-and-forget,
+    // unjoined).
     if let Some(scheduled_cleanup) = scheduled_cleanup {
       let _ = scheduled_cleanup.await;
     }
 
-    // Last, now that every database-backed worker above has drained and
-    // stopped writing: close the native database dispatch boundary's live
-    // owner, if any (#2134). This joins the two DuckDB lane threads
-    // deliberately - and lets the file checkpoint cleanly - instead of
-    // letting them be torn down with the process. Every caller of
-    // `terminate_all` (`lifecycle::request_quit`,
+    // Last, now that every database-backed worker above - including the
+    // scheduled cleanup pass, whose deletes route through the same
+    // boundary - has drained and stopped writing: close the native
+    // database dispatch boundary's live owner, if any (#2134). This joins
+    // the two DuckDB lane threads deliberately - and lets the file
+    // checkpoint cleanly - instead of letting them be torn down with the
+    // process. Every caller of `terminate_all` (`lifecycle::request_quit`,
     // `services::system_service::restart_app[_elevated]`) reaches this, so
     // it is a single site rather than one per quit/restart path. A no-op
-    // with the feature disabled or when nothing was ever selected.
+    // with the feature disabled or when nothing was ever selected. Must
+    // stay last: closing the boundary's owner before the writers above
+    // have drained would close the file out from under a still-running
+    // archive/cooling/storage-health/cleanup write.
     #[cfg(feature = "duckdb-archive")]
     if let Err(e) = hardviz_core::infrastructure::database::dispatch::shutdown().await {
       hardviz_core::log_error!(

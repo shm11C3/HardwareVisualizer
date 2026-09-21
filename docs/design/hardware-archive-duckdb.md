@@ -476,6 +476,25 @@ verbatim form there and `Path::starts_with` compares the prefix component, so
 without the rewrite a supported platform would report its free space as
 unknowable.
 
+### The App lifecycle state vocabulary
+
+[#2135](https://github.com/shm11C3/HardwareVisualizer/issues/2135) defines
+the small vocabulary the user-facing flow
+([#2136](https://github.com/shm11C3/HardwareVisualizer/issues/2136)) renders:
+`SqliteAuthoritative`, `ConversionRecoverable { resumable }`,
+`Converting(step)`, `NativeAuthoritative`, and `ActionRequired(issue)`. It is
+an App-facing projection of Core's five-variant `AuthorityState` (itself
+derived from the two-value durable record above plus what is on disk), not a
+one-to-one copy: `FinalizedUnselected` and a resumable `ConversionInProgress`
+both become `ConversionRecoverable { resumable: true }`, because the user's
+next action is the same. It adds what a point-in-time disk read cannot
+express: a running conversion's step, a driver failure or cancellation, and a
+selected database whose runtime open failed (`NativeOpenFailed`). One function
+(`inspect_startup_authority`) is the App's only reader of
+`observe_authority`/`inspect_authority`; the conversion driver and the
+native-database open path also produce `DatabaseLifecycleState` values, and
+all of them are recorded on the single `NativeLifecycleOwner`.
+
 ## Remaining design questions
 
 - [#2089](https://github.com/shm11C3/HardwareVisualizer/issues/2089): native

@@ -199,6 +199,26 @@ pub fn sqlite_source_is_authoritative(state: &DatabaseLifecycleState) -> bool {
   )
 }
 
+/// Whether an on-demand write issued *through dispatch* (#2134) is safe to
+/// answer right now, for a producer dispatch does not already pause/drain
+/// around reconciliation (see `native_conversion::pause_and_drain_producers`
+/// and its one known gap, `commands::hardware::refresh_storage_devices`).
+///
+/// Broader than [`sqlite_source_is_authoritative`]: once dispatch is
+/// actually routing consumers, a write is fine in
+/// [`DatabaseLifecycleState::NativeAuthoritative`] too - dispatch answers it
+/// from the native database, not a possibly-retired SQLite file - so only
+/// [`DatabaseLifecycleState::Converting`] (reconciliation is capturing the
+/// snapshot a write outside the paused producers could otherwise race) and
+/// [`DatabaseLifecycleState::ActionRequired`] (dispatch itself refuses,
+/// `DispatchError::NativeUnavailable`) refuse here.
+pub fn database_writable(state: &DatabaseLifecycleState) -> bool {
+  !matches!(
+    state,
+    DatabaseLifecycleState::Converting(_) | DatabaseLifecycleState::ActionRequired(_)
+  )
+}
+
 /// The App's single owner of native database lifecycle state and the
 /// selected database instance. Managed as Tauri state so both the startup
 /// path and the (later) conversion driver read and write through one place.
@@ -249,6 +269,15 @@ impl NativeLifecycleOwner {
   pub fn set_selected_database(&self, database: NativeDatabase) {
     self.selected.lock().unwrap().replace(database);
   }
+
+  /// Take (and clear) whatever this owner currently holds, so a caller can
+  /// hand it over - closing it - before something else (#2134's dispatch
+  /// boundary) opens its own instance on the same file. See
+  /// `native_conversion::adopt_selected_database_via_dispatch`, the `//
+  /// #2134 seam:`.
+  pub fn take_selected_database(&self) -> Option<NativeDatabase> {
+    self.selected.lock().unwrap().take()
+  }
 }
 
 #[cfg(test)]
@@ -297,6 +326,30 @@ mod tests {
         AuthorityInconsistency::SourceDatabaseMissing
       ))
     ));
+  }
+
+  #[test]
+  fn database_is_writable_through_dispatch_except_mid_conversion_or_blocked() {
+    for state in [
+      DatabaseLifecycleState::SqliteAuthoritative,
+      DatabaseLifecycleState::ConversionRecoverable { resumable: true },
+      DatabaseLifecycleState::ConversionRecoverable { resumable: false },
+      // Unlike `sqlite_source_is_authoritative`, writable: dispatch answers
+      // it from the native database.
+      DatabaseLifecycleState::NativeAuthoritative,
+    ] {
+      assert!(database_writable(&state), "{state:?}");
+    }
+
+    for state in [
+      DatabaseLifecycleState::Converting(ConversionProgress::Reconciling),
+      DatabaseLifecycleState::Converting(ConversionProgress::PausingProducers),
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        AuthorityInconsistency::SourceDatabaseMissing,
+      )),
+    ] {
+      assert!(!database_writable(&state), "{state:?}");
+    }
   }
 
   #[test]

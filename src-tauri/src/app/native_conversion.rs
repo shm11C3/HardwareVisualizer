@@ -201,6 +201,37 @@ pub fn resume_producers(workers: &WorkersState, resumers: ProducerResumers) {
   }
 }
 
+/// Which databases one conversion works on. App resolves all three
+/// ([`crate::infrastructure::database::native_paths`] and
+/// [`native_schema::NATIVE_SCHEMA_VERSION`]); they travel together so a test
+/// can point the whole driver at a temporary directory.
+pub struct ConversionTarget {
+  pub paths: hardviz_core::infrastructure::database::native_database::AuthorityPaths,
+  /// Where conversion work directories are created and the space preflight
+  /// measures; the directory that holds both databases.
+  pub workspace: PathBuf,
+  pub expected_schema_version: u32,
+}
+
+/// Who answers database consumers once the selection is durable.
+///
+/// An explicit argument rather than a check of whether Core's dispatch
+/// boundary happens to be initialised: `dispatch::init` is process-wide (a
+/// `OnceLock`), so this module's own tests must be able to say they are not
+/// using it instead of racing each other for that configuration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SelectionHandoff {
+  /// The App's real path. `dispatch::init` has already run at startup, and
+  /// the selected database is handed to the dispatch boundary
+  /// ([`adopt_selected_database_via_dispatch`]) while the producers are
+  /// still paused, so nothing can write to the stale SQLite source between
+  /// the final reconciliation and the boundary switching backends.
+  ThroughDispatch,
+  /// Keep the opened database on the [`NativeLifecycleOwner`] only and never
+  /// touch the dispatch boundary.
+  OwnerOnly,
+}
+
 /// What one [`run_conversion`] call ended with.
 #[derive(Debug)]
 pub enum ConversionOutcome {
@@ -267,23 +298,32 @@ impl std::error::Error for ConversionError {}
 /// left behind. An already-selected database or an unresolved authority
 /// disagreement both return immediately without touching anything.
 pub async fn run_conversion(
-  paths: hardviz_core::infrastructure::database::native_database::AuthorityPaths,
-  workspace: PathBuf,
-  expected_schema_version: u32,
+  target: ConversionTarget,
   owner: &NativeLifecycleOwner,
   workers: &WorkersState,
   resumers: ProducerResumers,
   cancellation: &ConversionCancellation,
+  handoff: SelectionHandoff,
 ) -> Result<ConversionOutcome, ConversionError> {
+  let ConversionTarget {
+    paths,
+    workspace,
+    expected_schema_version,
+  } = target;
+
   // Checked before anything touches disk, and before `entry` is even
   // computed: `observe_authority`'s own documentation requires the native
   // file to have no live `NativeDatabase` owner, because reading its
   // metadata means opening it as a second DuckDB instance and DuckDB
   // refuses a second instance on a file another one holds. Once this or a
-  // startup call has opened the selected database into the `// #2134 seam:`,
-  // inspecting authority again would misreport it as unreadable instead of
-  // reporting the true, healthy `NativeSelected` state.
-  if owner.selected_database().is_some() {
+  // startup call has opened the selected database - into the `// #2134
+  // seam:`, or into the dispatch boundary, which leaves the owner holding
+  // no handle of its own and only its `NativeAuthoritative` state to show
+  // for it - inspecting authority again would misreport it as unreadable
+  // instead of reporting the true, healthy `NativeSelected` state.
+  if owner.selected_database().is_some()
+    || matches!(owner.state(), DatabaseLifecycleState::NativeAuthoritative)
+  {
     owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
     return Ok(ConversionOutcome::AlreadySelected);
   }
@@ -301,7 +341,21 @@ pub async fn run_conversion(
       // process restart.
       return Ok(
         match open_selected_database(owner, &paths, expected_schema_version).await {
-          Ok(()) => ConversionOutcome::AlreadySelected,
+          Ok(()) => {
+            let outcome =
+              hand_off(owner, handoff, ConversionOutcome::AlreadySelected).await;
+            // This is also the way back from a hand-over that failed earlier
+            // and left the producers paused (see the end of this function),
+            // and from a startup that refused to start them. The cooling
+            // rollup restarts unconditionally, so its absence is what says
+            // nothing is running; never start a second set beside a live one.
+            let producers_stopped = workers.cooling_rollup.lock().unwrap().is_none();
+            if matches!(outcome, ConversionOutcome::AlreadySelected) && producers_stopped
+            {
+              resume_producers(workers, resumers);
+            }
+            outcome
+          }
           Err(error) => {
             fail_open(owner, &error);
             ConversionOutcome::ActionRequired
@@ -436,17 +490,53 @@ pub async fn run_conversion(
     None::<&str>
   );
 
-  // From here every exit path - success, cancellation or failure - must
-  // resume the producers before returning, so the pause/reconcile/select
-  // sequence runs as one block whose result is handled only after resuming.
-  let result =
-    reconcile_and_select(owner, &paths, expected_schema_version, cancellation).await;
-  resume_producers(workers, resumers);
-  log_info!(
-    "database producers resumed after native conversion reconciliation",
-    "app::native_conversion::run_conversion",
-    None::<&str>
-  );
+  // The pause/reconcile/select sequence runs as one block whose result is
+  // handled only after the producers have been dealt with - see below for
+  // the one outcome that leaves them stopped.
+  //
+  // The hand-over to the dispatch boundary belongs inside that block too. A
+  // producer resumed while dispatch still routes to SQLite would write after
+  // the final reconciliation into a source that is no longer authoritative,
+  // and that row would be absent from the selected database for good.
+  let result = match reconcile_and_select(
+    owner,
+    &paths,
+    expected_schema_version,
+    cancellation,
+  )
+  .await
+  {
+    Ok(outcome @ ConversionOutcome::Selected { .. }) => {
+      Ok(hand_off(owner, handoff, outcome).await)
+    }
+    other => other,
+  };
+
+  // Producers resume only onto a backend that is both authoritative and
+  // being served. Inside this block `ActionRequired` has one meaning: the
+  // selection is already durable, but opening the selected database or
+  // handing it to dispatch failed. SQLite is then a stale recovery copy, and
+  // dispatch either still routes to it or refuses every consumer, so a
+  // resumed producer would write rows the native database never gets, or
+  // collect rows only to have them refused and logged. They stay stopped,
+  // the same way a startup that ends in `ActionRequired` never starts them,
+  // until a later call completes the hand-over (the entry path above).
+  // Cancellation and a failure before selection leave SQLite authoritative,
+  // so those resume exactly as before.
+  if matches!(result, Ok(ConversionOutcome::ActionRequired)) {
+    log_error!(
+      "database producers left paused: the native database is selected but not served",
+      "app::native_conversion::run_conversion",
+      None::<&str>
+    );
+  } else {
+    resume_producers(workers, resumers);
+    log_info!(
+      "database producers resumed after native conversion reconciliation",
+      "app::native_conversion::run_conversion",
+      None::<&str>
+    );
+  }
 
   result
 }
@@ -513,9 +603,13 @@ async fn reconcile_and_select(
   }
 }
 
-/// Hand the freshly selected database to the `// #2134 seam:` the same way
-/// startup does, so a caller that just converted does not have to restart
-/// the process to see it.
+/// Open the freshly selected database into `owner`'s own bookkeeping, the
+/// same way startup does, so a caller that just converted does not have to
+/// restart the process to see `NativeAuthoritative` reflected. This is
+/// `owner`'s *own* copy for the driver's own use (retry/idempotency
+/// checks - see `run_conversion`'s entry) and is deliberately not the one
+/// #2134's dispatch boundary answers consumers from; see
+/// [`adopt_selected_database_via_dispatch`] for that hand-over.
 async fn open_selected_database(
   owner: &NativeLifecycleOwner,
   paths: &hardviz_core::infrastructure::database::native_database::AuthorityPaths,
@@ -532,6 +626,87 @@ async fn open_selected_database(
   owner.set_selected_database(database);
   owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
   Ok(())
+}
+
+/// `// #2134 seam:` hand `owner`'s selected database over to Core's dispatch
+/// boundary, so every consumer routed through
+/// [`hardviz_core::infrastructure::database::dispatch`] answers from it -
+/// not from the copy [`open_selected_database`] opened above for `owner`'s
+/// own bookkeeping.
+///
+/// [`run_conversion`] calls this itself under
+/// [`SelectionHandoff::ThroughDispatch`], while the producers are still
+/// paused. Dispatch's `init`/`reobserve_authority` are process-wide (a
+/// `OnceLock`-backed configuration - see their own documentation), so
+/// `dispatch::init` must already have run with the same `paths` this driver
+/// was given; in this App that is `lib.rs`'s startup
+/// (`resolve_native_authority`). This module's own tests pass
+/// [`SelectionHandoff::OwnerOnly`] instead and never reach this function, so
+/// none of them can corrupt each other's configuration by racing for the
+/// same `OnceLock`. See the App-level integration tests under
+/// `src-tauri/tests/` for the proof this actually wires together end to end.
+///
+/// Only [`AuthorityState::NativeSelected`] counts as a successful hand-over.
+/// `reobserve_authority` deliberately returns `Ok` for an inconsistent
+/// marker, metadata or file state while leaving the boundary refusing every
+/// consumer, so treating any `Ok` as success would report
+/// `NativeAuthoritative` over a backend that answers nothing.
+///
+/// Respects the single-owner rule
+/// [`hardviz_core::infrastructure::database::dispatch::reobserve_authority`]'s
+/// own documentation requires: DuckDB refuses a second instance on a file
+/// another one already holds, and `reobserve_authority` is the only thing
+/// that ever opens dispatch's own instance - so `owner`'s copy is closed
+/// ("handed over") first, never left open beside it.
+pub async fn adopt_selected_database_via_dispatch(
+  owner: &NativeLifecycleOwner,
+) -> Result<(), NativeDatabaseError> {
+  use hardviz_core::infrastructure::database::dispatch;
+  use hardviz_core::infrastructure::database::native_database::AuthorityState;
+
+  if let Some(database) = owner.take_selected_database() {
+    database.close().await?;
+  }
+  match dispatch::reobserve_authority().await {
+    Ok(AuthorityState::NativeSelected) => {
+      owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+      Ok(())
+    }
+    Ok(other) => {
+      let error = NativeDatabaseError::Worker {
+        message: format!(
+          "the dispatch boundary observed {other:?} instead of the selected native \
+           database and is refusing every consumer"
+        ),
+      };
+      fail_open(owner, &error);
+      Err(error)
+    }
+    Err(error) => {
+      fail_open(owner, &error);
+      Err(error)
+    }
+  }
+}
+
+/// Apply `handoff` to a call that ended with the native database selected
+/// and open on `owner`. A failed hand-over is reported as
+/// [`ConversionOutcome::ActionRequired`]: the selection itself is durable, so
+/// it is not a conversion failure, and `owner`'s state already says why.
+async fn hand_off(
+  owner: &NativeLifecycleOwner,
+  handoff: SelectionHandoff,
+  selected: ConversionOutcome,
+) -> ConversionOutcome {
+  match handoff {
+    SelectionHandoff::OwnerOnly => selected,
+    SelectionHandoff::ThroughDispatch => {
+      match adopt_selected_database_via_dispatch(owner).await {
+        Ok(()) => selected,
+        Err(_) => ConversionOutcome::ActionRequired,
+      }
+    }
+  }
 }
 
 /// Record a step failure both in the log and on the lifecycle owner, so a
@@ -639,6 +814,14 @@ mod tests {
     fn workspace(&self) -> PathBuf {
       self.directory.path().to_path_buf()
     }
+
+    fn target(&self) -> ConversionTarget {
+      ConversionTarget {
+        paths: self.paths(),
+        workspace: self.workspace(),
+        expected_schema_version: native_schema::NATIVE_SCHEMA_VERSION,
+      }
+    }
   }
 
   /// A `ProducerResumers` that starts nothing except the cooling rollup,
@@ -658,13 +841,12 @@ mod tests {
     let workers = WorkersState::default();
 
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -708,13 +890,12 @@ mod tests {
     };
 
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       resumers,
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -793,13 +974,12 @@ mod tests {
     let owner = NativeLifecycleOwner::new();
     let workers = WorkersState::default();
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -816,13 +996,12 @@ mod tests {
     cancellation.cancel();
 
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       empty_resumers(tokio::runtime::Handle::current()),
       &cancellation,
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -858,13 +1037,12 @@ mod tests {
     let workers = WorkersState::default();
 
     let error = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap_err();
@@ -887,25 +1065,23 @@ mod tests {
     let workers = WorkersState::default();
 
     run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
 
     let second = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &owner,
       &workers,
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -929,13 +1105,12 @@ mod tests {
     let first_owner = NativeLifecycleOwner::new();
 
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &first_owner,
       &WorkersState::default(),
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -952,13 +1127,12 @@ mod tests {
     let second_owner = NativeLifecycleOwner::new();
     assert!(second_owner.selected_database().is_none());
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &second_owner,
       &WorkersState::default(),
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -992,13 +1166,12 @@ mod tests {
     let first_owner = NativeLifecycleOwner::new();
 
     run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &first_owner,
       &WorkersState::default(),
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();
@@ -1006,13 +1179,12 @@ mod tests {
 
     let second_owner = NativeLifecycleOwner::new();
     let outcome = run_conversion(
-      fixture.paths(),
-      fixture.workspace(),
-      native_schema::NATIVE_SCHEMA_VERSION,
+      fixture.target(),
       &second_owner,
       &WorkersState::default(),
       empty_resumers(tokio::runtime::Handle::current()),
       &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
     )
     .await
     .unwrap();

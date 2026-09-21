@@ -11,14 +11,12 @@
 //! Original timestamp text stays stored verbatim. The `__hv_timestamp_epoch_ms`
 //! columns are derived query keys the finalizer fills from the stored text.
 
-// `NATIVE_SCHEMA_VERSION` is read at App startup by
-// `lib::initialize_native_database_dispatch` (#2134). `get_native_schema`
-// still has no App caller: the finalizer that consumes it is Core's,
-// exercised from Core's tests, and App lifecycle drives finalize/reconcile
-// only in the dependent conversion-lifecycle change (#2135). Moving the
-// definition into Core would settle the lint and put schema ownership on the
-// wrong side of the boundary that also keeps the ordered SQLite migration set
-// here, so the lint is suppressed instead.
+// App reads `NATIVE_SCHEMA_VERSION` at startup (`lib::resolve_native_authority`)
+// and `get_native_schema` from the conversion driver (#2135). Core's DuckDB
+// integration targets also load this file by path for their fixtures and each
+// uses only part of it. Moving the definition into Core would settle the lint
+// and put schema ownership on the wrong side of the boundary that also keeps
+// the ordered SQLite migration set here, so the lint is suppressed instead.
 #![allow(dead_code)]
 
 use hardviz_core::infrastructure::database::native_database::{
