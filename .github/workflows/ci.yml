@@ -467,6 +467,72 @@ jobs:
             </details>
 
   #
+  # Tauri tests with the duckdb-archive feature enabled. Kept as a sibling job
+  # rather than an extra step in test-tauri: this feature set is a distinct
+  # Cargo mode/feature combination (see docs/design/ci-fast-feedback.md
+  # "Sharing boundaries"), so it needs its own rust-cache key and would only
+  # add its own build+test time to test-tauri's critical path if appended
+  # there. As a sibling job it instead runs in parallel with test-tauri (and
+  # with lint-tauri, which already builds the App crate with this same
+  # feature for clippy), so the wall-clock cost only shows up on the critical
+  # path if it becomes the single slowest job. The bundled DuckDB C++ build is
+  # expensive, so this job goes through the same sccache action, inputs, and
+  # `expect-cpp: "true"` as lint-tauri and test-core; sccache's compiler-level
+  # cache is populated per compiler invocation, not per job, so it benefits
+  # from lint-tauri's concurrent duckdb-archive build even on a cache miss for
+  # this job's own rust-cache entry.
+  #
+  # Release builds (test-build) still exclude duckdb-archive: this job exists
+  # to catch regressions in the feature-gated code paths before the feature
+  # is switched on for shipped builds, not to change what ships.
+  test-tauri-duckdb-archive:
+    needs: change-detection
+    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Start CI telemetry
+        uses: ./.github/actions/ci-telemetry
+
+      - name: Setup Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: ./.github/actions/setup-linux-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key: tauri-test-duckdb-archive
+
+      - name: Cache DuckDB build
+        if: env.R2_CACHE_ALLOWED == 'true'
+        uses: ./.github/actions/cache-sccache
+        with:
+          expect-cpp: "true"
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # Feature-gated unit tests share process-wide state in places (same
+      # reason test-tauri's default run uses --test-threads=1).
+      - name: Run Tauri lib tests (duckdb-archive)
+        run: cargo test -p hardware_visualizer --features duckdb-archive --lib -- --test-threads=1 --nocapture
+
+      # native_dispatch_conversion and native_dispatch_restart each need their
+      # own process because Core's dispatch::init is a process-wide OnceLock.
+      # As separate integration test binaries, cargo test already gives them
+      # that, so no --test-threads=1 is needed here.
+      - name: Run Tauri integration tests (duckdb-archive)
+        run: cargo test -p hardware_visualizer --features duckdb-archive --test native_dispatch_conversion --test native_dispatch_restart
+
+  #
   # Core-to-Tauri integration check
   #
   check-core-tauri-integration:
@@ -1002,6 +1068,7 @@ jobs:
       - test-core
       - lint-tauri
       - test-tauri
+      - test-tauri-duckdb-archive
       - check-core-tauri-integration
       - check-tauri-bindings
       - test-build
