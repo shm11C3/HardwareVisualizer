@@ -216,6 +216,19 @@ pub async fn cleanup_old_data(retention_days: u32) {
   }
 
   crate::persistence::cooling_rollup::cleanup_old_data().await;
+
+  // Last: one explicit checkpoint after this boot's whole daily expiry pass
+  // (every family above, plus the cooling rollup's own cleanup) - a no-op on
+  // SQLite, and reaches the native database only through the boundary's own
+  // live owner (#2135; see `dispatch::checkpoint`'s own documentation for
+  // the measured cost/benefit this schedule is built on).
+  if let Err(e) = dispatch::checkpoint().await {
+    log_error!(
+      "Failed to checkpoint the native database after the daily expiry pass",
+      "persistence::archive::cleanup_old_data",
+      Some(e.to_string())
+    );
+  }
 }
 
 // ── Internal: per-snapshot accumulator ────────────────────────────────
