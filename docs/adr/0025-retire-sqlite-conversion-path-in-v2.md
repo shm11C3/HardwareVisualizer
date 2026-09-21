@@ -22,15 +22,19 @@ proven identical.
 
 Five facts decide when it can go.
 
-- **The updater always jumps to the latest release.** Its endpoint is the fixed
-  `releases/latest/download/latest.json`; the server never sees the client's
-  version. Any old install can land on any later release in one step.
+- **The updater always jumps to the latest release.** Its one endpoint
+  (`src-tauri/tauri.conf.json`) is the fixed URL
+  `releases/latest/download/latest.json`, a static GitHub release asset with no
+  version variable in it. A static file cannot answer differently per client, so
+  any old install can land on any later release in one step.
 - **Adoption cannot be measured.** DP-01 keeps hardware data local and rules out
   outbound telemetry, so there is no way to learn how many archives are
   converted.
-- **Conversion starts from explicit user intent** (DP-06,
-  [#2136](https://github.com/shm11C3/HardwareVisualizer/issues/2136)). A user
-  who never chooses it never converts.
+- **Conversion is planned to start only from explicit user intent.** Nothing in
+  the application can start one today; the conversion driver has no production
+  caller. [#2136](https://github.com/shm11C3/HardwareVisualizer/issues/2136)
+  requires the flow to begin from the user's choice (DP-06). If it ships that
+  way, a user who never chooses it never converts.
 - **A fresh install starts on SQLite.** No path creates a native database except
   by converting one.
 - **Native writers still use SQLite.** They derive each row's epoch key from an
@@ -39,7 +43,10 @@ Five facts decide when it can go.
   backend.
 
 Minor releases have shipped every four to six weeks (v1.8.0 on 2026-05-06,
-v1.9.0 on 2026-06-21, v1.10.0 on 2026-08-22).
+v1.9.0 on 2026-06-21, v1.10.0 on 2026-08-22, per the project's
+[GitHub releases](https://github.com/shm11C3/HardwareVisualizer/releases)). The
+cadence only translates the window below into a number of releases; it is not
+what the window is based on.
 
 ## Decision
 
@@ -54,10 +61,22 @@ v1.9.0 on 2026-06-21, v1.10.0 on 2026-08-22).
    database and existing users are prompted to convert. The window is measured
    in time because adoption cannot be measured; six months is four or five
    minor releases at the current cadence.
-4. **v2.0.0 keeps a minimal detector.** It recognizes an unconverted archive (a
-   SQLite source with no selected native database) and stops with guidance that
-   names the bridge release. It never creates an empty database and never
-   deletes or renames the SQLite file. This extends the guarantees of
+4. **Every install older than the bridge release reaches 2.x through it.** The
+   existing updater endpoint keeps serving the bridge release for good. 2.x is
+   published on a second endpoint that only the bridge release and later know,
+   and the bridge release offers 2.x once nothing is left to convert: the
+   archive is converted, or there is no SQLite archive at all. The in-app
+   updater therefore never moves an unconverted archive onto 2.x, and the
+   recovery path never depends on a downgrade.
+5. **v2.0.0 keeps a minimal detector as the last line of defense**, for an
+   installer downloaded by hand and run over an old version. It recognizes an
+   unconverted archive (a SQLite source with no selected native database) and
+   stops with guidance that names the bridge release. It never creates an empty
+   database and never deletes or renames the SQLite file. When it fires, v2.0.0
+   also writes nothing else: no settings migration, no store changes. Installing
+   the bridge release over a v2.0.0 that refused to start is therefore a
+   supported and tested path, the one narrow downgrade this project guarantees.
+   This extends the guarantees of
    [ADR 0019](0019-lossless-chunked-hardware-archive.md) and ADR 0022, and DP-02:
    history that cannot be read is reported, not silently replaced.
 
@@ -81,11 +100,17 @@ Removal waits for each of these, all in 1.x:
 - An explicit **Remove recovery copy** action for the `.retired` SQLite file has
   shipped, because v2.0.0 will no longer explain where that file came from.
 - The release process names the bridge release and protects it from deletion.
+- The two-endpoint distribution exists and has been exercised before v2.0.0:
+  the old URL still resolves to the bridge release after a 2.x release is
+  published, and the bridge release updates to 2.x from the new one. How the
+  old URL is pinned is a release-engineering choice; the simplest is never
+  marking a 2.x release as GitHub's latest, which also leaves the repository's
+  "Latest release" badge on the bridge release.
+- A test installs the bridge release over a v2.0.0 that stopped at the detector
+  and converts from there.
 
 Replacing the SQLite epoch oracle is a separate decision. Until it is made,
-"removing SQLite" means removing the backend, not the dependency. Making the
-updater endpoint version-aware, so an old install is offered the bridge release
-first, would strengthen the path but is not required: the detector is the guard.
+"removing SQLite" means removing the backend, not the dependency.
 
 ## Alternatives and trade-offs
 
@@ -95,14 +120,19 @@ first, would strengthen the path but is not required: the detector is the guard.
 | Keep both engines indefinitely | Every new family is implemented twice and proven bit-identical forever, and it turns the temporary topology ADR 0022 accepted into the permanent split it rejected. |
 | Convert silently at startup in a late 1.x, then remove | A multi-gigabyte conversion needs disk space, time and a visible failure path; starting it without the user's choice breaks DP-06. Requiring conversion remains possible, but as an explicit step. |
 | Keep a read-only SQLite importer in 2.x | An importer is the candidate builder, finalization and reconciliation under another name, so most of the machinery and its tests would stay. |
+| Keep one updater endpoint and rely on the detector alone | Every unconverted install that updates lands on v2.0.0, and the only remedy is installing 1.x over it: a downgrade nobody tested, as the routine path for an unknown number of users. |
 
 ## Consequences
 
 Both engines are maintained through the rest of 1.x, and anything persisted
 before v2.0.0 needs a SQLite implementation, a native implementation and a
-differential test. A user who skips the bridge release meets a blocking guidance
-screen in v2.0.0 and has to install the bridge release, convert, and update
-again; their data is untouched throughout. Downgrading from 2.x to 1.x stays
-unsupported, as [#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052)
-already deferred it. The bridge release becomes a permanent release-engineering
-obligation.
+differential test. Every install older than the bridge release takes two updates
+to reach 2.x, including users with nothing to convert, who are offered 2.x as
+soon as they are on the bridge release. Only a hand-run v2.0.0 installer can
+still meet the detector; that user installs the bridge release, converts, and
+updates again, with their data untouched throughout. Downgrading from 2.x to 1.x
+otherwise stays unsupported, as
+[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) already
+deferred it. The bridge release, the second updater endpoint and the pinned old
+URL become permanent release-engineering obligations, and visitors to the
+repository see the bridge release labelled as the latest one.
