@@ -298,15 +298,16 @@ recompiles DuckDB once. R2 has no LRU eviction of its own; the bucket's
 Terraform config expires objects older than 30 days regardless of how
 recently they were last read (`object_expiry_days` in
 `infra/cloudflare-r2-cache/variables.tf`) as the replacement for that,
-since R2's lifecycle rule is age-based, not access-based. A pull request
-from a fork does not receive
-`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (GitHub withholds repository
-secrets from fork-triggered `pull_request` runs by default), so those jobs
-build without a cache rather than failing; only same-repository branches and
-`develop` benefit. The action runs after rust-cache on purpose: rust-cache
-folds `RUST*` environment variables into its key, so exporting
-`RUSTC_WRAPPER` earlier would split the rust-cache key between jobs with and
-without sccache.
+since R2's lifecycle rule is age-based, not access-based. A pull request from
+a fork or Dependabot does not use the repository's R2 credentials. The CI
+and CodeQL callers skip the R2 action for those `pull_request` runs, and the
+action itself also skips when any of its four R2 inputs is missing. They
+therefore build without the compiler cache rather than configuring an empty
+S3 backend. Same-repository branches and `develop` can use R2 when the bucket,
+endpoint, and both credentials are configured. The action runs after
+rust-cache on purpose: rust-cache folds `RUST*` environment variables into
+its key, so exporting `RUSTC_WRAPPER` earlier would split the rust-cache key
+between jobs that use sccache and jobs that do not.
 
 ## Keeping disk usage bounded
 
