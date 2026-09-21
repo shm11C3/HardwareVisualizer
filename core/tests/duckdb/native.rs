@@ -956,9 +956,13 @@ async fn checkpoint_flushes_the_write_ahead_log_and_keeps_the_data() {
   )
   .await
   .unwrap();
+  // The fixture already holds process rows, so a non-empty result would pass
+  // even if the row written before the checkpoint had been lost.
   assert!(
-    !rows.is_empty(),
-    "the checkpointed row must still be readable"
+    rows
+      .iter()
+      .any(|row| row.process_name == "checkpoint-survivor"),
+    "the row written before the checkpoint must still be readable"
   );
 
   database.close().await.unwrap();

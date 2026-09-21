@@ -491,8 +491,9 @@ next action is the same. It adds what a point-in-time disk read cannot
 express: a running conversion's step, a driver failure or cancellation, and a
 selected database whose runtime open failed (`NativeOpenFailed`). One function
 (`inspect_startup_authority`) is the App's only reader of
-`observe_authority`/`inspect_authority`, so the vocabulary always has exactly
-one source.
+`observe_authority`/`inspect_authority`; the conversion driver and the
+native-database open path also produce `DatabaseLifecycleState` values, and
+all of them are recorded on the single `NativeLifecycleOwner`.
 
 ## Remaining design questions
 
