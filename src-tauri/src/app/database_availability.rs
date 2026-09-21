@@ -1,3 +1,5 @@
+// CI validation touch for PR #2199 (test-tauri-duckdb-archive job); revert
+// before merge, this file has no functional change.
 //! Whether a DB-dependent read command may answer, given the current
 //! native database lifecycle state.
 //!
