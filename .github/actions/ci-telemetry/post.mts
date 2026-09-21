@@ -35,6 +35,28 @@ function formatGiB(bytes: number | null): string {
   return ((bytes ?? 0) / 1024 ** 3).toFixed(1);
 }
 
+// Rounded per-thread averages, index order, for <=8 threads (an unmeasured
+// thread renders as "–", keeping its position visible); a min–max range
+// above that, ignoring unmeasured threads (same shape rule the PR comment
+// cell uses in render.mts, kept independent here since post.mts has no
+// dependency on render.mts). "n/a" when every thread is unmeasured.
+function cpuThreadsSummary(
+  cpuThreads: JobResourcesMarker["cpu_threads"],
+): string {
+  if (!cpuThreads || cpuThreads.length === 0) return "n/a";
+  const rounded = cpuThreads.map((thread) =>
+    thread ? Math.round(thread.avg) : null,
+  );
+  const measured = rounded.filter((value): value is number => value !== null);
+  if (measured.length === 0) return "n/a";
+  if (rounded.length > 8) {
+    return `${Math.min(...measured)}–${Math.max(...measured)}%`;
+  }
+  return rounded
+    .map((value) => (value === null ? "–" : `${value}%`))
+    .join(" · ");
+}
+
 function appendSummary(marker: JobResourcesMarker): void {
   const summaryPath = process.env["GITHUB_STEP_SUMMARY"];
   if (!summaryPath) return;
@@ -42,6 +64,7 @@ function appendSummary(marker: JobResourcesMarker): void {
   const cpu = marker.cpu_pct
     ? `${marker.cpu_pct.avg}% / ${marker.cpu_pct.p95}% / ${marker.cpu_pct.max}%`
     : "n/a";
+  const cpuThreads = cpuThreadsSummary(marker.cpu_threads);
   const mem = marker.mem_used_bytes
     ? `${formatGiB(marker.mem_used_bytes.max)} / ${formatGiB(marker.mem_total_bytes)} GiB`
     : "n/a";
@@ -56,6 +79,7 @@ function appendSummary(marker: JobResourcesMarker): void {
       `${marker.sample_count} / ${marker.interval_seconds}s`,
     ],
     ["CPU avg / p95 / max", cpu],
+    ["CPU per thread (avg)", cpuThreads],
     ["Memory peak", mem],
     ["Disk used (start -> end / total)", disk],
   ];

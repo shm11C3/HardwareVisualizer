@@ -55,7 +55,15 @@ A marker is an ordinary stdout line of the form `NAME_METRICS_JSON=<json>`.
 
 Unavailable data is `null`, never `0`. A job with fewer than two samples
 reports `cpu_pct: null` so a missing measurement cannot look like an idle
-runner.
+runner. `cpu_threads` (whole-job per-logical-CPU average/max) and
+`timeline.cpu_thread_pct_avg` (a bucketed series per thread, capped at 8
+threads for size) follow the same rule: `null` whenever the sampler didn't
+capture a full, constant-length per-thread reading for the job, never an
+array of zeros. `cpu_threads` itself is capped at 64 threads. Neither field
+is rendered as a timeline today — `cpu_threads` feeds the comment's `T` line
+and average-busy-threads figure (see "Reading the comment"), and
+`cpu_thread_pct_avg` exists only for a future per-thread dashboard, because a
+timeline not recorded now can never be backfilled later.
 
 ## Trust boundary
 
@@ -102,7 +110,15 @@ jq -n --rawfile t comment.md \
   availability, not repository code. macOS runners usually dominate it.
 - **CPU avg / p95**: utilization of the whole runner VM. The average is
   weighted by elapsed time across the job. A low average on a long job points
-  at serialized or I/O-bound work rather than missing capacity.
+  at serialized or I/O-bound work rather than missing capacity. `N/MT` next to
+  it is average busy threads (`avg * cpu_count / 100`, e.g. `43% of 4 ->
+  1.7/4T`): the signal for how parallel the job actually was. A second line,
+  `T 61 · 40 · 38 · 33`, shows each logical CPU's own average (min–max instead
+  of a full list above 8 threads); it is for spotting imbalance across
+  threads, not for judging parallelism. A single-threaded process can look
+  evenly spread across every thread over a sampling interval because the OS
+  migrates it between cores (Windows especially), so a flat-looking `T` line
+  does not mean the job used all its threads — trust `N/MT` for that.
 - **Mem peak**: peak used memory against total. On Linux this is
   `MemTotal - MemAvailable`; on macOS it is active + wired + compressor pages
   from `vm_stat`, because `os.freemem()` counts only the free list and makes

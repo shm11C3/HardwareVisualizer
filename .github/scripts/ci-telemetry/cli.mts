@@ -62,3 +62,24 @@ export function keepLatestRunPerWorkflow<
   }
   return [...latestByWorkflow.values()];
 }
+
+// GET /actions/runs?head_sha=...&event=pull_request (used to find every
+// workflow run for the PR's head commit) is eventually consistent: a page
+// fetched right after the triggering run finishes can still omit it, or
+// come back empty entirely (observed live: a --dry-run against a real run
+// id printed "Found 0 workflow run(s)" on one call and 5 on an immediate
+// retry against the identical head_sha). The triggering run itself was
+// already fetched directly by id, so its existence is not in question —
+// only whether the listing happened to include it yet. Appending it here
+// guarantees the run that triggered the aggregation can never be missing
+// from the rendered comment, without ever duplicating a run the listing did
+// include. Generic so it works over both the real GitHubRun shape
+// (aggregate.mts) and minimal test fixtures, matching
+// keepLatestRunPerWorkflow's own style.
+export function includeTriggerRun<T extends { id: number }>(
+  runs: readonly T[],
+  triggerRun: T,
+): T[] {
+  const alreadyListed = runs.some((run) => run.id === triggerRun.id);
+  return alreadyListed ? [...runs] : [...runs, triggerRun];
+}

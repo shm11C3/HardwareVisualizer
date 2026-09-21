@@ -83,6 +83,10 @@ type Sample = {
   t: number;
   cpu_idle: number;
   cpu_total: number;
+  // One [idle, total] pair per os.cpus() entry, same counters as
+  // cpu_idle/cpu_total just not summed away, so metrics.mts can derive
+  // per-thread deltas later. Index = os.cpus() index.
+  cpu_threads: [number, number][];
   mem_used: number;
   mem_total: number;
   disk_used: number | null;
@@ -93,10 +97,17 @@ function tick(): void {
   try {
     let idle = 0;
     let total = 0;
+    const cpuThreads: [number, number][] = [];
+    // Single os.cpus() scan for both the whole-VM sum and the per-thread
+    // breakdown: no extra syscalls beyond what this tick already made.
     for (const cpu of os.cpus()) {
       const times = cpu.times;
-      idle += times.idle;
-      total += times.user + times.nice + times.sys + times.idle + times.irq;
+      const threadIdle = times.idle;
+      const threadTotal =
+        times.user + times.nice + times.sys + times.idle + times.irq;
+      idle += threadIdle;
+      total += threadTotal;
+      cpuThreads.push([threadIdle, threadTotal]);
     }
 
     const disk = readDisk();
@@ -104,6 +115,7 @@ function tick(): void {
       t: Date.now(),
       cpu_idle: idle,
       cpu_total: total,
+      cpu_threads: cpuThreads,
       mem_used: readMemUsedBytes(),
       mem_total: os.totalmem(),
       disk_used: disk.disk_used,

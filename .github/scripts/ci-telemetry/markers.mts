@@ -116,6 +116,58 @@ function validateByteObject<K extends string>(
   return result;
 }
 
+const MAX_CPU_THREADS = 64;
+const MAX_TIMELINE_THREADS = 8;
+
+function validateCpuThreadStat(
+  value: unknown,
+): { avg: number; max: number } | null {
+  if (!isPlainObject(value)) return null;
+  const avg = clampPercent(value["avg"]);
+  const max = clampPercent(value["max"]);
+  if (avg === undefined || max === undefined) return null;
+  return { avg, max };
+}
+
+// A PR-controlled job can print anything here. Unlike most fields in this
+// module, an invalid cpu_threads does not reject the whole marker — it just
+// nulls this one field, since the rest of the marker (whole-VM CPU, memory,
+// disk) is still trustworthy on its own. A per-entry `null` is legitimate
+// data (that one thread was never measured) and is kept as-is; only a
+// non-null entry that fails to validate nulls the WHOLE field, since there
+// is no way to tell a genuinely malformed entry from a forged one.
+function validateCpuThreads(value: unknown): JobResourcesMarker["cpu_threads"] {
+  if (!Array.isArray(value) || value.length > MAX_CPU_THREADS) return null;
+  const result: ({ avg: number; max: number } | null)[] = [];
+  for (const item of value) {
+    if (item === null) {
+      result.push(null);
+      continue;
+    }
+    const stat = validateCpuThreadStat(item);
+    if (stat === null) return null;
+    result.push(stat);
+  }
+  return result;
+}
+
+// Same shape rule as validateTimelineArray (length <= 120, items null or
+// 0..100), applied to at most MAX_TIMELINE_THREADS arrays. Any invalid
+// array, or too many of them, nulls only this field — the rest of the
+// timeline (cpu_pct_avg/cpu_pct_max/mem_used_pct_max) is kept regardless.
+function validateCpuThreadTimeline(value: unknown): (number | null)[][] | null {
+  if (!Array.isArray(value) || value.length > MAX_TIMELINE_THREADS) {
+    return null;
+  }
+  const result: (number | null)[][] = [];
+  for (const arr of value) {
+    const validated = validateTimelineArray(arr);
+    if (validated === undefined) return null;
+    result.push(validated);
+  }
+  return result;
+}
+
 function validateTimelineArray(arr: unknown): (number | null)[] | undefined {
   if (!Array.isArray(arr) || arr.length > 120) return undefined;
   const result: (number | null)[] = [];
@@ -156,6 +208,7 @@ function validateTimeline(value: unknown): JobResourcesMarker["timeline"] {
     cpu_pct_avg: cpuAvg,
     cpu_pct_max: cpuMax,
     mem_used_pct_max: memMax,
+    cpu_thread_pct_avg: validateCpuThreadTimeline(value["cpu_thread_pct_avg"]),
   };
 }
 
@@ -215,6 +268,7 @@ function validateResources(parsed: unknown): JobResourcesMarker | null {
     sample_count: sampleCount,
     duration_seconds: durationSeconds,
     cpu_pct: validateCpuPct(parsed["cpu_pct"]),
+    cpu_threads: validateCpuThreads(parsed["cpu_threads"]),
     mem_total_bytes: memTotalBytes,
     mem_used_bytes: validateByteObject(parsed["mem_used_bytes"], [
       "avg",

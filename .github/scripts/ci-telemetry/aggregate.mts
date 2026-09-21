@@ -19,7 +19,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { keepLatestRunPerWorkflow, parseArgs, resolveRunId } from "./cli.mts";
+import {
+  includeTriggerRun,
+  keepLatestRunPerWorkflow,
+  parseArgs,
+  resolveRunId,
+} from "./cli.mts";
 import { extractMarkers } from "./markers.mts";
 import {
   buildRunRecord,
@@ -401,7 +406,12 @@ async function main(): Promise<void> {
       { head_sha: headSha, event: "pull_request" },
       (data) => (data as { workflow_runs: GitHubRun[] }).workflow_runs,
     );
-    runSet = keepLatestRunPerWorkflow(runsForSha);
+    // The listing can lag behind the run that triggered this aggregation
+    // (see includeTriggerRun's own comment); make sure that run is never
+    // dropped from the comment just because the listing hasn't caught up.
+    runSet = keepLatestRunPerWorkflow(
+      includeTriggerRun(runsForSha, triggerRun),
+    );
     console.log(
       `Found ${runSet.length} workflow run(s) for head_sha ${headSha}: ${runSet.map((r) => r.name).join(", ")}`,
     );

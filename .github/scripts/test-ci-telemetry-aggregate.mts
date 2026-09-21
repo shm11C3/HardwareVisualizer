@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { keepLatestRunPerWorkflow, resolveRunId } from "./ci-telemetry/cli.mts";
+import {
+  includeTriggerRun,
+  keepLatestRunPerWorkflow,
+  resolveRunId,
+} from "./ci-telemetry/cli.mts";
 import { extractMarkers } from "./ci-telemetry/markers.mts";
 import { buildRunRecord } from "./ci-telemetry/record.mts";
 import {
@@ -249,12 +253,330 @@ function testValidTimelinePreserved(): void {
       cpu_pct_avg: [12, null],
       cpu_pct_max: [30, 100],
       mem_used_pct_max: [21, 33],
+      cpu_thread_pct_avg: [
+        [10, null],
+        [90, 5],
+      ],
     },
   };
   const log = `CI_JOB_METRICS_JSON=${JSON.stringify(valid)}`;
   const resources = extractMarkers(log).resources;
   assert.ok(resources);
   assert.deepEqual(resources.timeline, valid.timeline);
+}
+
+// A forged cpu_threads must not be able to inject strings/objects into the
+// record or bloat it past the size budget: an out-of-range but
+// well-shaped entry is clamped per item (same rule as cpu_pct), while a
+// non-numeric entry, nested junk, or more than 64 entries nulls the WHOLE
+// field rather than being partially kept or truncated.
+function testForgedCpuThreadsCannotInjectOrBloat(): void {
+  const base = {
+    schema: 1,
+    cpu_count: 2,
+    interval_seconds: 5,
+    sample_count: 10,
+    duration_seconds: 50,
+    mem_total_bytes: 1000,
+  };
+
+  const outOfRange = {
+    ...base,
+    cpu_threads: [
+      { avg: 999, max: -50 },
+      { avg: -10, max: 1e9 },
+    ],
+  };
+  const clamped = extractMarkers(
+    `CI_JOB_METRICS_JSON=${JSON.stringify(outOfRange)}`,
+  ).resources;
+  assert.ok(clamped);
+  assert.deepEqual(clamped.cpu_threads, [
+    { avg: 100, max: 0 },
+    { avg: 0, max: 100 },
+  ]);
+
+  const stringsAndJunk = {
+    ...base,
+    cpu_threads: [
+      { avg: "100%", max: 50 },
+      { nested: { junk: true } },
+      "not even an object",
+    ],
+  };
+  assert.equal(
+    extractMarkers(`CI_JOB_METRICS_JSON=${JSON.stringify(stringsAndJunk)}`)
+      .resources?.cpu_threads,
+    null,
+    "a single non-numeric entry nulls the whole field, not just that entry",
+  );
+
+  const tooMany = {
+    ...base,
+    cpu_threads: Array.from({ length: 65 }, () => ({ avg: 10, max: 20 })),
+  };
+  assert.equal(
+    extractMarkers(`CI_JOB_METRICS_JSON=${JSON.stringify(tooMany)}`).resources
+      ?.cpu_threads,
+    null,
+    "65 entries must null the field, not truncate to 64",
+  );
+
+  const notAnArray = { ...base, cpu_threads: { avg: 10, max: 20 } };
+  assert.equal(
+    extractMarkers(`CI_JOB_METRICS_JSON=${JSON.stringify(notAnArray)}`)
+      .resources?.cpu_threads,
+    null,
+  );
+}
+
+// A per-entry `null` in cpu_threads is legitimate data (that one thread had
+// no usable delta pair for the job), not forged input, so it must be kept
+// as-is alongside genuinely valid entries — distinct from a non-null entry
+// that fails to validate, which still nulls the whole field.
+function testCpuThreadsKeepsNullEntries(): void {
+  const marker = {
+    schema: 1,
+    cpu_count: 2,
+    interval_seconds: 5,
+    sample_count: 10,
+    duration_seconds: 50,
+    mem_total_bytes: 1000,
+    cpu_threads: [{ avg: 61, max: 80 }, null],
+  };
+  const resources = extractMarkers(
+    `CI_JOB_METRICS_JSON=${JSON.stringify(marker)}`,
+  ).resources;
+  assert.ok(resources);
+  assert.deepEqual(resources.cpu_threads, [{ avg: 61, max: 80 }, null]);
+}
+
+// An oversized or invalid timeline.cpu_thread_pct_avg must null only that
+// one field, exactly like the existing per-array timeline validation — the
+// rest of the timeline (cpu_pct_avg/cpu_pct_max/mem_used_pct_max) is kept.
+function testOversizedCpuThreadTimelineNullsOnlyThatField(): void {
+  const baseTimeline = {
+    bucket_seconds: 15,
+    cpu_pct_avg: [12, null],
+    cpu_pct_max: [30, 100],
+    mem_used_pct_max: [21, 33],
+  };
+  const marker = {
+    schema: 1,
+    cpu_count: 4,
+    interval_seconds: 5,
+    sample_count: 10,
+    duration_seconds: 50,
+    mem_total_bytes: 1000,
+  };
+
+  const tooManyThreadArrays = {
+    ...marker,
+    timeline: {
+      ...baseTimeline,
+      // 9 arrays exceeds the 8-thread timeline cap.
+      cpu_thread_pct_avg: Array.from({ length: 9 }, () => [10, 20]),
+    },
+  };
+  const resourcesA = extractMarkers(
+    `CI_JOB_METRICS_JSON=${JSON.stringify(tooManyThreadArrays)}`,
+  ).resources;
+  assert.ok(resourcesA?.timeline);
+  assert.equal(resourcesA.timeline.cpu_thread_pct_avg, null);
+  assert.deepEqual(resourcesA.timeline.cpu_pct_avg, [12, null]);
+  assert.deepEqual(resourcesA.timeline.mem_used_pct_max, [21, 33]);
+
+  const invalidInnerArray = {
+    ...marker,
+    timeline: {
+      ...baseTimeline,
+      cpu_thread_pct_avg: [
+        [10, 20],
+        [10, 999],
+      ], // 999 is out of 0..100 range.
+    },
+  };
+  const resourcesB = extractMarkers(
+    `CI_JOB_METRICS_JSON=${JSON.stringify(invalidInnerArray)}`,
+  ).resources;
+  assert.ok(resourcesB?.timeline);
+  assert.equal(resourcesB.timeline.cpu_thread_pct_avg, null);
+  assert.deepEqual(resourcesB.timeline.cpu_pct_max, [30, 100]);
+}
+
+// A marker recorded before this change (no cpu_threads, no
+// cpu_thread_pct_avg at all) must still validate exactly as today, and the
+// comment must render only the existing line-1 cell — no <br><sub>T …</sub>
+// suffix, since there is no per-thread data to show.
+function testPreChangeMarkerValidatesAndRendersLineOneOnly(): void {
+  const preChange = {
+    schema: 1,
+    cpu_count: 4,
+    interval_seconds: 5,
+    sample_count: 10,
+    duration_seconds: 50,
+    mem_total_bytes: 1000,
+    cpu_pct: { avg: 43, p95: 90, max: 100 },
+  };
+  const resources = extractMarkers(
+    `CI_JOB_METRICS_JSON=${JSON.stringify(preChange)}`,
+  ).resources;
+  assert.ok(resources);
+  assert.equal(resources.cpu_threads, null);
+
+  const record = fixtureRecord({
+    workflowName: "CI",
+    jobName: "test-core (windows-latest)",
+    stepName: "Run Core tests",
+    resources,
+  });
+  const body = renderComment({
+    headSha: "abc1234567",
+    records: [record],
+    pendingRuns: [],
+    now: new Date("2026-09-21T07:40:00Z"),
+  });
+
+  assert.equal(
+    body.includes(
+      "| `test-core (windows-latest)` | ✅ | 5s | 1m 55s | 43% / 90% · 1.7/4T | – | – | – |",
+    ),
+    true,
+  );
+  assert.equal(
+    body.includes("<br><sub>T"),
+    false,
+    "no cpu_threads data means no second line",
+  );
+}
+
+// Render math and shapes for the CPU cell: average busy threads (43% of 4
+// CPUs -> 1.7/4T), the per-thread line for <=8 threads (index order, no
+// range), an unmeasured thread rendered as "–" within that list, the
+// min–max range above 8 threads (ignoring unmeasured entries), the existing
+// "–" fallback when cpu_pct itself is missing (cpu_threads never renders on
+// its own), and no "· x.x/NT" segment at all when cpu_count is not a
+// positive integer (a forged/degenerate marker), leaving line 1 exactly as
+// it rendered before this feature.
+function testCpuCellRenderMathAndShapes(): void {
+  const fourThreads: JobResourcesMarker = {
+    schema: 1,
+    runner_os: "Linux",
+    runner_arch: "X64",
+    cpu_count: 4,
+    interval_seconds: 5,
+    sample_count: 10,
+    duration_seconds: 50,
+    cpu_pct: { avg: 43, p95: 90, max: 100 },
+    cpu_threads: [
+      { avg: 61.4, max: 80 },
+      { avg: 40.2, max: 60 },
+      { avg: 38.0, max: 50 },
+      { avg: 32.6, max: 40 },
+    ],
+    mem_total_bytes: null,
+    mem_used_bytes: null,
+    disk_total_bytes: null,
+    disk_used_bytes: null,
+    timeline: null,
+  };
+  const fourThreadsOneUnmeasured: JobResourcesMarker = {
+    ...fourThreads,
+    cpu_threads: [
+      { avg: 61.4, max: 80 },
+      null,
+      { avg: 38.0, max: 50 },
+      { avg: 32.6, max: 40 },
+    ],
+  };
+  const tenThreads: JobResourcesMarker = {
+    ...fourThreads,
+    cpu_count: 10,
+    cpu_threads: [12, 98, 50, 44, 33, 20, 61, 70, 15, 90].map((avg) => ({
+      avg,
+      max: avg,
+    })),
+  };
+  const noCpuPct: JobResourcesMarker = {
+    ...fourThreads,
+    cpu_pct: null,
+    cpu_threads: null,
+  };
+  const zeroCpuCount: JobResourcesMarker = {
+    ...fourThreads,
+    cpu_count: 0,
+    cpu_threads: null,
+  };
+
+  const body = renderComment({
+    headSha: "abc1234567",
+    records: [
+      fixtureRecord({
+        workflowName: "CI",
+        jobName: "four-threads",
+        stepName: "Run",
+        resources: fourThreads,
+      }),
+      fixtureRecord({
+        workflowName: "CI",
+        jobName: "four-threads-one-unmeasured",
+        stepName: "Run",
+        resources: fourThreadsOneUnmeasured,
+      }),
+      fixtureRecord({
+        workflowName: "CI",
+        jobName: "ten-threads",
+        stepName: "Run",
+        resources: tenThreads,
+      }),
+      fixtureRecord({
+        workflowName: "CI",
+        jobName: "no-cpu-pct",
+        stepName: "Run",
+        resources: noCpuPct,
+      }),
+      fixtureRecord({
+        workflowName: "CI",
+        jobName: "zero-cpu-count",
+        stepName: "Run",
+        resources: zeroCpuCount,
+      }),
+    ],
+    pendingRuns: [],
+    now: new Date("2026-09-21T07:40:00Z"),
+  });
+
+  assert.equal(
+    body.includes(
+      "| `four-threads` | ✅ | 5s | 1m 55s | 43% / 90% · 1.7/4T<br><sub>T 61 · 40 · 38 · 33</sub> | – | – | – |",
+    ),
+    true,
+  );
+  assert.equal(
+    body.includes(
+      "| `four-threads-one-unmeasured` | ✅ | 5s | 1m 55s | 43% / 90% · 1.7/4T<br><sub>T 61 · – · 38 · 33</sub> | – | – | – |",
+    ),
+    true,
+  );
+  assert.equal(
+    body.includes(
+      "| `ten-threads` | ✅ | 5s | 1m 55s | 43% / 90% · 4.3/10T<br><sub>T 12–98</sub> | – | – | – |",
+    ),
+    true,
+  );
+  assert.equal(
+    body.includes("| `no-cpu-pct` | ✅ | 5s | 1m 55s | – | – | – | – |"),
+    true,
+  );
+  // cpu_count: 0 is not a positive integer: the "· x.x/NT" segment (which
+  // would otherwise render the nonsensical "0.0/0T") is omitted entirely,
+  // so line 1 is exactly the pre-per-thread-feature "43% / 90%".
+  assert.equal(
+    body.includes(
+      "| `zero-cpu-count` | ✅ | 5s | 1m 55s | 43% / 90% | – | – | – |",
+    ),
+    true,
+  );
 }
 
 // RUST_CACHE_METRICS_JSON: shared_key falls back to null on an invalid
@@ -860,6 +1182,39 @@ function testKeepLatestRunPerWorkflow(): void {
   assert.ok(kept.find((r) => r.id === "only"));
 }
 
+// GET /actions/runs?head_sha=...&event=pull_request is eventually
+// consistent: a page fetched right after the triggering run finishes can
+// still omit it, or come back empty entirely (observed live: an identical
+// --dry-run call returned 0 runs once, then 5 runs including the trigger on
+// an immediate retry). The run being aggregated was already fetched
+// directly by id, so it unquestionably exists — it must never be missing
+// from the rendered comment just because this separate listing lagged, but
+// a run the listing DOES already contain must not be duplicated.
+function testIncludeTriggerRunNeverDropsTheTriggeringRun(): void {
+  const triggerRun = {
+    id: 42,
+    workflow_id: 9,
+    created_at: "2026-09-21T07:00:00Z",
+  };
+  const otherRun = {
+    id: 7,
+    workflow_id: 1,
+    created_at: "2026-09-21T06:00:00Z",
+  };
+
+  // Listing lagged and came back completely empty.
+  assert.deepEqual(includeTriggerRun([], triggerRun), [triggerRun]);
+
+  // Listing has other runs but is missing the triggering run: appended.
+  const missingTrigger = includeTriggerRun([otherRun], triggerRun);
+  assert.equal(missingTrigger.length, 2);
+  assert.ok(missingTrigger.some((r) => r.id === triggerRun.id));
+
+  // Listing already contains the triggering run: not duplicated.
+  const alreadyListed = [otherRun, triggerRun];
+  assert.deepEqual(includeTriggerRun(alreadyListed, triggerRun), alreadyListed);
+}
+
 testEchoedScriptFollowedByRealMarker();
 testOnlyUnparseableOccurrenceYieldsNull();
 testForgedResourcesMarkerCannotInjectContent();
@@ -868,6 +1223,11 @@ testOutOfRangeRequiredNumberRejectsMarker();
 testNullMemTotalIsAcceptedAsUnavailable();
 testOversizedTimelineArrayNullsTimeline();
 testValidTimelinePreserved();
+testForgedCpuThreadsCannotInjectOrBloat();
+testCpuThreadsKeepsNullEntries();
+testOversizedCpuThreadTimelineNullsOnlyThatField();
+testPreChangeMarkerValidatesAndRendersLineOneOnly();
+testCpuCellRenderMathAndShapes();
 testRustCacheKeyFallbackAndBooleanRejection();
 testMarkerNameSubstringDoesNotLeakAcrossMarkers();
 testNodeCacheMarkerShape();
@@ -882,5 +1242,6 @@ testMissingDataSkippedJobsAndPendingRuns();
 testLengthCapHoldsForHundredsOfLongNamedJobs();
 testResolveRunIdValidatesFormat();
 testKeepLatestRunPerWorkflow();
+testIncludeTriggerRunNeverDropsTheTriggeringRun();
 
 console.log("ci-telemetry aggregate tests passed");

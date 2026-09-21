@@ -12,6 +12,7 @@
 import type {
   ByteAvgMax,
   CpuPct,
+  CpuThreadStat,
   DiskUsedBytes,
   JobResourcesMarker,
   ResourceTimeline,
@@ -21,6 +22,10 @@ type Sample = {
   t: number;
   cpu_idle: number;
   cpu_total: number;
+  // null covers both a pre-change sample (sampler.mts didn't produce this
+  // field yet) and a malformed value in an otherwise-parseable sample line;
+  // parseSamples collapses both to null rather than dropping the sample.
+  cpu_threads: [number, number][] | null;
   mem_used: number | null;
   mem_total: number;
   disk_used: number | null;
@@ -34,8 +39,35 @@ type CpuPair = {
   deltaTotal: number;
 };
 
+// Per-thread pairs, keyed by thread index, in the same shape as the
+// whole-VM CpuPair list. Reused by both the marker's cpu_threads summary
+// and its per-thread timeline so the two stay derived from identical data.
+type CpuThreadPairs = CpuPair[][];
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// A torn write or a future sampler change could leave cpu_threads absent or
+// misshapen on an otherwise-valid sample line; that must not sink the whole
+// sample (parseSamples already tolerates a torn *line*, this tolerates a
+// torn *field*), so an invalid value here becomes null rather than a reason
+// to reject the sample.
+function parseCpuThreads(value: unknown): [number, number][] | null {
+  if (!Array.isArray(value)) return null;
+  const pairs: [number, number][] = [];
+  for (const entry of value) {
+    if (
+      !Array.isArray(entry) ||
+      entry.length !== 2 ||
+      typeof entry[0] !== "number" ||
+      typeof entry[1] !== "number"
+    ) {
+      return null;
+    }
+    pairs.push([entry[0], entry[1]]);
+  }
+  return pairs;
 }
 
 export function resolveIntervalSeconds(rawValue: string | undefined): number {
@@ -77,6 +109,7 @@ export function parseSamples(text: string): Sample[] {
       t: parsed["t"],
       cpu_idle: parsed["cpu_idle"],
       cpu_total: parsed["cpu_total"],
+      cpu_threads: parseCpuThreads(parsed["cpu_threads"]),
       mem_used: typeof memUsed === "number" ? memUsed : null,
       mem_total: parsed["mem_total"],
       disk_used: typeof diskUsed === "number" ? diskUsed : null,
@@ -156,6 +189,99 @@ function summarizeCpuPct(pairs: CpuPair[]): CpuPct | null {
   };
 }
 
+const MAX_CPU_THREADS = 64; // marker size budget; see summarizeSamples.
+const MAX_TIMELINE_THREADS = 8; // a 64-thread timeline would blow the budget.
+
+// Same delta logic as summarizeCpuPairs, but for one logical CPU's own
+// [idle, total] counters instead of the whole-VM sum, so per-thread avg is
+// independent of how busy the other threads were.
+function summarizeCpuThreadPairs(
+  samples: Sample[],
+  threadIndex: number,
+): CpuPair[] {
+  const pairs: CpuPair[] = [];
+  for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1];
+    const cur = samples[i];
+    if (prev === undefined || cur === undefined) continue;
+    const prevPair = prev.cpu_threads?.[threadIndex];
+    const curPair = cur.cpu_threads?.[threadIndex];
+    if (prevPair === undefined || curPair === undefined) continue;
+    const deltaTotal = curPair[1] - prevPair[1];
+    if (deltaTotal <= 0) continue;
+    const deltaIdle = curPair[0] - prevPair[0];
+    const pct = clampPct((1 - deltaIdle / deltaTotal) * 100);
+    pairs.push({ t: cur.t, pct, deltaIdle, deltaTotal });
+  }
+  return pairs;
+}
+
+// avg is delta-weighted over the whole job, same method as summarizeCpuPct;
+// max is the largest single-pair percentage. A thread with zero usable
+// pairs (every delta total <= 0 for its whole lifetime — practically only
+// an offline CPU) is null: that thread was never actually measured, so it
+// must not be indistinguishable from a thread that was measured and found
+// idle (see docs/development/ci-telemetry.md: unavailable is null, never 0).
+// Every pair that does reach here already has deltaTotal > 0 (dropped
+// earlier by summarizeCpuThreadPairs), so sumTotal is always > 0 once
+// pairs.length > 0.
+function summarizeCpuThreadStat(pairs: CpuPair[]): CpuThreadStat | null {
+  if (pairs.length === 0) return null;
+  let sumIdle = 0;
+  let sumTotal = 0;
+  let max = 0;
+  for (const pair of pairs) {
+    sumIdle += pair.deltaIdle;
+    sumTotal += pair.deltaTotal;
+    if (pair.pct > max) max = pair.pct;
+  }
+  return {
+    avg: round1(clampPct((1 - sumIdle / sumTotal) * 100)),
+    max: round1(max),
+  };
+}
+
+// Resolves per-thread stats plus the pair lists a per-thread timeline can be
+// bucketed from. Both come back null together whenever cpu_threads is
+// unavailable: fewer than 2 samples, any sample missing cpu_threads (a
+// pre-change job, or one torn field parseSamples nulled out), a thread
+// count that is not constant across every sample, or more threads than the
+// marker's size budget allows. pairsByThread is additionally null when the
+// (valid) thread count exceeds MAX_TIMELINE_THREADS, independent of stats.
+// An individual stats entry can independently be null — see
+// summarizeCpuThreadStat — without nulling the rest of the array.
+function summarizeCpuThreads(samples: Sample[]): {
+  stats: (CpuThreadStat | null)[] | null;
+  pairsByThread: CpuThreadPairs | null;
+} {
+  if (samples.length < 2) return { stats: null, pairsByThread: null };
+
+  let threadCount: number | null = null;
+  for (const sample of samples) {
+    const threads = sample.cpu_threads;
+    if (!threads) return { stats: null, pairsByThread: null };
+    if (threadCount === null) {
+      threadCount = threads.length;
+    } else if (threads.length !== threadCount) {
+      return { stats: null, pairsByThread: null };
+    }
+  }
+  if (!threadCount || threadCount > MAX_CPU_THREADS) {
+    return { stats: null, pairsByThread: null };
+  }
+
+  const pairsByThread: CpuThreadPairs = Array.from(
+    { length: threadCount },
+    (_, idx) => summarizeCpuThreadPairs(samples, idx),
+  );
+  const stats = pairsByThread.map(summarizeCpuThreadStat);
+
+  return {
+    stats,
+    pairsByThread: threadCount <= MAX_TIMELINE_THREADS ? pairsByThread : null,
+  };
+}
+
 function summarizeByteAvgMax(samples: Sample[]): ByteAvgMax | null {
   const values = samples
     .map((sample) => sample.mem_used)
@@ -205,6 +331,7 @@ function buildTimeline(
   samples: Sample[],
   cpuPairs: CpuPair[],
   intervalSeconds: number,
+  cpuThreadPairs: CpuThreadPairs | null,
 ): ResourceTimeline | null {
   if (samples.length < 2) return null;
 
@@ -256,11 +383,30 @@ function buildTimeline(
   const bucketMax = (values: number[]): number | null =>
     values.length === 0 ? null : Math.round(Math.max(...values));
 
+  // Bucketed with the exact same bucketIndex/bucketCount as cpu_pct_avg
+  // above, so a future dashboard can overlay per-thread series on the
+  // whole-VM one without re-deriving bucket boundaries.
+  const cpuThreadPctAvg =
+    cpuThreadPairs === null
+      ? null
+      : cpuThreadPairs.map((pairs) => {
+          const buckets: number[][] = Array.from(
+            { length: bucketCount },
+            () => [],
+          );
+          for (const pair of pairs) {
+            const bucket = buckets[bucketIndex(pair.t)];
+            if (bucket) bucket.push(pair.pct);
+          }
+          return buckets.map(bucketAvg);
+        });
+
   return {
     bucket_seconds: Math.round(bucketSeconds),
     cpu_pct_avg: cpuBuckets.map(bucketAvg),
     cpu_pct_max: cpuBuckets.map(bucketMax),
     mem_used_pct_max: memBuckets.map(bucketMax),
+    cpu_thread_pct_avg: cpuThreadPctAvg,
   };
 }
 
@@ -286,6 +432,7 @@ export function summarizeSamples(
       : 0;
 
   const cpuPairs = summarizeCpuPairs(samples);
+  const cpuThreads = summarizeCpuThreads(samples);
 
   return {
     schema: 1,
@@ -296,10 +443,16 @@ export function summarizeSamples(
     sample_count: sampleCount,
     duration_seconds: durationSeconds,
     cpu_pct: summarizeCpuPct(cpuPairs),
+    cpu_threads: cpuThreads.stats,
     mem_total_bytes: firstNonNull(samples, "mem_total"),
     mem_used_bytes: summarizeByteAvgMax(samples),
     disk_total_bytes: firstNonNull(samples, "disk_total"),
     disk_used_bytes: summarizeDiskUsed(samples),
-    timeline: buildTimeline(samples, cpuPairs, intervalSeconds),
+    timeline: buildTimeline(
+      samples,
+      cpuPairs,
+      intervalSeconds,
+      cpuThreads.pairsByThread,
+    ),
   };
 }

@@ -25,12 +25,35 @@ export type DiskUsedBytes = {
   max: number;
 };
 
+/**
+ * Whole-job utilization of one logical CPU (hardware thread), delta-weighted
+ * the same way as CpuPct.avg. Index into JobResourcesMarker.cpu_threads is
+ * the os.cpus() index. This alone cannot show whether work was parallel: the
+ * OS can migrate a single-threaded process across cores over the sampling
+ * interval, spreading one busy thread's time evenly across several entries.
+ * "Average busy threads" (cpu_pct.avg * cpu_count / 100, computed at render
+ * time from data already here) is the signal for parallelism; these values
+ * are for per-thread imbalance and a future per-thread timeline dashboard.
+ */
+export type CpuThreadStat = {
+  avg: number;
+  max: number;
+};
+
 /** Fixed-size (<=60 bucket) resource timeline; see metrics.mts's buildTimeline. */
 export type ResourceTimeline = {
   bucket_seconds: number;
   cpu_pct_avg: (number | null)[];
   cpu_pct_max: (number | null)[];
   mem_used_pct_max: (number | null)[];
+  /**
+   * One bucketed array per logical CPU, same bucket layout as cpu_pct_avg.
+   * Only populated for <=8 threads (a 64-thread timeline would blow the
+   * marker's size budget) and only when cpu_threads itself is available;
+   * null otherwise. This is unused by today's rendering — it exists for a
+   * future per-thread timeline dashboard that cannot be backfilled later.
+   */
+  cpu_thread_pct_avg: (number | null)[][] | null;
 };
 
 /**
@@ -54,6 +77,16 @@ export type JobResourcesMarker = {
   sample_count: number;
   duration_seconds: number;
   cpu_pct: CpuPct | null;
+  /**
+   * Per-logical-CPU utilization, index = os.cpus() index. The whole array is
+   * null when unavailable (fewer than 2 usable samples, a sample missing
+   * cpu_threads, the thread count changing mid-job, or more than 64
+   * threads). An individual entry is null when that one thread specifically
+   * had no usable delta pair for the job (e.g. it never advanced between
+   * samples) even though the rest of the job was measurable — unavailable is
+   * null at both levels, never 0.
+   */
+  cpu_threads: (CpuThreadStat | null)[] | null;
   mem_total_bytes: number | null;
   mem_used_bytes: ByteAvgMax | null;
   disk_total_bytes: number | null;
