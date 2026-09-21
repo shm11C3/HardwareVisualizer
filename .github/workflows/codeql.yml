@@ -26,6 +26,12 @@ concurrency:
 
 permissions: read-all
 
+# Do not use repository R2 credentials for fork or Dependabot pull requests.
+# The composite action also skips itself when the repository has not supplied
+# all four R2 inputs, so trusted runs remain safe when R2 is not configured.
+env:
+  R2_CACHE_ALLOWED: ${{ github.event_name != 'pull_request' || (github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) }}
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
@@ -95,7 +101,7 @@ jobs:
           cache-key: codeql-rust
 
       - name: Cache sccache (R2)
-        if: matrix.language == 'rust'
+        if: matrix.language == 'rust' && env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
@@ -111,7 +117,7 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -139,6 +145,6 @@ jobs:
           exit 1
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
           category: "/language:${{matrix.language}}"
