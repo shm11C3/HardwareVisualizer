@@ -17,6 +17,7 @@ documentation.
 - [Lossless chunked Hardware Archive decision](adr/0019-lossless-chunked-hardware-archive.md)
 - [Hardware Archive migration lifecycle proposal](adr/0021-hardware-archive-migration-lifecycle.md)
 - [Native DuckDB direction decision](adr/0022-prioritize-native-duckdb-archive-qualification.md)
+- [SQLite conversion path retirement decision](adr/0025-retire-sqlite-conversion-path-in-v2.md)
 - [Native DuckDB Hardware Archive Design Doc](design/hardware-archive-duckdb.md)
 - [External Component Setup decision](adr/0024-external-component-setup.md)
 - [External Component Setup Design Doc](design/external-component-setup.md)
