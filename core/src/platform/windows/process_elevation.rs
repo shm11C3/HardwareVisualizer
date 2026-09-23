@@ -1,15 +1,13 @@
 use crate::enums::error::PlatformError;
 use crate::log_warn;
 use crate::platform::traits::{
-  ElevatedProcessRun, ElevationAvailability, ProcessExitWait,
+  ElevatedProcessRun, ElevationAvailability, ProcessExitWait, ProcessIdentity,
 };
 use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 use windows::Win32::Foundation::{
-  CloseHandle, ERROR_CANCELLED, ERROR_INVALID_PARAMETER, HANDLE, WAIT_OBJECT_0,
-  WAIT_TIMEOUT,
+  CloseHandle, ERROR_CANCELLED, ERROR_INVALID_PARAMETER, FILETIME, HANDLE, WAIT_OBJECT_0,
 };
 use windows::Win32::Storage::FileSystem::{
   CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_NAME_NORMALIZED, FILE_READ_ATTRIBUTES,
@@ -18,7 +16,8 @@ use windows::Win32::Storage::FileSystem::{
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Threading::{
-  GetExitCodeProcess, INFINITE, OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject,
+  GetCurrentProcess, GetExitCodeProcess, GetProcessTimes, INFINITE, OpenProcess,
+  PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, WaitForSingleObject,
 };
 use windows::Win32::UI::Shell::{
   FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, IsUserAnAdmin, KF_FLAG_DEFAULT,
@@ -268,18 +267,34 @@ fn launch_current_executable_elevated(
   Ok(Some(execute_info.hProcess))
 }
 
-/// Block until the process with `pid` has exited or `timeout` has passed.
-/// Only `SYNCHRONIZE` access is requested, which an elevated process is
-/// granted on the unelevated process that launched it.
+pub fn current_process_identity() -> Result<ProcessIdentity, PlatformError> {
+  let creation_time = process_creation_time(unsafe { GetCurrentProcess() })?;
+  Ok(ProcessIdentity {
+    pid: std::process::id(),
+    creation_time,
+  })
+}
+
+/// Block until the process `identity` names has exited. The wait is
+/// unbounded once the identity is verified: the handle keeps the id from
+/// being reused, so only the named process can end the wait. The access
+/// requested (`SYNCHRONIZE` and limited query) is granted to an elevated
+/// process on the unelevated process that launched it.
 pub fn wait_for_process_exit(
-  pid: u32,
-  timeout: Duration,
+  identity: &ProcessIdentity,
 ) -> Result<ProcessExitWait, PlatformError> {
-  let process = match unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
+  let pid = identity.pid;
+  let process = match unsafe {
+    OpenProcess(
+      PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+      false,
+      pid,
+    )
+  } {
     Ok(process) => process,
     // No process has this id any more, so the one that had it has exited.
     Err(e) if e.code() == ERROR_INVALID_PARAMETER.to_hresult() => {
-      return Ok(ProcessExitWait::Exited);
+      return Ok(ProcessExitWait::AlreadyExited);
     }
     Err(e) => {
       return Err(PlatformError::fault(format!(
@@ -288,20 +303,37 @@ pub fn wait_for_process_exit(
     }
   };
 
-  // `INFINITE` is `u32::MAX`, so a timeout too long to represent is capped
-  // just below it instead of becoming an unbounded wait.
-  let timeout_ms = u32::try_from(timeout.as_millis()).unwrap_or(INFINITE - 1);
-  let waited = unsafe { WaitForSingleObject(process, timeout_ms) };
+  let waited = match process_creation_time(process) {
+    // The id now belongs to a process started later: the named one has
+    // exited and its id was reused.
+    Ok(creation_time) if creation_time != identity.creation_time => {
+      Ok(ProcessExitWait::AlreadyExited)
+    }
+    Ok(_) => match unsafe { WaitForSingleObject(process, INFINITE) } {
+      WAIT_OBJECT_0 => Ok(ProcessExitWait::Exited),
+      _ => Err(PlatformError::fault(format!(
+        "Failed to wait for process {pid}: {}",
+        windows::core::Error::from_thread()
+      ))),
+    },
+    Err(e) => Err(e),
+  };
   let _ = unsafe { CloseHandle(process) };
+  waited
+}
 
-  match waited {
-    WAIT_OBJECT_0 => Ok(ProcessExitWait::Exited),
-    WAIT_TIMEOUT => Ok(ProcessExitWait::TimedOut),
-    _ => Err(PlatformError::fault(format!(
-      "Failed to wait for process {pid}: {}",
-      windows::core::Error::from_thread()
-    ))),
-  }
+/// The creation time of `process` as one integer, so it can travel on a
+/// command line and be compared exactly.
+fn process_creation_time(process: HANDLE) -> Result<u64, PlatformError> {
+  let mut creation = FILETIME::default();
+  let mut exit = FILETIME::default();
+  let mut kernel = FILETIME::default();
+  let mut user = FILETIME::default();
+  unsafe { GetProcessTimes(process, &mut creation, &mut exit, &mut kernel, &mut user) }
+    .map_err(|e| {
+    PlatformError::fault(format!("Failed to read the process creation time: {e}"))
+  })?;
+  Ok((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime))
 }
 
 fn wait_for_exit_code(process: HANDLE) -> Option<i32> {
@@ -368,34 +400,76 @@ fn quote_windows_arg(arg: &OsStr) -> String {
 #[cfg(test)]
 mod tests {
   use super::{
-    is_within_any_root, quote_windows_arg, resolved_roots, strip_verbatim_prefix,
-    wait_for_process_exit,
+    current_process_identity, is_within_any_root, process_creation_time,
+    quote_windows_arg, resolved_roots, strip_verbatim_prefix, wait_for_process_exit,
   };
-  use crate::platform::traits::ProcessExitWait;
+  use crate::platform::traits::{ProcessExitWait, ProcessIdentity};
   use std::ffi::OsStr;
-  use std::time::Duration;
+  use std::os::windows::io::AsRawHandle;
+  use windows::Win32::Foundation::HANDLE;
 
-  #[test]
-  fn waiting_returns_once_the_process_has_exited() {
-    let mut child = std::process::Command::new("cmd")
+  fn identity_of(child: &std::process::Child) -> ProcessIdentity {
+    let creation_time = process_creation_time(HANDLE(child.as_raw_handle()))
+      .expect("the child's creation time is readable");
+    ProcessIdentity {
+      pid: child.id(),
+      creation_time,
+    }
+  }
+
+  fn spawn_short_lived_child() -> std::process::Child {
+    std::process::Command::new("cmd")
       .args(["/C", "exit", "0"])
       .spawn()
-      .expect("cmd runs");
+      .expect("cmd runs")
+  }
+
+  #[test]
+  fn the_current_identity_names_this_process() {
+    let identity = current_process_identity().expect("own identity is readable");
+    assert_eq!(identity.pid, std::process::id());
+    assert_ne!(identity.creation_time, 0);
+  }
+
+  #[test]
+  fn waiting_returns_once_the_verified_process_has_exited() {
+    let mut child = spawn_short_lived_child();
 
     // The `Child` keeps a handle open, so the id cannot be reused before
     // the wait below has observed the exit.
     assert_eq!(
-      wait_for_process_exit(child.id(), Duration::from_secs(30)),
+      wait_for_process_exit(&identity_of(&child)),
       Ok(ProcessExitWait::Exited)
     );
     assert!(child.wait().expect("child is reaped").success());
   }
 
   #[test]
-  fn waiting_on_a_running_process_times_out() {
+  fn a_different_creation_time_counts_as_already_exited() {
+    // The running test process would block an unbounded wait forever, so
+    // the mismatch must be decided before waiting.
+    let mut identity = current_process_identity().expect("own identity is readable");
+    identity.creation_time += 1;
+
     assert_eq!(
-      wait_for_process_exit(std::process::id(), Duration::from_millis(50)),
-      Ok(ProcessExitWait::TimedOut)
+      wait_for_process_exit(&identity),
+      Ok(ProcessExitWait::AlreadyExited)
+    );
+  }
+
+  #[test]
+  fn an_id_no_process_holds_counts_as_already_exited() {
+    // Waiting on a child whose id was just released would be racy here: a
+    // process another test spawns in the same timer tick can take that id
+    // with the same creation time. The System Idle Process id cannot be
+    // opened at all and is documented to fail with `ERROR_INVALID_PARAMETER`,
+    // which is the same error a released id produces.
+    assert_eq!(
+      wait_for_process_exit(&ProcessIdentity {
+        pid: 0,
+        creation_time: 0,
+      }),
+      Ok(ProcessExitWait::AlreadyExited)
     );
   }
 

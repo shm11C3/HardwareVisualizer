@@ -237,7 +237,8 @@ mod tests {
   use crate::platform::traits::{
     ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform,
     GpuPlatform, GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform,
-    ProcessElevationPlatform, ProcessExitWait, SensorPlatform, SuperIoPlatform,
+    ProcessElevationPlatform, ProcessExitWait, ProcessIdentity, SensorPlatform,
+    SuperIoPlatform,
   };
   use async_trait::async_trait;
   use std::sync::Arc;
@@ -352,10 +353,13 @@ mod tests {
       ElevationAvailability::Unsupported
     }
 
+    fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError> {
+      Err(PlatformError::unsupported("fake"))
+    }
+
     fn wait_for_process_exit(
       &self,
-      _pid: u32,
-      _timeout: std::time::Duration,
+      _identity: &ProcessIdentity,
     ) -> Result<ProcessExitWait, PlatformError> {
       Err(PlatformError::unsupported("fake"))
     }

@@ -485,9 +485,9 @@ pub fn export_bindings() {
   export_typescript_bindings(&builder);
 }
 
-/// A warning from the elevated relaunch handoff, raised before the logger
+/// A note from the elevated relaunch handoff, raised before the logger
 /// exists and logged by `run()` once it does.
-static HANDOFF_WARNING: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+static HANDOFF_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 /// Run a command-line mode when the process was started with one, and wait
 /// for the parent of an elevated relaunch to exit.
@@ -496,7 +496,8 @@ static HANDOFF_WARNING: std::sync::OnceLock<String> = std::sync::OnceLock::new()
 /// Called before any Tauri runtime is created so the elevated setup child
 /// never competes with the running app for the single-instance lock, and so
 /// the elevated relaunch child takes that lock and opens the database only
-/// after the parent that launched it has released both.
+/// after the parent that launched it has released both. A child that cannot
+/// confirm the parent's exit terminates here instead of starting.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
   let args = match cli::parse_cli_args(std::env::args()) {
     Ok(args) => args,
@@ -505,16 +506,16 @@ pub fn run_cli_mode_if_requested() -> Option<i32> {
       return Some(2);
     }
   };
-  if let Some(mode) = args.mode {
-    return Some(cli::run_cli_mode(mode));
+  match cli::decide_launch(args, cli::wait_for_parent_exit) {
+    cli::Launch::Exit(exit_code) => Some(exit_code),
+    cli::Launch::App { note } => {
+      if let Some(note) = note {
+        eprintln!("{note}");
+        let _ = HANDOFF_NOTE.set(note);
+      }
+      None
+    }
   }
-  if let Some(parent_pid) = args.wait_for_parent
-    && let Err(warning) = cli::wait_for_parent_exit(parent_pid)
-  {
-    eprintln!("{warning}");
-    let _ = HANDOFF_WARNING.set(warning);
-  }
-  None
 }
 
 pub fn run() {
@@ -687,8 +688,8 @@ pub fn run() {
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
 
-      if let Some(warning) = HANDOFF_WARNING.get() {
-        log_warn!(warning, "lib::setup", None::<&str>);
+      if let Some(note) = HANDOFF_NOTE.get() {
+        log_info!(note, "lib::setup", None::<&str>);
       }
 
       if elevated_startup_mode {

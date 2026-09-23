@@ -5,7 +5,8 @@ use crate::models::hardware::{
 use crate::platform::traits::{
   ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
   GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, ProcessExitWait, SensorPlatform, SuperIoPlatform,
+  ProcessElevationPlatform, ProcessExitWait, ProcessIdentity, SensorPlatform,
+  SuperIoPlatform,
 };
 use async_trait::async_trait;
 use tokio::task;
@@ -135,10 +136,15 @@ impl ProcessElevationPlatform for MacOSPlatform {
     ElevationAvailability::Unsupported
   }
 
+  fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError> {
+    Err(PlatformError::unsupported(
+      "Process identity is only supported on Windows.",
+    ))
+  }
+
   fn wait_for_process_exit(
     &self,
-    _pid: u32,
-    _timeout: std::time::Duration,
+    _identity: &ProcessIdentity,
   ) -> Result<ProcessExitWait, PlatformError> {
     Err(PlatformError::unsupported(
       "Waiting for another process is only supported on Windows.",

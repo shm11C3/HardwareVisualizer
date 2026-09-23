@@ -6,7 +6,8 @@ use crate::models::hardware::{
 use crate::platform::traits::{
   ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
   GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, ProcessExitWait, SensorPlatform, SuperIoPlatform,
+  ProcessElevationPlatform, ProcessExitWait, ProcessIdentity, SensorPlatform,
+  SuperIoPlatform,
 };
 use async_trait::async_trait;
 
@@ -114,12 +115,15 @@ impl ProcessElevationPlatform for WindowsPlatform {
     process_elevation::elevation_availability()
   }
 
+  fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError> {
+    process_elevation::current_process_identity()
+  }
+
   fn wait_for_process_exit(
     &self,
-    pid: u32,
-    timeout: std::time::Duration,
+    identity: &ProcessIdentity,
   ) -> Result<ProcessExitWait, PlatformError> {
-    process_elevation::wait_for_process_exit(pid, timeout)
+    process_elevation::wait_for_process_exit(identity)
   }
 }
 

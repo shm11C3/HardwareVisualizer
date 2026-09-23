@@ -127,12 +127,20 @@ installed and its fallbacks unchanged.
   and Elevated Startup Mode launch the elevated child before anything stops,
   so a declined UAC prompt or a failed launch returns an error while every
   worker keeps running, and the Settings toggle rolls back. The child is
-  launched with `--wait-for-parent <pid>` added to the current arguments and,
-  before its Tauri runtime starts, waits for that process to exit (bounded to
-  60 s, logged if exceeded): the parent still holds the single-instance lock
-  and the database until it has drained its workers, so a child that ran
-  ahead would exit as a second instance or race the writers. Once the launch
-  has succeeded, the parent stops its workers and exits as before.
+  launched with `--wait-for-parent <pid>:<creation-time>` added to the
+  current arguments, the parent's own process creation time making the id
+  verifiable. Before its Tauri runtime starts, the child opens that process
+  (`SYNCHRONIZE` and limited query), compares the creation time, and waits
+  for it to exit with no timeout: the open handle keeps the id from being
+  reused, and the parent still holds the single-instance lock and the
+  database until it has drained its workers, so a child that ran ahead would
+  exit as a second instance, leaving no app, or open the database beside the
+  parent's live owner. An id that no process holds, or one held by a process
+  with a different creation time, means the parent has already exited. If the
+  parent cannot be opened or verified for any other reason, or the wait
+  fails, the child prints the reason and exits with code `3` instead of
+  starting. Once the launch has succeeded, the parent stops its workers and
+  exits as before.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between

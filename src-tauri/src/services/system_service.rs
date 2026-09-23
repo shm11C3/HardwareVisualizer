@@ -42,7 +42,9 @@ async fn hand_off_to_elevated_process(
   platform: &dyn ProcessElevationPlatform,
   workers: &WorkersState,
 ) -> Result<(), PlatformError> {
-  platform.relaunch_current_process_elevated(&cli::elevated_handoff_args())?;
+  let this_process = platform.current_process_identity()?;
+  platform
+    .relaunch_current_process_elevated(&cli::elevated_handoff_args(&this_process))?;
   workers.terminate_all().await;
   Ok(())
 }
@@ -59,7 +61,9 @@ pub fn relaunch_for_elevated_startup_if_needed(
   }
 
   let platform = PlatformFactory::shared()?;
-  platform.relaunch_current_process_elevated(&cli::elevated_handoff_args())?;
+  let this_process = platform.current_process_identity()?;
+  platform
+    .relaunch_current_process_elevated(&cli::elevated_handoff_args(&this_process))?;
   app_handle.exit(0);
   Ok(true)
 }
@@ -80,7 +84,7 @@ pub fn elevation_availability() -> ElevationAvailability {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use hardviz_core::platform::traits::ProcessExitWait;
+  use hardviz_core::platform::traits::{ProcessExitWait, ProcessIdentity};
   use std::sync::atomic::Ordering;
 
   /// A platform whose elevated launch succeeds or fails as configured.
@@ -104,10 +108,16 @@ mod tests {
       ElevationAvailability::Available
     }
 
+    fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError> {
+      Ok(ProcessIdentity {
+        pid: 1,
+        creation_time: 1,
+      })
+    }
+
     fn wait_for_process_exit(
       &self,
-      _pid: u32,
-      _timeout: std::time::Duration,
+      _identity: &ProcessIdentity,
     ) -> Result<ProcessExitWait, PlatformError> {
       Ok(ProcessExitWait::Exited)
     }

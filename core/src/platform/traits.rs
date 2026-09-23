@@ -113,22 +113,37 @@ pub trait ProcessElevationPlatform: Send + Sync {
   /// [`ElevationAvailability::Available`].
   fn elevation_availability(&self) -> ElevationAvailability;
 
-  /// Block until the process with `pid` has exited or `timeout` has passed.
-  /// A `pid` that no process holds any more counts as exited.
+  /// The identity of the current process, for another process to wait on.
+  fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError>;
+
+  /// Block until the process `identity` names has exited. The wait is not
+  /// bounded: the id cannot be reused while the wait holds the process open,
+  /// so a verified process that never exits is a bug to report, not a reason
+  /// to stop waiting. An id that no process holds, or that a process with a
+  /// different creation time holds, counts as already exited.
   fn wait_for_process_exit(
     &self,
-    pid: u32,
-    timeout: std::time::Duration,
+    identity: &ProcessIdentity,
   ) -> Result<ProcessExitWait, PlatformError>;
+}
+
+/// A process id together with the creation time of the process that held it
+/// when the identity was taken, so a reused id cannot pass for that process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessIdentity {
+  pub pid: u32,
+  /// Platform-specific creation timestamp; on Windows the `FILETIME` of
+  /// `GetProcessTimes` as one integer.
+  pub creation_time: u64,
 }
 
 /// How [`ProcessElevationPlatform::wait_for_process_exit`] ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessExitWait {
-  /// The process has exited, or no process had that id.
+  /// The process was running and has now exited.
   Exited,
-  /// The process was still running when the timeout passed.
-  TimedOut,
+  /// No process with that identity was running any more.
+  AlreadyExited,
 }
 
 /// Whether the current executable can be launched elevated (#2216).
