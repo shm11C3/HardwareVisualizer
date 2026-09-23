@@ -51,6 +51,13 @@ function fail(message) {
   errors.push(message);
 }
 
+// Callers on Windows may hand over native separators. path.posix.normalize
+// keeps a backslash as an ordinary character, so "..\\x" would pass the "../"
+// check and ".agents\\rules\\x.md" would miss the touched-path patterns.
+function posixRelativePath(relativePath) {
+  return path.posix.normalize(relativePath.split(path.sep).join("/"));
+}
+
 // Repository-relative paths are built with path.posix on every host: they key
 // the override map, match the touched-path patterns, and appear in messages,
 // so a Windows checkout must not turn them into backslash paths. Only the
@@ -448,7 +455,7 @@ async function checkLessons() {
           );
           continue;
         }
-        const normalized = path.posix.normalize(reference);
+        const normalized = posixRelativePath(reference);
         if (
           path.isAbsolute(reference) ||
           normalized === ".." ||
@@ -803,7 +810,7 @@ async function checkTouchedFiles(relativePaths) {
 
   const existingPaths = [];
   for (const candidate of new Set(relativePaths)) {
-    const normalized = path.posix.normalize(candidate);
+    const normalized = posixRelativePath(candidate);
     if (
       path.isAbsolute(candidate) ||
       normalized === ".." ||

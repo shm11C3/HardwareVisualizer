@@ -280,6 +280,49 @@ expectFailure(
   "core/README.md does not point to the current storage settings module",
 );
 
+function expectTouchedFailure(name, touchedPaths, overrides, expectedText) {
+  const result = spawnSync(
+    process.execPath,
+    [checker, "--touched", ...touchedPaths],
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        AGENT_GUIDANCE_OVERRIDES: JSON.stringify(overrides),
+      },
+      encoding: "utf8",
+    },
+  );
+  const output = `${result.stdout}${result.stderr}`;
+  if (result.status !== 1 || !output.includes(expectedText)) {
+    throw new Error(
+      `${name}: expected touched validation failure containing ${JSON.stringify(expectedText)}\n${output}`,
+    );
+  }
+}
+
+// Native separators only reach the checker on Windows; elsewhere a backslash
+// is an ordinary filename character.
+if (process.platform === "win32") {
+  expectTouchedFailure(
+    "touched path with native separators is still checked",
+    [".agents\\rules\\design.md"],
+    {
+      ".agents/rules/design.md": read(".agents/rules/design.md").replace(
+        'scope: "**"',
+        'scope: ""',
+      ),
+    },
+    ".agents/rules/design.md is missing a non-empty scope field",
+  );
+  expectTouchedFailure(
+    "touched path with native separators cannot escape the repository",
+    ["..\\outside.md"],
+    {},
+    "Touched guidance path is outside the repository",
+  );
+}
+
 const after = gitStatus();
 if (after !== before) {
   throw new Error("Agent guidance tests changed the worktree");
