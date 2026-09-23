@@ -160,9 +160,12 @@ installed and its fallbacks unchanged.
   higher order than `WixUI_InstallDir` (the last `NewDialog` wins). The
   checkbox binds to the secure public property `EXTERNAL_COMPONENT_PAWNIO`.
   The property has no default in the `Property` table; a `SetProperty` in the
-  UI sequence sets it to `1` on a fresh install, so only a full-UI install
-  pre-selects it. `msiexec /qn`, `/passive` (the updater), and winget run no
-  setup unless the caller passes `EXTERNAL_COMPONENT_PAWNIO=1`. A deferred,
+  UI sequence sets it to `1` on a fresh install at full UI (`UILevel = 5`),
+  so only a full-UI install pre-selects it. The UI sequence also runs at
+  reduced UI (`/qr`, `UILevel` 4), where authored dialogs are suppressed, so
+  the condition excludes it. `msiexec /qn`, `/qr`, `/passive` (the updater),
+  and winget run no setup unless the caller passes
+  `EXTERNAL_COMPONENT_PAWNIO=1`. A deferred,
   non-impersonated custom action after `InstallFiles` runs
   `[#Path] --external-component-setup pawnio` as LocalSystem inside the
   already elevated install, so there is no second prompt; `Return="ignore"`

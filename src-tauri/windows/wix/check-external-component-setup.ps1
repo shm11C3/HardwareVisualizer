@@ -6,7 +6,8 @@
 #   its exit code, and runs only when EXTERNAL_COMPONENT_PAWNIO = "1" and the
 #   install directory is under Program Files;
 # - EXTERNAL_COMPONENT_PAWNIO has no default in the Property table and is only
-#   defaulted by the UI sequence, so /qn, /passive, and winget run no setup;
+#   defaulted by the UI sequence at full UI, so /qn, /qr, /passive, and winget
+#   run no setup;
 # - the options dialog is inserted between InstallDirDlg and VerifyReadyDlg;
 # - an interactive, non-upgrade uninstall runs the notice mode before removal.
 #
@@ -31,9 +32,11 @@ $expectedActionType = 18 + 0x40 + 0x400 + 0x800
 # property names are case-sensitive, so string comparisons use -ceq.
 $expectedActionCondition = "$property = `"1`" AND NOT REMOVE AND ((INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder) AND NOT (INSTALLDIR >< `"..`"))"
 # Type 51 (set a property from formatted text); only a fresh install without
-# an explicit value on the command line gets the default.
+# an explicit value on the command line gets the default, and only at full UI
+# (UILevel 5): the UI sequence also runs at reduced UI (/qr, UILevel 4), where
+# the dialog that carries the consent is suppressed.
 $expectedDefaultType = 51
-$expectedDefaultCondition = "NOT Installed AND NOT $property"
+$expectedDefaultCondition = "NOT Installed AND NOT $property AND UILevel = 5"
 
 $installer = New-Object -ComObject WindowsInstaller.Installer
 $database = $installer.OpenDatabase((Resolve-Path $MsiPath).Path, 0)
