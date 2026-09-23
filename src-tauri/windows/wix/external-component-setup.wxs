@@ -9,7 +9,8 @@
 
   The setup itself is the application's command-line mode, run as a deferred
   custom action from the already elevated install script. Return="ignore"
-  keeps a failed setup from failing the product install.
+  keeps a failed setup from failing the product install. An interactive
+  uninstall tells the user which external components stay installed (#2119).
 
   Re-verify the Publish orders whenever the Tauri bundler template or its
   WiX version changes: WixUI_InstallDir publishes InstallDirDlg Next at
@@ -51,8 +52,24 @@
          processes cannot modify. A user-chosen writable directory would let
          a same-user process swap the executable before it is elevated;
          there the setup stays available from Settings instead. -->
+    <!-- Uninstall notice (#2119): before anything is removed, the installed
+         executable tells the user which external components stay installed;
+         it detects them itself and always exits 0. It is immediate, so it runs
+         as the user who started the uninstall and shows even in the basic UI
+         that Settings > Apps uses. It is skipped for silent uninstalls
+         (UILevel 2), for removing the old version during an upgrade, and
+         outside Program Files: an uninstall started from an elevated prompt
+         runs it elevated, and there the file could have been swapped. -->
+    <CustomAction
+      Id="ShowExternalComponentUninstallNotice"
+      FileKey="Path"
+      ExeCommand="--external-component-notice uninstall"
+      Execute="immediate"
+      Return="ignore" />
+
     <InstallExecuteSequence>
       <Custom Action="RunExternalComponentSetupPawnio" After="InstallFiles">EXTERNAL_COMPONENT_PAWNIO = "1" AND NOT REMOVE AND $(var.ProtectedInstallDir)</Custom>
+      <Custom Action="ShowExternalComponentUninstallNotice" Before="InstallInitialize">REMOVE = "ALL" AND NOT UPGRADINGPRODUCTCODE AND UILevel &gt; 2 AND $(var.ProtectedInstallDir)</Custom>
     </InstallExecuteSequence>
 
     <UI>
