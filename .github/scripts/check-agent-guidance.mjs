@@ -3,8 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   cleanRoomReferenceFiles,
-  githubScriptsDir,
   githubScriptIndexRows,
+  githubScriptsDir,
   githubScriptsIndex,
   listedGithubScripts,
   requiredGuidanceFiles,
