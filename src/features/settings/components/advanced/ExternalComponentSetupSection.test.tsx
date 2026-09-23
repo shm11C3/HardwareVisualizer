@@ -336,7 +336,7 @@ describe("ExternalComponentSetupSection", () => {
 
     await waitFor(() => {
       expect(mocks.error).toHaveBeenCalledWith(
-        "Installation failed: Setup did not finish in time and may still be running. Restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
+        "Installation failed: Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
       );
     });
   });

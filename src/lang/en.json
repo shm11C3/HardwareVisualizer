@@ -866,9 +866,9 @@
             "unsupportedPlatform": "Setup is not available on this platform.",
             "panicked": "The setup process stopped unexpectedly.",
             "installerTimedOut": "The runtime installer did not finish in time and was stopped.",
-            "installerStillRunning": "The runtime installer did not finish in time and may still be running. Restart the app before trying again.",
+            "installerStillRunning": "The runtime installer did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again.",
             "setupTimedOut": "Setup did not finish in time and was stopped.",
-            "setupStillRunning": "Setup did not finish in time and may still be running. Restart the app before trying again.",
+            "setupStillRunning": "Setup did not finish in time and may still be running. Check Task Manager and confirm PawnIO_setup.exe has finished or stopped, then restart the app before trying again.",
             "other": "Setup failed."
           },
           "restartDescription": "Restart HardwareVisualizer to start using the newly installed component.",
