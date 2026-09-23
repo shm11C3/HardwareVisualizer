@@ -19,22 +19,31 @@ export const ElevationUnavailableNotice = ({
 }: {
   settingsLoaded: boolean;
 }) => {
-  const { t } = useTranslation();
-  const { settings, updateSettingAtom } = useSettingsAtom();
+  const { settings } = useSettingsAtom();
   const availability = useElevationAvailability();
   const processElevated = useProcessElevated();
   const [dismissedThisLaunch, setDismissedThisLaunch] = useState(false);
 
-  if (
-    !settingsLoaded ||
-    !settings.elevatedStartupMode ||
-    availability !== "unprotectedLocation" ||
+  const visible =
+    settingsLoaded &&
+    settings.elevatedStartupMode &&
+    availability === "unprotectedLocation" &&
     // Started as administrator by the user: the setting did take effect.
-    processElevated !== false ||
-    dismissedThisLaunch
-  ) {
-    return null;
-  }
+    processElevated === false &&
+    !dismissedThisLaunch;
+
+  // The live region stays mounted while the notice is hidden, so screen
+  // readers announce the notice when the async checks make it appear.
+  return (
+    <div role="status" aria-live="polite">
+      {visible && <Notice onDismiss={() => setDismissedThisLaunch(true)} />}
+    </div>
+  );
+};
+
+const Notice = ({ onDismiss }: { onDismiss: () => void }) => {
+  const { t } = useTranslation();
+  const { updateSettingAtom } = useSettingsAtom();
 
   return (
     <aside
@@ -62,7 +71,7 @@ export const ElevationUnavailableNotice = ({
         variant="ghost"
         size="icon"
         className="-mt-2 -mr-2 shrink-0"
-        onClick={() => setDismissedThisLaunch(true)}
+        onClick={onDismiss}
         aria-label={t("elevationUnavailable.startupNotice.dismiss")}
       >
         <XIcon size={18} />

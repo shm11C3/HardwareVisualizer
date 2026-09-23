@@ -110,6 +110,21 @@ describe("ExternalComponentGuidanceDialog", () => {
     expect(
       screen.queryByRole("button", { name: "Restart as administrator" }),
     ).toBeNull();
+    expect(
+      screen.getByText(/not installed under Program Files/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/enable Run as administrator/)).toBeNull();
+  });
+
+  it("does not blame the install folder when availability is unknown", async () => {
+    mocks.useElevationAvailability.mockReturnValue("unknown");
+
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+
+    expect(
+      await screen.findByText(/could not verify whether it can safely run/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/not installed under Program Files/)).toBeNull();
   });
 
   it("reports whether it is open so other startup dialogs can wait", async () => {

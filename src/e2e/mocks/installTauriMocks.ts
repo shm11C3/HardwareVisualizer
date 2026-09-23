@@ -78,6 +78,8 @@ type InvokeHandler = (args?: unknown) => unknown;
 /** Survives closing the page like the real settings file, so a test can tell a saved
  * dismissal from a session-only hide. */
 const NSIS_MIGRATION_NOTICE_DISMISSED_KEY = "e2e:nsisMigrationNoticeDismissed";
+/** Same, for Elevated Startup Mode under `?elevation=unprotected`. */
+const ELEVATED_STARTUP_MODE_KEY = "e2e:elevatedStartupMode";
 type EventListenArgs = { event: string; handler: number };
 type EventEmitArgs = { event: string; payload?: unknown };
 type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
@@ -412,9 +414,9 @@ const buildInvokeHandlers = (
     uiAnnouncementVersion: fixtureOverrides.showNavigationNotice
       ? 0
       : settingsFixture.uiAnnouncementVersion,
-    elevatedStartupMode:
-      fixtureOverrides.elevationUnprotected ||
-      settingsFixture.elevatedStartupMode,
+    elevatedStartupMode: fixtureOverrides.elevationUnprotected
+      ? window.localStorage.getItem(ELEVATED_STARTUP_MODE_KEY) !== "false"
+      : settingsFixture.elevatedStartupMode,
     nsisMigrationNoticeDismissed: fixtureOverrides.nsisMigrationNotice
       ? window.localStorage.getItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY) === "1"
       : settingsFixture.nsisMigrationNoticeDismissed,
@@ -457,6 +459,11 @@ const buildInvokeHandlers = (
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
   is_process_elevated: () => false,
+  set_elevated_startup_mode: (args) => {
+    const { newValue } = args as { newValue: boolean };
+    window.localStorage.setItem(ELEVATED_STARTUP_MODE_KEY, String(newValue));
+    return null;
+  },
   get_elevation_availability: () =>
     fixtureOverrides.elevationUnprotected ? "unprotectedLocation" : "available",
   get_external_component_setup_components: () => ["pawnio"],

@@ -67,6 +67,20 @@ describe("ElevationUnavailableNotice", () => {
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 
+  it("fills a live region that was mounted before the notice appeared", () => {
+    mocks.useProcessElevated.mockReturnValue(null);
+    const { rerender } = render(<ElevationUnavailableNotice settingsLoaded />);
+    const status = screen.getByRole("status");
+    expect(status).toBeEmptyDOMElement();
+
+    mocks.useProcessElevated.mockReturnValue(false);
+    rerender(<ElevationUnavailableNotice settingsLoaded />);
+
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent(title);
+  });
+
   it("stays hidden until settings load", () => {
     render(<ElevationUnavailableNotice settingsLoaded={false} />);
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
