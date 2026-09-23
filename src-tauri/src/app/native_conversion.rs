@@ -1346,6 +1346,78 @@ mod tests {
     assert!(!fixture.paths().native_database.exists());
   }
 
+  /// Regression for #2238. The selection commits into the native file
+  /// before the marker is written, so a marker write that fails leaves a
+  /// durable selection behind. Treating that as a retryable failure resumed
+  /// the producers on SQLite, and the next startup repaired the marker and
+  /// retired SQLite without the rows they wrote in between.
+  #[tokio::test]
+  async fn a_failure_after_the_selection_commit_keeps_producers_off_sqlite() {
+    let fixture = Fixture::new().await;
+    // The marker's directory does not exist: entry reads the marker as
+    // absent, the conversion runs, the selection commits, and publishing
+    // the marker (and repairing it) fails.
+    let marker_directory = fixture.directory.path().join("marker");
+    let mut target = fixture.target();
+    target.paths.marker = marker_directory.join(AUTHORITY_MARKER_FILE_NAME);
+    let paths = target.paths.clone();
+    let owner = NativeLifecycleOwner::new();
+    let workers = WorkersState::default();
+
+    let outcome = run_conversion(
+      target,
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await;
+
+    assert!(
+      matches!(outcome, Ok(ConversionOutcome::ActionRequired)),
+      "a failure after the commit is not a retryable failure: {outcome:?}"
+    );
+    assert!(
+      !matches!(
+        owner.state(),
+        DatabaseLifecycleState::ActionRequired(LifecycleIssue::ConversionFailed { .. })
+      ),
+      "{:?}",
+      owner.state()
+    );
+    assert!(
+      workers.cooling_rollup.lock().unwrap().is_none(),
+      "producers must not resume while SQLite is no longer authoritative"
+    );
+
+    // Once the cause is gone, a retry finishes the selection and only then
+    // starts the producers again.
+    std::fs::create_dir(&marker_directory).unwrap();
+    let retry = run_conversion(
+      ConversionTarget {
+        paths: paths.clone(),
+        workspace: fixture.workspace(),
+        expected_schema_version: native_schema::NATIVE_SCHEMA_VERSION,
+      },
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+      matches!(retry, ConversionOutcome::AlreadySelected),
+      "{retry:?}"
+    );
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+    assert!(paths.marker.is_file());
+    assert!(workers.cooling_rollup.lock().unwrap().is_some());
+  }
+
   #[tokio::test]
   async fn a_second_call_after_selection_is_a_no_op() {
     let fixture = Fixture::new().await;
