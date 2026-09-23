@@ -34,7 +34,10 @@ const dryRun = process.argv.includes("--dry-run");
 const quiet = process.argv.includes("--quiet");
 const APP_BUILD_SCRIPT_PREFIX = "hardware_visualizer-";
 const PRUNING_SUFFIX = ".pruning";
-const CHECKOUT_PATTERN = /^cargo:rerun-if-changed=(.+?)[\\/]src-tauri[\\/]/m;
+// Anchored on the App crate's own manifest so an ancestor directory that
+// happens to be called `src-tauri` cannot be mistaken for the checkout.
+const CHECKOUT_PATTERN =
+  /^cargo:rerun-if-changed=(.+)[\\/]src-tauri[\\/]tauri\.conf\.json\r?$/m;
 
 function sharedRoot() {
   const cargoHome = process.env.CARGO_HOME || path.join(os.homedir(), ".cargo");
@@ -71,6 +74,31 @@ async function checkoutOf(subtree) {
   return null;
 }
 
+/// True only when the checkout is positively gone. A checkout that exists but
+/// cannot be inspected (permissions, a detached drive) is treated as present,
+/// because deleting on a transient error would throw away a live build.
+async function checkoutMissing(checkout) {
+  try {
+    await stat(checkout);
+    return false;
+  } catch (error) {
+    return error.code === "ENOENT" || error.code === "ENOTDIR";
+  }
+}
+
+/// Deletes a directory tree, reporting instead of aborting the whole run when
+/// one tree cannot be removed (a file held open by a build, for example).
+async function removeTree(dir, bucket) {
+  try {
+    await rm(dir, { recursive: true, force: true });
+  } catch (error) {
+    console.error(`failed  ${dir}  (${error.message}); retried next run`);
+    return false;
+  }
+  await rm(bucket, { recursive: false }).catch(() => {});
+  return true;
+}
+
 async function sizeBytes(dir) {
   let total = 0;
   const entries = await readdir(dir, {
@@ -101,9 +129,8 @@ for (const bucket of await directories(root)) {
         console.log(`would finish removing ${subtree}`);
         continue;
       }
-      await rm(subtree, { recursive: true, force: true });
-      await rm(bucket, { recursive: false }).catch(() => {});
-      console.log(`removed ${subtree}  (interrupted earlier)`);
+      if (await removeTree(subtree, bucket))
+        console.log(`removed ${subtree}  (interrupted earlier)`);
       continue;
     }
     const checkout = await checkoutOf(subtree);
@@ -114,7 +141,7 @@ for (const bucket of await directories(root)) {
         );
       continue;
     }
-    if (existsSync(checkout)) {
+    if (!(await checkoutMissing(checkout))) {
       if (!quiet) console.log(`keep    ${subtree}  <- ${checkout}`);
       continue;
     }
@@ -124,6 +151,13 @@ for (const bucket of await directories(root)) {
       console.log(
         `would remove ${subtree}  (${gib(bytes)} GiB; checkout gone: ${checkout})`,
       );
+      continue;
+    }
+    // Sizing a large subtree takes a while; the checkout may have been
+    // recreated at the same path (and started reusing this subtree) meanwhile.
+    if (!(await checkoutMissing(checkout))) {
+      if (!quiet) console.log(`keep    ${subtree}  <- ${checkout} (recreated)`);
+      reclaimed -= bytes;
       continue;
     }
     const claimed = `${subtree}${PRUNING_SUFFIX}`;
@@ -137,8 +171,10 @@ for (const bucket of await directories(root)) {
       reclaimed -= bytes;
       continue;
     }
-    await rm(claimed, { recursive: true, force: true });
-    await rm(bucket, { recursive: false }).catch(() => {});
+    if (!(await removeTree(claimed, bucket))) {
+      reclaimed -= bytes;
+      continue;
+    }
     console.log(
       `removed ${subtree}  (${gib(bytes)} GiB; checkout gone: ${checkout})`,
     );
