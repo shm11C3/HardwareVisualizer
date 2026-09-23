@@ -10,6 +10,7 @@
     "react-devtools": "npx react-devtools",
     "build": "tsc && vite build",
     "check:agent-guidance": "node .github/scripts/check-agent-guidance.mjs",
+    "prune:build-dirs": "node .github/scripts/prune-build-dirs.mjs",
     "test:agent-guidance": "node .github/scripts/test-agent-guidance.mjs",
     "test:agent-hooks": "node .github/scripts/test-agent-hook.mjs",
     "preview": "vite preview",

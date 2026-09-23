@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -137,6 +137,15 @@ function validatorExitCode(result) {
 }
 
 if (mode === "stop") {
+  // Reclaim the shared Cargo build subtrees of worktrees that no longer
+  // exist (see docs/development/local-build-cache.md). Detached, so a
+  // multi-gigabyte deletion never runs into this hook's timeout; the script
+  // itself is safe to interrupt and to run concurrently with itself.
+  spawn(
+    process.execPath,
+    [path.join(repoRoot, ".github/scripts/prune-build-dirs.mjs"), "--quiet"],
+    { cwd: repoRoot, detached: true, stdio: "ignore" },
+  ).unref();
   process.exit(validatorExitCode(runValidator()));
 }
 

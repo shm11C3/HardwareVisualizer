@@ -344,16 +344,36 @@ between jobs that use sccache and jobs that do not.
 
 ## Keeping disk usage bounded
 
-The shared parent directory still accumulates one subtree per worktree you
-have ever built, including worktrees you later deleted. Reclaim all of it
-occasionally with:
+The shared parent directory accumulates one subtree per worktree you have
+ever built, including worktrees you later deleted. With the bundled DuckDB
+build each subtree is 15 to 65 GiB, most of it the debug profile: the DuckDB
+static library is about 2.2 GiB, the App rlib that embeds it about 4.6 GiB,
+and every App integration-test binary links DuckDB again and carries a PDB of
+600 to 700 MiB. On 2026-09-22 six such subtrees held 185 GiB, four of them for
+worktrees that no longer existed.
+
+Subtrees whose checkout is gone are pruned automatically: the shared agent
+`Stop` hook (`.github/scripts/agent-hook.mjs stop`, wired from
+`.claude/settings.json` and `.codex/hooks.json`) spawns
+`.github/scripts/prune-build-dirs.mjs` detached, so the deletion never runs
+into the hook timeout. The script attributes each subtree to its checkout
+through the absolute `cargo:rerun-if-changed=` paths `tauri-build` leaves in
+`<profile>/build/hardware_visualizer-*/output`, and deletes the subtree when
+that checkout no longer exists. A subtree that never built the App crate cannot
+be attributed and is left alone, as is every subtree whose checkout still
+exists. An orphan is renamed to `<subtree>.pruning` before deletion, so an
+interrupted run is finished by the next one and concurrent runs never fight
+over the same subtree. Run it by hand, or see what it would do, with:
+
+```bash
+npm run prune:build-dirs -- --dry-run
+```
+
+To reclaim everything at once, live worktrees included:
 
 ```bash
 rm -rf ~/.cargo/build/shared
 ```
-
-There is currently no automatic pruning tied to worktree removal; treat this
-as a manual step alongside worktree cleanup below.
 
 Do not run `rm -rf target` in the main checkout without looking first: some
 tools (Codex, for example) create their worktrees under
@@ -362,10 +382,9 @@ checkouts, including uncommitted work. Delete `target/debug` and
 `target/release` instead, or move the worktrees out first.
 
 Worktree hygiene matters as much as the cache. `git worktree remove` deletes
-the checkout, but its shared-cache subtree under `~/.cargo/build/shared/` is
-keyed by the now-gone path and is not cleaned up automatically; it sits there
-until the periodic `rm -rf ~/.cargo/build/shared` above reclaims it. Drop
-worktree registrations whose directories were deleted by hand with:
+the checkout; its shared-cache subtree under `~/.cargo/build/shared/` goes at
+the next prune run described above. Drop worktree registrations whose
+directories were deleted by hand with:
 
 ```bash
 git worktree prune
