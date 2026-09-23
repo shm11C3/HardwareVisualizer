@@ -76,13 +76,17 @@ mod imp {
     // `get_database_conversion` right after this command resolves never
     // reads a pre-start state; see
     // `ConversionRuntime::begin_attempt_marking_converting`'s own
-    // documentation for the race this closes and why it is safe to always
-    // mark `owner` on a successful claim.
+    // documentation for the race this closes, why it is safe to mark
+    // `owner` on a successful claim, and why a claim is refused (and
+    // `owner` left untouched) whenever `owner`'s current state is not one a
+    // start actually begins from.
     let Some((cancellation, bus)) =
       conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
     else {
-      // Another attempt already claimed it - not an error; the frontend
-      // already shows that attempt's progress.
+      // Nothing to do: either another attempt already claimed it (the
+      // frontend already shows that attempt's progress), or `owner` was
+      // already past the point a start begins from (e.g.
+      // `NativeAuthoritative`, `ActionRequired`) - neither is an error.
       return Ok(());
     };
 

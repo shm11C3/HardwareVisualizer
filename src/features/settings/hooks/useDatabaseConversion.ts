@@ -46,9 +46,27 @@ export const useDatabaseConversion = () => {
   // that is not a stale pre-start read - see `isPreStartKind` and
   // `start()`.
   const startPendingRef = useRef(false);
+  // Bumped every time `start()` succeeds. Each `refresh()` call captures
+  // this value *before* awaiting the command, and discards its own
+  // response if a newer `start()` began while it was in flight - see
+  // `refresh()`'s own comment for the race this closes.
+  const startGenerationRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestGeneration = startGenerationRef.current;
     const next = await commands.getDatabaseConversionState();
+    if (requestGeneration < startGenerationRef.current) {
+      // A newer `start()` began after this read was issued - e.g. React
+      // Strict Mode's double-invoked mount effect leaves an earlier mount
+      // read in flight, which can resolve *after* `start()`'s own refresh
+      // already observed real progress. Without this check, `startPendingRef`
+      // below would already be cleared by that newer read, so this older
+      // one's stale (pre-start) kind would pass the `isPreStartKind` guard
+      // and regress the UI. Whatever this read reports is superseded either
+      // way, so it is discarded unconditionally rather than re-checked
+      // against `isPreStartKind`.
+      return;
+    }
     if (startPendingRef.current && isPreStartKind(next.kind)) {
       // Racing a just-issued Start: the backend has not written its first
       // progress state yet. Keep showing the optimistic `converting` state
@@ -118,6 +136,11 @@ export const useDatabaseConversion = () => {
     // the polling effect immediately, so a lagging first read never
     // leaves polling un-armed - see `isPreStartKind` and `refresh()`.
     startPendingRef.current = true;
+    // Bumped before any read is issued below, so `refresh()` can tell an
+    // in-flight read issued before this `start()` (e.g. a still-pending
+    // mount read under React Strict Mode) apart from one issued after -
+    // see `refresh()`'s own comment.
+    startGenerationRef.current += 1;
     setState(OPTIMISTIC_STARTING_STATE);
     await refresh();
     return true;

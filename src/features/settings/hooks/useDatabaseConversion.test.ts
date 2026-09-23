@@ -254,6 +254,62 @@ describe("useDatabaseConversion", () => {
     expect(result.current.justCompleted).toBe(true);
   });
 
+  it("a deferred mount read released after start()'s own refresh must not regress the state (React Strict Mode double-invoke)", async () => {
+    // Simulates React Strict Mode double-invoking the mount effect: the
+    // mount's own `getDatabaseConversionState` call is still in flight
+    // (deliberately never auto-resolved) when `start()` runs and its own
+    // refresh already observes real progress. The mount read is released
+    // only afterward, reporting the stale pre-start state.
+    let resolveMountRead: (value: { kind: string }) => void = () => {};
+    const mountReadPromise = new Promise<{ kind: string }>((resolve) => {
+      resolveMountRead = resolve;
+    });
+
+    (commands.getDatabaseConversionState as Mock)
+      .mockImplementationOnce(() => mountReadPromise) // mount read - held open
+      .mockResolvedValueOnce({ kind: "converting", step: "preflight" }) // start()'s own refresh
+      .mockResolvedValue({ kind: "nativeAuthoritative" });
+    (commands.startDatabaseConversion as Mock).mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+
+    const { result } = renderHook(() => useDatabaseConversion());
+    // The mount effect issued its read; it never resolves in this act(),
+    // so the hook is left at its initial state.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.state).toEqual({
+      kind: "converting",
+      step: "preflight",
+    });
+
+    // The stale mount read finally resolves, reporting the pre-start
+    // state. It must be discarded outright - it predates this start()'s
+    // own generation - rather than overwrite the real progress already
+    // observed above.
+    await act(async () => {
+      resolveMountRead({ kind: "sqliteAuthoritative" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.state).toEqual({
+      kind: "converting",
+      step: "preflight",
+    });
+
+    // Polling must still be intact after the stale read resolved.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(result.current.state).toEqual({ kind: "nativeAuthoritative" });
+    expect(result.current.justCompleted).toBe(true);
+  });
+
   it("cancel() refreshes state after a successful call", async () => {
     (commands.getDatabaseConversionState as Mock)
       .mockResolvedValueOnce({ kind: "converting", step: "reconciling" })
