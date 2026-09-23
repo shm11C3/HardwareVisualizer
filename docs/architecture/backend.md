@@ -211,8 +211,9 @@ as the accepted direction, the [DuckDB Design Doc](../design/hardware-archive-du
 explains the structure and experiments behind it, and
 [ADR 0025](../adr/0025-retire-sqlite-conversion-path-in-v2.md) records when the
 SQLite backend and the conversion path are removed in a future major version.
-`duckdb-archive` is a default Cargo feature and shipped builds compile with
-it today (PR #2224, merged).
+`duckdb-archive` is a default Cargo feature on `develop`, so release builds
+built from `develop` compile with it today (PR #2224, merged); the latest
+published release, v1.10.1, predates that change and does not include it.
 
 Persistence is split:
 
