@@ -12,6 +12,8 @@ pub enum NativeDatabaseError {
   FreshInstallArtifactExists { path: PathBuf },
   #[error("native database request capacity must be greater than zero")]
   InvalidRequestCapacity,
+  #[error("native database is already open in this process: {path}")]
+  AlreadyOpen { path: PathBuf },
   #[error("native database is not finalized")]
   Unfinalized,
   #[error(

@@ -315,6 +315,14 @@ impl NativeDatabase {
   ///
   /// Refuses a file that finalization never produced, and one whose recorded
   /// schema version is not the version the caller was built against.
+  ///
+  /// Also refuses, with [`NativeDatabaseError::AlreadyOpen`], a file another
+  /// `NativeDatabase` in this process still holds. DuckDB's own lock cannot be
+  /// relied on for that: on Linux and macOS it is an `fcntl` lock, which POSIX
+  /// scopes to the process, so a second open from the same process succeeds and
+  /// two owners would write the same file. The claim is released only after
+  /// both lanes have dropped their connections, so a successful
+  /// [`NativeDatabase::close`] makes the file openable again.
   pub async fn open(
     path: impl AsRef<Path>,
     options: NativeDatabaseOptions,
@@ -329,13 +337,23 @@ impl NativeDatabase {
       return Err(NativeDatabaseError::Unavailable { path });
     }
     let expected_version = options.expected_schema_version;
-    let (writer, reader, spill) =
-      tokio::task::spawn_blocking(move || open_connections(&path, expected_version))
-        .await
-        .map_err(|error| NativeDatabaseError::Worker {
-          message: error.to_string(),
-        })??;
-    let spill = Arc::new(spill);
+    // The claim is taken and carried inside the blocking task. If this future
+    // is dropped while the task runs, Tokio lets the task finish anyway; a
+    // claim held out here would be released while those connections were
+    // still opening, and a second owner could slip in beside them.
+    let (writer, reader, spill, claim) = tokio::task::spawn_blocking(move || {
+      let claim = OpenClaim::acquire(&path)?;
+      let (writer, reader, spill) = open_connections(&path, expected_version)?;
+      Ok::<_, NativeDatabaseError>((writer, reader, spill, claim))
+    })
+    .await
+    .map_err(|error| NativeDatabaseError::Worker {
+      message: error.to_string(),
+    })??;
+    let spill = Arc::new(LaneResources {
+      _spill: spill,
+      _claim: claim,
+    });
     let (read_sender, read_receiver) = mpsc::channel(options.request_capacity);
     let (write_sender, write_receiver) = mpsc::channel(options.request_capacity);
     let read_spill = Arc::clone(&spill);
@@ -525,8 +543,88 @@ fn open_connections(
   Ok((writer, reader, spill))
 }
 
+/// What identifies a native database file for the in-process claim.
+///
+/// On Unix it is the file itself, `(device, inode)`, so a symlink, a `.`
+/// component or a hard link all resolve to one entry. On Windows it is the
+/// canonical path: the stable library exposes no file index there, and the
+/// platform's own file lock already refuses a second handle to the same file
+/// under any name, which is why this claim was only ever missing on Unix.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum FileIdentity {
+  #[cfg(unix)]
+  Inode { device: u64, inode: u64 },
+  #[cfg(not(unix))]
+  CanonicalPath(std::path::PathBuf),
+}
+
+impl FileIdentity {
+  fn of(path: &Path) -> Result<Self, NativeDatabaseError> {
+    let unavailable = || NativeDatabaseError::Unavailable {
+      path: path.to_owned(),
+    };
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::MetadataExt;
+      let metadata = std::fs::metadata(path).map_err(|_| unavailable())?;
+      Ok(Self::Inode {
+        device: metadata.dev(),
+        inode: metadata.ino(),
+      })
+    }
+    #[cfg(not(unix))]
+    {
+      std::fs::canonicalize(path)
+        .map(Self::CanonicalPath)
+        .map_err(|_| unavailable())
+    }
+  }
+}
+
+/// Files a `NativeDatabase` in this process currently holds.
+static OPEN_NATIVE_DATABASES: std::sync::LazyLock<
+  Mutex<std::collections::HashSet<FileIdentity>>,
+> = std::sync::LazyLock::new(Default::default);
+
+/// This process's claim on one native database file, released on drop.
+struct OpenClaim {
+  identity: FileIdentity,
+}
+
+impl OpenClaim {
+  fn acquire(path: &Path) -> Result<Self, NativeDatabaseError> {
+    let identity = FileIdentity::of(path)?;
+    let mut open = OPEN_NATIVE_DATABASES
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if !open.insert(identity.clone()) {
+      return Err(NativeDatabaseError::AlreadyOpen {
+        path: path.to_owned(),
+      });
+    }
+    Ok(Self { identity })
+  }
+}
+
+impl Drop for OpenClaim {
+  fn drop(&mut self) {
+    OPEN_NATIVE_DATABASES
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner())
+      .remove(&self.identity);
+  }
+}
+
+/// What both lanes keep alive for the owner's lifetime. Each lane drops its
+/// connection before its reference to this, so the claim is released only
+/// once no connection to the file is left.
+struct LaneResources {
+  _spill: TempDir,
+  _claim: OpenClaim,
+}
+
 fn run_lane(
-  _spill: Arc<TempDir>,
+  resources: Arc<LaneResources>,
   mut connection: Connection,
   mut receiver: mpsc::Receiver<LaneMessage>,
 ) {
@@ -565,6 +663,10 @@ fn run_lane(
       break;
     }
   }
+  // The connection goes before this lane's share of the claim, so the file is
+  // never reported free while a connection to it is still open.
+  drop(connection);
+  drop(resources);
 }
 
 fn validate_native_metadata(

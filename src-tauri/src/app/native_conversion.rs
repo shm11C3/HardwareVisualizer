@@ -1148,38 +1148,19 @@ mod tests {
     );
   }
 
-  // Windows-only: this test simulates "something else already holds the
-  // database open" by opening it a second time from *within this same
-  // process*. That only produces a real conflict on Windows, whose default
-  // file sharing mode makes a second handle to a file already open for
-  // read/write in the same process fail exactly like a second process
-  // would. On POSIX (macOS/Linux), DuckDB's file lock is an `fcntl` byte
-  // range lock, and POSIX defines those as scoped to the (process, inode)
-  // pair - a second `fcntl` lock request from the *same* process merges
-  // with its own earlier lock rather than conflicting with it, no matter
-  // which file descriptor requests it. So the second open here would
-  // succeed on POSIX, which is not a product bug (a genuinely different
-  // process is still refused there, exactly as `observe_authority`'s own
-  // documentation describes) - it just means same-process double-open
-  // cannot stand in for cross-process contention on those platforms.
-  // Confirmed locally on macOS: the second open observed
-  // `DatabaseLifecycleState::NativeAuthoritative` and succeeded instead of
-  // reporting `ActionRequired`.
-  #[cfg(target_os = "windows")]
   #[tokio::test]
   async fn a_concurrently_held_database_is_reported_as_action_required_not_silently_skipped()
    {
-    // `open_selected_database`'s and `reconcile_and_select`'s retry/record
-    // path assumes `inspect_startup_authority` can still read the native
-    // file's metadata. When something else already holds it open - another
-    // owner in this process, standing in for a transient lock or
-    // permission error - `observe_authority` cannot read the metadata
-    // either (documented on `observe_authority` itself: reading it means
-    // opening a second DuckDB instance, which DuckDB refuses), so entry
-    // reports `ActionRequired(Authority(NativeMetadataUnreadable))` rather
-    // than reaching the `NativeAuthoritative` open-and-retry branch at all.
-    // Both paths converge on the same guarantee this test pins: refused and
-    // recorded, never silently treated as done.
+    // Another owner in this process already holds the selected database. The
+    // second owner must be refused and record why, never treat it as done.
+    // Which layer refuses depends on the platform: on Windows DuckDB's own
+    // lock makes `observe_authority` fail to read the metadata, so entry
+    // reports `ActionRequired(Authority(NativeMetadataUnreadable))`. On Linux
+    // and macOS DuckDB's `fcntl` lock is process-scoped and lets that read
+    // through; entry then reaches the open-and-retry branch, where
+    // `NativeDatabase::open`'s in-process claim refuses the second owner with
+    // `AlreadyOpen`, and the owner records `ActionRequired(NativeOpenFailed)`.
+    // Both converge on the guarantee pinned here.
     let fixture = Fixture::new().await;
     let first_owner = NativeLifecycleOwner::new();
 

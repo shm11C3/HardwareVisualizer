@@ -11,8 +11,9 @@
 //!
 //! The boundary does **not** poll [`observe_authority`] per call to decide.
 //! Doing so would violate the ordering contract documented there - reading the
-//! native metadata opens a second DuckDB instance, and DuckDB refuses a file
-//! this boundary's own live owner already holds. Instead the boundary's answer
+//! native metadata opens a second DuckDB instance beside this boundary's own
+//! live owner, which Windows refuses and Linux and macOS let through unsafely.
+//! Instead the boundary's answer
 //! changes only when something tells it to: once at App startup ([`init`] +
 //! [`reobserve_authority`]), and again whenever the App lifecycle owner records
 //! a new selection (see "Seam for #2135" below). Between those calls the
