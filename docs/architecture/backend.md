@@ -24,7 +24,8 @@ Frontend
   -> Tauri commands (`src-tauri/src/commands`)
   -> App services / Core APIs (`src-tauri/src/services`, `hardviz_core::*`)
   -> Core collector / platform / persistence (`core/src/*`)
-  -> OS APIs, system providers, SQLite
+  -> Core's database dispatch boundary (`infrastructure/database/dispatch.rs`)
+  -> OS APIs, system providers, and SQLite or a native DuckDB database
 ```
 
 Realtime sensor updates use a separate event flow:
@@ -184,7 +185,10 @@ Current platform traits include memory, GPU, network, and motherboard access.
 
 Core infrastructure contains lower-level external access used by Core:
 
-- `database/`: Core database initialization and DB access used by persistence;
+- `database/`: Core database initialization and DB access used by persistence,
+  including the `dispatch` boundary every persistence consumer calls through
+  and, behind the `duckdb-archive` feature, `native_database` (the native
+  DuckDB schema, conversion primitives, and the single-owner runtime);
 - `providers/`: OS, vendor, and system data providers. See
   [`core/README.md`](../../core/README.md) for Core-specific provider details.
 
@@ -194,34 +198,90 @@ PawnIO and its CPU-specific module blobs, are documented in
 
 ### Persistence (`core/src/persistence/`, `src-tauri/src/infrastructure/`)
 
-This section describes the current row-based persistence implementation.
-[ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) records the accepted
-constraints for planned lossless chunked storage. Its persisted active tail,
-format migration, and recurring retention maintenance are not implemented by
-that decision; the startup flow and cleanup behavior below remain current.
-[ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md) and the
-[storage design](../development/hardware-archive-storage-design.md) record the earlier
-SQLite chunk migration proposal. The current recommended direction is explained
-in the [DuckDB Design Doc](../design/hardware-archive-duckdb.md), while
-[#2052](https://github.com/shm11C3/HardwareVisualizer/issues/2052) tracks
-investigation and delivery.
+This section describes the current persistence implementation, which now runs
+against one of two engines behind a single dispatch boundary.
+[ADR 0019](../adr/0019-lossless-chunked-hardware-archive.md) records the
+accepted lossless-history, retention, and recovery constraints that both
+engines still have to satisfy. [ADR 0021](../adr/0021-hardware-archive-migration-lifecycle.md)
+and the [storage design](../development/hardware-archive-storage-design.md)
+record the earlier, superseded SQLite chunk migration proposal.
+[ADR 0022](../adr/0022-prioritize-native-duckdb-archive-qualification.md)
+selects one authoritative native DuckDB database after a verified conversion
+as the accepted direction, the [DuckDB Design Doc](../design/hardware-archive-duckdb.md)
+explains the structure and experiments behind it, and
+[ADR 0025](../adr/0025-retire-sqlite-conversion-path-in-v2.md) records when the
+SQLite backend and the conversion path are removed in a future major version.
+Shipped builds compile without the `duckdb-archive` feature today; PR #2224
+(open) enables it through `build.features` in `src-tauri/tauri.conf.json`,
+gated on the #2137 production-qualification go/no-go.
 
 Persistence is split:
 
-- Core owns persistence workers and DB operations that are independent of Tauri.
-- App owns the ordered migration definitions and passes the resolved SQLite
-  path and migration set to Core during startup.
+- Core owns persistence workers and DB operations that are independent of
+  Tauri, and the `dispatch` boundary every one of those consumers calls
+  through instead of reaching either engine directly.
+- A durable selection record, not a per-call flag, decides which engine
+  `dispatch` answers from. The record is written to the native database's own
+  metadata first and a marker file beside it second, so the only crash window
+  it leaves is repairable rather than ambiguous. `dispatch` re-reads that
+  record only at App startup and whenever the App-owned lifecycle records a
+  new selection; between those calls every consumer sees one consistent
+  answer instead of racing a filesystem check.
+- Exactly one process-local owner may hold the native database file open at a
+  time. Opening it a second time in the same process is refused; this is
+  enforced in-process because the OS file lock alone does not stop a second
+  same-process opener on every platform.
+- App owns the ordered migration definitions, resolves the source (SQLite)
+  path, the native database path, and the marker path, and passes them to
+  Core during startup.
 - Core owns the database pool and executes the App-supplied migration set
-  through `hardviz_core::infrastructure::database::migrate`.
+  through `hardviz_core::infrastructure::database::migrate` when SQLite is
+  still authoritative.
 
 Startup flow:
 
-1. App resolves the SQLite database path.
-2. App initializes Core's DB location.
-3. App checks schema compatibility through Core preflight.
-4. App supplies the ordered migration definitions to Core's migrator when the
-   DB is compatible.
-5. DB-dependent Core workers start only when startup preflight allows it.
+1. App resolves the source, native database, and marker paths and inspects
+   the durable selection record.
+2. On a genuinely fresh install (no source, native database, or marker file
+   exists yet), App creates and durably selects a native database directly;
+   a fresh install never starts on SQLite.
+3. Otherwise, when SQLite is still authoritative, App initializes Core's DB
+   location, checks schema compatibility through Core preflight, and supplies
+   the ordered migration definitions to Core's migrator when the DB is
+   compatible.
+4. App tells Core's dispatch boundary which engine is authoritative
+   (`dispatch::init` then `dispatch::reobserve_authority`), so every
+   consumer answers consistently from that point on.
+5. DB-dependent Core workers start only when startup preflight (SQLite path)
+   or the dispatch boundary (native path) allows it.
+6. On a later boot that finds the native database already authoritative and
+   verified, App retires the SQLite source in place (renamed with a
+   `.retired` suffix) rather than deleting it.
+
+### Converting an existing SQLite archive to native
+
+Converting an existing SQLite-backed install to the native database is driven
+by an App-owned lifecycle owner (`src-tauri/src/app/native_conversion.rs`,
+on `develop`) and is never started automatically; nothing calls it in
+production yet. PR #2220 (open) introduces the explicit, user-started trigger
+for it — a Settings action and its Tauri commands (#2136); once it merges,
+conversion begins only from that user choice. The lifecycle owner tracks one
+of five states while a conversion is in flight: SQLite still authoritative,
+a previous attempt left recoverable state, a conversion actively running
+(itself stepping through preflight, candidate build, finalize, pause writers,
+reconcile, select, and resume writers), the native database authoritative, or
+action required because the owner refused to guess at an inconsistency. SQLite
+writers are paused only around the final reconciliation and selection, so rows
+written to SQLite after that reconciliation captured its candidate are never
+silently dropped. Selecting the native database is the one step that cannot be
+undone by deleting a file: from that point the native database, not SQLite,
+holds the rows the application writes.
+
+After a daily expiry pass deletes rows past the Hardware Archive Retention
+Period, Core issues one explicit checkpoint on the native database if it is
+the currently selected backend (a no-op on SQLite); this keeps the write-ahead
+log small without paying the cost of the engine's own threshold checkpoint
+landing mid-write.
 
 Hardware Archive rows summarize one-minute windows of CPU, memory, GPU, and
 process metrics, including available CPU and GPU temperatures and

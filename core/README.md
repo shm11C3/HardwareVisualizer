@@ -70,7 +70,7 @@ core/src/
 │   ├── factory.rs           PlatformFactory (compile-time OS selection)
 │   ├── windows/  linux/  macos/
 ├── infrastructure/        ← External I/O backing the platform layer
-│   ├── database/            SQLite pool + archive / SMART writers
+│   ├── database/            dispatch boundary + SQLite/native archive access
 │   └── providers/           sysinfo / NVAPI / WMI / procfs / DRM / …
 ├── monitoring/            ← Monitoring state types
 ├── models/                ← Shared data types (MetricsSnapshot, GpuMetric, …)
@@ -78,10 +78,20 @@ core/src/
 └── utils/                 ← Logger macros, formatters, IP / rounding helpers
 ```
 
-Core owns persistence workers that do not need Tauri objects. The App crate
-still owns Tauri-specific startup decisions: resolving the SQLite path,
-supplying the ordered migration definitions, and deciding whether DB-dependent
-workers can start after preflight. Core owns the pool and migration execution.
+Core owns persistence workers that do not need Tauri objects, and the
+`dispatch` boundary every one of them calls through rather than reaching
+SQLite or the native DuckDB database directly. Which engine `dispatch`
+answers from is decided by a durable selection record the App-owned lifecycle
+maintains, not by a per-call flag. The App crate still owns Tauri-specific
+startup decisions: resolving the SQLite, native database, and marker paths,
+supplying the ordered migration definitions, driving the conversion from
+SQLite to native (started only by explicit user intent, trigger in PR #2220,
+open), and deciding whether
+DB-dependent workers can start after preflight. Core owns the pool, migration
+execution, and the native database's single-owner runtime: only one
+process-local owner may hold the native file open at a time. See
+[`docs/architecture/backend.md`](../docs/architecture/backend.md) for the
+dispatch boundary and lifecycle detail.
 
 ## Provider inventory
 
