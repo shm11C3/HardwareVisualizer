@@ -129,18 +129,16 @@ installed and its fallbacks unchanged.
   `InstallFinalize`, so the app launched from the finish dialog already sees
   the result. The installer does not request a reboot when PawnIO reports
   `3010`; Settings shows the resulting state.
-- **NSIS (implemented, #2118).** `src-tauri/windows/nsis/hooks.nsh` implements
-  `NSIS_HOOK_POSTINSTALL`: one Yes/No question per component (default Yes)
-  when the installer is interactive, then
-  `ExecShellWait "runas" "$INSTDIR\hardware-visualizer.exe" "--external-component-setup pawnio"`.
-  The default `currentUser` NSIS install is not elevated, so the setup shows
-  one UAC prompt; declining it installs nothing and the product install still
-  succeeds. `/S`, `/P`, and `/UPDATE` (the updater passes `/P /UPDATE`) skip
-  the question and the setup. `/EXTERNAL_COMPONENT_PAWNIO=1` runs the setup
-  without asking and `/EXTERNAL_COMPONENT_PAWNIO=0` skips it.
+- **NSIS (not offered).** The NSIS installer does not offer the setup. Its
+  default `currentUser` install puts the executable under the user's
+  LocalAppData, which medium-integrity processes can modify, so elevating the
+  installed copy from the installer would elevate a file that a same-user
+  process could have swapped while the question was open. Keeping the option
+  out of the installer avoids adding a new elevation entry point on top of
+  the existing Settings path; NSIS users set PawnIO up from Settings.
 - **Installer verification.** CI (`test-windows-installer`) builds both
-  packages when `src-tauri/windows/**` or `tauri.conf.json` changes or a Tauri
-  dependency moves, and asserts the MSI tables with
+  packages when `src-tauri/windows/**`, `tauri.conf.json`, or the CI workflow
+  changes or a Tauri dependency moves, and asserts the MSI tables with
   `.github/scripts/check-msi-external-component-setup.ps1`. The interactive
   behaviour needs a manual run on Windows whenever the Tauri bundler templates
   change: the dialog appears pre-selected, opting out runs nothing, the MSI
@@ -167,9 +165,10 @@ installed and its fallbacks unchanged.
    command-line mode, IPC, Settings UI, docs and vocabulary. Verifiable on a
    Windows machine through the Settings screen; unit tests cover the pure
    parts on every platform.
-2. **Installer option** (`feat/`): WiX fragment, NSIS hooks, install-time
-   properties, README installation notes. Requires an interactive MSI and NSIS
-   run on Windows; CI only proves the packages build.
+2. **Installer option** (`feat/`): WiX fragment, install-time property,
+   README installation notes. The NSIS installer does not offer the option
+   (see Entry points). Requires an interactive MSI run on Windows; CI proves
+   the packages build and checks the MSI tables.
 3. **Uninstall notice** (`feat/`): NSIS pre-uninstall hook and MSI notice
    dialog, plus the winget manifest review.
 
