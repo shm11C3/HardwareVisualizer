@@ -23,12 +23,13 @@ use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::fs::OpenOptionsExt;
+use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
 use windows::Win32::Foundation::{
-  ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HLOCAL, LocalFree,
+  ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HANDLE, HLOCAL, LocalFree, WAIT_OBJECT_0,
 };
 use windows::Win32::Security::Authorization::{
   ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
@@ -39,6 +40,7 @@ use windows::Win32::System::Registry::{
   HKEY, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_64KEY, REG_SZ, REG_VALUE_TYPE,
   RegCloseKey, RegOpenKeyExW, RegQueryValueExW,
 };
+use windows::Win32::System::Threading::WaitForSingleObject;
 use windows::core::PCWSTR;
 
 use super::{
@@ -60,6 +62,14 @@ const PAWNIO_DIRECTORY_NAME: &str = "PawnIO";
 /// agrees with what collection would find.
 const MODULE_SEARCH_DEPTH: usize = 4;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(300);
+/// How long the runtime installer may run before it is terminated. A normal
+/// unattended run finishes in seconds (driver registration and a few file
+/// copies), so five minutes is headroom for a slow disk or a busy Windows
+/// Installer service, not a working budget. A run that lasts longer is a hung
+/// installer, typically a dialog raised despite `-silent` that nobody can
+/// answer in session 0 when the MSI custom action runs it, and waiting on it
+/// would otherwise block the product install or the Settings action forever.
+const INSTALLER_TIMEOUT: Duration = Duration::from_secs(300);
 /// Protected DACL: full control for Administrators and SYSTEM, nothing for
 /// anyone else, no inheritance from `%SystemRoot%\Temp`.
 const STAGING_DIRECTORY_SDDL: &str = "D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)";
@@ -442,18 +452,63 @@ fn install_runtime(
     "external_component_setup::install_runtime",
     None::<&str>
   );
-  let exit = Command::new(&installer_path)
-    .args(plan.installer.unattended_args)
-    .status()
-    .map_err(|e| {
-      (
-        SetupFailureStage::StartInstaller,
-        format!("failed to start {}: {e}", artifact.file_name),
-      )
-    })?;
+  let mut command = Command::new(&installer_path);
+  command.args(plan.installer.unattended_args);
+  let exit_code = run_bounded(&mut command, artifact.file_name, INSTALLER_TIMEOUT)?;
   drop(guard);
 
-  Ok(interpret_installer_exit_code(&plan.installer, exit.code()))
+  Ok(interpret_installer_exit_code(&plan.installer, exit_code))
+}
+
+/// Run `command` and return its exit code, or terminate it once `limit` has
+/// passed. A start failure is `StartInstaller`; a terminated run is
+/// `InstallerTimedOut`, and the child is reaped before returning so the
+/// staged executable is no longer in use when the staging directory is
+/// removed.
+fn run_bounded(
+  command: &mut Command,
+  file_name: &str,
+  limit: Duration,
+) -> Result<Option<i32>, (SetupFailureStage, String)> {
+  let mut child = command.spawn().map_err(|e| {
+    (
+      SetupFailureStage::StartInstaller,
+      format!("failed to start {file_name}: {e}"),
+    )
+  })?;
+
+  let limit_ms = u32::try_from(limit.as_millis()).unwrap_or(u32::MAX);
+  let waited = unsafe { WaitForSingleObject(HANDLE(child.as_raw_handle()), limit_ms) };
+  if waited == WAIT_OBJECT_0 {
+    let status = child.wait().map_err(|e| {
+      (
+        SetupFailureStage::InstallerExit,
+        format!("failed to read the exit code of {file_name}: {e}"),
+      )
+    })?;
+    return Ok(status.code());
+  }
+
+  log_warn!(
+    format!(
+      "{file_name} did not exit within {} s; terminating it",
+      limit.as_secs()
+    ),
+    "external_component_setup::run_bounded",
+    None::<&str>
+  );
+  let killed = child.kill().and_then(|()| child.wait().map(|_| ()));
+  let detail = match killed {
+    Ok(()) => format!(
+      "{file_name} did not exit within {} s and was terminated",
+      limit.as_secs()
+    ),
+    Err(e) => format!(
+      "{file_name} did not exit within {} s and could not be terminated: {e}",
+      limit.as_secs()
+    ),
+  };
+  Err((SetupFailureStage::InstallerTimedOut, detail))
 }
 
 fn place_module_files(
@@ -701,5 +756,46 @@ mod tests {
     drop(client);
     // Idempotent: a second call must not fail on the already-installed provider.
     download_client().expect("download client must build again");
+  }
+
+  #[test]
+  fn run_bounded_returns_the_exit_code_of_a_child_that_finishes_in_time() {
+    let mut command = Command::new("cmd");
+    command.args(["/C", "exit", "7"]);
+
+    assert_eq!(
+      run_bounded(&mut command, "cmd.exe", Duration::from_secs(30)),
+      Ok(Some(7))
+    );
+  }
+
+  #[test]
+  fn run_bounded_terminates_a_child_that_outlives_the_limit() {
+    // `ping -n 30` keeps the child alive for about 30 s; the limit is far
+    // shorter, so the child must be terminated and reported as timed out.
+    let mut command = Command::new("ping");
+    command
+      .args(["-n", "30", "127.0.0.1"])
+      .stdout(std::process::Stdio::null());
+    let started = std::time::Instant::now();
+
+    let result = run_bounded(&mut command, "ping.exe", Duration::from_millis(500));
+
+    let (stage, detail) = result.expect_err("a hung child is a failure");
+    assert_eq!(stage, SetupFailureStage::InstallerTimedOut);
+    assert!(detail.contains("was terminated"), "{detail}");
+    assert!(
+      started.elapsed() < Duration::from_secs(10),
+      "the wait must end at the limit, not at the child's natural exit"
+    );
+  }
+
+  #[test]
+  fn run_bounded_reports_a_start_failure_at_the_start_stage() {
+    let mut command = Command::new(r"C:\hardviz-does-not-exist\installer.exe");
+
+    let (stage, _) = run_bounded(&mut command, "installer.exe", Duration::from_secs(1))
+      .expect_err("a missing executable cannot start");
+    assert_eq!(stage, SetupFailureStage::StartInstaller);
   }
 }

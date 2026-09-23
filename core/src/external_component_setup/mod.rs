@@ -247,12 +247,15 @@ pub enum SetupFailureStage {
   UnsupportedPlatform,
   /// The setup process panicked; the message went to its stderr only.
   Panicked,
+  /// The runtime installer did not exit within its time limit and was
+  /// terminated; the runtime may be partially installed.
+  InstallerTimedOut,
   /// A failure without a more specific stage, or an unrecognized exit code.
   Other,
 }
 
 impl SetupFailureStage {
-  const ALL: [Self; 14] = [
+  const ALL: [Self; 15] = [
     Self::StateUnknown,
     Self::StagingDirectory,
     Self::DownloadRuntime,
@@ -266,6 +269,7 @@ impl SetupFailureStage {
     Self::Incomplete,
     Self::UnsupportedPlatform,
     Self::Panicked,
+    Self::InstallerTimedOut,
     Self::Other,
   ];
 
@@ -288,6 +292,7 @@ impl SetupFailureStage {
       Self::Incomplete => 20,
       Self::UnsupportedPlatform => 21,
       Self::Panicked => 22,
+      Self::InstallerTimedOut => 23,
     }
   }
 
@@ -624,6 +629,15 @@ mod tests {
       assert_ne!(stage.exit_code(), ERROR_SUCCESS_REBOOT_REQUIRED);
     }
     assert_eq!(SetupFailureStage::from_exit_code(99), None);
+  }
+
+  #[test]
+  fn installer_timeout_has_its_own_exit_code() {
+    assert_eq!(SetupFailureStage::InstallerTimedOut.exit_code(), 23);
+    assert_eq!(
+      SetupFailureStage::from_exit_code(23),
+      Some(SetupFailureStage::InstallerTimedOut)
+    );
   }
 
   #[test]

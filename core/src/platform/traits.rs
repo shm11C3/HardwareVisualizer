@@ -165,6 +165,10 @@ pub enum ElevatedProcessRun {
   Declined,
   /// The elevated process ran to completion.
   Exited { exit_code: Option<i32> },
+  /// The elevated process did not exit within the platform's time limit; it
+  /// was terminated when the caller's handle allowed it, and its result is
+  /// unknown.
+  TimedOut,
 }
 
 /// Trait that defines platform-specific External Component Setup operations.
