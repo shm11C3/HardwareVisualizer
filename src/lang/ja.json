@@ -162,6 +162,16 @@
       "listenerReady": "トレイ格納ダイアログを初期化できませんでした。"
     }
   },
+  "elevationUnavailable": {
+    "reason": "HardwareVisualizer が Program Files 配下にインストールされていないため、この場所からは安全に管理者として実行できません。この機能を使うには MSI 版をインストールしてください。",
+    "elevatedStartupModeNotApplied": "オンで保存されていますが適用されていません。HardwareVisualizer が Program Files 配下にインストールされていないため、安全に管理者として実行できません。使うには MSI 版をインストールしてください。",
+    "startupNotice": {
+      "title": "「管理者として起動」は適用されませんでした",
+      "description": "HardwareVisualizer が Program Files 配下にインストールされていないため、管理者として再起動しませんでした。設定はそのまま残しています。使うには MSI 版をインストールするか、設定をオフにしてください。",
+      "turnOff": "設定をオフにする",
+      "dismiss": "閉じる"
+    }
+  },
   "externalComponentGuidance": {
     "title": "任意の追加コンポーネントで表示できる項目があります",
     "labels": {

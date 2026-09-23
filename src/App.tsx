@@ -14,6 +14,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "@/components/ErrorFallback";
 import { RootErrorFallback } from "@/components/RootErrorFallback";
 import { CloseToTrayFirstRunDialog } from "@/components/shared/CloseToTrayFirstRunDialog";
+import { ElevationUnavailableNotice } from "@/components/shared/ElevationUnavailableNotice";
 import { ExternalComponentGuidanceDialog } from "@/components/shared/ExternalComponentGuidanceDialog";
 import { NavigationRestructureNotice } from "@/components/shared/NavigationRestructureNotice";
 import { useHardwareEventListener } from "@/features/hardware/hooks/useHardwareEventListener";
@@ -356,6 +357,7 @@ const AppContent = () => {
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
           />
+          <ElevationUnavailableNotice settingsLoaded={settingsLoaded} />
         </div>
       </div>
       <FullscreenExitButton

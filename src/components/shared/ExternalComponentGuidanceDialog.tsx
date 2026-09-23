@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useElevationAvailability } from "@/hooks/useElevationAvailability";
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
@@ -104,8 +105,13 @@ export const ExternalComponentGuidanceDialog = ({
   const actionKey = candidate
     ? externalComponentGuidanceActionKey(candidate)
     : null;
+  const elevationAvailability = useElevationAvailability();
+  // Outside Program Files the app refuses to elevate (#2216), so offer the
+  // details page instead of a restart that would fail.
   const shouldShowElevatedStartupAction =
-    candidate?.reasonKind === "permission" && platform() === "windows";
+    candidate?.reasonKind === "permission" &&
+    platform() === "windows" &&
+    elevationAvailability === "available";
 
   const removeCandidate = (key: string) => {
     setCandidates((current) => current.filter((item) => item.key !== key));

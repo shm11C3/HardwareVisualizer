@@ -17,6 +17,32 @@ test.describe("settings captures", () => {
     await saveCapture(page, "settings");
   });
 
+  test("elevation is refused outside Program Files and says why", async ({
+    page,
+  }) => {
+    await gotoApp(page, { path: "/?elevation=unprotected" });
+
+    const notice = page.getByRole("complementary", {
+      name: "Run as administrator on startup was not applied",
+    });
+    await expect(notice).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+
+    await navigateTo(page, "settings");
+    const toggle = page.getByRole("switch", {
+      name: "Run as administrator on startup",
+    });
+    await toggle.scrollIntoViewIfNeeded();
+    await expect(toggle).toBeEnabled();
+    await expect(page.getByText(/Saved as on, but not applied/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Install" })).toBeDisabled();
+    await page.waitForTimeout(400);
+
+    await saveCapture(page, "settings-elevation-unprotected");
+
+    await notice.getByRole("button", { name: "Dismiss" }).click();
+    await expect(notice).toHaveCount(0);
+  });
+
   test("grouped navigation is the default and Classic switches immediately", async ({
     page,
   }) => {

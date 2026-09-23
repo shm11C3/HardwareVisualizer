@@ -65,6 +65,10 @@ type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
 type FixtureOverrides = {
   storageDeviceCount: number | null;
   showNavigationNotice: boolean;
+  /** `?elevation=unprotected` reports an install outside Program Files with
+   * Elevated Startup Mode saved as on, so the refused-elevation UI (#2216)
+   * can be captured. */
+  elevationUnprotected: boolean;
   classicNavigation: boolean;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
@@ -155,6 +159,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get(
         "showNavigationNotice",
       ) === "1",
+    elevationUnprotected:
+      new URLSearchParams(window.location.search).get("elevation") ===
+      "unprotected",
     classicNavigation:
       new URLSearchParams(window.location.search).get("navigationLayout") ===
       "classic",
@@ -295,6 +302,9 @@ const buildInvokeHandlers = (
     uiAnnouncementVersion: fixtureOverrides.showNavigationNotice
       ? 0
       : settingsFixture.uiAnnouncementVersion,
+    elevatedStartupMode:
+      fixtureOverrides.elevationUnprotected ||
+      settingsFixture.elevatedStartupMode,
   }),
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null
@@ -323,6 +333,8 @@ const buildInvokeHandlers = (
   // External Component Setup (ADR 0024): a machine with the PawnIO runtime
   // installed and one module file still missing, so the Settings capture
   // shows the install action.
+  get_elevation_availability: () =>
+    fixtureOverrides.elevationUnprotected ? "unprotectedLocation" : "available",
   get_external_component_setup_components: () => ["pawnio"],
   get_external_component_setup_status: () => externalComponentSetupStatus(),
   run_external_component_setup: () => ({

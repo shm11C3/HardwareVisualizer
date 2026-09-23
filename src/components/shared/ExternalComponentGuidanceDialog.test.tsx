@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
   openURL: vi.fn(),
   platform: vi.fn(() => "windows"),
   setElevatedStartupMode: vi.fn(),
+  useElevationAvailability: vi.fn(() => "available"),
+}));
+
+vi.mock("@/hooks/useElevationAvailability", () => ({
+  useElevationAvailability: mocks.useElevationAvailability,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -58,6 +63,7 @@ describe("ExternalComponentGuidanceDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
+    mocks.useElevationAvailability.mockReturnValue("available");
     mocks.getExternalComponentGuidanceCandidates.mockResolvedValue({
       status: "ok",
       data: [candidate()],
@@ -86,6 +92,19 @@ describe("ExternalComponentGuidanceDialog", () => {
     expect(screen.queryByRole("button", { name: "Open details" })).toBeNull();
     expect(mocks.setElevatedStartupMode).toHaveBeenCalledWith(true);
     expect(mocks.openURL).not.toHaveBeenCalled();
+  });
+
+  it("offers details instead of a restart when elevation is refused here", async () => {
+    mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+
+    render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
+
+    expect(
+      await screen.findByRole("button", { name: "Open details" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restart as administrator" }),
+    ).toBeNull();
   });
 
   it("keeps the details action for permission guidance outside Windows", async () => {

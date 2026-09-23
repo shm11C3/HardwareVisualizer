@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   getExternalComponentSetupComponents: vi.fn(),
   getExternalComponentSetupStatus: vi.fn(),
   platform: vi.fn(() => "windows"),
+  useElevationAvailability: vi.fn(() => "available"),
   restartApp: vi.fn(),
   runExternalComponentSetup: vi.fn(),
 }));
@@ -25,6 +26,10 @@ vi.mock("@/hooks/useTauriDialog", () => ({
   useTauriDialog: () => ({
     error: mocks.error,
   }),
+}));
+
+vi.mock("@/hooks/useElevationAvailability", () => ({
+  useElevationAvailability: mocks.useElevationAvailability,
 }));
 
 vi.mock("@/rspc/bindings", () => ({
@@ -91,6 +96,7 @@ describe("ExternalComponentSetupSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("windows");
+    mocks.useElevationAvailability.mockReturnValue("available");
     mocks.getExternalComponentSetupComponents.mockResolvedValue(["pawnio"]);
     mocks.getExternalComponentSetupStatus.mockResolvedValue({
       status: "ok",
@@ -126,6 +132,20 @@ describe("ExternalComponentSetupSection", () => {
       screen.getByText("Missing: IntelMSR.bin, AMDFamily17.bin, LpcIO.bin"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
+  });
+
+  it("disables setup outside Program Files and says why", async () => {
+    mocks.useElevationAvailability.mockReturnValue("unprotectedLocation");
+
+    render(<ExternalComponentSetupSection />);
+
+    expect(
+      await screen.findByRole("button", { name: "Install" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/not installed under Program Files/),
+    ).toBeInTheDocument();
+    expect(mocks.runExternalComponentSetup).not.toHaveBeenCalled();
   });
 
   it("disables the action when setup has nothing left to do", async () => {

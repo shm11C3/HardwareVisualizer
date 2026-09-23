@@ -162,6 +162,16 @@
       "listenerReady": "Failed to initialize the close-to-tray dialog."
     }
   },
+  "elevationUnavailable": {
+    "reason": "HardwareVisualizer is not installed under Program Files, so it cannot safely run itself as administrator from this location. Install the MSI version to use this.",
+    "elevatedStartupModeNotApplied": "Saved as on, but not applied: HardwareVisualizer is not installed under Program Files, so it cannot safely run itself as administrator. Install the MSI version to use it.",
+    "startupNotice": {
+      "title": "Run as administrator on startup was not applied",
+      "description": "HardwareVisualizer is not installed under Program Files, so it did not restart as administrator. Your setting is kept. Install the MSI version to use it, or turn the setting off.",
+      "turnOff": "Turn off the setting",
+      "dismiss": "Dismiss"
+    }
+  },
   "externalComponentGuidance": {
     "title": "Optional components can enable more data",
     "labels": {
