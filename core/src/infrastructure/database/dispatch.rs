@@ -739,10 +739,11 @@ mod boundary {
         let config = Arc::clone(&config);
         tokio::spawn(async move { resolve_backend_with(active, Some(config)).await })
       };
-      assert!(matches!(
-        tokio::time::timeout(Duration::from_millis(50), &mut next_consumer).await,
-        Err(_)
-      ));
+      assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut next_consumer)
+          .await
+          .is_err()
+      );
 
       release_read_tx.send(()).unwrap();
       blocked_read.await.unwrap().unwrap();
