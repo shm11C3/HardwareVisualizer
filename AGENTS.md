@@ -57,6 +57,11 @@ complex design that remains clear, cohesive, testable, and maintainable; do not
 use simplicity to justify brittle code, avoidable duplication, or misplaced
 responsibility.
 
+Place a new file with the owner of what it checks, generates, or operates on.
+A script does not belong in `.github/scripts/` because it is a script or runs
+in CI; that directory is only for GitHub Actions plumbing, as its
+[README](.github/scripts/README.md) and index define.
+
 Treat review feedback as evidence of a possible problem, not as a prescribed
 patch. Verify the root cause, current-scope risk, and owning boundary before
 editing. A valid adjacent improvement belongs in a separate change unless it is

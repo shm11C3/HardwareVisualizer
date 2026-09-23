@@ -18,6 +18,7 @@ export const requiredGuidanceFiles = [
   ".agents/rules/frontend.md",
   ".agents/rules/rust.md",
   ".agents/rules/settings.md",
+  ".github/scripts/README.md",
   ".github/scripts/agent-hook.mjs",
   ".github/scripts/guidance-paths.mjs",
   ".github/scripts/test-agent-guidance.mjs",
@@ -50,6 +51,7 @@ const exactGuidancePaths = new Set([
   "src/README.md",
   ".codex/hooks.json",
   ".claude/settings.json",
+  ".github/scripts/README.md",
   ".github/scripts/agent-hook.mjs",
   ".github/scripts/guidance-paths.mjs",
   ".github/scripts/test-agent-guidance.mjs",
@@ -78,5 +80,29 @@ export function isGuidancePath(relativePath) {
     relativePath.endsWith("/AGENTS.md") ||
     exactGuidancePaths.has(relativePath) ||
     guidancePathPrefixes.some((prefix) => relativePath.startsWith(prefix))
+  );
+}
+
+export const githubScriptsDir = ".github/scripts";
+export const githubScriptsIndex = `${githubScriptsDir}/README.md`;
+
+// Rows of the "## Index" table in .github/scripts/README.md: a backticked
+// script path (relative to .github/scripts) and its consumers.
+export function githubScriptIndexRows(indexContent) {
+  const section = indexContent.split(/^## Index[ \t]*$/m)[1]?.split(/^## /m)[0];
+  if (section === undefined) {
+    return [];
+  }
+  return [...section.matchAll(/^\|\s*`([^`]+)`\s*\|([^|\n]*)\|/gm)].map(
+    (match) => ({ script: match[1], consumers: match[2].trim() }),
+  );
+}
+
+// A script counts as listed only when its row names a consumer.
+export function listedGithubScripts(indexContent) {
+  return new Set(
+    githubScriptIndexRows(indexContent)
+      .filter((row) => row.consumers !== "")
+      .map((row) => row.script),
   );
 }

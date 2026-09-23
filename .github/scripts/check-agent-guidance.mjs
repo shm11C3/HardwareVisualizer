@@ -3,6 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   cleanRoomReferenceFiles,
+  githubScriptIndexRows,
+  githubScriptsDir,
+  githubScriptsIndex,
+  listedGithubScripts,
   requiredGuidanceFiles,
 } from "./guidance-paths.mjs";
 
@@ -205,6 +209,60 @@ async function checkRequiredFiles() {
   ]) {
     if (!(await exists(relativePath))) {
       fail(`Missing required guidance file: ${relativePath}`);
+    }
+  }
+}
+
+// Local shape of the index: every row names at least one consumer. Safe for
+// PostToolUse, which may run before the listed script exists.
+function checkGithubScriptsIndexRows(indexContent) {
+  const rows = githubScriptIndexRows(indexContent);
+  if (rows.length === 0) {
+    fail(`${githubScriptsIndex} has no "## Index" table rows`);
+  }
+  for (const row of rows) {
+    if (row.consumers === "") {
+      fail(
+        `${githubScriptsIndex} row for ${row.script} must name its GitHub Actions consumer`,
+      );
+    }
+  }
+}
+
+// .github/scripts only holds GitHub Actions plumbing; every file must be listed
+// in its README index so a new script states its consumer before it lands.
+async function checkGithubScriptsIndex() {
+  checkGithubScriptsIndexRows(await read(githubScriptsIndex));
+  const entries = await readdir(path.join(root, githubScriptsDir), {
+    recursive: true,
+    withFileTypes: true,
+  });
+  const present = new Set(
+    entries
+      .filter((entry) => entry.isFile())
+      .map((entry) =>
+        path
+          .relative(
+            path.join(root, githubScriptsDir),
+            path.join(entry.parentPath, entry.name),
+          )
+          .split(path.sep)
+          .join("/"),
+      )
+      .filter((relativePath) => relativePath !== "README.md"),
+  );
+  const listed = listedGithubScripts(await read(githubScriptsIndex));
+
+  for (const relativePath of present) {
+    if (!listed.has(relativePath)) {
+      fail(
+        `${githubScriptsDir}/${relativePath} is not listed in ${githubScriptsIndex}. Place a script next to the owner of what it operates on; list it here only when it is GitHub Actions plumbing.`,
+      );
+    }
+  }
+  for (const relativePath of listed) {
+    if (!present.has(relativePath)) {
+      fail(`${githubScriptsIndex} lists a missing script: ${relativePath}`);
     }
   }
 }
@@ -803,6 +861,14 @@ async function checkTouchedFiles(relativePaths) {
       continue;
     }
 
+    // Only the local row shape here: the directory-versus-index comparison is
+    // cross-file and runs at Stop and in CI, so the index row can be added
+    // before the script it describes.
+    if (normalized === githubScriptsIndex) {
+      checkGithubScriptsIndexRows(content);
+      continue;
+    }
+
     if (
       normalized === ".codex/hooks.json" ||
       normalized === ".claude/settings.json" ||
@@ -840,6 +906,7 @@ async function main() {
   await checkBranchPolicy();
   await checkKnownDriftPoints();
   await checkHooks();
+  await checkGithubScriptsIndex();
 
   const guidanceFiles = [
     "AGENTS.md",
@@ -852,6 +919,7 @@ async function main() {
     "docs/README.md",
     "docs/documentation-guide.md",
     ".agents/rules/README.md",
+    githubScriptsIndex,
     ...cleanRoomReferenceFiles,
     "docs/agents/lessons/README.md",
     ...lessonFiles.map((file) => path.join("docs/agents/lessons", file)),

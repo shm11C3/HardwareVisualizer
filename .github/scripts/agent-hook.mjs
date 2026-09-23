@@ -1,8 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isGuidancePath } from "./guidance-paths.mjs";
+import {
+  githubScriptsDir,
+  githubScriptsIndex,
+  isGuidancePath,
+  listedGithubScripts,
+} from "./guidance-paths.mjs";
 
 const mode = process.argv[2];
 if (mode !== "pre" && mode !== "post" && mode !== "stop") {
@@ -115,6 +120,29 @@ if (paths.has("src/rspc/bindings.ts")) {
 }
 
 if (mode === "pre") {
+  // Creating a script under .github/scripts is the placement mistake this
+  // guards: scripts belong with the owner of what they operate on, and only
+  // GitHub Actions plumbing listed in the index lives here.
+  const indexPath = path.join(repoRoot, githubScriptsIndex);
+  const listed = existsSync(indexPath)
+    ? listedGithubScripts(readFileSync(indexPath, "utf8"))
+    : new Set();
+  for (const relativePath of paths) {
+    if (
+      !relativePath.startsWith(`${githubScriptsDir}/`) ||
+      relativePath === githubScriptsIndex ||
+      existsSync(path.join(repoRoot, relativePath))
+    ) {
+      continue;
+    }
+    const scriptPath = relativePath.slice(githubScriptsDir.length + 1);
+    if (!listed.has(scriptPath)) {
+      console.error(
+        `${relativePath} is not listed in ${githubScriptsIndex}. Put the script next to the owner of what it checks or produces (or under scripts/<area>/). Only GitHub Actions plumbing belongs in ${githubScriptsDir}; if this is that, add its index row first.`,
+      );
+      process.exit(2);
+    }
+  }
   process.exit(0);
 }
 
