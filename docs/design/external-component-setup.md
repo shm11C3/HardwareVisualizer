@@ -100,16 +100,21 @@ but it does not read registers or share code with the provider.
 The setup mode reports through its exit code only. `SetupFailureStage` in
 `core/src/external_component_setup/mod.rs` owns the failure codes, and the
 App's command-line dispatch (`src-tauri/src/cli`, `run_cli_mode_if_requested`
-in `src-tauri/src/lib.rs`) owns the codes of a launch that never reached a
-setup plan.
+in `src-tauri/src/lib.rs`) owns the code of a command line that never
+reached a setup plan.
+
+#### Setup-mode exit codes
+
+These are the codes a caller of
+`hardware-visualizer.exe --external-component-setup <component>` can
+observe.
 
 | Code | Meaning |
 | --- | --- |
 | `0` | Installed, or already installed |
 | `3010` | Installed; the runtime installer asked for a restart (`ERROR_SUCCESS_REBOOT_REQUIRED`) |
 | `1` | Failed without a more specific stage |
-| `2` | Invalid command line: an unknown component or notice, or a flag without its value. The process exits before any mode runs |
-| `3` | Elevated relaunch handoff failed: the child could not observe its parent and refused to start (see the handoff note under Entry points) |
+| `2` | Invalid command line: an unknown component or notice, a flag without its value, or an invalid `--wait-for-parent` identity. The process exits before any mode runs |
 | `10` | Runtime state could not be read |
 | `11` | Staging directory could not be created |
 | `12` | Runtime installer download failed |
@@ -125,9 +130,19 @@ setup plan.
 | `22` | The setup process panicked; the message went to its stderr only |
 
 The caller maps an exit code it does not recognize, and a process that
-exited without one, to the generic failure (`1`). Codes `2` and `3` are not
-setup outcomes, but a caller that launched the setup mode can still observe
-them, so they are listed with the others.
+exited without one, to the generic failure (`1`).
+
+#### Process-wide launch codes
+
+| Code | Meaning |
+| --- | --- |
+| `3` | Elevated relaunch handoff failed: the child could not observe its parent and refused to start (see the handoff note under Entry points) |
+
+Code `3` applies only to a normal app or restart launch that carries a
+`--wait-for-parent` argument, never to the setup mode: the Settings action
+launches the setup mode with the setup flag and component only, and
+`decide_launch` runs a command-line mode to completion before it evaluates
+any handoff argument.
 
 Every step is best-effort for the caller: a failed setup leaves the app
 installed and its fallbacks unchanged.
