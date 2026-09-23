@@ -7,7 +7,8 @@
 #   install directory is under Program Files;
 # - EXTERNAL_COMPONENT_PAWNIO has no default in the Property table and is only
 #   defaulted by the UI sequence, so /qn, /passive, and winget run no setup;
-# - the options dialog is inserted between InstallDirDlg and VerifyReadyDlg.
+# - the options dialog is inserted between InstallDirDlg and VerifyReadyDlg;
+# - an interactive, non-upgrade uninstall runs the notice mode before removal.
 #
 # The interactive behaviour still needs a manual run on Windows; this check
 # catches a fragment that silently stopped linking or a template change that
@@ -75,6 +76,19 @@ if ($sequence.ContainsKey($action)) {
   Assert ([int]$row[2] -lt [int]$sequence["InstallFinalize"][2]) "$action runs after InstallFinalize"
 }
 
+# Uninstall notice (#2119): immediate, so it runs as the user and before any
+# file is removed; never on silent uninstalls, upgrades, or outside Program Files.
+$noticeAction = "ShowExternalComponentUninstallNotice"
+$locationCondition = $expectedActionCondition.Substring("$property = `"1`" AND NOT REMOVE AND ".Length)
+$noticeRow = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$noticeAction'" 3
+Assert (($noticeRow.Count -eq 1) -and ([int]$noticeRow[0][0] -eq (18 + 0x40)) -and ($noticeRow[0][1] -ceq "Path") -and ($noticeRow[0][2] -ceq "--external-component-notice uninstall")) "CustomAction $noticeAction must be an immediate, exit-code-ignoring run of the main binary with --external-component-notice uninstall"
+Assert ($sequence.ContainsKey($noticeAction)) "$noticeAction is not scheduled in InstallExecuteSequence"
+if ($sequence.ContainsKey($noticeAction)) {
+  $row = $sequence[$noticeAction]
+  Assert ($row[1] -ceq "REMOVE = `"ALL`" AND NOT UPGRADINGPRODUCTCODE AND UILevel > 2 AND NOT (UILevel = 3 AND REBOOTPROMPT = `"S`") AND $locationCondition") "$noticeAction has condition '$($row[1])'"
+  Assert ([int]$row[2] -lt [int]$sequence["InstallInitialize"][2]) "$noticeAction must run before InstallInitialize, while the executable still exists"
+}
+
 $defaultValue = Get-Rows "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = '$property'" 1
 Assert ($defaultValue.Count -eq 0) "$property has a default value, so silent installs would run the setup"
 
@@ -101,7 +115,6 @@ Assert ($dialogRow.Count -eq 1) "Dialog $dialog is missing"
 
 # Outside Program Files the real checkbox must be hidden and replaced by an
 # unchecked placeholder, so the dialog never shows a selection that will not run.
-$locationCondition = $expectedActionCondition.Substring("$property = `"1`" AND NOT REMOVE AND ".Length)
 $controlConditions = @{}
 foreach ($row in (Get-Rows "SELECT ``Control_``, ``Action``, ``Condition`` FROM ``ControlCondition`` WHERE ``Dialog_`` = '$dialog'" 3)) {
   $controlConditions["$($row[0])/$($row[1])"] = $row[2]
