@@ -25,23 +25,30 @@ type CloseToTrayFirstRunDialogProps = {
   closeToTrayChoiceMade?: boolean;
   settingsLoaded?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Whether it is still unknown if the startup prompt will open. */
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export const CloseToTrayFirstRunDialog = ({
   closeToTrayChoiceMade = false,
   settingsLoaded = true,
   onOpenChange,
+  onPendingChange,
 }: CloseToTrayFirstRunDialogProps) => {
   const { t } = useTranslation();
   const { error } = useTauriDialog();
   const { setCloseToTrayPreferenceAtom } = useSettingsAtom();
   const [promptReason, setPromptReason] = useState<PromptReason | null>(null);
+  const [startupCheckPending, setStartupCheckPending] = useState(true);
   const isOpen = promptReason !== null;
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
+  useLayoutEffect(() => {
+    onPendingChange?.(startupCheckPending);
+  }, [startupCheckPending, onPendingChange]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The listener is registered once for the app lifetime.
   useEffect(() => {
@@ -90,10 +97,16 @@ export const CloseToTrayFirstRunDialog = ({
     let isCancelled = false;
 
     const showStartupPromptIfNeeded = async () => {
-      if (!settingsLoaded || closeToTrayChoiceMade) {
+      if (!settingsLoaded) {
+        setStartupCheckPending(true);
+        return;
+      }
+      if (closeToTrayChoiceMade) {
+        setStartupCheckPending(false);
         return;
       }
 
+      setStartupCheckPending(true);
       try {
         const availabilityResult = await commands.isCloseToTrayAvailable();
 
@@ -117,6 +130,10 @@ export const CloseToTrayFirstRunDialog = ({
           "Failed to initialize close-to-tray startup prompt:",
           err,
         );
+      } finally {
+        if (!isCancelled) {
+          setStartupCheckPending(false);
+        }
       }
     };
 

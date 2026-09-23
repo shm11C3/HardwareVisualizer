@@ -189,10 +189,33 @@ impl CoreSettings {
     self.storage_health_identity.ensure_hash_key()
   }
 
-  /// Persist `CoreSettings` to disk, merging into any existing JSON
-  /// object so App-owned keys survive. Writes are atomic via a temp
-  /// file + rename.
-  pub fn save_to_path(&self, path: &Path) -> Result<(), String> {
+  /// Read the on-disk settings document as a JSON object, refusing to
+  /// proceed on a corrupted file rather than silently discarding whatever
+  /// App-owned keys live under the same object. Shared by
+  /// [`Self::save_to_path`] and [`Self::save_identity_only_to_path`], which
+  /// each merge only the section(s) they own into what this returns.
+  fn read_existing_document(
+    path: &Path,
+  ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    match fs::read_to_string(path) {
+      Ok(input) => {
+        let parsed: serde_json::Value = serde_json::from_str(&input)
+          .map_err(|e| format!("Existing settings file is invalid JSON: {e}"))?;
+        match parsed {
+          serde_json::Value::Object(map) => Ok(map),
+          _ => Err("Existing settings file must be a JSON object".to_string()),
+        }
+      }
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::Map::new()),
+      Err(e) => Err(format!("Failed to read existing settings file: {e}")),
+    }
+  }
+
+  /// Write `document` to `path` atomically via a temp file + rename.
+  fn write_document(
+    path: &Path,
+    document: serde_json::Map<String, serde_json::Value>,
+  ) -> Result<(), String> {
     let parent = path
       .parent()
       .ok_or_else(|| "Settings path has no parent directory".to_string())?;
@@ -202,23 +225,52 @@ impl CoreSettings {
         .map_err(|e| format!("Failed to create configuration directory: {e}"))?;
     }
 
+    let serialized = serde_json::to_string(&serde_json::Value::Object(document))
+      .map_err(|e| format!("Failed to serialize settings: {e}"))?;
+
+    let mut temp_file = tempfile::NamedTempFile::new_in(parent)
+      .map_err(|e| format!("Failed to create temporary settings file: {e}"))?;
+    temp_file
+      .write_all(serialized.as_bytes())
+      .map_err(|e| format!("Failed to write temporary settings file: {e}"))?;
+    temp_file
+      .persist(path)
+      .map_err(|e| format!("Failed to persist settings file: {e}"))?;
+    Ok(())
+  }
+
+  /// Persist only the [`StorageHealthIdentitySettings`] section, leaving
+  /// every other section exactly as it is on disk (including absent).
+  ///
+  /// Used for the one-time identity-key bootstrap
+  /// (`ensure_storage_health_identity_key`), which runs on every startup
+  /// that has not yet generated a key - including a fresh profile, before
+  /// any Hardware Archive value has ever been explicitly saved. Calling
+  /// the general [`Self::save_to_path`] there would persist
+  /// `hardwareArchive.retentionDays` (and the rest of that section) as if
+  /// the user had chosen it, even though it only holds
+  /// [`Self::load_from_path_with_retention_default`]'s never-saved default,
+  /// turning a default into a saved value the backend-aware default can
+  /// never again correct (#2136).
+  pub fn save_identity_only_to_path(&self, path: &Path) -> Result<(), String> {
+    let mut document = Self::read_existing_document(path)?;
+    document.insert(
+      STORAGE_HEALTH_IDENTITY_KEY.to_string(),
+      serde_json::to_value(&self.storage_health_identity).map_err(|e| {
+        format!("Failed to serialize storage health identity settings: {e}")
+      })?,
+    );
+    Self::write_document(path, document)
+  }
+
+  /// Persist `CoreSettings` to disk, merging into any existing JSON
+  /// object so App-owned keys survive. Writes are atomic via a temp
+  /// file + rename.
+  pub fn save_to_path(&self, path: &Path) -> Result<(), String> {
     // Refuse to silently overwrite a corrupted settings file — App-owned
     // keys live under the same JSON object, so a "best-effort" reset
     // would drop them. Bail out and let the caller surface the error.
-    let mut document = match fs::read_to_string(path) {
-      Ok(input) => {
-        let parsed: serde_json::Value = serde_json::from_str(&input)
-          .map_err(|e| format!("Existing settings file is invalid JSON: {e}"))?;
-        match parsed {
-          serde_json::Value::Object(map) => map,
-          _ => {
-            return Err("Existing settings file must be a JSON object".to_string());
-          }
-        }
-      }
-      Err(e) if e.kind() == std::io::ErrorKind::NotFound => serde_json::Map::new(),
-      Err(e) => return Err(format!("Failed to read existing settings file: {e}")),
-    };
+    let mut document = Self::read_existing_document(path)?;
 
     document.insert(
       HARDWARE_ARCHIVE_KEY.to_string(),
@@ -245,18 +297,7 @@ impl CoreSettings {
     document.remove(LEGACY_STORAGE_SMART_KEY);
     document.remove(LEGACY_STORAGE_SMART_IDENTITY_KEY);
 
-    let serialized = serde_json::to_string(&serde_json::Value::Object(document))
-      .map_err(|e| format!("Failed to serialize settings: {e}"))?;
-
-    let mut temp_file = tempfile::NamedTempFile::new_in(parent)
-      .map_err(|e| format!("Failed to create temporary settings file: {e}"))?;
-    temp_file
-      .write_all(serialized.as_bytes())
-      .map_err(|e| format!("Failed to write temporary settings file: {e}"))?;
-    temp_file
-      .persist(path)
-      .map_err(|e| format!("Failed to persist settings file: {e}"))?;
-    Ok(())
+    Self::write_document(path, document)
   }
 }
 
@@ -745,5 +786,92 @@ mod tests {
     s.save_to_path(&path).unwrap();
     let loaded = CoreSettings::load_from_path(&path).unwrap();
     assert_eq!(s, loaded);
+  }
+
+  /// #2136 regression: `AppState::new`'s one-time identity-key bootstrap
+  /// must not turn a never-saved retention default into a value that
+  /// reads back as explicitly saved. A file with no `retentionDays` loads
+  /// with the backend-aware default filled in; saving only the identity
+  /// section afterward (what `AppState::new` now does) must leave
+  /// `retentionDays` absent from disk, not persist the default.
+  #[test]
+  fn saving_only_the_identity_section_leaves_an_unsaved_retention_value_unsaved() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"hardwareArchive": {"enabled": true}}"#).unwrap();
+
+    let mut s = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+    assert_eq!(
+      s.hardware_archive.retention_days,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+    );
+    assert!(s.ensure_storage_health_identity_key().unwrap());
+
+    s.save_identity_only_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(
+      written["hardwareArchive"].get("retentionDays").is_none(),
+      "the defaulted retention value must not be persisted as if saved"
+    );
+    assert!(written["storageHealthIdentity"]["hashKey"].is_string());
+
+    // A later load must still resolve through the backend-aware default,
+    // not read back a stale 30/365 as if it had been explicitly chosen.
+    let reloaded = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+    assert_eq!(
+      reloaded.hardware_archive.retention_days,
+      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+    );
+  }
+
+  /// `save_identity_only_to_path` must not disturb an already-saved,
+  /// explicit `hardwareArchive` section (DP-06: a saved value is never
+  /// rewritten).
+  #[test]
+  fn saving_only_the_identity_section_preserves_an_already_saved_hardware_archive_section()
+   {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{"hardwareArchive": {"enabled": true, "retentionDays": 7}}"#,
+    )
+    .unwrap();
+
+    let mut s = CoreSettings::load_from_path(&path).unwrap();
+    assert!(s.ensure_storage_health_identity_key().unwrap());
+    s.save_identity_only_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(
+      written["hardwareArchive"]["retentionDays"].as_u64(),
+      Some(7)
+    );
+  }
+
+  #[test]
+  fn saving_only_the_identity_section_creates_the_file_when_missing() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+
+    let mut s = CoreSettings::default();
+    assert!(s.ensure_storage_health_identity_key().unwrap());
+    s.save_identity_only_to_path(&path).unwrap();
+
+    let written: serde_json::Value =
+      serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(written["storageHealthIdentity"]["hashKey"].is_string());
+    assert!(written.get("hardwareArchive").is_none());
   }
 }

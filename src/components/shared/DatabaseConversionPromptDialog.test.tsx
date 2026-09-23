@@ -16,6 +16,7 @@ const mockSetHardwareArchiveRetentionDays = vi.fn();
 const mockSetNoticeShown = vi.fn(async () => {});
 
 let mockState: DatabaseConversionState = { kind: "notSupported" };
+let mockSettled = true;
 let mockError: string | null = null;
 let mockJustCompleted = false;
 let mockDismissed: boolean | null = false;
@@ -41,6 +42,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/features/settings/hooks/useDatabaseConversion", () => ({
   useDatabaseConversion: () => ({
     state: mockState,
+    settled: mockSettled,
     error: mockError,
     start: mockStart,
     cancel: mockCancel,
@@ -155,6 +157,81 @@ describe("DatabaseConversionPromptDialog", () => {
       ).toBeInTheDocument();
     },
   );
+
+  it("reports when the startup prompt opens and closes", () => {
+    mockState = { kind: "sqliteAuthoritative" };
+    const onOpenChange = vi.fn();
+
+    render(<DatabaseConversionPromptDialog onOpenChange={onOpenChange} />);
+
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(screen.getByText("databaseConversionPrompt.later"));
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("reports pending until the conversion state and dismissal are known", () => {
+    mockSettled = false;
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <DatabaseConversionPromptDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    mockSettled = true;
+    mockDismissedPending = true;
+    rerender(
+      <DatabaseConversionPromptDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    mockDismissedPending = false;
+    rerender(
+      <DatabaseConversionPromptDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("stays pending while it will open but is still held back", () => {
+    mockState = { kind: "sqliteAuthoritative" };
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <DatabaseConversionPromptDialog
+        deferred
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    rerender(
+      <DatabaseConversionPromptDialog
+        deferred={false}
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("waits while another startup dialog is open and shows after it closes", () => {
+    mockState = { kind: "sqliteAuthoritative" };
+    const { rerender } = render(<DatabaseConversionPromptDialog deferred />);
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    rerender(<DatabaseConversionPromptDialog deferred={false} />);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
+
+  it("stays open once shown even if another dialog opens later", () => {
+    mockState = { kind: "sqliteAuthoritative" };
+    const { rerender } = render(<DatabaseConversionPromptDialog />);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    rerender(<DatabaseConversionPromptDialog deferred />);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
 
   it("puts Later and Convert Now in the same footer row", () => {
     mockState = { kind: "sqliteAuthoritative" };

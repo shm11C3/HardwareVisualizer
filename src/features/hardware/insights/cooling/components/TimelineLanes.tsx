@@ -44,6 +44,9 @@ export type LoadLaneMode = "usage" | "composition";
 /** Every lane shares this id so Recharts keeps their cursors in step. */
 const TIMELINE_SYNC_ID = "cooling-thermal-timeline";
 
+/** The shared readout must paint above the later-rendered sibling lanes. */
+const SHARED_TOOLTIP_WRAPPER_STYLE = { zIndex: 10 };
+
 /** Identical on both charts so the two plot areas line up horizontally. */
 const LANE_MARGIN = { top: 8, right: 8, bottom: 0, left: 0 } as const;
 const AXIS_WIDTH = 44;
@@ -398,6 +401,7 @@ const TemperatureLaneChart = ({
         )}
         <ChartTooltip
           filterNull={false}
+          wrapperStyle={SHARED_TOOLTIP_WRAPPER_STYLE}
           content={
             <TimelineTooltipContent
               unitSuffix={unitSuffix}
@@ -856,6 +860,7 @@ export const TimelineLanes = ({
               (DP-02). */}
           <ChartTooltip
             filterNull={false}
+            wrapperStyle={SHARED_TOOLTIP_WRAPPER_STYLE}
             content={
               ownsSharedTooltip ? (
                 <TimelineTooltipContent

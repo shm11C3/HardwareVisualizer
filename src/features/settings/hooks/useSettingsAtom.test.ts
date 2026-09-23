@@ -376,6 +376,188 @@ describe("useSettingsAtom", () => {
     expect(result.current.settings.elevatedStartupMode).toBe(false);
   });
 
+  it("updateSettingAtom: a rejected command restores the previous value and rethrows", async () => {
+    const failure = new Error("ipc failed");
+    (commands.setElevatedStartupMode as Mock).mockRejectedValue(failure);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await result.current
+        .updateSettingAtom("elevatedStartupMode", true)
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    expect(consoleError).toHaveBeenCalled();
+    // The caller owns the localized dialog; the atom only rolls back.
+    expect(errorMock).not.toHaveBeenCalled();
+    expect(result.current.settings.elevatedStartupMode).toBe(false);
+    consoleError.mockRestore();
+  });
+
+  it("setTrayWidgetSettingsAtom: a rejected command restores the previous value and rethrows", async () => {
+    const failure = new Error("ipc failed");
+    (commands.setTrayWidgetSettings as Mock).mockRejectedValue(failure);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialTrayWidget = result.current.settings.trayWidget;
+
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await result.current
+        .setTrayWidgetSettingsAtom({ ...initialTrayWidget, enabled: true })
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    expect(result.current.settings.trayWidget).toEqual(initialTrayWidget);
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("setCloseToTrayPreferenceAtom: a rejected command restores the optimistic update and rethrows", async () => {
+    const failure = new Error("ipc failed");
+    (commands.setTrayWidgetSettings as Mock).mockResolvedValue({ data: null });
+    (commands.setCloseToTrayPreference as Mock).mockRejectedValue(failure);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialSettings = result.current.settings;
+
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await result.current
+        .setCloseToTrayPreferenceAtom(true)
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    // The tray widget was already saved as enabled, so the backend must be
+    // put back too, not only the local atom.
+    expect(commands.setTrayWidgetSettings).toHaveBeenNthCalledWith(1, {
+      ...initialSettings.trayWidget,
+      enabled: true,
+    });
+    expect(commands.setTrayWidgetSettings).toHaveBeenNthCalledWith(
+      2,
+      initialSettings.trayWidget,
+    );
+    expect(result.current.settings.closeToTray).toBe(
+      initialSettings.closeToTray,
+    );
+    expect(result.current.settings.closeToTrayChoiceMade).toBe(
+      initialSettings.closeToTrayChoiceMade,
+    );
+    expect(result.current.settings.trayWidget).toEqual(
+      initialSettings.trayWidget,
+    );
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("setCloseToTrayPreferenceAtom: a failed tray-widget undo does not mask the original rejection", async () => {
+    const failure = new Error("ipc failed");
+    (commands.setTrayWidgetSettings as Mock)
+      .mockResolvedValueOnce({ data: null })
+      .mockRejectedValueOnce(new Error("undo failed"));
+    (commands.setCloseToTrayPreference as Mock).mockRejectedValue(failure);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const initialSettings = result.current.settings;
+
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await result.current
+        .setCloseToTrayPreferenceAtom(true)
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    expect(commands.setTrayWidgetSettings).toHaveBeenCalledTimes(2);
+    expect(result.current.settings.closeToTray).toBe(
+      initialSettings.closeToTray,
+    );
+    expect(result.current.settings.trayWidget).toEqual(
+      initialSettings.trayWidget,
+    );
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("setNavigationLayoutAtom: a rejected command restores layout and acknowledgement and rethrows", async () => {
+    const failure = new Error("ipc failed");
+    (commands.setNavigationLayout as Mock).mockRejectedValue(failure);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    const previousLayout = result.current.settings.navigationLayout;
+    const previousAnnouncementVersion =
+      result.current.settings.uiAnnouncementVersion;
+
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await result.current
+        .setNavigationLayoutAtom("classic")
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    expect(result.current.settings.navigationLayout).toBe(previousLayout);
+    expect(result.current.settings.uiAnnouncementVersion).toBe(
+      previousAnnouncementVersion,
+    );
+    // The in-flight guard is released so a later mutation is not refused.
+    (commands.setNavigationLayout as Mock).mockResolvedValue({ data: null });
+    let retried = false;
+    await act(async () => {
+      retried = await result.current.setNavigationLayoutAtom("classic");
+    });
+    expect(retried).toBe(true);
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("acknowledgeNavigationRestructureAnnouncementAtom: a rejected command restores the prior version and rethrows", async () => {
+    const failure = new Error("ipc failed");
+    (
+      commands.acknowledgeNavigationRestructureAnnouncement as Mock
+    ).mockRejectedValue(failure);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useSettingsAtom(), {
+      wrapper: Provider,
+    });
+    (commands.getSettings as Mock).mockResolvedValue({
+      data: { ...result.current.settings, currentUiAnnouncementVersion: 1 },
+    });
+
+    let thrown: unknown;
+    await act(async () => {
+      await result.current.loadSettings();
+    });
+    await act(async () => {
+      thrown = await result.current
+        .acknowledgeNavigationRestructureAnnouncementAtom()
+        .catch((err: unknown) => err);
+    });
+
+    expect(thrown).toBe(failure);
+    expect(result.current.settings.uiAnnouncementVersion).toBe(0);
+    vi.mocked(console.error).mockRestore();
+  });
+
   it("Default theme is 'system'", () => {
     const { result } = renderHook(() => useSettingsAtom(), {
       wrapper: Provider,

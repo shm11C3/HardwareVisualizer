@@ -248,6 +248,20 @@ fn toggle_flyout_window(
     );
   }
 
+  // Reapply the fixed size after moving to the target monitor so an earlier
+  // resize cannot leave the flyout unusable.
+  let desired_size = PhysicalSize::new(
+    flyout_size.width.round() as u32,
+    flyout_size.height.round() as u32,
+  );
+  if let Err(e) = window.set_size(desired_size) {
+    log_warn!(
+      &format!("failed to size Windows tray flyout: {e}"),
+      "tray::surface::windows::toggle_flyout_window",
+      None::<&str>
+    );
+  }
+
   crate::webview_memory::resume(&window);
 
   if let Some(frame) = state.latest_frame.lock().unwrap().clone() {

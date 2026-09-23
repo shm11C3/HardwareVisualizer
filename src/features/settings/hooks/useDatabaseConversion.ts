@@ -41,6 +41,9 @@ export const useDatabaseConversion = () => {
   const [state, setState] = useState<DatabaseConversionState>(initialState);
   const [error, setError] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
+  // The initial state is indistinguishable from a real "not supported"
+  // answer, so callers that must wait for the first read watch this.
+  const [settled, setSettled] = useState(false);
   const previousKindRef = useRef<DatabaseConversionState["kind"] | null>(null);
   // True from a successful `start()` until `refresh()` observes a state
   // that is not a stale pre-start read - see `isPreStartKind` and
@@ -54,36 +57,42 @@ export const useDatabaseConversion = () => {
 
   const refresh = useCallback(async () => {
     const requestGeneration = startGenerationRef.current;
-    const next = await commands.getDatabaseConversionState();
-    if (requestGeneration < startGenerationRef.current) {
-      // A newer `start()` began after this read was issued - e.g. React
-      // Strict Mode's double-invoked mount effect leaves an earlier mount
-      // read in flight, which can resolve *after* `start()`'s own refresh
-      // already observed real progress. Without this check, `startPendingRef`
-      // below would already be cleared by that newer read, so this older
-      // one's stale (pre-start) kind would pass the `isPreStartKind` guard
-      // and regress the UI. Whatever this read reports is superseded either
-      // way, so it is discarded unconditionally rather than re-checked
-      // against `isPreStartKind`.
-      return;
+    try {
+      const next = await commands.getDatabaseConversionState();
+      if (requestGeneration < startGenerationRef.current) {
+        // A newer `start()` began after this read was issued - e.g. React
+        // Strict Mode's double-invoked mount effect leaves an earlier mount
+        // read in flight, which can resolve *after* `start()`'s own refresh
+        // already observed real progress. Without this check,
+        // `startPendingRef` below would already be cleared by that newer
+        // read, so this older one's stale (pre-start) kind would pass the
+        // `isPreStartKind` guard and regress the UI. Whatever this read
+        // reports is superseded either way, so it is discarded
+        // unconditionally rather than re-checked against `isPreStartKind`.
+        return;
+      }
+      if (startPendingRef.current && isPreStartKind(next.kind)) {
+        // Racing a just-issued Start: the backend has not written its first
+        // progress state yet. Keep showing the optimistic `converting`
+        // state `start()` already set rather than regressing the UI to
+        // what was true before Start was pressed - see #2245 and `start()`.
+        return;
+      }
+      startPendingRef.current = false;
+      if (
+        previousKindRef.current === "converting" &&
+        next.kind === "nativeAuthoritative"
+      ) {
+        setJustCompleted(true);
+      }
+      previousKindRef.current = next.kind;
+      setState(next);
+      return next;
+    } finally {
+      // A failed or discarded (superseded/stale) read still settles:
+      // nothing should wait on it forever.
+      setSettled(true);
     }
-    if (startPendingRef.current && isPreStartKind(next.kind)) {
-      // Racing a just-issued Start: the backend has not written its first
-      // progress state yet. Keep showing the optimistic `converting` state
-      // `start()` already set rather than regressing the UI to what was
-      // true before Start was pressed - see #2245 and `start()`.
-      return;
-    }
-    startPendingRef.current = false;
-    if (
-      previousKindRef.current === "converting" &&
-      next.kind === "nativeAuthoritative"
-    ) {
-      setJustCompleted(true);
-    }
-    previousKindRef.current = next.kind;
-    setState(next);
-    return next;
   }, []);
 
   // Initial fetch, once per mount.
@@ -160,5 +169,13 @@ export const useDatabaseConversion = () => {
     setJustCompleted(false);
   }, []);
 
-  return { state, error, start, cancel, justCompleted, acknowledgeCompletion };
+  return {
+    state,
+    settled,
+    error,
+    start,
+    cancel,
+    justCompleted,
+    acknowledgeCompletion,
+  };
 };
