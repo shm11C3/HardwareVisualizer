@@ -70,6 +70,13 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(300);
 /// answer in session 0 when the MSI custom action runs it, and waiting on it
 /// would otherwise block the product install or the Settings action forever.
 const INSTALLER_TIMEOUT: Duration = Duration::from_secs(300);
+/// How long [`run_bounded`] waits for a terminated installer to actually end.
+/// `TerminateProcess` only requests termination; the process object is
+/// signaled once the kernel has torn the process down, normally within
+/// milliseconds, but pending I/O can delay it. A child still alive after this
+/// is reported as unconfirmed rather than waited on without a limit, so the
+/// installer bound keeps bounding the MSI custom action and the Settings task.
+const TERMINATION_CONFIRM_TIMEOUT: Duration = Duration::from_secs(30);
 /// Protected DACL: full control for Administrators and SYSTEM, nothing for
 /// anyone else, no inheritance from `%SystemRoot%\Temp`.
 const STAGING_DIRECTORY_SDDL: &str = "D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)";
@@ -135,7 +142,7 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
 
   let mut reboot_required = false;
   if matches!(before.runtime, RuntimeInstallState::NotInstalled) {
-    let staging = match StagingDirectory::create() {
+    let mut staging = match StagingDirectory::create() {
       Ok(staging) => staging,
       Err(detail) => {
         result.outcome = ExternalComponentSetupOutcome::failed(
@@ -163,6 +170,11 @@ pub fn run(plan: &ExternalComponentSetupPlan) -> ExternalComponentSetupResult {
         return result;
       }
       Err((stage, detail)) => {
+        if stage == SetupFailureStage::InstallerStillRunning {
+          // The installer may still be executing from the staged file;
+          // removing the directory under it is not safe, so leave it.
+          staging.abandon();
+        }
         result.outcome = ExternalComponentSetupOutcome::failed(stage, detail);
         return result;
       }
@@ -342,9 +354,28 @@ fn module_destination(runtime: &RuntimeInstallState) -> PathBuf {
 /// unreadable and unwritable for medium-integrity processes.
 struct StagingDirectory {
   path: PathBuf,
+  /// Set by [`Self::abandon`]: the directory is left in place on drop.
+  abandoned: bool,
 }
 
 impl StagingDirectory {
+  /// Leave the directory behind instead of removing it on drop, because a
+  /// process may still be running from a file inside it. It stays under
+  /// `%SystemRoot%\Temp` with the administrator-only DACL; the path is
+  /// logged so an administrator can remove it once the process has ended.
+  fn abandon(&mut self) {
+    self.abandoned = true;
+    log_warn!(
+      format!(
+        "leaving the staging directory {} in place; a process may still be running \
+         from it",
+        self.path.display()
+      ),
+      "external_component_setup::StagingDirectory::abandon",
+      None::<&str>
+    );
+  }
+
   fn create() -> Result<Self, String> {
     let system_root = std::env::var_os("SystemRoot")
       .ok_or_else(|| "SystemRoot is not set".to_string())?;
@@ -372,12 +403,20 @@ impl StagingDirectory {
     let _ = unsafe { LocalFree(Some(HLOCAL(descriptor.0))) };
     created.map_err(|e| format!("failed to create {}: {e}", path.display()))?;
 
-    Ok(Self { path })
+    Ok(Self {
+      path,
+      abandoned: false,
+    })
   }
 }
 
 impl Drop for StagingDirectory {
   fn drop(&mut self) {
+    if self.abandoned {
+      return;
+    }
+    // Errors are ignored: a leftover directory is not a setup failure, and a
+    // drop must never panic.
     let _ = fs::remove_dir_all(&self.path);
   }
 }
@@ -461,14 +500,25 @@ fn install_runtime(
 }
 
 /// Run `command` and return its exit code, or terminate it once `limit` has
-/// passed. A start failure is `StartInstaller`; a terminated run is
-/// `InstallerTimedOut`, and the child is reaped before returning so the
+/// passed. A start failure is `StartInstaller`. A terminated run is
+/// `InstallerTimedOut` once the child is confirmed gone and reaped, so the
 /// staged executable is no longer in use when the staging directory is
-/// removed.
+/// removed; a child whose termination is refused or that has not ended
+/// within [`TERMINATION_CONFIRM_TIMEOUT`] is `InstallerStillRunning`, and
+/// the caller must not remove the staging directory under it.
 fn run_bounded(
   command: &mut Command,
   file_name: &str,
   limit: Duration,
+) -> Result<Option<i32>, (SetupFailureStage, String)> {
+  run_bounded_confirming(command, file_name, limit, TERMINATION_CONFIRM_TIMEOUT)
+}
+
+fn run_bounded_confirming(
+  command: &mut Command,
+  file_name: &str,
+  limit: Duration,
+  confirm_limit: Duration,
 ) -> Result<Option<i32>, (SetupFailureStage, String)> {
   let mut child = command.spawn().map_err(|e| {
     (
@@ -477,9 +527,7 @@ fn run_bounded(
     )
   })?;
 
-  let limit_ms = u32::try_from(limit.as_millis()).unwrap_or(u32::MAX);
-  let waited = unsafe { WaitForSingleObject(HANDLE(child.as_raw_handle()), limit_ms) };
-  if waited == WAIT_OBJECT_0 {
+  if wait_signaled(&child, limit) {
     let status = child.wait().map_err(|e| {
       (
         SetupFailureStage::InstallerExit,
@@ -497,18 +545,43 @@ fn run_bounded(
     "external_component_setup::run_bounded",
     None::<&str>
   );
-  let killed = child.kill().and_then(|()| child.wait().map(|_| ()));
-  let detail = match killed {
-    Ok(()) => format!(
+  if let Err(e) = child.kill() {
+    return Err((
+      SetupFailureStage::InstallerStillRunning,
+      format!(
+        "{file_name} did not exit within {} s and could not be terminated: {e}",
+        limit.as_secs()
+      ),
+    ));
+  }
+  if !wait_signaled(&child, confirm_limit) {
+    return Err((
+      SetupFailureStage::InstallerStillRunning,
+      format!(
+        "{file_name} did not exit within {} s and had not ended {} s after termination \
+         was requested",
+        limit.as_secs(),
+        confirm_limit.as_secs()
+      ),
+    ));
+  }
+  // The process object is signaled, so reaping returns at once.
+  let _ = child.wait();
+  Err((
+    SetupFailureStage::InstallerTimedOut,
+    format!(
       "{file_name} did not exit within {} s and was terminated",
       limit.as_secs()
     ),
-    Err(e) => format!(
-      "{file_name} did not exit within {} s and could not be terminated: {e}",
-      limit.as_secs()
-    ),
-  };
-  Err((SetupFailureStage::InstallerTimedOut, detail))
+  ))
+}
+
+/// `true` once `child`'s process object is signaled (it has ended) within
+/// `limit`.
+fn wait_signaled(child: &std::process::Child, limit: Duration) -> bool {
+  let limit_ms = u32::try_from(limit.as_millis()).unwrap_or(u32::MAX);
+  let waited = unsafe { WaitForSingleObject(HANDLE(child.as_raw_handle()), limit_ms) };
+  waited == WAIT_OBJECT_0
 }
 
 fn place_module_files(
@@ -769,14 +842,21 @@ mod tests {
     );
   }
 
-  #[test]
-  fn run_bounded_terminates_a_child_that_outlives_the_limit() {
-    // `ping -n 30` keeps the child alive for about 30 s; the limit is far
-    // shorter, so the child must be terminated and reported as timed out.
+  /// A command that keeps its child alive for about 30 s, far beyond any
+  /// limit the bounded-run tests use.
+  fn long_lived_command() -> Command {
     let mut command = Command::new("ping");
     command
       .args(["-n", "30", "127.0.0.1"])
       .stdout(std::process::Stdio::null());
+    command
+  }
+
+  #[test]
+  fn run_bounded_terminates_a_child_that_outlives_the_limit() {
+    // The limit is far shorter than the child's life, so the child must be
+    // terminated, confirmed gone, and reported as timed out.
+    let mut command = long_lived_command();
     let started = std::time::Instant::now();
 
     let result = run_bounded(&mut command, "ping.exe", Duration::from_millis(500));
@@ -788,6 +868,72 @@ mod tests {
       started.elapsed() < Duration::from_secs(10),
       "the wait must end at the limit, not at the child's natural exit"
     );
+  }
+
+  #[test]
+  fn run_bounded_never_reports_a_confirmed_stop_for_a_child_that_has_not_ended() {
+    // With no time allowed for the termination to complete, whether the
+    // kernel has already torn the child down is timing-dependent, so either
+    // stage is acceptable; what must never happen is `InstallerTimedOut`
+    // while the child is still alive, and the wait must not block on it.
+    let mut command = long_lived_command();
+    let started = std::time::Instant::now();
+
+    let result = run_bounded_confirming(
+      &mut command,
+      "ping.exe",
+      Duration::from_millis(500),
+      Duration::ZERO,
+    );
+
+    let (stage, detail) = result.expect_err("a hung child is a failure");
+    match stage {
+      SetupFailureStage::InstallerTimedOut => {
+        assert!(detail.contains("was terminated"), "{detail}");
+      }
+      SetupFailureStage::InstallerStillRunning => {
+        assert!(detail.contains("had not ended"), "{detail}");
+      }
+      other => panic!("unexpected stage {other:?}"),
+    }
+    assert!(started.elapsed() < Duration::from_secs(10));
+  }
+
+  #[test]
+  fn an_abandoned_staging_directory_is_not_removed_on_drop() {
+    // Built directly so the test does not depend on the DACL-protected
+    // `%SystemRoot%\Temp`, which a non-administrator test run cannot clean.
+    let path = std::env::temp_dir().join(format!(
+      "hardviz-staging-abandon-{}",
+      random_hex::<8>().expect("random name")
+    ));
+    fs::create_dir(&path).expect("test directory is created");
+
+    let mut staging = StagingDirectory {
+      path: path.clone(),
+      abandoned: false,
+    };
+    staging.abandon();
+    drop(staging);
+
+    assert!(path.is_dir(), "the abandoned directory stays in place");
+    fs::remove_dir_all(&path).expect("test directory is removed");
+  }
+
+  #[test]
+  fn a_staging_directory_is_removed_on_drop_unless_abandoned() {
+    let path = std::env::temp_dir().join(format!(
+      "hardviz-staging-drop-{}",
+      random_hex::<8>().expect("random name")
+    ));
+    fs::create_dir(&path).expect("test directory is created");
+
+    drop(StagingDirectory {
+      path: path.clone(),
+      abandoned: false,
+    });
+
+    assert!(!path.exists(), "the directory is removed on drop");
   }
 
   #[test]
