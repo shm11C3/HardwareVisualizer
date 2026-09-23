@@ -17,7 +17,7 @@ tauri-build = { version = "2.6.3", features = [] }
 
 
 [dependencies]
-hardviz-core = { path = "../core" }
+hardviz-core = { path = "../core", default-features = false }
 serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
 tauri = { version = "2.11.6", features = ["macos-private-api", "tray-icon"] }
