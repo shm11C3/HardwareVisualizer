@@ -153,6 +153,19 @@ export const commands = {
 	getCoolingLoadTemperatureExplorer: (recentDays: number) => typedError<CoolingLoadTemperatureExplorer, string>(__TAURI_INVOKE("get_cooling_load_temperature_explorer", { recentDays })),
 	// Get the co-variate comparison of the Thermal Delta windows for `band` - which archived factors moved with the Thermal Delta and which stayed within range, with each window's ΔT-per-watt fit (#2068). `band` is the CPU-load band the observation strip compares under; the windows, the comparability gate, and every judgement are Core's.
 	getCoolingCovariateComparison: (band: CoolingLoadBand) => typedError<CoolingCovariateComparison, string>(__TAURI_INVOKE("get_cooling_covariate_comparison", { band })),
+	getDatabaseConversionState: () => __TAURI_INVOKE<DatabaseConversionState>("get_database_conversion_state"),
+	/**
+	 *  Start a conversion attempt if one is not already running. Returns
+	 *  immediately; the frontend polls [`get_database_conversion_state`] for
+	 *  progress, the same state vocabulary a startup recovery reads.
+	 */
+	startDatabaseConversion: () => typedError<null, string>(__TAURI_INVOKE("start_database_conversion")),
+	/**
+	 *  Ask the currently running conversion to stop at the next step boundary.
+	 *  A no-op (not an error) if nothing is running: cancellation racing
+	 *  completion is expected, not exceptional.
+	 */
+	cancelDatabaseConversion: () => typedError<null, string>(__TAURI_INVOKE("cancel_database_conversion")),
 	getSettings: () => typedError<ClientSettings_Serialize, string>(__TAURI_INVOKE("get_settings")),
 	setLanguage: (newLanguage: string) => typedError<null, string>(__TAURI_INVOKE("set_language", { newLanguage })),
 	setTheme: (newTheme: Theme) => typedError<null, string>(__TAURI_INVOKE("set_theme", { newTheme })),
@@ -450,6 +463,9 @@ export type ClientSettings_Serialize = {
 	elevatedStartupMode: boolean,
 	trayWidget: TrayWidgetSettings_Serialize,
 };
+
+// Wire mirror of `app::native_lifecycle::ConversionProgress`.
+export type ConversionStep = "preflight" | "buildingCandidate" | "finalizing" | "pausingProducers" | "reconciling" | "selecting" | "resumingProducers";
 
 /**
  *  One band's ambient-adjusted baseline-vs-recent comparison (#2045): the
@@ -819,6 +835,40 @@ export type CpuInfo = {
 };
 
 export type DataArchiveHardwareType = "cpu" | "cpuTemperature" | "cpuPower" | "gpuPower" | "anePower" | "packagePower" | "memory";
+
+/**
+ *  Wire mirror of `app::native_lifecycle::DatabaseLifecycleState`, widened
+ *  with [`Self::NotSupported`].
+ */
+export type DatabaseConversionState = 
+/**
+ *  This build does not include the native database conversion feature
+ *  (`duckdb-archive` is off). The frontend hides the conversion entry
+ *  point rather than showing a control nothing behind it can act on.
+ */
+{ kind: "notSupported" } | 
+// SQLite is authoritative and no conversion has produced anything yet.
+{ kind: "sqliteAuthoritative" } | 
+/**
+ *  A previous conversion left recoverable state; SQLite is still
+ *  authoritative. `resumable` says whether a complete finalized file
+ *  exists to resume from reconciliation, or whether the copy restarts.
+ */
+{ kind: "conversionRecoverable"; resumable: boolean } | 
+// The conversion is running.
+{ kind: "converting"; step: ConversionStep } | 
+// The native database is authoritative and open.
+{ kind: "nativeAuthoritative" } | 
+/**
+ *  The lifecycle owner stopped rather than guess. `reason` is a stable
+ *  key the frontend maps through i18n into a user-actionable message;
+ *  `diagnostic` is the underlying `Debug` detail, meant for a
+ *  collapsible "technical details" section rather than the primary
+ *  message (#2136: actionable without leaking implementation detail in
+ *  normal flows, diagnostics stay reachable for the cases that need
+ *  them).
+ */
+{ kind: "actionRequired"; reason: string; diagnostic: string };
 
 export type DiskKind = "hdd" | "ssd" | "other";
 
