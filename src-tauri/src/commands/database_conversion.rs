@@ -70,15 +70,14 @@ mod imp {
     let runtime_handle = tauri::async_runtime::handle().inner().clone();
     let conversion_runtime = app.state::<ConversionRuntime>();
 
-    let Some(cancellation) = conversion_runtime.begin_attempt() else {
+    // Claims the in-progress flag and resolves the bus atomically - see
+    // `begin_attempt_with_bus`'s own documentation for why the two must
+    // not be separate fallible steps.
+    let Some((cancellation, bus)) = conversion_runtime.begin_attempt_with_bus()? else {
       // Another attempt already claimed it - not an error; the frontend
       // already shows that attempt's progress.
       return Ok(());
     };
-
-    let bus = conversion_runtime
-      .bus()
-      .ok_or_else(|| "the database producer event bus is not ready yet".to_string())?;
 
     let resumers = build_producer_resumers(&app, bus, runtime_handle.clone());
     let target = ConversionTarget {

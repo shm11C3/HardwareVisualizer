@@ -251,6 +251,27 @@ impl ConversionRuntime {
     Some(cancellation)
   }
 
+  /// [`Self::begin_attempt`], but only after [`Self::bus`] resolves -
+  /// checked first and atomically with the claim, so a caller that also
+  /// needs the bus (`commands::database_conversion::start_database_conversion`)
+  /// can never claim the in-progress flag and then fail on a still-missing
+  /// bus, which would strand every later call as a silent no-op
+  /// ("another attempt already claimed it") until the process restarts.
+  ///
+  /// Returns the same `Err` [`Self::bus`]'s absence implies when the bus
+  /// is not ready yet - no claim is taken - `Ok(None)` when another
+  /// attempt already holds the claim (not an error), and `Ok(Some(..))`
+  /// with a fresh cancellation flag and the resolved bus otherwise.
+  pub fn begin_attempt_with_bus(
+    &self,
+  ) -> Result<Option<(ConversionCancellation, hardviz_core::event_bus::EventBus)>, String>
+  {
+    let bus = self
+      .bus()
+      .ok_or_else(|| "the database producer event bus is not ready yet".to_string())?;
+    Ok(self.begin_attempt().map(|cancellation| (cancellation, bus)))
+  }
+
   /// Release the claim [`Self::begin_attempt`] took, once `run_conversion`
   /// has returned - whatever the outcome.
   pub fn end_attempt(&self) {
@@ -980,6 +1001,45 @@ mod conversion_runtime_tests {
 
     runtime.set_bus(hardviz_core::event_bus::EventBus::new());
     assert!(runtime.bus().is_some());
+  }
+
+  /// Regression for the #2220 review finding: a missing bus must never
+  /// strand the in-progress claim. Before `begin_attempt_with_bus`
+  /// existed, the caller resolved the bus *after* `begin_attempt()`, so a
+  /// missing bus left `in_progress` set with nothing to call
+  /// `end_attempt()` - every later `start_database_conversion` would then
+  /// find `begin_attempt` already claimed and silently do nothing, forever.
+  #[test]
+  fn a_missing_bus_never_strands_the_in_progress_claim() {
+    let runtime = ConversionRuntime::default();
+
+    match runtime.begin_attempt_with_bus() {
+      Err(error) => assert!(error.contains("event bus")),
+      Ok(_) => panic!("expected an error while the bus is not set"),
+    }
+
+    // If the claim had been taken before the bus check, this would
+    // observe `Ok(None)` ("another attempt already claimed it") instead.
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    match runtime.begin_attempt_with_bus() {
+      Ok(Some(_)) => {}
+      other => panic!("expected a fresh claim once the bus is set, got {}", {
+        match &other {
+          Ok(None) => "Ok(None)",
+          Err(_) => "Err(_)",
+          Ok(Some(_)) => unreachable!(),
+        }
+      }),
+    }
+  }
+
+  #[test]
+  fn begin_attempt_with_bus_returns_none_when_another_attempt_is_in_progress() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+
+    assert!(runtime.begin_attempt_with_bus().unwrap().is_some());
+    assert!(runtime.begin_attempt_with_bus().unwrap().is_none());
   }
 }
 
