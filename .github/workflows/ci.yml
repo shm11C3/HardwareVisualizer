@@ -487,9 +487,10 @@ jobs:
   # from lint-tauri's concurrent duckdb-archive build even on a cache miss for
   # this job's own rust-cache entry.
   #
-  # Release builds (test-build) still exclude duckdb-archive: this job exists
-  # to catch regressions in the feature-gated code paths before the feature
-  # is switched on for shipped builds, not to change what ships.
+  # Shipped builds enable duckdb-archive through `build.features` in
+  # tauri.conf.json (test-build and publish both go through `tauri build`), so
+  # this job is the fast, bundle-free check of the same feature set; the
+  # feature-off test-tauri job keeps the fallback code paths honest.
   test-tauri-duckdb-archive:
     needs: change-detection
     if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
