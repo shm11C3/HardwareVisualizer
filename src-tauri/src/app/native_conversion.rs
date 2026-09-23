@@ -72,7 +72,11 @@ const DRIVER_WORK_PREFIX: &str = ".hardwarevisualizer-duckdb-driver-";
 /// `.hardwarevisualizer-duckdb-finalize-`/`-reconcile-`/`-runtime-`
 /// directories. The same root `inspect_authority`'s `work_directory_present`
 /// check recognizes.
-const WORK_DEBRIS_PREFIX: &str = ".hardwarevisualizer-duckdb-";
+///
+/// `pub(crate)` so `app::native_maintenance::discard_native_authority_files`
+/// (Reset) matches the same debris without a second, drifting copy of the
+/// literal prefix.
+pub(crate) const WORK_DEBRIS_PREFIX: &str = ".hardwarevisualizer-duckdb-";
 
 /// Best-effort removal of `.hardwarevisualizer-duckdb-*` directories already
 /// in `workspace`, left behind by an attempt that crashed before producing
@@ -82,6 +86,11 @@ const WORK_DEBRIS_PREFIX: &str = ".hardwarevisualizer-duckdb-";
 /// permissions issue) is left in place and logged; it cannot block a fresh
 /// attempt, which reserves its own differently-named directory, only make
 /// this attempt's own preflight estimate more conservative than necessary.
+/// Best-effort here is deliberate and unrelated to Reset's own removal,
+/// which must not continue past a failure - see
+/// `app::native_maintenance::discard_native_authority_files`, which matches
+/// the same [`WORK_DEBRIS_PREFIX`] with its own fail-stop sweep rather than
+/// calling this function.
 fn discard_stale_conversion_work(workspace: &Path) {
   let Ok(entries) = std::fs::read_dir(workspace) else {
     return;

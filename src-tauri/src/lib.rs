@@ -917,6 +917,9 @@ pub fn run() {
           std::thread::spawn(move || {
             use app::startup::{self, NativeAuthorityAction};
             match startup::prompt_native_authority_issue(&handle, &issue) {
+              NativeAuthorityAction::ResetAndRestart => {
+                startup::reset_database_and_restart(&handle);
+              }
               NativeAuthorityAction::ContinueAnyway => {
                 if let Some(window) = handle.get_webview_window("main") {
                   let _ = window.show();
