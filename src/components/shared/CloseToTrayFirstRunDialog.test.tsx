@@ -117,6 +117,38 @@ describe("CloseToTrayFirstRunDialog", () => {
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("reports pending until the startup check has finished", async () => {
+    const onPendingChange = vi.fn();
+    let resolveAvailability: (value: unknown) => void = () => {};
+    mocks.isCloseToTrayAvailable.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAvailability = resolve;
+      }),
+    );
+
+    renderDialog(
+      <CloseToTrayFirstRunDialog onPendingChange={onPendingChange} />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    await act(async () => {
+      resolveAvailability({ status: "ok", data: false });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByText("Try system tray mode?")).not.toBeInTheDocument();
+  });
+
+  it("is not pending once the choice is already saved", () => {
+    const onPendingChange = vi.fn();
+    renderDialog(
+      <CloseToTrayFirstRunDialog
+        closeToTrayChoiceMade
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("dismisses the startup prompt from the close icon without saving a preference", async () => {
     const user = userEvent.setup();
 

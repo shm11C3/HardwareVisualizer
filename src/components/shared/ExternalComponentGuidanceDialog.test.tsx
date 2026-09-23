@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/lib/i18n";
@@ -144,17 +144,29 @@ describe("ExternalComponentGuidanceDialog", () => {
 
   it("waits while another startup dialog is open and shows after it closes", async () => {
     const onOpenChange = vi.fn();
+    const onPendingChange = vi.fn();
+    let resolveCandidates: (value: unknown) => void = () => {};
+    mocks.getExternalComponentGuidanceCandidates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCandidates = resolve;
+      }),
+    );
     const { rerender } = render(
       <ExternalComponentGuidanceDialog
         displayTarget="dashboard"
         deferred
         onOpenChange={onOpenChange}
+        onPendingChange={onPendingChange}
       />,
     );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
 
-    await waitFor(() =>
-      expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalled(),
-    );
+    // The candidate arrives while still deferred: not shown, and still
+    // reported pending, since it opens as soon as the blocker closes.
+    await act(async () => {
+      resolveCandidates({ status: "ok", data: [candidate()] });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
 
@@ -163,12 +175,56 @@ describe("ExternalComponentGuidanceDialog", () => {
         displayTarget="dashboard"
         deferred={false}
         onOpenChange={onOpenChange}
+        onPendingChange={onPendingChange}
       />,
     );
     expect(
       await screen.findByRole("button", { name: "Restart as administrator" }),
     ).toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("is pending again in the render that switches to a screen with guidance", async () => {
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="usage"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+
+    let resolveCandidates: (value: unknown) => void = () => {};
+    mocks.getExternalComponentGuidanceCandidates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCandidates = resolve;
+      }),
+    );
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="dashboard"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    // Reported before the lookup even starts, not after an effect.
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    await act(async () => {
+      resolveCandidates({ status: "ok", data: [] });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("is not pending on a screen without guidance", () => {
+    const onPendingChange = vi.fn();
+    render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="usage"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
   it("keeps the details action for permission guidance outside Windows", async () => {
