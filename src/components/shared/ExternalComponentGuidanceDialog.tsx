@@ -5,7 +5,7 @@ import {
   EyeOffIcon,
   ShieldIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -39,11 +39,13 @@ import {
 type ExternalComponentGuidanceDialogProps = {
   displayTarget: SelectedDisplayType | null;
   settingsLoaded?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export const ExternalComponentGuidanceDialog = ({
   displayTarget,
   settingsLoaded = true,
+  onOpenChange,
 }: ExternalComponentGuidanceDialogProps) => {
   const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
@@ -172,6 +174,13 @@ export const ExternalComponentGuidanceDialog = ({
       await error(t("externalComponentGuidance.errors.openDetails"));
     }
   };
+
+  const isOpen = Boolean(candidate && copyKey && actionKey);
+
+  // Before paint, so App defers other dialogs in the same frame.
+  useLayoutEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
   const handleEnableElevatedStartupMode = async () => {
     if (!candidate) return;

@@ -74,12 +74,19 @@ declare global {
 }
 
 type InvokeHandler = (args?: unknown) => unknown;
+
+/** Survives closing the page like the real settings file, so a test can tell a saved
+ * dismissal from a session-only hide. */
+const NSIS_MIGRATION_NOTICE_DISMISSED_KEY = "e2e:nsisMigrationNoticeDismissed";
 type EventListenArgs = { event: string; handler: number };
 type EventEmitArgs = { event: string; payload?: unknown };
 type EventUnlistenArgs = { event: string; eventId?: number; id?: number };
 type FixtureOverrides = {
   storageDeviceCount: number | null;
   showNavigationNotice: boolean;
+  /** `?nsisMigrationNotice=1` reports the NSIS bundle and an undismissed
+   * migration notice so the notice can be captured. */
+  nsisMigrationNotice: boolean;
   classicNavigation: boolean;
   /** Seeds `store.json`'s `display` so upgrade paths can be exercised. */
   storedDisplayTarget: string | null;
@@ -203,6 +210,9 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get(
         "showNavigationNotice",
       ) === "1",
+    nsisMigrationNotice:
+      new URLSearchParams(window.location.search).get("nsisMigrationNotice") ===
+      "1",
     classicNavigation:
       new URLSearchParams(window.location.search).get("navigationLayout") ===
       "classic",
@@ -383,6 +393,8 @@ const buildInvokeHandlers = (
   "plugin:dialog|message": () => null,
   "plugin:autostart|is_enabled": () => false,
   "plugin:app|version": () => "1.0.0",
+  "plugin:app|bundle_type": () =>
+    fixtureOverrides.nsisMigrationNotice ? "nsis" : "msi",
 
   // --- generated commands ---
   get_settings: () => ({
@@ -393,6 +405,9 @@ const buildInvokeHandlers = (
     uiAnnouncementVersion: fixtureOverrides.showNavigationNotice
       ? 0
       : settingsFixture.uiAnnouncementVersion,
+    nsisMigrationNoticeDismissed: fixtureOverrides.nsisMigrationNotice
+      ? window.localStorage.getItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY) === "1"
+      : settingsFixture.nsisMigrationNoticeDismissed,
     hardwareArchive: {
       ...settingsFixture.hardwareArchive,
       enabled: fixtureOverrides.insightsRecordingDisabled
@@ -400,6 +415,10 @@ const buildInvokeHandlers = (
         : settingsFixture.hardwareArchive.enabled,
     },
   }),
+  dismiss_nsis_migration_notice: () => {
+    window.localStorage.setItem(NSIS_MIGRATION_NOTICE_DISMISSED_KEY, "1");
+    return null;
+  },
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null
       ? sysInfoFixture
