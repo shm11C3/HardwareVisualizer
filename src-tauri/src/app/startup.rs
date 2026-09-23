@@ -254,12 +254,21 @@ pub fn prompt_native_authority_issue(
 
 #[cfg(feature = "duckdb-archive")]
 fn build_native_authority_message(issue: &LifecycleIssue) -> String {
+  let recovery_hint = if matches!(
+    issue,
+    LifecycleIssue::NativeRebuildInspectionRequired { .. }
+  ) {
+    "\n\nAfter continuing, open Settings > Insights to check whether a backup-and-rebuild from SQLite is safe. The check refuses to move files unless it proves under the native writer lock that the native database is unselected."
+  } else {
+    ""
+  };
   format!(
     "HardwareVisualizer found the native database files in an unexpected state and \
      stopped rather than guess which one is correct.\n\n\
      You can continue with real-time monitoring only - archived history and other \
      database-backed features stay disabled for this session - reset the data to \
      start fresh, or exit and inspect the app data directory.\n\n\
+     {recovery_hint}\n\n\
      {RESET_HISTORY_NOTE}\n\n\
      [Details: {issue:?}]"
   )
@@ -360,6 +369,19 @@ mod tests {
     });
     assert!(msg.contains(RESET_HISTORY_NOTE));
     assert!(msg.contains("could not open the spill directory"));
+  }
+
+  #[cfg(feature = "duckdb-archive")]
+  #[test]
+  fn native_rebuild_message_describes_conditional_inspection() {
+    let msg = build_native_authority_message(
+      &LifecycleIssue::NativeRebuildInspectionRequired {
+        reason: hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable,
+      },
+    );
+    assert!(msg.contains("Settings > Insights"));
+    assert!(msg.contains("refuses to move files"));
+    assert!(msg.contains("unselected"));
   }
 
   #[test]

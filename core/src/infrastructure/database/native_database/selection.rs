@@ -852,16 +852,50 @@ fn work_directory_present(native_database: &Path) -> bool {
   let Some(directory) = native_database.parent() else {
     return false;
   };
-  let Ok(entries) = fs::read_dir(directory) else {
-    return false;
-  };
-  entries.filter_map(Result::ok).any(|entry| {
+  conversion_work_directory_present(directory).unwrap_or(false)
+}
+
+/// Fail-closed scan for an operation that must not race interrupted or live
+/// conversion work. Authority observation remains best-effort, so it maps an
+/// unreadable directory to `false`; explicit recovery cannot.
+pub(super) fn conversion_work_directory_present(
+  directory: &Path,
+) -> Result<bool, NativeDatabaseError> {
+  let entries =
+    fs::read_dir(directory).map_err(|error| NativeDatabaseError::Verification {
+      message: format!(
+        "failed to inspect the native database directory for conversion work: {error}"
+      ),
+    })?;
+  for entry in entries {
+    let entry = entry.map_err(|error| NativeDatabaseError::Verification {
+      message: format!(
+        "failed to inspect an entry in the native database directory: {error}"
+      ),
+    })?;
     let name = entry.file_name();
     let name = name.to_string_lossy();
-    name.starts_with(WORK_PREFIX)
+    if name.starts_with(WORK_PREFIX)
       && !name.starts_with(super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX)
-      && entry.file_type().is_ok_and(|kind| kind.is_dir())
-  })
+    {
+      let metadata = fs::symlink_metadata(entry.path()).map_err(|error| {
+        NativeDatabaseError::Verification {
+          message: format!("failed to inspect a conversion work candidate: {error}"),
+        }
+      })?;
+      if metadata.is_dir() {
+        return Ok(true);
+      }
+      if metadata.file_type().is_symlink() {
+        return Err(NativeDatabaseError::Verification {
+          message:
+            "a conversion work candidate is a symlink and cannot be classified safely"
+              .to_owned(),
+        });
+      }
+    }
+  }
+  Ok(false)
 }
 
 fn observe_marker(path: &Path) -> MarkerFacts {
@@ -1034,6 +1068,15 @@ pub fn inspect_authority(facts: &AuthorityFacts) -> AuthorityState {
           // output sends retries into a conversion with an existing native file.
           stop(AuthorityInconsistency::NativeMetadataUnreadable)
         }
+        NativeMetadataFacts::Present { schema_version, .. }
+          if *schema_version != facts.expected_schema_version =>
+        {
+          // A complete but unselected database from an older/newer schema
+          // cannot resume reconciliation with this build. Keep that distinct
+          // from a selected database, which was handled above and remains the
+          // authority even when this build cannot open it.
+          stop(AuthorityInconsistency::SchemaVersionMismatch)
+        }
         NativeMetadataFacts::Present { .. } => {
           // Finalized and unselected. A write-ahead log or leftover work
           // directory means the conversion was interrupted after the file was
@@ -1193,6 +1236,26 @@ mod tests {
     assert_eq!(
       inspect_authority(&observed),
       AuthorityState::ConversionInProgress { resumable: false }
+    );
+  }
+
+  #[test]
+  fn an_unselected_present_database_with_an_old_schema_needs_explicit_recovery() {
+    let mut observed = facts();
+    observed.marker = MarkerFacts::Absent;
+    observed.expected_schema_version = 2;
+    observed.native_metadata = NativeMetadataFacts::Present {
+      state: NativeState::FinalizedUnselected,
+      schema_version: 1,
+      storage_version: "v1.0.0+".to_owned(),
+      engine_storage_version: "v1.0.0+".to_owned(),
+      source_schema_sha256: "abc".to_owned(),
+      source_rows: 10,
+    };
+
+    assert_eq!(
+      inspect_authority(&observed),
+      inconsistent(AuthorityInconsistency::SchemaVersionMismatch)
     );
   }
 
@@ -1474,7 +1537,7 @@ mod tests {
 
   #[tokio::test]
   async fn legacy_spill_is_ignored_by_authority_and_new_stale_spills_are_removed_after_owner_opens()
-  {
+   {
     let directory = tempfile::tempdir().unwrap();
     let paths = fresh_paths(directory.path());
     create_empty_native_database(paths.clone(), fresh_schema())

@@ -1590,7 +1590,7 @@ mod tests {
   use hardviz_core::event_bus::EventBus;
   use hardviz_core::infrastructure::database::migrate;
   use hardviz_core::infrastructure::database::native_database::{
-    AUTHORITY_MARKER_FILE_NAME, AuthorityPaths,
+    AUTHORITY_MARKER_FILE_NAME, AuthorityPaths, archive_unselected_native_for_rebuild,
   };
   use sqlx::ConnectOptions;
   use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -1710,9 +1710,11 @@ mod tests {
     assert!(matches!(outcome, ConversionOutcome::ActionRequired));
     assert_eq!(
       owner.state(),
-      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
-        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable,
-      ))
+      DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::NativeRebuildInspectionRequired {
+          reason: hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable,
+        }
+      )
     );
     assert_eq!(
       std::fs::read(&paths.source_database).unwrap(),
@@ -1723,6 +1725,91 @@ mod tests {
       native_before
     );
     assert!(!paths.marker.exists());
+  }
+
+  #[tokio::test]
+  async fn an_unselected_old_schema_is_backed_up_before_rebuild_and_backup_survives_cancel()
+   {
+    let fixture = Fixture::new().await;
+    let paths = fixture.paths();
+    let candidate = fixture.directory.path().join("old-schema-candidate.duckdb");
+    let mut old_schema = native_schema::get_native_schema();
+    old_schema.version = 0;
+    build_candidate_database(
+      &paths.source_database,
+      &candidate,
+      migration::get_migrations(),
+    )
+    .await
+    .unwrap();
+    finalize_candidate_database(&candidate, &paths.native_database, old_schema)
+      .await
+      .unwrap();
+    std::fs::remove_file(candidate).unwrap();
+
+    assert!(matches!(
+      inspect_startup_authority(&paths, native_schema::NATIVE_SCHEMA_VERSION),
+      DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::NativeRebuildInspectionRequired {
+          reason: hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::SchemaVersionMismatch,
+        }
+      )
+    ));
+
+    hardviz_core::infrastructure::database::candidate_database::verify_source_schema(
+      &paths.source_database,
+      migration::get_migrations(),
+    )
+    .await
+    .unwrap();
+    let source_before = std::fs::read(&paths.source_database).unwrap();
+    let backup = archive_unselected_native_for_rebuild(&paths).await.unwrap();
+    let backup_before = std::fs::read(&backup).unwrap();
+    assert!(!paths.native_database.exists());
+    assert!(!paths.marker.exists());
+
+    let owner = NativeLifecycleOwner::new();
+    let workers = WorkersState::default();
+    let cancelled = ConversionCancellation::new();
+    cancelled.cancel();
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &cancelled,
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+      outcome,
+      ConversionOutcome::Cancelled {
+        step: ConversionProgress::Preflight
+      }
+    ));
+    assert_eq!(std::fs::read(&backup).unwrap(), backup_before);
+    assert_eq!(
+      std::fs::read(&paths.source_database).unwrap(),
+      source_before
+    );
+    assert!(!paths.native_database.exists());
+    assert!(!paths.marker.exists());
+
+    let outcome = run_conversion(
+      fixture.target(),
+      &owner,
+      &workers,
+      empty_resumers(tokio::runtime::Handle::current()),
+      &ConversionCancellation::new(),
+      SelectionHandoff::OwnerOnly,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(outcome, ConversionOutcome::Selected { .. }));
+    assert!(paths.native_database.is_file());
+    assert!(paths.marker.is_file());
+    assert_eq!(std::fs::read(&backup).unwrap(), backup_before);
   }
 
   #[tokio::test]

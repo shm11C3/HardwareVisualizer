@@ -6,6 +6,7 @@
 //! reader can neither block a commit nor let callers queue unbounded work.
 
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -23,6 +24,7 @@ use super::compatibility::{
 use super::finalize::{
   FINALIZED_UNSELECTED, NATIVE_IDENTITY_TABLE, NATIVE_METADATA_TABLE, SELECTED,
 };
+use super::selection::AuthorityPaths;
 
 /// The runtime owner's spill directory must not look like conversion work to
 /// authority inspection, which recognizes `.hardwarevisualizer-duckdb-*`.
@@ -562,6 +564,297 @@ fn open_connections(
   Ok((writer, reader, spill))
 }
 
+/// Move a finalized, unselected native database into a durable backup folder
+/// so an explicit App recovery can rebuild it from the still-authoritative
+/// SQLite source.
+///
+/// The database is opened for writing before its metadata is inspected. That
+/// establishes DuckDB's cross-process lock, while [`OpenClaim`] excludes a
+/// second owner in this process. The operation refuses selected databases,
+/// unreadable metadata, a present marker, and a missing SQLite source. A
+/// backup is kept even if a later verification or conversion step fails.
+pub async fn archive_unselected_native_for_rebuild(
+  paths: &AuthorityPaths,
+) -> Result<PathBuf, NativeDatabaseError> {
+  let paths = paths.clone();
+  tokio::task::spawn_blocking(move || {
+    archive_unselected_native_for_rebuild_blocking(&paths)
+  })
+  .await
+  .map_err(|error| NativeDatabaseError::Worker {
+    message: error.to_string(),
+  })?
+}
+
+fn archive_unselected_native_for_rebuild_blocking(
+  paths: &AuthorityPaths,
+) -> Result<PathBuf, NativeDatabaseError> {
+  let parent = paths
+    .native_database
+    .parent()
+    .filter(|parent| !parent.as_os_str().is_empty())
+    .ok_or_else(|| NativeDatabaseError::Unavailable {
+      path: paths.native_database.clone(),
+    })?;
+  let canonical_parent =
+    fs::canonicalize(parent).map_err(|error| NativeDatabaseError::Verification {
+      message: format!("failed to resolve the native database directory: {error}"),
+    })?;
+  for related_path in [&paths.source_database, &paths.marker] {
+    let related_parent = related_path
+      .parent()
+      .filter(|parent| !parent.as_os_str().is_empty())
+      .ok_or_else(|| NativeDatabaseError::Verification {
+        message: format!("recovery path has no parent: {}", related_path.display()),
+      })?;
+    let resolved_parent = fs::canonicalize(related_parent).map_err(|error| {
+      NativeDatabaseError::Verification {
+        message: format!(
+          "failed to resolve a database recovery path parent {}: {error}",
+          related_parent.display()
+        ),
+      }
+    })?;
+    if resolved_parent != canonical_parent {
+      return Err(NativeDatabaseError::Verification {
+        message:
+          "the source, native database, and authority marker are not in one directory"
+            .to_owned(),
+      });
+    }
+  }
+
+  require_normal_file(&paths.native_database, "native database")?;
+  let _claim = OpenClaim::acquire(&paths.native_database)?;
+  let spill_parent = runtime_spill_parent(
+    &canonical_parent,
+    paths.native_database.file_name().ok_or_else(|| {
+      NativeDatabaseError::Unavailable {
+        path: paths.native_database.clone(),
+      }
+    })?,
+  )?;
+  let spill = tempfile::Builder::new()
+    .prefix(RUNTIME_SPILL_ENTRY_PREFIX)
+    .tempdir_in(&spill_parent)
+    .map_err(|error| NativeDatabaseError::Worker {
+      message: format!("failed to create native recovery spill directory: {error}"),
+    })?;
+  let config = native_config(AccessMode::ReadWrite, false)?;
+  let connection =
+    Connection::open_with_flags(&paths.native_database, config).map_err(|error| {
+      NativeDatabaseError::duckdb("open native database for explicit recovery", error)
+    })?;
+  // DuckDB's writer lock now proves no other process owns this exact file.
+  // Clean only this database's previous runtime spills after that proof.
+  discard_stale_runtime_spill_directories(&spill_parent, spill.path());
+  super::configure_spill(&connection, spill.path())?;
+  verify_recovery_preconditions(paths, &connection)?;
+
+  connection.execute_batch("CHECKPOINT").map_err(|error| {
+    NativeDatabaseError::duckdb("checkpoint native database before recovery", error)
+  })?;
+  verify_recovery_preconditions(paths, &connection)?;
+  require_no_recovery_wal(&paths.native_database)?;
+
+  let file_name = paths.native_database.file_name().ok_or_else(|| {
+    NativeDatabaseError::Unavailable {
+      path: paths.native_database.clone(),
+    }
+  })?;
+  let temporary_backup = tempfile::Builder::new()
+    .prefix("hardwarevisualizer-native-backup-")
+    .tempdir_in(&canonical_parent)
+    .map_err(|error| NativeDatabaseError::Worker {
+      message: format!("failed to reserve a native recovery backup directory: {error}"),
+    })?;
+  let backup_directory = temporary_backup.path().to_owned();
+  let backup_database = backup_directory.join(file_name);
+  verify_recovery_preconditions(paths, &connection)?;
+  require_no_recovery_wal(&paths.native_database)?;
+  fs::rename(&paths.native_database, &backup_database).map_err(|error| {
+    NativeDatabaseError::Verification {
+      message: format!(
+        "failed to move the native database into its recovery backup {}: {error}",
+        backup_database.display()
+      ),
+    }
+  })?;
+  // Keep the directory immediately after the rename. A later error or
+  // cancellation must leave the original file available at the backup path;
+  // a failed rename still lets TempDir remove only its own empty directory.
+  let _backup_directory = temporary_backup.keep();
+
+  let backup_verification = (|| {
+    drop(connection);
+    sync_recovery_file(&backup_database)?;
+    sync_recovery_directory(&canonical_parent)?;
+    sync_recovery_directory(&backup_directory)?;
+    let verification = super::finalize::open_database(
+      &backup_database,
+      AccessMode::ReadOnly,
+      spill.path(),
+    )?;
+    verify_finalized_unselected_for_recovery(&verification)?;
+    drop(verification);
+    Ok::<(), NativeDatabaseError>(())
+  })();
+  if let Err(error) = backup_verification {
+    return Err(NativeDatabaseError::RecoveryBackupVerification {
+      backup_path: backup_database,
+      message: error.to_string(),
+    });
+  }
+
+  Ok(backup_database)
+}
+
+fn verify_recovery_preconditions(
+  paths: &AuthorityPaths,
+  connection: &Connection,
+) -> Result<(), NativeDatabaseError> {
+  require_normal_file(&paths.source_database, "SQLite source")?;
+  require_normal_file(&paths.native_database, "native database")?;
+  match fs::symlink_metadata(&paths.marker) {
+    Err(error) if error.kind() == ErrorKind::NotFound => {}
+    Ok(_) => {
+      return Err(NativeDatabaseError::Verification {
+        message:
+          "an authority marker exists; the native database may already be selected"
+            .to_owned(),
+      });
+    }
+    Err(error) => {
+      return Err(NativeDatabaseError::Verification {
+        message: format!("failed to verify that the authority marker is absent: {error}"),
+      });
+    }
+  }
+  let native_parent = paths
+    .native_database
+    .parent()
+    .filter(|parent| !parent.as_os_str().is_empty())
+    .ok_or_else(|| NativeDatabaseError::Unavailable {
+      path: paths.native_database.clone(),
+    })?;
+  if super::selection::conversion_work_directory_present(native_parent)? {
+    return Err(NativeDatabaseError::Verification {
+      message: "conversion work exists beside the native database; the current attempt may be resumable"
+        .to_owned(),
+    });
+  }
+  verify_finalized_unselected_for_recovery(connection)?;
+  Ok(())
+}
+
+fn verify_finalized_unselected_for_recovery(
+  connection: &Connection,
+) -> Result<u32, NativeDatabaseError> {
+  let metadata_table = quote_identifier(NATIVE_METADATA_TABLE);
+  let count: i64 = connection
+    .query_row(
+      &format!("SELECT count(*) FROM {metadata_table}"),
+      [],
+      |row| row.get(0),
+    )
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("read native recovery metadata", error)
+    })?;
+  if count != 1 {
+    return Err(NativeDatabaseError::Verification {
+      message: format!(
+        "cannot prove native metadata is one finalized, unselected record (found {count})"
+      ),
+    });
+  }
+  let (state, schema_version): (String, i64) = connection
+    .query_row(
+      &format!("SELECT state, schema_version FROM {metadata_table}"),
+      [],
+      |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .map_err(|error| {
+      NativeDatabaseError::duckdb("read native recovery metadata", error)
+    })?;
+  if state != FINALIZED_UNSELECTED {
+    return Err(NativeDatabaseError::Verification {
+      message: format!(
+        "native metadata state is {state:?}; explicit rebuild only accepts {FINALIZED_UNSELECTED:?}"
+      ),
+    });
+  }
+  u32::try_from(schema_version).map_err(|_| NativeDatabaseError::Verification {
+    message: format!(
+      "native schema version is outside the supported range: {schema_version}"
+    ),
+  })
+}
+
+fn require_normal_file(
+  path: &Path,
+  description: &str,
+) -> Result<(), NativeDatabaseError> {
+  let metadata =
+    fs::symlink_metadata(path).map_err(|_| NativeDatabaseError::Unavailable {
+      path: path.to_owned(),
+    })?;
+  if metadata.is_file()
+    && !metadata.file_type().is_symlink()
+    && !is_reparse_point(&metadata)
+  {
+    Ok(())
+  } else {
+    Err(NativeDatabaseError::Verification {
+      message: format!("{description} is not a normal file: {}", path.display()),
+    })
+  }
+}
+
+fn require_no_recovery_wal(database: &Path) -> Result<(), NativeDatabaseError> {
+  let mut wal = database.as_os_str().to_os_string();
+  wal.push(".wal");
+  let wal_path = PathBuf::from(wal);
+  match fs::symlink_metadata(&wal_path) {
+    Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+    Ok(_) => Err(NativeDatabaseError::Verification {
+      message: format!(
+        "a write-ahead log remains beside the native database after checkpoint: {}",
+        wal_path.display()
+      ),
+    }),
+    Err(error) => Err(NativeDatabaseError::Verification {
+      message: format!("failed to verify the native database write-ahead log: {error}"),
+    }),
+  }
+}
+
+fn sync_recovery_file(path: &Path) -> Result<(), NativeDatabaseError> {
+  fs::OpenOptions::new()
+    .read(true)
+    .write(true)
+    .open(path)
+    .and_then(|file| file.sync_all())
+    .map_err(|error| NativeDatabaseError::Verification {
+      message: format!("failed to sync the moved native database backup: {error}"),
+    })
+}
+
+fn sync_recovery_directory(directory: &Path) -> Result<(), NativeDatabaseError> {
+  // Windows does not expose a supported directory handle for this durability
+  // operation; follow selection.rs's documented platform boundary there.
+  if cfg!(windows) {
+    return Ok(());
+  }
+  fs::File::open(directory)
+    .and_then(|handle| handle.sync_all())
+    .map_err(|error| NativeDatabaseError::Verification {
+      message: format!(
+        "failed to sync the native recovery directory {}: {error}",
+        directory.display()
+      ),
+    })
+}
+
 /// Prepare a spill scope scoped to the exact database file.
 ///
 /// The database filename remains an OS path component, so this also works for
@@ -981,4 +1274,150 @@ fn validate_native_metadata(
     })?;
   verify_storage_version(connection, &storage_version)?;
   Ok(())
+}
+
+#[cfg(test)]
+mod recovery_tests {
+  use super::*;
+
+  fn fixture(directory: &Path, state: &str) -> AuthorityPaths {
+    let paths =
+      AuthorityPaths::in_directory(directory, "hv-database.db", "hv-database.duckdb");
+    fs::write(&paths.source_database, b"authoritative SQLite source").unwrap();
+    let database = Connection::open(&paths.native_database).unwrap();
+    database
+      .execute_batch(&format!(
+        "CREATE TABLE {NATIVE_METADATA_TABLE} (state VARCHAR NOT NULL, schema_version BIGINT NOT NULL); \
+         INSERT INTO {NATIVE_METADATA_TABLE} VALUES ('{state}', 1); \
+         CREATE TABLE recovery_probe (value VARCHAR NOT NULL); \
+         INSERT INTO recovery_probe VALUES ('preserved'); CHECKPOINT"
+      ))
+      .unwrap();
+    drop(database);
+    paths
+  }
+
+  fn read_probe(path: &Path) -> String {
+    let database = Connection::open_with_flags(
+      path,
+      native_config(AccessMode::ReadOnly, false).unwrap(),
+    )
+    .unwrap();
+    database
+      .query_row("SELECT value FROM recovery_probe", [], |row| row.get(0))
+      .unwrap()
+  }
+
+  #[tokio::test]
+  async fn an_unselected_old_schema_is_backed_up_and_remains_readable() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fixture(directory.path(), FINALIZED_UNSELECTED);
+    let source_before = fs::read(&paths.source_database).unwrap();
+
+    let backup = archive_unselected_native_for_rebuild(&paths).await.unwrap();
+
+    assert!(!paths.native_database.exists());
+    assert!(!paths.marker.exists());
+    assert_eq!(fs::read(&paths.source_database).unwrap(), source_before);
+    assert_eq!(backup.file_name(), paths.native_database.file_name());
+    assert!(
+      backup
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(std::ffi::OsStr::to_str)
+        .is_some_and(|name| name.starts_with("hardwarevisualizer-native-backup-"))
+    );
+    assert_eq!(read_probe(&backup), "preserved");
+  }
+
+  #[tokio::test]
+  async fn selected_native_is_never_archived_even_when_its_marker_is_absent() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fixture(directory.path(), SELECTED);
+    let native_before = fs::read(&paths.native_database).unwrap();
+
+    let error = archive_unselected_native_for_rebuild(&paths)
+      .await
+      .unwrap_err();
+
+    assert!(error.to_string().contains("only accepts"));
+    assert_eq!(fs::read(&paths.native_database).unwrap(), native_before);
+    assert!(paths.source_database.is_file());
+    assert!(!paths.marker.exists());
+  }
+
+  #[tokio::test]
+  async fn unreadable_native_bytes_are_preserved_when_raw_open_fails() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = AuthorityPaths::in_directory(
+      directory.path(),
+      "hv-database.db",
+      "hv-database.duckdb",
+    );
+    let source_before = b"authoritative SQLite source";
+    let native_before = b"not a DuckDB file";
+    fs::write(&paths.source_database, source_before).unwrap();
+    fs::write(&paths.native_database, native_before).unwrap();
+
+    let error = archive_unselected_native_for_rebuild(&paths)
+      .await
+      .unwrap_err();
+
+    assert!(error.to_string().contains("explicit recovery"));
+    assert_eq!(fs::read(&paths.source_database).unwrap(), source_before);
+    assert_eq!(fs::read(&paths.native_database).unwrap(), native_before);
+    assert!(!paths.marker.exists());
+    assert!(
+      fs::read_dir(directory.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .all(|entry| !entry
+          .file_name()
+          .to_string_lossy()
+          .starts_with("hardwarevisualizer-native-backup-"))
+    );
+  }
+
+  #[tokio::test]
+  async fn a_live_in_process_owner_refuses_recovery_without_touching_the_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fixture(directory.path(), FINALIZED_UNSELECTED);
+    let native_before = fs::read(&paths.native_database).unwrap();
+    let claim = OpenClaim::acquire(&paths.native_database).unwrap();
+
+    let error = archive_unselected_native_for_rebuild(&paths)
+      .await
+      .unwrap_err();
+
+    assert!(matches!(error, NativeDatabaseError::AlreadyOpen { .. }));
+    assert_eq!(fs::read(&paths.native_database).unwrap(), native_before);
+    drop(claim);
+  }
+
+  #[tokio::test]
+  async fn conversion_work_prevents_backup_but_legacy_spill_does_not() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = fixture(directory.path(), FINALIZED_UNSELECTED);
+    let conversion_work = directory
+      .path()
+      .join(".hardwarevisualizer-duckdb-finalize-live");
+    fs::create_dir(&conversion_work).unwrap();
+
+    let error = archive_unselected_native_for_rebuild(&paths)
+      .await
+      .unwrap_err();
+    assert!(error.to_string().contains("conversion work exists"));
+    assert!(paths.native_database.is_file());
+
+    fs::remove_dir(&conversion_work).unwrap();
+    let legacy_spill = directory.path().join(format!(
+      "{}crashed",
+      super::super::LEGACY_RUNTIME_SPILL_DIRECTORY_PREFIX
+    ));
+    fs::create_dir(&legacy_spill).unwrap();
+    let backup = archive_unselected_native_for_rebuild(&paths).await.unwrap();
+
+    assert!(backup.is_file());
+    assert!(legacy_spill.is_dir());
+  }
 }

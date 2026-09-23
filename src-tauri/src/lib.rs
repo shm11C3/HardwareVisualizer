@@ -328,6 +328,7 @@ fn build_specta_builder() -> Builder<Wry> {
       cooling_insight::get_cooling_covariate_comparison,
       database_conversion::get_database_conversion_state,
       database_conversion::start_database_conversion,
+      database_conversion::rebuild_native_database_from_sqlite,
       database_conversion::cancel_database_conversion,
       settings::commands::get_settings,
       settings::commands::set_language,

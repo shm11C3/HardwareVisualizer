@@ -85,6 +85,7 @@ describe("DatabaseConversionStateBody notice sharing across mounts", () => {
       state,
       error: null,
       start: vi.fn(async () => true),
+      recover: vi.fn(async () => true),
       cancel: vi.fn(async () => true),
       justCompleted: true,
       acknowledgeCompletion: vi.fn(),

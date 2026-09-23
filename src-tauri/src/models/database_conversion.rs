@@ -104,6 +104,12 @@ fn describe_issue(
     I::Authority(AuthorityInconsistency::NativeMetadataUnreadable) => {
       "nativeMetadataUnreadable"
     }
+    I::NativeRebuildInspectionRequired {
+      reason: AuthorityInconsistency::NativeMetadataUnreadable,
+    } => "nativeMetadataUnreadableInspectionRequired",
+    I::NativeRebuildInspectionRequired { .. } => "nativeRebuildInspectionRequired",
+    I::NativeRecoveryRefused { .. } => "nativeRecoveryRefused",
+    I::NativeRecoveryFailed { .. } => "nativeRecoveryFailed",
     I::Authority(_) => "authorityDisagreement",
     I::NativeOpenFailed { .. } => "nativeOpenFailed",
     I::FreshCreationFailed { .. } => "freshCreationFailed",
@@ -164,6 +170,21 @@ mod tests {
       panic!("expected ActionRequired");
     };
     assert_eq!(reason, "nativeMetadataUnreadable");
+    assert!(diagnostic.contains("NativeMetadataUnreadable"));
+  }
+
+  #[test]
+  fn recovery_offer_uses_a_conditional_inspection_reason() {
+    let state = DatabaseConversionState::from(DatabaseLifecycleState::ActionRequired(
+      LifecycleIssue::NativeRebuildInspectionRequired {
+        reason: AuthorityInconsistency::NativeMetadataUnreadable,
+      },
+    ));
+
+    let DatabaseConversionState::ActionRequired { reason, diagnostic } = state else {
+      panic!("expected ActionRequired");
+    };
+    assert_eq!(reason, "nativeMetadataUnreadableInspectionRequired");
     assert!(diagnostic.contains("NativeMetadataUnreadable"));
   }
 }

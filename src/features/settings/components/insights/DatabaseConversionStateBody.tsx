@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export type DatabaseConversionStateBodyProps = {
   state: DatabaseConversionState;
   error: string | null;
   start: () => Promise<boolean>;
+  recover: () => Promise<boolean>;
   cancel: () => Promise<boolean>;
   justCompleted: boolean;
   acknowledgeCompletion: () => void;
@@ -73,6 +74,7 @@ export const DatabaseConversionStateBody = ({
   state,
   error,
   start,
+  recover,
   cancel,
   justCompleted,
   acknowledgeCompletion,
@@ -81,6 +83,8 @@ export const DatabaseConversionStateBody = ({
   footerSecondaryAction,
 }: DatabaseConversionStateBodyProps) => {
   const { t } = useTranslation();
+  const [confirmRecovery, setConfirmRecovery] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [noticeShown, setNoticeShown, noticeShownPending] =
     useDatabaseConversionNoticeShown();
 
@@ -184,6 +188,62 @@ export const DatabaseConversionStateBody = ({
     return null;
   })();
 
+  const recoveryAction =
+    state.kind === "actionRequired" &&
+    (state.reason === "nativeRebuildInspectionRequired" ||
+      state.reason === "nativeMetadataUnreadableInspectionRequired" ||
+      state.reason === "nativeRecoveryRefused") ? (
+      <div className="mt-3 rounded-md border p-3">
+        {!confirmRecovery ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmRecovery(true)}
+          >
+            {t(
+              "pages.settings.insights.databaseConversion.recovery.review",
+            )}
+          </Button>
+        ) : (
+          <div>
+            <p className="text-sm">
+              {t(
+                "pages.settings.insights.databaseConversion.recovery.confirmation",
+              )}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={recovering}
+                onClick={() => setConfirmRecovery(false)}
+              >
+                {t("pages.settings.insights.databaseConversion.recovery.cancel")}
+              </Button>
+              <Button
+                type="button"
+                disabled={recovering}
+                onClick={async () => {
+                  setRecovering(true);
+                  const started = await recover();
+                  setRecovering(false);
+                  if (started) {
+                    setConfirmRecovery(false);
+                  }
+                }}
+              >
+                {t(
+                  recovering
+                    ? "pages.settings.insights.databaseConversion.recovery.working"
+                    : "pages.settings.insights.databaseConversion.recovery.confirm",
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    ) : null;
+
   const footerLayout = layout === "footer";
   const footerRow = (primaryActionNode: ReactNode, sizeClassName = "") =>
     primaryActionNode || footerSecondaryAction ? (
@@ -258,6 +318,7 @@ export const DatabaseConversionStateBody = ({
             {footerLayout
               ? footerRow(primaryAction, "mt-2")
               : primaryAction && <div className="mt-2">{primaryAction}</div>}
+            {recoveryAction}
           </div>
         )}
 

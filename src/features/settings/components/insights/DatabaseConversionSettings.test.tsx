@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DatabaseConversionState } from "@/rspc/bindings";
 
 const mockStart = vi.fn();
+const mockRecover = vi.fn();
 const mockCancel = vi.fn();
 const mockAcknowledgeCompletion = vi.fn();
 const mockSetNoticeShown = vi.fn();
@@ -38,6 +39,7 @@ vi.mock("@/features/settings/hooks/useDatabaseConversion", () => ({
     state: mockState,
     error: mockError,
     start: mockStart,
+    recover: mockRecover,
     cancel: mockCancel,
     justCompleted: mockJustCompleted,
     acknowledgeCompletion: mockAcknowledgeCompletion,
@@ -66,6 +68,7 @@ describe("DatabaseConversionSettings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRecover.mockResolvedValue(true);
     mockState = { kind: "notSupported" };
     mockError = null;
     mockJustCompleted = false;
@@ -155,6 +158,37 @@ describe("DatabaseConversionSettings", () => {
     expect(
       screen.queryByText("pages.settings.insights.databaseConversion.retry"),
     ).not.toBeInTheDocument();
+  });
+
+  it("requires a separate confirmation before inspecting rebuild eligibility", () => {
+    mockState = {
+      kind: "actionRequired",
+      reason: "nativeMetadataUnreadableInspectionRequired",
+      diagnostic: "NativeRebuildInspectionRequired",
+    };
+    render(<DatabaseConversionSettings />);
+    expect(
+      screen.queryByText("pages.settings.insights.databaseConversion.retry"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.recovery.review",
+      ),
+    );
+    expect(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.recovery.confirmation",
+      ),
+    ).toBeInTheDocument();
+    expect(mockRecover).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.recovery.confirm",
+      ),
+    );
+    expect(mockRecover).toHaveBeenCalledTimes(1);
   });
 
   it("shows the one-time notice after a completed conversion and hides it once dismissed", async () => {

@@ -72,6 +72,13 @@ pub enum NativeDatabaseError {
   #[error("finalized native database failed verification: {message}")]
   Verification { message: String },
   #[error(
+    "native database was moved to recovery backup {backup_path}, but the backup could not be verified: {message}"
+  )]
+  RecoveryBackupVerification {
+    backup_path: PathBuf,
+    message: String,
+  },
+  #[error(
     "the exact sum of {column} for Process ({pid}, {process_name:?}) exceeds a signed 64-bit integer, where SQLite's average is no longer exact"
   )]
   IntegerSumOverflow {
