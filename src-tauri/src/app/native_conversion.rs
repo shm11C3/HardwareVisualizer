@@ -811,9 +811,9 @@ async fn reconcile_and_select(
 /// its error alone does not say whether SQLite is still authoritative. The
 /// files are inspected again, through the same function startup uses:
 ///
-/// - The files positively show no selection - no native file, or native
-///   metadata that reads as finalized and unselected: the failure came
-///   before the commit, and it is an ordinary, retryable conversion failure.
+/// - The files positively show no selection ([`failed_before_commit`]): the
+///   failure came before the commit, and it is an ordinary, retryable
+///   conversion failure.
 /// - `NativeAuthoritative`: the commit landed, and
 ///   [`inspect_startup_authority`] closed the gap by rewriting the marker
 ///   from the committed metadata. Returns `Ok(None)` so the caller finishes
@@ -843,17 +843,8 @@ async fn settle_failed_selection(
   use hardviz_core::infrastructure::database::native_database::AuthorityInconsistency;
 
   let on_disk = inspect_startup_authority(paths, expected_schema_version);
-  // Not `sqlite_source_is_authoritative`: `ConversionRecoverable { resumable:
-  // false }` with a native file present means its metadata was unreadable,
-  // which says nothing about whether `selected` committed.
-  let native_present = paths.native_database.exists();
-  let before_commit = match on_disk {
-    DatabaseLifecycleState::SqliteAuthoritative
-    | DatabaseLifecycleState::ConversionRecoverable { resumable: true } => true,
-    DatabaseLifecycleState::ConversionRecoverable { resumable: false } => !native_present,
-    _ => false,
-  };
-  if before_commit {
+  let native_file = std::fs::symlink_metadata(&paths.native_database);
+  if failed_before_commit(&on_disk, &native_file) {
     fail(owner, ConversionProgress::Selecting, &error);
     return Err(ConversionError::Select(error));
   }
@@ -886,6 +877,34 @@ async fn settle_failed_selection(
   }
   owner.set_state(DatabaseLifecycleState::ActionRequired(issue));
   Ok(Some(ConversionOutcome::ActionRequired))
+}
+
+/// Whether the re-inspection after a failed selection positively shows that
+/// `selected` never committed. `native_file` is `symlink_metadata` of the
+/// native database path.
+///
+/// Only two facts count as proof: native metadata read back as finalized and
+/// unselected (`ConversionRecoverable { resumable: true }`), or no native file
+/// at all. The observer derives "no native file" from `is_file`, which a
+/// metadata error also makes false, so `SqliteAuthoritative` and
+/// `ConversionRecoverable { resumable: false }` count only when the probe
+/// reports `NotFound`. An inaccessible or unreadable file is uncertainty, not
+/// absence. (The marker needs no probe: the observer already reports it absent
+/// only on `NotFound`.)
+fn failed_before_commit(
+  on_disk: &DatabaseLifecycleState,
+  native_file: &std::io::Result<std::fs::Metadata>,
+) -> bool {
+  let native_absent = matches!(
+    native_file,
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound
+  );
+  match on_disk {
+    DatabaseLifecycleState::ConversionRecoverable { resumable: true } => true,
+    DatabaseLifecycleState::SqliteAuthoritative
+    | DatabaseLifecycleState::ConversionRecoverable { resumable: false } => native_absent,
+    _ => false,
+  }
 }
 
 /// Open the freshly selected database into `owner`'s own bookkeeping, the
@@ -1619,6 +1638,40 @@ mod tests {
         hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::NativeMetadataUnreadable
       ))
     );
+  }
+
+  #[test]
+  fn only_a_positive_absence_or_unselected_read_counts_as_before_the_commit() {
+    use std::io::{Error, ErrorKind};
+
+    let missing = || Err(Error::from(ErrorKind::NotFound));
+    let denied = || Err(Error::from(ErrorKind::PermissionDenied));
+    let other = || Err(Error::other("device not ready"));
+    let directory = tempfile::tempdir().unwrap();
+    let present = || std::fs::symlink_metadata(directory.path());
+
+    let sqlite = DatabaseLifecycleState::SqliteAuthoritative;
+    let unreadable = DatabaseLifecycleState::ConversionRecoverable { resumable: false };
+    let unselected = DatabaseLifecycleState::ConversionRecoverable { resumable: true };
+
+    // Absence is proven only by `NotFound`; any other probe result is doubt.
+    assert!(failed_before_commit(&sqlite, &missing()));
+    assert!(failed_before_commit(&unreadable, &missing()));
+    for probe in [denied(), other(), present()] {
+      assert!(!failed_before_commit(&sqlite, &probe), "{probe:?}");
+      assert!(!failed_before_commit(&unreadable, &probe), "{probe:?}");
+    }
+    // Metadata already read back as unselected needs no probe.
+    assert!(failed_before_commit(&unselected, &present()));
+    // A selection the files show, or a disagreement, is never "before".
+    for state in [
+      DatabaseLifecycleState::NativeAuthoritative,
+      DatabaseLifecycleState::ActionRequired(LifecycleIssue::Authority(
+        hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::SelectedWithoutMarker,
+      )),
+    ] {
+      assert!(!failed_before_commit(&state, &missing()), "{state:?}");
+    }
   }
 
   #[tokio::test]
