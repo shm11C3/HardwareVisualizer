@@ -58,6 +58,7 @@ const settingsAtom = atom<ClientSettings>({
   textSelectable: false,
   closeToTray: false,
   closeToTrayChoiceMade: false,
+  nsisMigrationNoticeDismissed: false,
   externalComponentGuidance: {
     acknowledgedKeys: [],
   },
@@ -97,6 +98,7 @@ export const useSettingsAtom = () => {
       | "environmentalSensors"
       | "closeToTray"
       | "closeToTrayChoiceMade"
+      | "nsisMigrationNoticeDismissed"
       | "externalComponentGuidance"
       | "navigationLayout"
       | "uiAnnouncementVersion"
@@ -170,6 +172,7 @@ export const useSettingsAtom = () => {
       | "environmentalSensors"
       | "closeToTray"
       | "closeToTrayChoiceMade"
+      | "nsisMigrationNoticeDismissed"
       | "externalComponentGuidance"
       | "navigationLayout"
       | "uiAnnouncementVersion"
