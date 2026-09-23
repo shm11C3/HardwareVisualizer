@@ -193,6 +193,27 @@ describe("DatabaseConversionPromptDialog", () => {
     expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("stays pending while it will open but is still held back", () => {
+    mockState = { kind: "sqliteAuthoritative" };
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <DatabaseConversionPromptDialog
+        deferred
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    rerender(
+      <DatabaseConversionPromptDialog
+        deferred={false}
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("waits while another startup dialog is open and shows after it closes", () => {
     mockState = { kind: "sqliteAuthoritative" };
     const { rerender } = render(<DatabaseConversionPromptDialog deferred />);

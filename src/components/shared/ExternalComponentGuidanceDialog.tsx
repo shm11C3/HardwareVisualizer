@@ -43,12 +43,15 @@ import {
 type ExternalComponentGuidanceDialogProps = {
   displayTarget: SelectedDisplayType | null;
   settingsLoaded?: boolean;
+  /** Another startup AlertDialog is open; keep the candidate, wait to show. */
+  deferred?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
 
 export const ExternalComponentGuidanceDialog = ({
   displayTarget,
   settingsLoaded = true,
+  deferred = false,
   onOpenChange,
 }: ExternalComponentGuidanceDialogProps) => {
   const { t, i18n } = useTranslation();
@@ -189,7 +192,7 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  const isOpen = Boolean(candidate && copyKey && actionKey);
+  const isOpen = Boolean(candidate && copyKey && actionKey) && !deferred;
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
@@ -220,7 +223,7 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  if (!candidate || !copyKey || !actionKey) {
+  if (!isOpen || !candidate || !copyKey || !actionKey) {
     return null;
   }
 

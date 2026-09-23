@@ -85,19 +85,25 @@ export const DatabaseConversionPromptDialog = ({
     onOpenChange?.(open);
   }, [open, onOpenChange]);
 
-  const pending = !conversion.settled || dismissedPending;
-  useLayoutEffect(() => {
-    onPendingChange?.(pending);
-  }, [pending, onPendingChange]);
-
-  const eligible =
+  const wouldOpen =
     settingsLoaded &&
-    !deferred &&
     !dismissedPending &&
     !dismissed &&
     settings.hardwareArchive.enabled &&
     (conversion.state.kind === "sqliteAuthoritative" ||
       conversion.state.kind === "conversionRecoverable");
+  const eligible = wouldOpen && !deferred;
+
+  // Pending until the state and the dismissal flag are known, and also while
+  // this prompt is going to open but has not yet (the open lands in a passive
+  // effect, so a dialog that yields to this one must not slip in before it).
+  const pending =
+    !conversion.settled ||
+    dismissedPending ||
+    Boolean(wouldOpen && !everOffered);
+  useLayoutEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   useEffect(() => {
     if (!everOffered && eligible) {

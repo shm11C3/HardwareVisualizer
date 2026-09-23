@@ -363,9 +363,10 @@ const AppContent = () => {
             onOpenChange={setCloseToTrayDialogOpen}
           />
           {/* Startup dialogs open one at a time, in this order: the
-              close-to-tray prompt and the external component guidance are
-              single-decision dialogs that do not wait for anything; the
-              database conversion prompt waits for them because it runs a
+              close-to-tray prompt is a single decision and waits for
+              nothing; the external component guidance waits for it (both
+              can qualify on a first launch), keeping its candidate; the
+              database conversion prompt waits for both because it runs a
               multi-step flow (progress, cancel, retry) that should not be
               covered by a short prompt part-way through; the NSIS
               migration notice waits for all three because it is a
@@ -380,6 +381,7 @@ const AppContent = () => {
           <ExternalComponentGuidanceDialog
             displayTarget={displayTarget}
             settingsLoaded={settingsLoaded}
+            deferred={closeToTrayDialogOpen}
             onOpenChange={setGuidanceDialogOpen}
           />
           <NsisMigrationNoticeDialog
