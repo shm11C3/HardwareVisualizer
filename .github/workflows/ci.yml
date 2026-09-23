@@ -117,6 +117,7 @@ jobs:
               - 'src-tauri/windows/**'
               - 'src-tauri/tauri.conf.json'
               - '.github/scripts/check-msi-external-component-setup.ps1'
+              - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
               - '.github/actions/**'

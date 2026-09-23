@@ -3,7 +3,8 @@
 # with the consent rules from ADR 0024:
 #
 # - the setup custom action is deferred, runs without impersonation, ignores
-#   its exit code, and runs only when EXTERNAL_COMPONENT_PAWNIO = "1";
+#   its exit code, and runs only when EXTERNAL_COMPONENT_PAWNIO = "1" and the
+#   install directory is under Program Files;
 # - EXTERNAL_COMPONENT_PAWNIO has no default in the Property table and is only
 #   defaulted by the UI sequence, so /qn, /passive, and winget run no setup;
 # - the options dialog is inserted between InstallDirDlg and VerifyReadyDlg.
@@ -25,6 +26,12 @@ $dialog = "ExternalComponentsDlg"
 # Type 18 (exe from an installed file) + 0x40 ignore exit code
 # + 0x400 deferred + 0x800 no impersonation.
 $expectedActionType = 18 + 0x40 + 0x400 + 0x800
+# The LocalSystem action must only run the copy under Program Files.
+$expectedActionCondition = "$property = `"1`" AND NOT REMOVE AND (INSTALLDIR ~<< ProgramFiles64Folder OR INSTALLDIR ~<< ProgramFilesFolder)"
+# Type 51 (set a property from formatted text); only a fresh install without
+# an explicit value on the command line gets the default.
+$expectedDefaultType = 51
+$expectedDefaultCondition = "NOT Installed AND NOT $property"
 
 $installer = New-Object -ComObject WindowsInstaller.Installer
 $database = $installer.OpenDatabase((Resolve-Path $MsiPath).Path, 0)
@@ -62,7 +69,7 @@ foreach ($row in (Get-Rows "SELECT ``Action``, ``Condition``, ``Sequence`` FROM 
 Assert ($sequence.ContainsKey($action)) "$action is not scheduled in InstallExecuteSequence"
 if ($sequence.ContainsKey($action)) {
   $row = $sequence[$action]
-  Assert ($row[1] -eq "$property = `"1`" AND NOT REMOVE") "$action has condition '$($row[1])'"
+  Assert ($row[1] -eq $expectedActionCondition) "$action has condition '$($row[1])'"
   Assert ([int]$row[2] -gt [int]$sequence["InstallFiles"][2]) "$action runs before InstallFiles"
   Assert ([int]$row[2] -lt [int]$sequence["InstallFinalize"][2]) "$action runs after InstallFinalize"
 }
@@ -74,9 +81,19 @@ $secure = Get-Rows "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'Sec
 Assert (($secure.Count -eq 1) -and (($secure[0][0] -split ";") -contains $property)) "$property is not a secure custom property"
 
 $setDefault = "Set$property"
-$uiSequence = Get-Rows "SELECT ``Action`` FROM ``InstallUISequence`` WHERE ``Action`` = '$setDefault'" 1
+$uiSequence = Get-Rows "SELECT ``Action``, ``Condition`` FROM ``InstallUISequence`` WHERE ``Action`` = '$setDefault'" 2
 Assert ($uiSequence.Count -eq 1) "$setDefault is not in InstallUISequence"
+if ($uiSequence.Count -eq 1) {
+  Assert ($uiSequence[0][1] -eq $expectedDefaultCondition) "$setDefault has condition '$($uiSequence[0][1])', so an explicit value may be overwritten"
+}
 Assert (-not $sequence.ContainsKey($setDefault)) "$setDefault also runs in InstallExecuteSequence"
+
+$defaultAction = Get-Rows "SELECT ``Type``, ``Source``, ``Target`` FROM ``CustomAction`` WHERE ``Action`` = '$setDefault'" 3
+Assert ($defaultAction.Count -eq 1) "CustomAction $setDefault is missing"
+if ($defaultAction.Count -eq 1) {
+  $row = $defaultAction[0]
+  Assert (([int]$row[0] -eq $expectedDefaultType) -and ($row[1] -eq $property) -and ($row[2] -eq "1")) "CustomAction $setDefault sets '$($row[1])' to '$($row[2])' (type $($row[0])), expected $property = 1"
+}
 
 $dialogRow = Get-Rows "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog`` = '$dialog'" 1
 Assert ($dialogRow.Count -eq 1) "Dialog $dialog is missing"
