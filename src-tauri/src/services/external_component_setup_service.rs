@@ -124,9 +124,10 @@ fn run_with(
     .map_err(|e| e.to_string())?;
   let after = platform.external_component_setup_status(plan);
 
-  // `guard` drops with every return below except `StillRunning`, so a child
-  // that is confirmed gone (exited, never started, or stopped) frees the
-  // component for a retry without an app restart.
+  // `guard` drops with every return below unless something may still be
+  // running: the elevated child itself (`StillRunning`), or the installer it
+  // could not confirm stopped (`InstallerStillRunning`). A child that is
+  // confirmed gone frees the component for a retry without an app restart.
   Ok(match run {
     ElevatedProcessRun::Declined => ExternalComponentSetupResult::cancelled(after),
     ElevatedProcessRun::StillRunning => {
@@ -173,6 +174,12 @@ fn run_with(
           "external_component_setup_service::run",
           None::<&str>
         );
+        if *stage == core_setup::SetupFailureStage::InstallerStillRunning {
+          // The child exited, but the installer it started may still be
+          // running from the staging directory it left behind; a retry would
+          // start a second installer beside it.
+          guard.keep_held();
+        }
       }
       ExternalComponentSetupResult::from_outcome(outcome, after)
     }
@@ -305,6 +312,58 @@ mod tests {
       .lock()
       .unwrap()
       .retain(|component| *component != ExternalComponent::Pawnio);
+  }
+
+  #[test]
+  fn an_unconfirmed_installer_stop_keeps_the_component_in_flight_and_refuses_a_retry() {
+    let _serialized = serialized();
+    let exit_code = core_setup::SetupFailureStage::InstallerStillRunning.exit_code();
+    let platform = FakePlatform(ElevatedProcessRun::Exited {
+      exit_code: Some(exit_code),
+    });
+
+    let result = run_with(&platform, ExternalComponent::Pawnio).unwrap();
+
+    assert_eq!(result.outcome, ExternalComponentSetupOutcome::Failed);
+    assert_eq!(
+      result.failure_stage,
+      Some(ExternalComponentSetupFailureStage::InstallerStillRunning)
+    );
+    assert!(
+      IN_FLIGHT
+        .lock()
+        .unwrap()
+        .contains(&ExternalComponent::Pawnio)
+    );
+    let retry = run_with(
+      &FakePlatform(ElevatedProcessRun::Exited { exit_code: Some(0) }),
+      ExternalComponent::Pawnio,
+    );
+    assert_eq!(
+      retry.unwrap_err(),
+      "External Component Setup for pawnio is already running"
+    );
+    IN_FLIGHT
+      .lock()
+      .unwrap()
+      .retain(|component| *component != ExternalComponent::Pawnio);
+  }
+
+  #[test]
+  fn an_ordinary_installer_failure_frees_the_component_for_a_retry() {
+    let _serialized = serialized();
+    let exit_code = core_setup::SetupFailureStage::InstallerExit.exit_code();
+    let platform = FakePlatform(ElevatedProcessRun::Exited {
+      exit_code: Some(exit_code),
+    });
+
+    let result = run_with(&platform, ExternalComponent::Pawnio).unwrap();
+
+    assert_eq!(
+      result.failure_stage,
+      Some(ExternalComponentSetupFailureStage::InstallerExit)
+    );
+    assert!(run_with(&platform, ExternalComponent::Pawnio).is_ok());
   }
 
   #[cfg(not(target_os = "windows"))]

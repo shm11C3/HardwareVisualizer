@@ -866,7 +866,7 @@
             "unsupportedPlatform": "Setup is not available on this platform.",
             "panicked": "The setup process stopped unexpectedly.",
             "installerTimedOut": "The runtime installer did not finish in time and was stopped.",
-            "installerStillRunning": "The runtime installer did not finish in time and may still be running. Wait for it to end or restart Windows before trying again.",
+            "installerStillRunning": "The runtime installer did not finish in time and may still be running. Restart the app before trying again.",
             "setupTimedOut": "Setup did not finish in time and was stopped.",
             "setupStillRunning": "Setup did not finish in time and may still be running. Restart the app before trying again.",
             "other": "Setup failed."

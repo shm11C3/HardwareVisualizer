@@ -181,7 +181,10 @@ installed and its fallbacks unchanged.
   `PROCESS_TERMINATE`) or the child has not ended within a short
   confirmation wait, the action reports `setupStillRunning`, keeps the guard
   held so no second installer can start beside the first, and tells the
-  user to restart the app before retrying.
+  user to restart the app before retrying. The guard is kept held in the
+  same way when the child exits with `24` (`installerStillRunning`), since
+  the installer it could not confirm stopped may still be running from the
+  abandoned staging directory.
 
   *Unprotected install folders (#2216).* The action elevates `current_exe()`
   through `ShellExecuteExW` with `runas`, like "restart as administrator" and
