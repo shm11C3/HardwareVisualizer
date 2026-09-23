@@ -177,6 +177,43 @@ describe("DatabaseConversionSettings", () => {
     expect(mockAcknowledgeCompletion).toHaveBeenCalledTimes(1);
   });
 
+  it("presents the completion as a one-time follow-up, not as the offer", () => {
+    mockState = { kind: "nativeAuthoritative" };
+    mockJustCompleted = true;
+    mockNoticeShown = false;
+
+    render(<DatabaseConversionSettings />);
+
+    expect(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.notice.heading",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.notice.footnote",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "pages.settings.insights.databaseConversion.description",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("pages.settings.insights.databaseConversion.complete"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disappears entirely once converted and the notice was already shown", () => {
+    mockState = { kind: "nativeAuthoritative" };
+    mockJustCompleted = false;
+    mockNoticeShown = true;
+
+    const { container } = render(<DatabaseConversionSettings />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("dismisses the notice for good once 'set to 1 year' is confirmed saved", async () => {
     mockState = { kind: "nativeAuthoritative" };
     mockJustCompleted = true;
@@ -229,12 +266,13 @@ describe("DatabaseConversionSettings", () => {
     mockJustCompleted = true;
     mockNoticeShown = true;
 
-    render(<DatabaseConversionSettings />);
+    const { container } = render(<DatabaseConversionSettings />);
 
     expect(
       screen.queryByText(
         "pages.settings.insights.databaseConversion.notice.title",
       ),
     ).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 });
