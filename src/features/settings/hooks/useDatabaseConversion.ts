@@ -7,6 +7,25 @@ const ACTIVE_POLL_INTERVAL_MS = 800;
 
 const initialState: DatabaseConversionState = { kind: "notSupported" };
 
+/** The first step the backend driver reports - `start()`'s own optimistic
+ * placeholder before a real progress read arrives. See `start()`. */
+const OPTIMISTIC_STARTING_STATE: DatabaseConversionState = {
+  kind: "converting",
+  step: "preflight",
+};
+
+/**
+ * Kinds `get_database_conversion_state` can still report for a moment
+ * after a successful `start_database_conversion` resolves: the backend's
+ * own point-in-time disk read that raced the driver's first progress
+ * write (a resume/retry can take tens of ms to open the finalized file
+ * and read its metadata before it does). `start()`'s own `refresh()` must
+ * not let one of these overwrite the optimistic `converting` state it
+ * just set - see `start()`.
+ */
+const isPreStartKind = (kind: DatabaseConversionState["kind"]) =>
+  kind === "sqliteAuthoritative" || kind === "conversionRecoverable";
+
 /**
  * Reads and drives the #2136 explicit database conversion flow.
  *
@@ -23,9 +42,21 @@ export const useDatabaseConversion = () => {
   const [error, setError] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
   const previousKindRef = useRef<DatabaseConversionState["kind"] | null>(null);
+  // True from a successful `start()` until `refresh()` observes a state
+  // that is not a stale pre-start read - see `isPreStartKind` and
+  // `start()`.
+  const startPendingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const next = await commands.getDatabaseConversionState();
+    if (startPendingRef.current && isPreStartKind(next.kind)) {
+      // Racing a just-issued Start: the backend has not written its first
+      // progress state yet. Keep showing the optimistic `converting` state
+      // `start()` already set rather than regressing the UI to what was
+      // true before Start was pressed - see #2245 and `start()`.
+      return;
+    }
+    startPendingRef.current = false;
     if (
       previousKindRef.current === "converting" &&
       next.kind === "nativeAuthoritative"
@@ -79,6 +110,15 @@ export const useDatabaseConversion = () => {
     // is a no-op if the conversion is still genuinely running, since
     // `refresh()` would set the same value anyway.
     previousKindRef.current = "converting";
+    // Set directly, rather than only relying on `refresh()` below to
+    // observe it: the command can resolve before the backend's own first
+    // progress write lands (a resume/retry's metadata read alone can take
+    // tens of ms), so `refresh()` right below can still read the pre-start
+    // state instead of `converting`. Setting it here is also what arms
+    // the polling effect immediately, so a lagging first read never
+    // leaves polling un-armed - see `isPreStartKind` and `refresh()`.
+    startPendingRef.current = true;
+    setState(OPTIMISTIC_STARTING_STATE);
     await refresh();
     return true;
   }, [refresh]);

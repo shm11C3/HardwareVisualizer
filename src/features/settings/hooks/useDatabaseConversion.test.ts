@@ -208,6 +208,52 @@ describe("useDatabaseConversion", () => {
     expect(result.current.justCompleted).toBe(true);
   });
 
+  it("start() ignores a stale pre-start read on its first refresh and keeps polling until a later state arrives", async () => {
+    (commands.getDatabaseConversionState as Mock)
+      .mockResolvedValueOnce({ kind: "sqliteAuthoritative" }) // initial mount
+      // The backend's own point-in-time disk read raced the driver's
+      // first progress write and still reports the pre-start state - the
+      // #2246 audit race this hook must not surface.
+      .mockResolvedValueOnce({ kind: "sqliteAuthoritative" })
+      .mockResolvedValueOnce({
+        kind: "converting",
+        step: "buildingCandidate",
+      })
+      .mockResolvedValue({ kind: "nativeAuthoritative" });
+    (commands.startDatabaseConversion as Mock).mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+
+    const { result } = renderHook(() => useDatabaseConversion());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.state).toEqual({ kind: "sqliteAuthoritative" });
+
+    await act(async () => {
+      await result.current.start();
+    });
+    // The stale read must not overwrite the optimistic `converting` state
+    // start() already set, and polling must stay armed so real progress is
+    // still observed once it lands.
+    expect(result.current.state.kind).toBe("converting");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(result.current.state).toEqual({
+      kind: "converting",
+      step: "buildingCandidate",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(result.current.state).toEqual({ kind: "nativeAuthoritative" });
+    expect(result.current.justCompleted).toBe(true);
+  });
+
   it("cancel() refreshes state after a successful call", async () => {
     (commands.getDatabaseConversionState as Mock)
       .mockResolvedValueOnce({ kind: "converting", step: "reconciling" })
