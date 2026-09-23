@@ -122,6 +122,37 @@ installed and its fallbacks unchanged.
   Elevated Startup Mode keeps its saved value and simply does not relaunch.
   Planting a DLL next to the executable is closed separately by linking with
   `/DEPENDENTLOADFLAG:0x800`, and #2215 recommends the MSI to NSIS users.
+
+  *Elevated relaunch handoff (#2216 follow-up).* "Restart as administrator"
+  and Elevated Startup Mode launch the elevated child before anything stops,
+  so a declined UAC prompt or a failed launch returns an error while every
+  worker keeps running, and the Settings toggle rolls back. The child is
+  launched with `--wait-for-parent <pid>:<creation-time>` added to the
+  current arguments, the parent's own process creation time making the id
+  verifiable. Before its Tauri runtime starts, the child opens that process
+  (`SYNCHRONIZE` and limited query), compares the creation time, and waits
+  for it to exit with no timeout: the open handle keeps the id from being
+  reused, and the parent still holds the single-instance lock and the
+  database until it has drained its workers, so a child that ran ahead would
+  exit as a second instance, leaving no app, or open the database beside the
+  parent's live owner. An id that no process holds, or one held by a process
+  with a different creation time, means the parent has already exited. If the
+  parent cannot be opened or verified for any other reason, or the wait
+  fails, the child prints the reason, says the app must be started again
+  manually, and exits with code `3` instead of starting. Once the launch has
+  succeeded, the parent stops its workers and exits as before. A plain
+  restart (Settings, or Reset and Restart) passes the same handoff, since
+  the restarted process has the same lock and database to wait for.
+
+  *Over-the-shoulder elevation.* When a standard user answers the UAC prompt
+  with another administrator's credentials, the elevated child runs as that
+  account, and the parent's default DACL refuses it `SYNCHRONIZE`. The child
+  then enables `SeDebugPrivilege`, which a full administrator token holds and
+  which opens any process regardless of its DACL, retries the open once, and
+  restores the privilege's previous state before waiting; the creation-time
+  check still decides whether the opened process is the parent. If the retry
+  still fails, the fail-closed exit above applies. That the child then runs
+  with the other account's profile (settings, app data) predates the handoff.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between

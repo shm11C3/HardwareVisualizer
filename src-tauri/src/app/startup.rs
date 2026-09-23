@@ -145,10 +145,12 @@ pub fn reset_database_and_restart(handle: &tauri::AppHandle) {
       return;
     }
   };
-  let args: Vec<String> = std::env::args().collect();
+  // The restarted process waits for this one to exit (`cli::restart_args`):
+  // this process still holds the single-instance lock, so a child that ran
+  // ahead would exit as a second instance and leave no app.
   #[allow(clippy::zombie_processes)]
   if let Err(e) = std::process::Command::new(exe_path)
-    .args(&args[1..])
+    .args(crate::cli::restart_args())
     .spawn()
   {
     show_error_dialog(handle, &format!("Failed to restart process: {e}"));

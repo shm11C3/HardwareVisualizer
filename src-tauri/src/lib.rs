@@ -485,18 +485,35 @@ pub fn export_bindings() {
   export_typescript_bindings(&builder);
 }
 
-/// Run a command-line mode when the process was started with one.
+/// A note from the elevated relaunch handoff, raised before the logger
+/// exists and logged by `run()` once it does.
+static HANDOFF_NOTE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Run a command-line mode when the process was started with one, and wait
+/// for the parent of an elevated relaunch to exit.
 ///
 /// Returns the exit code to terminate with, or `None` for a normal launch.
 /// Called before any Tauri runtime is created so the elevated setup child
-/// never competes with the running app for the single-instance lock.
+/// never competes with the running app for the single-instance lock, and so
+/// the elevated relaunch child takes that lock and opens the database only
+/// after the parent that launched it has released both. A child that cannot
+/// confirm the parent's exit terminates here instead of starting.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
-  match cli::parse_cli_mode(std::env::args()) {
-    Ok(Some(mode)) => Some(cli::run_cli_mode(mode)),
-    Ok(None) => None,
+  let args = match cli::parse_cli_args(std::env::args()) {
+    Ok(args) => args,
     Err(error) => {
       eprintln!("invalid command line: {error:?}");
-      Some(2)
+      return Some(2);
+    }
+  };
+  match cli::decide_launch(args, cli::wait_for_parent_exit) {
+    cli::Launch::Exit(exit_code) => Some(exit_code),
+    cli::Launch::App { note } => {
+      if let Some(note) = note {
+        eprintln!("{note}");
+        let _ = HANDOFF_NOTE.set(note);
+      }
+      None
     }
   }
 }
@@ -670,6 +687,10 @@ pub fn run() {
 
       // Initialize logger
       utils::logger::init(path_resolver.app_log_dir().unwrap());
+
+      if let Some(note) = HANDOFF_NOTE.get() {
+        log_info!(note, "lib::setup", None::<&str>);
+      }
 
       if elevated_startup_mode {
         match services::system_service::relaunch_for_elevated_startup_if_needed(app.handle())

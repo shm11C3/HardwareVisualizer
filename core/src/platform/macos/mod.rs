@@ -5,7 +5,8 @@ use crate::models::hardware::{
 use crate::platform::traits::{
   ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
   GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
-  ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
+  ProcessElevationPlatform, ProcessExitWait, ProcessIdentity, SensorPlatform,
+  SuperIoPlatform,
 };
 use async_trait::async_trait;
 use tokio::task;
@@ -122,7 +123,10 @@ impl ProcessElevationPlatform for MacOSPlatform {
     Ok(false)
   }
 
-  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
+  fn relaunch_current_process_elevated(
+    &self,
+    _args: &[String],
+  ) -> Result<(), PlatformError> {
     Err(PlatformError::unsupported(
       "Elevated Startup Mode is only supported on Windows.",
     ))
@@ -130,6 +134,21 @@ impl ProcessElevationPlatform for MacOSPlatform {
 
   fn elevation_availability(&self) -> ElevationAvailability {
     ElevationAvailability::Unsupported
+  }
+
+  fn current_process_identity(&self) -> Result<ProcessIdentity, PlatformError> {
+    Err(PlatformError::unsupported(
+      "Process identity is only supported on Windows.",
+    ))
+  }
+
+  fn wait_for_process_exit(
+    &self,
+    _identity: &ProcessIdentity,
+  ) -> Result<ProcessExitWait, PlatformError> {
+    Err(PlatformError::unsupported(
+      "Waiting for another process is only supported on Windows.",
+    ))
   }
 }
 
@@ -189,7 +208,7 @@ mod tests {
     let platform = MacOSPlatform::new().expect("MacOSPlatform::new never fails");
 
     assert!(matches!(
-      platform.relaunch_current_process_elevated(),
+      platform.relaunch_current_process_elevated(&[]),
       Err(PlatformError::Unsupported { .. })
     ));
     assert_eq!(platform.is_process_elevated(), Ok(false));
