@@ -257,6 +257,32 @@ impl NativeLifecycleOwner {
     *self.state.lock().unwrap() = state;
   }
 
+  /// Check `predicate` against the current state and, only if it holds,
+  /// replace it with `next` - both under the same lock acquisition, so no
+  /// concurrent [`Self::set_state`] (from a different in-flight attempt
+  /// reaching a terminal state, for example) can land between the check and
+  /// the write. Returns whether the transition happened.
+  ///
+  /// Exists for callers like
+  /// `ConversionRuntime::begin_attempt_marking_converting` that must decide
+  /// whether to start from the current state and, if so, mark it in one
+  /// indivisible step - reading [`Self::state`] and calling
+  /// [`Self::set_state`] separately would leave a window where a concurrent
+  /// write could be silently overwritten.
+  pub fn set_state_if(
+    &self,
+    predicate: impl FnOnce(&DatabaseLifecycleState) -> bool,
+    next: DatabaseLifecycleState,
+  ) -> bool {
+    let mut guard = self.state.lock().unwrap();
+    if predicate(&guard) {
+      *guard = next;
+      true
+    } else {
+      false
+    }
+  }
+
   // #2134 seam: the selected native database, once startup
   // (`inspect_startup_authority` resolving to
   // `DatabaseLifecycleState::NativeAuthoritative`) or a completed conversion
@@ -453,5 +479,45 @@ mod tests {
       paths.marker.is_file(),
       "the repair must have rewritten the marker"
     );
+  }
+
+  #[test]
+  fn set_state_if_writes_only_when_the_predicate_holds_for_the_current_state() {
+    let owner = NativeLifecycleOwner::new();
+
+    let refused = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::NativeAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    assert!(!refused);
+    assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
+
+    let applied = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    assert!(applied);
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight)
+    );
+  }
+
+  #[test]
+  fn set_state_if_evaluates_the_predicate_against_the_state_at_call_time_not_a_cached_read()
+   {
+    let owner = NativeLifecycleOwner::new();
+    // A state change between an earlier `state()` read and this call must
+    // still be what the predicate sees - this is the whole point of
+    // `set_state_if` over a separate read-then-write.
+    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+
+    let applied = owner.set_state_if(
+      |state| matches!(state, DatabaseLifecycleState::SqliteAuthoritative),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+
+    assert!(!applied);
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
   }
 }
