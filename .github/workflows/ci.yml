@@ -35,6 +35,7 @@ jobs:
       backend-deps-changed: ${{ steps.changes.outputs.backend-deps }}
       cargo-license-config-changed: ${{ steps.changes.outputs.cargo-license-config }}
       tauri-deps-changed: ${{ steps.tauri-deps.outputs.changed }}
+      windows-installer-changed: ${{ steps.changes.outputs.windows-installer }}
       actions-changed: ${{ steps.changes.outputs.actions }}
       unclassified-changed: ${{ steps.unclassified.outputs.unclassified }}
     steps:
@@ -111,6 +112,10 @@ jobs:
               - 'docs/licenses/manual/**'
               - '.github/scripts/check-duckdb-license-version.ts'
               - '.github/actions/setup-rust/**'
+              - '.github/workflows/ci.yml'
+            windows-installer:
+              - 'src-tauri/windows/**'
+              - 'src-tauri/tauri.conf.json'
               - '.github/workflows/ci.yml'
             actions:
               - '.github/workflows/**'
@@ -756,6 +761,71 @@ jobs:
         with:
           args: --no-bundle
 
+  # test-build never bundles, so installer fragments and hooks are only
+  # exercised here: when they change, and when a Tauri update may have
+  # changed the bundler templates they hook into (#2118).
+  test-windows-installer:
+    needs: change-detection
+    if: needs.change-detection.outputs.windows-installer-changed == 'true' || needs.change-detection.outputs.tauri-deps-changed == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Start CI telemetry
+        uses: ./.github/actions/ci-telemetry
+
+      - name: Cache WiX binary
+        background: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~\AppData\Local\tauri\WixTools
+          key: tauri-wix-314
+
+      - name: Setup Node.js
+        background: true
+        uses: ./.github/actions/setup-node
+
+      - name: Setup Rust
+        background: true
+        uses: ./.github/actions/setup-rust
+        with:
+          components: ""
+          cache-key: tauri-build
+
+      - name: Wait for toolchain setup
+        wait-all: true
+
+      - name: Cache sccache (R2)
+        if: env.R2_CACHE_ALLOWED == 'true'
+        uses: ./.github/actions/cache-sccache
+        with:
+          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
+          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # bundle.resources requires the notices file; its content is irrelevant here.
+      - name: Prepare THIRD_PARTY_NOTICES placeholder
+        shell: bash
+        run: |
+          mkdir -p tmp
+          printf '# Third-party notices placeholder for CI installer builds\n' > tmp/THIRD_PARTY_NOTICES.md
+
+      - name: Build MSI and NSIS installers
+        shell: bash
+        env:
+          CARGO_INCREMENTAL: "0"
+        run: npx tauri build --bundles msi,nsis -- --profile ci
+
+      - name: Check installer outputs
+        shell: pwsh
+        run: |
+          if (-not (Get-ChildItem target/ci/bundle/nsis/*-setup.exe)) { throw "No NSIS installer was produced" }
+          $msi = Get-ChildItem target/ci/bundle/msi/*.msi | Select-Object -First 1
+          if (-not $msi) { throw "No MSI was produced" }
+          ./src-tauri/windows/wix/check-external-component-setup.ps1 $msi.FullName
+
   #
   # Frontend checks
   #
@@ -1072,6 +1142,7 @@ jobs:
       - check-core-tauri-integration
       - check-tauri-bindings
       - test-build
+      - test-windows-installer
       - lint-frontend
       - check-frontend
       - test-e2e-web

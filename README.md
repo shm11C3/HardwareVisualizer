@@ -82,6 +82,14 @@ For checksum and provenance checks, see the
 3. Follow the installation wizard
 4. Launch **HardwareVisualizer** from Start Menu or Desktop shortcut
 
+The `.msi` installer offers to set up [PawnIO](https://pawnio.eu/), which enables CPU temperature and power and motherboard sensors. The option is selected by default and you can deselect it. When selected, the installer downloads the pinned PawnIO release, verifies it, and installs only what is missing. The option is available when HardwareVisualizer is installed under Program Files (the default location). PawnIO is not removed when you uninstall HardwareVisualizer. With the `.exe` installer, or at any later time, set it up from **Settings → Advanced**.
+
+Silent MSI installs do not set up PawnIO unless you opt in:
+
+```powershell
+msiexec /i HardwareVisualizer_x.x.x_x64_en-US_windows.msi /qn EXTERNAL_COMPONENT_PAWNIO=1
+```
+
 #### Using Winget
 
 You can also install using Windows Package Manager (Winget).
@@ -90,6 +98,8 @@ Run the following command in PowerShell or Command Prompt:
 ```powershell
 winget install shm11C3.HardwareVisualizer
 ```
+
+Winget installs do not set up PawnIO; use **Settings → Advanced** after installation.
 
 > [!NOTE]
 > No additional permissions required on Windows

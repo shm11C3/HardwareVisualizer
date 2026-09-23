@@ -19,15 +19,17 @@ later without a second design.
 
 ## Decision
 
-1. **Setup is an explicit user choice on every channel.** The Windows
-   installers will offer External Component Setup as a per-component option
-   that is selected by default in an interactive install and can be
-   deselected (planned in #2118). The Settings screen offers the same setup
-   at any later time (the first implemented entry point). A silent or
-   unattended install (`msiexec /qn`, NSIS `/S`, package managers) runs no
-   setup unless the caller passes the documented property or flag, because
-   nobody could see or decline the option. This keeps DP-03: an optional
-   component is never installed silently.
+1. **Setup is an explicit user choice on every channel.** The MSI installer
+   offers External Component Setup as a per-component option that is
+   selected by default in an interactive install and can be deselected
+   (#2118). The NSIS installer does not offer it, because its per-user
+   install location is writable by unelevated processes. The Settings screen
+   offers the same setup at any later time. A silent or unattended MSI
+   install (`msiexec /qn`, `/passive`) runs no setup unless the caller passes
+   the documented `EXTERNAL_COMPONENT_PAWNIO=1` property, because nobody
+   could see or decline the option. NSIS `/S` and package-manager installs
+   never run setup; those users start it from Settings. This keeps DP-03: an
+   optional component is never installed silently.
 2. **Artifacts are downloaded at setup time from the upstream release, pinned
    by version and SHA-256.** HardwareVisualizer does not redistribute the
    PawnIO runtime installer or the module blobs inside its own installers. The
@@ -41,8 +43,8 @@ later without a second design.
    location would let a same-user medium-integrity process redirect an
    elevated write or forge the result. The Settings action launches that
    mode elevated through the existing Windows elevation path and waits for
-   it; the planned installer custom action invokes the same mode from its
-   already elevated context. Core owns
+   it; the MSI custom action invokes the same mode from its already
+   elevated context. Core owns
    the plan, download, verification, and OS-level install steps behind the
    platform boundary; App owns the command-line dispatch, IPC, and UI.
 4. **Setup fills gaps and never removes.** The runtime installer runs only
