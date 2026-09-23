@@ -51,6 +51,10 @@ function fail(message) {
   errors.push(message);
 }
 
+// Repository-relative paths are built with path.posix on every host: they key
+// the override map, match the touched-path patterns, and appear in messages,
+// so a Windows checkout must not turn them into backslash paths. Only the
+// joins against root use the host separator.
 async function exists(relativePath) {
   if (Object.hasOwn(contentOverrides, relativePath)) {
     return true;
@@ -275,7 +279,7 @@ async function checkRules() {
   const parsedByFile = new Map();
 
   for (const file of files) {
-    const relativePath = path.join(directory, file);
+    const relativePath = path.posix.join(directory, file);
     const fields = frontmatter(
       await read(relativePath),
       relativePath,
@@ -357,9 +361,9 @@ async function checkSkills() {
     if (!entry.isDirectory()) {
       continue;
     }
-    const relativePath = path.join(directory, entry.name, "SKILL.md");
+    const relativePath = path.posix.join(directory, entry.name, "SKILL.md");
     if (!(await exists(relativePath))) {
-      fail(`${path.join(directory, entry.name)} is missing SKILL.md`);
+      fail(`${path.posix.join(directory, entry.name)} is missing SKILL.md`);
       continue;
     }
 
@@ -382,7 +386,11 @@ async function checkSkills() {
       fail(`${relativePath} is missing a description`);
     }
 
-    const metadataPath = path.join(directory, entry.name, "agents/openai.yaml");
+    const metadataPath = path.posix.join(
+      directory,
+      entry.name,
+      "agents/openai.yaml",
+    );
     if (await exists(metadataPath)) {
       metadataFiles.push(metadataPath);
       checkOpenAiYaml(await read(metadataPath), metadataPath);
@@ -397,12 +405,12 @@ async function checkLessons() {
   const files = (await readdir(path.join(root, directory)))
     .filter((file) => file.endsWith(".md") && file !== "README.md")
     .sort();
-  const index = await read(path.join(directory, "README.md"));
+  const index = await read(path.posix.join(directory, "README.md"));
   const ids = new Set();
   const records = [];
 
   for (const file of files) {
-    const relativePath = path.join(directory, file);
+    const relativePath = path.posix.join(directory, file);
     const fields = frontmatter(
       await read(relativePath),
       relativePath,
@@ -440,11 +448,11 @@ async function checkLessons() {
           );
           continue;
         }
-        const normalized = path.normalize(reference);
+        const normalized = path.posix.normalize(reference);
         if (
           path.isAbsolute(reference) ||
           normalized === ".." ||
-          normalized.startsWith(`..${path.sep}`) ||
+          normalized.startsWith("../") ||
           !(await exists(normalized))
         ) {
           fail(
@@ -473,17 +481,18 @@ async function checkAdrs() {
   const files = (await readdir(path.join(root, directory)))
     .filter((file) => /^\d{4}-.*\.md$/.test(file))
     .sort();
-  const index = await read(path.join(directory, "README.md"));
+  const index = await read(path.posix.join(directory, "README.md"));
   const allowed = new Set(["proposed", "accepted", "superseded"]);
 
   for (const file of files) {
-    const content = await read(path.join(directory, file));
+    const relativePath = path.posix.join(directory, file);
+    const content = await read(relativePath);
     const status = content.match(/^Status: ([a-z]+)$/m)?.[1];
     if (!status || !allowed.has(status)) {
-      fail(`${path.join(directory, file)} has missing or invalid ADR status`);
+      fail(`${relativePath} has missing or invalid ADR status`);
     }
     if (!index.includes(`(${file})`)) {
-      fail(`${path.join(directory, file)} is missing from docs/adr/README.md`);
+      fail(`${relativePath} is missing from docs/adr/README.md`);
     }
   }
 
@@ -753,8 +762,8 @@ async function checkLocalMarkdownLinks(relativePaths) {
       if (!targetWithoutAnchor) {
         continue;
       }
-      const resolved = path.normalize(
-        path.join(path.dirname(relativePath), targetWithoutAnchor),
+      const resolved = path.posix.normalize(
+        path.posix.join(path.posix.dirname(relativePath), targetWithoutAnchor),
       );
       if (!(await exists(resolved))) {
         fail(`${relativePath} has broken local link: ${rawTarget}`);
@@ -794,11 +803,11 @@ async function checkTouchedFiles(relativePaths) {
 
   const existingPaths = [];
   for (const candidate of new Set(relativePaths)) {
-    const normalized = path.normalize(candidate);
+    const normalized = path.posix.normalize(candidate);
     if (
       path.isAbsolute(candidate) ||
       normalized === ".." ||
-      normalized.startsWith(`..${path.sep}`)
+      normalized.startsWith("../")
     ) {
       fail(`Touched guidance path is outside the repository: ${candidate}`);
       continue;
@@ -922,9 +931,9 @@ async function main() {
     githubScriptsIndex,
     ...cleanRoomReferenceFiles,
     "docs/agents/lessons/README.md",
-    ...lessonFiles.map((file) => path.join("docs/agents/lessons", file)),
-    ...adrFiles.map((file) => path.join("docs/adr", file)),
-    ...ruleFiles.map((file) => path.join(".agents/rules", file)),
+    ...lessonFiles.map((file) => path.posix.join("docs/agents/lessons", file)),
+    ...adrFiles.map((file) => path.posix.join("docs/adr", file)),
+    ...ruleFiles.map((file) => path.posix.join(".agents/rules", file)),
     ...skillFiles,
     ...metadataFiles,
   ];
