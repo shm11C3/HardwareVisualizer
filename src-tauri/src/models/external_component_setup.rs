@@ -82,6 +82,10 @@ pub enum ExternalComponentSetupFailureStage {
   Incomplete,
   UnsupportedPlatform,
   Panicked,
+  InstallerTimedOut,
+  // App-only: the elevated setup process itself outlived the app's wait and
+  // reported nothing; the component may be partially set up.
+  SetupTimedOut,
   Other,
 }
 
@@ -172,6 +176,7 @@ impl From<core_setup::SetupFailureStage> for ExternalComponentSetupFailureStage 
       core_setup::SetupFailureStage::Incomplete => Self::Incomplete,
       core_setup::SetupFailureStage::UnsupportedPlatform => Self::UnsupportedPlatform,
       core_setup::SetupFailureStage::Panicked => Self::Panicked,
+      core_setup::SetupFailureStage::InstallerTimedOut => Self::InstallerTimedOut,
       core_setup::SetupFailureStage::Other => Self::Other,
     }
   }
@@ -214,6 +219,21 @@ impl ExternalComponentSetupResult {
       outcome: ExternalComponentSetupOutcome::Cancelled,
       failure_stage: None,
       detail: None,
+      status: status.into(),
+    }
+  }
+
+  /// The elevated setup process outlived the app's wait; it reported no exit
+  /// code, so the stage is the app's own and the detail says what the app did.
+  pub fn timed_out(
+    status: core_setup::ExternalComponentSetupStatus,
+    detail: impl Into<String>,
+  ) -> Self {
+    Self {
+      component: status.component.into(),
+      outcome: ExternalComponentSetupOutcome::Failed,
+      failure_stage: Some(ExternalComponentSetupFailureStage::SetupTimedOut),
+      detail: Some(detail.into()),
       status: status.into(),
     }
   }
@@ -322,6 +342,39 @@ mod tests {
       Some(ExternalComponentSetupFailureStage::VerifyRuntime)
     );
     assert_eq!(wire.detail.as_deref(), Some("digest mismatch"));
+  }
+
+  #[test]
+  fn installer_timeout_maps_to_its_own_wire_stage() {
+    let status = core_setup::ExternalComponentSetupStatus::unsupported_platform(plan());
+
+    let wire = ExternalComponentSetupResult::from_outcome(
+      core_setup::ExternalComponentSetupOutcome::failed(
+        core_setup::SetupFailureStage::InstallerTimedOut,
+        "terminated",
+      ),
+      status,
+    );
+
+    assert_eq!(wire.outcome, ExternalComponentSetupOutcome::Failed);
+    assert_eq!(
+      wire.failure_stage,
+      Some(ExternalComponentSetupFailureStage::InstallerTimedOut)
+    );
+  }
+
+  #[test]
+  fn timed_out_result_is_a_failure_at_the_setup_timeout_stage() {
+    let status = core_setup::ExternalComponentSetupStatus::unsupported_platform(plan());
+
+    let wire = ExternalComponentSetupResult::timed_out(status, "stopped after 20 min");
+
+    assert_eq!(wire.outcome, ExternalComponentSetupOutcome::Failed);
+    assert_eq!(
+      wire.failure_stage,
+      Some(ExternalComponentSetupFailureStage::SetupTimedOut)
+    );
+    assert_eq!(wire.detail.as_deref(), Some("stopped after 20 min"));
   }
 
   #[test]

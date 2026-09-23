@@ -865,6 +865,8 @@
             "incomplete": "Setup finished, but the component is still not complete.",
             "unsupportedPlatform": "Setup is not available on this platform.",
             "panicked": "The setup process stopped unexpectedly.",
+            "installerTimedOut": "The runtime installer did not finish in time and was stopped.",
+            "setupTimedOut": "Setup did not finish in time and was stopped.",
             "other": "Setup failed."
           },
           "restartDescription": "Restart HardwareVisualizer to start using the newly installed component.",

@@ -179,6 +179,10 @@ const FAILURE_STAGE_KEYS = {
     "pages.settings.advanced.externalComponentSetup.failureStage.unsupportedPlatform",
   panicked:
     "pages.settings.advanced.externalComponentSetup.failureStage.panicked",
+  installerTimedOut:
+    "pages.settings.advanced.externalComponentSetup.failureStage.installerTimedOut",
+  setupTimedOut:
+    "pages.settings.advanced.externalComponentSetup.failureStage.setupTimedOut",
   other: "pages.settings.advanced.externalComponentSetup.failureStage.other",
 } as const satisfies Record<ExternalComponentSetupFailureStage, string>;
 

@@ -106,6 +106,22 @@ pub fn run(component: ExternalComponent) -> Result<ExternalComponentSetupResult,
 
   Ok(match run {
     ElevatedProcessRun::Declined => ExternalComponentSetupResult::cancelled(after),
+    // The guard is released with this return, so the user can retry instead
+    // of waiting for an app restart.
+    ElevatedProcessRun::TimedOut => {
+      log_warn!(
+        format!(
+          "external component setup for {} did not finish in time and was stopped",
+          component_cli_id(component)
+        ),
+        "external_component_setup_service::run",
+        None::<&str>
+      );
+      ExternalComponentSetupResult::timed_out(
+        after,
+        "the setup process did not finish in time and was stopped",
+      )
+    }
     ElevatedProcessRun::Exited { exit_code } => {
       let outcome = core_setup::ExternalComponentSetupOutcome::from_exit_code(exit_code);
       if let core_setup::ExternalComponentSetupOutcome::Failed { stage, detail } =
