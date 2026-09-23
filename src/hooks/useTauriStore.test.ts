@@ -121,6 +121,21 @@ describe("useTauriStore", () => {
     expect(fakeStore.save).toHaveBeenCalled();
   });
 
+  it("Preserves a stored false instead of writing the default over it", async () => {
+    // Only a truly absent key may be initialized. A falsy stored value is a
+    // real value (e.g. window_decorated = false) and must not be replaced.
+    fakeStore.data["testKey"] = false;
+
+    const { result } = renderHook(() =>
+      useTauriStore<boolean>("testKey", true),
+    );
+    await waitFor(() => expect(result.current[2]).toBe(false));
+
+    expect(result.current[0]).toBe(false);
+    expect(fakeStore.set).not.toHaveBeenCalled();
+    expect(fakeStore.save).not.toHaveBeenCalled();
+  });
+
   it("Can handle undefined defaultValue", async () => {
     const { result } = renderHook(() =>
       useTauriStore<undefined>("testKey", undefined),

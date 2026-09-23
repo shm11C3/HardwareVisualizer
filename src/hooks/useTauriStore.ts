@@ -44,16 +44,14 @@ export const useTauriStore = <T>(
       try {
         const store = await getStoreInstance();
 
-        const storedValue = (await store.has(key))
-          ? await store.get<T>(key)
-          : null;
-
-        if (!storedValue) {
+        // Only a truly absent key is initialized. A stored false / 0 / "" is
+        // a real value and must not be replaced by the default.
+        if (await store.has(key)) {
+          resolvedValue = (await store.get<T>(key)) ?? defaultValue;
+        } else {
           await store.set(key, defaultValue);
           await store.save();
         }
-
-        resolvedValue = storedValue ?? defaultValue;
       } catch (error) {
         // A failed store read must still settle the hook. Consumers gate on
         // isPending, so staying pending would hide their UI for the session.
