@@ -329,13 +329,31 @@ fn read_close_to_tray_settings(app: &AppHandle) -> CloseToTraySettings {
 ///    are flushed before that close.
 /// 3. `app.exit(0)`.
 pub async fn request_quit(app: AppHandle) {
+  if let Err(error) = prepare_for_process_shutdown(&app).await {
+    log_warn!(
+      &format!("failed to prepare the app for process shutdown: {error}"),
+      "lifecycle::request_quit",
+      Some(error.clone())
+    );
+  }
+  app.exit(0);
+}
+
+/// Stop App workers and the native database owner before an updater handoff.
+///
+/// This shares the process-shutdown lifecycle order but leaves process exit to
+/// the updater, which starts the installer only after this returns `Ok(())`.
+pub async fn prepare_for_update_install(app: &AppHandle) -> Result<(), String> {
+  prepare_for_process_shutdown(app).await
+}
+
+async fn prepare_for_process_shutdown(app: &AppHandle) -> Result<(), String> {
   let ws = app.state::<WorkersState>();
   // The state-machine error here means another caller already moved
   // us to Stopped; the workers terminate guard handles double-call
   // safety, so we don't need to short-circuit on it.
   let _ = ws.monitoring_state.lock().unwrap().stop();
-  ws.terminate_all().await;
-  app.exit(0);
+  ws.terminate_all().await
 }
 
 #[cfg(test)]

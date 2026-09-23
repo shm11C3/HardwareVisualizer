@@ -16,8 +16,6 @@ pub mod app_updates {
   use std::future::Future;
   use std::sync::Mutex;
   use tauri;
-  #[cfg(target_os = "windows")]
-  use tauri::Manager;
   use tauri_plugin_updater::{Update, UpdaterExt};
 
   #[derive(Debug, Serialize, specta::Type)]
@@ -108,7 +106,7 @@ pub mod app_updates {
   #[tauri::command]
   #[specta::specta]
   pub async fn install_update(
-    _app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle,
     pending_update: tauri::State<'_, PendingUpdate>,
     on_event: tauri::ipc::Channel<DownloadEvent>,
   ) -> Result<(), UpdaterError> {
@@ -148,15 +146,14 @@ pub mod app_updates {
       )
       .await?;
 
-    // Windows exits the process as soon as the installer starts. Drain App
-    // workers only after the package has downloaded and verified, then wait
-    // for the native database owner to close before handing off to the installer.
+    // Windows exits the process as soon as the installer starts. Ask the App
+    // lifecycle owner to drain producers and close the native owner before handoff.
     let shutdown = async {
       #[cfg(target_os = "windows")]
-      _app_handle
-        .state::<crate::workers::WorkersState>()
-        .terminate_all()
-        .await;
+      crate::lifecycle::prepare_for_update_install(&app_handle)
+        .await
+        .map_err(UpdaterError::Updater)?;
+      Ok::<(), UpdaterError>(())
     };
     install_after_shutdown(shutdown, || {
       update.install(bytes).map_err(UpdaterError::from)
@@ -171,16 +168,16 @@ pub mod app_updates {
     install: Install,
   ) -> Result<(), UpdaterError>
   where
-    Shutdown: Future<Output = ()>,
+    Shutdown: Future<Output = Result<(), UpdaterError>>,
     Install: FnOnce() -> Result<(), UpdaterError>,
   {
-    shutdown.await;
+    shutdown.await?;
     install()
   }
 
   #[cfg(test)]
   mod install_tests {
-    use super::install_after_shutdown;
+    use super::{UpdaterError, install_after_shutdown};
     use tokio::sync::oneshot;
 
     #[tokio::test]
@@ -193,6 +190,7 @@ pub mod app_updates {
         async move {
           let _ = shutdown_started_tx.send(());
           let _ = finish_shutdown_rx.await;
+          Ok(())
         },
         move || {
           let _ = installer_handoff_tx.send(());
@@ -220,6 +218,25 @@ pub mod app_updates {
       installer_handoff_rx
         .await
         .expect("installer should run after shutdown completes");
+    }
+
+    #[tokio::test]
+    async fn refuses_installer_handoff_when_shutdown_fails() {
+      let mut installer_called = false;
+      let result = install_after_shutdown(
+        async { Err(UpdaterError::Updater("database close failed".into())) },
+        || {
+          installer_called = true;
+          Ok(())
+        },
+      )
+      .await;
+
+      assert!(matches!(
+        result,
+        Err(UpdaterError::Updater(message)) if message == "database close failed"
+      ));
+      assert!(!installer_called);
     }
   }
 }
