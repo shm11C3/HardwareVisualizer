@@ -125,6 +125,24 @@ export const DatabaseConversionSettings = () => {
               </summary>
               <p className="mt-2 whitespace-pre-wrap">{state.diagnostic}</p>
             </details>
+            {/* `start_database_conversion` re-inspects on-disk authority
+             * fresh rather than trusting this owner's own previous state
+             * (see `run_conversion`'s own documentation), so retrying is
+             * safe exactly for the two issues the driver itself produced
+             * by failing or being cancelled mid-run - not for an
+             * `Authority`/open/creation disagreement `inspect_authority`
+             * refused to guess at, which a retry would refuse the same
+             * way. */}
+            {(state.reason === "conversionFailed" ||
+              state.reason === "conversionCancelled") && (
+              <Button
+                type="button"
+                className="mt-2"
+                onClick={() => void start()}
+              >
+                {t("pages.settings.insights.databaseConversion.retry")}
+              </Button>
+            )}
           </div>
         )}
 

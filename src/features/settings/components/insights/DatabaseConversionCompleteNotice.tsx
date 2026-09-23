@@ -22,8 +22,17 @@ export const DatabaseConversionCompleteNotice = ({
   const retentionDays = settings.hardwareArchive.retentionDays;
 
   const setToOneYear = async () => {
-    await setHardwareArchiveRetentionDays(ONE_YEAR_RETENTION_DAYS);
-    onDismiss();
+    // Only dismiss - which the caller persists as "shown, never again" -
+    // once the save is confirmed. Dismissing on a failed save would lose
+    // the user's "set to one year" choice for good: the notice never
+    // reappears to offer it again, and `settings.json` keeps whatever
+    // value it already had.
+    const saved = await setHardwareArchiveRetentionDays(
+      ONE_YEAR_RETENTION_DAYS,
+    );
+    if (saved) {
+      onDismiss();
+    }
   };
 
   return (

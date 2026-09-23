@@ -37,39 +37,30 @@ export const useDatabaseConversion = () => {
     return next;
   }, []);
 
+  // Initial fetch, once per mount.
   useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const scheduleIfConverting = (current: DatabaseConversionState) => {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-      if (current.kind === "converting") {
-        timer = setInterval(() => {
-          void refresh().then((next) => {
-            if (!cancelled) {
-              scheduleIfConverting(next);
-            }
-          });
-        }, ACTIVE_POLL_INTERVAL_MS);
-      }
-    };
-
-    void refresh().then((next) => {
-      if (!cancelled) {
-        scheduleIfConverting(next);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      if (timer) {
-        clearInterval(timer);
-      }
-    };
+    void refresh();
   }, [refresh]);
+
+  // Poll while (and only while) a conversion is actually running. Keyed on
+  // `state.kind` rather than armed once at mount: `start()` and `cancel()`
+  // both change `state.kind` through the same `refresh()`/`setState` path
+  // this effect watches, so a transition either of them causes re-arms (or
+  // tears down) this interval exactly like the initial mount does. Arming
+  // polling only inside `start()` itself would miss a `converting` state
+  // this hook observes for any other reason (e.g. a second tab, or a
+  // conversion someone else already started), and would leave the UI
+  // stuck on the first observed step once `start()`'s own `refresh()`
+  // returns - see #2220's review discussion.
+  useEffect(() => {
+    if (state.kind !== "converting") {
+      return;
+    }
+    const timer = setInterval(() => {
+      void refresh();
+    }, ACTIVE_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [state.kind, refresh]);
 
   const start = useCallback(async () => {
     setError(null);

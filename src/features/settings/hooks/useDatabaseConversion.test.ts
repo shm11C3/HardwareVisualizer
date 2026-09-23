@@ -135,6 +135,52 @@ describe("useDatabaseConversion", () => {
     expect(result.current.error).toBe("boom");
   });
 
+  it("start() arms polling from a non-converting initial state, not just at mount", async () => {
+    (commands.getDatabaseConversionState as Mock)
+      .mockResolvedValueOnce({ kind: "sqliteAuthoritative" })
+      .mockResolvedValueOnce({ kind: "converting", step: "preflight" })
+      .mockResolvedValueOnce({
+        kind: "converting",
+        step: "buildingCandidate",
+      })
+      .mockResolvedValue({ kind: "nativeAuthoritative" });
+    (commands.startDatabaseConversion as Mock).mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+
+    const { result } = renderHook(() => useDatabaseConversion());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.state).toEqual({ kind: "sqliteAuthoritative" });
+
+    // start()'s own refresh() moves state to "converting" - this must, by
+    // itself, arm the polling interval rather than leaving the UI stuck on
+    // the first observed step.
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.state).toEqual({
+      kind: "converting",
+      step: "preflight",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(result.current.state).toEqual({
+      kind: "converting",
+      step: "buildingCandidate",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(result.current.state).toEqual({ kind: "nativeAuthoritative" });
+    expect(result.current.justCompleted).toBe(true);
+  });
+
   it("cancel() refreshes state after a successful call", async () => {
     (commands.getDatabaseConversionState as Mock)
       .mockResolvedValueOnce({ kind: "converting", step: "reconciling" })

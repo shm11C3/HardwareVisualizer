@@ -740,6 +740,7 @@
           "title": "Native Database",
           "description": "Switch the local database to a more efficient native format. This can be watched and cancelled, and your archive preferences and retention settings are preserved.",
           "convert": "Convert Now",
+          "retry": "Try Again",
           "converting": "Converting… {{step}}",
           "cancel": "Cancel",
           "complete": "The database has been converted to the native format.",

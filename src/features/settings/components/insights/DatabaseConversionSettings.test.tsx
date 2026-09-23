@@ -118,6 +118,37 @@ describe("DatabaseConversionSettings", () => {
     ).toBeInTheDocument();
   });
 
+  it.each(["conversionFailed", "conversionCancelled"] as const)(
+    "offers a retry action for %s, which re-invokes start()",
+    (reason) => {
+      mockState = {
+        kind: "actionRequired",
+        reason,
+        diagnostic: "detail",
+      };
+      render(<DatabaseConversionSettings />);
+
+      const retryButton = screen.getByText(
+        "pages.settings.insights.databaseConversion.retry",
+      );
+      fireEvent.click(retryButton);
+      expect(mockStart).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("does not offer a retry action for a non-retryable issue", () => {
+    mockState = {
+      kind: "actionRequired",
+      reason: "authorityDisagreement",
+      diagnostic: "detail",
+    };
+    render(<DatabaseConversionSettings />);
+
+    expect(
+      screen.queryByText("pages.settings.insights.databaseConversion.retry"),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows the one-time notice after a completed conversion and hides it once dismissed", async () => {
     mockState = { kind: "nativeAuthoritative" };
     mockJustCompleted = true;
@@ -140,6 +171,53 @@ describe("DatabaseConversionSettings", () => {
     });
     expect(mockSetNoticeShown).toHaveBeenCalledWith(true);
     expect(mockAcknowledgeCompletion).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses the notice for good once 'set to 1 year' is confirmed saved", async () => {
+    mockState = { kind: "nativeAuthoritative" };
+    mockJustCompleted = true;
+    mockNoticeShown = false;
+    mockSetHardwareArchiveRetentionDays.mockResolvedValue(true);
+
+    render(<DatabaseConversionSettings />);
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByText(
+          "pages.settings.insights.databaseConversion.notice.setToOneYear",
+        ),
+      );
+    });
+
+    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(365);
+    expect(mockSetNoticeShown).toHaveBeenCalledWith(true);
+    expect(mockAcknowledgeCompletion).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the notice showing when 'set to 1 year' fails to save, so the choice is not lost", async () => {
+    mockState = { kind: "nativeAuthoritative" };
+    mockJustCompleted = true;
+    mockNoticeShown = false;
+    mockSetHardwareArchiveRetentionDays.mockResolvedValue(false);
+
+    render(<DatabaseConversionSettings />);
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByText(
+          "pages.settings.insights.databaseConversion.notice.setToOneYear",
+        ),
+      );
+    });
+
+    expect(mockSetHardwareArchiveRetentionDays).toHaveBeenCalledWith(365);
+    expect(mockSetNoticeShown).not.toHaveBeenCalled();
+    expect(mockAcknowledgeCompletion).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "pages.settings.insights.databaseConversion.notice.title",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("never shows the notice again once it was already shown", () => {
