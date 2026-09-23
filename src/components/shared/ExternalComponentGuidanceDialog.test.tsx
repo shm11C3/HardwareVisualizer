@@ -185,6 +185,37 @@ describe("ExternalComponentGuidanceDialog", () => {
     expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("is pending again in the render that switches to a screen with guidance", async () => {
+    const onPendingChange = vi.fn();
+    const { rerender } = render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="usage"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+
+    let resolveCandidates: (value: unknown) => void = () => {};
+    mocks.getExternalComponentGuidanceCandidates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCandidates = resolve;
+      }),
+    );
+    rerender(
+      <ExternalComponentGuidanceDialog
+        displayTarget="dashboard"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    // Reported before the lookup even starts, not after an effect.
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+
+    await act(async () => {
+      resolveCandidates({ status: "ok", data: [] });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("is not pending on a screen without guidance", () => {
     const onPendingChange = vi.fn();
     render(

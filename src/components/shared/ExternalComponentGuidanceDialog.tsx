@@ -29,7 +29,10 @@ import {
 import { useTauriDialog } from "@/hooks/useTauriDialog";
 import { openURL } from "@/lib/openUrl";
 import { startVisiblePolling } from "@/lib/visiblePolling";
-import type { ExternalComponentGuidanceCandidate } from "@/rspc/bindings";
+import type {
+  ExternalComponentGuidanceCandidate,
+  ExternalComponentGuidanceView,
+} from "@/rspc/bindings";
 import { commands } from "@/rspc/bindings";
 import { isError } from "@/types/result";
 import type { SelectedDisplayType } from "@/types/ui";
@@ -64,28 +67,27 @@ export const ExternalComponentGuidanceDialog = ({
   >([]);
   const [isEnablingElevatedStartupMode, setIsEnablingElevatedStartupMode] =
     useState(false);
-  const [firstLoadPending, setFirstLoadPending] = useState(true);
+  // The view whose first candidate lookup has completed. Derived per render
+  // rather than a boolean flipped in the effect, so a screen change counts
+  // as pending in the very render it happens, before any effect runs.
+  const [loadedView, setLoadedView] =
+    useState<ExternalComponentGuidanceView | null>(null);
 
   const view = useMemo(
     () => externalComponentGuidanceViewForDisplayTarget(displayTarget),
     [displayTarget],
   );
   const screenKnown = displayTarget !== null;
+  const lookupPending =
+    !settingsLoaded || !screenKnown || (view !== null && loadedView !== view);
 
   useEffect(() => {
-    if (!settingsLoaded || !screenKnown) {
+    if (!settingsLoaded || !screenKnown || !view) {
       setCandidates([]);
-      setFirstLoadPending(true);
-      return;
-    }
-    if (!view) {
-      setCandidates([]);
-      setFirstLoadPending(false);
       return;
     }
 
     let isCancelled = false;
-    setFirstLoadPending(true);
 
     const loadCandidates = async () => {
       try {
@@ -107,7 +109,7 @@ export const ExternalComponentGuidanceDialog = ({
         console.error("Failed to fetch external component guidance:", err);
       } finally {
         if (!isCancelled) {
-          setFirstLoadPending(false);
+          setLoadedView(view);
         }
       }
     };
@@ -213,7 +215,7 @@ export const ExternalComponentGuidanceDialog = ({
   // A candidate that is ready but held back still counts as pending: it will
   // open the moment the blocker closes, so dialogs that yield to this one
   // must not take that same render.
-  const pending = firstLoadPending || (wouldOpen && deferred);
+  const pending = lookupPending || (wouldOpen && deferred);
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
