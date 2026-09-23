@@ -135,8 +135,10 @@ Most of a subtree's size was debuginfo, not code. `Cargo.toml` therefore sets
 library. Line tables keep file and line numbers in panics, backtraces and test
 failures; what goes away is the type and variable information a debugger uses
 to step through code, and nothing in this repository steps into DuckDB.
-Measured on 2026-09-23 on Windows, `cargo build -p hardviz-core --features
-duckdb-archive --tests`, same worktree, before and after:
+Measured on 2026-09-23 on Windows, `cargo build -p hardviz-core --tests`
+(`duckdb-archive` is a default feature, so no `--features` flag is needed;
+pass `--no-default-features` to measure the SQLite-only fallback instead),
+same worktree, before and after:
 
 | Artifact                          | `debug = true` | after     |
 | --------------------------------- | -------------- | --------- |

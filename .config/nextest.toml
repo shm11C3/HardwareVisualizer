@@ -7,8 +7,12 @@
 # `core/tests/` run in parallel; each test already writes into its own
 # `tempfile::tempdir()`.
 #
-# Local: `cargo nextest run -p hardviz-core --features duckdb-archive`
-# CI:    `cargo nextest run -p hardviz-core --features duckdb-archive --profile ci`
+# duckdb-archive is a default feature, so no --features flag is needed to
+# build and run the DuckDB integration tests. Use --no-default-features to
+# build the SQLite-only fallback (kept until ADR 0025 removes it in v2.0.0).
+#
+# Local: `cargo nextest run -p hardviz-core`
+# CI:    `cargo nextest run -p hardviz-core --profile ci`
 
 [profile.default]
 # The slowest DuckDB test (a cancelled 5e9-row scan) finishes well under a

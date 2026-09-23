@@ -111,7 +111,7 @@ through one dispatch boundary
 on disk, not a per-call flag, decides whether SQLite or the native database
 answers. App resolves paths and drives the App-owned native lifecycle:
 converting an existing SQLite archive is explicit and user-started (trigger
-in PR #2220, open), and a
+in PR #2220, merged), and a
 fresh install creates and selects a native database directly rather than
 starting on SQLite. Exactly one process-local owner may hold the native file
 open at a time; see [`docs/architecture/backend.md`](docs/architecture/backend.md)
