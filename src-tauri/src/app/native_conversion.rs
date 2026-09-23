@@ -949,11 +949,11 @@ pub async fn adopt_selected_database_via_dispatch(
   use hardviz_core::infrastructure::database::dispatch;
   use hardviz_core::infrastructure::database::native_database::AuthorityState;
 
-  if let Some(database) = owner.take_selected_database() {
-    if let Err(error) = database.close().await {
-      fail_open_and_refuse_dispatch(owner, &error).await;
-      return Err(error);
-    }
+  if let Some(database) = owner.take_selected_database()
+    && let Err(error) = database.close().await
+  {
+    fail_open_and_refuse_dispatch(owner, &error).await;
+    return Err(error);
   }
   match dispatch::reobserve_authority().await {
     Ok(AuthorityState::NativeSelected) => {
