@@ -147,3 +147,59 @@ pub mod app_updates {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests {
+  /// Keys `tauri-plugin-updater` reads. The plugin ignores unknown keys, so a
+  /// misspelled or Tauri v1 key silently falls back to the plugin default
+  /// (#2212). Update these lists when a plugin upgrade adds a key we use.
+  const UPDATER_KEYS: &[&str] = &[
+    "allowDowngrades",
+    "dangerousAcceptInvalidCerts",
+    "dangerousAcceptInvalidHostnames",
+    "dangerousInsecureTransportProtocol",
+    "endpoints",
+    "pubkey",
+    "requireSignedVersion",
+    "windows",
+  ];
+  const UPDATER_WINDOWS_KEYS: &[&str] = &["installMode", "installerArgs"];
+
+  fn updater_config() -> serde_json::Value {
+    let config: serde_json::Value =
+      serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
+    config["plugins"]["updater"].clone()
+  }
+
+  #[test]
+  fn updater_config_only_uses_keys_the_plugin_reads() {
+    let updater = updater_config();
+    for key in updater.as_object().expect("plugins.updater").keys() {
+      assert!(
+        UPDATER_KEYS.contains(&key.as_str()),
+        "plugins.updater.{key} is not read by tauri-plugin-updater"
+      );
+    }
+    for key in updater["windows"]
+      .as_object()
+      .expect("plugins.updater.windows")
+      .keys()
+    {
+      assert!(
+        UPDATER_WINDOWS_KEYS.contains(&key.as_str()),
+        "plugins.updater.windows.{key} is not read by tauri-plugin-updater"
+      );
+    }
+  }
+
+  /// Updates stay passive: the MSI runs without its UI sequence, so an update
+  /// never offers or runs External Component Setup (ADR 0024).
+  #[test]
+  fn updater_installs_windows_updates_in_passive_mode() {
+    let config: tauri_plugin_updater::Config =
+      serde_json::from_value(updater_config()).expect("plugin parses the config");
+    let windows = config.windows.expect("plugins.updater.windows");
+    assert_eq!(format!("{:?}", windows.install_mode), "Passive");
+    assert_eq!(updater_config()["windows"]["installMode"], "passive");
+  }
+}
