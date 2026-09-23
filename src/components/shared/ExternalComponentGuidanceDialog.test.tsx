@@ -161,11 +161,12 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
     expect(onPendingChange).toHaveBeenLastCalledWith(true);
 
-    // The candidate arrives while still deferred: known, but not shown.
+    // The candidate arrives while still deferred: not shown, and still
+    // reported pending, since it opens as soon as the blocker closes.
     await act(async () => {
       resolveCandidates({ status: "ok", data: [candidate()] });
     });
-    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
 
@@ -181,6 +182,7 @@ describe("ExternalComponentGuidanceDialog", () => {
       await screen.findByRole("button", { name: "Restart as administrator" }),
     ).toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
   it("is not pending on a screen without guidance", () => {

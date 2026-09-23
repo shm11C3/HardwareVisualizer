@@ -72,10 +72,6 @@ export const ExternalComponentGuidanceDialog = ({
   );
   const screenKnown = displayTarget !== null;
 
-  useLayoutEffect(() => {
-    onPendingChange?.(firstLoadPending);
-  }, [firstLoadPending, onPendingChange]);
-
   useEffect(() => {
     if (!settingsLoaded || !screenKnown) {
       setCandidates([]);
@@ -212,12 +208,20 @@ export const ExternalComponentGuidanceDialog = ({
     }
   };
 
-  const isOpen = Boolean(candidate && copyKey && actionKey) && !deferred;
+  const wouldOpen = Boolean(candidate && copyKey && actionKey);
+  const isOpen = wouldOpen && !deferred;
+  // A candidate that is ready but held back still counts as pending: it will
+  // open the moment the blocker closes, so dialogs that yield to this one
+  // must not take that same render.
+  const pending = firstLoadPending || (wouldOpen && deferred);
 
   // Before paint, so App defers other dialogs in the same frame.
   useLayoutEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
+  useLayoutEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   const handleEnableElevatedStartupMode = async () => {
     if (!candidate) return;
