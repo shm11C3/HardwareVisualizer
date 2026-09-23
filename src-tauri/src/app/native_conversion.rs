@@ -210,6 +210,44 @@ pub fn resume_producers(workers: &WorkersState, resumers: ProducerResumers) {
   }
 }
 
+/// Whether `state` is one `begin_attempt_marking_converting` starts a fresh
+/// attempt from.
+///
+/// - [`DatabaseLifecycleState::SqliteAuthoritative`] and
+///   [`DatabaseLifecycleState::ConversionRecoverable`]: the ordinary case -
+///   no attempt has produced a durable selection yet.
+/// - [`LifecycleIssue::ConversionFailed`] and
+///   [`LifecycleIssue::ConversionCancelled`]: SQLite is still authoritative
+///   (see [`fail`] and [`check_cancelled`]); the UI's "Try Again" restarts
+///   from here, resuming from whatever completed steps left on disk.
+/// - [`LifecycleIssue::NativeOpenFailed`]: the native database is already
+///   durably selected, but this process could not open it or hand it to
+///   dispatch (see [`open_selected_database`],
+///   [`adopt_selected_database_via_dispatch`]). A retry re-enters
+///   `run_conversion`, whose entry inspection reads the disk fresh, finds
+///   `NativeAuthoritative` there, and retries the open - it does not redo
+///   the conversion itself. Refusing this state instead would make "Try
+///   Again" a permanent no-op for the one issue it exists to recover from.
+///
+/// Every other state refuses: [`DatabaseLifecycleState::NativeAuthoritative`]
+/// and [`DatabaseLifecycleState::Converting`] because nothing needs
+/// starting or one already is, and every other [`LifecycleIssue`]
+/// (`Authority`, `FreshCreationFailed`) because those name a files-level
+/// disagreement or a fresh-profile failure a plain restart of this same
+/// flow cannot resolve.
+fn is_startable_state(state: &DatabaseLifecycleState) -> bool {
+  matches!(
+    state,
+    DatabaseLifecycleState::SqliteAuthoritative
+      | DatabaseLifecycleState::ConversionRecoverable { .. }
+      | DatabaseLifecycleState::ActionRequired(
+        LifecycleIssue::ConversionFailed { .. }
+          | LifecycleIssue::ConversionCancelled { .. }
+          | LifecycleIssue::NativeOpenFailed { .. }
+      )
+  )
+}
+
 /// What #2136's explicit-user-intent conversion command needs that only
 /// `lib::run`'s own setup closure otherwise holds: the `EventBus` every
 /// database producer subscribes to, and a per-attempt cancellation flag.
@@ -279,6 +317,68 @@ impl ConversionRuntime {
       .bus()
       .ok_or_else(|| "the database producer event bus is not ready yet".to_string())?;
     Ok(self.begin_attempt().map(|cancellation| (cancellation, bus)))
+  }
+
+  /// [`Self::begin_attempt_with_bus`], but also marks `owner` as
+  /// `Converting(Preflight)` synchronously, in the same call, before the
+  /// caller spawns the task that runs [`run_conversion`] - and only when
+  /// `owner`'s *current* state, read and written atomically (see
+  /// [`is_startable_state`] and [`NativeLifecycleOwner::set_state_if`]), is
+  /// one a start actually begins from.
+  ///
+  /// `commands::database_conversion::start_database_conversion` used to
+  /// leave `owner` at whatever it already reported until the spawned task's
+  /// own point-in-time disk inspection ran - work that can take tens of ms
+  /// (e.g. opening a finalized file to read its metadata on a
+  /// resume/retry). A caller that polled `get_database_conversion` in that
+  /// window read the pre-start state and could conclude nothing was
+  /// running. Marking `owner` here, before this call returns to the
+  /// command, closes that window: `run_conversion` itself is written not to
+  /// regress this value back to a pre-start read - see its own entry-point
+  /// documentation - so every path out of a successful claim already
+  /// reports `Converting` for as long as it takes to become true.
+  ///
+  /// Only [`is_startable_state`] transitions to `Converting(Preflight)` -
+  /// every other state (`NativeAuthoritative`, `Converting`, and every
+  /// `ActionRequired` reason that function does not list) is left exactly
+  /// as it is and this returns `Ok(None)` without claiming anything or
+  /// spawning a task. This is a regression fix: the two Settings and
+  /// startup-prompt UI surfaces keep independent hook state, so a stale
+  /// "Convert Now" control can still call this after another surface (or a
+  /// previous attempt) already reached `NativeAuthoritative`. Unconditionally
+  /// marking `Converting` there would erase that terminal state, make
+  /// `run_conversion`'s own already-selected guard miss (it only checks
+  /// `owner.selected_database().is_some() || state == NativeAuthoritative`),
+  /// and send the spawned task to re-inspect files while dispatch's own
+  /// `NativeDatabase` still holds the file open - refused on Windows,
+  /// unsafe to read concurrently elsewhere.
+  ///
+  /// The claim is taken first, then the state check-and-write happens under
+  /// one lock via `set_state_if` - not a separate `owner.state()` read
+  /// followed by a separate `owner.set_state(...)` write, which would leave
+  /// a window for a concurrent completion (a different in-flight attempt
+  /// reaching `NativeAuthoritative`, for example) to land in between and be
+  /// silently overwritten. If the state check refuses after the claim
+  /// already succeeded, the claim is released via [`Self::end_attempt`]
+  /// before returning `Ok(None)`, so a doomed request never strands the
+  /// in-progress flag for a real one behind it.
+  pub fn begin_attempt_marking_converting(
+    &self,
+    owner: &NativeLifecycleOwner,
+  ) -> Result<Option<(ConversionCancellation, hardviz_core::event_bus::EventBus)>, String>
+  {
+    let Some((cancellation, bus)) = self.begin_attempt_with_bus()? else {
+      return Ok(None);
+    };
+    let marked = owner.set_state_if(
+      is_startable_state,
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+    );
+    if !marked {
+      self.end_attempt();
+      return Ok(None);
+    }
+    Ok(Some((cancellation, bus)))
   }
 
   /// Release the claim [`Self::begin_attempt`] took, once `run_conversion`
@@ -524,10 +624,23 @@ pub async fn run_conversion(
     return Ok(ConversionOutcome::AlreadySelected);
   }
 
+  // Deliberately not `owner.set_state(entry.clone())` unconditionally here:
+  // `commands::database_conversion::start_database_conversion` may already
+  // have set `owner` to `Converting(Preflight)` synchronously, before this
+  // task even ran, so a subsequent caller polling `get_database_conversion`
+  // never reads a stale pre-start state - see that command's own
+  // documentation. Writing `entry` back here unconditionally would regress
+  // that optimistic state to whatever `entry` reports whenever it is
+  // `SqliteAuthoritative` or `ConversionRecoverable`, reopening the same
+  // invisible-conversion window a few lines below closes for good (this
+  // function sets `Converting(Preflight)` itself either way). Only the
+  // branches below that do not reach that line - `NativeAuthoritative` and
+  // `ActionRequired`, both terminal for this call - still record `entry`
+  // themselves.
   let entry = inspect_startup_authority(&paths, expected_schema_version);
-  owner.set_state(entry.clone());
   let resume_from_reconciliation = match entry {
     DatabaseLifecycleState::NativeAuthoritative => {
+      owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
       // Durably selected on disk, but the guard above already established
       // this process holds no open handle - either a fresh call after
       // another process's selection, or a retry after this same process's
@@ -560,6 +673,7 @@ pub async fn run_conversion(
       );
     }
     DatabaseLifecycleState::ActionRequired(_) => {
+      owner.set_state(entry);
       return Ok(ConversionOutcome::ActionRequired);
     }
     // `inspect_startup_authority` never returns this; it only ever reports a
@@ -1071,6 +1185,9 @@ fn check_cancelled(
 #[cfg(test)]
 mod conversion_runtime_tests {
   use super::ConversionRuntime;
+  use crate::app::native_lifecycle::{
+    ConversionProgress, DatabaseLifecycleState, LifecycleIssue, NativeLifecycleOwner,
+  };
 
   #[test]
   fn a_second_attempt_is_refused_while_one_is_in_progress() {
@@ -1159,6 +1276,259 @@ mod conversion_runtime_tests {
 
     assert!(runtime.begin_attempt_with_bus().unwrap().is_some());
     assert!(runtime.begin_attempt_with_bus().unwrap().is_none());
+  }
+
+  /// Regression for #2245: before
+  /// `begin_attempt_marking_converting` existed,
+  /// `commands::database_conversion::start_database_conversion` returned as
+  /// soon as it spawned the driver task, and the first `Converting` write
+  /// happened only inside that task, after its own point-in-time disk
+  /// inspection ran - work that can take tens of ms (e.g. opening a
+  /// finalized file to read its metadata on a resume/retry). A caller that
+  /// polled `get_database_conversion` in that window read whatever
+  /// pre-start state `owner` already had and could conclude nothing was
+  /// running. A successful claim must leave `owner` reporting `Converting`
+  /// synchronously, before this call returns - not later, once some task
+  /// eventually gets scheduled.
+  #[test]
+  fn a_successful_claim_marks_the_owner_converting_synchronously() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::SqliteAuthoritative,
+      "the fixture must start from the same pre-start state a real profile \
+       does, or this test would not exercise the race at all"
+    );
+
+    assert!(
+      runtime
+        .begin_attempt_marking_converting(&owner)
+        .unwrap()
+        .is_some()
+    );
+
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+      "the owner must already report Converting the instant a claim \
+       succeeds, before any task spawned around it has had a chance to run"
+    );
+  }
+
+  /// A refused claim (another attempt already in progress) must leave
+  /// `owner` exactly as it found it - it is not this call's place to
+  /// report anything when it is not the one that will drive the
+  /// conversion forward.
+  #[test]
+  fn a_refused_claim_does_not_touch_the_owner() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+
+    assert!(
+      runtime
+        .begin_attempt_marking_converting(&owner)
+        .unwrap()
+        .is_some()
+    );
+    // A second, independent owner stands in for what a second concurrent
+    // caller of the command would read: this call must not touch it.
+    let second_owner = NativeLifecycleOwner::new();
+    assert!(
+      runtime
+        .begin_attempt_marking_converting(&second_owner)
+        .unwrap()
+        .is_none()
+    );
+    assert_eq!(
+      second_owner.state(),
+      DatabaseLifecycleState::SqliteAuthoritative
+    );
+  }
+
+  /// A missing bus must leave `owner` untouched too - the same "claim and
+  /// mark must not be separate fallible steps" guarantee
+  /// `begin_attempt_with_bus` documents, extended to the state write this
+  /// method adds.
+  #[test]
+  fn a_missing_bus_does_not_mark_the_owner_converting() {
+    let runtime = ConversionRuntime::default();
+    let owner = NativeLifecycleOwner::new();
+
+    assert!(runtime.begin_attempt_marking_converting(&owner).is_err());
+    assert_eq!(owner.state(), DatabaseLifecycleState::SqliteAuthoritative);
+  }
+
+  /// Regression for a PR #2252 review finding: the Settings section and the
+  /// startup prompt keep independent hook state, so a stale "Convert Now"
+  /// control can still call `start_database_conversion` after a *different*
+  /// call already reached `NativeAuthoritative` (e.g. through a
+  /// `SelectionHandoff::ThroughDispatch` hand-off, which clears
+  /// `selected_database()` but keeps `state()` at `NativeAuthoritative` -
+  /// see `adopt_selected_database_via_dispatch`). Unconditionally marking
+  /// `Converting` there would erase that terminal state, make
+  /// `run_conversion`'s own already-selected guard miss, and send a task to
+  /// re-inspect files while dispatch's own `NativeDatabase` still holds the
+  /// file open.
+  #[test]
+  fn starting_after_a_dispatch_hand_off_leaves_native_authoritative_untouched_and_spawns_nothing()
+   {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    // Mirrors `adopt_selected_database_via_dispatch` after a successful
+    // hand-off: `state()` is `NativeAuthoritative` but `selected_database()`
+    // is empty, because dispatch (not `owner`) holds the open file.
+    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+    assert!(
+      claim.is_none(),
+      "nothing to start once the native database is already selected"
+    );
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
+    // The refusal must not have claimed the in-progress flag either - a
+    // later, legitimate start (e.g. after Reset) must still be able to.
+    assert!(
+      runtime.begin_attempt().is_some(),
+      "a refused claim above must not strand the in-progress flag"
+    );
+  }
+
+  /// And for an already-running `Converting` attempt observed through a
+  /// different owner instance (or a state a caller set directly): a second
+  /// Start must not reset its progress back to `Preflight`.
+  #[test]
+  fn starting_while_already_converting_leaves_its_progress_untouched() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    owner.set_state(DatabaseLifecycleState::Converting(
+      ConversionProgress::Reconciling,
+    ));
+
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+    assert!(claim.is_none());
+    assert_eq!(
+      owner.state(),
+      DatabaseLifecycleState::Converting(ConversionProgress::Reconciling)
+    );
+  }
+
+  /// Regression for a PR #2252 review finding: `ActionRequired(Authority(_)
+  /// | FreshCreationFailed)` names a files-level disagreement or a
+  /// fresh-profile failure a plain restart of this flow cannot resolve, so
+  /// a stale Start control must not paper over it with an optimistic
+  /// `Converting`.
+  #[test]
+  fn starting_while_a_files_level_action_required_leaves_it_untouched_and_spawns_nothing()
+  {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    let issue = LifecycleIssue::Authority(
+      hardviz_core::infrastructure::database::native_database::AuthorityInconsistency::MarkerUnreadable,
+    );
+    owner.set_state(DatabaseLifecycleState::ActionRequired(issue.clone()));
+
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+    assert!(claim.is_none());
+    assert_eq!(owner.state(), DatabaseLifecycleState::ActionRequired(issue));
+  }
+
+  #[test]
+  fn starting_while_fresh_creation_failed_leaves_it_untouched_and_spawns_nothing() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+    let issue = LifecycleIssue::FreshCreationFailed {
+      message: "test fixture".to_string(),
+    };
+    owner.set_state(DatabaseLifecycleState::ActionRequired(issue.clone()));
+
+    let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+    assert!(claim.is_none());
+    assert_eq!(owner.state(), DatabaseLifecycleState::ActionRequired(issue));
+  }
+
+  /// Regression for a second PR #2252 review finding: refusing every
+  /// `ActionRequired` made the UI's "Try Again" a permanent no-op after a
+  /// failed or cancelled conversion attempt, and broke the
+  /// `NativeOpenFailed` recovery path #2277 adds (that retry re-enters
+  /// `run_conversion`, which re-reads the already-durable disk selection and
+  /// retries the open - see `is_startable_state`'s own documentation). These
+  /// three reasons must still admit a fresh claim and mark `Converting`.
+  #[test]
+  fn starting_after_a_failed_cancelled_or_open_failed_attempt_is_admitted() {
+    let recoverable_issues = [
+      LifecycleIssue::ConversionFailed {
+        step: ConversionProgress::Reconciling,
+        message: "test fixture".to_string(),
+      },
+      LifecycleIssue::ConversionCancelled {
+        step: ConversionProgress::BuildingCandidate,
+      },
+      LifecycleIssue::NativeOpenFailed {
+        message: "test fixture".to_string(),
+      },
+    ];
+
+    for issue in recoverable_issues {
+      let runtime = ConversionRuntime::default();
+      runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+      let owner = NativeLifecycleOwner::new();
+      owner.set_state(DatabaseLifecycleState::ActionRequired(issue.clone()));
+
+      let claim = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+      assert!(claim.is_some(), "{issue:?} must be admitted");
+      assert_eq!(
+        owner.state(),
+        DatabaseLifecycleState::Converting(ConversionProgress::Preflight),
+        "{issue:?} must mark Converting(Preflight)"
+      );
+    }
+  }
+
+  /// Regression for a PR #2252 review finding on atomicity: the eligibility
+  /// check and the `Converting` write must happen as one operation under
+  /// the owner's own lock (see `set_state_if`), not a separate read
+  /// followed by a separate write - otherwise a concurrent completion
+  /// landing in between would be silently overwritten. This cannot force a
+  /// true multi-threaded interleaving deterministically, so it instead
+  /// proves the read is never stale: a state change made *after* the first
+  /// admission (simulating a different in-flight attempt reaching a
+  /// terminal state while this one was still marked `Converting`) must be
+  /// exactly what the next admission's check observes.
+  #[test]
+  fn a_state_change_between_two_admissions_is_observed_by_the_next_ones_check() {
+    let runtime = ConversionRuntime::default();
+    runtime.set_bus(hardviz_core::event_bus::EventBus::new());
+    let owner = NativeLifecycleOwner::new();
+
+    let first = runtime.begin_attempt_marking_converting(&owner).unwrap();
+    assert!(first.is_some());
+    // Simulates a concurrent completion: the in-flight attempt this claim
+    // was for finishes and reaches a terminal state, without this test
+    // going through the full driver.
+    runtime.end_attempt();
+    owner.set_state(DatabaseLifecycleState::NativeAuthoritative);
+
+    let second = runtime.begin_attempt_marking_converting(&owner).unwrap();
+
+    assert!(
+      second.is_none(),
+      "the second admission must see the state the first left behind, not \
+       one cached from before it ran"
+    );
+    assert_eq!(owner.state(), DatabaseLifecycleState::NativeAuthoritative);
   }
 }
 
