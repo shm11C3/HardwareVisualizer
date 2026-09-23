@@ -296,6 +296,8 @@ struct NativeDatabaseInner {
   invalidated: Arc<AtomicBool>,
   #[cfg(test)]
   inject_next_checkpoint_failure: AtomicBool,
+  #[cfg(test)]
+  inject_next_unhealthy_request: AtomicBool,
   joins: AsyncMutex<Option<(JoinHandle<()>, JoinHandle<()>)>>,
 }
 
@@ -382,6 +384,8 @@ impl NativeDatabase {
         invalidated: Arc::new(AtomicBool::new(false)),
         #[cfg(test)]
         inject_next_checkpoint_failure: AtomicBool::new(false),
+        #[cfg(test)]
+        inject_next_unhealthy_request: AtomicBool::new(false),
         joins: AsyncMutex::new(Some((read_join, write_join))),
       }),
     })
@@ -503,6 +507,14 @@ impl NativeDatabase {
       .store(true, Ordering::Release);
   }
 
+  #[cfg(test)]
+  pub(crate) fn inject_next_unhealthy_request(&self) {
+    self
+      .inner
+      .inject_next_unhealthy_request
+      .store(true, Ordering::Release);
+  }
+
   async fn request_on_lane<T, F>(
     &self,
     sender: &mpsc::Sender<LaneMessage>,
@@ -522,15 +534,26 @@ impl NativeDatabase {
     let (result_sender, result_receiver) = oneshot::channel();
     let request_cancellation = cancellation.clone();
     let invalidated = Arc::clone(&self.inner.invalidated);
+    #[cfg(test)]
+    let inject_unhealthy = self
+      .inner
+      .inject_next_unhealthy_request
+      .swap(false, Ordering::AcqRel);
     let operation = Box::new(move |context: &mut NativeConnectionContext<'_>| {
       let result = if invalidated.load(Ordering::Acquire) {
         Err(NativeDatabaseError::Invalidated)
       } else {
         context.check_cancelled().and_then(|_| operation(context))
       };
-      if result
-        .as_ref()
-        .is_err_and(|error| error.invalidates_database_instance())
+      #[cfg(test)]
+      if inject_unhealthy {
+        // Simulate `with_transaction` failing to roll back its transaction.
+        context.healthy = false;
+      }
+      if !context.healthy
+        || result
+          .as_ref()
+          .is_err_and(|error| error.invalidates_database_instance())
       {
         invalidated.store(true, Ordering::Release);
       }
