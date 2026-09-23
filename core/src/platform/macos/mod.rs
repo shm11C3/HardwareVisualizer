@@ -122,7 +122,10 @@ impl ProcessElevationPlatform for MacOSPlatform {
     Ok(false)
   }
 
-  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
+  fn relaunch_current_process_elevated(
+    &self,
+    _args: &[String],
+  ) -> Result<(), PlatformError> {
     Err(PlatformError::unsupported(
       "Elevated Startup Mode is only supported on Windows.",
     ))
@@ -189,7 +192,7 @@ mod tests {
     let platform = MacOSPlatform::new().expect("MacOSPlatform::new never fails");
 
     assert!(matches!(
-      platform.relaunch_current_process_elevated(),
+      platform.relaunch_current_process_elevated(&[]),
       Err(PlatformError::Unsupported { .. })
     ));
     assert_eq!(platform.is_process_elevated(), Ok(false));

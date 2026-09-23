@@ -341,7 +341,10 @@ mod tests {
       Ok(false)
     }
 
-    fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
+    fn relaunch_current_process_elevated(
+      &self,
+      _args: &[String],
+    ) -> Result<(), PlatformError> {
       Err(PlatformError::unsupported("fake"))
     }
 

@@ -172,8 +172,8 @@ pub fn is_process_elevated() -> Result<bool, PlatformError> {
   Ok(unsafe { IsUserAnAdmin().as_bool() })
 }
 
-pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
-  let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+pub fn relaunch_current_process_elevated(args: &[String]) -> Result<(), PlatformError> {
+  let args = args.iter().map(OsString::from).collect::<Vec<_>>();
   let launched = launch_current_executable_elevated(&args, "restart as administrator")?;
 
   match launched {
@@ -389,7 +389,7 @@ mod tests {
       super::elevation_availability(),
       crate::platform::traits::ElevationAvailability::UnprotectedLocation
     );
-    assert!(super::relaunch_current_process_elevated().is_err());
+    assert!(super::relaunch_current_process_elevated(&[]).is_err());
   }
 
   #[test]

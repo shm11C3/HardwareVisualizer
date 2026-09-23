@@ -100,8 +100,13 @@ pub trait ProcessElevationPlatform: Send + Sync {
   /// Returns whether the current process is running with elevated privileges.
   fn is_process_elevated(&self) -> Result<bool, PlatformError>;
 
-  /// Relaunch the current executable with elevated privileges.
-  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError>;
+  /// Launch the current executable elevated with `args` and return without
+  /// waiting for it. The caller owns the arguments, including any handoff
+  /// between itself and the new process.
+  fn relaunch_current_process_elevated(
+    &self,
+    args: &[String],
+  ) -> Result<(), PlatformError>;
 
   /// Whether the current executable may be launched elevated from where it
   /// is installed. The elevated launches refuse to run unless this is

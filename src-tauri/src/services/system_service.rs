@@ -82,7 +82,8 @@ fn elevation_unavailable_error(
 
 pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {
   let platform = PlatformFactory::shared()?;
-  platform.relaunch_current_process_elevated()
+  let args = std::env::args().skip(1).collect::<Vec<_>>();
+  platform.relaunch_current_process_elevated(&args)
 }
 
 #[cfg(test)]

@@ -100,7 +100,10 @@ impl ProcessElevationPlatform for LinuxPlatform {
     Ok(false)
   }
 
-  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
+  fn relaunch_current_process_elevated(
+    &self,
+    _args: &[String],
+  ) -> Result<(), PlatformError> {
     Err(PlatformError::unsupported(
       "Elevated Startup Mode is only supported on Windows.",
     ))

@@ -103,8 +103,11 @@ impl ProcessElevationPlatform for WindowsPlatform {
     process_elevation::is_process_elevated()
   }
 
-  fn relaunch_current_process_elevated(&self) -> Result<(), PlatformError> {
-    process_elevation::relaunch_current_process_elevated()
+  fn relaunch_current_process_elevated(
+    &self,
+    args: &[String],
+  ) -> Result<(), PlatformError> {
+    process_elevation::relaunch_current_process_elevated(args)
   }
 
   fn elevation_availability(&self) -> ElevationAvailability {
