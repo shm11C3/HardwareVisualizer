@@ -88,7 +88,14 @@ but it does not read registers or share code with the provider.
    (`INSTALLER_TIMEOUT`) is a hung one, typically a dialog raised despite
    `-silent` that nobody can answer in session 0 under the MSI custom
    action. It is terminated and reported as its own failure stage (`23`) so
-   the product install still reaches `InstallFinalize`.
+   the product install still reaches `InstallFinalize`. Termination is
+   confirmed by waiting on the process object for a short, bounded time
+   (`TERMINATION_CONFIRM_TIMEOUT`, thirty seconds); if it is refused or the
+   process has not ended by then, the stage is `24` and the staging
+   directory is left in place rather than removed under a process that may
+   still be executing from it. The abandoned directory keeps its
+   administrator-only DACL under `%SystemRoot%\Temp`, and its path is
+   logged so an administrator can remove it once the installer has ended.
 4. When at least one module file is missing, download the pinned modules zip,
    verify it, and place only the missing files into the install location
    resolved from the registry (fallback `%ProgramFiles%\PawnIO`). Each file
@@ -134,6 +141,7 @@ observe.
 | `21` | Unsupported platform |
 | `22` | The setup process panicked; the message went to its stderr only |
 | `23` | Runtime installer did not exit within its time limit (`INSTALLER_TIMEOUT`, five minutes) and was terminated; the runtime may be partially installed |
+| `24` | Runtime installer did not exit within its time limit and could not be confirmed terminated within `TERMINATION_CONFIRM_TIMEOUT`, so it may still be running; the staging directory was left in place for it |
 
 The caller maps an exit code it does not recognize, and a process that
 exited without one, to the generic failure (`1`).
@@ -164,10 +172,16 @@ installed and its fallbacks unchanged.
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
   an error. One run per component is allowed at a time. The wait is bounded
   at twenty minutes (`ELEVATED_RUN_TIMEOUT`), beyond the child's own worst
-  case of three five-minute limits (two downloads and the installer); a
-  child still running after that is terminated when the handle allows it,
-  and the action reports a retryable failure (`setupTimedOut`) instead of
-  holding the per-component guard until the app restarts.
+  case of three five-minute limits (two downloads and the installer). A
+  child still running after that is terminated, and the outcome depends on
+  whether the app can confirm it is gone: once the process object is
+  signaled the action reports a retryable failure (`setupTimedOut`) and
+  releases the per-component guard; when termination is refused (the handle
+  a medium-integrity parent holds for an elevated child may lack
+  `PROCESS_TERMINATE`) or the child has not ended within a short
+  confirmation wait, the action reports `setupStillRunning`, keeps the guard
+  held so no second installer can start beside the first, and tells the
+  user to restart the app before retrying.
 
   *Unprotected install folders (#2216).* The action elevates `current_exe()`
   through `ShellExecuteExW` with `runas`, like "restart as administrator" and

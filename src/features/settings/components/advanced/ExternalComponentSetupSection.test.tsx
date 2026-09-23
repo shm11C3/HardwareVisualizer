@@ -317,6 +317,30 @@ describe("ExternalComponentSetupSection", () => {
     expect(screen.getByRole("button", { name: "Install" })).toBeEnabled();
   });
 
+  it("tells the user to restart the app when a timed-out setup may still be running", async () => {
+    const user = userEvent.setup();
+    mocks.runExternalComponentSetup.mockResolvedValue({
+      status: "ok",
+      data: result({
+        outcome: "failed",
+        failureStage: "setupStillRunning",
+        detail:
+          "the setup process did not finish in time and may still be running; restart the app before trying again",
+        status: status(),
+      }),
+    });
+
+    render(<ExternalComponentSetupSection />);
+
+    await user.click(await screen.findByRole("button", { name: "Install" }));
+
+    await waitFor(() => {
+      expect(mocks.error).toHaveBeenCalledWith(
+        "Installation failed: Setup did not finish in time and may still be running. Restart the app before trying again. (the setup process did not finish in time and may still be running; restart the app before trying again)",
+      );
+    });
+  });
+
   it("surfaces a command error as a failure", async () => {
     const user = userEvent.setup();
     mocks.runExternalComponentSetup.mockResolvedValue({
