@@ -186,7 +186,17 @@ export const useSettingsAtom = () => {
     const previousValue = settings[key];
 
     setSettings((prev) => ({ ...prev, [key]: value }));
-    const result = await mapSettingUpdater[key](value);
+    let result: Result<null, string>;
+    try {
+      result = await mapSettingUpdater[key](value);
+    } catch (err) {
+      // A rejected IPC call never reached the backend, so the optimistic
+      // value must not stay on screen. The caller owns the user-facing
+      // message, so rethrow instead of showing the raw error here.
+      console.error(err);
+      setSettings((prev) => ({ ...prev, [key]: previousValue }));
+      throw err;
+    }
 
     if (isError(result)) {
       error(result.error);
@@ -304,6 +314,14 @@ export const useSettingsAtom = () => {
       }
 
       return true;
+    } catch (err) {
+      console.error(err);
+      setSettings((prev) => ({
+        ...prev,
+        navigationLayout: previousLayout,
+        uiAnnouncementVersion: previousAnnouncementVersion,
+      }));
+      throw err;
     } finally {
       navigationMutationInFlight = false;
       setNavigationMutationPending(false);
@@ -339,6 +357,13 @@ export const useSettingsAtom = () => {
       }
 
       return true;
+    } catch (err) {
+      console.error(err);
+      setSettings((prev) => ({
+        ...prev,
+        uiAnnouncementVersion: previousValue,
+      }));
+      throw err;
     } finally {
       navigationMutationInFlight = false;
       setNavigationMutationPending(false);
@@ -502,14 +527,47 @@ export const useSettingsAtom = () => {
 
     const shouldEnableTrayWidget = value && !previousTrayWidget.enabled;
 
-    if (shouldEnableTrayWidget) {
-      const nextTrayWidget = { ...previousTrayWidget, enabled: true };
-      const trayWidgetResult =
-        await commands.setTrayWidgetSettings(nextTrayWidget);
+    try {
+      if (shouldEnableTrayWidget) {
+        const nextTrayWidget = { ...previousTrayWidget, enabled: true };
+        const trayWidgetResult =
+          await commands.setTrayWidgetSettings(nextTrayWidget);
 
-      if (isError(trayWidgetResult)) {
-        error(trayWidgetResult.error);
-        console.error(trayWidgetResult.error);
+        if (isError(trayWidgetResult)) {
+          error(trayWidgetResult.error);
+          console.error(trayWidgetResult.error);
+          setSettings((prev) => ({
+            ...prev,
+            closeToTray: previousCloseToTray,
+            closeToTrayChoiceMade: previousChoiceMade,
+            trayWidget: previousTrayWidget,
+          }));
+          return false;
+        }
+      }
+
+      const result = await commands.setCloseToTrayPreference(value);
+
+      if (isError(result)) {
+        if (shouldEnableTrayWidget) {
+          const rollbackResult =
+            await commands.setTrayWidgetSettings(previousTrayWidget);
+
+          if (isError(rollbackResult)) {
+            await error(rollbackResult.error);
+            console.error(rollbackResult.error);
+            console.error(result.error);
+            setSettings((prev) => ({
+              ...prev,
+              closeToTray: previousCloseToTray,
+              closeToTrayChoiceMade: previousChoiceMade,
+            }));
+            return false;
+          }
+        }
+
+        await error(result.error);
+        console.error(result.error);
         setSettings((prev) => ({
           ...prev,
           closeToTray: previousCloseToTray,
@@ -518,40 +576,18 @@ export const useSettingsAtom = () => {
         }));
         return false;
       }
-    }
 
-    const result = await commands.setCloseToTrayPreference(value);
-
-    if (isError(result)) {
-      if (shouldEnableTrayWidget) {
-        const rollbackResult =
-          await commands.setTrayWidgetSettings(previousTrayWidget);
-
-        if (isError(rollbackResult)) {
-          await error(rollbackResult.error);
-          console.error(rollbackResult.error);
-          console.error(result.error);
-          setSettings((prev) => ({
-            ...prev,
-            closeToTray: previousCloseToTray,
-            closeToTrayChoiceMade: previousChoiceMade,
-          }));
-          return false;
-        }
-      }
-
-      await error(result.error);
-      console.error(result.error);
+      return true;
+    } catch (err) {
+      console.error(err);
       setSettings((prev) => ({
         ...prev,
         closeToTray: previousCloseToTray,
         closeToTrayChoiceMade: previousChoiceMade,
         trayWidget: previousTrayWidget,
       }));
-      return false;
+      throw err;
     }
-
-    return true;
   };
 
   const setTrayWidgetSettingsAtom = async (
@@ -560,7 +596,14 @@ export const useSettingsAtom = () => {
     const previousValue = settings.trayWidget;
 
     setSettings((prev) => ({ ...prev, trayWidget: value }));
-    const result = await commands.setTrayWidgetSettings(value);
+    let result: Result<null, string>;
+    try {
+      result = await commands.setTrayWidgetSettings(value);
+    } catch (err) {
+      console.error(err);
+      setSettings((prev) => ({ ...prev, trayWidget: previousValue }));
+      throw err;
+    }
 
     if (isError(result)) {
       error(result.error);

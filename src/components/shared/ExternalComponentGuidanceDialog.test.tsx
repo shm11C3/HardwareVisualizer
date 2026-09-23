@@ -114,9 +114,14 @@ describe("ExternalComponentGuidanceDialog", () => {
     expect(mocks.openURL).not.toHaveBeenCalled();
   });
 
-  it("shows the error dialog when enabling elevated startup mode throws", async () => {
+  it("shows the localized error dialog when the settings updater rethrows", async () => {
     const user = userEvent.setup();
+    // The atom restores its own value and rethrows a rejected command; the
+    // dialog owns the user-facing message.
     mocks.updateSettingAtom.mockRejectedValue(new Error("ipc failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     render(<ExternalComponentGuidanceDialog displayTarget="dashboard" />);
 
@@ -127,9 +132,14 @@ describe("ExternalComponentGuidanceDialog", () => {
     );
 
     await waitFor(() => expect(mocks.error).toHaveBeenCalledTimes(1));
+    expect(mocks.error).toHaveBeenCalledWith(
+      expect.stringMatching(/administrator/i),
+    );
+    expect(consoleError).toHaveBeenCalled();
     expect(
       screen.getByRole("button", { name: "Restart as administrator" }),
     ).toBeEnabled();
+    consoleError.mockRestore();
   });
 
   it("offers details instead of a restart when elevation is refused here", async () => {
