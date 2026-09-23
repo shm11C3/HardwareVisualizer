@@ -673,7 +673,7 @@ mod boundary {
       .await
       .expect("recovery should be waiting for the blocked lane to close");
       recovery.abort();
-      assert!(recovery.await.unwrap_err().is_cancelled());
+      assert!(matches!(recovery.await, Err(error) if error.is_cancelled()));
 
       assert!(matches!(
         resolve_backend_with(&active, Some(config.as_ref())).await,
