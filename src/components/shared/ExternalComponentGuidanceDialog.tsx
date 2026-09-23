@@ -46,6 +46,8 @@ type ExternalComponentGuidanceDialogProps = {
   /** Another startup AlertDialog is open; keep the candidate, wait to show. */
   deferred?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Whether it is still unknown if guidance will open for this screen. */
+  onPendingChange?: (pending: boolean) => void;
 };
 
 export const ExternalComponentGuidanceDialog = ({
@@ -53,6 +55,7 @@ export const ExternalComponentGuidanceDialog = ({
   settingsLoaded = true,
   deferred = false,
   onOpenChange,
+  onPendingChange,
 }: ExternalComponentGuidanceDialogProps) => {
   const { t, i18n } = useTranslation();
   const { error } = useTauriDialog();
@@ -61,19 +64,32 @@ export const ExternalComponentGuidanceDialog = ({
   >([]);
   const [isEnablingElevatedStartupMode, setIsEnablingElevatedStartupMode] =
     useState(false);
+  const [firstLoadPending, setFirstLoadPending] = useState(true);
 
   const view = useMemo(
     () => externalComponentGuidanceViewForDisplayTarget(displayTarget),
     [displayTarget],
   );
+  const screenKnown = displayTarget !== null;
+
+  useLayoutEffect(() => {
+    onPendingChange?.(firstLoadPending);
+  }, [firstLoadPending, onPendingChange]);
 
   useEffect(() => {
-    if (!settingsLoaded || !view) {
+    if (!settingsLoaded || !screenKnown) {
       setCandidates([]);
+      setFirstLoadPending(true);
+      return;
+    }
+    if (!view) {
+      setCandidates([]);
+      setFirstLoadPending(false);
       return;
     }
 
     let isCancelled = false;
+    setFirstLoadPending(true);
 
     const loadCandidates = async () => {
       try {
@@ -93,6 +109,10 @@ export const ExternalComponentGuidanceDialog = ({
       } catch (err) {
         if (isCancelled) return;
         console.error("Failed to fetch external component guidance:", err);
+      } finally {
+        if (!isCancelled) {
+          setFirstLoadPending(false);
+        }
       }
     };
 
@@ -104,7 +124,7 @@ export const ExternalComponentGuidanceDialog = ({
       isCancelled = true;
       stopPolling();
     };
-  }, [settingsLoaded, view]);
+  }, [settingsLoaded, screenKnown, view]);
 
   const candidate = candidates[0] ?? null;
   const copyKey = candidate

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/lib/i18n";
@@ -144,17 +144,28 @@ describe("ExternalComponentGuidanceDialog", () => {
 
   it("waits while another startup dialog is open and shows after it closes", async () => {
     const onOpenChange = vi.fn();
+    const onPendingChange = vi.fn();
+    let resolveCandidates: (value: unknown) => void = () => {};
+    mocks.getExternalComponentGuidanceCandidates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCandidates = resolve;
+      }),
+    );
     const { rerender } = render(
       <ExternalComponentGuidanceDialog
         displayTarget="dashboard"
         deferred
         onOpenChange={onOpenChange}
+        onPendingChange={onPendingChange}
       />,
     );
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
 
-    await waitFor(() =>
-      expect(mocks.getExternalComponentGuidanceCandidates).toHaveBeenCalled(),
-    );
+    // The candidate arrives while still deferred: known, but not shown.
+    await act(async () => {
+      resolveCandidates({ status: "ok", data: [candidate()] });
+    });
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
 
@@ -163,12 +174,24 @@ describe("ExternalComponentGuidanceDialog", () => {
         displayTarget="dashboard"
         deferred={false}
         onOpenChange={onOpenChange}
+        onPendingChange={onPendingChange}
       />,
     );
     expect(
       await screen.findByRole("button", { name: "Restart as administrator" }),
     ).toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("is not pending on a screen without guidance", () => {
+    const onPendingChange = vi.fn();
+    render(
+      <ExternalComponentGuidanceDialog
+        displayTarget="usage"
+        onPendingChange={onPendingChange}
+      />,
+    );
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
   });
 
   it("keeps the details action for permission guidance outside Windows", async () => {
