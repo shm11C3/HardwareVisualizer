@@ -13,12 +13,18 @@ const mocks = vi.hoisted(() => ({
   storeValue: null as string | null,
   setStored: vi.fn(),
   isPending: false,
+  loadFailed: false,
   gpus: null as { id: string; name: string }[] | null,
   init: vi.fn(),
 }));
 
 vi.mock("@/hooks/useTauriStore", () => ({
-  useTauriStore: () => [mocks.storeValue, mocks.setStored, mocks.isPending],
+  useTauriStore: () => [
+    mocks.storeValue,
+    mocks.setStored,
+    mocks.isPending,
+    mocks.loadFailed,
+  ],
 }));
 
 vi.mock("@/features/hardware/hooks/useHardwareInfoAtom", () => ({
@@ -47,9 +53,24 @@ describe("useSelectedGpuPersistence", () => {
   beforeEach(() => {
     mocks.storeValue = null;
     mocks.isPending = false;
+    mocks.loadFailed = false;
     mocks.setStored.mockClear();
     mocks.gpus = null;
     mocks.init.mockClear();
+  });
+
+  it("does not persist the auto-selected GPU when hydration failed", () => {
+    // A failed store read settles to the null default, which looks exactly
+    // like "nothing stored". Persisting the listener's auto-selection from
+    // there would replace the user's stored id with a fallback for good.
+    mocks.storeValue = null;
+    mocks.loadFailed = true;
+
+    const { result } = renderHook(() => useHarness(), { wrapper });
+    act(() => result.current.setSelected(asLiveGpuId("nvapi:auto")));
+
+    expect(result.current.selected).toBe("nvapi:auto");
+    expect(mocks.setStored).not.toHaveBeenCalled();
   });
 
   it("restores the persisted GPU selection on mount", () => {

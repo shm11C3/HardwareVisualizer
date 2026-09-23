@@ -33,10 +33,9 @@ export const useSelectedGpuPersistence = () => {
   // Stored as a plain string on disk. Minted as intent on restore: shipped
   // versions wrote inventory ids into this key, which is exactly what the
   // migration effect below translates once the stream names the adapter.
-  const [storedId, setStoredId, isPending] = useTauriStore<string | null>(
-    STORE_KEY,
-    null,
-  );
+  const [storedId, setStoredId, isPending, loadFailed] = useTauriStore<
+    string | null
+  >(STORE_KEY, null);
   const [selectedGpuId, setSelectedGpuId] = useAtom(selectedGpuIdAtom);
   // State, not a ref: a ref flipped inside the hydration effect is already
   // true when the write-back effect runs later in the *same* commit, where
@@ -58,10 +57,14 @@ export const useSelectedGpuPersistence = () => {
   }, [isPending, hydrated, storedId, setSelectedGpuId]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    // A failed read settles `storedId` to null without knowing what is on
+    // disk. Writing the auto-selected adapter back from there would replace
+    // the stored intent with a fallback for good, so the write-back stays
+    // off for the session (DP-06).
+    if (!hydrated || loadFailed) return;
     if (selectedGpuId === storedId) return;
     setStoredId(selectedGpuId);
-  }, [hydrated, selectedGpuId, storedId, setStoredId]);
+  }, [hydrated, loadFailed, selectedGpuId, storedId, setStoredId]);
 
   // Selections written before this hook existed — and any made in the classic
   // card before the first sample — are inventory ids, which address no
