@@ -9,10 +9,12 @@ pub async fn restart_app(app_handle: &tauri::AppHandle) {
   // Get current executable file path
   let exe_path = std::env::current_exe().expect("Failed to obtain executable file path");
 
-  // Spawn new process
+  // Spawn new process. It waits for this one to exit (`cli::restart_args`)
+  // so it neither opens the database beside this process's live owner nor
+  // exits as a second instance while this process is still draining.
   #[allow(clippy::zombie_processes)]
   std::process::Command::new(exe_path)
-    .args(cli::relaunch_args())
+    .args(cli::restart_args())
     .spawn()
     .expect("Failed to restart process");
 

@@ -158,6 +158,27 @@ pub fn elevated_handoff_args(this_process: &ProcessIdentity) -> Vec<String> {
   with_wait_for_parent(relaunch_args(), this_process)
 }
 
+/// The arguments for a same-privilege restart of this process. The restarted
+/// process has the same reasons to wait as the elevated child (this process
+/// still holds the single-instance lock and the database while it drains),
+/// so it gets the same handoff wherever the platform can name this process.
+/// Where it cannot, the restart proceeds without one, as it always has.
+pub fn restart_args() -> Vec<String> {
+  let this_process =
+    PlatformFactory::shared().and_then(|platform| platform.current_process_identity());
+  restart_args_from(relaunch_args(), this_process)
+}
+
+fn restart_args_from(
+  args: Vec<String>,
+  this_process: Result<ProcessIdentity, PlatformError>,
+) -> Vec<String> {
+  match this_process {
+    Ok(this_process) => with_wait_for_parent(args, &this_process),
+    Err(_) => args,
+  }
+}
+
 /// Decide what the process does after its command line was parsed, waiting
 /// for the parent of an elevated relaunch through `wait`. The wait cannot
 /// be bounded by a timeout: a parent that is still running still owns the
@@ -481,6 +502,24 @@ mod tests {
     assert_eq!(
       without_wait_for_parent(vec!["--wait-for-parent".to_string()]),
       Vec::<String>::new()
+    );
+  }
+
+  #[test]
+  fn a_restart_waits_for_this_process_only_where_it_can_be_named() {
+    let args = vec!["--some-tauri-flag".to_string()];
+
+    assert_eq!(
+      restart_args_from(args.clone(), Ok(PARENT)),
+      vec![
+        "--some-tauri-flag".to_string(),
+        "--wait-for-parent".to_string(),
+        "4242:133800000000000000".to_string(),
+      ]
+    );
+    assert_eq!(
+      restart_args_from(args.clone(), Err(PlatformError::unsupported("no identity"))),
+      args
     );
   }
 
