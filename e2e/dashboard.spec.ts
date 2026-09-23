@@ -88,6 +88,9 @@ test.describe("dashboard captures", () => {
     context,
     page: firstPage,
   }) => {
+    // Boots the app three times, which can exceed the default timeout when
+    // the other captures run in parallel.
+    test.slow();
     const path = "/?navigationLayout=classic&nsisMigrationNotice=1";
     const noticeOn = (page: Page) =>
       page.getByRole("alertdialog", { name: "Switch to the MSI installer" });
