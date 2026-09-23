@@ -796,7 +796,7 @@
           "actionRequired": {
             "default": "The database needs attention before the conversion can continue. Your existing data is unaffected.",
             "authorityDisagreement": "HardwareVisualizer found the database files in an unexpected state and stopped rather than guess. Your existing data is unaffected.",
-            "nativeMetadataUnreadable": "HardwareVisualizer could not read the native database. Close any other app that may be using it and check that temporary storage is available, then try again. Your database files have not been changed.",
+            "nativeMetadataUnreadable": "HardwareVisualizer could not read the native database. Close any other app that may be using it and check that temporary storage is available, then try again. HardwareVisualizer did not change either database file during this attempt.",
             "nativeOpenFailed": "The converted database could not be opened. Your existing data is unaffected.",
             "freshCreationFailed": "The native database could not be created. Your existing data is unaffected.",
             "conversionFailed": "The conversion failed. Your existing data is unaffected and you can try again.",
