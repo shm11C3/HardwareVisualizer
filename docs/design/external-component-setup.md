@@ -109,6 +109,19 @@ installed and its fallbacks unchanged.
   refreshes the state, and shows the restart prompt on success. If the user
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
   an error. One run per component is allowed at a time.
+
+  *Known weakness (open, #2216).* The action elevates `current_exe()` through
+  `ShellExecuteExW` with `runas`, like "restart as administrator" and Elevated
+  Startup Mode. When the executable's directory is writable without
+  elevation (the NSIS per-user install, or an MSI installed outside Program
+  Files), a same-user process can replace the executable before the prompt.
+  It can also plant a DLL next to it: imports such as `dwmapi.dll` and
+  `pdh.dll` are not KnownDLLs, so the application directory is searched
+  first. The genuine signed executable then loads the planted DLL elevated,
+  and the UAC prompt shows the verified publisher, so the prompt is not a
+  defence. #2216 tracks refusing elevation from unprotected locations and
+  linking with `/DEPENDENTLOADFLAG`; #2215 tracks recommending the MSI to
+  NSIS users.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between
