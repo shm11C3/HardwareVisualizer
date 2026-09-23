@@ -55,6 +55,20 @@ declare global {
         intervalMs?: number;
       }) => Promise<void>;
       stopHardwareUpdateStream: () => Promise<{ emittedCount: number }>;
+      /**
+       * Deterministically finish the #2136 database conversion mock: sets
+       * `get_database_conversion_state`'s answer to `nativeAuthoritative`
+       * immediately, regardless of scenario. Explicit rather than a timer
+       * so a test that needs the whole Convert-now -> converting ->
+       * completed flow controls exactly when the transition happens,
+       * instead of racing it against however many
+       * `useDatabaseConversion` instances happen to be polling this same
+       * mock at once (the Settings section's and the always-mounted
+       * app-root prompt dialog's) and however long page navigation itself
+       * takes under load - both of which a fixed wall-clock deadline
+       * proved flaky against under parallel test execution.
+       */
+      completeDatabaseConversion: () => Promise<void>;
     };
   }
 }
@@ -105,28 +119,40 @@ type FixtureOverrides = {
    * Unset is the default everywhere else, which is exactly the machine
    * that must render as it did before #2046. */
   coolingAmbientOverride: CoolingAmbientOverride;
-  /** `?databaseConversion=sqliteAuthoritative|converting|actionRequired|justCompleted`
+  /** `?databaseConversion=sqliteAuthoritative|converting|actionRequired`
    * selects the #2136 native database conversion lifecycle state the
-   * Settings screen's `DatabaseConversionSettings` section starts from.
-   * Unset (the default, matching a production build with the
-   * `duckdb-archive` feature off) reports `notSupported`, which hides the
-   * section entirely. */
+   * Settings screen's `DatabaseConversionSettings` section (and the
+   * app-root prompt dialog) starts from. Unset (the default, matching a
+   * production build with the `duckdb-archive` feature off) reports
+   * `notSupported`, which hides both entirely. Reaching
+   * `nativeAuthoritative` from any of these is driven explicitly by
+   * `window.__E2E__.completeDatabaseConversion()` (see below), not by a
+   * timer - see that helper's own documentation for why. */
   databaseConversionScenario: DatabaseConversionScenario;
+  /** `?insightsRecording=disabled` flips the mocked `get_settings`
+   * response's `hardwareArchive.enabled` to `false`, so the #2136 app-root
+   * prompt dialog's eligibility gate (conversion supported AND
+   * sqliteAuthoritative/conversionRecoverable AND Insights recording
+   * enabled AND not dismissed) can be exercised with recording off.
+   * Unset (the default) matches the fixture's own `enabled: true`. */
+  insightsRecordingDisabled: boolean;
+  /** `?databaseConversionPromptDismissed=1` seeds the mocked Tauri Store
+   * with the #2136 prompt dialog's own "dismissed" flag already set, so a
+   * capture or test that only cares about the Settings entry point (not
+   * the app-root dialog) doesn't also see the dialog auto-open over the
+   * same `sqliteAuthoritative` scenario. */
+  databaseConversionPromptDismissed: boolean;
 };
 type CoolingAmbientOverride = "present" | "only" | null;
 /** See `FixtureOverrides.databaseConversionScenario`. `"converting"` and
- * `"actionRequired"` are fixed, non-progressing states for a capture of
- * that state alone. `"sqliteAuthoritative"` progresses to `converting`
- * once `start_database_conversion` is invoked, matching a Convert click.
- * `"justCompleted"` starts `converting` and switches to
- * `nativeAuthoritative` from the second poll onward, so the hook's
- * converting-to-native transition fires and the one-time completion
- * notice renders. */
+ * `"actionRequired"` are fixed states, unless and until a test calls
+ * `window.__E2E__.completeDatabaseConversion()`. `"sqliteAuthoritative"`
+ * progresses to `converting` once `start_database_conversion` is invoked,
+ * matching a Convert click. */
 type DatabaseConversionScenario =
   | "sqliteAuthoritative"
   | "converting"
   | "actionRequired"
-  | "justCompleted"
   | null;
 type CoolingObservationOverride =
   | "notComparable"
@@ -200,6 +226,13 @@ const readFixtureOverrides = (): FixtureOverrides => {
     ),
     coolingAmbientOverride: readCoolingAmbientOverride(),
     databaseConversionScenario: readDatabaseConversionScenario(),
+    insightsRecordingDisabled:
+      new URLSearchParams(window.location.search).get("insightsRecording") ===
+      "disabled",
+    databaseConversionPromptDismissed:
+      new URLSearchParams(window.location.search).get(
+        "databaseConversionPromptDismissed",
+      ) === "1",
   };
 };
 
@@ -209,8 +242,7 @@ const readDatabaseConversionScenario = (): DatabaseConversionScenario => {
   );
   return raw === "sqliteAuthoritative" ||
     raw === "converting" ||
-    raw === "actionRequired" ||
-    raw === "justCompleted"
+    raw === "actionRequired"
     ? raw
     : null;
 };
@@ -260,7 +292,6 @@ const externalComponentSetupStatus = () => ({
 type DatabaseConversionMockState = {
   current: DatabaseConversionState;
   scenario: DatabaseConversionScenario;
-  pollCount: number;
 };
 
 const initialDatabaseConversionState = (
@@ -278,8 +309,6 @@ const initialDatabaseConversionState = (
         diagnostic:
           'ConversionFailed { step: Reconciling, message: "disk full while writing the reconciled candidate" }',
       };
-    case "justCompleted":
-      return { kind: "converting", step: "selecting" };
     default:
       return { kind: "notSupported" };
   }
@@ -364,6 +393,12 @@ const buildInvokeHandlers = (
     uiAnnouncementVersion: fixtureOverrides.showNavigationNotice
       ? 0
       : settingsFixture.uiAnnouncementVersion,
+    hardwareArchive: {
+      ...settingsFixture.hardwareArchive,
+      enabled: fixtureOverrides.insightsRecordingDisabled
+        ? false
+        : settingsFixture.hardwareArchive.enabled,
+    },
   }),
   get_hardware_info: () =>
     fixtureOverrides.storageDeviceCount == null
@@ -630,20 +665,7 @@ const buildInvokeHandlers = (
   },
 
   // --- #2136 native database conversion ---
-  get_database_conversion_state: () => {
-    // `justCompleted`: the first poll (the hook's initial fetch) answers
-    // "still converting", so the hook's own converting-to-native
-    // transition is what fires `justCompleted` - mirroring the real app
-    // instead of starting already on `nativeAuthoritative`.
-    if (
-      databaseConversion.scenario === "justCompleted" &&
-      databaseConversion.pollCount >= 1
-    ) {
-      databaseConversion.current = { kind: "nativeAuthoritative" };
-    }
-    databaseConversion.pollCount += 1;
-    return databaseConversion.current;
-  },
+  get_database_conversion_state: () => databaseConversion.current,
   start_database_conversion: () => {
     if (databaseConversion.scenario === "sqliteAuthoritative") {
       databaseConversion.current = { kind: "converting", step: "preflight" };
@@ -708,12 +730,14 @@ export const installTauriMocks = () => {
   if (fixtureOverrides.storedDisplayTarget != null) {
     store.set("display", fixtureOverrides.storedDisplayTarget);
   }
+  if (fixtureOverrides.databaseConversionPromptDismissed) {
+    store.set("databaseConversionPromptDismissed", true);
+  }
   const databaseConversion: DatabaseConversionMockState = {
     current: initialDatabaseConversionState(
       fixtureOverrides.databaseConversionScenario,
     ),
     scenario: fixtureOverrides.databaseConversionScenario,
-    pollCount: 0,
   };
   const handlers = buildInvokeHandlers(
     store,
@@ -800,5 +824,8 @@ export const installTauriMocks = () => {
       await tick();
     },
     stopHardwareUpdateStream: async () => stopHardwareUpdateStream(),
+    completeDatabaseConversion: async () => {
+      databaseConversion.current = { kind: "nativeAuthoritative" };
+    },
   };
 };
