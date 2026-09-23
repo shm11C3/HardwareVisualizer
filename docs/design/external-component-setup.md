@@ -62,7 +62,7 @@ flowchart LR
 | Launching the current executable elevated and waiting for it | Core Windows platform implementation (generalizes the existing relaunch path) |
 | Command-line dispatch of the setup mode and its exit code | App (`src-tauri/src/cli`) |
 | Typed IPC, wire DTOs, Settings UI, restart prompt, copy | App and frontend |
-| Installer dialogs, properties, custom actions (#2118), uninstall notice (planned, #2119) | App bundle configuration (`src-tauri/windows/`, wired in `src-tauri/tauri.conf.json`) |
+| Installer dialogs, properties, custom actions (#2118), uninstall notice (#2119) | App bundle configuration (`src-tauri/windows/`, wired in `src-tauri/tauri.conf.json`) |
 
 Nothing in this feature touches the clean-room sensor files. The setup module
 reads the same registry value and module file names the provider documents,
@@ -161,10 +161,26 @@ installed and its fallbacks unchanged.
   change: the dialog appears pre-selected, opting out runs nothing, the MSI
   setup runs without a second prompt, silent installs run nothing, and a
   failed setup still completes the product install.
-- **Uninstall (planned, #2119).** `NSIS_HOOK_PREUNINSTALL` will show a notice when the PawnIO
-  registry key exists and the uninstall is interactive. The MSI adds a notice
-  dialog in the same UI fragment before the remove-confirmation dialog. Neither
-  path runs the PawnIO uninstaller or deletes module files.
+- **Uninstall notice (implemented, #2119).** Both uninstallers run
+  `hardware-visualizer.exe --external-component-notice uninstall` before
+  anything is removed. The mode asks Core for each setup component's state
+  (the same detection Settings uses), shows one message box naming the
+  components whose runtime is installed and how to remove them from
+  Settings > Apps, and always exits 0. Unknown state is not reported as
+  installed. Neither path runs the PawnIO uninstaller or deletes module
+  files.
+  - **MSI:** an immediate custom action before `InstallInitialize`. A dialog in
+    the UI sequence would not do: Settings > Apps and `msiexec /x` uninstall
+    with basic UI, which skips `InstallUISequence`, so only running the `.msi`
+    again would show it. The immediate action runs as the user who started
+    the uninstall and also shows in basic UI. It is skipped when
+    `UILevel` is 2 (`/qn`, winget), when `UPGRADINGPRODUCTCODE` is set (the
+    old version being removed by an upgrade), and outside Program Files,
+    because an uninstall started from an elevated prompt runs it elevated.
+  - **NSIS:** `NSIS_HOOK_PREUNINSTALL` in `src-tauri/windows/nsis/hooks.nsh`,
+    skipped for `/S`, `/P`, and `/UPDATE`. The uninstaller runs as the user
+    and lives in the same per-user folder as the executable, so the notice
+    adds no elevation path.
 
 ### What is deliberately not done
 
@@ -186,13 +202,21 @@ installed and its fallbacks unchanged.
    README installation notes. The NSIS installer does not offer the option
    (see Entry points). Requires an interactive MSI run on Windows; CI proves
    the packages build and checks the MSI tables.
-3. **Uninstall notice** (`feat/`): NSIS pre-uninstall hook and MSI notice
-   dialog, plus the winget manifest review.
+3. **Uninstall notice** (`feat/`): the notice mode, the MSI immediate custom
+   action and NSIS pre-uninstall hook that run it, plus the winget manifest
+   review.
+
+## Decided: no winget dependency on PawnIO
+
+The winget manifest does not declare `namazso.PawnIO` as a package
+dependency. winget installs dependencies without asking, so every
+`winget install shm11C3.HardwareVisualizer` would install a kernel driver that
+nobody chose. That contradicts decision 1 of ADR 0024 (silent and package
+manager installs run no setup) and DP-03. winget users set PawnIO up from
+Settings, or install `namazso.PawnIO` themselves.
 
 ## Open questions
 
-- Should the winget manifest declare `namazso.PawnIO` as a package dependency
-  so package-manager installs get PawnIO through winget's own consent flow?
 - Should users who installed silently get a one-time in-app prompt? The
   current answer is no; Settings and External Component Guidance cover them.
 - When the sensor specification is re-verified against a newer PawnIO.Modules

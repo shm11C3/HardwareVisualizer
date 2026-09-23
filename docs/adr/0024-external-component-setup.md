@@ -52,8 +52,8 @@ later without a second design.
    or directory is reported as unknown state and blocks setup. Module files
    are placed only when missing, atomically and without ever replacing an
    existing file. Uninstalling HardwareVisualizer never uninstalls PawnIO or
-   deletes module files; an interactive uninstall will only tell the user
-   that the component was kept (planned in #2119).
+   deletes module files; an interactive uninstall only tells the user that
+   the component was kept (#2119).
 5. **A restart applies the result.** The PawnIO provider probes and caches its
    availability once per process, so the Settings flow tells the user to
    restart HardwareVisualizer after a successful setup rather than pretending
