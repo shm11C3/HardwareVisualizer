@@ -1,6 +1,6 @@
 # External Component Setup
 
-Status: proposed
+Status: accepted
 
 HardwareVisualizer can collect deeper Windows sensor data through PawnIO, but
 until now the user had to find the PawnIO runtime installer and the separate
@@ -80,15 +80,15 @@ later without a second design.
 
 ## Consequences
 
-- HardwareVisualizer would use the network for a user-initiated component
+- HardwareVisualizer uses the network for a user-initiated component
   download in addition to release updates and user-opened links. This remains
   within DP-01: no hardware or usage data leaves the machine.
 - The user documentation and the Windows external component checklist stop
   saying the app never installs components; they describe the pinned,
   verified, explicit setup instead.
-- The Windows installers would gain custom dialogs and custom actions that
-  must be verified on a Windows machine each time the Tauri bundler templates
-  change.
+- The MSI has a custom dialog and custom actions, and both installers run an
+  uninstall notice. They must be verified on a Windows machine each time the
+  Tauri bundler templates change.
 - Setup failure never fails the HardwareVisualizer installation and never
   changes collection results; the app keeps its existing fallbacks and
   External Component Guidance.

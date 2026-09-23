@@ -1,6 +1,6 @@
 # External Component Setup Design
 
-Status: proposed direction under
+Status: implemented under
 [ADR 0024](../adr/0024-external-component-setup.md).
 
 This document records how HardwareVisualizer installs optional external
