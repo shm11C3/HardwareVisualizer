@@ -85,11 +85,11 @@ jobs:
       # `dependency-caching` input explicitly excludes Rust (it only covers Java,
       # Go and C#: see the `codeql_dependency_caching_languages` variable in
       # github/docs), so reuse this repo's own Rust cache actions instead, the
-      # same way ci.yml's lint-core/test-core/lint-tauri jobs do. This doesn't
-      # trigger the DuckDB C++ build cache-sccache was written for (duckdb-archive
-      # isn't a default Cargo feature and CodeQL builds with default features),
-      # but the same sccache/RUSTC_WRAPPER mechanism still caches ordinary rustc
-      # invocations for every other dependency and proc-macro crate. Uses its own
+      # same way ci.yml's lint-core/test-core/lint-tauri jobs do. duckdb-archive
+      # is a default Cargo feature and CodeQL builds with default features, so
+      # this also triggers the DuckDB C++ build cache-sccache was written for;
+      # the same sccache/RUSTC_WRAPPER mechanism caches both that and ordinary
+      # rustc invocations for every other dependency and proc-macro crate. Uses its own
       # cache-key ("codeql-rust") because this job's cargo invocations (driven by
       # rust-analyzer, not `cargo check`/`build`/`clippy`) are a different job
       # kind from every ci.yml key and would otherwise evict a sibling entry.

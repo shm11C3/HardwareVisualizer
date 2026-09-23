@@ -1,9 +1,10 @@
 name: "Cache sccache (R2)"
 description: >-
-  Compiler-level cache for rustc and, in jobs that build with
-  `--features duckdb-archive`, the bundled DuckDB C++ build
-  (libduckdb-sys), using sccache backed by a Cloudflare R2 bucket. Use
-  after ./.github/actions/setup-rust in any job that compiles a meaningful
+  Compiler-level cache for rustc and, in jobs that build with the
+  duckdb-archive default Cargo feature (or explicitly re-enable it after
+  `--no-default-features`), the bundled DuckDB C++ build (libduckdb-sys),
+  using sccache backed by a Cloudflare R2 bucket. Use after
+  ./.github/actions/setup-rust in any job that compiles a meaningful
   amount of Rust (cargo build/test/check/clippy/run) - it is not worth
   adding to jobs that only run cargo fmt, cargo deny, or cargo install for
   a third-party binary, none of which invoke rustc on this workspace.

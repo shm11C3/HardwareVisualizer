@@ -298,7 +298,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check Core clippy
-        run: cargo clippy -p hardviz-core --features duckdb-archive --all-targets -- -D warnings
+        run: cargo clippy -p hardviz-core --all-targets -- -D warnings
+
+      # duckdb-archive is a default feature, so this is the only place that
+      # still exercises the SQLite-only fallback kept until ADR 0025 removes
+      # it in v2.0.0.
+      - name: Check Core clippy (feature-off, SQLite-only fallback)
+        run: cargo clippy -p hardviz-core --no-default-features --all-targets -- -D warnings
 
   #
   # Core tests
@@ -346,8 +352,10 @@ jobs:
       # nextest runs each test in its own process, so the DuckDB integration
       # binaries under core/tests/ run in parallel without sharing the
       # process-wide database path. Scheduling rules live in .config/nextest.toml.
+      # duckdb-archive is a default feature, so this already builds and runs
+      # the DuckDB integration tests without an explicit flag.
       - name: Run Core tests
-        run: cargo nextest run -p hardviz-core --features duckdb-archive --profile ci
+        run: cargo nextest run -p hardviz-core --profile ci
 
   #
   # Tauri lint and clippy
@@ -387,7 +395,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check Tauri clippy
-        run: cargo clippy -p hardware_visualizer --features duckdb-archive --all-targets -- -D warnings
+        run: cargo clippy -p hardware_visualizer --all-targets -- -D warnings
+
+      # duckdb-archive is a default feature, so this is the only place that
+      # still exercises the SQLite-only fallback kept until ADR 0025 removes
+      # it in v2.0.0.
+      - name: Check Tauri clippy (feature-off, SQLite-only fallback)
+        run: cargo clippy -p hardware_visualizer --no-default-features --all-targets -- -D warnings
 
   #
   # Tauri tests
@@ -424,6 +438,9 @@ jobs:
         if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
+          # duckdb-archive is a default feature, so this job now compiles the
+          # bundled DuckDB C++ build like the other feature jobs.
+          expect-cpp: "true"
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -435,6 +452,14 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
+      # duckdb-archive is a default feature, so these already build and run
+      # the `native_dispatch_conversion` / `native_dispatch_restart`
+      # DuckDB integration tests (formerly the separate
+      # test-tauri-duckdb-archive job) alongside the lib tests, with no
+      # separate --features flag needed. native_dispatch_conversion and
+      # native_dispatch_restart each need their own process because Core's
+      # dispatch::init is a process-wide OnceLock; as separate integration
+      # test binaries, cargo test already gives them that.
       - name: Run Tauri tests with coverage
         if: matrix.platform == 'ubuntu-22.04'
         run: cargo llvm-cov -p hardware_visualizer --no-report -- --test-threads=1 --nocapture
@@ -472,73 +497,6 @@ jobs:
             </details>
 
   #
-  # Tauri tests with the duckdb-archive feature enabled. Kept as a sibling job
-  # rather than an extra step in test-tauri: this feature set is a distinct
-  # Cargo mode/feature combination (see docs/design/ci-fast-feedback.md
-  # "Sharing boundaries"), so it needs its own rust-cache key and would only
-  # add its own build+test time to test-tauri's critical path if appended
-  # there. As a sibling job it instead runs in parallel with test-tauri (and
-  # with lint-tauri, which already builds the App crate with this same
-  # feature for clippy), so the wall-clock cost only shows up on the critical
-  # path if it becomes the single slowest job. The bundled DuckDB C++ build is
-  # expensive, so this job goes through the same sccache action, inputs, and
-  # `expect-cpp: "true"` as lint-tauri and test-core; sccache's compiler-level
-  # cache is populated per compiler invocation, not per job, so it benefits
-  # from lint-tauri's concurrent duckdb-archive build even on a cache miss for
-  # this job's own rust-cache entry.
-  #
-  # Shipped builds enable duckdb-archive through `build.features` in
-  # tauri.conf.json (test-build and publish both go through `tauri build`), so
-  # this job is the fast, bundle-free check of the same feature set; the
-  # feature-off test-tauri job keeps the fallback code paths honest.
-  test-tauri-duckdb-archive:
-    needs: change-detection
-    if: needs.change-detection.outputs.is-push == 'true' || needs.change-detection.outputs.unclassified-changed == 'true' || needs.change-detection.outputs.tauri-changed == 'true' || needs.change-detection.outputs.backend-deps-changed == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: ["windows-latest", "ubuntu-22.04", "macos-latest"]
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Start CI telemetry
-        uses: ./.github/actions/ci-telemetry
-
-      - name: Setup Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: ./.github/actions/setup-linux-deps
-
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          components: ""
-          cache-key: tauri-test-duckdb-archive
-
-      - name: Cache DuckDB build
-        if: env.R2_CACHE_ALLOWED == 'true'
-        uses: ./.github/actions/cache-sccache
-        with:
-          expect-cpp: "true"
-          bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
-          endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      # Feature-gated unit tests share process-wide state in places (same
-      # reason test-tauri's default run uses --test-threads=1).
-      - name: Run Tauri lib tests (duckdb-archive)
-        run: cargo test -p hardware_visualizer --features duckdb-archive --lib -- --test-threads=1 --nocapture
-
-      # native_dispatch_conversion and native_dispatch_restart each need their
-      # own process because Core's dispatch::init is a process-wide OnceLock.
-      # As separate integration test binaries, cargo test already gives them
-      # that, so no --test-threads=1 is needed here.
-      - name: Run Tauri integration tests (duckdb-archive)
-        run: cargo test -p hardware_visualizer --features duckdb-archive --test native_dispatch_conversion --test native_dispatch_restart
-
-  #
   # Core-to-Tauri integration check
   #
   check-core-tauri-integration:
@@ -566,6 +524,9 @@ jobs:
         if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
+          # duckdb-archive is a default feature, so this build compiles the
+          # bundled DuckDB C++ sources.
+          expect-cpp: "true"
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -607,6 +568,9 @@ jobs:
         if: env.R2_CACHE_ALLOWED == 'true'
         uses: ./.github/actions/cache-sccache
         with:
+          # duckdb-archive is a default feature, so this build compiles the
+          # bundled DuckDB C++ sources.
+          expect-cpp: "true"
           bucket-name: ${{ vars.CLOUDFLARE_R2_BUCKET }}
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -734,8 +698,9 @@ jobs:
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # tauri build now compiles bundled DuckDB (build.features), so route
-          # the MSVC C/C++ invocations through sccache like the other feature jobs.
+          # duckdb-archive is a default feature, so tauri build now compiles
+          # bundled DuckDB; route the MSVC C/C++ invocations through sccache
+          # like the other feature jobs.
           expect-cpp: "true"
 
       - name: Prepare frontendDist placeholder
@@ -808,8 +773,9 @@ jobs:
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # tauri build now compiles bundled DuckDB (build.features), so route
-          # the MSVC C/C++ invocations through sccache like the other feature jobs.
+          # duckdb-archive is a default feature, so tauri build now compiles
+          # bundled DuckDB; route the MSVC C/C++ invocations through sccache
+          # like the other feature jobs.
           expect-cpp: "true"
 
       # bundle.resources requires the notices file; its content is irrelevant here.
@@ -1148,7 +1114,6 @@ jobs:
       - test-core
       - lint-tauri
       - test-tauri
-      - test-tauri-duckdb-archive
       - check-core-tauri-integration
       - check-tauri-bindings
       - test-build
