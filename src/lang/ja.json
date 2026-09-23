@@ -342,6 +342,12 @@
     },
     "insights": {
       "name": "インサイト",
+      "databaseConversionDiscovery": {
+        "title": "より効率的なデータベースが利用可能です",
+        "description": "ネイティブデータベースは同じディスク容量でより多くの履歴を保持できるため、冷却インサイトでさらに過去まで振り返れます。",
+        "action": "ネイティブデータベース設定を開く",
+        "later": "後で"
+      },
       "main": {
         "title": "CPU・メモリ"
       },

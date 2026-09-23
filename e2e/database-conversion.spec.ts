@@ -167,3 +167,74 @@ test.describe("database conversion captures", () => {
     await expect(noticeTitle).toHaveCount(0);
   });
 });
+
+test.describe("database conversion discovery card (Insights page)", () => {
+  test("offers discovery and navigates to Settings when SQLite is authoritative", async ({
+    page,
+  }) => {
+    await gotoApp(page, {
+      path: "/?databaseConversion=sqliteAuthoritative",
+    });
+    await navigateTo(page, "insights");
+
+    const card = page.getByTestId("database-conversion-discovery-card");
+    await expect(card).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+    await expect(
+      card.getByText("A more efficient database is available"),
+    ).toBeVisible();
+    await saveCapture(page, "database-conversion-discovery-card-insights");
+
+    await page.setViewportSize(NARROW_VIEWPORT);
+    await expect(card).toBeVisible();
+    const overflow = await card.evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+    await saveCapture(
+      page,
+      "database-conversion-discovery-card-insights-narrow",
+    );
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await card
+      .getByRole("button", { name: "Open Native Database Settings" })
+      .click();
+
+    // Following the discovery card's action lands on the Settings screen's
+    // Native Database block, the same entry point `database-conversion.spec.ts`
+    // above exercises directly.
+    await expect(
+      page.getByRole("heading", { name: "Native Database" }),
+    ).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+  });
+
+  test("dismissing the card hides it for the rest of the session", async ({
+    page,
+  }) => {
+    await gotoApp(page, {
+      path: "/?databaseConversion=sqliteAuthoritative",
+    });
+    await navigateTo(page, "insights");
+
+    const card = page.getByTestId("database-conversion-discovery-card");
+    await expect(card).toBeVisible({ timeout: BOOTSTRAP_TIMEOUT });
+
+    await card.getByRole("button", { name: "Later" }).click();
+    await expect(card).toHaveCount(0);
+  });
+
+  test("stays hidden once native is authoritative", async ({ page }) => {
+    await gotoApp(page, { path: "/?databaseConversion=justCompleted" });
+    await navigateTo(page, "insights");
+
+    // The Insights page's own bootstrap content proves the page loaded;
+    // the discovery card must never appear once native is authoritative.
+    await expect(page.getByRole("tab", { name: "CPU / Memory" })).toBeVisible({
+      timeout: BOOTSTRAP_TIMEOUT,
+    });
+    await expect(
+      page.getByTestId("database-conversion-discovery-card"),
+    ).toHaveCount(0);
+  });
+});

@@ -342,6 +342,12 @@
     },
     "insights": {
       "name": "Insights",
+      "databaseConversionDiscovery": {
+        "title": "A more efficient database is available",
+        "description": "The native database keeps more history in the same disk space, so Cooling Insight can look further back.",
+        "action": "Open Native Database Settings",
+        "later": "Later"
+      },
       "main": {
         "title": "CPU / Memory"
       },

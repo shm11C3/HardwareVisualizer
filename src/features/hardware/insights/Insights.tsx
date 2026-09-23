@@ -13,6 +13,7 @@ import { tv } from "tailwind-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archivePeriods } from "@/features/hardware/consts/chart";
 import { useHardwareInfoAtom } from "@/features/hardware/hooks/useHardwareInfoAtom";
+import { DatabaseConversionDiscoveryCard } from "@/features/hardware/insights/components/DatabaseConversionDiscoveryCard";
 import {
   GpuInsightChart,
   InsightChart,
@@ -597,40 +598,43 @@ export const Insights = () => {
 
   return (
     !isPending && (
-      <Tabs
-        value={
-          insightsChild.some((v) => v.name === displayTarget)
-            ? displayTarget
-            : "main"
-        }
-      >
-        {insightsChild.length > 1 && (
-          <TabsList className="sticky top-[8px] z-50 ml-1">
-            {insightsChild.map((child) => {
-              const { name, type } = child;
-              return (
-                <TabsTrigger
-                  key={name}
-                  value={name}
-                  onClick={() => setDisplayTarget(name)}
-                >
-                  <Icon type={type} />
-                  {["main", "cooling", "process", "snapshot"].includes(name)
-                    ? t(`pages.insights.${name}.title`, {
-                        defaultValue: name,
-                      })
-                    : name}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        )}
-        {insightsChild.map(({ name: key, element }) => (
-          <TabsContent key={key} value={key}>
-            {element}
-          </TabsContent>
-        ))}
-      </Tabs>
+      <>
+        <DatabaseConversionDiscoveryCard />
+        <Tabs
+          value={
+            insightsChild.some((v) => v.name === displayTarget)
+              ? displayTarget
+              : "main"
+          }
+        >
+          {insightsChild.length > 1 && (
+            <TabsList className="sticky top-[8px] z-50 ml-1">
+              {insightsChild.map((child) => {
+                const { name, type } = child;
+                return (
+                  <TabsTrigger
+                    key={name}
+                    value={name}
+                    onClick={() => setDisplayTarget(name)}
+                  >
+                    <Icon type={type} />
+                    {["main", "cooling", "process", "snapshot"].includes(name)
+                      ? t(`pages.insights.${name}.title`, {
+                          defaultValue: name,
+                        })
+                      : name}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          )}
+          {insightsChild.map(({ name: key, element }) => (
+            <TabsContent key={key} value={key}>
+              {element}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </>
     )
   );
 };
