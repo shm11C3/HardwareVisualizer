@@ -62,7 +62,7 @@ flowchart LR
 | Launching the current executable elevated and waiting for it | Core Windows platform implementation (generalizes the existing relaunch path) |
 | Command-line dispatch of the setup mode and its exit code | App (`src-tauri/src/cli`) |
 | Typed IPC, wire DTOs, Settings UI, restart prompt, copy | App and frontend |
-| Installer dialogs, properties, custom actions, uninstall notice (planned, #2118 and #2119) | App bundle configuration (`src-tauri/windows/`) |
+| Installer dialogs, properties, custom actions (#2118), uninstall notice (planned, #2119) | App bundle configuration (`src-tauri/windows/`, wired in `src-tauri/tauri.conf.json`) |
 
 Nothing in this feature touches the clean-room sensor files. The setup module
 reads the same registry value and module file names the provider documents,
@@ -109,19 +109,40 @@ installed and its fallbacks unchanged.
   refreshes the state, and shows the restart prompt on success. If the user
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
   an error. One run per component is allowed at a time.
-- **MSI (planned, #2118).** A WiX fragment will add a dialog with one checkbox per component,
-  inserted between the install-directory and the ready dialogs by overriding
-  Tauri's `Publish` events with a higher order. The checkbox binds to a public
-  property (`EXTERNAL_COMPONENT_PAWNIO`) that the dialog defaults to `1`; the
-  property has no default outside the UI sequence, so `msiexec /qn` and
-  winget run no setup unless the caller passes `EXTERNAL_COMPONENT_PAWNIO=1`.
-  A deferred custom action after `InstallFiles` runs the installed executable
-  in setup mode with `Return="ignore"`, so a setup failure never fails the
-  product install.
-- **NSIS (planned, #2118).** The `installerHooks` file will use `NSIS_HOOK_POSTINSTALL` to ask one
-  Yes/No question per component (default Yes) when the installer is not
-  silent, and runs the installed executable in setup mode. `/S` installs skip
-  the question; a documented `/EXTERNAL_COMPONENT_PAWNIO=1` switch opts in.
+- **MSI (implemented, #2118).** The WiX fragment
+  `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
+  components dialog with one checkbox per component, inserted between
+  `InstallDirDlg` and `VerifyReadyDlg` by publishing `NewDialog` events with a
+  higher order than `WixUI_InstallDir` (the last `NewDialog` wins). The
+  checkbox binds to the secure public property `EXTERNAL_COMPONENT_PAWNIO`.
+  The property has no default in the `Property` table; a `SetProperty` in the
+  UI sequence sets it to `1` on a fresh install, so only a full-UI install
+  pre-selects it. `msiexec /qn`, `/passive` (the updater), and winget run no
+  setup unless the caller passes `EXTERNAL_COMPONENT_PAWNIO=1`. A deferred,
+  non-impersonated custom action after `InstallFiles` runs
+  `[#Path] --external-component-setup pawnio` as LocalSystem inside the
+  already elevated install, so there is no second prompt; `Return="ignore"`
+  keeps a setup failure from failing the product install. It runs before
+  `InstallFinalize`, so the app launched from the finish dialog already sees
+  the result. The installer does not request a reboot when PawnIO reports
+  `3010`; Settings shows the resulting state.
+- **NSIS (implemented, #2118).** `src-tauri/windows/nsis/hooks.nsh` implements
+  `NSIS_HOOK_POSTINSTALL`: one Yes/No question per component (default Yes)
+  when the installer is interactive, then
+  `ExecShellWait "runas" "$INSTDIR\hardware-visualizer.exe" "--external-component-setup pawnio"`.
+  The default `currentUser` NSIS install is not elevated, so the setup shows
+  one UAC prompt; declining it installs nothing and the product install still
+  succeeds. `/S`, `/P`, and `/UPDATE` (the updater passes `/P /UPDATE`) skip
+  the question and the setup. `/EXTERNAL_COMPONENT_PAWNIO=1` runs the setup
+  without asking and `/EXTERNAL_COMPONENT_PAWNIO=0` skips it.
+- **Installer verification.** CI (`test-windows-installer`) builds both
+  packages when `src-tauri/windows/**` or `tauri.conf.json` changes or a Tauri
+  dependency moves, and asserts the MSI tables with
+  `.github/scripts/check-msi-external-component-setup.ps1`. The interactive
+  behaviour needs a manual run on Windows whenever the Tauri bundler templates
+  change: the dialog appears pre-selected, opting out runs nothing, the MSI
+  setup runs without a second prompt, silent installs run nothing, and a
+  failed setup still completes the product install.
 - **Uninstall (planned, #2119).** `NSIS_HOOK_PREUNINSTALL` will show a notice when the PawnIO
   registry key exists and the uninstall is interactive. The MSI adds a notice
   dialog in the same UI fragment before the remove-confirmation dialog. Neither

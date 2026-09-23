@@ -77,6 +77,15 @@ Web サイト: <https://hardviz.com/>
 3. インストールウィザードの指示に従います。
 4. スタートメニューまたはデスクトップのショートカットから **HardwareVisualizer** を起動します。
 
+インストーラーでは、CPU 温度・消費電力とマザーボードのセンサーを取得できるようにする [PawnIO](https://pawnio.eu/) のセットアップを選択できます。この項目は既定で選択されており、選択を外すこともできます。選択した場合、インストーラーは固定されたバージョンの PawnIO をダウンロードして検証し、不足しているものだけをインストールします。`.exe` インストーラーではこの手順で管理者権限の確認が表示されます。HardwareVisualizer をアンインストールしても PawnIO は削除されません。あとから **設定 → 高度な設定** でセットアップすることもできます。
+
+サイレントインストールでは、明示的に指定した場合のみ PawnIO をセットアップします。
+
+```powershell
+msiexec /i HardwareVisualizer_x.x.x_x64_en-US_windows.msi /qn EXTERNAL_COMPONENT_PAWNIO=1
+.\HardwareVisualizer_x.x.x_x64-setup_windows.exe /S /EXTERNAL_COMPONENT_PAWNIO=1
+```
+
 #### Winget コマンドを使用する
 
 Windows の場合、Windows Package Manager（Winget）を使用してインストールすることもできます。　　
@@ -85,6 +94,8 @@ PowerShell またはコマンドプロンプトで以下のコマンドを実行
 ```powershell
 winget install shm11C3.HardwareVisualizer
 ```
+
+Winget でのインストールでは PawnIO はセットアップされません。インストール後に **設定 → 高度な設定** から実行してください。
 
 > [!NOTE]
 > Windows では追加の権限は必要ありません。
