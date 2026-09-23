@@ -14,11 +14,24 @@ pub struct HardwareArchiveSettings {
   pub retention_days: u32,
 }
 
+impl HardwareArchiveSettings {
+  /// The Retention Period default while SQLite is authoritative: long
+  /// retention is the disk cost the native database migration exists to
+  /// remove, so SQLite keeps the conservative historical default.
+  pub const SQLITE_DEFAULT_RETENTION_DAYS: u32 = 30;
+
+  /// The Retention Period default while the native database is
+  /// authoritative. The native database makes a year of history affordable
+  /// in the same space, so a fresh or never-saved value should reflect
+  /// that rather than the SQLite-era default (#2136, decided 2026-09-22).
+  pub const NATIVE_DEFAULT_RETENTION_DAYS: u32 = 365;
+}
+
 impl Default for HardwareArchiveSettings {
   fn default() -> Self {
     Self {
       enabled: true,
-      retention_days: 30,
+      retention_days: Self::SQLITE_DEFAULT_RETENTION_DAYS,
       scheduled_data_deletion: true,
     }
   }

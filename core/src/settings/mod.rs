@@ -91,21 +91,52 @@ impl CoreSettings {
   /// Load `CoreSettings` from a JSON file, returning defaults if the
   /// file does not exist. Field-level errors fall back to defaults so a
   /// malformed App-only key does not block Core startup.
+  ///
+  /// Uses the SQLite-era Hardware Archive Retention Period default
+  /// ([`HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS`]) for a
+  /// never-saved value. Callers that know the current database backend
+  /// authority should use [`Self::load_from_path_with_retention_default`]
+  /// instead, so a native-authoritative profile gets the backend-aware
+  /// default (#2136).
   pub fn load_from_path(path: &Path) -> Result<Self, String> {
+    Self::load_from_path_with_retention_default(
+      path,
+      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS,
+    )
+  }
+
+  /// Same as [`Self::load_from_path`], but `default_retention_days` picks
+  /// the Hardware Archive Retention Period used when no value has ever
+  /// been saved - a fresh profile, or an existing `settings.json` whose
+  /// `hardwareArchive` section never set `retentionDays` (or its legacy
+  /// `refreshIntervalDays` alias). A retention value already present in
+  /// the file is never overridden: only the *absence* of a saved value
+  /// resolves through this default, so an explicit user choice of the
+  /// same number as the old default is preserved rather than mistaken for
+  /// "never saved" (#2136).
+  pub fn load_from_path_with_retention_default(
+    path: &Path,
+    default_retention_days: u32,
+  ) -> Result<Self, String> {
     if !path.exists() {
-      return Ok(Self::default());
+      let mut settings = Self::default();
+      settings.hardware_archive.retention_days = default_retention_days;
+      return Ok(settings);
     }
 
     let input = fs::read_to_string(path)
       .map_err(|e| format!("Failed to read settings file: {e}"))?;
 
-    Self::parse_with_recovery(&input)
+    Self::parse_with_recovery(&input, default_retention_days)
   }
 
   /// Parse Core settings from a JSON string. Falls back to per-field
   /// recovery when a strict deserialize fails so an unrelated invalid
   /// App-owned key doesn't poison the Core view.
-  fn parse_with_recovery(input: &str) -> Result<Self, String> {
+  fn parse_with_recovery(
+    input: &str,
+    default_retention_days: u32,
+  ) -> Result<Self, String> {
     let value: serde_json::Value = serde_json::from_str(input)
       .map_err(|e| format!("Settings file is not valid JSON: {e}"))?;
     let map = match value {
@@ -114,10 +145,22 @@ impl CoreSettings {
     };
 
     let mut settings = Self::default();
-    if let Some(v) = map.get(HARDWARE_ARCHIVE_KEY)
-      && let Ok(parsed) = serde_json::from_value::<HardwareArchiveSettings>(v.clone())
-    {
-      settings.hardware_archive = parsed;
+    settings.hardware_archive.retention_days = default_retention_days;
+    if let Some(v) = map.get(HARDWARE_ARCHIVE_KEY) {
+      if let Ok(parsed) = serde_json::from_value::<HardwareArchiveSettings>(v.clone()) {
+        settings.hardware_archive = parsed;
+      }
+      // `retentionDays`/legacy `refreshIntervalDays` absent from the saved
+      // section: nothing was ever explicitly chosen, so the backend-aware
+      // default applies here too, not just when the whole section is
+      // missing.
+      let retention_saved = v
+        .get("retentionDays")
+        .or_else(|| v.get("refreshIntervalDays"))
+        .is_some();
+      if !retention_saved {
+        settings.hardware_archive.retention_days = default_retention_days;
+      }
     }
     if let Some(v) = map
       .get(STORAGE_HEALTH_KEY)
@@ -229,6 +272,91 @@ mod tests {
     let path = dir.path().join("missing.json");
     let s = CoreSettings::load_from_path(&path).unwrap();
     assert_eq!(s, CoreSettings::default());
+  }
+
+  #[test]
+  fn a_fresh_profile_uses_the_given_backend_aware_retention_default() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("missing.json");
+
+    let s = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+
+    assert_eq!(
+      s.hardware_archive.retention_days,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+    );
+  }
+
+  #[test]
+  fn a_saved_section_without_a_saved_retention_value_uses_the_backend_aware_default() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"hardwareArchive": {"enabled": false}}"#).unwrap();
+
+    let s = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+
+    assert!(!s.hardware_archive.enabled);
+    assert_eq!(
+      s.hardware_archive.retention_days,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS
+    );
+  }
+
+  #[test]
+  fn an_explicitly_saved_retention_value_is_never_overridden_by_the_backend_default() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(
+      &path,
+      r#"{"hardwareArchive": {"enabled": true, "retentionDays": 30}}"#,
+    )
+    .unwrap();
+
+    let s = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+
+    // A saved 30 must stay 30 even though the native default is 365: an
+    // explicit user choice is never rewritten by a backend default.
+    assert_eq!(s.hardware_archive.retention_days, 30);
+  }
+
+  #[test]
+  fn a_saved_legacy_refresh_interval_days_counts_as_an_explicit_value() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, r#"{"hardwareArchive": {"refreshIntervalDays": 14}}"#).unwrap();
+
+    let s = CoreSettings::load_from_path_with_retention_default(
+      &path,
+      HardwareArchiveSettings::NATIVE_DEFAULT_RETENTION_DAYS,
+    )
+    .unwrap();
+
+    assert_eq!(s.hardware_archive.retention_days, 14);
+  }
+
+  #[test]
+  fn load_from_path_keeps_the_sqlite_default_for_callers_that_do_not_know_authority() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("missing.json");
+
+    let s = CoreSettings::load_from_path(&path).unwrap();
+
+    assert_eq!(
+      s.hardware_archive.retention_days,
+      HardwareArchiveSettings::SQLITE_DEFAULT_RETENTION_DAYS
+    );
   }
 
   #[test]
