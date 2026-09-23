@@ -1,6 +1,7 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type {
   ArchiveBucketTimestamp,
+  DatabaseConversionState,
   HardwareMonitorUpdate,
 } from "@/rspc/bindings";
 import { buildArchiveSeries, buildProcessStats } from "../fixtures/archive";
@@ -104,8 +105,29 @@ type FixtureOverrides = {
    * Unset is the default everywhere else, which is exactly the machine
    * that must render as it did before #2046. */
   coolingAmbientOverride: CoolingAmbientOverride;
+  /** `?databaseConversion=sqliteAuthoritative|converting|actionRequired|justCompleted`
+   * selects the #2136 native database conversion lifecycle state the
+   * Settings screen's `DatabaseConversionSettings` section starts from.
+   * Unset (the default, matching a production build with the
+   * `duckdb-archive` feature off) reports `notSupported`, which hides the
+   * section entirely. */
+  databaseConversionScenario: DatabaseConversionScenario;
 };
 type CoolingAmbientOverride = "present" | "only" | null;
+/** See `FixtureOverrides.databaseConversionScenario`. `"converting"` and
+ * `"actionRequired"` are fixed, non-progressing states for a capture of
+ * that state alone. `"sqliteAuthoritative"` progresses to `converting`
+ * once `start_database_conversion` is invoked, matching a Convert click.
+ * `"justCompleted"` starts `converting` and switches to
+ * `nativeAuthoritative` from the second poll onward, so the hook's
+ * converting-to-native transition fires and the one-time completion
+ * notice renders. */
+type DatabaseConversionScenario =
+  | "sqliteAuthoritative"
+  | "converting"
+  | "actionRequired"
+  | "justCompleted"
+  | null;
 type CoolingObservationOverride =
   | "notComparable"
   | "sustainedMildRise"
@@ -177,7 +199,20 @@ const readFixtureOverrides = (): FixtureOverrides => {
       new URLSearchParams(window.location.search).get("coolingFan") ?? "",
     ),
     coolingAmbientOverride: readCoolingAmbientOverride(),
+    databaseConversionScenario: readDatabaseConversionScenario(),
   };
+};
+
+const readDatabaseConversionScenario = (): DatabaseConversionScenario => {
+  const raw = new URLSearchParams(window.location.search).get(
+    "databaseConversion",
+  );
+  return raw === "sqliteAuthoritative" ||
+    raw === "converting" ||
+    raw === "actionRequired" ||
+    raw === "justCompleted"
+    ? raw
+    : null;
 };
 
 const readCoolingAmbientOverride = (): CoolingAmbientOverride => {
@@ -217,6 +252,39 @@ const externalComponentSetupStatus = () => ({
   setupBlocker: null,
 });
 
+/** Mutable holder for the #2136 conversion mock's current answer, so
+ * `start_database_conversion`/`cancel_database_conversion` can change what
+ * `get_database_conversion_state` reports next - the same "the handler
+ * answers from state the test's action already changed" shape a real
+ * lifecycle owner has, without reimplementing the driver. */
+type DatabaseConversionMockState = {
+  current: DatabaseConversionState;
+  scenario: DatabaseConversionScenario;
+  pollCount: number;
+};
+
+const initialDatabaseConversionState = (
+  scenario: DatabaseConversionScenario,
+): DatabaseConversionState => {
+  switch (scenario) {
+    case "sqliteAuthoritative":
+      return { kind: "sqliteAuthoritative" };
+    case "converting":
+      return { kind: "converting", step: "reconciling" };
+    case "actionRequired":
+      return {
+        kind: "actionRequired",
+        reason: "conversionFailed",
+        diagnostic:
+          'ConversionFailed { step: Reconciling, message: "disk full while writing the reconciled candidate" }',
+      };
+    case "justCompleted":
+      return { kind: "converting", step: "selecting" };
+    default:
+      return { kind: "notSupported" };
+  }
+};
+
 /**
  * Dispatch table mapping invoke commands to their mocked handlers:
  * Tauri plugin commands (`plugin:<name>|<command>`) and generated
@@ -227,6 +295,7 @@ const buildInvokeHandlers = (
   store: Map<string, unknown>,
   eventListeners: Map<string, Set<number>>,
   fixtureOverrides: FixtureOverrides,
+  databaseConversion: DatabaseConversionMockState,
 ): Record<string, InvokeHandler> => ({
   // --- @tauri-apps/plugin-event ---
   "plugin:event|listen": (args) => {
@@ -559,6 +628,32 @@ const buildInvokeHandlers = (
         return coolingBaselineDeltaFixture;
     }
   },
+
+  // --- #2136 native database conversion ---
+  get_database_conversion_state: () => {
+    // `justCompleted`: the first poll (the hook's initial fetch) answers
+    // "still converting", so the hook's own converting-to-native
+    // transition is what fires `justCompleted` - mirroring the real app
+    // instead of starting already on `nativeAuthoritative`.
+    if (
+      databaseConversion.scenario === "justCompleted" &&
+      databaseConversion.pollCount >= 1
+    ) {
+      databaseConversion.current = { kind: "nativeAuthoritative" };
+    }
+    databaseConversion.pollCount += 1;
+    return databaseConversion.current;
+  },
+  start_database_conversion: () => {
+    if (databaseConversion.scenario === "sqliteAuthoritative") {
+      databaseConversion.current = { kind: "converting", step: "preflight" };
+    }
+    return null;
+  },
+  cancel_database_conversion: () => {
+    databaseConversion.current = { kind: "sqliteAuthoritative" };
+    return null;
+  },
 });
 
 const dispatchTauriEvent = (
@@ -613,7 +708,19 @@ export const installTauriMocks = () => {
   if (fixtureOverrides.storedDisplayTarget != null) {
     store.set("display", fixtureOverrides.storedDisplayTarget);
   }
-  const handlers = buildInvokeHandlers(store, eventListeners, fixtureOverrides);
+  const databaseConversion: DatabaseConversionMockState = {
+    current: initialDatabaseConversionState(
+      fixtureOverrides.databaseConversionScenario,
+    ),
+    scenario: fixtureOverrides.databaseConversionScenario,
+    pollCount: 0,
+  };
+  const handlers = buildInvokeHandlers(
+    store,
+    eventListeners,
+    fixtureOverrides,
+    databaseConversion,
+  );
   const invokeCounts = new Map<string, number>();
   let streamTimer: number | undefined;
   let streamIndex = 0;
