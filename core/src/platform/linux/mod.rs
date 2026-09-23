@@ -3,8 +3,8 @@ use crate::models::hardware::{
   GpuMemoryUsage, GraphicInfo, MemoryInfo, NetworkInfo, SuperIoChipIdDiagnostics,
 };
 use crate::platform::traits::{
-  ElevatedProcessRun, ExternalComponentSetupPlatform, GpuPlatform, GpuUsageRaw,
-  MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
+  ElevatedProcessRun, ElevationAvailability, ExternalComponentSetupPlatform, GpuPlatform,
+  GpuUsageRaw, MemoryPlatform, MotherboardPlatform, NetworkPlatform, Platform,
   ProcessElevationPlatform, SensorPlatform, SuperIoPlatform,
 };
 use async_trait::async_trait;
@@ -104,6 +104,10 @@ impl ProcessElevationPlatform for LinuxPlatform {
     Err(PlatformError::unsupported(
       "Elevated Startup Mode is only supported on Windows.",
     ))
+  }
+
+  fn elevation_availability(&self) -> ElevationAvailability {
+    ElevationAvailability::Unsupported
   }
 }
 

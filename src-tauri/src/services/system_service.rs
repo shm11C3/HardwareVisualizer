@@ -1,5 +1,6 @@
 use hardviz_core::enums::error::PlatformError;
 use hardviz_core::platform::factory::PlatformFactory;
+use hardviz_core::platform::traits::ElevationAvailability;
 use tauri::Manager;
 
 pub async fn restart_app(app_handle: &tauri::AppHandle) {
@@ -46,6 +47,14 @@ pub fn relaunch_for_elevated_startup_if_needed(
 pub fn is_process_elevated() -> Result<bool, PlatformError> {
   let platform = PlatformFactory::shared()?;
   platform.is_process_elevated()
+}
+
+/// Whether this installation can be launched elevated. A platform that
+/// cannot be resolved cannot elevate either.
+pub fn elevation_availability() -> ElevationAvailability {
+  PlatformFactory::shared()
+    .map(|platform| platform.elevation_availability())
+    .unwrap_or(ElevationAvailability::Unsupported)
 }
 
 pub fn relaunch_current_process_elevated() -> Result<(), PlatformError> {

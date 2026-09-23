@@ -30,6 +30,13 @@ pub fn is_process_elevated() -> Result<bool, String> {
   crate::services::system_service::is_process_elevated().map_err(|e| e.to_string())
 }
 
+/// Whether this installation can run itself as administrator (#2216).
+#[tauri::command]
+#[specta::specta]
+pub fn get_elevation_availability() -> crate::models::elevation::ElevationAvailability {
+  crate::services::system_service::elevation_availability().into()
+}
+
 /// Stop monitoring and exit the process.
 ///
 /// Phase 5 (#1408): the explicit Quit path. Keep it gated to the

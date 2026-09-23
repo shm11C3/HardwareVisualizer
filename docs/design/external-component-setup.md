@@ -110,18 +110,18 @@ installed and its fallbacks unchanged.
   declines the UAC prompt, the result is `cancelled` and nothing is shown as
   an error. One run per component is allowed at a time.
 
-  *Known weakness (open, #2216).* The action elevates `current_exe()` through
-  `ShellExecuteExW` with `runas`, like "restart as administrator" and Elevated
-  Startup Mode. When the executable's directory is writable without
+  *Unprotected install folders (#2216).* The action elevates `current_exe()`
+  through `ShellExecuteExW` with `runas`, like "restart as administrator" and
+  Elevated Startup Mode. When the executable's folder is writable without
   elevation (the NSIS per-user install, or an MSI installed outside Program
-  Files), a same-user process can replace the executable before the prompt.
-  It can also plant a DLL next to it: imports such as `dwmapi.dll` and
-  `pdh.dll` are not KnownDLLs, so the application directory is searched
-  first. The genuine signed executable then loads the planted DLL elevated,
-  and the UAC prompt shows the verified publisher, so the prompt is not a
-  defence. #2216 tracks refusing elevation from unprotected locations and
-  linking with `/DEPENDENTLOADFLAG`; #2215 tracks recommending the MSI to
-  NSIS users.
+  Files), a same-user process could replace the executable before the prompt,
+  and the UAC prompt would still look legitimate. Core therefore refuses
+  every elevated launch unless the executable's resolved folder is under
+  Program Files (`ElevationAvailability`, exposed to the UI as
+  `get_elevation_availability`). A failure to resolve the folder also refuses.
+  Elevated Startup Mode keeps its saved value and simply does not relaunch.
+  Planting a DLL next to the executable is closed separately by linking with
+  `/DEPENDENTLOADFLAG:0x800`, and #2215 recommends the MSI to NSIS users.
 - **MSI (implemented, #2118).** The WiX fragment
   `src-tauri/windows/wix/external-component-setup.wxs` adds an optional
   components dialog with one checkbox per component, inserted between

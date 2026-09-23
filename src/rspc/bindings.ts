@@ -246,6 +246,8 @@ export const commands = {
 	restartApp: () => __TAURI_INVOKE<void>("restart_app"),
 	// Returns whether the current process is running with administrator privileges.
 	isProcessElevated: () => typedError<boolean, string>(__TAURI_INVOKE("is_process_elevated")),
+	// Whether this installation can run itself as administrator (#2216).
+	getElevationAvailability: () => __TAURI_INVOKE<ElevationAvailability>("get_elevation_availability"),
 	/**
 	 *  Stop monitoring and exit the process.
 	 * 
@@ -827,6 +829,13 @@ export type DownloadEvent = { event: "started"; data: {
 } } | { event: "progress"; data: {
 	chunkLength: string,
 } } | { event: "finished" };
+
+/**
+ *  Whether the app can relaunch or run itself as administrator (#2216).
+ *  `unprotectedLocation` means it is installed outside Program Files, where a
+ *  same-user process could replace the executable before it is elevated.
+ */
+export type ElevationAvailability = "available" | "unprotectedLocation" | "unsupported";
 
 /**
  *  Wire-format mirror of
