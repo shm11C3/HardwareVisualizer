@@ -734,6 +734,9 @@ jobs:
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # tauri build now compiles bundled DuckDB (build.features), so route
+          # the MSVC C/C++ invocations through sccache like the other feature jobs.
+          expect-cpp: "true"
 
       - name: Prepare frontendDist placeholder
         if: ${{ github.event_name == 'pull_request' && needs.change-detection.outputs.tauri-deps-changed != 'true' }}
@@ -805,6 +808,9 @@ jobs:
           endpoint: ${{ vars.CLOUDFLARE_R2_ENDPOINT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # tauri build now compiles bundled DuckDB (build.features), so route
+          # the MSVC C/C++ invocations through sccache like the other feature jobs.
+          expect-cpp: "true"
 
       # bundle.resources requires the notices file; its content is irrelevant here.
       - name: Prepare THIRD_PARTY_NOTICES placeholder
