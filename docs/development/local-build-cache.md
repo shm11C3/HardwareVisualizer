@@ -145,8 +145,16 @@ duckdb-archive --tests`, same worktree, before and after:
 | `hardviz_core-*.pdb` (lib tests)  | 522 MiB        | 136 MiB   |
 
 CI builds tests with the same `dev` profile, so its `target/` caches shrink by
-the same ratio. For a session that needs full debuginfo for workspace code,
-override the profile for that command only:
+the same ratio.
+
+A worktree that was built before this change keeps its old, full-debuginfo
+artifacts next to the new ones: the profile change alters the artifact hashes,
+and Cargo never garbage-collects the old set. Run `cargo clean` once in each
+existing worktree after pulling, or the subtree grows instead of shrinking
+(this worktree's `debug/` went from 40 to 47 GiB on the first rebuild).
+
+For a session that needs full debuginfo for workspace code, override the
+profile for that command only:
 
 ```bash
 CARGO_PROFILE_DEV_DEBUG=true cargo test -p hardviz-core
