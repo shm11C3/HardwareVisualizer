@@ -69,11 +69,18 @@ mod imp {
   ) -> Result<(), String> {
     let runtime_handle = tauri::async_runtime::handle().inner().clone();
     let conversion_runtime = app.state::<ConversionRuntime>();
+    let owner_for_start_state = app.state::<NativeLifecycleOwner>();
 
-    // Claims the in-progress flag and resolves the bus atomically - see
-    // `begin_attempt_with_bus`'s own documentation for why the two must
-    // not be separate fallible steps.
-    let Some((cancellation, bus)) = conversion_runtime.begin_attempt_with_bus()? else {
+    // Claims the in-progress flag, resolves the bus, and marks `owner` as
+    // `Converting` - all atomically with the claim - so a caller that polls
+    // `get_database_conversion` right after this command resolves never
+    // reads a pre-start state; see
+    // `ConversionRuntime::begin_attempt_marking_converting`'s own
+    // documentation for the race this closes and why it is safe to always
+    // mark `owner` on a successful claim.
+    let Some((cancellation, bus)) =
+      conversion_runtime.begin_attempt_marking_converting(&owner_for_start_state)?
+    else {
       // Another attempt already claimed it - not an error; the frontend
       // already shows that attempt's progress.
       return Ok(());
@@ -136,6 +143,19 @@ mod imp {
     app.state::<ConversionRuntime>().cancel_current();
     Ok(())
   }
+
+  // No `#[cfg(test)] mod tests` here: `start_database_conversion` resolves
+  // its `ConversionTarget` from `native_paths::authority_paths()` /
+  // `database_directory()`, which read the *real* OS app-data directory
+  // with no test seam to redirect them (see `native_paths.rs`). Actually
+  // invoking this command in a test would spawn a task that runs the real
+  // conversion driver against whatever profile happens to exist on the
+  // machine running the tests. The claim-and-mark ordering this command
+  // depends on is covered instead by
+  // `ConversionRuntime::begin_attempt_marking_converting`'s own tests in
+  // `app::native_conversion`, which use only a `NativeLifecycleOwner` and a
+  // `ConversionRuntime` - no paths, no disk access - matching how this
+  // module's sibling driver tests already avoid touching real app data.
 }
 
 #[cfg(not(feature = "duckdb-archive"))]
