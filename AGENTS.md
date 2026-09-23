@@ -101,14 +101,20 @@ Tauri App (`src-tauri/`)
   -> commands, App services, adapters, lifecycle, wire DTOs
 Core (`core/`)
   -> collector, EventBus, platform traits/factory, providers, persistence
-OS APIs / vendor APIs / SQLite
+OS APIs / vendor APIs / SQLite or a native DuckDB database (one authoritative engine)
 ```
 
 The App also talks directly to Tauri windows, plugins, lifecycle APIs, app-data
-path resolution, and migration definitions. Persistence is split: App resolves
-the database path and supplies the ordered migration set; Core owns the pool,
-migration execution, Tauri-independent persistence workers, and database
-operations.
+path resolution, and migration definitions. Every database consumer goes
+through one dispatch boundary
+(`core/src/infrastructure/database/dispatch.rs`); a durable selection record
+on disk, not a per-call flag, decides whether SQLite or the native database
+answers. App resolves paths and drives the App-owned native lifecycle:
+converting an existing SQLite archive is explicit and user-started, and a
+fresh install creates and selects a native database directly rather than
+starting on SQLite. Exactly one process-local owner may hold the native file
+open at a time; see [`docs/architecture/backend.md`](docs/architecture/backend.md)
+for the boundary, the lifecycle states, and the single-owner rule.
 
 - `core/` is Tauri-independent and owns hardware facts and Core behavior.
 - `src-tauri/` owns Tauri runtime concerns, IPC, presentation conversion, and
@@ -143,9 +149,13 @@ short constraints and links.
   Aggregate gates and stale local branches do not identify root cause.
 - Separate environment failures from product regressions. Record the exact
   command, exit status, and causal error before choosing a workaround.
-- For runtime and persistence claims, inspect application logs and SQLite data
-  where practical. A manual provider command is not a substitute for app
-  evidence.
+- For runtime and persistence claims, inspect application logs and, depending
+  on which engine the durable selection record names as authoritative, SQLite
+  data or a native DuckDB database where practical. Open the native file
+  through a read-only DuckDB connection, and never beside the application's
+  own live owner: the file's own claim refuses a second same-process opener,
+  and reading it beside a live owner on other platforms is unsound. A manual
+  provider command is not a substitute for app evidence.
 - For visual or interaction changes, inspect the rendered browser/native result
   and failure artifacts at relevant viewports.
 - Keep adjacent issues and speculative cleanup in separate changes unless they
