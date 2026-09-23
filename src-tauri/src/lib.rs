@@ -491,9 +491,9 @@ pub fn export_bindings() {
 /// Called before any Tauri runtime is created so the elevated setup child
 /// never competes with the running app for the single-instance lock.
 pub fn run_cli_mode_if_requested() -> Option<i32> {
-  match cli::parse_cli_mode(std::env::args()) {
-    Ok(Some(mode)) => Some(cli::run_cli_mode(mode)),
-    Ok(None) => None,
+  match cli::parse_cli_args(std::env::args()) {
+    Ok(cli::CliArgs { mode: Some(mode) }) => Some(cli::run_cli_mode(mode)),
+    Ok(cli::CliArgs { mode: None }) => None,
     Err(error) => {
       eprintln!("invalid command line: {error:?}");
       Some(2)

@@ -48,6 +48,13 @@ pub enum CliMode {
   ExternalComponentUninstallNotice,
 }
 
+/// What the process was started with, as far as the App itself decides.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CliArgs {
+  /// A mode that runs instead of the app, or `None` for a normal launch.
+  pub mode: Option<CliMode>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliParseError {
   UnknownComponent(String),
@@ -55,14 +62,15 @@ pub enum CliParseError {
   MissingValue(&'static str),
 }
 
-/// Recognize a command-line mode. Returns `Ok(None)` for a normal app launch.
-pub fn parse_cli_mode<I, S>(args: I) -> Result<Option<CliMode>, CliParseError>
+/// Recognize the App's own command-line arguments; anything else is left to
+/// Tauri.
+pub fn parse_cli_args<I, S>(args: I) -> Result<CliArgs, CliParseError>
 where
   I: IntoIterator<Item = S>,
   S: AsRef<str>,
 {
   let mut args = args.into_iter().map(|arg| arg.as_ref().to_string());
-  let mut mode = None;
+  let mut parsed = CliArgs::default();
 
   while let Some(arg) = args.next() {
     if arg == EXTERNAL_COMPONENT_SETUP_FLAG {
@@ -71,7 +79,7 @@ where
         .ok_or(CliParseError::MissingValue(EXTERNAL_COMPONENT_SETUP_FLAG))?;
       let component =
         component_from_cli_id(&id).ok_or(CliParseError::UnknownComponent(id))?;
-      mode = Some(CliMode::ExternalComponentSetup { component });
+      parsed.mode = Some(CliMode::ExternalComponentSetup { component });
     } else if arg == EXTERNAL_COMPONENT_NOTICE_FLAG {
       let notice = args
         .next()
@@ -79,11 +87,11 @@ where
       if notice != UNINSTALL_NOTICE {
         return Err(CliParseError::UnknownNotice(notice));
       }
-      mode = Some(CliMode::ExternalComponentUninstallNotice);
+      parsed.mode = Some(CliMode::ExternalComponentUninstallNotice);
     }
   }
 
-  Ok(mode)
+  Ok(parsed)
 }
 
 /// Run a command-line mode to completion and return the process exit code.
@@ -217,6 +225,12 @@ fn run_external_component_setup(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  fn parse_cli_mode<const N: usize>(
+    args: [&str; N],
+  ) -> Result<Option<CliMode>, CliParseError> {
+    parse_cli_args(args).map(|parsed| parsed.mode)
+  }
 
   #[test]
   fn plain_launch_is_not_a_cli_mode() {
